@@ -35,6 +35,12 @@ from divineos.consolidation import (
     KNOWLEDGE_TYPES,
 )
 from divineos.quality_checks import init_quality_tables, run_all_checks, store_report
+from divineos.session_features import (
+    init_feature_tables,
+    run_all_features,
+    store_features,
+    get_cross_session_summary,
+)
 
 
 @click.group()
@@ -50,8 +56,9 @@ def init():
     init_db()
     init_knowledge_table()
     init_quality_tables()
+    init_feature_tables()
     click.secho("[+] Database initialized successfully.", fg="green", bold=True)
-    click.secho("[+] Event ledger + knowledge store + quality checks ready.", fg="green")
+    click.secho("[+] All tables ready: ledger, knowledge, quality checks, session features.", fg="green")
 
 
 @cli.command()
@@ -565,6 +572,37 @@ def report_cmd(file_path: str, store: bool, as_json: bool):
     if store:
         store_report(report)
         click.secho("\n[+] Report stored in database.", fg="green")
+
+
+@cli.command("deep-report")
+@click.argument("file_path", type=click.Path(exists=True))
+@click.option("--store/--no-store", default=False, help="Store results in database")
+def deep_report_cmd(file_path: str, store: bool):
+    """Full session analysis: tone tracking, timeline, files, work/talk, errors."""
+    init_feature_tables()
+    path = Path(file_path)
+
+    click.secho(f"[+] Deep analysis: {path.stem[:16]}...", fg="cyan")
+    analysis = run_all_features(path)
+
+    click.echo()
+    click.echo(analysis.report_text)
+    click.echo()
+    click.secho(f"Evidence hash: {analysis.evidence_hash}", fg="bright_black")
+
+    if store:
+        store_features(analysis.session_id, analysis)
+        click.secho("\n[+] Analysis stored in database.", fg="green")
+
+
+@cli.command("patterns")
+@click.option("--limit", default=10, type=int, help="Max sessions to compare")
+def patterns_cmd(limit: int):
+    """Compare quality check results across stored sessions."""
+    output = get_cross_session_summary(limit=limit)
+    click.echo()
+    click.echo(output)
+    click.echo()
 
 
 def _role_to_event_type(role: str) -> str:
