@@ -34,6 +34,7 @@ from divineos.consolidation import (
     knowledge_stats,
     KNOWLEDGE_TYPES,
 )
+from divineos.quality_checks import init_quality_tables, run_all_checks, store_report
 
 
 @click.group()
@@ -48,8 +49,9 @@ def init():
     logger.info("Initializing the event ledger database...")
     init_db()
     init_knowledge_table()
+    init_quality_tables()
     click.secho("[+] Database initialized successfully.", fg="green", bold=True)
-    click.secho("[+] Event ledger + knowledge store ready.", fg="green")
+    click.secho("[+] Event ledger + knowledge store + quality checks ready.", fg="green")
 
 
 @cli.command()
@@ -523,6 +525,46 @@ def scan_cmd(file_path: str, store: bool):
     stored += 1
 
     click.secho(f"\n[+] Stored {stored} knowledge entries from session.", fg="green")
+
+
+@cli.command("report")
+@click.argument("file_path", type=click.Path(exists=True))
+@click.option("--store/--no-store", default=False, help="Store report in database")
+@click.option("--json", "as_json", is_flag=True, help="Output as JSON instead of plain English")
+def report_cmd(file_path: str, store: bool, as_json: bool):
+    """Run all 7 quality checks on a session and generate a report card."""
+    init_quality_tables()
+    path = Path(file_path)
+
+    click.secho(f"[+] Analyzing session: {path.stem[:16]}...", fg="cyan")
+    report = run_all_checks(path)
+
+    if as_json:
+        output = {
+            "session_id": report.session_id,
+            "created_at": report.created_at,
+            "evidence_hash": report.evidence_hash,
+            "checks": [
+                {
+                    "check_name": c.check_name,
+                    "passed": c.passed,
+                    "score": c.score,
+                    "summary": c.summary,
+                    "evidence_hash": c.evidence_hash,
+                }
+                for c in report.checks
+            ],
+        }
+        click.echo(json.dumps(output, indent=2))
+    else:
+        click.echo()
+        click.echo(report.report_text)
+        click.echo()
+        click.secho(f"Evidence hash: {report.evidence_hash}", fg="bright_black")
+
+    if store:
+        store_report(report)
+        click.secho("\n[+] Report stored in database.", fg="green")
 
 
 def _role_to_event_type(role: str) -> str:
