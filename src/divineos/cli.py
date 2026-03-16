@@ -70,10 +70,10 @@ def init():
     init_quality_tables()
     init_feature_tables()
     count = rebuild_fts_index()
-    click.secho("[+] Database initialized successfully.", fg="green", bold=True)
-    click.secho("[+] All tables ready: ledger, knowledge, quality checks, session features.", fg="green")
+    click.secho("[+] Database ready.", fg="green", bold=True)
+    click.secho("[+] Memory, knowledge, and analysis systems all set up.", fg="green")
     if count > 0:
-        click.secho(f"[+] FTS5 search index rebuilt ({count} entries).", fg="green")
+        click.secho(f"[+] Search index rebuilt ({count} entries).", fg="green")
 
 
 @cli.command()
@@ -351,7 +351,16 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
         click.secho("[-] No knowledge found.", fg="yellow")
         return
 
-    click.secho(f"\n=== {len(entries)} knowledge entries ===\n", fg="cyan", bold=True)
+    # Friendly type labels
+    type_labels = {
+        "FACT": "Fact",
+        "PATTERN": "Good habit",
+        "PREFERENCE": "Preference",
+        "MISTAKE": "Lesson learned",
+        "EPISODE": "Session memory",
+    }
+
+    click.secho(f"\n=== {len(entries)} things I know ===\n", fg="cyan", bold=True)
     for entry in entries:
         color = {
             "FACT": "blue",
@@ -360,15 +369,27 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
             "MISTAKE": "red",
             "EPISODE": "cyan",
         }.get(entry["knowledge_type"], "white")
-        click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
-        click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
-        click.echo(entry["content"])
-        if entry["tags"]:
-            click.secho(f"         tags: {', '.join(entry['tags'])}", fg="bright_black")
-        click.secho(
-            f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
-            fg="bright_black",
-        )
+        label = type_labels.get(entry["knowledge_type"], entry["knowledge_type"])
+
+        # Confidence as a simple word
+        conf = entry["confidence"]
+        if conf >= 0.9:
+            trust = "strong"
+        elif conf >= 0.7:
+            trust = "moderate"
+        elif conf >= 0.4:
+            trust = "weak"
+        else:
+            trust = "fading"
+
+        click.secho(f"  {label}", fg=color, bold=True, nl=False)
+        click.secho(f" ({trust})", fg="bright_black", nl=False)
+        click.echo(f"  {entry['content']}")
+        if entry["access_count"] > 0:
+            click.secho(
+                f"         came up {entry['access_count']} time{'s' if entry['access_count'] != 1 else ''}",
+                fg="bright_black",
+            )
         click.echo()
 
 
@@ -400,38 +421,67 @@ def consolidate_stats_cmd():
     """Display knowledge consolidation statistics."""
     stats = knowledge_stats()
 
-    click.secho("\n=== Knowledge Stats ===\n", fg="cyan", bold=True)
-    click.secho(f"  Total knowledge: {stats['total']}", fg="white", bold=True)
-    click.echo(f"  Avg confidence:  {stats['avg_confidence']}")
+    type_labels = {
+        "FACT": "Facts",
+        "PATTERN": "Good habits",
+        "PREFERENCE": "Preferences",
+        "MISTAKE": "Lessons learned",
+        "EPISODE": "Session memories",
+    }
+
+    # Confidence as plain English
+    avg = stats["avg_confidence"]
+    if avg >= 0.9:
+        trust_word = "high"
+    elif avg >= 0.7:
+        trust_word = "moderate"
+    else:
+        trust_word = "low"
+
+    click.secho("\n=== What I Know ===\n", fg="cyan", bold=True)
+    click.secho(f"  Total: {stats['total']} things learned", fg="white", bold=True)
+    click.echo(f"  Overall trust level: {trust_word}")
 
     if stats["by_type"]:
-        click.secho("\n  By Type:", fg="cyan")
+        click.secho("\n  Breakdown:", fg="cyan")
         for t, c in sorted(stats["by_type"].items()):
-            click.echo(f"    {t}: {c}")
+            label = type_labels.get(t, t)
+            click.echo(f"    {label}: {c}")
 
     if stats["most_accessed"]:
-        click.secho("\n  Most Accessed:", fg="cyan")
+        click.secho("\n  Most useful (came up the most):", fg="cyan")
         for item in stats["most_accessed"][:5]:
-            click.echo(f"    [{item['access_count']}x] {item['content'][:60]}")
+            click.echo(f"    ({item['access_count']}x) {item['content'][:60]}")
 
-    # Effectiveness breakdown
+    # How is the knowledge doing?
+    status_labels = {
+        "active": "Being watched",
+        "effective": "Actually helped",
+        "recurring": "Keeps happening",
+        "reinforced": "Confirmed useful",
+        "stable": "Steady",
+        "unknown": "Not enough data yet",
+        "unused": "Never came up",
+        "used": "Came up before",
+    }
     report = knowledge_health_report()
     if report["total"] > 0:
-        click.secho("\n  Effectiveness:", fg="cyan")
+        click.secho("\n  How is this knowledge doing?", fg="cyan")
         for status, count in sorted(report["by_status"].items()):
-            click.echo(f"    {status:15s} {count}")
+            label = status_labels.get(status, status)
+            click.echo(f"    {label}: {count}")
 
     click.echo()
 
 
 @cli.command("rebuild-index")
 def rebuild_index_cmd():
-    """Rebuild the FTS5 full-text search index from existing knowledge."""
+    """Rebuild the search index from existing knowledge."""
     count = rebuild_fts_index()
     if count > 0:
-        click.secho(f"[+] FTS5 index rebuilt: {count} entries indexed.", fg="green")
+        click.secho(f"[+] Search index rebuilt: {count} entries.", fg="green")
     else:
-        click.secho("[*] No knowledge entries to index.", fg="yellow")
+        click.secho("[*] Nothing to index yet.", fg="yellow")
 
 
 @cli.command("lessons")
@@ -451,8 +501,27 @@ def lessons_cmd(status: str):
     click.echo(summary)
     click.echo()
 
-    # Show details
-    click.secho("=== Lesson Details ===\n", fg="cyan", bold=True)
+    # Friendly category names
+    cat_labels = {
+        "blind_coding": "Coded without looking first",
+        "incomplete_fix": "Only fixed part of the problem",
+        "ignored_instruction": "Missed what you said",
+        "wrong_scope": "Worked on the wrong thing",
+        "overreach": "Took over instead of following the process",
+        "jargon_usage": "Used jargon instead of plain language",
+        "shallow_output": "Output was too shallow or short",
+        "perspective_error": "Got pronouns or perspective wrong",
+        "misunderstood": "Misread what you meant",
+    }
+
+    # Friendly status labels
+    status_labels = {
+        "active": "Still happening",
+        "improving": "Getting better",
+        "resolved": "Fixed",
+    }
+
+    click.secho("=== Details ===\n", fg="cyan", bold=True)
     for lesson in lessons:
         status_color = {
             "active": "red",
@@ -460,11 +529,14 @@ def lessons_cmd(status: str):
             "resolved": "green",
         }.get(lesson["status"], "white")
 
-        click.secho(f"  {lesson['status'].upper()} ", fg=status_color, bold=True, nl=False)
-        click.secho(f"({lesson['occurrences']}x) ", fg="bright_black", nl=False)
+        status_text = status_labels.get(lesson["status"], lesson["status"])
+        cat_text = cat_labels.get(lesson["category"], lesson["category"])
+
+        click.secho(f"  {status_text}", fg=status_color, bold=True, nl=False)
+        click.secho(f" (happened {lesson['occurrences']}x) ", fg="bright_black", nl=False)
         click.echo(lesson["description"][:80])
         click.secho(
-            f"         category: {lesson['category']} | sessions: {len(lesson['sessions'])}",
+            f"         Type: {cat_text} | Seen in {len(lesson['sessions'])} session{'s' if len(lesson['sessions']) != 1 else ''}",
             fg="bright_black",
         )
         click.echo()
@@ -504,19 +576,45 @@ def health_cmd():
     """Run knowledge health check — decay stale, boost confirmed, resolve old lessons."""
     result = health_check()
 
-    click.secho("\n=== Knowledge Health Check ===\n", fg="cyan", bold=True)
-    click.secho(f"  Entries checked:        {result['total_checked']}", fg="white")
-    click.secho(f"  Stale entries decayed:  {result['stale_decayed']}", fg="yellow" if result["stale_decayed"] else "bright_black")
-    click.secho(f"  Confirmed boosted:      {result['confirmed_boosted']}", fg="green" if result["confirmed_boosted"] else "bright_black")
-    click.secho(f"  Recurring escalated:    {result['recurring_escalated']}", fg="red" if result["recurring_escalated"] else "bright_black")
-    click.secho(f"  Lessons resolved:       {result['resolved_lessons']}", fg="green" if result["resolved_lessons"] else "bright_black")
+    status_labels = {
+        "active": "Being watched",
+        "effective": "Actually helped",
+        "recurring": "Keeps happening",
+        "reinforced": "Confirmed useful",
+        "stable": "Steady",
+        "unknown": "Not enough data yet",
+        "unused": "Never came up",
+        "used": "Came up before",
+    }
 
-    # Show effectiveness breakdown
+    click.secho("\n=== Knowledge Health Check ===\n", fg="cyan", bold=True)
+    click.secho(f"  Looked at {result['total_checked']} entries", fg="white")
+
+    changes = []
+    if result["stale_decayed"]:
+        changes.append(f"  Faded {result['stale_decayed']} stale entries (nobody used them)")
+    if result["confirmed_boosted"]:
+        changes.append(f"  Boosted {result['confirmed_boosted']} entries that keep coming up")
+    if result["recurring_escalated"]:
+        changes.append(f"  Flagged {result['recurring_escalated']} problems that keep repeating")
+    if result["resolved_lessons"]:
+        changes.append(f"  Marked {result['resolved_lessons']} old lessons as resolved (not happening anymore)")
+
+    if changes:
+        click.secho("\n  What changed:", fg="cyan")
+        for c in changes:
+            color = "red" if "repeating" in c else "green" if "resolved" in c or "Boosted" in c else "yellow"
+            click.secho(c, fg=color)
+    else:
+        click.secho("  Everything looks the same — no changes needed right now.", fg="bright_black")
+
+    # How the knowledge is doing overall
     report = knowledge_health_report()
     if report["total"] > 0:
-        click.secho(f"\n  Effectiveness breakdown:", fg="white")
+        click.secho(f"\n  How is everything doing?", fg="cyan")
         for status, count in sorted(report["by_status"].items()):
-            click.secho(f"    {status:15s} {count}", fg="bright_black")
+            label = status_labels.get(status, status)
+            click.echo(f"    {label}: {count}")
     click.echo()
 
 
@@ -597,7 +695,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
         records = _analyzer_mod._load_records(path)
         deep_ids = deep_extract_knowledge(analysis, records)
         stored += len(deep_ids)
-        click.secho(f"[+] Deep extraction: {len(deep_ids)} knowledge entries", fg="cyan")
+        click.secho(f"[+] Learned {len(deep_ids)} things from this session", fg="cyan")
     else:
         # Legacy extraction (basic)
         for c in analysis.corrections:
@@ -656,19 +754,19 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
     )
     stored += 1
 
-    click.secho(f"\n[+] Stored {stored} knowledge entries from session.", fg="green")
+    click.secho(f"\n[+] Saved {stored} things from this session.", fg="green")
 
-    # Run feedback loop — compare new findings against existing knowledge
+    # Compare what we just found against what we already knew
     feedback = apply_session_feedback(analysis, analysis.session_id)
     parts = []
     if feedback["recurrences_found"]:
-        parts.append(f"{feedback['recurrences_found']} recurrences")
+        parts.append(f"{feedback['recurrences_found']} same mistakes again")
     if feedback["patterns_reinforced"]:
-        parts.append(f"{feedback['patterns_reinforced']} patterns reinforced")
+        parts.append(f"{feedback['patterns_reinforced']} good habits confirmed")
     if feedback["lessons_improving"]:
-        parts.append(f"{feedback['lessons_improving']} lessons improving")
+        parts.append(f"{feedback['lessons_improving']} lessons getting better")
     if feedback.get("noise_skipped"):
-        parts.append(f"{feedback['noise_skipped']} noise skipped")
+        parts.append(f"{feedback['noise_skipped']} junk filtered out")
     if parts:
         click.secho(f"[~] Feedback: {', '.join(parts)}", fg="cyan")
 

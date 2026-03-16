@@ -23,7 +23,7 @@ class TestInit:
     def test_init_succeeds(self, runner):
         result = runner.invoke(cli, ["init"])
         assert result.exit_code == 0
-        assert "initialized" in result.output.lower()
+        assert "ready" in result.output.lower()
 
 
 class TestLog:
@@ -160,7 +160,7 @@ class TestConsolidateStats:
         runner.invoke(cli, ["init"])
         result = runner.invoke(cli, ["consolidate-stats"])
         assert result.exit_code == 0
-        assert "Total knowledge: 0" in result.output
+        assert "0 things learned" in result.output
 
 
 class TestSessionsCmd:
@@ -227,4 +227,4 @@ class TestScanCmd:
         session_file.write_text("\n".join(json.dumps(r) for r in records))
         result = runner.invoke(cli, ["scan", "--store", str(session_file)])
         assert result.exit_code == 0
-        assert "Stored" in result.output
+        assert "Saved" in result.output
