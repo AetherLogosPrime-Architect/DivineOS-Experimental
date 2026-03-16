@@ -418,23 +418,41 @@ def list_recent_sessions(limit: int = 10) -> list[dict]:
         limit: Maximum number of sessions to return
         
     Returns:
-        List of session dicts with id, timestamp, file_path
+        List of session dicts with id, created_at, file_count
     """
-    from divineos.ledger import get_events
+    from divineos.quality_checks import _get_connection as get_qc_connection
     
-    # Query the ledger for SESSION_ANALYSIS events
-    events = get_events(event_type="SESSION_ANALYSIS", limit=limit)
-    
-    sessions = []
-    for event in events:
-        payload = event.get("payload", {})
-        sessions.append({
-            "session_id": payload.get("session_id"),
-            "timestamp": payload.get("timestamp"),
-            "file_path": payload.get("file_path"),
-        })
-    
-    return sessions
+    try:
+        conn = get_qc_connection()
+        cursor = conn.cursor()
+        
+        # Query session_report table, ordered by created_at DESC
+        cursor.execute(
+            "SELECT session_id, created_at FROM session_report ORDER BY created_at DESC LIMIT ?",
+            (limit,)
+        )
+        rows = cursor.fetchall()
+        
+        sessions = []
+        for row in rows:
+            session_id = row[0]
+            created_at = row[1]
+            
+            # Count files touched for this session
+            cursor.execute("SELECT COUNT(*) FROM file_touched WHERE session_id = ?", (session_id,))
+            file_count = cursor.fetchone()[0]
+            
+            sessions.append({
+                "session_id": session_id,
+                "created_at": created_at,
+                "file_count": file_count,
+            })
+        
+        conn.close()
+        return sessions
+    except Exception as e:
+        logger.error(f"Failed to list sessions: {e}")
+        return []
 
 
 def compute_cross_session_trends(limit: int = 10) -> dict:
