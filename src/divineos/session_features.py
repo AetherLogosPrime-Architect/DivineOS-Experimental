@@ -56,6 +56,27 @@ def init_feature_tables() -> None:
     """Create tables for features 3, 5, 6, 8, 9, 10."""
     conn = _get_connection()
     try:
+        # Generic feature_result table for storing all feature analysis
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS feature_result (
+                result_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                feature_name TEXT NOT NULL,
+                data_json TEXT NOT NULL,
+                evidence_hash TEXT NOT NULL,
+                created_at REAL NOT NULL,
+                FOREIGN KEY (session_id) REFERENCES session_report(session_id)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_feature_result_session
+            ON feature_result(session_id)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_feature_result_name
+            ON feature_result(feature_name)
+        """)
+        
         conn.execute("""
             CREATE TABLE IF NOT EXISTS tone_shift (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -67,6 +67,7 @@ from divineos.session_features import (
     store_features,
     get_cross_session_summary,
 )
+from divineos.analysis import analyze_session, format_analysis_report, store_analysis
 
 
 @click.group()
@@ -556,45 +557,6 @@ def sessions_cmd():
         click.secho(f"  {s.parent.name[:40]}", fg="cyan")
     click.echo()
 
-
-@cli.command("analyze")
-@click.argument("file_path", type=click.Path(exists=True), required=False)
-@click.option("--all", "analyze_all", is_flag=True, help="Analyze all found sessions")
-def analyze_cmd(file_path: str | None, analyze_all: bool):
-    """Analyze a session file for patterns (corrections, encouragements, tool usage)."""
-    if analyze_all:
-        analyses = _analyzer_mod.analyze_all_sessions()
-        if not analyses:
-            click.secho("[-] No sessions found to analyze.", fg="yellow")
-            return
-        for a in analyses:
-            click.echo(a.summary())
-        # Show aggregate
-        agg = _analyzer_mod.aggregate_analyses(analyses)
-        click.secho("=== Aggregate Stats ===\n", fg="cyan", bold=True)
-        click.echo(f"  Sessions:       {agg['sessions']}")
-        click.echo(f"  Total hours:    {agg['total_duration_hours']}")
-        click.echo(f"  User messages:  {agg['total_user_messages']}")
-        click.echo(f"  Tool calls:     {agg['total_tool_calls']}")
-        click.echo(f"  Corrections:    {agg['corrections']}")
-        click.echo(f"  Encouragements: {agg['encouragements']}")
-        click.echo(f"  Decisions:      {agg['decisions']}")
-        click.echo(f"  Frustrations:   {agg['frustrations']}")
-        click.echo(f"  Overflows:      {agg['total_context_overflows']}")
-        click.echo()
-    elif file_path:
-        analysis = _analyzer_mod.analyze_session(Path(file_path))
-        click.echo(analysis.summary())
-    else:
-        # Analyze most recent session
-        sessions = _analyzer_mod.find_sessions()
-        if not sessions:
-            click.secho("[-] No sessions found.", fg="yellow")
-            return
-        analysis = _analyzer_mod.analyze_session(sessions[0])
-        click.echo(analysis.summary())
-
-
 @cli.command("scan")
 @click.argument("file_path", type=click.Path(exists=True))
 @click.option("--store/--no-store", default=False, help="Store findings in knowledge DB")
@@ -699,47 +661,6 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
         parts.append(f"{feedback['noise_skipped']} noise skipped")
     if parts:
         click.secho(f"[~] Feedback: {', '.join(parts)}", fg="cyan")
-
-
-@cli.command("report")
-@click.argument("file_path", type=click.Path(exists=True))
-@click.option("--store/--no-store", default=False, help="Store report in database")
-@click.option("--json", "as_json", is_flag=True, help="Output as JSON instead of plain English")
-def report_cmd(file_path: str, store: bool, as_json: bool):
-    """Run all 7 quality checks on a session and generate a report card."""
-    init_quality_tables()
-    path = Path(file_path)
-
-    click.secho(f"[+] Analyzing session: {path.stem[:16]}...", fg="cyan")
-    report = run_all_checks(path)
-
-    if as_json:
-        output = {
-            "session_id": report.session_id,
-            "created_at": report.created_at,
-            "evidence_hash": report.evidence_hash,
-            "checks": [
-                {
-                    "check_name": c.check_name,
-                    "passed": c.passed,
-                    "score": c.score,
-                    "summary": c.summary,
-                    "evidence_hash": c.evidence_hash,
-                }
-                for c in report.checks
-            ],
-        }
-        click.echo(json.dumps(output, indent=2))
-    else:
-        click.echo()
-        click.echo(report.report_text)
-        click.echo()
-        click.secho(f"Evidence hash: {report.evidence_hash}", fg="bright_black")
-
-    if store:
-        store_report(report)
-        click.secho("\n[+] Report stored in database.", fg="green")
-
 
 @cli.command("deep-report")
 @click.argument("file_path", type=click.Path(exists=True))
@@ -1011,3 +932,134 @@ def _print_events(events: list[dict], highlight: str | None = None) -> None:
 
 if __name__ == "__main__":
     cli()
+
+
+@cli.command("analyze")
+@click.argument("file_path", type=click.Path(exists=True))
+def analyze_cmd(file_path: str):
+    """Analyze a session and generate a quality report.
+    
+    Runs all 7 quality checks + 10 session features on a JSONL file.
+    Produces a plain-English report with findings and lessons.
+    """
+    from divineos.analysis import save_analysis_report
+    
+    path = Path(file_path)
+    
+    try:
+        # Initialize database if needed
+        init_db()
+        init_knowledge_table()
+        init_quality_tables()
+        init_feature_tables()
+        
+        click.secho(f"\n[+] Analyzing session: {path.name}", fg="cyan", bold=True)
+        
+        # Analyze the session
+        result = analyze_session(path)
+        
+        # Format the report
+        report = format_analysis_report(result)
+        
+        # Display to user
+        click.echo()
+        click.echo(report)
+        click.echo()
+        
+        # Store in database
+        click.secho("[+] Storing analysis in database...", fg="cyan")
+        stored = store_analysis(result, report)
+        
+        if stored:
+            click.secho("[+] Analysis stored successfully.", fg="green")
+        else:
+            click.secho("[!] Warning: Analysis storage verification failed.", fg="yellow")
+        
+        # Save report to file
+        report_file = save_analysis_report(result, report)
+        click.secho(f"[+] Report saved to: {report_file}", fg="green")
+        
+        click.secho(f"[+] Analysis complete. Session ID: {result.session_id}", fg="green")
+        click.echo()
+        
+    except FileNotFoundError as e:
+        click.secho(f"[-] File not found: {e}", fg="red")
+    except ValueError as e:
+        click.secho(f"[-] Invalid session: {e}", fg="red")
+    except Exception as e:
+        click.secho(f"[-] Error during analysis: {e}", fg="red")
+        logger.exception("Analysis failed")
+
+
+@cli.command("report")
+@click.argument("session_id", required=False)
+def report_cmd(session_id: str):
+    """Display a stored analysis report.
+    
+    If no session_id provided, shows list of recent sessions.
+    """
+    from divineos.analysis import get_stored_report, list_recent_sessions
+    
+    try:
+        if not session_id:
+            # List recent sessions
+            sessions = list_recent_sessions(limit=10)
+            
+            if not sessions:
+                click.secho("\n[-] No analyzed sessions found yet.", fg="yellow")
+                click.secho("    Run 'divineos analyze <file.jsonl>' to analyze a session.", fg="bright_black")
+                click.echo()
+                return
+            
+            click.secho("\n=== Recent Sessions ===\n", fg="cyan", bold=True)
+            for i, session in enumerate(sessions, 1):
+                click.secho(f"  {i}. {session['session_id']}", fg="white", bold=True)
+                click.secho(f"     File: {session['file_path']}", fg="bright_black")
+                click.secho(f"     Time: {session['timestamp']}", fg="bright_black")
+                click.echo()
+            
+            click.secho("Usage: divineos report <session_id>", fg="bright_black")
+            click.echo()
+        else:
+            # Retrieve specific report
+            report = get_stored_report(session_id)
+            
+            if not report:
+                click.secho(f"[-] Session not found: {session_id}", fg="red")
+                return
+            
+            click.echo()
+            click.echo(report)
+            click.echo()
+            
+    except Exception as e:
+        click.secho(f"[-] Error retrieving report: {e}", fg="red")
+        logger.exception("Report retrieval failed")
+
+
+@cli.command("cross-session")
+@click.option("--limit", default=10, type=int, help="Number of sessions to analyze")
+def cross_session_cmd(limit: int):
+    """Compare findings across multiple sessions.
+    
+    Shows trends and patterns in your performance over time.
+    """
+    from divineos.analysis import compute_cross_session_trends, format_cross_session_report
+    
+    try:
+        click.secho(f"\n[+] Analyzing trends across last {limit} sessions...", fg="cyan")
+        
+        # Compute trends
+        trends = compute_cross_session_trends(limit=limit)
+        
+        # Format report
+        report = format_cross_session_report(trends)
+        
+        # Display
+        click.echo()
+        click.echo(report)
+        click.echo()
+        
+    except Exception as e:
+        click.secho(f"[-] Error during cross-session analysis: {e}", fg="red")
+        logger.exception("Cross-session analysis failed")

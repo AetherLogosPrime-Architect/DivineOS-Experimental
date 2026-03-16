@@ -171,10 +171,11 @@ class TestSessionsCmd:
 
 class TestAnalyzeCmd:
     def test_analyze_nonexistent(self, runner, tmp_path):
-        # With --all on empty dir it should say no sessions
-        result = runner.invoke(cli, ["analyze", "--all"])
-        # It either finds sessions or says none found
-        assert result.exit_code == 0
+        # Test with a nonexistent file
+        result = runner.invoke(cli, ["analyze", "/nonexistent/file.jsonl"])
+        # Should fail gracefully
+        assert result.exit_code != 0
+        assert "not found" in result.output.lower() or "error" in result.output.lower()
 
     def test_analyze_file(self, runner, tmp_path):
         import json
