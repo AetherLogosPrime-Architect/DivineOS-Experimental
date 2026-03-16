@@ -992,6 +992,117 @@ def analyze_cmd(file_path: str):
         logger.exception("Analysis failed")
 
 
+@cli.command("analyze-now")
+def analyze_now_cmd():
+    """Analyze the current session from the ledger.
+    
+    This runs quality checks on the live session without needing a file.
+    Useful for enforcement - run this to see what you're doing wrong right now.
+    """
+    from divineos.analysis import export_current_session_to_jsonl, analyze_session, format_analysis_report, store_analysis, save_analysis_report
+    
+    try:
+        # Initialize database
+        init_db()
+        init_knowledge_table()
+        init_quality_tables()
+        init_feature_tables()
+        
+        click.secho("\n[+] Exporting current session from ledger...", fg="cyan", bold=True)
+        
+        # Export current session
+        session_file = export_current_session_to_jsonl(limit=200)
+        
+        click.secho(f"[+] Analyzing live session...", fg="cyan")
+        
+        # Analyze the session
+        result = analyze_session(session_file)
+        
+        # Format the report
+        report = format_analysis_report(result)
+        
+        # Display to user
+        click.echo()
+        click.echo(report)
+        click.echo()
+        
+        # Store in database
+        click.secho("[+] Storing analysis in database...", fg="cyan")
+        try:
+            stored = store_analysis(result, report)
+            if stored:
+                click.secho("[+] Analysis stored successfully.", fg="green")
+        except Exception as e:
+            click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
+            logger.warning(f"Storage failed: {e}")
+        
+        # Save report to file
+        report_file = save_analysis_report(result, report)
+        click.secho(f"[+] Report saved to: {report_file}", fg="green")
+        
+        click.secho(f"[+] Analysis complete. Session ID: {result.session_id}", fg="green")
+        click.echo()
+        
+    except ValueError as e:
+        click.secho(f"[-] No session data: {e}", fg="red")
+    except Exception as e:
+        click.secho(f"[-] Error during analysis: {e}", fg="red")
+        logger.exception("Analysis failed")
+    """Analyze a session and generate a quality report.
+    
+    Runs all 7 quality checks + 10 session features on a JSONL file.
+    Produces a plain-English report with findings and lessons.
+    """
+    from divineos.analysis import save_analysis_report
+    
+    path = Path(file_path)
+    
+    try:
+        # Initialize database if needed
+        init_db()
+        init_knowledge_table()
+        init_quality_tables()
+        init_feature_tables()
+        
+        click.secho(f"\n[+] Analyzing session: {path.name}", fg="cyan", bold=True)
+        
+        # Analyze the session
+        result = analyze_session(path)
+        
+        # Format the report
+        report = format_analysis_report(result)
+        
+        # Display to user
+        click.echo()
+        click.echo(report)
+        click.echo()
+        
+        # Store in database
+        click.secho("[+] Storing analysis in database...", fg="cyan")
+        try:
+            stored = store_analysis(result, report)
+            if stored:
+                click.secho("[+] Analysis stored successfully.", fg="green")
+        except Exception as e:
+            click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
+            logger.warning(f"Storage failed: {e}")
+        
+        # Save report to file
+        report_file = save_analysis_report(result, report)
+        click.secho(f"[+] Report saved to: {report_file}", fg="green")
+        
+        click.secho(f"[+] Analysis complete. Session ID: {result.session_id}", fg="green")
+        click.echo()
+        
+    except FileNotFoundError as e:
+        click.secho(f"[-] File not found: {e}", fg="red")
+    except ValueError as e:
+        click.secho(f"[-] Invalid session: {e}", fg="red")
+    except Exception as e:
+        click.secho(f"[-] Error during analysis: {e}", fg="red")
+        logger.exception("Analysis failed")
+
+
 @cli.command("report")
 @click.argument("session_id", required=False)
 def report_cmd(session_id: str):

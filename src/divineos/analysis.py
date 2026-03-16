@@ -12,12 +12,12 @@ import json
 from datetime import datetime, timezone
 from loguru import logger
 
-from divineos.parser import parse_jsonl
+from divineos.parser import parse_jsonl, ParsedMessage
 from divineos.quality_checks import run_all_checks, store_report
 from divineos.session_features import run_all_features, store_features
 from divineos.consolidation import extract_lessons_from_report
 from divineos.fidelity import create_manifest, create_receipt, reconcile
-from divineos.ledger import log_event, get_recent_context
+from divineos.ledger import log_event, get_recent_context, get_events
 
 
 @dataclass
@@ -142,6 +142,80 @@ def _hash_evidence(data: dict) -> str:
     import hashlib
     json_str = json.dumps(data, sort_keys=True, default=str)
     return hashlib.sha256(json_str.encode()).hexdigest()
+
+
+def export_current_session_to_jsonl(limit: int = 100) -> Path:
+    """
+    Export the current session from the ledger to a JSONL file.
+    
+    This allows analyzing the live session without waiting for a file.
+    
+    Args:
+        limit: Maximum number of events to export
+        
+    Returns:
+        Path to the exported JSONL file
+    """
+    # Get recent events from ledger
+    events = get_events(limit=limit)
+    
+    if not events:
+        raise ValueError("No events in ledger to export")
+    
+    # Convert ledger events to JSONL format (Claude Code format)
+    jsonl_lines = []
+    for event in events:
+        event_type = event.get('event_type', '')
+        payload = event.get('payload', {})
+        
+        # Convert to Claude Code message format
+        if event_type == 'USER_INPUT':
+            msg = {
+                "type": "user",
+                "message": {
+                    "role": "user",
+                    "content": payload.get('content', '')
+                }
+            }
+        elif event_type == 'ASSISTANT':
+            msg = {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": payload.get('content', '')}]
+                }
+            }
+        elif event_type == 'TOOL_CALL':
+            msg = {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{
+                        "type": "tool_use",
+                        "id": payload.get('tool_use_id', ''),
+                        "name": payload.get('tool_name', ''),
+                        "input": payload.get('input', {})
+                    }]
+                }
+            }
+        elif event_type == 'TOOL_RESULT':
+            msg = {
+                "type": "tool",
+                "message": {
+                    "tool_use_id": payload.get('tool_use_id', ''),
+                    "content": payload.get('content', '')
+                }
+            }
+        else:
+            continue
+        
+        jsonl_lines.append(json.dumps(msg))
+    
+    # Write to temporary file
+    temp_file = Path("/tmp/current_session.jsonl")
+    temp_file.write_text("\n".join(jsonl_lines))
+    
+    return temp_file
 
 
 def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
