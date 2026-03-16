@@ -73,7 +73,7 @@ def init():
     click.secho("[+] Database initialized successfully.", fg="green", bold=True)
     click.secho("[+] All tables ready: ledger, knowledge, quality checks, session features.", fg="green")
     if count > 0:
-        click.secho(f"[+] FTS5 search index rebuilt ({count} entries).", fg="green")
+        click.secho(f"[+] Full-text search search index rebuilt ({count} entries).", fg="green")
 
 
 @cli.command()
@@ -426,10 +426,10 @@ def consolidate_stats_cmd():
 
 @cli.command("rebuild-index")
 def rebuild_index_cmd():
-    """Rebuild the FTS5 full-text search index from existing knowledge."""
+    """Rebuild the Full-text search full-text search index from existing knowledge."""
     count = rebuild_fts_index()
     if count > 0:
-        click.secho(f"[+] FTS5 index rebuilt: {count} entries indexed.", fg="green")
+        click.secho(f"[+] Full-text search index rebuilt: {count} entries indexed.", fg="green")
     else:
         click.secho("[*] No knowledge entries to index.", fg="yellow")
 
