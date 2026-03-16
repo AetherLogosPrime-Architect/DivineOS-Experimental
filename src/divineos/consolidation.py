@@ -1189,6 +1189,44 @@ def _find_alternative_in_text(text: str) -> str:
     return ""
 
 
+def _distill_correction(raw_text: str) -> str:
+    """Transform a raw correction quote into an insight-form statement.
+
+    Instead of: "no when i say you.. you say i or me.."
+    Produce:    "When the user says 'you' referring to the AI, respond with 'I' or 'me'"
+    """
+    text = raw_text.strip()[:300]
+    # Strip common prefixes that add noise
+    for prefix in ("no ", "no, ", "wrong ", "wrong, ", "stop ", "don't "):
+        if text.lower().startswith(prefix):
+            text = text[len(prefix):]
+            break
+    # Capitalize and clean up
+    text = text.strip()
+    if text and text[0].islower():
+        text = text[0].upper() + text[1:]
+    # Remove trailing fragments
+    if text and text[-1] not in ".!?":
+        text = text.rstrip(". ") + "."
+    return text
+
+
+def _distill_preference(raw_text: str) -> str:
+    """Transform a raw preference quote into a direction statement."""
+    text = raw_text.strip()[:300]
+    # Strip "I want", "I prefer", "I like" prefixes — rephrase as direction
+    for prefix in ("i want ", "i prefer ", "i like ", "i need ", "please "):
+        if text.lower().startswith(prefix):
+            text = text[len(prefix):]
+            break
+    text = text.strip()
+    if text and text[0].islower():
+        text = text[0].upper() + text[1:]
+    if text and text[-1] not in ".!?":
+        text = text.rstrip(". ") + "."
+    return text
+
+
 def deep_extract_knowledge(
     analysis: "Any",  # SessionAnalysis — avoid circular import
     records: list[dict[str, Any]],
@@ -1228,7 +1266,7 @@ def deep_extract_knowledge(
         )
         stored_ids.append(kid)
 
-    # --- Correction pairs ---
+    # --- Correction pairs → PRINCIPLE or BOUNDARY with insight content ---
     for correction in analysis.corrections:
         correction_text = correction.content
         # Find this correction in the raw records and get the assistant message before it
@@ -1239,37 +1277,45 @@ def deep_extract_knowledge(
             user_text = _extract_user_text_from_record(rec)
             if not user_text:
                 continue
-            # Match by content prefix (correction.content is truncated to 300 chars)
             if user_text[:100] == correction_text[:100]:
-                # Look backwards for the assistant message
                 for j in range(i - 1, max(i - 5, -1), -1):
                     if records[j].get("type") == "assistant":
                         ai_before = _extract_assistant_summary(records[j])
                         break
                 break
 
+        # Classify: hard constraint words → BOUNDARY, otherwise → PRINCIPLE
+        lower = correction_text.lower()
+        is_boundary = any(w in lower for w in ("never", "always", "must", "don't", "do not", "cannot"))
+        ktype = "BOUNDARY" if is_boundary else "PRINCIPLE"
+
+        # Store insight, not raw quote
         if ai_before:
-            content = f"Wrong: {ai_before}. Correction: {correction_text[:200]}"
+            content = f"When {ai_before.lower()}, instead: {correction_text[:200]}"
         else:
-            content = f"User correction: {correction_text[:250]}"
+            content = _distill_correction(correction_text)
 
         kid = store_knowledge_smart(
-            knowledge_type="MISTAKE",
+            knowledge_type=ktype,
             content=content,
             confidence=0.85,
+            source="CORRECTED",
+            maturity="HYPOTHESIS",
             source_events=[session_id],
             tags=["auto-extracted", "correction-pair", f"session-{short_id}"] + topic_tags,
         )
         stored_ids.append(kid)
 
-    # --- Preferences ---
+    # --- Preferences → DIRECTION ---
     for pref in getattr(analysis, "preferences", []):
         kid = store_knowledge_smart(
-            knowledge_type="PREFERENCE",
-            content=f"User preference: {pref.content[:250]}",
+            knowledge_type="DIRECTION",
+            content=_distill_preference(pref.content),
             confidence=0.9,
+            source="STATED",
+            maturity="CONFIRMED",
             source_events=[session_id],
-            tags=["auto-extracted", "preference", f"session-{short_id}"] + topic_tags,
+            tags=["auto-extracted", "direction", f"session-{short_id}"] + topic_tags,
         )
         stored_ids.append(kid)
 
@@ -1301,9 +1347,11 @@ def deep_extract_knowledge(
             parts.append(f"Reason: {reason}")
 
         kid = store_knowledge_smart(
-            knowledge_type="PATTERN",
+            knowledge_type="PRINCIPLE",
             content=". ".join(parts),
             confidence=0.9,
+            source="DEMONSTRATED",
+            maturity="HYPOTHESIS",
             source_events=[session_id],
             tags=["auto-extracted", "decision", f"session-{short_id}"] + topic_tags,
         )
@@ -1325,14 +1373,16 @@ def deep_extract_knowledge(
                 break
 
         if ai_before:
-            content = f"User praised this approach: {ai_before}. Reaction: {enc.content[:150]}"
+            content = f"This approach works well: {ai_before}. User affirmed: {enc.content[:150]}"
         else:
-            content = f"User praised: {enc.content[:250]}"
+            content = f"Positive signal: {enc.content[:250]}"
 
         kid = store_knowledge_smart(
-            knowledge_type="PATTERN",
+            knowledge_type="PRINCIPLE",
             content=content,
             confidence=0.9,
+            source="DEMONSTRATED",
+            maturity="TESTED",
             source_events=[session_id],
             tags=["auto-extracted", "encouragement", f"session-{short_id}"] + topic_tags,
         )
@@ -1747,8 +1797,10 @@ def apply_session_feedback(
     corrections = getattr(analysis, "corrections", [])
     encouragements = getattr(analysis, "encouragements", [])
 
-    # Step A: Check corrections against existing MISTAKEs
-    existing_mistakes = get_knowledge(knowledge_type="MISTAKE", limit=500)
+    # Step A: Check corrections against existing mistakes/boundaries/principles
+    existing_corrections = []
+    for ktype in ("MISTAKE", "BOUNDARY", "PRINCIPLE"):
+        existing_corrections.extend(get_knowledge(knowledge_type=ktype, limit=200))
 
     for correction in corrections:
         # Skip noise
@@ -1756,10 +1808,10 @@ def apply_session_feedback(
             result["noise_skipped"] += 1
             continue
 
-        for mistake in existing_mistakes:
-            overlap = _compute_overlap(correction.content, mistake["content"])
+        for entry in existing_corrections:
+            overlap = _compute_overlap(correction.content, entry["content"])
             if overlap > 0.4:
-                _adjust_confidence(mistake["knowledge_id"], 0.05, cap=1.0)
+                _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
                 result["recurrences_found"] += 1
                 # Record in lesson tracking with semantic category
                 category = _categorize_correction(correction.content)
@@ -1769,14 +1821,16 @@ def apply_session_feedback(
                     )
                 break
 
-    # Step B: Check encouragements against existing PATTERNs
-    existing_patterns = get_knowledge(knowledge_type="PATTERN", limit=500)
+    # Step B: Check encouragements against existing patterns/principles
+    existing_positives = []
+    for ktype in ("PATTERN", "PRINCIPLE"):
+        existing_positives.extend(get_knowledge(knowledge_type=ktype, limit=200))
     for enc in encouragements:
-        for pattern in existing_patterns:
-            overlap = _compute_overlap(enc.content, pattern["content"])
+        for entry in existing_positives:
+            overlap = _compute_overlap(enc.content, entry["content"])
             if overlap > 0.4:
-                _adjust_confidence(pattern["knowledge_id"], 0.05, cap=1.0)
-                record_access(pattern["knowledge_id"])
+                _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
+                record_access(entry["knowledge_id"])
                 result["patterns_reinforced"] += 1
                 break
 

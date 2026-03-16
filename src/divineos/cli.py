@@ -612,30 +612,38 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
         stored += len(deep_ids)
         click.secho(f"[+] Deep extraction: {len(deep_ids)} knowledge entries", fg="cyan")
     else:
-        # Legacy extraction (basic)
+        # Legacy extraction (basic) — uses new types
         for c in analysis.corrections:
+            lower = c.content.lower()
+            is_boundary = any(w in lower for w in ("never", "always", "must", "don't", "do not"))
             store_knowledge(
-                knowledge_type="MISTAKE",
-                content=f"User correction: {c.content[:300]}",
+                knowledge_type="BOUNDARY" if is_boundary else "PRINCIPLE",
+                content=c.content[:300],
                 confidence=0.8,
+                source="CORRECTED",
+                maturity="HYPOTHESIS",
                 tags=["session-analysis", "correction"],
             )
             stored += 1
 
         for e in analysis.encouragements:
             store_knowledge(
-                knowledge_type="PATTERN",
-                content=f"User praised: {e.content[:300]}",
+                knowledge_type="PRINCIPLE",
+                content=f"This approach works well: {e.content[:280]}",
                 confidence=0.9,
+                source="DEMONSTRATED",
+                maturity="TESTED",
                 tags=["session-analysis", "encouragement"],
             )
             stored += 1
 
         for d in analysis.decisions:
             store_knowledge(
-                knowledge_type="PREFERENCE",
-                content=f"User decided: {d.content[:300]}",
+                knowledge_type="DIRECTION",
+                content=d.content[:300],
                 confidence=0.9,
+                source="STATED",
+                maturity="CONFIRMED",
                 tags=["session-analysis", "decision"],
             )
             stored += 1

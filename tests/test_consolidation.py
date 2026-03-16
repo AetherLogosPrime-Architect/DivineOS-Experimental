@@ -685,11 +685,13 @@ class TestDeepExtractKnowledge:
             }},
         ]
         ids = deep_extract_knowledge(analysis, records)
-        mistakes = get_knowledge(knowledge_type="MISTAKE")
-        assert len(mistakes) >= 1
-        # Should contain the AI's wrong action
-        combined = " ".join(m["content"] for m in mistakes)
+        # "don't" triggers BOUNDARY classification
+        boundaries = get_knowledge(knowledge_type="BOUNDARY")
+        assert len(boundaries) >= 1
+        combined = " ".join(m["content"] for m in boundaries)
         assert "mock" in combined.lower()
+        # Should have CORRECTED source
+        assert boundaries[0]["source"] == "CORRECTED"
 
     def test_extracts_preferences(self):
         analysis = _MockAnalysis()
@@ -697,9 +699,10 @@ class TestDeepExtractKnowledge:
         analysis.user_message_texts = ["i prefer plain english, no jargon"]
         records = []
         ids = deep_extract_knowledge(analysis, records)
-        prefs = get_knowledge(knowledge_type="PREFERENCE")
-        assert len(prefs) >= 1
-        assert "plain english" in prefs[0]["content"].lower()
+        directions = get_knowledge(knowledge_type="DIRECTION")
+        assert len(directions) >= 1
+        assert "plain english" in directions[0]["content"].lower()
+        assert directions[0]["source"] == "STATED"
 
     def test_extracts_decisions_with_reason(self):
         analysis = _MockAnalysis()
@@ -711,8 +714,8 @@ class TestDeepExtractKnowledge:
             }},
         ]
         ids = deep_extract_knowledge(analysis, records)
-        patterns = get_knowledge(knowledge_type="PATTERN")
-        decision_entries = [p for p in patterns if "decision" in " ".join(p["tags"]).lower()]
+        principles = get_knowledge(knowledge_type="PRINCIPLE")
+        decision_entries = [p for p in principles if "decision" in " ".join(p["tags"]).lower()]
         assert len(decision_entries) >= 1
         combined = " ".join(p["content"] for p in decision_entries)
         assert "sqlite" in combined.lower()
@@ -730,9 +733,10 @@ class TestDeepExtractKnowledge:
             }},
         ]
         ids = deep_extract_knowledge(analysis, records)
-        patterns = get_knowledge(knowledge_type="PATTERN")
-        enc_entries = [p for p in patterns if "encouragement" in " ".join(p["tags"]).lower()]
+        principles = get_knowledge(knowledge_type="PRINCIPLE")
+        enc_entries = [p for p in principles if "encouragement" in " ".join(p["tags"]).lower()]
         assert len(enc_entries) >= 1
+        assert enc_entries[0]["source"] == "DEMONSTRATED"
 
     def test_topic_tags_applied(self):
         analysis = _MockAnalysis()
