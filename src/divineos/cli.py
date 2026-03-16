@@ -44,6 +44,7 @@ from divineos.consolidation import (
     knowledge_health_report,
     compute_effectiveness,
     clear_lessons,
+    migrate_knowledge_types,
     KNOWLEDGE_TYPES,
 )
 from divineos.memory import (
@@ -368,11 +369,17 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
     click.secho(f"\n=== {len(entries)} knowledge entries ===\n", fg="cyan", bold=True)
     for entry in entries:
         color = {
+            "BOUNDARY": "red",
+            "PRINCIPLE": "yellow",
+            "DIRECTION": "green",
+            "PROCEDURE": "cyan",
             "FACT": "blue",
+            "OBSERVATION": "bright_black",
+            "EPISODE": "cyan",
+            # Legacy
+            "MISTAKE": "red",
             "PATTERN": "magenta",
             "PREFERENCE": "green",
-            "MISTAKE": "red",
-            "EPISODE": "cyan",
         }.get(entry["knowledge_type"], "white")
         click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
         click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
@@ -846,11 +853,16 @@ def active_cmd():
     for item in items:
         pin = click.style(" [pinned]", fg="yellow") if item["pinned"] else ""
         color = {
+            "BOUNDARY": "red",
+            "PRINCIPLE": "yellow",
+            "DIRECTION": "green",
+            "PROCEDURE": "cyan",
             "FACT": "blue",
+            "OBSERVATION": "bright_black",
+            "EPISODE": "cyan",
+            "MISTAKE": "red",
             "PATTERN": "magenta",
             "PREFERENCE": "green",
-            "MISTAKE": "red",
-            "EPISODE": "cyan",
         }.get(item["knowledge_type"], "white")
         click.secho(f"  [{item['importance']:.2f}] ", fg="bright_black", nl=False)
         click.secho(f"{item['knowledge_type']} ", fg=color, bold=True, nl=False)
@@ -889,6 +901,59 @@ def refresh_cmd(threshold: float):
     click.secho(f"  Demoted:   {result['demoted']}", fg="red" if result["demoted"] else "bright_black")
     total = result["promoted"] + result["kept"]
     click.secho(f"\n  Active memory: {total} items", fg="white", bold=True)
+    click.echo()
+
+
+@cli.command("migrate-types")
+@click.option("--execute", is_flag=True, help="Actually perform the migration (default is dry-run)")
+def migrate_types_cmd(execute: bool):
+    """Reclassify old knowledge types (MISTAKE/PATTERN/PREFERENCE) to new types."""
+    init_knowledge_table()
+    dry_run = not execute
+
+    if dry_run:
+        click.secho("\n=== Migration Preview (dry run) ===\n", fg="cyan", bold=True)
+    else:
+        click.secho("\n=== Migrating Knowledge Types ===\n", fg="yellow", bold=True)
+
+    changes = migrate_knowledge_types(dry_run=dry_run)
+
+    if not changes:
+        click.secho("  No entries to migrate.", fg="bright_black")
+        click.echo()
+        return
+
+    type_colors = {
+        "BOUNDARY": "red",
+        "PRINCIPLE": "yellow",
+        "DIRECTION": "green",
+        "PROCEDURE": "cyan",
+        "FACT": "white",
+        "OBSERVATION": "bright_black",
+        "EPISODE": "bright_black",
+    }
+
+    for change in changes:
+        old_color = "bright_black"
+        new_color = type_colors.get(change["new_type"], "white")
+        click.secho(f"  {change['old_type']}", fg=old_color, nl=False)
+        click.echo(" -> ", nl=False)
+        click.secho(f"{change['new_type']}", fg=new_color, nl=False)
+        click.secho(f"  {change['content'][:80]}", fg="bright_black")
+
+    click.echo()
+    # Summary
+    from collections import Counter
+    by_new = Counter(c["new_type"] for c in changes)
+    click.secho(f"  Total: {len(changes)} entries", fg="white", bold=True)
+    for new_type, count in sorted(by_new.items()):
+        color = type_colors.get(new_type, "white")
+        click.secho(f"    {new_type}: {count}", fg=color)
+
+    if dry_run:
+        click.secho("\n  Run with --execute to apply these changes.", fg="bright_black")
+    else:
+        click.secho(f"\n  Migrated {len(changes)} entries.", fg="green", bold=True)
     click.echo()
 
 

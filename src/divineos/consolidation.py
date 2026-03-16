@@ -1666,6 +1666,132 @@ def health_check() -> dict[str, Any]:
     return result
 
 
+# ─── Knowledge Type Migration ────────────────────────────────────────
+
+
+# How old types map to new types
+_MIGRATION_RULES = {
+    "MISTAKE": {
+        # Keywords that indicate a hard constraint → BOUNDARY
+        "boundary_keywords": re.compile(
+            r"\b(never|always|must|don't|do not|cannot|forbidden|prohibited)\b",
+            re.IGNORECASE,
+        ),
+        "default": "PRINCIPLE",  # teaching/direction
+        "boundary": "BOUNDARY",  # hard constraint
+        "source": "CORRECTED",
+        "default_maturity": "HYPOTHESIS",
+        "boundary_maturity": "TESTED",
+    },
+    "PREFERENCE": {
+        "new_type": "DIRECTION",
+        "source": "STATED",
+        "maturity": "CONFIRMED",
+    },
+    "PATTERN": {
+        # Keywords indicating how-to → PROCEDURE
+        "procedure_keywords": re.compile(
+            r"\b(step|how to|process|workflow|first.*then|procedure)\b",
+            re.IGNORECASE,
+        ),
+        "default": "PRINCIPLE",
+        "procedure": "PROCEDURE",
+        "source": "DEMONSTRATED",
+        "maturity": "HYPOTHESIS",
+    },
+}
+
+
+def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
+    """Reclassify old-type entries (MISTAKE, PATTERN, PREFERENCE) to new types.
+
+    Uses the supersede pattern: old entry gets superseded_by pointing to new entry.
+    In dry_run mode, returns planned changes without writing anything.
+
+    Returns list of {"old_id", "old_type", "new_type", "source", "maturity", "content"}.
+    """
+    planned: list[dict[str, Any]] = []
+
+    for old_type, rules in _MIGRATION_RULES.items():
+        entries = get_knowledge(knowledge_type=old_type, limit=1000)
+        for entry in entries:
+            content = entry["content"]
+
+            if old_type == "MISTAKE":
+                if rules["boundary_keywords"].search(content):
+                    new_type = rules["boundary"]
+                    maturity = rules["boundary_maturity"]
+                else:
+                    new_type = rules["default"]
+                    maturity = rules["default_maturity"]
+                source = rules["source"]
+
+            elif old_type == "PREFERENCE":
+                new_type = rules["new_type"]
+                source = rules["source"]
+                maturity = rules["maturity"]
+
+            elif old_type == "PATTERN":
+                if rules["procedure_keywords"].search(content):
+                    new_type = rules["procedure"]
+                else:
+                    new_type = rules["default"]
+                source = rules["source"]
+                maturity = rules["maturity"]
+
+            else:
+                continue
+
+            change = {
+                "old_id": entry["knowledge_id"],
+                "old_type": old_type,
+                "new_type": new_type,
+                "source": source,
+                "maturity": maturity,
+                "content": content[:200],
+            }
+            planned.append(change)
+
+            if not dry_run:
+                # Mark old entry as superseded FIRST (so store_knowledge
+                # doesn't dedup against it via content_hash)
+                placeholder = "migrating"
+                conn = _get_connection()
+                try:
+                    conn.execute(
+                        "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
+                        (placeholder, entry["knowledge_id"]),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+
+                # Create new entry with new type
+                new_kid = store_knowledge(
+                    knowledge_type=new_type,
+                    content=content,
+                    confidence=entry["confidence"],
+                    source_events=entry.get("source_events", []),
+                    tags=entry.get("tags", []),
+                    source=source,
+                    maturity=maturity,
+                )
+
+                # Update superseded_by to point to actual new ID
+                conn = _get_connection()
+                try:
+                    conn.execute(
+                        "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
+                        (new_kid, entry["knowledge_id"]),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+                change["new_id"] = new_kid
+
+    return planned
+
+
 # ─── Lesson Categorization ────────────────────────────────────────────
 
 # Semantic lesson categories — corrections get mapped to these buckets

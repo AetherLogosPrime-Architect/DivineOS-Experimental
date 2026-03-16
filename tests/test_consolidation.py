@@ -39,6 +39,7 @@ from divineos.consolidation import (
     _categorize_correction,
     clear_lessons,
     knowledge_health_report,
+    migrate_knowledge_types,
     KNOWLEDGE_TYPES,
     KNOWLEDGE_SOURCES,
     KNOWLEDGE_MATURITY,
@@ -1281,3 +1282,79 @@ class TestSchemaBackwardsCompat:
         if results:  # FTS5 may not be available in all environments
             assert "source" in results[0]
             assert "maturity" in results[0]
+
+
+# ─── Phase D: Knowledge Type Migration ──────────────────────────────
+
+
+class TestMigrateTypes:
+    def test_dry_run_returns_planned_changes(self):
+        store_knowledge("MISTAKE", "Don't edit without reading first")
+        store_knowledge("PREFERENCE", "I prefer plain english")
+        store_knowledge("PATTERN", "User praised step-by-step debugging")
+
+        changes = migrate_knowledge_types(dry_run=True)
+        assert len(changes) == 3
+        # Dry run should NOT create new entries
+        assert all("new_id" not in c for c in changes)
+
+    def test_mistake_with_never_becomes_boundary(self):
+        store_knowledge("MISTAKE", "Never edit files without reading them first")
+        changes = migrate_knowledge_types(dry_run=True)
+        boundary_changes = [c for c in changes if c["new_type"] == "BOUNDARY"]
+        assert len(boundary_changes) == 1
+        assert boundary_changes[0]["source"] == "CORRECTED"
+
+    def test_mistake_without_keyword_becomes_principle(self):
+        store_knowledge("MISTAKE", "Code was edited blindly, should read first")
+        changes = migrate_knowledge_types(dry_run=True)
+        principle_changes = [c for c in changes if c["new_type"] == "PRINCIPLE"]
+        assert len(principle_changes) == 1
+
+    def test_preference_becomes_direction(self):
+        store_knowledge("PREFERENCE", "Use plain english in output")
+        changes = migrate_knowledge_types(dry_run=True)
+        direction_changes = [c for c in changes if c["new_type"] == "DIRECTION"]
+        assert len(direction_changes) == 1
+        assert direction_changes[0]["maturity"] == "CONFIRMED"
+
+    def test_pattern_with_procedure_keyword_becomes_procedure(self):
+        store_knowledge("PATTERN", "Step by step: first read, then edit, then test")
+        changes = migrate_knowledge_types(dry_run=True)
+        proc_changes = [c for c in changes if c["new_type"] == "PROCEDURE"]
+        assert len(proc_changes) == 1
+
+    def test_pattern_without_keyword_becomes_principle(self):
+        store_knowledge("PATTERN", "User praised this debugging approach")
+        changes = migrate_knowledge_types(dry_run=True)
+        principle_changes = [c for c in changes if c["new_type"] == "PRINCIPLE"]
+        assert len(principle_changes) == 1
+
+    def test_execute_creates_new_entries(self):
+        kid = store_knowledge("MISTAKE", "Never skip tests before committing")
+        changes = migrate_knowledge_types(dry_run=False)
+        assert len(changes) == 1
+        assert "new_id" in changes[0]
+
+        # Old entry should be superseded
+        old_entries = get_knowledge(knowledge_type="MISTAKE", include_superseded=True)
+        superseded = [e for e in old_entries if e["superseded_by"] is not None]
+        assert len(superseded) == 1
+
+        # New entry should exist with new type
+        new_entries = get_knowledge(knowledge_type="BOUNDARY")
+        assert len(new_entries) == 1
+        assert new_entries[0]["source"] == "CORRECTED"
+
+    def test_fact_and_episode_not_migrated(self):
+        store_knowledge("FACT", "Python uses indentation")
+        store_knowledge("EPISODE", "Session summary from today")
+        changes = migrate_knowledge_types(dry_run=True)
+        assert len(changes) == 0
+
+    def test_already_migrated_not_remigrated(self):
+        store_knowledge("MISTAKE", "Never skip reading")
+        migrate_knowledge_types(dry_run=False)
+        # Run again — the old entry is superseded, so shouldn't appear
+        changes = migrate_knowledge_types(dry_run=True)
+        assert len(changes) == 0
