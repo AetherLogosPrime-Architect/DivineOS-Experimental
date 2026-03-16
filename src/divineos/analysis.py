@@ -355,9 +355,26 @@ def format_analysis_report(result: AnalysisResult) -> str:
     if result.lessons:
         lines.append("LESSONS EXTRACTED (what to learn)")
         lines.append("-" * 70)
-        for lesson in result.lessons:
-            content = lesson.get('content', 'Unknown lesson') if isinstance(lesson, dict) else str(lesson)
-            lines.append(f"• {content}")
+        
+        # If lessons are knowledge IDs, try to retrieve the content
+        from divineos.consolidation import get_knowledge
+        
+        for lesson_id in result.lessons:
+            try:
+                # Try to get the knowledge entry
+                knowledge_entries = get_knowledge(limit=1000)
+                for entry in knowledge_entries:
+                    if entry.get('id') == lesson_id or entry.get('knowledge_id') == lesson_id:
+                        content = entry.get('content', lesson_id)
+                        lines.append(f"• {content}")
+                        break
+                else:
+                    # If not found, just show the ID
+                    lines.append(f"• Lesson {lesson_id[:8]}...")
+            except Exception:
+                # Fallback: just show the ID
+                lines.append(f"• Lesson {lesson_id[:8]}...")
+        
         lines.append("")
     
     # Footer
@@ -557,6 +574,7 @@ def save_analysis_report(result: AnalysisResult, report_text: str) -> Path:
     reports_dir.mkdir(parents=True, exist_ok=True)
     
     report_file = reports_dir / f"{result.session_id}.txt"
-    report_file.write_text(report_text)
+    # Use UTF-8 encoding to handle special characters like ✓ and ✗
+    report_file.write_text(report_text, encoding='utf-8')
     
     return report_file

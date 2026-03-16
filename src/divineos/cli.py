@@ -1038,7 +1038,12 @@ def report_cmd(session_id: str):
                 return
             
             click.echo()
-            click.echo(report)
+            # Use click.echo with default_text_stderr=False to handle UTF-8 properly
+            try:
+                click.echo(report)
+            except UnicodeEncodeError:
+                # Fallback: encode to ASCII with replacements
+                click.echo(report.encode('ascii', errors='replace').decode('ascii'))
             click.echo()
             
     except Exception as e:
