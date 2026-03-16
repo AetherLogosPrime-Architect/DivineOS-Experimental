@@ -156,6 +156,8 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     Returns:
         Path to the exported JSONL file
     """
+    import tempfile
+    
     # Get recent events from ledger
     events = get_events(limit=limit)
     
@@ -211,9 +213,10 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
         
         jsonl_lines.append(json.dumps(msg))
     
-    # Write to temporary file
-    temp_file = Path("/tmp/current_session.jsonl")
-    temp_file.write_text("\n".join(jsonl_lines))
+    # Write to temporary file in system temp directory
+    temp_dir = Path(tempfile.gettempdir())
+    temp_file = temp_dir / "current_session.jsonl"
+    temp_file.write_text("\n".join(jsonl_lines), encoding='utf-8')
     
     return temp_file
 
