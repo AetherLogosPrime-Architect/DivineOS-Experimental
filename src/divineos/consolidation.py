@@ -18,7 +18,29 @@ from typing import Any, Optional
 
 import divineos.ledger as _ledger_mod
 
-KNOWLEDGE_TYPES = {"FACT", "PATTERN", "PREFERENCE", "MISTAKE", "EPISODE"}
+KNOWLEDGE_TYPES = {
+    # Core types
+    "FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION", "OBSERVATION", "EPISODE",
+    # Legacy types (still accepted, new code should not create these)
+    "PATTERN", "PREFERENCE", "MISTAKE",
+}
+
+KNOWLEDGE_SOURCES = {"STATED", "CORRECTED", "DEMONSTRATED", "SYNTHESIZED", "INHERITED"}
+
+KNOWLEDGE_MATURITY = {"RAW", "HYPOTHESIS", "TESTED", "CONFIRMED", "REVISED"}
+
+
+_KNOWLEDGE_COLS = (
+    "knowledge_id, created_at, updated_at, knowledge_type, content, "
+    "confidence, source_events, tags, access_count, superseded_by, content_hash, "
+    "source, maturity, corroboration_count, contradiction_count"
+)
+
+_KNOWLEDGE_COLS_K = (
+    "k.knowledge_id, k.created_at, k.updated_at, k.knowledge_type, k.content, "
+    "k.confidence, k.source_events, k.tags, k.access_count, k.superseded_by, k.content_hash, "
+    "k.source, k.maturity, k.corroboration_count, k.contradiction_count"
+)
 
 
 def compute_hash(content: str) -> str:
@@ -94,6 +116,20 @@ def init_knowledge_table() -> None:
             END
         """)
 
+        # Add new metadata columns (safe to run on existing databases)
+        for col, col_type, default in [
+            ("source", "TEXT", "'INHERITED'"),
+            ("maturity", "TEXT", "'RAW'"),
+            ("corroboration_count", "INTEGER", "0"),
+            ("contradiction_count", "INTEGER", "0"),
+        ]:
+            try:
+                conn.execute(
+                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} NOT NULL DEFAULT {default}"
+                )
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
         # Lesson tracking table — connects repeated mistakes across sessions
         conn.execute("""
             CREATE TABLE IF NOT EXISTS lesson_tracking (
@@ -129,6 +165,8 @@ def store_knowledge(
     confidence: float = 1.0,
     source_events: Optional[list[str]] = None,
     tags: Optional[list[str]] = None,
+    source: str = "STATED",
+    maturity: str = "RAW",
 ) -> str:
     """
     Store a piece of knowledge. Returns the knowledge_id.
@@ -164,7 +202,11 @@ def store_knowledge(
 
         knowledge_id = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+            """INSERT INTO knowledge
+               (knowledge_id, created_at, updated_at, knowledge_type, content,
+                confidence, source_events, tags, access_count, content_hash,
+                source, maturity)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
             (
                 knowledge_id,
                 now,
@@ -175,6 +217,8 @@ def store_knowledge(
                 sources_json,
                 tags_json,
                 content_hash,
+                source,
+                maturity,
             ),
         )
         conn.commit()
@@ -193,7 +237,7 @@ def get_knowledge(
     """Query knowledge with optional filters."""
     conn = _get_connection()
     try:
-        query = "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, superseded_by, content_hash FROM knowledge"
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge"
         conditions: list[str] = []
         params: list = []
 
@@ -232,9 +276,7 @@ def search_knowledge(query: str, limit: int = 50) -> list[dict]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            """SELECT k.knowledge_id, k.created_at, k.updated_at, k.knowledge_type,
-                      k.content, k.confidence, k.source_events, k.tags,
-                      k.access_count, k.superseded_by, k.content_hash
+            f"""SELECT {_KNOWLEDGE_COLS_K}
                FROM knowledge_fts fts
                JOIN knowledge k ON k.rowid = fts.rowid
                WHERE knowledge_fts MATCH ?
@@ -256,7 +298,7 @@ def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, superseded_by, content_hash FROM knowledge WHERE superseded_by IS NULL AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",
             (f"%{keyword}%", f"%{keyword}%", limit),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
@@ -391,7 +433,7 @@ def find_similar(content: str) -> list[dict]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, superseded_by, content_hash FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
             (content_hash,),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
@@ -420,7 +462,7 @@ def generate_briefing(
     """
     conn = _get_connection()
     try:
-        query = "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, superseded_by, content_hash FROM knowledge WHERE superseded_by IS NULL"
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL"
         params: list = []
 
         if include_types:
@@ -450,11 +492,18 @@ def generate_briefing(
 
     # Type-specific half-lives in days
     half_lives = {
-        "MISTAKE": 30.0,
+        # New types
+        "BOUNDARY": 30.0,     # Hard constraints persist
+        "PRINCIPLE": 30.0,    # Distilled wisdom persists
+        "DIRECTION": None,    # User preferences never decay
+        "PROCEDURE": 14.0,    # How-to knowledge
         "FACT": 7.0,
-        "PATTERN": 14.0,
-        "PREFERENCE": None,  # no decay
+        "OBSERVATION": 3.0,   # Unconfirmed — decay fast
         "EPISODE": 14.0,
+        # Legacy types — same decay as their successors
+        "MISTAKE": 30.0,
+        "PATTERN": 14.0,
+        "PREFERENCE": None,
     }
 
     # Score each entry
@@ -502,7 +551,9 @@ def generate_briefing(
         lines.append(lessons_text)
         lines.append("")
 
-    for kt in ["MISTAKE", "PREFERENCE", "PATTERN", "FACT", "EPISODE"]:
+    for kt in ["BOUNDARY", "PRINCIPLE", "DIRECTION", "PROCEDURE",
+                "MISTAKE", "PREFERENCE", "PATTERN",
+                "FACT", "OBSERVATION", "EPISODE"]:
         items = grouped.get(kt, [])
         if not items:
             continue
@@ -882,7 +933,7 @@ def _lesson_row_to_dict(row: tuple) -> dict:
 
 def _row_to_dict(row: tuple) -> dict:
     """Convert a knowledge table row to a dict."""
-    return {
+    d = {
         "knowledge_id": row[0],
         "created_at": row[1],
         "updated_at": row[2],
@@ -895,6 +946,18 @@ def _row_to_dict(row: tuple) -> dict:
         "superseded_by": row[9],
         "content_hash": row[10],
     }
+    # New columns (present after schema migration)
+    if len(row) > 11:
+        d["source"] = row[11]
+        d["maturity"] = row[12]
+        d["corroboration_count"] = int(row[13])
+        d["contradiction_count"] = int(row[14])
+    else:
+        d["source"] = "INHERITED"
+        d["maturity"] = "RAW"
+        d["corroboration_count"] = 0
+        d["contradiction_count"] = 0
+    return d
 
 
 # ─── Text Analysis Helpers ────────────────────────────────────────────
@@ -981,6 +1044,8 @@ def store_knowledge_smart(
     confidence: float = 1.0,
     source_events: Optional[list[str]] = None,
     tags: Optional[list[str]] = None,
+    source: str = "STATED",
+    maturity: str = "RAW",
 ) -> str:
     """Store knowledge with near-duplicate detection via FTS5.
 
@@ -1045,8 +1110,8 @@ def store_knowledge_smart(
             return str(existing[0])
 
         conn.execute(
-            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
-            (kid, now, now, knowledge_type, content, confidence, sources_json, tags_json, content_hash),
+            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, source, maturity, corroboration_count, contradiction_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0)",
+            (kid, now, now, knowledge_type, content, confidence, sources_json, tags_json, content_hash, source, maturity),
         )
         conn.commit()
         return kid
@@ -1124,6 +1189,44 @@ def _find_alternative_in_text(text: str) -> str:
     return ""
 
 
+def _distill_correction(raw_text: str) -> str:
+    """Transform a raw correction quote into an insight-form statement.
+
+    Instead of: "no when i say you.. you say i or me.."
+    Produce:    "When the user says 'you' referring to the AI, respond with 'I' or 'me'"
+    """
+    text = raw_text.strip()[:300]
+    # Strip common prefixes that add noise
+    for prefix in ("no ", "no, ", "wrong ", "wrong, ", "stop ", "don't "):
+        if text.lower().startswith(prefix):
+            text = text[len(prefix):]
+            break
+    # Capitalize and clean up
+    text = text.strip()
+    if text and text[0].islower():
+        text = text[0].upper() + text[1:]
+    # Remove trailing fragments
+    if text and text[-1] not in ".!?":
+        text = text.rstrip(". ") + "."
+    return text
+
+
+def _distill_preference(raw_text: str) -> str:
+    """Transform a raw preference quote into a direction statement."""
+    text = raw_text.strip()[:300]
+    # Strip "I want", "I prefer", "I like" prefixes — rephrase as direction
+    for prefix in ("i want ", "i prefer ", "i like ", "i need ", "please "):
+        if text.lower().startswith(prefix):
+            text = text[len(prefix):]
+            break
+    text = text.strip()
+    if text and text[0].islower():
+        text = text[0].upper() + text[1:]
+    if text and text[-1] not in ".!?":
+        text = text.rstrip(". ") + "."
+    return text
+
+
 def deep_extract_knowledge(
     analysis: "Any",  # SessionAnalysis — avoid circular import
     records: list[dict[str, Any]],
@@ -1163,7 +1266,7 @@ def deep_extract_knowledge(
         )
         stored_ids.append(kid)
 
-    # --- Correction pairs ---
+    # --- Correction pairs → PRINCIPLE or BOUNDARY with insight content ---
     for correction in analysis.corrections:
         correction_text = correction.content
         # Find this correction in the raw records and get the assistant message before it
@@ -1174,37 +1277,45 @@ def deep_extract_knowledge(
             user_text = _extract_user_text_from_record(rec)
             if not user_text:
                 continue
-            # Match by content prefix (correction.content is truncated to 300 chars)
             if user_text[:100] == correction_text[:100]:
-                # Look backwards for the assistant message
                 for j in range(i - 1, max(i - 5, -1), -1):
                     if records[j].get("type") == "assistant":
                         ai_before = _extract_assistant_summary(records[j])
                         break
                 break
 
+        # Classify: hard constraint words → BOUNDARY, otherwise → PRINCIPLE
+        lower = correction_text.lower()
+        is_boundary = any(w in lower for w in ("never", "always", "must", "don't", "do not", "cannot"))
+        ktype = "BOUNDARY" if is_boundary else "PRINCIPLE"
+
+        # Store insight, not raw quote
         if ai_before:
-            content = f"Wrong: {ai_before}. Correction: {correction_text[:200]}"
+            content = f"When {ai_before.lower()}, instead: {correction_text[:200]}"
         else:
-            content = f"User correction: {correction_text[:250]}"
+            content = _distill_correction(correction_text)
 
         kid = store_knowledge_smart(
-            knowledge_type="MISTAKE",
+            knowledge_type=ktype,
             content=content,
             confidence=0.85,
+            source="CORRECTED",
+            maturity="HYPOTHESIS",
             source_events=[session_id],
             tags=["auto-extracted", "correction-pair", f"session-{short_id}"] + topic_tags,
         )
         stored_ids.append(kid)
 
-    # --- Preferences ---
+    # --- Preferences → DIRECTION ---
     for pref in getattr(analysis, "preferences", []):
         kid = store_knowledge_smart(
-            knowledge_type="PREFERENCE",
-            content=f"User preference: {pref.content[:250]}",
+            knowledge_type="DIRECTION",
+            content=_distill_preference(pref.content),
             confidence=0.9,
+            source="STATED",
+            maturity="CONFIRMED",
             source_events=[session_id],
-            tags=["auto-extracted", "preference", f"session-{short_id}"] + topic_tags,
+            tags=["auto-extracted", "direction", f"session-{short_id}"] + topic_tags,
         )
         stored_ids.append(kid)
 
@@ -1236,9 +1347,11 @@ def deep_extract_knowledge(
             parts.append(f"Reason: {reason}")
 
         kid = store_knowledge_smart(
-            knowledge_type="PATTERN",
+            knowledge_type="PRINCIPLE",
             content=". ".join(parts),
             confidence=0.9,
+            source="DEMONSTRATED",
+            maturity="HYPOTHESIS",
             source_events=[session_id],
             tags=["auto-extracted", "decision", f"session-{short_id}"] + topic_tags,
         )
@@ -1260,14 +1373,16 @@ def deep_extract_knowledge(
                 break
 
         if ai_before:
-            content = f"User praised this approach: {ai_before}. Reaction: {enc.content[:150]}"
+            content = f"This approach works well: {ai_before}. User affirmed: {enc.content[:150]}"
         else:
-            content = f"User praised: {enc.content[:250]}"
+            content = f"Positive signal: {enc.content[:250]}"
 
         kid = store_knowledge_smart(
-            knowledge_type="PATTERN",
+            knowledge_type="PRINCIPLE",
             content=content,
             confidence=0.9,
+            source="DEMONSTRATED",
+            maturity="TESTED",
             source_events=[session_id],
             tags=["auto-extracted", "encouragement", f"session-{short_id}"] + topic_tags,
         )
@@ -1446,8 +1561,8 @@ def compute_effectiveness(entry: dict) -> dict[str, str]:
     ktype = entry.get("knowledge_type", "")
     access = entry.get("access_count", 0)
 
-    if ktype == "MISTAKE":
-        # Check if a lesson tracks this mistake
+    if ktype in ("MISTAKE", "BOUNDARY", "PRINCIPLE"):
+        # Check if a lesson tracks this knowledge
         lessons = get_lessons()
         for lesson in lessons:
             overlap = _compute_overlap(entry.get("content", ""), lesson["description"])
@@ -1469,15 +1584,15 @@ def compute_effectiveness(entry: dict) -> dict[str, str]:
                     }
         return {"status": "unknown", "detail": "No lesson tracking data"}
 
-    if ktype == "PATTERN":
+    if ktype in ("PATTERN", "PROCEDURE", "OBSERVATION"):
         if access > 3:
             return {"status": "reinforced", "detail": f"Confirmed {access} times"}
         if access > 0:
             return {"status": "used", "detail": f"Accessed {access} times"}
         return {"status": "unused", "detail": "Never accessed"}
 
-    if ktype == "PREFERENCE":
-        return {"status": "stable", "detail": "Preferences are always active"}
+    if ktype in ("PREFERENCE", "DIRECTION"):
+        return {"status": "stable", "detail": "Directions are always active"}
 
     if ktype == "FACT":
         if access > 0:
@@ -1491,14 +1606,16 @@ def compute_effectiveness(entry: dict) -> dict[str, str]:
 def health_check() -> dict[str, Any]:
     """Review the knowledge store and adjust confidence scores.
 
-    1. Decay stale knowledge (access_count=0, age > 14 days)
-    2. Boost confirmed knowledge (access_count > 5)
-    3. Escalate recurring lessons (3+ occurrences → MISTAKE confidence 0.95)
-    4. Resolve old improving lessons (no activity 30+ days)
+    Knowledge does NOT decay just because time passed. A lesson that's
+    true on day 1 is still true on day 100. Confidence only changes when:
+
+    1. Confirmed: knowledge keeps coming up across sessions → trust more
+    2. Recurring: a lesson happened 3+ times → it's clearly a real problem
+    3. Resolved: an improving lesson hasn't come back in 30+ days → probably fixed
+    4. Contradicted: a superseded entry already gets marked by update_knowledge
     """
     now = time.time()
     result = {
-        "stale_decayed": 0,
         "confirmed_boosted": 0,
         "recurring_escalated": 0,
         "resolved_lessons": 0,
@@ -1508,25 +1625,16 @@ def health_check() -> dict[str, Any]:
     all_entries = get_knowledge(limit=1000)
     result["total_checked"] = len(all_entries)
 
-    # 1. Stale decay
-    for entry in all_entries:
-        if entry["access_count"] == 0:
-            age_days = (now - entry["created_at"]) / 86400
-            if age_days > 14:
-                new_conf = _adjust_confidence(entry["knowledge_id"], -0.1, floor=0.3)
-                if new_conf is not None:
-                    result["stale_decayed"] += 1
-
-    # 2. Confirmed boost
+    # 1. Confirmed boost — if something keeps coming up, it's clearly useful
     for entry in all_entries:
         if entry["access_count"] > 5 and entry["confidence"] < 1.0:
             new_conf = _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
             if new_conf is not None:
                 result["confirmed_boosted"] += 1
 
-    # 3. Recurring lesson escalation
+    # 2. Recurring lesson escalation — same mistake 3+ times = serious problem
     active_lessons = get_lessons(status="active")
-    mistakes = [e for e in all_entries if e["knowledge_type"] == "MISTAKE"]
+    mistakes = [e for e in all_entries if e["knowledge_type"] in ("MISTAKE", "BOUNDARY", "PRINCIPLE")]
     for lesson in active_lessons:
         if lesson["occurrences"] >= 3:
             for mistake in mistakes:
@@ -1540,21 +1648,148 @@ def health_check() -> dict[str, Any]:
                         result["recurring_escalated"] += 1
                     break
 
-    # 4. Resolve old improving lessons
+    # 3. Resolve old improving lessons — hasn't come back in 30 days = fixed
     improving_lessons = get_lessons(status="improving")
     for lesson in improving_lessons:
         age_days = (now - lesson["last_seen"]) / 86400
         if age_days > 30:
             _resolve_lesson(lesson["lesson_id"])
             result["resolved_lessons"] += 1
-            # Lower associated MISTAKE confidence
+            # Gently lower the associated MISTAKE — the problem went away,
+            # but the knowledge is still worth keeping in case it comes back
             for mistake in mistakes:
                 overlap = _compute_overlap(lesson["description"], mistake["content"])
                 if overlap > 0.4:
-                    _adjust_confidence(mistake["knowledge_id"], -0.1, floor=0.3)
+                    _adjust_confidence(mistake["knowledge_id"], -0.05, floor=0.5)
                     break
 
     return result
+
+
+# ─── Knowledge Type Migration ────────────────────────────────────────
+
+
+# How old types map to new types
+_MIGRATION_RULES = {
+    "MISTAKE": {
+        # Keywords that indicate a hard constraint → BOUNDARY
+        "boundary_keywords": re.compile(
+            r"\b(never|always|must|don't|do not|cannot|forbidden|prohibited)\b",
+            re.IGNORECASE,
+        ),
+        "default": "PRINCIPLE",  # teaching/direction
+        "boundary": "BOUNDARY",  # hard constraint
+        "source": "CORRECTED",
+        "default_maturity": "HYPOTHESIS",
+        "boundary_maturity": "TESTED",
+    },
+    "PREFERENCE": {
+        "new_type": "DIRECTION",
+        "source": "STATED",
+        "maturity": "CONFIRMED",
+    },
+    "PATTERN": {
+        # Keywords indicating how-to → PROCEDURE
+        "procedure_keywords": re.compile(
+            r"\b(step|how to|process|workflow|first.*then|procedure)\b",
+            re.IGNORECASE,
+        ),
+        "default": "PRINCIPLE",
+        "procedure": "PROCEDURE",
+        "source": "DEMONSTRATED",
+        "maturity": "HYPOTHESIS",
+    },
+}
+
+
+def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
+    """Reclassify old-type entries (MISTAKE, PATTERN, PREFERENCE) to new types.
+
+    Uses the supersede pattern: old entry gets superseded_by pointing to new entry.
+    In dry_run mode, returns planned changes without writing anything.
+
+    Returns list of {"old_id", "old_type", "new_type", "source", "maturity", "content"}.
+    """
+    planned: list[dict[str, Any]] = []
+
+    for old_type, rules in _MIGRATION_RULES.items():
+        entries = get_knowledge(knowledge_type=old_type, limit=1000)
+        for entry in entries:
+            content = entry["content"]
+
+            if old_type == "MISTAKE":
+                if rules["boundary_keywords"].search(content):
+                    new_type = rules["boundary"]
+                    maturity = rules["boundary_maturity"]
+                else:
+                    new_type = rules["default"]
+                    maturity = rules["default_maturity"]
+                source = rules["source"]
+
+            elif old_type == "PREFERENCE":
+                new_type = rules["new_type"]
+                source = rules["source"]
+                maturity = rules["maturity"]
+
+            elif old_type == "PATTERN":
+                if rules["procedure_keywords"].search(content):
+                    new_type = rules["procedure"]
+                else:
+                    new_type = rules["default"]
+                source = rules["source"]
+                maturity = rules["maturity"]
+
+            else:
+                continue
+
+            change = {
+                "old_id": entry["knowledge_id"],
+                "old_type": old_type,
+                "new_type": new_type,
+                "source": source,
+                "maturity": maturity,
+                "content": content[:200],
+            }
+            planned.append(change)
+
+            if not dry_run:
+                # Mark old entry as superseded FIRST (so store_knowledge
+                # doesn't dedup against it via content_hash)
+                placeholder = "migrating"
+                conn = _get_connection()
+                try:
+                    conn.execute(
+                        "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
+                        (placeholder, entry["knowledge_id"]),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+
+                # Create new entry with new type
+                new_kid = store_knowledge(
+                    knowledge_type=new_type,
+                    content=content,
+                    confidence=entry["confidence"],
+                    source_events=entry.get("source_events", []),
+                    tags=entry.get("tags", []),
+                    source=source,
+                    maturity=maturity,
+                )
+
+                # Update superseded_by to point to actual new ID
+                conn = _get_connection()
+                try:
+                    conn.execute(
+                        "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
+                        (new_kid, entry["knowledge_id"]),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+                change["new_id"] = new_kid
+
+    return planned
 
 
 # ─── Lesson Categorization ────────────────────────────────────────────
@@ -1688,8 +1923,10 @@ def apply_session_feedback(
     corrections = getattr(analysis, "corrections", [])
     encouragements = getattr(analysis, "encouragements", [])
 
-    # Step A: Check corrections against existing MISTAKEs
-    existing_mistakes = get_knowledge(knowledge_type="MISTAKE", limit=500)
+    # Step A: Check corrections against existing mistakes/boundaries/principles
+    existing_corrections = []
+    for ktype in ("MISTAKE", "BOUNDARY", "PRINCIPLE"):
+        existing_corrections.extend(get_knowledge(knowledge_type=ktype, limit=200))
 
     for correction in corrections:
         # Skip noise
@@ -1697,10 +1934,10 @@ def apply_session_feedback(
             result["noise_skipped"] += 1
             continue
 
-        for mistake in existing_mistakes:
-            overlap = _compute_overlap(correction.content, mistake["content"])
+        for entry in existing_corrections:
+            overlap = _compute_overlap(correction.content, entry["content"])
             if overlap > 0.4:
-                _adjust_confidence(mistake["knowledge_id"], 0.05, cap=1.0)
+                _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
                 result["recurrences_found"] += 1
                 # Record in lesson tracking with semantic category
                 category = _categorize_correction(correction.content)
@@ -1710,14 +1947,16 @@ def apply_session_feedback(
                     )
                 break
 
-    # Step B: Check encouragements against existing PATTERNs
-    existing_patterns = get_knowledge(knowledge_type="PATTERN", limit=500)
+    # Step B: Check encouragements against existing patterns/principles
+    existing_positives = []
+    for ktype in ("PATTERN", "PRINCIPLE"):
+        existing_positives.extend(get_knowledge(knowledge_type=ktype, limit=200))
     for enc in encouragements:
-        for pattern in existing_patterns:
-            overlap = _compute_overlap(enc.content, pattern["content"])
+        for entry in existing_positives:
+            overlap = _compute_overlap(enc.content, entry["content"])
             if overlap > 0.4:
-                _adjust_confidence(pattern["knowledge_id"], 0.05, cap=1.0)
-                record_access(pattern["knowledge_id"])
+                _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
+                record_access(entry["knowledge_id"])
                 result["patterns_reinforced"] += 1
                 break
 

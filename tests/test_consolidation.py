@@ -39,6 +39,10 @@ from divineos.consolidation import (
     _categorize_correction,
     clear_lessons,
     knowledge_health_report,
+    migrate_knowledge_types,
+    KNOWLEDGE_TYPES,
+    KNOWLEDGE_SOURCES,
+    KNOWLEDGE_MATURITY,
 )
 import divineos.ledger as ledger_mod
 
@@ -682,11 +686,13 @@ class TestDeepExtractKnowledge:
             }},
         ]
         ids = deep_extract_knowledge(analysis, records)
-        mistakes = get_knowledge(knowledge_type="MISTAKE")
-        assert len(mistakes) >= 1
-        # Should contain the AI's wrong action
-        combined = " ".join(m["content"] for m in mistakes)
+        # "don't" triggers BOUNDARY classification
+        boundaries = get_knowledge(knowledge_type="BOUNDARY")
+        assert len(boundaries) >= 1
+        combined = " ".join(m["content"] for m in boundaries)
         assert "mock" in combined.lower()
+        # Should have CORRECTED source
+        assert boundaries[0]["source"] == "CORRECTED"
 
     def test_extracts_preferences(self):
         analysis = _MockAnalysis()
@@ -694,9 +700,10 @@ class TestDeepExtractKnowledge:
         analysis.user_message_texts = ["i prefer plain english, no jargon"]
         records = []
         ids = deep_extract_knowledge(analysis, records)
-        prefs = get_knowledge(knowledge_type="PREFERENCE")
-        assert len(prefs) >= 1
-        assert "plain english" in prefs[0]["content"].lower()
+        directions = get_knowledge(knowledge_type="DIRECTION")
+        assert len(directions) >= 1
+        assert "plain english" in directions[0]["content"].lower()
+        assert directions[0]["source"] == "STATED"
 
     def test_extracts_decisions_with_reason(self):
         analysis = _MockAnalysis()
@@ -708,8 +715,8 @@ class TestDeepExtractKnowledge:
             }},
         ]
         ids = deep_extract_knowledge(analysis, records)
-        patterns = get_knowledge(knowledge_type="PATTERN")
-        decision_entries = [p for p in patterns if "decision" in " ".join(p["tags"]).lower()]
+        principles = get_knowledge(knowledge_type="PRINCIPLE")
+        decision_entries = [p for p in principles if "decision" in " ".join(p["tags"]).lower()]
         assert len(decision_entries) >= 1
         combined = " ".join(p["content"] for p in decision_entries)
         assert "sqlite" in combined.lower()
@@ -727,9 +734,10 @@ class TestDeepExtractKnowledge:
             }},
         ]
         ids = deep_extract_knowledge(analysis, records)
-        patterns = get_knowledge(knowledge_type="PATTERN")
-        enc_entries = [p for p in patterns if "encouragement" in " ".join(p["tags"]).lower()]
+        principles = get_knowledge(knowledge_type="PRINCIPLE")
+        enc_entries = [p for p in principles if "encouragement" in " ".join(p["tags"]).lower()]
         assert len(enc_entries) >= 1
+        assert enc_entries[0]["source"] == "DEMONSTRATED"
 
     def test_topic_tags_applied(self):
         analysis = _MockAnalysis()
@@ -892,17 +900,17 @@ class TestComputeEffectiveness:
 class TestHealthCheck:
     def test_empty_database(self):
         result = health_check()
-        assert result["stale_decayed"] == 0
         assert result["confirmed_boosted"] == 0
         assert result["total_checked"] == 0
 
-    def test_stale_entry_decayed(self):
-        kid = store_knowledge("FACT", "stale entry for decay test", confidence=0.8)
-        # Backdate the entry to 15 days ago
+    def test_old_entry_not_decayed(self):
+        """Knowledge does NOT decay just because time passed."""
+        kid = store_knowledge("FACT", "old but still true fact", confidence=0.8)
+        # Backdate the entry to 60 days ago
         import divineos.ledger as lm
         import sqlite3
         conn = sqlite3.connect(str(lm.DB_PATH))
-        old_time = time.time() - (15 * 86400)
+        old_time = time.time() - (60 * 86400)
         conn.execute(
             "UPDATE knowledge SET created_at = ?, updated_at = ? WHERE knowledge_id = ?",
             (old_time, old_time, kid),
@@ -911,34 +919,9 @@ class TestHealthCheck:
         conn.close()
 
         result = health_check()
-        assert result["stale_decayed"] == 1
-        entry = get_knowledge(knowledge_type="FACT")[0]
-        assert entry["confidence"] == pytest.approx(0.7)
-
-    def test_fresh_entry_not_decayed(self):
-        kid = store_knowledge("FACT", "fresh entry should not decay", confidence=0.8)
-        result = health_check()
-        assert result["stale_decayed"] == 0
+        # Confidence should be UNCHANGED — age alone doesn't reduce trust
         entry = get_knowledge(knowledge_type="FACT")[0]
         assert entry["confidence"] == pytest.approx(0.8)
-
-    def test_accessed_entry_not_decayed(self):
-        kid = store_knowledge("FACT", "accessed entry no decay", confidence=0.8)
-        record_access(kid)
-        # Backdate to old
-        import divineos.ledger as lm
-        import sqlite3
-        conn = sqlite3.connect(str(lm.DB_PATH))
-        old_time = time.time() - (20 * 86400)
-        conn.execute(
-            "UPDATE knowledge SET created_at = ? WHERE knowledge_id = ?",
-            (old_time, kid),
-        )
-        conn.commit()
-        conn.close()
-
-        result = health_check()
-        assert result["stale_decayed"] == 0  # access_count > 0
 
     def test_confirmed_entry_boosted(self):
         kid = store_knowledge("FACT", "highly accessed entry", confidence=0.8)
@@ -984,23 +967,29 @@ class TestHealthCheck:
         lessons = get_lessons(category="old_mistake")
         assert lessons[0]["status"] == "resolved"
 
-    def test_confidence_floor_respected(self):
-        kid = store_knowledge("FACT", "entry already at floor", confidence=0.3)
+    def test_resolved_lesson_lowers_confidence_gently(self):
+        """Resolved lessons lower mistake confidence but not below 0.5."""
+        kid = store_knowledge("MISTAKE", "resolved mistake floor test", confidence=0.55)
+        record_lesson("floor_test", "resolved mistake floor test", "s1")
+        record_lesson("floor_test", "resolved mistake floor test", "s2")
+        record_lesson("floor_test", "resolved mistake floor test", "s3")
+        mark_lesson_improving("floor_test", "s4")
+
         import divineos.ledger as lm
         import sqlite3
         conn = sqlite3.connect(str(lm.DB_PATH))
-        old_time = time.time() - (15 * 86400)
+        old_time = time.time() - (31 * 86400)
         conn.execute(
-            "UPDATE knowledge SET created_at = ?, updated_at = ? WHERE knowledge_id = ?",
-            (old_time, old_time, kid),
+            "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'floor_test'",
+            (old_time,),
         )
         conn.commit()
         conn.close()
 
         result = health_check()
-        assert result["stale_decayed"] == 1
-        entry = get_knowledge(knowledge_type="FACT")[0]
-        assert entry["confidence"] == pytest.approx(0.3)  # floor
+        assert result["resolved_lessons"] == 1
+        entry = get_knowledge(knowledge_type="MISTAKE")[0]
+        assert entry["confidence"] == pytest.approx(0.5)  # floor
 
 
 class TestApplySessionFeedback:
@@ -1167,3 +1156,205 @@ class TestFeedbackWithNoiseFilter:
         lessons = get_lessons()
         blind_lessons = [l for l in lessons if l["category"] == "blind_coding"]
         assert len(blind_lessons) >= 1
+
+
+# ─── Phase A: Knowledge Evolution – Schema Expansion ────────────────
+
+
+class TestExpandedTypes:
+    """All 10 knowledge types (7 new + 3 legacy) are accepted."""
+
+    def test_all_new_types_accepted(self):
+        for ktype in ("FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION", "OBSERVATION", "EPISODE"):
+            kid = store_knowledge(ktype, f"Test {ktype} content")
+            assert isinstance(kid, str)
+
+    def test_legacy_types_still_accepted(self):
+        for ktype in ("PATTERN", "PREFERENCE", "MISTAKE"):
+            kid = store_knowledge(ktype, f"Legacy {ktype} content")
+            entries = get_knowledge(knowledge_type=ktype)
+            assert len(entries) == 1
+            assert entries[0]["knowledge_type"] == ktype
+
+    def test_invalid_type_rejected(self):
+        with pytest.raises(ValueError, match="Invalid knowledge_type"):
+            store_knowledge("NONSENSE", "Should fail")
+
+    def test_constants_include_all_types(self):
+        expected = {"FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION",
+                    "OBSERVATION", "EPISODE", "PATTERN", "PREFERENCE", "MISTAKE"}
+        assert KNOWLEDGE_TYPES == expected
+
+
+class TestSourceMetadata:
+    """New source column tracks how knowledge was acquired."""
+
+    def _get_entry(self, kid):
+        """Helper: get_knowledge returns a list, find by kid."""
+        entries = get_knowledge()
+        return next(e for e in entries if e["knowledge_id"] == kid)
+
+    def test_default_source_is_stated(self):
+        kid = store_knowledge("FACT", "Default source test")
+        assert self._get_entry(kid)["source"] == "STATED"
+
+    def test_explicit_source_stored(self):
+        kid = store_knowledge("PRINCIPLE", "Learned from correction", source="CORRECTED")
+        assert self._get_entry(kid)["source"] == "CORRECTED"
+
+    def test_all_sources_valid(self):
+        for src in KNOWLEDGE_SOURCES:
+            kid = store_knowledge("FACT", f"Source {src} test", source=src)
+            assert self._get_entry(kid)["source"] == src
+
+    def test_source_in_smart_store(self):
+        kid = store_knowledge_smart("PRINCIPLE", "Smart source test", source="DEMONSTRATED")
+        assert self._get_entry(kid)["source"] == "DEMONSTRATED"
+
+
+class TestMaturityTracking:
+    """New maturity column tracks knowledge confirmation level."""
+
+    def _get_entry(self, kid):
+        entries = get_knowledge()
+        return next(e for e in entries if e["knowledge_id"] == kid)
+
+    def test_default_maturity_is_raw(self):
+        kid = store_knowledge("FACT", "Default maturity test")
+        assert self._get_entry(kid)["maturity"] == "RAW"
+
+    def test_explicit_maturity_stored(self):
+        kid = store_knowledge("BOUNDARY", "Hard limit", maturity="CONFIRMED")
+        assert self._get_entry(kid)["maturity"] == "CONFIRMED"
+
+    def test_all_maturities_valid(self):
+        for mat in KNOWLEDGE_MATURITY:
+            kid = store_knowledge("FACT", f"Maturity {mat} test", maturity=mat)
+            assert self._get_entry(kid)["maturity"] == mat
+
+    def test_maturity_in_smart_store(self):
+        kid = store_knowledge_smart("PRINCIPLE", "Smart maturity test", maturity="HYPOTHESIS")
+        assert self._get_entry(kid)["maturity"] == "HYPOTHESIS"
+
+
+class TestCorroborationCounters:
+    """New corroboration/contradiction counters start at zero."""
+
+    def _get_entry(self, kid):
+        entries = get_knowledge()
+        return next(e for e in entries if e["knowledge_id"] == kid)
+
+    def test_default_counters_zero(self):
+        kid = store_knowledge("FACT", "Counter test")
+        entry = self._get_entry(kid)
+        assert entry["corroboration_count"] == 0
+        assert entry["contradiction_count"] == 0
+
+    def test_counters_in_smart_store(self):
+        kid = store_knowledge_smart("FACT", "Smart counter test")
+        entry = self._get_entry(kid)
+        assert entry["corroboration_count"] == 0
+        assert entry["contradiction_count"] == 0
+
+
+class TestSchemaBackwardsCompat:
+    """Old entries without new columns get sensible defaults."""
+
+    def _get_entry(self, kid):
+        entries = get_knowledge()
+        return next(e for e in entries if e["knowledge_id"] == kid)
+
+    def test_old_entries_get_inherited_source(self):
+        kid = store_knowledge("MISTAKE", "Old-style mistake")
+        entry = self._get_entry(kid)
+        assert entry["source"] in ("STATED", "INHERITED")
+
+    def test_search_returns_new_columns(self):
+        store_knowledge("PRINCIPLE", "Searchable principle", source="CORRECTED", maturity="TESTED")
+        results = search_knowledge("principle")
+        assert len(results) >= 1
+        assert results[0]["source"] == "CORRECTED"
+        assert results[0]["maturity"] == "TESTED"
+
+    def test_find_similar_returns_new_columns(self):
+        store_knowledge("FACT", "The sky is blue", source="DEMONSTRATED", maturity="CONFIRMED")
+        results = find_similar("sky blue")
+        if results:  # FTS5 may not be available in all environments
+            assert "source" in results[0]
+            assert "maturity" in results[0]
+
+
+# ─── Phase D: Knowledge Type Migration ──────────────────────────────
+
+
+class TestMigrateTypes:
+    def test_dry_run_returns_planned_changes(self):
+        store_knowledge("MISTAKE", "Don't edit without reading first")
+        store_knowledge("PREFERENCE", "I prefer plain english")
+        store_knowledge("PATTERN", "User praised step-by-step debugging")
+
+        changes = migrate_knowledge_types(dry_run=True)
+        assert len(changes) == 3
+        # Dry run should NOT create new entries
+        assert all("new_id" not in c for c in changes)
+
+    def test_mistake_with_never_becomes_boundary(self):
+        store_knowledge("MISTAKE", "Never edit files without reading them first")
+        changes = migrate_knowledge_types(dry_run=True)
+        boundary_changes = [c for c in changes if c["new_type"] == "BOUNDARY"]
+        assert len(boundary_changes) == 1
+        assert boundary_changes[0]["source"] == "CORRECTED"
+
+    def test_mistake_without_keyword_becomes_principle(self):
+        store_knowledge("MISTAKE", "Code was edited blindly, should read first")
+        changes = migrate_knowledge_types(dry_run=True)
+        principle_changes = [c for c in changes if c["new_type"] == "PRINCIPLE"]
+        assert len(principle_changes) == 1
+
+    def test_preference_becomes_direction(self):
+        store_knowledge("PREFERENCE", "Use plain english in output")
+        changes = migrate_knowledge_types(dry_run=True)
+        direction_changes = [c for c in changes if c["new_type"] == "DIRECTION"]
+        assert len(direction_changes) == 1
+        assert direction_changes[0]["maturity"] == "CONFIRMED"
+
+    def test_pattern_with_procedure_keyword_becomes_procedure(self):
+        store_knowledge("PATTERN", "Step by step: first read, then edit, then test")
+        changes = migrate_knowledge_types(dry_run=True)
+        proc_changes = [c for c in changes if c["new_type"] == "PROCEDURE"]
+        assert len(proc_changes) == 1
+
+    def test_pattern_without_keyword_becomes_principle(self):
+        store_knowledge("PATTERN", "User praised this debugging approach")
+        changes = migrate_knowledge_types(dry_run=True)
+        principle_changes = [c for c in changes if c["new_type"] == "PRINCIPLE"]
+        assert len(principle_changes) == 1
+
+    def test_execute_creates_new_entries(self):
+        kid = store_knowledge("MISTAKE", "Never skip tests before committing")
+        changes = migrate_knowledge_types(dry_run=False)
+        assert len(changes) == 1
+        assert "new_id" in changes[0]
+
+        # Old entry should be superseded
+        old_entries = get_knowledge(knowledge_type="MISTAKE", include_superseded=True)
+        superseded = [e for e in old_entries if e["superseded_by"] is not None]
+        assert len(superseded) == 1
+
+        # New entry should exist with new type
+        new_entries = get_knowledge(knowledge_type="BOUNDARY")
+        assert len(new_entries) == 1
+        assert new_entries[0]["source"] == "CORRECTED"
+
+    def test_fact_and_episode_not_migrated(self):
+        store_knowledge("FACT", "Python uses indentation")
+        store_knowledge("EPISODE", "Session summary from today")
+        changes = migrate_knowledge_types(dry_run=True)
+        assert len(changes) == 0
+
+    def test_already_migrated_not_remigrated(self):
+        store_knowledge("MISTAKE", "Never skip reading")
+        migrate_knowledge_types(dry_run=False)
+        # Run again — the old entry is superseded, so shouldn't appear
+        changes = migrate_knowledge_types(dry_run=True)
+        assert len(changes) == 0

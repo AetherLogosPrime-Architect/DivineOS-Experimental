@@ -24,8 +24,6 @@ from divineos.ledger import (
 )
 from divineos.parser import parse_jsonl, parse_markdown_chat
 from divineos.fidelity import create_manifest, create_receipt, reconcile
-import divineos.expert_lenses as _lenses_mod
-import divineos.tree_of_life as _tree_mod
 import divineos.session_analyzer as _analyzer_mod
 from divineos.consolidation import (
     init_knowledge_table,
@@ -46,7 +44,21 @@ from divineos.consolidation import (
     knowledge_health_report,
     compute_effectiveness,
     clear_lessons,
+    migrate_knowledge_types,
     KNOWLEDGE_TYPES,
+)
+from divineos.memory import (
+    init_memory_tables,
+    set_core,
+    get_core,
+    clear_core,
+    format_core,
+    CORE_SLOTS,
+    promote_to_active,
+    get_active_memory,
+    refresh_active_memory,
+    recall,
+    format_recall,
 )
 from divineos.quality_checks import init_quality_tables, run_all_checks, store_report
 from divineos.session_features import (
@@ -71,11 +83,12 @@ def init():
     init_knowledge_table()
     init_quality_tables()
     init_feature_tables()
+    init_memory_tables()
     count = rebuild_fts_index()
     click.secho("[+] Database initialized successfully.", fg="green", bold=True)
-    click.secho("[+] All tables ready: ledger, knowledge, quality checks, session features.", fg="green")
+    click.secho("[+] All tables ready: ledger, knowledge, quality checks, session features, personal memory.", fg="green")
     if count > 0:
-        click.secho(f"[+] FTS5 search index rebuilt ({count} entries).", fg="green")
+        click.secho(f"[+] Full-text search search index rebuilt ({count} entries).", fg="green")
 
 
 @cli.command()
@@ -356,11 +369,17 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
     click.secho(f"\n=== {len(entries)} knowledge entries ===\n", fg="cyan", bold=True)
     for entry in entries:
         color = {
+            "BOUNDARY": "red",
+            "PRINCIPLE": "yellow",
+            "DIRECTION": "green",
+            "PROCEDURE": "cyan",
             "FACT": "blue",
+            "OBSERVATION": "bright_black",
+            "EPISODE": "cyan",
+            # Legacy
+            "MISTAKE": "red",
             "PATTERN": "magenta",
             "PREFERENCE": "green",
-            "MISTAKE": "red",
-            "EPISODE": "cyan",
         }.get(entry["knowledge_type"], "white")
         click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
         click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
@@ -428,10 +447,10 @@ def consolidate_stats_cmd():
 
 @cli.command("rebuild-index")
 def rebuild_index_cmd():
-    """Rebuild the FTS5 full-text search index from existing knowledge."""
+    """Rebuild the Full-text search full-text search index from existing knowledge."""
     count = rebuild_fts_index()
     if count > 0:
-        click.secho(f"[+] FTS5 index rebuilt: {count} entries indexed.", fg="green")
+        click.secho(f"[+] Full-text search index rebuilt: {count} entries indexed.", fg="green")
     else:
         click.secho("[*] No knowledge entries to index.", fg="yellow")
 
@@ -503,12 +522,11 @@ def consolidate_cmd(min_cluster: int):
 
 @cli.command("health")
 def health_cmd():
-    """Run knowledge health check — decay stale, boost confirmed, resolve old lessons."""
+    """Run knowledge health check — boost confirmed, escalate recurring, resolve old."""
     result = health_check()
 
     click.secho("\n=== Knowledge Health Check ===\n", fg="cyan", bold=True)
     click.secho(f"  Entries checked:        {result['total_checked']}", fg="white")
-    click.secho(f"  Stale entries decayed:  {result['stale_decayed']}", fg="yellow" if result["stale_decayed"] else "bright_black")
     click.secho(f"  Confirmed boosted:      {result['confirmed_boosted']}", fg="green" if result["confirmed_boosted"] else "bright_black")
     click.secho(f"  Recurring escalated:    {result['recurring_escalated']}", fg="red" if result["recurring_escalated"] else "bright_black")
     click.secho(f"  Lessons resolved:       {result['resolved_lessons']}", fg="green" if result["resolved_lessons"] else "bright_black")
@@ -520,89 +538,6 @@ def health_cmd():
         for status, count in sorted(report["by_status"].items()):
             click.secho(f"    {status:15s} {count}", fg="bright_black")
     click.echo()
-
-
-@cli.command("experts")
-def experts_cmd():
-    """List all available expert lenses."""
-    experts = _lenses_mod.list_experts()
-    click.secho(f"\n=== {len(experts)} Expert Lenses ===\n", fg="cyan", bold=True)
-    for expert in experts:
-        click.secho(f"  {expert.name}", fg="white", bold=True, nl=False)
-        click.secho(f" - {expert.domain}", fg="cyan")
-        click.secho(f"    {expert.description}", fg="bright_black")
-        click.echo()
-
-
-@cli.command("route")
-@click.argument("question")
-@click.option("--max", "max_experts", default=3, type=int, help="Max experts to suggest")
-def route_cmd(question: str, max_experts: int):
-    """Show which expert lenses are most relevant to a question."""
-    results = _lenses_mod.route(question, max_experts=max_experts)
-    click.secho("\n=== Expert Routing ===\n", fg="cyan", bold=True)
-    for expert, score in results:
-        bar_len = int(score * 20)
-        bar = "#" * bar_len + "." * (20 - bar_len)
-        click.secho(f"  [{bar}] ", fg="green", nl=False)
-        click.secho(f"{score:.3f} ", fg="bright_black", nl=False)
-        click.secho(f"{expert.display_name}", fg="white", bold=True, nl=False)
-        click.secho(f" ({expert.domain})", fg="cyan")
-    click.echo()
-
-
-@cli.command("lens")
-@click.argument("expert_name")
-@click.argument("question")
-def lens_cmd(expert_name: str, question: str):
-    """Generate a structured thinking framework for an expert applied to a question."""
-    try:
-        expert = _lenses_mod.get_expert(expert_name)
-    except KeyError as e:
-        click.secho(f"[-] {e}", fg="red")
-        return
-    prompt = _lenses_mod.generate_framework_prompt(expert, question)
-    click.echo(prompt)
-
-
-@cli.command("tree")
-def tree_cmd():
-    """Display the Tree of Life structure."""
-    click.echo()
-    click.echo(_tree_mod.render_tree())
-    click.echo()
-
-    click.secho("=== 11 Sephirot ===\n", fg="cyan", bold=True)
-    for seph in _tree_mod.list_sephirot():
-        pillar_color = {
-            _tree_mod.Pillar.RIGHT: "green",
-            _tree_mod.Pillar.LEFT: "red",
-            _tree_mod.Pillar.MIDDLE: "yellow",
-        }.get(seph.pillar, "white")
-        click.secho(
-            f"  {seph.position:2d}. {seph.hebrew_name}",
-            fg="white",
-            bold=True,
-            nl=False,
-        )
-        click.secho(f" ({seph.english_name})", fg="cyan", nl=False)
-        click.secho(f"  [{seph.pillar.value}]", fg=pillar_color)
-        click.secho(f"      {seph.description}", fg="bright_black")
-    click.echo()
-
-
-@cli.command("flow")
-@click.argument("question")
-@click.option(
-    "--depth",
-    default="full",
-    type=click.Choice(["full", "quick"]),
-    help="full=11 stages, quick=5 stages (Middle Pillar)",
-)
-def flow_cmd(question: str, depth: str):
-    """Generate a Tree of Life reasoning flow for a question."""
-    prompt = _tree_mod.generate_flow_prompt(question, depth=depth)
-    click.echo(prompt)
 
 
 @cli.command("sessions")
@@ -684,30 +619,38 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
         stored += len(deep_ids)
         click.secho(f"[+] Deep extraction: {len(deep_ids)} knowledge entries", fg="cyan")
     else:
-        # Legacy extraction (basic)
+        # Legacy extraction (basic) — uses new types
         for c in analysis.corrections:
+            lower = c.content.lower()
+            is_boundary = any(w in lower for w in ("never", "always", "must", "don't", "do not"))
             store_knowledge(
-                knowledge_type="MISTAKE",
-                content=f"User correction: {c.content[:300]}",
+                knowledge_type="BOUNDARY" if is_boundary else "PRINCIPLE",
+                content=c.content[:300],
                 confidence=0.8,
+                source="CORRECTED",
+                maturity="HYPOTHESIS",
                 tags=["session-analysis", "correction"],
             )
             stored += 1
 
         for e in analysis.encouragements:
             store_knowledge(
-                knowledge_type="PATTERN",
-                content=f"User praised: {e.content[:300]}",
+                knowledge_type="PRINCIPLE",
+                content=f"This approach works well: {e.content[:280]}",
                 confidence=0.9,
+                source="DEMONSTRATED",
+                maturity="TESTED",
                 tags=["session-analysis", "encouragement"],
             )
             stored += 1
 
         for d in analysis.decisions:
             store_knowledge(
-                knowledge_type="PREFERENCE",
-                content=f"User decided: {d.content[:300]}",
+                knowledge_type="DIRECTION",
+                content=d.content[:300],
                 confidence=0.9,
+                source="STATED",
+                maturity="CONFIRMED",
                 tags=["session-analysis", "decision"],
             )
             stored += 1
@@ -826,6 +769,191 @@ def patterns_cmd(limit: int):
     output = get_cross_session_summary(limit=limit)
     click.echo()
     click.echo(output)
+    click.echo()
+
+
+@cli.command("core")
+@click.argument("action", required=False, default="show")
+@click.argument("slot", required=False)
+@click.argument("content", required=False)
+def core_cmd(action: str, slot: str | None, content: str | None):
+    """Manage core memory slots.
+
+    \b
+    Usage:
+      divineos core              Show all core memory
+      divineos core set SLOT "text"  Set a slot
+      divineos core clear SLOT   Clear a slot
+      divineos core slots        List available slot names
+    """
+    init_memory_tables()
+
+    if action == "show":
+        text = format_core()
+        if text:
+            click.echo(text)
+        else:
+            click.secho("[-] No core memory set yet.", fg="yellow")
+            click.secho(f"    Available slots: {', '.join(CORE_SLOTS)}", fg="bright_black")
+
+    elif action == "slots":
+        click.secho("\n=== Core Memory Slots ===\n", fg="cyan", bold=True)
+        for s in CORE_SLOTS:
+            click.echo(f"  {s}")
+        click.echo()
+
+    elif action == "set":
+        if not slot or not content:
+            click.secho("[-] Usage: divineos core set <slot> \"<content>\"", fg="red")
+            return
+        try:
+            set_core(slot, content)
+            click.secho(f"[+] Core memory '{slot}' updated.", fg="green")
+        except ValueError as e:
+            click.secho(f"[-] {e}", fg="red")
+
+    elif action == "clear":
+        if not slot:
+            click.secho("[-] Usage: divineos core clear <slot>", fg="red")
+            return
+        try:
+            if clear_core(slot):
+                click.secho(f"[+] Cleared '{slot}'.", fg="green")
+            else:
+                click.secho(f"[*] '{slot}' was already empty.", fg="yellow")
+        except ValueError as e:
+            click.secho(f"[-] {e}", fg="red")
+
+    else:
+        click.secho(f"[-] Unknown action '{action}'. Use: show, set, clear, slots", fg="red")
+
+
+@cli.command("recall")
+@click.option("--topic", default="", help="Topic hint to boost relevant memories")
+def recall_cmd(topic: str):
+    """Show what the AI remembers right now — core + active + relevant."""
+    init_memory_tables()
+    result = recall(context_hint=topic)
+    text = format_recall(result)
+    click.echo(text)
+
+
+@cli.command("active")
+def active_cmd():
+    """List active memory ranked by importance."""
+    init_memory_tables()
+    items = get_active_memory()
+
+    if not items:
+        click.secho("[-] No active memory yet.", fg="yellow")
+        click.secho("    Run 'divineos refresh' to auto-build from knowledge store.", fg="bright_black")
+        return
+
+    click.secho(f"\n=== Active Memory ({len(items)} items) ===\n", fg="cyan", bold=True)
+    for item in items:
+        pin = click.style(" [pinned]", fg="yellow") if item["pinned"] else ""
+        color = {
+            "BOUNDARY": "red",
+            "PRINCIPLE": "yellow",
+            "DIRECTION": "green",
+            "PROCEDURE": "cyan",
+            "FACT": "blue",
+            "OBSERVATION": "bright_black",
+            "EPISODE": "cyan",
+            "MISTAKE": "red",
+            "PATTERN": "magenta",
+            "PREFERENCE": "green",
+        }.get(item["knowledge_type"], "white")
+        click.secho(f"  [{item['importance']:.2f}] ", fg="bright_black", nl=False)
+        click.secho(f"{item['knowledge_type']} ", fg=color, bold=True, nl=False)
+        click.echo(f"{item['content'][:100]}{pin}")
+        click.secho(
+            f"         reason: {item['reason']} | surfaced: {item['surface_count']}x",
+            fg="bright_black",
+        )
+        click.echo()
+
+
+@cli.command("remember")
+@click.argument("knowledge_id")
+@click.option("--reason", default="manually promoted", help="Why this is important")
+@click.option("--pin", is_flag=True, help="Pin this memory (cannot be auto-demoted)")
+def remember_cmd(knowledge_id: str, reason: str, pin: bool):
+    """Promote a knowledge entry to active memory."""
+    init_memory_tables()
+    try:
+        mid = promote_to_active(knowledge_id, reason=reason, pinned=pin)
+        pin_note = " [pinned]" if pin else ""
+        click.secho(f"[+] Promoted to active memory: {mid}{pin_note}", fg="green")
+    except Exception as e:
+        click.secho(f"[-] {e}", fg="red")
+
+
+@cli.command("refresh")
+@click.option("--threshold", default=0.3, type=float, help="Importance threshold (0.0-1.0)")
+def refresh_cmd(threshold: float):
+    """Auto-rebuild active memory from the knowledge store."""
+    init_memory_tables()
+    result = refresh_active_memory(importance_threshold=threshold)
+    click.secho("\n=== Memory Refresh ===\n", fg="cyan", bold=True)
+    click.secho(f"  Promoted:  {result['promoted']}", fg="green" if result["promoted"] else "bright_black")
+    click.secho(f"  Kept:      {result['kept']}", fg="white")
+    click.secho(f"  Demoted:   {result['demoted']}", fg="red" if result["demoted"] else "bright_black")
+    total = result["promoted"] + result["kept"]
+    click.secho(f"\n  Active memory: {total} items", fg="white", bold=True)
+    click.echo()
+
+
+@cli.command("migrate-types")
+@click.option("--execute", is_flag=True, help="Actually perform the migration (default is dry-run)")
+def migrate_types_cmd(execute: bool):
+    """Reclassify old knowledge types (MISTAKE/PATTERN/PREFERENCE) to new types."""
+    init_knowledge_table()
+    dry_run = not execute
+
+    if dry_run:
+        click.secho("\n=== Migration Preview (dry run) ===\n", fg="cyan", bold=True)
+    else:
+        click.secho("\n=== Migrating Knowledge Types ===\n", fg="yellow", bold=True)
+
+    changes = migrate_knowledge_types(dry_run=dry_run)
+
+    if not changes:
+        click.secho("  No entries to migrate.", fg="bright_black")
+        click.echo()
+        return
+
+    type_colors = {
+        "BOUNDARY": "red",
+        "PRINCIPLE": "yellow",
+        "DIRECTION": "green",
+        "PROCEDURE": "cyan",
+        "FACT": "white",
+        "OBSERVATION": "bright_black",
+        "EPISODE": "bright_black",
+    }
+
+    for change in changes:
+        old_color = "bright_black"
+        new_color = type_colors.get(change["new_type"], "white")
+        click.secho(f"  {change['old_type']}", fg=old_color, nl=False)
+        click.echo(" -> ", nl=False)
+        click.secho(f"{change['new_type']}", fg=new_color, nl=False)
+        click.secho(f"  {change['content'][:80]}", fg="bright_black")
+
+    click.echo()
+    # Summary
+    from collections import Counter
+    by_new = Counter(c["new_type"] for c in changes)
+    click.secho(f"  Total: {len(changes)} entries", fg="white", bold=True)
+    for new_type, count in sorted(by_new.items()):
+        color = type_colors.get(new_type, "white")
+        click.secho(f"    {new_type}: {count}", fg=color)
+
+    if dry_run:
+        click.secho("\n  Run with --execute to apply these changes.", fg="bright_black")
+    else:
+        click.secho(f"\n  Migrated {len(changes)} entries.", fg="green", bold=True)
     click.echo()
 
 
