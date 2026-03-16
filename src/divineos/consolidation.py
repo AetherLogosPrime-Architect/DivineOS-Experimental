@@ -18,7 +18,29 @@ from typing import Any, Optional
 
 import divineos.ledger as _ledger_mod
 
-KNOWLEDGE_TYPES = {"FACT", "PATTERN", "PREFERENCE", "MISTAKE", "EPISODE"}
+KNOWLEDGE_TYPES = {
+    # Core types
+    "FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION", "OBSERVATION", "EPISODE",
+    # Legacy types (still accepted, new code should not create these)
+    "PATTERN", "PREFERENCE", "MISTAKE",
+}
+
+KNOWLEDGE_SOURCES = {"STATED", "CORRECTED", "DEMONSTRATED", "SYNTHESIZED", "INHERITED"}
+
+KNOWLEDGE_MATURITY = {"RAW", "HYPOTHESIS", "TESTED", "CONFIRMED", "REVISED"}
+
+
+_KNOWLEDGE_COLS = (
+    "knowledge_id, created_at, updated_at, knowledge_type, content, "
+    "confidence, source_events, tags, access_count, superseded_by, content_hash, "
+    "source, maturity, corroboration_count, contradiction_count"
+)
+
+_KNOWLEDGE_COLS_K = (
+    "k.knowledge_id, k.created_at, k.updated_at, k.knowledge_type, k.content, "
+    "k.confidence, k.source_events, k.tags, k.access_count, k.superseded_by, k.content_hash, "
+    "k.source, k.maturity, k.corroboration_count, k.contradiction_count"
+)
 
 
 def compute_hash(content: str) -> str:
@@ -94,6 +116,20 @@ def init_knowledge_table() -> None:
             END
         """)
 
+        # Add new metadata columns (safe to run on existing databases)
+        for col, col_type, default in [
+            ("source", "TEXT", "'INHERITED'"),
+            ("maturity", "TEXT", "'RAW'"),
+            ("corroboration_count", "INTEGER", "0"),
+            ("contradiction_count", "INTEGER", "0"),
+        ]:
+            try:
+                conn.execute(
+                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} NOT NULL DEFAULT {default}"
+                )
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
         # Lesson tracking table — connects repeated mistakes across sessions
         conn.execute("""
             CREATE TABLE IF NOT EXISTS lesson_tracking (
@@ -129,6 +165,8 @@ def store_knowledge(
     confidence: float = 1.0,
     source_events: Optional[list[str]] = None,
     tags: Optional[list[str]] = None,
+    source: str = "STATED",
+    maturity: str = "RAW",
 ) -> str:
     """
     Store a piece of knowledge. Returns the knowledge_id.
@@ -164,7 +202,11 @@ def store_knowledge(
 
         knowledge_id = str(uuid.uuid4())
         conn.execute(
-            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+            """INSERT INTO knowledge
+               (knowledge_id, created_at, updated_at, knowledge_type, content,
+                confidence, source_events, tags, access_count, content_hash,
+                source, maturity)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
             (
                 knowledge_id,
                 now,
@@ -175,6 +217,8 @@ def store_knowledge(
                 sources_json,
                 tags_json,
                 content_hash,
+                source,
+                maturity,
             ),
         )
         conn.commit()
@@ -193,7 +237,7 @@ def get_knowledge(
     """Query knowledge with optional filters."""
     conn = _get_connection()
     try:
-        query = "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, superseded_by, content_hash FROM knowledge"
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge"
         conditions: list[str] = []
         params: list = []
 
@@ -232,9 +276,7 @@ def search_knowledge(query: str, limit: int = 50) -> list[dict]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            """SELECT k.knowledge_id, k.created_at, k.updated_at, k.knowledge_type,
-                      k.content, k.confidence, k.source_events, k.tags,
-                      k.access_count, k.superseded_by, k.content_hash
+            f"""SELECT {_KNOWLEDGE_COLS_K}
                FROM knowledge_fts fts
                JOIN knowledge k ON k.rowid = fts.rowid
                WHERE knowledge_fts MATCH ?
@@ -256,7 +298,7 @@ def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, superseded_by, content_hash FROM knowledge WHERE superseded_by IS NULL AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",
             (f"%{keyword}%", f"%{keyword}%", limit),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
@@ -391,7 +433,7 @@ def find_similar(content: str) -> list[dict]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, superseded_by, content_hash FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
             (content_hash,),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
@@ -420,7 +462,7 @@ def generate_briefing(
     """
     conn = _get_connection()
     try:
-        query = "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, superseded_by, content_hash FROM knowledge WHERE superseded_by IS NULL"
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL"
         params: list = []
 
         if include_types:
@@ -882,7 +924,7 @@ def _lesson_row_to_dict(row: tuple) -> dict:
 
 def _row_to_dict(row: tuple) -> dict:
     """Convert a knowledge table row to a dict."""
-    return {
+    d = {
         "knowledge_id": row[0],
         "created_at": row[1],
         "updated_at": row[2],
@@ -895,6 +937,18 @@ def _row_to_dict(row: tuple) -> dict:
         "superseded_by": row[9],
         "content_hash": row[10],
     }
+    # New columns (present after schema migration)
+    if len(row) > 11:
+        d["source"] = row[11]
+        d["maturity"] = row[12]
+        d["corroboration_count"] = int(row[13])
+        d["contradiction_count"] = int(row[14])
+    else:
+        d["source"] = "INHERITED"
+        d["maturity"] = "RAW"
+        d["corroboration_count"] = 0
+        d["contradiction_count"] = 0
+    return d
 
 
 # ─── Text Analysis Helpers ────────────────────────────────────────────
@@ -981,6 +1035,8 @@ def store_knowledge_smart(
     confidence: float = 1.0,
     source_events: Optional[list[str]] = None,
     tags: Optional[list[str]] = None,
+    source: str = "STATED",
+    maturity: str = "RAW",
 ) -> str:
     """Store knowledge with near-duplicate detection via FTS5.
 
@@ -1045,8 +1101,8 @@ def store_knowledge_smart(
             return str(existing[0])
 
         conn.execute(
-            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
-            (kid, now, now, knowledge_type, content, confidence, sources_json, tags_json, content_hash),
+            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, source, maturity, corroboration_count, contradiction_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0)",
+            (kid, now, now, knowledge_type, content, confidence, sources_json, tags_json, content_hash, source, maturity),
         )
         conn.commit()
         return kid

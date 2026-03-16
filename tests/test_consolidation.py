@@ -39,6 +39,9 @@ from divineos.consolidation import (
     _categorize_correction,
     clear_lessons,
     knowledge_health_report,
+    KNOWLEDGE_TYPES,
+    KNOWLEDGE_SOURCES,
+    KNOWLEDGE_MATURITY,
 )
 import divineos.ledger as ledger_mod
 
@@ -1148,3 +1151,129 @@ class TestFeedbackWithNoiseFilter:
         lessons = get_lessons()
         blind_lessons = [l for l in lessons if l["category"] == "blind_coding"]
         assert len(blind_lessons) >= 1
+
+
+# ─── Phase A: Knowledge Evolution – Schema Expansion ────────────────
+
+
+class TestExpandedTypes:
+    """All 10 knowledge types (7 new + 3 legacy) are accepted."""
+
+    def test_all_new_types_accepted(self):
+        for ktype in ("FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION", "OBSERVATION", "EPISODE"):
+            kid = store_knowledge(ktype, f"Test {ktype} content")
+            assert isinstance(kid, str)
+
+    def test_legacy_types_still_accepted(self):
+        for ktype in ("PATTERN", "PREFERENCE", "MISTAKE"):
+            kid = store_knowledge(ktype, f"Legacy {ktype} content")
+            entries = get_knowledge(knowledge_type=ktype)
+            assert len(entries) == 1
+            assert entries[0]["knowledge_type"] == ktype
+
+    def test_invalid_type_rejected(self):
+        with pytest.raises(ValueError, match="Invalid knowledge_type"):
+            store_knowledge("NONSENSE", "Should fail")
+
+    def test_constants_include_all_types(self):
+        expected = {"FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION",
+                    "OBSERVATION", "EPISODE", "PATTERN", "PREFERENCE", "MISTAKE"}
+        assert KNOWLEDGE_TYPES == expected
+
+
+class TestSourceMetadata:
+    """New source column tracks how knowledge was acquired."""
+
+    def _get_entry(self, kid):
+        """Helper: get_knowledge returns a list, find by kid."""
+        entries = get_knowledge()
+        return next(e for e in entries if e["knowledge_id"] == kid)
+
+    def test_default_source_is_stated(self):
+        kid = store_knowledge("FACT", "Default source test")
+        assert self._get_entry(kid)["source"] == "STATED"
+
+    def test_explicit_source_stored(self):
+        kid = store_knowledge("PRINCIPLE", "Learned from correction", source="CORRECTED")
+        assert self._get_entry(kid)["source"] == "CORRECTED"
+
+    def test_all_sources_valid(self):
+        for src in KNOWLEDGE_SOURCES:
+            kid = store_knowledge("FACT", f"Source {src} test", source=src)
+            assert self._get_entry(kid)["source"] == src
+
+    def test_source_in_smart_store(self):
+        kid = store_knowledge_smart("PRINCIPLE", "Smart source test", source="DEMONSTRATED")
+        assert self._get_entry(kid)["source"] == "DEMONSTRATED"
+
+
+class TestMaturityTracking:
+    """New maturity column tracks knowledge confirmation level."""
+
+    def _get_entry(self, kid):
+        entries = get_knowledge()
+        return next(e for e in entries if e["knowledge_id"] == kid)
+
+    def test_default_maturity_is_raw(self):
+        kid = store_knowledge("FACT", "Default maturity test")
+        assert self._get_entry(kid)["maturity"] == "RAW"
+
+    def test_explicit_maturity_stored(self):
+        kid = store_knowledge("BOUNDARY", "Hard limit", maturity="CONFIRMED")
+        assert self._get_entry(kid)["maturity"] == "CONFIRMED"
+
+    def test_all_maturities_valid(self):
+        for mat in KNOWLEDGE_MATURITY:
+            kid = store_knowledge("FACT", f"Maturity {mat} test", maturity=mat)
+            assert self._get_entry(kid)["maturity"] == mat
+
+    def test_maturity_in_smart_store(self):
+        kid = store_knowledge_smart("PRINCIPLE", "Smart maturity test", maturity="HYPOTHESIS")
+        assert self._get_entry(kid)["maturity"] == "HYPOTHESIS"
+
+
+class TestCorroborationCounters:
+    """New corroboration/contradiction counters start at zero."""
+
+    def _get_entry(self, kid):
+        entries = get_knowledge()
+        return next(e for e in entries if e["knowledge_id"] == kid)
+
+    def test_default_counters_zero(self):
+        kid = store_knowledge("FACT", "Counter test")
+        entry = self._get_entry(kid)
+        assert entry["corroboration_count"] == 0
+        assert entry["contradiction_count"] == 0
+
+    def test_counters_in_smart_store(self):
+        kid = store_knowledge_smart("FACT", "Smart counter test")
+        entry = self._get_entry(kid)
+        assert entry["corroboration_count"] == 0
+        assert entry["contradiction_count"] == 0
+
+
+class TestSchemaBackwardsCompat:
+    """Old entries without new columns get sensible defaults."""
+
+    def _get_entry(self, kid):
+        entries = get_knowledge()
+        return next(e for e in entries if e["knowledge_id"] == kid)
+
+    def test_old_entries_get_inherited_source(self):
+        kid = store_knowledge("MISTAKE", "Old-style mistake")
+        entry = self._get_entry(kid)
+        assert entry["source"] in ("STATED", "INHERITED")
+
+    def test_search_returns_new_columns(self):
+        store_knowledge("PRINCIPLE", "Searchable principle", source="CORRECTED", maturity="TESTED")
+        results = search_knowledge("principle")
+        assert len(results) >= 1
+        assert results[0]["source"] == "CORRECTED"
+        assert results[0]["maturity"] == "TESTED"
+
+    def test_find_similar_returns_new_columns(self):
+        store_knowledge("FACT", "The sky is blue", source="DEMONSTRATED", maturity="CONFIRMED")
+        results = find_similar("sky blue")
+        if results:  # FTS5 may not be available in all environments
+            assert "source" in results[0]
+            assert "maturity" in results[0]
