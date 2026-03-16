@@ -14,6 +14,7 @@ import sqlite3
 import time
 import uuid
 from collections import Counter
+from pathlib import Path
 from typing import Any, Optional
 
 import divineos.ledger as _ledger_mod
@@ -50,7 +51,14 @@ def compute_hash(content: str) -> str:
 
 def _get_connection() -> sqlite3.Connection:
     """Returns a connection to the ledger database."""
-    db_path = _ledger_mod.DB_PATH
+    import os
+    # Check environment variable each time to support test isolation
+    db_path = os.environ.get("DIVINEOS_DB")
+    if db_path:
+        db_path = Path(db_path)
+    else:
+        db_path = _ledger_mod.DB_PATH
+    
     db_path.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")

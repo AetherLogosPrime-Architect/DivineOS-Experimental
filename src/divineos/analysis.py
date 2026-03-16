@@ -179,7 +179,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
                     "content": payload.get('content', '')
                 }
             }
-        elif event_type == 'ASSISTANT':
+        elif event_type in ('ASSISTANT', 'ASSISTANT_OUTPUT'):
             msg = {
                 "type": "assistant",
                 "message": {
@@ -196,7 +196,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
                         "type": "tool_use",
                         "id": payload.get('tool_use_id', ''),
                         "name": payload.get('tool_name', ''),
-                        "input": payload.get('input', {})
+                        "input": payload.get('tool_input', {})
                     }]
                 }
             }
@@ -205,7 +205,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
                 "type": "tool",
                 "message": {
                     "tool_use_id": payload.get('tool_use_id', ''),
-                    "content": payload.get('content', '')
+                    "content": payload.get('result', '')
                 }
             }
         else:

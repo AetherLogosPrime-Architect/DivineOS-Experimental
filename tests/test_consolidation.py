@@ -51,7 +51,7 @@ import divineos.ledger as ledger_mod
 def clean_db(tmp_path, monkeypatch):
     """Use a temporary database for each test."""
     test_db = tmp_path / "test_ledger.db"
-    monkeypatch.setattr(ledger_mod, "DB_PATH", test_db)
+    monkeypatch.setenv("DIVINEOS_DB", str(test_db))
     init_db()
     init_knowledge_table()
     yield

@@ -1135,3 +1135,135 @@ def cross_session_cmd(limit: int):
     except Exception as e:
         click.secho(f"[-] Error during cross-session analysis: {e}", fg="red")
         logger.exception("Cross-session analysis failed")
+
+
+@cli.command("emit")
+@click.argument("event_type")
+@click.option("--content", default="", help="Content for USER_INPUT or ASSISTANT_OUTPUT")
+@click.option("--tool-name", default="", help="Tool name for TOOL_CALL or TOOL_RESULT")
+@click.option("--tool-input", default="{}", help="Tool input as JSON for TOOL_CALL")
+@click.option("--tool-use-id", default="", help="Tool use ID for TOOL_RESULT")
+@click.option("--result", default="", help="Result for TOOL_RESULT")
+@click.option("--duration-ms", default=0, type=int, help="Duration in ms for TOOL_RESULT")
+@click.option("--session-id", default="", help="Session ID for SESSION_END")
+@click.option("--message-count", default=0, type=int, help="Message count for SESSION_END")
+@click.option("--duration-seconds", default=0, type=float, help="Duration in seconds for SESSION_END")
+@click.option("--original", default="", help="Original content for CORRECTION")
+@click.option("--correction", default="", help="Correction text for CORRECTION")
+@click.option("--error-type", default="", help="Error type for ERROR")
+@click.option("--error-message", default="", help="Error message for ERROR")
+@click.option("--actor", default="system", help="Who triggered the event")
+def emit_cmd(
+    event_type: str,
+    content: str,
+    tool_name: str,
+    tool_input: str,
+    tool_use_id: str,
+    result: str,
+    duration_ms: int,
+    session_id: str,
+    message_count: int,
+    duration_seconds: float,
+    original: str,
+    correction: str,
+    error_type: str,
+    error_message: str,
+    actor: str,
+):
+    """Emit an event to the ledger.
+    
+    Supported event types:
+    - USER_INPUT: --content "message"
+    - ASSISTANT_OUTPUT: --content "response"
+    - TOOL_CALL: --tool-name X --tool-input '{"key": "value"}'
+    - TOOL_RESULT: --tool-name X --tool-use-id Y --result "..." --duration-ms N
+    - SESSION_END: --session-id X --message-count N --duration-seconds D
+    - CORRECTION: --original "..." --correction "..."
+    - ERROR: --error-type X --error-message "..."
+    """
+    from divineos.event_dispatcher import emit_event
+    import json
+    import sys
+    from datetime import datetime, timezone
+    
+    try:
+        # Build payload based on event type
+        payload: dict = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        
+        if event_type == "USER_INPUT":
+            if not content:
+                click.secho("[-] USER_INPUT requires --content", fg="red")
+                sys.exit(1)
+            payload["content"] = content
+            
+        elif event_type == "ASSISTANT_OUTPUT":
+            if not content:
+                click.secho("[-] ASSISTANT_OUTPUT requires --content", fg="red")
+                sys.exit(1)
+            payload["content"] = content
+            
+        elif event_type == "TOOL_CALL":
+            if not tool_name:
+                click.secho("[-] TOOL_CALL requires --tool-name", fg="red")
+                sys.exit(1)
+            payload["tool_name"] = tool_name
+            try:
+                payload["tool_input"] = json.loads(tool_input)
+            except json.JSONDecodeError:
+                click.secho(f"[-] Invalid JSON for --tool-input: {tool_input}", fg="red")
+                sys.exit(1)
+            if tool_use_id:
+                payload["tool_use_id"] = tool_use_id
+                
+        elif event_type == "TOOL_RESULT":
+            if not tool_name or not tool_use_id:
+                click.secho("[-] TOOL_RESULT requires --tool-name and --tool-use-id", fg="red")
+                sys.exit(1)
+            payload["tool_name"] = tool_name
+            payload["tool_use_id"] = tool_use_id
+            payload["result"] = result
+            if duration_ms > 0:
+                payload["duration_ms"] = duration_ms
+                
+        elif event_type == "SESSION_END":
+            if not session_id:
+                click.secho("[-] SESSION_END requires --session-id", fg="red")
+                sys.exit(1)
+            payload["session_id"] = session_id
+            if message_count > 0:
+                payload["message_count"] = message_count
+            if duration_seconds > 0:
+                payload["duration_seconds"] = duration_seconds
+                
+        elif event_type == "CORRECTION":
+            if not original or not correction:
+                click.secho("[-] CORRECTION requires --original and --correction", fg="red")
+                sys.exit(1)
+            payload["original_content"] = original
+            payload["correction_content"] = correction
+            
+        elif event_type == "ERROR":
+            if not error_type or not error_message:
+                click.secho("[-] ERROR requires --error-type and --error-message", fg="red")
+                sys.exit(1)
+            payload["error_type"] = error_type
+            payload["error_message"] = error_message
+            
+        else:
+            # Generic event type
+            if content:
+                payload["content"] = content
+        
+        # Emit the event
+        event_id = emit_event(event_type, payload, actor=actor)
+        
+        click.secho(f"[+] Event emitted: {event_type}", fg="green")
+        click.secho(f"    Event ID: {event_id}", fg="cyan")
+        click.secho(f"    Payload: {json.dumps(payload, indent=2)}", fg="cyan")
+        
+    except Exception as e:
+        click.secho(f"[-] Error emitting event: {e}", fg="red")
+        logger.exception("Event emission failed")
+        sys.exit(1)

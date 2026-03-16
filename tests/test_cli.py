@@ -10,7 +10,7 @@ import divineos.ledger as ledger_mod
 def clean_db(tmp_path, monkeypatch):
     """Use a temporary database for each test."""
     test_db = tmp_path / "test_ledger.db"
-    monkeypatch.setattr(ledger_mod, "DB_PATH", test_db)
+    monkeypatch.setenv("DIVINEOS_DB", str(test_db))
     yield
 
 
@@ -229,3 +229,141 @@ class TestScanCmd:
         result = runner.invoke(cli, ["scan", "--store", str(session_file)])
         assert result.exit_code == 0
         assert "Stored" in result.output
+
+
+class TestEmitCmd:
+    """Test the emit command for event capture."""
+
+    def test_emit_user_input(self, runner):
+        """Test emitting a USER_INPUT event via CLI."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(
+            cli, ["emit", "USER_INPUT", "--content", "How should I structure this?"]
+        )
+        assert result.exit_code == 0
+        assert "Event emitted: USER_INPUT" in result.output
+        
+        # Verify event was logged
+        list_result = runner.invoke(cli, ["list"])
+        assert "How should I structure this?" in list_result.output
+
+    def test_emit_assistant_output(self, runner):
+        """Test emitting an ASSISTANT_OUTPUT event via CLI."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(
+            cli, ["emit", "ASSISTANT_OUTPUT", "--content", "I'd recommend organizing by responsibility."]
+        )
+        assert result.exit_code == 0
+        assert "Event emitted: ASSISTANT_OUTPUT" in result.output
+        
+        # Verify event was logged
+        list_result = runner.invoke(cli, ["list"])
+        assert "responsibility" in list_result.output
+
+    def test_emit_tool_call(self, runner):
+        """Test emitting a TOOL_CALL event via CLI."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(
+            cli, [
+                "emit", "TOOL_CALL",
+                "--tool-name", "readFile",
+                "--tool-input", '{"path": "src/main.py"}',
+                "--tool-use-id", "tool_123"
+            ]
+        )
+        assert result.exit_code == 0
+        assert "Event emitted: TOOL_CALL" in result.output
+        
+        # Verify event was logged
+        list_result = runner.invoke(cli, ["list"])
+        assert "readFile" in list_result.output
+
+    def test_emit_tool_result(self, runner):
+        """Test emitting a TOOL_RESULT event via CLI."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(
+            cli, [
+                "emit", "TOOL_RESULT",
+                "--tool-name", "readFile",
+                "--tool-use-id", "tool_123",
+                "--result", "def main(): pass",
+                "--duration-ms", "45"
+            ]
+        )
+        assert result.exit_code == 0
+        assert "Event emitted: TOOL_RESULT" in result.output
+        
+        # Verify event was logged
+        list_result = runner.invoke(cli, ["list"])
+        assert "def main" in list_result.output
+
+    def test_emit_session_end(self, runner):
+        """Test emitting a SESSION_END event via CLI."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(
+            cli, [
+                "emit", "SESSION_END",
+                "--session-id", "test_session_123",
+                "--message-count", "15",
+                "--duration-seconds", "300"
+            ]
+        )
+        assert result.exit_code == 0
+        assert "Event emitted: SESSION_END" in result.output
+        
+        # Verify event was logged
+        list_result = runner.invoke(cli, ["list"])
+        assert "test_session_123" in list_result.output
+
+    def test_emit_user_input_missing_content(self, runner):
+        """Test that USER_INPUT without content fails."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["emit", "USER_INPUT"])
+        assert result.exit_code != 0
+        assert "requires --content" in result.output
+
+    def test_emit_tool_call_missing_tool_name(self, runner):
+        """Test that TOOL_CALL without tool-name fails."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(
+            cli, ["emit", "TOOL_CALL", "--tool-input", '{}']
+        )
+        assert result.exit_code != 0
+        assert "requires --tool-name" in result.output
+
+    def test_emit_tool_result_missing_tool_use_id(self, runner):
+        """Test that TOOL_RESULT without tool-use-id fails."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(
+            cli, [
+                "emit", "TOOL_RESULT",
+                "--tool-name", "readFile",
+                "--result", "content"
+            ]
+        )
+        assert result.exit_code != 0
+        assert "requires --tool-name and --tool-use-id" in result.output
+
+    def test_emit_session_end_missing_session_id(self, runner):
+        """Test that SESSION_END without session-id fails."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(
+            cli, ["emit", "SESSION_END", "--message-count", "10"]
+        )
+        assert result.exit_code != 0
+        assert "requires --session-id" in result.output
+
+    def test_emit_events_appear_in_ledger(self, runner):
+        """Test that emitted events appear in the ledger."""
+        runner.invoke(cli, ["init"])
+        
+        # Emit multiple events
+        runner.invoke(cli, ["emit", "USER_INPUT", "--content", "test message"])
+        runner.invoke(cli, ["emit", "ASSISTANT_OUTPUT", "--content", "test response"])
+        runner.invoke(cli, ["emit", "TOOL_CALL", "--tool-name", "test", "--tool-input", "{}"])
+        
+        # Verify all events are in ledger
+        result = runner.invoke(cli, ["list"])
+        assert "test message" in result.output
+        assert "test response" in result.output
+        assert "test" in result.output

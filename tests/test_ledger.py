@@ -17,10 +17,8 @@ from divineos.ledger import (
 @pytest.fixture(autouse=True)
 def clean_db(tmp_path, monkeypatch):
     """Use a temporary database for each test."""
-    import divineos.ledger as ledger_mod
-
     test_db = tmp_path / "test_ledger.db"
-    monkeypatch.setattr(ledger_mod, "DB_PATH", test_db)
+    monkeypatch.setenv("DIVINEOS_DB", str(test_db))
     init_db()
     yield
     if test_db.exists():

@@ -39,7 +39,16 @@ logger.add(
 )
 
 
-DB_PATH = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
+def _get_db_path() -> Path:
+    """Get the database path, respecting DIVINEOS_DB environment variable."""
+    import os
+    env_path = os.environ.get("DIVINEOS_DB")
+    if env_path:
+        return Path(env_path)
+    return Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
+
+
+DB_PATH = _get_db_path()
 
 
 def compute_hash(content: str) -> str:
@@ -49,8 +58,16 @@ def compute_hash(content: str) -> str:
 
 def _get_connection() -> sqlite3.Connection:
     """Returns a connection to the ledger database."""
-    DB_PATH.parent.mkdir(exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    import os
+    # Check environment variable each time to support test isolation
+    db_path = os.environ.get("DIVINEOS_DB")
+    if db_path:
+        db_path = Path(db_path)
+    else:
+        db_path = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
+    
+    db_path.parent.mkdir(exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
