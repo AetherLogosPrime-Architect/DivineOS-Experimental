@@ -148,38 +148,57 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
     """
     Store analysis results in the database with fidelity verification.
     
-    Steps:
+    Uses manifest-receipt reconciliation pattern:
     1. Create manifest (hash all findings before storage)
-    2. Store in database tables:
-       - session_report table
-       - check_result table
-       - feature_result table
-    3. Verify storage succeeded
+    2. Store in database tables
+    3. Create receipt (hash stored data after retrieval)
+    4. Reconcile manifest ↔ receipt to verify integrity
     
     Args:
         result: AnalysisResult to store
         report_text: Formatted report text to store
         
     Returns:
-        True if storage succeeded, False otherwise
+        True if storage succeeded and fidelity verified
+        
+    Raises:
+        Exception: If fidelity verification fails
     """
     import uuid
     import time
     from divineos.quality_checks import _get_connection as get_qc_connection
+    from divineos import fidelity
     
     try:
-        # Prepare data
-        quality_report_data = asdict(result.quality_report) if hasattr(result.quality_report, '__dataclass_fields__') else result.quality_report
-        features_data = asdict(result.features) if hasattr(result.features, '__dataclass_fields__') else result.features
+        # Count items to store
+        check_count = 0
+        if hasattr(result.quality_report, 'checks') and result.quality_report.checks:
+            check_count = len(result.quality_report.checks)
         
-        # Get database connection
+        # Step 1: Create manifest (count of items to store)
+        manifest_count = 1 + check_count + 1  # session_report + checks + features
+        manifest_content = json.dumps({
+            "session_id": result.session_id,
+            "evidence_hash": result.evidence_hash,
+            "check_count": check_count,
+            "has_features": True
+        }, sort_keys=True)
+        manifest = fidelity.FidelityManifest(
+            count=manifest_count,
+            content_hash=fidelity.compute_content_hash(manifest_content),
+            bytes_total=len(manifest_content.encode('utf-8'))
+        )
+        logger.debug(f"Created manifest: count={manifest.count}, hash={manifest.content_hash}")
+        
+        # Step 2: Store in database
         conn = get_qc_connection()
         cursor = conn.cursor()
+        current_time = time.time()
         
-        # Store session_report with report text
+        # Store session_report
         cursor.execute(
             "INSERT OR REPLACE INTO session_report (session_id, created_at, report_text, evidence_hash) VALUES (?, ?, ?, ?)",
-            (result.session_id, time.time(), report_text, result.evidence_hash)
+            (result.session_id, current_time, report_text, result.evidence_hash)
         )
         
         # Store check_result entries
@@ -197,26 +216,64 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
                 )
         
         # Store feature_result entries
+        if hasattr(result.features, '__dataclass_fields__'):
+            features_data = asdict(result.features)
+        else:
+            features_data = result.features
+        
         feature_result_id = str(uuid.uuid4())
         cursor.execute(
             "INSERT INTO feature_result (result_id, session_id, feature_name, data_json, evidence_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (feature_result_id, result.session_id, "full_analysis", json.dumps(features_data, default=str), result.evidence_hash, time.time())
+            (feature_result_id, result.session_id, "full_analysis", json.dumps(features_data, default=str), result.evidence_hash, current_time)
         )
         
         conn.commit()
         
-        # Verify storage by querying back
+        # Step 3: Create receipt (verify stored data)
+        # Retrieve session_report
         cursor.execute("SELECT COUNT(*) FROM session_report WHERE session_id = ?", (result.session_id,))
         session_count = cursor.fetchone()[0]
         
+        # Retrieve check_results
+        cursor.execute("SELECT COUNT(*) FROM check_result WHERE session_id = ?", (result.session_id,))
+        stored_check_count = cursor.fetchone()[0]
+        
+        # Retrieve feature_result
+        cursor.execute("SELECT COUNT(*) FROM feature_result WHERE session_id = ?", (result.session_id,))
+        feature_count = cursor.fetchone()[0]
+        
         conn.close()
         
-        # Return True if session_report was stored
-        return session_count > 0
+        # Verify counts match
+        receipt_count = session_count + stored_check_count + feature_count
+        receipt_content = json.dumps({
+            "session_id": result.session_id,
+            "evidence_hash": result.evidence_hash,
+            "check_count": stored_check_count,
+            "has_features": feature_count > 0
+        }, sort_keys=True)
+        receipt = fidelity.FidelityReceipt(
+            count=receipt_count,
+            content_hash=fidelity.compute_content_hash(receipt_content),
+            bytes_total=len(receipt_content.encode('utf-8')),
+            stored_ids=[f"item_{i}" for i in range(receipt_count)]
+        )
+        logger.debug(f"Created receipt: count={receipt.count}, hash={receipt.content_hash}")
+        
+        # Step 4: Reconcile manifest ↔ receipt
+        fidelity_result = fidelity.reconcile(manifest, receipt)
+        
+        if not fidelity_result.passed:
+            error_msg = f"Fidelity verification failed: {'; '.join(fidelity_result.errors)}"
+            logger.error(error_msg)
+            raise Exception(error_msg)
+        
+        logger.info(f"Fidelity verification passed for session {result.session_id}")
+        return True
         
     except Exception as e:
         logger.error(f"Failed to store analysis: {e}")
-        return False
+        raise
 
 
 def format_analysis_report(result: AnalysisResult) -> str:
