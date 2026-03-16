@@ -968,12 +968,13 @@ def analyze_cmd(file_path: str):
         
         # Store in database
         click.secho("[+] Storing analysis in database...", fg="cyan")
-        stored = store_analysis(result, report)
-        
-        if stored:
-            click.secho("[+] Analysis stored successfully.", fg="green")
-        else:
-            click.secho("[!] Warning: Analysis storage verification failed.", fg="yellow")
+        try:
+            stored = store_analysis(result, report)
+            if stored:
+                click.secho("[+] Analysis stored successfully.", fg="green")
+        except Exception as e:
+            click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
+            logger.warning(f"Storage failed: {e}")
         
         # Save report to file
         report_file = save_analysis_report(result, report)
@@ -999,6 +1000,7 @@ def report_cmd(session_id: str):
     If no session_id provided, shows list of recent sessions.
     """
     from divineos.analysis import get_stored_report, list_recent_sessions
+    from datetime import datetime
     
     try:
         if not session_id:
@@ -1014,8 +1016,15 @@ def report_cmd(session_id: str):
             click.secho("\n=== Recent Sessions ===\n", fg="cyan", bold=True)
             for i, session in enumerate(sessions, 1):
                 click.secho(f"  {i}. {session['session_id']}", fg="white", bold=True)
-                click.secho(f"     File: {session['file_path']}", fg="bright_black")
-                click.secho(f"     Time: {session['timestamp']}", fg="bright_black")
+                
+                # Format timestamp
+                try:
+                    ts = datetime.fromtimestamp(session['created_at']).strftime("%Y-%m-%d %H:%M:%S")
+                    click.secho(f"     Time: {ts}", fg="bright_black")
+                except:
+                    click.secho(f"     Time: {session['created_at']}", fg="bright_black")
+                
+                click.secho(f"     Files: {session['file_count']}", fg="bright_black")
                 click.echo()
             
             click.secho("Usage: divineos report <session_id>", fg="bright_black")
