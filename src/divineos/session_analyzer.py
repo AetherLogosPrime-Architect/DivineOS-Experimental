@@ -84,6 +84,22 @@ FRUSTRATION_PATTERNS: tuple[str, ...] = (
     r"\bi told you\b",
 )
 
+PREFERENCE_PATTERNS: tuple[str, ...] = (
+    r"\bi prefer\b",
+    r"\bi like (?:it )?when\b",
+    r"\balways (\w+)",
+    r"\bnever (\w+)",
+    r"\bmake sure (?:to |you )\b",
+    r"\bexplain.+?(?:like|as if)\b",
+    r"\bkeep it\b",
+    r"\bplain english\b",
+    r"\bno jargon\b",
+    r"\bbreak it down\b",
+    r"\bdon'?t.+?jargon\b",
+    r"\blike i'?m (?:dumb|stupid|5|five|new)\b",
+    r"\bsimple\b.*\bplease\b",
+)
+
 
 @dataclass
 class UserSignal:
@@ -151,6 +167,7 @@ class SessionAnalysis:
     encouragements: list[UserSignal] = field(default_factory=list)
     decisions: list[UserSignal] = field(default_factory=list)
     frustrations: list[UserSignal] = field(default_factory=list)
+    preferences: list[UserSignal] = field(default_factory=list)
 
     # Tool patterns
     tool_usage: dict[str, int] = field(default_factory=dict)
@@ -198,6 +215,7 @@ class SessionAnalysis:
         lines.append(f"  Encouragements: {len(self.encouragements)}  (AI did well)")
         lines.append(f"  Decisions:      {len(self.decisions)}  (user chose direction)")
         lines.append(f"  Frustrations:   {len(self.frustrations)}  (user got impatient)")
+        lines.append(f"  Preferences:    {len(self.preferences)}  (user stated preference)")
         lines.append("")
 
         # Top tools
@@ -244,11 +262,13 @@ class SessionAnalysis:
             "encouragements": len(self.encouragements),
             "decisions": len(self.decisions),
             "frustrations": len(self.frustrations),
+            "preferences": len(self.preferences),
             "tool_usage": self.tool_usage,
             "context_overflows": len(self.context_overflows),
             "correction_texts": [c.content[:200] for c in self.corrections],
             "encouragement_texts": [e.content[:200] for e in self.encouragements],
             "decision_texts": [d.content[:200] for d in self.decisions],
+            "preference_texts": [p.content[:200] for p in self.preferences],
         }
 
 
@@ -409,6 +429,10 @@ def _process_user_record(record: dict[str, Any], analysis: SessionAnalysis) -> N
     if frustration:
         analysis.frustrations.append(frustration)
 
+    preference = _detect_signals(text, PREFERENCE_PATTERNS, "preference", timestamp)
+    if preference:
+        analysis.preferences.append(preference)
+
 
 def _process_assistant_record(record: dict[str, Any], analysis: SessionAnalysis) -> None:
     """Process an assistant record for tool usage and model info."""
@@ -518,6 +542,7 @@ def aggregate_analyses(analyses: list[SessionAnalysis]) -> dict[str, Any]:
     total_encouragements = sum(len(a.encouragements) for a in analyses)
     total_decisions = sum(len(a.decisions) for a in analyses)
     total_frustrations = sum(len(a.frustrations) for a in analyses)
+    total_preferences = sum(len(a.preferences) for a in analyses)
     total_tool_calls = sum(a.tool_calls_total for a in analyses)
     total_overflows = sum(len(a.context_overflows) for a in analyses)
     total_duration = sum(a.duration_seconds for a in analyses)
@@ -554,6 +579,7 @@ def aggregate_analyses(analyses: list[SessionAnalysis]) -> dict[str, Any]:
         "encouragements": total_encouragements,
         "decisions": total_decisions,
         "frustrations": total_frustrations,
+        "preferences": total_preferences,
         "tool_usage": dict(sorted(combined_tools.items(), key=lambda x: x[1], reverse=True)),
         "models_used": combined_models,
         "correction_texts": all_corrections,

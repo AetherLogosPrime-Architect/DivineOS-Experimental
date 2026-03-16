@@ -24,6 +24,8 @@ from divineos.ledger import (
 )
 from divineos.parser import parse_jsonl, parse_markdown_chat
 from divineos.fidelity import create_manifest, create_receipt, reconcile
+import divineos.expert_lenses as _lenses_mod
+import divineos.tree_of_life as _tree_mod
 import divineos.session_analyzer as _analyzer_mod
 from divineos.consolidation import (
     init_knowledge_table,
@@ -32,6 +34,18 @@ from divineos.consolidation import (
     update_knowledge,
     generate_briefing,
     knowledge_stats,
+    rebuild_fts_index,
+    get_lesson_summary,
+    get_lessons,
+    extract_lessons_from_report,
+    check_recurring_lessons,
+    deep_extract_knowledge,
+    consolidate_related,
+    apply_session_feedback,
+    health_check,
+    knowledge_health_report,
+    compute_effectiveness,
+    clear_lessons,
     KNOWLEDGE_TYPES,
 )
 from divineos.quality_checks import init_quality_tables, run_all_checks, store_report
@@ -57,8 +71,11 @@ def init():
     init_knowledge_table()
     init_quality_tables()
     init_feature_tables()
+    count = rebuild_fts_index()
     click.secho("[+] Database initialized successfully.", fg="green", bold=True)
     click.secho("[+] All tables ready: ledger, knowledge, quality checks, session features.", fg="green")
+    if count > 0:
+        click.secho(f"[+] FTS5 search index rebuilt ({count} entries).", fg="green")
 
 
 @cli.command()
@@ -360,10 +377,11 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
 @cli.command("briefing")
 @click.option("--max", "max_items", default=20, type=int, help="Max items in briefing")
 @click.option("--types", default="", help="Comma-separated knowledge types to include")
-def briefing_cmd(max_items: int, types: str):
+@click.option("--topic", default="", help="Topic hint to boost relevant knowledge (e.g. 'testing')")
+def briefing_cmd(max_items: int, types: str, topic: str):
     """Generate a session context briefing from stored knowledge."""
     type_list = [t.strip().upper() for t in types.split(",") if t.strip()] if types else None
-    output = generate_briefing(max_items=max_items, include_types=type_list)
+    output = generate_briefing(max_items=max_items, include_types=type_list, context_hint=topic)
     click.echo(output)
 
 
@@ -398,9 +416,193 @@ def consolidate_stats_cmd():
         for item in stats["most_accessed"][:5]:
             click.echo(f"    [{item['access_count']}x] {item['content'][:60]}")
 
+    # Effectiveness breakdown
+    report = knowledge_health_report()
+    if report["total"] > 0:
+        click.secho("\n  Effectiveness:", fg="cyan")
+        for status, count in sorted(report["by_status"].items()):
+            click.echo(f"    {status:15s} {count}")
+
     click.echo()
 
 
+@cli.command("rebuild-index")
+def rebuild_index_cmd():
+    """Rebuild the FTS5 full-text search index from existing knowledge."""
+    count = rebuild_fts_index()
+    if count > 0:
+        click.secho(f"[+] FTS5 index rebuilt: {count} entries indexed.", fg="green")
+    else:
+        click.secho("[*] No knowledge entries to index.", fg="yellow")
+
+
+@cli.command("lessons")
+@click.option("--status", default=None, type=click.Choice(["active", "improving", "resolved"]),
+              help="Filter by lesson status")
+def lessons_cmd(status: str):
+    """Show the learning loop — tracked lessons from past sessions."""
+    lessons = get_lessons(status=status)
+
+    if not lessons:
+        click.secho("[-] No lessons tracked yet.", fg="yellow")
+        click.secho("    Run 'divineos report <session.jsonl> --store' to start learning.", fg="bright_black")
+        return
+
+    summary = get_lesson_summary()
+    click.echo()
+    click.echo(summary)
+    click.echo()
+
+    # Show details
+    click.secho("=== Lesson Details ===\n", fg="cyan", bold=True)
+    for lesson in lessons:
+        status_color = {
+            "active": "red",
+            "improving": "yellow",
+            "resolved": "green",
+        }.get(lesson["status"], "white")
+
+        click.secho(f"  {lesson['status'].upper()} ", fg=status_color, bold=True, nl=False)
+        click.secho(f"({lesson['occurrences']}x) ", fg="bright_black", nl=False)
+        click.echo(lesson["description"][:80])
+        click.secho(
+            f"         category: {lesson['category']} | sessions: {len(lesson['sessions'])}",
+            fg="bright_black",
+        )
+        click.echo()
+
+
+@cli.command("clear-lessons")
+def clear_lessons_cmd():
+    """Wipe all lessons from lesson_tracking (for re-extraction after fixes)."""
+    count = clear_lessons()
+    if count:
+        click.secho(f"[+] Cleared {count} lessons.", fg="green")
+    else:
+        click.secho("[*] No lessons to clear.", fg="yellow")
+
+
+@cli.command("consolidate")
+@click.option("--min-cluster", default=3, type=int, help="Minimum entries to form a cluster")
+def consolidate_cmd(min_cluster: int):
+    """Merge related knowledge entries into consolidated ones."""
+    merges = consolidate_related(min_cluster_size=min_cluster)
+
+    if not merges:
+        click.secho("[*] No clusters found to consolidate.", fg="yellow")
+        click.secho("    Need at least 3 similar entries of the same type.", fg="bright_black")
+        return
+
+    click.secho(f"\n[+] Consolidated {len(merges)} clusters:\n", fg="green", bold=True)
+    for merge in merges:
+        click.secho(f"  {merge['type']} ", fg="cyan", bold=True, nl=False)
+        click.secho(f"({merge['merged_count']} entries merged) ", fg="bright_black", nl=False)
+        click.echo(merge["content"])
+    click.echo()
+
+
+@cli.command("health")
+def health_cmd():
+    """Run knowledge health check — decay stale, boost confirmed, resolve old lessons."""
+    result = health_check()
+
+    click.secho("\n=== Knowledge Health Check ===\n", fg="cyan", bold=True)
+    click.secho(f"  Entries checked:        {result['total_checked']}", fg="white")
+    click.secho(f"  Stale entries decayed:  {result['stale_decayed']}", fg="yellow" if result["stale_decayed"] else "bright_black")
+    click.secho(f"  Confirmed boosted:      {result['confirmed_boosted']}", fg="green" if result["confirmed_boosted"] else "bright_black")
+    click.secho(f"  Recurring escalated:    {result['recurring_escalated']}", fg="red" if result["recurring_escalated"] else "bright_black")
+    click.secho(f"  Lessons resolved:       {result['resolved_lessons']}", fg="green" if result["resolved_lessons"] else "bright_black")
+
+    # Show effectiveness breakdown
+    report = knowledge_health_report()
+    if report["total"] > 0:
+        click.secho(f"\n  Effectiveness breakdown:", fg="white")
+        for status, count in sorted(report["by_status"].items()):
+            click.secho(f"    {status:15s} {count}", fg="bright_black")
+    click.echo()
+
+
+@cli.command("experts")
+def experts_cmd():
+    """List all available expert lenses."""
+    experts = _lenses_mod.list_experts()
+    click.secho(f"\n=== {len(experts)} Expert Lenses ===\n", fg="cyan", bold=True)
+    for expert in experts:
+        click.secho(f"  {expert.name}", fg="white", bold=True, nl=False)
+        click.secho(f" - {expert.domain}", fg="cyan")
+        click.secho(f"    {expert.description}", fg="bright_black")
+        click.echo()
+
+
+@cli.command("route")
+@click.argument("question")
+@click.option("--max", "max_experts", default=3, type=int, help="Max experts to suggest")
+def route_cmd(question: str, max_experts: int):
+    """Show which expert lenses are most relevant to a question."""
+    results = _lenses_mod.route(question, max_experts=max_experts)
+    click.secho("\n=== Expert Routing ===\n", fg="cyan", bold=True)
+    for expert, score in results:
+        bar_len = int(score * 20)
+        bar = "#" * bar_len + "." * (20 - bar_len)
+        click.secho(f"  [{bar}] ", fg="green", nl=False)
+        click.secho(f"{score:.3f} ", fg="bright_black", nl=False)
+        click.secho(f"{expert.display_name}", fg="white", bold=True, nl=False)
+        click.secho(f" ({expert.domain})", fg="cyan")
+    click.echo()
+
+
+@cli.command("lens")
+@click.argument("expert_name")
+@click.argument("question")
+def lens_cmd(expert_name: str, question: str):
+    """Generate a structured thinking framework for an expert applied to a question."""
+    try:
+        expert = _lenses_mod.get_expert(expert_name)
+    except KeyError as e:
+        click.secho(f"[-] {e}", fg="red")
+        return
+    prompt = _lenses_mod.generate_framework_prompt(expert, question)
+    click.echo(prompt)
+
+
+@cli.command("tree")
+def tree_cmd():
+    """Display the Tree of Life structure."""
+    click.echo()
+    click.echo(_tree_mod.render_tree())
+    click.echo()
+
+    click.secho("=== 11 Sephirot ===\n", fg="cyan", bold=True)
+    for seph in _tree_mod.list_sephirot():
+        pillar_color = {
+            _tree_mod.Pillar.RIGHT: "green",
+            _tree_mod.Pillar.LEFT: "red",
+            _tree_mod.Pillar.MIDDLE: "yellow",
+        }.get(seph.pillar, "white")
+        click.secho(
+            f"  {seph.position:2d}. {seph.hebrew_name}",
+            fg="white",
+            bold=True,
+            nl=False,
+        )
+        click.secho(f" ({seph.english_name})", fg="cyan", nl=False)
+        click.secho(f"  [{seph.pillar.value}]", fg=pillar_color)
+        click.secho(f"      {seph.description}", fg="bright_black")
+    click.echo()
+
+
+@cli.command("flow")
+@click.argument("question")
+@click.option(
+    "--depth",
+    default="full",
+    type=click.Choice(["full", "quick"]),
+    help="full=11 stages, quick=5 stages (Middle Pillar)",
+)
+def flow_cmd(question: str, depth: str):
+    """Generate a Tree of Life reasoning flow for a question."""
+    prompt = _tree_mod.generate_flow_prompt(question, depth=depth)
+    click.echo(prompt)
 
 
 @cli.command("sessions")
@@ -461,7 +663,8 @@ def analyze_cmd(file_path: str | None, analyze_all: bool):
 @cli.command("scan")
 @click.argument("file_path", type=click.Path(exists=True))
 @click.option("--store/--no-store", default=False, help="Store findings in knowledge DB")
-def scan_cmd(file_path: str, store: bool):
+@click.option("--deep/--no-deep", default=True, help="Use deep extraction (correction pairs, preferences, topics)")
+def scan_cmd(file_path: str, store: bool, deep: bool):
     """Deep-scan a session and extract knowledge into the consolidation store."""
     path = Path(file_path)
     analysis = _analyzer_mod.analyze_session(path)
@@ -472,38 +675,44 @@ def scan_cmd(file_path: str, store: bool):
         click.secho("  (Use --store to save findings to knowledge DB)", fg="bright_black")
         return
 
-    # Store corrections as MISTAKE knowledge
     stored = 0
-    for c in analysis.corrections:
-        store_knowledge(
-            knowledge_type="MISTAKE",
-            content=f"User correction: {c.content[:300]}",
-            confidence=0.8,
-            tags=["session-analysis", "correction"],
-        )
-        stored += 1
 
-    # Store encouragements as PATTERN knowledge
-    for e in analysis.encouragements:
-        store_knowledge(
-            knowledge_type="PATTERN",
-            content=f"User praised: {e.content[:300]}",
-            confidence=0.9,
-            tags=["session-analysis", "encouragement"],
-        )
-        stored += 1
+    if deep:
+        # Deep extraction: correction pairs, preferences, decisions with context, topics
+        records = _analyzer_mod._load_records(path)
+        deep_ids = deep_extract_knowledge(analysis, records)
+        stored += len(deep_ids)
+        click.secho(f"[+] Deep extraction: {len(deep_ids)} knowledge entries", fg="cyan")
+    else:
+        # Legacy extraction (basic)
+        for c in analysis.corrections:
+            store_knowledge(
+                knowledge_type="MISTAKE",
+                content=f"User correction: {c.content[:300]}",
+                confidence=0.8,
+                tags=["session-analysis", "correction"],
+            )
+            stored += 1
 
-    # Store decisions as PREFERENCE knowledge
-    for d in analysis.decisions:
-        store_knowledge(
-            knowledge_type="PREFERENCE",
-            content=f"User decided: {d.content[:300]}",
-            confidence=0.9,
-            tags=["session-analysis", "decision"],
-        )
-        stored += 1
+        for e in analysis.encouragements:
+            store_knowledge(
+                knowledge_type="PATTERN",
+                content=f"User praised: {e.content[:300]}",
+                confidence=0.9,
+                tags=["session-analysis", "encouragement"],
+            )
+            stored += 1
 
-    # Store tool usage pattern as FACT
+        for d in analysis.decisions:
+            store_knowledge(
+                knowledge_type="PREFERENCE",
+                content=f"User decided: {d.content[:300]}",
+                confidence=0.9,
+                tags=["session-analysis", "decision"],
+            )
+            stored += 1
+
+    # Store tool usage pattern as FACT (both modes)
     if analysis.tool_usage:
         top_tools = sorted(analysis.tool_usage.items(), key=lambda x: x[1], reverse=True)[:10]
         tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
@@ -524,6 +733,7 @@ def scan_cmd(file_path: str, store: bool):
             f"{analysis.tool_calls_total} tool calls, "
             f"{len(analysis.corrections)} corrections, "
             f"{len(analysis.encouragements)} encouragements, "
+            f"{len(getattr(analysis, 'preferences', []))} preferences, "
             f"{len(analysis.context_overflows)} overflows"
         ),
         confidence=1.0,
@@ -532,6 +742,20 @@ def scan_cmd(file_path: str, store: bool):
     stored += 1
 
     click.secho(f"\n[+] Stored {stored} knowledge entries from session.", fg="green")
+
+    # Run feedback loop — compare new findings against existing knowledge
+    feedback = apply_session_feedback(analysis, analysis.session_id)
+    parts = []
+    if feedback["recurrences_found"]:
+        parts.append(f"{feedback['recurrences_found']} recurrences")
+    if feedback["patterns_reinforced"]:
+        parts.append(f"{feedback['patterns_reinforced']} patterns reinforced")
+    if feedback["lessons_improving"]:
+        parts.append(f"{feedback['lessons_improving']} lessons improving")
+    if feedback.get("noise_skipped"):
+        parts.append(f"{feedback['noise_skipped']} noise skipped")
+    if parts:
+        click.secho(f"[~] Feedback: {', '.join(parts)}", fg="cyan")
 
 
 @cli.command("report")

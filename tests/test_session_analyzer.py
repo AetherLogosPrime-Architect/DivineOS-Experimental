@@ -12,6 +12,7 @@ from divineos.session_analyzer import (
     ENCOURAGEMENT_PATTERNS,
     DECISION_PATTERNS,
     FRUSTRATION_PATTERNS,
+    PREFERENCE_PATTERNS,
     _detect_signals,
     _extract_user_text,
     _summarize_tool_input,
@@ -130,6 +131,37 @@ class TestPatternDetection:
 
     def test_frustration_sigh(self):
         signal = _detect_signals("le sigh...", FRUSTRATION_PATTERNS, "frustration", "ts")
+        assert signal is not None
+
+    def test_preference_i_prefer(self):
+        signal = _detect_signals(
+            "i prefer plain english explanations", PREFERENCE_PATTERNS, "preference", "ts"
+        )
+        assert signal is not None
+        assert signal.signal_type == "preference"
+
+    def test_preference_break_it_down(self):
+        signal = _detect_signals(
+            "break it down like im dumb please", PREFERENCE_PATTERNS, "preference", "ts"
+        )
+        assert signal is not None
+
+    def test_preference_no_jargon(self):
+        signal = _detect_signals(
+            "don't use jargon with me", PREFERENCE_PATTERNS, "preference", "ts"
+        )
+        assert signal is not None
+
+    def test_preference_always(self):
+        signal = _detect_signals(
+            "always test before committing", PREFERENCE_PATTERNS, "preference", "ts"
+        )
+        assert signal is not None
+
+    def test_preference_keep_it(self):
+        signal = _detect_signals(
+            "keep it simple and clean", PREFERENCE_PATTERNS, "preference", "ts"
+        )
         assert signal is not None
 
 
@@ -302,6 +334,12 @@ class TestAnalyzeSession:
         session_file = _write_session(tmp_path, records)
         analysis = analyze_session(session_file)
         assert "<synthetic>" not in analysis.models_used
+
+    def test_preference_extracted(self, tmp_path):
+        records = [_make_user_record("i prefer plain english, no jargon please")]
+        session_file = _write_session(tmp_path, records)
+        analysis = analyze_session(session_file)
+        assert len(analysis.preferences) >= 1
 
     def test_context_overflow_detected(self, tmp_path):
         records = [
