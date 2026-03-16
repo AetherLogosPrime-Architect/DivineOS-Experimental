@@ -175,23 +175,40 @@ def compute_importance(entry: dict, has_active_lesson: bool = False) -> float:
     """
     score = 0.0
 
-    # 30% from type — mistakes and preferences change behavior
+    # 30% from type — constraints and principles change behavior most
     type_weights = {
-        "MISTAKE": 0.30,
-        "PREFERENCE": 0.25,
-        "PATTERN": 0.20,
-        "FACT": 0.10,
-        "EPISODE": 0.05,
+        # New types
+        "BOUNDARY": 0.30,    # Hard constraints — highest priority
+        "PRINCIPLE": 0.28,   # Distilled wisdom from experience
+        "DIRECTION": 0.25,   # How the user wants things done
+        "PROCEDURE": 0.20,   # How to do something
+        "FACT": 0.10,        # Something true about the world
+        "OBSERVATION": 0.08, # Noticed but unconfirmed
+        "EPISODE": 0.05,     # A specific event
+        # Legacy types — map to their successors
+        "MISTAKE": 0.30,     # → BOUNDARY/PRINCIPLE
+        "PREFERENCE": 0.25,  # → DIRECTION
+        "PATTERN": 0.20,     # → PRINCIPLE/PROCEDURE
     }
     score += type_weights.get(entry.get("knowledge_type", ""), 0.1)
 
-    # 30% from confidence
-    score += entry.get("confidence", 0.5) * 0.3
+    # 25% from confidence
+    score += entry.get("confidence", 0.5) * 0.25
 
-    # 20% from usage — logarithmic, first few accesses matter most
+    # 15% from usage — logarithmic, first few accesses matter most
     access = entry.get("access_count", 0)
     usage = min(1.0, math.log1p(access) / math.log1p(20))
-    score += usage * 0.2
+    score += usage * 0.15
+
+    # 10% from source — corrections carry more weight than synthesis
+    source_bonus = {
+        "CORRECTED": 0.10,
+        "DEMONSTRATED": 0.07,
+        "STATED": 0.05,
+        "SYNTHESIZED": 0.03,
+        "INHERITED": 0.02,
+    }
+    score += source_bonus.get(entry.get("source", ""), 0.02)
 
     # 20% from lesson connection
     if has_active_lesson:

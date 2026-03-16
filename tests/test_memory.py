@@ -106,22 +106,37 @@ class TestCoreMemory:
 
 
 class TestImportanceScoring:
-    def test_mistake_scores_highest_type_weight(self):
-        entry = {"knowledge_type": "MISTAKE", "confidence": 0.0, "access_count": 0}
+    def test_boundary_and_mistake_score_highest_type(self):
+        for ktype in ("BOUNDARY", "MISTAKE"):
+            entry = {"knowledge_type": ktype, "confidence": 0.0, "access_count": 0}
+            score = compute_importance(entry)
+            # 0.30 type + 0.02 source(default) = 0.32
+            assert abs(score - 0.32) < 0.01, f"{ktype} scored {score}"
+
+    def test_principle_scores_high(self):
+        entry = {"knowledge_type": "PRINCIPLE", "confidence": 0.0, "access_count": 0}
         score = compute_importance(entry)
-        # 0.30 type + 0.0 confidence + 0.0 usage + 0.0 lesson = 0.30
+        # 0.28 type + 0.02 source = 0.30
         assert abs(score - 0.30) < 0.01
 
     def test_episode_scores_lowest_type_weight(self):
         entry = {"knowledge_type": "EPISODE", "confidence": 0.0, "access_count": 0}
         score = compute_importance(entry)
-        assert abs(score - 0.05) < 0.01
+        # 0.05 type + 0.02 source = 0.07
+        assert abs(score - 0.07) < 0.01
 
-    def test_confidence_contributes_30_percent(self):
+    def test_confidence_contributes_25_percent(self):
         entry = {"knowledge_type": "FACT", "confidence": 1.0, "access_count": 0}
         score = compute_importance(entry)
-        # 0.10 type + 0.30 confidence + 0.0 usage + 0.0 lesson = 0.40
-        assert abs(score - 0.40) < 0.01
+        # 0.10 type + 0.25 confidence + 0.02 source = 0.37
+        assert abs(score - 0.37) < 0.01
+
+    def test_corrected_source_bonus(self):
+        base = {"knowledge_type": "FACT", "confidence": 0.0, "access_count": 0}
+        corrected = {"knowledge_type": "FACT", "confidence": 0.0, "access_count": 0, "source": "CORRECTED"}
+        diff = compute_importance(corrected) - compute_importance(base)
+        # CORRECTED=0.10 vs default=0.02 → 0.08 difference
+        assert abs(diff - 0.08) < 0.01
 
     def test_lesson_connection_adds_20_percent(self):
         entry = {"knowledge_type": "FACT", "confidence": 0.0, "access_count": 0}

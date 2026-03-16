@@ -492,11 +492,18 @@ def generate_briefing(
 
     # Type-specific half-lives in days
     half_lives = {
-        "MISTAKE": 30.0,
+        # New types
+        "BOUNDARY": 30.0,     # Hard constraints persist
+        "PRINCIPLE": 30.0,    # Distilled wisdom persists
+        "DIRECTION": None,    # User preferences never decay
+        "PROCEDURE": 14.0,    # How-to knowledge
         "FACT": 7.0,
-        "PATTERN": 14.0,
-        "PREFERENCE": None,  # no decay
+        "OBSERVATION": 3.0,   # Unconfirmed — decay fast
         "EPISODE": 14.0,
+        # Legacy types — same decay as their successors
+        "MISTAKE": 30.0,
+        "PATTERN": 14.0,
+        "PREFERENCE": None,
     }
 
     # Score each entry
@@ -544,7 +551,9 @@ def generate_briefing(
         lines.append(lessons_text)
         lines.append("")
 
-    for kt in ["MISTAKE", "PREFERENCE", "PATTERN", "FACT", "EPISODE"]:
+    for kt in ["BOUNDARY", "PRINCIPLE", "DIRECTION", "PROCEDURE",
+                "MISTAKE", "PREFERENCE", "PATTERN",
+                "FACT", "OBSERVATION", "EPISODE"]:
         items = grouped.get(kt, [])
         if not items:
             continue
@@ -1502,8 +1511,8 @@ def compute_effectiveness(entry: dict) -> dict[str, str]:
     ktype = entry.get("knowledge_type", "")
     access = entry.get("access_count", 0)
 
-    if ktype == "MISTAKE":
-        # Check if a lesson tracks this mistake
+    if ktype in ("MISTAKE", "BOUNDARY", "PRINCIPLE"):
+        # Check if a lesson tracks this knowledge
         lessons = get_lessons()
         for lesson in lessons:
             overlap = _compute_overlap(entry.get("content", ""), lesson["description"])
@@ -1525,15 +1534,15 @@ def compute_effectiveness(entry: dict) -> dict[str, str]:
                     }
         return {"status": "unknown", "detail": "No lesson tracking data"}
 
-    if ktype == "PATTERN":
+    if ktype in ("PATTERN", "PROCEDURE", "OBSERVATION"):
         if access > 3:
             return {"status": "reinforced", "detail": f"Confirmed {access} times"}
         if access > 0:
             return {"status": "used", "detail": f"Accessed {access} times"}
         return {"status": "unused", "detail": "Never accessed"}
 
-    if ktype == "PREFERENCE":
-        return {"status": "stable", "detail": "Preferences are always active"}
+    if ktype in ("PREFERENCE", "DIRECTION"):
+        return {"status": "stable", "detail": "Directions are always active"}
 
     if ktype == "FACT":
         if access > 0:
@@ -1575,7 +1584,7 @@ def health_check() -> dict[str, Any]:
 
     # 2. Recurring lesson escalation — same mistake 3+ times = serious problem
     active_lessons = get_lessons(status="active")
-    mistakes = [e for e in all_entries if e["knowledge_type"] == "MISTAKE"]
+    mistakes = [e for e in all_entries if e["knowledge_type"] in ("MISTAKE", "BOUNDARY", "PRINCIPLE")]
     for lesson in active_lessons:
         if lesson["occurrences"] >= 3:
             for mistake in mistakes:
