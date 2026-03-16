@@ -472,6 +472,11 @@ def recall(context_hint: str = "") -> dict[str, Any]:
     }
 
 
+def _safe_text(text: str) -> str:
+    """Strip characters that can't be displayed on the current terminal."""
+    return text.encode("ascii", errors="replace").decode("ascii")
+
+
 def format_recall(result: dict[str, Any]) -> str:
     """Format a recall result into readable text."""
     lines = []
@@ -484,17 +489,19 @@ def format_recall(result: dict[str, Any]) -> str:
         lines.append("## Active Memory\n")
         for item in result["active"]:
             pin = " [pinned]" if item.get("pinned") else ""
+            content = _safe_text(item["content"][:120])
             lines.append(
                 f"- [{item['importance']:.2f}] {item['knowledge_type']}: "
-                f"{item['content'][:120]}{pin}"
+                f"{content}{pin}"
             )
         lines.append("")
 
     if result["relevant"]:
         lines.append("## Also Relevant (from archive)\n")
         for item in result["relevant"]:
+            content = _safe_text(item["content"][:120])
             lines.append(
-                f"- {item['knowledge_type']}: {item['content'][:120]}"
+                f"- {item['knowledge_type']}: {content}"
             )
         lines.append("")
 
