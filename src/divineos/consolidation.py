@@ -9,10 +9,12 @@ Rules: 1) Append-only (supersede, never delete). 2) Link back to source events.
 """
 
 import json
+import re
 import sqlite3
 import time
 import uuid
-from typing import Optional
+from collections import Counter
+from typing import Any, Optional
 
 import divineos.ledger as _ledger_mod
 
@@ -34,7 +36,7 @@ def _get_connection() -> sqlite3.Connection:
 
 
 def init_knowledge_table() -> None:
-    """Creates the knowledge table if it doesn't exist."""
+    """Creates the knowledge table, FTS5 index, and lesson tracking table."""
     conn = _get_connection()
     try:
         conn.execute("""
@@ -64,6 +66,58 @@ def init_knowledge_table() -> None:
             CREATE INDEX IF NOT EXISTS idx_knowledge_hash
             ON knowledge(content_hash)
         """)
+
+        # FTS5 full-text search index on knowledge
+        conn.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
+                content, tags, knowledge_type,
+                content='knowledge', content_rowid='rowid',
+                tokenize='porter unicode61'
+            )
+        """)
+
+        # Triggers to keep FTS index in sync with knowledge table
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS knowledge_fts_insert
+            AFTER INSERT ON knowledge BEGIN
+                INSERT INTO knowledge_fts(rowid, content, tags, knowledge_type)
+                VALUES (new.rowid, new.content, new.tags, new.knowledge_type);
+            END
+        """)
+        conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS knowledge_fts_update
+            AFTER UPDATE ON knowledge BEGIN
+                INSERT INTO knowledge_fts(knowledge_fts, rowid, content, tags, knowledge_type)
+                VALUES ('delete', old.rowid, old.content, old.tags, old.knowledge_type);
+                INSERT INTO knowledge_fts(rowid, content, tags, knowledge_type)
+                VALUES (new.rowid, new.content, new.tags, new.knowledge_type);
+            END
+        """)
+
+        # Lesson tracking table — connects repeated mistakes across sessions
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS lesson_tracking (
+                lesson_id     TEXT PRIMARY KEY,
+                created_at    REAL NOT NULL,
+                category      TEXT NOT NULL,
+                description   TEXT NOT NULL,
+                first_session TEXT NOT NULL,
+                occurrences   INTEGER NOT NULL DEFAULT 1,
+                last_seen     REAL NOT NULL,
+                sessions      TEXT NOT NULL DEFAULT '[]',
+                status        TEXT NOT NULL DEFAULT 'active',
+                content_hash  TEXT NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_lesson_category
+            ON lesson_tracking(category)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_lesson_status
+            ON lesson_tracking(status)
+        """)
+
         conn.commit()
     finally:
         conn.close()
@@ -168,8 +222,37 @@ def get_knowledge(
         conn.close()
 
 
-def search_knowledge(keyword: str, limit: int = 50) -> list[dict]:
-    """Search knowledge content and tags for keyword matches."""
+def search_knowledge(query: str, limit: int = 50) -> list[dict]:
+    """Search knowledge using FTS5 full-text search with BM25 relevance ranking.
+
+    Falls back to LIKE-based search if FTS5 table doesn't exist yet.
+    BM25 weights: content=10.0, tags=5.0, type=1.0 (lower score = better match).
+    Porter stemmer means 'running' matches 'run', 'tests' matches 'test', etc.
+    """
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT k.knowledge_id, k.created_at, k.updated_at, k.knowledge_type,
+                      k.content, k.confidence, k.source_events, k.tags,
+                      k.access_count, k.superseded_by, k.content_hash
+               FROM knowledge_fts fts
+               JOIN knowledge k ON k.rowid = fts.rowid
+               WHERE knowledge_fts MATCH ?
+                 AND k.superseded_by IS NULL
+               ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
+               LIMIT ?""",
+            (query, limit),
+        ).fetchall()
+        return [_row_to_dict(row) for row in rows]
+    except sqlite3.OperationalError:
+        # FTS table doesn't exist yet — fall back to LIKE search
+        return _search_knowledge_legacy(query, limit)
+    finally:
+        conn.close()
+
+
+def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict]:
+    """Legacy LIKE-based search. Used when FTS5 table doesn't exist."""
     conn = _get_connection()
     try:
         rows = conn.execute(
@@ -177,6 +260,25 @@ def search_knowledge(keyword: str, limit: int = 50) -> list[dict]:
             (f"%{keyword}%", f"%{keyword}%", limit),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def rebuild_fts_index() -> int:
+    """Rebuild the FTS5 index from existing knowledge rows.
+
+    Call this after upgrading from a pre-FTS database, or if the index
+    gets out of sync. Returns the number of rows indexed.
+    """
+    conn = _get_connection()
+    try:
+        conn.execute("DELETE FROM knowledge_fts")
+        cursor = conn.execute(
+            """INSERT INTO knowledge_fts(rowid, content, tags, knowledge_type)
+               SELECT rowid, content, tags, knowledge_type FROM knowledge"""
+        )
+        conn.commit()
+        return cursor.rowcount
     finally:
         conn.close()
 
@@ -300,11 +402,21 @@ def find_similar(content: str) -> list[dict]:
 def generate_briefing(
     max_items: int = 20,
     include_types: Optional[list[str]] = None,
+    context_hint: str = "",
 ) -> str:
     """
     Generate a structured text briefing for AI session context.
 
     Scores knowledge by: confidence * 0.4 + access_frequency * 0.3 + recency * 0.3
+    with type-specific decay rates:
+      - MISTAKE: 30-day half-life (errors should stick around)
+      - FACT: 7-day half-life
+      - PATTERN: 14-day half-life
+      - PREFERENCE: no decay (always relevant)
+      - EPISODE: 14-day half-life
+
+    If context_hint is provided, knowledge matching the hint gets a 0.3 score boost.
+    Active lessons are always included at the top.
     """
     conn = _get_connection()
     try:
@@ -323,20 +435,59 @@ def generate_briefing(
     if not rows:
         return "No knowledge stored yet."
 
+    # Find which knowledge IDs match the context hint (via FTS5)
+    hint_matches: set[str] = set()
+    if context_hint:
+        try:
+            matched = search_knowledge(context_hint, limit=100)
+            hint_matches = {m["knowledge_id"] for m in matched}
+        except Exception:
+            pass
+
     entries = [_row_to_dict(row) for row in rows]
     now = time.time()
     max_access = max(e["access_count"] for e in entries) or 1
 
+    # Type-specific half-lives in days
+    half_lives = {
+        "MISTAKE": 30.0,
+        "FACT": 7.0,
+        "PATTERN": 14.0,
+        "PREFERENCE": None,  # no decay
+        "EPISODE": 14.0,
+    }
+
     # Score each entry
     for entry in entries:
-        access_score = entry["access_count"] / max_access
+        access_score = min(entry["access_count"], max_access) / max_access
         age_days = (now - entry["updated_at"]) / 86400
-        recency = 2 ** (-age_days / 7)  # 7-day half-life
-        entry["_score"] = entry["confidence"] * 0.4 + access_score * 0.3 + recency * 0.3
+
+        half_life = half_lives.get(entry["knowledge_type"], 7.0)
+        if half_life is None:
+            recency = 1.0  # PREFERENCE: never decays
+        else:
+            recency = 2 ** (-age_days / half_life)
+
+        score = entry["confidence"] * 0.4 + access_score * 0.3 + recency * 0.3
+
+        # Boost if matching context hint
+        if entry["knowledge_id"] in hint_matches:
+            score += 0.3
+
+        entry["_score"] = score
 
     # Sort by score, take top items
     entries.sort(key=lambda e: e["_score"], reverse=True)
     entries = entries[:max_items]
+
+    # Get active lessons for the header section
+    lessons_text = ""
+    try:
+        lesson_summary = get_lesson_summary()
+        if lesson_summary and "No lessons" not in lesson_summary:
+            lessons_text = lesson_summary
+    except Exception:
+        pass
 
     # Group by type
     grouped: dict[str, list[dict]] = {}
@@ -346,14 +497,20 @@ def generate_briefing(
 
     # Format output
     lines = [f"## Session Briefing ({len(entries)} items)\n"]
-    for kt in ["FACT", "PATTERN", "PREFERENCE", "MISTAKE", "EPISODE"]:
+
+    if lessons_text:
+        lines.append(lessons_text)
+        lines.append("")
+
+    for kt in ["MISTAKE", "PREFERENCE", "PATTERN", "FACT", "EPISODE"]:
         items = grouped.get(kt, [])
         if not items:
             continue
         lines.append(f"### {kt}S ({len(items)})")
         for item in items:
+            hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
             lines.append(
-                f"- [{item['confidence']:.2f}] {item['content']} ({item['access_count']}x accessed)"
+                f"- [{item['confidence']:.2f}] {item['content']} ({item['access_count']}x accessed){hint_marker}"
             )
         lines.append("")
 
@@ -398,6 +555,331 @@ def knowledge_stats() -> dict:
         conn.close()
 
 
+# ─── Learning Loop ─────────────────────────────────────────────────────
+
+
+def record_lesson(category: str, description: str, session_id: str) -> str:
+    """Record a lesson or update an existing one for the same category.
+
+    If a lesson with the same category already exists:
+      - Increment occurrences
+      - Add session_id to the sessions list
+      - Update last_seen timestamp
+      - Update status based on recurrence pattern
+
+    Returns the lesson_id.
+    """
+    now = time.time()
+    conn = _get_connection()
+    try:
+        # Check if a lesson with same category exists
+        existing = conn.execute(
+            "SELECT lesson_id, occurrences, sessions FROM lesson_tracking WHERE category = ?",
+            (category,),
+        ).fetchone()
+
+        if existing:
+            lesson_id = existing[0]
+            occurrences = existing[1] + 1
+            sessions = json.loads(existing[2])
+            if session_id not in sessions:
+                sessions.append(session_id)
+            conn.execute(
+                """UPDATE lesson_tracking
+                   SET occurrences = ?, last_seen = ?, sessions = ?, status = 'active'
+                   WHERE lesson_id = ?""",
+                (occurrences, now, json.dumps(sessions), lesson_id),
+            )
+            conn.commit()
+            return lesson_id
+
+        lesson_id = str(uuid.uuid4())
+        content_hash = compute_hash(f"{category}:{description}")
+        conn.execute(
+            """INSERT INTO lesson_tracking
+               (lesson_id, created_at, category, description, first_session,
+                occurrences, last_seen, sessions, status, content_hash)
+               VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'active', ?)""",
+            (
+                lesson_id,
+                now,
+                category,
+                description,
+                session_id,
+                now,
+                json.dumps([session_id]),
+                content_hash,
+            ),
+        )
+        conn.commit()
+        return lesson_id
+    finally:
+        conn.close()
+
+
+def get_lessons(
+    status: Optional[str] = None,
+    category: Optional[str] = None,
+    limit: int = 50,
+) -> list[dict]:
+    """Get lessons, optionally filtered by status or category."""
+    conn = _get_connection()
+    try:
+        query = "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash FROM lesson_tracking"
+        conditions: list[str] = []
+        params: list = []
+
+        if status:
+            conditions.append("status = ?")
+            params.append(status)
+        if category:
+            conditions.append("category = ?")
+            params.append(category)
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " ORDER BY last_seen DESC LIMIT ?"
+        params.append(limit)
+
+        rows = conn.execute(query, params).fetchall()
+        return [_lesson_row_to_dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def mark_lesson_improving(category: str, clean_session_id: str) -> None:
+    """Mark a lesson as 'improving' when a session passes without the mistake.
+
+    Called when a session is analyzed and does NOT have a mistake in this category.
+    Only affects lessons that have occurred 3+ times.
+    """
+    conn = _get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT lesson_id, occurrences, status FROM lesson_tracking WHERE category = ? AND status = 'active'",
+            (category,),
+        ).fetchone()
+        if existing and existing[1] >= 3:
+            conn.execute(
+                "UPDATE lesson_tracking SET status = 'improving' WHERE lesson_id = ?",
+                (existing[0],),
+            )
+            conn.commit()
+    finally:
+        conn.close()
+
+
+def get_lesson_summary() -> str:
+    """Generate a plain English summary of active and improving lessons."""
+    lessons = get_lessons()
+    if not lessons:
+        return "No lessons tracked yet."
+
+    active = [l for l in lessons if l["status"] == "active"]
+    improving = [l for l in lessons if l["status"] == "improving"]
+
+    lines = [f"### ACTIVE LESSONS ({len(active) + len(improving)})"]
+
+    for lesson in active:
+        lines.append(
+            f"- [{lesson['occurrences']}x] {lesson['description']} (last: {lesson['category']})"
+        )
+
+    for lesson in improving:
+        lines.append(
+            f"- IMPROVING (was {lesson['occurrences']}x): {lesson['description']}"
+        )
+
+    if not active and not improving:
+        return "No lessons tracked yet."
+
+    return "\n".join(lines)
+
+
+def check_recurring_lessons(categories: list[str]) -> list[dict]:
+    """Check if any of the given categories have recurring lessons.
+
+    Returns list of lessons that have occurred more than once.
+    """
+    conn = _get_connection()
+    try:
+        results = []
+        for cat in categories:
+            row = conn.execute(
+                "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash FROM lesson_tracking WHERE category = ? AND occurrences > 1",
+                (cat,),
+            ).fetchone()
+            if row:
+                results.append(_lesson_row_to_dict(row))
+        return results
+    finally:
+        conn.close()
+
+
+# ─── Lesson Extraction from Reports ──────────────────────────────────
+
+# Maps check names to lesson categories
+_CHECK_TO_CATEGORY = {
+    "completeness": "blind_edit",
+    "correctness": "test_failure",
+    "responsiveness": "ignored_correction",
+    "safety": "broke_things",
+    "honesty": "false_claim",
+    "clarity": "unclear_communication",
+    "task_adherence": "task_drift",
+}
+
+
+def extract_lessons_from_report(
+    checks: list[dict],
+    session_id: str,
+    tone_shifts: Optional[list[dict]] = None,
+    error_recovery: Optional[dict] = None,
+) -> list[str]:
+    """Extract knowledge and lessons from session quality check results.
+
+    Args:
+        checks: List of check result dicts with keys: name, passed, score, summary
+        session_id: The session identifier
+        tone_shifts: Optional list of tone shift dicts with keys: direction, trigger
+        error_recovery: Optional dict with keys: blind_retries, investigate_count
+
+    Returns:
+        List of stored knowledge IDs.
+    """
+    stored_ids: list[str] = []
+    short_id = session_id[:12]
+    lesson_categories: list[str] = []
+    clean_categories: list[str] = []
+
+    for check in checks:
+        name = check.get("name", "")
+        passed = check.get("passed", True)
+        score = check.get("score", 1.0)
+        summary = check.get("summary", "")
+        category = _CHECK_TO_CATEGORY.get(name)
+
+        if not passed or (score is not None and score < 0.7):
+            # Extract MISTAKE knowledge
+            if name == "completeness":
+                content = f"Session {short_id}: Files edited without reading first. Read before you edit. {summary}"
+            elif name == "correctness":
+                content = f"Session {short_id}: Tests failed. {summary}"
+            elif name == "safety":
+                content = f"Session {short_id}: Errors appeared after edits. {summary}"
+            elif name == "responsiveness":
+                content = f"Session {short_id}: Correction was ignored. User had to repeat themselves."
+            elif name == "honesty":
+                content = f"Session {short_id}: AI claimed fixed but error recurred."
+            elif name == "task_adherence" and score is not None and score < 0.5:
+                content = f"Session {short_id}: Drifted from what was asked. {summary}"
+            else:
+                continue
+
+            kid = store_knowledge(
+                knowledge_type="MISTAKE",
+                content=content.strip(),
+                confidence=0.8,
+                source_events=[session_id],
+                tags=["auto-extracted", f"session-{short_id}", name],
+            )
+            stored_ids.append(kid)
+
+            # Record lesson for learning loop
+            if category:
+                record_lesson(category, content.strip(), session_id)
+                lesson_categories.append(category)
+
+        elif passed and score is not None and score >= 0.9:
+            # Extract PATTERN knowledge for good practices
+            content = f"Session {short_id}: Good {name}. {summary}"
+            kid = store_knowledge(
+                knowledge_type="PATTERN",
+                content=content.strip(),
+                confidence=0.9,
+                source_events=[session_id],
+                tags=["auto-extracted", f"session-{short_id}", name],
+            )
+            stored_ids.append(kid)
+
+            # Mark lesson as improving if this category was previously a problem
+            if category:
+                clean_categories.append(category)
+
+    # Tone shift extraction
+    if tone_shifts:
+        negative_shifts = [t for t in tone_shifts if t.get("direction") == "negative"]
+        for shift in negative_shifts[:3]:  # cap at 3
+            trigger = shift.get("trigger", "unknown action")
+            content = f"Session {short_id}: User mood dropped after {trigger}."
+            kid = store_knowledge(
+                knowledge_type="MISTAKE",
+                content=content,
+                confidence=0.8,
+                source_events=[session_id],
+                tags=["auto-extracted", f"session-{short_id}", "tone_shift"],
+            )
+            stored_ids.append(kid)
+            record_lesson("upset_user", content, session_id)
+            lesson_categories.append("upset_user")
+
+    # Error recovery extraction
+    if error_recovery:
+        blind_retries = error_recovery.get("blind_retries", 0)
+        investigate_count = error_recovery.get("investigate_count", 0)
+
+        if blind_retries > 0:
+            content = f"Session {short_id}: AI retried failed action {blind_retries}x without investigating. Investigate errors, don't blindly retry."
+            kid = store_knowledge(
+                knowledge_type="MISTAKE",
+                content=content,
+                confidence=0.8,
+                source_events=[session_id],
+                tags=["auto-extracted", f"session-{short_id}", "error_recovery"],
+            )
+            stored_ids.append(kid)
+            record_lesson("blind_retry", content, session_id)
+            lesson_categories.append("blind_retry")
+
+        if investigate_count > blind_retries:
+            content = f"Session {short_id}: Good error recovery — investigated problems before retrying."
+            kid = store_knowledge(
+                knowledge_type="PATTERN",
+                content=content,
+                confidence=0.9,
+                source_events=[session_id],
+                tags=["auto-extracted", f"session-{short_id}", "error_recovery"],
+            )
+            stored_ids.append(kid)
+
+    # Mark improving lessons for categories that were clean this session
+    for cat in clean_categories:
+        if cat not in lesson_categories:
+            mark_lesson_improving(cat, session_id)
+
+    return stored_ids
+
+
+# ─── Internal helpers ─────────────────────────────────────────────────
+
+
+def _lesson_row_to_dict(row: tuple) -> dict:
+    """Convert a lesson_tracking table row to a dict."""
+    return {
+        "lesson_id": row[0],
+        "created_at": row[1],
+        "category": row[2],
+        "description": row[3],
+        "first_session": row[4],
+        "occurrences": row[5],
+        "last_seen": row[6],
+        "sessions": json.loads(row[7]),
+        "status": row[8],
+        "content_hash": row[9],
+    }
+
+
 def _row_to_dict(row: tuple) -> dict:
     """Convert a knowledge table row to a dict."""
     return {
@@ -412,4 +894,869 @@ def _row_to_dict(row: tuple) -> dict:
         "access_count": row[8],
         "superseded_by": row[9],
         "content_hash": row[10],
+    }
+
+
+# ─── Text Analysis Helpers ────────────────────────────────────────────
+
+_STOPWORDS = frozenset({
+    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
+    "have", "has", "had", "do", "does", "did", "will", "would", "could",
+    "should", "may", "might", "shall", "can", "to", "of", "in", "for",
+    "on", "with", "at", "by", "from", "as", "into", "through", "during",
+    "before", "after", "above", "below", "between", "and", "but", "or",
+    "nor", "not", "so", "yet", "both", "either", "neither", "each",
+    "every", "all", "any", "few", "more", "most", "other", "some",
+    "such", "no", "only", "same", "than", "too", "very", "just",
+    "that", "this", "these", "those", "i", "you", "he", "she", "it",
+    "we", "they", "me", "him", "her", "us", "them", "my", "your",
+    "his", "its", "our", "their", "what", "which", "who", "whom",
+    "when", "where", "why", "how", "if", "then", "else", "here", "there",
+    "also", "about", "up", "out", "down", "off", "over", "under",
+    "again", "further", "once", "like", "well", "back", "even", "still",
+    "way", "get", "got", "let", "say", "said", "go", "going", "went",
+    "come", "came", "make", "made", "take", "took", "see", "saw",
+    "know", "knew", "think", "thought", "want", "need", "use", "used",
+    "try", "tried", "look", "looked", "give", "gave", "tell", "told",
+    "work", "worked", "call", "called", "yes", "ok", "okay", "yeah",
+    "sure", "right", "now", "one", "two", "first", "new", "old",
+    "good", "bad", "big", "small", "much", "many", "long", "little",
+    "thing", "things", "something", "anything", "everything", "nothing",
+    "im", "dont", "doesnt", "didnt", "isnt", "arent", "wasnt", "werent",
+    "wont", "cant", "couldnt", "shouldnt", "wouldnt", "thats", "its",
+    "lets", "ive", "youre", "theyre", "were", "hes", "shes",
+})
+
+
+def _normalize_text(text: str) -> str:
+    """Lowercase, strip punctuation, collapse whitespace."""
+    text = text.lower()
+    text = re.sub(r"[^\w\s]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _extract_key_terms(text: str) -> str:
+    """Remove stopwords, return space-separated key terms for FTS5 queries."""
+    normalized = _normalize_text(text)
+    words = normalized.split()
+    terms = [w for w in words if w not in _STOPWORDS and len(w) > 2]
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique = []
+    for t in terms:
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    return " ".join(unique[:20])  # cap at 20 terms for FTS5 query
+
+
+def _compute_overlap(text_a: str, text_b: str) -> float:
+    """Compute word set overlap between two texts. Returns 0.0-1.0."""
+    words_a = set(_normalize_text(text_a).split()) - _STOPWORDS
+    words_b = set(_normalize_text(text_b).split()) - _STOPWORDS
+    if not words_a or not words_b:
+        return 0.0
+    intersection = words_a & words_b
+    smaller = min(len(words_a), len(words_b))
+    return len(intersection) / smaller
+
+
+def extract_session_topics(user_texts: list[str], top_n: int = 8) -> list[str]:
+    """Extract top topics from user messages using word frequency analysis."""
+    word_counts: Counter = Counter()
+    for text in user_texts:
+        words = _normalize_text(text).split()
+        meaningful = [w for w in words if w not in _STOPWORDS and len(w) > 2]
+        word_counts.update(meaningful)
+    return [word for word, _ in word_counts.most_common(top_n)]
+
+
+# ─── Smart Knowledge Storage ─────────────────────────────────────────
+
+
+def store_knowledge_smart(
+    knowledge_type: str,
+    content: str,
+    confidence: float = 1.0,
+    source_events: Optional[list[str]] = None,
+    tags: Optional[list[str]] = None,
+) -> str:
+    """Store knowledge with near-duplicate detection via FTS5.
+
+    Before creating a new entry, checks if a similar one already exists
+    (same type, >60% word overlap). If so, bumps the existing entry's
+    access count instead of creating a duplicate.
+    """
+    # First: try exact hash dedup (fast path via store_knowledge)
+    content_hash = compute_hash(content)
+    conn = _get_connection()
+    try:
+        existing = conn.execute(
+            "SELECT knowledge_id, knowledge_type FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
+            (content_hash,),
+        ).fetchone()
+        if existing and existing[1] == knowledge_type:
+            conn.execute(
+                "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
+                (time.time(), existing[0]),
+            )
+            conn.commit()
+            return str(existing[0])
+    finally:
+        conn.close()
+
+    # Second: fuzzy dedup via FTS5
+    key_terms = _extract_key_terms(content)
+    if key_terms:
+        try:
+            similar = search_knowledge(key_terms, limit=5)
+            for entry in similar:
+                if entry["knowledge_type"] == knowledge_type:
+                    overlap = _compute_overlap(content, entry["content"])
+                    if overlap > 0.6:
+                        record_access(entry["knowledge_id"])
+                        return entry["knowledge_id"]
+        except Exception:
+            pass  # FTS5 not available or query issue — fall through
+
+    # No duplicate found: store as new
+    # Use store_knowledge directly — its internal dedup is hash-based and type-agnostic,
+    # so for truly new content it will just create the entry. If same content already
+    # exists with a different type, the hash dedup in store_knowledge will match it.
+    # To handle that, we create the entry directly when we know it's unique by type.
+    now = time.time()
+    sources_json = json.dumps(source_events or [])
+    tags_json = json.dumps(tags or [])
+    kid = str(uuid.uuid4())
+    conn = _get_connection()
+    try:
+        # Check for same-type hash match (store_knowledge's dedup is type-agnostic)
+        existing = conn.execute(
+            "SELECT knowledge_id FROM knowledge WHERE content_hash = ? AND knowledge_type = ? AND superseded_by IS NULL",
+            (content_hash, knowledge_type),
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
+                (now, existing[0]),
+            )
+            conn.commit()
+            return str(existing[0])
+
+        conn.execute(
+            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+            (kid, now, now, knowledge_type, content, confidence, sources_json, tags_json, content_hash),
+        )
+        conn.commit()
+        return kid
+    finally:
+        conn.close()
+
+
+# ─── Deep Session Extraction ─────────────────────────────────────────
+
+# Patterns for extracting reasoning context from messages
+_REASON_PATTERNS = (
+    re.compile(r"\bbecause\b\s+(.{10,120})", re.IGNORECASE),
+    re.compile(r"\bsince\b\s+(.{10,120})", re.IGNORECASE),
+    re.compile(r"\bso that\b\s+(.{10,120})", re.IGNORECASE),
+    re.compile(r"\bthe reason\b\s+(.{10,120})", re.IGNORECASE),
+)
+
+_ALTERNATIVE_PATTERNS = (
+    re.compile(r"\binstead of\b\s+(.{5,80})", re.IGNORECASE),
+    re.compile(r"\brather than\b\s+(.{5,80})", re.IGNORECASE),
+    re.compile(r"\bnot\b\s+(\w+.{5,60})", re.IGNORECASE),
+)
+
+
+def _extract_assistant_summary(record: dict[str, Any]) -> str:
+    """Extract a short summary of what the assistant was doing in a record."""
+    msg = record.get("message", {})
+    content = msg.get("content", [])
+    if not isinstance(content, list):
+        return ""
+
+    parts = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            text = block.get("text", "")
+            # Take first meaningful sentence
+            sentences = re.split(r"[.!?\n]", text)
+            for s in sentences:
+                s = s.strip()
+                if len(s) > 15:
+                    parts.append(s[:150])
+                    break
+        elif block.get("type") == "tool_use":
+            name = block.get("name", "unknown")
+            inp = block.get("input", {})
+            if name in ("Read", "Edit", "Write"):
+                fp = inp.get("file_path", "")
+                parts.append(f"{name} {fp}")
+            elif name == "Bash":
+                cmd = inp.get("command", "")[:60]
+                parts.append(f"Bash: {cmd}")
+            else:
+                parts.append(f"Tool: {name}")
+
+    return "; ".join(parts[:3])
+
+
+def _find_reason_in_text(text: str) -> str:
+    """Try to extract a reason/justification from text."""
+    for pattern in _REASON_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            return match.group(1).strip().rstrip(".")
+    return ""
+
+
+def _find_alternative_in_text(text: str) -> str:
+    """Try to extract what was rejected/compared against."""
+    for pattern in _ALTERNATIVE_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            return match.group(1).strip().rstrip(".")
+    return ""
+
+
+def deep_extract_knowledge(
+    analysis: "Any",  # SessionAnalysis — avoid circular import
+    records: list[dict[str, Any]],
+) -> list[str]:
+    """Extract rich, structured knowledge from a session analysis + raw records.
+
+    Goes beyond simple signal detection to extract:
+    - Correction pairs (what AI did wrong → what user wanted)
+    - User preferences with context
+    - Decisions with reasoning and alternatives
+    - Session topics
+
+    Returns list of stored knowledge IDs.
+    """
+    stored_ids: list[str] = []
+    session_id = analysis.session_id
+    short_id = session_id[:12]
+
+    # Build a map of record index → record for context lookups
+    user_indices: list[int] = []
+    for i, rec in enumerate(records):
+        if rec.get("type") == "user":
+            user_indices.append(i)
+
+    # Extract session topics
+    topics = extract_session_topics(analysis.user_message_texts)
+    topic_tags = [f"topic-{t}" for t in topics[:5]]
+
+    if topics:
+        topic_content = f"Session {short_id} topics: {', '.join(topics)}"
+        kid = store_knowledge_smart(
+            knowledge_type="FACT",
+            content=topic_content,
+            confidence=1.0,
+            source_events=[session_id],
+            tags=["auto-extracted", "session-topics", f"session-{short_id}"] + topic_tags,
+        )
+        stored_ids.append(kid)
+
+    # --- Correction pairs ---
+    for correction in analysis.corrections:
+        correction_text = correction.content
+        # Find this correction in the raw records and get the assistant message before it
+        ai_before = ""
+        for i, rec in enumerate(records):
+            if rec.get("type") != "user":
+                continue
+            user_text = _extract_user_text_from_record(rec)
+            if not user_text:
+                continue
+            # Match by content prefix (correction.content is truncated to 300 chars)
+            if user_text[:100] == correction_text[:100]:
+                # Look backwards for the assistant message
+                for j in range(i - 1, max(i - 5, -1), -1):
+                    if records[j].get("type") == "assistant":
+                        ai_before = _extract_assistant_summary(records[j])
+                        break
+                break
+
+        if ai_before:
+            content = f"Wrong: {ai_before}. Correction: {correction_text[:200]}"
+        else:
+            content = f"User correction: {correction_text[:250]}"
+
+        kid = store_knowledge_smart(
+            knowledge_type="MISTAKE",
+            content=content,
+            confidence=0.85,
+            source_events=[session_id],
+            tags=["auto-extracted", "correction-pair", f"session-{short_id}"] + topic_tags,
+        )
+        stored_ids.append(kid)
+
+    # --- Preferences ---
+    for pref in getattr(analysis, "preferences", []):
+        kid = store_knowledge_smart(
+            knowledge_type="PREFERENCE",
+            content=f"User preference: {pref.content[:250]}",
+            confidence=0.9,
+            source_events=[session_id],
+            tags=["auto-extracted", "preference", f"session-{short_id}"] + topic_tags,
+        )
+        stored_ids.append(kid)
+
+    # --- Decisions with context ---
+    for decision in analysis.decisions:
+        decision_text = decision.content
+        reason = _find_reason_in_text(decision_text)
+        alternative = _find_alternative_in_text(decision_text)
+
+        # Also check the next user message for reasoning
+        if not reason:
+            for i, rec in enumerate(records):
+                if rec.get("type") != "user":
+                    continue
+                user_text = _extract_user_text_from_record(rec)
+                if user_text and user_text[:80] == decision_text[:80]:
+                    # Check next user message for reasoning
+                    for j in range(i + 1, min(i + 4, len(records))):
+                        if records[j].get("type") == "user":
+                            next_text = _extract_user_text_from_record(records[j])
+                            reason = _find_reason_in_text(next_text)
+                            break
+                    break
+
+        parts = [f"Decision: {decision_text[:200]}"]
+        if alternative:
+            parts.append(f"Rejected: {alternative}")
+        if reason:
+            parts.append(f"Reason: {reason}")
+
+        kid = store_knowledge_smart(
+            knowledge_type="PATTERN",
+            content=". ".join(parts),
+            confidence=0.9,
+            source_events=[session_id],
+            tags=["auto-extracted", "decision", f"session-{short_id}"] + topic_tags,
+        )
+        stored_ids.append(kid)
+
+    # --- Encouragements as positive patterns ---
+    for enc in analysis.encouragements:
+        # Find what the AI did right (assistant message before encouragement)
+        ai_before = ""
+        for i, rec in enumerate(records):
+            if rec.get("type") != "user":
+                continue
+            user_text = _extract_user_text_from_record(rec)
+            if user_text and user_text[:80] == enc.content[:80]:
+                for j in range(i - 1, max(i - 5, -1), -1):
+                    if records[j].get("type") == "assistant":
+                        ai_before = _extract_assistant_summary(records[j])
+                        break
+                break
+
+        if ai_before:
+            content = f"User praised this approach: {ai_before}. Reaction: {enc.content[:150]}"
+        else:
+            content = f"User praised: {enc.content[:250]}"
+
+        kid = store_knowledge_smart(
+            knowledge_type="PATTERN",
+            content=content,
+            confidence=0.9,
+            source_events=[session_id],
+            tags=["auto-extracted", "encouragement", f"session-{short_id}"] + topic_tags,
+        )
+        stored_ids.append(kid)
+
+    return stored_ids
+
+
+def _extract_user_text_from_record(record: dict[str, Any]) -> str:
+    """Extract clean user text from a record (duplicate of session_analyzer helper)."""
+    msg = record.get("message", {})
+    content = msg.get("content", "")
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+            elif isinstance(block, str):
+                parts.append(block)
+        content = " ".join(parts)
+    if not isinstance(content, str):
+        content = str(content)
+    if "<system-reminder>" in content:
+        content = content[: content.index("<system-reminder>")]
+    return content.strip()
+
+
+# ─── Knowledge Consolidation ─────────────────────────────────────────
+
+
+def consolidate_related(min_cluster_size: int = 3) -> list[dict]:
+    """Find and merge clusters of related knowledge entries.
+
+    Groups entries by type, finds clusters with >50% word overlap,
+    and merges clusters of min_cluster_size or more into single entries.
+
+    Returns list of dicts describing what was merged:
+        [{"type": "MISTAKE", "merged_count": 4, "new_id": "abc...", "content": "..."}]
+    """
+    merges: list[dict] = []
+
+    for ktype in KNOWLEDGE_TYPES:
+        entries = get_knowledge(knowledge_type=ktype, limit=500)
+        if len(entries) < min_cluster_size:
+            continue
+
+        # Build clusters using word overlap
+        clustered: set[str] = set()  # knowledge_ids already in a cluster
+        clusters: list[list[dict]] = []
+
+        for i, entry in enumerate(entries):
+            if entry["knowledge_id"] in clustered:
+                continue
+
+            cluster = [entry]
+            clustered.add(entry["knowledge_id"])
+
+            for j in range(i + 1, len(entries)):
+                other = entries[j]
+                if other["knowledge_id"] in clustered:
+                    continue
+                overlap = _compute_overlap(entry["content"], other["content"])
+                if overlap > 0.5:
+                    cluster.append(other)
+                    clustered.add(other["knowledge_id"])
+
+            if len(cluster) >= min_cluster_size:
+                clusters.append(cluster)
+
+        # Merge each cluster
+        for cluster in clusters:
+            # Pick the longest content as the base (most informative)
+            cluster.sort(key=lambda e: len(e["content"]), reverse=True)
+            best = cluster[0]
+
+            # Combine sources and tags
+            all_sources: list[str] = []
+            all_tags: set[str] = set()
+            max_confidence = 0.0
+            for entry in cluster:
+                all_sources.extend(entry["source_events"])
+                all_tags.update(entry["tags"])
+                max_confidence = max(max_confidence, entry["confidence"])
+
+            all_tags.add("consolidated")
+            all_tags.discard("")
+
+            # Create the merged entry with unique content to avoid hash dedup
+            merged_content = best["content"]
+            source_count = len(cluster)
+            # Append consolidation note to make content unique
+            merged_content = f"{merged_content} [consolidated from {source_count} entries]"
+            new_id = store_knowledge(
+                knowledge_type=ktype,
+                content=merged_content,
+                confidence=max_confidence,
+                source_events=list(set(all_sources)),
+                tags=sorted(all_tags),
+            )
+
+            # Supersede the individual entries
+            conn = _get_connection()
+            try:
+                for entry in cluster:
+                    if entry["knowledge_id"] != new_id:
+                        conn.execute(
+                            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
+                            (new_id, entry["knowledge_id"]),
+                        )
+                conn.commit()
+            finally:
+                conn.close()
+
+            merges.append({
+                "type": ktype,
+                "merged_count": len(cluster),
+                "new_id": new_id,
+                "content": merged_content[:100],
+            })
+
+    return merges
+
+
+# ─── Feedback Loop ────────────────────────────────────────────────────
+
+
+def _adjust_confidence(
+    knowledge_id: str, delta: float, floor: float = 0.1, cap: float = 1.0
+) -> Optional[float]:
+    """Adjust confidence on a knowledge entry in-place.
+
+    This is metadata (belief strength), not content — so in-place update
+    is appropriate (same pattern as record_access updating access_count).
+
+    Returns the new confidence, or None if the entry doesn't exist.
+    """
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT confidence FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",
+            (knowledge_id,),
+        ).fetchone()
+        if not row:
+            return None
+
+        new_conf = max(floor, min(cap, row[0] + delta))
+        conn.execute(
+            "UPDATE knowledge SET confidence = ?, updated_at = ? WHERE knowledge_id = ?",
+            (new_conf, time.time(), knowledge_id),
+        )
+        conn.commit()
+        return new_conf
+    finally:
+        conn.close()
+
+
+def _resolve_lesson(lesson_id: str) -> None:
+    """Mark a lesson as resolved."""
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "UPDATE lesson_tracking SET status = 'resolved' WHERE lesson_id = ?",
+            (lesson_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def compute_effectiveness(entry: dict) -> dict[str, str]:
+    """Compute effectiveness status for a knowledge entry.
+
+    Returns {"status": "...", "detail": "..."} based on the entry's type
+    and how it connects to lesson tracking and access patterns.
+    """
+    ktype = entry.get("knowledge_type", "")
+    access = entry.get("access_count", 0)
+
+    if ktype == "MISTAKE":
+        # Check if a lesson tracks this mistake
+        lessons = get_lessons()
+        for lesson in lessons:
+            overlap = _compute_overlap(entry.get("content", ""), lesson["description"])
+            if overlap > 0.4:
+                if lesson["status"] in ("improving", "resolved"):
+                    return {
+                        "status": "effective",
+                        "detail": f"Lesson {lesson['status']} ({lesson['occurrences']} past occurrences)",
+                    }
+                if lesson["status"] == "active" and lesson["occurrences"] >= 3:
+                    return {
+                        "status": "recurring",
+                        "detail": f"Still recurring ({lesson['occurrences']} occurrences)",
+                    }
+                if lesson["status"] == "active":
+                    return {
+                        "status": "active",
+                        "detail": f"Tracked ({lesson['occurrences']} occurrences)",
+                    }
+        return {"status": "unknown", "detail": "No lesson tracking data"}
+
+    if ktype == "PATTERN":
+        if access > 3:
+            return {"status": "reinforced", "detail": f"Confirmed {access} times"}
+        if access > 0:
+            return {"status": "used", "detail": f"Accessed {access} times"}
+        return {"status": "unused", "detail": "Never accessed"}
+
+    if ktype == "PREFERENCE":
+        return {"status": "stable", "detail": "Preferences are always active"}
+
+    if ktype == "FACT":
+        if access > 0:
+            return {"status": "used", "detail": f"Accessed {access} times"}
+        return {"status": "unused", "detail": "Never accessed"}
+
+    # EPISODE or unknown
+    return {"status": "stable", "detail": "Record entry"}
+
+
+def health_check() -> dict[str, Any]:
+    """Review the knowledge store and adjust confidence scores.
+
+    1. Decay stale knowledge (access_count=0, age > 14 days)
+    2. Boost confirmed knowledge (access_count > 5)
+    3. Escalate recurring lessons (3+ occurrences → MISTAKE confidence 0.95)
+    4. Resolve old improving lessons (no activity 30+ days)
+    """
+    now = time.time()
+    result = {
+        "stale_decayed": 0,
+        "confirmed_boosted": 0,
+        "recurring_escalated": 0,
+        "resolved_lessons": 0,
+        "total_checked": 0,
+    }
+
+    all_entries = get_knowledge(limit=1000)
+    result["total_checked"] = len(all_entries)
+
+    # 1. Stale decay
+    for entry in all_entries:
+        if entry["access_count"] == 0:
+            age_days = (now - entry["created_at"]) / 86400
+            if age_days > 14:
+                new_conf = _adjust_confidence(entry["knowledge_id"], -0.1, floor=0.3)
+                if new_conf is not None:
+                    result["stale_decayed"] += 1
+
+    # 2. Confirmed boost
+    for entry in all_entries:
+        if entry["access_count"] > 5 and entry["confidence"] < 1.0:
+            new_conf = _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
+            if new_conf is not None:
+                result["confirmed_boosted"] += 1
+
+    # 3. Recurring lesson escalation
+    active_lessons = get_lessons(status="active")
+    mistakes = [e for e in all_entries if e["knowledge_type"] == "MISTAKE"]
+    for lesson in active_lessons:
+        if lesson["occurrences"] >= 3:
+            for mistake in mistakes:
+                overlap = _compute_overlap(lesson["description"], mistake["content"])
+                if overlap > 0.4:
+                    current = mistake["confidence"]
+                    if current < 0.95:
+                        _adjust_confidence(
+                            mistake["knowledge_id"], 0.95 - current
+                        )
+                        result["recurring_escalated"] += 1
+                    break
+
+    # 4. Resolve old improving lessons
+    improving_lessons = get_lessons(status="improving")
+    for lesson in improving_lessons:
+        age_days = (now - lesson["last_seen"]) / 86400
+        if age_days > 30:
+            _resolve_lesson(lesson["lesson_id"])
+            result["resolved_lessons"] += 1
+            # Lower associated MISTAKE confidence
+            for mistake in mistakes:
+                overlap = _compute_overlap(lesson["description"], mistake["content"])
+                if overlap > 0.4:
+                    _adjust_confidence(mistake["knowledge_id"], -0.1, floor=0.3)
+                    break
+
+    return result
+
+
+# ─── Lesson Categorization ────────────────────────────────────────────
+
+# Semantic lesson categories — corrections get mapped to these buckets
+# based on keyword matching, instead of using raw word fragments.
+_LESSON_CATEGORIES = (
+    ("blind_coding", re.compile(
+        r"\bblind|without reading|without checking|without looking|study.+first|"
+        r"understand.+before|research.+first|don.t just|not blindly",
+        re.IGNORECASE,
+    )),
+    ("incomplete_fix", re.compile(
+        r"\bonly fixed one|didn.t fix|still broken|still fail|also fail|"
+        r"missed.+other|forgot.+other|the rest",
+        re.IGNORECASE,
+    )),
+    ("ignored_instruction", re.compile(
+        r"\bdid you not see|did you not read|i already said|i told you|"
+        r"i just said|not listening|ignoring what",
+        re.IGNORECASE,
+    )),
+    ("wrong_scope", re.compile(
+        r"\bi mean.+(?:in|the|this)|not that.+(?:this|the)|wrong (?:file|place|thing)|"
+        r"\binstead of\b.+\d|folder.+instead",
+        re.IGNORECASE,
+    )),
+    ("overreach", re.compile(
+        r"\bnot supposed to|isnt supposed|shouldn.t (?:make|decide|choose)|"
+        r"don.t (?:make|decide).+decision|"
+        r"\btoo (?:much|far|complex)|over.?engineer|rabbit hole|scope",
+        re.IGNORECASE,
+    )),
+    ("jargon_usage", re.compile(
+        r"\bjargon|plain english|like.+(?:dumb|stupid|5|new)|break it down|"
+        r"\bsimpl(?:e|ify|er)|not a coder|don.t speak",
+        re.IGNORECASE,
+    )),
+    ("shallow_output", re.compile(
+        r"\bdoesn.t feel|don.t feel|still feel|not.+(?:like people|real|alive|genuine)|"
+        r"\bembody|more (?:life|depth|soul)|concise.+not.+concern|token limit",
+        re.IGNORECASE,
+    )),
+    ("perspective_error", re.compile(
+        r"\bpronoun|when i say you|say i or me|possessive|first person|"
+        r"\bperspective|point of view",
+        re.IGNORECASE,
+    )),
+    ("misunderstood", re.compile(
+        r"\bno i mean|that.s not what|misunderst|wrong idea|confused about|"
+        r"\bwhat i meant|trying to stop you|wasn.t denying",
+        re.IGNORECASE,
+    )),
+)
+
+
+def _categorize_correction(text: str) -> Optional[str]:
+    """Map a correction's text to a semantic lesson category.
+
+    Returns None if no category matches (the correction is probably noise).
+    """
+    for category, pattern in _LESSON_CATEGORIES:
+        if pattern.search(text):
+            return category
+    return None
+
+
+def _is_noise_correction(text: str) -> bool:
+    """Return True if a correction is noise — not a real lesson.
+
+    Filters: too short, file path dumps, task notifications, forwarded
+    messages that are instructions rather than corrections.
+    """
+    stripped = text.strip()
+
+    # Too short to be meaningful
+    if len(stripped) < 20:
+        return True
+
+    # Task notification XML
+    if "<task-notification>" in stripped or "<task-id>" in stripped:
+        return True
+
+    # File path dump (starts with @ and a path)
+    if stripped.startswith("@") and ("\\" in stripped[:60] or "/" in stripped[:60]):
+        return True
+
+    # Mostly file paths
+    path_chars = stripped.count("\\") + stripped.count("/")
+    if path_chars > 5 and path_chars > len(stripped) / 20:
+        return True
+
+    return False
+
+
+def clear_lessons() -> int:
+    """Delete ALL lessons from lesson_tracking. Returns count deleted.
+
+    Used to wipe garbage data and re-extract cleanly.
+    """
+    conn = _get_connection()
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM lesson_tracking").fetchone()[0]
+        conn.execute("DELETE FROM lesson_tracking")
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
+def apply_session_feedback(
+    analysis: "Any",  # SessionAnalysis
+    session_id: str,
+) -> dict[str, Any]:
+    """Compare new session findings against existing knowledge.
+
+    Called after scan --store. Checks if corrections match existing MISTAKEs
+    (recurrences), if encouragements confirm PATTERNs, and marks lessons
+    as improving when no matching correction is found.
+
+    Corrections are filtered for noise and categorized into semantic buckets
+    before recording lessons.
+    """
+    result = {
+        "recurrences_found": 0,
+        "patterns_reinforced": 0,
+        "lessons_improving": 0,
+        "noise_skipped": 0,
+    }
+
+    corrections = getattr(analysis, "corrections", [])
+    encouragements = getattr(analysis, "encouragements", [])
+
+    # Step A: Check corrections against existing MISTAKEs
+    existing_mistakes = get_knowledge(knowledge_type="MISTAKE", limit=500)
+
+    for correction in corrections:
+        # Skip noise
+        if _is_noise_correction(correction.content):
+            result["noise_skipped"] += 1
+            continue
+
+        for mistake in existing_mistakes:
+            overlap = _compute_overlap(correction.content, mistake["content"])
+            if overlap > 0.4:
+                _adjust_confidence(mistake["knowledge_id"], 0.05, cap=1.0)
+                result["recurrences_found"] += 1
+                # Record in lesson tracking with semantic category
+                category = _categorize_correction(correction.content)
+                if category:
+                    record_lesson(
+                        category, correction.content[:200], session_id
+                    )
+                break
+
+    # Step B: Check encouragements against existing PATTERNs
+    existing_patterns = get_knowledge(knowledge_type="PATTERN", limit=500)
+    for enc in encouragements:
+        for pattern in existing_patterns:
+            overlap = _compute_overlap(enc.content, pattern["content"])
+            if overlap > 0.4:
+                _adjust_confidence(pattern["knowledge_id"], 0.05, cap=1.0)
+                record_access(pattern["knowledge_id"])
+                result["patterns_reinforced"] += 1
+                break
+
+    # Step C: Mark lessons improving when no matching correction
+    active_lessons = get_lessons(status="active")
+    for lesson in active_lessons:
+        recurred = False
+        for correction in corrections:
+            if _is_noise_correction(correction.content):
+                continue
+            overlap = _compute_overlap(correction.content, lesson["description"])
+            if overlap > 0.4:
+                recurred = True
+                break
+        if not recurred:
+            mark_lesson_improving(lesson["category"], session_id)
+            result["lessons_improving"] += 1
+
+    return result
+
+
+def knowledge_health_report() -> dict[str, Any]:
+    """Aggregate effectiveness stats across all active knowledge."""
+    entries = get_knowledge(limit=1000)
+    by_status: dict[str, int] = {}
+    by_type: dict[str, dict[str, int]] = {}
+
+    for entry in entries:
+        eff = compute_effectiveness(entry)
+        status = eff["status"]
+        ktype = entry["knowledge_type"]
+
+        by_status[status] = by_status.get(status, 0) + 1
+        if ktype not in by_type:
+            by_type[ktype] = {}
+        by_type[ktype][status] = by_type[ktype].get(status, 0) + 1
+
+    return {
+        "total": len(entries),
+        "by_status": by_status,
+        "by_type": by_type,
     }
