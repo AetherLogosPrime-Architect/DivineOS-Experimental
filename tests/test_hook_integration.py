@@ -1,8 +1,6 @@
 """Integration tests for IDE hook event capture."""
 
 import pytest
-import json
-from pathlib import Path
 from divineos.ledger import init_db, get_events, count_events
 from divineos.consolidation import init_knowledge_table
 from divineos.event_dispatcher import emit_event

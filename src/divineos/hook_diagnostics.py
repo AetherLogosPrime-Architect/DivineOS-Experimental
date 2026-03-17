@@ -7,7 +7,7 @@ Provides tools to diagnose and verify hook configuration and triggering.
 import json
 import logging
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +139,7 @@ class HookDiagnostics:
             print(f"     Action: {hook['action_type']}")
             
             if hook['issues']:
-                print(f"     Issues:")
+                print("     Issues:")
                 for issue in hook['issues']:
                     print(f"       - {issue}")
         

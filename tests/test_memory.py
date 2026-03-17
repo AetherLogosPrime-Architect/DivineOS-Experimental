@@ -1,6 +1,5 @@
 """Tests for the personal memory system."""
 
-import time
 
 import pytest
 from divineos.ledger import init_db

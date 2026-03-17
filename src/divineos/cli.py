@@ -35,14 +35,11 @@ from divineos.consolidation import (
     rebuild_fts_index,
     get_lesson_summary,
     get_lessons,
-    extract_lessons_from_report,
-    check_recurring_lessons,
     deep_extract_knowledge,
     consolidate_related,
     apply_session_feedback,
     health_check,
     knowledge_health_report,
-    compute_effectiveness,
     clear_lessons,
     migrate_knowledge_types,
     KNOWLEDGE_TYPES,
@@ -50,7 +47,6 @@ from divineos.consolidation import (
 from divineos.memory import (
     init_memory_tables,
     set_core,
-    get_core,
     clear_core,
     format_core,
     CORE_SLOTS,
@@ -60,7 +56,7 @@ from divineos.memory import (
     recall,
     format_recall,
 )
-from divineos.quality_checks import init_quality_tables, run_all_checks, store_report
+from divineos.quality_checks import init_quality_tables
 from divineos.session_features import (
     init_feature_tables,
     run_all_features,
@@ -535,7 +531,7 @@ def health_cmd():
     # Show effectiveness breakdown
     report = knowledge_health_report()
     if report["total"] > 0:
-        click.secho(f"\n  Effectiveness breakdown:", fg="white")
+        click.secho("\n  Effectiveness breakdown:", fg="white")
         for status, count in sorted(report["by_status"].items()):
             click.secho(f"    {status:15s} {count}", fg="bright_black")
     click.echo()
@@ -1013,7 +1009,7 @@ def analyze_now_cmd():
         # Export current session
         session_file = export_current_session_to_jsonl(limit=200)
         
-        click.secho(f"[+] Analyzing live session...", fg="cyan")
+        click.secho("[+] Analyzing live session...", fg="cyan")
         
         # Analyze the session
         result = analyze_session(session_file)
@@ -1181,7 +1177,7 @@ def emit_cmd(
                 click.secho("[-] USER_INPUT requires --content", fg="red")
                 sys.exit(1)
             event_id = emit_user_input(content, session_id=session_id or None)
-            click.secho(f"[+] Event emitted: USER_INPUT", fg="green")
+            click.secho("[+] Event emitted: USER_INPUT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
         elif event_type == "ASSISTANT_OUTPUT":
@@ -1190,7 +1186,7 @@ def emit_cmd(
                 sys.exit(1)
             # ASSISTANT_OUTPUT uses the generic emit_event for backward compatibility
             event_id = emit_event(event_type, {"content": content}, actor="assistant")
-            click.secho(f"[+] Event emitted: ASSISTANT_OUTPUT", fg="green")
+            click.secho("[+] Event emitted: ASSISTANT_OUTPUT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
         elif event_type == "TOOL_CALL":
@@ -1203,7 +1199,7 @@ def emit_cmd(
                 click.secho(f"[-] Invalid JSON for --tool-input: {tool_input}", fg="red")
                 sys.exit(1)
             event_id = emit_tool_call(tool_name, tool_input_dict, tool_use_id=tool_use_id, session_id=session_id or None)
-            click.secho(f"[+] Event emitted: TOOL_CALL", fg="green")
+            click.secho("[+] Event emitted: TOOL_CALL", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
         elif event_type == "TOOL_RESULT":
@@ -1211,13 +1207,13 @@ def emit_cmd(
                 click.secho("[-] TOOL_RESULT requires --tool-name, --tool-use-id, and --result", fg="red")
                 sys.exit(1)
             event_id = emit_tool_result(tool_name, tool_use_id, result, duration_ms, session_id=session_id or None)
-            click.secho(f"[+] Event emitted: TOOL_RESULT", fg="green")
+            click.secho("[+] Event emitted: TOOL_RESULT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
         elif event_type == "SESSION_END":
             # SESSION_END queries ledger for actual counts
             event_id = emit_session_end(session_id=session_id or None)
-            click.secho(f"[+] Event emitted: SESSION_END", fg="green")
+            click.secho("[+] Event emitted: SESSION_END", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
             # Show what was captured

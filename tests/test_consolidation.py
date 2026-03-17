@@ -31,7 +31,6 @@ from divineos.consolidation import (
     consolidate_related,
     record_access,
     _adjust_confidence,
-    _resolve_lesson,
     compute_effectiveness,
     health_check,
     apply_session_feedback,
@@ -44,7 +43,6 @@ from divineos.consolidation import (
     KNOWLEDGE_SOURCES,
     KNOWLEDGE_MATURITY,
 )
-import divineos.ledger as ledger_mod
 
 
 @pytest.fixture(autouse=True)
@@ -512,7 +510,6 @@ class TestSmartBriefing:
 
     def test_briefing_preferences_never_decay(self):
         """PREFERENCE entries should score well even when old."""
-        import time as _time
         store_knowledge("PREFERENCE", "User prefers plain English explanations")
         # We can't easily mock time for the scoring, but we can verify
         # preferences appear in the briefing

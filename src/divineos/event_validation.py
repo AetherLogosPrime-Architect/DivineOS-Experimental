@@ -117,7 +117,7 @@ class EventValidator:
         """Validate USER_INPUT event payload."""
         # Content is required
         if 'content' not in payload:
-            return False, f"Missing required field: content"
+            return False, "Missing required field: content"
         
         # Validate content
         content = payload.get('content', '')
@@ -143,9 +143,9 @@ class EventValidator:
         """Validate TOOL_CALL event payload."""
         # tool_name and tool_use_id are required
         if 'tool_name' not in payload:
-            return False, f"Missing required field: tool_name"
+            return False, "Missing required field: tool_name"
         if 'tool_use_id' not in payload:
-            return False, f"Missing required field: tool_use_id"
+            return False, "Missing required field: tool_use_id"
         
         # Validate tool name
         tool_name = payload.get('tool_name', '')
@@ -192,9 +192,9 @@ class EventValidator:
         """Validate TOOL_RESULT event payload."""
         # tool_name and tool_use_id are required
         if 'tool_name' not in payload:
-            return False, f"Missing required field: tool_name"
+            return False, "Missing required field: tool_name"
         if 'tool_use_id' not in payload:
-            return False, f"Missing required field: tool_use_id"
+            return False, "Missing required field: tool_use_id"
         
         # Validate tool name
         tool_name = payload.get('tool_name', '')
@@ -232,7 +232,7 @@ class EventValidator:
         """Validate SESSION_END event payload."""
         # session_id is required
         if 'session_id' not in payload:
-            return False, f"Missing required field: session_id"
+            return False, "Missing required field: session_id"
         
         # Validate session ID - allow any non-empty string (UUID or test session IDs)
         session_id = payload.get('session_id', '')

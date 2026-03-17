@@ -9,7 +9,6 @@ This module provides:
 - Event normalization and enrichment
 """
 
-import json
 import uuid
 import time
 from datetime import datetime, timezone

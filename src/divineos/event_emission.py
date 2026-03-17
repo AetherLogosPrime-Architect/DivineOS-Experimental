@@ -11,17 +11,12 @@ All events are validated, stored in the ledger with SHA256 hashes,
 and include timestamps and session IDs.
 """
 
-import json
 from typing import Any, Dict, Optional
 from loguru import logger
 
 from divineos.event_capture import (
     EventType,
     EventValidationError,
-    UserInputPayload,
-    ToolCallPayload,
-    ToolResultPayload,
-    SessionEndPayload,
     get_session_tracker,
     get_current_timestamp,
     validate_event_payload,
@@ -432,7 +427,6 @@ def emit_session_end(
     try:
         from divineos.ledger import get_events
         from pathlib import Path
-        import os
         
         # Get session ID - PRIORITY: persistent file > session tracker
         if session_id is None:

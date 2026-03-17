@@ -3,7 +3,6 @@
 import pytest
 from click.testing import CliRunner
 from divineos.cli import cli
-import divineos.ledger as ledger_mod
 
 
 @pytest.fixture(autouse=True)

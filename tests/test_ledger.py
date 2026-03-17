@@ -190,7 +190,6 @@ class TestVerifyEventHash:
     def test_invalid_hash(self):
         """Test that invalid hash is detected."""
         from divineos.ledger import verify_event_hash
-        import json
         
         payload = {"content": "hello"}
         # Use wrong hash

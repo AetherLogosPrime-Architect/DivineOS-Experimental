@@ -7,8 +7,7 @@ that get logged to the ledger with fidelity verification.
 This is the bridge between Kiro's hook system and the ledger.
 """
 
-import json
-from typing import Callable, Optional
+from typing import Callable
 from loguru import logger
 
 

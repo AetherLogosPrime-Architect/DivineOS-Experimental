@@ -1,8 +1,6 @@
 """Tests for clarity enforcement module."""
 
-import pytest
 from divineos.clarity_enforcement import (
-    ClarityChecker,
     get_clarity_checker,
     reset_clarity_checker,
 )

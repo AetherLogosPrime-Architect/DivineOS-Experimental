@@ -1,7 +1,6 @@
 """Tests for session_features module."""
 
 import json
-import pytest
 from pathlib import Path
 
 from divineos.session_features import (

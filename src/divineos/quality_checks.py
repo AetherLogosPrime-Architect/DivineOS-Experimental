@@ -995,7 +995,6 @@ def _generate_report_text(
     lines.append(f"Session: {session_id[:16]}...")
 
     if timestamps:
-        from datetime import timezone
 
         start = min(timestamps)
         end = max(timestamps)

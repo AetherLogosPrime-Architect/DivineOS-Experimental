@@ -1,11 +1,9 @@
 """Tests for event emission module."""
 
 import pytest
-import json
 import os
 import tempfile
-from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
+from datetime import datetime
 
 from divineos.event_emission import (
     emit_user_input,
@@ -16,9 +14,8 @@ from divineos.event_emission import (
 from divineos.event_capture import (
     EventValidationError,
     get_session_tracker,
-    get_current_timestamp,
 )
-from divineos.ledger import get_events, init_db, compute_hash
+from divineos.ledger import get_events, init_db
 
 
 @pytest.fixture

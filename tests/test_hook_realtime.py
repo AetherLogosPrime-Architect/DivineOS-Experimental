@@ -2,11 +2,9 @@
 
 import pytest
 import time
-from pathlib import Path
 from divineos.ledger import init_db, get_events, count_events
 from divineos.consolidation import init_knowledge_table
 from divineos.event_dispatcher import emit_event
-from divineos.analysis import analyze_session, format_analysis_report, store_analysis
 
 
 @pytest.fixture(autouse=True)

@@ -1,12 +1,11 @@
 """Tests for asynchronous event capture module."""
 
 import pytest
-import asyncio
 import os
 import tempfile
 import time
-from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock, AsyncMock
+from datetime import datetime
+from unittest.mock import patch, MagicMock
 from hypothesis import given, strategies as st, settings
 
 from divineos.async_capture import (

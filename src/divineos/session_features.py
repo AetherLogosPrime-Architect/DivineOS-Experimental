@@ -14,9 +14,7 @@ Features 1 (quality checks), 2 (plain English), and 4 (report card) are in quali
 """
 
 import json
-import re
 import sqlite3
-import time
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,7 +26,6 @@ from divineos.session_analyzer import (
     ENCOURAGEMENT_PATTERNS,
     FRUSTRATION_PATTERNS,
     _detect_signals,
-    _extract_timestamps,
     _extract_user_text,
     _load_records,
 )

@@ -11,10 +11,9 @@ All operations return control to the IDE within 100ms.
 """
 
 import asyncio
-import json
 import time
-from typing import Any, Dict, Optional, List, Callable
-from datetime import datetime, timedelta
+from typing import Any, Dict, Optional, Callable
+from datetime import datetime
 from loguru import logger
 from collections import deque
 import threading
@@ -185,7 +184,7 @@ async def emit_user_input_async(
                 "kwargs": {"session_id": session_id},
                 "timestamp": datetime.now(),
             })
-            logger.warning(f"USER_INPUT event queued due to ledger unavailability")
+            logger.warning("USER_INPUT event queued due to ledger unavailability")
         else:
             logger.debug(f"USER_INPUT event emitted in {elapsed_ms:.1f}ms")
         
@@ -257,7 +256,7 @@ async def emit_tool_call_async(
                 "kwargs": {"tool_use_id": tool_use_id, "session_id": session_id},
                 "timestamp": datetime.now(),
             })
-            logger.warning(f"TOOL_CALL event queued due to ledger unavailability")
+            logger.warning("TOOL_CALL event queued due to ledger unavailability")
         else:
             logger.debug(f"TOOL_CALL event emitted in {elapsed_ms:.1f}ms")
         
@@ -343,7 +342,7 @@ async def emit_tool_result_async(
                 },
                 "timestamp": datetime.now(),
             })
-            logger.warning(f"TOOL_RESULT event queued due to ledger unavailability")
+            logger.warning("TOOL_RESULT event queued due to ledger unavailability")
         else:
             logger.debug(f"TOOL_RESULT event emitted in {elapsed_ms:.1f}ms")
         
@@ -433,7 +432,7 @@ async def emit_session_end_async(
                 },
                 "timestamp": datetime.now(),
             })
-            logger.warning(f"SESSION_END event queued due to ledger unavailability")
+            logger.warning("SESSION_END event queued due to ledger unavailability")
         else:
             logger.debug(f"SESSION_END event emitted in {elapsed_ms:.1f}ms")
         

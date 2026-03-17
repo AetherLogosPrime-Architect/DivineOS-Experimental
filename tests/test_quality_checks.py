@@ -2,14 +2,12 @@
 
 import json
 import time
-import pytest
 from pathlib import Path
 
 from divineos.quality_checks import (
     CheckResult,
     SessionReport,
     _build_tool_result_map,
-    _extract_file_ops,
     _extract_test_results,
     _extract_tool_calls,
     _find_blind_edits,
