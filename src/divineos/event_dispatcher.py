@@ -32,7 +32,7 @@ class EventDispatcher:
         self.listeners[event_type].append(callback)
         logger.debug(f"Registered listener for {event_type}")
 
-    def emit(self, event_type: str, payload: dict, actor: str = "system") -> str:
+    def emit(self, event_type: str, payload: dict, actor: str = "system", validate: bool = True) -> str:
         """
         Emit an event to all listeners and log to ledger.
 
@@ -40,6 +40,7 @@ class EventDispatcher:
             event_type: Type of event (e.g., 'USER_INPUT', 'TOOL_CALL')
             payload: Event data dict
             actor: Who triggered the event (default: 'system')
+            validate: Whether to validate payload before storing (default: True)
 
         Returns:
             event_id: UUID of the logged event
@@ -60,7 +61,7 @@ class EventDispatcher:
         # Log to ledger (import here to ensure DB path is set)
         try:
             from divineos.ledger import log_event as ledger_log_event
-            event_id = ledger_log_event(event_type, actor, payload)
+            event_id = ledger_log_event(event_type, actor, payload, validate=validate)
             logger.debug(f"Emitted {event_type} event: {event_id}")
             return event_id
         except Exception as e:
@@ -73,7 +74,7 @@ _dispatcher = EventDispatcher()
 
 
 def emit_event(
-    event_type: str, payload: dict, actor: str = "system"
+    event_type: str, payload: dict, actor: str = "system", validate: bool = True
 ) -> str:
     """
     Emit an event to all listeners and log to ledger.
@@ -82,11 +83,12 @@ def emit_event(
         event_type: Type of event (e.g., 'USER_INPUT', 'TOOL_CALL')
         payload: Event data dict
         actor: Who triggered the event (default: 'system')
+        validate: Whether to validate payload before storing (default: True)
 
     Returns:
         event_id: UUID of the logged event
     """
-    return _dispatcher.emit(event_type, payload, actor)
+    return _dispatcher.emit(event_type, payload, actor, validate=validate)
 
 
 def register_listener(event_type: str, callback: Callable) -> None:

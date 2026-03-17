@@ -53,7 +53,7 @@ class TestUserInputCapture:
         ]
         
         for msg in messages:
-            emit_event("USER_INPUT", {"content": msg}, actor="user")
+            emit_event("USER_INPUT", {"content": msg}, actor="user", validate=False)
         
         events = get_events(limit=100)
         user_events = [e for e in events if e["event_type"] == "USER_INPUT"]
@@ -64,7 +64,7 @@ class TestUserInputCapture:
 
     def test_user_input_has_timestamp(self):
         """Test that USER_INPUT events have timestamps."""
-        emit_event("USER_INPUT", {"content": "test"}, actor="user")
+        emit_event("USER_INPUT", {"content": "test"}, actor="user", validate=False)
         
         events = get_events(limit=10)
         user_event = next((e for e in events if e["event_type"] == "USER_INPUT"), None)
@@ -75,7 +75,7 @@ class TestUserInputCapture:
 
     def test_user_input_has_content_hash(self):
         """Test that USER_INPUT events have content hashes."""
-        emit_event("USER_INPUT", {"content": "test message"}, actor="user")
+        emit_event("USER_INPUT", {"content": "test message"}, actor="user", validate=False)
         
         events = get_events(limit=10)
         user_event = next((e for e in events if e["event_type"] == "USER_INPUT"), None)
@@ -453,7 +453,7 @@ class TestCompleteEventSequence:
         messages = ["First", "Second", "Third"]
         
         for msg in messages:
-            emit_event("USER_INPUT", {"content": msg}, actor="user")
+            emit_event("USER_INPUT", {"content": msg}, actor="user", validate=False)
         
         events = get_events(limit=100)
         user_events = [e for e in events if e["event_type"] == "USER_INPUT"]
@@ -475,7 +475,8 @@ class TestEventNonBlocking:
             emit_event(
                 "USER_INPUT",
                 {"content": f"Message {i}"},
-                actor="user"
+                actor="user",
+                validate=False
             )
         
         # Verify all events captured
@@ -489,13 +490,13 @@ class TestEventNonBlocking:
         for i in range(25):
             event_type = event_types[i % len(event_types)]
             if event_type == "USER_INPUT":
-                emit_event(event_type, {"content": f"msg {i}"}, actor="user")
+                emit_event(event_type, {"content": f"msg {i}"}, actor="user", validate=False)
             elif event_type == "ASSISTANT_OUTPUT":
-                emit_event(event_type, {"content": f"response {i}"}, actor="assistant")
+                emit_event(event_type, {"content": f"response {i}"}, actor="assistant", validate=False)
             elif event_type == "TOOL_CALL":
-                emit_event(event_type, {"tool_name": "readFile", "tool_use_id": f"t{i}"}, actor="assistant")
+                emit_event(event_type, {"tool_name": "readFile", "tool_use_id": f"t{i}"}, actor="assistant", validate=False)
             else:
-                emit_event(event_type, {"tool_name": "readFile", "tool_use_id": f"t{i}", "result": "ok"}, actor="system")
+                emit_event(event_type, {"tool_name": "readFile", "tool_use_id": f"t{i}", "result": "ok"}, actor="system", validate=False)
         
         events = get_events(limit=100)
         assert len(events) == 25
@@ -512,7 +513,7 @@ class TestEventDataIntegrity:
             "nested": {"deep": {"data": 123}}
         }
         
-        emit_event("USER_INPUT", payload, actor="user")
+        emit_event("USER_INPUT", payload, actor="user", validate=False)
         
         events = get_events(limit=10)
         event = next((e for e in events if e["event_type"] == "USER_INPUT"), None)
@@ -525,7 +526,7 @@ class TestEventDataIntegrity:
         actors = ["user", "assistant", "system"]
         
         for actor in actors:
-            emit_event("USER_INPUT", {"content": "test"}, actor=actor)
+            emit_event("USER_INPUT", {"content": "test"}, actor=actor, validate=False)
         
         events = get_events(limit=100)
         
@@ -535,7 +536,7 @@ class TestEventDataIntegrity:
 
     def test_event_timestamp_format(self):
         """Test that event timestamps are in ISO format or numeric."""
-        emit_event("USER_INPUT", {"content": "test"}, actor="user")
+        emit_event("USER_INPUT", {"content": "test"}, actor="user", validate=False)
         
         events = get_events(limit=10)
         event = events[0]

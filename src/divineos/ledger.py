@@ -99,7 +99,7 @@ def init_db() -> None:
         conn.close()
 
 
-def log_event(event_type: str, actor: str, payload: dict) -> str:
+def log_event(event_type: str, actor: str, payload: dict, validate: bool = True) -> str:
     """
     Appends an event to the ledger. Returns the event_id.
 
@@ -107,9 +107,21 @@ def log_event(event_type: str, actor: str, payload: dict) -> str:
         event_type: e.g. 'USER_INPUT', 'SYSTEM_PROMPT', 'TOOL_CALL', 'ERROR'
         actor: e.g. 'user', 'assistant', 'system'
         payload: raw data dict for the event
+        validate: if True, validate payload before storing (default: True)
 
     Fidelity: Computes and stores content_hash for integrity verification.
+    
+    Validation: Validates payload before storing to prevent corrupted data.
     """
+    # Validate payload before storing (only for known event types)
+    if validate and event_type in ['USER_INPUT', 'TOOL_CALL', 'TOOL_RESULT', 'SESSION_END']:
+        from divineos.event_validation import EventValidator
+        
+        is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
+        if not is_valid:
+            logger.error(f"Event validation failed for {event_type}: {validation_msg}")
+            raise ValueError(f"Invalid event payload: {validation_msg}")
+    
     event_id = str(uuid.uuid4())
     timestamp = time.time()
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)

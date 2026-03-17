@@ -72,11 +72,12 @@ def emit_user_input(content: str, session_id: Optional[str] = None) -> str:
         # Normalize payload
         normalized_payload = normalize_event_payload(EventType.USER_INPUT, payload)
         
-        # Store in ledger
+        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.USER_INPUT.value,
             actor="user",
             payload=normalized_payload,
+            validate=True,
         )
         
         logger.debug(f"Emitted USER_INPUT event: {event_id}")
@@ -147,11 +148,12 @@ def emit_tool_call(
         # Normalize payload
         normalized_payload = normalize_event_payload(EventType.TOOL_CALL, payload)
         
-        # Store in ledger
+        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.TOOL_CALL.value,
             actor="assistant",
             payload=normalized_payload,
+            validate=True,
         )
         
         logger.debug(f"Emitted TOOL_CALL event: {event_id} for tool {tool_name}")
@@ -231,11 +233,12 @@ def emit_tool_result(
         # Normalize payload
         normalized_payload = normalize_event_payload(EventType.TOOL_RESULT, payload)
         
-        # Store in ledger
+        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.TOOL_RESULT.value,
             actor="system",
             payload=normalized_payload,
+            validate=True,
         )
         
         logger.debug(f"Emitted TOOL_RESULT event: {event_id} for tool {tool_name}")
@@ -331,11 +334,12 @@ def emit_session_end(
         # Normalize payload
         normalized_payload = normalize_event_payload(EventType.SESSION_END, payload)
         
-        # Store in ledger
+        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.SESSION_END.value,
             actor="system",
             payload=normalized_payload,
+            validate=True,
         )
         
         logger.debug(f"Emitted SESSION_END event: {event_id} for session {session_id}")

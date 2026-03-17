@@ -42,12 +42,12 @@ class TestComputeHash:
 
 class TestLogEvent:
     def test_returns_event_id(self):
-        eid = log_event("TEST", "user", {"content": "hello"})
+        eid = log_event("TEST", "user", {"content": "hello"}, validate=False)
         assert isinstance(eid, str)
         assert len(eid) > 0
 
     def test_stores_content_hash(self):
-        log_event("TEST", "user", {"content": "hello"})
+        log_event("TEST", "user", {"content": "hello"}, validate=False)
         events = get_events()
         assert len(events) == 1
         # Hash should be computed from entire payload (excluding content_hash field)
@@ -58,8 +58,8 @@ class TestLogEvent:
         assert events[0]["content_hash"] == expected_hash
 
     def test_multiple_events(self):
-        log_event("A", "user", {"content": "first"})
-        log_event("B", "assistant", {"content": "second"})
+        log_event("A", "user", {"content": "first"}, validate=False)
+        log_event("B", "assistant", {"content": "second"}, validate=False)
         events = get_events()
         assert len(events) == 2
 
@@ -70,20 +70,20 @@ class TestGetEvents:
 
     def test_limit(self):
         for i in range(5):
-            log_event("TEST", "user", {"content": f"msg {i}"})
+            log_event("TEST", "user", {"content": f"msg {i}"}, validate=False)
         events = get_events(limit=3)
         assert len(events) == 3
 
     def test_filter_by_type(self):
-        log_event("USER_INPUT", "user", {"content": "hello"})
-        log_event("ERROR", "system", {"content": "oops"})
+        log_event("USER_INPUT", "user", {"content": "hello"}, validate=False)
+        log_event("ERROR", "system", {"content": "oops"}, validate=False)
         events = get_events(event_type="ERROR")
         assert len(events) == 1
         assert events[0]["event_type"] == "ERROR"
 
     def test_filter_by_actor(self):
-        log_event("MSG", "user", {"content": "hi"})
-        log_event("MSG", "assistant", {"content": "hello"})
+        log_event("MSG", "user", {"content": "hi"}, validate=False)
+        log_event("MSG", "assistant", {"content": "hello"}, validate=False)
         events = get_events(actor="user")
         assert len(events) == 1
         assert events[0]["actor"] == "user"
@@ -91,26 +91,26 @@ class TestGetEvents:
 
 class TestSearchEvents:
     def test_finds_matching(self):
-        log_event("TEST", "user", {"content": "the quick brown fox"})
-        log_event("TEST", "user", {"content": "the lazy dog"})
+        log_event("TEST", "user", {"content": "the quick brown fox"}, validate=False)
+        log_event("TEST", "user", {"content": "the lazy dog"}, validate=False)
         results = search_events("fox")
         assert len(results) == 1
 
     def test_no_matches(self):
-        log_event("TEST", "user", {"content": "hello"})
+        log_event("TEST", "user", {"content": "hello"}, validate=False)
         assert search_events("zzzzz") == []
 
     def test_case_insensitive(self):
-        log_event("TEST", "user", {"content": "Hello World"})
+        log_event("TEST", "user", {"content": "Hello World"}, validate=False)
         results = search_events("hello")
         assert len(results) == 1
 
 
 class TestGetRecentContext:
     def test_returns_chronological(self):
-        log_event("A", "user", {"content": "first"})
-        log_event("B", "user", {"content": "second"})
-        log_event("C", "user", {"content": "third"})
+        log_event("A", "user", {"content": "first"}, validate=False)
+        log_event("B", "user", {"content": "second"}, validate=False)
+        log_event("C", "user", {"content": "third"}, validate=False)
         ctx = get_recent_context(n=2)
         assert len(ctx) == 2
         assert ctx[0]["event_type"] == "B"
@@ -123,17 +123,17 @@ class TestCountEvents:
         assert counts["total"] == 0
 
     def test_counts_by_type(self):
-        log_event("USER_INPUT", "user", {"content": "a"})
-        log_event("USER_INPUT", "user", {"content": "b"})
-        log_event("ERROR", "system", {"content": "c"})
+        log_event("USER_INPUT", "user", {"content": "a"}, validate=False)
+        log_event("USER_INPUT", "user", {"content": "b"}, validate=False)
+        log_event("ERROR", "system", {"content": "c"}, validate=False)
         counts = count_events()
         assert counts["total"] == 3
         assert counts["by_type"]["USER_INPUT"] == 2
         assert counts["by_type"]["ERROR"] == 1
 
     def test_counts_by_actor(self):
-        log_event("MSG", "user", {"content": "a"})
-        log_event("MSG", "assistant", {"content": "b"})
+        log_event("MSG", "user", {"content": "a"}, validate=False)
+        log_event("MSG", "assistant", {"content": "b"}, validate=False)
         counts = count_events()
         assert counts["by_actor"]["user"] == 1
         assert counts["by_actor"]["assistant"] == 1
@@ -141,8 +141,8 @@ class TestCountEvents:
 
 class TestVerifyAllEvents:
     def test_all_pass(self):
-        log_event("TEST", "user", {"content": "hello"})
-        log_event("TEST", "user", {"content": "world"})
+        log_event("TEST", "user", {"content": "hello"}, validate=False)
+        log_event("TEST", "user", {"content": "world"}, validate=False)
         result = verify_all_events()
         assert result["integrity"] == "PASS"
         assert result["passed"] == 2
@@ -156,8 +156,8 @@ class TestVerifyAllEvents:
 
 class TestExportToMarkdown:
     def test_exports_events(self):
-        log_event("USER_INPUT", "user", {"content": "hello"})
-        log_event("ASSISTANT_OUTPUT", "assistant", {"content": "hi there"})
+        log_event("USER_INPUT", "user", {"content": "hello"}, validate=False)
+        log_event("ASSISTANT_OUTPUT", "assistant", {"content": "hi there"}, validate=False)
         md = export_to_markdown()
         assert "## User" in md
         assert "hello" in md
@@ -222,8 +222,8 @@ class TestGetVerifiedEvents:
         """Test retrieving all valid events."""
         from divineos.ledger import get_verified_events
         
-        log_event("TEST", "user", {"content": "hello"})
-        log_event("TEST", "user", {"content": "world"})
+        log_event("TEST", "user", {"content": "hello"}, validate=False)
+        log_event("TEST", "user", {"content": "world"}, validate=False)
         
         verified, corrupted = get_verified_events()
         assert len(verified) == 2
@@ -236,8 +236,8 @@ class TestGetVerifiedEvents:
         import os
         
         # Create valid events
-        log_event("TEST", "user", {"content": "hello"})
-        log_event("TEST", "user", {"content": "world"})
+        log_event("TEST", "user", {"content": "hello"}, validate=False)
+        log_event("TEST", "user", {"content": "world"}, validate=False)
         
         # Corrupt one event by modifying its hash in the database
         db_path = os.environ.get("DIVINEOS_DB")
@@ -267,8 +267,8 @@ class TestGetVerifiedEvents:
         import os
         
         # Create valid events
-        log_event("TEST", "user", {"content": "hello"})
-        log_event("TEST", "user", {"content": "world"})
+        log_event("TEST", "user", {"content": "hello"}, validate=False)
+        log_event("TEST", "user", {"content": "world"}, validate=False)
         
         # Corrupt one event
         db_path = os.environ.get("DIVINEOS_DB")
@@ -295,8 +295,8 @@ class TestGetVerifiedEvents:
         """Test filtering by type while verifying hashes."""
         from divineos.ledger import get_verified_events
         
-        log_event("USER_INPUT", "user", {"content": "hello"})
-        log_event("ERROR", "system", {"content": "oops"})
+        log_event("USER_INPUT", "user", {"content": "hello"}, validate=False)
+        log_event("ERROR", "system", {"content": "oops"}, validate=False)
         
         verified, corrupted = get_verified_events(event_type="USER_INPUT")
         assert len(verified) == 1
@@ -307,8 +307,8 @@ class TestGetVerifiedEvents:
         """Test filtering by actor while verifying hashes."""
         from divineos.ledger import get_verified_events
         
-        log_event("MSG", "user", {"content": "hi"})
-        log_event("MSG", "assistant", {"content": "hello"})
+        log_event("MSG", "user", {"content": "hi"}, validate=False)
+        log_event("MSG", "assistant", {"content": "hello"}, validate=False)
         
         verified, corrupted = get_verified_events(actor="user")
         assert len(verified) == 1
@@ -324,8 +324,8 @@ class TestVerifyAllEventsEnhanced:
         import sqlite3
         import os
         
-        log_event("TEST", "user", {"content": "hello"})
-        log_event("TEST", "user", {"content": "world"})
+        log_event("TEST", "user", {"content": "hello"}, validate=False)
+        log_event("TEST", "user", {"content": "world"}, validate=False)
         
         # Corrupt one event
         db_path = os.environ.get("DIVINEOS_DB")
@@ -351,7 +351,7 @@ class TestVerifyAllEventsEnhanced:
         import sqlite3
         import os
         
-        log_event("TEST", "user", {"content": "hello"})
+        log_event("TEST", "user", {"content": "hello"}, validate=False)
         
         # Corrupt the event
         db_path = os.environ.get("DIVINEOS_DB")
@@ -384,8 +384,8 @@ class TestExportCurrentSessionWithVerification:
         import json
         
         # Create events
-        log_event("USER_INPUT", "user", {"content": "hello"})
-        log_event("USER_INPUT", "user", {"content": "world"})
+        log_event("USER_INPUT", "user", {"content": "hello"}, validate=False)
+        log_event("USER_INPUT", "user", {"content": "world"}, validate=False)
         
         # Corrupt one event
         db_path = os.environ.get("DIVINEOS_DB")
@@ -421,8 +421,8 @@ class TestExportCurrentSessionWithVerification:
         import json
         
         # Create valid events
-        log_event("USER_INPUT", "user", {"content": "hello"})
-        log_event("USER_INPUT", "user", {"content": "world"})
+        log_event("USER_INPUT", "user", {"content": "hello"}, validate=False)
+        log_event("USER_INPUT", "user", {"content": "world"}, validate=False)
         
         # Export session
         export_path = export_current_session_to_jsonl()
