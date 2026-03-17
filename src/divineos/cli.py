@@ -19,6 +19,7 @@ from divineos.ledger import (
     count_events,
     get_recent_context,
     verify_all_events,
+    clean_corrupted_events,
     export_to_markdown,
     logger,
 )
