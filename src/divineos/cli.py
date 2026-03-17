@@ -1075,7 +1075,7 @@ def report_cmd(session_id: str):
                 try:
                     ts = datetime.fromtimestamp(session['created_at']).strftime("%Y-%m-%d %H:%M:%S")
                     click.secho(f"     Time: {ts}", fg="bright_black")
-                except:
+                except Exception:
                     click.secho(f"     Time: {session['created_at']}", fg="bright_black")
                 
                 click.secho(f"     Files: {session['file_count']}", fg="bright_black")

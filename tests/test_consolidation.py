@@ -663,7 +663,7 @@ class TestDeepExtractKnowledge:
             "run the testing suite",
         ]
         records = []
-        ids = deep_extract_knowledge(analysis, records)
+        deep_extract_knowledge(analysis, records)
         # Should extract session topics
         knowledge = get_knowledge(knowledge_type="FACT")
         topic_entries = [k for k in knowledge if "topics" in k["content"]]
@@ -682,7 +682,7 @@ class TestDeepExtractKnowledge:
                 "content": [{"type": "text", "text": "no don't use mocks, use real database"}]
             }},
         ]
-        ids = deep_extract_knowledge(analysis, records)
+        deep_extract_knowledge(analysis, records)
         # "don't" triggers BOUNDARY classification
         boundaries = get_knowledge(knowledge_type="BOUNDARY")
         assert len(boundaries) >= 1
@@ -696,7 +696,7 @@ class TestDeepExtractKnowledge:
         analysis.preferences = [_MockSignal("i prefer plain english, no jargon")]
         analysis.user_message_texts = ["i prefer plain english, no jargon"]
         records = []
-        ids = deep_extract_knowledge(analysis, records)
+        deep_extract_knowledge(analysis, records)
         directions = get_knowledge(knowledge_type="DIRECTION")
         assert len(directions) >= 1
         assert "plain english" in directions[0]["content"].lower()
@@ -711,7 +711,7 @@ class TestDeepExtractKnowledge:
                 "content": [{"type": "text", "text": "yes lets use SQLite because it has no dependencies"}]
             }},
         ]
-        ids = deep_extract_knowledge(analysis, records)
+        deep_extract_knowledge(analysis, records)
         principles = get_knowledge(knowledge_type="PRINCIPLE")
         decision_entries = [p for p in principles if "decision" in " ".join(p["tags"]).lower()]
         assert len(decision_entries) >= 1
@@ -730,7 +730,7 @@ class TestDeepExtractKnowledge:
                 "content": [{"type": "text", "text": "perfect that's exactly right"}]
             }},
         ]
-        ids = deep_extract_knowledge(analysis, records)
+        deep_extract_knowledge(analysis, records)
         principles = get_knowledge(knowledge_type="PRINCIPLE")
         enc_entries = [p for p in principles if "encouragement" in " ".join(p["tags"]).lower()]
         assert len(enc_entries) >= 1
@@ -741,7 +741,7 @@ class TestDeepExtractKnowledge:
         analysis.user_message_texts = ["testing testing testing database database"]
         analysis.preferences = [_MockSignal("always test first")]
         records = []
-        ids = deep_extract_knowledge(analysis, records)
+        deep_extract_knowledge(analysis, records)
         # All entries should have topic tags
         all_knowledge = get_knowledge()
         for entry in all_knowledge:
@@ -843,7 +843,7 @@ class TestAdjustConfidence:
 
 class TestComputeEffectiveness:
     def test_mistake_effective(self):
-        kid = store_knowledge("MISTAKE", "blind editing without reading files first")
+        store_knowledge("MISTAKE", "blind editing without reading files first")
         record_lesson("blind_edit", "blind editing without reading files first", "s1")
         record_lesson("blind_edit", "blind editing without reading files first", "s2")
         record_lesson("blind_edit", "blind editing without reading files first", "s3")
@@ -852,7 +852,7 @@ class TestComputeEffectiveness:
         assert eff["status"] == "effective"
 
     def test_mistake_recurring(self):
-        kid = store_knowledge("MISTAKE", "repeated test failures in module")
+        store_knowledge("MISTAKE", "repeated test failures in module")
         record_lesson("test_failure", "repeated test failures in module", "s1")
         record_lesson("test_failure", "repeated test failures in module", "s2")
         record_lesson("test_failure", "repeated test failures in module", "s3")
@@ -860,7 +860,7 @@ class TestComputeEffectiveness:
         assert eff["status"] == "recurring"
 
     def test_mistake_no_lesson(self):
-        kid = store_knowledge("MISTAKE", "some unique one-off error xyz987")
+        store_knowledge("MISTAKE", "some unique one-off error xyz987")
         eff = compute_effectiveness(get_knowledge(knowledge_type="MISTAKE")[0])
         assert eff["status"] == "unknown"
 
@@ -873,12 +873,12 @@ class TestComputeEffectiveness:
         assert eff["status"] == "reinforced"
 
     def test_pattern_unused(self):
-        kid = store_knowledge("PATTERN", "never accessed pattern xyz")
+        store_knowledge("PATTERN", "never accessed pattern xyz")
         eff = compute_effectiveness(get_knowledge(knowledge_type="PATTERN")[0])
         assert eff["status"] == "unused"
 
     def test_preference_always_stable(self):
-        kid = store_knowledge("PREFERENCE", "user prefers plain english")
+        store_knowledge("PREFERENCE", "user prefers plain english")
         eff = compute_effectiveness(get_knowledge(knowledge_type="PREFERENCE")[0])
         assert eff["status"] == "stable"
 
@@ -889,7 +889,7 @@ class TestComputeEffectiveness:
         assert eff["status"] == "used"
 
     def test_fact_unused(self):
-        kid = store_knowledge("FACT", "obscure fact never accessed")
+        store_knowledge("FACT", "obscure fact never accessed")
         eff = compute_effectiveness(get_knowledge(knowledge_type="FACT")[0])
         assert eff["status"] == "unused"
 
@@ -915,7 +915,7 @@ class TestHealthCheck:
         conn.commit()
         conn.close()
 
-        result = health_check()
+        health_check()
         # Confidence should be UNCHANGED — age alone doesn't reduce trust
         entry = get_knowledge(knowledge_type="FACT")[0]
         assert entry["confidence"] == pytest.approx(0.8)
@@ -930,7 +930,7 @@ class TestHealthCheck:
         assert entry["confidence"] == pytest.approx(0.85)
 
     def test_recurring_lesson_escalation(self):
-        kid = store_knowledge("MISTAKE", "blind editing without reading files", confidence=0.7)
+        store_knowledge("MISTAKE", "blind editing without reading files", confidence=0.7)
         record_lesson("blind_edit", "blind editing without reading files", "s1")
         record_lesson("blind_edit", "blind editing without reading files", "s2")
         record_lesson("blind_edit", "blind editing without reading files", "s3")
@@ -941,7 +941,7 @@ class TestHealthCheck:
         assert entry["confidence"] == pytest.approx(0.95)
 
     def test_improving_lesson_resolved_after_30_days(self):
-        kid = store_knowledge("MISTAKE", "old resolved mistake entry", confidence=0.8)
+        store_knowledge("MISTAKE", "old resolved mistake entry", confidence=0.8)
         record_lesson("old_mistake", "old resolved mistake entry", "s1")
         record_lesson("old_mistake", "old resolved mistake entry", "s2")
         record_lesson("old_mistake", "old resolved mistake entry", "s3")
@@ -970,7 +970,7 @@ class TestHealthCheck:
 
     def test_resolved_lesson_lowers_confidence_gently(self):
         """Resolved lessons lower mistake confidence but not below 0.5."""
-        kid = store_knowledge("MISTAKE", "resolved mistake floor test", confidence=0.55)
+        store_knowledge("MISTAKE", "resolved mistake floor test", confidence=0.55)
         record_lesson("floor_test", "resolved mistake floor test", "s1")
         record_lesson("floor_test", "resolved mistake floor test", "s2")
         record_lesson("floor_test", "resolved mistake floor test", "s3")
@@ -1008,7 +1008,7 @@ class TestApplySessionFeedback:
         assert result["lessons_improving"] == 0
 
     def test_correction_matches_existing_mistake(self):
-        kid = store_knowledge(
+        store_knowledge(
             "MISTAKE", "blind editing without reading files first", confidence=0.8
         )
         analysis = _MockAnalysis()
@@ -1028,7 +1028,7 @@ class TestApplySessionFeedback:
         assert result["recurrences_found"] == 0
 
     def test_encouragement_matches_pattern(self):
-        kid = store_knowledge("PATTERN", "good error investigation before retrying", confidence=0.8)
+        store_knowledge("PATTERN", "good error investigation before retrying", confidence=0.8)
         analysis = _MockAnalysis()
         analysis.encouragements = [_MockSignal("great job investigating the error before retrying")]
         result = apply_session_feedback(analysis, "s2")
@@ -1160,7 +1160,7 @@ class TestFeedbackWithNoiseFilter:
         assert result["recurrences_found"] == 1
         # Should create a lesson with category "blind_coding"
         lessons = get_lessons()
-        blind_lessons = [l for l in lessons if l["category"] == "blind_coding"]
+        blind_lessons = [lesson for lesson in lessons if lesson["category"] == "blind_coding"]
         assert len(blind_lessons) >= 1
 
 
@@ -1177,7 +1177,7 @@ class TestExpandedTypes:
 
     def test_legacy_types_still_accepted(self):
         for ktype in ("PATTERN", "PREFERENCE", "MISTAKE"):
-            kid = store_knowledge(ktype, f"Legacy {ktype} content")
+            store_knowledge(ktype, f"Legacy {ktype} content")
             entries = get_knowledge(knowledge_type=ktype)
             assert len(entries) == 1
             assert entries[0]["knowledge_type"] == ktype
@@ -1337,7 +1337,7 @@ class TestMigrateTypes:
         assert len(principle_changes) == 1
 
     def test_execute_creates_new_entries(self):
-        kid = store_knowledge("MISTAKE", "Never skip tests before committing")
+        store_knowledge("MISTAKE", "Never skip tests before committing")
         changes = migrate_knowledge_types(dry_run=False)
         assert len(changes) == 1
         assert "new_id" in changes[0]

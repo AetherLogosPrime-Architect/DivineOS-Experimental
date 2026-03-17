@@ -264,7 +264,7 @@ class TestRefreshActiveMemory:
         for i in range(50):
             store_knowledge("MISTAKE", f"Mistake number {i}", confidence=1.0)
 
-        result = refresh_active_memory(importance_threshold=0.3)
+        refresh_active_memory(importance_threshold=0.3)
         active = get_active_memory()
         # All 50 should be in active memory
         assert len(active) >= 50

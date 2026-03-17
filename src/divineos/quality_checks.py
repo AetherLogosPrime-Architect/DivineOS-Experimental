@@ -378,7 +378,7 @@ def check_correctness(
     total = len(test_results)
     passed_tests = sum(1 for t in test_results if t["passed"] is True)
     failed_tests = sum(1 for t in test_results if t["passed"] is False)
-    unknown = total - passed_tests - failed_tests
+    total - passed_tests - failed_tests
 
     # Did the final test pass?
     final_test = test_results[-1]

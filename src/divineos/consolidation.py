@@ -735,8 +735,8 @@ def get_lesson_summary() -> str:
     if not lessons:
         return "No lessons tracked yet."
 
-    active = [l for l in lessons if l["status"] == "active"]
-    improving = [l for l in lessons if l["status"] == "improving"]
+    active = [lesson for lesson in lessons if lesson["status"] == "active"]
+    improving = [lesson for lesson in lessons if lesson["status"] == "improving"]
 
     lines = [f"### ACTIVE LESSONS ({len(active) + len(improving)})"]
 

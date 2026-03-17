@@ -409,7 +409,7 @@ class TestRetryWithBackoff:
         mock_func = MagicMock(side_effect=Exception("fail"))
         
         start_time = time.time()
-        result = await _retry_with_backoff(
+        await _retry_with_backoff(
             mock_func,
             (),
             {},
