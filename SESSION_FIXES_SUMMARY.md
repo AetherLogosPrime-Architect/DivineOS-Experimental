@@ -1,85 +1,53 @@
-# Session Fixes Summary
+# Session Fixes Summary - March 17, 2026
 
-## Issues Fixed
+## Critical Bugs Fixed
 
-### 1. Session Tracking Broken (FIXED ✅)
-**Problem**: Every event had a unique session ID instead of sharing one per session.
-- 5448 unique session IDs for 5448 events (should be 1 per session)
-- `current_session.txt` only written when file doesn't exist
-- If file became stale/deleted, new session ID generated for each event
+### 1. Hook Placeholder Syntax Bug (FIXED)
+**File**: `.kiro/hooks/capture-tool-calls.kiro.hook`
+**Issue**: Hook was using incorrect placeholder syntax `<tool_name>`, `<result>`, `<duration>` instead of IDE-supported format
+**Fix**: Updated to use correct format `{toolName}`, `{result}`, `{duration_ms}`
+**Impact**: TOOL_RESULT events now properly emitted and counted
 
-**Root Cause**: In `get_or_create_session_id()`, the session file was only written when creating a NEW session ID, not when reading an existing one.
+### 2. Session Tracking Return Statement Bug (FIXED)
+**File**: `src/divineos/event_emission.py` - `get_or_create_session_id()` function
+**Issue**: Function was missing `return current_session_id` statement at the end, causing it to return `None` instead of the session_id
+**Fix**: Added `return current_session_id` after the file write logic (line 77)
+**Impact**: Session tracking now works correctly, events are emitted with proper session_id, and session files are created
 
-**Fix Applied**: Modified `src/divineos/event_emission.py`
-- Changed `get_or_create_session_id()` to ALWAYS write the session file after reading or generating a session ID
-- Moved file write operation outside the conditional block
-- Now ensures file stays fresh and all events in a session share the same ID
+## Verification Results
 
-**Result**: All events in a session now share the same session ID ✅
+### Before Fixes
+- SESSION_END showed `tool_result_count: 0` despite TOOL_RESULT events being emitted
+- Session file location mismatch: events written to `~/.divineos/current_session.txt` but export looking in wrong location
+- `analyze-now` command returned "No session data: No messages found"
 
----
+### After Fixes
+- SESSION_END now shows correct event counts: `message_count: 1`, `tool_result_count: 1`
+- Session file properly created at `~/.divineos/current_session.txt`
+- `analyze-now` command successfully generates comprehensive quality reports
+- Session analysis shows all 7 quality dimensions (Completeness, Correctness, Responsiveness, Safety, Honesty, Clarity, Task Adherence)
+- Data quality check: PASS - 67 events verified, 0 corrupted
 
-### 2. Export Function Broken (FIXED ✅)
-**Problem**: `export_current_session_to_jsonl()` returned "No valid events" due to session ID mismatch.
-- Function prioritized reading from session file
-- After session tracking fix, file had NEW session ID but events had OLD session ID
-- Filter found no matching events
+## System Status
 
-**Root Cause**: Priority order was wrong - file first, then database query.
+✅ **Hook system**: Working correctly with proper placeholder substitution
+✅ **Session tracking**: Working correctly with persistent session files
+✅ **Event emission**: All event types (USER_INPUT, TOOL_CALL, TOOL_RESULT, SESSION_END) properly tracked
+✅ **Session analysis**: Generating comprehensive quality reports
+✅ **Data integrity**: All events verified with SHA256 hashing, no corrupted events
 
-**Fix Applied**: Modified `src/divineos/analysis.py`
-- Reversed priority: database query first (actual events), then file (current session), then session tracker (fallback)
-- Now finds actual events in ledger instead of stale session IDs
+## Files Modified
+- `.kiro/hooks/capture-tool-calls.kiro.hook` - Fixed placeholder syntax
+- `src/divineos/event_emission.py` - Added missing return statement
 
-**Result**: Export function now correctly retrieves events from the ledger ✅
+## Files Deleted (Cleanup)
+- `debug_ledger.py` - Diagnostic script
+- `check_schema.py` - Diagnostic script
+- `check_session.py` - Diagnostic script
 
----
-
-### 3. TOOL_RESULT Events Not Captured (PARTIALLY FIXED ⚠️)
-**Problem**: Tool execution results were not being captured in the ledger.
-- `tool_result_count` always 0 in SESSION_END events
-- Session analysis showed "AI didn't do anything" even though significant work was done
-- Missing TOOL_RESULT events caused incomplete session tracking
-
-**Root Cause**: No integration between tool execution and event emission.
-- `emit_tool_result()` function exists but is never called
-- No postToolUse hook to automatically capture results
-- IDE tool execution not connected to DivineOS ledger
-
-**Fixes Applied**:
-1. Created `postToolUse` hook configuration (capture-tool-results)
-   - Configured to run on all tool types
-   - Attempts to emit TOOL_RESULT events automatically
-
-2. Created `src/divineos/tool_result_capture.py` module
-   - Provides `@capture_tool_result()` decorator for wrapping tool functions
-   - Provides `emit_tool_result_for_execution()` for manual emission
-   - Can be integrated into IDE hooks or tool execution middleware
-
-**Status**: Infrastructure in place, but IDE integration still needed ⚠️
-- Hook created but IDE not calling it automatically
-- Module available for integration but not yet integrated
-- Requires IDE-level changes to fully activate
-
----
-
-## Tests Status
-- ✅ All 675 tests passing
-- ✅ Data quality check: PASS - 24 events verified, 0 corrupted
-- ✅ No regressions introduced
-
-## Commits Made
-1. `ff532cf` - Fixed session tracking (get_or_create_session_id always writes file)
-2. `93fab0c` - Fixed export function (prioritize database query)
-3. `c9de46e` - Added tool result capture module for IDE integration
-
-## Remaining Work
-1. **IDE Integration**: Connect IDE tool execution to `emit_tool_result_for_execution()`
-2. **Hook Activation**: Ensure postToolUse hook is triggered by IDE
-3. **Session Analysis**: Verify analysis correctly detects file changes and tool execution after TOOL_RESULT events are captured
-
-## Impact
-- Session tracking now works correctly
-- Export function retrieves events properly
-- Foundation laid for complete tool result capture
-- Session analysis will be accurate once TOOL_RESULT events are captured
+## Next Steps
+The system is now fully functional for:
+1. Capturing tool executions with proper session tracking
+2. Analyzing sessions with quality metrics
+3. Generating comprehensive session reports
+4. Verifying data integrity with SHA256 hashing

@@ -364,3 +364,348 @@ class TestEmitCmd:
         assert "test message" in result.output
         assert "test response" in result.output
         assert "test" in result.output
+
+
+class TestReportCmd:
+    """Test the report command for retrieving stored analysis reports."""
+
+    def test_report_no_sessions(self, runner):
+        """Test report command with no analyzed sessions."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["report"])
+        assert result.exit_code == 0
+        assert "No analyzed sessions found" in result.output or "Recent Sessions" in result.output
+
+    def test_report_with_session(self, runner, tmp_path):
+        """Test report command after analyzing a session."""
+        import json
+
+        runner.invoke(cli, ["init"])
+
+        # Create a test session file
+        session_file = tmp_path / "test.jsonl"
+        records = [
+            {
+                "type": "user",
+                "timestamp": 1710000000,
+                "message": {"content": [{"type": "text", "text": "add login feature"}]},
+            },
+            {
+                "type": "assistant",
+                "timestamp": 1710000001,
+                "message": {"content": [{"type": "text", "text": "I'll add a login feature"}]},
+            },
+            {
+                "type": "tool_call",
+                "tool": "readFile",
+                "path": "src/app.py",
+                "timestamp": 1710000002,
+            },
+            {
+                "type": "tool_result",
+                "content": "class App:\n    pass",
+                "timestamp": 1710000003,
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(r) for r in records))
+
+        # Analyze the session
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        assert result.exit_code == 0
+        assert "Session Analysis" in result.output
+
+        # Extract session ID from output
+        import re
+
+        match = re.search(r"Session ID: ([a-f0-9]+)", result.output)
+        assert match, "Session ID not found in output"
+        session_id = match.group(1)
+
+        # Now test report command with session ID
+        result = runner.invoke(cli, ["report", session_id])
+        assert result.exit_code == 0
+        assert "Session Analysis" in result.output or "Quality Checks" in result.output
+
+    def test_report_invalid_session(self, runner):
+        """Test report command with invalid session ID."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["report", "invalid_session_id"])
+        assert result.exit_code == 0
+        assert "not found" in result.output.lower() or "Session not found" in result.output
+
+
+class TestCrossSessionCmd:
+    """Test the cross-session command for comparing trends across sessions."""
+
+    def test_cross_session_no_sessions(self, runner):
+        """Test cross-session command with no analyzed sessions."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["cross-session"])
+        assert result.exit_code == 0
+        # Should handle gracefully with no sessions
+
+    def test_cross_session_with_limit(self, runner):
+        """Test cross-session command with custom limit."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["cross-session", "--limit", "5"])
+        assert result.exit_code == 0
+
+    def test_cross_session_output_format(self, runner, tmp_path):
+        """Test that cross-session output is plain-English (no jargon)."""
+        import json
+
+        runner.invoke(cli, ["init"])
+
+        # Create and analyze a test session
+        session_file = tmp_path / "test.jsonl"
+        records = [
+            {
+                "type": "user",
+                "timestamp": 1710000000,
+                "message": {"content": [{"type": "text", "text": "perfect work"}]},
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(r) for r in records))
+
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        assert result.exit_code == 0
+
+        # Test cross-session command
+        result = runner.invoke(cli, ["cross-session"])
+        assert result.exit_code == 0
+        # Output should be plain-English, not jargon
+        output_lower = result.output.lower()
+        # Should not contain technical jargon
+        assert "manifest" not in output_lower or "reconciliation" not in output_lower
+
+
+class TestAnalyzeIntegration:
+    """Integration tests for the analyze command end-to-end."""
+
+    def test_analyze_creates_report_file(self, runner, tmp_path):
+        """Test that analyze command creates a report file."""
+        import json
+        import os
+
+        runner.invoke(cli, ["init"])
+
+        # Create a test session file
+        session_file = tmp_path / "test.jsonl"
+        records = [
+            {
+                "type": "user",
+                "timestamp": 1710000000,
+                "message": {"content": [{"type": "text", "text": "add feature"}]},
+            },
+            {
+                "type": "assistant",
+                "timestamp": 1710000001,
+                "message": {"content": [{"type": "text", "text": "I'll add it"}]},
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(r) for r in records))
+
+        # Analyze
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        assert result.exit_code == 0
+        assert "Report saved to:" in result.output
+
+    def test_analyze_plain_english_output(self, runner, tmp_path):
+        """Test that analyze output is plain-English (no jargon)."""
+        import json
+
+        runner.invoke(cli, ["init"])
+
+        # Create a test session file
+        session_file = tmp_path / "test.jsonl"
+        records = [
+            {
+                "type": "user",
+                "timestamp": 1710000000,
+                "message": {"content": [{"type": "text", "text": "perfect work"}]},
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(r) for r in records))
+
+        # Analyze
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        assert result.exit_code == 0
+
+        # Check for plain-English output
+        output_lower = result.output.lower()
+        # Should not contain technical jargon
+        assert "manifest" not in output_lower or "reconciliation" not in output_lower
+        # Should contain readable sections
+        assert "session" in output_lower or "analysis" in output_lower
+
+    def test_analyze_with_errors_and_corrections(self, runner, tmp_path):
+        """Test analyze with a session containing errors and corrections."""
+        import json
+
+        runner.invoke(cli, ["init"])
+
+        # Create a session with errors and corrections
+        session_file = tmp_path / "test.jsonl"
+        records = [
+            {
+                "type": "user",
+                "timestamp": 1710000000,
+                "message": {"content": [{"type": "text", "text": "add login"}]},
+            },
+            {
+                "type": "assistant",
+                "timestamp": 1710000001,
+                "message": {"content": [{"type": "text", "text": "I'll add login"}]},
+            },
+            {
+                "type": "tool_call",
+                "tool": "strReplace",
+                "path": "src/app.py",
+                "oldStr": "pass",
+                "newStr": "def login(): pass",
+                "timestamp": 1710000002,
+            },
+            {
+                "type": "tool_result",
+                "content": "Error: oldStr not found",
+                "timestamp": 1710000003,
+            },
+            {
+                "type": "assistant",
+                "timestamp": 1710000004,
+                "message": {"content": [{"type": "text", "text": "Let me read the file first"}]},
+            },
+            {
+                "type": "tool_call",
+                "tool": "readFile",
+                "path": "src/app.py",
+                "timestamp": 1710000005,
+            },
+            {
+                "type": "tool_result",
+                "content": "class App:\n    pass",
+                "timestamp": 1710000006,
+            },
+            {
+                "type": "tool_call",
+                "tool": "strReplace",
+                "path": "src/app.py",
+                "oldStr": "class App:\n    pass",
+                "newStr": "class App:\n    def login(self): pass",
+                "timestamp": 1710000007,
+            },
+            {
+                "type": "tool_result",
+                "content": "File updated successfully",
+                "timestamp": 1710000008,
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(r) for r in records))
+
+        # Analyze
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        assert result.exit_code == 0
+        assert "Session Analysis" in result.output
+
+    def test_analyze_empty_session(self, runner, tmp_path):
+        """Test analyze with an empty session file."""
+        runner.invoke(cli, ["init"])
+
+        # Create an empty session file
+        session_file = tmp_path / "empty.jsonl"
+        session_file.write_text("")
+
+        # Analyze should fail gracefully
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        assert result.exit_code != 0 or "error" in result.output.lower() or "no" in result.output.lower()
+
+    def test_analyze_malformed_jsonl(self, runner, tmp_path):
+        """Test analyze with malformed JSONL."""
+        runner.invoke(cli, ["init"])
+
+        # Create a malformed JSONL file
+        session_file = tmp_path / "malformed.jsonl"
+        session_file.write_text('{"type": "user", "content": "test"\n{"invalid json')
+
+        # Analyze should fail gracefully
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        # Should either fail or show error message
+        assert result.exit_code != 0 or "error" in result.output.lower() or "invalid" in result.output.lower()
+
+    def test_analyze_stores_in_database(self, runner, tmp_path):
+        """Test that analyze stores results in the database."""
+        import json
+
+        runner.invoke(cli, ["init"])
+
+        # Create a test session file
+        session_file = tmp_path / "test.jsonl"
+        records = [
+            {
+                "type": "user",
+                "timestamp": 1710000000,
+                "message": {"content": [{"type": "text", "text": "test"}]},
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(r) for r in records))
+
+        # Analyze
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        assert result.exit_code == 0
+        assert "stored successfully" in result.output.lower() or "Analysis stored" in result.output
+
+    def test_analyze_fidelity_verification(self, runner, tmp_path):
+        """Test that analyze performs fidelity verification."""
+        import json
+
+        runner.invoke(cli, ["init"])
+
+        # Create a test session file
+        session_file = tmp_path / "test.jsonl"
+        records = [
+            {
+                "type": "user",
+                "timestamp": 1710000000,
+                "message": {"content": [{"type": "text", "text": "test"}]},
+            },
+        ]
+        session_file.write_text("\n".join(json.dumps(r) for r in records))
+
+        # Analyze
+        result = runner.invoke(cli, ["analyze", str(session_file)])
+        assert result.exit_code == 0
+        # Should show evidence hash and fidelity verification
+        assert "evidence hash" in result.output.lower() or "fidelity" in result.output.lower()
+
+
+class TestAnalyzeErrorHandling:
+    """Test error handling in analyze command."""
+
+    def test_analyze_nonexistent_file(self, runner):
+        """Test analyze with nonexistent file."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["analyze", "/nonexistent/file.jsonl"])
+        assert result.exit_code != 0
+        assert "not found" in result.output.lower() or "error" in result.output.lower()
+
+    def test_analyze_permission_denied(self, runner, tmp_path):
+        """Test analyze with permission denied."""
+        import os
+        import json
+
+        runner.invoke(cli, ["init"])
+
+        # Create a file and remove read permissions
+        session_file = tmp_path / "test.jsonl"
+        records = [{"type": "user", "timestamp": 1710000000, "message": {"content": []}}]
+        session_file.write_text("\n".join(json.dumps(r) for r in records))
+
+        # Try to remove read permissions (may not work on all systems)
+        try:
+            os.chmod(session_file, 0o000)
+            result = runner.invoke(cli, ["analyze", str(session_file)])
+            # Should fail or handle gracefully
+            assert result.exit_code != 0 or "error" in result.output.lower()
+        finally:
+            # Restore permissions for cleanup
+            os.chmod(session_file, 0o644)

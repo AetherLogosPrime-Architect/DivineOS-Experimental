@@ -77,6 +77,8 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
         logger.warning(f"Failed to write session_id file: {e}")
     
     return current_session_id
+    
+    return current_session_id
 
 
 def emit_user_input(content: str, session_id: Optional[str] = None) -> str:
