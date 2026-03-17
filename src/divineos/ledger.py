@@ -366,14 +366,18 @@ def verify_all_events() -> dict:
     """
     Verify integrity of all stored events.
     Checks that each event's content_hash matches the hash of its content.
+    Also validates that payloads contain valid data (not corrupted).
 
     Requirements:
         - Requirement 7.3: Verify stored hash matches payload
         - Requirement 7.4: Flag event as corrupted if hash mismatch
+        - Requirement 7.6: Validate payload content for data validity
     """
+    from divineos.event_validation import EventValidator
+
     conn = _get_connection()
     try:
-        cursor = conn.execute("SELECT event_id, payload, content_hash FROM system_events")
+        cursor = conn.execute("SELECT event_id, event_type, payload, content_hash FROM system_events")
         rows = cursor.fetchall()
 
         total = len(rows)
@@ -382,21 +386,40 @@ def verify_all_events() -> dict:
         failures = []
 
         for row in rows:
-            event_id, payload_json, stored_hash = row
+            event_id, event_type, payload_json, stored_hash = row
             payload = json.loads(payload_json)
 
-            is_valid, reason = verify_event_hash(event_id, payload, stored_hash)
+            # First check: verify hash matches
+            is_hash_valid, hash_reason = verify_event_hash(event_id, payload, stored_hash)
 
-            if is_valid:
-                passed += 1
-            else:
+            if not is_hash_valid:
                 failed += 1
                 failures.append(
                     {
                         "event_id": event_id,
-                        "reason": reason,
+                        "reason": hash_reason,
+                        "type": "hash_mismatch",
                     }
                 )
+                continue
+
+            # Second check: validate payload content for data validity
+            # Only validate known event types
+            if event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
+                is_content_valid, content_reason = EventValidator.validate_payload(event_type, payload)
+
+                if not is_content_valid:
+                    failed += 1
+                    failures.append(
+                        {
+                            "event_id": event_id,
+                            "reason": content_reason,
+                            "type": "invalid_content",
+                        }
+                    )
+                    continue
+
+            passed += 1
 
         return {
             "total": total,
@@ -404,6 +427,58 @@ def verify_all_events() -> dict:
             "failed": failed,
             "failures": failures,
             "integrity": "PASS" if failed == 0 else "FAIL",
+        }
+    finally:
+        conn.close()
+
+
+def clean_corrupted_events() -> dict:
+    """
+    Remove all corrupted events from the ledger.
+    
+    Returns:
+        dict: Summary of cleanup operation with count of removed events
+    """
+    from divineos.event_validation import EventValidator
+
+    conn = _get_connection()
+    try:
+        # First, identify all corrupted events
+        cursor = conn.execute("SELECT event_id, event_type, payload, content_hash FROM system_events")
+        rows = cursor.fetchall()
+
+        corrupted_ids = []
+
+        for row in rows:
+            event_id, event_type, payload_json, stored_hash = row
+            payload = json.loads(payload_json)
+
+            # Check hash validity
+            is_hash_valid, _ = verify_event_hash(event_id, payload, stored_hash)
+            if not is_hash_valid:
+                corrupted_ids.append(event_id)
+                continue
+
+            # Check content validity for known event types
+            if event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
+                is_content_valid, _ = EventValidator.validate_payload(event_type, payload)
+                if not is_content_valid:
+                    corrupted_ids.append(event_id)
+
+        # Delete corrupted events
+        deleted_count = 0
+        for event_id in corrupted_ids:
+            conn.execute("DELETE FROM system_events WHERE event_id = ?", (event_id,))
+            deleted_count += 1
+
+        conn.commit()
+
+        logger.info(f"Cleaned {deleted_count} corrupted events from ledger")
+
+        return {
+            "deleted_count": deleted_count,
+            "corrupted_event_ids": corrupted_ids,
+            "status": "success",
         }
     finally:
         conn.close()

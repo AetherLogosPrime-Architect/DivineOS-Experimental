@@ -191,6 +191,23 @@ def verify():
             click.echo(f"      Computed: {failure['computed_hash']}")
 
 
+@cli.command()
+def clean():
+    """Remove corrupted events from the ledger."""
+    logger.info("Cleaning corrupted events from ledger...")
+
+    result = clean_corrupted_events()
+
+    click.secho("\n=== Ledger Cleanup ===\n", fg="cyan", bold=True)
+    click.echo(f"  Deleted corrupted events: {result['deleted_count']}")
+
+    if result["deleted_count"] > 0:
+        click.secho(f"\n  Removed {result['deleted_count']} corrupted events", fg="green", bold=True)
+        click.echo("\n  Run 'divineos verify' to confirm ledger integrity")
+    else:
+        click.secho("\n  No corrupted events found", fg="green", bold=True)
+
+
 @cli.command("export")
 @click.option("--format", "fmt", default="markdown", type=click.Choice(["markdown", "json"]))
 def export_cmd(fmt: str):
