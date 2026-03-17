@@ -7,7 +7,7 @@
     "toolTypes": ["*"]
   },
   "then": {
-    "type": "askAgent",
-    "prompt": "A tool just executed. Emit a TOOL_RESULT event to capture it. Use: divineos emit TOOL_RESULT --tool-name \"<tool-name>\" --tool-use-id \"tool-use-<timestamp>\" --result \"<brief-result>\" --duration-ms <ms>"
+    "type": "runCommand",
+    "command": "exit /b 0"
   }
 }
