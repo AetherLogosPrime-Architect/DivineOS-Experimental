@@ -196,6 +196,9 @@ def store_knowledge(
             f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}"
         )
 
+    # Ensure knowledge table exists
+    init_knowledge_table()
+
     content_hash = compute_hash(content)
     sources_json = json.dumps(source_events or [])
     tags_json = json.dumps(tags or [])
