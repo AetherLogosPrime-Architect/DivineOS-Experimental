@@ -42,6 +42,7 @@ logger.add(
 def _get_db_path() -> Path:
     """Get the database path, respecting DIVINEOS_DB environment variable."""
     import os
+
     env_path = os.environ.get("DIVINEOS_DB")
     if env_path:
         return Path(env_path)
@@ -59,13 +60,14 @@ def compute_hash(content: str) -> str:
 def _get_connection() -> sqlite3.Connection:
     """Returns a connection to the ledger database."""
     import os
+
     # Check environment variable each time to support test isolation
     db_path = os.environ.get("DIVINEOS_DB")
     if db_path:
         db_path = Path(db_path)
     else:
         db_path = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
-    
+
     db_path.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
@@ -110,18 +112,18 @@ def log_event(event_type: str, actor: str, payload: dict, validate: bool = True)
         validate: if True, validate payload before storing (default: True)
 
     Fidelity: Computes and stores content_hash for integrity verification.
-    
+
     Validation: Validates payload before storing to prevent corrupted data.
     """
     # Validate payload before storing (only for known event types)
-    if validate and event_type in ['USER_INPUT', 'TOOL_CALL', 'TOOL_RESULT', 'SESSION_END']:
+    if validate and event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
         from divineos.event_validation import EventValidator
-        
+
         is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
         if not is_valid:
             logger.error(f"Event validation failed for {event_type}: {validation_msg}")
             raise ValueError(f"Invalid event payload: {validation_msg}")
-    
+
     event_id = str(uuid.uuid4())
     timestamp = time.time()
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
@@ -275,15 +277,15 @@ def count_events() -> dict:
 def verify_event_hash(event_id: str, payload: dict, stored_hash: str) -> tuple[bool, str]:
     """
     Verify that an event's stored hash matches the computed hash of its payload.
-    
+
     Args:
         event_id: The event ID (for logging)
         payload: The event payload dictionary
         stored_hash: The stored hash from the ledger
-        
+
     Returns:
         tuple: (is_valid, reason) where is_valid is True if hash matches
-        
+
     Requirements:
         - Requirement 7.3: Verify stored hash matches payload
         - Requirement 7.4: Flag event as corrupted if hash mismatch
@@ -293,7 +295,7 @@ def verify_event_hash(event_id: str, payload: dict, stored_hash: str) -> tuple[b
     payload_copy = {k: v for k, v in payload.items() if k != "content_hash"}
     payload_json = json.dumps(payload_copy, ensure_ascii=False, sort_keys=True)
     computed_hash = compute_hash(payload_json)
-    
+
     if computed_hash == stored_hash:
         return True, "Hash verified"
     else:
@@ -310,7 +312,7 @@ def get_verified_events(
 ) -> tuple[list[dict], list[dict]]:
     """
     Retrieve events with hash verification.
-    
+
     Args:
         limit: max rows to return
         offset: rows to skip
@@ -318,10 +320,10 @@ def get_verified_events(
         actor: optional filter
         session_id: optional filter to isolate events by session
         skip_corrupted: if True, exclude corrupted events from results
-        
+
     Returns:
         tuple: (verified_events, corrupted_events)
-        
+
     Requirements:
         - Requirement 7.3: Verify stored hash matches payload
         - Requirement 7.4: Flag event as corrupted if hash mismatch
@@ -329,24 +331,23 @@ def get_verified_events(
         - Requirement 9.3: Session event correlation - filter by session_id
     """
     all_events = get_events(limit=limit, offset=offset, event_type=event_type, actor=actor)
-    
+
     # Filter by session_id if provided (session isolation)
     if session_id:
         all_events = [
-            event for event in all_events
+            event
+            for event in all_events
             if event.get("payload", {}).get("session_id") == session_id
         ]
-    
+
     verified_events = []
     corrupted_events = []
-    
+
     for event in all_events:
         is_valid, reason = verify_event_hash(
-            event["event_id"],
-            event["payload"],
-            event["content_hash"]
+            event["event_id"], event["payload"], event["content_hash"]
         )
-        
+
         if is_valid:
             verified_events.append(event)
         else:
@@ -355,9 +356,9 @@ def get_verified_events(
             corrupted_event["corruption_reason"] = reason
             corrupted_event["is_corrupted"] = True
             corrupted_events.append(corrupted_event)
-            
+
             logger.warning(f"Corrupted event detected: {event['event_id']} - {reason}")
-    
+
     return verified_events, corrupted_events
 
 
@@ -365,7 +366,7 @@ def verify_all_events() -> dict:
     """
     Verify integrity of all stored events.
     Checks that each event's content_hash matches the hash of its content.
-    
+
     Requirements:
         - Requirement 7.3: Verify stored hash matches payload
         - Requirement 7.4: Flag event as corrupted if hash mismatch

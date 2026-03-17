@@ -31,7 +31,9 @@ class EventDispatcher:
         self.listeners[event_type].append(callback)
         logger.debug(f"Registered listener for {event_type}")
 
-    def emit(self, event_type: str, payload: dict, actor: str = "system", validate: bool = True) -> str:
+    def emit(
+        self, event_type: str, payload: dict, actor: str = "system", validate: bool = True
+    ) -> str:
         """
         Emit an event to all listeners and log to ledger.
 
@@ -60,6 +62,7 @@ class EventDispatcher:
         # Log to ledger (import here to ensure DB path is set)
         try:
             from divineos.ledger import log_event as ledger_log_event
+
             event_id = ledger_log_event(event_type, actor, payload, validate=validate)
             logger.debug(f"Emitted {event_type} event: {event_id}")
             return event_id
@@ -72,9 +75,7 @@ class EventDispatcher:
 _dispatcher = EventDispatcher()
 
 
-def emit_event(
-    event_type: str, payload: dict, actor: str = "system", validate: bool = True
-) -> str:
+def emit_event(event_type: str, payload: dict, actor: str = "system", validate: bool = True) -> str:
     """
     Emit an event to all listeners and log to ledger.
 

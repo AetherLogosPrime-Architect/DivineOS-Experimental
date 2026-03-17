@@ -10,10 +10,11 @@ def setup_dispatcher(tmp_path, monkeypatch):
     """Initialize dispatcher for each test."""
     db_path = tmp_path / "test.db"
     monkeypatch.setenv("DIVINEOS_DB", str(db_path))
-    
+
     from divineos.ledger import init_db
+
     init_db()
-    
+
     yield
 
 
@@ -23,16 +24,14 @@ class TestEventDispatcher:
     def test_emit_user_input(self):
         """Test emitting a USER_INPUT event."""
         event_id = emit_event(
-            "USER_INPUT",
-            {"content": "How should I structure this?"},
-            actor="user"
+            "USER_INPUT", {"content": "How should I structure this?"}, actor="user"
         )
-        
+
         assert event_id is not None
-        
+
         events = get_events(limit=10)
         assert len(events) > 0
-        
+
         user_event = next((e for e in events if e["event_type"] == "USER_INPUT"), None)
         assert user_event is not None
         assert user_event["payload"]["content"] == "How should I structure this?"
@@ -42,11 +41,11 @@ class TestEventDispatcher:
         event_id = emit_event(
             "ASSISTANT_OUTPUT",
             {"content": "I'd recommend organizing by responsibility."},
-            actor="assistant"
+            actor="assistant",
         )
-        
+
         assert event_id is not None
-        
+
         events = get_events(limit=10)
         assistant_event = next((e for e in events if e["event_type"] == "ASSISTANT_OUTPUT"), None)
         assert assistant_event is not None
@@ -59,12 +58,12 @@ class TestEventDispatcher:
             {
                 "tool_name": "readFile",
                 "tool_input": {"path": "src/main.py"},
-                "tool_use_id": "tool_123"
-            }
+                "tool_use_id": "tool_123",
+            },
         )
-        
+
         assert event_id is not None
-        
+
         events = get_events(limit=10)
         tool_event = next((e for e in events if e["event_type"] == "TOOL_CALL"), None)
         assert tool_event is not None
@@ -74,15 +73,11 @@ class TestEventDispatcher:
         """Test emitting a TOOL_RESULT event."""
         event_id = emit_event(
             "TOOL_RESULT",
-            {
-                "tool_name": "readFile",
-                "tool_use_id": "tool_123",
-                "result": "def main(): pass"
-            }
+            {"tool_name": "readFile", "tool_use_id": "tool_123", "result": "def main(): pass"},
         )
-        
+
         assert event_id is not None
-        
+
         events = get_events(limit=10)
         result_event = next((e for e in events if e["event_type"] == "TOOL_RESULT"), None)
         assert result_event is not None
@@ -92,15 +87,11 @@ class TestEventDispatcher:
         """Test emitting a SESSION_END event."""
         event_id = emit_event(
             "SESSION_END",
-            {
-                "session_id": "test_session",
-                "message_count": 10,
-                "duration_seconds": 300
-            }
+            {"session_id": "test_session", "message_count": 10, "duration_seconds": 300},
         )
-        
+
         assert event_id is not None
-        
+
         events = get_events(limit=10)
         end_event = next((e for e in events if e["event_type"] == "SESSION_END"), None)
         assert end_event is not None
@@ -109,14 +100,14 @@ class TestEventDispatcher:
     def test_listener_callback(self):
         """Test that listeners are called when events are emitted."""
         called = []
-        
+
         def listener(event_type, payload):
             called.append((event_type, payload))
-        
+
         register_listener("TEST_EVENT", listener)
-        
+
         emit_event("TEST_EVENT", {"content": "test"})
-        
+
         assert len(called) == 1
         assert called[0][0] == "TEST_EVENT"
         assert called[0][1]["content"] == "test"
@@ -124,11 +115,17 @@ class TestEventDispatcher:
     def test_fidelity_verification(self):
         """Test that emitted events pass fidelity verification."""
         emit_event("USER_INPUT", {"content": "Test message"}, actor="user", validate=False)
-        emit_event("ASSISTANT_OUTPUT", {"content": "Test response"}, actor="assistant", validate=False)
-        emit_event("TOOL_CALL", {"tool_name": "test", "tool_input": {}, "tool_use_id": "t1"}, validate=False)
-        
+        emit_event(
+            "ASSISTANT_OUTPUT", {"content": "Test response"}, actor="assistant", validate=False
+        )
+        emit_event(
+            "TOOL_CALL",
+            {"tool_name": "test", "tool_input": {}, "tool_use_id": "t1"},
+            validate=False,
+        )
+
         result = verify_all_events()
-        
+
         assert result["integrity"] == "PASS"
         assert result["failed"] == 0
         assert result["total"] >= 3
@@ -137,15 +134,20 @@ class TestEventDispatcher:
         """Test emitting a sequence of events."""
         emit_event("USER_INPUT", {"content": "Help me debug"}, actor="user")
         emit_event("ASSISTANT_OUTPUT", {"content": "I'll help"}, actor="assistant")
-        emit_event("TOOL_CALL", {"tool_name": "readFile", "tool_input": {"path": "test.py"}, "tool_use_id": "t1"})
-        emit_event("TOOL_RESULT", {"tool_name": "readFile", "tool_use_id": "t1", "result": "code here"})
+        emit_event(
+            "TOOL_CALL",
+            {"tool_name": "readFile", "tool_input": {"path": "test.py"}, "tool_use_id": "t1"},
+        )
+        emit_event(
+            "TOOL_RESULT", {"tool_name": "readFile", "tool_use_id": "t1", "result": "code here"}
+        )
         emit_event("ASSISTANT_OUTPUT", {"content": "I found the issue"}, actor="assistant")
-        
+
         events = get_events(limit=100)
-        
+
         # Should have at least 5 events
         assert len(events) >= 5
-        
+
         # Verify sequence
         event_types = [e["event_type"] for e in events[-5:]]
         assert "USER_INPUT" in event_types

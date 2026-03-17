@@ -40,7 +40,9 @@ def _make_user_record(text: str, timestamp: str = "2025-01-01T00:00:00Z") -> dic
 
 
 def _make_tool_result_record(
-    tool_use_id: str, content: str = "ok", is_error: bool = False,
+    tool_use_id: str,
+    content: str = "ok",
+    is_error: bool = False,
     timestamp: str = "2025-01-01T00:00:02Z",
 ) -> dict:
     return {
@@ -48,27 +50,35 @@ def _make_tool_result_record(
         "timestamp": timestamp,
         "message": {
             "content": [
-                {"type": "tool_result", "tool_use_id": tool_use_id,
-                 "is_error": is_error, "content": content}
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_use_id,
+                    "is_error": is_error,
+                    "content": content,
+                }
             ]
         },
     }
 
 
 def _make_assistant_record(
-    text: str = "", tools: list[dict] | None = None,
-    model: str = "claude-opus-4-6", timestamp: str = "2025-01-01T00:00:01Z",
+    text: str = "",
+    tools: list[dict] | None = None,
+    model: str = "claude-opus-4-6",
+    timestamp: str = "2025-01-01T00:00:01Z",
 ) -> dict:
     content = []
     if text:
         content.append({"type": "text", "text": text})
     for tool in tools or []:
-        content.append({
-            "type": "tool_use",
-            "name": tool.get("name", "Bash"),
-            "input": tool.get("input", {}),
-            "id": tool.get("id", "call_1"),
-        })
+        content.append(
+            {
+                "type": "tool_use",
+                "name": tool.get("name", "Bash"),
+                "input": tool.get("input", {}),
+                "id": tool.get("id", "call_1"),
+            }
+        )
     return {
         "type": "assistant",
         "timestamp": timestamp,
@@ -109,7 +119,9 @@ class TestToneShifts:
                 tools=[{"name": "Edit", "input": {"file_path": "/a.py"}, "id": "t1"}],
                 timestamp="2025-01-01T00:00:01Z",
             ),
-            _make_user_record("no that's wrong, why did you do that?", timestamp="2025-01-01T00:00:02Z"),
+            _make_user_record(
+                "no that's wrong, why did you do that?", timestamp="2025-01-01T00:00:02Z"
+            ),
         ]
         shifts = analyze_tone_shifts(records)
         assert len(shifts) == 1
@@ -134,9 +146,13 @@ class TestToneReport:
     def test_with_negative_shift(self):
         shifts = [
             ToneShift(
-                sequence=3, timestamp="ts", previous_tone="positive",
-                new_tone="negative", trigger_action="Edit: /a.py",
-                before_message="great!", after_message="no!",
+                sequence=3,
+                timestamp="ts",
+                previous_tone="positive",
+                new_tone="negative",
+                trigger_action="Edit: /a.py",
+                before_message="great!",
+                after_message="no!",
             )
         ]
         report = tone_report(shifts, 10)
@@ -286,7 +302,9 @@ class TestErrorRecovery:
                 tools=[{"name": "Bash", "input": {"command": "pytest tests/"}, "id": "t1"}],
                 timestamp="2025-01-01T00:00:01Z",
             ),
-            _make_tool_result_record("t1", "FAILED", is_error=True, timestamp="2025-01-01T00:00:02Z"),
+            _make_tool_result_record(
+                "t1", "FAILED", is_error=True, timestamp="2025-01-01T00:00:02Z"
+            ),
             _make_assistant_record(
                 tools=[{"name": "Bash", "input": {"command": "pytest tests/"}, "id": "t2"}],
                 timestamp="2025-01-01T00:00:03Z",
@@ -306,7 +324,9 @@ class TestErrorRecovery:
                 tools=[{"name": "Edit", "input": {"file_path": "/a.py"}, "id": "t1"}],
                 timestamp="2025-01-01T00:00:01Z",
             ),
-            _make_tool_result_record("t1", "error!", is_error=True, timestamp="2025-01-01T00:00:02Z"),
+            _make_tool_result_record(
+                "t1", "error!", is_error=True, timestamp="2025-01-01T00:00:02Z"
+            ),
             _make_assistant_record(
                 tools=[{"name": "Read", "input": {"file_path": "/a.py"}, "id": "t2"}],
                 timestamp="2025-01-01T00:00:03Z",
@@ -322,9 +342,7 @@ class TestErrorRecovery:
 
     def test_no_errors(self):
         records = [
-            _make_assistant_record(
-                tools=[{"name": "Read", "input": {}, "id": "t1"}]
-            ),
+            _make_assistant_record(tools=[{"name": "Read", "input": {}, "id": "t1"}]),
         ]
         result_map = {"t1": {"is_error": False, "content": "ok", "timestamp": ""}}
         assert analyze_error_recovery(records, result_map) == []
@@ -370,6 +388,7 @@ class TestRunAllFeatures:
 class TestStorage:
     def test_store_features(self, tmp_path, monkeypatch):
         import divineos.session_features as sf
+
         db_path = tmp_path / "test.db"
         monkeypatch.setattr(sf, "DB_PATH", db_path)
 
@@ -399,11 +418,41 @@ class TestStorage:
         # Verify data is in DB
         conn = sf._get_connection()
         try:
-            assert conn.execute("SELECT COUNT(*) FROM tone_shift WHERE session_id = 'test-123'").fetchone()[0] == 1
-            assert conn.execute("SELECT COUNT(*) FROM session_timeline WHERE session_id = 'test-123'").fetchone()[0] == 1
-            assert conn.execute("SELECT COUNT(*) FROM file_touched WHERE session_id = 'test-123'").fetchone()[0] == 1
-            assert conn.execute("SELECT COUNT(*) FROM activity_breakdown WHERE session_id = 'test-123'").fetchone()[0] == 1
-            assert conn.execute("SELECT COUNT(*) FROM task_tracking WHERE session_id = 'test-123'").fetchone()[0] == 1
-            assert conn.execute("SELECT COUNT(*) FROM error_recovery WHERE session_id = 'test-123'").fetchone()[0] == 1
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM tone_shift WHERE session_id = 'test-123'"
+                ).fetchone()[0]
+                == 1
+            )
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM session_timeline WHERE session_id = 'test-123'"
+                ).fetchone()[0]
+                == 1
+            )
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM file_touched WHERE session_id = 'test-123'"
+                ).fetchone()[0]
+                == 1
+            )
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM activity_breakdown WHERE session_id = 'test-123'"
+                ).fetchone()[0]
+                == 1
+            )
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM task_tracking WHERE session_id = 'test-123'"
+                ).fetchone()[0]
+                == 1
+            )
+            assert (
+                conn.execute(
+                    "SELECT COUNT(*) FROM error_recovery WHERE session_id = 'test-123'"
+                ).fetchone()[0]
+                == 1
+            )
         finally:
             conn.close()

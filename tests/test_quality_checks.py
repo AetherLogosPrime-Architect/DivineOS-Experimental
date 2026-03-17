@@ -245,9 +245,7 @@ class TestGetAssistantText:
         assert _get_assistant_text(record) == "Hello world"
 
     def test_no_text(self):
-        record = _make_assistant_record(
-            tools=[{"name": "Read", "input": {}, "id": "t1"}]
-        )
+        record = _make_assistant_record(tools=[{"name": "Read", "input": {}, "id": "t1"}])
         assert _get_assistant_text(record) == ""
 
 
@@ -586,8 +584,13 @@ class TestRunAllChecks:
         assert len(report.checks) == 7
         check_names = {c.check_name for c in report.checks}
         assert check_names == {
-            "completeness", "correctness", "responsiveness",
-            "safety", "honesty", "clarity", "task_adherence",
+            "completeness",
+            "correctness",
+            "responsiveness",
+            "safety",
+            "honesty",
+            "clarity",
+            "task_adherence",
         }
 
     def test_report_text_generated(self, tmp_path):
@@ -623,6 +626,7 @@ class TestStorage:
     def test_store_and_retrieve(self, tmp_path, monkeypatch):
         # Use temp DB
         import divineos.quality_checks as qc
+
         db_path = tmp_path / "test.db"
         monkeypatch.setattr(qc, "DB_PATH", db_path)
 
@@ -657,6 +661,7 @@ class TestStorage:
 
     def test_retrieve_nonexistent(self, tmp_path, monkeypatch):
         import divineos.quality_checks as qc
+
         db_path = tmp_path / "test.db"
         monkeypatch.setattr(qc, "DB_PATH", db_path)
 

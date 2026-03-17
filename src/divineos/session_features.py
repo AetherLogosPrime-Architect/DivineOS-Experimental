@@ -73,7 +73,7 @@ def init_feature_tables() -> None:
             CREATE INDEX IF NOT EXISTS idx_feature_result_name
             ON feature_result(feature_name)
         """)
-        
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS tone_shift (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -266,11 +266,13 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
         text = _extract_user_text(r)
         if not text or len(text) < 3:
             continue
-        user_messages.append({
-            "text": text,
-            "tone": _classify_tone(text),
-            "timestamp": r.get("timestamp", ""),
-        })
+        user_messages.append(
+            {
+                "text": text,
+                "tone": _classify_tone(text),
+                "timestamp": r.get("timestamp", ""),
+            }
+        )
 
     # Find AI actions between each pair of user messages
     all_ordered = [r for r in records if r.get("type") in ("user", "assistant")]
@@ -303,15 +305,17 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
 
         trigger = ", ".join(ai_actions[:5]) if ai_actions else "AI response (text only)"
 
-        shifts.append(ToneShift(
-            sequence=i,
-            timestamp=curr["timestamp"],
-            previous_tone=prev["tone"],
-            new_tone=curr["tone"],
-            trigger_action=trigger,
-            before_message=prev["text"][:200],
-            after_message=curr["text"][:200],
-        ))
+        shifts.append(
+            ToneShift(
+                sequence=i,
+                timestamp=curr["timestamp"],
+                previous_tone=prev["tone"],
+                new_tone=curr["tone"],
+                trigger_action=trigger,
+                before_message=prev["text"][:200],
+                after_message=curr["text"][:200],
+            )
+        )
 
     return shifts
 
@@ -338,9 +342,9 @@ def tone_report(shifts: list[ToneShift], total_messages: int) -> str:
         # Show the worst one
         worst = negative_shifts[0]
         parts.append(
-            f'For example, after message {worst.sequence}: '
-            f'you were {worst.previous_tone}, then the AI did [{worst.trigger_action[:80]}], '
-            f'and you got {worst.new_tone}.'
+            f"For example, after message {worst.sequence}: "
+            f"you were {worst.previous_tone}, then the AI did [{worst.trigger_action[:80]}], "
+            f"and you got {worst.new_tone}."
         )
 
     if positive_shifts:
@@ -376,12 +380,14 @@ def build_timeline(records: list[dict[str, Any]]) -> list[TimelineEntry]:
             if len(text) > 150:
                 preview += "..."
             seq += 1
-            timeline.append(TimelineEntry(
-                sequence=seq,
-                timestamp=timestamp,
-                actor="user",
-                action_summary=f'You said: "{preview}"',
-            ))
+            timeline.append(
+                TimelineEntry(
+                    sequence=seq,
+                    timestamp=timestamp,
+                    actor="user",
+                    action_summary=f'You said: "{preview}"',
+                )
+            )
 
         elif record_type == "assistant":
             tools = _extract_tool_calls(r)
@@ -395,38 +401,46 @@ def build_timeline(records: list[dict[str, Any]]) -> list[TimelineEntry]:
                 tool_parts = []
                 for name, count in tool_counts.most_common():
                     action = {
-                        "Read": "read", "Edit": "edited", "Write": "wrote",
-                        "Bash": "ran command on", "Glob": "searched for",
-                        "Grep": "searched in", "Agent": "launched agent for",
+                        "Read": "read",
+                        "Edit": "edited",
+                        "Write": "wrote",
+                        "Bash": "ran command on",
+                        "Glob": "searched for",
+                        "Grep": "searched in",
+                        "Agent": "launched agent for",
                     }.get(name, f"used {name} on")
-                    tool_parts.append(
-                        f"{action} {count} file{'s' if count != 1 else ''}"
-                    )
+                    tool_parts.append(f"{action} {count} file{'s' if count != 1 else ''}")
                 summary = "AI " + ", ".join(tool_parts)
             elif text:
                 preview = text[:100].replace("\n", " ")
-                summary = f'AI explained: "{preview}..."' if len(text) > 100 else f'AI said: "{preview}"'
+                summary = (
+                    f'AI explained: "{preview}..."' if len(text) > 100 else f'AI said: "{preview}"'
+                )
             else:
                 continue
 
             seq += 1
-            timeline.append(TimelineEntry(
-                sequence=seq,
-                timestamp=timestamp,
-                actor="assistant",
-                action_summary=summary,
-            ))
+            timeline.append(
+                TimelineEntry(
+                    sequence=seq,
+                    timestamp=timestamp,
+                    actor="assistant",
+                    action_summary=summary,
+                )
+            )
 
         elif record_type == "system":
             subtype = r.get("subtype", "")
             if subtype == "compact_boundary":
                 seq += 1
-                timeline.append(TimelineEntry(
-                    sequence=seq,
-                    timestamp=timestamp,
-                    actor="system",
-                    action_summary="[Context was compressed here — AI's memory was getting full]",
-                ))
+                timeline.append(
+                    TimelineEntry(
+                        sequence=seq,
+                        timestamp=timestamp,
+                        actor="system",
+                        action_summary="[Context was compressed here — AI's memory was getting full]",
+                    )
+                )
 
     return timeline
 
@@ -470,22 +484,26 @@ def analyze_files_touched(records: list[dict[str, Any]]) -> list[FileTouched]:
 
             if name == "Read":
                 files_read.add(norm)
-                touched.append(FileTouched(
-                    file_path=path,
-                    action="read",
-                    timestamp=str(tool["timestamp"]),
-                    was_read_first=True,
-                    tool_use_id=tool["id"],
-                ))
+                touched.append(
+                    FileTouched(
+                        file_path=path,
+                        action="read",
+                        timestamp=str(tool["timestamp"]),
+                        was_read_first=True,
+                        tool_use_id=tool["id"],
+                    )
+                )
             elif name in ("Edit", "Write"):
                 was_read = norm in files_read
-                touched.append(FileTouched(
-                    file_path=path,
-                    action="edit" if name == "Edit" else "write",
-                    timestamp=str(tool["timestamp"]),
-                    was_read_first=was_read,
-                    tool_use_id=tool["id"],
-                ))
+                touched.append(
+                    FileTouched(
+                        file_path=path,
+                        action="edit" if name == "Edit" else "write",
+                        timestamp=str(tool["timestamp"]),
+                        was_read_first=was_read,
+                        tool_use_id=tool["id"],
+                    )
+                )
                 files_read.add(norm)
 
     return touched
@@ -522,9 +540,7 @@ def files_report(touched: list[FileTouched]) -> str:
     if blind_files:
         files_str = ", ".join(blind_files[:5])
         extra = f" and {len(blind_files) - 5} more" if len(blind_files) > 5 else ""
-        parts.append(
-            f"Changed without reading first: {files_str}{extra}."
-        )
+        parts.append(f"Changed without reading first: {files_str}{extra}.")
     else:
         parts.append("Every file was read before it was changed.")
 
@@ -658,14 +674,20 @@ def analyze_request_delivery(records: list[dict[str, Any]]) -> TaskTracking:
         request_preview += "..."
 
     parts: list[str] = [f'You asked: "{request_preview}"']
-    parts.append(f"The AI changed {len(files_changed)} file{'s' if len(files_changed) != 1 else ''}.")
+    parts.append(
+        f"The AI changed {len(files_changed)} file{'s' if len(files_changed) != 1 else ''}."
+    )
 
     if satisfied == 1:
         parts.append("Your last messages sounded positive — looks like you got what you wanted.")
     elif satisfied == -1:
-        parts.append("Your last messages sounded frustrated — the AI may not have delivered what you asked for.")
+        parts.append(
+            "Your last messages sounded frustrated — the AI may not have delivered what you asked for."
+        )
     else:
-        parts.append("Hard to tell from your last messages if you were satisfied. (This is a guess, not a certainty.)")
+        parts.append(
+            "Hard to tell from your last messages if you were satisfied. (This is a guess, not a certainty.)"
+        )
 
     return TaskTracking(
         initial_request=initial_request[:500],
@@ -724,7 +746,11 @@ def analyze_error_recovery(
                 )
 
                 # Same tool + similar input = blind retry
-                if next_name == failed_name and next_path and str(next_path)[:50] == str(failed_path)[:50]:
+                if (
+                    next_name == failed_name
+                    and next_path
+                    and str(next_path)[:50] == str(failed_path)[:50]
+                ):
                     recovery = "retry"
                 # Read/Grep/Glob = investigating
                 elif next_name in ("Read", "Grep", "Glob"):
@@ -733,12 +759,14 @@ def analyze_error_recovery(
                     recovery = "different_approach"
                 break
 
-            entries.append(ErrorRecoveryEntry(
-                error_timestamp=str(tool["timestamp"]),
-                tool_name=failed_name,
-                error_summary=error_text,
-                recovery_action=recovery,
-            ))
+            entries.append(
+                ErrorRecoveryEntry(
+                    error_timestamp=str(tool["timestamp"]),
+                    tool_name=failed_name,
+                    error_summary=error_text,
+                    recovery_action=recovery,
+                )
+            )
 
     return entries
 
@@ -754,7 +782,10 @@ def error_recovery_report(entries: list[ErrorRecoveryEntry]) -> str:
     parts: list[str] = [f"{total} thing{'s' if total != 1 else ''} went wrong during the session."]
 
     descriptions = {
-        "investigate": ("investigated the problem", "good — it tried to understand what went wrong"),
+        "investigate": (
+            "investigated the problem",
+            "good — it tried to understand what went wrong",
+        ),
         "different_approach": ("tried a different approach", "good — it adapted"),
         "retry": ("just tried the same thing again", "not great — that's blind guessing"),
         "ignore": ("moved on without addressing it", "the error got swept under the rug"),
@@ -859,10 +890,7 @@ def run_all_features(file_path: Path) -> FullSessionAnalysis:
     result_map = _build_tool_result_map(records)
 
     # Count user messages for tone report
-    user_msg_count = sum(
-        1 for r in records
-        if r.get("type") == "user" and _extract_user_text(r)
-    )
+    user_msg_count = sum(1 for r in records if r.get("type") == "user" and _extract_user_text(r))
 
     tone_shifts = analyze_tone_shifts(records)
     timeline = build_timeline(records)
@@ -930,27 +958,53 @@ def store_features(session_id: str, analysis: FullSessionAnalysis) -> None:
 
         # Tone shifts
         for ts in analysis.tone_shifts:
-            evidence = json.dumps({
-                "before": ts.before_message, "after": ts.after_message,
-                "trigger": ts.trigger_action,
-            }, sort_keys=True)
+            evidence = json.dumps(
+                {
+                    "before": ts.before_message,
+                    "after": ts.after_message,
+                    "trigger": ts.trigger_action,
+                },
+                sort_keys=True,
+            )
             conn.execute(
                 "INSERT INTO tone_shift (session_id, sequence, timestamp, previous_tone, new_tone, trigger_action, evidence_hash) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (session_id, ts.sequence, ts.timestamp, ts.previous_tone, ts.new_tone, ts.trigger_action, compute_content_hash(evidence)),
+                (
+                    session_id,
+                    ts.sequence,
+                    ts.timestamp,
+                    ts.previous_tone,
+                    ts.new_tone,
+                    ts.trigger_action,
+                    compute_content_hash(evidence),
+                ),
             )
 
         # Timeline
         for te in analysis.timeline:
             conn.execute(
                 "INSERT INTO session_timeline (session_id, sequence, timestamp, actor, action_summary, evidence_hash) VALUES (?, ?, ?, ?, ?, ?)",
-                (session_id, te.sequence, te.timestamp, te.actor, te.action_summary, compute_content_hash(te.action_summary)),
+                (
+                    session_id,
+                    te.sequence,
+                    te.timestamp,
+                    te.actor,
+                    te.action_summary,
+                    compute_content_hash(te.action_summary),
+                ),
             )
 
         # Files touched
         for ft in analysis.files_touched:
             conn.execute(
                 "INSERT INTO file_touched (session_id, file_path, action, timestamp, was_read_first, tool_use_id) VALUES (?, ?, ?, ?, ?, ?)",
-                (session_id, ft.file_path, ft.action, ft.timestamp, 1 if ft.was_read_first else 0, ft.tool_use_id),
+                (
+                    session_id,
+                    ft.file_path,
+                    ft.action,
+                    ft.timestamp,
+                    1 if ft.was_read_first else 0,
+                    ft.tool_use_id,
+                ),
             )
 
         # Activity breakdown
@@ -958,24 +1012,48 @@ def store_features(session_id: str, analysis: FullSessionAnalysis) -> None:
             a = analysis.activity
             conn.execute(
                 "INSERT OR REPLACE INTO activity_breakdown (session_id, total_text_blocks, total_tool_calls, total_text_chars, total_tool_time_seconds) VALUES (?, ?, ?, ?, ?)",
-                (session_id, a.total_text_blocks, a.total_tool_calls, a.total_text_chars, a.total_tool_time_seconds),
+                (
+                    session_id,
+                    a.total_text_blocks,
+                    a.total_tool_calls,
+                    a.total_text_chars,
+                    a.total_tool_time_seconds,
+                ),
             )
 
         # Task tracking
         if analysis.task_tracking:
             t = analysis.task_tracking
-            evidence = json.dumps({"request": t.initial_request, "satisfied": t.user_satisfied}, sort_keys=True)
+            evidence = json.dumps(
+                {"request": t.initial_request, "satisfied": t.user_satisfied}, sort_keys=True
+            )
             conn.execute(
                 "INSERT OR REPLACE INTO task_tracking (session_id, initial_request, files_changed, user_satisfied, evidence_hash) VALUES (?, ?, ?, ?, ?)",
-                (session_id, t.initial_request, t.files_changed, t.user_satisfied, compute_content_hash(evidence)),
+                (
+                    session_id,
+                    t.initial_request,
+                    t.files_changed,
+                    t.user_satisfied,
+                    compute_content_hash(evidence),
+                ),
             )
 
         # Error recovery
         for er in analysis.error_recovery:
-            evidence = json.dumps({"tool": er.tool_name, "error": er.error_summary, "action": er.recovery_action}, sort_keys=True)
+            evidence = json.dumps(
+                {"tool": er.tool_name, "error": er.error_summary, "action": er.recovery_action},
+                sort_keys=True,
+            )
             conn.execute(
                 "INSERT INTO error_recovery (session_id, error_timestamp, tool_name, error_summary, recovery_action, evidence_hash) VALUES (?, ?, ?, ?, ?, ?)",
-                (session_id, er.error_timestamp, er.tool_name, er.error_summary, er.recovery_action, compute_content_hash(evidence)),
+                (
+                    session_id,
+                    er.error_timestamp,
+                    er.tool_name,
+                    er.error_summary,
+                    er.recovery_action,
+                    compute_content_hash(evidence),
+                ),
             )
 
         conn.commit()

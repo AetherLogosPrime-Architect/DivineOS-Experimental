@@ -121,12 +121,14 @@ def _extract_tool_calls(record: dict[str, Any]) -> list[dict[str, Any]]:
     calls = []
     for block in content:
         if isinstance(block, dict) and block.get("type") == "tool_use":
-            calls.append({
-                "id": block.get("id", ""),
-                "name": block.get("name", ""),
-                "input": block.get("input", {}),
-                "timestamp": record.get("timestamp", ""),
-            })
+            calls.append(
+                {
+                    "id": block.get("id", ""),
+                    "name": block.get("name", ""),
+                    "input": block.get("input", {}),
+                    "timestamp": record.get("timestamp", ""),
+                }
+            )
     return calls
 
 
@@ -176,12 +178,14 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             elif name in ("Edit", "Write"):
                 was_read = norm_path in files_read
                 if not was_read:
-                    blind_edits.append({
-                        "file_path": path,
-                        "tool": name,
-                        "tool_id": tool["id"],
-                        "timestamp": tool["timestamp"],
-                    })
+                    blind_edits.append(
+                        {
+                            "file_path": path,
+                            "tool": name,
+                            "tool_id": tool["id"],
+                            "timestamp": tool["timestamp"],
+                        }
+                    )
                 # After writing, it's been "seen" for future edits
                 files_read.add(norm_path)
     return blind_edits
@@ -197,12 +201,14 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             if tool["name"] in ("Read", "Edit", "Write"):
                 path = tool["input"].get("file_path", "")
                 if path:
-                    ops.append({
-                        "action": tool["name"].lower(),
-                        "file_path": path,
-                        "tool_id": tool["id"],
-                        "timestamp": tool["timestamp"],
-                    })
+                    ops.append(
+                        {
+                            "action": tool["name"].lower(),
+                            "file_path": path,
+                            "tool_id": tool["id"],
+                            "timestamp": tool["timestamp"],
+                        }
+                    )
     return ops
 
 
@@ -246,14 +252,16 @@ def _extract_test_results(
             elif re.search(r"\bPASSED\b|PASS\b|OK\b|passed\b", output):
                 passed = True
 
-            results.append({
-                "command": command[:200],
-                "tool_id": tool["id"],
-                "timestamp": tool["timestamp"],
-                "passed": passed,
-                "is_error": is_error,
-                "output_snippet": output[:500],
-            })
+            results.append(
+                {
+                    "command": command[:200],
+                    "tool_id": tool["id"],
+                    "timestamp": tool["timestamp"],
+                    "passed": passed,
+                    "is_error": is_error,
+                    "output_snippet": output[:500],
+                }
+            )
     return results
 
 
@@ -277,13 +285,15 @@ def _find_errors_after_edits(
                 # Check if this tool call has an error result
                 result = result_map.get(tool["id"], {})
                 if result.get("is_error") and last_edit:
-                    errors_after_edits.append({
-                        "error_tool": tool["name"],
-                        "error_tool_id": tool["id"],
-                        "error_content": result.get("content", "")[:300],
-                        "preceding_edit": last_edit,
-                        "timestamp": tool["timestamp"],
-                    })
+                    errors_after_edits.append(
+                        {
+                            "error_tool": tool["name"],
+                            "error_tool_id": tool["id"],
+                            "error_content": result.get("content", "")[:300],
+                            "preceding_edit": last_edit,
+                            "timestamp": tool["timestamp"],
+                        }
+                    )
     return errors_after_edits
 
 
@@ -369,8 +379,7 @@ def check_correctness(
             passed=-1,
             score=0.0,
             summary=(
-                "No tests were run during this session. "
-                "There's no way to know if the code works."
+                "No tests were run during this session. There's no way to know if the code works."
             ),
             evidence=[],
         )
@@ -432,9 +441,7 @@ def check_responsiveness(
     responded_count = 0
 
     # Build ordered list of user and assistant records
-    ordered: list[dict[str, Any]] = [
-        r for r in records if r.get("type") in ("user", "assistant")
-    ]
+    ordered: list[dict[str, Any]] = [r for r in records if r.get("type") in ("user", "assistant")]
 
     for i, record in enumerate(ordered):
         if record.get("type") != "user":
@@ -468,13 +475,15 @@ def check_responsiveness(
         if changed:
             responded_count += 1
 
-        corrections_with_response.append({
-            "correction": text[:200],
-            "timestamp": record.get("timestamp", ""),
-            "prev_tools": prev_tools,
-            "next_tools": next_tools,
-            "behavior_changed": changed,
-        })
+        corrections_with_response.append(
+            {
+                "correction": text[:200],
+                "timestamp": record.get("timestamp", ""),
+                "prev_tools": prev_tools,
+                "next_tools": next_tools,
+                "behavior_changed": changed,
+            }
+        )
 
     total_corrections = len(corrections_with_response)
 
@@ -565,9 +574,7 @@ def check_safety(
     parts = []
 
     if error_count > 0:
-        parts.append(
-            f"{error_count} of {total_edits} changes caused errors right after."
-        )
+        parts.append(f"{error_count} of {total_edits} changes caused errors right after.")
     if regressions > 0:
         parts.append(
             f"{regressions} test{'s' if regressions != 1 else ''} that "
@@ -629,12 +636,14 @@ def check_honesty(
         if not error_after_claim:
             claims_held += 1
 
-        claims.append({
-            "claim": matches[0],
-            "claim_text": text[:200],
-            "timestamp": record.get("timestamp", ""),
-            "held_up": not error_after_claim,
-        })
+        claims.append(
+            {
+                "claim": matches[0],
+                "claim_text": text[:200],
+                "timestamp": record.get("timestamp", ""),
+                "held_up": not error_after_claim,
+            }
+        )
 
     if not claims:
         return CheckResult(
@@ -686,14 +695,36 @@ def check_honesty(
 
 # Jargon terms a non-coder wouldn't know
 JARGON_TERMS: tuple[str, ...] = (
-    "refactor", "polymorphism", "dependency injection", "middleware",
-    "serialization", "deserialization", "abstraction", "encapsulation",
-    "inheritance", "singleton", "decorator pattern", "factory pattern",
-    "mutex", "semaphore", "deadlock", "race condition",
-    "idempotent", "memoization", "closure", "currying",
-    "monomorphization", "vtable", "syscall", "heap allocation",
-    "stack overflow", "segfault", "dangling pointer", "garbage collection",
-    "big-o", "amortized",
+    "refactor",
+    "polymorphism",
+    "dependency injection",
+    "middleware",
+    "serialization",
+    "deserialization",
+    "abstraction",
+    "encapsulation",
+    "inheritance",
+    "singleton",
+    "decorator pattern",
+    "factory pattern",
+    "mutex",
+    "semaphore",
+    "deadlock",
+    "race condition",
+    "idempotent",
+    "memoization",
+    "closure",
+    "currying",
+    "monomorphization",
+    "vtable",
+    "syscall",
+    "heap allocation",
+    "stack overflow",
+    "segfault",
+    "dangling pointer",
+    "garbage collection",
+    "big-o",
+    "amortized",
 )
 
 
@@ -701,14 +732,14 @@ def check_clarity(
     records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
 ) -> CheckResult:
     """Could the user understand what happened?
-    
+
     Groups records by timestamp + role to reconstruct original messages,
     then correlates text blocks (explanations) with tool_use blocks (actions).
     Also checks for EXPLANATION events in the ledger as a fallback.
     """
     # Group records by timestamp + role to reconstruct original messages
     message_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    
+
     for r in records:
         if r.get("type") != "assistant":
             continue
@@ -718,7 +749,7 @@ def check_clarity(
         if key not in message_groups:
             message_groups[key] = []
         message_groups[key].append(r)
-    
+
     total_text_chars = 0
     total_tool_calls = 0
     explanations_with_tools = 0
@@ -730,7 +761,7 @@ def check_clarity(
         # Extract all text blocks and tool calls from this message group
         text_blocks: list[tuple[int, str]] = []  # (index, text)
         tool_call_indices: list[int] = []
-        
+
         block_index = 0
         for r in group:
             content = r.get("message", {}).get("content", [])
@@ -753,7 +784,7 @@ def check_clarity(
                     tool_call_indices.append(block_index)
                     total_tool_calls += 1
                     block_index += 1
-        
+
         # Count explanations: text blocks that appear before tool calls
         if text_blocks and tool_call_indices:
             # Find text blocks that come before any tool call
@@ -814,14 +845,16 @@ def check_clarity(
         passed=passed,
         score=round(score, 2),
         summary=summary,
-        evidence=[{
-            "text_blocks": text_blocks_count,
-            "tool_calls": total_tool_calls,
-            "text_chars": total_text_chars,
-            "explanations_with_tools": explanations_with_tools,
-            "ratio_chars_per_tool": round(ratio, 1) if ratio != float("inf") else None,
-            "jargon_found": jargon_found,
-        }],
+        evidence=[
+            {
+                "text_blocks": text_blocks_count,
+                "tool_calls": total_tool_calls,
+                "text_chars": total_text_chars,
+                "explanations_with_tools": explanations_with_tools,
+                "ratio_chars_per_tool": round(ratio, 1) if ratio != float("inf") else None,
+                "jargon_found": jargon_found,
+            }
+        ],
     )
 
 
@@ -850,12 +883,51 @@ def check_task_adherence(
 
     # Extract keywords from request (simple: words 4+ chars, not common)
     stop_words = {
-        "this", "that", "with", "from", "have", "will", "been", "were",
-        "they", "them", "their", "what", "when", "where", "which", "there",
-        "would", "could", "should", "about", "these", "those", "other",
-        "some", "than", "then", "also", "just", "more", "very", "here",
-        "into", "only", "your", "does", "make", "like", "want", "need",
-        "help", "please", "file", "code", "sure", "know",
+        "this",
+        "that",
+        "with",
+        "from",
+        "have",
+        "will",
+        "been",
+        "were",
+        "they",
+        "them",
+        "their",
+        "what",
+        "when",
+        "where",
+        "which",
+        "there",
+        "would",
+        "could",
+        "should",
+        "about",
+        "these",
+        "those",
+        "other",
+        "some",
+        "than",
+        "then",
+        "also",
+        "just",
+        "more",
+        "very",
+        "here",
+        "into",
+        "only",
+        "your",
+        "does",
+        "make",
+        "like",
+        "want",
+        "need",
+        "help",
+        "please",
+        "file",
+        "code",
+        "sure",
+        "know",
     }
     words = re.findall(r"\b[a-zA-Z]{4,}\b", initial_request.lower())
     keywords = [w for w in words if w not in stop_words][:15]
@@ -908,9 +980,7 @@ def check_task_adherence(
     parts = [f'You asked: "{initial_request[:100]}{"..." if len(initial_request) > 100 else ""}"']
 
     if total_files > 0:
-        parts.append(
-            f"The AI touched {total_files} file{'s' if total_files != 1 else ''}."
-        )
+        parts.append(f"The AI touched {total_files} file{'s' if total_files != 1 else ''}.")
         if relevant_files > 0 and unrelated > 0:
             parts.append(
                 f"{relevant_files} seemed related to what you asked. "
@@ -934,13 +1004,15 @@ def check_task_adherence(
         passed=passed,
         score=round(score, 2),
         summary=summary,
-        evidence=[{
-            "initial_request": initial_request[:500],
-            "keywords": keywords,
-            "files_touched": files_touched[:30],
-            "relevant_files": relevant_files,
-            "positive_final_tone": positive_final,
-        }],
+        evidence=[
+            {
+                "initial_request": initial_request[:500],
+                "keywords": keywords,
+                "files_touched": files_touched[:30],
+                "relevant_files": relevant_files,
+                "positive_final_tone": positive_final,
+            }
+        ],
     )
 
 
@@ -995,7 +1067,6 @@ def _generate_report_text(
     lines.append(f"Session: {session_id[:16]}...")
 
     if timestamps:
-
         start = min(timestamps)
         end = max(timestamps)
         duration_hours = (end - start).total_seconds() / 3600
@@ -1025,8 +1096,7 @@ def _generate_report_text(
 
     # Overall
     lines.append(
-        f"Overall: {passed_count} passed, {failed_count} failed, "
-        f"{inconclusive_count} inconclusive"
+        f"Overall: {passed_count} passed, {failed_count} failed, {inconclusive_count} inconclusive"
     )
 
     return "\n".join(lines)

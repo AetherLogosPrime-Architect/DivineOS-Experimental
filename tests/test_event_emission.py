@@ -35,10 +35,11 @@ def fresh_session():
     """Create a fresh session for each test."""
     # Clear persistent session file to ensure fresh session
     from pathlib import Path
+
     session_file = Path.home() / ".divineos" / "current_session.txt"
     if session_file.exists():
         session_file.unlink()
-    
+
     tracker = get_session_tracker()
     tracker.start_session()
     yield tracker
@@ -51,10 +52,10 @@ class TestEmitUserInput:
     def test_emit_user_input_basic(self, temp_db, fresh_session):
         """Test basic USER_INPUT event emission."""
         event_id = emit_user_input("Hello, world!")
-        
+
         assert event_id is not None
         assert isinstance(event_id, str)
-        
+
         # Verify event was stored in ledger
         events = get_events(limit=10, event_type="USER_INPUT")
         assert len(events) == 1
@@ -66,7 +67,7 @@ class TestEmitUserInput:
         """Test USER_INPUT event with explicit session ID."""
         session_id = "test-session-123"
         emit_user_input("Test message", session_id=session_id)
-        
+
         events = get_events(limit=10, event_type="USER_INPUT")
         assert len(events) == 1
         assert events[0]["payload"]["session_id"] == session_id
@@ -74,19 +75,19 @@ class TestEmitUserInput:
     def test_emit_user_input_includes_timestamp(self, temp_db, fresh_session):
         """Test that USER_INPUT event includes ISO8601 timestamp."""
         emit_user_input("Test message")
-        
+
         events = get_events(limit=10, event_type="USER_INPUT")
         assert len(events) == 1
-        
+
         timestamp = events[0]["payload"]["timestamp"]
         assert timestamp is not None
         # Verify it's valid ISO8601
-        datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
     def test_emit_user_input_includes_session_id(self, temp_db, fresh_session):
         """Test that USER_INPUT event includes session ID."""
         emit_user_input("Test message")
-        
+
         events = get_events(limit=10, event_type="USER_INPUT")
         assert len(events) == 1
         assert events[0]["payload"]["session_id"] is not None
@@ -94,7 +95,7 @@ class TestEmitUserInput:
     def test_emit_user_input_includes_hash(self, temp_db, fresh_session):
         """Test that USER_INPUT event includes SHA256 hash."""
         emit_user_input("Test message")
-        
+
         events = get_events(limit=10, event_type="USER_INPUT")
         assert len(events) == 1
         assert events[0]["content_hash"] is not None
@@ -116,7 +117,7 @@ class TestEmitUserInput:
         """Test USER_INPUT with long content."""
         long_content = "x" * 100000  # 100KB
         emit_user_input(long_content)
-        
+
         events = get_events(limit=10, event_type="USER_INPUT")
         assert len(events) == 1
         assert events[0]["payload"]["content"] == long_content
@@ -125,7 +126,7 @@ class TestEmitUserInput:
         """Test USER_INPUT with special characters."""
         content = "Hello 🌍! Special chars: @#$%^&*()"
         emit_user_input(content)
-        
+
         events = get_events(limit=10, event_type="USER_INPUT")
         assert len(events) == 1
         assert events[0]["payload"]["content"] == content
@@ -135,10 +136,10 @@ class TestEmitUserInput:
         event_id_1 = emit_user_input("Message 1")
         event_id_2 = emit_user_input("Message 2")
         event_id_3 = emit_user_input("Message 3")
-        
+
         assert event_id_1 != event_id_2
         assert event_id_2 != event_id_3
-        
+
         events = get_events(limit=10, event_type="USER_INPUT")
         assert len(events) == 3
 
@@ -150,10 +151,10 @@ class TestEmitToolCall:
         """Test basic TOOL_CALL event emission."""
         tool_input = {"path": "src/main.py"}
         event_id = emit_tool_call("readFile", tool_input)
-        
+
         assert event_id is not None
         assert isinstance(event_id, str)
-        
+
         events = get_events(limit=10, event_type="TOOL_CALL")
         assert len(events) == 1
         assert events[0]["event_type"] == "TOOL_CALL"
@@ -165,7 +166,7 @@ class TestEmitToolCall:
         """Test TOOL_CALL event with explicit tool_use_id."""
         tool_use_id = "tool-use-123"
         emit_tool_call("readFile", {"path": "file.py"}, tool_use_id=tool_use_id)
-        
+
         events = get_events(limit=10, event_type="TOOL_CALL")
         assert len(events) == 1
         assert events[0]["payload"]["tool_use_id"] == tool_use_id
@@ -173,7 +174,7 @@ class TestEmitToolCall:
     def test_emit_tool_call_generates_tool_use_id(self, temp_db, fresh_session):
         """Test that TOOL_CALL generates tool_use_id if not provided."""
         emit_tool_call("readFile", {"path": "file.py"})
-        
+
         events = get_events(limit=10, event_type="TOOL_CALL")
         assert len(events) == 1
         assert events[0]["payload"]["tool_use_id"] is not None
@@ -181,18 +182,18 @@ class TestEmitToolCall:
     def test_emit_tool_call_includes_timestamp(self, temp_db, fresh_session):
         """Test that TOOL_CALL event includes ISO8601 timestamp."""
         emit_tool_call("readFile", {"path": "file.py"})
-        
+
         events = get_events(limit=10, event_type="TOOL_CALL")
         assert len(events) == 1
-        
+
         timestamp = events[0]["payload"]["timestamp"]
         assert timestamp is not None
-        datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
     def test_emit_tool_call_includes_session_id(self, temp_db, fresh_session):
         """Test that TOOL_CALL event includes session ID."""
         emit_tool_call("readFile", {"path": "file.py"})
-        
+
         events = get_events(limit=10, event_type="TOOL_CALL")
         assert len(events) == 1
         assert events[0]["payload"]["session_id"] is not None
@@ -200,7 +201,7 @@ class TestEmitToolCall:
     def test_emit_tool_call_includes_hash(self, temp_db, fresh_session):
         """Test that TOOL_CALL event includes SHA256 hash."""
         emit_tool_call("readFile", {"path": "file.py"})
-        
+
         events = get_events(limit=10, event_type="TOOL_CALL")
         assert len(events) == 1
         assert events[0]["content_hash"] is not None
@@ -220,10 +221,10 @@ class TestEmitToolCall:
             "nested": {
                 "key1": "value1",
                 "key2": [1, 2, 3],
-            }
+            },
         }
         emit_tool_call("strReplace", tool_input)
-        
+
         events = get_events(limit=10, event_type="TOOL_CALL")
         assert len(events) == 1
         assert events[0]["payload"]["tool_input"] == tool_input
@@ -233,10 +234,10 @@ class TestEmitToolCall:
         event_id_1 = emit_tool_call("readFile", {"path": "file1.py"})
         event_id_2 = emit_tool_call("strReplace", {"path": "file2.py"})
         event_id_3 = emit_tool_call("fsWrite", {"path": "file3.py"})
-        
+
         assert event_id_1 != event_id_2
         assert event_id_2 != event_id_3
-        
+
         events = get_events(limit=10, event_type="TOOL_CALL")
         assert len(events) == 3
 
@@ -249,10 +250,10 @@ class TestEmitToolResult:
         tool_use_id = "tool-use-123"
         result = "File content here"
         event_id = emit_tool_result("readFile", tool_use_id, result, 45)
-        
+
         assert event_id is not None
         assert isinstance(event_id, str)
-        
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
         assert events[0]["event_type"] == "TOOL_RESULT"
@@ -265,14 +266,8 @@ class TestEmitToolResult:
     def test_emit_tool_result_with_session_id(self, temp_db):
         """Test TOOL_RESULT event with explicit session ID."""
         session_id = "test-session-123"
-        emit_tool_result(
-            "readFile",
-            "tool-use-123",
-            "Result content",
-            50,
-            session_id=session_id
-        )
-        
+        emit_tool_result("readFile", "tool-use-123", "Result content", 50, session_id=session_id)
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
         assert events[0]["payload"]["session_id"] == session_id
@@ -280,18 +275,18 @@ class TestEmitToolResult:
     def test_emit_tool_result_includes_timestamp(self, temp_db, fresh_session):
         """Test that TOOL_RESULT event includes ISO8601 timestamp."""
         emit_tool_result("readFile", "tool-use-123", "Result", 50)
-        
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
-        
+
         timestamp = events[0]["payload"]["timestamp"]
         assert timestamp is not None
-        datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
     def test_emit_tool_result_includes_session_id(self, temp_db, fresh_session):
         """Test that TOOL_RESULT event includes session ID."""
         emit_tool_result("readFile", "tool-use-123", "Result", 50)
-        
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
         assert events[0]["payload"]["session_id"] is not None
@@ -299,7 +294,7 @@ class TestEmitToolResult:
     def test_emit_tool_result_includes_hash(self, temp_db, fresh_session):
         """Test that TOOL_RESULT event includes SHA256 hash."""
         emit_tool_result("readFile", "tool-use-123", "Result", 50)
-        
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
         assert events[0]["content_hash"] is not None
@@ -308,7 +303,7 @@ class TestEmitToolResult:
     def test_emit_tool_result_success(self, temp_db, fresh_session):
         """Test TOOL_RESULT event for successful execution."""
         emit_tool_result("readFile", "tool-use-123", "Result", 50, failed=False)
-        
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
         assert events[0]["payload"]["failed"] is False
@@ -318,14 +313,9 @@ class TestEmitToolResult:
         """Test TOOL_RESULT event for failed execution."""
         error_msg = "File not found"
         emit_tool_result(
-            "readFile",
-            "tool-use-123",
-            "Error occurred",
-            50,
-            failed=True,
-            error_message=error_msg
+            "readFile", "tool-use-123", "Error occurred", 50, failed=True, error_message=error_msg
         )
-        
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
         assert events[0]["payload"]["failed"] is True
@@ -335,7 +325,7 @@ class TestEmitToolResult:
         """Test TOOL_RESULT with long output."""
         long_result = "x" * 1000000  # 1MB
         emit_tool_result("readFile", "tool-use-123", long_result, 100)
-        
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
         assert events[0]["payload"]["result"] == long_result
@@ -355,10 +345,10 @@ class TestEmitToolResult:
         event_id_1 = emit_tool_result("readFile", "tool-1", "Result 1", 45)
         event_id_2 = emit_tool_result("strReplace", "tool-2", "Result 2", 50)
         event_id_3 = emit_tool_result("fsWrite", "tool-3", "Result 3", 55)
-        
+
         assert event_id_1 != event_id_2
         assert event_id_2 != event_id_3
-        
+
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 3
 
@@ -373,12 +363,12 @@ class TestEmitSessionEnd:
         emit_user_input("Message 2")
         emit_tool_call("readFile", {"path": "file.py"})
         emit_tool_result("readFile", "tool-1", "Result", 50)
-        
+
         event_id = emit_session_end()
-        
+
         assert event_id is not None
         assert isinstance(event_id, str)
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
         assert events[0]["event_type"] == "SESSION_END"
@@ -392,9 +382,9 @@ class TestEmitSessionEnd:
             message_count=5,
             tool_call_count=3,
             tool_result_count=3,
-            duration_seconds=60.0
+            duration_seconds=60.0,
         )
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
         assert events[0]["payload"]["session_id"] == session_id
@@ -403,14 +393,11 @@ class TestEmitSessionEnd:
         """Test that SESSION_END includes message count."""
         emit_user_input("Message 1")
         emit_user_input("Message 2")
-        
+
         emit_session_end(
-            message_count=2,
-            tool_call_count=0,
-            tool_result_count=0,
-            duration_seconds=30.0
+            message_count=2, tool_call_count=0, tool_result_count=0, duration_seconds=30.0
         )
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
         assert events[0]["payload"]["message_count"] == 2
@@ -419,14 +406,11 @@ class TestEmitSessionEnd:
         """Test that SESSION_END includes tool call count."""
         emit_tool_call("readFile", {"path": "file.py"})
         emit_tool_call("strReplace", {"path": "file.py"})
-        
+
         emit_session_end(
-            message_count=0,
-            tool_call_count=2,
-            tool_result_count=0,
-            duration_seconds=30.0
+            message_count=0, tool_call_count=2, tool_result_count=0, duration_seconds=30.0
         )
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
         assert events[0]["payload"]["tool_call_count"] == 2
@@ -435,14 +419,11 @@ class TestEmitSessionEnd:
         """Test that SESSION_END includes tool result count."""
         emit_tool_result("readFile", "tool-1", "Result 1", 50)
         emit_tool_result("strReplace", "tool-2", "Result 2", 50)
-        
+
         emit_session_end(
-            message_count=0,
-            tool_call_count=0,
-            tool_result_count=2,
-            duration_seconds=30.0
+            message_count=0, tool_call_count=0, tool_result_count=2, duration_seconds=30.0
         )
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
         assert events[0]["payload"]["tool_result_count"] == 2
@@ -450,12 +431,9 @@ class TestEmitSessionEnd:
     def test_emit_session_end_includes_duration(self, temp_db, fresh_session):
         """Test that SESSION_END includes duration."""
         emit_session_end(
-            message_count=0,
-            tool_call_count=0,
-            tool_result_count=0,
-            duration_seconds=120.5
+            message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=120.5
         )
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
         assert events[0]["payload"]["duration_seconds"] == 120.5
@@ -463,28 +441,22 @@ class TestEmitSessionEnd:
     def test_emit_session_end_includes_timestamp(self, temp_db, fresh_session):
         """Test that SESSION_END event includes ISO8601 timestamp."""
         emit_session_end(
-            message_count=0,
-            tool_call_count=0,
-            tool_result_count=0,
-            duration_seconds=30.0
+            message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=30.0
         )
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
-        
+
         timestamp = events[0]["payload"]["timestamp"]
         assert timestamp is not None
-        datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
     def test_emit_session_end_includes_hash(self, temp_db, fresh_session):
         """Test that SESSION_END event includes SHA256 hash."""
         emit_session_end(
-            message_count=0,
-            tool_call_count=0,
-            tool_result_count=0,
-            duration_seconds=30.0
+            message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=30.0
         )
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
         assert events[0]["content_hash"] is not None
@@ -493,12 +465,9 @@ class TestEmitSessionEnd:
     def test_emit_session_end_zero_counts(self, temp_db, fresh_session):
         """Test SESSION_END with zero event counts."""
         emit_session_end(
-            message_count=0,
-            tool_call_count=0,
-            tool_result_count=0,
-            duration_seconds=0.0
+            message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=0.0
         )
-        
+
         events = get_events(limit=10, event_type="SESSION_END")
         assert len(events) == 1
         assert events[0]["payload"]["message_count"] == 0
@@ -510,20 +479,14 @@ class TestEmitSessionEnd:
         """Test that negative message_count fails validation."""
         with pytest.raises(EventValidationError, match="message_count cannot be negative"):
             emit_session_end(
-                message_count=-1,
-                tool_call_count=0,
-                tool_result_count=0,
-                duration_seconds=30.0
+                message_count=-1, tool_call_count=0, tool_result_count=0, duration_seconds=30.0
             )
 
     def test_emit_session_end_negative_duration_fails(self, temp_db, fresh_session):
         """Test that negative duration fails validation."""
         with pytest.raises(EventValidationError, match="duration_seconds cannot be negative"):
             emit_session_end(
-                message_count=0,
-                tool_call_count=0,
-                tool_result_count=0,
-                duration_seconds=-1.0
+                message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=-1.0
             )
 
 
@@ -534,25 +497,22 @@ class TestEventEmissionIntegration:
         """Test emitting all four event types in sequence."""
         # Emit USER_INPUT
         emit_user_input("Hello, world!")
-        
+
         # Emit TOOL_CALL
         tool_call_id = emit_tool_call("readFile", {"path": "file.py"})
-        
+
         # Emit TOOL_RESULT
         emit_tool_result("readFile", tool_call_id, "File content", 50)
-        
+
         # Emit SESSION_END
         emit_session_end(
-            message_count=1,
-            tool_call_count=1,
-            tool_result_count=1,
-            duration_seconds=60.0
+            message_count=1, tool_call_count=1, tool_result_count=1, duration_seconds=60.0
         )
-        
+
         # Verify all events are in ledger
         all_events = get_events(limit=100)
         assert len(all_events) == 4
-        
+
         event_types = [e["event_type"] for e in all_events]
         assert "USER_INPUT" in event_types
         assert "TOOL_CALL" in event_types
@@ -565,15 +525,12 @@ class TestEventEmissionIntegration:
         emit_tool_call("readFile", {"path": "file.py"})
         emit_tool_result("readFile", "tool-1", "Result", 50)
         emit_session_end(
-            message_count=1,
-            tool_call_count=1,
-            tool_result_count=1,
-            duration_seconds=30.0
+            message_count=1, tool_call_count=1, tool_result_count=1, duration_seconds=30.0
         )
-        
+
         all_events = get_events(limit=100)
         session_ids = [e["payload"].get("session_id") for e in all_events]
-        
+
         # All should have the same session ID
         assert len(set(session_ids)) == 1
 
@@ -582,10 +539,10 @@ class TestEventEmissionIntegration:
         emit_user_input("Message 1")
         emit_user_input("Message 2")
         emit_user_input("Message 3")
-        
+
         events = get_events(limit=100, event_type="USER_INPUT")
         assert len(events) == 3
-        
+
         # Verify timestamps are in order
         timestamps = [e["payload"]["timestamp"] for e in events]
         assert timestamps == sorted(timestamps)
@@ -595,9 +552,9 @@ class TestEventEmissionIntegration:
         emit_user_input("Message 1")
         emit_tool_call("readFile", {"path": "file.py"})
         emit_tool_result("readFile", "tool-1", "Result", 50)
-        
+
         events = get_events(limit=100)
-        
+
         for event in events:
             content_hash = event["content_hash"]
             assert content_hash is not None

@@ -81,12 +81,11 @@ def init_memory_tables() -> None:
 
 # ─── Core Memory ─────────────────────────────────────────────────────
 
+
 def set_core(slot_id: str, content: str) -> None:
     """Set a core memory slot. Overwrites if exists."""
     if slot_id not in CORE_SLOTS:
-        raise ValueError(
-            f"Unknown slot '{slot_id}'. Valid: {', '.join(CORE_SLOTS)}"
-        )
+        raise ValueError(f"Unknown slot '{slot_id}'. Valid: {', '.join(CORE_SLOTS)}")
     conn = _get_connection()
     try:
         conn.execute(
@@ -125,14 +124,10 @@ def get_core(slot_id: Optional[str] = None) -> dict[str, str]:
 def clear_core(slot_id: str) -> bool:
     """Clear a core memory slot. Returns True if it existed."""
     if slot_id not in CORE_SLOTS:
-        raise ValueError(
-            f"Unknown slot '{slot_id}'. Valid: {', '.join(CORE_SLOTS)}"
-        )
+        raise ValueError(f"Unknown slot '{slot_id}'. Valid: {', '.join(CORE_SLOTS)}")
     conn = _get_connection()
     try:
-        cursor = conn.execute(
-            "DELETE FROM core_memory WHERE slot_id = ?", (slot_id,)
-        )
+        cursor = conn.execute("DELETE FROM core_memory WHERE slot_id = ?", (slot_id,))
         conn.commit()
         return cursor.rowcount > 0
     finally:
@@ -167,6 +162,7 @@ def format_core() -> str:
 
 # ─── Importance Scoring ──────────────────────────────────────────────
 
+
 def compute_importance(entry: dict, has_active_lesson: bool = False) -> float:
     """Score a knowledge entry for active memory. 0.0 to 1.0.
 
@@ -178,17 +174,17 @@ def compute_importance(entry: dict, has_active_lesson: bool = False) -> float:
     # 30% from type — constraints and principles change behavior most
     type_weights = {
         # New types
-        "BOUNDARY": 0.30,    # Hard constraints — highest priority
-        "PRINCIPLE": 0.28,   # Distilled wisdom from experience
-        "DIRECTION": 0.25,   # How the user wants things done
-        "PROCEDURE": 0.20,   # How to do something
-        "FACT": 0.10,        # Something true about the world
-        "OBSERVATION": 0.08, # Noticed but unconfirmed
-        "EPISODE": 0.05,     # A specific event
+        "BOUNDARY": 0.30,  # Hard constraints — highest priority
+        "PRINCIPLE": 0.28,  # Distilled wisdom from experience
+        "DIRECTION": 0.25,  # How the user wants things done
+        "PROCEDURE": 0.20,  # How to do something
+        "FACT": 0.10,  # Something true about the world
+        "OBSERVATION": 0.08,  # Noticed but unconfirmed
+        "EPISODE": 0.05,  # A specific event
         # Legacy types — map to their successors
-        "MISTAKE": 0.30,     # → BOUNDARY/PRINCIPLE
+        "MISTAKE": 0.30,  # → BOUNDARY/PRINCIPLE
         "PREFERENCE": 0.25,  # → DIRECTION
-        "PATTERN": 0.20,     # → PRINCIPLE/PROCEDURE
+        "PATTERN": 0.20,  # → PRINCIPLE/PROCEDURE
     }
     score += type_weights.get(entry.get("knowledge_type", ""), 0.1)
 
@@ -218,6 +214,7 @@ def compute_importance(entry: dict, has_active_lesson: bool = False) -> float:
 
 
 # ─── Active Memory ───────────────────────────────────────────────────
+
 
 def promote_to_active(
     knowledge_id: str,
@@ -365,9 +362,7 @@ def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
                 entry_words = set(content_lower.split())
                 desc_words = set(desc.split())
                 if entry_words and desc_words:
-                    overlap = len(entry_words & desc_words) / max(
-                        len(entry_words), len(desc_words)
-                    )
+                    overlap = len(entry_words & desc_words) / max(len(entry_words), len(desc_words))
                     if overlap > 0.3:
                         has_lesson = True
                         break
@@ -386,9 +381,7 @@ def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
 
         # Get current active memory
         current_active = set()
-        for row in conn.execute(
-            "SELECT knowledge_id FROM active_memory"
-        ).fetchall():
+        for row in conn.execute("SELECT knowledge_id FROM active_memory").fetchall():
             current_active.add(row[0])
 
         # Add new items
@@ -431,6 +424,7 @@ def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
 
 
 # ─── Retrieval ───────────────────────────────────────────────────────
+
 
 def recall(context_hint: str = "") -> dict[str, Any]:
     """The main retrieval function. Returns what the AI should remember.
@@ -507,19 +501,14 @@ def format_recall(result: dict[str, Any]) -> str:
         for item in result["active"]:
             pin = " [pinned]" if item.get("pinned") else ""
             content = _safe_text(item["content"][:120])
-            lines.append(
-                f"- [{item['importance']:.2f}] {item['knowledge_type']}: "
-                f"{content}{pin}"
-            )
+            lines.append(f"- [{item['importance']:.2f}] {item['knowledge_type']}: {content}{pin}")
         lines.append("")
 
     if result["relevant"]:
         lines.append("## Also Relevant (from archive)\n")
         for item in result["relevant"]:
             content = _safe_text(item["content"][:120])
-            lines.append(
-                f"- {item['knowledge_type']}: {content}"
-            )
+            lines.append(f"- {item['knowledge_type']}: {content}")
         lines.append("")
 
     return "\n".join(lines) if lines else "No memories yet."

@@ -387,19 +387,29 @@ class TestGetLessonSummary:
 class TestExtractLessonsFromReport:
     def test_extract_from_failing_check(self):
         checks = [
-            {"name": "completeness", "passed": False, "score": 0.5,
-             "summary": "3 blind edits found"},
+            {
+                "name": "completeness",
+                "passed": False,
+                "score": 0.5,
+                "summary": "3 blind edits found",
+            },
         ]
         ids = extract_lessons_from_report(checks, "session-abc123")
         assert len(ids) >= 1
         knowledge = get_knowledge(knowledge_type="MISTAKE")
         assert len(knowledge) >= 1
-        assert "blind" in knowledge[0]["content"].lower() or "edit" in knowledge[0]["content"].lower()
+        assert (
+            "blind" in knowledge[0]["content"].lower() or "edit" in knowledge[0]["content"].lower()
+        )
 
     def test_extract_from_passing_check(self):
         checks = [
-            {"name": "completeness", "passed": True, "score": 0.95,
-             "summary": "All files read before editing"},
+            {
+                "name": "completeness",
+                "passed": True,
+                "score": 0.95,
+                "summary": "All files read before editing",
+            },
         ]
         ids = extract_lessons_from_report(checks, "session-good")
         assert len(ids) >= 1
@@ -427,8 +437,12 @@ class TestExtractLessonsFromReport:
     def test_no_duplicate_extraction(self):
         """Running extraction twice shouldn't create duplicate knowledge."""
         checks = [
-            {"name": "correctness", "passed": False, "score": 0.3,
-             "summary": "Tests failed with 5 errors"},
+            {
+                "name": "correctness",
+                "passed": False,
+                "score": 0.3,
+                "summary": "Tests failed with 5 errors",
+            },
         ]
         ids1 = extract_lessons_from_report(checks, "session-dup")
         ids2 = extract_lessons_from_report(checks, "session-dup")
@@ -439,8 +453,7 @@ class TestExtractLessonsFromReport:
 
     def test_extract_tags_correct(self):
         checks = [
-            {"name": "safety", "passed": False, "score": 0.4,
-             "summary": "Errors after edits"},
+            {"name": "safety", "passed": False, "score": 0.4, "summary": "Errors after edits"},
         ]
         extract_lessons_from_report(checks, "session-tags123")
         knowledge = get_knowledge(knowledge_type="MISTAKE")
@@ -453,8 +466,7 @@ class TestExtractLessonsFromReport:
     def test_records_lesson_for_failures(self):
         """Failed checks should also create lesson tracking entries."""
         checks = [
-            {"name": "completeness", "passed": False, "score": 0.4,
-             "summary": "5 blind edits"},
+            {"name": "completeness", "passed": False, "score": 0.4, "summary": "5 blind edits"},
         ]
         extract_lessons_from_report(checks, "session-lesson1")
         lessons = get_lessons(category="blind_edit")
@@ -472,8 +484,12 @@ class TestExtractLessonsFromReport:
 
         # Now: pass completeness with high score
         checks = [
-            {"name": "completeness", "passed": True, "score": 0.95,
-             "summary": "All files read before editing"},
+            {
+                "name": "completeness",
+                "passed": True,
+                "score": 0.95,
+                "summary": "All files read before editing",
+            },
         ]
         extract_lessons_from_report(checks, "session-clean")
         lessons = get_lessons(category="blind_edit")
@@ -614,9 +630,13 @@ class TestStoreKnowledgeSmart:
         assert kid1 == kid2
 
     def test_fuzzy_duplicate_returns_existing(self):
-        kid1 = store_knowledge_smart("MISTAKE", "Always read files before editing them in the codebase")
+        kid1 = store_knowledge_smart(
+            "MISTAKE", "Always read files before editing them in the codebase"
+        )
         # Similar but not identical
-        kid2 = store_knowledge_smart("MISTAKE", "Read files before editing them in the codebase always")
+        kid2 = store_knowledge_smart(
+            "MISTAKE", "Read files before editing them in the codebase always"
+        )
         assert kid1 == kid2
 
     def test_different_content_creates_new(self):
@@ -635,6 +655,7 @@ class TestStoreKnowledgeSmart:
 
 class _MockSignal:
     """Minimal mock of UserSignal for testing."""
+
     def __init__(self, content, timestamp="ts"):
         self.content = content
         self.timestamp = timestamp
@@ -643,6 +664,7 @@ class _MockSignal:
 
 class _MockAnalysis:
     """Minimal mock of SessionAnalysis for testing."""
+
     def __init__(self, session_id="test-session-abc123"):
         self.session_id = session_id
         self.corrections = []
@@ -675,12 +697,22 @@ class TestDeepExtractKnowledge:
         analysis.user_message_texts = ["no don't use mocks, use real database"]
 
         records = [
-            {"type": "assistant", "timestamp": "ts", "message": {
-                "content": [{"type": "text", "text": "I'll set up mock database objects for testing"}]
-            }},
-            {"type": "user", "timestamp": "ts", "message": {
-                "content": [{"type": "text", "text": "no don't use mocks, use real database"}]
-            }},
+            {
+                "type": "assistant",
+                "timestamp": "ts",
+                "message": {
+                    "content": [
+                        {"type": "text", "text": "I'll set up mock database objects for testing"}
+                    ]
+                },
+            },
+            {
+                "type": "user",
+                "timestamp": "ts",
+                "message": {
+                    "content": [{"type": "text", "text": "no don't use mocks, use real database"}]
+                },
+            },
         ]
         deep_extract_knowledge(analysis, records)
         # "don't" triggers BOUNDARY classification
@@ -707,9 +739,18 @@ class TestDeepExtractKnowledge:
         analysis.decisions = [_MockSignal("yes lets use SQLite because it has no dependencies")]
         analysis.user_message_texts = ["yes lets use SQLite because it has no dependencies"]
         records = [
-            {"type": "user", "timestamp": "ts", "message": {
-                "content": [{"type": "text", "text": "yes lets use SQLite because it has no dependencies"}]
-            }},
+            {
+                "type": "user",
+                "timestamp": "ts",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "yes lets use SQLite because it has no dependencies",
+                        }
+                    ]
+                },
+            },
         ]
         deep_extract_knowledge(analysis, records)
         principles = get_knowledge(knowledge_type="PRINCIPLE")
@@ -723,12 +764,23 @@ class TestDeepExtractKnowledge:
         analysis.encouragements = [_MockSignal("perfect that's exactly right")]
         analysis.user_message_texts = ["perfect that's exactly right"]
         records = [
-            {"type": "assistant", "timestamp": "ts", "message": {
-                "content": [{"type": "text", "text": "I've added FTS5 search with BM25 ranking to the knowledge store"}]
-            }},
-            {"type": "user", "timestamp": "ts", "message": {
-                "content": [{"type": "text", "text": "perfect that's exactly right"}]
-            }},
+            {
+                "type": "assistant",
+                "timestamp": "ts",
+                "message": {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "I've added FTS5 search with BM25 ranking to the knowledge store",
+                        }
+                    ]
+                },
+            },
+            {
+                "type": "user",
+                "timestamp": "ts",
+                "message": {"content": [{"type": "text", "text": "perfect that's exactly right"}]},
+            },
         ]
         deep_extract_knowledge(analysis, records)
         principles = get_knowledge(knowledge_type="PRINCIPLE")
@@ -757,10 +809,18 @@ class TestDeepExtractKnowledge:
 class TestConsolidateRelated:
     def test_merges_similar_entries(self):
         # Create 4 similar MISTAKE entries
-        store_knowledge("MISTAKE", "Session s1: Files edited without reading first. Read before you edit.")
-        store_knowledge("MISTAKE", "Session s2: Files edited without reading first. Read before editing.")
-        store_knowledge("MISTAKE", "Session s3: Files edited without reading them first. Read before you edit.")
-        store_knowledge("MISTAKE", "Session s4: Files edited without reading. Read before you edit them.")
+        store_knowledge(
+            "MISTAKE", "Session s1: Files edited without reading first. Read before you edit."
+        )
+        store_knowledge(
+            "MISTAKE", "Session s2: Files edited without reading first. Read before editing."
+        )
+        store_knowledge(
+            "MISTAKE", "Session s3: Files edited without reading them first. Read before you edit."
+        )
+        store_knowledge(
+            "MISTAKE", "Session s4: Files edited without reading. Read before you edit them."
+        )
 
         merges = consolidate_related(min_cluster_size=3)
         assert len(merges) >= 1
@@ -906,6 +966,7 @@ class TestHealthCheck:
         # Backdate the entry to 60 days ago
         import divineos.ledger as lm
         import sqlite3
+
         conn = sqlite3.connect(str(lm.DB_PATH))
         old_time = time.time() - (60 * 86400)
         conn.execute(
@@ -950,9 +1011,11 @@ class TestHealthCheck:
         # Backdate last_seen to 31 days ago
         import os
         import sqlite3
+
         db_path = os.environ.get("DIVINEOS_DB")
         if not db_path:
             import divineos.ledger as lm
+
             db_path = str(lm.DB_PATH)
         conn = sqlite3.connect(db_path)
         old_time = time.time() - (31 * 86400)
@@ -979,9 +1042,11 @@ class TestHealthCheck:
         # Backdate last_seen to 31 days ago
         import os
         import sqlite3
+
         db_path = os.environ.get("DIVINEOS_DB")
         if not db_path:
             import divineos.ledger as lm
+
             db_path = str(lm.DB_PATH)
         conn = sqlite3.connect(db_path)
         old_time = time.time() - (31 * 86400)
@@ -1008,13 +1073,9 @@ class TestApplySessionFeedback:
         assert result["lessons_improving"] == 0
 
     def test_correction_matches_existing_mistake(self):
-        store_knowledge(
-            "MISTAKE", "blind editing without reading files first", confidence=0.8
-        )
+        store_knowledge("MISTAKE", "blind editing without reading files first", confidence=0.8)
         analysis = _MockAnalysis()
-        analysis.corrections = [
-            _MockSignal("you edited files without reading them first again")
-        ]
+        analysis.corrections = [_MockSignal("you edited files without reading them first again")]
         result = apply_session_feedback(analysis, "s2")
         assert result["recurrences_found"] == 1
         entry = get_knowledge(knowledge_type="MISTAKE")[0]
@@ -1074,26 +1135,39 @@ class TestIsNoiseCorrection:
         assert _is_noise_correction("ok sure") is True
 
     def test_task_notification(self):
-        assert _is_noise_correction("<task-notification><task-id>abc</task-id></task-notification>") is True
+        assert (
+            _is_noise_correction("<task-notification><task-id>abc</task-id></task-notification>")
+            is True
+        )
 
     def test_file_path_dump(self):
         assert _is_noise_correction("@C:\\Users\\foo\\bar.py @C:\\Users\\foo\\baz.py") is True
 
     def test_real_correction_passes(self):
-        assert _is_noise_correction("no that's wrong, you should read the file first before editing") is False
+        assert (
+            _is_noise_correction("no that's wrong, you should read the file first before editing")
+            is False
+        )
 
     def test_forwarded_instruction_passes(self):
         # Forwarded messages with enough content should pass — they may contain real corrections
-        assert _is_noise_correction("he said don't go down this rabbit hole it's too complex") is False
+        assert (
+            _is_noise_correction("he said don't go down this rabbit hole it's too complex") is False
+        )
 
 
 class TestCategorizeCorrection:
     def test_blind_coding(self):
         assert _categorize_correction("don't do it blindly, study it first") == "blind_coding"
-        assert _categorize_correction("you should read without checking what exists") == "blind_coding"
+        assert (
+            _categorize_correction("you should read without checking what exists") == "blind_coding"
+        )
 
     def test_incomplete_fix(self):
-        assert _categorize_correction("you only fixed one, the other tests still fail") == "incomplete_fix"
+        assert (
+            _categorize_correction("you only fixed one, the other tests still fail")
+            == "incomplete_fix"
+        )
 
     def test_ignored_instruction(self):
         assert _categorize_correction("did you not see what i said?") == "ignored_instruction"
@@ -1107,19 +1181,36 @@ class TestCategorizeCorrection:
         assert _categorize_correction("don't go down this rabbit hole") == "overreach"
 
     def test_jargon_usage(self):
-        assert _categorize_correction("break it down like im dumb, no jargon please") == "jargon_usage"
+        assert (
+            _categorize_correction("break it down like im dumb, no jargon please") == "jargon_usage"
+        )
         assert _categorize_correction("im not a coder so dont speak jargon") == "jargon_usage"
 
     def test_shallow_output(self):
-        assert _categorize_correction("they still dont feel like people, embody their voice") == "shallow_output"
-        assert _categorize_correction("dont make it concise, token limits are not a concern") == "shallow_output"
+        assert (
+            _categorize_correction("they still dont feel like people, embody their voice")
+            == "shallow_output"
+        )
+        assert (
+            _categorize_correction("dont make it concise, token limits are not a concern")
+            == "shallow_output"
+        )
 
     def test_perspective_error(self):
-        assert _categorize_correction("when i say you, you should say i or me, its a pronoun issue") == "perspective_error"
+        assert (
+            _categorize_correction("when i say you, you should say i or me, its a pronoun issue")
+            == "perspective_error"
+        )
 
     def test_misunderstood(self):
-        assert _categorize_correction("thats not what i meant at all, you misunderstood") == "misunderstood"
-        assert _categorize_correction("i was trying to stop you, i wasnt denying it") == "misunderstood"
+        assert (
+            _categorize_correction("thats not what i meant at all, you misunderstood")
+            == "misunderstood"
+        )
+        assert (
+            _categorize_correction("i was trying to stop you, i wasnt denying it")
+            == "misunderstood"
+        )
 
     def test_no_category_returns_none(self):
         assert _categorize_correction("the sky is blue and water is wet") is None
@@ -1151,10 +1242,14 @@ class TestFeedbackWithNoiseFilter:
         assert result["recurrences_found"] == 0
 
     def test_categorized_lesson_recorded(self):
-        store_knowledge("MISTAKE", "edited files blindly without reading them first, dont do it blindly")
+        store_knowledge(
+            "MISTAKE", "edited files blindly without reading them first, dont do it blindly"
+        )
         analysis = _MockAnalysis()
         analysis.corrections = [
-            _MockSignal("you edited files blindly without reading them first again, dont do it blindly")
+            _MockSignal(
+                "you edited files blindly without reading them first again, dont do it blindly"
+            )
         ]
         result = apply_session_feedback(analysis, "s1")
         assert result["recurrences_found"] == 1
@@ -1171,7 +1266,15 @@ class TestExpandedTypes:
     """All 10 knowledge types (7 new + 3 legacy) are accepted."""
 
     def test_all_new_types_accepted(self):
-        for ktype in ("FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION", "OBSERVATION", "EPISODE"):
+        for ktype in (
+            "FACT",
+            "PROCEDURE",
+            "PRINCIPLE",
+            "BOUNDARY",
+            "DIRECTION",
+            "OBSERVATION",
+            "EPISODE",
+        ):
             kid = store_knowledge(ktype, f"Test {ktype} content")
             assert isinstance(kid, str)
 
@@ -1187,8 +1290,18 @@ class TestExpandedTypes:
             store_knowledge("NONSENSE", "Should fail")
 
     def test_constants_include_all_types(self):
-        expected = {"FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION",
-                    "OBSERVATION", "EPISODE", "PATTERN", "PREFERENCE", "MISTAKE"}
+        expected = {
+            "FACT",
+            "PROCEDURE",
+            "PRINCIPLE",
+            "BOUNDARY",
+            "DIRECTION",
+            "OBSERVATION",
+            "EPISODE",
+            "PATTERN",
+            "PREFERENCE",
+            "MISTAKE",
+        }
         assert KNOWLEDGE_TYPES == expected
 
 

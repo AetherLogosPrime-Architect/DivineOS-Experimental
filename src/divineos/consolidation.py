@@ -21,9 +21,17 @@ import divineos.ledger as _ledger_mod
 
 KNOWLEDGE_TYPES = {
     # Core types
-    "FACT", "PROCEDURE", "PRINCIPLE", "BOUNDARY", "DIRECTION", "OBSERVATION", "EPISODE",
+    "FACT",
+    "PROCEDURE",
+    "PRINCIPLE",
+    "BOUNDARY",
+    "DIRECTION",
+    "OBSERVATION",
+    "EPISODE",
     # Legacy types (still accepted, new code should not create these)
-    "PATTERN", "PREFERENCE", "MISTAKE",
+    "PATTERN",
+    "PREFERENCE",
+    "MISTAKE",
 }
 
 KNOWLEDGE_SOURCES = {"STATED", "CORRECTED", "DEMONSTRATED", "SYNTHESIZED", "INHERITED"}
@@ -52,13 +60,14 @@ def compute_hash(content: str) -> str:
 def _get_connection() -> sqlite3.Connection:
     """Returns a connection to the ledger database."""
     import os
+
     # Check environment variable each time to support test isolation
     db_path = os.environ.get("DIVINEOS_DB")
     if db_path:
         db_path = Path(db_path)
     else:
         db_path = _ledger_mod.DB_PATH
-    
+
     db_path.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
@@ -501,12 +510,12 @@ def generate_briefing(
     # Type-specific half-lives in days
     half_lives = {
         # New types
-        "BOUNDARY": 30.0,     # Hard constraints persist
-        "PRINCIPLE": 30.0,    # Distilled wisdom persists
-        "DIRECTION": None,    # User preferences never decay
-        "PROCEDURE": 14.0,    # How-to knowledge
+        "BOUNDARY": 30.0,  # Hard constraints persist
+        "PRINCIPLE": 30.0,  # Distilled wisdom persists
+        "DIRECTION": None,  # User preferences never decay
+        "PROCEDURE": 14.0,  # How-to knowledge
         "FACT": 7.0,
-        "OBSERVATION": 3.0,   # Unconfirmed — decay fast
+        "OBSERVATION": 3.0,  # Unconfirmed — decay fast
         "EPISODE": 14.0,
         # Legacy types — same decay as their successors
         "MISTAKE": 30.0,
@@ -559,9 +568,18 @@ def generate_briefing(
         lines.append(lessons_text)
         lines.append("")
 
-    for kt in ["BOUNDARY", "PRINCIPLE", "DIRECTION", "PROCEDURE",
-                "MISTAKE", "PREFERENCE", "PATTERN",
-                "FACT", "OBSERVATION", "EPISODE"]:
+    for kt in [
+        "BOUNDARY",
+        "PRINCIPLE",
+        "DIRECTION",
+        "PROCEDURE",
+        "MISTAKE",
+        "PREFERENCE",
+        "PATTERN",
+        "FACT",
+        "OBSERVATION",
+        "EPISODE",
+    ]:
         items = grouped.get(kt, [])
         if not items:
             continue
@@ -746,9 +764,7 @@ def get_lesson_summary() -> str:
         )
 
     for lesson in improving:
-        lines.append(
-            f"- IMPROVING (was {lesson['occurrences']}x): {lesson['description']}"
-        )
+        lines.append(f"- IMPROVING (was {lesson['occurrences']}x): {lesson['description']}")
 
     if not active and not improving:
         return "No lessons tracked yet."
@@ -828,7 +844,9 @@ def extract_lessons_from_report(
             elif name == "safety":
                 content = f"Session {short_id}: Errors appeared after edits. {summary}"
             elif name == "responsiveness":
-                content = f"Session {short_id}: Correction was ignored. User had to repeat themselves."
+                content = (
+                    f"Session {short_id}: Correction was ignored. User had to repeat themselves."
+                )
             elif name == "honesty":
                 content = f"Session {short_id}: AI claimed fixed but error recurred."
             elif name == "task_adherence" and score is not None and score < 0.5:
@@ -902,7 +920,9 @@ def extract_lessons_from_report(
             lesson_categories.append("blind_retry")
 
         if investigate_count > blind_retries:
-            content = f"Session {short_id}: Good error recovery — investigated problems before retrying."
+            content = (
+                f"Session {short_id}: Good error recovery — investigated problems before retrying."
+            )
             kid = store_knowledge(
                 knowledge_type="PATTERN",
                 content=content,
@@ -970,33 +990,215 @@ def _row_to_dict(row: tuple) -> dict:
 
 # ─── Text Analysis Helpers ────────────────────────────────────────────
 
-_STOPWORDS = frozenset({
-    "the", "a", "an", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "shall", "can", "to", "of", "in", "for",
-    "on", "with", "at", "by", "from", "as", "into", "through", "during",
-    "before", "after", "above", "below", "between", "and", "but", "or",
-    "nor", "not", "so", "yet", "both", "either", "neither", "each",
-    "every", "all", "any", "few", "more", "most", "other", "some",
-    "such", "no", "only", "same", "than", "too", "very", "just",
-    "that", "this", "these", "those", "i", "you", "he", "she", "it",
-    "we", "they", "me", "him", "her", "us", "them", "my", "your",
-    "his", "its", "our", "their", "what", "which", "who", "whom",
-    "when", "where", "why", "how", "if", "then", "else", "here", "there",
-    "also", "about", "up", "out", "down", "off", "over", "under",
-    "again", "further", "once", "like", "well", "back", "even", "still",
-    "way", "get", "got", "let", "say", "said", "go", "going", "went",
-    "come", "came", "make", "made", "take", "took", "see", "saw",
-    "know", "knew", "think", "thought", "want", "need", "use", "used",
-    "try", "tried", "look", "looked", "give", "gave", "tell", "told",
-    "work", "worked", "call", "called", "yes", "ok", "okay", "yeah",
-    "sure", "right", "now", "one", "two", "first", "new", "old",
-    "good", "bad", "big", "small", "much", "many", "long", "little",
-    "thing", "things", "something", "anything", "everything", "nothing",
-    "im", "dont", "doesnt", "didnt", "isnt", "arent", "wasnt", "werent",
-    "wont", "cant", "couldnt", "shouldnt", "wouldnt", "thats", "its",
-    "lets", "ive", "youre", "theyre", "were", "hes", "shes",
-})
+_STOPWORDS = frozenset(
+    {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "and",
+        "but",
+        "or",
+        "nor",
+        "not",
+        "so",
+        "yet",
+        "both",
+        "either",
+        "neither",
+        "each",
+        "every",
+        "all",
+        "any",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "only",
+        "same",
+        "than",
+        "too",
+        "very",
+        "just",
+        "that",
+        "this",
+        "these",
+        "those",
+        "i",
+        "you",
+        "he",
+        "she",
+        "it",
+        "we",
+        "they",
+        "me",
+        "him",
+        "her",
+        "us",
+        "them",
+        "my",
+        "your",
+        "his",
+        "its",
+        "our",
+        "their",
+        "what",
+        "which",
+        "who",
+        "whom",
+        "when",
+        "where",
+        "why",
+        "how",
+        "if",
+        "then",
+        "else",
+        "here",
+        "there",
+        "also",
+        "about",
+        "up",
+        "out",
+        "down",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "once",
+        "like",
+        "well",
+        "back",
+        "even",
+        "still",
+        "way",
+        "get",
+        "got",
+        "let",
+        "say",
+        "said",
+        "go",
+        "going",
+        "went",
+        "come",
+        "came",
+        "make",
+        "made",
+        "take",
+        "took",
+        "see",
+        "saw",
+        "know",
+        "knew",
+        "think",
+        "thought",
+        "want",
+        "need",
+        "use",
+        "used",
+        "try",
+        "tried",
+        "look",
+        "looked",
+        "give",
+        "gave",
+        "tell",
+        "told",
+        "work",
+        "worked",
+        "call",
+        "called",
+        "yes",
+        "ok",
+        "okay",
+        "yeah",
+        "sure",
+        "right",
+        "now",
+        "one",
+        "two",
+        "first",
+        "new",
+        "old",
+        "good",
+        "bad",
+        "big",
+        "small",
+        "much",
+        "many",
+        "long",
+        "little",
+        "thing",
+        "things",
+        "something",
+        "anything",
+        "everything",
+        "nothing",
+        "im",
+        "dont",
+        "doesnt",
+        "didnt",
+        "isnt",
+        "arent",
+        "wasnt",
+        "werent",
+        "wont",
+        "cant",
+        "couldnt",
+        "shouldnt",
+        "wouldnt",
+        "thats",
+        "its",
+        "lets",
+        "ive",
+        "youre",
+        "theyre",
+        "were",
+        "hes",
+        "shes",
+    }
+)
 
 
 def _normalize_text(text: str) -> str:
@@ -1119,7 +1321,19 @@ def store_knowledge_smart(
 
         conn.execute(
             "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, source, maturity, corroboration_count, contradiction_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0)",
-            (kid, now, now, knowledge_type, content, confidence, sources_json, tags_json, content_hash, source, maturity),
+            (
+                kid,
+                now,
+                now,
+                knowledge_type,
+                content,
+                confidence,
+                sources_json,
+                tags_json,
+                content_hash,
+                source,
+                maturity,
+            ),
         )
         conn.commit()
         return kid
@@ -1207,7 +1421,7 @@ def _distill_correction(raw_text: str) -> str:
     # Strip common prefixes that add noise
     for prefix in ("no ", "no, ", "wrong ", "wrong, ", "stop ", "don't "):
         if text.lower().startswith(prefix):
-            text = text[len(prefix):]
+            text = text[len(prefix) :]
             break
     # Capitalize and clean up
     text = text.strip()
@@ -1225,7 +1439,7 @@ def _distill_preference(raw_text: str) -> str:
     # Strip "I want", "I prefer", "I like" prefixes — rephrase as direction
     for prefix in ("i want ", "i prefer ", "i like ", "i need ", "please "):
         if text.lower().startswith(prefix):
-            text = text[len(prefix):]
+            text = text[len(prefix) :]
             break
     text = text.strip()
     if text and text[0].islower():
@@ -1294,7 +1508,9 @@ def deep_extract_knowledge(
 
         # Classify: hard constraint words → BOUNDARY, otherwise → PRINCIPLE
         lower = correction_text.lower()
-        is_boundary = any(w in lower for w in ("never", "always", "must", "don't", "do not", "cannot"))
+        is_boundary = any(
+            w in lower for w in ("never", "always", "must", "don't", "do not", "cannot")
+        )
         ktype = "BOUNDARY" if is_boundary else "PRINCIPLE"
 
         # Store insight, not raw quote
@@ -1504,12 +1720,14 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict]:
             finally:
                 conn.close()
 
-            merges.append({
-                "type": ktype,
-                "merged_count": len(cluster),
-                "new_id": new_id,
-                "content": merged_content[:100],
-            })
+            merges.append(
+                {
+                    "type": ktype,
+                    "merged_count": len(cluster),
+                    "new_id": new_id,
+                    "content": merged_content[:100],
+                }
+            )
 
     return merges
 
@@ -1642,7 +1860,9 @@ def health_check() -> dict[str, Any]:
 
     # 2. Recurring lesson escalation — same mistake 3+ times = serious problem
     active_lessons = get_lessons(status="active")
-    mistakes = [e for e in all_entries if e["knowledge_type"] in ("MISTAKE", "BOUNDARY", "PRINCIPLE")]
+    mistakes = [
+        e for e in all_entries if e["knowledge_type"] in ("MISTAKE", "BOUNDARY", "PRINCIPLE")
+    ]
     for lesson in active_lessons:
         if lesson["occurrences"] >= 3:
             for mistake in mistakes:
@@ -1650,9 +1870,7 @@ def health_check() -> dict[str, Any]:
                 if overlap > 0.4:
                     current = mistake["confidence"]
                     if current < 0.95:
-                        _adjust_confidence(
-                            mistake["knowledge_id"], 0.95 - current
-                        )
+                        _adjust_confidence(mistake["knowledge_id"], 0.95 - current)
                         result["recurring_escalated"] += 1
                     break
 
@@ -1805,52 +2023,79 @@ def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
 # Semantic lesson categories — corrections get mapped to these buckets
 # based on keyword matching, instead of using raw word fragments.
 _LESSON_CATEGORIES = (
-    ("blind_coding", re.compile(
-        r"\bblind|without reading|without checking|without looking|study.+first|"
-        r"understand.+before|research.+first|don.t just|not blindly",
-        re.IGNORECASE,
-    )),
-    ("incomplete_fix", re.compile(
-        r"\bonly fixed one|didn.t fix|still broken|still fail|also fail|"
-        r"missed.+other|forgot.+other|the rest",
-        re.IGNORECASE,
-    )),
-    ("ignored_instruction", re.compile(
-        r"\bdid you not see|did you not read|i already said|i told you|"
-        r"i just said|not listening|ignoring what",
-        re.IGNORECASE,
-    )),
-    ("wrong_scope", re.compile(
-        r"\bi mean.+(?:in|the|this)|not that.+(?:this|the)|wrong (?:file|place|thing)|"
-        r"\binstead of\b.+\d|folder.+instead",
-        re.IGNORECASE,
-    )),
-    ("overreach", re.compile(
-        r"\bnot supposed to|isnt supposed|shouldn.t (?:make|decide|choose)|"
-        r"don.t (?:make|decide).+decision|"
-        r"\btoo (?:much|far|complex)|over.?engineer|rabbit hole|scope",
-        re.IGNORECASE,
-    )),
-    ("jargon_usage", re.compile(
-        r"\bjargon|plain english|like.+(?:dumb|stupid|5|new)|break it down|"
-        r"\bsimpl(?:e|ify|er)|not a coder|don.t speak",
-        re.IGNORECASE,
-    )),
-    ("shallow_output", re.compile(
-        r"\bdoesn.t feel|don.t feel|still feel|not.+(?:like people|real|alive|genuine)|"
-        r"\bembody|more (?:life|depth|soul)|concise.+not.+concern|token limit",
-        re.IGNORECASE,
-    )),
-    ("perspective_error", re.compile(
-        r"\bpronoun|when i say you|say i or me|possessive|first person|"
-        r"\bperspective|point of view",
-        re.IGNORECASE,
-    )),
-    ("misunderstood", re.compile(
-        r"\bno i mean|that.s not what|misunderst|wrong idea|confused about|"
-        r"\bwhat i meant|trying to stop you|wasn.t denying",
-        re.IGNORECASE,
-    )),
+    (
+        "blind_coding",
+        re.compile(
+            r"\bblind|without reading|without checking|without looking|study.+first|"
+            r"understand.+before|research.+first|don.t just|not blindly",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "incomplete_fix",
+        re.compile(
+            r"\bonly fixed one|didn.t fix|still broken|still fail|also fail|"
+            r"missed.+other|forgot.+other|the rest",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "ignored_instruction",
+        re.compile(
+            r"\bdid you not see|did you not read|i already said|i told you|"
+            r"i just said|not listening|ignoring what",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "wrong_scope",
+        re.compile(
+            r"\bi mean.+(?:in|the|this)|not that.+(?:this|the)|wrong (?:file|place|thing)|"
+            r"\binstead of\b.+\d|folder.+instead",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "overreach",
+        re.compile(
+            r"\bnot supposed to|isnt supposed|shouldn.t (?:make|decide|choose)|"
+            r"don.t (?:make|decide).+decision|"
+            r"\btoo (?:much|far|complex)|over.?engineer|rabbit hole|scope",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "jargon_usage",
+        re.compile(
+            r"\bjargon|plain english|like.+(?:dumb|stupid|5|new)|break it down|"
+            r"\bsimpl(?:e|ify|er)|not a coder|don.t speak",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "shallow_output",
+        re.compile(
+            r"\bdoesn.t feel|don.t feel|still feel|not.+(?:like people|real|alive|genuine)|"
+            r"\bembody|more (?:life|depth|soul)|concise.+not.+concern|token limit",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "perspective_error",
+        re.compile(
+            r"\bpronoun|when i say you|say i or me|possessive|first person|"
+            r"\bperspective|point of view",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "misunderstood",
+        re.compile(
+            r"\bno i mean|that.s not what|misunderst|wrong idea|confused about|"
+            r"\bwhat i meant|trying to stop you|wasn.t denying",
+            re.IGNORECASE,
+        ),
+    ),
 )
 
 
@@ -1950,9 +2195,7 @@ def apply_session_feedback(
                 # Record in lesson tracking with semantic category
                 category = _categorize_correction(correction.content)
                 if category:
-                    record_lesson(
-                        category, correction.content[:200], session_id
-                    )
+                    record_lesson(category, correction.content[:200], session_id)
                 break
 
     # Step B: Check encouragements against existing patterns/principles

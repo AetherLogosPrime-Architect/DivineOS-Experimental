@@ -83,7 +83,10 @@ def init():
     init_memory_tables()
     count = rebuild_fts_index()
     click.secho("[+] Database initialized successfully.", fg="green", bold=True)
-    click.secho("[+] All tables ready: ledger, knowledge, quality checks, session features, personal memory.", fg="green")
+    click.secho(
+        "[+] All tables ready: ledger, knowledge, quality checks, session features, personal memory.",
+        fg="green",
+    )
     if count > 0:
         click.secho(f"[+] Full-text search search index rebuilt ({count} entries).", fg="green")
 
@@ -453,15 +456,22 @@ def rebuild_index_cmd():
 
 
 @cli.command("lessons")
-@click.option("--status", default=None, type=click.Choice(["active", "improving", "resolved"]),
-              help="Filter by lesson status")
+@click.option(
+    "--status",
+    default=None,
+    type=click.Choice(["active", "improving", "resolved"]),
+    help="Filter by lesson status",
+)
 def lessons_cmd(status: str):
     """Show the learning loop — tracked lessons from past sessions."""
     lessons = get_lessons(status=status)
 
     if not lessons:
         click.secho("[-] No lessons tracked yet.", fg="yellow")
-        click.secho("    Run 'divineos report <session.jsonl> --store' to start learning.", fg="bright_black")
+        click.secho(
+            "    Run 'divineos report <session.jsonl> --store' to start learning.",
+            fg="bright_black",
+        )
         return
 
     summary = get_lesson_summary()
@@ -524,9 +534,18 @@ def health_cmd():
 
     click.secho("\n=== Knowledge Health Check ===\n", fg="cyan", bold=True)
     click.secho(f"  Entries checked:        {result['total_checked']}", fg="white")
-    click.secho(f"  Confirmed boosted:      {result['confirmed_boosted']}", fg="green" if result["confirmed_boosted"] else "bright_black")
-    click.secho(f"  Recurring escalated:    {result['recurring_escalated']}", fg="red" if result["recurring_escalated"] else "bright_black")
-    click.secho(f"  Lessons resolved:       {result['resolved_lessons']}", fg="green" if result["resolved_lessons"] else "bright_black")
+    click.secho(
+        f"  Confirmed boosted:      {result['confirmed_boosted']}",
+        fg="green" if result["confirmed_boosted"] else "bright_black",
+    )
+    click.secho(
+        f"  Recurring escalated:    {result['recurring_escalated']}",
+        fg="red" if result["recurring_escalated"] else "bright_black",
+    )
+    click.secho(
+        f"  Lessons resolved:       {result['resolved_lessons']}",
+        fg="green" if result["resolved_lessons"] else "bright_black",
+    )
 
     # Show effectiveness breakdown
     report = knowledge_health_report()
@@ -553,10 +572,15 @@ def sessions_cmd():
         click.secho(f"  {s.parent.name[:40]}", fg="cyan")
     click.echo()
 
+
 @cli.command("scan")
 @click.argument("file_path", type=click.Path(exists=True))
 @click.option("--store/--no-store", default=False, help="Store findings in knowledge DB")
-@click.option("--deep/--no-deep", default=True, help="Use deep extraction (correction pairs, preferences, topics)")
+@click.option(
+    "--deep/--no-deep",
+    default=True,
+    help="Use deep extraction (correction pairs, preferences, topics)",
+)
 def scan_cmd(file_path: str, store: bool, deep: bool):
     """Deep-scan a session and extract knowledge into the consolidation store."""
     path = Path(file_path)
@@ -658,6 +682,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
     if parts:
         click.secho(f"[~] Feedback: {', '.join(parts)}", fg="cyan")
 
+
 @cli.command("deep-report")
 @click.argument("file_path", type=click.Path(exists=True))
 @click.option("--store/--no-store", default=False, help="Store results in database")
@@ -721,7 +746,7 @@ def core_cmd(action: str, slot: str | None, content: str | None):
 
     elif action == "set":
         if not slot or not content:
-            click.secho("[-] Usage: divineos core set <slot> \"<content>\"", fg="red")
+            click.secho('[-] Usage: divineos core set <slot> "<content>"', fg="red")
             return
         try:
             set_core(slot, content)
@@ -763,7 +788,9 @@ def active_cmd():
 
     if not items:
         click.secho("[-] No active memory yet.", fg="yellow")
-        click.secho("    Run 'divineos refresh' to auto-build from knowledge store.", fg="bright_black")
+        click.secho(
+            "    Run 'divineos refresh' to auto-build from knowledge store.", fg="bright_black"
+        )
         return
 
     click.secho(f"\n=== Active Memory ({len(items)} items) ===\n", fg="cyan", bold=True)
@@ -813,9 +840,13 @@ def refresh_cmd(threshold: float):
     init_memory_tables()
     result = refresh_active_memory(importance_threshold=threshold)
     click.secho("\n=== Memory Refresh ===\n", fg="cyan", bold=True)
-    click.secho(f"  Promoted:  {result['promoted']}", fg="green" if result["promoted"] else "bright_black")
+    click.secho(
+        f"  Promoted:  {result['promoted']}", fg="green" if result["promoted"] else "bright_black"
+    )
     click.secho(f"  Kept:      {result['kept']}", fg="white")
-    click.secho(f"  Demoted:   {result['demoted']}", fg="red" if result["demoted"] else "bright_black")
+    click.secho(
+        f"  Demoted:   {result['demoted']}", fg="red" if result["demoted"] else "bright_black"
+    )
     total = result["promoted"] + result["kept"]
     click.secho(f"\n  Active memory: {total} items", fg="white", bold=True)
     click.echo()
@@ -861,6 +892,7 @@ def migrate_types_cmd(execute: bool):
     click.echo()
     # Summary
     from collections import Counter
+
     by_new = Counter(c["new_type"] for c in changes)
     click.secho(f"  Total: {len(changes)} entries", fg="white", bold=True)
     for new_type, count in sorted(by_new.items()):
@@ -934,34 +966,34 @@ if __name__ == "__main__":
 @click.argument("file_path", type=click.Path(exists=True))
 def analyze_cmd(file_path: str):
     """Analyze a session and generate a quality report.
-    
+
     Runs all 7 quality checks + 10 session features on a JSONL file.
     Produces a plain-English report with findings and lessons.
     """
     from divineos.analysis import save_analysis_report
-    
+
     path = Path(file_path)
-    
+
     try:
         # Initialize database if needed
         init_db()
         init_knowledge_table()
         init_quality_tables()
         init_feature_tables()
-        
+
         click.secho(f"\n[+] Analyzing session: {path.name}", fg="cyan", bold=True)
-        
+
         # Analyze the session
         result = analyze_session(path)
-        
+
         # Format the report
         report = format_analysis_report(result)
-        
+
         # Display to user
         click.echo()
         click.echo(report)
         click.echo()
-        
+
         # Store in database
         click.secho("[+] Storing analysis in database...", fg="cyan")
         try:
@@ -971,14 +1003,14 @@ def analyze_cmd(file_path: str):
         except Exception as e:
             click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
             logger.warning(f"Storage failed: {e}")
-        
+
         # Save report to file
         report_file = save_analysis_report(result, report)
         click.secho(f"[+] Report saved to: {report_file}", fg="green")
-        
+
         click.secho(f"[+] Analysis complete. Session ID: {result.session_id}", fg="green")
         click.echo()
-        
+
     except FileNotFoundError as e:
         click.secho(f"[-] File not found: {e}", fg="red")
     except ValueError as e:
@@ -991,37 +1023,43 @@ def analyze_cmd(file_path: str):
 @cli.command("analyze-now")
 def analyze_now_cmd():
     """Analyze the current session from the ledger.
-    
+
     This runs quality checks on the live session without needing a file.
     Useful for enforcement - run this to see what you're doing wrong right now.
     """
-    from divineos.analysis import export_current_session_to_jsonl, analyze_session, format_analysis_report, store_analysis, save_analysis_report
-    
+    from divineos.analysis import (
+        export_current_session_to_jsonl,
+        analyze_session,
+        format_analysis_report,
+        store_analysis,
+        save_analysis_report,
+    )
+
     try:
         # Initialize database
         init_db()
         init_knowledge_table()
         init_quality_tables()
         init_feature_tables()
-        
+
         click.secho("\n[+] Exporting current session from ledger...", fg="cyan", bold=True)
-        
+
         # Export current session
         session_file = export_current_session_to_jsonl(limit=200)
-        
+
         click.secho("[+] Analyzing live session...", fg="cyan")
-        
+
         # Analyze the session
         result = analyze_session(session_file)
-        
+
         # Format the report
         report = format_analysis_report(result)
-        
+
         # Display to user
         click.echo()
         click.echo(report)
         click.echo()
-        
+
         # Store in database
         click.secho("[+] Storing analysis in database...", fg="cyan")
         try:
@@ -1031,14 +1069,14 @@ def analyze_now_cmd():
         except Exception as e:
             click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
             logger.warning(f"Storage failed: {e}")
-        
+
         # Save report to file
         report_file = save_analysis_report(result, report)
         click.secho(f"[+] Report saved to: {report_file}", fg="green")
-        
+
         click.secho(f"[+] Analysis complete. Session ID: {result.session_id}", fg="green")
         click.echo()
-        
+
     except ValueError as e:
         click.secho(f"[-] No session data: {e}", fg="red")
     except Exception as e:
@@ -1050,56 +1088,59 @@ def analyze_now_cmd():
 @click.argument("session_id", required=False)
 def report_cmd(session_id: str):
     """Display a stored analysis report.
-    
+
     If no session_id provided, shows list of recent sessions.
     """
     from divineos.analysis import get_stored_report, list_recent_sessions
     from datetime import datetime
-    
+
     try:
         if not session_id:
             # List recent sessions
             sessions = list_recent_sessions(limit=10)
-            
+
             if not sessions:
                 click.secho("\n[-] No analyzed sessions found yet.", fg="yellow")
-                click.secho("    Run 'divineos analyze <file.jsonl>' to analyze a session.", fg="bright_black")
+                click.secho(
+                    "    Run 'divineos analyze <file.jsonl>' to analyze a session.",
+                    fg="bright_black",
+                )
                 click.echo()
                 return
-            
+
             click.secho("\n=== Recent Sessions ===\n", fg="cyan", bold=True)
             for i, session in enumerate(sessions, 1):
                 click.secho(f"  {i}. {session['session_id']}", fg="white", bold=True)
-                
+
                 # Format timestamp
                 try:
-                    ts = datetime.fromtimestamp(session['created_at']).strftime("%Y-%m-%d %H:%M:%S")
+                    ts = datetime.fromtimestamp(session["created_at"]).strftime("%Y-%m-%d %H:%M:%S")
                     click.secho(f"     Time: {ts}", fg="bright_black")
                 except Exception:
                     click.secho(f"     Time: {session['created_at']}", fg="bright_black")
-                
+
                 click.secho(f"     Files: {session['file_count']}", fg="bright_black")
                 click.echo()
-            
+
             click.secho("Usage: divineos report <session_id>", fg="bright_black")
             click.echo()
         else:
             # Retrieve specific report
             report = get_stored_report(session_id)
-            
+
             if not report:
                 click.secho(f"[-] Session not found: {session_id}", fg="red")
                 return
-            
+
             click.echo()
             # Use click.echo with default_text_stderr=False to handle UTF-8 properly
             try:
                 click.echo(report)
             except UnicodeEncodeError:
                 # Fallback: encode to ASCII with replacements
-                click.echo(report.encode('ascii', errors='replace').decode('ascii'))
+                click.echo(report.encode("ascii", errors="replace").decode("ascii"))
             click.echo()
-            
+
     except Exception as e:
         click.secho(f"[-] Error retrieving report: {e}", fg="red")
         logger.exception("Report retrieval failed")
@@ -1109,25 +1150,25 @@ def report_cmd(session_id: str):
 @click.option("--limit", default=10, type=int, help="Number of sessions to analyze")
 def cross_session_cmd(limit: int):
     """Compare findings across multiple sessions.
-    
+
     Shows trends and patterns in your performance over time.
     """
     from divineos.analysis import compute_cross_session_trends, format_cross_session_report
-    
+
     try:
         click.secho(f"\n[+] Analyzing trends across last {limit} sessions...", fg="cyan")
-        
+
         # Compute trends
         trends = compute_cross_session_trends(limit=limit)
-        
+
         # Format report
         report = format_cross_session_report(trends)
-        
+
         # Display
         click.echo()
         click.echo(report)
         click.echo()
-        
+
     except Exception as e:
         click.secho(f"[-] Error during cross-session analysis: {e}", fg="red")
         logger.exception("Cross-session analysis failed")
@@ -1141,7 +1182,11 @@ def cross_session_cmd(limit: int):
 @click.option("--tool-use-id", default="", help="Tool use ID for TOOL_CALL or TOOL_RESULT")
 @click.option("--result", default="", help="Result for TOOL_RESULT")
 @click.option("--duration-ms", default=0, type=int, help="Duration in ms for TOOL_RESULT")
-@click.option("--session-id", default="", help="Session ID for SESSION_END (optional, uses current if not provided)")
+@click.option(
+    "--session-id",
+    default="",
+    help="Session ID for SESSION_END (optional, uses current if not provided)",
+)
 def emit_cmd(
     event_type: str,
     content: str,
@@ -1153,7 +1198,7 @@ def emit_cmd(
     session_id: str,
 ):
     """Emit an event to the ledger using proper event emission functions.
-    
+
     Supported event types:
     - USER_INPUT: --content "message"
     - ASSISTANT_OUTPUT: --content "response"
@@ -1170,7 +1215,7 @@ def emit_cmd(
         emit_session_end,
     )
     from divineos.event_dispatcher import emit_event
-    
+
     try:
         if event_type == "USER_INPUT":
             if not content:
@@ -1179,7 +1224,7 @@ def emit_cmd(
             event_id = emit_user_input(content, session_id=session_id or None)
             click.secho("[+] Event emitted: USER_INPUT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
-            
+
         elif event_type == "ASSISTANT_OUTPUT":
             if not content:
                 click.secho("[-] ASSISTANT_OUTPUT requires --content", fg="red")
@@ -1188,7 +1233,7 @@ def emit_cmd(
             event_id = emit_event(event_type, {"content": content}, actor="assistant")
             click.secho("[+] Event emitted: ASSISTANT_OUTPUT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
-            
+
         elif event_type == "TOOL_CALL":
             if not tool_name or not tool_use_id:
                 click.secho("[-] TOOL_CALL requires --tool-name and --tool-use-id", fg="red")
@@ -1198,37 +1243,47 @@ def emit_cmd(
             except json.JSONDecodeError:
                 click.secho(f"[-] Invalid JSON for --tool-input: {tool_input}", fg="red")
                 sys.exit(1)
-            event_id = emit_tool_call(tool_name, tool_input_dict, tool_use_id=tool_use_id, session_id=session_id or None)
+            event_id = emit_tool_call(
+                tool_name, tool_input_dict, tool_use_id=tool_use_id, session_id=session_id or None
+            )
             click.secho("[+] Event emitted: TOOL_CALL", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
-            
+
         elif event_type == "TOOL_RESULT":
             if not tool_name or not tool_use_id or not result:
-                click.secho("[-] TOOL_RESULT requires --tool-name, --tool-use-id, and --result", fg="red")
+                click.secho(
+                    "[-] TOOL_RESULT requires --tool-name, --tool-use-id, and --result", fg="red"
+                )
                 sys.exit(1)
-            event_id = emit_tool_result(tool_name, tool_use_id, result, duration_ms, session_id=session_id or None)
+            event_id = emit_tool_result(
+                tool_name, tool_use_id, result, duration_ms, session_id=session_id or None
+            )
             click.secho("[+] Event emitted: TOOL_RESULT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
-            
+
         elif event_type == "SESSION_END":
             # SESSION_END queries ledger for actual counts
             event_id = emit_session_end(session_id=session_id or None)
             click.secho("[+] Event emitted: SESSION_END", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
-            
+
             # Show what was captured
             from divineos.ledger import get_events
+
             events = get_events(limit=10000, event_type="SESSION_END")
             if events:
                 # Get the most recent SESSION_END (last in the list since ordered by timestamp ASC)
-                payload = events[-1]['payload']
+                payload = events[-1]["payload"]
                 click.secho(f"    Payload: {json.dumps(payload, indent=2)}", fg="cyan")
-            
+
         else:
             click.secho(f"[-] Unknown event type: {event_type}", fg="red")
-            click.secho("    Supported types: USER_INPUT, ASSISTANT_OUTPUT, TOOL_CALL, TOOL_RESULT, SESSION_END", fg="yellow")
+            click.secho(
+                "    Supported types: USER_INPUT, ASSISTANT_OUTPUT, TOOL_CALL, TOOL_RESULT, SESSION_END",
+                fg="yellow",
+            )
             sys.exit(1)
-        
+
     except Exception as e:
         click.secho(f"[-] Error emitting event: {e}", fg="red")
         logger.exception("Event emission failed")

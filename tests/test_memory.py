@@ -1,6 +1,5 @@
 """Tests for the personal memory system."""
 
-
 import pytest
 from divineos.ledger import init_db
 from divineos.consolidation import init_knowledge_table, store_knowledge
@@ -132,7 +131,12 @@ class TestImportanceScoring:
 
     def test_corrected_source_bonus(self):
         base = {"knowledge_type": "FACT", "confidence": 0.0, "access_count": 0}
-        corrected = {"knowledge_type": "FACT", "confidence": 0.0, "access_count": 0, "source": "CORRECTED"}
+        corrected = {
+            "knowledge_type": "FACT",
+            "confidence": 0.0,
+            "access_count": 0,
+            "source": "CORRECTED",
+        }
         diff = compute_importance(corrected) - compute_importance(base)
         # CORRECTED=0.10 vs default=0.02 → 0.08 difference
         assert abs(diff - 0.08) < 0.01

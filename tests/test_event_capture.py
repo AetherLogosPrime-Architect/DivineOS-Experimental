@@ -38,18 +38,14 @@ class TestUserInputPayload:
     def test_valid_payload(self):
         """Test valid USER_INPUT payload."""
         payload = UserInputPayload(
-            content="Hello, world!",
-            timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            content="Hello, world!", timestamp="2026-03-16T23:05:00Z", session_id="abc123"
         )
         payload.validate()  # Should not raise
 
     def test_empty_content_fails(self):
         """Test that empty content fails validation."""
         payload = UserInputPayload(
-            content="",
-            timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            content="", timestamp="2026-03-16T23:05:00Z", session_id="abc123"
         )
         with pytest.raises(EventValidationError, match="content cannot be empty"):
             payload.validate()
@@ -57,9 +53,7 @@ class TestUserInputPayload:
     def test_whitespace_only_content_passes(self):
         """Test that whitespace-only content passes validation."""
         payload = UserInputPayload(
-            content="   ",
-            timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            content="   ", timestamp="2026-03-16T23:05:00Z", session_id="abc123"
         )
         # Should not raise - whitespace-only content is valid
         payload.validate()
@@ -67,9 +61,7 @@ class TestUserInputPayload:
     def test_non_string_content_fails(self):
         """Test that non-string content fails validation."""
         payload = UserInputPayload(
-            content=123,
-            timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            content=123, timestamp="2026-03-16T23:05:00Z", session_id="abc123"
         )
         with pytest.raises(EventValidationError, match="content must be a string"):
             payload.validate()
@@ -77,29 +69,21 @@ class TestUserInputPayload:
     def test_invalid_timestamp_fails(self):
         """Test that invalid timestamp fails validation."""
         payload = UserInputPayload(
-            content="Hello",
-            timestamp="not-a-timestamp",
-            session_id="abc123"
+            content="Hello", timestamp="not-a-timestamp", session_id="abc123"
         )
         with pytest.raises(EventValidationError, match="timestamp must be valid ISO8601"):
             payload.validate()
 
     def test_empty_session_id_fails(self):
         """Test that empty session_id fails validation."""
-        payload = UserInputPayload(
-            content="Hello",
-            timestamp="2026-03-16T23:05:00Z",
-            session_id=""
-        )
+        payload = UserInputPayload(content="Hello", timestamp="2026-03-16T23:05:00Z", session_id="")
         with pytest.raises(EventValidationError, match="session_id cannot be empty"):
             payload.validate()
 
     def test_to_dict(self):
         """Test conversion to dictionary."""
         payload = UserInputPayload(
-            content="Hello",
-            timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            content="Hello", timestamp="2026-03-16T23:05:00Z", session_id="abc123"
         )
         data = payload.to_dict()
         assert data["content"] == "Hello"
@@ -111,7 +95,7 @@ class TestUserInputPayload:
         payload = UserInputPayload(
             content="x" * (1000001),  # 1MB + 1 byte
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         with pytest.raises(EventValidationError, match="content exceeds maximum length"):
             payload.validate()
@@ -127,7 +111,7 @@ class TestToolCallPayload:
             tool_input={"path": "src/main.py"},
             tool_use_id="tool_123",
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         payload.validate()  # Should not raise
 
@@ -138,7 +122,7 @@ class TestToolCallPayload:
             tool_input={"path": "src/main.py"},
             tool_use_id="tool_123",
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         with pytest.raises(EventValidationError, match="tool_name cannot be empty"):
             payload.validate()
@@ -150,7 +134,7 @@ class TestToolCallPayload:
             tool_input="not a dict",
             tool_use_id="tool_123",
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         with pytest.raises(EventValidationError, match="tool_input must be a dictionary"):
             payload.validate()
@@ -162,7 +146,7 @@ class TestToolCallPayload:
             tool_input={"path": "src/main.py"},
             tool_use_id="",
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         with pytest.raises(EventValidationError, match="tool_use_id cannot be empty"):
             payload.validate()
@@ -174,7 +158,7 @@ class TestToolCallPayload:
             tool_input={"path": "src/main.py"},
             tool_use_id="tool_123",
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         data = payload.to_dict()
         assert data["tool_name"] == "readFile"
@@ -193,7 +177,7 @@ class TestToolResultPayload:
             result="file content",
             duration_ms=45,
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         payload.validate()  # Should not raise
 
@@ -207,7 +191,7 @@ class TestToolResultPayload:
             timestamp="2026-03-16T23:05:00Z",
             session_id="abc123",
             failed=True,
-            error_message=None
+            error_message=None,
         )
         with pytest.raises(EventValidationError, match="error_message required when failed=True"):
             payload.validate()
@@ -222,7 +206,7 @@ class TestToolResultPayload:
             timestamp="2026-03-16T23:05:00Z",
             session_id="abc123",
             failed=True,
-            error_message="File not found"
+            error_message="File not found",
         )
         payload.validate()  # Should not raise
 
@@ -234,7 +218,7 @@ class TestToolResultPayload:
             result="",
             duration_ms=45,
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         with pytest.raises(EventValidationError, match="result cannot be empty"):
             payload.validate()
@@ -247,7 +231,7 @@ class TestToolResultPayload:
             result="content",
             duration_ms=-1,
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         with pytest.raises(EventValidationError, match="duration_ms cannot be negative"):
             payload.validate()
@@ -260,7 +244,7 @@ class TestToolResultPayload:
             result="content",
             duration_ms=45,
             timestamp="2026-03-16T23:05:00Z",
-            session_id="abc123"
+            session_id="abc123",
         )
         data = payload.to_dict()
         assert "error_message" not in data
@@ -278,7 +262,7 @@ class TestSessionEndPayload:
             tool_call_count=8,
             tool_result_count=8,
             duration_seconds=300.5,
-            timestamp="2026-03-16T23:05:00Z"
+            timestamp="2026-03-16T23:05:00Z",
         )
         payload.validate()  # Should not raise
 
@@ -290,7 +274,7 @@ class TestSessionEndPayload:
             tool_call_count=8,
             tool_result_count=8,
             duration_seconds=300,
-            timestamp="2026-03-16T23:05:00Z"
+            timestamp="2026-03-16T23:05:00Z",
         )
         with pytest.raises(EventValidationError, match="message_count cannot be negative"):
             payload.validate()
@@ -303,7 +287,7 @@ class TestSessionEndPayload:
             tool_call_count=0,
             tool_result_count=0,
             duration_seconds=0,
-            timestamp="2026-03-16T23:05:00Z"
+            timestamp="2026-03-16T23:05:00Z",
         )
         payload.validate()  # Should not raise
 
@@ -315,7 +299,7 @@ class TestSessionEndPayload:
             tool_call_count=8,
             tool_result_count=8,
             duration_seconds=300.5,
-            timestamp="2026-03-16T23:05:00Z"
+            timestamp="2026-03-16T23:05:00Z",
         )
         data = payload.to_dict()
         assert data["session_id"] == "abc123"
@@ -376,6 +360,7 @@ class TestSessionTracker:
     def test_get_session_duration(self):
         """Test getting session duration."""
         import time
+
         tracker = SessionTracker()
         tracker.start_session()
         time.sleep(0.1)  # Sleep for 100ms
@@ -407,18 +392,18 @@ class TestGetCurrentTimestamp:
         """Test that timestamp is ISO8601 format."""
         ts = get_current_timestamp()
         assert isinstance(ts, str)
-        assert ts.endswith('Z')
+        assert ts.endswith("Z")
 
     def test_timestamp_is_parseable(self):
         """Test that timestamp can be parsed."""
         ts = get_current_timestamp()
-        dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         assert isinstance(dt, datetime)
 
     def test_timestamp_is_recent(self):
         """Test that timestamp is recent (within 1 second)."""
         ts = get_current_timestamp()
-        dt = datetime.fromisoformat(ts.replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
         now = datetime.now(timezone.utc)
         diff = (now - dt).total_seconds()
         assert diff < 1
@@ -429,11 +414,7 @@ class TestValidateEventPayload:
 
     def test_validate_user_input(self):
         """Test validating USER_INPUT payload."""
-        payload = {
-            "content": "Hello",
-            "timestamp": "2026-03-16T23:05:00Z",
-            "session_id": "abc123"
-        }
+        payload = {"content": "Hello", "timestamp": "2026-03-16T23:05:00Z", "session_id": "abc123"}
         validate_event_payload(EventType.USER_INPUT, payload)  # Should not raise
 
     def test_validate_tool_call(self):
@@ -443,7 +424,7 @@ class TestValidateEventPayload:
             "tool_input": {"path": "src/main.py"},
             "tool_use_id": "tool_123",
             "timestamp": "2026-03-16T23:05:00Z",
-            "session_id": "abc123"
+            "session_id": "abc123",
         }
         validate_event_payload(EventType.TOOL_CALL, payload)  # Should not raise
 
@@ -455,7 +436,7 @@ class TestValidateEventPayload:
             "result": "content",
             "duration_ms": 45,
             "timestamp": "2026-03-16T23:05:00Z",
-            "session_id": "abc123"
+            "session_id": "abc123",
         }
         validate_event_payload(EventType.TOOL_RESULT, payload)  # Should not raise
 
@@ -467,7 +448,7 @@ class TestValidateEventPayload:
             "tool_call_count": 8,
             "tool_result_count": 8,
             "duration_seconds": 300,
-            "timestamp": "2026-03-16T23:05:00Z"
+            "timestamp": "2026-03-16T23:05:00Z",
         }
         validate_event_payload(EventType.SESSION_END, payload)  # Should not raise
 
@@ -475,7 +456,7 @@ class TestValidateEventPayload:
         """Test that missing fields raise error."""
         payload = {
             "content": "Hello",
-            "timestamp": "2026-03-16T23:05:00Z"
+            "timestamp": "2026-03-16T23:05:00Z",
             # Missing session_id
         }
         with pytest.raises(EventValidationError, match="Missing required fields"):
@@ -493,11 +474,7 @@ class TestNormalizeEventPayload:
 
     def test_normalize_user_input(self):
         """Test normalizing USER_INPUT payload."""
-        payload = {
-            "content": "Hello",
-            "timestamp": "2026-03-16T23:05:00Z",
-            "session_id": "abc123"
-        }
+        payload = {"content": "Hello", "timestamp": "2026-03-16T23:05:00Z", "session_id": "abc123"}
         normalized = normalize_event_payload(EventType.USER_INPUT, payload)
         assert normalized["content"] == "Hello"
         assert normalized["timestamp"] == "2026-03-16T23:05:00Z"
@@ -511,7 +488,7 @@ class TestNormalizeEventPayload:
             "result": "content",
             "duration_ms": 45,
             "timestamp": "2026-03-16T23:05:00Z",
-            "session_id": "abc123"
+            "session_id": "abc123",
         }
         normalized = normalize_event_payload(EventType.TOOL_RESULT, payload)
         assert "error_message" not in normalized

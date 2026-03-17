@@ -241,7 +241,7 @@ class TestEmitCmd:
         )
         assert result.exit_code == 0
         assert "Event emitted: USER_INPUT" in result.output
-        
+
         # Verify event was logged
         list_result = runner.invoke(cli, ["list"])
         assert "How should I structure this?" in list_result.output
@@ -250,11 +250,17 @@ class TestEmitCmd:
         """Test emitting an ASSISTANT_OUTPUT event via CLI."""
         runner.invoke(cli, ["init"])
         result = runner.invoke(
-            cli, ["emit", "ASSISTANT_OUTPUT", "--content", "I'd recommend organizing by responsibility."]
+            cli,
+            [
+                "emit",
+                "ASSISTANT_OUTPUT",
+                "--content",
+                "I'd recommend organizing by responsibility.",
+            ],
         )
         assert result.exit_code == 0
         assert "Event emitted: ASSISTANT_OUTPUT" in result.output
-        
+
         # Verify event was logged
         list_result = runner.invoke(cli, ["list"])
         assert "responsibility" in list_result.output
@@ -263,16 +269,21 @@ class TestEmitCmd:
         """Test emitting a TOOL_CALL event via CLI."""
         runner.invoke(cli, ["init"])
         result = runner.invoke(
-            cli, [
-                "emit", "TOOL_CALL",
-                "--tool-name", "readFile",
-                "--tool-input", '{"path": "src/main.py"}',
-                "--tool-use-id", "tool_123"
-            ]
+            cli,
+            [
+                "emit",
+                "TOOL_CALL",
+                "--tool-name",
+                "readFile",
+                "--tool-input",
+                '{"path": "src/main.py"}',
+                "--tool-use-id",
+                "tool_123",
+            ],
         )
         assert result.exit_code == 0
         assert "Event emitted: TOOL_CALL" in result.output
-        
+
         # Verify event was logged
         list_result = runner.invoke(cli, ["list"])
         assert "readFile" in list_result.output
@@ -281,17 +292,23 @@ class TestEmitCmd:
         """Test emitting a TOOL_RESULT event via CLI."""
         runner.invoke(cli, ["init"])
         result = runner.invoke(
-            cli, [
-                "emit", "TOOL_RESULT",
-                "--tool-name", "readFile",
-                "--tool-use-id", "tool_123",
-                "--result", "def main(): pass",
-                "--duration-ms", "45"
-            ]
+            cli,
+            [
+                "emit",
+                "TOOL_RESULT",
+                "--tool-name",
+                "readFile",
+                "--tool-use-id",
+                "tool_123",
+                "--result",
+                "def main(): pass",
+                "--duration-ms",
+                "45",
+            ],
         )
         assert result.exit_code == 0
         assert "Event emitted: TOOL_RESULT" in result.output
-        
+
         # Verify event was logged
         list_result = runner.invoke(cli, ["list"])
         assert "def main" in list_result.output
@@ -299,12 +316,7 @@ class TestEmitCmd:
     def test_emit_session_end(self, runner):
         """Test emitting a SESSION_END event via CLI."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(
-            cli, [
-                "emit", "SESSION_END",
-                "--session-id", "test_session_123"
-            ]
-        )
+        result = runner.invoke(cli, ["emit", "SESSION_END", "--session-id", "test_session_123"])
         assert result.exit_code == 0
         assert "Event emitted: SESSION_END" in result.output
 
@@ -318,9 +330,7 @@ class TestEmitCmd:
     def test_emit_tool_call_missing_tool_name(self, runner):
         """Test that TOOL_CALL without tool-name fails."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(
-            cli, ["emit", "TOOL_CALL", "--tool-input", '{}']
-        )
+        result = runner.invoke(cli, ["emit", "TOOL_CALL", "--tool-input", "{}"])
         assert result.exit_code != 0
         assert "requires --tool-name" in result.output
 
@@ -328,11 +338,7 @@ class TestEmitCmd:
         """Test that TOOL_RESULT without tool-use-id fails."""
         runner.invoke(cli, ["init"])
         result = runner.invoke(
-            cli, [
-                "emit", "TOOL_RESULT",
-                "--tool-name", "readFile",
-                "--result", "content"
-            ]
+            cli, ["emit", "TOOL_RESULT", "--tool-name", "readFile", "--result", "content"]
         )
         assert result.exit_code != 0
         assert "requires --tool-name, --tool-use-id, and --result" in result.output
@@ -340,21 +346,19 @@ class TestEmitCmd:
     def test_emit_session_end_missing_session_id(self, runner):
         """Test that SESSION_END works without session-id (uses current session)."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(
-            cli, ["emit", "SESSION_END"]
-        )
+        result = runner.invoke(cli, ["emit", "SESSION_END"])
         assert result.exit_code == 0
         assert "Event emitted: SESSION_END" in result.output
 
     def test_emit_events_appear_in_ledger(self, runner):
         """Test that emitted events appear in the ledger."""
         runner.invoke(cli, ["init"])
-        
+
         # Emit multiple events
         runner.invoke(cli, ["emit", "USER_INPUT", "--content", "test message"])
         runner.invoke(cli, ["emit", "ASSISTANT_OUTPUT", "--content", "test response"])
         runner.invoke(cli, ["emit", "TOOL_CALL", "--tool-name", "test", "--tool-input", "{}"])
-        
+
         # Verify all events are in ledger
         result = runner.invoke(cli, ["list"])
         assert "test message" in result.output
