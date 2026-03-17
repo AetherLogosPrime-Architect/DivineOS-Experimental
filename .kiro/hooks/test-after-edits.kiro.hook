@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "name": "Test After Code Changes",
+  "description": "Automatically runs tests after code edits to verify correctness",
+  "version": "2",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": [
+      "write",
+      "strReplace",
+      "editCode"
+    ]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "python -m pytest tests/ -q --tb=short"
+  }
+}

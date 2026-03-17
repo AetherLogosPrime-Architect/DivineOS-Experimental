@@ -8,6 +8,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "Session ended. Check the ledger for captured events and report any quality issues found."
+    "prompt": "The session just ended. Before we move on, analyze this session with `divineos analyze` to check for quality issues. Look at the report and tell me what needs to be fixed. Don't let me ignore problems."
   }
 }
