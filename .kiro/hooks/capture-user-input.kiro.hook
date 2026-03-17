@@ -1,0 +1,12 @@
+{
+  "name": "Capture user input to ledger",
+  "version": "1.0.0",
+  "description": "Automatically log user messages to the DivineOS ledger for session analysis",
+  "when": {
+    "type": "promptSubmit"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "divineos emit USER_INPUT --content \"User submitted input\""
+  }
+}

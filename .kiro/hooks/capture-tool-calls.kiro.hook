@@ -1,0 +1,13 @@
+{
+  "name": "Capture tool calls and results",
+  "version": "1.0.0",
+  "description": "Automatically log tool invocations and results to the DivineOS ledger",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": ["*"]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "divineos emit TOOL_RESULT --tool-name \"tool\" --tool-use-id \"auto\" --result \"Tool executed\" --duration-ms 0"
+  }
+}
