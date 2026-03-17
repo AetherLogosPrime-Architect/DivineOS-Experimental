@@ -967,7 +967,9 @@ class TestHealthCheck:
         import divineos.ledger as lm
         import sqlite3
 
-        conn = sqlite3.connect(str(lm.DB_PATH))
+        # Use _get_db_path() instead of DB_PATH to respect the environment variable
+        db_path = lm._get_db_path()
+        conn = sqlite3.connect(str(db_path))
         old_time = time.time() - (60 * 86400)
         conn.execute(
             "UPDATE knowledge SET created_at = ?, updated_at = ? WHERE knowledge_id = ?",
