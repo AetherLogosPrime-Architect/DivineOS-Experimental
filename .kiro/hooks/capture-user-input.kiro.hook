@@ -6,7 +6,7 @@
     "type": "promptSubmit"
   },
   "then": {
-    "type": "runCommand",
-    "command": "divineos emit USER_INPUT --content \"User submitted input\""
+    "type": "askAgent",
+    "prompt": "Emit a USER_INPUT event to capture this user message in the DivineOS ledger. Run: divineos emit USER_INPUT --content \"<the user's message>\". This will ensure proper capture with session tracking and SHA256 hashing."
   }
 }

@@ -6,7 +6,7 @@
     "type": "agentStop"
   },
   "then": {
-    "type": "runCommand",
-    "command": "divineos emit SESSION_END"
+    "type": "askAgent",
+    "prompt": "Emit a SESSION_END event to capture the end of this session in the DivineOS ledger. Run: divineos emit SESSION_END. This command will automatically query the ledger to get actual counts of USER_INPUT, TOOL_CALL, and TOOL_RESULT events for this session, calculate the session duration, and store everything with SHA256 hashing."
   }
 }
