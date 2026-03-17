@@ -115,10 +115,8 @@ def log_event(event_type: str, actor: str, payload: dict) -> str:
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
     # Compute hash of the content for fidelity verification
-    content = payload.get("content", "")
-    if isinstance(content, dict):
-        content = json.dumps(content, ensure_ascii=False, sort_keys=True)
-    content_hash = compute_hash(str(content))
+    # Always hash the entire payload to ensure complete data integrity
+    content_hash = compute_hash(payload_json)
 
     # Store hash in payload for round-trip verification
     payload["content_hash"] = content_hash
@@ -262,10 +260,93 @@ def count_events() -> dict:
         conn.close()
 
 
+def verify_event_hash(event_id: str, payload: dict, stored_hash: str) -> tuple[bool, str]:
+    """
+    Verify that an event's stored hash matches the computed hash of its payload.
+    
+    Args:
+        event_id: The event ID (for logging)
+        payload: The event payload dictionary
+        stored_hash: The stored hash from the ledger
+        
+    Returns:
+        tuple: (is_valid, reason) where is_valid is True if hash matches
+        
+    Requirements:
+        - Requirement 7.3: Verify stored hash matches payload
+        - Requirement 7.4: Flag event as corrupted if hash mismatch
+    """
+    # Always hash the entire payload (excluding content_hash field) to ensure complete data integrity
+    # Remove content_hash from payload before hashing to avoid circular dependency
+    payload_copy = {k: v for k, v in payload.items() if k != "content_hash"}
+    payload_json = json.dumps(payload_copy, ensure_ascii=False, sort_keys=True)
+    computed_hash = compute_hash(payload_json)
+    
+    if computed_hash == stored_hash:
+        return True, "Hash verified"
+    else:
+        return False, f"Hash mismatch: expected {computed_hash}, got {stored_hash}"
+
+
+def get_verified_events(
+    limit: int = 100,
+    offset: int = 0,
+    event_type: Optional[str] = None,
+    actor: Optional[str] = None,
+    skip_corrupted: bool = True,
+) -> tuple[list[dict], list[dict]]:
+    """
+    Retrieve events with hash verification.
+    
+    Args:
+        limit: max rows to return
+        offset: rows to skip
+        event_type: optional filter
+        actor: optional filter
+        skip_corrupted: if True, exclude corrupted events from results
+        
+    Returns:
+        tuple: (verified_events, corrupted_events)
+        
+    Requirements:
+        - Requirement 7.3: Verify stored hash matches payload
+        - Requirement 7.4: Flag event as corrupted if hash mismatch
+        - Requirement 7.5: Prevent corrupted events from being used in analysis
+    """
+    all_events = get_events(limit=limit, offset=offset, event_type=event_type, actor=actor)
+    
+    verified_events = []
+    corrupted_events = []
+    
+    for event in all_events:
+        is_valid, reason = verify_event_hash(
+            event["event_id"],
+            event["payload"],
+            event["content_hash"]
+        )
+        
+        if is_valid:
+            verified_events.append(event)
+        else:
+            # Flag as corrupted
+            corrupted_event = event.copy()
+            corrupted_event["corruption_reason"] = reason
+            corrupted_event["is_corrupted"] = True
+            corrupted_events.append(corrupted_event)
+            
+            logger.warning(f"Corrupted event detected: {event['event_id']} - {reason}")
+    
+    return verified_events, corrupted_events
+
+
 def verify_all_events() -> dict:
     """
     Verify integrity of all stored events.
     Checks that each event's content_hash matches the hash of its content.
+    
+    Requirements:
+        - Requirement 7.3: Verify stored hash matches payload
+        - Requirement 7.4: Flag event as corrupted if hash mismatch
     """
     conn = _get_connection()
     try:
@@ -281,21 +362,16 @@ def verify_all_events() -> dict:
             event_id, payload_json, stored_hash = row
             payload = json.loads(payload_json)
 
-            content = payload.get("content", "")
-            if isinstance(content, dict):
-                content = json.dumps(content, ensure_ascii=False, sort_keys=True)
+            is_valid, reason = verify_event_hash(event_id, payload, stored_hash)
 
-            computed_hash = compute_hash(str(content))
-
-            if computed_hash == stored_hash:
+            if is_valid:
                 passed += 1
             else:
                 failed += 1
                 failures.append(
                     {
                         "event_id": event_id,
-                        "stored_hash": stored_hash,
-                        "computed_hash": computed_hash,
+                        "reason": reason,
                     }
                 )
 

@@ -17,7 +17,7 @@ from divineos.quality_checks import run_all_checks, store_report
 from divineos.session_features import run_all_features, store_features
 from divineos.consolidation import extract_lessons_from_report
 from divineos.fidelity import create_manifest, create_receipt, reconcile
-from divineos.ledger import log_event, get_recent_context, get_events
+from divineos.ledger import log_event, get_recent_context, get_events, get_verified_events
 
 
 @dataclass
@@ -149,24 +149,33 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     Export the current session from the ledger to a JSONL file.
     
     This allows analyzing the live session without waiting for a file.
+    Automatically excludes corrupted events from the export.
     
     Args:
         limit: Maximum number of events to export
         
     Returns:
         Path to the exported JSONL file
+        
+    Requirements:
+        - Requirement 7.5: Prevent corrupted events from being used in analysis
     """
     import tempfile
     
-    # Get recent events from ledger
-    events = get_events(limit=limit)
+    # Get verified events from ledger (excludes corrupted events)
+    verified_events, corrupted_events = get_verified_events(limit=limit, skip_corrupted=True)
     
-    if not events:
-        raise ValueError("No events in ledger to export")
+    if corrupted_events:
+        logger.warning(f"Excluded {len(corrupted_events)} corrupted events from analysis")
+        for corrupted in corrupted_events:
+            logger.debug(f"Corrupted event {corrupted['event_id']}: {corrupted.get('corruption_reason', 'unknown')}")
+    
+    if not verified_events:
+        raise ValueError("No valid events in ledger to export")
     
     # Convert ledger events to JSONL format (Claude Code format)
     jsonl_lines = []
-    for event in events:
+    for event in verified_events:
         event_type = event.get('event_type', '')
         payload = event.get('payload', {})
         

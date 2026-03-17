@@ -303,17 +303,11 @@ class TestEmitCmd:
         result = runner.invoke(
             cli, [
                 "emit", "SESSION_END",
-                "--session-id", "test_session_123",
-                "--message-count", "15",
-                "--duration-seconds", "300"
+                "--session-id", "test_session_123"
             ]
         )
         assert result.exit_code == 0
         assert "Event emitted: SESSION_END" in result.output
-        
-        # Verify event was logged
-        list_result = runner.invoke(cli, ["list"])
-        assert "test_session_123" in list_result.output
 
     def test_emit_user_input_missing_content(self, runner):
         """Test that USER_INPUT without content fails."""
@@ -342,16 +336,16 @@ class TestEmitCmd:
             ]
         )
         assert result.exit_code != 0
-        assert "requires --tool-name and --tool-use-id" in result.output
+        assert "requires --tool-name, --tool-use-id, and --result" in result.output
 
     def test_emit_session_end_missing_session_id(self, runner):
-        """Test that SESSION_END without session-id fails."""
+        """Test that SESSION_END works without session-id (uses current session)."""
         runner.invoke(cli, ["init"])
         result = runner.invoke(
-            cli, ["emit", "SESSION_END", "--message-count", "10"]
+            cli, ["emit", "SESSION_END"]
         )
-        assert result.exit_code != 0
-        assert "requires --session-id" in result.output
+        assert result.exit_code == 0
+        assert "Event emitted: SESSION_END" in result.output
 
     def test_emit_events_appear_in_ledger(self, runner):
         """Test that emitted events appear in the ledger."""

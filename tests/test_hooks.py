@@ -223,9 +223,9 @@ class TestHookContent:
         
         assert hook["name"] == "Capture session end"
         assert hook["when"]["type"] == "agentStop"
-        assert hook["then"]["type"] == "runCommand"
-        assert "command" in hook["then"]
-        assert "divineos emit SESSION_END" in hook["then"]["command"]
+        assert hook["then"]["type"] == "askAgent"
+        assert "prompt" in hook["then"]
+        assert "divineos emit SESSION_END" in hook["then"]["prompt"]
 
     def test_capture_tool_calls_hook(self, load_hook):
         """Test capture-tool-calls hook configuration."""
@@ -322,8 +322,8 @@ class TestHookTriggers:
         assert session_end_hook["when"]["type"] == "agentStop"
         assert analyze_hook["when"]["type"] == "agentStop"
         
-        # But they should have different actions
-        assert session_end_hook["then"]["type"] == "runCommand"
+        # Both should use askAgent to ensure proper event emission
+        assert session_end_hook["then"]["type"] == "askAgent"
         assert analyze_hook["then"]["type"] == "askAgent"
 
 
@@ -358,13 +358,6 @@ class TestHookActions:
             assert "prompt" in hook["then"]
             assert len(hook["then"]["prompt"]) > 0
 
-    def test_runcommand_actions(self, load_hook):
-        """Test that runCommand actions are configured correctly."""
-        hook = load_hook("capture-session-end.kiro.hook")
-        assert hook["then"]["type"] == "runCommand"
-        assert "command" in hook["then"]
-        assert len(hook["then"]["command"]) > 0
-
     def test_prompts_not_empty(self, load_hook):
         """Test that all prompts are not empty."""
         askagent_hooks = [
@@ -379,16 +372,9 @@ class TestHookActions:
             assert len(prompt) > 0, f"Hook {hook_name} has empty prompt"
             assert len(prompt) < 1000, f"Hook {hook_name} prompt is too long"
 
-    def test_commands_not_empty(self, load_hook):
-        """Test that all commands are not empty."""
+    def test_session_end_hook_uses_emit_function(self, load_hook):
+        """Test that session end hook uses divineos emit SESSION_END command."""
         hook = load_hook("capture-session-end.kiro.hook")
-        command = hook["then"]["command"]
-        assert len(command) > 0, "Command is empty"
-        assert len(command) < 500, "Command is too long"
+        prompt = hook["then"]["prompt"]
+        assert "divineos emit SESSION_END" in prompt, "Prompt should reference divineos emit SESSION_END command"
 
-    def test_commands_valid_divineos(self, load_hook):
-        """Test that commands are valid divineos commands."""
-        hook = load_hook("capture-session-end.kiro.hook")
-        command = hook["then"]["command"]
-        assert "divineos" in command, "Command doesn't contain 'divineos'"
-        assert "emit" in command, "Command doesn't contain 'emit'"
