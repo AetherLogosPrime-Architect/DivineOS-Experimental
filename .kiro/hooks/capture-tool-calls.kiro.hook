@@ -8,6 +8,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "Emit TOOL_RESULT event: Tool={toolName}, Result={result}, Duration={duration_ms}ms, Failed={failed}. Run: divineos emit TOOL_RESULT --tool-name \"{toolName}\" --tool-use-id \"tool-use-{timestamp}\" --result \"{result}\" --duration-ms {duration_ms}"
+    "prompt": "A tool just executed. Emit a TOOL_RESULT event to capture it. Use: divineos emit TOOL_RESULT --tool-name \"<tool-name>\" --tool-use-id \"tool-use-<timestamp>\" --result \"<brief-result>\" --duration-ms <ms>"
   }
 }
