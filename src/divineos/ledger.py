@@ -377,7 +377,9 @@ def verify_all_events() -> dict:
 
     conn = _get_connection()
     try:
-        cursor = conn.execute("SELECT event_id, event_type, payload, content_hash FROM system_events")
+        cursor = conn.execute(
+            "SELECT event_id, event_type, payload, content_hash FROM system_events"
+        )
         rows = cursor.fetchall()
 
         total = len(rows)
@@ -406,7 +408,9 @@ def verify_all_events() -> dict:
             # Second check: validate payload content for data validity
             # Only validate known event types
             if event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
-                is_content_valid, content_reason = EventValidator.validate_payload(event_type, payload)
+                is_content_valid, content_reason = EventValidator.validate_payload(
+                    event_type, payload
+                )
 
                 if not is_content_valid:
                     failed += 1
@@ -435,7 +439,7 @@ def verify_all_events() -> dict:
 def clean_corrupted_events() -> dict:
     """
     Remove all corrupted events from the ledger.
-    
+
     Returns:
         dict: Summary of cleanup operation with count of removed events
     """
@@ -444,7 +448,9 @@ def clean_corrupted_events() -> dict:
     conn = _get_connection()
     try:
         # First, identify all corrupted events
-        cursor = conn.execute("SELECT event_id, event_type, payload, content_hash FROM system_events")
+        cursor = conn.execute(
+            "SELECT event_id, event_type, payload, content_hash FROM system_events"
+        )
         rows = cursor.fetchall()
 
         corrupted_ids = []

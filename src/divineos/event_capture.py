@@ -353,7 +353,13 @@ def validate_event_payload(event_type: EventType, payload: Dict[str, Any]) -> No
         EventValidationError: If payload is invalid
     """
     try:
-        p: UserInputPayload | ToolCallPayload | ToolResultPayload | ExplanationPayload | SessionEndPayload
+        p: (
+            UserInputPayload
+            | ToolCallPayload
+            | ToolResultPayload
+            | ExplanationPayload
+            | SessionEndPayload
+        )
         if event_type == EventType.USER_INPUT:
             p = UserInputPayload(**payload)
             p.validate()
@@ -386,7 +392,13 @@ def normalize_event_payload(event_type: EventType, payload: Dict[str, Any]) -> D
     Returns:
         normalized_payload: Normalized payload dictionary
     """
-    p: UserInputPayload | ToolCallPayload | ToolResultPayload | ExplanationPayload | SessionEndPayload
+    p: (
+        UserInputPayload
+        | ToolCallPayload
+        | ToolResultPayload
+        | ExplanationPayload
+        | SessionEndPayload
+    )
     if event_type == EventType.USER_INPUT:
         p = UserInputPayload(**payload)
         return p.to_dict()

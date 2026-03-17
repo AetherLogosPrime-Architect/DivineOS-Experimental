@@ -203,7 +203,9 @@ def clean():
     click.echo(f"  Deleted corrupted events: {result['deleted_count']}")
 
     if result["deleted_count"] > 0:
-        click.secho(f"\n  Removed {result['deleted_count']} corrupted events", fg="green", bold=True)
+        click.secho(
+            f"\n  Removed {result['deleted_count']} corrupted events", fg="green", bold=True
+        )
         click.echo("\n  Run 'divineos verify' to confirm ledger integrity")
     else:
         click.secho("\n  No corrupted events found", fg="green", bold=True)
