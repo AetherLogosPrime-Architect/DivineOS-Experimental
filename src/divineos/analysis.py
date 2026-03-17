@@ -173,16 +173,17 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     import json
 
     # Get current session ID for session isolation
-    # Priority: database query (actual events) > file (current session) > session tracker (fallback)
+    # Priority: database query (actual user/tool events) > file (current session) > session tracker (fallback)
     current_session_id = None
 
-    # First, query database for most recent non-SESSION_END event (actual events in ledger)
+    # First, query database for most recent USER_INPUT or TOOL_CALL event (actual work events)
+    # Skip analysis/report events which are metadata, not actual session work
     from divineos.ledger import _get_connection
 
     conn = _get_connection()
     try:
         cursor = conn.execute(
-            "SELECT payload FROM system_events WHERE event_type != 'SESSION_END' ORDER BY timestamp DESC LIMIT 1"
+            "SELECT payload FROM system_events WHERE event_type IN ('USER_INPUT', 'TOOL_CALL', 'TOOL_RESULT') ORDER BY timestamp DESC LIMIT 1"
         )
         row = cursor.fetchone()
         if row:
