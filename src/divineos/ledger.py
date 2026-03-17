@@ -62,9 +62,9 @@ def _get_connection() -> sqlite3.Connection:
     import os
 
     # Check environment variable each time to support test isolation
-    db_path = os.environ.get("DIVINEOS_DB")
-    if db_path:
-        db_path = Path(db_path)
+    db_path_str = os.environ.get("DIVINEOS_DB")
+    if db_path_str:
+        db_path: Path = Path(db_path_str)
     else:
         db_path = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
 
