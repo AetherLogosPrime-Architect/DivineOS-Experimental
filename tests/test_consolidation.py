@@ -951,9 +951,13 @@ class TestHealthCheck:
         mark_lesson_improving("old_mistake", "s4")
 
         # Backdate last_seen to 31 days ago
-        import divineos.ledger as lm
+        import os
         import sqlite3
-        conn = sqlite3.connect(str(lm.DB_PATH))
+        db_path = os.environ.get("DIVINEOS_DB")
+        if not db_path:
+            import divineos.ledger as lm
+            db_path = str(lm.DB_PATH)
+        conn = sqlite3.connect(db_path)
         old_time = time.time() - (31 * 86400)
         conn.execute(
             "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'old_mistake'",
@@ -975,9 +979,14 @@ class TestHealthCheck:
         record_lesson("floor_test", "resolved mistake floor test", "s3")
         mark_lesson_improving("floor_test", "s4")
 
-        import divineos.ledger as lm
+        # Backdate last_seen to 31 days ago
+        import os
         import sqlite3
-        conn = sqlite3.connect(str(lm.DB_PATH))
+        db_path = os.environ.get("DIVINEOS_DB")
+        if not db_path:
+            import divineos.ledger as lm
+            db_path = str(lm.DB_PATH)
+        conn = sqlite3.connect(db_path)
         old_time = time.time() - (31 * 86400)
         conn.execute(
             "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'floor_test'",
