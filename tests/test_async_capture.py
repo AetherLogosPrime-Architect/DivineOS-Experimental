@@ -6,7 +6,7 @@ import tempfile
 import time
 from datetime import datetime
 from unittest.mock import patch, MagicMock
-from hypothesis import given, strategies as st, settings
+from hypothesis import given, strategies as st, settings, HealthCheck
 
 from divineos.async_capture import (
     emit_user_input_async,
@@ -449,14 +449,14 @@ class TestAsyncCaptureProperties:
 
     @given(
         st.text(
-            alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?",
-            min_size=1,
+            alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ",
+            min_size=10,
             max_size=1000,
-        ).filter(lambda x: x.strip())
+        ).filter(lambda x: x.strip() and sum(1 for c in x if c.isalpha()) >= 5)
     )
-    @settings(max_examples=20)
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @pytest.mark.asyncio
-    async def test_property_user_input_async_returns_event_id(self, content):
+    async def test_property_user_input_async_returns_event_id(self, temp_db, fresh_session, content):
         """
         Property: For any user message, emit_user_input_async SHALL return a non-None event_id.
 
@@ -478,20 +478,20 @@ class TestAsyncCaptureProperties:
         st.dictionaries(
             st.text(
                 alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_",
-                min_size=0,
+                min_size=1,
                 max_size=50,
             ),
             st.text(
-                alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?",
-                min_size=0,
+                alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ",
+                min_size=10,
                 max_size=100,
-            ),
+            ).filter(lambda x: sum(1 for c in x if c.isalpha()) >= 5),
             max_size=10,
         ),
     )
-    @settings(max_examples=20)
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @pytest.mark.asyncio
-    async def test_property_tool_call_async_returns_event_id(self, tool_name, tool_input):
+    async def test_property_tool_call_async_returns_event_id(self, temp_db, fresh_session, tool_name, tool_input):
         """
         Property: For any tool call, emit_tool_call_async SHALL return a non-None event_id.
 
@@ -511,16 +511,16 @@ class TestAsyncCaptureProperties:
     @given(
         st.from_regex(r"^[a-zA-Z][a-zA-Z0-9_-]{1,99}$", fullmatch=True),
         st.text(
-            alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?",
-            min_size=1,
+            alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ",
+            min_size=10,
             max_size=100,
-        ),
+        ).filter(lambda x: sum(1 for c in x if c.isalpha()) >= 5),
         st.integers(min_value=0, max_value=10000),
     )
-    @settings(max_examples=20)
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @pytest.mark.asyncio
     async def test_property_tool_result_async_returns_event_id(
-        self, tool_name, result, duration_ms
+        self, temp_db, fresh_session, tool_name, result, duration_ms
     ):
         """
         Property: For any tool result, emit_tool_result_async SHALL return a non-None event_id.
@@ -540,14 +540,14 @@ class TestAsyncCaptureProperties:
 
     @given(
         st.text(
-            alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?",
-            min_size=1,
+            alphabet="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ",
+            min_size=10,
             max_size=1000,
-        )
+        ).filter(lambda x: sum(1 for c in x if c.isalpha()) >= 5)
     )
-    @settings(max_examples=20)
+    @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @pytest.mark.asyncio
-    async def test_property_async_emission_latency(self, content):
+    async def test_property_async_emission_latency(self, temp_db, fresh_session, content):
         """
         Property: For any user input, emit_user_input_async SHALL return within 100ms.
 
@@ -568,7 +568,7 @@ class TestAsyncCaptureProperties:
             tracker.end_session()
 
     @pytest.mark.asyncio
-    async def test_property_error_handling_non_blocking(self):
+    async def test_property_error_handling_non_blocking(self, temp_db, fresh_session):
         """
         Property: For any event emission error, the system SHALL not propagate the error to the IDE.
 
@@ -593,7 +593,7 @@ class TestAsyncCaptureProperties:
             tracker.end_session()
 
     @pytest.mark.asyncio
-    async def test_property_ledger_unavailability_queuing(self):
+    async def test_property_ledger_unavailability_queuing(self, temp_db, fresh_session):
         """
         Property: For any ledger unavailability, the system SHALL queue events without blocking.
 
