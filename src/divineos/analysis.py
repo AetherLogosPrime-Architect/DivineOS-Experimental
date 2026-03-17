@@ -173,39 +173,39 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     import json
 
     # Get current session ID for session isolation
-    # Use same logic as emit_session_end: file first, then database query, then session tracker
+    # Priority: database query (actual events) > file (current session) > session tracker (fallback)
     current_session_id = None
 
-    # Try to read from persistent file first
-    session_file = Path.home() / ".divineos" / "current_session.txt"
-    if session_file.exists():
-        try:
-            current_session_id = session_file.read_text().strip()
-            logger.debug(f"[DEBUG] Read session_id from file for analysis: {current_session_id}")
-        except Exception as e:
-            logger.warning(f"Failed to read session_id file: {e}")
-            current_session_id = None
+    # First, query database for most recent non-SESSION_END event (actual events in ledger)
+    from divineos.ledger import _get_connection
 
-    # If file doesn't exist or is empty, query database for most recent non-SESSION_END event
-    if not current_session_id:
-        from divineos.ledger import _get_connection
-
-        conn = _get_connection()
-        try:
-            cursor = conn.execute(
-                "SELECT payload FROM system_events WHERE event_type != 'SESSION_END' ORDER BY timestamp DESC LIMIT 1"
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            "SELECT payload FROM system_events WHERE event_type != 'SESSION_END' ORDER BY timestamp DESC LIMIT 1"
+        )
+        row = cursor.fetchone()
+        if row:
+            payload = json.loads(row[0])
+            current_session_id = payload.get("session_id")
+            logger.debug(
+                f"[DEBUG] Got session_id from database query for analysis: {current_session_id}"
             )
-            row = cursor.fetchone()
-            if row:
-                payload = json.loads(row[0])
-                current_session_id = payload.get("session_id")
-                logger.debug(
-                    f"[DEBUG] Got session_id from database query for analysis: {current_session_id}"
-                )
-        finally:
-            conn.close()
+    finally:
+        conn.close()
 
-    # Fallback to current session tracker if no events found
+    # If no events in database, try to read from persistent file (current session)
+    if not current_session_id:
+        session_file = Path.home() / ".divineos" / "current_session.txt"
+        if session_file.exists():
+            try:
+                current_session_id = session_file.read_text().strip()
+                logger.debug(f"[DEBUG] Read session_id from file for analysis: {current_session_id}")
+            except Exception as e:
+                logger.warning(f"Failed to read session_id file: {e}")
+                current_session_id = None
+
+    # Fallback to current session tracker if no events found and no file
     if not current_session_id:
         current_session_id = get_session_tracker().get_current_session_id()
         logger.debug(f"[DEBUG] Using session tracker session_id for analysis: {current_session_id}")

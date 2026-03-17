@@ -25,6 +25,60 @@ from divineos.event_capture import (
 from divineos.ledger import log_event
 
 
+def get_or_create_session_id(session_id: Optional[str] = None) -> str:
+    """
+    Get or create a session ID, ensuring consistency across all events in a session.
+    
+    This function manages the persistent session file (~/.divineos/current_session.txt)
+    to ensure all events in a session share the same session ID.
+    
+    Args:
+        session_id: Optional explicit session ID (if provided, uses this directly)
+    
+    Returns:
+        str: The session ID to use for the event
+    
+    Logic:
+        1. If session_id is explicitly provided, use it
+        2. If persistent file exists and has non-empty content, use that
+        3. Otherwise, generate a new session ID
+        4. ALWAYS write the session ID to the file (ensures file is always fresh)
+    """
+    from pathlib import Path
+    
+    # If session_id is explicitly provided, use it directly
+    if session_id:
+        return session_id
+    
+    session_file = Path.home() / ".divineos" / "current_session.txt"
+    session_file.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Try to read existing session ID from persistent file
+    current_session_id = None
+    if session_file.exists():
+        try:
+            existing_id = session_file.read_text().strip()
+            if existing_id:  # Only use if non-empty
+                current_session_id = existing_id
+                logger.debug(f"Using existing session_id from file: {existing_id}")
+        except Exception as e:
+            logger.warning(f"Failed to read session_id file: {e}")
+    
+    # Generate new session ID if we don't have one yet
+    if not current_session_id:
+        current_session_id = get_session_tracker().get_current_session_id()
+        logger.debug(f"Generated new session_id: {current_session_id}")
+    
+    # ALWAYS write to persistent file to ensure consistency and freshness
+    try:
+        session_file.write_text(current_session_id)
+        logger.debug(f"Wrote session_id to persistent file: {current_session_id}")
+    except Exception as e:
+        logger.warning(f"Failed to write session_id file: {e}")
+    
+    return current_session_id
+
+
 def emit_user_input(content: str, session_id: Optional[str] = None) -> str:
     """
     Emit a USER_INPUT event to the ledger.
@@ -47,28 +101,8 @@ def emit_user_input(content: str, session_id: Optional[str] = None) -> str:
         - Requirement 2.5: Store in ledger with SHA256 hash
     """
     try:
-        from pathlib import Path
-
-        # Get session ID - PRIORITY: persistent file > session tracker
-        if session_id is None:
-            session_file = Path.home() / ".divineos" / "current_session.txt"
-            session_file.parent.mkdir(parents=True, exist_ok=True)
-
-            # FIRST: Try to read from persistent file (for cross-process consolidation)
-            if session_file.exists():
-                try:
-                    session_id = session_file.read_text().strip()
-                    logger.debug(f"Read session_id from persistent file: {session_id}")
-                except Exception as e:
-                    logger.warning(f"Failed to read session_id file: {e}")
-                    session_id = None
-
-            # FALLBACK: Use session tracker if file doesn't exist
-            if not session_id:
-                session_id = get_session_tracker().get_current_session_id()
-                logger.debug(f"Using session tracker session_id: {session_id}")
-                # Write to persistent file for future events
-                session_file.write_text(session_id)
+        # Get or create session ID using centralized helper
+        session_id = get_or_create_session_id(session_id)
 
         # Get current timestamp
         timestamp = get_current_timestamp()
@@ -132,28 +166,8 @@ def emit_explanation(
         - Requirement 6.5: Store in ledger with SHA256 hash
     """
     try:
-        from pathlib import Path
-
-        # Get session ID - PRIORITY: persistent file > session tracker
-        if session_id is None:
-            session_file = Path.home() / ".divineos" / "current_session.txt"
-            session_file.parent.mkdir(parents=True, exist_ok=True)
-
-            # FIRST: Try to read from persistent file (for cross-process consolidation)
-            if session_file.exists():
-                try:
-                    session_id = session_file.read_text().strip()
-                    logger.debug(f"Read session_id from persistent file: {session_id}")
-                except Exception as e:
-                    logger.warning(f"Failed to read session_id file: {e}")
-                    session_id = None
-
-            # FALLBACK: Use session tracker if file doesn't exist
-            if not session_id:
-                session_id = get_session_tracker().get_current_session_id()
-                logger.debug(f"Using session tracker session_id: {session_id}")
-                # Write to persistent file for future events
-                session_file.write_text(session_id)
+        # Get or create session ID using centralized helper
+        session_id = get_or_create_session_id(session_id)
 
         # Get current timestamp
         timestamp = get_current_timestamp()
@@ -220,28 +234,8 @@ def emit_tool_call(
         - Requirement 3.6: Store in ledger with SHA256 hash
     """
     try:
-        from pathlib import Path
-
-        # Get session ID - PRIORITY: persistent file > session tracker
-        if session_id is None:
-            session_file = Path.home() / ".divineos" / "current_session.txt"
-            session_file.parent.mkdir(parents=True, exist_ok=True)
-
-            # FIRST: Try to read from persistent file (for cross-process consolidation)
-            if session_file.exists():
-                try:
-                    session_id = session_file.read_text().strip()
-                    logger.debug(f"Read session_id from persistent file: {session_id}")
-                except Exception as e:
-                    logger.warning(f"Failed to read session_id file: {e}")
-                    session_id = None
-
-            # FALLBACK: Use session tracker if file doesn't exist
-            if not session_id:
-                session_id = get_session_tracker().get_current_session_id()
-                logger.debug(f"Using session tracker session_id: {session_id}")
-                # Write to persistent file for future events
-                session_file.write_text(session_id)
+        # Get or create session ID using centralized helper
+        session_id = get_or_create_session_id(session_id)
 
         # Generate tool_use_id if not provided
         if tool_use_id is None:
@@ -324,28 +318,8 @@ def emit_tool_result(
         - Requirement 4.9: Handle tool failures with error message and failed flag
     """
     try:
-        from pathlib import Path
-
-        # Get session ID - PRIORITY: persistent file > session tracker
-        if session_id is None:
-            session_file = Path.home() / ".divineos" / "current_session.txt"
-            session_file.parent.mkdir(parents=True, exist_ok=True)
-
-            # FIRST: Try to read from persistent file (for cross-process consolidation)
-            if session_file.exists():
-                try:
-                    session_id = session_file.read_text().strip()
-                    logger.debug(f"Read session_id from persistent file: {session_id}")
-                except Exception as e:
-                    logger.warning(f"Failed to read session_id file: {e}")
-                    session_id = None
-
-            # FALLBACK: Use session tracker if file doesn't exist
-            if not session_id:
-                session_id = get_session_tracker().get_current_session_id()
-                logger.debug(f"Using session tracker session_id: {session_id}")
-                # Write to persistent file for future events
-                session_file.write_text(session_id)
+        # Get or create session ID using centralized helper
+        session_id = get_or_create_session_id(session_id)
 
         # Get current timestamp
         timestamp = get_current_timestamp()
@@ -426,26 +400,9 @@ def emit_session_end(
     """
     try:
         from divineos.ledger import get_events
-        from pathlib import Path
 
-        # Get session ID - PRIORITY: persistent file > session tracker
-        if session_id is None:
-            session_file = Path.home() / ".divineos" / "current_session.txt"
-            session_file.parent.mkdir(parents=True, exist_ok=True)
-
-            # FIRST: Try to read from persistent file (most reliable for cross-process sessions)
-            if session_file.exists():
-                try:
-                    session_id = session_file.read_text().strip()
-                    logger.debug(f"[DEBUG] Read session_id from file: {session_id}")
-                except Exception as e:
-                    logger.warning(f"Failed to read session_id file: {e}")
-                    session_id = None
-
-            # FALLBACK: Use current session tracker if file doesn't exist
-            if not session_id:
-                session_id = get_session_tracker().get_current_session_id()
-                logger.debug(f"[DEBUG] Using session tracker session_id: {session_id}")
+        # Get or create session ID using centralized helper
+        session_id = get_or_create_session_id(session_id)
 
         # Get current timestamp
         timestamp = get_current_timestamp()
