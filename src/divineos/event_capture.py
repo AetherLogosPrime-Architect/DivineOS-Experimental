@@ -257,8 +257,11 @@ class SessionTracker:
 
     def __init__(self):
         """Initialize session tracker."""
-        self._current_session_id: Optional[str] = None
-        self._session_start_time: Optional[float] = None
+        # Always initialize with a session_id and start_time
+        # This ensures end_session() and get_session_duration() never return None
+        self._current_session_id: str = str(uuid.uuid4())
+        self._session_start_time: float = time.time()
+        logger.debug(f"Initialized session tracker with session: {self._current_session_id}")
 
     def start_session(self) -> str:
         """
