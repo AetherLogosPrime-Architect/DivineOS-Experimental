@@ -29,8 +29,8 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
     """
     Get or create a session ID, ensuring consistency across all events in a session.
 
-    This function manages the persistent session file (~/.divineos/current_session.txt)
-    to ensure all events in a session share the same session ID.
+    This function uses environment variables and persistent files to ensure all events
+    in a session share the same session ID.
 
     Args:
         session_id: Optional explicit session ID (if provided, uses this directly)
@@ -40,14 +40,22 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
 
     Logic:
         1. If session_id is explicitly provided, use it
-        2. If persistent file exists and has non-empty content, use that (DO NOT OVERWRITE)
-        3. Otherwise, generate a new session ID and write it
+        2. If DIVINEOS_SESSION_ID environment variable is set, use that
+        3. If persistent file exists and has non-empty content, use that
+        4. Otherwise, generate a new session ID and set both env var and file
     """
+    import os
     from pathlib import Path
 
     # If session_id is explicitly provided, use it directly
     if session_id:
         return session_id
+
+    # Check environment variable first (persists for IDE session)
+    env_session_id = os.environ.get("DIVINEOS_SESSION_ID")
+    if env_session_id:
+        logger.debug(f"Using session_id from environment: {env_session_id}")
+        return env_session_id
 
     session_file = Path.home() / ".divineos" / "current_session.txt"
     session_file.parent.mkdir(parents=True, exist_ok=True)
@@ -58,6 +66,8 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
             existing_id = session_file.read_text().strip()
             if existing_id:  # Only use if non-empty
                 logger.debug(f"Using existing session_id from file: {existing_id}")
+                # Also set environment variable for this process
+                os.environ["DIVINEOS_SESSION_ID"] = existing_id
                 return existing_id
         except Exception as e:
             logger.warning(f"Failed to read session_id file: {e}")
@@ -66,12 +76,15 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
     current_session_id = get_session_tracker().get_current_session_id()
     logger.debug(f"Generated new session_id: {current_session_id}")
 
-    # Write to persistent file only if it doesn't exist
+    # Write to persistent file
     try:
         session_file.write_text(current_session_id)
         logger.debug(f"Wrote session_id to persistent file: {current_session_id}")
     except Exception as e:
         logger.warning(f"Failed to write session_id file: {e}")
+
+    # Set environment variable for this process
+    os.environ["DIVINEOS_SESSION_ID"] = current_session_id
 
     return current_session_id
 
