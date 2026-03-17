@@ -17,8 +17,8 @@ class HookDiagnostics:
 
     def __init__(self, hooks_dir: str = ".kiro/hooks"):
         self.hooks_dir = Path(hooks_dir)
-        self.hooks = []
-        self.issues = []
+        self.hooks: list[Dict[str, Any]] = []
+        self.issues: list[str] = []
 
     def load_hooks(self) -> List[Dict]:
         """Load all hook files from the hooks directory."""
