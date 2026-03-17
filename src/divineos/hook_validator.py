@@ -185,8 +185,8 @@ def load_hooks_from_directory(directory: Path) -> Tuple[list[Dict[str, Any]], li
         - Requirement 13.5: Log errors and skip invalid hooks
         - Requirement 13.6: Provide clear error messages
     """
-    valid_hooks = []
-    invalid_hooks = []
+    valid_hooks: list[Dict[str, Any]] = []
+    invalid_hooks: list[Dict[str, str]] = []
 
     if not directory.exists():
         logger.warning(f"Hook directory does not exist: {directory}")
@@ -204,7 +204,7 @@ def load_hooks_from_directory(directory: Path) -> Tuple[list[Dict[str, Any]], li
 
         if is_valid:
             logger.debug(f"Loaded valid hook: {hook_file.name}")
-            valid_hooks.append(hook_data)
+            valid_hooks.append(hook_data)  # type: ignore[arg-type]
         else:
             logger.error(f"Invalid hook file {hook_file.name}: {error_msg}")
             invalid_hooks.append(

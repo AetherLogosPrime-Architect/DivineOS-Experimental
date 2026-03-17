@@ -12,7 +12,7 @@ All operations return control to the IDE within 100ms.
 
 import asyncio
 import time
-from typing import Any, Dict, Optional, Callable
+from typing import Any, Dict, Optional, Callable, cast
 from datetime import datetime
 from loguru import logger
 from collections import deque
@@ -42,7 +42,7 @@ class EventQueue:
             max_retries: Maximum number of retry attempts
             initial_backoff_ms: Initial backoff time in milliseconds
         """
-        self.queue: deque = deque()
+        self.queue: deque[Dict[str, Any]] = deque()
         self.max_retries = max_retries
         self.initial_backoff_ms = initial_backoff_ms
         self.lock = threading.Lock()
@@ -127,7 +127,7 @@ async def _retry_with_backoff(
             if attempt > 0:
                 logger.debug(f"Event emission succeeded after {attempt} retries")
 
-            return result
+            return cast(Optional[str], result)
 
         except Exception as e:
             if attempt < max_retries - 1:
@@ -139,6 +139,8 @@ async def _retry_with_backoff(
             else:
                 logger.error(f"Event emission failed after {max_retries} attempts: {e}")
                 return None
+
+    return None
 
 
 async def emit_user_input_async(

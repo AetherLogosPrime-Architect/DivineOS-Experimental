@@ -7,7 +7,7 @@ to produce actionable insights about AI performance.
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 import json
 from datetime import datetime, timezone
 from loguru import logger
@@ -88,7 +88,8 @@ def analyze_session(file_path: Path) -> AnalysisResult:
         }
         for check in (quality_report.checks if hasattr(quality_report, "checks") else [])
     ]
-    lessons = extract_lessons_from_report(checks_list, session_id)
+    lessons_raw = extract_lessons_from_report(checks_list, session_id)
+    lessons = cast(list[dict[Any, Any]], lessons_raw if isinstance(lessons_raw, list) else [])
 
     # 5. Create evidence hash
     evidence_data = {
@@ -631,7 +632,7 @@ def get_stored_report(session_id: str) -> Optional[str]:
 
         if row and row[0]:
             conn.close()
-            return row[0]
+            return cast(str, row[0])
 
         # If no report_text stored, check if checks/features exist
         cursor.execute("SELECT COUNT(*) FROM check_result WHERE session_id = ?", (session_id,))

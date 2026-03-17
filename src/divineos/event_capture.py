@@ -265,8 +265,8 @@ class SessionTracker:
         """Initialize session tracker."""
         # Always initialize with a session_id and start_time
         # This ensures end_session() and get_session_duration() never return None
-        self._current_session_id: str = str(uuid.uuid4())
-        self._session_start_time: float = time.time()
+        self._current_session_id: Optional[str] = str(uuid.uuid4())
+        self._session_start_time: Optional[float] = time.time()
         logger.debug(f"Initialized session tracker with session: {self._current_session_id}")
 
     def start_session(self) -> str:
@@ -353,6 +353,7 @@ def validate_event_payload(event_type: EventType, payload: Dict[str, Any]) -> No
         EventValidationError: If payload is invalid
     """
     try:
+        p: UserInputPayload | ToolCallPayload | ToolResultPayload | ExplanationPayload | SessionEndPayload
         if event_type == EventType.USER_INPUT:
             p = UserInputPayload(**payload)
             p.validate()
@@ -385,6 +386,7 @@ def normalize_event_payload(event_type: EventType, payload: Dict[str, Any]) -> D
     Returns:
         normalized_payload: Normalized payload dictionary
     """
+    p: UserInputPayload | ToolCallPayload | ToolResultPayload | ExplanationPayload | SessionEndPayload
     if event_type == EventType.USER_INPUT:
         p = UserInputPayload(**payload)
         return p.to_dict()

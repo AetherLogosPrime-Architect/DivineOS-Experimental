@@ -7,7 +7,7 @@ Provides tools to diagnose and verify hook configuration and triggering.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -88,11 +88,11 @@ class HookDiagnostics:
 
         return issues
 
-    def diagnose_all_hooks(self) -> Dict:
+    def diagnose_all_hooks(self) -> Dict[str, Any]:
         """Diagnose all hooks and return a comprehensive report."""
         self.load_hooks()
 
-        report = {
+        report: Dict[str, Any] = {
             "total_hooks": len(self.hooks),
             "valid_hooks": 0,
             "invalid_hooks": 0,

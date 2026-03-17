@@ -15,7 +15,7 @@ import time
 import uuid
 from collections import Counter
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import divineos.ledger as _ledger_mod
 
@@ -250,7 +250,7 @@ def get_knowledge(
     tags: Optional[list[str]] = None,
     include_superseded: bool = False,
     limit: int = 50,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Query knowledge with optional filters."""
     conn = _get_connection()
     try:
@@ -668,7 +668,7 @@ def record_lesson(category: str, description: str, session_id: str) -> str:
                 (occurrences, now, json.dumps(sessions), lesson_id),
             )
             conn.commit()
-            return lesson_id
+            return cast(str, lesson_id)
 
         lesson_id = str(uuid.uuid4())
         content_hash = compute_hash(f"{category}:{description}")
@@ -1291,7 +1291,7 @@ def store_knowledge_smart(
                     overlap = _compute_overlap(content, entry["content"])
                     if overlap > 0.6:
                         record_access(entry["knowledge_id"])
-                        return entry["knowledge_id"]
+                        return cast(str, entry["knowledge_id"])
         except Exception:
             pass  # FTS5 not available or query issue — fall through
 
@@ -1754,7 +1754,7 @@ def _adjust_confidence(
         if not row:
             return None
 
-        new_conf = max(floor, min(cap, row[0] + delta))
+        new_conf = max(floor, min(cap, cast(float, row[0]) + delta))
         conn.execute(
             "UPDATE knowledge SET confidence = ?, updated_at = ? WHERE knowledge_id = ?",
             (new_conf, time.time(), knowledge_id),
@@ -1896,7 +1896,7 @@ def health_check() -> dict[str, Any]:
 
 
 # How old types map to new types
-_MIGRATION_RULES = {
+_MIGRATION_RULES: dict[str, dict[str, Any]] = {
     "MISTAKE": {
         # Keywords that indicate a hard constraint → BOUNDARY
         "boundary_keywords": re.compile(
@@ -2145,7 +2145,7 @@ def clear_lessons() -> int:
     """
     conn = _get_connection()
     try:
-        count = conn.execute("SELECT COUNT(*) FROM lesson_tracking").fetchone()[0]
+        count = cast(int, conn.execute("SELECT COUNT(*) FROM lesson_tracking").fetchone()[0])
         conn.execute("DELETE FROM lesson_tracking")
         conn.commit()
         return count

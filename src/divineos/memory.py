@@ -17,7 +17,7 @@ import math
 import sqlite3
 import time
 import uuid
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 from divineos.ledger import DB_PATH, compute_hash
 
@@ -210,7 +210,7 @@ def compute_importance(entry: dict, has_active_lesson: bool = False) -> float:
     if has_active_lesson:
         score += 0.2
 
-    return min(1.0, score)
+    return cast(float, min(1.0, score))
 
 
 # ─── Active Memory ───────────────────────────────────────────────────
@@ -232,7 +232,7 @@ def promote_to_active(
         ).fetchone()
         if existing:
             # Update importance and reason if re-promoted
-            updates = {"reason": reason}
+            updates: dict[str, Any] = {"reason": reason}
             if importance is not None:
                 updates["importance"] = importance
             if pinned:
@@ -243,7 +243,7 @@ def promote_to_active(
                 (*updates.values(), knowledge_id),
             )
             conn.commit()
-            return existing[0]
+            return cast(str, existing[0])
 
         memory_id = uuid.uuid4().hex[:16]
         conn.execute(
