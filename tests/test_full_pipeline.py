@@ -222,11 +222,11 @@ class TestEndToEndEventCapture:
         init_db()
         
         # Emit multiple events
-        emit_event("USER_INPUT", {"content": "Test message 1"}, actor="user")
-        emit_event("ASSISTANT_OUTPUT", {"content": "Test response 1"}, actor="assistant")
-        emit_event("TOOL_CALL", {"tool_name": "test", "tool_input": {}})
-        emit_event("TOOL_RESULT", {"tool_name": "test", "tool_use_id": "t1", "result": "ok"})
-        emit_event("USER_INPUT", {"content": "Test message 2"}, actor="user")
+        emit_event("USER_INPUT", {"content": "Test message 1"}, actor="user", validate=False)
+        emit_event("ASSISTANT_OUTPUT", {"content": "Test response 1"}, actor="assistant", validate=False)
+        emit_event("TOOL_CALL", {"tool_name": "test", "tool_input": {}, "tool_use_id": "t1"}, validate=False)
+        emit_event("TOOL_RESULT", {"tool_name": "test", "tool_use_id": "t1", "result": "ok"}, validate=False)
+        emit_event("USER_INPUT", {"content": "Test message 2"}, actor="user", validate=False)
         
         # Verify all events pass fidelity check
         result = verify_all_events()

@@ -59,7 +59,7 @@ class ClarityChecker:
     Checks that tool calls are properly explained.
     
     This class tracks tool calls and verifies that each one has an accompanying
-    explanation in the conversation history.
+    explanation in the ledger as an EXPLANATION event.
     """
     
     def __init__(self):
@@ -101,20 +101,72 @@ class ClarityChecker:
     
     def get_clarity_report(self) -> dict:
         """Generate a clarity report for the session."""
-        total_calls = len(self.tool_calls)
-        explained_calls = sum(1 for call in self.tool_calls if call["has_explanation"])
-        unexplained_calls = total_calls - explained_calls
+        # Query ledger for actual EXPLANATION and TOOL_CALL events
+        try:
+            from divineos.ledger import get_events
+            from divineos.event_capture import get_session_tracker
+            from pathlib import Path
+            
+            # Get current session ID
+            session_file = Path.home() / ".divineos" / "current_session.txt"
+            current_session_id = None
+            
+            if session_file.exists():
+                try:
+                    current_session_id = session_file.read_text().strip()
+                except Exception:
+                    pass
+            
+            if not current_session_id:
+                current_session_id = get_session_tracker().get_current_session_id()
+            
+            # Get all events from ledger
+            all_events = get_events(limit=10000)
+            
+            # Filter by current session
+            session_events = [e for e in all_events if e.get("payload", {}).get("session_id") == current_session_id]
+            
+            # Count EXPLANATION and TOOL_CALL events
+            explanation_count = sum(1 for e in session_events if e["event_type"] == "EXPLANATION")
+            tool_call_count = sum(1 for e in session_events if e["event_type"] == "TOOL_CALL")
+            
+            logger.debug(f"Clarity check: {explanation_count} explanations, {tool_call_count} tool calls")
+            
+            # Calculate clarity score
+            if tool_call_count == 0:
+                clarity_score = 100.0  # No tool calls = perfect clarity
+            else:
+                clarity_score = (explanation_count / tool_call_count * 100)
+            
+            # Status is PASS if we have at least one explanation per tool call
+            status = "PASS" if explanation_count >= tool_call_count else "FAIL"
+            
+            return {
+                "total_tool_calls": tool_call_count,
+                "explained_calls": explanation_count,
+                "unexplained_calls": max(0, tool_call_count - explanation_count),
+                "clarity_score": clarity_score,
+                "status": status,
+                "unexplained_details": [],
+            }
         
-        clarity_score = (explained_calls / total_calls * 100) if total_calls > 0 else 100
-        
-        return {
-            "total_tool_calls": total_calls,
-            "explained_calls": explained_calls,
-            "unexplained_calls": unexplained_calls,
-            "clarity_score": clarity_score,
-            "status": "PASS" if unexplained_calls == 0 else "FAIL",
-            "unexplained_details": self.get_unexplained_calls(),
-        }
+        except Exception as e:
+            logger.error(f"Failed to query ledger for clarity check: {e}")
+            # Fallback to in-memory tracking
+            total_calls = len(self.tool_calls)
+            explained_calls = sum(1 for call in self.tool_calls if call["has_explanation"])
+            unexplained_calls = total_calls - explained_calls
+            
+            clarity_score = (explained_calls / total_calls * 100) if total_calls > 0 else 100
+            
+            return {
+                "total_tool_calls": total_calls,
+                "explained_calls": explained_calls,
+                "unexplained_calls": unexplained_calls,
+                "clarity_score": clarity_score,
+                "status": "PASS" if unexplained_calls == 0 else "FAIL",
+                "unexplained_details": self.get_unexplained_calls(),
+            }
 
 
 # Global clarity checker instance

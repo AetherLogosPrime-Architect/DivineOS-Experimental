@@ -1180,7 +1180,7 @@ def emit_cmd(
             if not content:
                 click.secho("[-] USER_INPUT requires --content", fg="red")
                 sys.exit(1)
-            event_id = emit_user_input(content, session_id=session_id if session_id else None)
+            event_id = emit_user_input(content, session_id=session_id or None)
             click.secho(f"[+] Event emitted: USER_INPUT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
@@ -1202,7 +1202,7 @@ def emit_cmd(
             except json.JSONDecodeError:
                 click.secho(f"[-] Invalid JSON for --tool-input: {tool_input}", fg="red")
                 sys.exit(1)
-            event_id = emit_tool_call(tool_name, tool_input_dict, tool_use_id=tool_use_id, session_id=session_id if session_id else None)
+            event_id = emit_tool_call(tool_name, tool_input_dict, tool_use_id=tool_use_id, session_id=session_id or None)
             click.secho(f"[+] Event emitted: TOOL_CALL", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
@@ -1210,21 +1210,22 @@ def emit_cmd(
             if not tool_name or not tool_use_id or not result:
                 click.secho("[-] TOOL_RESULT requires --tool-name, --tool-use-id, and --result", fg="red")
                 sys.exit(1)
-            event_id = emit_tool_result(tool_name, tool_use_id, result, duration_ms, session_id=session_id if session_id else None)
+            event_id = emit_tool_result(tool_name, tool_use_id, result, duration_ms, session_id=session_id or None)
             click.secho(f"[+] Event emitted: TOOL_RESULT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
         elif event_type == "SESSION_END":
             # SESSION_END queries ledger for actual counts
-            event_id = emit_session_end(session_id=session_id if session_id else None)
+            event_id = emit_session_end(session_id=session_id or None)
             click.secho(f"[+] Event emitted: SESSION_END", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             
             # Show what was captured
             from divineos.ledger import get_events
-            events = get_events(limit=1, event_type="SESSION_END")
+            events = get_events(limit=10000, event_type="SESSION_END")
             if events:
-                payload = events[0]['payload']
+                # Get the most recent SESSION_END (last in the list since ordered by timestamp ASC)
+                payload = events[-1]['payload']
                 click.secho(f"    Payload: {json.dumps(payload, indent=2)}", fg="cyan")
             
         else:

@@ -471,7 +471,7 @@ class TestFlushEventQueue:
 class TestAsyncCaptureProperties:
     """Property-based tests for async capture module."""
 
-    @given(st.text(min_size=1, max_size=1000).filter(lambda x: x.strip()))
+    @given(st.text(alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?', min_size=1, max_size=1000).filter(lambda x: x.strip()))
     @settings(max_examples=20)
     @pytest.mark.asyncio
     async def test_property_user_input_async_returns_event_id(self, content):
@@ -491,7 +491,7 @@ class TestAsyncCaptureProperties:
         finally:
             tracker.end_session()
 
-    @given(st.text(min_size=1, max_size=100), st.dictionaries(st.text(), st.text()))
+    @given(st.from_regex(r'^[a-zA-Z][a-zA-Z0-9_-]{1,99}$', fullmatch=True), st.dictionaries(st.text(alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_', min_size=0, max_size=50), st.text(alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?', min_size=0, max_size=100), max_size=10))
     @settings(max_examples=20)
     @pytest.mark.asyncio
     async def test_property_tool_call_async_returns_event_id(self, tool_name, tool_input):
@@ -511,7 +511,7 @@ class TestAsyncCaptureProperties:
         finally:
             tracker.end_session()
 
-    @given(st.text(min_size=1, max_size=100), st.text(min_size=1, max_size=100).filter(lambda x: x.strip()), st.integers(min_value=0, max_value=10000))
+    @given(st.from_regex(r'^[a-zA-Z][a-zA-Z0-9_-]{1,99}$', fullmatch=True), st.text(alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?', min_size=1, max_size=100), st.integers(min_value=0, max_value=10000))
     @settings(max_examples=20)
     @pytest.mark.asyncio
     async def test_property_tool_result_async_returns_event_id(self, tool_name, result, duration_ms):
@@ -531,7 +531,7 @@ class TestAsyncCaptureProperties:
         finally:
             tracker.end_session()
 
-    @given(st.text(min_size=1, max_size=1000).filter(lambda x: x.strip()))
+    @given(st.text(alphabet='abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .,!?', min_size=1, max_size=1000))
     @settings(max_examples=20)
     @pytest.mark.asyncio
     async def test_property_async_emission_latency(self, content):

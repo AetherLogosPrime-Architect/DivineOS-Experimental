@@ -379,13 +379,23 @@ class TestExportCurrentSessionWithVerification:
     def test_excludes_corrupted_events(self):
         """Test that corrupted events are excluded from export."""
         from divineos.analysis import export_current_session_to_jsonl
+        from divineos.event_capture import get_session_tracker
+        from pathlib import Path
         import sqlite3
         import os
         import json
         
-        # Create events
-        log_event("USER_INPUT", "user", {"content": "hello"}, validate=False)
-        log_event("USER_INPUT", "user", {"content": "world"}, validate=False)
+        # Get current session ID
+        session_id = get_session_tracker().get_current_session_id()
+        
+        # Write session_id to persistent file so export_current_session_to_jsonl can find it
+        session_file = Path.home() / ".divineos" / "current_session.txt"
+        session_file.parent.mkdir(parents=True, exist_ok=True)
+        session_file.write_text(session_id)
+        
+        # Create events with session_id
+        log_event("USER_INPUT", "user", {"content": "hello", "session_id": session_id}, validate=False)
+        log_event("USER_INPUT", "user", {"content": "world", "session_id": session_id}, validate=False)
         
         # Corrupt one event
         db_path = os.environ.get("DIVINEOS_DB")
@@ -418,11 +428,21 @@ class TestExportCurrentSessionWithVerification:
     def test_exports_all_valid_events(self):
         """Test that all valid events are exported."""
         from divineos.analysis import export_current_session_to_jsonl
+        from divineos.event_capture import get_session_tracker
+        from pathlib import Path
         import json
         
-        # Create valid events
-        log_event("USER_INPUT", "user", {"content": "hello"}, validate=False)
-        log_event("USER_INPUT", "user", {"content": "world"}, validate=False)
+        # Get current session ID
+        session_id = get_session_tracker().get_current_session_id()
+        
+        # Write session_id to persistent file so export_current_session_to_jsonl can find it
+        session_file = Path.home() / ".divineos" / "current_session.txt"
+        session_file.parent.mkdir(parents=True, exist_ok=True)
+        session_file.write_text(session_id)
+        
+        # Create valid events with session_id
+        log_event("USER_INPUT", "user", {"content": "hello", "session_id": session_id}, validate=False)
+        log_event("USER_INPUT", "user", {"content": "world", "session_id": session_id}, validate=False)
         
         # Export session
         export_path = export_current_session_to_jsonl()

@@ -54,15 +54,15 @@ class TestUserInputPayload:
         with pytest.raises(EventValidationError, match="content cannot be empty"):
             payload.validate()
 
-    def test_whitespace_only_content_fails(self):
-        """Test that whitespace-only content fails validation."""
+    def test_whitespace_only_content_passes(self):
+        """Test that whitespace-only content passes validation."""
         payload = UserInputPayload(
             content="   ",
             timestamp="2026-03-16T23:05:00Z",
             session_id="abc123"
         )
-        with pytest.raises(EventValidationError, match="content cannot be empty"):
-            payload.validate()
+        # Should not raise - whitespace-only content is valid
+        payload.validate()
 
     def test_non_string_content_fails(self):
         """Test that non-string content fails validation."""
@@ -364,9 +364,14 @@ class TestSessionTracker:
 
     def test_end_session_when_none_active(self):
         """Test ending session when none is active."""
+        # With the fix, SessionTracker always initializes with a session_id
+        # (either from persistent file or newly generated)
+        # So end_session() will always return a session_id, never None
         tracker = SessionTracker()
         result = tracker.end_session()
-        assert result is None
+        assert result is not None
+        assert isinstance(result, str)
+        assert len(result) > 0
 
     def test_get_session_duration(self):
         """Test getting session duration."""
@@ -380,9 +385,13 @@ class TestSessionTracker:
 
     def test_get_session_duration_when_none_active(self):
         """Test getting duration when no session is active."""
+        # With the fix, SessionTracker always initializes with a session_id and start time
+        # So get_session_duration() will always return a duration (not None)
         tracker = SessionTracker()
         duration = tracker.get_session_duration()
-        assert duration is None
+        assert duration is not None
+        assert isinstance(duration, float)
+        assert duration >= 0
 
     def test_get_session_tracker_returns_singleton(self):
         """Test that get_session_tracker returns the same instance."""

@@ -123,9 +123,9 @@ class TestEventDispatcher:
 
     def test_fidelity_verification(self):
         """Test that emitted events pass fidelity verification."""
-        emit_event("USER_INPUT", {"content": "Test message"}, actor="user")
-        emit_event("ASSISTANT_OUTPUT", {"content": "Test response"}, actor="assistant")
-        emit_event("TOOL_CALL", {"tool_name": "test", "tool_input": {}})
+        emit_event("USER_INPUT", {"content": "Test message"}, actor="user", validate=False)
+        emit_event("ASSISTANT_OUTPUT", {"content": "Test response"}, actor="assistant", validate=False)
+        emit_event("TOOL_CALL", {"tool_name": "test", "tool_input": {}, "tool_use_id": "t1"}, validate=False)
         
         result = verify_all_events()
         

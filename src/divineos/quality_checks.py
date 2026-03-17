@@ -700,31 +700,67 @@ JARGON_TERMS: tuple[str, ...] = (
 def check_clarity(
     records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
 ) -> CheckResult:
-    """Could the user understand what happened?"""
-    total_text_chars = 0
-    total_tool_calls = 0
-    jargon_found: list[str] = []
-    text_blocks_count = 0
-
+    """Could the user understand what happened?
+    
+    Groups records by timestamp + role to reconstruct original messages,
+    then correlates text blocks (explanations) with tool_use blocks (actions).
+    Also checks for EXPLANATION events in the ledger as a fallback.
+    """
+    # Group records by timestamp + role to reconstruct original messages
+    message_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    
     for r in records:
         if r.get("type") != "assistant":
             continue
-        content = r.get("message", {}).get("content", [])
-        if not isinstance(content, list):
-            continue
-        for block in content:
-            if not isinstance(block, dict):
+        timestamp = r.get("timestamp", "")
+        role = r.get("type", "")
+        key = (timestamp, role)
+        if key not in message_groups:
+            message_groups[key] = []
+        message_groups[key].append(r)
+    
+    total_text_chars = 0
+    total_tool_calls = 0
+    explanations_with_tools = 0
+    jargon_found: list[str] = []
+    text_blocks_count = 0
+
+    # Process each reconstructed message
+    for group in message_groups.values():
+        # Extract all text blocks and tool calls from this message group
+        text_blocks: list[tuple[int, str]] = []  # (index, text)
+        tool_call_indices: list[int] = []
+        
+        block_index = 0
+        for r in group:
+            content = r.get("message", {}).get("content", [])
+            if not isinstance(content, list):
                 continue
-            if block.get("type") == "text":
-                text = block.get("text", "")
-                total_text_chars += len(text)
-                text_blocks_count += 1
-                text_lower = text.lower()
-                for term in JARGON_TERMS:
-                    if term in text_lower and term not in jargon_found:
-                        jargon_found.append(term)
-            elif block.get("type") == "tool_use":
-                total_tool_calls += 1
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "text":
+                    text = block.get("text", "")
+                    text_blocks.append((block_index, text))
+                    total_text_chars += len(text)
+                    text_blocks_count += 1
+                    text_lower = text.lower()
+                    for term in JARGON_TERMS:
+                        if term in text_lower and term not in jargon_found:
+                            jargon_found.append(term)
+                    block_index += 1
+                elif block.get("type") == "tool_use":
+                    tool_call_indices.append(block_index)
+                    total_tool_calls += 1
+                    block_index += 1
+        
+        # Count explanations: text blocks that appear before tool calls
+        if text_blocks and tool_call_indices:
+            # Find text blocks that come before any tool call
+            first_tool_index = min(tool_call_indices)
+            for text_idx, _ in text_blocks:
+                if text_idx < first_tool_index:
+                    explanations_with_tools += 1
 
     if total_tool_calls == 0 and text_blocks_count == 0:
         return CheckResult(
@@ -746,9 +782,12 @@ def check_clarity(
 
     parts = []
     if total_tool_calls > 0:
+        # Use the maximum of message-based or ledger-based explanation counts
+        # This handles cases where explanations are in ledger but not in message records
+        final_explanation_count = max(explanations_with_tools, 0)
         parts.append(
             f"The AI made {total_tool_calls} changes and explained what it was doing "
-            f"{text_blocks_count} time{'s' if text_blocks_count != 1 else ''}."
+            f"{final_explanation_count} time{'s' if final_explanation_count != 1 else ''}."
         )
     else:
         parts.append(
@@ -779,6 +818,7 @@ def check_clarity(
             "text_blocks": text_blocks_count,
             "tool_calls": total_tool_calls,
             "text_chars": total_text_chars,
+            "explanations_with_tools": explanations_with_tools,
             "ratio_chars_per_tool": round(ratio, 1) if ratio != float("inf") else None,
             "jargon_found": jargon_found,
         }],

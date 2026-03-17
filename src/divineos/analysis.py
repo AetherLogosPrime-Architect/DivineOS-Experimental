@@ -150,6 +150,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     
     This allows analyzing the live session without waiting for a file.
     Automatically excludes corrupted events from the export.
+    Filters by session ID to ensure session isolation.
     
     Args:
         limit: Maximum number of events to export
@@ -159,11 +160,56 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
         
     Requirements:
         - Requirement 7.5: Prevent corrupted events from being used in analysis
+        - Requirement 9.3: Session event correlation - filter by session_id
     """
     import tempfile
+    from divineos.event_capture import get_session_tracker
+    from pathlib import Path
+    import json
     
-    # Get verified events from ledger (excludes corrupted events)
-    verified_events, corrupted_events = get_verified_events(limit=limit, skip_corrupted=True)
+    # Get current session ID for session isolation
+    # Use same logic as emit_session_end: file first, then database query, then session tracker
+    current_session_id = None
+    
+    # Try to read from persistent file first
+    session_file = Path.home() / ".divineos" / "current_session.txt"
+    if session_file.exists():
+        try:
+            current_session_id = session_file.read_text().strip()
+            logger.debug(f"[DEBUG] Read session_id from file for analysis: {current_session_id}")
+        except Exception as e:
+            logger.warning(f"Failed to read session_id file: {e}")
+            current_session_id = None
+    
+    # If file doesn't exist or is empty, query database for most recent non-SESSION_END event
+    if not current_session_id:
+        from divineos.ledger import _get_connection
+        
+        conn = _get_connection()
+        try:
+            cursor = conn.execute(
+                "SELECT payload FROM system_events WHERE event_type != 'SESSION_END' ORDER BY timestamp DESC LIMIT 1"
+            )
+            row = cursor.fetchone()
+            if row:
+                payload = json.loads(row[0])
+                current_session_id = payload.get("session_id")
+                logger.debug(f"[DEBUG] Got session_id from database query for analysis: {current_session_id}")
+        finally:
+            conn.close()
+    
+    # Fallback to current session tracker if no events found
+    if not current_session_id:
+        current_session_id = get_session_tracker().get_current_session_id()
+        logger.debug(f"[DEBUG] Using session tracker session_id for analysis: {current_session_id}")
+    
+    # Get verified events from ledger (excludes corrupted events, filters by session)
+    # Use a large limit to ensure we get events even if they're far back in the ledger
+    verified_events, corrupted_events = get_verified_events(
+        limit=10000,  # Increased from default 100 to ensure we find current session events
+        skip_corrupted=True,
+        session_id=current_session_id
+    )
     
     if corrupted_events:
         logger.warning(f"Excluded {len(corrupted_events)} corrupted events from analysis")

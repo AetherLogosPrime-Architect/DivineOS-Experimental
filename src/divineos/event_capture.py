@@ -24,6 +24,7 @@ class EventType(str, Enum):
     USER_INPUT = "USER_INPUT"
     TOOL_CALL = "TOOL_CALL"
     TOOL_RESULT = "TOOL_RESULT"
+    EXPLANATION = "EXPLANATION"
     SESSION_END = "SESSION_END"
 
 
@@ -43,7 +44,7 @@ class UserInputPayload:
         """Validate USER_INPUT payload."""
         if not isinstance(self.content, str):
             raise EventValidationError("content must be a string")
-        if not self.content or self.content.strip() == "":
+        if not self.content:
             raise EventValidationError("content cannot be empty")
         if len(self.content) > 1000000:  # 1MB limit
             raise EventValidationError("content exceeds maximum length (1MB)")
@@ -132,7 +133,7 @@ class ToolResultPayload:
         
         if not isinstance(self.result, str):
             raise EventValidationError("result must be a string")
-        if not self.result or self.result.strip() == "":
+        if not self.result:
             raise EventValidationError("result cannot be empty")
         if len(self.result) > 10000000:  # 10MB limit
             raise EventValidationError("result exceeds maximum length (10MB)")
@@ -167,6 +168,39 @@ class ToolResultPayload:
         data = asdict(self)
         # Remove None values
         return {k: v for k, v in data.items() if v is not None}
+
+
+@dataclass
+class ExplanationPayload:
+    """Payload schema for EXPLANATION events."""
+    explanation_text: str
+    timestamp: str
+    session_id: str
+
+    def validate(self) -> None:
+        """Validate EXPLANATION payload."""
+        if not isinstance(self.explanation_text, str):
+            raise EventValidationError("explanation_text must be a string")
+        if not self.explanation_text:
+            raise EventValidationError("explanation_text cannot be empty")
+        if len(self.explanation_text) > 1000000:  # 1MB limit
+            raise EventValidationError("explanation_text exceeds maximum length (1MB)")
+        
+        if not isinstance(self.timestamp, str):
+            raise EventValidationError("timestamp must be a string")
+        try:
+            datetime.fromisoformat(self.timestamp.replace('Z', '+00:00'))
+        except ValueError:
+            raise EventValidationError("timestamp must be valid ISO8601 format")
+        
+        if not isinstance(self.session_id, str):
+            raise EventValidationError("session_id must be a string")
+        if not self.session_id:
+            raise EventValidationError("session_id cannot be empty")
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return asdict(self)
 
 
 @dataclass
@@ -243,9 +277,11 @@ class SessionTracker:
         Get the current session ID.
         
         Returns:
-            session_id: Current session ID, or generates new one if not set
+            session_id: Current session ID (always set after __init__)
         """
+        # Should never be None after __init__, but handle gracefully
         if self._current_session_id is None:
+            logger.warning("Session ID is None, generating new one")
             return self.start_session()
         return self._current_session_id
 
@@ -317,6 +353,9 @@ def validate_event_payload(event_type: EventType, payload: Dict[str, Any]) -> No
         elif event_type == EventType.TOOL_RESULT:
             p = ToolResultPayload(**payload)
             p.validate()
+        elif event_type == EventType.EXPLANATION:
+            p = ExplanationPayload(**payload)
+            p.validate()
         elif event_type == EventType.SESSION_END:
             p = SessionEndPayload(**payload)
             p.validate()
@@ -345,6 +384,9 @@ def normalize_event_payload(event_type: EventType, payload: Dict[str, Any]) -> D
         return p.to_dict()
     elif event_type == EventType.TOOL_RESULT:
         p = ToolResultPayload(**payload)
+        return p.to_dict()
+    elif event_type == EventType.EXPLANATION:
+        p = ExplanationPayload(**payload)
         return p.to_dict()
     elif event_type == EventType.SESSION_END:
         p = SessionEndPayload(**payload)

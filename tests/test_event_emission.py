@@ -36,6 +36,12 @@ def temp_db():
 @pytest.fixture
 def fresh_session():
     """Create a fresh session for each test."""
+    # Clear persistent session file to ensure fresh session
+    from pathlib import Path
+    session_file = Path.home() / ".divineos" / "current_session.txt"
+    if session_file.exists():
+        session_file.unlink()
+    
     tracker = get_session_tracker()
     tracker.start_session()
     yield tracker
@@ -102,10 +108,12 @@ class TestEmitUserInput:
         with pytest.raises(EventValidationError, match="content cannot be empty"):
             emit_user_input("")
 
-    def test_emit_user_input_whitespace_only_fails(self, temp_db, fresh_session):
-        """Test that whitespace-only content fails validation."""
-        with pytest.raises(EventValidationError, match="content cannot be empty"):
-            emit_user_input("   ")
+    def test_emit_user_input_whitespace_only_passes(self, temp_db, fresh_session):
+        """Test that whitespace-only content passes validation and is emitted."""
+        # Should not raise - whitespace-only content is valid
+        event_id = emit_user_input("   ")
+        assert event_id is not None
+        assert isinstance(event_id, str)
 
     def test_emit_user_input_long_content(self, temp_db, fresh_session):
         """Test USER_INPUT with long content."""

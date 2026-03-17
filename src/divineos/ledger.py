@@ -305,6 +305,7 @@ def get_verified_events(
     offset: int = 0,
     event_type: Optional[str] = None,
     actor: Optional[str] = None,
+    session_id: Optional[str] = None,
     skip_corrupted: bool = True,
 ) -> tuple[list[dict], list[dict]]:
     """
@@ -315,6 +316,7 @@ def get_verified_events(
         offset: rows to skip
         event_type: optional filter
         actor: optional filter
+        session_id: optional filter to isolate events by session
         skip_corrupted: if True, exclude corrupted events from results
         
     Returns:
@@ -324,8 +326,16 @@ def get_verified_events(
         - Requirement 7.3: Verify stored hash matches payload
         - Requirement 7.4: Flag event as corrupted if hash mismatch
         - Requirement 7.5: Prevent corrupted events from being used in analysis
+        - Requirement 9.3: Session event correlation - filter by session_id
     """
     all_events = get_events(limit=limit, offset=offset, event_type=event_type, actor=actor)
+    
+    # Filter by session_id if provided (session isolation)
+    if session_id:
+        all_events = [
+            event for event in all_events
+            if event.get("payload", {}).get("session_id") == session_id
+        ]
     
     verified_events = []
     corrupted_events = []
