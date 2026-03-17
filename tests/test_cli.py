@@ -485,7 +485,6 @@ class TestAnalyzeIntegration:
     def test_analyze_creates_report_file(self, runner, tmp_path):
         """Test that analyze command creates a report file."""
         import json
-        import os
 
         runner.invoke(cli, ["init"])
 

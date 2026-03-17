@@ -6,7 +6,6 @@ TOOL_RESULT events when tools are executed. It acts as a bridge between
 the IDE tool execution layer and the DivineOS event ledger.
 """
 
-import json
 import time
 import uuid
 from typing import Any, Dict, Optional
