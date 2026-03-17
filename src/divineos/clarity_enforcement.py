@@ -22,6 +22,7 @@ try:
         emit_tool_call_for_ide,
         emit_tool_result_for_ide,
     )
+
     IDE_INTEGRATION_AVAILABLE = True
 except ImportError:
     IDE_INTEGRATION_AVAILABLE = False
@@ -90,10 +91,7 @@ def require_explanation(tool_name: str) -> Callable:
                     try:
                         error_msg = str(e)
                         emit_tool_result_for_ide(
-                            tool_use_id,
-                            error_msg,
-                            failed=True,
-                            error_message=error_msg
+                            tool_use_id, error_msg, failed=True, error_message=error_msg
                         )
                         logger.debug(f"Emitted TOOL_RESULT for {tool_name}: failed")
                     except Exception as emit_error:

@@ -201,7 +201,9 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
         if session_file.exists():
             try:
                 current_session_id = session_file.read_text().strip()
-                logger.debug(f"[DEBUG] Read session_id from file for analysis: {current_session_id}")
+                logger.debug(
+                    f"[DEBUG] Read session_id from file for analysis: {current_session_id}"
+                )
             except Exception as e:
                 logger.warning(f"Failed to read session_id file: {e}")
                 current_session_id = None

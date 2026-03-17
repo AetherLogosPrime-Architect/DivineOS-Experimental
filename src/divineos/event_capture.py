@@ -266,11 +266,11 @@ class SessionTracker:
         # SessionTracker manages in-memory session state only.
         # Persistent session file is managed by get_or_create_session_id() in event_emission.py
         # This avoids race conditions and ensures single source of truth for session persistence.
-        
+
         # Generate initial session ID (will be overridden by get_or_create_session_id if file exists)
         self._current_session_id: Optional[str] = str(uuid.uuid4())
         logger.debug(f"Initialized session tracker with session: {self._current_session_id}")
-        
+
         # Always initialize start_time
         # This ensures end_session() and get_session_duration() never return None
         self._session_start_time: Optional[float] = time.time()

@@ -456,7 +456,9 @@ class TestAsyncCaptureProperties:
     )
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @pytest.mark.asyncio
-    async def test_property_user_input_async_returns_event_id(self, temp_db, fresh_session, content):
+    async def test_property_user_input_async_returns_event_id(
+        self, temp_db, fresh_session, content
+    ):
         """
         Property: For any user message, emit_user_input_async SHALL return a non-None event_id.
 
@@ -491,7 +493,9 @@ class TestAsyncCaptureProperties:
     )
     @settings(max_examples=20, suppress_health_check=[HealthCheck.function_scoped_fixture])
     @pytest.mark.asyncio
-    async def test_property_tool_call_async_returns_event_id(self, temp_db, fresh_session, tool_name, tool_input):
+    async def test_property_tool_call_async_returns_event_id(
+        self, temp_db, fresh_session, tool_name, tool_input
+    ):
         """
         Property: For any tool call, emit_tool_call_async SHALL return a non-None event_id.
 

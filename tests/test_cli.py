@@ -616,7 +616,11 @@ class TestAnalyzeIntegration:
 
         # Analyze should fail gracefully
         result = runner.invoke(cli, ["analyze", str(session_file)])
-        assert result.exit_code != 0 or "error" in result.output.lower() or "no" in result.output.lower()
+        assert (
+            result.exit_code != 0
+            or "error" in result.output.lower()
+            or "no" in result.output.lower()
+        )
 
     def test_analyze_malformed_jsonl(self, runner, tmp_path):
         """Test analyze with malformed JSONL."""
@@ -629,7 +633,11 @@ class TestAnalyzeIntegration:
         # Analyze should fail gracefully
         result = runner.invoke(cli, ["analyze", str(session_file)])
         # Should either fail or show error message
-        assert result.exit_code != 0 or "error" in result.output.lower() or "invalid" in result.output.lower()
+        assert (
+            result.exit_code != 0
+            or "error" in result.output.lower()
+            or "invalid" in result.output.lower()
+        )
 
     def test_analyze_stores_in_database(self, runner, tmp_path):
         """Test that analyze stores results in the database."""

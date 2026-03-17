@@ -28,16 +28,16 @@ from divineos.ledger import log_event
 def get_or_create_session_id(session_id: Optional[str] = None) -> str:
     """
     Get or create a session ID, ensuring consistency across all events in a session.
-    
+
     This function manages the persistent session file (~/.divineos/current_session.txt)
     to ensure all events in a session share the same session ID.
-    
+
     Args:
         session_id: Optional explicit session ID (if provided, uses this directly)
-    
+
     Returns:
         str: The session ID to use for the event
-    
+
     Logic:
         1. If session_id is explicitly provided, use it
         2. If persistent file exists and has non-empty content, use that
@@ -45,14 +45,14 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
         4. ALWAYS write the session ID to the file (ensures file is always fresh)
     """
     from pathlib import Path
-    
+
     # If session_id is explicitly provided, use it directly
     if session_id:
         return session_id
-    
+
     session_file = Path.home() / ".divineos" / "current_session.txt"
     session_file.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Try to read existing session ID from persistent file
     current_session_id = None
     if session_file.exists():
@@ -63,21 +63,21 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
                 logger.debug(f"Using existing session_id from file: {existing_id}")
         except Exception as e:
             logger.warning(f"Failed to read session_id file: {e}")
-    
+
     # Generate new session ID if we don't have one yet
     if not current_session_id:
         current_session_id = get_session_tracker().get_current_session_id()
         logger.debug(f"Generated new session_id: {current_session_id}")
-    
+
     # ALWAYS write to persistent file to ensure consistency and freshness
     try:
         session_file.write_text(current_session_id)
         logger.debug(f"Wrote session_id to persistent file: {current_session_id}")
     except Exception as e:
         logger.warning(f"Failed to write session_id file: {e}")
-    
+
     return current_session_id
-    
+
     return current_session_id
 
 

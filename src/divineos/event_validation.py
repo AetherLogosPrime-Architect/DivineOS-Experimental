@@ -112,25 +112,50 @@ class EventValidator:
         # Garbage detection: very short content with no spaces or punctuation
         # (except for legitimate short messages like "yes", "no", "ok")
         stripped = content.strip()
-        
+
         # If content is very short (< 3 chars), it's likely garbage unless it's a known word
         if len(stripped) < 3:
             # Allow common short words
             common_short_words = {
-                "ok", "no", "yes", "hi", "hey", "go", "do", "is", "it", "at", "to", "in", "on", "or", "if", "by", "up", "so", "we", "me", "he", "be", "as", "an", "a", "i"
+                "ok",
+                "no",
+                "yes",
+                "hi",
+                "hey",
+                "go",
+                "do",
+                "is",
+                "it",
+                "at",
+                "to",
+                "in",
+                "on",
+                "or",
+                "if",
+                "by",
+                "up",
+                "so",
+                "we",
+                "me",
+                "he",
+                "be",
+                "as",
+                "an",
+                "a",
+                "i",
             }
             if stripped.lower() not in common_short_words:
                 return False
-        
+
         # Check for random garbage: mostly non-alphanumeric characters
         # Real content should have mostly letters/numbers/spaces
         alphanumeric_count = sum(1 for c in stripped if c.isalnum() or c.isspace())
         alphanumeric_ratio = alphanumeric_count / len(stripped) if stripped else 0
-        
+
         # If less than 50% alphanumeric, likely garbage
         if alphanumeric_ratio < 0.5:
             return False
-        
+
         # Check for excessive special characters (more than 30% special chars)
         special_char_count = sum(1 for c in stripped if not c.isalnum() and not c.isspace())
         special_ratio = special_char_count / len(stripped) if stripped else 0
