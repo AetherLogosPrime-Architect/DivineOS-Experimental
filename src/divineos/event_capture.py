@@ -263,37 +263,13 @@ class SessionTracker:
 
     def __init__(self):
         """Initialize session tracker."""
-        # Try to read existing session ID from persistent file first
-        from pathlib import Path
-        session_file = Path.home() / ".divineos" / "current_session.txt"
-        session_file.parent.mkdir(parents=True, exist_ok=True)
+        # SessionTracker manages in-memory session state only.
+        # Persistent session file is managed by get_or_create_session_id() in event_emission.py
+        # This avoids race conditions and ensures single source of truth for session persistence.
         
-        if session_file.exists():
-            try:
-                existing_id = session_file.read_text().strip()
-                if existing_id:
-                    self._current_session_id: Optional[str] = existing_id
-                    logger.debug(f"Initialized session tracker with existing session: {self._current_session_id}")
-                else:
-                    # File exists but is empty, generate new ID
-                    self._current_session_id = str(uuid.uuid4())
-                    session_file.write_text(self._current_session_id)
-                    logger.debug(f"Initialized session tracker with new session: {self._current_session_id}")
-            except Exception as e:
-                logger.warning(f"Failed to read session file: {e}, generating new session")
-                self._current_session_id = str(uuid.uuid4())
-                try:
-                    session_file.write_text(self._current_session_id)
-                except Exception as write_err:
-                    logger.warning(f"Failed to write session file: {write_err}")
-        else:
-            # No persistent file, generate new ID and write it
-            self._current_session_id = str(uuid.uuid4())
-            try:
-                session_file.write_text(self._current_session_id)
-            except Exception as e:
-                logger.warning(f"Failed to write session file: {e}")
-            logger.debug(f"Initialized session tracker with new session: {self._current_session_id}")
+        # Generate initial session ID (will be overridden by get_or_create_session_id if file exists)
+        self._current_session_id: Optional[str] = str(uuid.uuid4())
+        logger.debug(f"Initialized session tracker with session: {self._current_session_id}")
         
         # Always initialize start_time
         # This ensures end_session() and get_session_duration() never return None
