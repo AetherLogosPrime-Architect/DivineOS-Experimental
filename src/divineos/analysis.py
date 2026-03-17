@@ -346,6 +346,46 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
             raise Exception(error_msg)
         
         logger.info(f"Fidelity verification passed for session {result.session_id}")
+        
+        # Step 5: Emit events to ledger
+        try:
+            from divineos.event_dispatcher import emit_event
+            
+            # Emit quality report event
+            emit_event(
+                "QUALITY_REPORT",
+                {
+                    "session_id": result.session_id,
+                    "check_count": check_count,
+                    "evidence_hash": result.evidence_hash
+                },
+                actor="system"
+            )
+            
+            # Emit session features event
+            emit_event(
+                "SESSION_FEATURES",
+                {
+                    "session_id": result.session_id,
+                    "evidence_hash": result.evidence_hash
+                },
+                actor="system"
+            )
+            
+            # Emit session analysis event
+            emit_event(
+                "SESSION_ANALYSIS",
+                {
+                    "session_id": result.session_id,
+                    "report_text": report_text[:500] if report_text else "",  # First 500 chars
+                    "evidence_hash": result.evidence_hash
+                },
+                actor="system"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to emit analysis events: {e}")
+            # Don't fail the whole operation if event emission fails
+        
         return True
         
     except Exception as e:
