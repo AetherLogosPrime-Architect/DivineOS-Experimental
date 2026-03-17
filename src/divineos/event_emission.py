@@ -40,9 +40,8 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
 
     Logic:
         1. If session_id is explicitly provided, use it
-        2. If persistent file exists and has non-empty content, use that
-        3. Otherwise, generate a new session ID
-        4. ALWAYS write the session ID to the file (ensures file is always fresh)
+        2. If persistent file exists and has non-empty content, use that (DO NOT OVERWRITE)
+        3. Otherwise, generate a new session ID and write it
     """
     from pathlib import Path
 
@@ -54,29 +53,25 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
     session_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Try to read existing session ID from persistent file
-    current_session_id = None
     if session_file.exists():
         try:
             existing_id = session_file.read_text().strip()
             if existing_id:  # Only use if non-empty
-                current_session_id = existing_id
                 logger.debug(f"Using existing session_id from file: {existing_id}")
+                return existing_id
         except Exception as e:
             logger.warning(f"Failed to read session_id file: {e}")
 
-    # Generate new session ID if we don't have one yet
-    if not current_session_id:
-        current_session_id = get_session_tracker().get_current_session_id()
-        logger.debug(f"Generated new session_id: {current_session_id}")
+    # Generate new session ID only if file doesn't exist or is empty
+    current_session_id = get_session_tracker().get_current_session_id()
+    logger.debug(f"Generated new session_id: {current_session_id}")
 
-    # ALWAYS write to persistent file to ensure consistency and freshness
+    # Write to persistent file only if it doesn't exist
     try:
         session_file.write_text(current_session_id)
         logger.debug(f"Wrote session_id to persistent file: {current_session_id}")
     except Exception as e:
         logger.warning(f"Failed to write session_id file: {e}")
-
-    return current_session_id
 
     return current_session_id
 
