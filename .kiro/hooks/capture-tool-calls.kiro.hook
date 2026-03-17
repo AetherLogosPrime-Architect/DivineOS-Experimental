@@ -7,7 +7,7 @@
     "toolTypes": ["*"]
   },
   "then": {
-    "type": "runCommand",
-    "command": "exit /b 0"
+    "type": "askAgent",
+    "prompt": "Tool execution completed. Events are being captured automatically by the IDE integration layer."
   }
 }
