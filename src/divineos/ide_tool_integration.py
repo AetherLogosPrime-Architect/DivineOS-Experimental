@@ -8,7 +8,7 @@ the IDE tool execution layer and the DivineOS event ledger.
 
 import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 from loguru import logger
 
 from divineos.event_emission import emit_tool_call, emit_tool_result
@@ -109,7 +109,7 @@ class IDEToolExecutor:
         self,
         tool_name: str,
         tool_input: Dict[str, Any],
-        tool_function: callable,
+        tool_function: Callable,
         tool_use_id: Optional[str] = None,
     ) -> Any:
         """
