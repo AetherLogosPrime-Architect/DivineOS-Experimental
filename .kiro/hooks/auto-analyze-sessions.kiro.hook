@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Auto-analyze sessions",
+  "description": "Automatically analyze sessions after they complete to catch quality issues early",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Session ended. Check the ledger for captured events and report any quality issues found."
+  }
+}

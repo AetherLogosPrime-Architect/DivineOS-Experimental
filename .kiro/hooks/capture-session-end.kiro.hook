@@ -1,0 +1,12 @@
+{
+  "name": "Capture session end",
+  "version": "1.0.0",
+  "description": "Automatically log session completion to the ledger",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "divineos emit SESSION_END"
+  }
+}
