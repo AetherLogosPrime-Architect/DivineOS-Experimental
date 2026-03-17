@@ -6,6 +6,8 @@ This module provides decorators and utilities to enforce the clarity principle:
 - Every tool call must be explained before execution
 - Every result must be interpreted and explained
 - Users must understand what the AI is doing and why
+
+Also integrates with IDE tool execution to emit TOOL_CALL and TOOL_RESULT events.
 """
 
 import functools
@@ -13,6 +15,17 @@ import logging
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
+
+# Import IDE tool integration for capturing tool execution
+try:
+    from divineos.ide_tool_integration import (
+        emit_tool_call_for_ide,
+        emit_tool_result_for_ide,
+    )
+    IDE_INTEGRATION_AVAILABLE = True
+except ImportError:
+    IDE_INTEGRATION_AVAILABLE = False
+    logger.warning("IDE tool integration not available")
 
 
 class ClarityViolation(Exception):
@@ -34,6 +47,7 @@ def require_explanation(tool_name: str) -> Callable:
     1. The tool call is logged with context
     2. An explanation is provided before execution
     3. The result is interpreted and explained
+    4. TOOL_CALL and TOOL_RESULT events are emitted for tracking
     """
 
     def decorator(func: Callable) -> Callable:
@@ -43,13 +57,49 @@ def require_explanation(tool_name: str) -> Callable:
             logger.info(f"Tool call: {tool_name}")
             logger.info(f"Arguments: args={args}, kwargs={kwargs}")
 
-            # Execute the tool
-            result = func(*args, **kwargs)
+            # Emit TOOL_CALL event if IDE integration is available
+            tool_use_id = None
+            if IDE_INTEGRATION_AVAILABLE:
+                try:
+                    tool_use_id = emit_tool_call_for_ide(tool_name, kwargs)
+                    logger.debug(f"Emitted TOOL_CALL for {tool_name}: {tool_use_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to emit TOOL_CALL for {tool_name}: {e}")
 
-            # Log the result
-            logger.info(f"Tool result: {tool_name} returned {type(result).__name__}")
+            try:
+                # Execute the tool
+                result = func(*args, **kwargs)
 
-            return result
+                # Log the result
+                logger.info(f"Tool result: {tool_name} returned {type(result).__name__}")
+
+                # Emit TOOL_RESULT event if IDE integration is available
+                if IDE_INTEGRATION_AVAILABLE and tool_use_id:
+                    try:
+                        result_str = str(result) if not isinstance(result, str) else result
+                        emit_tool_result_for_ide(tool_use_id, result_str, failed=False)
+                        logger.debug(f"Emitted TOOL_RESULT for {tool_name}: success")
+                    except Exception as e:
+                        logger.warning(f"Failed to emit TOOL_RESULT for {tool_name}: {e}")
+
+                return result
+
+            except Exception as e:
+                # Emit TOOL_RESULT event with failure if IDE integration is available
+                if IDE_INTEGRATION_AVAILABLE and tool_use_id:
+                    try:
+                        error_msg = str(e)
+                        emit_tool_result_for_ide(
+                            tool_use_id,
+                            error_msg,
+                            failed=True,
+                            error_message=error_msg
+                        )
+                        logger.debug(f"Emitted TOOL_RESULT for {tool_name}: failed")
+                    except Exception as emit_error:
+                        logger.warning(f"Failed to emit TOOL_RESULT for {tool_name}: {emit_error}")
+
+                raise
 
         return wrapper
 
