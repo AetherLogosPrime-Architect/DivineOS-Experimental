@@ -1,16 +1,15 @@
 """Integration module - IDE, MCP tool integration, enforcement, and verification."""
 
-from divineos.integration.enforcement import (
+from divineos.core.enforcement import (
     setup_cli_enforcement,
     capture_user_input,
     handle_cli_error,
 )
-from divineos.integration.tool_wrapper import (
+from divineos.core.tool_wrapper import (
     wrap_tool_execution,
     is_internal_tool,
-    create_tool_wrapper_decorator,
 )
-from divineos.integration.enforcement_verifier import (
+from divineos.core.enforcement_verifier import (
     verify_enforcement,
     check_event_capture_rate,
     detect_missing_events,
@@ -23,7 +22,6 @@ __all__ = [
     "handle_cli_error",
     "wrap_tool_execution",
     "is_internal_tool",
-    "create_tool_wrapper_decorator",
     "verify_enforcement",
     "check_event_capture_rate",
     "detect_missing_events",
