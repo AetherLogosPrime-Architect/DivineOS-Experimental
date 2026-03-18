@@ -835,6 +835,7 @@ def check_clarity(
     # Count EXPLANATION events from ledger
     try:
         from divineos.ledger import count_events
+
         event_counts = count_events()
         ledger_explanation_count = event_counts.get("by_type", {}).get("EXPLANATION", 0)
     except Exception:

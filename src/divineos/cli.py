@@ -1301,10 +1301,7 @@ def emit_cmd(
                 click.secho("[-] EXPLANATION requires --content", fg="red")
                 sys.exit(1)
             event_id = emit_event(
-                "EXPLANATION",
-                {"content": content},
-                actor="assistant",
-                validate=False
+                "EXPLANATION", {"content": content}, actor="assistant", validate=False
             )
             click.secho("[+] Event emitted: EXPLANATION", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
