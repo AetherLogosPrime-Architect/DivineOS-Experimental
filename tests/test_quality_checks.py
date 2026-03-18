@@ -4,7 +4,7 @@ import json
 import time
 from pathlib import Path
 
-from divineos.quality_checks import (
+from divineos.analysis.quality_checks import (
     CheckResult,
     SessionReport,
     _build_tool_result_map,
@@ -627,7 +627,7 @@ class TestRunAllChecks:
 class TestStorage:
     def test_store_and_retrieve(self, tmp_path, monkeypatch):
         # Use temp DB
-        import divineos.quality_checks as qc
+        import divineos.analysis.quality_checks as qc
 
         db_path = tmp_path / "test.db"
         monkeypatch.setattr(qc, "DB_PATH", db_path)
@@ -662,7 +662,7 @@ class TestStorage:
         assert retrieved.checks[0].score == 0.85
 
     def test_retrieve_nonexistent(self, tmp_path, monkeypatch):
-        import divineos.quality_checks as qc
+        import divineos.analysis.quality_checks as qc
 
         db_path = tmp_path / "test.db"
         monkeypatch.setattr(qc, "DB_PATH", db_path)

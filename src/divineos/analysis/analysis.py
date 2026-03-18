@@ -12,11 +12,11 @@ import json
 from datetime import datetime, timezone
 from loguru import logger
 
-from divineos.parser import parse_jsonl
-from divineos.quality_checks import run_all_checks
-from divineos.session_features import run_all_features
-from divineos.consolidation import extract_lessons_from_report
-from divineos.ledger import get_verified_events
+from divineos.core.parser import parse_jsonl
+from divineos.analysis.quality_checks import run_all_checks
+from divineos.analysis.session_features import run_all_features
+from divineos.core.consolidation import extract_lessons_from_report
+from divineos.core.ledger import get_verified_events
 
 
 @dataclass
@@ -168,7 +168,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
         - Requirement 9.3: Session event correlation - filter by session_id
     """
     import tempfile
-    from divineos.event_capture import get_session_tracker
+    from divineos.event.event_capture import get_session_tracker
     from pathlib import Path
     import json
 
@@ -178,7 +178,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
 
     # First, query database for most recent USER_INPUT or TOOL_CALL event (actual work events)
     # Skip analysis/report events which are metadata, not actual session work
-    from divineos.ledger import _get_connection
+    from divineos.core.ledger import _get_connection
 
     conn = _get_connection()
     try:
@@ -309,8 +309,8 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
     """
     import uuid
     import time
-    from divineos.quality_checks import _get_connection as get_qc_connection
-    from divineos import fidelity
+    from divineos.analysis.quality_checks import _get_connection as get_qc_connection
+    from divineos.core import fidelity
 
     try:
         # Count items to store
@@ -457,7 +457,7 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
 
         # Step 5: Emit events to ledger
         try:
-            from divineos.event_dispatcher import emit_event
+            from divineos.event.event_dispatcher import emit_event
 
             # Emit quality report event
             emit_event(
@@ -585,7 +585,7 @@ def format_analysis_report(result: AnalysisResult) -> str:
         lines.append("-" * 70)
 
         # If lessons are knowledge IDs, try to retrieve the content
-        from divineos.consolidation import get_knowledge
+        from divineos.core.consolidation import get_knowledge
 
         for lesson_id in result.lessons:
             try:
@@ -623,7 +623,7 @@ def get_stored_report(session_id: str) -> Optional[str]:
     Returns:
         Report text if found, None otherwise
     """
-    from divineos.quality_checks import _get_connection as get_qc_connection
+    from divineos.analysis.quality_checks import _get_connection as get_qc_connection
 
     try:
         conn = get_qc_connection()
@@ -664,7 +664,7 @@ def list_recent_sessions(limit: int = 10) -> list[dict]:
     Returns:
         List of session dicts with id, created_at, file_count
     """
-    from divineos.quality_checks import _get_connection as get_qc_connection
+    from divineos.analysis.quality_checks import _get_connection as get_qc_connection
 
     try:
         conn = get_qc_connection()
@@ -710,7 +710,7 @@ def compute_cross_session_trends(limit: int = 10) -> dict:
     Returns:
         Dict with trends and patterns
     """
-    from divineos.quality_checks import get_check_history
+    from divineos.analysis.quality_checks import get_check_history
 
     # Get check history for each check
     trends = {}

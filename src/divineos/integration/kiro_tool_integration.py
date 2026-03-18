@@ -15,7 +15,7 @@ import os
 from typing import Any, Dict, Optional
 from loguru import logger
 
-from divineos.event_emission import emit_tool_call, emit_tool_result
+from divineos.event.event_emission import emit_tool_call, emit_tool_result
 
 
 class KiroToolCapture:
@@ -115,7 +115,7 @@ def capture_kiro_tool(
     Convenience function to capture a Kiro tool execution.
 
     Usage:
-        from divineos.kiro_tool_integration import capture_kiro_tool
+        from divineos.integration.kiro_tool_integration import capture_kiro_tool
 
         # After a tool executes
         capture_kiro_tool(

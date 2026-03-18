@@ -2,7 +2,7 @@
 
 import json
 import pytest
-from divineos.parser import (
+from divineos.core.parser import (
     parse_jsonl,
     parse_markdown_chat,
     ParsedMessage,

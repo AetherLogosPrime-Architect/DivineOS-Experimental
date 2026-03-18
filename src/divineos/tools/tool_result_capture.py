@@ -12,7 +12,7 @@ from typing import Any, Callable, Optional
 from functools import wraps
 from loguru import logger
 
-from divineos.event_emission import emit_tool_result
+from divineos.event.event_emission import emit_tool_result
 
 
 def capture_tool_result(tool_name: str):

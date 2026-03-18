@@ -5,7 +5,7 @@ Since the Kiro IDE doesn't automatically call the MCP event capture server,
 this module provides a way to manually emit events after tool execution.
 
 Usage:
-    from divineos.manual_event_capture import capture_tool_execution
+    from divineos.tools.manual_event_capture import capture_tool_execution
 
     # After a tool executes
     capture_tool_execution(

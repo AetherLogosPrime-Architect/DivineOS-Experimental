@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from divineos.session_features import (
+from divineos.analysis.session_features import (
     ToneShift,
     TimelineEntry,
     FileTouched,
@@ -387,7 +387,7 @@ class TestRunAllFeatures:
 
 class TestStorage:
     def test_store_features(self, tmp_path, monkeypatch):
-        import divineos.session_features as sf
+        import divineos.analysis.session_features as sf
 
         db_path = tmp_path / "test.db"
         monkeypatch.setattr(sf, "DB_PATH", db_path)

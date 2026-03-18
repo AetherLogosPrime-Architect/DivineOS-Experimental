@@ -117,7 +117,7 @@ def log_event(event_type: str, actor: str, payload: dict, validate: bool = True)
     """
     # Validate payload before storing (only for known event types)
     if validate and event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
-        from divineos.event_validation import EventValidator
+        from divineos.event.event_validation import EventValidator
 
         is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
         if not is_valid:
@@ -373,7 +373,7 @@ def verify_all_events() -> dict:
         - Requirement 7.4: Flag event as corrupted if hash mismatch
         - Requirement 7.6: Validate payload content for data validity
     """
-    from divineos.event_validation import EventValidator
+    from divineos.event.event_validation import EventValidator
 
     conn = _get_connection()
     try:
@@ -443,7 +443,7 @@ def clean_corrupted_events() -> dict:
     Returns:
         dict: Summary of cleanup operation with count of removed events
     """
-    from divineos.event_validation import EventValidator
+    from divineos.event.event_validation import EventValidator
 
     conn = _get_connection()
     try:

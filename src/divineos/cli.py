@@ -11,7 +11,7 @@ import click
 from datetime import datetime, timezone
 from pathlib import Path
 
-from divineos.ledger import (
+from divineos.core.ledger import (
     init_db,
     log_event,
     get_events,
@@ -23,10 +23,10 @@ from divineos.ledger import (
     export_to_markdown,
     logger,
 )
-from divineos.parser import parse_jsonl, parse_markdown_chat
-from divineos.fidelity import create_manifest, create_receipt, reconcile
-import divineos.session_analyzer as _analyzer_mod
-from divineos.consolidation import (
+from divineos.core.parser import parse_jsonl, parse_markdown_chat
+from divineos.core.fidelity import create_manifest, create_receipt, reconcile
+import divineos.analysis.session_analyzer as _analyzer_mod
+from divineos.core.consolidation import (
     init_knowledge_table,
     store_knowledge,
     get_knowledge,
@@ -45,7 +45,7 @@ from divineos.consolidation import (
     migrate_knowledge_types,
     KNOWLEDGE_TYPES,
 )
-from divineos.memory import (
+from divineos.core.memory import (
     init_memory_tables,
     set_core,
     clear_core,
@@ -57,14 +57,14 @@ from divineos.memory import (
     recall,
     format_recall,
 )
-from divineos.quality_checks import init_quality_tables
-from divineos.session_features import (
+from divineos.analysis.quality_checks import init_quality_tables
+from divineos.analysis.session_features import (
     init_feature_tables,
     run_all_features,
     store_features,
     get_cross_session_summary,
 )
-from divineos.analysis import analyze_session, format_analysis_report, store_analysis
+from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
 
 
 @click.group()
@@ -990,7 +990,7 @@ def analyze_cmd(file_path: str):
     Runs all 7 quality checks + 10 session features on a JSONL file.
     Produces a plain-English report with findings and lessons.
     """
-    from divineos.analysis import save_analysis_report
+    from divineos.analysis.analysis import save_analysis_report
 
     path = Path(file_path)
 
@@ -1047,7 +1047,7 @@ def analyze_now_cmd():
     This runs quality checks on the live session without needing a file.
     Useful for enforcement - run this to see what you're doing wrong right now.
     """
-    from divineos.analysis import (
+    from divineos.analysis.analysis import (
         export_current_session_to_jsonl,
         analyze_session,
         format_analysis_report,
@@ -1111,7 +1111,7 @@ def report_cmd(session_id: str):
 
     If no session_id provided, shows list of recent sessions.
     """
-    from divineos.analysis import get_stored_report, list_recent_sessions
+    from divineos.analysis.analysis import get_stored_report, list_recent_sessions
     from datetime import datetime
 
     try:
@@ -1173,7 +1173,7 @@ def cross_session_cmd(limit: int):
 
     Shows trends and patterns in your performance over time.
     """
-    from divineos.analysis import compute_cross_session_trends, format_cross_session_report
+    from divineos.analysis.analysis import compute_cross_session_trends, format_cross_session_report
 
     try:
         click.secho(f"\n[+] Analyzing trends across last {limit} sessions...", fg="cyan")
@@ -1228,13 +1228,13 @@ def emit_cmd(
     """
     import sys
     import json
-    from divineos.event_emission import (
+    from divineos.event.event_emission import (
         emit_user_input,
         emit_tool_call,
         emit_tool_result,
         emit_session_end,
     )
-    from divineos.event_dispatcher import emit_event
+    from divineos.event.event_dispatcher import emit_event
 
     try:
         if event_type == "USER_INPUT":
@@ -1288,7 +1288,7 @@ def emit_cmd(
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
             # Show what was captured
-            from divineos.ledger import get_events
+            from divineos.core.ledger import get_events
 
             events = get_events(limit=10000, event_type="SESSION_END")
             if events:

@@ -1,6 +1,6 @@
 """Tests for the fidelity system."""
 
-from divineos.fidelity import (
+from divineos.core.fidelity import (
     compute_content_hash,
     create_manifest,
     create_receipt,

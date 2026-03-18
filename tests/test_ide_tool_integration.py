@@ -1,9 +1,9 @@
 """Tests for IDE tool integration module."""
 
 import pytest
-from divineos.ledger import init_db, get_events
-from divineos.consolidation import init_knowledge_table
-from divineos.ide_tool_integration import (
+from divineos.core.ledger import init_db, get_events
+from divineos.core.consolidation import init_knowledge_table
+from divineos.integration.ide_tool_integration import (
     IDEToolExecutor,
     emit_tool_call_for_ide,
     emit_tool_result_for_ide,

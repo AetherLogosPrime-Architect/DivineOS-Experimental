@@ -10,7 +10,7 @@ import time
 from typing import Any, Callable
 from loguru import logger
 
-from divineos.event_emission import emit_tool_call, emit_tool_result
+from divineos.event.event_emission import emit_tool_call, emit_tool_result
 
 
 def capture_tool_execution(tool_name: str):

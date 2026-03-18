@@ -11,7 +11,7 @@ The DivineOS system now provides a complete infrastructure for capturing tool ex
 Call `emit_tool_call_for_ide()` before executing a tool:
 
 ```python
-from divineos.ide_tool_integration import emit_tool_call_for_ide
+from divineos.integration.ide_tool_integration import emit_tool_call_for_ide
 
 # Before tool execution
 tool_use_id = emit_tool_call_for_ide(
@@ -29,7 +29,7 @@ This will:
 Call `emit_tool_result_for_ide()` after the tool completes:
 
 ```python
-from divineos.ide_tool_integration import emit_tool_result_for_ide
+from divineos.integration.ide_tool_integration import emit_tool_result_for_ide
 
 # After tool execution
 result = "file content here"
@@ -45,7 +45,7 @@ emit_tool_result_for_ide(
 Call `emit_tool_result_for_ide()` with failure information:
 
 ```python
-from divineos.ide_tool_integration import emit_tool_result_for_ide
+from divineos.integration.ide_tool_integration import emit_tool_result_for_ide
 
 # After tool execution fails
 error_msg = "File not found"
@@ -60,7 +60,7 @@ emit_tool_result_for_ide(
 ## Complete Example
 
 ```python
-from divineos.ide_tool_integration import (
+from divineos.integration.ide_tool_integration import (
     emit_tool_call_for_ide,
     emit_tool_result_for_ide
 )
@@ -102,7 +102,7 @@ def execute_tool_with_capture(tool_name, tool_input, tool_function):
 For more advanced use cases, use the `IDEToolExecutor` class directly:
 
 ```python
-from divineos.ide_tool_integration import get_ide_tool_executor
+from divineos.integration.ide_tool_integration import get_ide_tool_executor
 
 executor = get_ide_tool_executor()
 

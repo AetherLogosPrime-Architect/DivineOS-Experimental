@@ -23,8 +23,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from divineos.fidelity import compute_content_hash
-from divineos.session_analyzer import (
+from divineos.core.fidelity import compute_content_hash
+from divineos.analysis.session_analyzer import (
     CORRECTION_PATTERNS,
     _detect_signals,
     _extract_timestamps,
@@ -834,7 +834,7 @@ def check_clarity(
 
     # Count EXPLANATION events from ledger
     try:
-        from divineos.ledger import count_events
+        from divineos.core.ledger import count_events
 
         event_counts = count_events()
         ledger_explanation_count = event_counts.get("by_type", {}).get("EXPLANATION", 0)

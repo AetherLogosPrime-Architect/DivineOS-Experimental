@@ -2,11 +2,11 @@
 
 import pytest
 from pathlib import Path
-from divineos.analysis import analyze_session, format_analysis_report, store_analysis
-from divineos.ledger import init_db
-from divineos.consolidation import init_knowledge_table
-from divineos.quality_checks import init_quality_tables
-from divineos.session_features import init_feature_tables
+from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
+from divineos.core.ledger import init_db
+from divineos.core.consolidation import init_knowledge_table
+from divineos.analysis.quality_checks import init_quality_tables
+from divineos.analysis.session_features import init_feature_tables
 
 
 @pytest.fixture(autouse=True)
@@ -163,7 +163,7 @@ class TestStoreAnalysis:
 
     def test_store_analysis_creates_events(self, tmp_path):
         """Should create events in the ledger."""
-        from divineos.ledger import get_events
+        from divineos.core.ledger import get_events
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(
@@ -188,7 +188,7 @@ class TestGetStoredReport:
 
     def test_get_stored_report_retrieves_analysis(self, tmp_path):
         """Should retrieve a stored analysis report."""
-        from divineos.analysis import get_stored_report
+        from divineos.analysis.analysis import get_stored_report
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(
@@ -212,7 +212,7 @@ class TestListRecentSessions:
 
     def test_list_recent_sessions_with_data(self, tmp_path):
         """Should list recent sessions."""
-        from divineos.analysis import list_recent_sessions
+        from divineos.analysis.analysis import list_recent_sessions
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(
@@ -233,7 +233,7 @@ class TestComputeCrossSessionTrends:
 
     def test_compute_trends_empty(self):
         """Should handle empty session list."""
-        from divineos.analysis import compute_cross_session_trends
+        from divineos.analysis.analysis import compute_cross_session_trends
 
         trends = compute_cross_session_trends(limit=10)
 
@@ -241,7 +241,7 @@ class TestComputeCrossSessionTrends:
 
     def test_compute_trends_with_data(self, tmp_path):
         """Should compute trends from multiple sessions."""
-        from divineos.analysis import compute_cross_session_trends
+        from divineos.analysis.analysis import compute_cross_session_trends
 
         # Create and analyze multiple sessions
         for i in range(2):
@@ -264,7 +264,7 @@ class TestFormatCrossSessionReport:
 
     def test_format_cross_session_report(self):
         """Should format cross-session trends."""
-        from divineos.analysis import format_cross_session_report
+        from divineos.analysis.analysis import format_cross_session_report
 
         trends = {
             "completeness": {"pass_rate": 80, "pass_count": 4, "total_count": 5},

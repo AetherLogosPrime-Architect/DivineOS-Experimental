@@ -5,17 +5,17 @@ import os
 import tempfile
 from datetime import datetime
 
-from divineos.event_emission import (
+from divineos.event.event_emission import (
     emit_user_input,
     emit_tool_call,
     emit_tool_result,
     emit_session_end,
 )
-from divineos.event_capture import (
+from divineos.event.event_capture import (
     EventValidationError,
     get_session_tracker,
 )
-from divineos.ledger import get_events, init_db
+from divineos.core.ledger import get_events, init_db
 
 
 @pytest.fixture

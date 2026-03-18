@@ -61,7 +61,7 @@ class EventDispatcher:
 
         # Log to ledger (import here to ensure DB path is set)
         try:
-            from divineos.ledger import log_event as ledger_log_event
+            from divineos.core.ledger import log_event as ledger_log_event
 
             event_id = ledger_log_event(event_type, actor, payload, validate=validate)
             logger.debug(f"Emitted {event_type} event: {event_id}")

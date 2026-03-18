@@ -17,7 +17,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Optional, cast
 
-import divineos.ledger as _ledger_mod
+import divineos.core.ledger as _ledger_mod
 
 KNOWLEDGE_TYPES = {
     # Core types

@@ -11,7 +11,7 @@ import uuid
 from typing import Any, Callable, Dict, Optional
 from loguru import logger
 
-from divineos.event_emission import emit_tool_call, emit_tool_result  # noqa: F401
+from divineos.event.event_emission import emit_tool_call, emit_tool_result  # noqa: F401
 
 
 class IDEToolExecutor:

@@ -5,8 +5,8 @@ This test verifies that when tools are executed, both TOOL_CALL and TOOL_RESULT
 events are emitted to the ledger with correct data.
 """
 
-from divineos.event_emission import emit_tool_call, emit_tool_result
-from divineos.ledger import count_events
+from divineos.event.event_emission import emit_tool_call, emit_tool_result
+from divineos.core.ledger import count_events
 
 
 def test_tool_call_event_can_be_emitted():

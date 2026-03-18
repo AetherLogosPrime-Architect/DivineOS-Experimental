@@ -1,17 +1,17 @@
 """Full pipeline integration test - exercises all major components."""
 
 import pytest
-from divineos.ledger import init_db, log_event, get_events, verify_all_events
-from divineos.consolidation import (
+from divineos.core.ledger import init_db, log_event, get_events, verify_all_events
+from divineos.core.consolidation import (
     init_knowledge_table,
     store_knowledge,
     get_knowledge,
     search_knowledge,
     generate_briefing,
 )
-from divineos.quality_checks import init_quality_tables
-from divineos.session_features import init_feature_tables
-from divineos.analysis import analyze_session, format_analysis_report, store_analysis
+from divineos.analysis.quality_checks import init_quality_tables
+from divineos.analysis.session_features import init_feature_tables
+from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
 
 
 @pytest.fixture(autouse=True)
@@ -139,7 +139,7 @@ class TestEndToEndEventCapture:
 
     def test_full_event_sequence_with_analysis(self, tmp_path, monkeypatch):
         """Test emitting a series of events and analyzing them."""
-        from divineos.event_dispatcher import emit_event
+        from divineos.event.event_dispatcher import emit_event
 
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
@@ -201,7 +201,7 @@ class TestEndToEndEventCapture:
 
     def test_event_fidelity_verification(self, tmp_path, monkeypatch):
         """Test that all emitted events pass fidelity verification."""
-        from divineos.event_dispatcher import emit_event
+        from divineos.event.event_dispatcher import emit_event
 
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
@@ -234,7 +234,7 @@ class TestEndToEndEventCapture:
 
     def test_event_content_hashes(self, tmp_path, monkeypatch):
         """Test that event content hashes are computed correctly."""
-        from divineos.event_dispatcher import emit_event
+        from divineos.event.event_dispatcher import emit_event
 
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
@@ -258,7 +258,7 @@ class TestEndToEndEventCapture:
 
     def test_session_analysis_on_captured_events(self, tmp_path, monkeypatch):
         """Test that captured events contain real conversation data."""
-        from divineos.event_dispatcher import emit_event
+        from divineos.event.event_dispatcher import emit_event
 
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
@@ -311,7 +311,11 @@ class TestPhase4Integration:
 
     def test_analyze_command_end_to_end(self, tmp_path):
         """Test analyze command end-to-end with real JSONL data."""
-        from divineos.analysis import analyze_session, format_analysis_report, store_analysis
+        from divineos.analysis.analysis import (
+            analyze_session,
+            format_analysis_report,
+            store_analysis,
+        )
 
         # Create a realistic session file
         session_file = tmp_path / "realistic_session.jsonl"
@@ -355,7 +359,7 @@ class TestPhase4Integration:
 
     def test_report_command_retrieval(self, tmp_path):
         """Test report command retrieves stored analysis."""
-        from divineos.analysis import (
+        from divineos.analysis.analysis import (
             analyze_session,
             format_analysis_report,
             store_analysis,
@@ -386,7 +390,7 @@ class TestPhase4Integration:
 
     def test_cross_session_trends(self, tmp_path):
         """Test cross-session trends computation."""
-        from divineos.analysis import (
+        from divineos.analysis.analysis import (
             analyze_session,
             format_analysis_report,
             store_analysis,
@@ -418,7 +422,7 @@ class TestPhase4Integration:
 
     def test_plain_english_output_no_jargon(self, tmp_path):
         """Test that all output is plain-English with no jargon."""
-        from divineos.analysis import analyze_session, format_analysis_report
+        from divineos.analysis.analysis import analyze_session, format_analysis_report
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(
@@ -449,7 +453,11 @@ class TestPhase4Integration:
 
     def test_fidelity_verification_in_storage(self, tmp_path):
         """Test that fidelity verification works during storage."""
-        from divineos.analysis import analyze_session, format_analysis_report, store_analysis
+        from divineos.analysis.analysis import (
+            analyze_session,
+            format_analysis_report,
+            store_analysis,
+        )
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(
@@ -466,7 +474,7 @@ class TestPhase4Integration:
 
     def test_error_handling_empty_session(self, tmp_path):
         """Test error handling for empty session."""
-        from divineos.analysis import analyze_session
+        from divineos.analysis.analysis import analyze_session
 
         session_file = tmp_path / "empty.jsonl"
         session_file.write_text("")
@@ -477,7 +485,7 @@ class TestPhase4Integration:
 
     def test_error_handling_malformed_jsonl(self, tmp_path):
         """Test error handling for malformed JSONL."""
-        from divineos.analysis import analyze_session
+        from divineos.analysis.analysis import analyze_session
 
         session_file = tmp_path / "malformed.jsonl"
         session_file.write_text(
@@ -493,8 +501,12 @@ class TestPhase4Integration:
 
     def test_analysis_events_emitted_to_ledger(self, tmp_path):
         """Test that analysis events are emitted to the ledger."""
-        from divineos.analysis import analyze_session, format_analysis_report, store_analysis
-        from divineos.ledger import get_events
+        from divineos.analysis.analysis import (
+            analyze_session,
+            format_analysis_report,
+            store_analysis,
+        )
+        from divineos.core.ledger import get_events
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(
@@ -516,7 +528,7 @@ class TestPhase4Integration:
 
     def test_evidence_hashes_reproducible(self, tmp_path):
         """Test that evidence hashes are reproducible for same content."""
-        from divineos.analysis import analyze_session
+        from divineos.analysis.analysis import analyze_session
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(
@@ -533,7 +545,7 @@ class TestPhase4Integration:
 
     def test_quality_checks_on_real_data(self, tmp_path):
         """Test that quality checks execute on real conversation data."""
-        from divineos.analysis import analyze_session
+        from divineos.analysis.analysis import analyze_session
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(
@@ -555,7 +567,7 @@ class TestPhase4Integration:
 
     def test_session_features_extracted(self, tmp_path):
         """Test that session features are extracted correctly."""
-        from divineos.analysis import analyze_session
+        from divineos.analysis.analysis import analyze_session
 
         session_file = tmp_path / "session.jsonl"
         session_file.write_text(

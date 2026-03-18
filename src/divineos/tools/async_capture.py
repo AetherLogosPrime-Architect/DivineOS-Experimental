@@ -18,7 +18,7 @@ from loguru import logger
 from collections import deque
 import threading
 
-from divineos.event_emission import (
+from divineos.event.event_emission import (
     emit_user_input as sync_emit_user_input,
     emit_tool_call as sync_emit_tool_call,
     emit_tool_result as sync_emit_tool_result,

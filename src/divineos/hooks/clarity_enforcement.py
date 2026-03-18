@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Import IDE tool integration for capturing tool execution
 try:
-    from divineos.ide_tool_integration import (
+    from divineos.integration.ide_tool_integration import (
         emit_tool_call_for_ide,
         emit_tool_result_for_ide,
     )

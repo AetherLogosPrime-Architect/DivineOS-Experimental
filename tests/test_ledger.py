@@ -1,7 +1,7 @@
 """Tests for the event ledger."""
 
 import pytest
-from divineos.ledger import (
+from divineos.core.ledger import (
     init_db,
     log_event,
     get_events,
@@ -175,7 +175,7 @@ class TestVerifyEventHash:
 
     def test_valid_hash(self):
         """Test that valid hash is verified correctly."""
-        from divineos.ledger import verify_event_hash
+        from divineos.core.ledger import verify_event_hash
         import json
 
         payload = {"content": "hello"}
@@ -189,7 +189,7 @@ class TestVerifyEventHash:
 
     def test_invalid_hash(self):
         """Test that invalid hash is detected."""
-        from divineos.ledger import verify_event_hash
+        from divineos.core.ledger import verify_event_hash
 
         payload = {"content": "hello"}
         # Use wrong hash
@@ -201,7 +201,7 @@ class TestVerifyEventHash:
 
     def test_dict_content(self):
         """Test hash verification with dict content."""
-        from divineos.ledger import verify_event_hash
+        from divineos.core.ledger import verify_event_hash
         import json
 
         content = {"key": "value"}
@@ -219,7 +219,7 @@ class TestGetVerifiedEvents:
 
     def test_all_valid_events(self):
         """Test retrieving all valid events."""
-        from divineos.ledger import get_verified_events
+        from divineos.core.ledger import get_verified_events
 
         log_event("TEST", "user", {"content": "hello"}, validate=False)
         log_event("TEST", "user", {"content": "world"}, validate=False)
@@ -230,7 +230,7 @@ class TestGetVerifiedEvents:
 
     def test_skip_corrupted_events(self):
         """Test that corrupted events are excluded when skip_corrupted=True."""
-        from divineos.ledger import get_verified_events
+        from divineos.core.ledger import get_verified_events
         import sqlite3
         import os
 
@@ -263,7 +263,7 @@ class TestGetVerifiedEvents:
 
     def test_include_corrupted_events(self):
         """Test that corrupted events are included when skip_corrupted=False."""
-        from divineos.ledger import get_verified_events
+        from divineos.core.ledger import get_verified_events
         import sqlite3
         import os
 
@@ -296,7 +296,7 @@ class TestGetVerifiedEvents:
 
     def test_filter_by_type_with_verification(self):
         """Test filtering by type while verifying hashes."""
-        from divineos.ledger import get_verified_events
+        from divineos.core.ledger import get_verified_events
 
         log_event("USER_INPUT", "user", {"content": "hello"}, validate=False)
         log_event("ERROR", "system", {"content": "oops"}, validate=False)
@@ -308,7 +308,7 @@ class TestGetVerifiedEvents:
 
     def test_filter_by_actor_with_verification(self):
         """Test filtering by actor while verifying hashes."""
-        from divineos.ledger import get_verified_events
+        from divineos.core.ledger import get_verified_events
 
         log_event("MSG", "user", {"content": "hi"}, validate=False)
         log_event("MSG", "assistant", {"content": "hello"}, validate=False)
@@ -385,8 +385,8 @@ class TestExportCurrentSessionWithVerification:
 
     def test_excludes_corrupted_events(self):
         """Test that corrupted events are excluded from export."""
-        from divineos.analysis import export_current_session_to_jsonl
-        from divineos.event_capture import get_session_tracker
+        from divineos.analysis.analysis import export_current_session_to_jsonl
+        from divineos.event.event_capture import get_session_tracker
         from pathlib import Path
         import sqlite3
         import os
@@ -440,8 +440,8 @@ class TestExportCurrentSessionWithVerification:
 
     def test_exports_all_valid_events(self):
         """Test that all valid events are exported."""
-        from divineos.analysis import export_current_session_to_jsonl
-        from divineos.event_capture import get_session_tracker
+        from divineos.analysis.analysis import export_current_session_to_jsonl
+        from divineos.event.event_capture import get_session_tracker
         from pathlib import Path
         import json
 

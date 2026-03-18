@@ -8,7 +8,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 from hypothesis import given, strategies as st, settings, HealthCheck
 
-from divineos.async_capture import (
+from divineos.tools.async_capture import (
     emit_user_input_async,
     emit_tool_call_async,
     emit_tool_result_async,
@@ -18,8 +18,8 @@ from divineos.async_capture import (
     flush_event_queue,
     _retry_with_backoff,
 )
-from divineos.event_capture import get_session_tracker
-from divineos.ledger import get_events, init_db
+from divineos.event.event_capture import get_session_tracker
+from divineos.core.ledger import get_events, init_db
 
 
 @pytest.fixture
@@ -160,7 +160,7 @@ class TestAsyncEmitUserInput:
     async def test_emit_user_input_async_error_handling(self, temp_db, fresh_session):
         """Test that errors are handled gracefully."""
         with patch(
-            "divineos.async_capture.sync_emit_user_input", side_effect=Exception("Test error")
+            "divineos.tools.async_capture.sync_emit_user_input", side_effect=Exception("Test error")
         ):
             # Should not raise, should return None
             event_id = await emit_user_input_async("Test message")
@@ -172,7 +172,7 @@ class TestAsyncEmitUserInput:
     ):
         """Test that events are queued when emission fails."""
         with patch(
-            "divineos.async_capture.sync_emit_user_input", side_effect=Exception("Test error")
+            "divineos.tools.async_capture.sync_emit_user_input", side_effect=Exception("Test error")
         ):
             event_id = await emit_user_input_async("Test message")
 
@@ -227,7 +227,7 @@ class TestAsyncEmitToolCall:
     async def test_emit_tool_call_async_error_handling(self, temp_db, fresh_session):
         """Test that errors are handled gracefully."""
         with patch(
-            "divineos.async_capture.sync_emit_tool_call", side_effect=Exception("Test error")
+            "divineos.tools.async_capture.sync_emit_tool_call", side_effect=Exception("Test error")
         ):
             event_id = await emit_tool_call_async("readFile", {"path": "test.py"})
             assert event_id is None
@@ -238,7 +238,7 @@ class TestAsyncEmitToolCall:
     ):
         """Test that events are queued when emission fails."""
         with patch(
-            "divineos.async_capture.sync_emit_tool_call", side_effect=Exception("Test error")
+            "divineos.tools.async_capture.sync_emit_tool_call", side_effect=Exception("Test error")
         ):
             event_id = await emit_tool_call_async("readFile", {"path": "test.py"})
 
@@ -294,7 +294,8 @@ class TestAsyncEmitToolResult:
     async def test_emit_tool_result_async_error_handling(self, temp_db, fresh_session):
         """Test that errors are handled gracefully."""
         with patch(
-            "divineos.async_capture.sync_emit_tool_result", side_effect=Exception("Test error")
+            "divineos.tools.async_capture.sync_emit_tool_result",
+            side_effect=Exception("Test error"),
         ):
             event_id = await emit_tool_result_async("readFile", "tool-123", "result", 45)
             assert event_id is None
@@ -342,7 +343,8 @@ class TestAsyncEmitSessionEnd:
     async def test_emit_session_end_async_error_handling(self, temp_db, fresh_session):
         """Test that errors are handled gracefully."""
         with patch(
-            "divineos.async_capture.sync_emit_session_end", side_effect=Exception("Test error")
+            "divineos.tools.async_capture.sync_emit_session_end",
+            side_effect=Exception("Test error"),
         ):
             event_id = await emit_session_end_async()
             assert event_id is None
@@ -584,7 +586,8 @@ class TestAsyncCaptureProperties:
 
         try:
             with patch(
-                "divineos.async_capture.sync_emit_user_input", side_effect=Exception("Test error")
+                "divineos.tools.async_capture.sync_emit_user_input",
+                side_effect=Exception("Test error"),
             ):
                 # Should not raise an exception
                 try:
@@ -612,7 +615,7 @@ class TestAsyncCaptureProperties:
             queue.clear()
 
             with patch(
-                "divineos.async_capture.sync_emit_user_input",
+                "divineos.tools.async_capture.sync_emit_user_input",
                 side_effect=Exception("Ledger unavailable"),
             ):
                 start_time = time.time()

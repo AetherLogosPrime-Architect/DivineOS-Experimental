@@ -16,7 +16,7 @@ import json
 from typing import Any, Dict, Optional
 from loguru import logger
 
-from divineos.event_emission import emit_tool_call, emit_tool_result, get_or_create_session_id
+from divineos.event.event_emission import emit_tool_call, emit_tool_result, get_or_create_session_id
 
 
 def emit_tool_call_mcp(

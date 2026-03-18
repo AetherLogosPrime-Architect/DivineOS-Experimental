@@ -20,8 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional
 
-from divineos.fidelity import compute_content_hash
-from divineos.session_analyzer import (
+from divineos.core.fidelity import compute_content_hash
+from divineos.analysis.session_analyzer import (
     CORRECTION_PATTERNS,
     ENCOURAGEMENT_PATTERNS,
     FRUSTRATION_PATTERNS,
@@ -29,7 +29,7 @@ from divineos.session_analyzer import (
     _extract_user_text,
     _load_records,
 )
-from divineos.quality_checks import (
+from divineos.analysis.quality_checks import (
     _build_tool_result_map,
     _extract_tool_calls,
     _get_assistant_text,

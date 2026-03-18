@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone
-from divineos.event_capture import (
+from divineos.event.event_capture import (
     EventType,
     EventValidationError,
     UserInputPayload,

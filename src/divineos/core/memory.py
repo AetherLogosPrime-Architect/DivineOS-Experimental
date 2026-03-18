@@ -19,7 +19,7 @@ import time
 import uuid
 from typing import Any, Optional, cast
 
-from divineos.ledger import DB_PATH, compute_hash
+from divineos.core.ledger import DB_PATH, compute_hash
 
 
 # ─── Core Memory Slots ───────────────────────────────────────────────
@@ -327,7 +327,7 @@ def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
     Everything above the importance threshold gets in. No hard cap.
     Pinned items are never removed. Superseded items are cleaned out.
     """
-    from divineos.consolidation import get_knowledge, get_lessons
+    from divineos.core.consolidation import get_knowledge, get_lessons
 
     all_entries = get_knowledge(limit=10000)
     active_lessons = get_lessons(status="active")
@@ -442,7 +442,7 @@ def recall(context_hint: str = "") -> dict[str, Any]:
     # If a topic hint is given, boost matching active items and search archive
     relevant = []
     if context_hint:
-        from divineos.consolidation import search_knowledge
+        from divineos.core.consolidation import search_knowledge
 
         hint_words = set(context_hint.lower().split())
 

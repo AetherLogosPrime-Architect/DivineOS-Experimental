@@ -14,7 +14,7 @@ and include timestamps and session IDs.
 from typing import Any, Dict, Optional
 from loguru import logger
 
-from divineos.event_capture import (
+from divineos.event.event_capture import (
     EventType,
     EventValidationError,
     get_session_tracker,
@@ -22,7 +22,7 @@ from divineos.event_capture import (
     validate_event_payload,
     normalize_event_payload,
 )
-from divineos.ledger import log_event
+from divineos.core.ledger import log_event
 
 
 def get_or_create_session_id(session_id: Optional[str] = None) -> str:
@@ -409,7 +409,7 @@ def emit_session_end(
         - Requirement 5.9: No empty or zero-value fields (except where legitimately zero)
     """
     try:
-        from divineos.ledger import get_events
+        from divineos.core.ledger import get_events
 
         # Get or create session ID using centralized helper
         session_id = get_or_create_session_id(session_id)

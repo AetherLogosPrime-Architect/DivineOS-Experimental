@@ -3,8 +3,8 @@
 import time
 
 import pytest
-from divineos.ledger import init_db, log_event
-from divineos.consolidation import (
+from divineos.core.ledger import init_db, log_event
+from divineos.core.consolidation import (
     init_knowledge_table,
     store_knowledge,
     get_knowledge,
@@ -964,7 +964,7 @@ class TestHealthCheck:
         """Knowledge does NOT decay just because time passed."""
         kid = store_knowledge("FACT", "old but still true fact", confidence=0.8)
         # Backdate the entry to 60 days ago
-        import divineos.ledger as lm
+        import divineos.core.ledger as lm
         import sqlite3
 
         # Use _get_db_path() instead of DB_PATH to respect the environment variable
@@ -1016,7 +1016,7 @@ class TestHealthCheck:
 
         db_path = os.environ.get("DIVINEOS_DB")
         if not db_path:
-            import divineos.ledger as lm
+            import divineos.core.ledger as lm
 
             db_path = str(lm.DB_PATH)
         conn = sqlite3.connect(db_path)
@@ -1047,7 +1047,7 @@ class TestHealthCheck:
 
         db_path = os.environ.get("DIVINEOS_DB")
         if not db_path:
-            import divineos.ledger as lm
+            import divineos.core.ledger as lm
 
             db_path = str(lm.DB_PATH)
         conn = sqlite3.connect(db_path)

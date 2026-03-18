@@ -4,7 +4,7 @@ import json
 import pytest
 from pathlib import Path
 
-from divineos.session_analyzer import (
+from divineos.analysis.session_analyzer import (
     analyze_session,
     find_sessions,
     aggregate_analyses,

@@ -1,8 +1,8 @@
 """Tests for the event dispatcher and event capture system."""
 
 import pytest
-from divineos.event_dispatcher import emit_event, register_listener
-from divineos.ledger import get_events, verify_all_events
+from divineos.event.event_dispatcher import emit_event, register_listener
+from divineos.core.ledger import get_events, verify_all_events
 
 
 @pytest.fixture(autouse=True)
@@ -11,7 +11,7 @@ def setup_dispatcher(tmp_path, monkeypatch):
     db_path = tmp_path / "test.db"
     monkeypatch.setenv("DIVINEOS_DB", str(db_path))
 
-    from divineos.ledger import init_db
+    from divineos.core.ledger import init_db
 
     init_db()
 

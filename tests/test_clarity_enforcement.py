@@ -1,6 +1,6 @@
 """Tests for clarity enforcement module."""
 
-from divineos.clarity_enforcement import (
+from divineos.hooks.clarity_enforcement import (
     get_clarity_checker,
     reset_clarity_checker,
 )

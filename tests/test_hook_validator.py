@@ -13,7 +13,7 @@ import json
 import tempfile
 from pathlib import Path
 
-from divineos.hook_validator import (
+from divineos.hooks.hook_validator import (
     validate_hook_structure,
     validate_hook_file,
     load_hooks_from_directory,
