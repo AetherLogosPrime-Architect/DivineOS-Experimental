@@ -23,7 +23,6 @@ class TestHookFileFormat:
         required_hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -84,7 +83,6 @@ class TestHookSchema:
         hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -98,7 +96,6 @@ class TestHookSchema:
         hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -111,7 +108,6 @@ class TestHookSchema:
         hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -126,7 +122,6 @@ class TestHookSchema:
         hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -144,7 +139,6 @@ class TestHookSchema:
         hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -159,7 +153,6 @@ class TestHookSchema:
         """Test that askAgent hooks have 'prompt' field."""
         askagent_hooks = [
             "capture-user-input.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -184,7 +177,6 @@ class TestHookSchema:
         hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -235,16 +227,6 @@ class TestHookContent:
         assert "prompt" in hook["then"]
         assert "divineos emit SESSION_END" in hook["then"]["prompt"]
 
-    def test_capture_tool_calls_hook(self, load_hook):
-        """Test capture-tool-calls hook configuration."""
-        hook = load_hook("capture-tool-calls.kiro.hook")
-
-        assert hook["name"] == "Capture tool calls and results"
-        assert hook["when"]["type"] == "postToolUse"
-        assert hook["then"]["type"] == "askAgent"
-        assert "prompt" in hook["then"]
-        assert len(hook["then"]["prompt"]) > 0
-
     def test_auto_analyze_sessions_hook(self, load_hook):
         """Test auto-analyze-sessions hook configuration."""
         hook = load_hook("auto-analyze-sessions.kiro.hook")
@@ -260,7 +242,6 @@ class TestHookContent:
         hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -274,7 +255,6 @@ class TestHookContent:
         hooks = [
             "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -309,11 +289,6 @@ class TestHookTriggers:
         """Test that promptSubmit trigger is configured correctly."""
         hook = load_hook("capture-user-input.kiro.hook")
         assert hook["when"]["type"] == "promptSubmit"
-
-    def test_posttooluse_trigger(self, load_hook):
-        """Test that postToolUse trigger is configured correctly."""
-        hook = load_hook("capture-tool-calls.kiro.hook")
-        assert hook["when"]["type"] == "postToolUse"
 
     def test_agentstop_triggers(self, load_hook):
         """Test that agentStop triggers are configured correctly."""
@@ -360,7 +335,6 @@ class TestHookActions:
         """Test that askAgent actions are configured correctly."""
         askagent_hooks = [
             "capture-user-input.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -374,7 +348,6 @@ class TestHookActions:
         """Test that all prompts are not empty."""
         askagent_hooks = [
             "capture-user-input.kiro.hook",
-            "capture-tool-calls.kiro.hook",
             "auto-analyze-sessions.kiro.hook",
         ]
 
@@ -391,3 +364,4 @@ class TestHookActions:
         assert "divineos emit SESSION_END" in prompt, (
             "Prompt should reference divineos emit SESSION_END command"
         )
+
