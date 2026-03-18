@@ -73,6 +73,7 @@ class KiroToolCapture:
             try:
                 tool_result_id = emit_tool_result(
                     tool_name=tool_name,
+                    tool_use_id=tool_call_id or "unknown",
                     result=result_str,
                     duration_ms=duration_ms,
                     failed=failed,
