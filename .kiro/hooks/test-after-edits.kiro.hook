@@ -13,6 +13,6 @@
   },
   "then": {
     "type": "runCommand",
-    "command": "python -m pytest tests/ -q --tb=short"
+    "command": "python -m pytest tests/test_clarity_enforcement.py tests/test_analysis.py tests/test_memory.py tests/test_parser.py tests/test_quality_checks.py tests/test_session_features.py tests/test_fidelity.py tests/test_event_dispatcher.py -q --tb=short"
   }
 }

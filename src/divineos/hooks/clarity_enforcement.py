@@ -11,10 +11,9 @@ Also integrates with IDE tool execution to emit TOOL_CALL and TOOL_RESULT events
 """
 
 import functools
-import logging
+import threading
 from typing import Any, Callable, Optional
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # Import IDE tool integration for capturing tool execution
 try:
@@ -110,9 +109,11 @@ class ClarityChecker:
 
     This class tracks tool calls and verifies that each one has an accompanying
     explanation in the ledger as an EXPLANATION event.
+    Thread-safe implementation with ledger integration.
     """
 
     def __init__(self):
+        self._lock = threading.Lock()
         self.tool_calls = []
         self.explanations = []
 
@@ -120,26 +121,29 @@ class ClarityChecker:
         self, tool_name: str, args: dict, explanation: Optional[str] = None
     ) -> None:
         """Record a tool call with optional explanation."""
-        call_record = {
-            "tool_name": tool_name,
-            "args": args,
-            "explanation": explanation,
-            "has_explanation": explanation is not None and len(explanation.strip()) > 0,
-        }
-        self.tool_calls.append(call_record)
+        with self._lock:
+            call_record = {
+                "tool_name": tool_name,
+                "args": args,
+                "explanation": explanation,
+                "has_explanation": explanation is not None and len(explanation.strip()) > 0,
+            }
+            self.tool_calls.append(call_record)
 
-        if not call_record["has_explanation"]:
-            logger.warning(f"Tool call without explanation: {tool_name}")
+            if not call_record["has_explanation"]:
+                logger.warning(f"Tool call without explanation: {tool_name}")
 
     def record_explanation(self, explanation: str) -> None:
         """Record an explanation for the most recent tool call."""
-        if self.tool_calls:
-            self.tool_calls[-1]["explanation"] = explanation
-            self.tool_calls[-1]["has_explanation"] = True
+        with self._lock:
+            if self.tool_calls:
+                self.tool_calls[-1]["explanation"] = explanation
+                self.tool_calls[-1]["has_explanation"] = True
 
     def get_unexplained_calls(self) -> list:
         """Get all tool calls that lack explanations."""
-        return [call for call in self.tool_calls if not call["has_explanation"]]
+        with self._lock:
+            return [call for call in self.tool_calls if not call["has_explanation"]]
 
     def verify_all_explained(self) -> bool:
         """Verify that all tool calls have explanations."""
@@ -151,23 +155,74 @@ class ClarityChecker:
             return False
         return True
 
+    def check_clarity_for_session(self, session_id: str) -> dict[str, Any]:
+        """Check clarity for a session by querying the ledger.
+
+        Args:
+            session_id: Session ID to check
+
+        Returns:
+            Report dict with violations and stats
+        """
+        try:
+            from divineos.core.ledger import get_events
+
+            events = get_events()
+            tool_calls = [e for e in events if e.get("event_type") == "TOOL_CALL"]
+            explanations = [e for e in events if e.get("event_type") == "EXPLANATION"]
+
+            # Map explanations to tool calls
+            explained_tool_ids = set()
+            for exp in explanations:
+                payload = exp.get("payload", {})
+                if "tool_call_id" in payload:
+                    explained_tool_ids.add(payload["tool_call_id"])
+
+            # Find violations
+            violations = []
+            for call in tool_calls:
+                call_id = call.get("payload", {}).get("tool_call_id")
+                if call_id and call_id not in explained_tool_ids:
+                    violations.append(
+                        {
+                            "tool_call_id": call_id,
+                            "tool_name": call.get("payload", {}).get("tool_name"),
+                            "reason": "No explanation provided",
+                        }
+                    )
+
+            return {
+                "session_id": session_id,
+                "total_calls": len(tool_calls),
+                "explained_calls": len(explained_tool_ids),
+                "violations": violations,
+                "clarity_score": len(explained_tool_ids) / max(len(tool_calls), 1),
+            }
+        except Exception as e:
+            logger.error(f"Failed to check clarity for session {session_id}: {e}", exc_info=True)
+            return {
+                "session_id": session_id,
+                "error": str(e),
+                "clarity_score": 0.0,
+            }
+
     def get_clarity_report(self) -> dict:
         """Generate a clarity report for the session."""
-        # Use in-memory tracking for clarity report
-        total_calls = len(self.tool_calls)
-        explained_calls = sum(1 for call in self.tool_calls if call["has_explanation"])
-        unexplained_calls = total_calls - explained_calls
+        with self._lock:
+            total_calls = len(self.tool_calls)
+            explained_calls = sum(1 for call in self.tool_calls if call["has_explanation"])
+            unexplained_calls = total_calls - explained_calls
 
-        clarity_score = (explained_calls / total_calls * 100) if total_calls > 0 else 100
+            clarity_score = (explained_calls / total_calls * 100) if total_calls > 0 else 100
 
-        return {
-            "total_tool_calls": total_calls,
-            "explained_calls": explained_calls,
-            "unexplained_calls": unexplained_calls,
-            "clarity_score": clarity_score,
-            "status": "PASS" if unexplained_calls == 0 else "FAIL",
-            "unexplained_details": self.get_unexplained_calls(),
-        }
+            return {
+                "total_tool_calls": total_calls,
+                "explained_calls": explained_calls,
+                "unexplained_calls": unexplained_calls,
+                "clarity_score": clarity_score,
+                "status": "PASS" if unexplained_calls == 0 else "FAIL",
+                "unexplained_details": self.get_unexplained_calls(),
+            }
 
 
 # Global clarity checker instance

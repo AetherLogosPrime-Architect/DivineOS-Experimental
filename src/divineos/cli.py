@@ -8,6 +8,7 @@ verifying data integrity, and consolidating knowledge.
 import re
 import json
 import click
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -23,9 +24,10 @@ from divineos.core.ledger import (
     export_to_markdown,
     logger,
 )
+from divineos.core.tool_wrapper import wrap_tool_execution
 from divineos.core.parser import parse_jsonl, parse_markdown_chat
 from divineos.core.fidelity import create_manifest, create_receipt, reconcile
-import divineos.analysis.session_analyzer as _analyzer_mod
+from divineos.core.enforcement import setup_cli_enforcement, capture_user_input
 from divineos.core.consolidation import (
     init_knowledge_table,
     store_knowledge,
@@ -65,12 +67,71 @@ from divineos.analysis.session_features import (
     get_cross_session_summary,
 )
 from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
+import divineos.analysis.session_analyzer as _analyzer_mod
+
+# Wrap critical tool calls for event capture
+_wrapped_log_event = wrap_tool_execution("log_event", log_event)
+_wrapped_get_events = wrap_tool_execution("get_events", get_events)
+_wrapped_search_events = wrap_tool_execution("search_events", search_events)
+_wrapped_count_events = wrap_tool_execution("count_events", count_events)
+_wrapped_get_recent_context = wrap_tool_execution("get_recent_context", get_recent_context)
+_wrapped_verify_all_events = wrap_tool_execution("verify_all_events", verify_all_events)
+_wrapped_clean_corrupted_events = wrap_tool_execution(
+    "clean_corrupted_events", clean_corrupted_events
+)
+_wrapped_export_to_markdown = wrap_tool_execution("export_to_markdown", export_to_markdown)
+
+# Wrap knowledge consolidation tools
+_wrapped_store_knowledge = wrap_tool_execution("store_knowledge", store_knowledge)
+_wrapped_get_knowledge = wrap_tool_execution("get_knowledge", get_knowledge)
+_wrapped_update_knowledge = wrap_tool_execution("update_knowledge", update_knowledge)
+_wrapped_generate_briefing = wrap_tool_execution("generate_briefing", generate_briefing)
+_wrapped_knowledge_stats = wrap_tool_execution("knowledge_stats", knowledge_stats)
+_wrapped_rebuild_fts_index = wrap_tool_execution("rebuild_fts_index", rebuild_fts_index)
+_wrapped_get_lesson_summary = wrap_tool_execution("get_lesson_summary", get_lesson_summary)
+_wrapped_get_lessons = wrap_tool_execution("get_lessons", get_lessons)
+_wrapped_deep_extract_knowledge = wrap_tool_execution(
+    "deep_extract_knowledge", deep_extract_knowledge
+)
+_wrapped_consolidate_related = wrap_tool_execution("consolidate_related", consolidate_related)
+_wrapped_apply_session_feedback = wrap_tool_execution(
+    "apply_session_feedback", apply_session_feedback
+)
+_wrapped_health_check = wrap_tool_execution("health_check", health_check)
+_wrapped_knowledge_health_report = wrap_tool_execution(
+    "knowledge_health_report", knowledge_health_report
+)
+_wrapped_clear_lessons = wrap_tool_execution("clear_lessons", clear_lessons)
+_wrapped_migrate_knowledge_types = wrap_tool_execution(
+    "migrate_knowledge_types", migrate_knowledge_types
+)
+
+# Wrap memory tools
+_wrapped_set_core = wrap_tool_execution("set_core", set_core)
+_wrapped_clear_core = wrap_tool_execution("clear_core", clear_core)
+_wrapped_format_core = wrap_tool_execution("format_core", format_core)
+_wrapped_promote_to_active = wrap_tool_execution("promote_to_active", promote_to_active)
+_wrapped_get_active_memory = wrap_tool_execution("get_active_memory", get_active_memory)
+_wrapped_refresh_active_memory = wrap_tool_execution("refresh_active_memory", refresh_active_memory)
+_wrapped_recall = wrap_tool_execution("recall", recall)
+_wrapped_format_recall = wrap_tool_execution("format_recall", format_recall)
+
+# Wrap analysis tools
+_wrapped_run_all_features = wrap_tool_execution("run_all_features", run_all_features)
+_wrapped_store_features = wrap_tool_execution("store_features", store_features)
+_wrapped_get_cross_session_summary = wrap_tool_execution(
+    "get_cross_session_summary", get_cross_session_summary
+)
 
 
 @click.group()
 def cli():
     """DivineOS: Foundation Memory System. The database cannot lie."""
-    pass
+    # Setup CLI enforcement at startup
+    setup_cli_enforcement()
+
+    # Capture user input (command line arguments)
+    capture_user_input(sys.argv[1:])
 
 
 @cli.command()
@@ -141,13 +202,13 @@ def ingest(file_path: str):
     stored_ids = []
     for msg, payload in zip(parse_result.messages, payloads):
         event_type = _role_to_event_type(msg.role)
-        event_id = log_event(event_type=event_type, actor=msg.role, payload=payload)
+        event_id = _wrapped_log_event(event_type=event_type, actor=msg.role, payload=payload)
         stored_ids.append(event_id)
 
     click.secho(f"[+] Stored {len(stored_ids)} events to database.", fg="green")
 
     # Create receipt AFTER storing
-    stored_events = get_recent_context(n=len(stored_ids))
+    stored_events = _wrapped_get_recent_context(n=len(stored_ids))
     receipt = create_receipt(stored_events)
 
     click.secho(f"[+] Receipt: {receipt.count} messages, {receipt.bytes_total} bytes", fg="cyan")
@@ -174,7 +235,7 @@ def verify():
     """Verify integrity of all stored events."""
     logger.info("Running fidelity verification...")
 
-    result = verify_all_events()
+    result = _wrapped_verify_all_events()
 
     click.secho("\n=== Fidelity Verification ===\n", fg="cyan", bold=True)
     click.echo(f"  Total events: {result['total']}")
@@ -197,7 +258,7 @@ def clean():
     """Remove corrupted events from the ledger."""
     logger.info("Cleaning corrupted events from ledger...")
 
-    result = clean_corrupted_events()
+    result = _wrapped_clean_corrupted_events()
 
     click.secho("\n=== Ledger Cleanup ===\n", fg="cyan", bold=True)
     click.echo(f"  Deleted corrupted events: {result['deleted_count']}")
@@ -216,10 +277,10 @@ def clean():
 def export_cmd(fmt: str):
     """Export all events to markdown or JSON."""
     if fmt == "markdown":
-        output = export_to_markdown()
+        output = _wrapped_export_to_markdown()
         click.echo(output)
     else:
-        events = get_events(limit=10000)
+        events = _wrapped_get_events(limit=10000)
         click.echo(json.dumps(events, indent=2, default=str))
 
 
@@ -230,7 +291,7 @@ def diff(original_file: str):
     path = Path(original_file)
     original_content = path.read_text(encoding="utf-8").strip()
 
-    exported = export_to_markdown().strip()
+    exported = _wrapped_export_to_markdown().strip()
 
     if original_content == exported:
         click.secho("[+] ROUND-TRIP: PASS", fg="green", bold=True)
@@ -260,7 +321,9 @@ def log_cmd(event_type: str, actor: str, content: str):
     except (json.JSONDecodeError, TypeError):
         pass
 
-    event_id = log_event(event_type=event_type.upper(), actor=actor.lower(), payload=payload)
+    event_id = _wrapped_log_event(
+        event_type=event_type.upper(), actor=actor.lower(), payload=payload
+    )
     logger.info(f"Event logged: {event_type} by {actor}")
     click.secho(f"[+] Logged event: {event_id}", fg="green")
 
@@ -272,7 +335,7 @@ def log_cmd(event_type: str, actor: str, content: str):
 @click.option("--actor", default=None, help="Filter by actor")
 def list_cmd(limit: int, offset: int, event_type: str, actor: str):
     """List events from the ledger."""
-    events = get_events(limit=limit, offset=offset, event_type=event_type, actor=actor)
+    events = _wrapped_get_events(limit=limit, offset=offset, event_type=event_type, actor=actor)
 
     if not events:
         click.secho("[-] No events found.", fg="yellow")
@@ -288,7 +351,7 @@ def list_cmd(limit: int, offset: int, event_type: str, actor: str):
 def search(keyword: str, limit: int):
     """Search the ledger for events matching KEYWORD."""
     logger.info(f"Searching for: '{keyword}'")
-    events = search_events(keyword=keyword, limit=limit)
+    events = _wrapped_search_events(keyword=keyword, limit=limit)
 
     if not events:
         click.secho(f"[-] No events matching '{keyword}'.", fg="yellow")
@@ -303,7 +366,7 @@ def stats():
     """Display event ledger statistics."""
     logger.info("Fetching ledger statistics...")
     try:
-        counts = count_events()
+        counts = _wrapped_count_events()
     except Exception as e:
         logger.error(f"Could not retrieve stats: {e}")
         click.secho(f"[-] Error: {e}", fg="red")
@@ -330,7 +393,7 @@ def stats():
 def context(n: int):
     """Show the last N events (working memory context window)."""
     logger.info(f"Building context from last {n} events...")
-    events = get_recent_context(n=n)
+    events = _wrapped_get_recent_context(n=n)
 
     if not events:
         click.secho("[-] No events in ledger yet.", fg="yellow")
@@ -357,7 +420,7 @@ def learn(knowledge_type: str, content: str, confidence: float, tags: str, sourc
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     source_list = [s.strip() for s in source.split(",") if s.strip()] if source else []
 
-    kid = store_knowledge(
+    kid = _wrapped_store_knowledge(
         knowledge_type=knowledge_type.upper(),
         content=content,
         confidence=confidence,
@@ -380,7 +443,7 @@ def learn(knowledge_type: str, content: str, confidence: float, tags: str, sourc
 def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
     """List stored knowledge."""
     kt = knowledge_type.upper() if knowledge_type else None
-    entries = get_knowledge(knowledge_type=kt, min_confidence=min_confidence, limit=limit)
+    entries = _wrapped_get_knowledge(knowledge_type=kt, min_confidence=min_confidence, limit=limit)
 
     if not entries:
         click.secho("[-] No knowledge found.", fg="yellow")
@@ -420,7 +483,9 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
 def briefing_cmd(max_items: int, types: str, topic: str):
     """Generate a session context briefing from stored knowledge."""
     type_list = [t.strip().upper() for t in types.split(",") if t.strip()] if types else None
-    output = generate_briefing(max_items=max_items, include_types=type_list, context_hint=topic)
+    output = _wrapped_generate_briefing(
+        max_items=max_items, include_types=type_list, context_hint=topic
+    )
     click.echo(output)
 
 
@@ -430,7 +495,7 @@ def briefing_cmd(max_items: int, types: str, topic: str):
 def forget_cmd(knowledge_id: str, reason: str):
     """Supersede a knowledge entry (append-only: marks old, creates new)."""
     try:
-        new_id = update_knowledge(knowledge_id, f"[SUPERSEDED] {reason}")
+        new_id = _wrapped_update_knowledge(knowledge_id, f"[SUPERSEDED] {reason}")
         click.secho(f"[+] Superseded {knowledge_id[:8]}... -> {new_id[:8]}...", fg="green")
     except ValueError as e:
         click.secho(f"[-] {e}", fg="red")
@@ -439,7 +504,7 @@ def forget_cmd(knowledge_id: str, reason: str):
 @cli.command("consolidate-stats")
 def consolidate_stats_cmd():
     """Display knowledge consolidation statistics."""
-    stats = knowledge_stats()
+    stats = _wrapped_knowledge_stats()
 
     click.secho("\n=== Knowledge Stats ===\n", fg="cyan", bold=True)
     click.secho(f"  Total knowledge: {stats['total']}", fg="white", bold=True)
@@ -456,7 +521,7 @@ def consolidate_stats_cmd():
             click.echo(f"    [{item['access_count']}x] {item['content'][:60]}")
 
     # Effectiveness breakdown
-    report = knowledge_health_report()
+    report = _wrapped_knowledge_health_report()
     if report["total"] > 0:
         click.secho("\n  Effectiveness:", fg="cyan")
         for status, count in sorted(report["by_status"].items()):
@@ -468,7 +533,7 @@ def consolidate_stats_cmd():
 @cli.command("rebuild-index")
 def rebuild_index_cmd():
     """Rebuild the Full-text search full-text search index from existing knowledge."""
-    count = rebuild_fts_index()
+    count = _wrapped_rebuild_fts_index()
     if count > 0:
         click.secho(f"[+] Full-text search index rebuilt: {count} entries indexed.", fg="green")
     else:
@@ -484,7 +549,7 @@ def rebuild_index_cmd():
 )
 def lessons_cmd(status: str):
     """Show the learning loop — tracked lessons from past sessions."""
-    lessons = get_lessons(status=status)
+    lessons = _wrapped_get_lessons(status=status)
 
     if not lessons:
         click.secho("[-] No lessons tracked yet.", fg="yellow")
@@ -494,7 +559,7 @@ def lessons_cmd(status: str):
         )
         return
 
-    summary = get_lesson_summary()
+    summary = _wrapped_get_lesson_summary()
     click.echo()
     click.echo(summary)
     click.echo()
@@ -521,7 +586,7 @@ def lessons_cmd(status: str):
 @cli.command("clear-lessons")
 def clear_lessons_cmd():
     """Wipe all lessons from lesson_tracking (for re-extraction after fixes)."""
-    count = clear_lessons()
+    count = _wrapped_clear_lessons()
     if count:
         click.secho(f"[+] Cleared {count} lessons.", fg="green")
     else:
@@ -532,7 +597,7 @@ def clear_lessons_cmd():
 @click.option("--min-cluster", default=3, type=int, help="Minimum entries to form a cluster")
 def consolidate_cmd(min_cluster: int):
     """Merge related knowledge entries into consolidated ones."""
-    merges = consolidate_related(min_cluster_size=min_cluster)
+    merges = _wrapped_consolidate_related(min_cluster_size=min_cluster)
 
     if not merges:
         click.secho("[*] No clusters found to consolidate.", fg="yellow")
@@ -550,7 +615,7 @@ def consolidate_cmd(min_cluster: int):
 @cli.command("health")
 def health_cmd():
     """Run knowledge health check — boost confirmed, escalate recurring, resolve old."""
-    result = health_check()
+    result = _wrapped_health_check()
 
     click.secho("\n=== Knowledge Health Check ===\n", fg="cyan", bold=True)
     click.secho(f"  Entries checked:        {result['total_checked']}", fg="white")
@@ -568,7 +633,7 @@ def health_cmd():
     )
 
     # Show effectiveness breakdown
-    report = knowledge_health_report()
+    report = _wrapped_knowledge_health_report()
     if report["total"] > 0:
         click.secho("\n  Effectiveness breakdown:", fg="white")
         for status, count in sorted(report["by_status"].items()):
@@ -617,7 +682,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
     if deep:
         # Deep extraction: correction pairs, preferences, decisions with context, topics
         records = _analyzer_mod._load_records(path)
-        deep_ids = deep_extract_knowledge(analysis, records)
+        deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
         stored += len(deep_ids)
         click.secho(f"[+] Deep extraction: {len(deep_ids)} knowledge entries", fg="cyan")
     else:
@@ -625,7 +690,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
         for c in analysis.corrections:
             lower = c.content.lower()
             is_boundary = any(w in lower for w in ("never", "always", "must", "don't", "do not"))
-            store_knowledge(
+            _wrapped_store_knowledge(
                 knowledge_type="BOUNDARY" if is_boundary else "PRINCIPLE",
                 content=c.content[:300],
                 confidence=0.8,
@@ -636,7 +701,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
             stored += 1
 
         for e in analysis.encouragements:
-            store_knowledge(
+            _wrapped_store_knowledge(
                 knowledge_type="PRINCIPLE",
                 content=f"This approach works well: {e.content[:280]}",
                 confidence=0.9,
@@ -647,7 +712,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
             stored += 1
 
         for d in analysis.decisions:
-            store_knowledge(
+            _wrapped_store_knowledge(
                 knowledge_type="DIRECTION",
                 content=d.content[:300],
                 confidence=0.9,
@@ -661,7 +726,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
     if analysis.tool_usage:
         top_tools = sorted(analysis.tool_usage.items(), key=lambda x: x[1], reverse=True)[:10]
         tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
-        store_knowledge(
+        _wrapped_store_knowledge(
             knowledge_type="FACT",
             content=f"Session tool usage ({analysis.session_id[:12]}): {tool_summary}",
             confidence=1.0,
@@ -670,7 +735,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
         stored += 1
 
     # Store session summary as EPISODE
-    store_knowledge(
+    _wrapped_store_knowledge(
         knowledge_type="EPISODE",
         content=(
             f"Session {analysis.session_id[:12]}: "
@@ -689,7 +754,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
     click.secho(f"\n[+] Stored {stored} knowledge entries from session.", fg="green")
 
     # Run feedback loop — compare new findings against existing knowledge
-    feedback = apply_session_feedback(analysis, analysis.session_id)
+    feedback = _wrapped_apply_session_feedback(analysis, analysis.session_id)
     parts = []
     if feedback["recurrences_found"]:
         parts.append(f"{feedback['recurrences_found']} recurrences")
@@ -712,7 +777,7 @@ def deep_report_cmd(file_path: str, store: bool):
     path = Path(file_path)
 
     click.secho(f"[+] Deep analysis: {path.stem[:16]}...", fg="cyan")
-    analysis = run_all_features(path)
+    analysis = _wrapped_run_all_features(path)
 
     click.echo()
     click.echo(analysis.report_text)
@@ -720,7 +785,7 @@ def deep_report_cmd(file_path: str, store: bool):
     click.secho(f"Evidence hash: {analysis.evidence_hash}", fg="bright_black")
 
     if store:
-        store_features(analysis.session_id, analysis)
+        _wrapped_store_features(analysis.session_id, analysis)
         click.secho("\n[+] Analysis stored in database.", fg="green")
 
 
@@ -728,7 +793,7 @@ def deep_report_cmd(file_path: str, store: bool):
 @click.option("--limit", default=10, type=int, help="Max sessions to compare")
 def patterns_cmd(limit: int):
     """Compare quality check results across stored sessions."""
-    output = get_cross_session_summary(limit=limit)
+    output = _wrapped_get_cross_session_summary(limit=limit)
     click.echo()
     click.echo(output)
     click.echo()
@@ -751,7 +816,7 @@ def core_cmd(action: str, slot: str | None, content: str | None):
     init_memory_tables()
 
     if action == "show":
-        text = format_core()
+        text = _wrapped_format_core()
         if text:
             click.echo(text)
         else:
@@ -769,7 +834,7 @@ def core_cmd(action: str, slot: str | None, content: str | None):
             click.secho('[-] Usage: divineos core set <slot> "<content>"', fg="red")
             return
         try:
-            set_core(slot, content)
+            _wrapped_set_core(slot, content)
             click.secho(f"[+] Core memory '{slot}' updated.", fg="green")
         except ValueError as e:
             click.secho(f"[-] {e}", fg="red")
@@ -779,7 +844,7 @@ def core_cmd(action: str, slot: str | None, content: str | None):
             click.secho("[-] Usage: divineos core clear <slot>", fg="red")
             return
         try:
-            if clear_core(slot):
+            if _wrapped_clear_core(slot):
                 click.secho(f"[+] Cleared '{slot}'.", fg="green")
             else:
                 click.secho(f"[*] '{slot}' was already empty.", fg="yellow")
@@ -795,8 +860,8 @@ def core_cmd(action: str, slot: str | None, content: str | None):
 def recall_cmd(topic: str):
     """Show what the AI remembers right now — core + active + relevant."""
     init_memory_tables()
-    result = recall(context_hint=topic)
-    text = format_recall(result)
+    result = _wrapped_recall(context_hint=topic)
+    text = _wrapped_format_recall(result)
     click.echo(text)
 
 
@@ -804,7 +869,7 @@ def recall_cmd(topic: str):
 def active_cmd():
     """List active memory ranked by importance."""
     init_memory_tables()
-    items = get_active_memory()
+    items = _wrapped_get_active_memory()
 
     if not items:
         click.secho("[-] No active memory yet.", fg="yellow")
@@ -846,7 +911,7 @@ def remember_cmd(knowledge_id: str, reason: str, pin: bool):
     """Promote a knowledge entry to active memory."""
     init_memory_tables()
     try:
-        mid = promote_to_active(knowledge_id, reason=reason, pinned=pin)
+        mid = _wrapped_promote_to_active(knowledge_id, reason=reason, pinned=pin)
         pin_note = " [pinned]" if pin else ""
         click.secho(f"[+] Promoted to active memory: {mid}{pin_note}", fg="green")
     except Exception as e:
@@ -858,7 +923,7 @@ def remember_cmd(knowledge_id: str, reason: str, pin: bool):
 def refresh_cmd(threshold: float):
     """Auto-rebuild active memory from the knowledge store."""
     init_memory_tables()
-    result = refresh_active_memory(importance_threshold=threshold)
+    result = _wrapped_refresh_active_memory(importance_threshold=threshold)
     click.secho("\n=== Memory Refresh ===\n", fg="cyan", bold=True)
     click.secho(
         f"  Promoted:  {result['promoted']}", fg="green" if result["promoted"] else "bright_black"
@@ -884,7 +949,7 @@ def migrate_types_cmd(execute: bool):
     else:
         click.secho("\n=== Migrating Knowledge Types ===\n", fg="yellow", bold=True)
 
-    changes = migrate_knowledge_types(dry_run=dry_run)
+    changes = _wrapped_migrate_knowledge_types(dry_run=dry_run)
 
     if not changes:
         click.secho("  No entries to migrate.", fg="bright_black")
@@ -1288,9 +1353,7 @@ def emit_cmd(
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
             # Show what was captured
-            from divineos.core.ledger import get_events
-
-            events = get_events(limit=10000, event_type="SESSION_END")
+            events = _wrapped_get_events(limit=10000, event_type="SESSION_END")
             if events:
                 # Get the most recent SESSION_END (last in the list since ordered by timestamp ASC)
                 payload = events[-1]["payload"]
@@ -1318,4 +1381,32 @@ def emit_cmd(
     except Exception as e:
         click.secho(f"[-] Error emitting event: {e}", fg="red")
         logger.exception("Event emission failed")
+        sys.exit(1)
+
+
+@cli.command("verify-enforcement")
+def verify_enforcement_cmd():
+    """Verify that the event enforcement system is working correctly.
+
+    This command checks:
+    - All event types are being captured
+    - Event capture rates
+    - Missing or orphaned events
+    - Event hash integrity
+
+    Use this to ensure the OS enforcement layer is functioning properly.
+    """
+    from divineos.core.enforcement_verifier import generate_enforcement_report
+
+    try:
+        click.secho("\n[+] Verifying event enforcement system...", fg="cyan", bold=True)
+        click.echo()
+
+        # Generate and display report
+        report = generate_enforcement_report()
+        click.echo(report)
+
+    except Exception as e:
+        click.secho(f"[-] Error verifying enforcement: {e}", fg="red")
+        logger.exception("Enforcement verification failed")
         sys.exit(1)
