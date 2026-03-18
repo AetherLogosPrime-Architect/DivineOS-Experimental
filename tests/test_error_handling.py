@@ -38,9 +38,10 @@ class TestEnforcementErrorHandling:
         """Test setup_cli_enforcement continues when session init fails"""
         # Reset global state
         import divineos.core.enforcement as enf_module
+
         enf_module._signal_handlers_setup = False
         enf_module._session_initialized = False
-        
+
         with patch("divineos.core.enforcement.initialize_session") as mock_init:
             mock_init.side_effect = RuntimeError("Session init failed")
             with patch("divineos.core.enforcement._is_test_environment", return_value=False):
