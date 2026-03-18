@@ -59,6 +59,7 @@ def emit_tool_call_mcp(
 
 def emit_tool_result_mcp(
     tool_name: str,
+    tool_use_id: str,
     result: str,
     duration_ms: int,
     failed: bool = False,
@@ -70,6 +71,7 @@ def emit_tool_result_mcp(
 
     Args:
         tool_name: Name of the tool
+        tool_use_id: Unique ID matching the TOOL_CALL event
         result: The result output from the tool
         duration_ms: Execution duration in milliseconds
         failed: Whether the tool execution failed
@@ -83,6 +85,7 @@ def emit_tool_result_mcp(
         session_id = get_or_create_session_id(session_id)
         event_id = emit_tool_result(
             tool_name=tool_name,
+            tool_use_id=tool_use_id,
             result=result,
             duration_ms=duration_ms,
             failed=failed,
