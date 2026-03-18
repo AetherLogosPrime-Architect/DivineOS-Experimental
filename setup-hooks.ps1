@@ -14,58 +14,43 @@ if (-not (Test-Path $hooksDir)) {
 git config core.hooksPath $hooksDir
 Write-Host "Configured Git to use hooks from $hooksDir"
 
-# Create pre-commit hook
+# Create pre-commit hook (bash script that Git can execute on all platforms)
 $preCommitContent = @'
-@echo off
-REM Pre-commit hook for DivineOS
-REM Enforces ruff formatting, linting, and mypy type checking
+#!/bin/bash
+# Pre-commit hook for DivineOS
+# Enforces ruff formatting, linting, and mypy type checking
 
-powershell -ExecutionPolicy Bypass -File "%~dp0pre-commit.ps1"
-exit /b %ERRORLEVEL%
-'@
+set -e
 
-$preCommitPath = "$hooksDir/pre-commit.bat"
-Set-Content -Path $preCommitPath -Value $preCommitContent -Encoding ASCII
-Write-Host "Created pre-commit hook at $preCommitPath"
-
-# Create pre-commit PowerShell script
-$preCommitPsContent = @'
-# Pre-commit hook to enforce ruff formatting and linting (PowerShell version)
-
-$ErrorActionPreference = "Stop"
-
-Write-Host "Running ruff format check..."
-ruff format --check src/ tests/
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Formatting violations detected. Running ruff format to fix..." -ForegroundColor Yellow
+echo "Running ruff format check..."
+ruff format --check src/ tests/ || {
+    echo "Formatting violations detected. Running ruff format to fix..."
     ruff format src/ tests/
-    Write-Host "Files formatted. Please review and stage the changes:" -ForegroundColor Yellow
+    echo "Files formatted. Please review and stage the changes:"
     git diff --name-only
-    Write-Host "After reviewing, run: git add . && git commit" -ForegroundColor Yellow
+    echo "After reviewing, run: git add . && git commit"
     exit 1
 }
 
-Write-Host "Running ruff lint check..."
-ruff check src/ tests/
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Linting violations detected. Please fix them before committing." -ForegroundColor Red
+echo "Running ruff lint check..."
+ruff check src/ tests/ || {
+    echo "Linting violations detected. Please fix them before committing."
     exit 1
 }
 
-Write-Host "Running mypy type check..."
-mypy src/divineos --ignore-missing-imports
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Type errors detected. Please fix them before committing." -ForegroundColor Red
+echo "Running mypy type check..."
+mypy src/divineos --ignore-missing-imports || {
+    echo "Type errors detected. Please fix them before committing."
     exit 1
 }
 
-Write-Host "All checks passed!" -ForegroundColor Green
+echo "All checks passed!"
 exit 0
 '@
 
-$preCommitPsPath = "$hooksDir/pre-commit.ps1"
-Set-Content -Path $preCommitPsPath -Value $preCommitPsContent -Encoding UTF8
-Write-Host "Created pre-commit PowerShell script at $preCommitPsPath"
+$preCommitPath = "$hooksDir/pre-commit"
+Set-Content -Path $preCommitPath -Value $preCommitContent -Encoding UTF8
+Write-Host "Created pre-commit hook at $preCommitPath"
 
 Write-Host ""
 Write-Host "Git hooks setup complete!" -ForegroundColor Green
