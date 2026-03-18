@@ -7,8 +7,7 @@ execution events without requiring manual calls.
 
 import functools
 import time
-import json
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable
 from loguru import logger
 
 from divineos.event_emission import emit_tool_call, emit_tool_result
