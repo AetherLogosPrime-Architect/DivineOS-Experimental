@@ -15,6 +15,10 @@ from divineos.core.enforcement_verifier import (
     detect_missing_events,
     generate_enforcement_report,
 )
+from divineos.integration.unified_tool_capture import (
+    get_unified_capture,
+    capture_tool_execution,
+)
 
 __all__ = [
     "setup_cli_enforcement",
@@ -26,4 +30,6 @@ __all__ = [
     "check_event_capture_rate",
     "detect_missing_events",
     "generate_enforcement_report",
+    "get_unified_capture",
+    "capture_tool_execution",
 ]

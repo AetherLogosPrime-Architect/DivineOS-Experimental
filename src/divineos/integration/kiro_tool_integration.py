@@ -9,13 +9,15 @@ The integration works by:
 2. Emitting TOOL_CALL events before execution
 3. Emitting TOOL_RESULT events after execution
 4. Capturing both success and failure cases
+
+This module now uses the unified tool capture system for consistency.
 """
 
 import os
 from typing import Any, Dict, Optional
 from loguru import logger
 
-from divineos.event.event_emission import emit_tool_call, emit_tool_result
+from divineos.integration.unified_tool_capture import get_unified_capture
 
 
 class KiroToolCapture:
@@ -24,6 +26,7 @@ class KiroToolCapture:
     def __init__(self):
         """Initialize the Kiro tool capture system."""
         self.session_id = os.environ.get("DIVINEOS_SESSION_ID")
+        self.unified_capture = get_unified_capture()
         logger.info(f"KiroToolCapture initialized with session: {self.session_id}")
 
     def capture_tool_execution(
@@ -49,46 +52,15 @@ class KiroToolCapture:
         Returns:
             Tuple of (tool_call_event_id, tool_result_event_id)
         """
-        tool_call_id = None
-        tool_result_id = None
-
-        try:
-            # Emit TOOL_CALL event
-            try:
-                tool_call_id = emit_tool_call(
-                    tool_name=tool_name,
-                    tool_input=tool_input,
-                    session_id=self.session_id,
-                )
-                logger.debug(f"Emitted TOOL_CALL for {tool_name}: {tool_call_id}")
-            except Exception as e:
-                logger.warning(f"Failed to emit TOOL_CALL for {tool_name}: {e}")
-
-            # Convert result to string
-            result_str = str(result) if not isinstance(result, str) else result
-            if len(result_str) > 5000:
-                result_str = result_str[:5000] + "... [truncated]"
-
-            # Emit TOOL_RESULT event
-            try:
-                tool_result_id = emit_tool_result(
-                    tool_name=tool_name,
-                    tool_use_id=tool_call_id or "unknown",
-                    result=result_str,
-                    duration_ms=duration_ms,
-                    failed=failed,
-                    error_message=error_message,
-                    session_id=self.session_id,
-                )
-                logger.debug(f"Emitted TOOL_RESULT for {tool_name}: {tool_result_id}")
-            except Exception as e:
-                logger.warning(f"Failed to emit TOOL_RESULT for {tool_name}: {e}")
-
-            return tool_call_id, tool_result_id
-
-        except Exception as e:
-            logger.error(f"Error capturing tool execution for {tool_name}: {e}")
-            return None, None
+        call_id, result_id = self.unified_capture.capture_tool_execution(
+            tool_name=tool_name,
+            tool_input=tool_input,
+            result=result,
+            duration_ms=duration_ms,
+            failed=failed,
+            error_message=error_message,
+        )
+        return call_id, result_id
 
 
 # Global instance
