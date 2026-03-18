@@ -18,7 +18,6 @@ Usage:
 
 import subprocess
 import json
-import os
 from typing import Any, Dict, Optional
 from loguru import logger
 

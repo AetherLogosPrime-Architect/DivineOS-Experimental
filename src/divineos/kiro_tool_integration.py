@@ -12,8 +12,6 @@ The integration works by:
 """
 
 import os
-import time
-import json
 from typing import Any, Dict, Optional
 from loguru import logger
 

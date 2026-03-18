@@ -13,7 +13,6 @@ This allows the IDE to integrate event capture without modifying tool execution.
 """
 
 import json
-import os
 from typing import Any, Dict, Optional
 from loguru import logger
 
