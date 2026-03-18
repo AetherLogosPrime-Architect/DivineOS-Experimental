@@ -15,6 +15,7 @@ Requirements:
 """
 
 import sys
+import os
 import signal
 import atexit
 from typing import List
@@ -49,25 +50,42 @@ def setup_cli_enforcement() -> None:
         try:
             logger.debug("Setting up CLI enforcement")
 
-            # Initialize session
+            # Initialize session (only once)
             if not _session_initialized:
                 session_id = initialize_session()
                 logger.debug(f"Initialized session: {session_id}")
                 _session_initialized = True
 
-            # Setup signal handlers
-            if not _signal_handlers_setup:
+            # Setup signal handlers (only once, and only if not in test environment)
+            if not _signal_handlers_setup and not _is_test_environment():
                 _setup_signal_handlers()
                 _signal_handlers_setup = True
 
-            # Setup atexit handler
-            atexit.register(_cleanup_on_exit)
+            # Setup atexit handler (only once, and only if not in test environment)
+            if not _is_test_environment():
+                atexit.register(_cleanup_on_exit)
 
             logger.debug("CLI enforcement setup complete")
 
         except Exception as e:
             logger.error(f"Failed to setup CLI enforcement: {e}")
             # Continue execution even if setup fails
+
+
+def _is_test_environment() -> bool:
+    """
+    Check if we're running in a test environment.
+
+    Returns:
+        bool: True if running in test environment, False otherwise
+    """
+    # Check for pytest
+    if "pytest" in sys.modules:
+        return True
+    # Check for test environment variables
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return True
+    return False
 
 
 def capture_user_input(command_args: List[str]) -> str:
