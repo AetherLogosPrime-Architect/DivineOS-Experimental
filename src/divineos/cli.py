@@ -130,8 +130,9 @@ def cli():
     # Setup CLI enforcement at startup
     setup_cli_enforcement()
 
-    # Capture user input (command line arguments)
-    capture_user_input(sys.argv[1:])
+    # Capture user input (command line arguments) - only in production
+    if "pytest" not in sys.modules:
+        capture_user_input(sys.argv[1:])
 
 
 @cli.command()
