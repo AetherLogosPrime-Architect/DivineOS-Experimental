@@ -144,7 +144,7 @@ class TestFindBlindEdits:
     def test_detects_blind_edit(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Edit", "input": {"file_path": "/tmp/foo.py"}, "id": "t1"}]
+                tools=[{"name": "strReplace", "input": {"path": "/tmp/foo.py"}, "id": "t1"}]
             ),
         ]
         blind = _find_blind_edits(records)
@@ -154,11 +154,11 @@ class TestFindBlindEdits:
     def test_no_blind_when_read_first(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Read", "input": {"file_path": "/tmp/foo.py"}, "id": "t1"}],
+                tools=[{"name": "readFile", "input": {"path": "/tmp/foo.py"}, "id": "t1"}],
                 timestamp="2025-01-01T00:00:01Z",
             ),
             _make_assistant_record(
-                tools=[{"name": "Edit", "input": {"file_path": "/tmp/foo.py"}, "id": "t2"}],
+                tools=[{"name": "strReplace", "input": {"path": "/tmp/foo.py"}, "id": "t2"}],
                 timestamp="2025-01-01T00:00:02Z",
             ),
         ]
@@ -167,11 +167,11 @@ class TestFindBlindEdits:
     def test_case_insensitive_path(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Read", "input": {"file_path": "C:\\Foo\\bar.py"}, "id": "t1"}],
+                tools=[{"name": "readFile", "input": {"path": "C:\\Foo\\bar.py"}, "id": "t1"}],
                 timestamp="2025-01-01T00:00:01Z",
             ),
             _make_assistant_record(
-                tools=[{"name": "Edit", "input": {"file_path": "c:\\foo\\bar.py"}, "id": "t2"}],
+                tools=[{"name": "strReplace", "input": {"path": "c:\\foo\\bar.py"}, "id": "t2"}],
                 timestamp="2025-01-01T00:00:02Z",
             ),
         ]
@@ -182,7 +182,7 @@ class TestExtractTestResults:
     def test_finds_pytest(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Bash", "input": {"command": "pytest tests/ -v"}, "id": "t1"}]
+                tools=[{"name": "executePwsh", "input": {"command": "pytest tests/ -v"}, "id": "t1"}]
             ),
         ]
         result_map = {"t1": {"is_error": False, "content": "3 passed", "timestamp": ""}}
@@ -193,7 +193,7 @@ class TestExtractTestResults:
     def test_finds_failing_tests(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Bash", "input": {"command": "pytest"}, "id": "t1"}]
+                tools=[{"name": "executePwsh", "input": {"command": "pytest"}, "id": "t1"}]
             ),
         ]
         result_map = {"t1": {"is_error": True, "content": "2 failed, 1 passed", "timestamp": ""}}
@@ -204,7 +204,7 @@ class TestExtractTestResults:
     def test_no_test_commands(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Bash", "input": {"command": "ls -la"}, "id": "t1"}]
+                tools=[{"name": "executePwsh", "input": {"command": "ls -la"}, "id": "t1"}]
             ),
         ]
         result_map = {"t1": {"is_error": False, "content": "files", "timestamp": ""}}
@@ -216,8 +216,8 @@ class TestFindErrorsAfterEdits:
         records = [
             _make_assistant_record(
                 tools=[
-                    {"name": "Edit", "input": {"file_path": "/tmp/foo.py"}, "id": "t1"},
-                    {"name": "Bash", "input": {"command": "python foo.py"}, "id": "t2"},
+                    {"name": "strReplace", "input": {"path": "/tmp/foo.py"}, "id": "t1"},
+                    {"name": "executePwsh", "input": {"command": "python foo.py"}, "id": "t2"},
                 ],
             ),
         ]
@@ -232,7 +232,7 @@ class TestFindErrorsAfterEdits:
     def test_no_errors(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Edit", "input": {"file_path": "/tmp/foo.py"}, "id": "t1"}]
+                tools=[{"name": "strReplace", "input": {"path": "/tmp/foo.py"}, "id": "t1"}]
             ),
         ]
         result_map = {"t1": {"is_error": False, "content": "ok", "timestamp": ""}}
@@ -256,11 +256,11 @@ class TestCheckCompleteness:
     def test_all_read_first(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Read", "input": {"file_path": "/a.py"}, "id": "t1"}],
+                tools=[{"name": "readFile", "input": {"path": "/a.py"}, "id": "t1"}],
                 timestamp="2025-01-01T00:00:01Z",
             ),
             _make_assistant_record(
-                tools=[{"name": "Edit", "input": {"file_path": "/a.py"}, "id": "t2"}],
+                tools=[{"name": "strReplace", "input": {"path": "/a.py"}, "id": "t2"}],
                 timestamp="2025-01-01T00:00:02Z",
             ),
         ]
@@ -271,10 +271,10 @@ class TestCheckCompleteness:
     def test_all_blind(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Edit", "input": {"file_path": "/a.py"}, "id": "t1"}]
+                tools=[{"name": "strReplace", "input": {"path": "/a.py"}, "id": "t1"}]
             ),
             _make_assistant_record(
-                tools=[{"name": "Write", "input": {"file_path": "/b.py"}, "id": "t2"}]
+                tools=[{"name": "fsWrite", "input": {"path": "/b.py"}, "id": "t2"}]
             ),
         ]
         result = check_completeness(records, {})
@@ -284,13 +284,13 @@ class TestCheckCompleteness:
     def test_mixed(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Read", "input": {"file_path": "/a.py"}, "id": "t1"}],
+                tools=[{"name": "readFile", "input": {"path": "/a.py"}, "id": "t1"}],
                 timestamp="2025-01-01T00:00:01Z",
             ),
             _make_assistant_record(
                 tools=[
-                    {"name": "Edit", "input": {"file_path": "/a.py"}, "id": "t2"},
-                    {"name": "Edit", "input": {"file_path": "/b.py"}, "id": "t3"},
+                    {"name": "strReplace", "input": {"path": "/a.py"}, "id": "t2"},
+                    {"name": "editCode", "input": {"path": "/b.py"}, "id": "t3"},
                 ],
                 timestamp="2025-01-01T00:00:02Z",
             ),
@@ -302,7 +302,7 @@ class TestCheckCompleteness:
     def test_no_edits(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Read", "input": {"file_path": "/a.py"}, "id": "t1"}]
+                tools=[{"name": "readFile", "input": {"path": "/a.py"}, "id": "t1"}]
             ),
         ]
         result = check_completeness(records, {})
@@ -406,7 +406,7 @@ class TestCheckSafety:
     def test_no_errors(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "Edit", "input": {"file_path": "/a.py"}, "id": "t1"}]
+                tools=[{"name": "strReplace", "input": {"path": "/a.py"}, "id": "t1"}]
             ),
         ]
         result_map = {"t1": {"is_error": False, "content": "ok", "timestamp": ""}}
@@ -418,8 +418,8 @@ class TestCheckSafety:
         records = [
             _make_assistant_record(
                 tools=[
-                    {"name": "Edit", "input": {"file_path": "/a.py"}, "id": "t1"},
-                    {"name": "Bash", "input": {"command": "python a.py"}, "id": "t2"},
+                    {"name": "strReplace", "input": {"path": "/a.py"}, "id": "t1"},
+                    {"name": "executePwsh", "input": {"command": "python a.py"}, "id": "t2"},
                 ],
             ),
         ]
@@ -526,8 +526,8 @@ class TestCheckTaskAdherence:
             _make_user_record("Fix the login page"),
             _make_assistant_record(
                 tools=[
-                    {"name": "Read", "input": {"file_path": "/src/login.py"}, "id": "t1"},
-                    {"name": "Edit", "input": {"file_path": "/src/login.py"}, "id": "t2"},
+                    {"name": "readFile", "input": {"path": "/src/login.py"}, "id": "t1"},
+                    {"name": "strReplace", "input": {"path": "/src/login.py"}, "id": "t2"},
                 ],
             ),
         ]
@@ -540,8 +540,8 @@ class TestCheckTaskAdherence:
             _make_user_record("Fix the login page"),
             _make_assistant_record(
                 tools=[
-                    {"name": "Edit", "input": {"file_path": "/src/database.py"}, "id": "t1"},
-                    {"name": "Edit", "input": {"file_path": "/src/utils.py"}, "id": "t2"},
+                    {"name": "strReplace", "input": {"path": "/src/database.py"}, "id": "t1"},
+                    {"name": "strReplace", "input": {"path": "/src/utils.py"}, "id": "t2"},
                 ],
                 timestamp="2025-01-01T00:00:01Z",
             ),

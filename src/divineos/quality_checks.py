@@ -159,23 +159,38 @@ def _build_tool_result_map(records: list[dict[str, Any]]) -> dict[str, dict[str,
 
 
 def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Find Edit/Write calls where the file was never Read first."""
+    """Find write calls where the file was never read first."""
     files_read: set[str] = set()
     blind_edits: list[dict[str, Any]] = []
+    
+    # Map tool names to action types
+    read_tools = {"readFile", "readCode", "readMultipleFiles"}
+    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
     for r in records:
         if r.get("type") != "assistant":
             continue
         for tool in _extract_tool_calls(r):
             name = tool["name"]
-            path = tool["input"].get("file_path", "")
+            
+            # Extract path based on tool type
+            path = None
+            if name in read_tools:
+                path = tool["input"].get("path") or (
+                    tool["input"].get("paths")[0] if tool["input"].get("paths") else None
+                )
+            elif name in write_tools:
+                path = tool["input"].get("path") or tool["input"].get("targetFile")
+            
             if not path:
                 continue
+            
             # Normalize path for comparison
             norm_path = path.replace("\\", "/").lower()
-            if name == "Read":
+            
+            if name in read_tools:
                 files_read.add(norm_path)
-            elif name in ("Edit", "Write"):
+            elif name in write_tools:
                 was_read = norm_path in files_read
                 if not was_read:
                     blind_edits.append(
@@ -194,28 +209,46 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract all file operations (Read/Edit/Write) with paths and ordering."""
     ops: list[dict[str, Any]] = []
+    
+    # Map tool names to action types
+    read_tools = {"readFile", "readCode", "readMultipleFiles"}
+    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+    
     for r in records:
         if r.get("type") != "assistant":
             continue
         for tool in _extract_tool_calls(r):
-            if tool["name"] in ("Read", "Edit", "Write"):
-                path = tool["input"].get("file_path", "")
-                if path:
-                    ops.append(
-                        {
-                            "action": tool["name"].lower(),
-                            "file_path": path,
-                            "tool_id": tool["id"],
-                            "timestamp": tool["timestamp"],
-                        }
-                    )
+            action = None
+            path = None
+            
+            # Determine action type and extract path
+            if tool["name"] in read_tools:
+                action = "read"
+                # readFile and readCode use "path", readMultipleFiles uses "paths"
+                path = tool["input"].get("path") or (
+                    tool["input"].get("paths")[0] if tool["input"].get("paths") else None
+                )
+            elif tool["name"] in write_tools:
+                action = "write"
+                # Most write tools use "path", fsWrite uses "path"
+                path = tool["input"].get("path") or tool["input"].get("targetFile")
+            
+            if action and path:
+                ops.append(
+                    {
+                        "action": action,
+                        "file_path": path,
+                        "tool_id": tool["id"],
+                        "timestamp": tool["timestamp"],
+                    }
+                )
     return ops
 
 
 def _extract_test_results(
     records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Find Bash tool calls that look like test runs and extract pass/fail."""
+    """Find shell tool calls that look like test runs and extract pass/fail."""
     test_patterns = re.compile(
         r"\b(pytest|py\.test|npm\s+test|cargo\s+test|go\s+test|make\s+test|"
         r"python\s+-m\s+pytest|npx\s+jest|jest|mocha|rspec|unittest)\b",
@@ -227,7 +260,8 @@ def _extract_test_results(
         if r.get("type") != "assistant":
             continue
         for tool in _extract_tool_calls(r):
-            if tool["name"] != "Bash":
+            # Match both old "Bash" and new "executePwsh" tool names
+            if tool["name"] not in ("Bash", "executePwsh"):
                 continue
             command = tool["input"].get("command", "")
             if not test_patterns.search(command):
@@ -268,17 +302,21 @@ def _extract_test_results(
 def _find_errors_after_edits(
     records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Find errors in tool results that occur after Edit/Write operations."""
+    """Find errors in tool results that occur after write operations."""
     last_edit: Optional[dict[str, Any]] = None
     errors_after_edits: list[dict[str, Any]] = []
+    
+    # Map tool names to action types
+    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
     for r in records:
         if r.get("type") == "assistant":
             for tool in _extract_tool_calls(r):
-                if tool["name"] in ("Edit", "Write"):
+                if tool["name"] in write_tools:
+                    path = tool["input"].get("path") or tool["input"].get("targetFile")
                     last_edit = {
                         "tool": tool["name"],
-                        "file_path": tool["input"].get("file_path", ""),
+                        "file_path": path,
                         "tool_id": tool["id"],
                         "timestamp": tool["timestamp"],
                     }
