@@ -482,7 +482,7 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
                 "SESSION_ANALYSIS",
                 {
                     "session_id": result.session_id,
-                    "report_text": report_text[:500] if report_text else "",  # First 500 chars
+                    "report_text": report_text if report_text else "",
                     "evidence_hash": result.evidence_hash,
                 },
                 actor="system",

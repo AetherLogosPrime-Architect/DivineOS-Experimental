@@ -1296,10 +1296,24 @@ def emit_cmd(
                 payload = events[-1]["payload"]
                 click.secho(f"    Payload: {json.dumps(payload, indent=2)}", fg="cyan")
 
+        elif event_type == "EXPLANATION":
+            if not content:
+                click.secho("[-] EXPLANATION requires --content", fg="red")
+                sys.exit(1)
+            event_id = emit_event(
+                "EXPLANATION",
+                {"content": content},
+                actor="assistant",
+                validate=False
+            )
+            click.secho("[+] Event emitted: EXPLANATION", fg="green")
+            click.secho(f"    Event ID: {event_id}", fg="cyan")
+            click.secho(f"    Content: {content[:100]}...", fg="cyan")
+
         else:
             click.secho(f"[-] Unknown event type: {event_type}", fg="red")
             click.secho(
-                "    Supported types: USER_INPUT, ASSISTANT_OUTPUT, TOOL_CALL, TOOL_RESULT, SESSION_END",
+                "    Supported types: USER_INPUT, ASSISTANT_OUTPUT, TOOL_CALL, TOOL_RESULT, SESSION_END, EXPLANATION",
                 fg="yellow",
             )
             sys.exit(1)

@@ -793,6 +793,7 @@ def check_clarity(
     explanations_with_tools = 0
     jargon_found: list[str] = []
     text_blocks_count = 0
+    ledger_explanation_count = 0
 
     # Process each reconstructed message
     for group in message_groups.values():
@@ -831,7 +832,15 @@ def check_clarity(
                 if text_idx < first_tool_index:
                     explanations_with_tools += 1
 
-    if total_tool_calls == 0 and text_blocks_count == 0:
+    # Count EXPLANATION events from ledger
+    try:
+        from divineos.ledger import count_events
+        event_counts = count_events()
+        ledger_explanation_count = event_counts.get("by_type", {}).get("EXPLANATION", 0)
+    except Exception:
+        ledger_explanation_count = 0
+
+    if total_tool_calls == 0 and text_blocks_count == 0 and ledger_explanation_count == 0:
         return CheckResult(
             check_name="clarity",
             passed=-1,
@@ -853,7 +862,7 @@ def check_clarity(
     if total_tool_calls > 0:
         # Use the maximum of message-based or ledger-based explanation counts
         # This handles cases where explanations are in ledger but not in message records
-        final_explanation_count = max(explanations_with_tools, 0)
+        final_explanation_count = max(explanations_with_tools, ledger_explanation_count)
         parts.append(
             f"The AI made {total_tool_calls} changes and explained what it was doing "
             f"{final_explanation_count} time{'s' if final_explanation_count != 1 else ''}."
@@ -889,6 +898,7 @@ def check_clarity(
                 "tool_calls": total_tool_calls,
                 "text_chars": total_text_chars,
                 "explanations_with_tools": explanations_with_tools,
+                "ledger_explanation_events": ledger_explanation_count,
                 "ratio_chars_per_tool": round(ratio, 1) if ratio != float("inf") else None,
                 "jargon_found": jargon_found,
             }
