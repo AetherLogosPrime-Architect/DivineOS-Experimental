@@ -155,14 +155,20 @@ class ClarityChecker:
             return False
         return True
 
-    def check_clarity_for_session(self, session_id: str) -> dict[str, Any]:
+    def check_clarity_for_session(
+        self, session_id: str, raise_on_violations: bool = False
+    ) -> dict[str, Any]:
         """Check clarity for a session by querying the ledger.
 
         Args:
             session_id: Session ID to check
+            raise_on_violations: If True, raise ClarityViolation if violations found
 
         Returns:
             Report dict with violations and stats
+
+        Raises:
+            ClarityViolation: If raise_on_violations=True and violations found
         """
         try:
             from divineos.core.ledger import get_events
@@ -191,13 +197,26 @@ class ClarityChecker:
                         }
                     )
 
-            return {
+            report = {
                 "session_id": session_id,
                 "total_calls": len(tool_calls),
                 "explained_calls": len(explained_tool_ids),
                 "violations": violations,
                 "clarity_score": len(explained_tool_ids) / max(len(tool_calls), 1),
             }
+
+            # Raise if violations found and requested
+            if raise_on_violations and violations:
+                violation_details = "\n".join(
+                    f"  - {v['tool_name']} ({v['tool_call_id']}): {v['reason']}" for v in violations
+                )
+                raise ClarityViolation(
+                    f"Found {len(violations)} unexplained tool calls:\n{violation_details}"
+                )
+
+            return report
+        except ClarityViolation:
+            raise
         except Exception as e:
             logger.error(f"Failed to check clarity for session {session_id}: {e}", exc_info=True)
             return {
@@ -205,6 +224,17 @@ class ClarityChecker:
                 "error": str(e),
                 "clarity_score": 0.0,
             }
+
+    def enforce_clarity(self, session_id: str) -> None:
+        """Enforce clarity by checking the ledger and raising on violations.
+
+        Args:
+            session_id: Session ID to enforce clarity for
+
+        Raises:
+            ClarityViolation: If any unexplained tool calls are found
+        """
+        self.check_clarity_for_session(session_id, raise_on_violations=True)
 
     def get_clarity_report(self) -> dict:
         """Generate a clarity report for the session."""

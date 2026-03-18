@@ -9,14 +9,15 @@ The server exposes:
 - emit_tool_result: Emit a TOOL_RESULT event after tool execution
 - get_session_id: Get the current session ID for correlation
 
-This allows the IDE to integrate event capture without modifying tool execution.
+This server uses the unified tool capture system for consistency.
 """
 
 import json
 from typing import Any, Dict, Optional
 from loguru import logger
 
-from divineos.event.event_emission import emit_tool_call, emit_tool_result, get_or_create_session_id
+from divineos.event.event_emission import get_or_create_session_id
+from divineos.integration.unified_tool_capture import capture_tool_execution
 
 
 def emit_tool_call_mcp(
@@ -37,14 +38,17 @@ def emit_tool_call_mcp(
     """
     try:
         session_id = get_or_create_session_id(session_id)
-        event_id = emit_tool_call(
+        # Use unified capture to emit both TOOL_CALL and TOOL_RESULT
+        # For MCP, we just emit the TOOL_CALL part
+        tool_call_id, _ = capture_tool_execution(
             tool_name=tool_name,
             tool_input=tool_input,
-            session_id=session_id,
+            result="",
+            duration_ms=0,
         )
         return {
             "status": "success",
-            "event_id": event_id,
+            "event_id": tool_call_id,
             "tool_name": tool_name,
             "session_id": session_id,
         }
@@ -83,18 +87,18 @@ def emit_tool_result_mcp(
     """
     try:
         session_id = get_or_create_session_id(session_id)
-        event_id = emit_tool_result(
+        # Use unified capture to emit TOOL_RESULT
+        _, tool_result_id = capture_tool_execution(
             tool_name=tool_name,
-            tool_use_id=tool_use_id,
+            tool_input={"tool_use_id": tool_use_id},
             result=result,
             duration_ms=duration_ms,
             failed=failed,
             error_message=error_message,
-            session_id=session_id,
         )
         return {
             "status": "success",
-            "event_id": event_id,
+            "event_id": tool_result_id,
             "tool_name": tool_name,
             "session_id": session_id,
             "duration_ms": duration_ms,
