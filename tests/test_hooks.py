@@ -364,4 +364,3 @@ class TestHookActions:
         assert "divineos emit SESSION_END" in prompt, (
             "Prompt should reference divineos emit SESSION_END command"
         )
-

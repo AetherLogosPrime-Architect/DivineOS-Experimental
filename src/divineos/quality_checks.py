@@ -162,7 +162,7 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Find write calls where the file was never read first."""
     files_read: set[str] = set()
     blind_edits: list[dict[str, Any]] = []
-    
+
     # Map tool names to action types
     read_tools = {"readFile", "readCode", "readMultipleFiles"}
     write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
@@ -172,7 +172,7 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             continue
         for tool in _extract_tool_calls(r):
             name = tool["name"]
-            
+
             # Extract path based on tool type
             path = None
             if name in read_tools:
@@ -181,13 +181,13 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 )
             elif name in write_tools:
                 path = tool["input"].get("path") or tool["input"].get("targetFile")
-            
+
             if not path:
                 continue
-            
+
             # Normalize path for comparison
             norm_path = path.replace("\\", "/").lower()
-            
+
             if name in read_tools:
                 files_read.add(norm_path)
             elif name in write_tools:
@@ -209,18 +209,18 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract all file operations (Read/Edit/Write) with paths and ordering."""
     ops: list[dict[str, Any]] = []
-    
+
     # Map tool names to action types
     read_tools = {"readFile", "readCode", "readMultipleFiles"}
     write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
-    
+
     for r in records:
         if r.get("type") != "assistant":
             continue
         for tool in _extract_tool_calls(r):
             action = None
             path = None
-            
+
             # Determine action type and extract path
             if tool["name"] in read_tools:
                 action = "read"
@@ -232,7 +232,7 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 action = "write"
                 # Most write tools use "path", fsWrite uses "path"
                 path = tool["input"].get("path") or tool["input"].get("targetFile")
-            
+
             if action and path:
                 ops.append(
                     {
@@ -305,7 +305,7 @@ def _find_errors_after_edits(
     """Find errors in tool results that occur after write operations."""
     last_edit: Optional[dict[str, Any]] = None
     errors_after_edits: list[dict[str, Any]] = []
-    
+
     # Map tool names to action types
     write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
