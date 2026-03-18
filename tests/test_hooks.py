@@ -21,9 +21,9 @@ class TestHookFileFormat:
     def test_hook_files_exist(self, hooks_dir):
         """Test that all required hook files exist."""
         required_hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in required_hooks:
@@ -81,9 +81,9 @@ class TestHookSchema:
         required_fields = ["name", "version", "when", "then"]
 
         hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in hooks:
@@ -94,9 +94,9 @@ class TestHookSchema:
     def test_hook_when_has_type(self, load_hook):
         """Test that hook 'when' clause has 'type' field."""
         hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in hooks:
@@ -106,9 +106,9 @@ class TestHookSchema:
     def test_hook_then_has_type(self, load_hook):
         """Test that hook 'then' clause has 'type' field."""
         hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in hooks:
@@ -117,12 +117,19 @@ class TestHookSchema:
 
     def test_hook_when_type_valid(self, load_hook):
         """Test that hook 'when' type is valid."""
-        valid_types = ["promptSubmit", "postToolUse", "agentStop", "preToolUse", "fileEdited"]
+        valid_types = [
+            "promptSubmit",
+            "postToolUse",
+            "agentStop",
+            "preToolUse",
+            "fileEdited",
+            "userTriggered",
+        ]
 
         hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in hooks:
@@ -137,9 +144,9 @@ class TestHookSchema:
         valid_types = ["askAgent", "runCommand"]
 
         hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in hooks:
@@ -152,8 +159,8 @@ class TestHookSchema:
     def test_hook_askagent_has_prompt(self, load_hook):
         """Test that askAgent hooks have 'prompt' field."""
         askagent_hooks = [
-            "capture-user-input.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "capture-session-end.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in askagent_hooks:
@@ -164,7 +171,7 @@ class TestHookSchema:
     def test_hook_runcommand_has_command(self, load_hook):
         """Test that runCommand hooks have 'command' field."""
         runcommand_hooks = [
-            "capture-session-end.kiro.hook",
+            "test-after-edits.kiro.hook",
         ]
 
         for hook_name in runcommand_hooks:
@@ -175,9 +182,9 @@ class TestHookSchema:
     def test_hook_version_format(self, load_hook):
         """Test that hook version is in valid format."""
         hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in hooks:
@@ -208,41 +215,41 @@ class TestHookContent:
         return _load
 
     def test_capture_user_input_hook(self, load_hook):
-        """Test capture-user-input hook configuration."""
-        hook = load_hook("capture-user-input.kiro.hook")
+        """Test capture-session-end hook configuration (manual trigger)."""
+        hook = load_hook("capture-session-end.kiro.hook")
 
-        assert hook["name"] == "Capture user input to ledger"
-        assert hook["when"]["type"] == "promptSubmit"
+        assert hook["name"] == "Capture session end"
+        assert hook["when"]["type"] == "userTriggered"
         assert hook["then"]["type"] == "askAgent"
         assert "prompt" in hook["then"]
-        assert len(hook["then"]["prompt"]) > 0
+        assert "divineos emit SESSION_END" in hook["then"]["prompt"]
 
     def test_capture_session_end_hook(self, load_hook):
         """Test capture-session-end hook configuration."""
         hook = load_hook("capture-session-end.kiro.hook")
 
         assert hook["name"] == "Capture session end"
-        assert hook["when"]["type"] == "agentStop"
+        assert hook["when"]["type"] == "userTriggered"
         assert hook["then"]["type"] == "askAgent"
         assert "prompt" in hook["then"]
         assert "divineos emit SESSION_END" in hook["then"]["prompt"]
 
     def test_auto_analyze_sessions_hook(self, load_hook):
-        """Test auto-analyze-sessions hook configuration."""
-        hook = load_hook("auto-analyze-sessions.kiro.hook")
+        """Test test-after-edits hook configuration."""
+        hook = load_hook("test-after-edits.kiro.hook")
 
-        assert hook["name"] == "Auto-analyze sessions"
-        assert hook["when"]["type"] == "agentStop"
-        assert hook["then"]["type"] == "askAgent"
-        assert "prompt" in hook["then"]
-        assert "analyze" in hook["then"]["prompt"].lower()
+        assert hook["name"] == "Test After Code Changes"
+        assert hook["when"]["type"] == "postToolUse"
+        assert hook["then"]["type"] == "runCommand"
+        assert "command" in hook["then"]
+        assert "pytest" in hook["then"]["command"]
 
     def test_hook_descriptions_present(self, load_hook):
         """Test that all hooks have descriptions."""
         hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in hooks:
@@ -253,9 +260,9 @@ class TestHookContent:
     def test_hook_names_unique(self, load_hook):
         """Test that all hook names are unique."""
         hooks = [
-            "capture-user-input.kiro.hook",
             "capture-session-end.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "test-after-edits.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         names = []
@@ -287,29 +294,21 @@ class TestHookTriggers:
 
     def test_promptsubmit_trigger(self, load_hook):
         """Test that promptSubmit trigger is configured correctly."""
-        hook = load_hook("capture-user-input.kiro.hook")
-        assert hook["when"]["type"] == "promptSubmit"
+        hook = load_hook("verify-before-claim.kiro.hook")
+        assert hook["when"]["type"] == "preToolUse"
 
     def test_agentstop_triggers(self, load_hook):
-        """Test that agentStop triggers are configured correctly."""
+        """Test that userTriggered trigger is configured correctly."""
         session_end_hook = load_hook("capture-session-end.kiro.hook")
-        assert session_end_hook["when"]["type"] == "agentStop"
-
-        analyze_hook = load_hook("auto-analyze-sessions.kiro.hook")
-        assert analyze_hook["when"]["type"] == "agentStop"
+        assert session_end_hook["when"]["type"] == "userTriggered"
 
     def test_multiple_hooks_same_trigger(self, load_hook):
         """Test that multiple hooks can trigger on same event."""
-        session_end_hook = load_hook("capture-session-end.kiro.hook")
-        analyze_hook = load_hook("auto-analyze-sessions.kiro.hook")
+        test_hook = load_hook("test-after-edits.kiro.hook")
 
-        # Both should trigger on agentStop
-        assert session_end_hook["when"]["type"] == "agentStop"
-        assert analyze_hook["when"]["type"] == "agentStop"
-
-        # Both should use askAgent to ensure proper event emission
-        assert session_end_hook["then"]["type"] == "askAgent"
-        assert analyze_hook["then"]["type"] == "askAgent"
+        # test-after-edits should trigger on postToolUse
+        assert test_hook["when"]["type"] == "postToolUse"
+        assert test_hook["then"]["type"] == "runCommand"
 
 
 class TestHookActions:
@@ -334,8 +333,8 @@ class TestHookActions:
     def test_askagent_actions(self, load_hook):
         """Test that askAgent actions are configured correctly."""
         askagent_hooks = [
-            "capture-user-input.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "capture-session-end.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in askagent_hooks:
@@ -347,8 +346,8 @@ class TestHookActions:
     def test_prompts_not_empty(self, load_hook):
         """Test that all prompts are not empty."""
         askagent_hooks = [
-            "capture-user-input.kiro.hook",
-            "auto-analyze-sessions.kiro.hook",
+            "capture-session-end.kiro.hook",
+            "verify-before-claim.kiro.hook",
         ]
 
         for hook_name in askagent_hooks:
