@@ -33,7 +33,7 @@ def analyze_agent_behavior(session_id: str) -> BehaviorAnalysis:
 
     try:
         # Get all events in session
-        events = get_events(session_id=session_id, limit=10000)
+        events = get_events(limit=10000)
         logger.debug(f"Retrieved {len(events)} events from session")
 
         # Calculate all metrics
@@ -82,7 +82,7 @@ def calculate_tool_frequency(events: List[Dict[str, Any]]) -> Dict[str, int]:
     Returns:
         Dictionary of tool_name -> call_count
     """
-    frequency = defaultdict(int)
+    frequency: Dict[str, int] = defaultdict(int)
 
     for event in events:
         if event.get("event_type") == "TOOL_CALL":
@@ -104,7 +104,7 @@ def calculate_success_rates(events: List[Dict[str, Any]]) -> Dict[str, float]:
         Dictionary of tool_name -> success_rate (0.0-1.0)
     """
     success_rates = {}
-    tool_stats = defaultdict(lambda: {"total": 0, "success": 0})
+    tool_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {"total": 0, "success": 0})
 
     for event in events:
         if event.get("event_type") == "TOOL_RESULT":
@@ -174,7 +174,9 @@ def analyze_error_patterns(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, 
         Dictionary of tool_name -> {error_count, error_types, error_rate}
     """
     error_patterns = {}
-    tool_errors = defaultdict(lambda: {"total": 0, "errors": defaultdict(int), "failed": 0})
+    tool_errors: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {"total": 0, "errors": defaultdict(int), "failed": 0}
+    )
 
     # Collect errors
     for event in events:
@@ -213,7 +215,7 @@ def analyze_correction_patterns(events: List[Dict[str, Any]]) -> Dict[str, int]:
     Returns:
         Dictionary of tool_name -> correction_count
     """
-    correction_patterns = defaultdict(int)
+    correction_patterns: Dict[str, int] = defaultdict(int)
     failed_tools = defaultdict(list)
 
     # Find failed tool calls
@@ -252,7 +254,7 @@ def analyze_decision_patterns(events: List[Dict[str, Any]]) -> Dict[str, int]:
     Returns:
         Dictionary of decision_type -> count
     """
-    decision_patterns = defaultdict(int)
+    decision_patterns: Dict[str, int] = defaultdict(int)
 
     # Count USER_INPUT events (user decisions)
     for event in events:

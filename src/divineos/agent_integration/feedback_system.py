@@ -45,7 +45,7 @@ def generate_session_feedback(session_id: str) -> SessionFeedback:
         logger.debug(f"Generated {len(recommendations)} recommendations")
 
         # Get historical patterns (for now, empty)
-        historical = {}
+        historical: Dict[str, Any] = {}
         comparison = compare_to_historical_patterns(analysis, historical)
         logger.debug("Historical comparison complete")
 

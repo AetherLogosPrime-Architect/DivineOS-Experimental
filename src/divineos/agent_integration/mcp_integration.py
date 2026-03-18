@@ -83,9 +83,8 @@ def emit_agent_tool_call(
         try:
             with mark_internal_operation():
                 emit_explanation(
-                    content=f"Tool '{tool_name}' called without proper explanation",
+                    explanation_text=f"Tool '{tool_name}' called without proper explanation",
                     session_id=session_id,
-                    actor="assistant",
                 )
         except Exception as e:
             logger.error(f"Failed to emit explanation warning: {e}")
@@ -101,7 +100,6 @@ def emit_agent_tool_call(
                 tool_input=tool_input,
                 tool_use_id=tool_use_id,
                 session_id=session_id,
-                actor="assistant",
             )
         logger.debug(
             f"Emitted TOOL_CALL: {tool_name} (tool_use_id={tool_use_id[:8]}..., "
@@ -159,7 +157,6 @@ def emit_agent_tool_result(
                 failed=failed,
                 error_message=error_message,
                 session_id=session_id,
-                actor="assistant",
             )
         logger.debug(
             f"Emitted TOOL_RESULT: {tool_name} (tool_use_id={tool_use_id[:8]}..., "

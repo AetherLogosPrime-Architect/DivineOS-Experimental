@@ -7,7 +7,7 @@ from event capture. Uses thread-local storage to maintain operation context.
 
 import threading
 from contextlib import contextmanager
-from typing import Set, Optional
+from typing import Set, Optional, Any, cast
 
 from divineos.agent_integration.logging_config import loop_prevention_logger as logger
 from divineos.agent_integration.types import INTERNAL_TOOLS
@@ -126,7 +126,7 @@ def pop_operation() -> Optional[str]:
         _operation_context.operation_stack = []
 
     if _operation_context.operation_stack:
-        tool_name = _operation_context.operation_stack.pop()
+        tool_name: Optional[str] = _operation_context.operation_stack.pop()
         logger.debug(
             f"Popped {tool_name} from operation stack: {_operation_context.operation_stack}"
         )
@@ -135,7 +135,7 @@ def pop_operation() -> Optional[str]:
     return None
 
 
-def get_operation_stack() -> list:
+def get_operation_stack() -> list[Any]:
     """
     Get the current operation stack.
 
@@ -145,7 +145,7 @@ def get_operation_stack() -> list:
     if not hasattr(_operation_context, "operation_stack"):
         _operation_context.operation_stack = []
 
-    return _operation_context.operation_stack.copy()
+    return cast(list[Any], list(_operation_context.operation_stack))
 
 
 def clear_operation_stack() -> None:
