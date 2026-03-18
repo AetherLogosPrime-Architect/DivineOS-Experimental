@@ -8,11 +8,33 @@ ensuring all agent tool calls are tracked within the current session.
 import os
 
 from divineos.agent_integration.logging_config import logger
-from divineos.core.session_manager import (
-    get_current_session_id as get_session_id,
-    get_session_metadata,
-    update_session_metadata,
-)
+from divineos.core.session_manager import get_current_session_id as get_session_id
+
+
+def get_session_metadata(session_id: str) -> dict:
+    """
+    Get metadata for a session.
+
+    Args:
+        session_id: Session ID
+
+    Returns:
+        Dictionary with session metadata
+    """
+    # Placeholder implementation - returns empty dict
+    return {}
+
+
+def update_session_metadata(session_id: str, metadata: dict) -> None:
+    """
+    Update metadata for a session.
+
+    Args:
+        session_id: Session ID
+        metadata: Metadata dictionary to update
+    """
+    # Placeholder implementation
+    pass
 
 
 def get_agent_session_id() -> str:

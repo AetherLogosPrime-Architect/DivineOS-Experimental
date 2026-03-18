@@ -42,7 +42,7 @@ def analyze_session_for_lessons(session_id: str) -> SessionLessons:
 
     try:
         # Get all events in session
-        events = get_events(session_id=session_id, limit=10000)
+        events = get_events(limit=10000)
         logger.debug(f"Retrieved {len(events)} events from session")
 
         # Create lessons object
@@ -139,8 +139,7 @@ def extract_encouragements(events: List[Dict[str, Any]]) -> List[Encouragement]:
         List of Encouragement objects
     """
     encouragements = []
-    defaultdict(int)
-    successful_tools = defaultdict(int)
+    successful_tools: Dict[str, int] = defaultdict(int)
 
     # Track successful tool calls
     for event in events:
@@ -204,7 +203,9 @@ def extract_tool_patterns(events: List[Dict[str, Any]]) -> Dict[str, ToolPattern
         Dictionary of tool_name -> ToolPattern
     """
     patterns = {}
-    tool_stats = defaultdict(lambda: {"calls": 0, "successes": 0, "failures": 0, "durations": []})
+    tool_stats: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {"calls": 0, "successes": 0, "failures": 0, "durations": []}
+    )
 
     # Collect statistics
     for event in events:
@@ -313,7 +314,9 @@ def extract_error_patterns(events: List[Dict[str, Any]]) -> Dict[str, ErrorPatte
         Dictionary of tool_name -> ErrorPattern
     """
     patterns = {}
-    tool_errors = defaultdict(lambda: {"total": 0, "errors": defaultdict(int), "failed": 0})
+    tool_errors: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {"total": 0, "errors": defaultdict(int), "failed": 0}
+    )
 
     # Collect errors
     for event in events:
