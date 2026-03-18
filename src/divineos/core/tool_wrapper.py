@@ -104,6 +104,13 @@ def wrap_tool_execution(
     5. Emits TOOL_RESULT event after execution
     6. Preserves original return value and exceptions
 
+    Error Handling:
+    - Catches validation errors during event emission
+    - Catches ledger errors during storage
+    - Logs errors without crashing
+    - Preserves original tool exceptions
+    - Ensures TOOL_RESULT is always emitted (even on error)
+
     Args:
         tool_name: Name of the tool being wrapped
         tool_func: The tool function to wrap
@@ -116,6 +123,7 @@ def wrap_tool_execution(
         - Requirement 2.1-2.8: Emit TOOL_CALL events
         - Requirement 3.1-3.9: Emit TOOL_RESULT events
         - Requirement 6.1-6.7: Preserve tool behavior
+        - Requirement 10.1-10.6: Handle errors gracefully
     """
 
     @wraps(tool_func)
@@ -134,17 +142,21 @@ def wrap_tool_execution(
             "kwargs": kwargs,
         }
 
+        # Emit TOOL_CALL event with error handling
         try:
-            # Emit TOOL_CALL event
             logger.debug(f"Emitting TOOL_CALL event for {tool_name}")
             emit_tool_call(
                 tool_name=tool_name,
                 tool_input=tool_input,
                 tool_use_id=use_id,
             )
+            logger.debug(f"TOOL_CALL event emitted successfully for {tool_name}")
+        except ValueError as e:
+            logger.error(f"Validation error during TOOL_CALL event emission: {e}")
+            logger.warning(f"Continuing without TOOL_CALL event for {tool_name}")
         except Exception as e:
-            logger.error(f"Failed to emit TOOL_CALL event: {e}")
-            # Continue execution even if event capture fails
+            logger.error(f"Failed to emit TOOL_CALL event for {tool_name}: {e}", exc_info=True)
+            logger.warning(f"Continuing without TOOL_CALL event for {tool_name}")
 
         # Measure execution time
         start_time = time.time()
@@ -155,13 +167,14 @@ def wrap_tool_execution(
         try:
             # Execute the tool
             result = tool_func(*args, **kwargs)
+            logger.debug(f"Tool {tool_name} executed successfully")
             return result
 
         except Exception as e:
             # Tool execution failed
             failed = True
             error_message = str(e)
-            logger.error(f"Tool {tool_name} failed: {error_message}")
+            logger.error(f"Tool {tool_name} failed: {error_message}", exc_info=True)
 
             # Emit TOOL_RESULT event with error
             duration_ms = int((time.time() - start_time) * 1000)
@@ -174,8 +187,15 @@ def wrap_tool_execution(
                     failed=True,
                     error_message=error_message,
                 )
+                logger.debug(f"TOOL_RESULT event emitted for failed tool {tool_name}")
+            except ValueError as e2:
+                logger.error(f"Validation error during TOOL_RESULT event emission: {e2}")
+                logger.warning(f"Continuing without TOOL_RESULT event for {tool_name}")
             except Exception as e2:
-                logger.error(f"Failed to emit TOOL_RESULT event: {e2}")
+                logger.error(
+                    f"Failed to emit TOOL_RESULT event for {tool_name}: {e2}", exc_info=True
+                )
+                logger.warning(f"Continuing without TOOL_RESULT event for {tool_name}")
 
             # Re-raise the original exception
             raise
@@ -193,9 +213,15 @@ def wrap_tool_execution(
                         duration_ms=duration_ms,
                         failed=False,
                     )
+                    logger.debug(f"TOOL_RESULT event emitted successfully for {tool_name}")
+                except ValueError as e:
+                    logger.error(f"Validation error during TOOL_RESULT event emission: {e}")
+                    logger.warning(f"Continuing without TOOL_RESULT event for {tool_name}")
                 except Exception as e:
-                    logger.error(f"Failed to emit TOOL_RESULT event: {e}")
-                    # Continue execution even if event capture fails
+                    logger.error(
+                        f"Failed to emit TOOL_RESULT event for {tool_name}: {e}", exc_info=True
+                    )
+                    logger.warning(f"Continuing without TOOL_RESULT event for {tool_name}")
 
     return wrapper
 

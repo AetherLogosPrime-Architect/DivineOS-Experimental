@@ -43,6 +43,12 @@ def _read_session_file() -> Optional[str]:
     """
     Read session_id from persistent file.
 
+    Error Handling:
+    - Catches file read errors
+    - Catches permission errors
+    - Logs warnings without crashing
+    - Returns None on any error
+
     Returns:
         Optional[str]: Session ID if file exists and is readable, None otherwise
     """
@@ -54,14 +60,25 @@ def _read_session_file() -> Optional[str]:
                 if content:
                     logger.debug(f"Read session_id from file: {content}")
                     return content
+            except PermissionError as e:
+                logger.warning(f"Permission denied reading session file: {e}")
+            except FileNotFoundError as e:
+                logger.warning(f"Session file not found: {e}")
             except Exception as e:
-                logger.warning(f"Failed to read session file: {e}")
+                logger.warning(f"Failed to read session file: {e}", exc_info=True)
         return None
 
 
 def _write_session_file(session_id: str) -> bool:
     """
     Write session_id to persistent file.
+
+    Error Handling:
+    - Catches directory creation errors
+    - Catches file write errors
+    - Catches permission errors
+    - Logs warnings without crashing
+    - Returns False on any error
 
     Args:
         session_id: Session ID to persist
@@ -76,14 +93,26 @@ def _write_session_file(session_id: str) -> bool:
             session_file.write_text(session_id)
             logger.debug(f"Wrote session_id to file: {session_id}")
             return True
+        except PermissionError as e:
+            logger.warning(f"Permission denied writing session file: {e}")
+            return False
+        except OSError as e:
+            logger.warning(f"OS error writing session file: {e}")
+            return False
         except Exception as e:
-            logger.warning(f"Failed to write session file: {e}")
+            logger.warning(f"Failed to write session file: {e}", exc_info=True)
             return False
 
 
 def _clear_session_file() -> bool:
     """
     Clear the persistent session file.
+
+    Error Handling:
+    - Catches file deletion errors
+    - Catches permission errors
+    - Logs warnings without crashing
+    - Returns True even if file doesn't exist
 
     Returns:
         bool: True if successful, False otherwise
@@ -95,8 +124,14 @@ def _clear_session_file() -> bool:
                 session_file.unlink()
                 logger.debug("Cleared session file")
             return True
+        except PermissionError as e:
+            logger.warning(f"Permission denied deleting session file: {e}")
+            return False
+        except FileNotFoundError as e:
+            logger.debug(f"Session file already deleted: {e}")
+            return True
         except Exception as e:
-            logger.warning(f"Failed to clear session file: {e}")
+            logger.warning(f"Failed to clear session file: {e}", exc_info=True)
             return False
 
 
@@ -110,6 +145,12 @@ def initialize_session() -> str:
     3. Generates new session_id if neither exists
     4. Persists session_id to file and environment variable
 
+    Error Handling:
+    - Catches file read/write errors
+    - Generates new session_id on persistence failure
+    - Logs errors without crashing
+    - Always returns a valid session_id
+
     Returns:
         str: The session ID to use for this session
 
@@ -119,6 +160,7 @@ def initialize_session() -> str:
         - Requirement 8.3: Set session_id as environment variable
         - Requirement 8.4: Check environment variable for existing session_id
         - Requirement 8.5: Check persistent file for existing session_id
+        - Requirement 10.1-10.6: Handle errors gracefully
     """
     global _current_session_id, _session_start_time
 
@@ -142,11 +184,17 @@ def initialize_session() -> str:
         new_session_id = str(uuid.uuid4())
         logger.debug(f"Generated new session_id: {new_session_id}")
 
-        # Persist to file
-        _write_session_file(new_session_id)
+        # Persist to file (with error handling)
+        if not _write_session_file(new_session_id):
+            logger.warning(
+                "Failed to persist session_id to file, continuing with in-memory session"
+            )
 
         # Set environment variable
-        os.environ["DIVINEOS_SESSION_ID"] = new_session_id
+        try:
+            os.environ["DIVINEOS_SESSION_ID"] = new_session_id
+        except Exception as e:
+            logger.warning(f"Failed to set environment variable: {e}")
 
         # Store in global state
         _current_session_id = new_session_id
@@ -222,6 +270,12 @@ def end_session() -> str:
     3. Emits SESSION_END event
     4. Clears session state
 
+    Error Handling:
+    - Catches SESSION_END event emission errors
+    - Attempts to clear session state even if SESSION_END fails
+    - Logs errors without crashing
+    - Returns event_id if successful, empty string on error
+
     Returns:
         str: The event_id of the SESSION_END event
 
@@ -230,6 +284,7 @@ def end_session() -> str:
         - Requirement 4.2: Emit SESSION_END event
         - Requirement 8.7: Clear persistent session_id file
         - Requirement 8.8: Clear environment variable
+        - Requirement 10.1-10.6: Handle errors gracefully
     """
     with mark_internal_operation():
         from divineos.event.event_emission import emit_session_end
@@ -238,19 +293,31 @@ def end_session() -> str:
             session_id = get_current_session_id()
             logger.debug(f"Ending session: {session_id}")
 
-            # Emit SESSION_END event
-            event_id = emit_session_end(session_id=session_id)
+            # Emit SESSION_END event with error handling
+            event_id = ""
+            try:
+                event_id = emit_session_end(session_id=session_id)
+                logger.debug(f"SESSION_END event emitted: {event_id}")
+            except ValueError as e:
+                logger.error(f"Validation error during SESSION_END event emission: {e}")
+                logger.warning("Continuing with session cleanup")
+            except Exception as e:
+                logger.error(f"Failed to emit SESSION_END event: {e}", exc_info=True)
+                logger.warning("Continuing with session cleanup")
 
-            # Clear session state
+            # Clear session state (always attempt this)
             clear_session()
 
             logger.debug(f"Session ended: {session_id}")
             return event_id
 
         except Exception as e:
-            logger.error(f"Failed to end session: {e}")
+            logger.error(f"Unexpected error during session end: {e}", exc_info=True)
             # Still try to clear session state
-            clear_session()
+            try:
+                clear_session()
+            except Exception as e2:
+                logger.error(f"Failed to clear session state: {e2}")
             raise
 
 
@@ -263,20 +330,33 @@ def clear_session() -> None:
     2. Clears the environment variable
     3. Clears the global session state
 
+    Error Handling:
+    - Catches file deletion errors
+    - Catches environment variable errors
+    - Logs warnings without crashing
+    - Attempts to clear all state even if some operations fail
+
     Requirements:
         - Requirement 8.7: Clear persistent session_id file
         - Requirement 8.8: Clear environment variable
+        - Requirement 10.1-10.6: Handle errors gracefully
     """
     global _current_session_id, _session_start_time
 
     with mark_internal_operation():
         # Clear persistent file
-        _clear_session_file()
+        try:
+            _clear_session_file()
+        except Exception as e:
+            logger.warning(f"Error clearing session file: {e}")
 
         # Clear environment variable
-        if "DIVINEOS_SESSION_ID" in os.environ:
-            del os.environ["DIVINEOS_SESSION_ID"]
-            logger.debug("Cleared DIVINEOS_SESSION_ID environment variable")
+        try:
+            if "DIVINEOS_SESSION_ID" in os.environ:
+                del os.environ["DIVINEOS_SESSION_ID"]
+                logger.debug("Cleared DIVINEOS_SESSION_ID environment variable")
+        except Exception as e:
+            logger.warning(f"Error clearing environment variable: {e}")
 
         # Clear global state
         _current_session_id = None
