@@ -1,9 +1,10 @@
 {
+  "enabled": false,
   "name": "Capture session end",
   "version": "1.0.0",
-  "description": "At session end, summarize what was accomplished and emit SESSION_END event",
+  "description": "Manual hook - user runs this when they want to close a session",
   "when": {
-    "type": "agentStop"
+    "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",
