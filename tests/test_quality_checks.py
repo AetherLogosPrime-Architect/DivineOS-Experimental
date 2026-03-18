@@ -182,7 +182,9 @@ class TestExtractTestResults:
     def test_finds_pytest(self):
         records = [
             _make_assistant_record(
-                tools=[{"name": "executePwsh", "input": {"command": "pytest tests/ -v"}, "id": "t1"}]
+                tools=[
+                    {"name": "executePwsh", "input": {"command": "pytest tests/ -v"}, "id": "t1"}
+                ]
             ),
         ]
         result_map = {"t1": {"is_error": False, "content": "3 passed", "timestamp": ""}}

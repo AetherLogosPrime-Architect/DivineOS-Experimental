@@ -16,12 +16,13 @@ from divineos.event_emission import emit_tool_call, emit_tool_result
 def capture_tool_execution(tool_name: str):
     """
     Decorator to automatically emit TOOL_CALL and TOOL_RESULT events.
-    
+
     Usage:
         @capture_tool_execution("readFile")
         def my_tool(path: str) -> str:
             return open(path).read()
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs) -> Any:
@@ -30,7 +31,7 @@ def capture_tool_execution(tool_name: str):
                 "args": args,
                 "kwargs": kwargs,
             }
-            
+
             try:
                 tool_call_id = emit_tool_call(
                     tool_name=tool_name,
@@ -40,7 +41,7 @@ def capture_tool_execution(tool_name: str):
             except Exception as e:
                 logger.warning(f"Failed to emit TOOL_CALL: {e}")
                 tool_call_id = None
-            
+
             # Execute tool
             start_time = time.time()
             try:
@@ -55,7 +56,7 @@ def capture_tool_execution(tool_name: str):
                 error_message = str(e)
                 result_str = f"Error: {error_message}"
                 result = None
-            
+
             # Emit TOOL_RESULT
             try:
                 tool_result_id = emit_tool_result(
@@ -68,12 +69,13 @@ def capture_tool_execution(tool_name: str):
                 logger.debug(f"Emitted TOOL_RESULT: {tool_result_id}")
             except Exception as e:
                 logger.warning(f"Failed to emit TOOL_RESULT: {e}")
-            
+
             # Re-raise if tool failed
             if failed:
                 raise Exception(error_message)
-            
+
             return result
-        
+
         return wrapper
+
     return decorator
