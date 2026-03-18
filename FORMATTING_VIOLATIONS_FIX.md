@@ -64,17 +64,21 @@ Once the hook is installed, you can commit with confidence knowing that:
 
 - `setup-hooks.ps1` - Setup script for Windows (PowerShell)
 - `setup-hooks.sh` - Setup script for macOS/Linux (Bash)
-- `.git/hooks/pre-commit.bat` - Pre-commit hook for Windows
-- `.git/hooks/pre-commit.ps1` - Pre-commit PowerShell script
-- `.git/hooks/pre-commit` - Pre-commit hook for macOS/Linux
+- `.git/hooks/pre-commit` - Pre-commit hook (bash script that works on all platforms)
 
 ## Verification
 
-To verify the hook is working, try making a commit with a formatting violation:
+The hook is now working and has been tested. To verify it's working:
 
-1. Add a line with trailing whitespace to a Python file
-2. Try to commit
-3. The hook should block the commit and show the formatting violation
+1. Run the setup script: `powershell -ExecutionPolicy Bypass -File setup-hooks.ps1`
+2. Try making a commit
+3. You should see the hook output showing:
+   - "Running ruff format check..."
+   - "Running ruff lint check..."
+   - "Running mypy type check..."
+   - "All checks passed!" (if no violations)
+
+If there are violations, the commit will be blocked and you'll see instructions on how to fix them.
 
 ## Why This Matters
 
