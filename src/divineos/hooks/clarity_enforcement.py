@@ -113,7 +113,7 @@ class ClarityChecker:
     """
 
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.tool_calls = []
         self.explanations = []
 
