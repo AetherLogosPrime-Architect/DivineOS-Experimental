@@ -35,6 +35,10 @@ from .execution_analyzer import DefaultExecutionAnalyzer
 from .deviation_analyzer import DefaultDeviationAnalyzer
 from .learning_extractor import DefaultLearningExtractor
 from .summary_generator import DefaultSummaryGenerator
+from .ledger_integration import LedgerQueryInterface
+from .session_integration import SessionManagerInterface
+from .event_integration import EventEmissionInterface
+from .hook_integration import HookIntegrationInterface
 
 __all__ = [
     # Types
@@ -65,6 +69,11 @@ __all__ = [
     "DefaultDeviationAnalyzer",
     "DefaultLearningExtractor",
     "DefaultSummaryGenerator",
+    # Integration
+    "LedgerQueryInterface",
+    "SessionManagerInterface",
+    "EventEmissionInterface",
+    "HookIntegrationInterface",
     # Logging
     "setup_clarity_logging",
     "get_clarity_logger",

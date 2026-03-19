@@ -11,6 +11,7 @@ from datetime import datetime
 from .base import ExecutionAnalyzer
 from .types import ExecutionData, ExecutionMetrics, ToolCall
 from .logging_config import get_clarity_logger
+from .ledger_integration import LedgerQueryInterface
 
 logger = get_clarity_logger("execution_analyzer")
 
@@ -43,28 +44,12 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
             Structured execution data
         """
         try:
-            tool_calls = self.extract_tool_calls(session_id)
-            errors = self.extract_errors(session_id)
-
-            metrics = self.calculate_execution_metrics(
-                ExecutionData(
-                    session_id=session_id,
-                    tool_calls=tool_calls,
-                    errors=errors,
-                    metrics=ExecutionMetrics(0, 0, 0, 0.0, 0.0),
-                )
-            )
-
-            execution_data = ExecutionData(
-                session_id=session_id,
-                tool_calls=tool_calls,
-                errors=errors,
-                metrics=metrics,
-            )
+            # Use ledger integration to get session events
+            execution_data = LedgerQueryInterface.get_session_events(session_id)
 
             self.logger.info(
                 f"Analyzed execution for session {session_id}: "
-                f"{len(tool_calls)} tool calls, {len(errors)} errors"
+                f"{len(execution_data.tool_calls)} tool calls, {len(execution_data.errors)} errors"
             )
             return execution_data
 
