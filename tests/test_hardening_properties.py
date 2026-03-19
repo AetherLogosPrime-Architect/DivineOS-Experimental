@@ -107,8 +107,11 @@ class TestToolCallResultPairingProperty:
                 session_id=session_id,
             )
 
-            # Verify both events exist
-            events = get_events(limit=100)
+            # Verify both events exist - filter by session_id to avoid interference from other test runs
+            all_events = get_events(limit=1000)
+
+            # Filter events by session_id to isolate this test's events
+            events = [e for e in all_events if e.get("payload", {}).get("session_id") == session_id]
             tool_calls = [e for e in events if e["event_type"] == "TOOL_CALL"]
             tool_results = [e for e in events if e["event_type"] == "TOOL_RESULT"]
 

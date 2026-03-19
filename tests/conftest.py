@@ -21,10 +21,20 @@ def setup_test_environment():
     """
     Automatically set up test environment before each test.
 
+    - Clears the ledger database
     - Initializes the ledger database
     - Clears any existing session state
     - Cleans up after test completes
     """
+    # Clear database before test to ensure clean state
+    # Database is at src/data/event_ledger.db
+    db_path = Path(__file__).parent.parent / "src" / "data" / "event_ledger.db"
+    if db_path.exists():
+        try:
+            db_path.unlink()
+        except Exception:
+            pass  # Ignore errors if file is locked
+
     # Initialize database before test
     init_db()
 
