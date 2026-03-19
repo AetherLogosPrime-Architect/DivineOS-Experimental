@@ -7,10 +7,9 @@ Integrates with the existing DivineOS event emission system.
 from typing import Any, Dict
 from uuid import UUID
 
-from divineos.core import ledger
-from .logging_config import get_clarity_logger
+from loguru import logger
 
-logger = get_clarity_logger("event_integration")
+from divineos.core import ledger
 
 
 class EventEmissionInterface:

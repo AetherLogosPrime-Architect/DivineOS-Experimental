@@ -21,7 +21,7 @@ from divineos.agent_integration.mcp_integration import (
     validate_explanation,
     get_iso8601_timestamp,
 )
-from divineos.agent_integration.loop_prevention import (
+from divineos.core.loop_prevention import (
     should_capture_tool,
     mark_internal_operation,
     is_internal_operation,

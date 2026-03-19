@@ -3,7 +3,7 @@
 import pytest
 from divineos.core.ledger import init_db, get_events
 from divineos.core.consolidation import init_knowledge_table
-from divineos.integration.ide_tool_integration import (
+from divineos.core.tool_wrapper import (
     IDEToolExecutor,
     emit_tool_call_for_ide,
     emit_tool_result_for_ide,

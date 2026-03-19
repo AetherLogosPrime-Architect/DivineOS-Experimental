@@ -9,9 +9,12 @@ from typing import List, Dict, Any
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from divineos.agent_integration.logging_config import behavior_analyzer_logger as logger
+from loguru import logger
 from divineos.agent_integration.types import BehaviorAnalysis
 from divineos.core.ledger import get_events
+from divineos.core.error_handling import (
+    handle_error,
+)
 
 
 def get_iso8601_timestamp() -> str:
@@ -59,7 +62,7 @@ def analyze_agent_behavior(session_id: str) -> BehaviorAnalysis:
         return analysis
 
     except Exception as e:
-        logger.error(f"Failed to analyze agent behavior: {e}")
+        handle_error(e, "analyze_agent_behavior", {"session_id": session_id})
         # Return empty analysis on error
         return BehaviorAnalysis(
             session_id=session_id,

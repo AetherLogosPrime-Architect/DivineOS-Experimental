@@ -14,10 +14,15 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 from functools import wraps
 
-from divineos.agent_integration.logging_config import mcp_integration_logger as logger
+from loguru import logger
 from divineos.event.event_emission import emit_tool_call, emit_tool_result, emit_explanation
 from divineos.core.session_manager import get_current_session_id
-from divineos.agent_integration.loop_prevention import (
+from divineos.core.error_handling import (
+    EventCaptureError,
+    SessionError,
+    handle_error,
+)
+from divineos.core.loop_prevention import (
     should_capture_tool,
     mark_internal_operation,
 )
@@ -86,8 +91,10 @@ def emit_agent_tool_call(
                     explanation_text=f"Tool '{tool_name}' called without proper explanation",
                     session_id=session_id,
                 )
+        except EventCaptureError as e:
+            handle_error(e, "emit_explanation_warning", {"tool_name": tool_name})
         except Exception as e:
-            logger.error(f"Failed to emit explanation warning: {e}")
+            handle_error(e, "emit_explanation_warning", {"tool_name": tool_name})
 
     # Create TOOL_CALL event
     get_iso8601_timestamp()
@@ -106,8 +113,15 @@ def emit_agent_tool_call(
             f"event_id={event_id[:8]}...)"
         )
         return event_id
+    except EventCaptureError as e:
+        handle_error(
+            e, "emit_agent_tool_call", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+        )
+        raise
     except Exception as e:
-        logger.error(f"Failed to emit TOOL_CALL for '{tool_name}': {e}")
+        handle_error(
+            e, "emit_agent_tool_call", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+        )
         raise
 
 
@@ -163,8 +177,15 @@ def emit_agent_tool_result(
             f"duration={duration_ms}ms, failed={failed}, event_id={event_id[:8]}...)"
         )
         return event_id
+    except EventCaptureError as e:
+        handle_error(
+            e, "emit_agent_tool_result", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+        )
+        raise
     except Exception as e:
-        logger.error(f"Failed to emit TOOL_RESULT for '{tool_name}': {e}")
+        handle_error(
+            e, "emit_agent_tool_result", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+        )
         raise
 
 
@@ -199,8 +220,12 @@ def create_tool_interceptor(tool_name: str, original_tool: Callable) -> Callable
         # Get session ID
         try:
             session_id = get_current_session_id()
+        except SessionError as e:
+            handle_error(e, "get_current_session_id_in_wrapper", {"tool_name": tool_name})
+            # Continue without capture if session ID unavailable
+            return original_tool(*args, **kwargs)
         except Exception as e:
-            logger.error(f"Failed to get session ID: {e}")
+            handle_error(e, "get_current_session_id_in_wrapper", {"tool_name": tool_name})
             # Continue without capture if session ID unavailable
             return original_tool(*args, **kwargs)
 
@@ -216,8 +241,11 @@ def create_tool_interceptor(tool_name: str, original_tool: Callable) -> Callable
                 session_id=session_id,
                 tool_use_id=tool_use_id,
             )
+        except EventCaptureError as e:
+            handle_error(e, "emit_tool_call_in_wrapper", {"tool_name": tool_name})
+            # Continue execution even if event capture fails
         except Exception as e:
-            logger.error(f"Failed to emit TOOL_CALL: {e}")
+            handle_error(e, "emit_tool_call_in_wrapper", {"tool_name": tool_name})
             # Continue execution even if event capture fails
 
         # Measure execution time
@@ -237,8 +265,10 @@ def create_tool_interceptor(tool_name: str, original_tool: Callable) -> Callable
                     failed=False,
                     error_message=None,
                 )
+            except EventCaptureError as e:
+                handle_error(e, "emit_tool_result_in_wrapper", {"tool_name": tool_name})
             except Exception as e:
-                logger.error(f"Failed to emit TOOL_RESULT: {e}")
+                handle_error(e, "emit_tool_result_in_wrapper", {"tool_name": tool_name})
 
             return result
 
@@ -256,8 +286,14 @@ def create_tool_interceptor(tool_name: str, original_tool: Callable) -> Callable
                     failed=True,
                     error_message=str(e),
                 )
+            except EventCaptureError as emit_error:
+                handle_error(
+                    emit_error, "emit_error_tool_result_in_wrapper", {"tool_name": tool_name}
+                )
             except Exception as emit_error:
-                logger.error(f"Failed to emit error TOOL_RESULT: {emit_error}")
+                handle_error(
+                    emit_error, "emit_error_tool_result_in_wrapper", {"tool_name": tool_name}
+                )
 
             # Re-raise the original exception
             raise
@@ -278,7 +314,7 @@ def setup_mcp_agent_integration() -> None:
 
     try:
         # Initialize loop prevention
-        from divineos.agent_integration.loop_prevention import initialize_loop_prevention
+        from divineos.core.loop_prevention import initialize_loop_prevention
 
         initialize_loop_prevention()
         logger.info("Loop prevention initialized")
@@ -287,7 +323,7 @@ def setup_mcp_agent_integration() -> None:
         logger.info("MCP agent integration setup complete")
 
     except Exception as e:
-        logger.error(f"Failed to set up MCP agent integration: {e}")
+        handle_error(e, "setup_mcp_agent_integration")
         raise
 
 
@@ -301,7 +337,7 @@ def shutdown_mcp_agent_integration() -> None:
 
     try:
         # Cleanup loop prevention
-        from divineos.agent_integration.loop_prevention import shutdown_loop_prevention
+        from divineos.core.loop_prevention import shutdown_loop_prevention
 
         shutdown_loop_prevention()
         logger.info("Loop prevention shutdown complete")
@@ -309,4 +345,4 @@ def shutdown_mcp_agent_integration() -> None:
         logger.info("MCP agent integration shutdown complete")
 
     except Exception as e:
-        logger.error(f"Failed to shut down MCP agent integration: {e}")
+        handle_error(e, "shutdown_mcp_agent_integration")

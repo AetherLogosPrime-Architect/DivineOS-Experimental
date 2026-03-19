@@ -6,6 +6,8 @@ Generates comprehensive post-work summaries with analysis and recommendations.
 
 from typing import Any, Dict, List
 
+from loguru import logger
+
 from .base import SummaryGenerator
 from .types import (
     ClarityStatement,
@@ -17,9 +19,6 @@ from .types import (
     PostWorkSummary,
     Recommendation,
 )
-from .logging_config import get_clarity_logger
-
-logger = get_clarity_logger("summary_generator")
 
 
 class DefaultSummaryGenerator(SummaryGenerator):
@@ -27,7 +26,6 @@ class DefaultSummaryGenerator(SummaryGenerator):
 
     def __init__(self):
         """Initialize the summary generator."""
-        self.logger = get_clarity_logger("summary_generator")
 
     def validate(self) -> bool:
         """Validate component is properly initialized."""
@@ -79,7 +77,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 metrics=execution_data.metrics,
             )
 
-            self.logger.info(
+            logger.info(
                 f"Generated post-work summary {summary.id}: "
                 f"{len(deviations)} deviations, {len(lessons)} lessons, "
                 f"{len(recommendations)} recommendations"
@@ -87,7 +85,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             return summary
 
         except Exception as e:
-            self.logger.error(f"Error generating post-work summary: {e}")
+            logger.error(f"Error generating post-work summary: {e}")
             # Return minimal summary
             return PostWorkSummary(
                 clarity_statement=clarity_statement,
@@ -139,13 +137,11 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 },
             }
 
-            self.logger.debug(
-                f"Generated plan vs actual section with alignment {alignment_score:.1f}%"
-            )
+            logger.debug(f"Generated plan vs actual section with alignment {alignment_score:.1f}%")
             return section
 
         except Exception as e:
-            self.logger.error(f"Error generating plan vs actual section: {e}")
+            logger.error(f"Error generating plan vs actual section: {e}")
             return {}
 
     def generate_deviations_section(self, deviations: List[Deviation]) -> Dict[str, Any]:
@@ -184,11 +180,11 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 ],
             }
 
-            self.logger.debug(f"Generated deviations section with {len(deviations)} deviations")
+            logger.debug(f"Generated deviations section with {len(deviations)} deviations")
             return section
 
         except Exception as e:
-            self.logger.error(f"Error generating deviations section: {e}")
+            logger.error(f"Error generating deviations section: {e}")
             return {}
 
     def generate_metrics_section(self, execution_data: ExecutionData) -> Dict[str, Any]:
@@ -212,11 +208,11 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 "success_rate": f"{metrics.success_rate:.1%}",
             }
 
-            self.logger.debug("Generated metrics section")
+            logger.debug("Generated metrics section")
             return section
 
         except Exception as e:
-            self.logger.error(f"Error generating metrics section: {e}")
+            logger.error(f"Error generating metrics section: {e}")
             return {}
 
     def present_summary_to_user(self, summary: PostWorkSummary) -> None:
@@ -228,13 +224,13 @@ class DefaultSummaryGenerator(SummaryGenerator):
         """
         try:
             display_text = self._format_summary(summary)
-            self.logger.info(f"Presenting post-work summary to user:\n{display_text}")
+            logger.info(f"Presenting post-work summary to user:\n{display_text}")
 
             # In a real implementation, this would present to the user
             # For now, we just log it
 
         except Exception as e:
-            self.logger.error(f"Error presenting summary: {e}")
+            logger.error(f"Error presenting summary: {e}")
 
     def _calculate_alignment_score(
         self, plan_data: PlanData, execution_data: ExecutionData
@@ -282,7 +278,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             return alignment_score
 
         except Exception as e:
-            self.logger.error(f"Error calculating alignment score: {e}")
+            logger.error(f"Error calculating alignment score: {e}")
             return 0.0
 
     def _format_summary(self, summary: PostWorkSummary) -> str:

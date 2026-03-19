@@ -9,11 +9,12 @@ Key Features:
 - Internal tool detection
 - Recursive capture prevention
 - Context manager for marking internal operations
+- Operation stack tracking for recursion detection
 """
 
 import threading
 from contextlib import contextmanager
-from typing import Set
+from typing import Set, Optional, Any, cast
 from loguru import logger
 
 
@@ -197,3 +198,106 @@ def detect_recursive_capture(tool_name: str) -> bool:
         return True
 
     return False
+
+
+def initialize_loop_prevention() -> None:
+    """
+    Initialize loop prevention system.
+
+    Sets up thread-local storage for operation context tracking.
+    """
+    logger.debug("Initializing loop prevention")
+    _internal_context.internal_flag = False
+    _internal_context.operation_stack = []
+
+
+def shutdown_loop_prevention() -> None:
+    """
+    Shutdown loop prevention system.
+
+    Cleans up thread-local storage and operation stack.
+    """
+    logger.debug("Shutting down loop prevention")
+    if hasattr(_internal_context, "operation_stack"):
+        _internal_context.operation_stack.clear()
+    _internal_context.internal_flag = False
+
+
+def push_operation(tool_name: str) -> None:
+    """
+    Push an operation onto the operation stack.
+
+    Used to track the call stack and detect recursive operations.
+
+    Args:
+        tool_name: Name of the tool being executed
+    """
+    if not hasattr(_internal_context, "operation_stack"):
+        _internal_context.operation_stack = []
+
+    _internal_context.operation_stack.append(tool_name)
+    logger.debug(f"Pushed {tool_name} onto operation stack: {_internal_context.operation_stack}")
+
+
+def pop_operation() -> Optional[str]:
+    """
+    Pop an operation from the operation stack.
+
+    Returns:
+        Name of the popped operation, or None if stack is empty
+    """
+    if not hasattr(_internal_context, "operation_stack"):
+        _internal_context.operation_stack = []
+
+    if _internal_context.operation_stack:
+        tool_name: Optional[str] = _internal_context.operation_stack.pop()
+        logger.debug(
+            f"Popped {tool_name} from operation stack: {_internal_context.operation_stack}"
+        )
+        return tool_name
+
+    return None
+
+
+def get_operation_stack() -> list[Any]:
+    """
+    Get the current operation stack.
+
+    Returns:
+        List of tool names currently in the operation stack
+    """
+    if not hasattr(_internal_context, "operation_stack"):
+        _internal_context.operation_stack = []
+
+    return cast(list[Any], list(_internal_context.operation_stack))
+
+
+def clear_operation_stack() -> None:
+    """Clear the operation stack."""
+    if hasattr(_internal_context, "operation_stack"):
+        _internal_context.operation_stack.clear()
+    logger.debug("Operation stack cleared")
+
+
+def add_internal_tool(tool_name: str) -> None:
+    """
+    Add a tool to the internal tools list.
+
+    Args:
+        tool_name: Name of the tool to mark as internal
+    """
+    internal_tools = get_internal_tools()
+    internal_tools.add(tool_name)
+    logger.debug(f"Added {tool_name} to internal tools list")
+
+
+def remove_internal_tool(tool_name: str) -> None:
+    """
+    Remove a tool from the internal tools list.
+
+    Args:
+        tool_name: Name of the tool to remove from internal list
+    """
+    internal_tools = get_internal_tools()
+    internal_tools.discard(tool_name)
+    logger.debug(f"Removed {tool_name} from internal tools list")

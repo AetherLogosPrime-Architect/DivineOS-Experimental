@@ -5,7 +5,7 @@ This test suite validates that the observation layer correctly captures
 and enforces tool execution, clarity, and hook execution.
 """
 
-from divineos.integration.unified_tool_capture import UnifiedToolCapture, get_unified_capture
+from divineos.core.tool_wrapper import UnifiedToolCapture, get_unified_capture
 from divineos.hooks.clarity_enforcement import ClarityChecker, ClarityViolation
 from divineos.core.enforcement import setup_cli_enforcement, capture_user_input
 from divineos.core.session_manager import initialize_session, get_current_session_id

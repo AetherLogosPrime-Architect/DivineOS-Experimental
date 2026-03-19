@@ -457,7 +457,7 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
 
         # Step 5: Emit events to ledger
         try:
-            from divineos.event.event_dispatcher import emit_event
+            from divineos.event.event_emission import emit_event
 
             # Emit quality report event
             emit_event(

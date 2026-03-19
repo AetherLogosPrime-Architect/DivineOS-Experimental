@@ -7,11 +7,10 @@ Integrates with the existing DivineOS ledger for querying execution events.
 from typing import List, Optional
 from uuid import UUID
 
+from loguru import logger
+
 from divineos.core import ledger
 from .types import ExecutionData, ExecutionMetrics, ToolCall
-from .logging_config import get_clarity_logger
-
-logger = get_clarity_logger("ledger_integration")
 
 
 class LedgerQueryInterface:

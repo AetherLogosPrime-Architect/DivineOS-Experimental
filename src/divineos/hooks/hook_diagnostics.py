@@ -5,13 +5,11 @@ Provides tools to diagnose and verify hook configuration and triggering.
 Uses HookValidator for consistent validation logic.
 """
 
-import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
-from divineos.hooks.hook_validator import load_hooks_from_directory
 
-logger = logging.getLogger(__name__)
+from divineos.hooks.hook_validator import load_hooks_from_directory
 
 
 class HookDiagnostics:

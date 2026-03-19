@@ -17,6 +17,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Optional, cast
 
+from loguru import logger
+
 import divineos.core.ledger as _ledger_mod
 
 KNOWLEDGE_TYPES = {
@@ -144,8 +146,8 @@ def init_knowledge_table() -> None:
                 conn.execute(
                     f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} NOT NULL DEFAULT {default}"
                 )
-            except sqlite3.OperationalError:
-                pass  # Column already exists
+            except sqlite3.OperationalError as e:
+                logger.debug(f"Column {col} already exists in knowledge table: {e}")
 
         # Lesson tracking table — connects repeated mistakes across sessions
         conn.execute("""
@@ -503,8 +505,11 @@ def generate_briefing(
         try:
             matched = search_knowledge(context_hint, limit=100)
             hint_matches = {m["knowledge_id"] for m in matched}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(
+                f"Failed to search knowledge for context hint: {e}",
+                exc_info=True,
+            )
 
     entries = [_row_to_dict(row) for row in rows]
     now = time.time()
@@ -555,8 +560,11 @@ def generate_briefing(
         lesson_summary = get_lesson_summary()
         if lesson_summary and "No lessons" not in lesson_summary:
             lessons_text = lesson_summary
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(
+            f"Failed to retrieve lesson summary: {e}",
+            exc_info=True,
+        )
 
     # Group by type
     grouped: dict[str, list[dict]] = {}
@@ -1295,8 +1303,11 @@ def store_knowledge_smart(
                     if overlap > 0.6:
                         record_access(entry["knowledge_id"])
                         return cast(str, entry["knowledge_id"])
-        except Exception:
-            pass  # FTS5 not available or query issue — fall through
+        except Exception as e:
+            logger.debug(
+                f"FTS5 search not available or query failed, falling through: {e}",
+                exc_info=True,
+            )
 
     # No duplicate found: store as new
     # Use store_knowledge directly — its internal dedup is hash-based and type-agnostic,

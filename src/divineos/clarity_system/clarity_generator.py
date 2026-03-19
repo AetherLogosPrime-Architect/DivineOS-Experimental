@@ -6,11 +6,10 @@ Generates pre-work clarity statements that describe planned work to the user.
 
 from typing import Any, Dict, Optional
 
+from loguru import logger
+
 from .base import ClarityStatementGenerator
 from .types import ClarityStatement, ScopeEstimate
-from .logging_config import get_clarity_logger
-
-logger = get_clarity_logger("clarity_generator")
 
 
 class DefaultClarityStatementGenerator(ClarityStatementGenerator):
@@ -18,7 +17,6 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
 
     def __init__(self):
         """Initialize the clarity statement generator."""
-        self.logger = get_clarity_logger("clarity_generator")
 
     def validate(self) -> bool:
         """Validate component is properly initialized."""
@@ -48,13 +46,13 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
                 scope=scope,
             )
 
-            self.logger.info(
+            logger.info(
                 f"Generated clarity statement {clarity_statement.id} for goal: {goal[:50]}..."
             )
             return clarity_statement
 
         except Exception as e:
-            self.logger.error(f"Error generating clarity statement: {e}")
+            logger.error(f"Error generating clarity statement: {e}")
             # Return minimal clarity statement with available info
             return ClarityStatement(
                 goal=work_context.get("goal", "Unknown goal"),
@@ -149,7 +147,7 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
             )
 
         except Exception as e:
-            self.logger.warning(f"Error extracting scope: {e}, using defaults")
+            logger.warning(f"Error extracting scope: {e}, using defaults")
             return ScopeEstimate(0, 0, "medium", 0)
 
     def present_to_user(self, clarity_statement: ClarityStatement) -> Optional[str]:
@@ -165,14 +163,14 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
         try:
             # Format clarity statement for display
             display_text = self._format_clarity_statement(clarity_statement)
-            self.logger.info(f"Presenting clarity statement to user:\n{display_text}")
+            logger.info(f"Presenting clarity statement to user:\n{display_text}")
 
             # In a real implementation, this would present to the user
             # and optionally capture feedback. For now, we just log it.
             return None
 
         except Exception as e:
-            self.logger.error(f"Error presenting clarity statement: {e}")
+            logger.error(f"Error presenting clarity statement: {e}")
             return None
 
     def _format_clarity_statement(self, clarity_statement: ClarityStatement) -> str:

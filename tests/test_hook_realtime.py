@@ -4,7 +4,7 @@ import pytest
 import time
 from divineos.core.ledger import init_db, get_events, count_events
 from divineos.core.consolidation import init_knowledge_table
-from divineos.event.event_dispatcher import emit_event
+from divineos.event.event_emission import emit_event
 
 
 @pytest.fixture(autouse=True)

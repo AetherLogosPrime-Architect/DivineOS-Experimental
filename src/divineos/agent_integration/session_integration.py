@@ -7,8 +7,12 @@ ensuring all agent tool calls are tracked within the current session.
 
 import os
 
-from divineos.agent_integration.logging_config import logger
+from loguru import logger
 from divineos.core.session_manager import get_current_session_id as get_session_id
+from divineos.core.error_handling import (
+    SessionError,
+    handle_error,
+)
 
 
 def get_session_metadata(session_id: str) -> dict:
@@ -63,8 +67,11 @@ def get_agent_session_id() -> str:
         session_id = get_session_id()
         logger.debug(f"Using session ID from session manager: {session_id[:8]}...")
         return session_id
+    except SessionError as e:
+        handle_error(e, "get_agent_session_id_session_error")
+        raise RuntimeError(f"Cannot retrieve session ID: {e}")
     except Exception as e:
-        logger.error(f"Failed to get session ID from session manager: {e}")
+        handle_error(e, "get_agent_session_id")
         raise RuntimeError(f"Cannot retrieve session ID: {e}")
 
 
@@ -88,8 +95,11 @@ def track_agent_tool_call(session_id: str) -> None:
         update_session_metadata(session_id, metadata)
         logger.debug(f"Tracked agent tool call (total: {metadata['agent_tool_calls']})")
 
+    except KeyError as e:
+        handle_error(e, "track_agent_tool_call_key_error", {"session_id": session_id})
+        # Continue even if tracking fails
     except Exception as e:
-        logger.error(f"Failed to track agent tool call: {e}")
+        handle_error(e, "track_agent_tool_call", {"session_id": session_id})
         # Continue even if tracking fails
 
 
@@ -122,8 +132,11 @@ def track_agent_tool_result(session_id: str, failed: bool = False) -> None:
             f"failures: {metadata.get('agent_tool_failures', 0)})"
         )
 
+    except KeyError as e:
+        handle_error(e, "track_agent_tool_result_key_error", {"session_id": session_id})
+        # Continue even if tracking fails
     except Exception as e:
-        logger.error(f"Failed to track agent tool result: {e}")
+        handle_error(e, "track_agent_tool_result", {"session_id": session_id})
         # Continue even if tracking fails
 
 
@@ -148,8 +161,15 @@ def get_session_agent_stats(session_id: str) -> dict:
             "agent_tool_failures": metadata.get("agent_tool_failures", 0),
         }
 
+    except KeyError as e:
+        handle_error(e, "get_session_agent_stats_key_error", {"session_id": session_id})
+        return {
+            "agent_tool_calls": 0,
+            "agent_tool_results": 0,
+            "agent_tool_failures": 0,
+        }
     except Exception as e:
-        logger.error(f"Failed to get session agent stats: {e}")
+        handle_error(e, "get_session_agent_stats", {"session_id": session_id})
         return {
             "agent_tool_calls": 0,
             "agent_tool_results": 0,

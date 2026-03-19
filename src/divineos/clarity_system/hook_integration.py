@@ -7,9 +7,7 @@ Integrates clarity system with the existing hook infrastructure.
 from typing import Any, Callable, Dict
 from uuid import UUID
 
-from .logging_config import get_clarity_logger
-
-logger = get_clarity_logger("hook_integration")
+from loguru import logger
 
 
 class HookIntegrationInterface:
