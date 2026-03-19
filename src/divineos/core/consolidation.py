@@ -1266,7 +1266,7 @@ def store_knowledge_smart(
     (same type, >60% word overlap). If so, bumps the existing entry's
     access count instead of creating a duplicate.
     """
-    # First: try exact hash dedup (fast path via store_knowledge)
+    # First: try exact hash dedup (fast path)
     content_hash = compute_hash(content)
     conn = _get_connection()
     try:
@@ -1281,38 +1281,45 @@ def store_knowledge_smart(
             )
             conn.commit()
             return str(existing[0])
-    finally:
-        conn.close()
 
-    # Second: fuzzy dedup via FTS5
-    key_terms = _extract_key_terms(content)
-    if key_terms:
-        try:
-            similar = search_knowledge(key_terms, limit=5)
-            for entry in similar:
-                if entry["knowledge_type"] == knowledge_type:
-                    overlap = _compute_overlap(content, entry["content"])
-                    if overlap > 0.6:
-                        record_access(entry["knowledge_id"])
-                        return cast("str", entry["knowledge_id"])
-        except Exception as e:
-            logger.debug(
-                f"FTS5 search not available or query failed, falling through: {e}",
-                exc_info=True,
-            )
+        # Second: fuzzy dedup via FTS5
+        key_terms = _extract_key_terms(content)
+        if key_terms:
+            try:
+                # Query FTS5 to find similar entries
+                # nosec B608 - column names are hardcoded constants, query parameters passed separately
+                query_str = f"""SELECT {_KNOWLEDGE_COLS_K}
+                       FROM knowledge_fts fts
+                       JOIN knowledge k ON k.rowid = fts.rowid
+                       WHERE knowledge_fts MATCH ?
+                         AND k.superseded_by IS NULL
+                       ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
+                       LIMIT 5"""
+                rows = conn.execute(query_str, (key_terms,)).fetchall()
+                for row in rows:
+                    entry = _row_to_dict(row)
+                    if entry["knowledge_type"] == knowledge_type:
+                        overlap = _compute_overlap(content, entry["content"])
+                        if overlap > 0.6:
+                            conn.execute(
+                                "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
+                                (time.time(), entry["knowledge_id"]),
+                            )
+                            conn.commit()
+                            return cast("str", entry["knowledge_id"])
+            except Exception as e:
+                logger.debug(
+                    f"FTS5 search not available or query failed, falling through: {e}",
+                    exc_info=True,
+                )
 
-    # No duplicate found: store as new
-    # Use store_knowledge directly — its internal dedup is hash-based and type-agnostic,
-    # so for truly new content it will just create the entry. If same content already
-    # exists with a different type, the hash dedup in store_knowledge will match it.
-    # To handle that, we create the entry directly when we know it's unique by type.
-    now = time.time()
-    sources_json = json.dumps(source_events or [])
-    tags_json = json.dumps(tags or [])
-    kid = str(uuid.uuid4())
-    conn = _get_connection()
-    try:
-        # Check for same-type hash match (store_knowledge's dedup is type-agnostic)
+        # No duplicate found: store as new
+        now = time.time()
+        sources_json = json.dumps(source_events or [])
+        tags_json = json.dumps(tags or [])
+        kid = str(uuid.uuid4())
+
+        # Check for same-type hash match
         existing = conn.execute(
             "SELECT knowledge_id FROM knowledge WHERE content_hash = ? AND knowledge_type = ? AND superseded_by IS NULL",
             (content_hash, knowledge_type),
@@ -1325,6 +1332,7 @@ def store_knowledge_smart(
             conn.commit()
             return str(existing[0])
 
+        # Insert new entry
         conn.execute(
             "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, source, maturity, corroboration_count, contradiction_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0)",
             (
@@ -1342,6 +1350,39 @@ def store_knowledge_smart(
             ),
         )
         conn.commit()
+
+        # CRITICAL: After inserting, search again for fuzzy duplicates
+        # This handles the case where the first entry was just inserted
+        # and we need to check if the second call finds it
+        key_terms = _extract_key_terms(content)
+        if key_terms:
+            try:
+                rows = conn.execute(query_str, (key_terms,)).fetchall()
+                for row in rows:
+                    entry = _row_to_dict(row)
+                    # Skip the entry we just created
+                    if entry["knowledge_id"] == kid:
+                        continue
+                    if entry["knowledge_type"] == knowledge_type:
+                        overlap = _compute_overlap(content, entry["content"])
+                        if overlap > 0.6:
+                            # Found a duplicate after insert - merge them
+                            conn.execute(
+                                "UPDATE knowledge SET superseded_by = ?, updated_at = ? WHERE knowledge_id = ?",
+                                (entry["knowledge_id"], time.time(), kid),
+                            )
+                            conn.execute(
+                                "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
+                                (time.time(), entry["knowledge_id"]),
+                            )
+                            conn.commit()
+                            return cast("str", entry["knowledge_id"])
+            except Exception as e:
+                logger.debug(
+                    f"Post-insert FTS5 search failed: {e}",
+                    exc_info=True,
+                )
+
         return kid
     finally:
         conn.close()
