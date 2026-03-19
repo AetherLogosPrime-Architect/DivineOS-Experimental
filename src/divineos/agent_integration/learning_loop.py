@@ -1,29 +1,29 @@
-"""
-Learning Loop System for Agent Integration
+"""Learning Loop System for Agent Integration.
 
 Extracts lessons from agent operations and stores them as knowledge entries
 for self-improvement and behavior analysis.
 """
 
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
 from collections import defaultdict
+from datetime import datetime, timezone
+from typing import Any
 
 from loguru import logger
+
 from divineos.agent_integration.types import (
     Correction,
-    Encouragement,
     Decision,
-    ToolPattern,
-    TimingPattern,
+    Encouragement,
     ErrorPattern,
     SessionLessons,
+    TimingPattern,
+    ToolPattern,
 )
-from divineos.core.ledger import get_events
 from divineos.core.consolidation import store_knowledge
 from divineos.core.error_handling import (
     handle_error,
 )
+from divineos.core.ledger import get_events
 
 
 def get_iso8601_timestamp() -> str:
@@ -32,14 +32,14 @@ def get_iso8601_timestamp() -> str:
 
 
 def analyze_session_for_lessons(session_id: str) -> SessionLessons:
-    """
-    Analyze a completed session for lessons.
+    """Analyze a completed session for lessons.
 
     Args:
         session_id: Session ID to analyze
 
     Returns:
         SessionLessons object containing all extracted lessons
+
     """
     logger.info(f"Analyzing session {session_id[:8]}... for lessons")
 
@@ -73,7 +73,7 @@ def analyze_session_for_lessons(session_id: str) -> SessionLessons:
         logger.info(
             f"Session analysis complete: {len(lessons.corrections)} corrections, "
             f"{len(lessons.encouragements)} encouragements, "
-            f"{len(lessons.decisions)} decisions"
+            f"{len(lessons.decisions)} decisions",
         )
 
         return lessons
@@ -84,15 +84,15 @@ def analyze_session_for_lessons(session_id: str) -> SessionLessons:
         return SessionLessons(session_id=session_id)
 
 
-def extract_corrections(events: List[Dict[str, Any]]) -> List[Correction]:
-    """
-    Extract corrections (mistakes made and fixed).
+def extract_corrections(events: list[dict[str, Any]]) -> list[Correction]:
+    """Extract corrections (mistakes made and fixed).
 
     Args:
         events: List of events from session
 
     Returns:
         List of Correction objects
+
     """
     corrections = []
     failed_tools = defaultdict(list)
@@ -131,18 +131,18 @@ def extract_corrections(events: List[Dict[str, Any]]) -> List[Correction]:
     return corrections
 
 
-def extract_encouragements(events: List[Dict[str, Any]]) -> List[Encouragement]:
-    """
-    Extract encouragements (successful patterns).
+def extract_encouragements(events: list[dict[str, Any]]) -> list[Encouragement]:
+    """Extract encouragements (successful patterns).
 
     Args:
         events: List of events from session
 
     Returns:
         List of Encouragement objects
+
     """
     encouragements = []
-    successful_tools: Dict[str, int] = defaultdict(int)
+    successful_tools: dict[str, int] = defaultdict(int)
 
     # Track successful tool calls
     for event in events:
@@ -166,15 +166,15 @@ def extract_encouragements(events: List[Dict[str, Any]]) -> List[Encouragement]:
     return encouragements
 
 
-def extract_decisions(events: List[Dict[str, Any]]) -> List[Decision]:
-    """
-    Extract decisions (explicit choices made).
+def extract_decisions(events: list[dict[str, Any]]) -> list[Decision]:
+    """Extract decisions (explicit choices made).
 
     Args:
         events: List of events from session
 
     Returns:
         List of Decision objects
+
     """
     decisions = []
 
@@ -195,19 +195,19 @@ def extract_decisions(events: List[Dict[str, Any]]) -> List[Decision]:
     return decisions
 
 
-def extract_tool_patterns(events: List[Dict[str, Any]]) -> Dict[str, ToolPattern]:
-    """
-    Extract tool usage patterns.
+def extract_tool_patterns(events: list[dict[str, Any]]) -> dict[str, ToolPattern]:
+    """Extract tool usage patterns.
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of tool_name -> ToolPattern
+
     """
     patterns = {}
-    tool_stats: Dict[str, Dict[str, Any]] = defaultdict(
-        lambda: {"calls": 0, "successes": 0, "failures": 0, "durations": []}
+    tool_stats: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"calls": 0, "successes": 0, "failures": 0, "durations": []},
     )
 
     # Collect statistics
@@ -252,15 +252,15 @@ def extract_tool_patterns(events: List[Dict[str, Any]]) -> Dict[str, ToolPattern
     return patterns
 
 
-def extract_timing_patterns(events: List[Dict[str, Any]]) -> Dict[str, TimingPattern]:
-    """
-    Extract timing patterns for tools.
+def extract_timing_patterns(events: list[dict[str, Any]]) -> dict[str, TimingPattern]:
+    """Extract timing patterns for tools.
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of tool_name -> TimingPattern
+
     """
     patterns = {}
     tool_durations = defaultdict(list)
@@ -306,19 +306,19 @@ def extract_timing_patterns(events: List[Dict[str, Any]]) -> Dict[str, TimingPat
     return patterns
 
 
-def extract_error_patterns(events: List[Dict[str, Any]]) -> Dict[str, ErrorPattern]:
-    """
-    Extract error patterns for tools.
+def extract_error_patterns(events: list[dict[str, Any]]) -> dict[str, ErrorPattern]:
+    """Extract error patterns for tools.
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of tool_name -> ErrorPattern
+
     """
     patterns = {}
-    tool_errors: Dict[str, Dict[str, Any]] = defaultdict(
-        lambda: {"total": 0, "errors": defaultdict(int), "failed": 0}
+    tool_errors: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"total": 0, "errors": defaultdict(int), "failed": 0},
     )
 
     # Collect errors
@@ -358,12 +358,11 @@ def extract_error_patterns(events: List[Dict[str, Any]]) -> Dict[str, ErrorPatte
 
 def store_lesson(
     lesson_type: str,
-    content: Dict[str, Any],
+    content: dict[str, Any],
     session_id: str,
-    tags: Optional[List[str]] = None,
+    tags: list[str] | None = None,
 ) -> str:
-    """
-    Store a lesson as a knowledge entry.
+    """Store a lesson as a knowledge entry.
 
     Args:
         lesson_type: Type of lesson (correction, encouragement, etc.)
@@ -373,6 +372,7 @@ def store_lesson(
 
     Returns:
         Knowledge entry ID
+
     """
     if tags is None:
         tags = []
@@ -395,15 +395,15 @@ def store_lesson(
         raise
 
 
-def provide_session_briefing(session_id: str) -> Dict[str, Any]:
-    """
-    Provide briefing of relevant lessons for new session.
+def provide_session_briefing(session_id: str) -> dict[str, Any]:
+    """Provide briefing of relevant lessons for new session.
 
     Args:
         session_id: Current session ID
 
     Returns:
         Dictionary with briefing information
+
     """
     logger.info(f"Generating session briefing for {session_id[:8]}...")
 

@@ -1,13 +1,12 @@
-"""
-Type definitions and data models for Kiro Agent Integration.
+"""Type definitions and data models for Kiro Agent Integration.
 
 Defines all data structures used across the agent integration system,
 including event payloads, analysis results, and configuration objects.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
 from datetime import datetime
+from typing import Any
 
 
 @dataclass
@@ -15,14 +14,14 @@ class ToolCallEvent:
     """Represents a TOOL_CALL event for agent tool invocation."""
 
     tool_name: str
-    tool_input: Dict[str, Any]
+    tool_input: dict[str, Any]
     tool_use_id: str
     session_id: str
     timestamp: str  # ISO8601 format
     explanation: str
     actor: str = "assistant"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for ledger storage."""
         return {
             "tool_name": self.tool_name,
@@ -46,10 +45,10 @@ class ToolResultEvent:
     session_id: str
     timestamp: str  # ISO8601 format
     failed: bool = False
-    error_message: Optional[str] = None
+    error_message: str | None = None
     actor: str = "assistant"
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for ledger storage."""
         return {
             "tool_name": self.tool_name,
@@ -80,7 +79,7 @@ class Encouragement:
     """Represents an encouragement lesson (successful pattern)."""
 
     description: str
-    tool_names: List[str]
+    tool_names: list[str]
     success_count: int
     session_id: str
     timestamp: str
@@ -130,7 +129,7 @@ class ErrorPattern:
 
     tool_name: str
     error_count: int
-    error_types: Dict[str, int]
+    error_types: dict[str, int]
     most_common_error: str
     error_rate: float
 
@@ -140,12 +139,12 @@ class SessionLessons:
     """Represents all lessons extracted from a session."""
 
     session_id: str
-    corrections: List[Correction] = field(default_factory=list)
-    encouragements: List[Encouragement] = field(default_factory=list)
-    decisions: List[Decision] = field(default_factory=list)
-    tool_patterns: Dict[str, ToolPattern] = field(default_factory=dict)
-    timing_patterns: Dict[str, TimingPattern] = field(default_factory=dict)
-    error_patterns: Dict[str, ErrorPattern] = field(default_factory=dict)
+    corrections: list[Correction] = field(default_factory=list)
+    encouragements: list[Encouragement] = field(default_factory=list)
+    decisions: list[Decision] = field(default_factory=list)
+    tool_patterns: dict[str, ToolPattern] = field(default_factory=dict)
+    timing_patterns: dict[str, TimingPattern] = field(default_factory=dict)
+    error_patterns: dict[str, ErrorPattern] = field(default_factory=dict)
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
@@ -154,12 +153,12 @@ class BehaviorAnalysis:
     """Represents behavior analysis results for a session."""
 
     session_id: str
-    tool_frequency: Dict[str, int]
-    success_rates: Dict[str, float]
-    execution_times: Dict[str, Dict[str, float]]
-    error_patterns: Dict[str, Dict[str, Any]]
-    correction_patterns: Dict[str, int]
-    decision_patterns: Dict[str, int]
+    tool_frequency: dict[str, int]
+    success_rates: dict[str, float]
+    execution_times: dict[str, dict[str, float]]
+    error_patterns: dict[str, dict[str, Any]]
+    correction_patterns: dict[str, int]
+    decision_patterns: dict[str, int]
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
@@ -168,17 +167,17 @@ class SessionFeedback:
     """Represents feedback for a completed session."""
 
     session_id: str
-    tool_usage: Dict[str, int]
-    success_rates: Dict[str, float]
-    timing: Dict[str, Dict[str, float]]
-    errors: List[str]
-    lessons_learned: List[str]
-    recommendations: List[str]
-    improvements: List[str]
-    regressions: List[str]
+    tool_usage: dict[str, int]
+    success_rates: dict[str, float]
+    timing: dict[str, dict[str, float]]
+    errors: list[str]
+    lessons_learned: list[str]
+    recommendations: list[str]
+    improvements: list[str]
+    regressions: list[str]
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for knowledge entry storage."""
         return {
             "session_id": self.session_id,
@@ -194,7 +193,7 @@ class SessionFeedback:
 
 
 # Set of internal tools that should not be captured
-INTERNAL_TOOLS: Set[str] = {
+INTERNAL_TOOLS: set[str] = {
     "emit_tool_call",
     "emit_tool_result",
     "emit_explanation",

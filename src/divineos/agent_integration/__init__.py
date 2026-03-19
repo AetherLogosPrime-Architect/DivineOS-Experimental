@@ -1,5 +1,4 @@
-"""
-Kiro Agent Integration Module
+"""Kiro Agent Integration Module.
 
 Provides automatic event capture for Kiro agent tool calls,
 learning loop integration, behavior analysis, and self-improvement feedback.
@@ -8,49 +7,48 @@ This module enables the OS to enforce that the Kiro agent uses the system
 for all its operations, making self-observation built-in and unavoidable.
 """
 
-from divineos.agent_integration.types import (
-    ToolCallEvent,
-    ToolResultEvent,
-    Correction,
-    Encouragement,
-    Decision,
-    ToolPattern,
-    TimingPattern,
-    ErrorPattern,
-    SessionLessons,
-    BehaviorAnalysis,
-    SessionFeedback,
-    INTERNAL_TOOLS,
-)
-
 from divineos.agent_integration.base import (
     AgentIntegrationComponent,
-    ToolInterceptor,
-    LoopPrevention,
-    LearningLoopSystem,
     BehaviorAnalyzer,
     FeedbackSystem,
+    LearningLoopSystem,
+    LoopPrevention,
+    ToolInterceptor,
+)
+from divineos.agent_integration.types import (
+    INTERNAL_TOOLS,
+    BehaviorAnalysis,
+    Correction,
+    Decision,
+    Encouragement,
+    ErrorPattern,
+    SessionFeedback,
+    SessionLessons,
+    TimingPattern,
+    ToolCallEvent,
+    ToolPattern,
+    ToolResultEvent,
 )
 
 __all__ = [
-    # Types
-    "ToolCallEvent",
-    "ToolResultEvent",
-    "Correction",
-    "Encouragement",
-    "Decision",
-    "ToolPattern",
-    "TimingPattern",
-    "ErrorPattern",
-    "SessionLessons",
-    "BehaviorAnalysis",
-    "SessionFeedback",
     "INTERNAL_TOOLS",
     # Base classes
     "AgentIntegrationComponent",
-    "ToolInterceptor",
-    "LoopPrevention",
-    "LearningLoopSystem",
+    "BehaviorAnalysis",
     "BehaviorAnalyzer",
+    "Correction",
+    "Decision",
+    "Encouragement",
+    "ErrorPattern",
     "FeedbackSystem",
+    "LearningLoopSystem",
+    "LoopPrevention",
+    "SessionFeedback",
+    "SessionLessons",
+    "TimingPattern",
+    # Types
+    "ToolCallEvent",
+    "ToolInterceptor",
+    "ToolPattern",
+    "ToolResultEvent",
 ]

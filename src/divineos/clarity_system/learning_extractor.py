@@ -1,10 +1,7 @@
-"""
-Learning Extractor.
+"""Learning Extractor.
 
 Extracts lessons and generates recommendations from deviations and execution data.
 """
-
-from typing import Dict, List
 
 from loguru import logger
 
@@ -15,7 +12,7 @@ from .types import Deviation, ExecutionData, Lesson, Recommendation
 class DefaultLearningExtractor(LearningExtractor):
     """Default implementation of learning extractor."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the learning extractor."""
 
     def validate(self) -> bool:
@@ -23,10 +20,11 @@ class DefaultLearningExtractor(LearningExtractor):
         return True
 
     def extract_lessons(
-        self, deviations: List[Deviation], execution_data: ExecutionData
-    ) -> List[Lesson]:
-        """
-        Extract lessons from deviations and execution.
+        self,
+        deviations: list[Deviation],
+        execution_data: ExecutionData,
+    ) -> list[Lesson]:
+        """Extract lessons from deviations and execution.
 
         Args:
             deviations: List of deviations
@@ -34,6 +32,7 @@ class DefaultLearningExtractor(LearningExtractor):
 
         Returns:
             List of lessons
+
         """
         try:
             lessons = []
@@ -57,18 +56,18 @@ class DefaultLearningExtractor(LearningExtractor):
             logger.error(f"Error extracting lessons: {e}")
             return []
 
-    def extract_deviation_lessons(self, deviations: List[Deviation]) -> List[Lesson]:
-        """
-        Extract lessons from deviations.
+    def extract_deviation_lessons(self, deviations: list[Deviation]) -> list[Lesson]:
+        """Extract lessons from deviations.
 
         Args:
             deviations: List of deviations
 
         Returns:
             List of lessons
+
         """
         try:
-            lessons: List[Lesson] = []
+            lessons: list[Lesson] = []
 
             # Filter high-severity deviations
             high_severity = [d for d in deviations if d.severity == "high"]
@@ -91,24 +90,24 @@ class DefaultLearningExtractor(LearningExtractor):
             logger.error(f"Error extracting deviation lessons: {e}")
             return []
 
-    def identify_tool_patterns(self, execution_data: ExecutionData) -> List[Lesson]:
-        """
-        Identify patterns in tool usage.
+    def identify_tool_patterns(self, execution_data: ExecutionData) -> list[Lesson]:
+        """Identify patterns in tool usage.
 
         Args:
             execution_data: Execution data
 
         Returns:
             List of lessons about tool patterns
+
         """
         try:
-            lessons: List[Lesson] = []
+            lessons: list[Lesson] = []
 
             if not execution_data.tool_calls:
                 return lessons
 
             # Count tool usage
-            tool_counts: Dict[str, int] = {}
+            tool_counts: dict[str, int] = {}
             for tool_call in execution_data.tool_calls:
                 tool_counts[tool_call.tool_name] = tool_counts.get(tool_call.tool_name, 0) + 1
 
@@ -133,15 +132,15 @@ class DefaultLearningExtractor(LearningExtractor):
             logger.error(f"Error identifying tool patterns: {e}")
             return []
 
-    def generate_recommendations(self, lessons: List[Lesson]) -> List[Recommendation]:
-        """
-        Generate recommendations from lessons.
+    def generate_recommendations(self, lessons: list[Lesson]) -> list[Recommendation]:
+        """Generate recommendations from lessons.
 
         Args:
             lessons: List of lessons
 
         Returns:
             List of recommendations
+
         """
         try:
             recommendations = []
@@ -163,24 +162,24 @@ class DefaultLearningExtractor(LearningExtractor):
             logger.error(f"Error generating recommendations: {e}")
             return []
 
-    def _identify_error_patterns(self, execution_data: ExecutionData) -> List[Lesson]:
-        """
-        Identify patterns in errors.
+    def _identify_error_patterns(self, execution_data: ExecutionData) -> list[Lesson]:
+        """Identify patterns in errors.
 
         Args:
             execution_data: Execution data
 
         Returns:
             List of lessons about error patterns
+
         """
         try:
-            lessons: List[Lesson] = []
+            lessons: list[Lesson] = []
 
             if not execution_data.errors:
                 return lessons
 
             # Count error types
-            error_counts: Dict[str, int] = {}
+            error_counts: dict[str, int] = {}
             for error in execution_data.errors:
                 # Extract error type (first word or first 50 chars)
                 error_type = error.split(":")[0] if ":" in error else error[:50]
@@ -210,32 +209,27 @@ class DefaultLearningExtractor(LearningExtractor):
         """Generate insight from a deviation."""
         if deviation.difference > 0:
             return f"Actual {deviation.metric} exceeded plan by {deviation.percentage:.1f}%"
-        else:
-            return (
-                f"Actual {deviation.metric} was {abs(deviation.percentage):.1f}% less than planned"
-            )
+        return f"Actual {deviation.metric} was {abs(deviation.percentage):.1f}% less than planned"
 
     def _generate_recommendation_text(self, lesson: Lesson) -> str:
         """Generate recommendation text from a lesson."""
         if lesson.type == "deviation":
             return f"Review and adjust estimates for {lesson.description}"
-        elif lesson.type == "pattern":
+        if lesson.type == "pattern":
             return lesson.insight
-        elif lesson.type == "error_pattern":
+        if lesson.type == "error_pattern":
             return f"Investigate and fix: {lesson.insight}"
-        else:
-            return f"Consider: {lesson.insight}"
+        return f"Consider: {lesson.insight}"
 
     def _calculate_priority(self, lesson: Lesson) -> str:
         """Calculate priority for a lesson."""
         if lesson.confidence >= 0.9:
             return "high"
-        elif lesson.confidence >= 0.75:
+        if lesson.confidence >= 0.75:
             return "medium"
-        else:
-            return "low"
+        return "low"
 
-    def _identify_applicable_contexts(self, lesson: Lesson) -> List[str]:
+    def _identify_applicable_contexts(self, lesson: Lesson) -> list[str]:
         """Identify contexts where lesson is applicable."""
         contexts = []
 

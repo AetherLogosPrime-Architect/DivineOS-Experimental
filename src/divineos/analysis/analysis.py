@@ -1,22 +1,22 @@
-"""
-Session Analysis — Core logic for analyzing sessions and generating reports.
+"""Session Analysis — Core logic for analyzing sessions and generating reports.
 
 This module ties together quality checks, session features, and memory
 to produce actionable insights about AI performance.
 """
 
-from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Any, Optional, cast
 import json
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, cast
+
 from loguru import logger
 
-from divineos.core.parser import parse_jsonl
 from divineos.analysis.quality_checks import run_all_checks
 from divineos.analysis.session_features import run_all_features
 from divineos.core.consolidation import extract_lessons_from_report
 from divineos.core.ledger import get_verified_events
+from divineos.core.parser import parse_jsonl
 
 
 @dataclass
@@ -28,15 +28,14 @@ class AnalysisResult:
     timestamp: str
     quality_report: Any  # SessionReport from quality_checks
     features: Any  # FullSessionAnalysis from session_features
-    lessons: list[dict]  # Extracted lessons
+    lessons: list[dict[str, Any]]  # Extracted lessons
     evidence_hash: str  # Hash of all findings
     duration_seconds: float = 0.0  # Session duration
     files_touched_count: int = 0  # Number of files touched
 
 
 def analyze_session(file_path: Path) -> AnalysisResult:
-    """
-    Analyze a session file completely.
+    """Analyze a session file completely.
 
     Steps:
     1. Parse the JSONL file
@@ -54,6 +53,7 @@ def analyze_session(file_path: Path) -> AnalysisResult:
     Raises:
         FileNotFoundError: If file doesn't exist
         ValueError: If file is empty or malformed
+
     """
     file_path = Path(file_path)
 
@@ -79,7 +79,7 @@ def analyze_session(file_path: Path) -> AnalysisResult:
     features = run_all_features(file_path)
 
     # 4. Extract lessons
-    checks_list = [
+    checks_list: list[dict[str, Any]] = [
         {
             "name": check.check_name,
             "passed": check.passed,
@@ -89,10 +89,10 @@ def analyze_session(file_path: Path) -> AnalysisResult:
         for check in (quality_report.checks if hasattr(quality_report, "checks") else [])
     ]
     lessons_raw = extract_lessons_from_report(checks_list, session_id)
-    lessons = cast(list[dict[Any, Any]], lessons_raw if isinstance(lessons_raw, list) else [])
+    lessons = cast("list[dict[str, Any]]", lessons_raw if isinstance(lessons_raw, list) else [])
 
     # 5. Create evidence hash
-    evidence_data = {
+    evidence_data: dict[str, Any] = {
         "quality_checks": asdict(quality_report)
         if hasattr(quality_report, "__dataclass_fields__")
         else quality_report,
@@ -117,7 +117,7 @@ def analyze_session(file_path: Path) -> AnalysisResult:
         files_touched_count = len(features.files_touched)
 
     # 6. Create result
-    result = AnalysisResult(
+    return AnalysisResult(
         session_id=session_id,
         file_path=str(file_path),
         timestamp=datetime.now(timezone.utc).isoformat(),
@@ -129,8 +129,6 @@ def analyze_session(file_path: Path) -> AnalysisResult:
         files_touched_count=files_touched_count,
     )
 
-    return result
-
 
 def _generate_session_id(file_path: Path) -> str:
     """Generate a session ID from file path and timestamp."""
@@ -141,7 +139,7 @@ def _generate_session_id(file_path: Path) -> str:
     return hashlib.sha256(combined.encode()).hexdigest()[:16]
 
 
-def _hash_evidence(data: dict) -> str:
+def _hash_evidence(data: dict[str, Any]) -> str:
     """Hash evidence data for fidelity verification."""
     import hashlib
 
@@ -150,8 +148,7 @@ def _hash_evidence(data: dict) -> str:
 
 
 def export_current_session_to_jsonl(limit: int = 100) -> Path:
-    """
-    Export the current session from the ledger to a JSONL file.
+    """Export the current session from the ledger to a JSONL file.
 
     This allows analyzing the live session without waiting for a file.
     Automatically excludes corrupted events from the export.
@@ -166,11 +163,13 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     Requirements:
         - Requirement 7.5: Prevent corrupted events from being used in analysis
         - Requirement 9.3: Session event correlation - filter by session_id
+
     """
-    import tempfile
-    from divineos.event.event_capture import get_session_tracker
-    from pathlib import Path
     import json
+    import tempfile
+    from pathlib import Path
+
+    from divineos.core.session_manager import get_session_tracker
 
     # Get current session ID for session isolation
     # Priority: database query (actual user/tool events) > file (current session) > session tracker (fallback)
@@ -183,14 +182,14 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     conn = _get_connection()
     try:
         cursor = conn.execute(
-            "SELECT payload FROM system_events WHERE event_type IN ('USER_INPUT', 'TOOL_CALL', 'TOOL_RESULT') ORDER BY timestamp DESC LIMIT 1"
+            "SELECT payload FROM system_events WHERE event_type IN ('USER_INPUT', 'TOOL_CALL', 'TOOL_RESULT') ORDER BY timestamp DESC LIMIT 1",
         )
         row = cursor.fetchone()
         if row:
             payload = json.loads(row[0])
             current_session_id = payload.get("session_id")
             logger.debug(
-                f"[DEBUG] Got session_id from database query for analysis: {current_session_id}"
+                f"[DEBUG] Got session_id from database query for analysis: {current_session_id}",
             )
     finally:
         conn.close()
@@ -202,7 +201,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
             try:
                 current_session_id = session_file.read_text().strip()
                 logger.debug(
-                    f"[DEBUG] Read session_id from file for analysis: {current_session_id}"
+                    f"[DEBUG] Read session_id from file for analysis: {current_session_id}",
                 )
             except Exception as e:
                 logger.warning(f"Failed to read session_id file: {e}")
@@ -225,11 +224,12 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
         logger.warning(f"Excluded {len(corrupted_events)} corrupted events from analysis")
         for corrupted in corrupted_events:
             logger.debug(
-                f"Corrupted event {corrupted['event_id']}: {corrupted.get('corruption_reason', 'unknown')}"
+                f"Corrupted event {corrupted['event_id']}: {corrupted.get('corruption_reason', 'unknown')}",
             )
 
     if not verified_events:
-        raise ValueError("No valid events in ledger to export")
+        error_msg = "No valid events in ledger to export"
+        raise ValueError(error_msg)
 
     # Convert ledger events to JSONL format (Claude Code format)
     jsonl_lines = []
@@ -238,6 +238,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
         payload = event.get("payload", {})
 
         # Convert to Claude Code message format
+        msg: dict[str, Any] | None = None
         if event_type == "USER_INPUT":
             msg = {
                 "type": "user",
@@ -262,7 +263,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
                             "id": payload.get("tool_use_id", ""),
                             "name": payload.get("tool_name", ""),
                             "input": payload.get("tool_input", {}),
-                        }
+                        },
                     ],
                 },
             }
@@ -288,8 +289,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
 
 
 def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
-    """
-    Store analysis results in the database with fidelity verification.
+    """Store analysis results in the database with fidelity verification.
 
     Uses manifest-receipt reconciliation pattern:
     1. Create manifest (hash all findings before storage)
@@ -306,9 +306,11 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
 
     Raises:
         Exception: If fidelity verification fails
+
     """
-    import uuid
     import time
+    import uuid
+
     from divineos.analysis.quality_checks import _get_connection as get_qc_connection
     from divineos.core import fidelity
 
@@ -408,19 +410,22 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
         # Step 3: Create receipt (verify stored data)
         # Retrieve session_report
         cursor.execute(
-            "SELECT COUNT(*) FROM session_report WHERE session_id = ?", (result.session_id,)
+            "SELECT COUNT(*) FROM session_report WHERE session_id = ?",
+            (result.session_id,),
         )
         session_count = cursor.fetchone()[0]
 
         # Retrieve check_results
         cursor.execute(
-            "SELECT COUNT(*) FROM check_result WHERE session_id = ?", (result.session_id,)
+            "SELECT COUNT(*) FROM check_result WHERE session_id = ?",
+            (result.session_id,),
         )
         stored_check_count = cursor.fetchone()[0]
 
         # Retrieve feature_result
         cursor.execute(
-            "SELECT COUNT(*) FROM feature_result WHERE session_id = ?", (result.session_id,)
+            "SELECT COUNT(*) FROM feature_result WHERE session_id = ?",
+            (result.session_id,),
         )
         feature_count = cursor.fetchone()[0]
 
@@ -482,7 +487,7 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
                 "SESSION_ANALYSIS",
                 {
                     "session_id": result.session_id,
-                    "report_text": report_text if report_text else "",
+                    "report_text": report_text or "",
                     "evidence_hash": result.evidence_hash,
                 },
                 actor="system",
@@ -499,8 +504,7 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
 
 
 def format_analysis_report(result: AnalysisResult) -> str:
-    """
-    Format analysis results as a plain-English report.
+    """Format analysis results as a plain-English report.
 
     No jargon. No code-speak. Human-readable.
 
@@ -509,6 +513,7 @@ def format_analysis_report(result: AnalysisResult) -> str:
 
     Returns:
         Formatted report string
+
     """
     lines = []
 
@@ -574,7 +579,7 @@ def format_analysis_report(result: AnalysisResult) -> str:
             activity = result.features.activity
             if hasattr(activity, "total_text_blocks"):
                 lines.append(
-                    f"Activity: {activity.total_text_blocks} explanations, {activity.total_tool_calls} actions"
+                    f"Activity: {activity.total_text_blocks} explanations, {activity.total_tool_calls} actions",
                 )
 
     lines.append("")
@@ -587,9 +592,12 @@ def format_analysis_report(result: AnalysisResult) -> str:
         # If lessons are knowledge IDs, try to retrieve the content
         from divineos.core.consolidation import get_knowledge
 
-        for lesson_id in result.lessons:
+        for lesson in result.lessons:
             try:
                 # Try to get the knowledge entry
+                lesson_id = lesson.get("id") if isinstance(lesson, dict) else str(lesson)
+                if not lesson_id:
+                    continue
                 knowledge_entries = get_knowledge(limit=1000)
                 for entry in knowledge_entries:
                     if entry.get("id") == lesson_id or entry.get("knowledge_id") == lesson_id:
@@ -601,7 +609,8 @@ def format_analysis_report(result: AnalysisResult) -> str:
                     lines.append(f"• Lesson {lesson_id[:8]}...")
             except Exception:
                 # Fallback: just show the ID
-                lines.append(f"• Lesson {lesson_id[:8]}...")
+                lesson_id_str = str(lesson)[:8] if isinstance(lesson, dict) else str(lesson)[:8]
+                lines.append(f"• Lesson {lesson_id_str}...")
 
         lines.append("")
 
@@ -614,7 +623,7 @@ def format_analysis_report(result: AnalysisResult) -> str:
     return "\n".join(lines)
 
 
-def get_stored_report(session_id: str) -> Optional[str]:
+def get_stored_report(session_id: str) -> str | None:
     """Retrieve a stored analysis report from the database.
 
     Args:
@@ -622,6 +631,7 @@ def get_stored_report(session_id: str) -> Optional[str]:
 
     Returns:
         Report text if found, None otherwise
+
     """
     from divineos.analysis.quality_checks import _get_connection as get_qc_connection
 
@@ -635,7 +645,7 @@ def get_stored_report(session_id: str) -> Optional[str]:
 
         if row and row[0]:
             conn.close()
-            return cast(str, row[0])
+            return cast("str", row[0])
 
         # If no report_text stored, check if checks/features exist
         cursor.execute("SELECT COUNT(*) FROM check_result WHERE session_id = ?", (session_id,))
@@ -655,7 +665,7 @@ def get_stored_report(session_id: str) -> Optional[str]:
         return None
 
 
-def list_recent_sessions(limit: int = 10) -> list[dict]:
+def list_recent_sessions(limit: int = 10) -> list[dict[str, Any]]:
     """List recent analyzed sessions.
 
     Args:
@@ -663,6 +673,7 @@ def list_recent_sessions(limit: int = 10) -> list[dict]:
 
     Returns:
         List of session dicts with id, created_at, file_count
+
     """
     from divineos.analysis.quality_checks import _get_connection as get_qc_connection
 
@@ -691,7 +702,7 @@ def list_recent_sessions(limit: int = 10) -> list[dict]:
                     "session_id": session_id,
                     "created_at": created_at,
                     "file_count": file_count,
-                }
+                },
             )
 
         conn.close()
@@ -701,7 +712,7 @@ def list_recent_sessions(limit: int = 10) -> list[dict]:
         return []
 
 
-def compute_cross_session_trends(limit: int = 10) -> dict:
+def compute_cross_session_trends(limit: int = 10) -> dict[str, Any]:
     """Compute trends across multiple sessions.
 
     Args:
@@ -709,11 +720,12 @@ def compute_cross_session_trends(limit: int = 10) -> dict:
 
     Returns:
         Dict with trends and patterns
+
     """
     from divineos.analysis.quality_checks import get_check_history
 
     # Get check history for each check
-    trends = {}
+    trends: dict[str, Any] = {}
     for check_name in [
         "completeness",
         "correctness",
@@ -724,7 +736,7 @@ def compute_cross_session_trends(limit: int = 10) -> dict:
         "task_adherence",
     ]:
         try:
-            check_results = get_check_history(check_name, limit=limit)
+            check_results: list[dict[str, Any]] = get_check_history(check_name, limit=limit)
 
             if check_results:
                 pass_count = sum(1 for h in check_results if h.get("passed"))
@@ -737,14 +749,14 @@ def compute_cross_session_trends(limit: int = 10) -> dict:
                     "total_count": total_count,
                     "results": check_results[:5],  # Last 5 results
                 }
-        except Exception:
-            # If check history not available, skip
-            pass
+        except Exception as e:
+            # If check history not available, skip but log the error
+            logger.debug(f"Failed to get check history for {check_name}: {e}")
 
     return trends
 
 
-def format_cross_session_report(trends: dict) -> str:
+def format_cross_session_report(trends: dict[str, Any]) -> str:
     """Format cross-session trends as a plain-English report.
 
     Args:
@@ -752,6 +764,7 @@ def format_cross_session_report(trends: dict) -> str:
 
     Returns:
         Formatted report string
+
     """
     lines = []
 
@@ -796,8 +809,7 @@ def format_cross_session_report(trends: dict) -> str:
 
 
 def save_analysis_report(result: AnalysisResult, report_text: str) -> Path:
-    """
-    Save analysis report to file.
+    """Save analysis report to file.
 
     Args:
         result: AnalysisResult with session_id
@@ -805,6 +817,7 @@ def save_analysis_report(result: AnalysisResult, report_text: str) -> Path:
 
     Returns:
         Path to saved report file
+
     """
     reports_dir = Path(__file__).parent.parent.parent / "data" / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)

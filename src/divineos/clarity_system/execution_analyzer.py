@@ -1,29 +1,28 @@
-"""
-Execution Analyzer.
+"""Execution Analyzer.
 
 Queries ledger and extracts actual execution data for comparison.
 """
 
-from typing import List, Optional
-from uuid import UUID
 from datetime import datetime
+from typing import Any
+from uuid import UUID
 
 from loguru import logger
 
 from .base import ExecutionAnalyzer
-from .types import ExecutionData, ExecutionMetrics, ToolCall
 from .ledger_integration import LedgerQueryInterface
+from .types import ExecutionData, ExecutionMetrics, ToolCall
 
 
 class DefaultExecutionAnalyzer(ExecutionAnalyzer):
     """Default implementation of execution analyzer."""
 
-    def __init__(self, ledger=None):
-        """
-        Initialize the execution analyzer.
+    def __init__(self, ledger: Any = None) -> None:
+        """Initialize the execution analyzer.
 
         Args:
             ledger: Optional ledger instance for querying events
+
         """
         self.ledger = ledger
 
@@ -32,14 +31,14 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
         return True
 
     def analyze_execution(self, session_id: UUID) -> ExecutionData:
-        """
-        Analyze execution from ledger.
+        """Analyze execution from ledger.
 
         Args:
             session_id: Session ID to analyze
 
         Returns:
             Structured execution data
+
         """
         try:
             # Use ledger integration to get session events
@@ -47,7 +46,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
 
             logger.info(
                 f"Analyzed execution for session {session_id}: "
-                f"{len(execution_data.tool_calls)} tool calls, {len(execution_data.errors)} errors"
+                f"{len(execution_data.tool_calls)} tool calls, {len(execution_data.errors)} errors",
             )
             return execution_data
 
@@ -61,15 +60,15 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
                 metrics=ExecutionMetrics(0, 0, 0, 0.0, 0.0),
             )
 
-    def extract_tool_calls(self, session_id: UUID) -> List[ToolCall]:
-        """
-        Extract tool calls from ledger for session.
+    def extract_tool_calls(self, session_id: UUID) -> list[ToolCall]:
+        """Extract tool calls from ledger for session.
 
         Args:
             session_id: Session ID to query
 
         Returns:
             List of tool calls
+
         """
         try:
             if not self.ledger:
@@ -101,15 +100,15 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
             logger.error(f"Error extracting tool calls: {e}")
             return []
 
-    def extract_errors(self, session_id: UUID) -> List[str]:
-        """
-        Extract errors from ledger for session.
+    def extract_errors(self, session_id: UUID) -> list[str]:
+        """Extract errors from ledger for session.
 
         Args:
             session_id: Session ID to query
 
         Returns:
             List of error messages
+
         """
         try:
             if not self.ledger:
@@ -140,14 +139,14 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
             return []
 
     def calculate_execution_metrics(self, execution_data: ExecutionData) -> ExecutionMetrics:
-        """
-        Calculate metrics from execution data.
+        """Calculate metrics from execution data.
 
         Args:
             execution_data: Execution data with tool calls and errors
 
         Returns:
             Calculated execution metrics
+
         """
         return self._calculate_metrics_from_data(
             tool_calls=execution_data.tool_calls,
@@ -156,13 +155,12 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
 
     def _calculate_metrics_from_data(
         self,
-        tool_calls: List[ToolCall],
-        errors: List[str],
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
+        tool_calls: list[ToolCall],
+        errors: list[str],
+        start_time: str | None = None,
+        end_time: str | None = None,
     ) -> ExecutionMetrics:
-        """
-        Calculate metrics from tool calls and errors.
+        """Calculate metrics from tool calls and errors.
 
         Args:
             tool_calls: List of tool calls
@@ -172,6 +170,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
 
         Returns:
             Calculated execution metrics
+
         """
         try:
             # Count unique files accessed (from tool inputs)
@@ -214,7 +213,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
             logger.info(
                 f"Calculated execution metrics: "
                 f"{actual_files} files, {actual_tool_calls} calls, "
-                f"{actual_errors} errors, {success_rate:.2%} success rate"
+                f"{actual_errors} errors, {success_rate:.2%} success rate",
             )
             return metrics
 

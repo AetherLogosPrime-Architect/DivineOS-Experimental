@@ -1,13 +1,13 @@
-"""
-Hook Diagnostics Module
+"""Hook Diagnostics Module.
 
 Provides tools to diagnose and verify hook configuration and triggering.
 Uses HookValidator for consistent validation logic.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
+from loguru import logger
 
 from divineos.hooks.hook_validator import load_hooks_from_directory
 
@@ -15,12 +15,12 @@ from divineos.hooks.hook_validator import load_hooks_from_directory
 class HookDiagnostics:
     """Diagnoses hook configuration and triggering issues."""
 
-    def __init__(self, hooks_dir: str = ".kiro/hooks"):
+    def __init__(self, hooks_dir: str = ".kiro/hooks") -> None:
         self.hooks_dir = Path(hooks_dir)
-        self.hooks: list[Dict[str, Any]] = []
+        self.hooks: list[dict[str, Any]] = []
         self.issues: list[str] = []
 
-    def load_hooks(self) -> List[Dict]:
+    def load_hooks(self) -> list[dict[str, Any]]:
         """Load all hook files from the hooks directory."""
         valid_hooks, invalid_hooks = load_hooks_from_directory(self.hooks_dir)
 
@@ -31,11 +31,11 @@ class HookDiagnostics:
         self.hooks = valid_hooks
         return valid_hooks
 
-    def diagnose_all_hooks(self) -> Dict[str, Any]:
+    def diagnose_all_hooks(self) -> dict[str, Any]:
         """Diagnose all hooks and return a comprehensive report."""
         self.load_hooks()
 
-        report: Dict[str, Any] = {
+        report: dict[str, Any] = {
             "total_hooks": len(self.hooks),
             "valid_hooks": len(self.hooks),
             "invalid_hooks": len(self.issues),
@@ -61,42 +61,42 @@ class HookDiagnostics:
         """Print a human-readable diagnostic report."""
         report = self.diagnose_all_hooks()
 
-        print("\n" + "=" * 60)
-        print("HOOK DIAGNOSTICS REPORT")
-        print("=" * 60)
+        logger.debug("\n" + "=" * 60)
+        logger.debug("HOOK DIAGNOSTICS REPORT")
+        logger.debug("=" * 60)
 
-        print(f"\nTotal Hooks: {report['total_hooks']}")
-        print(f"Valid Hooks: {report['valid_hooks']}")
-        print(f"Invalid Hooks: {report['invalid_hooks']}")
+        logger.debug(f"\nTotal Hooks: {report['total_hooks']}")
+        logger.debug(f"Valid Hooks: {report['valid_hooks']}")
+        logger.debug(f"Invalid Hooks: {report['invalid_hooks']}")
 
         if report["global_issues"]:
-            print("\nGlobal Issues:")
+            logger.debug("\nGlobal Issues:")
             for issue in report["global_issues"]:
-                print(f"  ⚠️  {issue}")
+                logger.debug(f"  ⚠️  {issue}")
 
-        print("\nHook Details:")
+        logger.debug("\nHook Details:")
         for hook in report["hooks"]:
             status = "✓" if hook["valid"] else "✗"
-            print(f"\n  {status} {hook['name']}")
-            print(f"     Event: {hook['event_type']}")
-            print(f"     Action: {hook['action_type']}")
+            logger.debug(f"\n  {status} {hook['name']}")
+            logger.debug(f"     Event: {hook['event_type']}")
+            logger.debug(f"     Action: {hook['action_type']}")
 
             if hook["issues"]:
-                print("     Issues:")
+                logger.debug("     Issues:")
                 for issue in hook["issues"]:
-                    print(f"       - {issue}")
+                    logger.debug(f"       - {issue}")
 
-        print("\n" + "=" * 60)
+        logger.debug("\n" + "=" * 60)
 
         if report["invalid_hooks"] > 0:
-            print(f"⚠️  {report['invalid_hooks']} hook(s) need attention!")
+            logger.debug(f"⚠️  {report['invalid_hooks']} hook(s) need attention!")
         else:
-            print("✓ All hooks are valid!")
+            logger.debug("✓ All hooks are valid!")
 
-        print("=" * 60 + "\n")
+        logger.debug("=" * 60 + "\n")
 
 
-def run_hook_diagnostics() -> Dict:
+def run_hook_diagnostics() -> dict[str, Any]:
     """Run hook diagnostics and return the report."""
     diagnostics = HookDiagnostics()
     report = diagnostics.diagnose_all_hooks()

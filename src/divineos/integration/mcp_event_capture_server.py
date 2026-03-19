@@ -1,5 +1,4 @@
-"""
-MCP Event Capture Server - Automatic tool event emission for Kiro IDE.
+"""MCP Event Capture Server - Automatic tool event emission for Kiro IDE.
 
 This MCP server provides tools that the Kiro IDE can use to automatically
 emit TOOL_CALL and TOOL_RESULT events when tools are executed.
@@ -13,24 +12,23 @@ This server uses the unified tool capture system for consistency.
 """
 
 import json
-from typing import Any, Dict, Optional
+from typing import Any
 
-from divineos.core.session_manager import get_or_create_session_id
-from divineos.core.tool_wrapper import capture_tool_execution
 from divineos.core.error_handling import (
     EventCaptureError,
     SessionError,
     handle_error,
 )
+from divineos.core.session_manager import get_or_create_session_id
+from divineos.core.tool_wrapper import capture_tool_execution
 
 
 def emit_tool_call_mcp(
     tool_name: str,
-    tool_input: Dict[str, Any],
-    session_id: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    MCP tool to emit a TOOL_CALL event.
+    tool_input: dict[str, Any],
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    """MCP tool to emit a TOOL_CALL event.
 
     Args:
         tool_name: Name of the tool being called
@@ -39,6 +37,7 @@ def emit_tool_call_mcp(
 
     Returns:
         Dictionary with event_id and status
+
     """
     try:
         session_id = get_or_create_session_id(session_id)
@@ -78,11 +77,10 @@ def emit_tool_result_mcp(
     result: str,
     duration_ms: int,
     failed: bool = False,
-    error_message: Optional[str] = None,
-    session_id: Optional[str] = None,
-) -> Dict[str, Any]:
-    """
-    MCP tool to emit a TOOL_RESULT event.
+    error_message: str | None = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    """MCP tool to emit a TOOL_RESULT event.
 
     Args:
         tool_name: Name of the tool
@@ -95,6 +93,7 @@ def emit_tool_result_mcp(
 
     Returns:
         Dictionary with event_id and status
+
     """
     try:
         session_id = get_or_create_session_id(session_id)
@@ -116,7 +115,9 @@ def emit_tool_result_mcp(
         }
     except (EventCaptureError, SessionError) as e:
         handle_error(
-            e, "emit_tool_result_mcp", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+            e,
+            "emit_tool_result_mcp",
+            {"tool_name": tool_name, "tool_use_id": tool_use_id},
         )
         return {
             "status": "error",
@@ -125,7 +126,9 @@ def emit_tool_result_mcp(
         }
     except Exception as e:
         handle_error(
-            e, "emit_tool_result_mcp", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+            e,
+            "emit_tool_result_mcp",
+            {"tool_name": tool_name, "tool_use_id": tool_use_id},
         )
         return {
             "status": "error",
@@ -134,12 +137,12 @@ def emit_tool_result_mcp(
         }
 
 
-def get_session_id_mcp() -> Dict[str, Any]:
-    """
-    MCP tool to get the current session ID.
+def get_session_id_mcp() -> dict[str, Any]:
+    """MCP tool to get the current session ID.
 
     Returns:
         Dictionary with session_id
+
     """
     try:
         session_id = get_or_create_session_id()
@@ -165,9 +168,9 @@ def get_session_id_mcp() -> Dict[str, Any]:
 if __name__ == "__main__":
     """
     This script can be run as an MCP server.
-    
+
     To use with Kiro IDE, add to ~/.kiro/settings/mcp.json:
-    
+
     {
       "mcpServers": {
         "divineos-event-capture": {
@@ -184,32 +187,31 @@ if __name__ == "__main__":
     from typing import Any
 
     # Simple stdio-based MCP server
-    def handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
+    def handle_request(request: dict[str, Any]) -> dict[str, Any]:
         """Handle MCP requests."""
         method = request.get("method")
         params = request.get("params", {})
 
         if method == "emit_tool_call":
             return emit_tool_call_mcp(**params)
-        elif method == "emit_tool_result":
+        if method == "emit_tool_result":
             return emit_tool_result_mcp(**params)
-        elif method == "get_session_id":
+        if method == "get_session_id":
             return get_session_id_mcp()
-        else:
-            return {"status": "error", "error": f"Unknown method: {method}"}
+        return {"status": "error", "error": f"Unknown method: {method}"}
 
     # Read requests from stdin and write responses to stdout
     for line in sys.stdin:
         try:
             request = json.loads(line)
             response = handle_request(request)
-            print(json.dumps(response))
+            print(json.dumps(response))  # noqa: T201
             sys.stdout.flush()
         except json.JSONDecodeError as e:
             handle_error(e, "mcp_server_json_decode")
-            print(json.dumps({"status": "error", "error": f"Invalid JSON: {str(e)}"}))
+            print(json.dumps({"status": "error", "error": f"Invalid JSON: {e!s}"}))  # noqa: T201
             sys.stdout.flush()
         except Exception as e:
             handle_error(e, "mcp_server_request_handling")
-            print(json.dumps({"status": "error", "error": str(e)}))
+            print(json.dumps({"status": "error", "error": str(e)}))  # noqa: T201
             sys.stdout.flush()

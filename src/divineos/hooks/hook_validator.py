@@ -1,5 +1,4 @@
-"""
-Hook Validator — Validates hook configuration files for Real IDE Integration.
+"""Hook Validator — Validates hook configuration files for Real IDE Integration.
 
 Validates JSON structure, required fields, event types, and action types.
 Provides clear error messages for invalid hooks.
@@ -15,9 +14,9 @@ Requirements:
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
-from loguru import logger
+from typing import Any
 
+from loguru import logger
 
 # Valid event types that hooks can listen for
 VALID_EVENT_TYPES = {
@@ -29,7 +28,6 @@ VALID_EVENT_TYPES = {
     "fileDeleted",
     "userTriggered",
     "preToolUse",
-    "postToolUse",
     "preTaskExecution",
     "postTaskExecution",
 }
@@ -44,12 +42,9 @@ VALID_ACTION_TYPES = {
 class HookValidationError(Exception):
     """Raised when hook validation fails."""
 
-    pass
 
-
-def validate_hook_structure(hook_data: Dict[str, Any]) -> Tuple[bool, str]:
-    """
-    Validate the structure of a hook configuration.
+def validate_hook_structure(hook_data: dict[str, Any]) -> tuple[bool, str]:
+    """Validate the structure of a hook configuration.
 
     Args:
         hook_data: The parsed hook JSON data
@@ -62,6 +57,7 @@ def validate_hook_structure(hook_data: Dict[str, Any]) -> Tuple[bool, str]:
         - Requirement 13.2: Verify required fields
         - Requirement 13.3: Verify event types
         - Requirement 13.4: Verify action types
+
     """
     # Check required top-level fields
     required_fields = {"name", "version", "when", "then"}
@@ -127,9 +123,8 @@ def validate_hook_structure(hook_data: Dict[str, Any]) -> Tuple[bool, str]:
     return True, ""
 
 
-def validate_hook_file(file_path: Path) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
-    """
-    Validate a hook configuration file.
+def validate_hook_file(file_path: Path) -> tuple[bool, str, dict[str, Any] | None]:
+    """Validate a hook configuration file.
 
     Args:
         file_path: Path to the hook file
@@ -143,6 +138,7 @@ def validate_hook_file(file_path: Path) -> Tuple[bool, str, Optional[Dict[str, A
         - Requirement 13.3: Verify event types
         - Requirement 13.4: Verify action types
         - Requirement 13.6: Provide clear error messages
+
     """
     try:
         # Check file exists
@@ -150,7 +146,7 @@ def validate_hook_file(file_path: Path) -> Tuple[bool, str, Optional[Dict[str, A
             return False, f"Hook file not found: {file_path}", None
 
         # Read file
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Parse JSON
@@ -170,9 +166,8 @@ def validate_hook_file(file_path: Path) -> Tuple[bool, str, Optional[Dict[str, A
         return False, f"Error reading hook file: {e}", None
 
 
-def load_hooks_from_directory(directory: Path) -> Tuple[list[Dict[str, Any]], list[Dict[str, str]]]:
-    """
-    Load and validate all hook files from a directory.
+def load_hooks_from_directory(directory: Path) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """Load and validate all hook files from a directory.
 
     Args:
         directory: Path to directory containing hook files
@@ -184,9 +179,10 @@ def load_hooks_from_directory(directory: Path) -> Tuple[list[Dict[str, Any]], li
     Requirements:
         - Requirement 13.5: Log errors and skip invalid hooks
         - Requirement 13.6: Provide clear error messages
+
     """
-    valid_hooks: list[Dict[str, Any]] = []
-    invalid_hooks: list[Dict[str, str]] = []
+    valid_hooks: list[dict[str, Any]] = []
+    invalid_hooks: list[dict[str, str]] = []
 
     if not directory.exists():
         logger.warning(f"Hook directory does not exist: {directory}")
@@ -211,7 +207,7 @@ def load_hooks_from_directory(directory: Path) -> Tuple[list[Dict[str, Any]], li
                 {
                     "file": hook_file.name,
                     "error": error_msg,
-                }
+                },
             )
 
     return valid_hooks, invalid_hooks

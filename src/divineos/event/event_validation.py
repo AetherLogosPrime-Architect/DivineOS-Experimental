@@ -1,18 +1,15 @@
-"""
-Event Validation Module
+"""Event Validation Module.
 
 Validates event payloads before they are stored in the ledger.
 Prevents corrupted or malformed data from being persisted.
 """
 
 import re
-from typing import Dict, Any, Tuple
+from typing import Any
 
 
 class EventValidationError(Exception):
     """Raised when event validation fails."""
-
-    pass
 
 
 class EventValidator:
@@ -25,7 +22,8 @@ class EventValidator:
 
     # Valid session ID format (UUID)
     VALID_SESSION_ID_PATTERN = re.compile(
-        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        re.IGNORECASE,
     )
 
     # Valid timestamp format (ISO8601)
@@ -62,9 +60,9 @@ class EventValidator:
             if len(value) > 0:
                 return EventValidator.is_valid_content(value)
             return True
-        elif isinstance(value, (int, float, bool, type(None))):
+        if isinstance(value, (int, float, bool, type(None))):
             return True
-        elif isinstance(value, dict):
+        if isinstance(value, dict):
             # Recursively validate nested dictionaries
             for k, v in value.items():
                 if not isinstance(k, str):
@@ -72,15 +70,11 @@ class EventValidator:
                 if not EventValidator.is_valid_tool_input_value(v):
                     return False
             return True
-        elif isinstance(value, (list, tuple)):
+        if isinstance(value, (list, tuple)):
             # Recursively validate list/tuple items
-            for item in value:
-                if not EventValidator.is_valid_tool_input_value(item):
-                    return False
-            return True
-        else:
-            # Unsupported type
-            return False
+            return all(EventValidator.is_valid_tool_input_value(item) for item in value)
+        # Unsupported type
+        return False
 
     @staticmethod
     def is_valid_content(content: str, max_length: int = 1000000) -> bool:
@@ -156,13 +150,10 @@ class EventValidator:
         # Check for excessive special characters (more than 30% special chars)
         special_char_count = sum(1 for c in stripped if not c.isalnum() and not c.isspace())
         special_ratio = special_char_count / len(stripped) if stripped else 0
-        if special_ratio > 0.3:
-            return False
-
-        return True
+        return not special_ratio > 0.3
 
     @staticmethod
-    def validate_user_input_payload(payload: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_user_input_payload(payload: dict[str, Any]) -> tuple[bool, str]:
         """Validate USER_INPUT event payload."""
         # Content is required
         if "content" not in payload:
@@ -171,7 +162,7 @@ class EventValidator:
         # Validate content
         content = payload.get("content", "")
         if not EventValidator.is_valid_content(content):
-            return False, f"Invalid content: {repr(content[:50])}"
+            return False, f"Invalid content: {content[:50]!r}"
 
         # Validate timestamp if provided
         if "timestamp" in payload:
@@ -188,7 +179,7 @@ class EventValidator:
         return True, "Valid"
 
     @staticmethod
-    def validate_tool_call_payload(payload: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_tool_call_payload(payload: dict[str, Any]) -> tuple[bool, str]:
         """Validate TOOL_CALL event payload."""
         # tool_name and tool_use_id are required
         if "tool_name" not in payload:
@@ -199,7 +190,7 @@ class EventValidator:
         # Validate tool name
         tool_name = payload.get("tool_name", "")
         if not EventValidator.is_valid_tool_name(tool_name):
-            return False, f"Invalid tool name: {repr(tool_name)}"
+            return False, f"Invalid tool name: {tool_name!r}"
 
         # Validate tool_input is a dict if provided
         if "tool_input" in payload:
@@ -215,12 +206,12 @@ class EventValidator:
 
                 # Validate value recursively (supports nested structures)
                 if not EventValidator.is_valid_tool_input_value(value):
-                    return False, f"Invalid tool_input value: {repr(str(value)[:50])}"
+                    return False, f"Invalid tool_input value: {str(value)[:50]!r}"
 
         # Validate tool_use_id
         tool_use_id = payload.get("tool_use_id", "")
         if not isinstance(tool_use_id, str) or len(tool_use_id) == 0:
-            return False, f"Invalid tool_use_id: {repr(tool_use_id)}"
+            return False, f"Invalid tool_use_id: {tool_use_id!r}"
 
         # Validate timestamp if provided
         if "timestamp" in payload:
@@ -237,7 +228,7 @@ class EventValidator:
         return True, "Valid"
 
     @staticmethod
-    def validate_tool_result_payload(payload: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_tool_result_payload(payload: dict[str, Any]) -> tuple[bool, str]:
         """Validate TOOL_RESULT event payload."""
         # tool_name and tool_use_id are required
         if "tool_name" not in payload:
@@ -248,13 +239,13 @@ class EventValidator:
         # Validate tool name
         tool_name = payload.get("tool_name", "")
         if not EventValidator.is_valid_tool_name(tool_name):
-            return False, f"Invalid tool name: {repr(tool_name)}"
+            return False, f"Invalid tool name: {tool_name!r}"
 
         # Validate result if provided
         if "result" in payload:
             result = payload.get("result", "")
             if not EventValidator.is_valid_content(result):
-                return False, f"Invalid result: {repr(result[:50])}"
+                return False, f"Invalid result: {result[:50]!r}"
 
         # Validate duration_ms if provided
         if "duration_ms" in payload:
@@ -277,7 +268,7 @@ class EventValidator:
         return True, "Valid"
 
     @staticmethod
-    def validate_session_end_payload(payload: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_session_end_payload(payload: dict[str, Any]) -> tuple[bool, str]:
         """Validate SESSION_END event payload."""
         # session_id is required
         if "session_id" not in payload:
@@ -310,15 +301,14 @@ class EventValidator:
         return True, "Valid"
 
     @staticmethod
-    def validate_payload(event_type: str, payload: Dict[str, Any]) -> Tuple[bool, str]:
+    def validate_payload(event_type: str, payload: dict[str, Any]) -> tuple[bool, str]:
         """Validate a payload based on event type."""
         if event_type == "USER_INPUT":
             return EventValidator.validate_user_input_payload(payload)
-        elif event_type == "TOOL_CALL":
+        if event_type == "TOOL_CALL":
             return EventValidator.validate_tool_call_payload(payload)
-        elif event_type == "TOOL_RESULT":
+        if event_type == "TOOL_RESULT":
             return EventValidator.validate_tool_result_payload(payload)
-        elif event_type == "SESSION_END":
+        if event_type == "SESSION_END":
             return EventValidator.validate_session_end_payload(payload)
-        else:
-            return False, f"Unknown event type: {event_type}"
+        return False, f"Unknown event type: {event_type}"

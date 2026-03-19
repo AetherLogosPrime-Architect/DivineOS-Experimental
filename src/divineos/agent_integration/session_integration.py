@@ -1,49 +1,48 @@
-"""
-Session Integration for Agent Operations
+"""Session Integration for Agent Operations.
 
 Integrates agent operations with the session management system,
 ensuring all agent tool calls are tracked within the current session.
 """
 
 import os
+from typing import Any
 
 from loguru import logger
-from divineos.core.session_manager import get_current_session_id as get_session_id
+
 from divineos.core.error_handling import (
     SessionError,
     handle_error,
 )
+from divineos.core.session_manager import get_current_session_id as get_session_id
 
 
-def get_session_metadata(session_id: str) -> dict:
-    """
-    Get metadata for a session.
+def get_session_metadata(session_id: str) -> dict[str, Any]:
+    """Get metadata for a session.
 
     Args:
         session_id: Session ID
 
     Returns:
         Dictionary with session metadata
+
     """
     # Placeholder implementation - returns empty dict
     return {}
 
 
-def update_session_metadata(session_id: str, metadata: dict) -> None:
-    """
-    Update metadata for a session.
+def update_session_metadata(session_id: str, metadata: dict[str, Any]) -> None:
+    """Update metadata for a session.
 
     Args:
         session_id: Session ID
         metadata: Metadata dictionary to update
+
     """
     # Placeholder implementation
-    pass
 
 
 def get_agent_session_id() -> str:
-    """
-    Get the current session ID for agent operations.
+    """Get the current session ID for agent operations.
 
     Attempts to retrieve session ID from:
     1. Environment variable KIRO_SESSION_ID
@@ -55,6 +54,7 @@ def get_agent_session_id() -> str:
 
     Raises:
         RuntimeError: If session ID cannot be retrieved or created
+
     """
     # Check environment variable first
     env_session_id = os.environ.get("KIRO_SESSION_ID")
@@ -76,11 +76,11 @@ def get_agent_session_id() -> str:
 
 
 def track_agent_tool_call(session_id: str) -> None:
-    """
-    Track an agent tool call in the session metadata.
+    """Track an agent tool call in the session metadata.
 
     Args:
         session_id: Current session ID
+
     """
     try:
         metadata = get_session_metadata(session_id)
@@ -104,12 +104,12 @@ def track_agent_tool_call(session_id: str) -> None:
 
 
 def track_agent_tool_result(session_id: str, failed: bool = False) -> None:
-    """
-    Track an agent tool result in the session metadata.
+    """Track an agent tool result in the session metadata.
 
     Args:
         session_id: Current session ID
         failed: Whether the tool execution failed
+
     """
     try:
         metadata = get_session_metadata(session_id)
@@ -129,7 +129,7 @@ def track_agent_tool_result(session_id: str, failed: bool = False) -> None:
         update_session_metadata(session_id, metadata)
         logger.debug(
             f"Tracked agent tool result (total: {metadata['agent_tool_results']}, "
-            f"failures: {metadata.get('agent_tool_failures', 0)})"
+            f"failures: {metadata.get('agent_tool_failures', 0)})",
         )
 
     except KeyError as e:
@@ -140,15 +140,15 @@ def track_agent_tool_result(session_id: str, failed: bool = False) -> None:
         # Continue even if tracking fails
 
 
-def get_session_agent_stats(session_id: str) -> dict:
-    """
-    Get agent operation statistics for a session.
+def get_session_agent_stats(session_id: str) -> dict[str, Any]:
+    """Get agent operation statistics for a session.
 
     Args:
         session_id: Session ID
 
     Returns:
         Dictionary with agent operation statistics
+
     """
     try:
         metadata = get_session_metadata(session_id)

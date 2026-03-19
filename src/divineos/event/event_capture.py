@@ -1,5 +1,4 @@
-"""
-Event Capture Infrastructure — Core data structures and validation for IDE events.
+"""Event Capture Infrastructure — Core data structures and validation for IDE events.
 
 This module provides:
 - Event type enums (USER_INPUT, TOOL_CALL, TOOL_RESULT, SESSION_END)
@@ -12,10 +11,10 @@ core/session_manager.py. This module imports get_session_tracker for
 backward compatibility only.
 """
 
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional, Dict
-from dataclasses import dataclass, asdict
+from typing import Any
 
 
 class EventType(str, Enum):
@@ -31,8 +30,6 @@ class EventType(str, Enum):
 class EventValidationError(Exception):
     """Raised when event payload validation fails."""
 
-    pass
-
 
 @dataclass
 class UserInputPayload:
@@ -45,25 +42,32 @@ class UserInputPayload:
     def validate(self) -> None:
         """Validate USER_INPUT payload."""
         if not isinstance(self.content, str):
-            raise EventValidationError("content must be a string")
+            msg = "content must be a string"
+            raise EventValidationError(msg)
         if not self.content:
-            raise EventValidationError("content cannot be empty")
+            msg = "content cannot be empty"
+            raise EventValidationError(msg)
         if len(self.content) > 1000000:  # 1MB limit
-            raise EventValidationError("content exceeds maximum length (1MB)")
+            msg = "content exceeds maximum length (1MB)"
+            raise EventValidationError(msg)
 
         if not isinstance(self.timestamp, str):
-            raise EventValidationError("timestamp must be a string")
+            msg = "timestamp must be a string"
+            raise EventValidationError(msg)
         try:
             datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
         except ValueError:
-            raise EventValidationError("timestamp must be valid ISO8601 format")
+            msg = "timestamp must be valid ISO8601 format"
+            raise EventValidationError(msg)
 
         if not isinstance(self.session_id, str):
-            raise EventValidationError("session_id must be a string")
+            msg = "session_id must be a string"
+            raise EventValidationError(msg)
         if not self.session_id:
-            raise EventValidationError("session_id cannot be empty")
+            msg = "session_id cannot be empty"
+            raise EventValidationError(msg)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
@@ -73,7 +77,7 @@ class ToolCallPayload:
     """Payload schema for TOOL_CALL events."""
 
     tool_name: str
-    tool_input: Dict[str, Any]
+    tool_input: dict[str, Any]
     tool_use_id: str
     timestamp: str
     session_id: str
@@ -81,31 +85,40 @@ class ToolCallPayload:
     def validate(self) -> None:
         """Validate TOOL_CALL payload."""
         if not isinstance(self.tool_name, str):
-            raise EventValidationError("tool_name must be a string")
+            msg = "tool_name must be a string"
+            raise EventValidationError(msg)
         if not self.tool_name:
-            raise EventValidationError("tool_name cannot be empty")
+            msg = "tool_name cannot be empty"
+            raise EventValidationError(msg)
 
         if not isinstance(self.tool_input, dict):
-            raise EventValidationError("tool_input must be a dictionary")
+            msg = "tool_input must be a dictionary"
+            raise EventValidationError(msg)
 
         if not isinstance(self.tool_use_id, str):
-            raise EventValidationError("tool_use_id must be a string")
+            msg = "tool_use_id must be a string"
+            raise EventValidationError(msg)
         if not self.tool_use_id:
-            raise EventValidationError("tool_use_id cannot be empty")
+            msg = "tool_use_id cannot be empty"
+            raise EventValidationError(msg)
 
         if not isinstance(self.timestamp, str):
-            raise EventValidationError("timestamp must be a string")
+            msg = "timestamp must be a string"
+            raise EventValidationError(msg)
         try:
             datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
         except ValueError:
-            raise EventValidationError("timestamp must be valid ISO8601 format")
+            msg = "timestamp must be valid ISO8601 format"
+            raise EventValidationError(msg)
 
         if not isinstance(self.session_id, str):
-            raise EventValidationError("session_id must be a string")
+            msg = "session_id must be a string"
+            raise EventValidationError(msg)
         if not self.session_id:
-            raise EventValidationError("session_id cannot be empty")
+            msg = "session_id cannot be empty"
+            raise EventValidationError(msg)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
@@ -121,53 +134,69 @@ class ToolResultPayload:
     timestamp: str
     session_id: str
     failed: bool = False
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     def validate(self) -> None:
         """Validate TOOL_RESULT payload."""
         if not isinstance(self.tool_name, str):
-            raise EventValidationError("tool_name must be a string")
+            msg = "tool_name must be a string"
+            raise EventValidationError(msg)
         if not self.tool_name:
-            raise EventValidationError("tool_name cannot be empty")
+            msg = "tool_name cannot be empty"
+            raise EventValidationError(msg)
 
         if not isinstance(self.tool_use_id, str):
-            raise EventValidationError("tool_use_id must be a string")
+            msg = "tool_use_id must be a string"
+            raise EventValidationError(msg)
         if not self.tool_use_id:
-            raise EventValidationError("tool_use_id cannot be empty")
+            msg = "tool_use_id cannot be empty"
+            raise EventValidationError(msg)
 
         if not isinstance(self.result, str):
-            raise EventValidationError("result must be a string")
+            msg = "result must be a string"
+            raise EventValidationError(msg)
         if not self.result:
-            raise EventValidationError("result cannot be empty")
+            msg = "result cannot be empty"
+            raise EventValidationError(msg)
         if len(self.result) > 10000000:  # 10MB limit
-            raise EventValidationError("result exceeds maximum length (10MB)")
+            msg = "result exceeds maximum length (10MB)"
+            raise EventValidationError(msg)
 
         if not isinstance(self.duration_ms, int):
-            raise EventValidationError("duration_ms must be an integer")
+            msg = "duration_ms must be an integer"
+            raise EventValidationError(msg)
         if self.duration_ms < 0:
-            raise EventValidationError("duration_ms cannot be negative")
+            msg = "duration_ms cannot be negative"
+            raise EventValidationError(msg)
 
         if not isinstance(self.timestamp, str):
-            raise EventValidationError("timestamp must be a string")
+            msg = "timestamp must be a string"
+            raise EventValidationError(msg)
         try:
             datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
         except ValueError:
-            raise EventValidationError("timestamp must be valid ISO8601 format")
+            msg = "timestamp must be valid ISO8601 format"
+            raise EventValidationError(msg)
 
         if not isinstance(self.session_id, str):
-            raise EventValidationError("session_id must be a string")
+            msg = "session_id must be a string"
+            raise EventValidationError(msg)
         if not self.session_id:
-            raise EventValidationError("session_id cannot be empty")
+            msg = "session_id cannot be empty"
+            raise EventValidationError(msg)
 
         if not isinstance(self.failed, bool):
-            raise EventValidationError("failed must be a boolean")
+            msg = "failed must be a boolean"
+            raise EventValidationError(msg)
 
         if self.failed and not self.error_message:
-            raise EventValidationError("error_message required when failed=True")
+            msg = "error_message required when failed=True"
+            raise EventValidationError(msg)
         if self.error_message and not isinstance(self.error_message, str):
-            raise EventValidationError("error_message must be a string")
+            msg = "error_message must be a string"
+            raise EventValidationError(msg)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         data = asdict(self)
         # Remove None values
@@ -185,25 +214,32 @@ class ExplanationPayload:
     def validate(self) -> None:
         """Validate EXPLANATION payload."""
         if not isinstance(self.explanation_text, str):
-            raise EventValidationError("explanation_text must be a string")
+            msg = "explanation_text must be a string"
+            raise EventValidationError(msg)
         if not self.explanation_text:
-            raise EventValidationError("explanation_text cannot be empty")
+            msg = "explanation_text cannot be empty"
+            raise EventValidationError(msg)
         if len(self.explanation_text) > 1000000:  # 1MB limit
-            raise EventValidationError("explanation_text exceeds maximum length (1MB)")
+            msg = "explanation_text exceeds maximum length (1MB)"
+            raise EventValidationError(msg)
 
         if not isinstance(self.timestamp, str):
-            raise EventValidationError("timestamp must be a string")
+            msg = "timestamp must be a string"
+            raise EventValidationError(msg)
         try:
             datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
         except ValueError:
-            raise EventValidationError("timestamp must be valid ISO8601 format")
+            msg = "timestamp must be valid ISO8601 format"
+            raise EventValidationError(msg)
 
         if not isinstance(self.session_id, str):
-            raise EventValidationError("session_id must be a string")
+            msg = "session_id must be a string"
+            raise EventValidationError(msg)
         if not self.session_id:
-            raise EventValidationError("session_id cannot be empty")
+            msg = "session_id cannot be empty"
+            raise EventValidationError(msg)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
@@ -222,38 +258,50 @@ class SessionEndPayload:
     def validate(self) -> None:
         """Validate SESSION_END payload."""
         if not isinstance(self.session_id, str):
-            raise EventValidationError("session_id must be a string")
+            msg = "session_id must be a string"
+            raise EventValidationError(msg)
         if not self.session_id:
-            raise EventValidationError("session_id cannot be empty")
+            msg = "session_id cannot be empty"
+            raise EventValidationError(msg)
 
         if not isinstance(self.message_count, int):
-            raise EventValidationError("message_count must be an integer")
+            msg = "message_count must be an integer"
+            raise EventValidationError(msg)
         if self.message_count < 0:
-            raise EventValidationError("message_count cannot be negative")
+            msg = "message_count cannot be negative"
+            raise EventValidationError(msg)
 
         if not isinstance(self.tool_call_count, int):
-            raise EventValidationError("tool_call_count must be an integer")
+            msg = "tool_call_count must be an integer"
+            raise EventValidationError(msg)
         if self.tool_call_count < 0:
-            raise EventValidationError("tool_call_count cannot be negative")
+            msg = "tool_call_count cannot be negative"
+            raise EventValidationError(msg)
 
         if not isinstance(self.tool_result_count, int):
-            raise EventValidationError("tool_result_count must be an integer")
+            msg = "tool_result_count must be an integer"
+            raise EventValidationError(msg)
         if self.tool_result_count < 0:
-            raise EventValidationError("tool_result_count cannot be negative")
+            msg = "tool_result_count cannot be negative"
+            raise EventValidationError(msg)
 
         if not isinstance(self.duration_seconds, (int, float)):
-            raise EventValidationError("duration_seconds must be a number")
+            msg = "duration_seconds must be a number"
+            raise EventValidationError(msg)
         if self.duration_seconds < 0:
-            raise EventValidationError("duration_seconds cannot be negative")
+            msg = "duration_seconds cannot be negative"
+            raise EventValidationError(msg)
 
         if not isinstance(self.timestamp, str):
-            raise EventValidationError("timestamp must be a string")
+            msg = "timestamp must be a string"
+            raise EventValidationError(msg)
         try:
             datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
         except ValueError:
-            raise EventValidationError("timestamp must be valid ISO8601 format")
+            msg = "timestamp must be valid ISO8601 format"
+            raise EventValidationError(msg)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
 
@@ -266,24 +314,23 @@ class SessionEndPayload:
 # core/session_manager.py instead.
 
 from divineos.core.session_manager import (  # noqa: E402, F401
-    get_session_tracker,
     SessionTracker,
+    get_session_tracker,
 )
 
 
 def get_current_timestamp() -> str:
-    """
-    Get current timestamp in ISO8601 format.
+    """Get current timestamp in ISO8601 format.
 
     Returns:
         timestamp: ISO8601 formatted timestamp with UTC timezone
+
     """
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def validate_event_payload(event_type: EventType, payload: Dict[str, Any]) -> None:
-    """
-    Validate an event payload against its schema.
+def validate_event_payload(event_type: EventType, payload: dict[str, Any]) -> None:
+    """Validate an event payload against its schema.
 
     Args:
         event_type: Type of event
@@ -291,6 +338,7 @@ def validate_event_payload(event_type: EventType, payload: Dict[str, Any]) -> No
 
     Raises:
         EventValidationError: If payload is invalid
+
     """
     try:
         p: (
@@ -318,12 +366,11 @@ def validate_event_payload(event_type: EventType, payload: Dict[str, Any]) -> No
         else:
             raise EventValidationError(f"Unknown event type: {event_type}")
     except TypeError as e:
-        raise EventValidationError(f"Missing required fields: {e}")
+        raise EventValidationError(f"Missing required fields: {e}") from e
 
 
-def normalize_event_payload(event_type: EventType, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Normalize an event payload to ensure consistency.
+def normalize_event_payload(event_type: EventType, payload: dict[str, Any]) -> dict[str, Any]:
+    """Normalize an event payload to ensure consistency.
 
     Args:
         event_type: Type of event
@@ -331,6 +378,7 @@ def normalize_event_payload(event_type: EventType, payload: Dict[str, Any]) -> D
 
     Returns:
         normalized_payload: Normalized payload dictionary
+
     """
     p: (
         UserInputPayload
@@ -342,17 +390,16 @@ def normalize_event_payload(event_type: EventType, payload: Dict[str, Any]) -> D
     if event_type == EventType.USER_INPUT:
         p = UserInputPayload(**payload)
         return p.to_dict()
-    elif event_type == EventType.TOOL_CALL:
+    if event_type == EventType.TOOL_CALL:
         p = ToolCallPayload(**payload)
         return p.to_dict()
-    elif event_type == EventType.TOOL_RESULT:
+    if event_type == EventType.TOOL_RESULT:
         p = ToolResultPayload(**payload)
         return p.to_dict()
-    elif event_type == EventType.EXPLANATION:
+    if event_type == EventType.EXPLANATION:
         p = ExplanationPayload(**payload)
         return p.to_dict()
-    elif event_type == EventType.SESSION_END:
+    if event_type == EventType.SESSION_END:
         p = SessionEndPayload(**payload)
         return p.to_dict()
-    else:
-        raise EventValidationError(f"Unknown event type: {event_type}")
+    raise EventValidationError(f"Unknown event type: {event_type}")

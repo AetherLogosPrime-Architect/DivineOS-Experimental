@@ -1,10 +1,9 @@
-"""
-Clarity Statement Generator.
+"""Clarity Statement Generator.
 
 Generates pre-work clarity statements that describe planned work to the user.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from loguru import logger
 
@@ -15,16 +14,15 @@ from .types import ClarityStatement, ScopeEstimate
 class DefaultClarityStatementGenerator(ClarityStatementGenerator):
     """Default implementation of clarity statement generator."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the clarity statement generator."""
 
     def validate(self) -> bool:
         """Validate component is properly initialized."""
         return True
 
-    def generate_clarity_statement(self, work_context: Dict[str, Any]) -> ClarityStatement:
-        """
-        Generate a clarity statement from work context.
+    def generate_clarity_statement(self, work_context: dict[str, Any]) -> ClarityStatement:
+        """Generate a clarity statement from work context.
 
         Args:
             work_context: Dictionary containing planned work information
@@ -32,6 +30,7 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
 
         Returns:
             ClarityStatement with goal, approach, outcome, and scope
+
         """
         try:
             goal = self.extract_goal(work_context)
@@ -47,7 +46,7 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
             )
 
             logger.info(
-                f"Generated clarity statement {clarity_statement.id} for goal: {goal[:50]}..."
+                f"Generated clarity statement {clarity_statement.id} for goal: {goal[:50]}...",
             )
             return clarity_statement
 
@@ -61,15 +60,15 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
                 scope=ScopeEstimate(0, 0, "medium", 0),
             )
 
-    def extract_goal(self, work_context: Dict[str, Any]) -> str:
-        """
-        Extract primary goal from work context.
+    def extract_goal(self, work_context: dict[str, Any]) -> str:
+        """Extract primary goal from work context.
 
         Args:
             work_context: Work context dictionary
 
         Returns:
             Goal string
+
         """
         if "goal" in work_context:
             goal = work_context["goal"]
@@ -77,15 +76,15 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
                 return goal.strip()
         return "Unspecified goal"
 
-    def extract_approach(self, work_context: Dict[str, Any]) -> str:
-        """
-        Extract approach/strategy from work context.
+    def extract_approach(self, work_context: dict[str, Any]) -> str:
+        """Extract approach/strategy from work context.
 
         Args:
             work_context: Work context dictionary
 
         Returns:
             Approach string
+
         """
         if "approach" in work_context:
             approach = work_context["approach"]
@@ -93,15 +92,15 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
                 return approach.strip()
         return "Unspecified approach"
 
-    def extract_expected_outcome(self, work_context: Dict[str, Any]) -> str:
-        """
-        Extract expected outcome from work context.
+    def extract_expected_outcome(self, work_context: dict[str, Any]) -> str:
+        """Extract expected outcome from work context.
 
         Args:
             work_context: Work context dictionary
 
         Returns:
             Expected outcome string
+
         """
         if "expected_outcome" in work_context:
             outcome = work_context["expected_outcome"]
@@ -109,9 +108,8 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
                 return outcome.strip()
         return "Unspecified outcome"
 
-    def extract_scope(self, work_context: Dict[str, Any]) -> ScopeEstimate:
-        """
-        Extract scope estimate from work context.
+    def extract_scope(self, work_context: dict[str, Any]) -> ScopeEstimate:
+        """Extract scope estimate from work context.
 
         Args:
             work_context: Work context dictionary
@@ -120,6 +118,7 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
 
         Returns:
             ScopeEstimate object
+
         """
         try:
             estimated_files = work_context.get("estimated_files", 0)
@@ -150,15 +149,15 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
             logger.warning(f"Error extracting scope: {e}, using defaults")
             return ScopeEstimate(0, 0, "medium", 0)
 
-    def present_to_user(self, clarity_statement: ClarityStatement) -> Optional[str]:
-        """
-        Present clarity statement to user.
+    def present_to_user(self, clarity_statement: ClarityStatement) -> str | None:
+        """Present clarity statement to user.
 
         Args:
             clarity_statement: Statement to present
 
         Returns:
             Optional user feedback
+
         """
         try:
             # Format clarity statement for display
@@ -174,14 +173,14 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
             return None
 
     def _format_clarity_statement(self, clarity_statement: ClarityStatement) -> str:
-        """
-        Format clarity statement for display.
+        """Format clarity statement for display.
 
         Args:
             clarity_statement: Statement to format
 
         Returns:
             Formatted display string
+
         """
         lines = [
             "=" * 60,

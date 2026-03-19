@@ -1,20 +1,20 @@
-"""
-Plan Analyzer.
+"""Plan Analyzer.
 
 Parses and normalizes clarity statements into structured plan data.
 """
 
-from typing import Any, Dict
+from typing import Any
+
+from loguru import logger
 
 from .base import PlanAnalyzer
 from .types import ClarityStatement, PlanData, PlanMetrics
-from loguru import logger
 
 
 class DefaultPlanAnalyzer(PlanAnalyzer):
     """Default implementation of plan analyzer."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the plan analyzer."""
 
     def validate(self) -> bool:
@@ -22,14 +22,14 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
         return True
 
     def analyze_plan(self, clarity_statement: ClarityStatement) -> PlanData:
-        """
-        Analyze clarity statement and extract structured plan.
+        """Analyze clarity statement and extract structured plan.
 
         Args:
             clarity_statement: Clarity statement to analyze
 
         Returns:
             Structured plan data
+
         """
         try:
             goal = self.extract_goal_from_statement(clarity_statement)
@@ -72,38 +72,38 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
             )
 
     def extract_goal_from_statement(self, statement: ClarityStatement) -> str:
-        """
-        Extract goal from clarity statement.
+        """Extract goal from clarity statement.
 
         Args:
             statement: Clarity statement
 
         Returns:
             Goal string
+
         """
         return statement.goal.strip() if statement.goal else "Unspecified goal"
 
     def extract_approach_from_statement(self, statement: ClarityStatement) -> str:
-        """
-        Extract approach from clarity statement.
+        """Extract approach from clarity statement.
 
         Args:
             statement: Clarity statement
 
         Returns:
             Approach string
+
         """
         return statement.approach.strip() if statement.approach else "Unspecified approach"
 
-    def extract_scope_metrics(self, clarity_statement: ClarityStatement) -> Dict[str, Any]:
-        """
-        Extract scope metrics from clarity statement.
+    def extract_scope_metrics(self, clarity_statement: ClarityStatement) -> dict[str, Any]:
+        """Extract scope metrics from clarity statement.
 
         Args:
             clarity_statement: Clarity statement with scope
 
         Returns:
             Dictionary with scope metrics
+
         """
         try:
             scope = clarity_statement.scope
@@ -123,14 +123,14 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
             }
 
     def normalize_plan_data(self, plan_data: PlanData) -> PlanData:
-        """
-        Normalize plan data to standard format.
+        """Normalize plan data to standard format.
 
         Args:
             plan_data: Plan data to normalize
 
         Returns:
             Normalized plan data
+
         """
         try:
             # Normalize strings
@@ -159,7 +159,7 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
             )
 
             logger.info(
-                f"Normalized plan data for clarity statement {plan_data.clarity_statement_id}"
+                f"Normalized plan data for clarity statement {plan_data.clarity_statement_id}",
             )
             return normalized_plan
 

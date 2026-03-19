@@ -1,15 +1,15 @@
-"""
-Ledger Integration.
+"""Ledger Integration.
 
 Integrates with the existing DivineOS ledger for querying execution events.
 """
 
-from typing import List, Optional
+from typing import Any
 from uuid import UUID
 
 from loguru import logger
 
 from divineos.core import ledger
+
 from .types import ExecutionData, ExecutionMetrics, ToolCall
 
 
@@ -19,11 +19,10 @@ class LedgerQueryInterface:
     @staticmethod
     def query_events_for_session(
         session_id: UUID,
-        event_type: Optional[str] = None,
+        event_type: str | None = None,
         limit: int = 1000,
-    ) -> List[dict]:
-        """
-        Query ledger for events in a session.
+    ) -> list[dict[str, Any]]:
+        """Query ledger for events in a session.
 
         Args:
             session_id: Session ID to query
@@ -32,6 +31,7 @@ class LedgerQueryInterface:
 
         Returns:
             List of events from ledger
+
         """
         try:
             # Convert UUID to string for ledger query
@@ -47,11 +47,11 @@ class LedgerQueryInterface:
 
             if corrupted_events:
                 logger.warning(
-                    f"Found {len(corrupted_events)} corrupted events for session {session_id}"
+                    f"Found {len(corrupted_events)} corrupted events for session {session_id}",
                 )
 
             logger.info(
-                f"Queried ledger for session {session_id}: {len(verified_events)} verified events"
+                f"Queried ledger for session {session_id}: {len(verified_events)} verified events",
             )
             return verified_events
 
@@ -60,15 +60,15 @@ class LedgerQueryInterface:
             return []
 
     @staticmethod
-    def extract_tool_calls_from_events(events: List[dict]) -> List[ToolCall]:
-        """
-        Extract tool calls from ledger events.
+    def extract_tool_calls_from_events(events: list[dict[str, Any]]) -> list[ToolCall]:
+        """Extract tool calls from ledger events.
 
         Args:
             events: List of events from ledger
 
         Returns:
             List of ToolCall objects
+
         """
         try:
             tool_calls = []
@@ -95,15 +95,15 @@ class LedgerQueryInterface:
             return []
 
     @staticmethod
-    def extract_errors_from_events(events: List[dict]) -> List[str]:
-        """
-        Extract errors from ledger events.
+    def extract_errors_from_events(events: list[dict[str, Any]]) -> list[str]:
+        """Extract errors from ledger events.
 
         Args:
             events: List of events from ledger
 
         Returns:
             List of error messages
+
         """
         try:
             errors = []
@@ -128,14 +128,14 @@ class LedgerQueryInterface:
 
     @staticmethod
     def get_session_events(session_id: UUID) -> ExecutionData:
-        """
-        Get all execution data for a session from ledger.
+        """Get all execution data for a session from ledger.
 
         Args:
             session_id: Session ID to query
 
         Returns:
             ExecutionData with all events from session
+
         """
         try:
             # Query all events for session
@@ -160,7 +160,7 @@ class LedgerQueryInterface:
 
             logger.info(
                 f"Retrieved execution data for session {session_id}: "
-                f"{len(tool_calls)} tool calls, {len(errors)} errors"
+                f"{len(tool_calls)} tool calls, {len(errors)} errors",
             )
             return execution_data
 
@@ -174,9 +174,8 @@ class LedgerQueryInterface:
             )
 
     @staticmethod
-    def calculate_metrics(tool_calls: List[ToolCall], errors: List[str]) -> ExecutionMetrics:
-        """
-        Calculate execution metrics from tool calls and errors.
+    def calculate_metrics(tool_calls: list[ToolCall], errors: list[str]) -> ExecutionMetrics:
+        """Calculate execution metrics from tool calls and errors.
 
         Args:
             tool_calls: List of tool calls
@@ -184,6 +183,7 @@ class LedgerQueryInterface:
 
         Returns:
             ExecutionMetrics
+
         """
         try:
             # Count unique files accessed
@@ -226,7 +226,7 @@ class LedgerQueryInterface:
 
             logger.info(
                 f"Calculated metrics: {actual_files} files, {actual_tool_calls} calls, "
-                f"{actual_errors} errors, {success_rate:.2%} success rate"
+                f"{actual_errors} errors, {success_rate:.2%} success rate",
             )
             return metrics
 

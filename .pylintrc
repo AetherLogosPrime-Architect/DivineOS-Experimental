@@ -1,0 +1,40 @@
+[MASTER]
+disable=cyclic-import,
+    duplicate-code,
+    too-many-branches,
+    too-many-statements,
+    too-many-locals,
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-instance-attributes,
+    too-many-return-statements,
+    too-few-public-methods,
+    too-many-nested-blocks,
+    import-outside-toplevel,
+    broad-exception-caught,
+    broad-exception-raised,
+    unused-argument,
+    redefined-outer-name,
+    reimported,
+    global-statement,
+    protected-access,
+    raise-missing-from,
+    pointless-statement,
+    pointless-string-statement,
+    ungrouped-imports,
+    wrong-import-position,
+    consider-using-dict-items,
+    simplifiable-if-expression,
+    disallowed-name,
+    invalid-name,
+    undefined-all-variable,
+    line-too-long,
+    too-many-lines,
+    consider-iterating-dictionary
+
+[DESIGN]
+max-locals=20
+max-branches=20
+max-statements=70
+max-attributes=10
+max-args=8

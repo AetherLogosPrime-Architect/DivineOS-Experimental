@@ -1,5 +1,4 @@
-"""
-Personal Memory — The AI's Mind
+"""Personal Memory — The AI's Mind.
 
 Two tiers on top of the knowledge store:
 
@@ -17,10 +16,9 @@ import math
 import sqlite3
 import time
 import uuid
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from divineos.core.ledger import DB_PATH, compute_hash
-
 
 # ─── Core Memory Slots ───────────────────────────────────────────────
 
@@ -102,7 +100,7 @@ def set_core(slot_id: str, content: str) -> None:
         conn.close()
 
 
-def get_core(slot_id: Optional[str] = None) -> dict[str, str]:
+def get_core(slot_id: str | None = None) -> dict[str, str]:
     """Get core memory. One slot or all. Returns {slot_id: content}."""
     conn = _get_connection()
     try:
@@ -112,11 +110,10 @@ def get_core(slot_id: Optional[str] = None) -> dict[str, str]:
                 (slot_id,),
             ).fetchone()
             return {row[0]: row[1]} if row else {}
-        else:
-            rows = conn.execute(
-                "SELECT slot_id, content FROM core_memory ORDER BY slot_id"
-            ).fetchall()
-            return {r[0]: r[1] for r in rows}
+        rows = conn.execute(
+            "SELECT slot_id, content FROM core_memory ORDER BY slot_id",
+        ).fetchall()
+        return {r[0]: r[1] for r in rows}
     finally:
         conn.close()
 
@@ -163,7 +160,7 @@ def format_core() -> str:
 # ─── Importance Scoring ──────────────────────────────────────────────
 
 
-def compute_importance(entry: dict, has_active_lesson: bool = False) -> float:
+def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -> float:
     """Score a knowledge entry for active memory. 0.0 to 1.0.
 
     No time decay. A mistake from day 1 scores the same as one from yesterday.
@@ -210,7 +207,7 @@ def compute_importance(entry: dict, has_active_lesson: bool = False) -> float:
     if has_active_lesson:
         score += 0.2
 
-    return cast(float, min(1.0, score))
+    return cast("float", min(1.0, score))
 
 
 # ─── Active Memory ───────────────────────────────────────────────────
@@ -219,7 +216,7 @@ def compute_importance(entry: dict, has_active_lesson: bool = False) -> float:
 def promote_to_active(
     knowledge_id: str,
     reason: str,
-    importance: Optional[float] = None,
+    importance: float | None = None,
     pinned: bool = False,
 ) -> str:
     """Promote a knowledge entry to active memory. Returns memory_id."""
@@ -239,11 +236,11 @@ def promote_to_active(
                 updates["pinned"] = 1
             set_clause = ", ".join(f"{k} = ?" for k in updates)
             conn.execute(
-                f"UPDATE active_memory SET {set_clause} WHERE knowledge_id = ?",
+                f"UPDATE active_memory SET {set_clause} WHERE knowledge_id = ?",  # nosec B608 - column names from updates dict keys, all values passed as parameters
                 (*updates.values(), knowledge_id),
             )
             conn.commit()
-            return cast(str, existing[0])
+            return cast("str", existing[0])
 
         memory_id = uuid.uuid4().hex[:16]
         conn.execute(
@@ -267,7 +264,8 @@ def promote_to_active(
 
 def demote_from_active(knowledge_id: str) -> bool:
     """Remove a knowledge entry from active memory. Returns True if it existed.
-    Pinned items cannot be demoted — unpin first."""
+    Pinned items cannot be demoted — unpin first.
+    """
     conn = _get_connection()
     try:
         row = conn.execute(
@@ -288,7 +286,7 @@ def demote_from_active(knowledge_id: str) -> bool:
         conn.close()
 
 
-def get_active_memory() -> list[dict]:
+def get_active_memory() -> list[dict[str, Any]]:
     """Get all active memory items ranked by importance (highest first)."""
     conn = _get_connection()
     try:
@@ -299,7 +297,7 @@ def get_active_memory() -> list[dict]:
                FROM active_memory am
                JOIN knowledge k ON am.knowledge_id = k.knowledge_id
                WHERE k.superseded_by IS NULL
-               ORDER BY am.importance DESC"""
+               ORDER BY am.importance DESC""",
         ).fetchall()
         return [
             {
@@ -343,7 +341,7 @@ def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
         # Get currently pinned items (never remove these)
         pinned = set()
         for row in conn.execute(
-            "SELECT knowledge_id FROM active_memory WHERE pinned = 1"
+            "SELECT knowledge_id FROM active_memory WHERE pinned = 1",
         ).fetchall():
             pinned.add(row[0])
 
@@ -435,6 +433,7 @@ def recall(context_hint: str = "") -> dict[str, Any]:
             "active": list[dict],    # all active memory, ranked by importance
             "relevant": list[dict],  # archive items matching context_hint (if given)
         }
+
     """
     core_text = format_core()
     active = get_active_memory()

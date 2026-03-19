@@ -1,5 +1,4 @@
-"""
-The Immutable Event Ledger
+"""The Immutable Event Ledger.
 
 Append-only SQLite database. Single source of truth.
 Rules: 1) Never update or delete. 2) Store raw data, not summaries.
@@ -10,14 +9,27 @@ Every row has a SHA256 content_hash for integrity verification.
 import hashlib
 import json
 import sqlite3
-import uuid
-import time
 import sys
+import time
+import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 from loguru import logger
 
+__all__ = [
+    "logger",
+    "log_event",
+    "get_events",
+    "search_events",
+    "get_recent_context",
+    "count_events",
+    "verify_event_hash",
+    "get_verified_events",
+    "verify_all_events",
+    "clean_corrupted_events",
+    "export_to_markdown",
+]
 
 # Configure logging
 logger.remove()
@@ -101,9 +113,8 @@ def init_db() -> None:
         conn.close()
 
 
-def log_event(event_type: str, actor: str, payload: dict, validate: bool = True) -> str:
-    """
-    Appends an event to the ledger. Returns the event_id.
+def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bool = True) -> str:
+    """Appends an event to the ledger. Returns the event_id.
 
     Args:
         event_type: e.g. 'USER_INPUT', 'SYSTEM_PROMPT', 'TOOL_CALL', 'ERROR'
@@ -114,6 +125,7 @@ def log_event(event_type: str, actor: str, payload: dict, validate: bool = True)
     Fidelity: Computes and stores content_hash for integrity verification.
 
     Validation: Validates payload before storing to prevent corrupted data.
+
     """
     # Validate payload before storing (only for known event types)
     if validate and event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
@@ -152,23 +164,23 @@ def log_event(event_type: str, actor: str, payload: dict, validate: bool = True)
 def get_events(
     limit: int = 100,
     offset: int = 0,
-    event_type: Optional[str] = None,
-    actor: Optional[str] = None,
-) -> list[dict]:
-    """
-    Retrieves events ordered by timestamp ASC.
+    event_type: str | None = None,
+    actor: str | None = None,
+) -> list[dict[str, Any]]:
+    """Retrieves events ordered by timestamp ASC.
 
     Args:
         limit: max rows to return
         offset: rows to skip
         event_type: optional filter
         actor: optional filter
+
     """
     conn = _get_connection()
     try:
         query = "SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events"
         conditions: list[str] = []
-        params: list = []
+        params: list[Any] = []
 
         if event_type:
             conditions.append("event_type = ?")
@@ -201,7 +213,7 @@ def get_events(
         conn.close()
 
 
-def search_events(keyword: str, limit: int = 50) -> list[dict]:
+def search_events(keyword: str, limit: int = 50) -> list[dict[str, Any]]:
     """Search events where the payload contains a keyword (case-insensitive)."""
     conn = _get_connection()
     try:
@@ -226,7 +238,7 @@ def search_events(keyword: str, limit: int = 50) -> list[dict]:
         conn.close()
 
 
-def get_recent_context(n: int = 20) -> list[dict]:
+def get_recent_context(n: int = 20) -> list[dict[str, Any]]:
     """Get the last N events for context injection."""
     conn = _get_connection()
     try:
@@ -253,17 +265,17 @@ def get_recent_context(n: int = 20) -> list[dict]:
         conn.close()
 
 
-def count_events() -> dict:
+def count_events() -> dict[str, Any]:
     """Returns event counts by type and actor."""
     conn = _get_connection()
     try:
-        by_type = {}
+        by_type: dict[str, int] = {}
         for row in conn.execute(
-            "SELECT event_type, COUNT(*) FROM system_events GROUP BY event_type"
+            "SELECT event_type, COUNT(*) FROM system_events GROUP BY event_type",
         ):
             by_type[row[0]] = row[1]
 
-        by_actor = {}
+        by_actor: dict[str, int] = {}
         for row in conn.execute("SELECT actor, COUNT(*) FROM system_events GROUP BY actor"):
             by_actor[row[0]] = row[1]
 
@@ -274,9 +286,8 @@ def count_events() -> dict:
         conn.close()
 
 
-def verify_event_hash(event_id: str, payload: dict, stored_hash: str) -> tuple[bool, str]:
-    """
-    Verify that an event's stored hash matches the computed hash of its payload.
+def verify_event_hash(event_id: str, payload: dict[str, Any], stored_hash: str) -> tuple[bool, str]:
+    """Verify that an event's stored hash matches the computed hash of its payload.
 
     Args:
         event_id: The event ID (for logging)
@@ -289,6 +300,7 @@ def verify_event_hash(event_id: str, payload: dict, stored_hash: str) -> tuple[b
     Requirements:
         - Requirement 7.3: Verify stored hash matches payload
         - Requirement 7.4: Flag event as corrupted if hash mismatch
+
     """
     # Always hash the entire payload (excluding content_hash field) to ensure complete data integrity
     # Remove content_hash from payload before hashing to avoid circular dependency
@@ -298,20 +310,18 @@ def verify_event_hash(event_id: str, payload: dict, stored_hash: str) -> tuple[b
 
     if computed_hash == stored_hash:
         return True, "Hash verified"
-    else:
-        return False, f"Hash mismatch: expected {computed_hash}, got {stored_hash}"
+    return False, f"Hash mismatch: expected {computed_hash}, got {stored_hash}"
 
 
 def get_verified_events(
     limit: int = 100,
     offset: int = 0,
-    event_type: Optional[str] = None,
-    actor: Optional[str] = None,
-    session_id: Optional[str] = None,
+    event_type: str | None = None,
+    actor: str | None = None,
+    session_id: str | None = None,
     skip_corrupted: bool = True,
-) -> tuple[list[dict], list[dict]]:
-    """
-    Retrieve events with hash verification.
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Retrieve events with hash verification.
 
     Args:
         limit: max rows to return
@@ -329,6 +339,7 @@ def get_verified_events(
         - Requirement 7.4: Flag event as corrupted if hash mismatch
         - Requirement 7.5: Prevent corrupted events from being used in analysis
         - Requirement 9.3: Session event correlation - filter by session_id
+
     """
     all_events = get_events(limit=limit, offset=offset, event_type=event_type, actor=actor)
 
@@ -345,7 +356,9 @@ def get_verified_events(
 
     for event in all_events:
         is_valid, reason = verify_event_hash(
-            event["event_id"], event["payload"], event["content_hash"]
+            event["event_id"],
+            event["payload"],
+            event["content_hash"],
         )
 
         if is_valid:
@@ -362,9 +375,8 @@ def get_verified_events(
     return verified_events, corrupted_events
 
 
-def verify_all_events() -> dict:
-    """
-    Verify integrity of all stored events.
+def verify_all_events() -> dict[str, Any]:
+    """Verify integrity of all stored events.
     Checks that each event's content_hash matches the hash of its content.
     Also validates that payloads contain valid data (not corrupted).
 
@@ -378,14 +390,14 @@ def verify_all_events() -> dict:
     conn = _get_connection()
     try:
         cursor = conn.execute(
-            "SELECT event_id, event_type, payload, content_hash FROM system_events"
+            "SELECT event_id, event_type, payload, content_hash FROM system_events",
         )
         rows = cursor.fetchall()
 
         total = len(rows)
         passed = 0
         failed = 0
-        failures = []
+        failures: list[dict[str, Any]] = []
 
         for row in rows:
             event_id, event_type, payload_json, stored_hash = row
@@ -401,7 +413,7 @@ def verify_all_events() -> dict:
                         "event_id": event_id,
                         "reason": hash_reason,
                         "type": "hash_mismatch",
-                    }
+                    },
                 )
                 continue
 
@@ -409,7 +421,8 @@ def verify_all_events() -> dict:
             # Only validate known event types
             if event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
                 is_content_valid, content_reason = EventValidator.validate_payload(
-                    event_type, payload
+                    event_type,
+                    payload,
                 )
 
                 if not is_content_valid:
@@ -419,7 +432,7 @@ def verify_all_events() -> dict:
                             "event_id": event_id,
                             "reason": content_reason,
                             "type": "invalid_content",
-                        }
+                        },
                     )
                     continue
 
@@ -436,12 +449,12 @@ def verify_all_events() -> dict:
         conn.close()
 
 
-def clean_corrupted_events() -> dict:
-    """
-    Remove all corrupted events from the ledger.
+def clean_corrupted_events() -> dict[str, Any]:
+    """Remove all corrupted events from the ledger.
 
     Returns:
         dict: Summary of cleanup operation with count of removed events
+
     """
     from divineos.event.event_validation import EventValidator
 
@@ -449,7 +462,7 @@ def clean_corrupted_events() -> dict:
     try:
         # First, identify all corrupted events
         cursor = conn.execute(
-            "SELECT event_id, event_type, payload, content_hash FROM system_events"
+            "SELECT event_id, event_type, payload, content_hash FROM system_events",
         )
         rows = cursor.fetchall()
 

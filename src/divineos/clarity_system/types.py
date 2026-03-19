@@ -1,13 +1,12 @@
-"""
-Type definitions for Agent Work Clarity System.
+"""Type definitions for Agent Work Clarity System.
 
 Defines all data structures used across the clarity system,
 including clarity statements, plans, execution data, deviations, lessons, and summaries.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any
 from uuid import UUID, uuid4
 
 
@@ -31,7 +30,7 @@ class ClarityStatement:
     approach: str = ""
     expected_outcome: str = ""
     scope: ScopeEstimate = field(default_factory=lambda: ScopeEstimate(0, 0, "medium", 0))
-    user_feedback: Optional[str] = None
+    user_feedback: str | None = None
 
 
 @dataclass
@@ -61,7 +60,7 @@ class ToolCall:
 
     tool_name: str
     timestamp: str
-    input: Dict[str, Any]
+    input: dict[str, Any]
 
 
 @dataclass
@@ -80,8 +79,8 @@ class ExecutionData:
     """Actual execution data extracted from ledger."""
 
     session_id: UUID
-    tool_calls: List[ToolCall] = field(default_factory=list)
-    errors: List[str] = field(default_factory=list)
+    tool_calls: list[ToolCall] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
     metrics: ExecutionMetrics = field(default_factory=lambda: ExecutionMetrics(0, 0, 0, 0.0, 0.0))
 
 
@@ -108,7 +107,7 @@ class Lesson:
     context: str = ""
     insight: str = ""
     confidence: float = 0.0
-    source_session_id: Optional[UUID] = None
+    source_session_id: UUID | None = None
     created_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
@@ -119,7 +118,7 @@ class Recommendation:
     lesson_id: UUID
     recommendation_text: str
     priority: str  # low, medium, high
-    applicable_to: List[str] = field(default_factory=list)
+    applicable_to: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -142,10 +141,10 @@ class PostWorkSummary:
     id: UUID = field(default_factory=uuid4)
     clarity_statement: ClarityStatement = field(default_factory=ClarityStatement)
     plan_vs_actual: PlanVsActualComparison = field(
-        default_factory=lambda: PlanVsActualComparison("", "", "", "", "", "", 0.0)
+        default_factory=lambda: PlanVsActualComparison("", "", "", "", "", "", 0.0),
     )
-    deviations: List[Deviation] = field(default_factory=list)
-    lessons_learned: List[Lesson] = field(default_factory=list)
-    recommendations: List[Recommendation] = field(default_factory=list)
+    deviations: list[Deviation] = field(default_factory=list)
+    lessons_learned: list[Lesson] = field(default_factory=list)
+    recommendations: list[Recommendation] = field(default_factory=list)
     metrics: ExecutionMetrics = field(default_factory=lambda: ExecutionMetrics(0, 0, 0, 0.0, 0.0))
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())

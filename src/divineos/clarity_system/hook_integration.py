@@ -1,10 +1,10 @@
-"""
-Hook Integration.
+"""Hook Integration.
 
 Integrates clarity system with the existing hook infrastructure.
 """
 
-from typing import Any, Callable, Dict
+from collections.abc import Callable
+from typing import Any
 from uuid import UUID
 
 from loguru import logger
@@ -14,7 +14,7 @@ class HookIntegrationInterface:
     """Interface for integrating with the hook system."""
 
     # Registry of clarity hooks
-    _clarity_hooks: Dict[str, list[Callable]] = {
+    _clarity_hooks: dict[str, list[Callable[..., Any]]] = {
         "pre_work": [],
         "post_work": [],
         "clarity_generated": [],
@@ -22,15 +22,15 @@ class HookIntegrationInterface:
     }
 
     @staticmethod
-    def register_pre_work_hook(callback: Callable) -> bool:
-        """
-        Register a hook to be called before work begins.
+    def register_pre_work_hook(callback: Callable[..., Any]) -> bool:
+        """Register a hook to be called before work begins.
 
         Args:
             callback: Function to call before work
 
         Returns:
             True if successful
+
         """
         try:
             HookIntegrationInterface._clarity_hooks["pre_work"].append(callback)
@@ -41,15 +41,15 @@ class HookIntegrationInterface:
             return False
 
     @staticmethod
-    def register_post_work_hook(callback: Callable) -> bool:
-        """
-        Register a hook to be called after work completes.
+    def register_post_work_hook(callback: Callable[..., Any]) -> bool:
+        """Register a hook to be called after work completes.
 
         Args:
             callback: Function to call after work
 
         Returns:
             True if successful
+
         """
         try:
             HookIntegrationInterface._clarity_hooks["post_work"].append(callback)
@@ -60,15 +60,15 @@ class HookIntegrationInterface:
             return False
 
     @staticmethod
-    def register_clarity_generated_hook(callback: Callable) -> bool:
-        """
-        Register a hook to be called when clarity statement is generated.
+    def register_clarity_generated_hook(callback: Callable[..., Any]) -> bool:
+        """Register a hook to be called when clarity statement is generated.
 
         Args:
             callback: Function to call when clarity is generated
 
         Returns:
             True if successful
+
         """
         try:
             HookIntegrationInterface._clarity_hooks["clarity_generated"].append(callback)
@@ -79,15 +79,15 @@ class HookIntegrationInterface:
             return False
 
     @staticmethod
-    def register_summary_generated_hook(callback: Callable) -> bool:
-        """
-        Register a hook to be called when summary is generated.
+    def register_summary_generated_hook(callback: Callable[..., Any]) -> bool:
+        """Register a hook to be called when summary is generated.
 
         Args:
             callback: Function to call when summary is generated
 
         Returns:
             True if successful
+
         """
         try:
             HookIntegrationInterface._clarity_hooks["summary_generated"].append(callback)
@@ -98,9 +98,8 @@ class HookIntegrationInterface:
             return False
 
     @staticmethod
-    def trigger_pre_work_hooks(session_id: UUID, work_context: Dict[str, Any]) -> bool:
-        """
-        Trigger all pre-work hooks.
+    def trigger_pre_work_hooks(session_id: UUID, work_context: dict[str, Any]) -> bool:
+        """Trigger all pre-work hooks.
 
         Args:
             session_id: Current session ID
@@ -108,6 +107,7 @@ class HookIntegrationInterface:
 
         Returns:
             True if all hooks succeeded
+
         """
         try:
             all_succeeded = True
@@ -119,7 +119,7 @@ class HookIntegrationInterface:
                     all_succeeded = False
 
             logger.info(
-                f"Triggered {len(HookIntegrationInterface._clarity_hooks['pre_work'])} pre-work hooks"
+                f"Triggered {len(HookIntegrationInterface._clarity_hooks['pre_work'])} pre-work hooks",
             )
             return all_succeeded
 
@@ -129,8 +129,7 @@ class HookIntegrationInterface:
 
     @staticmethod
     def trigger_post_work_hooks(session_id: UUID, summary: Any) -> bool:
-        """
-        Trigger all post-work hooks.
+        """Trigger all post-work hooks.
 
         Args:
             session_id: Current session ID
@@ -138,6 +137,7 @@ class HookIntegrationInterface:
 
         Returns:
             True if all hooks succeeded
+
         """
         try:
             all_succeeded = True
@@ -149,7 +149,7 @@ class HookIntegrationInterface:
                     all_succeeded = False
 
             logger.info(
-                f"Triggered {len(HookIntegrationInterface._clarity_hooks['post_work'])} post-work hooks"
+                f"Triggered {len(HookIntegrationInterface._clarity_hooks['post_work'])} post-work hooks",
             )
             return all_succeeded
 
@@ -159,8 +159,7 @@ class HookIntegrationInterface:
 
     @staticmethod
     def trigger_clarity_generated_hooks(session_id: UUID, clarity_statement: Any) -> bool:
-        """
-        Trigger all clarity-generated hooks.
+        """Trigger all clarity-generated hooks.
 
         Args:
             session_id: Current session ID
@@ -168,6 +167,7 @@ class HookIntegrationInterface:
 
         Returns:
             True if all hooks succeeded
+
         """
         try:
             all_succeeded = True
@@ -179,7 +179,7 @@ class HookIntegrationInterface:
                     all_succeeded = False
 
             logger.info(
-                f"Triggered {len(HookIntegrationInterface._clarity_hooks['clarity_generated'])} clarity-generated hooks"
+                f"Triggered {len(HookIntegrationInterface._clarity_hooks['clarity_generated'])} clarity-generated hooks",
             )
             return all_succeeded
 
@@ -189,8 +189,7 @@ class HookIntegrationInterface:
 
     @staticmethod
     def trigger_summary_generated_hooks(session_id: UUID, summary: Any) -> bool:
-        """
-        Trigger all summary-generated hooks.
+        """Trigger all summary-generated hooks.
 
         Args:
             session_id: Current session ID
@@ -198,6 +197,7 @@ class HookIntegrationInterface:
 
         Returns:
             True if all hooks succeeded
+
         """
         try:
             all_succeeded = True
@@ -209,7 +209,7 @@ class HookIntegrationInterface:
                     all_succeeded = False
 
             logger.info(
-                f"Triggered {len(HookIntegrationInterface._clarity_hooks['summary_generated'])} summary-generated hooks"
+                f"Triggered {len(HookIntegrationInterface._clarity_hooks['summary_generated'])} summary-generated hooks",
             )
             return all_succeeded
 
@@ -218,12 +218,12 @@ class HookIntegrationInterface:
             return False
 
     @staticmethod
-    def get_registered_hooks() -> Dict[str, int]:
-        """
-        Get count of registered hooks by type.
+    def get_registered_hooks() -> dict[str, int]:
+        """Get count of registered hooks by type.
 
         Returns:
             Dictionary with hook counts
+
         """
         return {
             hook_type: len(hooks)
@@ -232,11 +232,11 @@ class HookIntegrationInterface:
 
     @staticmethod
     def clear_hooks() -> bool:
-        """
-        Clear all registered hooks.
+        """Clear all registered hooks.
 
         Returns:
             True if successful
+
         """
         try:
             for hook_type in HookIntegrationInterface._clarity_hooks:

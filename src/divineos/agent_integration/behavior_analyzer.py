@@ -1,20 +1,20 @@
-"""
-Behavior Analyzer for Agent Integration
+"""Behavior Analyzer for Agent Integration.
 
 Analyzes agent behavior patterns to identify strengths, weaknesses,
 and optimization opportunities.
 """
 
-from typing import List, Dict, Any
 from collections import defaultdict
 from datetime import datetime, timezone
+from typing import Any
 
 from loguru import logger
+
 from divineos.agent_integration.types import BehaviorAnalysis
-from divineos.core.ledger import get_events
 from divineos.core.error_handling import (
     handle_error,
 )
+from divineos.core.ledger import get_events
 
 
 def get_iso8601_timestamp() -> str:
@@ -23,14 +23,14 @@ def get_iso8601_timestamp() -> str:
 
 
 def analyze_agent_behavior(session_id: str) -> BehaviorAnalysis:
-    """
-    Analyze agent behavior for a session.
+    """Analyze agent behavior for a session.
 
     Args:
         session_id: Session ID to analyze
 
     Returns:
         BehaviorAnalysis object with all metrics
+
     """
     logger.info(f"Analyzing agent behavior for session {session_id[:8]}...")
 
@@ -75,17 +75,17 @@ def analyze_agent_behavior(session_id: str) -> BehaviorAnalysis:
         )
 
 
-def calculate_tool_frequency(events: List[Dict[str, Any]]) -> Dict[str, int]:
-    """
-    Calculate tool call frequency.
+def calculate_tool_frequency(events: list[dict[str, Any]]) -> dict[str, int]:
+    """Calculate tool call frequency.
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of tool_name -> call_count
+
     """
-    frequency: Dict[str, int] = defaultdict(int)
+    frequency: dict[str, int] = defaultdict(int)
 
     for event in events:
         if event.get("event_type") == "TOOL_CALL":
@@ -96,18 +96,18 @@ def calculate_tool_frequency(events: List[Dict[str, Any]]) -> Dict[str, int]:
     return dict(frequency)
 
 
-def calculate_success_rates(events: List[Dict[str, Any]]) -> Dict[str, float]:
-    """
-    Calculate tool success rates.
+def calculate_success_rates(events: list[dict[str, Any]]) -> dict[str, float]:
+    """Calculate tool success rates.
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of tool_name -> success_rate (0.0-1.0)
+
     """
     success_rates = {}
-    tool_stats: Dict[str, Dict[str, int]] = defaultdict(lambda: {"total": 0, "success": 0})
+    tool_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "success": 0})
 
     for event in events:
         if event.get("event_type") == "TOOL_RESULT":
@@ -126,15 +126,15 @@ def calculate_success_rates(events: List[Dict[str, Any]]) -> Dict[str, float]:
     return success_rates
 
 
-def calculate_execution_times(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, float]]:
-    """
-    Calculate tool execution times.
+def calculate_execution_times(events: list[dict[str, Any]]) -> dict[str, dict[str, float]]:
+    """Calculate tool execution times.
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of tool_name -> {avg_ms, min_ms, max_ms, median_ms}
+
     """
     execution_times = {}
     tool_durations = defaultdict(list)
@@ -166,19 +166,19 @@ def calculate_execution_times(events: List[Dict[str, Any]]) -> Dict[str, Dict[st
     return execution_times
 
 
-def analyze_error_patterns(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """
-    Analyze error patterns.
+def analyze_error_patterns(events: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Analyze error patterns.
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of tool_name -> {error_count, error_types, error_rate}
+
     """
     error_patterns = {}
-    tool_errors: Dict[str, Dict[str, Any]] = defaultdict(
-        lambda: {"total": 0, "errors": defaultdict(int), "failed": 0}
+    tool_errors: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"total": 0, "errors": defaultdict(int), "failed": 0},
     )
 
     # Collect errors
@@ -208,17 +208,17 @@ def analyze_error_patterns(events: List[Dict[str, Any]]) -> Dict[str, Dict[str, 
     return error_patterns
 
 
-def analyze_correction_patterns(events: List[Dict[str, Any]]) -> Dict[str, int]:
-    """
-    Analyze correction patterns (mistakes made and fixed).
+def analyze_correction_patterns(events: list[dict[str, Any]]) -> dict[str, int]:
+    """Analyze correction patterns (mistakes made and fixed).
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of tool_name -> correction_count
+
     """
-    correction_patterns: Dict[str, int] = defaultdict(int)
+    correction_patterns: dict[str, int] = defaultdict(int)
     failed_tools = defaultdict(list)
 
     # Find failed tool calls
@@ -247,17 +247,17 @@ def analyze_correction_patterns(events: List[Dict[str, Any]]) -> Dict[str, int]:
     return dict(correction_patterns)
 
 
-def analyze_decision_patterns(events: List[Dict[str, Any]]) -> Dict[str, int]:
-    """
-    Analyze decision patterns (explicit choices made).
+def analyze_decision_patterns(events: list[dict[str, Any]]) -> dict[str, int]:
+    """Analyze decision patterns (explicit choices made).
 
     Args:
         events: List of events from session
 
     Returns:
         Dictionary of decision_type -> count
+
     """
-    decision_patterns: Dict[str, int] = defaultdict(int)
+    decision_patterns: dict[str, int] = defaultdict(int)
 
     # Count USER_INPUT events (user decisions)
     for event in events:
@@ -273,14 +273,14 @@ def analyze_decision_patterns(events: List[Dict[str, Any]]) -> Dict[str, int]:
 
 
 def generate_behavior_report(analysis: BehaviorAnalysis) -> str:
-    """
-    Generate human-readable behavior report.
+    """Generate human-readable behavior report.
 
     Args:
         analysis: BehaviorAnalysis object
 
     Returns:
         Formatted report string
+
     """
     report_lines = [
         "=== Agent Behavior Report ===",
@@ -292,7 +292,9 @@ def generate_behavior_report(analysis: BehaviorAnalysis) -> str:
     # Tool frequency
     if analysis.tool_frequency:
         for tool_name, count in sorted(
-            analysis.tool_frequency.items(), key=lambda x: x[1], reverse=True
+            analysis.tool_frequency.items(),
+            key=lambda x: x[1],
+            reverse=True,
         ):
             success_rate = analysis.success_rates.get(tool_name, 0)
             report_lines.append(f"  {tool_name}: {count} calls, {success_rate * 100:.1f}% success")
@@ -306,7 +308,7 @@ def generate_behavior_report(analysis: BehaviorAnalysis) -> str:
         for tool_name, times in sorted(analysis.execution_times.items()):
             report_lines.append(
                 f"  {tool_name}: avg {times['avg_ms']:.0f}ms, "
-                f"min {times['min_ms']:.0f}ms, max {times['max_ms']:.0f}ms"
+                f"min {times['min_ms']:.0f}ms, max {times['max_ms']:.0f}ms",
             )
     else:
         report_lines.append("  No timing data available")
@@ -319,7 +321,7 @@ def generate_behavior_report(analysis: BehaviorAnalysis) -> str:
             if errors["error_count"] > 0:
                 report_lines.append(
                     f"  {tool_name}: {errors['error_count']} errors, "
-                    f"{errors['error_rate'] * 100:.1f}% error rate"
+                    f"{errors['error_rate'] * 100:.1f}% error rate",
                 )
     else:
         report_lines.append("  No errors recorded")
@@ -329,7 +331,9 @@ def generate_behavior_report(analysis: BehaviorAnalysis) -> str:
     report_lines.append("Corrections (Mistakes Fixed):")
     if analysis.correction_patterns:
         for tool_name, count in sorted(
-            analysis.correction_patterns.items(), key=lambda x: x[1], reverse=True
+            analysis.correction_patterns.items(),
+            key=lambda x: x[1],
+            reverse=True,
         ):
             report_lines.append(f"  {tool_name}: {count} corrections")
     else:
@@ -338,15 +342,15 @@ def generate_behavior_report(analysis: BehaviorAnalysis) -> str:
     return "\n".join(report_lines)
 
 
-def identify_optimization_opportunities(analysis: BehaviorAnalysis) -> List[str]:
-    """
-    Identify opportunities for optimization.
+def identify_optimization_opportunities(analysis: BehaviorAnalysis) -> list[str]:
+    """Identify opportunities for optimization.
 
     Args:
         analysis: BehaviorAnalysis object
 
     Returns:
         List of optimization recommendations
+
     """
     opportunities = []
 
@@ -360,7 +364,7 @@ def identify_optimization_opportunities(analysis: BehaviorAnalysis) -> List[str]
         if slow_tools:
             for tool, avg_ms in sorted(slow_tools, key=lambda x: x[1], reverse=True):
                 opportunities.append(
-                    f"Tool '{tool}' is slow (avg {avg_ms:.0f}ms). Consider optimization."
+                    f"Tool '{tool}' is slow (avg {avg_ms:.0f}ms). Consider optimization.",
                 )
 
     # Find frequently failing tools
@@ -374,7 +378,7 @@ def identify_optimization_opportunities(analysis: BehaviorAnalysis) -> List[str]
             for tool, error_rate in sorted(failing_tools, key=lambda x: x[1], reverse=True):
                 opportunities.append(
                     f"Tool '{tool}' has high error rate ({error_rate * 100:.1f}%). "
-                    f"Review error handling."
+                    f"Review error handling.",
                 )
 
     # Find tools with many corrections
@@ -386,21 +390,21 @@ def identify_optimization_opportunities(analysis: BehaviorAnalysis) -> List[str]
             for tool, count in sorted(corrected_tools, key=lambda x: x[1], reverse=True):
                 opportunities.append(
                     f"Tool '{tool}' required {count} corrections. "
-                    f"Consider improving error handling or validation."
+                    f"Consider improving error handling or validation.",
                 )
 
     return opportunities
 
 
-def identify_risky_patterns(analysis: BehaviorAnalysis) -> List[str]:
-    """
-    Identify risky patterns to avoid.
+def identify_risky_patterns(analysis: BehaviorAnalysis) -> list[str]:
+    """Identify risky patterns to avoid.
 
     Args:
         analysis: BehaviorAnalysis object
 
     Returns:
         List of warnings about risky patterns
+
     """
     warnings = []
 
@@ -415,7 +419,7 @@ def identify_risky_patterns(analysis: BehaviorAnalysis) -> List[str]:
             for tool, error_rate in sorted(high_error_tools, key=lambda x: x[1], reverse=True):
                 warnings.append(
                     f"WARNING: Tool '{tool}' has very high error rate ({error_rate * 100:.1f}%). "
-                    f"Avoid using this tool without careful validation."
+                    f"Avoid using this tool without careful validation.",
                 )
 
     return warnings

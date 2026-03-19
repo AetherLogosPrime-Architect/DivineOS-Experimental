@@ -1,5 +1,4 @@
-"""
-Memory Consolidation — Knowledge Store
+"""Memory Consolidation — Knowledge Store.
 
 Raw events are noisy. Consolidation extracts structured knowledge:
 facts learned, preferences discovered, patterns identified, mistakes made.
@@ -15,7 +14,7 @@ import time
 import uuid
 from collections import Counter
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from loguru import logger
 
@@ -144,7 +143,7 @@ def init_knowledge_table() -> None:
         ]:
             try:
                 conn.execute(
-                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} NOT NULL DEFAULT {default}"
+                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} NOT NULL DEFAULT {default}",
                 )
             except sqlite3.OperationalError as e:
                 logger.debug(f"Column {col} already exists in knowledge table: {e}")
@@ -182,20 +181,19 @@ def store_knowledge(
     knowledge_type: str,
     content: str,
     confidence: float = 1.0,
-    source_events: Optional[list[str]] = None,
-    tags: Optional[list[str]] = None,
+    source_events: list[str] | None = None,
+    tags: list[str] | None = None,
     source: str = "STATED",
     maturity: str = "RAW",
 ) -> str:
-    """
-    Store a piece of knowledge. Returns the knowledge_id.
+    """Store a piece of knowledge. Returns the knowledge_id.
 
     Auto-deduplicates: if identical content already exists (and is not superseded),
     increments access_count on the existing entry and returns its id.
     """
     if knowledge_type not in KNOWLEDGE_TYPES:
         raise ValueError(
-            f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}"
+            f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}",
         )
 
     # Ensure knowledge table exists
@@ -250,18 +248,18 @@ def store_knowledge(
 
 
 def get_knowledge(
-    knowledge_type: Optional[str] = None,
+    knowledge_type: str | None = None,
     min_confidence: float = 0.0,
-    tags: Optional[list[str]] = None,
+    tags: list[str] | None = None,
     include_superseded: bool = False,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
     """Query knowledge with optional filters."""
     conn = _get_connection()
     try:
-        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge"
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge"  # nosec B608 - column names are hardcoded constants, conditions built with parameterized queries
         conditions: list[str] = []
-        params: list = []
+        params: list[Any] = []
 
         if not include_superseded:
             conditions.append("superseded_by IS NULL")
@@ -288,7 +286,7 @@ def get_knowledge(
         conn.close()
 
 
-def search_knowledge(query: str, limit: int = 50) -> list[dict]:
+def search_knowledge(query: str, limit: int = 50) -> list[dict[str, Any]]:
     """Search knowledge using FTS5 full-text search with BM25 relevance ranking.
 
     Falls back to LIKE-based search if FTS5 table doesn't exist yet.
@@ -297,16 +295,14 @@ def search_knowledge(query: str, limit: int = 50) -> list[dict]:
     """
     conn = _get_connection()
     try:
-        rows = conn.execute(
-            f"""SELECT {_KNOWLEDGE_COLS_K}
+        query_str = f"""SELECT {_KNOWLEDGE_COLS_K}  # nosec B608 - column names are hardcoded constants, query parameters passed separately
                FROM knowledge_fts fts
                JOIN knowledge k ON k.rowid = fts.rowid
                WHERE knowledge_fts MATCH ?
                  AND k.superseded_by IS NULL
                ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
-               LIMIT ?""",
-            (query, limit),
-        ).fetchall()
+               LIMIT ?"""
+        rows = conn.execute(query_str, (query, limit)).fetchall()
         return [_row_to_dict(row) for row in rows]
     except sqlite3.OperationalError:
         # FTS table doesn't exist yet — fall back to LIKE search
@@ -315,12 +311,12 @@ def search_knowledge(query: str, limit: int = 50) -> list[dict]:
         conn.close()
 
 
-def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict]:
+def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict[str, Any]]:
     """Legacy LIKE-based search. Used when FTS5 table doesn't exist."""
     conn = _get_connection()
     try:
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",  # nosec B608 - column names are hardcoded constants, all parameters passed separately
             (f"%{keyword}%", f"%{keyword}%", limit),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
@@ -339,7 +335,7 @@ def rebuild_fts_index() -> int:
         conn.execute("DELETE FROM knowledge_fts")
         cursor = conn.execute(
             """INSERT INTO knowledge_fts(rowid, content, tags, knowledge_type)
-               SELECT rowid, content, tags, knowledge_type FROM knowledge"""
+               SELECT rowid, content, tags, knowledge_type FROM knowledge""",
         )
         conn.commit()
         return cursor.rowcount
@@ -350,11 +346,10 @@ def rebuild_fts_index() -> int:
 def update_knowledge(
     knowledge_id: str,
     new_content: str,
-    new_confidence: Optional[float] = None,
-    additional_sources: Optional[list[str]] = None,
+    new_confidence: float | None = None,
+    additional_sources: list[str] | None = None,
 ) -> str:
-    """
-    Create a new knowledge entry that supersedes an existing one.
+    """Create a new knowledge entry that supersedes an existing one.
     Returns the new knowledge_id.
     """
     conn = _get_connection()
@@ -412,7 +407,7 @@ def record_access(knowledge_id: str) -> None:
         conn.close()
 
 
-def get_unconsolidated_events(limit: int = 100) -> list[dict]:
+def get_unconsolidated_events(limit: int = 100) -> list[dict[str, Any]]:
     """Find events not yet referenced in any knowledge entry's source_events."""
     conn = _get_connection()
     try:
@@ -439,7 +434,7 @@ def get_unconsolidated_events(limit: int = 100) -> list[dict]:
                         "actor": row[3],
                         "payload": json.loads(row[4]),
                         "content_hash": row[5],
-                    }
+                    },
                 )
                 if len(results) >= limit:
                     break
@@ -449,13 +444,13 @@ def get_unconsolidated_events(limit: int = 100) -> list[dict]:
         conn.close()
 
 
-def find_similar(content: str) -> list[dict]:
+def find_similar(content: str) -> list[dict[str, Any]]:
     """Find non-superseded knowledge with identical content (hash-based)."""
     content_hash = compute_hash(content)
     conn = _get_connection()
     try:
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",  # nosec B608 - column names are hardcoded constants, all parameters passed separately
             (content_hash,),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
@@ -465,11 +460,10 @@ def find_similar(content: str) -> list[dict]:
 
 def generate_briefing(
     max_items: int = 20,
-    include_types: Optional[list[str]] = None,
+    include_types: list[str] | None = None,
     context_hint: str = "",
 ) -> str:
-    """
-    Generate a structured text briefing for AI session context.
+    """Generate a structured text briefing for AI session context.
 
     Scores knowledge by: confidence * 0.4 + access_frequency * 0.3 + recency * 0.3
     with type-specific decay rates:
@@ -484,8 +478,8 @@ def generate_briefing(
     """
     conn = _get_connection()
     try:
-        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL"
-        params: list = []
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL"  # nosec B608 - column names are hardcoded constants, conditions built with parameterized queries
+        params: list[Any] = []
 
         if include_types:
             placeholders = ",".join("?" for _ in include_types)
@@ -567,7 +561,7 @@ def generate_briefing(
         )
 
     # Group by type
-    grouped: dict[str, list[dict]] = {}
+    grouped: dict[str, list[dict[str, Any]]] = {}
     for entry in entries:
         kt = entry["knowledge_type"]
         grouped.setdefault(kt, []).append(entry)
@@ -598,39 +592,39 @@ def generate_briefing(
         for item in items:
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
             lines.append(
-                f"- [{item['confidence']:.2f}] {item['content']} ({item['access_count']}x accessed){hint_marker}"
+                f"- [{item['confidence']:.2f}] {item['content']} ({item['access_count']}x accessed){hint_marker}",
             )
         lines.append("")
 
     return "\n".join(lines)
 
 
-def knowledge_stats() -> dict:
+def knowledge_stats() -> dict[str, Any]:
     """Returns knowledge counts by type, total, and average confidence."""
     conn = _get_connection()
     try:
         total = conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL"
+            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL",
         ).fetchone()[0]
 
         by_type: dict[str, int] = {}
         for row in conn.execute(
-            "SELECT knowledge_type, COUNT(*) FROM knowledge WHERE superseded_by IS NULL GROUP BY knowledge_type"
+            "SELECT knowledge_type, COUNT(*) FROM knowledge WHERE superseded_by IS NULL GROUP BY knowledge_type",
         ):
             by_type[row[0]] = row[1]
 
         avg_confidence = 0.0
         if total > 0:
             avg_confidence = conn.execute(
-                "SELECT AVG(confidence) FROM knowledge WHERE superseded_by IS NULL"
+                "SELECT AVG(confidence) FROM knowledge WHERE superseded_by IS NULL",
             ).fetchone()[0]
 
         most_accessed = []
         for row in conn.execute(
-            "SELECT knowledge_id, content, access_count FROM knowledge WHERE superseded_by IS NULL ORDER BY access_count DESC LIMIT 5"
+            "SELECT knowledge_id, content, access_count FROM knowledge WHERE superseded_by IS NULL ORDER BY access_count DESC LIMIT 5",
         ):
             most_accessed.append(
-                {"knowledge_id": row[0], "content": row[1], "access_count": row[2]}
+                {"knowledge_id": row[0], "content": row[1], "access_count": row[2]},
             )
 
         return {
@@ -679,7 +673,7 @@ def record_lesson(category: str, description: str, session_id: str) -> str:
                 (occurrences, now, json.dumps(sessions), lesson_id),
             )
             conn.commit()
-            return cast(str, lesson_id)
+            return cast("str", lesson_id)
 
         lesson_id = str(uuid.uuid4())
         content_hash = compute_hash(f"{category}:{description}")
@@ -706,16 +700,16 @@ def record_lesson(category: str, description: str, session_id: str) -> str:
 
 
 def get_lessons(
-    status: Optional[str] = None,
-    category: Optional[str] = None,
+    status: str | None = None,
+    category: str | None = None,
     limit: int = 50,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Get lessons, optionally filtered by status or category."""
     conn = _get_connection()
     try:
         query = "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash FROM lesson_tracking"
         conditions: list[str] = []
-        params: list = []
+        params: list[Any] = []
 
         if status:
             conditions.append("status = ?")
@@ -771,7 +765,7 @@ def get_lesson_summary() -> str:
 
     for lesson in active:
         lines.append(
-            f"- [{lesson['occurrences']}x] {lesson['description']} (last: {lesson['category']})"
+            f"- [{lesson['occurrences']}x] {lesson['description']} (last: {lesson['category']})",
         )
 
     for lesson in improving:
@@ -783,14 +777,14 @@ def get_lesson_summary() -> str:
     return "\n".join(lines)
 
 
-def check_recurring_lessons(categories: list[str]) -> list[dict]:
+def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
     """Check if any of the given categories have recurring lessons.
 
     Returns list of lessons that have occurred more than once.
     """
     conn = _get_connection()
     try:
-        results = []
+        results: list[dict[str, Any]] = []
         for cat in categories:
             row = conn.execute(
                 "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash FROM lesson_tracking WHERE category = ? AND occurrences > 1",
@@ -818,10 +812,10 @@ _CHECK_TO_CATEGORY = {
 
 
 def extract_lessons_from_report(
-    checks: list[dict],
+    checks: list[dict[str, Any]],
     session_id: str,
-    tone_shifts: Optional[list[dict]] = None,
-    error_recovery: Optional[dict] = None,
+    tone_shifts: list[dict[str, Any]] | None = None,
+    error_recovery: dict[str, Any] | None = None,
 ) -> list[str]:
     """Extract knowledge and lessons from session quality check results.
 
@@ -833,6 +827,7 @@ def extract_lessons_from_report(
 
     Returns:
         List of stored knowledge IDs.
+
     """
     stored_ids: list[str] = []
     short_id = session_id[:12]
@@ -954,7 +949,7 @@ def extract_lessons_from_report(
 # ─── Internal helpers ─────────────────────────────────────────────────
 
 
-def _lesson_row_to_dict(row: tuple) -> dict:
+def _lesson_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     """Convert a lesson_tracking table row to a dict."""
     return {
         "lesson_id": row[0],
@@ -970,7 +965,7 @@ def _lesson_row_to_dict(row: tuple) -> dict:
     }
 
 
-def _row_to_dict(row: tuple) -> dict:
+def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     """Convert a knowledge table row to a dict."""
     d = {
         "knowledge_id": row[0],
@@ -1200,15 +1195,13 @@ _STOPWORDS = frozenset(
         "shouldnt",
         "wouldnt",
         "thats",
-        "its",
         "lets",
         "ive",
         "youre",
         "theyre",
-        "were",
         "hes",
         "shes",
-    }
+    },
 )
 
 
@@ -1216,8 +1209,7 @@ def _normalize_text(text: str) -> str:
     """Lowercase, strip punctuation, collapse whitespace."""
     text = text.lower()
     text = re.sub(r"[^\w\s]", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def _extract_key_terms(text: str) -> str:
@@ -1248,7 +1240,7 @@ def _compute_overlap(text_a: str, text_b: str) -> float:
 
 def extract_session_topics(user_texts: list[str], top_n: int = 8) -> list[str]:
     """Extract top topics from user messages using word frequency analysis."""
-    word_counts: Counter = Counter()
+    word_counts: Counter[str] = Counter()
     for text in user_texts:
         words = _normalize_text(text).split()
         meaningful = [w for w in words if w not in _STOPWORDS and len(w) > 2]
@@ -1263,8 +1255,8 @@ def store_knowledge_smart(
     knowledge_type: str,
     content: str,
     confidence: float = 1.0,
-    source_events: Optional[list[str]] = None,
-    tags: Optional[list[str]] = None,
+    source_events: list[str] | None = None,
+    tags: list[str] | None = None,
     source: str = "STATED",
     maturity: str = "RAW",
 ) -> str:
@@ -1302,7 +1294,7 @@ def store_knowledge_smart(
                     overlap = _compute_overlap(content, entry["content"])
                     if overlap > 0.6:
                         record_access(entry["knowledge_id"])
-                        return cast(str, entry["knowledge_id"])
+                        return cast("str", entry["knowledge_id"])
         except Exception as e:
             logger.debug(
                 f"FTS5 search not available or query failed, falling through: {e}",
@@ -1498,7 +1490,7 @@ def deep_extract_knowledge(
             content=topic_content,
             confidence=1.0,
             source_events=[session_id],
-            tags=["auto-extracted", "session-topics", f"session-{short_id}"] + topic_tags,
+            tags=["auto-extracted", "session-topics", f"session-{short_id}", *topic_tags],
         )
         stored_ids.append(kid)
 
@@ -1540,7 +1532,7 @@ def deep_extract_knowledge(
             source="CORRECTED",
             maturity="HYPOTHESIS",
             source_events=[session_id],
-            tags=["auto-extracted", "correction-pair", f"session-{short_id}"] + topic_tags,
+            tags=["auto-extracted", "correction-pair", f"session-{short_id}", *topic_tags],
         )
         stored_ids.append(kid)
 
@@ -1553,7 +1545,7 @@ def deep_extract_knowledge(
             source="STATED",
             maturity="CONFIRMED",
             source_events=[session_id],
-            tags=["auto-extracted", "direction", f"session-{short_id}"] + topic_tags,
+            tags=["auto-extracted", "direction", f"session-{short_id}", *topic_tags],
         )
         stored_ids.append(kid)
 
@@ -1591,7 +1583,7 @@ def deep_extract_knowledge(
             source="DEMONSTRATED",
             maturity="HYPOTHESIS",
             source_events=[session_id],
-            tags=["auto-extracted", "decision", f"session-{short_id}"] + topic_tags,
+            tags=["auto-extracted", "decision", f"session-{short_id}", *topic_tags],
         )
         stored_ids.append(kid)
 
@@ -1622,7 +1614,7 @@ def deep_extract_knowledge(
             source="DEMONSTRATED",
             maturity="TESTED",
             source_events=[session_id],
-            tags=["auto-extracted", "encouragement", f"session-{short_id}"] + topic_tags,
+            tags=["auto-extracted", "encouragement", f"session-{short_id}", *topic_tags],
         )
         stored_ids.append(kid)
 
@@ -1651,7 +1643,7 @@ def _extract_user_text_from_record(record: dict[str, Any]) -> str:
 # ─── Knowledge Consolidation ─────────────────────────────────────────
 
 
-def consolidate_related(min_cluster_size: int = 3) -> list[dict]:
+def consolidate_related(min_cluster_size: int = 3) -> list[dict[str, Any]]:
     """Find and merge clusters of related knowledge entries.
 
     Groups entries by type, finds clusters with >50% word overlap,
@@ -1660,7 +1652,7 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict]:
     Returns list of dicts describing what was merged:
         [{"type": "MISTAKE", "merged_count": 4, "new_id": "abc...", "content": "..."}]
     """
-    merges: list[dict] = []
+    merges: list[dict[str, Any]] = []
 
     for ktype in KNOWLEDGE_TYPES:
         entries = get_knowledge(knowledge_type=ktype, limit=500)
@@ -1669,7 +1661,7 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict]:
 
         # Build clusters using word overlap
         clustered: set[str] = set()  # knowledge_ids already in a cluster
-        clusters: list[list[dict]] = []
+        clusters: list[list[dict[str, Any]]] = []
 
         for i, entry in enumerate(entries):
             if entry["knowledge_id"] in clustered:
@@ -1740,7 +1732,7 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict]:
                     "merged_count": len(cluster),
                     "new_id": new_id,
                     "content": merged_content[:100],
-                }
+                },
             )
 
     return merges
@@ -1750,8 +1742,11 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict]:
 
 
 def _adjust_confidence(
-    knowledge_id: str, delta: float, floor: float = 0.1, cap: float = 1.0
-) -> Optional[float]:
+    knowledge_id: str,
+    delta: float,
+    floor: float = 0.1,
+    cap: float = 1.0,
+) -> float | None:
     """Adjust confidence on a knowledge entry in-place.
 
     This is metadata (belief strength), not content — so in-place update
@@ -1768,7 +1763,7 @@ def _adjust_confidence(
         if not row:
             return None
 
-        new_conf = max(floor, min(cap, cast(float, row[0]) + delta))
+        new_conf = max(floor, min(cap, cast("float", row[0]) + delta))
         conn.execute(
             "UPDATE knowledge SET confidence = ?, updated_at = ? WHERE knowledge_id = ?",
             (new_conf, time.time(), knowledge_id),
@@ -1792,7 +1787,7 @@ def _resolve_lesson(lesson_id: str) -> None:
         conn.close()
 
 
-def compute_effectiveness(entry: dict) -> dict[str, str]:
+def compute_effectiveness(entry: dict[str, Any]) -> dict[str, Any]:
     """Compute effectiveness status for a knowledge entry.
 
     Returns {"status": "...", "detail": "..."} based on the entry's type
@@ -2113,7 +2108,7 @@ _LESSON_CATEGORIES = (
 )
 
 
-def _categorize_correction(text: str) -> Optional[str]:
+def _categorize_correction(text: str) -> str | None:
     """Map a correction's text to a semantic lesson category.
 
     Returns None if no category matches (the correction is probably noise).
@@ -2146,10 +2141,7 @@ def _is_noise_correction(text: str) -> bool:
 
     # Mostly file paths
     path_chars = stripped.count("\\") + stripped.count("/")
-    if path_chars > 5 and path_chars > len(stripped) / 20:
-        return True
-
-    return False
+    return bool(path_chars > 5 and path_chars > len(stripped) / 20)
 
 
 def clear_lessons() -> int:
@@ -2159,7 +2151,7 @@ def clear_lessons() -> int:
     """
     conn = _get_connection()
     try:
-        count = cast(int, conn.execute("SELECT COUNT(*) FROM lesson_tracking").fetchone()[0])
+        count = cast("int", conn.execute("SELECT COUNT(*) FROM lesson_tracking").fetchone()[0])
         conn.execute("DELETE FROM lesson_tracking")
         conn.commit()
         return count

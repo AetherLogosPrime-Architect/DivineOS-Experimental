@@ -1,73 +1,74 @@
-"""
-DivineOS CLI - Foundation Memory & Knowledge
+"""DivineOS CLI - Foundation Memory & Knowledge.
 
 Commands for managing the event ledger, ingesting conversations,
 verifying data integrity, and consolidating knowledge.
 """
 
-import re
 import json
-import click
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
-from divineos.core.ledger import (
-    init_db,
-    log_event,
-    get_events,
-    search_events,
-    count_events,
-    get_recent_context,
-    verify_all_events,
-    clean_corrupted_events,
-    export_to_markdown,
-    logger,
-)
-from divineos.core.tool_wrapper import wrap_tool_execution
-from divineos.core.parser import parse_jsonl, parse_markdown_chat
-from divineos.core.fidelity import create_manifest, create_receipt, reconcile
-from divineos.core.enforcement import setup_cli_enforcement, capture_user_input
-from divineos.core.consolidation import (
-    init_knowledge_table,
-    store_knowledge,
-    get_knowledge,
-    update_knowledge,
-    generate_briefing,
-    knowledge_stats,
-    rebuild_fts_index,
-    get_lesson_summary,
-    get_lessons,
-    deep_extract_knowledge,
-    consolidate_related,
-    apply_session_feedback,
-    health_check,
-    knowledge_health_report,
-    clear_lessons,
-    migrate_knowledge_types,
-    KNOWLEDGE_TYPES,
-)
-from divineos.core.memory import (
-    init_memory_tables,
-    set_core,
-    clear_core,
-    format_core,
-    CORE_SLOTS,
-    promote_to_active,
-    get_active_memory,
-    refresh_active_memory,
-    recall,
-    format_recall,
-)
+import click
+
+import divineos.analysis.session_analyzer as _analyzer_mod
+from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
 from divineos.analysis.quality_checks import init_quality_tables
 from divineos.analysis.session_features import (
+    get_cross_session_summary,
     init_feature_tables,
     run_all_features,
     store_features,
-    get_cross_session_summary,
 )
-from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
-import divineos.analysis.session_analyzer as _analyzer_mod
+from divineos.core.consolidation import (
+    KNOWLEDGE_TYPES,
+    apply_session_feedback,
+    clear_lessons,
+    consolidate_related,
+    deep_extract_knowledge,
+    generate_briefing,
+    get_knowledge,
+    get_lesson_summary,
+    get_lessons,
+    health_check,
+    init_knowledge_table,
+    knowledge_health_report,
+    knowledge_stats,
+    migrate_knowledge_types,
+    rebuild_fts_index,
+    store_knowledge,
+    update_knowledge,
+)
+from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
+from divineos.core.fidelity import create_manifest, create_receipt, reconcile
+from divineos.core.ledger import (
+    clean_corrupted_events,
+    count_events,
+    export_to_markdown,
+    get_events,
+    get_recent_context,
+    init_db,
+    log_event,
+    logger,
+    search_events,
+    verify_all_events,
+)
+from divineos.core.memory import (
+    CORE_SLOTS,
+    clear_core,
+    format_core,
+    format_recall,
+    get_active_memory,
+    init_memory_tables,
+    promote_to_active,
+    recall,
+    refresh_active_memory,
+    set_core,
+)
+from divineos.core.parser import parse_jsonl, parse_markdown_chat
+from divineos.core.tool_wrapper import wrap_tool_execution
 
 # Wrap critical tool calls for event capture
 _wrapped_log_event = wrap_tool_execution("log_event", log_event)
@@ -77,7 +78,8 @@ _wrapped_count_events = wrap_tool_execution("count_events", count_events)
 _wrapped_get_recent_context = wrap_tool_execution("get_recent_context", get_recent_context)
 _wrapped_verify_all_events = wrap_tool_execution("verify_all_events", verify_all_events)
 _wrapped_clean_corrupted_events = wrap_tool_execution(
-    "clean_corrupted_events", clean_corrupted_events
+    "clean_corrupted_events",
+    clean_corrupted_events,
 )
 _wrapped_export_to_markdown = wrap_tool_execution("export_to_markdown", export_to_markdown)
 
@@ -91,19 +93,23 @@ _wrapped_rebuild_fts_index = wrap_tool_execution("rebuild_fts_index", rebuild_ft
 _wrapped_get_lesson_summary = wrap_tool_execution("get_lesson_summary", get_lesson_summary)
 _wrapped_get_lessons = wrap_tool_execution("get_lessons", get_lessons)
 _wrapped_deep_extract_knowledge = wrap_tool_execution(
-    "deep_extract_knowledge", deep_extract_knowledge
+    "deep_extract_knowledge",
+    deep_extract_knowledge,
 )
 _wrapped_consolidate_related = wrap_tool_execution("consolidate_related", consolidate_related)
 _wrapped_apply_session_feedback = wrap_tool_execution(
-    "apply_session_feedback", apply_session_feedback
+    "apply_session_feedback",
+    apply_session_feedback,
 )
 _wrapped_health_check = wrap_tool_execution("health_check", health_check)
 _wrapped_knowledge_health_report = wrap_tool_execution(
-    "knowledge_health_report", knowledge_health_report
+    "knowledge_health_report",
+    knowledge_health_report,
 )
 _wrapped_clear_lessons = wrap_tool_execution("clear_lessons", clear_lessons)
 _wrapped_migrate_knowledge_types = wrap_tool_execution(
-    "migrate_knowledge_types", migrate_knowledge_types
+    "migrate_knowledge_types",
+    migrate_knowledge_types,
 )
 
 # Wrap memory tools
@@ -120,12 +126,13 @@ _wrapped_format_recall = wrap_tool_execution("format_recall", format_recall)
 _wrapped_run_all_features = wrap_tool_execution("run_all_features", run_all_features)
 _wrapped_store_features = wrap_tool_execution("store_features", store_features)
 _wrapped_get_cross_session_summary = wrap_tool_execution(
-    "get_cross_session_summary", get_cross_session_summary
+    "get_cross_session_summary",
+    get_cross_session_summary,
 )
 
 
 @click.group()
-def cli():
+def cli() -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
     # Setup CLI enforcement at startup
     setup_cli_enforcement()
@@ -136,7 +143,7 @@ def cli():
 
 
 @cli.command()
-def init():
+def init() -> None:
     """Initialize the SQLite database and tables."""
     logger.info("Initializing the event ledger database...")
     init_db()
@@ -156,9 +163,8 @@ def init():
 
 @cli.command()
 @click.argument("file_path", type=click.Path(exists=True))
-def ingest(file_path: str):
-    """
-    Parse and store a chat log file (JSONL or Markdown).
+def ingest(file_path: str) -> None:
+    """Parse and store a chat log file (JSONL or Markdown).
 
     Performs manifest-receipt reconciliation to verify data integrity.
     """
@@ -201,7 +207,7 @@ def ingest(file_path: str):
 
     # Store each message
     stored_ids = []
-    for msg, payload in zip(parse_result.messages, payloads):
+    for msg, payload in zip(parse_result.messages, payloads, strict=False):
         event_type = _role_to_event_type(msg.role)
         event_id = _wrapped_log_event(event_type=event_type, actor=msg.role, payload=payload)
         stored_ids.append(event_id)
@@ -232,7 +238,7 @@ def ingest(file_path: str):
 
 
 @cli.command()
-def verify():
+def verify() -> None:
     """Verify integrity of all stored events."""
     logger.info("Running fidelity verification...")
 
@@ -255,7 +261,7 @@ def verify():
 
 
 @cli.command()
-def clean():
+def clean() -> None:
     """Remove corrupted events from the ledger."""
     logger.info("Cleaning corrupted events from ledger...")
 
@@ -266,7 +272,9 @@ def clean():
 
     if result["deleted_count"] > 0:
         click.secho(
-            f"\n  Removed {result['deleted_count']} corrupted events", fg="green", bold=True
+            f"\n  Removed {result['deleted_count']} corrupted events",
+            fg="green",
+            bold=True,
         )
         click.echo("\n  Run 'divineos verify' to confirm ledger integrity")
     else:
@@ -275,7 +283,7 @@ def clean():
 
 @cli.command("export")
 @click.option("--format", "fmt", default="markdown", type=click.Choice(["markdown", "json"]))
-def export_cmd(fmt: str):
+def export_cmd(fmt: str) -> None:
     """Export all events to markdown or JSON."""
     if fmt == "markdown":
         output = _wrapped_export_to_markdown()
@@ -287,7 +295,7 @@ def export_cmd(fmt: str):
 
 @cli.command()
 @click.argument("original_file", type=click.Path(exists=True))
-def diff(original_file: str):
+def diff(original_file: str) -> None:
     """Compare original file to database export for round-trip verification."""
     path = Path(original_file)
     original_content = path.read_text(encoding="utf-8").strip()
@@ -311,9 +319,9 @@ def diff(original_file: str):
 @click.option("--type", "event_type", required=True, help="Event type (e.g. USER_INPUT, TOOL_CALL)")
 @click.option("--actor", required=True, help="Who triggered it (e.g. user, assistant, system)")
 @click.option("--content", required=True, help="The event content/message")
-def log_cmd(event_type: str, actor: str, content: str):
+def log_cmd(event_type: str, actor: str, content: str) -> None:
     """Append an event to the immutable ledger."""
-    payload: dict = {"content": content}
+    payload: dict[str, Any] = {"content": content}
 
     try:
         parsed = json.loads(content)
@@ -326,7 +334,9 @@ def log_cmd(event_type: str, actor: str, content: str):
         )
 
     event_id = _wrapped_log_event(
-        event_type=event_type.upper(), actor=actor.lower(), payload=payload
+        event_type=event_type.upper(),
+        actor=actor.lower(),
+        payload=payload,
     )
     logger.info(f"Event logged: {event_type} by {actor}")
     click.secho(f"[+] Logged event: {event_id}", fg="green")
@@ -337,7 +347,7 @@ def log_cmd(event_type: str, actor: str, content: str):
 @click.option("--offset", default=0, help="Skip this many events")
 @click.option("--type", "event_type", default=None, help="Filter by event type")
 @click.option("--actor", default=None, help="Filter by actor")
-def list_cmd(limit: int, offset: int, event_type: str, actor: str):
+def list_cmd(limit: int, offset: int, event_type: str, actor: str) -> None:
     """List events from the ledger."""
     events = _wrapped_get_events(limit=limit, offset=offset, event_type=event_type, actor=actor)
 
@@ -352,7 +362,7 @@ def list_cmd(limit: int, offset: int, event_type: str, actor: str):
 @cli.command()
 @click.argument("keyword")
 @click.option("--limit", default=50, help="Max results")
-def search(keyword: str, limit: int):
+def search(keyword: str, limit: int) -> None:
     """Search the ledger for events matching KEYWORD."""
     logger.info(f"Searching for: '{keyword}'")
     events = _wrapped_search_events(keyword=keyword, limit=limit)
@@ -366,7 +376,7 @@ def search(keyword: str, limit: int):
 
 
 @cli.command()
-def stats():
+def stats() -> None:
     """Display event ledger statistics."""
     logger.info("Fetching ledger statistics...")
     try:
@@ -394,7 +404,7 @@ def stats():
 
 @cli.command()
 @click.option("--n", default=20, help="Number of recent events for context")
-def context(n: int):
+def context(n: int) -> None:
     """Show the last N events (working memory context window)."""
     logger.info(f"Building context from last {n} events...")
     events = _wrapped_get_recent_context(n=n)
@@ -419,7 +429,7 @@ def context(n: int):
 @click.option("--confidence", default=1.0, type=float, help="Confidence 0.0-1.0")
 @click.option("--tags", default="", help="Comma-separated tags")
 @click.option("--source", default="", help="Comma-separated source event IDs")
-def learn(knowledge_type: str, content: str, confidence: float, tags: str, source: str):
+def learn(knowledge_type: str, content: str, confidence: float, tags: str, source: str) -> None:
     """Store a piece of knowledge extracted from experience."""
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     source_list = [s.strip() for s in source.split(",") if s.strip()] if source else []
@@ -444,7 +454,7 @@ def learn(knowledge_type: str, content: str, confidence: float, tags: str, sourc
 )
 @click.option("--min-confidence", default=0.0, type=float, help="Minimum confidence")
 @click.option("--limit", default=20, type=int, help="Max results")
-def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
+def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int) -> None:
     """List stored knowledge."""
     kt = knowledge_type.upper() if knowledge_type else None
     entries = _wrapped_get_knowledge(knowledge_type=kt, min_confidence=min_confidence, limit=limit)
@@ -484,11 +494,13 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int):
 @click.option("--max", "max_items", default=20, type=int, help="Max items in briefing")
 @click.option("--types", default="", help="Comma-separated knowledge types to include")
 @click.option("--topic", default="", help="Topic hint to boost relevant knowledge (e.g. 'testing')")
-def briefing_cmd(max_items: int, types: str, topic: str):
+def briefing_cmd(max_items: int, types: str, topic: str) -> None:
     """Generate a session context briefing from stored knowledge."""
     type_list = [t.strip().upper() for t in types.split(",") if t.strip()] if types else None
     output = _wrapped_generate_briefing(
-        max_items=max_items, include_types=type_list, context_hint=topic
+        max_items=max_items,
+        include_types=type_list,
+        context_hint=topic,
     )
     click.echo(output)
 
@@ -496,7 +508,7 @@ def briefing_cmd(max_items: int, types: str, topic: str):
 @cli.command("forget")
 @click.argument("knowledge_id")
 @click.option("--reason", required=True, help="Why this knowledge is being superseded")
-def forget_cmd(knowledge_id: str, reason: str):
+def forget_cmd(knowledge_id: str, reason: str) -> None:
     """Supersede a knowledge entry (append-only: marks old, creates new)."""
     try:
         new_id = _wrapped_update_knowledge(knowledge_id, f"[SUPERSEDED] {reason}")
@@ -506,7 +518,7 @@ def forget_cmd(knowledge_id: str, reason: str):
 
 
 @cli.command("consolidate-stats")
-def consolidate_stats_cmd():
+def consolidate_stats_cmd() -> None:
     """Display knowledge consolidation statistics."""
     stats = _wrapped_knowledge_stats()
 
@@ -535,7 +547,7 @@ def consolidate_stats_cmd():
 
 
 @cli.command("rebuild-index")
-def rebuild_index_cmd():
+def rebuild_index_cmd() -> None:
     """Rebuild the Full-text search full-text search index from existing knowledge."""
     count = _wrapped_rebuild_fts_index()
     if count > 0:
@@ -551,7 +563,7 @@ def rebuild_index_cmd():
     type=click.Choice(["active", "improving", "resolved"]),
     help="Filter by lesson status",
 )
-def lessons_cmd(status: str):
+def lessons_cmd(status: str) -> None:
     """Show the learning loop — tracked lessons from past sessions."""
     lessons = _wrapped_get_lessons(status=status)
 
@@ -588,7 +600,7 @@ def lessons_cmd(status: str):
 
 
 @cli.command("clear-lessons")
-def clear_lessons_cmd():
+def clear_lessons_cmd() -> None:
     """Wipe all lessons from lesson_tracking (for re-extraction after fixes)."""
     count = _wrapped_clear_lessons()
     if count:
@@ -599,7 +611,7 @@ def clear_lessons_cmd():
 
 @cli.command("consolidate")
 @click.option("--min-cluster", default=3, type=int, help="Minimum entries to form a cluster")
-def consolidate_cmd(min_cluster: int):
+def consolidate_cmd(min_cluster: int) -> None:
     """Merge related knowledge entries into consolidated ones."""
     merges = _wrapped_consolidate_related(min_cluster_size=min_cluster)
 
@@ -617,7 +629,7 @@ def consolidate_cmd(min_cluster: int):
 
 
 @cli.command("health")
-def health_cmd():
+def health_cmd() -> None:
     """Run knowledge health check — boost confirmed, escalate recurring, resolve old."""
     result = _wrapped_health_check()
 
@@ -646,7 +658,7 @@ def health_cmd():
 
 
 @cli.command("sessions")
-def sessions_cmd():
+def sessions_cmd() -> None:
     """Find and list all Claude Code session files."""
     sessions = _analyzer_mod.find_sessions()
     if not sessions:
@@ -670,7 +682,7 @@ def sessions_cmd():
     default=True,
     help="Use deep extraction (correction pairs, preferences, topics)",
 )
-def scan_cmd(file_path: str, store: bool, deep: bool):
+def scan_cmd(file_path: str, store: bool, deep: bool) -> None:
     """Deep-scan a session and extract knowledge into the consolidation store."""
     path = Path(file_path)
     analysis = _analyzer_mod.analyze_session(path)
@@ -775,7 +787,7 @@ def scan_cmd(file_path: str, store: bool, deep: bool):
 @cli.command("deep-report")
 @click.argument("file_path", type=click.Path(exists=True))
 @click.option("--store/--no-store", default=False, help="Store results in database")
-def deep_report_cmd(file_path: str, store: bool):
+def deep_report_cmd(file_path: str, store: bool) -> None:
     """Full session analysis: tone tracking, timeline, files, work/talk, errors."""
     init_feature_tables()
     path = Path(file_path)
@@ -795,7 +807,7 @@ def deep_report_cmd(file_path: str, store: bool):
 
 @cli.command("patterns")
 @click.option("--limit", default=10, type=int, help="Max sessions to compare")
-def patterns_cmd(limit: int):
+def patterns_cmd(limit: int) -> None:
     """Compare quality check results across stored sessions."""
     output = _wrapped_get_cross_session_summary(limit=limit)
     click.echo()
@@ -807,8 +819,8 @@ def patterns_cmd(limit: int):
 @click.argument("action", required=False, default="show")
 @click.argument("slot", required=False)
 @click.argument("content", required=False)
-def core_cmd(action: str, slot: str | None, content: str | None):
-    """Manage core memory slots.
+def core_cmd(action: str, slot: str | None, content: str | None) -> None:
+    r"""Manage core memory slots.
 
     \b
     Usage:
@@ -861,7 +873,7 @@ def core_cmd(action: str, slot: str | None, content: str | None):
 
 @cli.command("recall")
 @click.option("--topic", default="", help="Topic hint to boost relevant memories")
-def recall_cmd(topic: str):
+def recall_cmd(topic: str) -> None:
     """Show what the AI remembers right now — core + active + relevant."""
     init_memory_tables()
     result = _wrapped_recall(context_hint=topic)
@@ -870,7 +882,7 @@ def recall_cmd(topic: str):
 
 
 @cli.command("active")
-def active_cmd():
+def active_cmd() -> None:
     """List active memory ranked by importance."""
     init_memory_tables()
     items = _wrapped_get_active_memory()
@@ -878,7 +890,8 @@ def active_cmd():
     if not items:
         click.secho("[-] No active memory yet.", fg="yellow")
         click.secho(
-            "    Run 'divineos refresh' to auto-build from knowledge store.", fg="bright_black"
+            "    Run 'divineos refresh' to auto-build from knowledge store.",
+            fg="bright_black",
         )
         return
 
@@ -911,7 +924,7 @@ def active_cmd():
 @click.argument("knowledge_id")
 @click.option("--reason", default="manually promoted", help="Why this is important")
 @click.option("--pin", is_flag=True, help="Pin this memory (cannot be auto-demoted)")
-def remember_cmd(knowledge_id: str, reason: str, pin: bool):
+def remember_cmd(knowledge_id: str, reason: str, pin: bool) -> None:
     """Promote a knowledge entry to active memory."""
     init_memory_tables()
     try:
@@ -924,17 +937,19 @@ def remember_cmd(knowledge_id: str, reason: str, pin: bool):
 
 @cli.command("refresh")
 @click.option("--threshold", default=0.3, type=float, help="Importance threshold (0.0-1.0)")
-def refresh_cmd(threshold: float):
+def refresh_cmd(threshold: float) -> None:
     """Auto-rebuild active memory from the knowledge store."""
     init_memory_tables()
     result = _wrapped_refresh_active_memory(importance_threshold=threshold)
     click.secho("\n=== Memory Refresh ===\n", fg="cyan", bold=True)
     click.secho(
-        f"  Promoted:  {result['promoted']}", fg="green" if result["promoted"] else "bright_black"
+        f"  Promoted:  {result['promoted']}",
+        fg="green" if result["promoted"] else "bright_black",
     )
     click.secho(f"  Kept:      {result['kept']}", fg="white")
     click.secho(
-        f"  Demoted:   {result['demoted']}", fg="red" if result["demoted"] else "bright_black"
+        f"  Demoted:   {result['demoted']}",
+        fg="red" if result["demoted"] else "bright_black",
     )
     total = result["promoted"] + result["kept"]
     click.secho(f"\n  Active memory: {total} items", fg="white", bold=True)
@@ -943,7 +958,7 @@ def refresh_cmd(threshold: float):
 
 @cli.command("migrate-types")
 @click.option("--execute", is_flag=True, help="Actually perform the migration (default is dry-run)")
-def migrate_types_cmd(execute: bool):
+def migrate_types_cmd(execute: bool) -> None:
     """Reclassify old knowledge types (MISTAKE/PATTERN/PREFERENCE) to new types."""
     init_knowledge_table()
     dry_run = not execute
@@ -1007,7 +1022,7 @@ def _role_to_event_type(role: str) -> str:
     return mapping.get(role.lower(), "MESSAGE")
 
 
-def _print_events(events: list[dict], highlight: str | None = None) -> None:
+def _print_events(events: list[dict[str, Any]], highlight: str | None = None) -> None:
     """Pretty-print a list of events with optional keyword highlighting."""
     for event in events:
         ts = event["timestamp"]
@@ -1053,7 +1068,7 @@ if __name__ == "__main__":
 
 @cli.command("analyze")
 @click.argument("file_path", type=click.Path(exists=True))
-def analyze_cmd(file_path: str):
+def analyze_cmd(file_path: str) -> None:
     """Analyze a session and generate a quality report.
 
     Runs all 7 quality checks + 10 session features on a JSONL file.
@@ -1110,18 +1125,18 @@ def analyze_cmd(file_path: str):
 
 
 @cli.command("analyze-now")
-def analyze_now_cmd():
+def analyze_now_cmd() -> None:
     """Analyze the current session from the ledger.
 
     This runs quality checks on the live session without needing a file.
     Useful for enforcement - run this to see what you're doing wrong right now.
     """
     from divineos.analysis.analysis import (
-        export_current_session_to_jsonl,
         analyze_session,
+        export_current_session_to_jsonl,
         format_analysis_report,
-        store_analysis,
         save_analysis_report,
+        store_analysis,
     )
 
     try:
@@ -1175,13 +1190,14 @@ def analyze_now_cmd():
 
 @cli.command("report")
 @click.argument("session_id", required=False)
-def report_cmd(session_id: str):
+def report_cmd(session_id: str) -> None:
     """Display a stored analysis report.
 
     If no session_id provided, shows list of recent sessions.
     """
-    from divineos.analysis.analysis import get_stored_report, list_recent_sessions
     from datetime import datetime
+
+    from divineos.analysis.analysis import get_stored_report, list_recent_sessions
 
     try:
         if not session_id:
@@ -1237,7 +1253,7 @@ def report_cmd(session_id: str):
 
 @cli.command("cross-session")
 @click.option("--limit", default=10, type=int, help="Number of sessions to analyze")
-def cross_session_cmd(limit: int):
+def cross_session_cmd(limit: int) -> None:
     """Compare findings across multiple sessions.
 
     Shows trends and patterns in your performance over time.
@@ -1285,7 +1301,7 @@ def emit_cmd(
     result: str,
     duration_ms: int,
     session_id: str,
-):
+) -> None:
     """Emit an event to the ledger using proper event emission functions.
 
     Supported event types:
@@ -1295,14 +1311,15 @@ def emit_cmd(
     - TOOL_RESULT: --tool-name X --tool-use-id Y --result "..." --duration-ms N
     - SESSION_END: (no arguments needed, queries ledger for actual counts)
     """
-    import sys
     import json
+    import sys
+
     from divineos.event.event_emission import (
-        emit_user_input,
+        emit_event,
+        emit_session_end,
         emit_tool_call,
         emit_tool_result,
-        emit_session_end,
-        emit_event,
+        emit_user_input,
     )
 
     try:
@@ -1337,7 +1354,10 @@ def emit_cmd(
                 click.secho(f"[-] Invalid JSON for --tool-input: {tool_input}", fg="red")
                 sys.exit(1)
             event_id = emit_tool_call(
-                tool_name, tool_input_dict, tool_use_id=tool_use_id, session_id=session_id or None
+                tool_name,
+                tool_input_dict,
+                tool_use_id=tool_use_id,
+                session_id=session_id or None,
             )
             click.secho("[+] Event emitted: TOOL_CALL", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
@@ -1345,11 +1365,16 @@ def emit_cmd(
         elif event_type == "TOOL_RESULT":
             if not tool_name or not tool_use_id or not result:
                 click.secho(
-                    "[-] TOOL_RESULT requires --tool-name, --tool-use-id, and --result", fg="red"
+                    "[-] TOOL_RESULT requires --tool-name, --tool-use-id, and --result",
+                    fg="red",
                 )
                 sys.exit(1)
             event_id = emit_tool_result(
-                tool_name, tool_use_id, result, duration_ms, session_id=session_id or None
+                tool_name,
+                tool_use_id,
+                result,
+                duration_ms,
+                session_id=session_id or None,
             )
             click.secho("[+] Event emitted: TOOL_RESULT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
@@ -1372,7 +1397,10 @@ def emit_cmd(
                 click.secho("[-] EXPLANATION requires --content", fg="red")
                 sys.exit(1)
             event_id = emit_event(
-                "EXPLANATION", {"content": content}, actor="assistant", validate=False
+                "EXPLANATION",
+                {"content": content},
+                actor="assistant",
+                validate=False,
             )
             if event_id is None:
                 click.secho("[-] Failed to emit event (recursive call)", fg="red")
@@ -1396,7 +1424,7 @@ def emit_cmd(
 
 
 @cli.command("verify-enforcement")
-def verify_enforcement_cmd():
+def verify_enforcement_cmd() -> None:
     """Verify that the event enforcement system is working correctly.
 
     This command checks:

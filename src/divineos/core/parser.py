@@ -1,5 +1,4 @@
-"""
-Chat Parser - Parse Claude Code / Codex JSONL session files.
+"""Chat Parser - Parse Claude Code / Codex JSONL session files.
 
 Reads past AI conversations and normalizes them into events
 ready for storage in the ledger.
@@ -11,10 +10,11 @@ Supported formats:
 """
 
 import json
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 
 @dataclass
@@ -116,7 +116,7 @@ def _parse_entry(entry: dict[str, Any]) -> list[ParsedMessage]:
                 content=content,
                 timestamp=timestamp,
                 message_id=entry.get("uuid", ""),
-            )
+            ),
         )
 
     elif entry_type == "assistant":
@@ -134,7 +134,7 @@ def _parse_entry(entry: dict[str, Any]) -> list[ParsedMessage]:
                         timestamp=timestamp,
                         message_id=entry.get("uuid", ""),
                         model=model,
-                    )
+                    ),
                 )
 
             elif block_type == "tool_use":
@@ -147,7 +147,7 @@ def _parse_entry(entry: dict[str, Any]) -> list[ParsedMessage]:
                         tool_name=block.get("name", ""),
                         tool_input=block.get("input", {}),
                         model=model,
-                    )
+                    ),
                 )
 
     # Codex format
@@ -167,7 +167,7 @@ def _parse_entry(entry: dict[str, Any]) -> list[ParsedMessage]:
                         timestamp=timestamp,
                         message_id=entry.get("id", ""),
                         model=payload.get("model", ""),
-                    )
+                    ),
                 )
 
         elif payload_type in ("function_call", "custom_tool_call"):
@@ -182,7 +182,7 @@ def _parse_entry(entry: dict[str, Any]) -> list[ParsedMessage]:
                     message_id=payload.get("call_id", ""),
                     tool_name=tool_name,
                     tool_input=tool_input,
-                )
+                ),
             )
 
         elif payload_type in ("function_call_output", "custom_tool_call_output"):
@@ -196,7 +196,7 @@ def _parse_entry(entry: dict[str, Any]) -> list[ParsedMessage]:
                     content=str(output),
                     timestamp=timestamp,
                     message_id=payload.get("call_id", ""),
-                )
+                ),
             )
 
     return messages
@@ -224,7 +224,7 @@ def _extract_content(content: Any) -> str:
     return str(content)
 
 
-def _extract_codex_content(content_blocks: list) -> str:
+def _extract_codex_content(content_blocks: list[Any]) -> str:
     """Extract text from Codex content blocks."""
     if not isinstance(content_blocks, list):
         return ""
@@ -290,7 +290,7 @@ def parse_markdown_chat(file_path: Path) -> ParseResult:
                         role=current_role,
                         content="\n".join(current_content).strip(),
                         timestamp=timestamp,
-                    )
+                    ),
                 )
             current_role = "user"
             current_content = []
@@ -302,7 +302,7 @@ def parse_markdown_chat(file_path: Path) -> ParseResult:
                         role=current_role,
                         content="\n".join(current_content).strip(),
                         timestamp=timestamp,
-                    )
+                    ),
                 )
             current_role = "assistant"
             current_content = []
@@ -316,7 +316,7 @@ def parse_markdown_chat(file_path: Path) -> ParseResult:
                 role=current_role,
                 content="\n".join(current_content).strip(),
                 timestamp=timestamp,
-            )
+            ),
         )
 
     return ParseResult(

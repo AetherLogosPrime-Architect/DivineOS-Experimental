@@ -1,10 +1,9 @@
-"""
-Summary Generator.
+"""Summary Generator.
 
 Generates comprehensive post-work summaries with analysis and recommendations.
 """
 
-from typing import Any, Dict, List
+from typing import Any
 
 from loguru import logger
 
@@ -24,7 +23,7 @@ from .types import (
 class DefaultSummaryGenerator(SummaryGenerator):
     """Default implementation of summary generator."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the summary generator."""
 
     def validate(self) -> bool:
@@ -36,12 +35,11 @@ class DefaultSummaryGenerator(SummaryGenerator):
         clarity_statement: ClarityStatement,
         plan_data: PlanData,
         execution_data: ExecutionData,
-        deviations: List[Deviation],
-        lessons: List[Lesson],
-        recommendations: List[Recommendation],
+        deviations: list[Deviation],
+        lessons: list[Lesson],
+        recommendations: list[Recommendation],
     ) -> PostWorkSummary:
-        """
-        Generate comprehensive post-work summary.
+        """Generate comprehensive post-work summary.
 
         Args:
             clarity_statement: Original clarity statement
@@ -53,6 +51,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
 
         Returns:
             Comprehensive post-work summary
+
         """
         try:
             # Generate plan vs actual comparison
@@ -80,7 +79,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             logger.info(
                 f"Generated post-work summary {summary.id}: "
                 f"{len(deviations)} deviations, {len(lessons)} lessons, "
-                f"{len(recommendations)} recommendations"
+                f"{len(recommendations)} recommendations",
             )
             return summary
 
@@ -97,10 +96,11 @@ class DefaultSummaryGenerator(SummaryGenerator):
             )
 
     def generate_plan_vs_actual_section(
-        self, plan_data: PlanData, execution_data: ExecutionData
-    ) -> Dict[str, Any]:
-        """
-        Generate plan vs actual comparison section.
+        self,
+        plan_data: PlanData,
+        execution_data: ExecutionData,
+    ) -> dict[str, Any]:
+        """Generate plan vs actual comparison section.
 
         Args:
             plan_data: Planned work data
@@ -108,6 +108,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
 
         Returns:
             Dictionary with comparison data
+
         """
         try:
             # Calculate alignment score (0-100)
@@ -144,20 +145,20 @@ class DefaultSummaryGenerator(SummaryGenerator):
             logger.error(f"Error generating plan vs actual section: {e}")
             return {}
 
-    def generate_deviations_section(self, deviations: List[Deviation]) -> Dict[str, Any]:
-        """
-        Generate deviations section.
+    def generate_deviations_section(self, deviations: list[Deviation]) -> dict[str, Any]:
+        """Generate deviations section.
 
         Args:
             deviations: List of deviations
 
         Returns:
             Dictionary with deviations data
+
         """
         try:
             # Categorize deviations
-            by_severity: Dict[str, List[Deviation]] = {"high": [], "medium": [], "low": []}
-            by_category: Dict[str, List[Deviation]] = {}
+            by_severity: dict[str, list[Deviation]] = {"high": [], "medium": [], "low": []}
+            by_category: dict[str, list[Deviation]] = {}
 
             for deviation in deviations:
                 by_severity[deviation.severity].append(deviation)
@@ -187,15 +188,15 @@ class DefaultSummaryGenerator(SummaryGenerator):
             logger.error(f"Error generating deviations section: {e}")
             return {}
 
-    def generate_metrics_section(self, execution_data: ExecutionData) -> Dict[str, Any]:
-        """
-        Generate metrics section.
+    def generate_metrics_section(self, execution_data: ExecutionData) -> dict[str, Any]:
+        """Generate metrics section.
 
         Args:
             execution_data: Execution data
 
         Returns:
             Dictionary with metrics data
+
         """
         try:
             metrics = execution_data.metrics
@@ -216,11 +217,11 @@ class DefaultSummaryGenerator(SummaryGenerator):
             return {}
 
     def present_summary_to_user(self, summary: PostWorkSummary) -> None:
-        """
-        Present summary to user.
+        """Present summary to user.
 
         Args:
             summary: Summary to present
+
         """
         try:
             display_text = self._format_summary(summary)
@@ -233,10 +234,11 @@ class DefaultSummaryGenerator(SummaryGenerator):
             logger.error(f"Error presenting summary: {e}")
 
     def _calculate_alignment_score(
-        self, plan_data: PlanData, execution_data: ExecutionData
+        self,
+        plan_data: PlanData,
+        execution_data: ExecutionData,
     ) -> float:
-        """
-        Calculate alignment score between plan and execution.
+        """Calculate alignment score between plan and execution.
 
         Args:
             plan_data: Planned work data
@@ -244,6 +246,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
 
         Returns:
             Alignment score (0-100)
+
         """
         try:
             scores = []
@@ -274,22 +277,21 @@ class DefaultSummaryGenerator(SummaryGenerator):
             scores.append(error_score)
 
             # Average all scores
-            alignment_score = sum(scores) / len(scores) if scores else 0.0
-            return alignment_score
+            return sum(scores) / len(scores) if scores else 0.0
 
         except Exception as e:
             logger.error(f"Error calculating alignment score: {e}")
             return 0.0
 
     def _format_summary(self, summary: PostWorkSummary) -> str:
-        """
-        Format summary for display.
+        """Format summary for display.
 
         Args:
             summary: Summary to format
 
         Returns:
             Formatted display string
+
         """
         lines = [
             "=" * 60,
@@ -325,7 +327,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 "",
                 "LESSONS LEARNED:",
                 f"  Total: {len(summary.lessons_learned)}",
-            ]
+            ],
         )
 
         if summary.lessons_learned:
@@ -337,7 +339,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 "",
                 "RECOMMENDATIONS:",
                 f"  Total: {len(summary.recommendations)}",
-            ]
+            ],
         )
 
         if summary.recommendations:

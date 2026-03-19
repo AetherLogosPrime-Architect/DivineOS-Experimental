@@ -1,5 +1,4 @@
-"""
-Session Features — Analysis features that build on raw JSONL session data.
+"""Session Features — Analysis features that build on raw JSONL session data.
 
 Features:
 3. Tone tracking    — Detects when user mood shifts and what the AI did in between
@@ -18,9 +17,13 @@ import sqlite3
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from divineos.core.fidelity import compute_content_hash
+from divineos.analysis.quality_checks import (
+    _build_tool_result_map,
+    _extract_tool_calls,
+    _get_assistant_text,
+)
 from divineos.analysis.session_analyzer import (
     CORRECTION_PATTERNS,
     ENCOURAGEMENT_PATTERNS,
@@ -29,11 +32,7 @@ from divineos.analysis.session_analyzer import (
     _extract_user_text,
     _load_records,
 )
-from divineos.analysis.quality_checks import (
-    _build_tool_result_map,
-    _extract_tool_calls,
-    _get_assistant_text,
-)
+from divineos.core.fidelity import compute_content_hash
 
 # --- Database ---
 
@@ -271,7 +270,7 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
                 "text": text,
                 "tone": _classify_tone(text),
                 "timestamp": r.get("timestamp", ""),
-            }
+            },
         )
 
     # Find AI actions between each pair of user messages
@@ -314,7 +313,7 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
                 trigger_action=trigger,
                 before_message=prev["text"][:200],
                 after_message=curr["text"][:200],
-            )
+            ),
         )
 
     return shifts
@@ -331,26 +330,26 @@ def tone_report(shifts: list[ToneShift], total_messages: int) -> str:
     parts: list[str] = []
     parts.append(
         f"Your mood shifted {len(shifts)} time{'s' if len(shifts) != 1 else ''} "
-        f"during {total_messages} messages."
+        f"during {total_messages} messages.",
     )
 
     if negative_shifts:
         parts.append(
             f"{len(negative_shifts)} time{'s' if len(negative_shifts) != 1 else ''} "
-            f"you went from okay/happy to upset."
+            f"you went from okay/happy to upset.",
         )
         # Show the worst one
         worst = negative_shifts[0]
         parts.append(
             f"For example, after message {worst.sequence}: "
             f"you were {worst.previous_tone}, then the AI did [{worst.trigger_action[:80]}], "
-            f"and you got {worst.new_tone}."
+            f"and you got {worst.new_tone}.",
         )
 
     if positive_shifts:
         parts.append(
             f"{len(positive_shifts)} time{'s' if len(positive_shifts) != 1 else ''} "
-            f"things got better — you went from neutral/upset to happy."
+            f"things got better — you went from neutral/upset to happy.",
         )
 
     parts.append("(Tone tracking is a guess based on your words, not a certainty.)")
@@ -386,7 +385,7 @@ def build_timeline(records: list[dict[str, Any]]) -> list[TimelineEntry]:
                     timestamp=timestamp,
                     actor="user",
                     action_summary=f'You said: "{preview}"',
-                )
+                ),
             )
 
         elif record_type == "assistant":
@@ -426,7 +425,7 @@ def build_timeline(records: list[dict[str, Any]]) -> list[TimelineEntry]:
                     timestamp=timestamp,
                     actor="assistant",
                     action_summary=summary,
-                )
+                ),
             )
 
         elif record_type == "system":
@@ -439,7 +438,7 @@ def build_timeline(records: list[dict[str, Any]]) -> list[TimelineEntry]:
                         timestamp=timestamp,
                         actor="system",
                         action_summary="[Context was compressed here — AI's memory was getting full]",
-                    )
+                    ),
                 )
 
     return timeline
@@ -491,7 +490,7 @@ def analyze_files_touched(records: list[dict[str, Any]]) -> list[FileTouched]:
                         timestamp=str(tool["timestamp"]),
                         was_read_first=True,
                         tool_use_id=tool["id"],
-                    )
+                    ),
                 )
             elif name in ("Edit", "Write"):
                 was_read = norm in files_read
@@ -502,7 +501,7 @@ def analyze_files_touched(records: list[dict[str, Any]]) -> list[FileTouched]:
                         timestamp=str(tool["timestamp"]),
                         was_read_first=was_read,
                         tool_use_id=tool["id"],
-                    )
+                    ),
                 )
                 files_read.add(norm)
 
@@ -534,7 +533,7 @@ def files_report(touched: list[FileTouched]) -> str:
     parts: list[str] = []
     parts.append(
         f"The AI touched {len(unique_files)} unique file{'s' if len(unique_files) != 1 else ''} "
-        f"({reads} reads, {edits} edits/writes)."
+        f"({reads} reads, {edits} edits/writes).",
     )
 
     if blind_files:
@@ -664,7 +663,7 @@ def analyze_request_delivery(records: list[dict[str, Any]]) -> TaskTracking:
         if tone == "positive":
             satisfied = 1
             break
-        elif tone == "negative":
+        if tone == "negative":
             satisfied = -1
             break
 
@@ -675,18 +674,18 @@ def analyze_request_delivery(records: list[dict[str, Any]]) -> TaskTracking:
 
     parts: list[str] = [f'You asked: "{request_preview}"']
     parts.append(
-        f"The AI changed {len(files_changed)} file{'s' if len(files_changed) != 1 else ''}."
+        f"The AI changed {len(files_changed)} file{'s' if len(files_changed) != 1 else ''}.",
     )
 
     if satisfied == 1:
         parts.append("Your last messages sounded positive — looks like you got what you wanted.")
     elif satisfied == -1:
         parts.append(
-            "Your last messages sounded frustrated — the AI may not have delivered what you asked for."
+            "Your last messages sounded frustrated — the AI may not have delivered what you asked for.",
         )
     else:
         parts.append(
-            "Hard to tell from your last messages if you were satisfied. (This is a guess, not a certainty.)"
+            "Hard to tell from your last messages if you were satisfied. (This is a guess, not a certainty.)",
         )
 
     return TaskTracking(
@@ -703,7 +702,8 @@ def analyze_request_delivery(records: list[dict[str, Any]]) -> TaskTracking:
 
 
 def analyze_error_recovery(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> list[ErrorRecoveryEntry]:
     """When something broke, what did the AI do next?"""
     entries: list[ErrorRecoveryEntry] = []
@@ -742,7 +742,8 @@ def analyze_error_recovery(
                 next_tool = next_tools[0]
                 next_name = next_tool["name"]
                 next_path = next_tool["input"].get(
-                    "file_path", next_tool["input"].get("command", "")
+                    "file_path",
+                    next_tool["input"].get("command", ""),
                 )
 
                 # Same tool + similar input = blind retry
@@ -765,7 +766,7 @@ def analyze_error_recovery(
                     tool_name=failed_name,
                     error_summary=error_text,
                     recovery_action=recovery,
-                )
+                ),
             )
 
     return entries
@@ -810,7 +811,7 @@ def get_cross_session_summary(limit: int = 10) -> str:
     try:
         # Check if tables exist
         tables = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='check_result'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='check_result'",
         ).fetchone()
         if not tables:
             return "No sessions analyzed yet. Run 'divineos report <session> --store' first."
@@ -848,7 +849,7 @@ def get_cross_session_summary(limit: int = 10) -> str:
 
             parts.append(
                 f"  {check_name}: {verdict} "
-                f"(avg {avg_score}, {passes} passed, {fails} failed, {inconclusive} inconclusive)"
+                f"(avg {avg_score}, {passes} passed, {fails} failed, {inconclusive} inconclusive)",
             )
 
         # Identify the biggest problem
@@ -856,7 +857,7 @@ def get_cross_session_summary(limit: int = 10) -> str:
         if worst and worst[4] < 0.7:
             parts.append(
                 f"\nBiggest concern: {worst[0]} (average score {worst[4]}). "
-                f"Failed in {worst[2]} out of {session_count} sessions."
+                f"Failed in {worst[2]} out of {session_count} sessions.",
             )
 
         return "\n".join(parts)
@@ -877,8 +878,8 @@ class FullSessionAnalysis:
     tone_shifts: list[ToneShift] = field(default_factory=list)
     timeline: list[TimelineEntry] = field(default_factory=list)
     files_touched: list[FileTouched] = field(default_factory=list)
-    activity: Optional[ActivityBreakdown] = None
-    task_tracking: Optional[TaskTracking] = None
+    activity: ActivityBreakdown | None = None
+    task_tracking: TaskTracking | None = None
     error_recovery: list[ErrorRecoveryEntry] = field(default_factory=list)
     report_text: str = ""
     evidence_hash: str = ""
@@ -952,7 +953,7 @@ def store_features(session_id: str, analysis: FullSessionAnalysis) -> None:
     try:
         # Clear old data for this session
         for table in ("tone_shift", "session_timeline", "file_touched", "error_recovery"):
-            conn.execute(f"DELETE FROM {table} WHERE session_id = ?", (session_id,))
+            conn.execute(f"DELETE FROM {table} WHERE session_id = ?", (session_id,))  # nosec B608 - table names are hardcoded, session_id passed as parameter
         conn.execute("DELETE FROM activity_breakdown WHERE session_id = ?", (session_id,))
         conn.execute("DELETE FROM task_tracking WHERE session_id = ?", (session_id,))
 
@@ -1025,7 +1026,8 @@ def store_features(session_id: str, analysis: FullSessionAnalysis) -> None:
         if analysis.task_tracking:
             t = analysis.task_tracking
             evidence = json.dumps(
-                {"request": t.initial_request, "satisfied": t.user_satisfied}, sort_keys=True
+                {"request": t.initial_request, "satisfied": t.user_satisfied},
+                sort_keys=True,
             )
             conn.execute(
                 "INSERT OR REPLACE INTO task_tracking (session_id, initial_request, files_changed, user_satisfied, evidence_hash) VALUES (?, ?, ?, ?, ?)",

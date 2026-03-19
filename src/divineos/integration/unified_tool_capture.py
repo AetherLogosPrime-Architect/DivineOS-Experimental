@@ -1,5 +1,4 @@
-"""
-Unified Tool Capture - Adapter for backward compatibility.
+"""Unified Tool Capture - Adapter for backward compatibility.
 
 This module re-exports the unified tool capture functionality from
 core/tool_wrapper.py, which is the canonical implementation.
@@ -14,12 +13,12 @@ This module is kept for backward compatibility with existing imports.
 # Re-export from canonical location
 from divineos.core.tool_wrapper import (
     UnifiedToolCapture,
-    get_unified_capture,
     capture_tool_execution,
+    get_unified_capture,
 )
 
 __all__ = [
     "UnifiedToolCapture",
-    "get_unified_capture",
     "capture_tool_execution",
+    "get_unified_capture",
 ]

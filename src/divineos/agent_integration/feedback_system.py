@@ -1,16 +1,16 @@
-"""
-Feedback System for Agent Integration
+"""Feedback System for Agent Integration.
 
 Generates comprehensive feedback on agent operations to support self-improvement.
 """
 
-from typing import List, Dict, Any
 from datetime import datetime, timezone
+from typing import Any
 
 from loguru import logger
-from divineos.agent_integration.types import SessionFeedback
+
 from divineos.agent_integration.behavior_analyzer import analyze_agent_behavior
 from divineos.agent_integration.learning_loop import analyze_session_for_lessons
+from divineos.agent_integration.types import SessionFeedback
 from divineos.core.consolidation import store_knowledge
 from divineos.core.error_handling import (
     handle_error,
@@ -23,14 +23,14 @@ def get_iso8601_timestamp() -> str:
 
 
 def generate_session_feedback(session_id: str) -> SessionFeedback:
-    """
-    Generate feedback for a completed session.
+    """Generate feedback for a completed session.
 
     Args:
         session_id: Session ID to analyze
 
     Returns:
         SessionFeedback object with comprehensive feedback
+
     """
     logger.info(f"Generating session feedback for {session_id[:8]}...")
 
@@ -48,7 +48,7 @@ def generate_session_feedback(session_id: str) -> SessionFeedback:
         logger.debug(f"Generated {len(recommendations)} recommendations")
 
         # Get historical patterns (for now, empty)
-        historical: Dict[str, Any] = {}
+        historical: dict[str, Any] = {}
         comparison = compare_to_historical_patterns(analysis, historical)
         logger.debug("Historical comparison complete")
 
@@ -65,7 +65,7 @@ def generate_session_feedback(session_id: str) -> SessionFeedback:
             lessons_learned=[
                 f"{len(lessons.corrections)} corrections, "
                 f"{len(lessons.encouragements)} encouragements, "
-                f"{len(lessons.decisions)} decisions"
+                f"{len(lessons.decisions)} decisions",
             ],
             recommendations=recommendations,
             improvements=comparison.get("improvements", []),
@@ -95,10 +95,9 @@ def generate_session_summary(
     session_id: str,
     analysis: Any,
     lessons: Any,
-    recommendations: List[str],
-) -> Dict[str, Any]:
-    """
-    Generate comprehensive session summary.
+    recommendations: list[str],
+) -> dict[str, Any]:
+    """Generate comprehensive session summary.
 
     Args:
         session_id: Session ID
@@ -108,6 +107,7 @@ def generate_session_summary(
 
     Returns:
         Dictionary with session summary
+
     """
     return {
         "session_id": session_id,
@@ -126,11 +126,10 @@ def generate_session_summary(
 
 
 def compare_to_historical_patterns(
-    current_analysis: Any,
-    historical_data: Dict[str, Any],
-) -> Dict[str, Any]:
-    """
-    Compare current session to historical patterns.
+    current_analysis: Any,  # pylint: disable=unused-argument
+    historical_data: dict[str, Any],  # pylint: disable=unused-argument
+) -> dict[str, Any]:
+    """Compare current session to historical patterns.
 
     Args:
         current_analysis: BehaviorAnalysis object for current session
@@ -138,6 +137,7 @@ def compare_to_historical_patterns(
 
     Returns:
         Dictionary with comparison results
+
     """
     # For now, return empty comparison
     # This will be enhanced when historical data is available
@@ -148,9 +148,8 @@ def compare_to_historical_patterns(
     }
 
 
-def generate_recommendations(analysis: Any, lessons: Any) -> List[str]:
-    """
-    Generate specific, actionable recommendations.
+def generate_recommendations(analysis: Any, lessons: Any) -> list[str]:
+    """Generate specific, actionable recommendations.
 
     Args:
         analysis: BehaviorAnalysis object
@@ -158,6 +157,7 @@ def generate_recommendations(analysis: Any, lessons: Any) -> List[str]:
 
     Returns:
         List of recommendations
+
     """
     recommendations = []
 
@@ -170,7 +170,7 @@ def generate_recommendations(analysis: Any, lessons: Any) -> List[str]:
             for tool, rate in sorted(low_success_tools, key=lambda x: x[1]):
                 recommendations.append(
                     f"Tool '{tool}' has {rate * 100:.1f}% success rate. "
-                    f"Consider improving error handling or validation."
+                    f"Consider improving error handling or validation.",
                 )
 
     # Recommendations based on timing
@@ -184,7 +184,7 @@ def generate_recommendations(analysis: Any, lessons: Any) -> List[str]:
             for tool, avg_ms in sorted(slow_tools, key=lambda x: x[1], reverse=True):
                 recommendations.append(
                     f"Tool '{tool}' takes {avg_ms:.0f}ms on average. "
-                    f"Consider optimizing or caching results."
+                    f"Consider optimizing or caching results.",
                 )
 
     # Recommendations based on corrections
@@ -196,20 +196,20 @@ def generate_recommendations(analysis: Any, lessons: Any) -> List[str]:
             for tool, count in sorted(corrected_tools, key=lambda x: x[1], reverse=True):
                 recommendations.append(
                     f"Tool '{tool}' required {count} corrections. "
-                    f"Review error handling and add better validation."
+                    f"Review error handling and add better validation.",
                 )
 
     # Recommendations based on lessons
     if lessons.encouragements:
         recommendations.append(
             f"Great job! You successfully used {len(lessons.encouragements)} tools "
-            f"with consistent success. Keep up this pattern."
+            f"with consistent success. Keep up this pattern.",
         )
 
     if lessons.corrections:
         recommendations.append(
             f"You made {len(lessons.corrections)} mistakes but fixed them. "
-            f"This shows good error recovery. Document these fixes for future reference."
+            f"This shows good error recovery. Document these fixes for future reference.",
         )
 
     # Add general recommendations
@@ -220,8 +220,7 @@ def generate_recommendations(analysis: Any, lessons: Any) -> List[str]:
 
 
 def store_episode_summary(session_id: str, feedback: SessionFeedback) -> str:
-    """
-    Store session summary as EPISODE knowledge entry.
+    """Store session summary as EPISODE knowledge entry.
 
     Args:
         session_id: Session ID
@@ -229,6 +228,7 @@ def store_episode_summary(session_id: str, feedback: SessionFeedback) -> str:
 
     Returns:
         Knowledge entry ID
+
     """
     logger.info(f"Storing episode summary for session {session_id[:8]}...")
 
@@ -248,14 +248,14 @@ def store_episode_summary(session_id: str, feedback: SessionFeedback) -> str:
 
 
 def format_feedback_report(feedback: SessionFeedback) -> str:
-    """
-    Format feedback as a human-readable report.
+    """Format feedback as a human-readable report.
 
     Args:
         feedback: SessionFeedback object
 
     Returns:
         Formatted report string
+
     """
     report_lines = [
         "=== Session Feedback Report ===",

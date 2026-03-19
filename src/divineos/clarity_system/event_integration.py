@@ -1,10 +1,9 @@
-"""
-Event Emission Integration.
+"""Event Emission Integration.
 
 Integrates with the existing DivineOS event emission system.
 """
 
-from typing import Any, Dict
+from typing import Any
 from uuid import UUID
 
 from loguru import logger
@@ -22,10 +21,9 @@ class EventEmissionInterface:
         goal: str,
         approach: str,
         expected_outcome: str,
-        scope: Dict[str, Any],
+        scope: dict[str, Any],
     ) -> bool:
-        """
-        Emit a clarity statement event.
+        """Emit a clarity statement event.
 
         Args:
             session_id: Session ID
@@ -37,6 +35,7 @@ class EventEmissionInterface:
 
         Returns:
             True if successful, False otherwise
+
         """
         try:
             payload = {
@@ -70,8 +69,7 @@ class EventEmissionInterface:
         recommendations_count: int,
         alignment_score: float,
     ) -> bool:
-        """
-        Emit a post-work summary event.
+        """Emit a post-work summary event.
 
         Args:
             session_id: Session ID
@@ -83,6 +81,7 @@ class EventEmissionInterface:
 
         Returns:
             True if successful, False otherwise
+
         """
         try:
             payload = {
@@ -115,8 +114,7 @@ class EventEmissionInterface:
         actual: float,
         severity: str,
     ) -> bool:
-        """
-        Emit a deviation event.
+        """Emit a deviation event.
 
         Args:
             session_id: Session ID
@@ -127,6 +125,7 @@ class EventEmissionInterface:
 
         Returns:
             True if successful, False otherwise
+
         """
         try:
             payload = {
@@ -158,8 +157,7 @@ class EventEmissionInterface:
         description: str,
         confidence: float,
     ) -> bool:
-        """
-        Emit a lesson event.
+        """Emit a lesson event.
 
         Args:
             session_id: Session ID
@@ -170,6 +168,7 @@ class EventEmissionInterface:
 
         Returns:
             True if successful, False otherwise
+
         """
         try:
             payload = {

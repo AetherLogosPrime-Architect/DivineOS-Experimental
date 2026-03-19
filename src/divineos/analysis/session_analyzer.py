@@ -1,5 +1,4 @@
-"""
-Session Analyzer — Deep extraction of patterns from Claude Code JSONL sessions.
+"""Session Analyzer — Deep extraction of patterns from Claude Code JSONL sessions.
 
 The parser extracts raw messages. This module extracts *meaning*:
 - User corrections (when the human redirected the AI)
@@ -18,8 +17,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
-
+from typing import Any
 
 # --- Patterns for detecting user intent ---
 
@@ -149,8 +147,8 @@ class SessionAnalysis:
     session_id: str
 
     # Timeline
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
+    start_time: str | None = None
+    end_time: str | None = None
     duration_seconds: float = 0.0
 
     # Counts
@@ -276,8 +274,7 @@ class SessionAnalysis:
 
 
 def analyze_session(file_path: Path) -> SessionAnalysis:
-    """
-    Analyze a Claude Code JSONL session file.
+    """Analyze a Claude Code JSONL session file.
 
     Extracts user signals, tool patterns, context overflows,
     and conversation flow from raw session data.
@@ -372,8 +369,11 @@ def _extract_user_text(record: dict[str, Any]) -> str:
 
 
 def _detect_signals(
-    text: str, patterns: tuple[str, ...], signal_type: str, timestamp: str
-) -> Optional[UserSignal]:
+    text: str,
+    patterns: tuple[str, ...],
+    signal_type: str,
+    timestamp: str,
+) -> UserSignal | None:
     """Check text against patterns and return a signal if any match."""
     text_lower = text.lower()
     matched = []
@@ -408,7 +408,7 @@ def _process_user_record(record: dict[str, Any], analysis: SessionAnalysis) -> N
                 timestamp=timestamp,
                 message_index=analysis.user_messages,
                 continuation_text=text[:200],
-            )
+            ),
         )
         return  # Don't classify continuation messages as signals
 
@@ -467,7 +467,7 @@ def _process_assistant_record(record: dict[str, Any], analysis: SessionAnalysis)
                     tool_name=tool_name,
                     timestamp=timestamp,
                     input_summary=summary,
-                )
+                ),
             )
 
 
@@ -500,9 +500,8 @@ def _summarize_tool_input(tool_name: str, tool_input: dict[str, Any]) -> str:
 # --- Discovery functions ---
 
 
-def find_sessions(search_dir: Optional[Path] = None) -> list[Path]:
-    """
-    Find all Claude Code JSONL session files.
+def find_sessions(search_dir: Path | None = None) -> list[Path]:
+    """Find all Claude Code JSONL session files.
 
     Searches the default .claude directory if no path given.
     Excludes subagent files.
@@ -526,7 +525,7 @@ def find_sessions(search_dir: Optional[Path] = None) -> list[Path]:
 
 
 def analyze_all_sessions(
-    search_dir: Optional[Path] = None,
+    search_dir: Path | None = None,
 ) -> list[SessionAnalysis]:
     """Find and analyze all available sessions."""
     sessions = find_sessions(search_dir)

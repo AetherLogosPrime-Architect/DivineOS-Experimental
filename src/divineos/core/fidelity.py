@@ -1,5 +1,4 @@
-"""
-Data Fidelity System
+"""Data Fidelity System.
 
 Manifest-receipt pattern for verifying data integrity.
 Every message stored must be retrievable byte-for-byte identical.
@@ -119,7 +118,7 @@ def reconcile(manifest: FidelityManifest, receipt: FidelityReceipt) -> FidelityR
     result.checks["hash_match"] = hash_match
     if not hash_match:
         result.errors.append(
-            f"HASH MISMATCH: content was modified. Expected {manifest.content_hash}, got {receipt.content_hash}"
+            f"HASH MISMATCH: content was modified. Expected {manifest.content_hash}, got {receipt.content_hash}",
         )
         result.passed = False
 

@@ -1,26 +1,26 @@
-"""
-Session Manager Integration.
+"""Session Manager Integration.
 
 Integrates with the existing DivineOS session manager for session tracking.
 """
 
-from typing import Optional
+from typing import Any
 from uuid import UUID
 
-from divineos.core import session_manager
 from loguru import logger
+
+from divineos.core import session_manager
 
 
 class SessionManagerInterface:
     """Interface for interacting with the session manager."""
 
     @staticmethod
-    def get_current_session_id() -> Optional[UUID]:
-        """
-        Get the current session ID.
+    def get_current_session_id() -> UUID | None:
+        """Get the current session ID.
 
         Returns:
             Current session ID as UUID, or None if no session active
+
         """
         try:
             session_id_str = session_manager.get_current_session_id()
@@ -36,11 +36,11 @@ class SessionManagerInterface:
 
     @staticmethod
     def initialize_session() -> UUID:
-        """
-        Initialize a new session.
+        """Initialize a new session.
 
         Returns:
             New session ID as UUID
+
         """
         try:
             session_id_str = session_manager.initialize_session()
@@ -52,15 +52,15 @@ class SessionManagerInterface:
             raise
 
     @staticmethod
-    def get_session_info(session_id: UUID) -> Optional[dict]:
-        """
-        Get information about a session.
+    def get_session_info(session_id: UUID) -> dict[str, Any] | None:
+        """Get information about a session.
 
         Args:
             session_id: Session ID to query
 
         Returns:
             Session information dictionary, or None if not found
+
         """
         try:
             session_id_str = str(session_id)
@@ -74,14 +74,14 @@ class SessionManagerInterface:
 
     @staticmethod
     def is_session_active(session_id: UUID) -> bool:
-        """
-        Check if a session is currently active.
+        """Check if a session is currently active.
 
         Args:
             session_id: Session ID to check
 
         Returns:
             True if session is active, False otherwise
+
         """
         try:
             current_session = SessionManagerInterface.get_current_session_id()
@@ -94,14 +94,14 @@ class SessionManagerInterface:
 
     @staticmethod
     def mark_session_complete(session_id: UUID) -> bool:
-        """
-        Mark a session as complete.
+        """Mark a session as complete.
 
         Args:
             session_id: Session ID to mark complete
 
         Returns:
             True if successful, False otherwise
+
         """
         try:
             # Try to mark session as complete

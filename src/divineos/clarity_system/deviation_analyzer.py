@@ -1,10 +1,7 @@
-"""
-Deviation Analyzer.
+"""Deviation Analyzer.
 
 Compares planned vs actual execution and identifies deviations.
 """
-
-from typing import Dict, List
 
 from loguru import logger
 
@@ -22,7 +19,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
         "high": 0.5,  # 50% deviation
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the deviation analyzer."""
 
     def validate(self) -> bool:
@@ -30,10 +27,11 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
         return True
 
     def analyze_deviations(
-        self, plan_data: PlanData, execution_data: ExecutionData
-    ) -> List[Deviation]:
-        """
-        Analyze deviations between plan and execution.
+        self,
+        plan_data: PlanData,
+        execution_data: ExecutionData,
+    ) -> list[Deviation]:
+        """Analyze deviations between plan and execution.
 
         Args:
             plan_data: Planned work data
@@ -41,6 +39,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
 
         Returns:
             List of deviations
+
         """
         try:
             deviations = []
@@ -90,7 +89,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
 
             logger.info(
                 f"Analyzed deviations: {len(deviations)} total, "
-                f"categories: {list(categorized.keys())}"
+                f"categories: {list(categorized.keys())}",
             )
             return deviations
 
@@ -99,8 +98,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
             return []
 
     def compare_metric(self, metric_name: str, planned: float, actual: float) -> Deviation:
-        """
-        Compare a single metric and create deviation.
+        """Compare a single metric and create deviation.
 
         Args:
             metric_name: Name of the metric
@@ -109,6 +107,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
 
         Returns:
             Deviation object
+
         """
         try:
             # Calculate difference
@@ -139,7 +138,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
 
             logger.debug(
                 f"Compared metric {metric_name}: planned={planned}, actual={actual}, "
-                f"deviation={percentage:.1f}%, severity={severity}"
+                f"deviation={percentage:.1f}%, severity={severity}",
             )
             return deviation
 
@@ -156,18 +155,18 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
                 category="scope",
             )
 
-    def categorize_deviations(self, deviations: List[Deviation]) -> Dict[str, List[Deviation]]:
-        """
-        Categorize deviations by type.
+    def categorize_deviations(self, deviations: list[Deviation]) -> dict[str, list[Deviation]]:
+        """Categorize deviations by type.
 
         Args:
             deviations: List of deviations
 
         Returns:
             Dictionary mapping category to list of deviations
+
         """
         try:
-            categorized: Dict[str, List[Deviation]] = {
+            categorized: dict[str, list[Deviation]] = {
                 "scope": [],
                 "efficiency": [],
                 "quality": [],
@@ -183,7 +182,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
 
             logger.info(
                 f"Categorized {len(deviations)} deviations: "
-                f"{[(k, len(v)) for k, v in categorized.items() if v]}"
+                f"{[(k, len(v)) for k, v in categorized.items() if v]}",
             )
             return categorized
 
@@ -192,37 +191,35 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
             return {"scope": [], "efficiency": [], "quality": [], "approach": []}
 
     def _calculate_severity(self, percentage: float) -> str:
-        """
-        Calculate severity level based on percentage deviation.
+        """Calculate severity level based on percentage deviation.
 
         Args:
             percentage: Percentage deviation
 
         Returns:
             Severity level: low, medium, or high
+
         """
         if percentage <= self.SEVERITY_THRESHOLDS["low"] * 100:
             return "low"
-        elif percentage <= self.SEVERITY_THRESHOLDS["medium"] * 100:
+        if percentage <= self.SEVERITY_THRESHOLDS["medium"] * 100:
             return "medium"
-        else:
-            return "high"
+        return "high"
 
     def _categorize_metric(self, metric_name: str) -> str:
-        """
-        Categorize a metric by type.
+        """Categorize a metric by type.
 
         Args:
             metric_name: Name of the metric
 
         Returns:
             Category: scope, efficiency, quality, or approach
+
         """
         if metric_name in ["files", "tool_calls"]:
             return "scope"
-        elif metric_name == "time":
+        if metric_name == "time":
             return "efficiency"
-        elif metric_name == "errors":
+        if metric_name == "errors":
             return "quality"
-        else:
-            return "approach"
+        return "approach"

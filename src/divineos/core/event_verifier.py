@@ -1,5 +1,4 @@
-"""
-Event Integrity Verification System
+"""Event Integrity Verification System.
 
 Validates event hashes and detects corrupted events in the ledger.
 Provides comprehensive verification reporting.
@@ -16,6 +15,7 @@ Requirements:
 import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any
 
 from loguru import logger
 
@@ -33,11 +33,11 @@ class VerificationReport:
     valid_events: int = 0
     corrupted_events: int = 0
     corrupted_event_ids: list[str] = field(default_factory=list)
-    corrupted_event_details: list[dict] = field(default_factory=list)
+    corrupted_event_details: list[dict[str, Any]] = field(default_factory=list)
     verification_timestamp: str = ""
     verification_status: str = "PENDING"
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert report to dictionary."""
         return {
             "total_events": self.total_events,
@@ -70,7 +70,7 @@ class VerificationReport:
                 [
                     "## Corrupted Events",
                     "",
-                ]
+                ],
             )
             for detail in self.corrupted_event_details:
                 lines.append(f"### Event {detail['event_id']}")
@@ -85,7 +85,7 @@ class VerificationReport:
                     "",
                     "✓ All events verified successfully. No corruption detected.",
                     "",
-                ]
+                ],
             )
 
         return "\n".join(lines)
@@ -99,8 +99,7 @@ class EventVerifier:
         self.logger = logger
 
     def verify_all_events(self) -> VerificationReport:
-        """
-        Verify all events in the ledger.
+        """Verify all events in the ledger.
 
         Checks that each event's content_hash matches the hash of its payload.
         Identifies and reports any corrupted events.
@@ -111,6 +110,7 @@ class EventVerifier:
         Requirements:
             - Requirement 9.4: Check all events for hash validity
             - Requirement 9.5: Report any corrupted events
+
         """
         report = VerificationReport()
         report.verification_timestamp = datetime.now(timezone.utc).isoformat()
@@ -118,7 +118,7 @@ class EventVerifier:
         conn = _get_connection()
         try:
             cursor = conn.execute(
-                "SELECT event_id, event_type, payload, content_hash FROM system_events"
+                "SELECT event_id, event_type, payload, content_hash FROM system_events",
             )
             rows = cursor.fetchall()
 
@@ -137,14 +137,14 @@ class EventVerifier:
                     report.corrupted_event_ids.append(event_id)
 
                     # Get detailed reason for corruption
-                    is_hash_valid, reason = verify_event_hash(event_id, payload, stored_hash)
+                    _is_hash_valid, reason = verify_event_hash(event_id, payload, stored_hash)
 
                     report.corrupted_event_details.append(
                         {
                             "event_id": event_id,
                             "event_type": event_type,
                             "reason": reason,
-                        }
+                        },
                     )
 
                     self.logger.error(f"Event corrupted: {event_id} ({event_type}) - {reason}")
@@ -156,7 +156,7 @@ class EventVerifier:
                 report.verification_status = "FAIL"
 
             self.logger.info(
-                f"Event verification complete: {report.valid_events}/{report.total_events} valid"
+                f"Event verification complete: {report.valid_events}/{report.total_events} valid",
             )
 
             return report
@@ -165,8 +165,7 @@ class EventVerifier:
             conn.close()
 
     def verify_event(self, event_id: str) -> tuple[bool, str]:
-        """
-        Verify a single event by ID.
+        """Verify a single event by ID.
 
         Args:
             event_id: The event ID to verify
@@ -176,6 +175,7 @@ class EventVerifier:
 
         Requirements:
             - Requirement 9.2: Verify hash matches stored hash
+
         """
         conn = _get_connection()
         try:
@@ -188,7 +188,7 @@ class EventVerifier:
             if not row:
                 return False, f"Event not found: {event_id}"
 
-            event_type, payload_json, stored_hash = row
+            _event_type, payload_json, stored_hash = row
             payload = json.loads(payload_json)
 
             is_valid, reason = verify_event_hash(event_id, payload, stored_hash)
@@ -197,9 +197,8 @@ class EventVerifier:
         finally:
             conn.close()
 
-    def detect_corrupted_events(self) -> list[dict]:
-        """
-        Detect all corrupted events in the ledger.
+    def detect_corrupted_events(self) -> list[dict[str, Any]]:
+        """Detect all corrupted events in the ledger.
 
         Returns:
             list: List of corrupted event details
@@ -208,13 +207,14 @@ class EventVerifier:
             - Requirement 9.3: Identify events with invalid hashes
             - Requirement 9.3: Identify events with missing hashes
             - Requirement 9.3: Identify events with malformed data
+
         """
-        corrupted = []
+        corrupted: list[dict[str, Any]] = []
 
         conn = _get_connection()
         try:
             cursor = conn.execute(
-                "SELECT event_id, event_type, payload, content_hash FROM system_events"
+                "SELECT event_id, event_type, payload, content_hash FROM system_events",
             )
             rows = cursor.fetchall()
 
@@ -229,7 +229,7 @@ class EventVerifier:
                             "event_type": event_type,
                             "corruption_type": "missing_hash",
                             "reason": "Event has no stored hash",
-                        }
+                        },
                     )
                     self.logger.warning(f"Event missing hash: {event_id}")
                     continue
@@ -243,8 +243,8 @@ class EventVerifier:
                             "event_id": event_id,
                             "event_type": event_type,
                             "corruption_type": "malformed_payload",
-                            "reason": f"Invalid JSON: {str(e)}",
-                        }
+                            "reason": f"Invalid JSON: {e!s}",
+                        },
                     )
                     self.logger.warning(f"Event malformed payload: {event_id}")
                     continue
@@ -258,7 +258,7 @@ class EventVerifier:
                             "event_type": event_type,
                             "corruption_type": "hash_mismatch",
                             "reason": reason,
-                        }
+                        },
                     )
                     self.logger.warning(f"Event hash mismatch: {event_id}")
 
@@ -268,8 +268,7 @@ class EventVerifier:
             conn.close()
 
     def generate_verification_report(self) -> VerificationReport:
-        """
-        Generate comprehensive verification report.
+        """Generate comprehensive verification report.
 
         Includes:
         - Total events verified
@@ -286,15 +285,18 @@ class EventVerifier:
             - Requirement 9.4: Generate verification report with total events
             - Requirement 9.5: Generate verification report with valid/corrupted counts
             - Requirement 9.5: Generate verification report with corrupted event IDs
+
         """
-        report = self.verify_all_events()
-        return report
+        return self.verify_all_events()
 
     def _verify_event(
-        self, event_id: str, event_type: str, payload: dict, stored_hash: str
+        self,
+        event_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        stored_hash: str,
     ) -> bool:
-        """
-        Internal method to verify a single event.
+        """Internal method to verify a single event.
 
         Args:
             event_id: The event ID
@@ -304,6 +306,7 @@ class EventVerifier:
 
         Returns:
             bool: True if event is valid, False if corrupted
+
         """
         is_valid, _ = verify_event_hash(event_id, payload, stored_hash)
         return is_valid

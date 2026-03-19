@@ -1,0 +1,822 @@
+﻿************* Module divineos.cli
+src\divineos\cli.py:150:0: C0301: Line too long (102/100) (line-too-long)
+src\divineos\cli.py:1388:0: C0301: Line too long (118/100) (line-too-long)
+src\divineos\cli.py:1:0: C0302: Too many lines in module (1424/1000) (too-many-lines)
+src\divineos\cli.py:373:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:510:4: W0621: Redefining name 'stats' from outer scope (line 368) (redefined-outer-name)
+src\divineos\cli.py:687:18: W0212: Access to a protected member _load_records of a client class (protected-access)
+src\divineos\cli.py:920:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:982:4: C0415: Import outside toplevel (collections.Counter) (import-outside-toplevel)
+src\divineos\cli.py:1016:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1061:4: C0415: Import outside toplevel (divineos.analysis.analysis.save_analysis_report) (import-outside-toplevel)
+src\divineos\cli.py:1106:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1091:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1118:4: W0621: Redefining name 'analyze_session' from outer scope (line 16) (redefined-outer-name)
+src\divineos\cli.py:1118:4: W0621: Redefining name 'format_analysis_report' from outer scope (line 16) (redefined-outer-name)
+src\divineos\cli.py:1118:4: W0621: Redefining name 'store_analysis' from outer scope (line 16) (redefined-outer-name)
+src\divineos\cli.py:1118:4: W0404: Reimport 'analyze_session' (imported line 16) (reimported)
+src\divineos\cli.py:1118:4: W0404: Reimport 'format_analysis_report' (imported line 16) (reimported)
+src\divineos\cli.py:1118:4: W0404: Reimport 'store_analysis' (imported line 16) (reimported)
+src\divineos\cli.py:1118:4: C0415: Import outside toplevel (divineos.analysis.analysis.analyze_session, divineos.analysis.analysis.export_current_session_to_jsonl, divineos.analysis.analysis.format_analysis_report, divineos.analysis.analysis.save_analysis_report, divineos.analysis.analysis.store_analysis) (import-outside-toplevel)
+src\divineos\cli.py:1170:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1157:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1182:4: W0621: Redefining name 'datetime' from outer scope (line 10) (redefined-outer-name)
+src\divineos\cli.py:1182:4: W0404: Reimport 'datetime' (imported line 10) (reimported)
+src\divineos\cli.py:1182:4: C0415: Import outside toplevel (datetime.datetime) (import-outside-toplevel)
+src\divineos\cli.py:1184:4: C0415: Import outside toplevel (divineos.analysis.analysis.get_stored_report, divineos.analysis.analysis.list_recent_sessions) (import-outside-toplevel)
+src\divineos\cli.py:1233:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1208:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1245:4: C0415: Import outside toplevel (divineos.analysis.analysis.compute_cross_session_trends, divineos.analysis.analysis.format_cross_session_report) (import-outside-toplevel)
+src\divineos\cli.py:1261:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1279:0: R0917: Too many positional arguments (8/5) (too-many-positional-arguments)
+src\divineos\cli.py:1298:4: W0621: Redefining name 'json' from outer scope (line 7) (redefined-outer-name)
+src\divineos\cli.py:1299:4: W0621: Redefining name 'sys' from outer scope (line 9) (redefined-outer-name)
+src\divineos\cli.py:1298:4: W0404: Reimport 'json' (imported line 7) (reimported)
+src\divineos\cli.py:1298:4: C0415: Import outside toplevel (json) (import-outside-toplevel)
+src\divineos\cli.py:1299:4: W0404: Reimport 'sys' (imported line 9) (reimported)
+src\divineos\cli.py:1299:4: C0415: Import outside toplevel (sys) (import-outside-toplevel)
+src\divineos\cli.py:1301:4: C0415: Import outside toplevel (divineos.event.event_emission.emit_event, divineos.event.event_emission.emit_session_end, divineos.event.event_emission.emit_tool_call, divineos.event.event_emission.emit_tool_result, divineos.event.event_emission.emit_user_input) (import-outside-toplevel)
+src\divineos\cli.py:1393:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\cli.py:1411:4: C0415: Import outside toplevel (divineos.core.enforcement_verifier.generate_enforcement_report) (import-outside-toplevel)
+src\divineos\cli.py:1421:11: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.agent_integration.base
+src\divineos\agent_integration\base.py:39:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+************* Module divineos.agent_integration.behavior_analyzer
+src\divineos\agent_integration\behavior_analyzer.py:64:11: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.agent_integration.feedback_system
+src\divineos\agent_integration\feedback_system.py:78:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\feedback_system.py:129:4: W0613: Unused argument 'current_analysis' (unused-argument)
+src\divineos\agent_integration\feedback_system.py:130:4: W0613: Unused argument 'historical_data' (unused-argument)
+************* Module divineos.agent_integration.learning_loop
+src\divineos\agent_integration\learning_loop.py:81:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\learning_loop.py:360:4: W0613: Unused argument 'lesson_type' (unused-argument)
+src\divineos\agent_integration\learning_loop.py:419:11: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.agent_integration.mcp_integration
+src\divineos\agent_integration\mcp_integration.py:97:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\mcp_integration.py:129:0: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src\divineos\agent_integration\mcp_integration.py:228:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\mcp_integration.py:248:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\mcp_integration.py:271:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\mcp_integration.py:294:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\mcp_integration.py:317:8: C0415: Import outside toplevel (divineos.core.loop_prevention.initialize_loop_prevention) (import-outside-toplevel)
+src\divineos\agent_integration\mcp_integration.py:346:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\mcp_integration.py:339:8: C0415: Import outside toplevel (divineos.core.loop_prevention.shutdown_loop_prevention) (import-outside-toplevel)
+************* Module divineos.agent_integration.session_integration
+src\divineos\agent_integration\session_integration.py:18:25: W0613: Unused argument 'session_id' (unused-argument)
+src\divineos\agent_integration\session_integration.py:32:28: W0613: Unused argument 'session_id' (unused-argument)
+src\divineos\agent_integration\session_integration.py:32:45: W0613: Unused argument 'metadata' (unused-argument)
+src\divineos\agent_integration\session_integration.py:71:8: W0707: Consider explicitly re-raising using 'raise RuntimeError(f'Cannot retrieve session ID: {e}') from e' (raise-missing-from)
+src\divineos\agent_integration\session_integration.py:74:8: W0707: Consider explicitly re-raising using 'raise RuntimeError(f'Cannot retrieve session ID: {e}') from e' (raise-missing-from)
+src\divineos\agent_integration\session_integration.py:100:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\session_integration.py:137:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\agent_integration\session_integration.py:170:11: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.analysis.analysis
+src\divineos\analysis\analysis.py:176:0: C0301: Line too long (110/100) (line-too-long)
+src\divineos\analysis\analysis.py:186:0: C0301: Line too long (143/100) (line-too-long)
+src\divineos\analysis\analysis.py:228:0: C0301: Line too long (108/100) (line-too-long)
+src\divineos\analysis\analysis.py:348:0: C0301: Line too long (125/100) (line-too-long)
+src\divineos\analysis\analysis.py:374:0: C0301: Line too long (154/100) (line-too-long)
+src\divineos\analysis\analysis.py:397:0: C0301: Line too long (143/100) (line-too-long)
+src\divineos\analysis\analysis.py:579:0: C0301: Line too long (112/100) (line-too-long)
+src\divineos\analysis\analysis.py:136:4: C0415: Import outside toplevel (hashlib) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:145:4: C0415: Import outside toplevel (hashlib) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:151:0: R0914: Too many local variables (22/20) (too-many-locals)
+src\divineos\analysis\analysis.py:169:4: W0621: Redefining name 'json' from outer scope (line 7) (redefined-outer-name)
+src\divineos\analysis\analysis.py:171:4: W0621: Redefining name 'Path' from outer scope (line 10) (redefined-outer-name)
+src\divineos\analysis\analysis.py:169:4: W0404: Reimport 'json' (imported line 7) (reimported)
+src\divineos\analysis\analysis.py:169:4: C0415: Import outside toplevel (json) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:170:4: C0415: Import outside toplevel (tempfile) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:171:4: W0404: Reimport 'Path' (imported line 10) (reimported)
+src\divineos\analysis\analysis.py:171:4: C0415: Import outside toplevel (pathlib.Path) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:173:4: C0415: Import outside toplevel (divineos.event.event_capture.get_session_tracker) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:181:4: C0415: Import outside toplevel (divineos.core.ledger._get_connection) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:207:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\analysis\analysis.py:151:36: W0613: Unused argument 'limit' (unused-argument)
+src\divineos\analysis\analysis.py:291:0: R0914: Too many local variables (31/20) (too-many-locals)
+src\divineos\analysis\analysis.py:311:4: C0415: Import outside toplevel (time) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:312:4: C0415: Import outside toplevel (uuid) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:314:4: C0415: Import outside toplevel (divineos.analysis.quality_checks._get_connection) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:315:4: C0415: Import outside toplevel (divineos.core.fidelity) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:456:12: W0719: Raising too general exception: Exception (broad-exception-raised)
+src\divineos\analysis\analysis.py:492:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\analysis\analysis.py:462:12: C0415: Import outside toplevel (divineos.event.event_emission.emit_event) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:590:8: C0415: Import outside toplevel (divineos.core.consolidation.get_knowledge) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:604:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\analysis\analysis.py:629:4: C0415: Import outside toplevel (divineos.analysis.quality_checks._get_connection) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:656:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\analysis\analysis.py:671:4: C0415: Import outside toplevel (divineos.analysis.quality_checks._get_connection) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:703:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\analysis\analysis.py:718:4: C0415: Import outside toplevel (divineos.analysis.quality_checks.get_check_history) (import-outside-toplevel)
+src\divineos\analysis\analysis.py:745:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.analysis.quality_checks
+src\divineos\analysis\quality_checks.py:546:0: C0301: Line too long (103/100) (line-too-long)
+src\divineos\analysis\quality_checks.py:999:0: C0301: Line too long (104/100) (line-too-long)
+src\divineos\analysis\quality_checks.py:1158:0: C0301: Line too long (125/100) (line-too-long)
+src\divineos\analysis\quality_checks.py:1166:0: C0301: Line too long (150/100) (line-too-long)
+src\divineos\analysis\quality_checks.py:1187:0: C0301: Line too long (113/100) (line-too-long)
+src\divineos\analysis\quality_checks.py:1201:0: C0301: Line too long (136/100) (line-too-long)
+src\divineos\analysis\quality_checks.py:1:0: C0302: Too many lines in module (1243/1000) (too-many-lines)
+src\divineos\analysis\quality_checks.py:137:4: R1702: Too many nested blocks (6/5) (too-many-nested-blocks)
+src\divineos\analysis\quality_checks.py:279:25: R1719: The if expression can be replaced with 'not test' (simplifiable-if-expression)
+src\divineos\analysis\quality_checks.py:350:35: W0613: Unused argument 'result_map' (unused-argument)
+src\divineos\analysis\quality_checks.py:424:4: W0104: Statement seems to have no effect (pointless-statement)
+src\divineos\analysis\quality_checks.py:470:35: W0613: Unused argument 'result_map' (unused-argument)
+src\divineos\analysis\quality_checks.py:765:0: R0914: Too many local variables (36/20) (too-many-locals)
+src\divineos\analysis\quality_checks.py:795:4: R1702: Too many nested blocks (6/5) (too-many-nested-blocks)
+src\divineos\analysis\quality_checks.py:837:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\analysis\quality_checks.py:833:8: C0415: Import outside toplevel (divineos.core.ledger.count_events) (import-outside-toplevel)
+src\divineos\analysis\quality_checks.py:765:0: R0912: Too many branches (21/20) (too-many-branches)
+src\divineos\analysis\quality_checks.py:766:35: W0613: Unused argument 'result_map' (unused-argument)
+src\divineos\analysis\quality_checks.py:906:0: R0914: Too many local variables (22/20) (too-many-locals)
+src\divineos\analysis\quality_checks.py:907:35: W0613: Unused argument 'result_map' (unused-argument)
+************* Module divineos.analysis.session_analyzer
+src\divineos\analysis\session_analyzer.py:143:0: R0902: Too many instance attributes (19/10) (too-many-instance-attributes)
+src\divineos\analysis\session_analyzer.py:224:16: C0104: Disallowed name "bar" (disallowed-name)
+src\divineos\analysis\session_analyzer.py:471:0: R0911: Too many return statements (10/6) (too-many-return-statements)
+************* Module divineos.analysis.session_features
+src\divineos\analysis\session_features.py:440:0: C0301: Line too long (102/100) (line-too-long)
+src\divineos\analysis\session_features.py:684:0: C0301: Line too long (104/100) (line-too-long)
+src\divineos\analysis\session_features.py:688:0: C0301: Line too long (110/100) (line-too-long)
+src\divineos\analysis\session_features.py:969:0: C0301: Line too long (160/100) (line-too-long)
+src\divineos\analysis\session_features.py:984:0: C0301: Line too long (145/100) (line-too-long)
+src\divineos\analysis\session_features.py:998:0: C0301: Line too long (141/100) (line-too-long)
+src\divineos\analysis\session_features.py:1013:0: C0301: Line too long (176/100) (line-too-long)
+src\divineos\analysis\session_features.py:1030:0: C0301: Line too long (154/100) (line-too-long)
+src\divineos\analysis\session_features.py:1047:0: C0301: Line too long (159/100) (line-too-long)
+src\divineos\analysis\session_features.py:1:0: C0302: Too many lines in module (1060/1000) (too-many-lines)
+************* Module divineos.clarity_system.base
+src\divineos\clarity_system\base.py:23:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src\divineos\clarity_system\base.py:205:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+************* Module divineos.clarity_system.clarity_generator
+src\divineos\clarity_system\clarity_generator.py:53:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\clarity_generator.py:148:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\clarity_generator.py:171:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.clarity_system.deviation_analyzer
+src\divineos\clarity_system\deviation_analyzer.py:95:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\deviation_analyzer.py:144:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\deviation_analyzer.py:188:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.clarity_system.event_integration
+src\divineos\clarity_system\event_integration.py:18:4: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+src\divineos\clarity_system\event_integration.py:59:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\event_integration.py:64:4: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+src\divineos\clarity_system\event_integration.py:105:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\event_integration.py:148:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\event_integration.py:191:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.clarity_system.execution_analyzer
+src\divineos\clarity_system\execution_analyzer.py:52:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\execution_analyzer.py:98:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\execution_analyzer.py:92:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\execution_analyzer.py:136:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\execution_analyzer.py:130:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\execution_analyzer.py:219:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\execution_analyzer.py:196:23: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.clarity_system.hook_integration
+src\divineos\clarity_system\hook_integration.py:122:0: C0301: Line too long (103/100) (line-too-long)
+src\divineos\clarity_system\hook_integration.py:152:0: C0301: Line too long (105/100) (line-too-long)
+src\divineos\clarity_system\hook_integration.py:182:0: C0301: Line too long (121/100) (line-too-long)
+src\divineos\clarity_system\hook_integration.py:212:0: C0301: Line too long (121/100) (line-too-long)
+src\divineos\clarity_system\hook_integration.py:39:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:58:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:77:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:96:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:126:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:117:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:156:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:147:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:186:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:177:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:216:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:207:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:246:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\hook_integration.py:242:12: C0206: Consider iterating with .items() (consider-using-dict-items)
+************* Module divineos.clarity_system.learning_extractor
+src\divineos\clarity_system\learning_extractor.py:194:0: C0301: Line too long (102/100) (line-too-long)
+src\divineos\clarity_system\learning_extractor.py:54:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\learning_extractor.py:88:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\learning_extractor.py:130:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\learning_extractor.py:160:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\learning_extractor.py:203:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.clarity_system.ledger_integration
+src\divineos\clarity_system\ledger_integration.py:57:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\ledger_integration.py:92:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\ledger_integration.py:86:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\ledger_integration.py:124:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\ledger_integration.py:118:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\ledger_integration.py:166:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\ledger_integration.py:232:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\ledger_integration.py:215:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\ledger_integration.py:209:20: C0415: Import outside toplevel (datetime.datetime) (import-outside-toplevel)
+************* Module divineos.clarity_system.plan_analyzer
+src\divineos\clarity_system\plan_analyzer.py:63:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\plan_analyzer.py:116:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\plan_analyzer.py:166:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.clarity_system.session_integration
+src\divineos\clarity_system\session_integration.py:32:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\session_integration.py:70:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\session_integration.py:90:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\session_integration.py:110:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.clarity_system.summary_generator
+src\divineos\clarity_system\summary_generator.py:33:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src\divineos\clarity_system\summary_generator.py:86:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\summary_generator.py:142:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\summary_generator.py:185:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\summary_generator.py:213:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\summary_generator.py:231:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\clarity_system\summary_generator.py:278:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.clarity_system
+src\divineos\clarity_system\__init__.py:75:4: E0603: Undefined variable name 'get_clarity_logger' in __all__ (undefined-all-variable)
+src\divineos\clarity_system\__init__.py:77:4: E0603: Undefined variable name 'setup_clarity_logging' in __all__ (undefined-all-variable)
+************* Module divineos.core.consolidation
+src\divineos\core\consolidation.py:217:0: C0301: Line too long (110/100) (line-too-long)
+src\divineos\core\consolidation.py:321:0: C0301: Line too long (152/100) (line-too-long)
+src\divineos\core\consolidation.py:360:0: C0301: Line too long (107/100) (line-too-long)
+src\divineos\core\consolidation.py:376:0: C0301: Line too long (199/100) (line-too-long)
+src\divineos\core\consolidation.py:404:0: C0301: Line too long (106/100) (line-too-long)
+src\divineos\core\consolidation.py:424:0: C0301: Line too long (134/100) (line-too-long)
+src\divineos\core\consolidation.py:455:0: C0301: Line too long (104/100) (line-too-long)
+src\divineos\core\consolidation.py:597:0: C0301: Line too long (114/100) (line-too-long)
+src\divineos\core\consolidation.py:614:0: C0301: Line too long (113/100) (line-too-long)
+src\divineos\core\consolidation.py:626:0: C0301: Line too long (135/100) (line-too-long)
+src\divineos\core\consolidation.py:712:0: C0301: Line too long (161/100) (line-too-long)
+src\divineos\core\consolidation.py:744:0: C0301: Line too long (114/100) (line-too-long)
+src\divineos\core\consolidation.py:792:0: C0301: Line too long (201/100) (line-too-long)
+src\divineos\core\consolidation.py:849:0: C0301: Line too long (116/100) (line-too-long)
+src\divineos\core\consolidation.py:918:0: C0301: Line too long (150/100) (line-too-long)
+src\divineos\core\consolidation.py:1276:0: C0301: Line too long (114/100) (line-too-long)
+src\divineos\core\consolidation.py:1281:0: C0301: Line too long (110/100) (line-too-long)
+src\divineos\core\consolidation.py:1319:0: C0301: Line too long (121/100) (line-too-long)
+src\divineos\core\consolidation.py:1324:0: C0301: Line too long (110/100) (line-too-long)
+src\divineos\core\consolidation.py:1331:0: C0301: Line too long (271/100) (line-too-long)
+src\divineos\core\consolidation.py:1807:0: C0301: Line too long (106/100) (line-too-long)
+src\divineos\core\consolidation.py:1:0: C0302: Too many lines in module (2257/1000) (too-many-lines)
+src\divineos\core\consolidation.py:63:4: C0415: Import outside toplevel (os) (import-outside-toplevel)
+src\divineos\core\consolidation.py:180:0: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src\divineos\core\consolidation.py:463:0: R0914: Too many local variables (29/20) (too-many-locals)
+src\divineos\core\consolidation.py:504:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\consolidation.py:559:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\consolidation.py:735:41: W0613: Unused argument 'clean_session_id' (unused-argument)
+src\divineos\core\consolidation.py:816:0: R0914: Too many local variables (22/20) (too-many-locals)
+src\divineos\core\consolidation.py:1256:0: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src\divineos\core\consolidation.py:1300:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\consolidation.py:1460:0: R0914: Too many local variables (29/20) (too-many-locals)
+src\divineos\core\consolidation.py:1555:4: R1702: Too many nested blocks (6/5) (too-many-nested-blocks)
+src\divineos\core\consolidation.py:1460:0: R0912: Too many branches (30/20) (too-many-branches)
+src\divineos\core\consolidation.py:1460:0: R0915: Too many statements (71/70) (too-many-statements)
+src\divineos\core\consolidation.py:1789:0: R0911: Too many return statements (11/6) (too-many-return-statements)
+************* Module divineos.core.enforcement
+src\divineos\core\enforcement.py:28:0: C0103: Constant name "_signal_handlers_setup" doesn't conform to UPPER_CASE naming style (invalid-name)
+src\divineos\core\enforcement.py:29:0: C0103: Constant name "_session_initialized" doesn't conform to UPPER_CASE naming style (invalid-name)
+src\divineos\core\enforcement.py:51:4: W0603: Using the global statement (global-statement)
+src\divineos\core\enforcement.py:89:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:63:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:73:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:82:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:155:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:149:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:205:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:184:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:180:39: W0613: Unused argument 'frame' (unused-argument)
+src\divineos\core\enforcement.py:193:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:200:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:245:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:234:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:242:27: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement.py:239:24: C0415: Import outside toplevel (divineos.core.session_manager.clear_session) (import-outside-toplevel)
+src\divineos\core\enforcement.py:277:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.core.enforcement_verifier
+src\divineos\core\enforcement_verifier.py:91:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement_verifier.py:150:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement_verifier.py:218:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\enforcement_verifier.py:284:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.core.event_verifier
+src\divineos\core\event_verifier.py:292:29: W0613: Unused argument 'event_type' (unused-argument)
+************* Module divineos.core.fidelity
+src\divineos\core\fidelity.py:121:0: C0301: Line too long (113/100) (line-too-long)
+************* Module divineos.core.ledger
+src\divineos\core\ledger.py:139:0: C0301: Line too long (130/100) (line-too-long)
+src\divineos\core\ledger.py:166:0: C0301: Line too long (105/100) (line-too-long)
+src\divineos\core\ledger.py:206:0: C0301: Line too long (154/100) (line-too-long)
+src\divineos\core\ledger.py:231:0: C0301: Line too long (134/100) (line-too-long)
+src\divineos\core\ledger.py:290:0: C0301: Line too long (101/100) (line-too-long)
+src\divineos\core\ledger.py:41:4: C0415: Import outside toplevel (os) (import-outside-toplevel)
+src\divineos\core\ledger.py:59:4: C0415: Import outside toplevel (os) (import-outside-toplevel)
+src\divineos\core\ledger.py:117:8: C0415: Import outside toplevel (divineos.event.event_validation.EventValidator) (import-outside-toplevel)
+src\divineos\core\ledger.py:274:22: W0613: Unused argument 'event_id' (unused-argument)
+src\divineos\core\ledger.py:301:0: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+src\divineos\core\ledger.py:307:4: W0613: Unused argument 'skip_corrupted' (unused-argument)
+src\divineos\core\ledger.py:371:4: C0415: Import outside toplevel (divineos.event.event_validation.EventValidator) (import-outside-toplevel)
+src\divineos\core\ledger.py:441:4: C0415: Import outside toplevel (divineos.event.event_validation.EventValidator) (import-outside-toplevel)
+************* Module divineos.core.memory
+src\divineos\core\memory.py:322:0: R0914: Too many local variables (28/20) (too-many-locals)
+src\divineos\core\memory.py:328:4: C0415: Import outside toplevel (divineos.core.consolidation.get_knowledge, divineos.core.consolidation.get_lessons) (import-outside-toplevel)
+src\divineos\core\memory.py:444:8: C0415: Import outside toplevel (divineos.core.consolidation.search_knowledge) (import-outside-toplevel)
+************* Module divineos.core.session_manager
+src\divineos\core\session_manager.py:34:0: C0103: Constant name "_current_session_id" doesn't conform to UPPER_CASE naming style (invalid-name)
+src\divineos\core\session_manager.py:35:0: C0103: Constant name "_session_start_time" doesn't conform to UPPER_CASE naming style (invalid-name)
+src\divineos\core\session_manager.py:68:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:103:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:134:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:202:8: W0621: Redefining name 'time' from outer scope (line 25) (redefined-outer-name)
+src\divineos\core\session_manager.py:166:4: W0603: Using the global statement (global-statement)
+src\divineos\core\session_manager.py:197:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:202:8: W0404: Reimport 'time' (imported line 25) (reimported)
+src\divineos\core\session_manager.py:202:8: C0415: Import outside toplevel (time) (import-outside-toplevel)
+src\divineos\core\session_manager.py:223:8: W0603: Using the global statement (global-statement)
+src\divineos\core\session_manager.py:292:8: C0415: Import outside toplevel (divineos.event.event_emission.emit_session_end) (import-outside-toplevel)
+src\divineos\core\session_manager.py:306:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:321:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:345:4: W0603: Using the global statement (global-statement)
+src\divineos\core\session_manager.py:351:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:359:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:531:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\session_manager.py:542:15: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.core.tool_wrapper
+src\divineos\core\tool_wrapper.py:70:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:101:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:172:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:209:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:235:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:336:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:384:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:434:0: C0103: Constant name "_executor" doesn't conform to UPPER_CASE naming style (invalid-name)
+src\divineos\core\tool_wrapper.py:440:4: W0603: Using the global statement (global-statement)
+src\divineos\core\tool_wrapper.py:510:4: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src\divineos\core\tool_wrapper.py:581:19: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:551:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:573:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\core\tool_wrapper.py:489:0: R0903: Too few public methods (1/2) (too-few-public-methods)
+src\divineos\core\tool_wrapper.py:587:0: C0103: Constant name "_unified_capture" doesn't conform to UPPER_CASE naming style (invalid-name)
+src\divineos\core\tool_wrapper.py:598:4: W0603: Using the global statement (global-statement)
+src\divineos\core\tool_wrapper.py:606:0: R0917: Too many positional arguments (6/5) (too-many-positional-arguments)
+************* Module divineos.core.__init__
+src\divineos\core\__init__.py:1:0: C0301: Line too long (109/100) (line-too-long)
+************* Module divineos.event.event_capture
+src\divineos\event\event_capture.py:62:12: W0707: Consider explicitly re-raising using 'except ValueError as exc' and 'raise EventValidationError(msg) from exc' (raise-missing-from)
+src\divineos\event\event_capture.py:113:12: W0707: Consider explicitly re-raising using 'except ValueError as exc' and 'raise EventValidationError(msg) from exc' (raise-missing-from)
+src\divineos\event\event_capture.py:180:12: W0707: Consider explicitly re-raising using 'except ValueError as exc' and 'raise EventValidationError(msg) from exc' (raise-missing-from)
+src\divineos\event\event_capture.py:234:12: W0707: Consider explicitly re-raising using 'except ValueError as exc' and 'raise EventValidationError(msg) from exc' (raise-missing-from)
+src\divineos\event\event_capture.py:303:12: W0707: Consider explicitly re-raising using 'except ValueError as exc' and 'raise EventValidationError(msg) from exc' (raise-missing-from)
+src\divineos\event\event_capture.py:317:0: C0413: Import "from divineos.core.session_manager import SessionTracker, get_session_tracker" should be placed at the top of the module (wrong-import-position)
+src\divineos\event\event_capture.py:317:0: W0611: Unused SessionTracker imported from divineos.core.session_manager (unused-import)
+src\divineos\event\event_capture.py:317:0: W0611: Unused get_session_tracker imported from divineos.core.session_manager (unused-import)
+************* Module divineos.event.event_emission
+src\divineos\event\event_emission.py:389:0: C0301: Line too long (102/100) (line-too-long)
+src\divineos\event\event_emission.py:393:0: C0301: Line too long (113/100) (line-too-long)
+src\divineos\event\event_emission.py:402:0: C0301: Line too long (108/100) (line-too-long)
+src\divineos\event\event_emission.py:210:12: C0415: Import outside toplevel (uuid) (import-outside-toplevel)
+src\divineos\event\event_emission.py:251:0: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src\divineos\event\event_emission.py:370:8: C0415: Import outside toplevel (divineos.core.ledger.get_events) (import-outside-toplevel)
+src\divineos\event\event_emission.py:511:19: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.event.event_validation
+src\divineos\event\event_validation.py:56:4: R0911: Too many return statements (8/6) (too-many-return-statements)
+src\divineos\event\event_validation.py:80:4: R0911: Too many return statements (8/6) (too-many-return-statements)
+src\divineos\event\event_validation.py:182:4: R0911: Too many return statements (10/6) (too-many-return-statements)
+src\divineos\event\event_validation.py:231:4: R0911: Too many return statements (8/6) (too-many-return-statements)
+************* Module divineos.hooks.clarity_enforcement
+src\divineos\hooks\clarity_enforcement.py:65:23: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\hooks\clarity_enforcement.py:81:27: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\hooks\clarity_enforcement.py:95:27: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\hooks\clarity_enforcement.py:219:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\hooks\clarity_enforcement.py:173:12: C0415: Import outside toplevel (divineos.core.ledger.get_events) (import-outside-toplevel)
+src\divineos\hooks\clarity_enforcement.py:259:0: C0103: Constant name "_clarity_checker" doesn't conform to UPPER_CASE naming style (invalid-name)
+src\divineos\hooks\clarity_enforcement.py:264:4: W0603: Using the global statement (global-statement)
+src\divineos\hooks\clarity_enforcement.py:272:4: W0603: Using the global statement (global-statement)
+************* Module divineos.hooks.hook_validator
+src\divineos\hooks\hook_validator.py:47:0: R0911: Too many return statements (18/6) (too-many-return-statements)
+src\divineos\hooks\hook_validator.py:166:11: W0718: Catching too general exception Exception (broad-exception-caught)
+************* Module divineos.integration.mcp_event_capture_server
+src\divineos\integration\mcp_event_capture_server.py:65:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\integration\mcp_event_capture_server.py:74:0: R0917: Too many positional arguments (7/5) (too-many-positional-arguments)
+src\divineos\integration\mcp_event_capture_server.py:125:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\integration\mcp_event_capture_server.py:155:11: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\integration\mcp_event_capture_server.py:165:4: W0105: String statement has no effect (pointless-string-statement)
+src\divineos\integration\mcp_event_capture_server.py:183:4: W0404: Reimport 'Any' (imported line 15) (reimported)
+src\divineos\integration\mcp_event_capture_server.py:186:23: W0621: Redefining name 'request' from outer scope (line 202) (redefined-outer-name)
+src\divineos\integration\mcp_event_capture_server.py:210:15: W0718: Catching too general exception Exception (broad-exception-caught)
+src\divineos\integration\mcp_event_capture_server.py:183:4: C0412: Imports from package typing are not grouped (ungrouped-imports)
+************* Module divineos.tools.__init__
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.session_analyzer:[348:374]
+==divineos.core.consolidation:[1627:1656]
+    msg = record.get("message", {})
+    content = msg.get("content", "")
+
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+            elif isinstance(block, str):
+                parts.append(block)
+        content = " ".join(parts)
+
+    if not isinstance(content, str):
+        content = str(content)
+
+    # Strip system reminders
+    if "<system-reminder>" in content:
+        content = content[: content.index("<system-reminder>")]
+
+    return content.strip()
+
+
+def _detect_signals(
+    text: str, patterns: tuple[str, ...], signal_type: str, timestamp: str,
+) -> UserSignal | None:
+    """Check text against patterns and return a signal if any match.""" (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.agent_integration.behavior_analyzer:[139:158]
+==divineos.agent_integration.learning_loop:[265:283]
+    tool_durations = defaultdict(list)
+
+    # Collect durations
+    for event in events:
+        if event.get("event_type") == "TOOL_RESULT":
+            tool_name = event.get("payload", {}).get("tool_name")
+            duration = event.get("payload", {}).get("duration_ms", 0)
+            if tool_name and duration:
+                tool_durations[tool_name].append(duration)
+
+    # Create patterns
+    for tool_name, durations in tool_durations.items():
+        if durations:
+            sorted_durations = sorted(durations)
+            avg = sum(durations) / len(durations)
+            min_d = min(durations)
+            max_d = max(durations)
+            median = sorted_durations[len(sorted_durations) // 2] (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.clarity_system.execution_analyzer:[152:188]
+==divineos.clarity_system.ledger_integration:[172:200]
+        )
+
+    def _calculate_metrics_from_data(
+        self,
+        tool_calls: list[ToolCall],
+        errors: list[str],
+        start_time: str | None = None,
+        end_time: str | None = None,
+    ) -> ExecutionMetrics:
+        """Calculate metrics from tool calls and errors.
+
+        Args:
+            tool_calls: List of tool calls
+            errors: List of errors
+            start_time: Optional start timestamp
+            end_time: Optional end timestamp
+
+        Returns:
+            Calculated execution metrics
+
+        """
+        try:
+            # Count unique files accessed (from tool inputs)
+            files_accessed = set()
+            for tool_call in tool_calls:
+                # Look for file paths in tool inputs
+                if "path" in tool_call.input:
+                    files_accessed.add(tool_call.input["path"])
+                elif "file" in tool_call.input:
+                    files_accessed.add(tool_call.input["file"])
+
+            actual_files = len(files_accessed)
+            actual_tool_calls = len(tool_calls)
+            actual_errors = len(errors)
+
+            # Calculate duration if timestamps provided (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[35:52]
+==divineos.analysis.session_features:[38:56]
+DB_PATH = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
+
+
+def _get_connection() -> sqlite3.Connection:
+    DB_PATH.parent.mkdir(exist_ok=True)
+    conn = sqlite3.connect(str(DB_PATH))
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def init_quality_tables() -> None:
+    """Create session_report and check_result tables."""
+    conn = _get_connection()
+    try:
+        conn.execute(""" (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.agent_integration.behavior_analyzer:[221:236]
+==divineos.agent_integration.learning_loop:[97:110]
+    failed_tools = defaultdict(list)
+
+    # Find failed tool calls
+    for event in events:
+        if event.get("event_type") == "TOOL_RESULT" and event.get("payload", {}).get("failed"):
+            tool_name = event.get("payload", {}).get("tool_name")
+            if tool_name:
+                failed_tools[tool_name].append(event)
+
+    # Find subsequent successful attempts
+    for tool_name, failures in failed_tools.items():
+        for failure in failures:
+            failure_time = failure.get("timestamp", 0)
+
+            # Look for subsequent successful call to same tool (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[1004:1013]
+==divineos.analysis.session_features:[650:659]
+    for r in reversed(records):
+        if r.get("type") != "user":
+            continue
+        text = _extract_user_text(r)
+        if text:
+            final_messages.append(text)
+        if len(final_messages) >= 3:
+            break
+ (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.clarity_system.execution_analyzer:[203:212]
+==divineos.clarity_system.ledger_integration:[217:226]
+            metrics = ExecutionMetrics(
+                actual_files=actual_files,
+                actual_tool_calls=actual_tool_calls,
+                actual_errors=actual_errors,
+                actual_time_minutes=actual_time_minutes,
+                success_rate=success_rate,
+            )
+
+            logger.info( (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.agent_integration.behavior_analyzer:[236:243]
+==divineos.agent_integration.learning_loop:[113:120]
+            for event in events:
+                if (
+                    event.get("event_type") == "TOOL_RESULT"
+                    and not event.get("payload", {}).get("failed")
+                    and event.get("payload", {}).get("tool_name") == tool_name
+                    and event.get("timestamp", 0) > failure_time
+                ): (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[801:808]
+==divineos.analysis.session_features:[562:569]
+            content = r.get("message", {}).get("content", [])
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "text": (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.clarity_system.execution_analyzer:[54:72]
+==divineos.clarity_system.ledger_integration:[167:188]
+            return ExecutionData(
+                session_id=session_id,
+                tool_calls=[],
+                errors=[],
+                metrics=ExecutionMetrics(0, 0, 0, 0.0, 0.0),
+            )
+
+    def extract_tool_calls(self, session_id: UUID) -> list[ToolCall]:
+        """Extract tool calls from ledger for session.
+
+        Args:
+            session_id: Session ID to query
+
+        Returns:
+            List of tool calls
+
+        """
+        try: (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.core.consolidation:[71:82]
+==divineos.core.ledger:[67:78]
+    db_path.parent.mkdir(exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
+
+
+def init_db() -> None:
+    """Creates the system_events table if it doesn't exist."""
+    conn = _get_connection()
+    try:
+        conn.execute(""" (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.core.consolidation:[431:438]
+==divineos.core.ledger:[186:193]
+            {
+                "event_id": row[0],
+                "timestamp": row[1],
+                "event_type": row[2],
+                "actor": row[3],
+                "payload": json.loads(row[4]),
+                "content_hash": row[5], (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.agent_integration.behavior_analyzer:[179:201]
+==divineos.agent_integration.learning_loop:[319:342]
+    tool_errors: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {"total": 0, "errors": defaultdict(int), "failed": 0},
+    )
+
+    # Collect errors
+    for event in events:
+        if event.get("event_type") == "TOOL_RESULT":
+            tool_name = event.get("payload", {}).get("tool_name")
+            if tool_name:
+                stats = tool_errors[tool_name]
+                stats["total"] += 1
+
+                if event.get("payload", {}).get("failed"):
+                    stats["failed"] += 1
+                    error_msg = event.get("payload", {}).get("error_message", "Unknown")
+                    # Extract error type (first word or first 50 chars)
+                    error_type = error_msg.split()[0] if error_msg else "Unknown"
+                    stats["errors"][error_type] += 1
+
+    # Create patterns
+    for tool_name, stats in tool_errors.items():
+        if stats["total"] > 0:
+            error_rate = stats["failed"] / stats["total"] (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.agent_integration.mcp_integration:[169:175]
+==divineos.core.tool_wrapper:[563:569]
+                result=result_str,
+                duration_ms=duration_ms,
+                failed=failed,
+                error_message=error_message,
+                session_id=session_id,
+            ) (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[902:915]
+==divineos.analysis.session_features:[609:625]
+    )
+
+
+def check_task_adherence(
+    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]],
+) -> CheckResult:
+    """Did the AI do what was actually asked? (Best guess ù labeled as inference.)."""
+    # Find the first user message (the initial request)
+    initial_request = ""
+    for r in records:
+        if r.get("type") != "user":
+            continue
+        text = _extract_user_text(r) (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[1175:1185]
+==divineos.core.consolidation:[405:416]
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_unconsolidated_events(limit: int = 100) -> list[dict]:
+    """Find events not yet referenced in any knowledge entry's source_events."""
+    conn = _get_connection()
+    try:
+        # Collect all referenced event IDs from knowledge (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[1214:1225]
+==divineos.core.event_verifier:[158:180]
+            )
+
+            return report
+
+        finally:
+            conn.close()
+
+    def verify_event(self, event_id: str) -> tuple[bool, str]:
+        """Verify a single event by ID.
+
+        Args:
+            event_id: The event ID to verify
+
+        Returns:
+            tuple: (is_valid, reason)
+
+        Requirements:
+            - Requirement 9.2: Verify hash matches stored hash
+
+        """
+        conn = _get_connection()
+        try: (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.core.event_verifier:[116:123]
+==divineos.core.ledger:[372:379]
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            "SELECT event_id, event_type, payload, content_hash FROM system_events",
+        )
+        rows = cursor.fetchall()
+ (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.core.event_verifier:[212:219]
+==divineos.core.ledger:[442:450]
+    conn = _get_connection()
+    try:
+        # First, identify all corrupted events
+        cursor = conn.execute(
+            "SELECT event_id, event_type, payload, content_hash FROM system_events",
+        )
+        rows = cursor.fetchall()
+ (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.agent_integration.behavior_analyzer:[111:116]
+==divineos.agent_integration.learning_loop:[213:218]
+    for event in events:
+        if event.get("event_type") == "TOOL_RESULT":
+            tool_name = event.get("payload", {}).get("tool_name")
+            if tool_name:
+                stats = tool_stats[tool_name] (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[168:175]
+==divineos.analysis.session_features:[472:477]
+    for r in records:
+        if r.get("type") != "assistant":
+            continue
+        for tool in _extract_tool_calls(r):
+            name = tool["name"] (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[804:809]
+==divineos.core.consolidation:[1376:1382]
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            text = block.get("text", "")
+            # Take first meaningful sentence (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.analysis.quality_checks:[1217:1226]
+==divineos.core.consolidation:[284:298]
+    finally:
+        conn.close()
+
+
+def get_check_history(check_name: str, limit: int = 20) -> list[dict[str, Any]]:
+    """Get results for one check across sessions (for cross-session patterns)."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute( (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.clarity_system.execution_analyzer:[95:112]
+==divineos.clarity_system.ledger_integration:[89:107]
+            return tool_calls
+
+        except Exception as e:
+            logger.error(f"Error extracting tool calls: {e}")
+            return []
+
+    @staticmethod
+    def extract_errors_from_events(events: list[dict]) -> list[str]:
+        """Extract errors from ledger events.
+
+        Args:
+            events: List of events from ledger
+
+        Returns:
+            List of error messages
+
+        """
+        try: (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.core.consolidation:[73:82]
+==divineos.core.memory:[39:48]
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
+
+
+def init_knowledge_table() -> None:
+    """Creates the knowledge table, FTS5 index, and lesson tracking table."""
+    conn = _get_connection()
+    try:
+        conn.execute(""" (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.core.consolidation:[311:320]
+==divineos.core.memory:[284:329]
+    finally:
+        conn.close()
+
+
+def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict]:
+    """Legacy LIKE-based search. Used when FTS5 table doesn't exist."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute( (duplicate-code)
+src\divineos\tools\__init__.py:1:0: R0801: Similar lines in 2 files
+==divineos.core.event_verifier:[162:181]
+==divineos.core.ledger:[196:205]
+    finally:
+        conn.close()
+
+
+def search_events(keyword: str, limit: int = 50) -> list[dict]:
+    """Search events where the payload contains a keyword (case-insensitive)."""
+    conn = _get_connection()
+    try:
+        cursor = conn.execute( (duplicate-code)
+
+------------------------------------------------------------------
+Your code has been rated at 9.45/10 (previous run: 9.45/10, +0.00)
+

@@ -1,5 +1,4 @@
-"""
-Error Handling Infrastructure for DivineOS
+"""Error Handling Infrastructure for DivineOS.
 
 This module provides a centralized exception hierarchy and error handling utilities.
 All DivineOS exceptions inherit from DivineOSError, ensuring consistent error handling.
@@ -22,72 +21,57 @@ Usage:
         handle_error(e, "event_capture_operation")
 """
 
-from typing import Any, Optional
+from typing import Any
+
 from loguru import logger
 
 
 class DivineOSError(Exception):
-    """
-    Base exception for all DivineOS errors.
+    """Base exception for all DivineOS errors.
 
     All DivineOS-specific exceptions inherit from this class, allowing
     callers to catch all DivineOS errors with a single except clause.
     """
 
-    pass
-
 
 class EventCaptureError(DivineOSError):
-    """
-    Exception raised when event capture fails.
+    """Exception raised when event capture fails.
 
     This error occurs when the system cannot capture an event due to
     validation failures, storage issues, or other event-related problems.
     """
 
-    pass
-
 
 class LedgerError(DivineOSError):
-    """
-    Exception raised when ledger operations fail.
+    """Exception raised when ledger operations fail.
 
     This error occurs when the system cannot read from or write to the
     ledger (SQLite database), including validation and integrity issues.
     """
 
-    pass
-
 
 class SessionError(DivineOSError):
-    """
-    Exception raised when session management fails.
+    """Exception raised when session management fails.
 
     This error occurs when the system cannot create, retrieve, or manage
     session state, including session_id generation and persistence.
     """
 
-    pass
-
 
 class ToolExecutionError(DivineOSError):
-    """
-    Exception raised when tool execution fails.
+    """Exception raised when tool execution fails.
 
     This error occurs when a wrapped tool fails to execute, including
     parameter validation, execution errors, and result capture failures.
     """
 
-    pass
-
 
 def handle_error(
     error: Exception,
     context: str,
-    extra_info: Optional[dict[str, Any]] = None,
+    extra_info: dict[str, Any] | None = None,
 ) -> None:
-    """
-    Log an error with context and stack trace.
+    """Log an error with context and stack trace.
 
     This function ensures all errors are logged with full context before
     being handled or propagated. It includes the stack trace to aid debugging.
@@ -103,6 +87,7 @@ def handle_error(
         except EventCaptureError as e:
             handle_error(e, "event_capture", {"event_id": event.id})
             # Decide whether to propagate or handle
+
     """
     extra_context = extra_info or {}
     logger.error(

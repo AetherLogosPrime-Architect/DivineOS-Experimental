@@ -1,5 +1,4 @@
-"""
-Enforcement Verifier Module — Verifies that enforcement is working correctly.
+"""Enforcement Verifier Module — Verifies that enforcement is working correctly.
 
 This module provides functions to verify that the event enforcement system
 is capturing all events correctly:
@@ -14,16 +13,16 @@ Requirements:
 - Requirement 9.1-9.7: Verify enforcement is working
 """
 
-from typing import Dict, List, Any
+from typing import Any
+
 from loguru import logger
 
-from divineos.core.loop_prevention import mark_internal_operation
 from divineos.core.ledger import get_events, verify_event_hash
+from divineos.core.loop_prevention import mark_internal_operation
 
 
-def verify_enforcement() -> Dict[str, Any]:
-    """
-    Verify that enforcement is working correctly.
+def verify_enforcement() -> dict[str, Any]:
+    """Verify that enforcement is working correctly.
 
     This function checks:
     1. USER_INPUT events are captured
@@ -37,6 +36,7 @@ def verify_enforcement() -> Dict[str, Any]:
 
     Requirements:
         - Requirement 9.1-9.7: Verify enforcement
+
     """
     with mark_internal_operation():
         try:
@@ -101,9 +101,8 @@ def verify_enforcement() -> Dict[str, Any]:
             }
 
 
-def check_event_capture_rate() -> Dict[str, float]:
-    """
-    Check the rate of event capture.
+def check_event_capture_rate() -> dict[str, float]:
+    """Check the rate of event capture.
 
     This function calculates:
     1. USER_INPUT capture rate
@@ -115,6 +114,7 @@ def check_event_capture_rate() -> Dict[str, float]:
 
     Requirements:
         - Requirement 9.1-9.3: Check capture rates
+
     """
     with mark_internal_operation():
         try:
@@ -152,9 +152,8 @@ def check_event_capture_rate() -> Dict[str, float]:
             return {}
 
 
-def detect_missing_events() -> List[Dict[str, Any]]:
-    """
-    Detect missing events in the ledger.
+def detect_missing_events() -> list[dict[str, Any]]:
+    """Detect missing events in the ledger.
 
     This function checks for:
     1. TOOL_CALL without matching TOOL_RESULT
@@ -166,6 +165,7 @@ def detect_missing_events() -> List[Dict[str, Any]]:
 
     Requirements:
         - Requirement 9.5-9.6: Detect missing and invalid events
+
     """
     with mark_internal_operation():
         try:
@@ -198,7 +198,7 @@ def detect_missing_events() -> List[Dict[str, Any]]:
                             "type": "missing_tool_result",
                             "tool_use_id": tool_use_id,
                             "tool_call_event_id": tool_call.get("event_id"),
-                        }
+                        },
                     )
 
             # Check for TOOL_RESULT without matching TOOL_CALL
@@ -209,7 +209,7 @@ def detect_missing_events() -> List[Dict[str, Any]]:
                             "type": "orphaned_tool_result",
                             "tool_use_id": tool_use_id,
                             "tool_result_event_id": tool_result.get("event_id"),
-                        }
+                        },
                     )
 
             logger.debug(f"Detected {len(missing)} missing/orphaned events")
@@ -221,14 +221,14 @@ def detect_missing_events() -> List[Dict[str, Any]]:
 
 
 def generate_enforcement_report() -> str:
-    """
-    Generate a human-readable enforcement report.
+    """Generate a human-readable enforcement report.
 
     Returns:
         str: Formatted enforcement report
 
     Requirements:
         - Requirement 9.7: Provide summary of enforcement status
+
     """
     with mark_internal_operation():
         try:

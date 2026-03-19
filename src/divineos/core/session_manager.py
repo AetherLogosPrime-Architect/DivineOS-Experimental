@@ -1,5 +1,4 @@
-"""
-Session Manager Module — Manages session lifecycle and persistence.
+"""Session Manager Module — Manages session lifecycle and persistence.
 
 This module provides functions to manage the session lifecycle:
 - Initialize sessions and generate/retrieve session IDs
@@ -26,15 +25,14 @@ import os
 import time
 import uuid
 from pathlib import Path
-from typing import Optional
+
 from loguru import logger
 
 from divineos.core.loop_prevention import mark_internal_operation
 
-
 # Global session state
-_current_session_id: Optional[str] = None
-_session_start_time: Optional[float] = None
+_current_session_id: str | None = None
+_session_start_time: float | None = None
 
 
 def _get_session_file_path() -> Path:
@@ -42,9 +40,8 @@ def _get_session_file_path() -> Path:
     return Path.home() / ".divineos" / "current_session.txt"
 
 
-def _read_session_file() -> Optional[str]:
-    """
-    Read session_id from persistent file.
+def _read_session_file() -> str | None:
+    """Read session_id from persistent file.
 
     Error Handling:
     - Catches file read errors
@@ -54,6 +51,7 @@ def _read_session_file() -> Optional[str]:
 
     Returns:
         Optional[str]: Session ID if file exists and is readable, None otherwise
+
     """
     with mark_internal_operation():
         session_file = _get_session_file_path()
@@ -73,8 +71,7 @@ def _read_session_file() -> Optional[str]:
 
 
 def _write_session_file(session_id: str) -> bool:
-    """
-    Write session_id to persistent file.
+    """Write session_id to persistent file.
 
     Error Handling:
     - Catches directory creation errors
@@ -88,6 +85,7 @@ def _write_session_file(session_id: str) -> bool:
 
     Returns:
         bool: True if successful, False otherwise
+
     """
     with mark_internal_operation():
         session_file = _get_session_file_path()
@@ -108,8 +106,7 @@ def _write_session_file(session_id: str) -> bool:
 
 
 def _clear_session_file() -> bool:
-    """
-    Clear the persistent session file.
+    """Clear the persistent session file.
 
     Error Handling:
     - Catches file deletion errors
@@ -119,6 +116,7 @@ def _clear_session_file() -> bool:
 
     Returns:
         bool: True if successful, False otherwise
+
     """
     with mark_internal_operation():
         session_file = _get_session_file_path()
@@ -139,8 +137,7 @@ def _clear_session_file() -> bool:
 
 
 def initialize_session() -> str:
-    """
-    Initialize a new session or retrieve an existing one.
+    """Initialize a new session or retrieve an existing one.
 
     This function:
     1. Checks environment variable for existing session_id
@@ -164,6 +161,7 @@ def initialize_session() -> str:
         - Requirement 8.4: Check environment variable for existing session_id
         - Requirement 8.5: Check persistent file for existing session_id
         - Requirement 10.1-10.6: Handle errors gracefully
+
     """
     global _current_session_id, _session_start_time
 
@@ -190,7 +188,7 @@ def initialize_session() -> str:
         # Persist to file (with error handling)
         if not _write_session_file(new_session_id):
             logger.warning(
-                "Failed to persist session_id to file, continuing with in-memory session"
+                "Failed to persist session_id to file, continuing with in-memory session",
             )
 
         # Set environment variable
@@ -209,8 +207,7 @@ def initialize_session() -> str:
 
 
 def get_current_session_id() -> str:
-    """
-    Get the current session_id.
+    """Get the current session_id.
 
     Returns:
         str: The current session ID
@@ -220,6 +217,7 @@ def get_current_session_id() -> str:
 
     Requirements:
         - Requirement 8.6: Reuse session_id for all events in session
+
     """
     with mark_internal_operation():
         global _current_session_id
@@ -242,18 +240,19 @@ def get_current_session_id() -> str:
             return file_session_id
 
         # No session found
-        raise RuntimeError("No active session. Call initialize_session() first.")
+        msg = "No active session. Call initialize_session() first."
+        raise RuntimeError(msg)
 
 
 def is_session_active() -> bool:
-    """
-    Check if a session is currently active.
+    """Check if a session is currently active.
 
     Returns:
         bool: True if session is active, False otherwise
 
     Requirements:
         - Requirement 8.6: Check if session_id exists
+
     """
     with mark_internal_operation():
         try:
@@ -264,8 +263,7 @@ def is_session_active() -> bool:
 
 
 def end_session() -> str:
-    """
-    End the current session and emit SESSION_END event.
+    """End the current session and emit SESSION_END event.
 
     This function:
     1. Queries ledger for event counts
@@ -288,6 +286,7 @@ def end_session() -> str:
         - Requirement 8.7: Clear persistent session_id file
         - Requirement 8.8: Clear environment variable
         - Requirement 10.1-10.6: Handle errors gracefully
+
     """
     with mark_internal_operation():
         from divineos.event.event_emission import emit_session_end
@@ -325,8 +324,7 @@ def end_session() -> str:
 
 
 def clear_session() -> None:
-    """
-    Clear the current session state.
+    """Clear the current session state.
 
     This function:
     1. Clears the persistent session file
@@ -369,14 +367,14 @@ def clear_session() -> None:
 
 
 def get_session_duration() -> float:
-    """
-    Get the duration of the current session in seconds.
+    """Get the duration of the current session in seconds.
 
     Returns:
         float: Duration in seconds, or 0.0 if session not started
 
     Requirements:
         - Requirement 4.7: Calculate session duration
+
     """
     with mark_internal_operation():
         if _session_start_time is None:
@@ -402,19 +400,19 @@ class SessionTracker:
         # This avoids race conditions and ensures single source of truth for session persistence.
 
         # Generate initial session ID (will be overridden by initialize_session if file exists)
-        self._current_session_id: Optional[str] = str(uuid.uuid4())
+        self._current_session_id: str | None = str(uuid.uuid4())
         logger.debug(f"Initialized session tracker with session: {self._current_session_id}")
 
         # Always initialize start_time
         # This ensures end_session() and get_session_duration() never return None
-        self._session_start_time: Optional[float] = time.time()
+        self._session_start_time: float | None = time.time()
 
     def start_session(self) -> str:
-        """
-        Start a new session and return the session ID.
+        """Start a new session and return the session ID.
 
         Returns:
             session_id: Unique identifier for the session
+
         """
         self._current_session_id = str(uuid.uuid4())
         self._session_start_time = time.time()
@@ -422,11 +420,11 @@ class SessionTracker:
         return self._current_session_id
 
     def get_current_session_id(self) -> str:
-        """
-        Get the current session ID.
+        """Get the current session ID.
 
         Returns:
             session_id: Current session ID (always set after __init__)
+
         """
         # Should never be None after __init__, but handle gracefully
         if self._current_session_id is None:
@@ -434,12 +432,12 @@ class SessionTracker:
             return self.start_session()
         return self._current_session_id
 
-    def end_session(self) -> Optional[str]:
-        """
-        End the current session.
+    def end_session(self) -> str | None:
+        """End the current session.
 
         Returns:
             session_id: The session ID that was ended, or None if no session active
+
         """
         if self._current_session_id is None:
             return None
@@ -450,12 +448,12 @@ class SessionTracker:
         logger.debug(f"Ended session: {session_id}")
         return session_id
 
-    def get_session_duration(self) -> Optional[float]:
-        """
-        Get the duration of the current session in seconds.
+    def get_session_duration(self) -> float | None:
+        """Get the duration of the current session in seconds.
 
         Returns:
             duration: Duration in seconds, or None if no session active
+
         """
         if self._session_start_time is None:
             return None
@@ -467,21 +465,20 @@ _session_tracker = SessionTracker()
 
 
 def get_session_tracker() -> SessionTracker:
-    """
-    Get the global session tracker instance.
+    """Get the global session tracker instance.
 
     This function is provided for backward compatibility with code that imports
     from event_capture.py. New code should use the module-level functions instead.
 
     Returns:
         SessionTracker: The global session tracker instance
+
     """
     return _session_tracker
 
 
-def get_or_create_session_id(session_id: Optional[str] = None) -> str:
-    """
-    Get or create a session ID, ensuring consistency across all events in a session.
+def get_or_create_session_id(session_id: str | None = None) -> str:
+    """Get or create a session ID, ensuring consistency across all events in a session.
 
     This function uses environment variables and persistent files to ensure all events
     in a session share the same session ID. It consolidates session logic from
@@ -506,6 +503,7 @@ def get_or_create_session_id(session_id: Optional[str] = None) -> str:
         - Requirement 8.4: Check environment variable for existing session_id
         - Requirement 8.5: Check persistent file for existing session_id
         - Requirement 8.6: Reuse session_id for all events in session
+
     """
     with mark_internal_operation():
         # If session_id is explicitly provided, use it directly

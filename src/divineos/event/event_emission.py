@@ -1,5 +1,4 @@
-"""
-Event Emission Module — Functions to emit events to the ledger.
+"""Event Emission Module — Functions to emit events to the ledger.
 
 This module provides functions to emit the four event types:
 - emit_user_input() — Emit USER_INPUT events
@@ -16,21 +15,22 @@ Recursive Event Capture Prevention:
 - Prevents stack overflow and infinite loops in event capture
 """
 
-from typing import Any, Dict, Optional
 import threading
+from typing import Any
+
 from loguru import logger
 
-from divineos.event.event_capture import (
-    EventType,
-    EventValidationError,
-    get_current_timestamp,
-    validate_event_payload,
-    normalize_event_payload,
-)
 from divineos.core.ledger import log_event
 from divineos.core.session_manager import (
     get_or_create_session_id,
     get_session_duration,
+)
+from divineos.event.event_capture import (
+    EventType,
+    EventValidationError,
+    get_current_timestamp,
+    normalize_event_payload,
+    validate_event_payload,
 )
 
 # Thread-local storage for recursive event capture prevention
@@ -47,9 +47,8 @@ def _set_in_event_emission(value: bool) -> None:
     _event_emission_context.in_emission = value
 
 
-def emit_user_input(content: str, session_id: Optional[str] = None) -> str:
-    """
-    Emit a USER_INPUT event to the ledger.
+def emit_user_input(content: str, session_id: str | None = None) -> str:
+    """Emit a USER_INPUT event to the ledger.
 
     Args:
         content: The user message content (must not be empty or truncated)
@@ -67,6 +66,7 @@ def emit_user_input(content: str, session_id: Optional[str] = None) -> str:
         - Requirement 2.3: Include timestamp in ISO8601 format
         - Requirement 2.4: Include session ID for correlation
         - Requirement 2.5: Store in ledger with SHA256 hash
+
     """
     try:
         # Get or create session ID using centralized helper
@@ -109,10 +109,9 @@ def emit_user_input(content: str, session_id: Optional[str] = None) -> str:
 
 def emit_explanation(
     explanation_text: str,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
 ) -> str:
-    """
-    Emit an EXPLANATION event to the ledger.
+    """Emit an EXPLANATION event to the ledger.
 
     This records an explanation before a tool call, enabling clarity tracking.
 
@@ -132,6 +131,7 @@ def emit_explanation(
         - Requirement 6.3: Include timestamp in ISO8601 format
         - Requirement 6.4: Include session ID for correlation
         - Requirement 6.5: Store in ledger with SHA256 hash
+
     """
     try:
         # Get or create session ID using centralized helper
@@ -174,12 +174,11 @@ def emit_explanation(
 
 def emit_tool_call(
     tool_name: str,
-    tool_input: Dict[str, Any],
-    tool_use_id: Optional[str] = None,
-    session_id: Optional[str] = None,
+    tool_input: dict[str, Any],
+    tool_use_id: str | None = None,
+    session_id: str | None = None,
 ) -> str:
-    """
-    Emit a TOOL_CALL event to the ledger.
+    """Emit a TOOL_CALL event to the ledger.
 
     Args:
         tool_name: Name of the tool being called (e.g., "readFile", "strReplace")
@@ -200,6 +199,7 @@ def emit_tool_call(
         - Requirement 3.4: Include timestamp in ISO8601 format
         - Requirement 3.5: Include session ID for correlation
         - Requirement 3.6: Store in ledger with SHA256 hash
+
     """
     try:
         # Get or create session ID using centralized helper
@@ -253,12 +253,11 @@ def emit_tool_result(
     tool_use_id: str,
     result: str,
     duration_ms: int,
-    session_id: Optional[str] = None,
+    session_id: str | None = None,
     failed: bool = False,
-    error_message: Optional[str] = None,
+    error_message: str | None = None,
 ) -> str:
-    """
-    Emit a TOOL_RESULT event to the ledger.
+    """Emit a TOOL_RESULT event to the ledger.
 
     Args:
         tool_name: Name of the tool that was executed
@@ -284,6 +283,7 @@ def emit_tool_result(
         - Requirement 4.6: Include session ID for correlation
         - Requirement 4.7: Store in ledger with SHA256 hash
         - Requirement 4.9: Handle tool failures with error message and failed flag
+
     """
     try:
         # Get or create session ID using centralized helper
@@ -333,14 +333,13 @@ def emit_tool_result(
 
 
 def emit_session_end(
-    session_id: Optional[str] = None,
-    message_count: Optional[int] = None,
-    tool_call_count: Optional[int] = None,
-    tool_result_count: Optional[int] = None,
-    duration_seconds: Optional[float] = None,
+    session_id: str | None = None,
+    message_count: int | None = None,
+    tool_call_count: int | None = None,
+    tool_result_count: int | None = None,
+    duration_seconds: float | None = None,
 ) -> str:
-    """
-    Emit a SESSION_END event to the ledger.
+    """Emit a SESSION_END event to the ledger.
 
     Args:
         session_id: Optional session ID (uses current session if not provided)
@@ -365,6 +364,7 @@ def emit_session_end(
         - Requirement 5.7: Include timestamp in ISO8601 format
         - Requirement 5.8: Store in ledger with SHA256 hash
         - Requirement 5.9: No empty or zero-value fields (except where legitimately zero)
+
     """
     try:
         from divineos.core.ledger import get_events
@@ -390,7 +390,7 @@ def emit_session_end(
             # This handles the case where session_id lookup got a stale or wrong session_id
             if not session_events and events:
                 logger.debug(
-                    f"[DEBUG] No events found for session_id {session_id}, using most recent events' session_id"
+                    f"[DEBUG] No events found for session_id {session_id}, using most recent events' session_id",
                 )
                 most_recent_session_id = events[0].get("payload", {}).get("session_id")
                 if most_recent_session_id:
@@ -399,7 +399,7 @@ def emit_session_end(
                         e for e in events if e.get("payload", {}).get("session_id") == session_id
                     ]
                     logger.debug(
-                        f"[DEBUG] Found {len(session_events)} events for fallback session_id: {session_id}"
+                        f"[DEBUG] Found {len(session_events)} events for fallback session_id: {session_id}",
                     )
 
             if message_count is None:
@@ -466,13 +466,13 @@ class EventDispatcher:
         self.listeners: dict[str, list[Any]] = {}
 
     def register(self, event_type: str, callback: Any) -> None:
-        """
-        Register a listener for an event type.
+        """Register a listener for an event type.
 
         Args:
             event_type: Type of event to listen for (e.g., 'USER_INPUT')
             callback: Function to call when event is emitted
                      Signature: callback(event_type: str, payload: dict) -> None
+
         """
         if event_type not in self.listeners:
             self.listeners[event_type] = []
@@ -482,12 +482,11 @@ class EventDispatcher:
     def emit(
         self,
         event_type: str,
-        payload: dict,
+        payload: dict[str, Any],
         actor: str = "system",
         validate: bool = True,
     ) -> str:
-        """
-        Emit an event to all listeners and log to ledger.
+        """Emit an event to all listeners and log to ledger.
 
         Args:
             event_type: Type of event (e.g., 'USER_INPUT', 'TOOL_CALL')
@@ -500,6 +499,7 @@ class EventDispatcher:
 
         Raises:
             ValueError: If payload is invalid
+
         """
         if not isinstance(payload, dict):
             raise ValueError(f"Payload must be dict, got {type(payload)}")
@@ -526,12 +526,12 @@ _dispatcher = EventDispatcher()
 
 
 def register_listener(event_type: str, callback: Any) -> None:
-    """
-    Register a callback for an event type.
+    """Register a callback for an event type.
 
     Args:
         event_type: Type of event to listen for
         callback: Function to call when event is emitted
+
     """
     _dispatcher.register(event_type, callback)
 
@@ -543,12 +543,11 @@ def get_dispatcher() -> EventDispatcher:
 
 def emit_event(
     event_type: str,
-    payload: dict,
+    payload: dict[str, Any],
     actor: str = "system",
     validate: bool = True,
 ) -> str | None:
-    """
-    Emit an event to all listeners and log to ledger.
+    """Emit an event to all listeners and log to ledger.
 
     This is a wrapper around the global dispatcher's emit method,
     providing the same interface as the original event_dispatcher module.
@@ -567,6 +566,7 @@ def emit_event(
 
     Returns:
         event_id: UUID of the logged event, or None if recursive call was skipped
+
     """
     # Check for recursive event emission
     if _is_in_event_emission():

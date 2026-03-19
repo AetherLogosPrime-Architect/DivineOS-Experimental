@@ -1,5 +1,4 @@
-"""
-CLI Enforcement Layer Module — Enforces event capture at CLI level.
+"""CLI Enforcement Layer Module — Enforces event capture at CLI level.
 
 This module provides functions to enforce event capture at the CLI entry point:
 - Initialize enforcement at CLI startup
@@ -14,17 +13,17 @@ Requirements:
 - Requirement 5.1-5.6: Integrate enforcement into CLI
 """
 
-import sys
+import atexit
 import os
 import signal
-import atexit
-from typing import List
+import sys
+from typing import Any
+
 from loguru import logger
 
 from divineos.core.loop_prevention import mark_internal_operation
-from divineos.core.session_manager import initialize_session, end_session, is_session_active
+from divineos.core.session_manager import end_session, initialize_session, is_session_active
 from divineos.event.event_emission import emit_user_input
-
 
 # Global state for signal handling
 _signal_handlers_setup = False
@@ -32,8 +31,7 @@ _session_initialized = False
 
 
 def setup_cli_enforcement() -> None:
-    """
-    Initialize CLI enforcement at startup.
+    """Initialize CLI enforcement at startup.
 
     This function:
     1. Initializes the session manager
@@ -95,24 +93,21 @@ def setup_cli_enforcement() -> None:
 
 
 def _is_test_environment() -> bool:
-    """
-    Check if we're running in a test environment.
+    """Check if we're running in a test environment.
 
     Returns:
         bool: True if running in test environment, False otherwise
+
     """
     # Check for pytest
     if "pytest" in sys.modules:
         return True
     # Check for test environment variables
-    if os.environ.get("PYTEST_CURRENT_TEST"):
-        return True
-    return False
+    return bool(os.environ.get("PYTEST_CURRENT_TEST"))
 
 
-def capture_user_input(command_args: List[str]) -> str:
-    """
-    Capture user input and emit USER_INPUT event.
+def capture_user_input(command_args: list[str]) -> str:
+    """Capture user input and emit USER_INPUT event.
 
     This function:
     1. Converts command args to input string
@@ -136,6 +131,7 @@ def capture_user_input(command_args: List[str]) -> str:
         - Requirement 1.2: Include complete message content
         - Requirement 5.2: Capture command as USER_INPUT event
         - Requirement 10.1-10.6: Handle errors gracefully
+
     """
     with mark_internal_operation():
         try:
@@ -164,8 +160,7 @@ def capture_user_input(command_args: List[str]) -> str:
 
 
 def _setup_signal_handlers() -> None:
-    """
-    Setup signal handlers for graceful shutdown.
+    """Setup signal handlers for graceful shutdown.
 
     This function sets up handlers for:
     - SIGINT (Ctrl+C)
@@ -183,7 +178,7 @@ def _setup_signal_handlers() -> None:
     with mark_internal_operation():
         try:
 
-            def signal_handler(signum, frame):
+            def signal_handler(signum: int, frame: Any) -> None:
                 logger.debug(f"Received signal {signum}, ending session")
                 try:
                     _cleanup_on_exit()
@@ -214,8 +209,7 @@ def _setup_signal_handlers() -> None:
 
 
 def _cleanup_on_exit() -> None:
-    """
-    Cleanup on CLI exit.
+    """Cleanup on CLI exit.
 
     This function:
     1. Emits SESSION_END event
@@ -255,8 +249,7 @@ def _cleanup_on_exit() -> None:
 
 
 def handle_cli_error(error: Exception) -> None:
-    """
-    Handle CLI errors and emit error events.
+    """Handle CLI errors and emit error events.
 
     This function:
     1. Logs the error with full traceback
@@ -274,6 +267,7 @@ def handle_cli_error(error: Exception) -> None:
     Requirements:
         - Requirement 5.5: Capture error in TOOL_RESULT event
         - Requirement 10.1-10.6: Handle errors gracefully
+
     """
     with mark_internal_operation():
         try:

@@ -1,5 +1,4 @@
-"""
-Clarity Enforcement Module
+"""Clarity Enforcement Module.
 
 Ensures that every tool call is accompanied by an explanation.
 This module provides decorators and utilities to enforce the clarity principle:
@@ -12,7 +11,9 @@ Also integrates with IDE tool execution to emit TOOL_CALL and TOOL_RESULT events
 
 import functools
 import threading
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
+
 from loguru import logger
 
 # Import IDE tool integration for capturing tool execution
@@ -31,12 +32,9 @@ except ImportError:
 class ClarityViolation(Exception):
     """Raised when a tool call is made without proper explanation."""
 
-    pass
 
-
-def require_explanation(tool_name: str) -> Callable:
-    """
-    Decorator that requires an explanation before a tool is called.
+def require_explanation(tool_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Decorator that requires an explanation before a tool is called.
 
     Usage:
         @require_explanation("readFile")
@@ -50,9 +48,9 @@ def require_explanation(tool_name: str) -> Callable:
     4. TOOL_CALL and TOOL_RESULT events are emitted for tracking
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             # Log the tool call with context
             logger.info(f"Tool call: {tool_name}")
             logger.info(f"Arguments: args={args}, kwargs={kwargs}")
@@ -90,7 +88,10 @@ def require_explanation(tool_name: str) -> Callable:
                     try:
                         error_msg = str(e)
                         emit_tool_result_for_ide(
-                            tool_use_id, error_msg, failed=True, error_message=error_msg
+                            tool_use_id,
+                            error_msg,
+                            failed=True,
+                            error_message=error_msg,
                         )
                         logger.debug(f"Emitted TOOL_RESULT for {tool_name}: failed")
                     except Exception as emit_error:
@@ -104,21 +105,23 @@ def require_explanation(tool_name: str) -> Callable:
 
 
 class ClarityChecker:
-    """
-    Checks that tool calls are properly explained.
+    """Checks that tool calls are properly explained.
 
     This class tracks tool calls and verifies that each one has an accompanying
     explanation in the ledger as an EXPLANATION event.
     Thread-safe implementation with ledger integration.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = threading.RLock()
-        self.tool_calls = []
-        self.explanations = []
+        self.tool_calls: list[dict[str, Any]] = []
+        self.explanations: list[str] = []
 
     def record_tool_call(
-        self, tool_name: str, args: dict, explanation: Optional[str] = None
+        self,
+        tool_name: str,
+        args: dict[str, Any],
+        explanation: str | None = None,
     ) -> None:
         """Record a tool call with optional explanation."""
         with self._lock:
@@ -140,7 +143,7 @@ class ClarityChecker:
                 self.tool_calls[-1]["explanation"] = explanation
                 self.tool_calls[-1]["has_explanation"] = True
 
-    def get_unexplained_calls(self) -> list:
+    def get_unexplained_calls(self) -> list[dict[str, Any]]:
         """Get all tool calls that lack explanations."""
         with self._lock:
             return [call for call in self.tool_calls if not call["has_explanation"]]
@@ -156,7 +159,9 @@ class ClarityChecker:
         return True
 
     def check_clarity_for_session(
-        self, session_id: str, raise_on_violations: bool = False
+        self,
+        session_id: str,
+        raise_on_violations: bool = False,
     ) -> dict[str, Any]:
         """Check clarity for a session by querying the ledger.
 
@@ -169,6 +174,7 @@ class ClarityChecker:
 
         Raises:
             ClarityViolation: If raise_on_violations=True and violations found
+
         """
         try:
             from divineos.core.ledger import get_events
@@ -194,7 +200,7 @@ class ClarityChecker:
                             "tool_call_id": call_id,
                             "tool_name": call.get("payload", {}).get("tool_name"),
                             "reason": "No explanation provided",
-                        }
+                        },
                     )
 
             report = {
@@ -211,7 +217,7 @@ class ClarityChecker:
                     f"  - {v['tool_name']} ({v['tool_call_id']}): {v['reason']}" for v in violations
                 )
                 raise ClarityViolation(
-                    f"Found {len(violations)} unexplained tool calls:\n{violation_details}"
+                    f"Found {len(violations)} unexplained tool calls:\n{violation_details}",
                 )
 
             return report
@@ -233,10 +239,11 @@ class ClarityChecker:
 
         Raises:
             ClarityViolation: If any unexplained tool calls are found
+
         """
         self.check_clarity_for_session(session_id, raise_on_violations=True)
 
-    def get_clarity_report(self) -> dict:
+    def get_clarity_report(self) -> dict[str, Any]:
         """Generate a clarity report for the session."""
         with self._lock:
             total_calls = len(self.tool_calls)
@@ -256,7 +263,7 @@ class ClarityChecker:
 
 
 # Global clarity checker instance
-_clarity_checker: Optional[ClarityChecker] = None
+_clarity_checker: ClarityChecker | None = None
 
 
 def get_clarity_checker() -> ClarityChecker:

@@ -1,5 +1,4 @@
-"""
-Centralized Logging Setup for DivineOS
+"""Centralized Logging Setup for DivineOS.
 
 This module provides a single, centralized logging configuration using loguru.
 All modules should use: from loguru import logger
@@ -9,12 +8,12 @@ The setup_logging() function should be called once at application startup.
 
 import sys
 from pathlib import Path
+
 from loguru import logger
 
 
 def setup_logging() -> None:
-    """
-    Initialize loguru with persistent file output.
+    """Initialize loguru with persistent file output.
 
     This function:
     1. Removes the default loguru handler

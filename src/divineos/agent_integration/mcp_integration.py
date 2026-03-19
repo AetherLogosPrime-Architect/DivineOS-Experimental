@@ -1,5 +1,4 @@
-"""
-MCP Integration Layer for Kiro Agent Tool Capture
+"""MCP Integration Layer for Kiro Agent Tool Capture.
 
 Intercepts Kiro agent tool calls at the MCP protocol layer and automatically
 emits TOOL_CALL and TOOL_RESULT events for all agent operations.
@@ -10,22 +9,24 @@ tool invocations are captured transparently without requiring code changes.
 
 import time
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional
 from functools import wraps
+from typing import Any
 
 from loguru import logger
-from divineos.event.event_emission import emit_tool_call, emit_tool_result, emit_explanation
-from divineos.core.session_manager import get_current_session_id
+
 from divineos.core.error_handling import (
     EventCaptureError,
     SessionError,
     handle_error,
 )
 from divineos.core.loop_prevention import (
-    should_capture_tool,
     mark_internal_operation,
+    should_capture_tool,
 )
+from divineos.core.session_manager import get_current_session_id
+from divineos.event.event_emission import emit_explanation, emit_tool_call, emit_tool_result
 
 
 def get_iso8601_timestamp() -> str:
@@ -33,15 +34,15 @@ def get_iso8601_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def validate_explanation(tool_input: Dict[str, Any]) -> bool:
-    """
-    Validate that tool_input contains a non-empty explanation.
+def validate_explanation(tool_input: dict[str, Any]) -> bool:
+    """Validate that tool_input contains a non-empty explanation.
 
     Args:
         tool_input: Tool input parameters
 
     Returns:
         True if explanation is valid, False otherwise
+
     """
     if not isinstance(tool_input, dict):
         return False
@@ -56,12 +57,11 @@ def validate_explanation(tool_input: Dict[str, Any]) -> bool:
 
 def emit_agent_tool_call(
     tool_name: str,
-    tool_input: Dict[str, Any],
+    tool_input: dict[str, Any],
     session_id: str,
-    tool_use_id: Optional[str] = None,
+    tool_use_id: str | None = None,
 ) -> str:
-    """
-    Emit a TOOL_CALL event for agent tool invocation.
+    """Emit a TOOL_CALL event for agent tool invocation.
 
     Args:
         tool_name: Name of the tool being called
@@ -74,6 +74,7 @@ def emit_agent_tool_call(
 
     Raises:
         ValueError: If explanation is missing or invalid
+
     """
     if tool_use_id is None:
         tool_use_id = str(uuid.uuid4())
@@ -82,7 +83,7 @@ def emit_agent_tool_call(
     if not validate_explanation(tool_input):
         logger.warning(
             f"Tool call '{tool_name}' missing or invalid explanation. "
-            f"Explanation is required for clarity enforcement."
+            f"Explanation is required for clarity enforcement.",
         )
         # Emit explanation warning event
         try:
@@ -110,17 +111,21 @@ def emit_agent_tool_call(
             )
         logger.debug(
             f"Emitted TOOL_CALL: {tool_name} (tool_use_id={tool_use_id[:8]}..., "
-            f"event_id={event_id[:8]}...)"
+            f"event_id={event_id[:8]}...)",
         )
         return event_id
     except EventCaptureError as e:
         handle_error(
-            e, "emit_agent_tool_call", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+            e,
+            "emit_agent_tool_call",
+            {"tool_name": tool_name, "tool_use_id": tool_use_id},
         )
         raise
     except Exception as e:
         handle_error(
-            e, "emit_agent_tool_call", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+            e,
+            "emit_agent_tool_call",
+            {"tool_name": tool_name, "tool_use_id": tool_use_id},
         )
         raise
 
@@ -132,10 +137,9 @@ def emit_agent_tool_result(
     duration_ms: int,
     session_id: str,
     failed: bool = False,
-    error_message: Optional[str] = None,
+    error_message: str | None = None,
 ) -> str:
-    """
-    Emit a TOOL_RESULT event for agent tool execution result.
+    """Emit a TOOL_RESULT event for agent tool execution result.
 
     Args:
         tool_name: Name of the tool
@@ -148,6 +152,7 @@ def emit_agent_tool_result(
 
     Returns:
         Event ID of the emitted TOOL_RESULT event
+
     """
     # Convert result to string
     if result is None:
@@ -174,24 +179,29 @@ def emit_agent_tool_result(
             )
         logger.debug(
             f"Emitted TOOL_RESULT: {tool_name} (tool_use_id={tool_use_id[:8]}..., "
-            f"duration={duration_ms}ms, failed={failed}, event_id={event_id[:8]}...)"
+            f"duration={duration_ms}ms, failed={failed}, event_id={event_id[:8]}...)",
         )
         return event_id
     except EventCaptureError as e:
         handle_error(
-            e, "emit_agent_tool_result", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+            e,
+            "emit_agent_tool_result",
+            {"tool_name": tool_name, "tool_use_id": tool_use_id},
         )
         raise
     except Exception as e:
         handle_error(
-            e, "emit_agent_tool_result", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+            e,
+            "emit_agent_tool_result",
+            {"tool_name": tool_name, "tool_use_id": tool_use_id},
         )
         raise
 
 
-def create_tool_interceptor(tool_name: str, original_tool: Callable) -> Callable:
-    """
-    Create an interceptor wrapper for a tool that captures events.
+def create_tool_interceptor(
+    tool_name: str, original_tool: Callable[..., Any]
+) -> Callable[..., Any]:
+    """Create an interceptor wrapper for a tool that captures events.
 
     Args:
         tool_name: Name of the tool
@@ -208,10 +218,11 @@ def create_tool_interceptor(tool_name: str, original_tool: Callable) -> Callable
     5. Executes the tool
     6. Emits TOOL_RESULT event
     7. Returns result or re-raises exception
+
     """
 
     @wraps(original_tool)
-    def wrapped_tool(*args, **kwargs) -> Any:
+    def wrapped_tool(*args: Any, **kwargs: Any) -> Any:
         # Check if tool should be captured
         if not should_capture_tool(tool_name):
             logger.debug(f"Skipping capture for internal tool: {tool_name}")
@@ -288,11 +299,15 @@ def create_tool_interceptor(tool_name: str, original_tool: Callable) -> Callable
                 )
             except EventCaptureError as emit_error:
                 handle_error(
-                    emit_error, "emit_error_tool_result_in_wrapper", {"tool_name": tool_name}
+                    emit_error,
+                    "emit_error_tool_result_in_wrapper",
+                    {"tool_name": tool_name},
                 )
             except Exception as emit_error:
                 handle_error(
-                    emit_error, "emit_error_tool_result_in_wrapper", {"tool_name": tool_name}
+                    emit_error,
+                    "emit_error_tool_result_in_wrapper",
+                    {"tool_name": tool_name},
                 )
 
             # Re-raise the original exception
@@ -302,8 +317,7 @@ def create_tool_interceptor(tool_name: str, original_tool: Callable) -> Callable
 
 
 def setup_mcp_agent_integration() -> None:
-    """
-    Initialize MCP integration for agent tool capture.
+    """Initialize MCP integration for agent tool capture.
 
     This function sets up the MCP protocol layer to intercept all Kiro agent
     tool calls and automatically emit TOOL_CALL and TOOL_RESULT events.
@@ -328,8 +342,7 @@ def setup_mcp_agent_integration() -> None:
 
 
 def shutdown_mcp_agent_integration() -> None:
-    """
-    Shutdown MCP integration for agent tool capture.
+    """Shutdown MCP integration for agent tool capture.
 
     This function cleans up resources used by the MCP integration layer.
     """

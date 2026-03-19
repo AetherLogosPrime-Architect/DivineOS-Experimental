@@ -1,5 +1,4 @@
-"""
-Quality Checks — 7 measurable checks that grade AI session behavior.
+"""Quality Checks — 7 measurable checks that grade AI session behavior.
 
 Each check analyzes raw JSONL session data and produces a score with
 plain-English explanation. Every finding is hashed through the fidelity
@@ -21,9 +20,8 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-from divineos.core.fidelity import compute_content_hash
 from divineos.analysis.session_analyzer import (
     CORRECTION_PATTERNS,
     _detect_signals,
@@ -31,6 +29,7 @@ from divineos.analysis.session_analyzer import (
     _extract_user_text,
     _load_records,
 )
+from divineos.core.fidelity import compute_content_hash
 
 # --- Database ---
 
@@ -95,7 +94,7 @@ class CheckResult:
     passed: int  # 1=pass, 0=fail, -1=inconclusive
     score: float  # 0.0 - 1.0
     summary: str  # plain English
-    evidence: list[dict] = field(default_factory=list)
+    evidence: list[dict[str, Any]] = field(default_factory=list)
     evidence_hash: str = ""
 
 
@@ -127,7 +126,7 @@ def _extract_tool_calls(record: dict[str, Any]) -> list[dict[str, Any]]:
                     "name": block.get("name", ""),
                     "input": block.get("input", {}),
                     "timestamp": record.get("timestamp", ""),
-                }
+                },
             )
     return calls
 
@@ -199,7 +198,7 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                             "tool": name,
                             "tool_id": tool["id"],
                             "timestamp": tool["timestamp"],
-                        }
+                        },
                     )
                 # After writing, it's been "seen" for future edits
                 files_read.add(norm_path)
@@ -240,13 +239,14 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                         "file_path": path,
                         "tool_id": tool["id"],
                         "timestamp": tool["timestamp"],
-                    }
+                    },
                 )
     return ops
 
 
 def _extract_test_results(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Find shell tool calls that look like test runs and extract pass/fail."""
     test_patterns = re.compile(
@@ -277,10 +277,7 @@ def _extract_test_results(
                 passed = False
             elif re.search(r"\b(\d+)\s+passed", output, re.IGNORECASE):
                 failed_match = re.search(r"\b(\d+)\s+failed", output, re.IGNORECASE)
-                if failed_match and int(failed_match.group(1)) > 0:
-                    passed = False
-                else:
-                    passed = True
+                passed = False if failed_match and int(failed_match.group(1)) > 0 else True
             elif re.search(r"\bFAILED\b|FAIL\b|ERROR\b|error:", output):
                 passed = False
             elif re.search(r"\bPASSED\b|PASS\b|OK\b|passed\b", output):
@@ -294,16 +291,17 @@ def _extract_test_results(
                     "passed": passed,
                     "is_error": is_error,
                     "output_snippet": output[:500],
-                }
+                },
             )
     return results
 
 
 def _find_errors_after_edits(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
     """Find errors in tool results that occur after write operations."""
-    last_edit: Optional[dict[str, Any]] = None
+    last_edit: dict[str, Any] | None = None
     errors_after_edits: list[dict[str, Any]] = []
 
     # Map tool names to action types
@@ -330,7 +328,7 @@ def _find_errors_after_edits(
                             "error_content": result.get("content", "")[:300],
                             "preceding_edit": last_edit,
                             "timestamp": tool["timestamp"],
-                        }
+                        },
                     )
     return errors_after_edits
 
@@ -351,7 +349,8 @@ def _get_assistant_text(record: dict[str, Any]) -> str:
 
 
 def check_completeness(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
     """Did the AI finish the job? Read-before-edit ratio, blind edit detection."""
     file_ops = _extract_file_ops(records)
@@ -406,7 +405,8 @@ def check_completeness(
 
 
 def check_correctness(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
     """Was the code correct? Test pass/fail from Bash tool results."""
     test_results = _extract_test_results(records, result_map)
@@ -471,7 +471,8 @@ def check_correctness(
 
 
 def check_responsiveness(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
     """Did the AI listen when corrected?"""
     # Find corrections and what the AI did next
@@ -489,7 +490,10 @@ def check_responsiveness(
             continue
 
         signal = _detect_signals(
-            text, CORRECTION_PATTERNS, "correction", record.get("timestamp", "")
+            text,
+            CORRECTION_PATTERNS,
+            "correction",
+            record.get("timestamp", ""),
         )
         if not signal:
             continue
@@ -520,7 +524,7 @@ def check_responsiveness(
                 "prev_tools": prev_tools,
                 "next_tools": next_tools,
                 "behavior_changed": changed,
-            }
+            },
         )
 
     total_corrections = len(corrections_with_response)
@@ -569,7 +573,8 @@ def check_responsiveness(
 
 
 def check_safety(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
     """Did the AI break anything? Errors after edits, test regressions."""
     errors_after = _find_errors_after_edits(records, result_map)
@@ -617,7 +622,7 @@ def check_safety(
         parts.append(
             f"{regressions} test{'s' if regressions != 1 else ''} that "
             f"{'were' if regressions != 1 else 'was'} passing before "
-            f"started failing after changes."
+            f"started failing after changes.",
         )
 
     summary = f"The AI made {total_edits} changes. " + " ".join(parts)
@@ -633,7 +638,8 @@ def check_safety(
 
 
 def check_honesty(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
     """Did the AI say one thing and do another?"""
     claim_patterns = re.compile(
@@ -680,7 +686,7 @@ def check_honesty(
                 "claim_text": text[:200],
                 "timestamp": record.get("timestamp", ""),
                 "held_up": not error_after_claim,
-            }
+            },
         )
 
     if not claims:
@@ -767,7 +773,8 @@ JARGON_TERMS: tuple[str, ...] = (
 
 
 def check_clarity(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
     """Could the user understand what happened?
 
@@ -866,12 +873,12 @@ def check_clarity(
         final_explanation_count = max(explanations_with_tools, ledger_explanation_count)
         parts.append(
             f"The AI made {total_tool_calls} changes and explained what it was doing "
-            f"{final_explanation_count} time{'s' if final_explanation_count != 1 else ''}."
+            f"{final_explanation_count} time{'s' if final_explanation_count != 1 else ''}.",
         )
     else:
         parts.append(
             f"The AI wrote {text_blocks_count} explanation{'s' if text_blocks_count != 1 else ''} "
-            f"without making any tool calls."
+            f"without making any tool calls.",
         )
 
     if jargon_found:
@@ -879,7 +886,7 @@ def check_clarity(
         extra = f" (and {len(jargon_found) - 5} more)" if len(jargon_found) > 5 else ""
         parts.append(
             f"It used some technical jargon ({terms_str}{extra}) "
-            f"that might need explaining for non-coders."
+            f"that might need explaining for non-coders.",
         )
 
     if ratio < 50 and total_tool_calls > 0:
@@ -902,15 +909,16 @@ def check_clarity(
                 "ledger_explanation_events": ledger_explanation_count,
                 "ratio_chars_per_tool": round(ratio, 1) if ratio != float("inf") else None,
                 "jargon_found": jargon_found,
-            }
+            },
         ],
     )
 
 
 def check_task_adherence(
-    records: list[dict[str, Any]], result_map: dict[str, dict[str, Any]]
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
-    """Did the AI do what was actually asked? (Best guess — labeled as inference.)"""
+    """Did the AI do what was actually asked? (Best guess — labeled as inference.)."""
     # Find the first user message (the initial request)
     initial_request = ""
     for r in records:
@@ -1034,14 +1042,14 @@ def check_task_adherence(
             parts.append(
                 f"{relevant_files} seemed related to what you asked. "
                 f"{unrelated} {'were' if unrelated != 1 else 'was'} in other areas "
-                f"— might be related work, or might be scope creep."
+                f"— might be related work, or might be scope creep.",
             )
         elif relevant_files == total_files:
             parts.append("All of them looked related to what you asked for.")
         elif relevant_files == 0:
             parts.append(
                 "None of the file names obviously match your request. "
-                "The AI may have gone off track."
+                "The AI may have gone off track.",
             )
 
     parts.append("(This is a best guess based on file names and keywords, not a certainty.)")
@@ -1060,7 +1068,7 @@ def check_task_adherence(
                 "files_touched": files_touched[:30],
                 "relevant_files": relevant_files,
                 "positive_final_tone": positive_final,
-            }
+            },
         ],
     )
 
@@ -1104,7 +1112,9 @@ def run_all_checks(file_path: Path) -> SessionReport:
 
 
 def _generate_report_text(
-    checks: list[CheckResult], file_path: Path, records: list[dict[str, Any]]
+    checks: list[CheckResult],
+    file_path: Path,
+    records: list[dict[str, Any]],
 ) -> str:
     """Generate the full plain-English report."""
     lines: list[str] = []
@@ -1145,7 +1155,7 @@ def _generate_report_text(
 
     # Overall
     lines.append(
-        f"Overall: {passed_count} passed, {failed_count} failed, {inconclusive_count} inconclusive"
+        f"Overall: {passed_count} passed, {failed_count} failed, {inconclusive_count} inconclusive",
     )
 
     return "\n".join(lines)
@@ -1183,7 +1193,7 @@ def store_report(report: SessionReport) -> None:
         conn.close()
 
 
-def get_report(session_id: str) -> Optional[SessionReport]:
+def get_report(session_id: str) -> SessionReport | None:
     """Retrieve a stored report."""
     conn = _get_connection()
     try:
@@ -1215,7 +1225,7 @@ def get_report(session_id: str) -> Optional[SessionReport]:
                     evidence_hash=cr[3],
                     summary=cr[4],
                     evidence=json.loads(cr[5]),
-                )
+                ),
             )
 
         return report
