@@ -9,7 +9,7 @@ import pytest
 from uuid import uuid4
 from datetime import datetime
 
-from src.divineos.clarity_system import (
+from divineos.clarity_system import (
     DefaultClarityStatementGenerator,
     DefaultPlanAnalyzer,
     DefaultDeviationAnalyzer,
@@ -168,7 +168,7 @@ class TestClaritySystemIntegration:
 
     def test_deviation_detection(self):
         """Test deviation detection between plan and execution."""
-        from src.divineos.clarity_system import PlanData, PlanMetrics
+        from divineos.clarity_system import PlanData, PlanMetrics
 
         plan_data = PlanData(
             clarity_statement_id=uuid4(),
@@ -241,7 +241,7 @@ class TestClaritySystemIntegration:
 
     def test_learning_extraction(self):
         """Test lesson extraction from deviations."""
-        from src.divineos.clarity_system import Deviation
+        from divineos.clarity_system import Deviation
 
         deviations = [
             Deviation(
@@ -289,7 +289,7 @@ class TestClaritySystemIntegration:
             scope=ScopeEstimate(5, 20, "medium", 60),
         )
 
-        from src.divineos.clarity_system import PlanData, PlanMetrics
+        from divineos.clarity_system import PlanData, PlanMetrics
 
         plan_data = PlanData(
             clarity_statement_id=clarity_statement.id,

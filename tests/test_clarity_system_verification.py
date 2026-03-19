@@ -7,7 +7,7 @@ Tests non-blocking behavior, ledger-based analysis, and error resilience.
 import pytest
 from uuid import uuid4
 
-from src.divineos.clarity_system import (
+from divineos.clarity_system import (
     DefaultClarityStatementGenerator,
     DefaultPlanAnalyzer,
     DefaultExecutionAnalyzer,
@@ -180,7 +180,7 @@ class TestErrorResilience:
 
     def test_deviation_analyzer_handles_no_deviations(self):
         """Test deviation analyzer handles perfect execution."""
-        from src.divineos.clarity_system import PlanData, PlanMetrics
+        from divineos.clarity_system import PlanData, PlanMetrics
 
         analyzer = DefaultDeviationAnalyzer()
 
@@ -232,7 +232,7 @@ class TestErrorResilience:
             scope=ScopeEstimate(0, 0, "medium", 0),
         )
 
-        from src.divineos.clarity_system import PlanData, PlanMetrics
+        from divineos.clarity_system import PlanData, PlanMetrics
 
         plan_data = PlanData(
             clarity_statement_id=clarity_statement.id,
