@@ -7,11 +7,14 @@ Generates comprehensive feedback on agent operations to support self-improvement
 from typing import List, Dict, Any
 from datetime import datetime, timezone
 
-from divineos.agent_integration.logging_config import feedback_system_logger as logger
+from loguru import logger
 from divineos.agent_integration.types import SessionFeedback
 from divineos.agent_integration.behavior_analyzer import analyze_agent_behavior
 from divineos.agent_integration.learning_loop import analyze_session_for_lessons
 from divineos.core.consolidation import store_knowledge
+from divineos.core.error_handling import (
+    handle_error,
+)
 
 
 def get_iso8601_timestamp() -> str:
@@ -73,7 +76,7 @@ def generate_session_feedback(session_id: str) -> SessionFeedback:
         return feedback
 
     except Exception as e:
-        logger.error(f"Failed to generate session feedback: {e}")
+        handle_error(e, "generate_session_feedback", {"session_id": session_id})
         # Return empty feedback on error
         return SessionFeedback(
             session_id=session_id,
@@ -240,7 +243,7 @@ def store_episode_summary(session_id: str, feedback: SessionFeedback) -> str:
         logger.debug(f"Stored episode summary: {entry_id[:8]}...")
         return entry_id
     except Exception as e:
-        logger.error(f"Failed to store episode summary: {e}")
+        handle_error(e, "store_episode_summary", {"session_id": session_id})
         raise
 
 

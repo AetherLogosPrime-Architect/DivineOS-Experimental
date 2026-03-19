@@ -5,11 +5,8 @@ Validates event payloads before they are stored in the ledger.
 Prevents corrupted or malformed data from being persisted.
 """
 
-import logging
 import re
 from typing import Dict, Any, Tuple
-
-logger = logging.getLogger(__name__)
 
 
 class EventValidationError(Exception):

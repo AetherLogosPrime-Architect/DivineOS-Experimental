@@ -139,7 +139,7 @@ class TestEndToEndEventCapture:
 
     def test_full_event_sequence_with_analysis(self, tmp_path, monkeypatch):
         """Test emitting a series of events and analyzing them."""
-        from divineos.event.event_dispatcher import emit_event
+        from divineos.event.event_emission import emit_event
 
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
@@ -201,7 +201,7 @@ class TestEndToEndEventCapture:
 
     def test_event_fidelity_verification(self, tmp_path, monkeypatch):
         """Test that all emitted events pass fidelity verification."""
-        from divineos.event.event_dispatcher import emit_event
+        from divineos.event.event_emission import emit_event
 
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
@@ -234,7 +234,7 @@ class TestEndToEndEventCapture:
 
     def test_event_content_hashes(self, tmp_path, monkeypatch):
         """Test that event content hashes are computed correctly."""
-        from divineos.event.event_dispatcher import emit_event
+        from divineos.event.event_emission import emit_event
 
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
@@ -258,7 +258,7 @@ class TestEndToEndEventCapture:
 
     def test_session_analysis_on_captured_events(self, tmp_path, monkeypatch):
         """Test that captured events contain real conversation data."""
-        from divineos.event.event_dispatcher import emit_event
+        from divineos.event.event_emission import emit_event
 
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))

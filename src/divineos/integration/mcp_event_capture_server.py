@@ -14,10 +14,14 @@ This server uses the unified tool capture system for consistency.
 
 import json
 from typing import Any, Dict, Optional
-from loguru import logger
 
-from divineos.event.event_emission import get_or_create_session_id
-from divineos.integration.unified_tool_capture import capture_tool_execution
+from divineos.core.session_manager import get_or_create_session_id
+from divineos.core.tool_wrapper import capture_tool_execution
+from divineos.core.error_handling import (
+    EventCaptureError,
+    SessionError,
+    handle_error,
+)
 
 
 def emit_tool_call_mcp(
@@ -52,8 +56,15 @@ def emit_tool_call_mcp(
             "tool_name": tool_name,
             "session_id": session_id,
         }
+    except (EventCaptureError, SessionError) as e:
+        handle_error(e, "emit_tool_call_mcp", {"tool_name": tool_name})
+        return {
+            "status": "error",
+            "error": str(e),
+            "tool_name": tool_name,
+        }
     except Exception as e:
-        logger.error(f"Failed to emit TOOL_CALL: {e}")
+        handle_error(e, "emit_tool_call_mcp", {"tool_name": tool_name})
         return {
             "status": "error",
             "error": str(e),
@@ -103,8 +114,19 @@ def emit_tool_result_mcp(
             "session_id": session_id,
             "duration_ms": duration_ms,
         }
+    except (EventCaptureError, SessionError) as e:
+        handle_error(
+            e, "emit_tool_result_mcp", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+        )
+        return {
+            "status": "error",
+            "error": str(e),
+            "tool_name": tool_name,
+        }
     except Exception as e:
-        logger.error(f"Failed to emit TOOL_RESULT: {e}")
+        handle_error(
+            e, "emit_tool_result_mcp", {"tool_name": tool_name, "tool_use_id": tool_use_id}
+        )
         return {
             "status": "error",
             "error": str(e),
@@ -125,8 +147,14 @@ def get_session_id_mcp() -> Dict[str, Any]:
             "status": "success",
             "session_id": session_id,
         }
+    except SessionError as e:
+        handle_error(e, "get_session_id_mcp")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
     except Exception as e:
-        logger.error(f"Failed to get session ID: {e}")
+        handle_error(e, "get_session_id_mcp")
         return {
             "status": "error",
             "error": str(e),
@@ -177,6 +205,11 @@ if __name__ == "__main__":
             response = handle_request(request)
             print(json.dumps(response))
             sys.stdout.flush()
+        except json.JSONDecodeError as e:
+            handle_error(e, "mcp_server_json_decode")
+            print(json.dumps({"status": "error", "error": f"Invalid JSON: {str(e)}"}))
+            sys.stdout.flush()
         except Exception as e:
+            handle_error(e, "mcp_server_request_handling")
             print(json.dumps({"status": "error", "error": str(e)}))
             sys.stdout.flush()

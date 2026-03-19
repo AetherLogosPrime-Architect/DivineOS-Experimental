@@ -12,7 +12,7 @@ import threading
 
 from divineos.core.session_manager import initialize_session, end_session
 from divineos.hooks.clarity_enforcement import ClarityChecker
-from divineos.integration.unified_tool_capture import get_unified_capture
+from divineos.core.tool_wrapper import get_unified_capture
 
 
 class TestConcurrencyEdgeCases:

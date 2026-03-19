@@ -6,11 +6,10 @@ Extracts lessons and generates recommendations from deviations and execution dat
 
 from typing import Dict, List
 
+from loguru import logger
+
 from .base import LearningExtractor
 from .types import Deviation, ExecutionData, Lesson, Recommendation
-from .logging_config import get_clarity_logger
-
-logger = get_clarity_logger("learning_extractor")
 
 
 class DefaultLearningExtractor(LearningExtractor):
@@ -18,7 +17,6 @@ class DefaultLearningExtractor(LearningExtractor):
 
     def __init__(self):
         """Initialize the learning extractor."""
-        self.logger = get_clarity_logger("learning_extractor")
 
     def validate(self) -> bool:
         """Validate component is properly initialized."""
@@ -52,11 +50,11 @@ class DefaultLearningExtractor(LearningExtractor):
             error_patterns = self._identify_error_patterns(execution_data)
             lessons.extend(error_patterns)
 
-            self.logger.info(f"Extracted {len(lessons)} lessons from execution")
+            logger.info(f"Extracted {len(lessons)} lessons from execution")
             return lessons
 
         except Exception as e:
-            self.logger.error(f"Error extracting lessons: {e}")
+            logger.error(f"Error extracting lessons: {e}")
             return []
 
     def extract_deviation_lessons(self, deviations: List[Deviation]) -> List[Lesson]:
@@ -86,11 +84,11 @@ class DefaultLearningExtractor(LearningExtractor):
                 )
                 lessons.append(lesson)
 
-            self.logger.info(f"Extracted {len(lessons)} deviation lessons")
+            logger.info(f"Extracted {len(lessons)} deviation lessons")
             return lessons
 
         except Exception as e:
-            self.logger.error(f"Error extracting deviation lessons: {e}")
+            logger.error(f"Error extracting deviation lessons: {e}")
             return []
 
     def identify_tool_patterns(self, execution_data: ExecutionData) -> List[Lesson]:
@@ -128,11 +126,11 @@ class DefaultLearningExtractor(LearningExtractor):
                 )
                 lessons.append(lesson)
 
-            self.logger.info(f"Identified {len(lessons)} tool patterns")
+            logger.info(f"Identified {len(lessons)} tool patterns")
             return lessons
 
         except Exception as e:
-            self.logger.error(f"Error identifying tool patterns: {e}")
+            logger.error(f"Error identifying tool patterns: {e}")
             return []
 
     def generate_recommendations(self, lessons: List[Lesson]) -> List[Recommendation]:
@@ -158,11 +156,11 @@ class DefaultLearningExtractor(LearningExtractor):
                     )
                     recommendations.append(recommendation)
 
-            self.logger.info(f"Generated {len(recommendations)} recommendations")
+            logger.info(f"Generated {len(recommendations)} recommendations")
             return recommendations
 
         except Exception as e:
-            self.logger.error(f"Error generating recommendations: {e}")
+            logger.error(f"Error generating recommendations: {e}")
             return []
 
     def _identify_error_patterns(self, execution_data: ExecutionData) -> List[Lesson]:
@@ -205,7 +203,7 @@ class DefaultLearningExtractor(LearningExtractor):
             return lessons
 
         except Exception as e:
-            self.logger.error(f"Error identifying error patterns: {e}")
+            logger.error(f"Error identifying error patterns: {e}")
             return []
 
     def _generate_deviation_insight(self, deviation: Deviation) -> str:

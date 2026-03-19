@@ -6,11 +6,10 @@ Compares planned vs actual execution and identifies deviations.
 
 from typing import Dict, List
 
+from loguru import logger
+
 from .base import DeviationAnalyzer
 from .types import Deviation, ExecutionData, PlanData
-from .logging_config import get_clarity_logger
-
-logger = get_clarity_logger("deviation_analyzer")
 
 
 class DefaultDeviationAnalyzer(DeviationAnalyzer):
@@ -25,7 +24,6 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
 
     def __init__(self):
         """Initialize the deviation analyzer."""
-        self.logger = get_clarity_logger("deviation_analyzer")
 
     def validate(self) -> bool:
         """Validate component is properly initialized."""
@@ -90,14 +88,14 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
             # Categorize deviations
             categorized = self.categorize_deviations(deviations)
 
-            self.logger.info(
+            logger.info(
                 f"Analyzed deviations: {len(deviations)} total, "
                 f"categories: {list(categorized.keys())}"
             )
             return deviations
 
         except Exception as e:
-            self.logger.error(f"Error analyzing deviations: {e}")
+            logger.error(f"Error analyzing deviations: {e}")
             return []
 
     def compare_metric(self, metric_name: str, planned: float, actual: float) -> Deviation:
@@ -139,14 +137,14 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
                 category=category,
             )
 
-            self.logger.debug(
+            logger.debug(
                 f"Compared metric {metric_name}: planned={planned}, actual={actual}, "
                 f"deviation={percentage:.1f}%, severity={severity}"
             )
             return deviation
 
         except Exception as e:
-            self.logger.error(f"Error comparing metric {metric_name}: {e}")
+            logger.error(f"Error comparing metric {metric_name}: {e}")
             # Return a zero deviation on error
             return Deviation(
                 metric=metric_name,
@@ -183,14 +181,14 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
                     # Default to scope if category unknown
                     categorized["scope"].append(deviation)
 
-            self.logger.info(
+            logger.info(
                 f"Categorized {len(deviations)} deviations: "
                 f"{[(k, len(v)) for k, v in categorized.items() if v]}"
             )
             return categorized
 
         except Exception as e:
-            self.logger.error(f"Error categorizing deviations: {e}")
+            logger.error(f"Error categorizing deviations: {e}")
             return {"scope": [], "efficiency": [], "quality": [], "approach": []}
 
     def _calculate_severity(self, percentage: float) -> str:

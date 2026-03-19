@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from collections import defaultdict
 
-from divineos.agent_integration.logging_config import learning_loop_logger as logger
+from loguru import logger
 from divineos.agent_integration.types import (
     Correction,
     Encouragement,
@@ -21,6 +21,9 @@ from divineos.agent_integration.types import (
 )
 from divineos.core.ledger import get_events
 from divineos.core.consolidation import store_knowledge
+from divineos.core.error_handling import (
+    handle_error,
+)
 
 
 def get_iso8601_timestamp() -> str:
@@ -76,7 +79,7 @@ def analyze_session_for_lessons(session_id: str) -> SessionLessons:
         return lessons
 
     except Exception as e:
-        logger.error(f"Failed to analyze session for lessons: {e}")
+        handle_error(e, "analyze_session_for_lessons", {"session_id": session_id})
         # Return empty lessons on error
         return SessionLessons(session_id=session_id)
 
@@ -388,7 +391,7 @@ def store_lesson(
         logger.debug(f"Stored lesson: {entry_id[:8]}...")
         return entry_id
     except Exception as e:
-        logger.error(f"Failed to store lesson: {e}")
+        handle_error(e, "store_lesson", {"session_id": session_id})
         raise
 
 
@@ -414,7 +417,7 @@ def provide_session_briefing(session_id: str) -> Dict[str, Any]:
             "timestamp": get_iso8601_timestamp(),
         }
     except Exception as e:
-        logger.error(f"Failed to generate session briefing: {e}")
+        handle_error(e, "provide_session_briefing", {"session_id": session_id})
         return {
             "session_id": session_id,
             "lessons": [],

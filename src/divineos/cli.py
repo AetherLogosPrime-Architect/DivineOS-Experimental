@@ -319,8 +319,11 @@ def log_cmd(event_type: str, actor: str, content: str):
         parsed = json.loads(content)
         if isinstance(parsed, dict):
             payload = parsed
-    except (json.JSONDecodeError, TypeError):
-        pass
+    except (json.JSONDecodeError, TypeError) as e:
+        logger.warning(
+            f"Failed to parse content as JSON, using raw content: {e}",
+            exc_info=True,
+        )
 
     event_id = _wrapped_log_event(
         event_type=event_type.upper(), actor=actor.lower(), payload=payload
@@ -1299,10 +1302,11 @@ def emit_cmd(
         emit_tool_call,
         emit_tool_result,
         emit_session_end,
+        emit_event,
     )
-    from divineos.event.event_dispatcher import emit_event
 
     try:
+        event_id: str | None = None
         if event_type == "USER_INPUT":
             if not content:
                 click.secho("[-] USER_INPUT requires --content", fg="red")
@@ -1317,6 +1321,9 @@ def emit_cmd(
                 sys.exit(1)
             # ASSISTANT_OUTPUT uses the generic emit_event for backward compatibility
             event_id = emit_event(event_type, {"content": content}, actor="assistant")
+            if event_id is None:
+                click.secho("[-] Failed to emit event (recursive call)", fg="red")
+                sys.exit(1)
             click.secho("[+] Event emitted: ASSISTANT_OUTPUT", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
@@ -1367,6 +1374,9 @@ def emit_cmd(
             event_id = emit_event(
                 "EXPLANATION", {"content": content}, actor="assistant", validate=False
             )
+            if event_id is None:
+                click.secho("[-] Failed to emit event (recursive call)", fg="red")
+                sys.exit(1)
             click.secho("[+] Event emitted: EXPLANATION", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
             click.secho(f"    Content: {content[:100]}...", fg="cyan")

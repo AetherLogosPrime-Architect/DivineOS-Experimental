@@ -6,6 +6,8 @@ This module provides functions to manage the session lifecycle:
 - Persist session IDs to files and environment variables
 - End sessions and emit SESSION_END events
 - Clear session state
+- Track session duration
+- Provide session tracker for backward compatibility
 
 All session operations are marked as internal to prevent recursive capture.
 
@@ -21,6 +23,7 @@ Requirements:
 """
 
 import os
+import time
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -376,9 +379,172 @@ def get_session_duration() -> float:
         - Requirement 4.7: Calculate session duration
     """
     with mark_internal_operation():
-        import time
-
         if _session_start_time is None:
             return 0.0
 
         return time.time() - _session_start_time
+
+
+# ============================================================================
+# Session Tracker Class (Consolidated from event_capture.py)
+# ============================================================================
+# This class provides backward compatibility for code that uses SessionTracker
+# from event_capture.py. It delegates to the module-level functions above.
+
+
+class SessionTracker:
+    """Manages session ID generation and tracking (backward compatibility wrapper)."""
+
+    def __init__(self) -> None:
+        """Initialize session tracker."""
+        # SessionTracker manages in-memory session state only.
+        # Persistent session file is managed by get_or_create_session_id() and initialize_session()
+        # This avoids race conditions and ensures single source of truth for session persistence.
+
+        # Generate initial session ID (will be overridden by initialize_session if file exists)
+        self._current_session_id: Optional[str] = str(uuid.uuid4())
+        logger.debug(f"Initialized session tracker with session: {self._current_session_id}")
+
+        # Always initialize start_time
+        # This ensures end_session() and get_session_duration() never return None
+        self._session_start_time: Optional[float] = time.time()
+
+    def start_session(self) -> str:
+        """
+        Start a new session and return the session ID.
+
+        Returns:
+            session_id: Unique identifier for the session
+        """
+        self._current_session_id = str(uuid.uuid4())
+        self._session_start_time = time.time()
+        logger.debug(f"Started session: {self._current_session_id}")
+        return self._current_session_id
+
+    def get_current_session_id(self) -> str:
+        """
+        Get the current session ID.
+
+        Returns:
+            session_id: Current session ID (always set after __init__)
+        """
+        # Should never be None after __init__, but handle gracefully
+        if self._current_session_id is None:
+            logger.warning("Session ID is None, generating new one")
+            return self.start_session()
+        return self._current_session_id
+
+    def end_session(self) -> Optional[str]:
+        """
+        End the current session.
+
+        Returns:
+            session_id: The session ID that was ended, or None if no session active
+        """
+        if self._current_session_id is None:
+            return None
+
+        session_id = self._current_session_id
+        self._current_session_id = None
+        self._session_start_time = None
+        logger.debug(f"Ended session: {session_id}")
+        return session_id
+
+    def get_session_duration(self) -> Optional[float]:
+        """
+        Get the duration of the current session in seconds.
+
+        Returns:
+            duration: Duration in seconds, or None if no session active
+        """
+        if self._session_start_time is None:
+            return None
+        return time.time() - self._session_start_time
+
+
+# Global session tracker instance (for backward compatibility)
+_session_tracker = SessionTracker()
+
+
+def get_session_tracker() -> SessionTracker:
+    """
+    Get the global session tracker instance.
+
+    This function is provided for backward compatibility with code that imports
+    from event_capture.py. New code should use the module-level functions instead.
+
+    Returns:
+        SessionTracker: The global session tracker instance
+    """
+    return _session_tracker
+
+
+def get_or_create_session_id(session_id: Optional[str] = None) -> str:
+    """
+    Get or create a session ID, ensuring consistency across all events in a session.
+
+    This function uses environment variables and persistent files to ensure all events
+    in a session share the same session ID. It consolidates session logic from
+    event_emission.py into the canonical session manager.
+
+    Args:
+        session_id: Optional explicit session ID (if provided, uses this directly)
+
+    Returns:
+        str: The session ID to use for the event
+
+    Logic:
+        1. If session_id is explicitly provided, use it
+        2. If DIVINEOS_SESSION_ID environment variable is set, use that
+        3. If persistent file exists and has non-empty content, use that
+        4. Otherwise, generate a new session ID and set both env var and file
+
+    Requirements:
+        - Requirement 8.1: Generate unique session_id
+        - Requirement 8.2: Persist session_id to file
+        - Requirement 8.3: Set session_id as environment variable
+        - Requirement 8.4: Check environment variable for existing session_id
+        - Requirement 8.5: Check persistent file for existing session_id
+        - Requirement 8.6: Reuse session_id for all events in session
+    """
+    with mark_internal_operation():
+        # If session_id is explicitly provided, use it directly
+        if session_id:
+            return session_id
+
+        # Check environment variable first (persists for IDE session)
+        env_session_id = os.environ.get("DIVINEOS_SESSION_ID")
+        if env_session_id:
+            logger.debug(f"Using session_id from environment: {env_session_id}")
+            return env_session_id
+
+        session_file = _get_session_file_path()
+        session_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Try to read existing session ID from persistent file
+        if session_file.exists():
+            try:
+                existing_id = session_file.read_text().strip()
+                if existing_id:  # Only use if non-empty
+                    logger.debug(f"Using existing session_id from file: {existing_id}")
+                    # Also set environment variable for this process
+                    os.environ["DIVINEOS_SESSION_ID"] = existing_id
+                    return existing_id
+            except Exception as e:
+                logger.warning(f"Failed to read session_id file: {e}")
+
+        # Generate new session ID only if file doesn't exist or is empty
+        current_session_id = get_session_tracker().get_current_session_id()
+        logger.debug(f"Generated new session_id: {current_session_id}")
+
+        # Write to persistent file
+        try:
+            session_file.write_text(current_session_id)
+            logger.debug(f"Wrote session_id to persistent file: {current_session_id}")
+        except Exception as e:
+            logger.warning(f"Failed to write session_id file: {e}")
+
+        # Set environment variable for this process
+        os.environ["DIVINEOS_SESSION_ID"] = current_session_id
+
+        return current_session_id

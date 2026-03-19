@@ -8,9 +8,7 @@ from typing import Optional
 from uuid import UUID
 
 from divineos.core import session_manager
-from .logging_config import get_clarity_logger
-
-logger = get_clarity_logger("session_integration")
+from loguru import logger
 
 
 class SessionManagerInterface:

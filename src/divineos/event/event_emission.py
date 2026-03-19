@@ -9,84 +9,42 @@ This module provides functions to emit the four event types:
 
 All events are validated, stored in the ledger with SHA256 hashes,
 and include timestamps and session IDs.
+
+Recursive Event Capture Prevention:
+- Uses a thread-local flag to prevent infinite loops when events trigger more events
+- When emit_event() is called while already emitting, the recursive call is skipped
+- Prevents stack overflow and infinite loops in event capture
 """
 
 from typing import Any, Dict, Optional
+import threading
 from loguru import logger
 
 from divineos.event.event_capture import (
     EventType,
     EventValidationError,
-    get_session_tracker,
     get_current_timestamp,
     validate_event_payload,
     normalize_event_payload,
 )
 from divineos.core.ledger import log_event
+from divineos.core.session_manager import (
+    get_or_create_session_id,
+    get_session_duration,
+)
+
+# Thread-local storage for recursive event capture prevention
+_event_emission_context = threading.local()
 
 
-def get_or_create_session_id(session_id: Optional[str] = None) -> str:
-    """
-    Get or create a session ID, ensuring consistency across all events in a session.
+def _is_in_event_emission() -> bool:
+    """Check if we're currently in event emission (recursive call detection)."""
+    return getattr(_event_emission_context, "in_emission", False)
 
-    This function uses environment variables and persistent files to ensure all events
-    in a session share the same session ID.
 
-    Args:
-        session_id: Optional explicit session ID (if provided, uses this directly)
-
-    Returns:
-        str: The session ID to use for the event
-
-    Logic:
-        1. If session_id is explicitly provided, use it
-        2. If DIVINEOS_SESSION_ID environment variable is set, use that
-        3. If persistent file exists and has non-empty content, use that
-        4. Otherwise, generate a new session ID and set both env var and file
-    """
-    import os
-    from pathlib import Path
-
-    # If session_id is explicitly provided, use it directly
-    if session_id:
-        return session_id
-
-    # Check environment variable first (persists for IDE session)
-    env_session_id = os.environ.get("DIVINEOS_SESSION_ID")
-    if env_session_id:
-        logger.debug(f"Using session_id from environment: {env_session_id}")
-        return env_session_id
-
-    session_file = Path.home() / ".divineos" / "current_session.txt"
-    session_file.parent.mkdir(parents=True, exist_ok=True)
-
-    # Try to read existing session ID from persistent file
-    if session_file.exists():
-        try:
-            existing_id = session_file.read_text().strip()
-            if existing_id:  # Only use if non-empty
-                logger.debug(f"Using existing session_id from file: {existing_id}")
-                # Also set environment variable for this process
-                os.environ["DIVINEOS_SESSION_ID"] = existing_id
-                return existing_id
-        except Exception as e:
-            logger.warning(f"Failed to read session_id file: {e}")
-
-    # Generate new session ID only if file doesn't exist or is empty
-    current_session_id = get_session_tracker().get_current_session_id()
-    logger.debug(f"Generated new session_id: {current_session_id}")
-
-    # Write to persistent file
-    try:
-        session_file.write_text(current_session_id)
-        logger.debug(f"Wrote session_id to persistent file: {current_session_id}")
-    except Exception as e:
-        logger.warning(f"Failed to write session_id file: {e}")
-
-    # Set environment variable for this process
-    os.environ["DIVINEOS_SESSION_ID"] = current_session_id
-
-    return current_session_id
+def _set_in_event_emission(value: bool) -> None:
+    """Set the event emission flag."""
+    _event_emission_context.in_emission = value
 
 
 def emit_user_input(content: str, session_id: Optional[str] = None) -> str:
@@ -453,32 +411,10 @@ def emit_session_end(
                     1 for e in session_events if e["event_type"] == "TOOL_RESULT"
                 )
 
-        # Calculate duration if not provided - use actual event timestamps
+        # Calculate duration if not provided - use canonical session_manager function
         if duration_seconds is None:
-            # Get all events for this session to calculate duration from first to last event
-            all_events = get_events(limit=10000)
-            session_events = [
-                e for e in all_events if e.get("payload", {}).get("session_id") == session_id
-            ]
-
-            if session_events and len(session_events) > 1:
-                # Get first and last event timestamps
-                first_event = session_events[-1]  # Last in list is oldest (reverse chronological)
-                last_event = session_events[0]  # First in list is newest
-
-                first_timestamp = first_event.get("timestamp", 0)
-                last_timestamp = last_event.get("timestamp", 0)
-
-                duration_seconds = max(0, last_timestamp - first_timestamp)
-                logger.debug(
-                    f"[DEBUG] Calculated duration from events: {duration_seconds}s (first={first_timestamp}, last={last_timestamp})"
-                )
-            else:
-                # Fallback to session tracker if only one event or no events
-                duration_seconds = get_session_tracker().get_session_duration()
-                if duration_seconds is None:
-                    duration_seconds = 0.0
-                logger.debug(f"[DEBUG] Using session tracker duration: {duration_seconds}s")
+            duration_seconds = get_session_duration()
+            logger.debug(f"[DEBUG] Using session manager duration: {duration_seconds}s")
 
         # Create payload
         payload = {
@@ -513,3 +449,134 @@ def emit_session_end(
     except Exception as e:
         logger.error(f"Unexpected error emitting SESSION_END event: {e}")
         raise
+
+
+# ============================================================================
+# Event Dispatcher Pattern (Consolidated from event_dispatcher.py)
+# ============================================================================
+# This section consolidates the listener/callback pattern from event_dispatcher.py
+# into the canonical event_emission.py module.
+
+
+class EventDispatcher:
+    """Central event emission and listener management."""
+
+    def __init__(self) -> None:
+        """Initialize the event dispatcher."""
+        self.listeners: dict[str, list[Any]] = {}
+
+    def register(self, event_type: str, callback: Any) -> None:
+        """
+        Register a listener for an event type.
+
+        Args:
+            event_type: Type of event to listen for (e.g., 'USER_INPUT')
+            callback: Function to call when event is emitted
+                     Signature: callback(event_type: str, payload: dict) -> None
+        """
+        if event_type not in self.listeners:
+            self.listeners[event_type] = []
+        self.listeners[event_type].append(callback)
+        logger.debug(f"Registered listener for {event_type}")
+
+    def emit(
+        self,
+        event_type: str,
+        payload: dict,
+        actor: str = "system",
+        validate: bool = True,
+    ) -> str:
+        """
+        Emit an event to all listeners and log to ledger.
+
+        Args:
+            event_type: Type of event (e.g., 'USER_INPUT', 'TOOL_CALL')
+            payload: Event data dict
+            actor: Who triggered the event (default: 'system')
+            validate: Whether to validate payload before storing (default: True)
+
+        Returns:
+            event_id: UUID of the logged event
+
+        Raises:
+            ValueError: If payload is invalid
+        """
+        if not isinstance(payload, dict):
+            raise ValueError(f"Payload must be dict, got {type(payload)}")
+
+        # Call registered listeners
+        for callback in self.listeners.get(event_type, []):
+            try:
+                callback(event_type, payload)
+            except Exception as e:
+                logger.error(f"Listener failed for {event_type}: {e}")
+
+        # Log to ledger
+        try:
+            event_id = log_event(event_type, actor, payload, validate=validate)
+            logger.debug(f"Emitted {event_type} event: {event_id}")
+            return event_id
+        except Exception as e:
+            logger.error(f"Failed to log event {event_type}: {e}")
+            raise
+
+
+# Global dispatcher instance
+_dispatcher = EventDispatcher()
+
+
+def register_listener(event_type: str, callback: Any) -> None:
+    """
+    Register a callback for an event type.
+
+    Args:
+        event_type: Type of event to listen for
+        callback: Function to call when event is emitted
+    """
+    _dispatcher.register(event_type, callback)
+
+
+def get_dispatcher() -> EventDispatcher:
+    """Get the global dispatcher instance."""
+    return _dispatcher
+
+
+def emit_event(
+    event_type: str,
+    payload: dict,
+    actor: str = "system",
+    validate: bool = True,
+) -> str | None:
+    """
+    Emit an event to all listeners and log to ledger.
+
+    This is a wrapper around the global dispatcher's emit method,
+    providing the same interface as the original event_dispatcher module.
+
+    Recursive Event Capture Prevention:
+    - If this function is called while already emitting an event, the recursive
+      call is skipped to prevent infinite loops
+    - This prevents stack overflow when event listeners or ledger operations
+      trigger additional events
+
+    Args:
+        event_type: Type of event (e.g., 'USER_INPUT', 'TOOL_CALL')
+        payload: Event data dict
+        actor: Who triggered the event (default: 'system')
+        validate: Whether to validate payload before storing (default: True)
+
+    Returns:
+        event_id: UUID of the logged event, or None if recursive call was skipped
+    """
+    # Check for recursive event emission
+    if _is_in_event_emission():
+        logger.debug(f"Skipping recursive event emission: {event_type}")
+        return None
+
+    # Set flag to prevent recursive calls
+    _set_in_event_emission(True)
+    try:
+        return _dispatcher.emit(event_type, payload, actor, validate=validate)
+    finally:
+        # Always clear the flag, even if an exception occurs
+        _set_in_event_emission(False)

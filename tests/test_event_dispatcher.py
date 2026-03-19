@@ -1,7 +1,7 @@
 """Tests for the event dispatcher and event capture system."""
 
 import pytest
-from divineos.event.event_dispatcher import emit_event, register_listener
+from divineos.event.event_emission import emit_event, register_listener
 from divineos.core.ledger import get_events, verify_all_events
 
 
@@ -154,3 +154,53 @@ class TestEventDispatcher:
         assert "ASSISTANT_OUTPUT" in event_types
         assert "TOOL_CALL" in event_types
         assert "TOOL_RESULT" in event_types
+
+    def test_recursive_event_capture_prevention(self):
+        """Test that recursive event emission is prevented."""
+        from divineos.event.event_emission import (
+            _is_in_event_emission,
+            _set_in_event_emission,
+        )
+
+        # Initially should not be in event emission
+        assert not _is_in_event_emission()
+
+        # Simulate recursive event emission
+        _set_in_event_emission(True)
+        assert _is_in_event_emission()
+
+        # Emit event while in emission - should return None
+        result = emit_event("TEST_EVENT", {"content": "recursive"})
+        assert result is None
+
+        # Clear flag
+        _set_in_event_emission(False)
+        assert not _is_in_event_emission()
+
+        # Normal emission should work
+        result = emit_event("TEST_EVENT", {"content": "normal"})
+        assert result is not None
+
+    def test_recursive_event_with_listener(self):
+        """Test that listeners don't cause infinite recursion."""
+        call_count = [0]
+
+        def recursive_listener(event_type, payload):
+            """Listener that tries to emit another event."""
+            call_count[0] += 1
+            if call_count[0] < 3:
+                # Try to emit another event (should be prevented)
+                emit_event("RECURSIVE_EVENT", {"level": call_count[0]})
+
+        register_listener("TRIGGER_EVENT", recursive_listener)
+
+        # Emit initial event
+        emit_event("TRIGGER_EVENT", {"content": "start"})
+
+        # Listener should have been called once
+        assert call_count[0] == 1
+
+        # Verify only the initial event was stored
+        events = get_events(limit=100)
+        trigger_events = [e for e in events if e["event_type"] == "TRIGGER_EVENT"]
+        assert len(trigger_events) == 1

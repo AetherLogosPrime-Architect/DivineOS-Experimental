@@ -28,7 +28,6 @@ from .base import (
     LearningExtractor,
     SummaryGenerator,
 )
-from .logging_config import setup_clarity_logging, get_clarity_logger
 from .clarity_generator import DefaultClarityStatementGenerator
 from .plan_analyzer import DefaultPlanAnalyzer
 from .execution_analyzer import DefaultExecutionAnalyzer

@@ -7,7 +7,7 @@ and provides utilities for tool registration and lookup.
 
 from typing import Set, Dict, Callable, Optional
 
-from divineos.agent_integration.logging_config import logger
+from loguru import logger
 
 
 # Registry of all Kiro agent tools that should be captured

@@ -8,12 +8,11 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 
+from loguru import logger
+
 from .base import ExecutionAnalyzer
 from .types import ExecutionData, ExecutionMetrics, ToolCall
-from .logging_config import get_clarity_logger
 from .ledger_integration import LedgerQueryInterface
-
-logger = get_clarity_logger("execution_analyzer")
 
 
 class DefaultExecutionAnalyzer(ExecutionAnalyzer):
@@ -26,7 +25,6 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
         Args:
             ledger: Optional ledger instance for querying events
         """
-        self.logger = get_clarity_logger("execution_analyzer")
         self.ledger = ledger
 
     def validate(self) -> bool:
@@ -47,14 +45,14 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
             # Use ledger integration to get session events
             execution_data = LedgerQueryInterface.get_session_events(session_id)
 
-            self.logger.info(
+            logger.info(
                 f"Analyzed execution for session {session_id}: "
                 f"{len(execution_data.tool_calls)} tool calls, {len(execution_data.errors)} errors"
             )
             return execution_data
 
         except Exception as e:
-            self.logger.error(f"Error analyzing execution: {e}")
+            logger.error(f"Error analyzing execution: {e}")
             # Return minimal execution data
             return ExecutionData(
                 session_id=session_id,
@@ -75,7 +73,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
         """
         try:
             if not self.ledger:
-                self.logger.warning("Ledger not available, returning empty tool calls")
+                logger.warning("Ledger not available, returning empty tool calls")
                 return []
 
             # Query ledger for TOOL_CALL events
@@ -94,13 +92,13 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
                     )
                     tool_calls.append(tool_call)
                 except Exception as e:
-                    self.logger.warning(f"Error extracting tool call from event: {e}")
+                    logger.warning(f"Error extracting tool call from event: {e}")
 
-            self.logger.info(f"Extracted {len(tool_calls)} tool calls for session {session_id}")
+            logger.info(f"Extracted {len(tool_calls)} tool calls for session {session_id}")
             return tool_calls
 
         except Exception as e:
-            self.logger.error(f"Error extracting tool calls: {e}")
+            logger.error(f"Error extracting tool calls: {e}")
             return []
 
     def extract_errors(self, session_id: UUID) -> List[str]:
@@ -115,7 +113,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
         """
         try:
             if not self.ledger:
-                self.logger.warning("Ledger not available, returning empty errors")
+                logger.warning("Ledger not available, returning empty errors")
                 return []
 
             # Query ledger for failed TOOL_RESULT events
@@ -132,13 +130,13 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
                         error_msg = event.payload.get("error", "Unknown error")
                         errors.append(error_msg)
                 except Exception as e:
-                    self.logger.warning(f"Error extracting error from event: {e}")
+                    logger.warning(f"Error extracting error from event: {e}")
 
-            self.logger.info(f"Extracted {len(errors)} errors for session {session_id}")
+            logger.info(f"Extracted {len(errors)} errors for session {session_id}")
             return errors
 
         except Exception as e:
-            self.logger.error(f"Error extracting errors: {e}")
+            logger.error(f"Error extracting errors: {e}")
             return []
 
     def calculate_execution_metrics(self, execution_data: ExecutionData) -> ExecutionMetrics:
@@ -198,7 +196,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
                     duration = (end - start).total_seconds() / 60.0
                     actual_time_minutes = max(0.0, duration)
                 except Exception as e:
-                    self.logger.warning(f"Error calculating duration: {e}")
+                    logger.warning(f"Error calculating duration: {e}")
 
             # Calculate success rate
             success_rate = 0.0
@@ -213,7 +211,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
                 success_rate=success_rate,
             )
 
-            self.logger.info(
+            logger.info(
                 f"Calculated execution metrics: "
                 f"{actual_files} files, {actual_tool_calls} calls, "
                 f"{actual_errors} errors, {success_rate:.2%} success rate"
@@ -221,5 +219,5 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
             return metrics
 
         except Exception as e:
-            self.logger.error(f"Error calculating execution metrics: {e}")
+            logger.error(f"Error calculating execution metrics: {e}")
             return ExecutionMetrics(0, 0, 0, 0.0, 0.0)

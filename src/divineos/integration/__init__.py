@@ -8,16 +8,14 @@ from divineos.core.enforcement import (
 from divineos.core.tool_wrapper import (
     wrap_tool_execution,
     is_internal_tool,
+    get_unified_capture,
+    capture_tool_execution,
 )
 from divineos.core.enforcement_verifier import (
     verify_enforcement,
     check_event_capture_rate,
     detect_missing_events,
     generate_enforcement_report,
-)
-from divineos.integration.unified_tool_capture import (
-    get_unified_capture,
-    capture_tool_execution,
 )
 
 __all__ = [

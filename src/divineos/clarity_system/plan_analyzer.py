@@ -8,9 +8,7 @@ from typing import Any, Dict
 
 from .base import PlanAnalyzer
 from .types import ClarityStatement, PlanData, PlanMetrics
-from .logging_config import get_clarity_logger
-
-logger = get_clarity_logger("plan_analyzer")
+from loguru import logger
 
 
 class DefaultPlanAnalyzer(PlanAnalyzer):
@@ -18,7 +16,6 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
 
     def __init__(self):
         """Initialize the plan analyzer."""
-        self.logger = get_clarity_logger("plan_analyzer")
 
     def validate(self) -> bool:
         """Validate component is properly initialized."""
@@ -60,11 +57,11 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
             # Normalize the plan data
             plan_data = self.normalize_plan_data(plan_data)
 
-            self.logger.info(f"Analyzed plan from clarity statement {clarity_statement.id}")
+            logger.info(f"Analyzed plan from clarity statement {clarity_statement.id}")
             return plan_data
 
         except Exception as e:
-            self.logger.error(f"Error analyzing plan: {e}")
+            logger.error(f"Error analyzing plan: {e}")
             # Return minimal plan data
             return PlanData(
                 clarity_statement_id=clarity_statement.id,
@@ -117,7 +114,7 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
                 "estimated_time_minutes": scope.estimated_time_minutes,
             }
         except Exception as e:
-            self.logger.warning(f"Error extracting scope metrics: {e}")
+            logger.warning(f"Error extracting scope metrics: {e}")
             return {
                 "estimated_files": 0,
                 "estimated_tool_calls": 0,
@@ -161,11 +158,11 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
                 metrics=metrics,
             )
 
-            self.logger.info(
+            logger.info(
                 f"Normalized plan data for clarity statement {plan_data.clarity_statement_id}"
             )
             return normalized_plan
 
         except Exception as e:
-            self.logger.error(f"Error normalizing plan data: {e}")
+            logger.error(f"Error normalizing plan data: {e}")
             return plan_data

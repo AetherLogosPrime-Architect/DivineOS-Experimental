@@ -5,12 +5,14 @@ Validates that the merged capture system works correctly for both
 Kiro IDE and MCP server scenarios.
 """
 
-from divineos.integration.unified_tool_capture import (
+from divineos.core.tool_wrapper import (
     UnifiedToolCapture,
     get_unified_capture,
     capture_tool_execution,
 )
-from divineos.integration.kiro_tool_integration import KiroToolCapture
+from divineos.core.tool_wrapper import (
+    get_ide_tool_executor,
+)
 
 
 class TestUnifiedCaptureHappyPath:
@@ -86,29 +88,27 @@ class TestKiroIntegrationWithUnified:
 
     def test_kiro_capture_uses_unified(self):
         """Test that KiroToolCapture uses unified capture."""
-        kiro_capture = KiroToolCapture()
-        tool_call_id, tool_result_id = kiro_capture.capture_tool_execution(
+        executor = get_ide_tool_executor()
+        tool_use_id = executor.start_tool_execution(
             tool_name="readFile",
             tool_input={"path": "test.txt"},
-            result="contents",
-            duration_ms=100,
         )
+        result_id = executor.end_tool_execution(tool_use_id, "contents", failed=False)
 
-        assert tool_call_id is not None
-        assert tool_result_id is not None
+        assert tool_use_id is not None
+        assert result_id is not None
 
     def test_kiro_capture_multiple_calls(self):
         """Test multiple Kiro captures in sequence."""
-        kiro_capture = KiroToolCapture()
+        executor = get_ide_tool_executor()
 
         for i in range(3):
-            call_id, result_id = kiro_capture.capture_tool_execution(
+            tool_use_id = executor.start_tool_execution(
                 tool_name=f"tool_{i}",
                 tool_input={"index": i},
-                result=f"result_{i}",
-                duration_ms=50,
             )
-            assert call_id is not None
+            result_id = executor.end_tool_execution(tool_use_id, f"result_{i}", failed=False)
+            assert tool_use_id is not None
             assert result_id is not None
 
 
