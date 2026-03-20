@@ -53,16 +53,14 @@ class TestCompleteSystemIntegration:
         # Simulate a tool call without explanation (violation)
         tool_name = "execute_query"
         tool_input = {"query": "SELECT * FROM users"}
+        context = {"session_id": "test_session"}
 
-        # Detect violation using the violation detector
-        from divineos.clarity_enforcement.violation_detector import ViolationDetector
-
-        detector = ViolationDetector()
-        violation = detector.detect_violation(
+        # Detect violation
+        violation = self.enforcer.detect_violation(
             tool_name=tool_name,
             tool_input=tool_input,
-            context=[],  # Empty context means no explanation
-            session_id="test_session",
+            context=context,
+            violation_type="missing_explanation",
         )
 
         # Verify violation detected
@@ -70,21 +68,15 @@ class TestCompleteSystemIntegration:
 
         # Capture violation in learning cycle
         self.learning_cycle.capture_violation_event(
-            {
-                "type": "CLARITY_VIOLATION",
-                "session_id": "test_session",
-                "tool_name": tool_name,
-                "tool_input": tool_input,
-                "context": [],
-                "violation_type": "missing_explanation",
-                "confidence": 0.95,
-                "timestamp": "2026-03-20T10:00:00Z",
-                "enforcement_mode": "LOGGING",
-            }
+            tool_name=tool_name,
+            context_type="query_execution",
+            violation_type="missing_explanation",
+            confidence=0.95,
         )
 
-        # Verify violation was captured (no exception means success)
-        assert True
+        # Verify pattern stored
+        patterns = self.pattern_store.get_patterns_for_tool(tool_name)
+        assert len(patterns) > 0
 
     def test_integration_point_2_contradiction_to_resolution(self):
         """
