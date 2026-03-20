@@ -14,7 +14,7 @@ Tests formal correctness properties of the hardened system:
 import pytest
 import uuid
 
-from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
+from .hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
 
 
 from divineos.core.ledger import get_events, verify_event_hash

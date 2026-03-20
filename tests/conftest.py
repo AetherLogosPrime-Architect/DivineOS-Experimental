@@ -16,10 +16,10 @@ from divineos.core.ledger import init_db
 from divineos.core.session_manager import clear_session
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def setup_test_environment():
     """
-    Automatically set up test environment before each test.
+    Set up test environment (must be explicitly used by tests).
 
     - Clears the ledger database
     - Initializes the ledger database
@@ -27,15 +27,14 @@ def setup_test_environment():
     - Cleans up after test completes
     """
     # Clear database before test to ensure clean state
-    # Database is at src/data/event_ledger.db
     db_path = Path(__file__).parent.parent / "src" / "data" / "event_ledger.db"
     if db_path.exists():
         try:
             db_path.unlink()
         except Exception:
-            pass  # Ignore errors if file is locked
+            pass
 
-    # Initialize database before test (with timeout to prevent hanging)
+    # Initialize database before test
     try:
         init_db()
     except Exception as e:

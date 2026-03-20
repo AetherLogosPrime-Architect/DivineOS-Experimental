@@ -11,7 +11,7 @@ import pytest
 from datetime import datetime
 import uuid
 
-from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
+from .hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
 
 
 from divineos.agent_integration.types import (
