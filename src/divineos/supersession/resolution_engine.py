@@ -11,6 +11,15 @@ from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 import hashlib
 import uuid
+from loguru import logger
+
+# Import error handling and monitoring
+try:
+    from divineos.integration.system_monitor import get_system_monitor
+
+    HAS_ERROR_HANDLING = True
+except ImportError:
+    HAS_ERROR_HANDLING = False
 
 
 class ResolutionStrategy(Enum):
@@ -67,27 +76,44 @@ class ResolutionEngine:
         Returns:
             SupersessionEvent created by resolution
         """
-        # Determine which fact supersedes which
-        if resolution_strategy == ResolutionStrategy.NEWER_FACT:
-            superseded_id, superseding_id = self._resolve_by_newer_fact(contradiction)
-        elif resolution_strategy == ResolutionStrategy.HIGHER_CONFIDENCE:
-            superseded_id, superseding_id = self._resolve_by_higher_confidence(contradiction)
-        else:
-            # Default to newer fact
-            superseded_id, superseding_id = self._resolve_by_newer_fact(contradiction)
+        import time
 
-        # Create SUPERSESSION event
-        supersession_event = self._create_supersession_event(
-            superseded_id, superseding_id, resolution_strategy.value
-        )
+        start_time = time.time()
+        monitor = get_system_monitor() if HAS_ERROR_HANDLING else None
 
-        # Store supersession event
-        self.supersession_events[supersession_event.event_id] = supersession_event
+        try:
+            # Determine which fact supersedes which
+            if resolution_strategy == ResolutionStrategy.NEWER_FACT:
+                superseded_id, superseding_id = self._resolve_by_newer_fact(contradiction)
+            elif resolution_strategy == ResolutionStrategy.HIGHER_CONFIDENCE:
+                superseded_id, superseding_id = self._resolve_by_higher_confidence(contradiction)
+            else:
+                # Default to newer fact
+                superseded_id, superseding_id = self._resolve_by_newer_fact(contradiction)
 
-        # Update superseded_by links
-        self.superseded_by[superseded_id] = superseding_id
+            # Create SUPERSESSION event
+            supersession_event = self._create_supersession_event(
+                superseded_id, superseding_id, resolution_strategy.value
+            )
 
-        return supersession_event
+            # Store supersession event
+            self.supersession_events[supersession_event.event_id] = supersession_event
+
+            # Update superseded_by links
+            self.superseded_by[superseded_id] = superseding_id
+
+            # Record success in monitoring
+            if monitor:
+                latency_ms = (time.time() - start_time) * 1000
+                monitor.record_latency(monitor.CONTRADICTION_RESOLUTION, latency_ms)
+                monitor.record_success(monitor.CONTRADICTION_RESOLUTION)
+
+            return supersession_event
+        except Exception as e:
+            logger.error(f"Error resolving contradiction: {e}")
+            if monitor:
+                monitor.record_error(monitor.CONTRADICTION_RESOLUTION, e)
+            raise
 
     def manual_resolution(
         self, superseded_fact_id: str, superseding_fact_id: str, reason: str

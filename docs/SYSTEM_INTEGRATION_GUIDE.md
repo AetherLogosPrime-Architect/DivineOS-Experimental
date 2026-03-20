@@ -368,6 +368,145 @@ is_valid = verifier.verify_event(event)
 # LEARNING - Learning cycle ran
 ```
 
+### Integration Point 5: Error Handling & Monitoring
+
+**Purpose**: Track performance, handle errors, enable observability
+
+**Components**:
+- `SystemMonitor` - Metrics collection
+- `ErrorHandler` - Error handling and retry logic
+- `RecoveryStrategy` - Recovery mechanisms
+
+**Integration Steps**:
+
+1. **Initialize monitoring**:
+```python
+from divineos.integration.system_monitor import get_system_monitor
+
+monitor = get_system_monitor()
+```
+
+2. **Record operation latencies**:
+```python
+import time
+
+start_time = time.time()
+
+# Execute operation
+result = engine.resolve_contradiction(contradiction)
+
+# Record latency
+latency_ms = (time.time() - start_time) * 1000
+monitor.record_latency(monitor.CONTRADICTION_RESOLUTION, latency_ms)
+```
+
+3. **Record success/error**:
+```python
+try:
+    result = operation()
+    monitor.record_success(monitor.CONTRADICTION_RESOLUTION)
+except Exception as e:
+    monitor.record_error(monitor.CONTRADICTION_RESOLUTION, str(e))
+    raise
+```
+
+4. **Get metrics**:
+```python
+# Get metrics for specific integration point
+metrics = monitor.get_metrics(monitor.CONTRADICTION_RESOLUTION)
+# Returns: {
+#     "success_count": 42,
+#     "error_count": 2,
+#     "avg_latency": 15.3,
+#     "max_latency": 45.2,
+#     "min_latency": 8.1,
+#     "error_rate": 4.5
+# }
+```
+
+5. **Get health status**:
+```python
+health = monitor.get_health_status()
+# Returns: {
+#     "status": "HEALTHY",
+#     "overall_error_rate": 2.1,
+#     "total_events": 1000,
+#     "total_errors": 21,
+#     "total_successes": 979,
+#     "uptime_seconds": 3600
+# }
+```
+
+6. **Get performance report**:
+```python
+report = monitor.get_performance_report()
+# Returns: {
+#     "timestamp": "2026-03-20T10:30:00Z",
+#     "integration_points": {...},
+#     "summary": {
+#         "total_latency_samples": 1000,
+#         "avg_latency_all": 15.2,
+#         "max_latency_all": 45.2,
+#         "points_exceeding_targets": [...]
+#     }
+# }
+```
+
+**Error Handling with Retry Logic**:
+```python
+from divineos.integration.error_handler import ErrorHandler
+
+# Wrap function with retry logic
+@ErrorHandler.with_retry(max_retries=3)
+def flaky_operation():
+    # Operation that might fail transiently
+    return execute_operation()
+
+# Execute with automatic retries
+result = flaky_operation()
+```
+
+**Circuit Breaker Pattern**:
+```python
+from divineos.integration.error_handler import RecoveryStrategy
+
+# Wrap function with circuit breaker
+wrapped = RecoveryStrategy.circuit_breaker(
+    func=failing_operation,
+    failure_threshold=5,
+    timeout=60.0
+)
+
+# Circuit opens after 5 failures, reopens after 60 seconds
+try:
+    result = wrapped()
+except FatalError:
+    print("Circuit breaker is open")
+```
+
+**Fallback Strategy**:
+```python
+from divineos.integration.error_handler import RecoveryStrategy
+
+# Wrap function with fallback
+wrapped = RecoveryStrategy.fallback_to_default(
+    func=operation,
+    default_value="default_result"
+)
+
+# Returns default value on error
+result = wrapped()
+```
+
+**Integration Point Latency Targets**:
+```python
+# Clarity Enforcement → Learning: 100ms
+# Contradiction → Resolution: 150ms
+# Memory → Learning: 50ms
+# Tool → Ledger: 200ms
+# Query → Fact: 75ms
+```
+
 ## Common Integration Patterns
 
 ### Pattern 1: Basic Agent Session
@@ -517,7 +656,56 @@ if contradiction:
     print(f"Current truth: {current.value}")  # "392"
 ```
 
-### Pattern 5: Pattern Recommendations
+### Pattern 6: Error Handling and Monitoring
+
+```python
+from divineos.integration.system_monitor import get_system_monitor
+from divineos.integration.error_handler import ErrorHandler
+import time
+
+monitor = get_system_monitor()
+
+# Pattern 1: Record operation with monitoring
+def execute_with_monitoring(operation_name, operation_func, integration_point):
+    start_time = time.time()
+    try:
+        result = operation_func()
+        latency_ms = (time.time() - start_time) * 1000
+        monitor.record_latency(integration_point, latency_ms)
+        monitor.record_success(integration_point)
+        return result
+    except Exception as e:
+        monitor.record_error(integration_point, str(e))
+        raise
+
+# Pattern 2: Retry with exponential backoff
+@ErrorHandler.with_retry(max_retries=3)
+def operation_with_retry():
+    # Operation that might fail transiently
+    return execute_operation()
+
+# Pattern 3: Circuit breaker for failing operations
+from divineos.integration.error_handler import RecoveryStrategy
+
+wrapped = RecoveryStrategy.circuit_breaker(
+    func=failing_operation,
+    failure_threshold=5,
+    timeout=60.0
+)
+
+# Pattern 4: Fallback to default
+wrapped = RecoveryStrategy.fallback_to_default(
+    func=operation,
+    default_value="default_result"
+)
+
+# Pattern 5: Get health status
+health = monitor.get_health_status()
+if health["status"] == "UNHEALTHY":
+    print("System is unhealthy, check metrics")
+    report = monitor.get_performance_report()
+    print(report)
+```
 
 ```python
 from divineos.agent_integration.pattern_recommender import PatternRecommender
@@ -726,6 +914,117 @@ event_id = monitor.end_session(
 )
 assert event_id is not None
 ```
+
+### Issue: High error rates in monitoring
+
+**Solution**: Check integration point health status and performance report.
+
+```python
+health = monitor.get_health_status()
+if health["overall_error_rate"] > 5:
+    report = monitor.get_performance_report()
+    print(f"Points exceeding targets: {report['summary']['points_exceeding_targets']}")
+```
+
+### Issue: Latencies exceeding targets
+
+**Solution**: Check performance report for slow integration points.
+
+```python
+report = monitor.get_performance_report()
+for point in report["summary"]["points_exceeding_targets"]:
+    print(f"{point['point']}: {point['avg_latency']}ms (target: {point['target']}ms)")
+```
+
+## Deployment Checklist
+
+### Pre-Deployment
+
+- [ ] All 5 integration points are implemented
+- [ ] Error handling is integrated into all integration points
+- [ ] Monitoring is recording metrics for all integration points
+- [ ] All tests pass (1500+ tests)
+- [ ] No regressions in existing functionality
+- [ ] Documentation is complete and up-to-date
+
+### Integration Point Verification
+
+- [ ] **Integration Point 1 (Clarity → Learning)**
+  - [ ] Violations are captured
+  - [ ] Patterns are stored
+  - [ ] Confidence is updated
+  - [ ] Monitoring records latencies
+
+- [ ] **Integration Point 2 (Contradiction → Resolution)**
+  - [ ] Contradictions are detected
+  - [ ] Resolutions are applied
+  - [ ] Supersession chains are tracked
+  - [ ] Monitoring records latencies
+
+- [ ] **Integration Point 3 (Memory → Learning)**
+  - [ ] Token usage is tracked
+  - [ ] Compression is triggered at 75%
+  - [ ] Learning cycle runs at session end
+  - [ ] Monitoring records latencies
+
+- [ ] **Integration Point 4 (Tool → Ledger)**
+  - [ ] All tool executions are captured
+  - [ ] Events are stored immutably
+  - [ ] SHA256 hashes are valid
+  - [ ] Monitoring records latencies
+
+- [ ] **Integration Point 5 (Query → Fact)**
+  - [ ] Current fact queries work
+  - [ ] Supersession chains are complete
+  - [ ] Query results are consistent
+  - [ ] Monitoring records latencies
+
+### Error Handling Verification
+
+- [ ] Retry logic works for transient errors
+- [ ] Circuit breaker opens after repeated failures
+- [ ] Fallback strategies return default values
+- [ ] Errors are logged with context
+- [ ] Error rates are tracked in monitoring
+
+### Monitoring Verification
+
+- [ ] Latencies are recorded for all integration points
+- [ ] Error rates are calculated correctly
+- [ ] Health status reflects system state
+- [ ] Performance report includes all metrics
+- [ ] Metrics can be exported in standard format
+
+### Performance Verification
+
+- [ ] Clarity enforcement latency < 100ms
+- [ ] Contradiction resolution latency < 150ms
+- [ ] Memory/learning latency < 50ms
+- [ ] Tool/ledger latency < 200ms
+- [ ] Query/fact latency < 75ms
+- [ ] Overall error rate < 5%
+
+### Production Readiness
+
+- [ ] Database is initialized and accessible
+- [ ] Ledger is storing events correctly
+- [ ] Session management is working
+- [ ] Memory monitor is tracking tokens
+- [ ] Learning cycle is running at session end
+- [ ] All components are properly initialized
+- [ ] Error handling is in place for all operations
+- [ ] Monitoring is collecting metrics
+- [ ] Health status is accessible
+- [ ] Performance report is available
+
+### Post-Deployment
+
+- [ ] Monitor error rates for first 24 hours
+- [ ] Check latencies are within targets
+- [ ] Verify learning cycle is running
+- [ ] Confirm no regressions
+- [ ] Review performance report
+- [ ] Adjust thresholds if needed
 
 ## See Also
 

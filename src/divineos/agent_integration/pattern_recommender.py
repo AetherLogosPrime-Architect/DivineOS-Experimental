@@ -222,6 +222,7 @@ class PatternRecommender:
             occurrences = chosen.get("occurrences", 0)
             successes = chosen.get("successes", 0)
             success_rate = chosen.get("success_rate", 0.0)
+            violation_count = chosen.get("violation_count", 0)
 
             # Get alternatives (top 2 after chosen)
             alternatives = []
@@ -243,6 +244,15 @@ class PatternRecommender:
             # Generate explanation
             explanation = self._generate_explanation(chosen, context, alternatives)
 
+            # Check for high-violation patterns and add warning
+            violation_warning = None
+            if violation_count > 5:
+                violation_warning = (
+                    f"⚠️  WARNING: This pattern has {violation_count} recorded violations. "
+                    f"Use with caution and monitor for clarity issues."
+                )
+                self.logger.warning(violation_warning)
+
             recommendation = {
                 "pattern_id": pattern_id,
                 "pattern_name": pattern_name,
@@ -251,16 +261,19 @@ class PatternRecommender:
                     "occurrences": occurrences,
                     "successes": successes,
                     "success_rate": success_rate,
+                    "violation_count": violation_count,
                 },
                 "preconditions_matched": chosen.get("preconditions", {}),
                 "alternatives_considered": alternatives,
                 "explanation": explanation,
                 "uncertainty_statement": self._generate_uncertainty_statement(confidence, chosen),
                 "failure_modes": self._generate_failure_modes(chosen),
+                "violation_warning": violation_warning,
             }
 
             self.logger.info(
-                f"Generated recommendation: {pattern_name} (confidence: {confidence:.2f})"
+                f"Generated recommendation: {pattern_name} (confidence: {confidence:.2f}, "
+                f"violations: {violation_count})"
             )
 
             return recommendation

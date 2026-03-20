@@ -37,6 +37,7 @@ class PatternStore:
         successes: int = 0,
         confidence: float = 0.0,
         source_events: Optional[list[str]] = None,
+        violation_count: int = 0,
     ) -> str:
         """Store a pattern to the ledger as an AGENT_PATTERN event.
 
@@ -49,6 +50,7 @@ class PatternStore:
             successes: Number of times succeeded
             confidence: Confidence score (-1.0 to 1.0)
             source_events: Event IDs that contributed to this pattern
+            violation_count: Number of violations recorded for this pattern
 
         Returns:
             Pattern ID (UUID)
@@ -68,6 +70,9 @@ class PatternStore:
         if successes > occurrences:
             raise ValueError("Successes cannot exceed occurrences")
 
+        if violation_count < 0:
+            raise ValueError("Violation count must be non-negative")
+
         pattern_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
 
@@ -84,6 +89,7 @@ class PatternStore:
             "successes": successes,
             "success_rate": success_rate,
             "confidence": confidence,
+            "violation_count": violation_count,
             "last_validated": now,
             "decay_rate": 0.05 if pattern_type == "tactical" else 0.0,
             "source_events": source_events or [],
@@ -108,6 +114,90 @@ class PatternStore:
         except Exception as e:
             self.logger.error(f"Failed to store pattern: {e}")
             raise
+
+    def record_violation(
+        self,
+        pattern_id: str,
+        tool_name: str,
+        context_type: str,
+        violation_type: str,
+        confidence: float,
+    ) -> str:
+        """Record a clarity violation for a pattern.
+
+        Called by LearningCycle when ClarityEnforcer detects a violation.
+        Creates or updates a violation pattern in the store.
+
+        Args:
+            pattern_id: ID for this violation pattern
+            tool_name: Name of the tool that violated clarity
+            context_type: Type of context (empty, minimal, present)
+            violation_type: Type of violation (UNEXPLAINED_TOOL, etc.)
+            confidence: Confidence of violation detection (0.0-1.0)
+
+        Returns:
+            Pattern ID
+        """
+        try:
+            # Check if pattern already exists
+            existing = self.get_pattern(pattern_id)
+
+            if existing:
+                # Update existing violation pattern
+                occurrences = existing.get("occurrences", 0) + 1
+                violation_count = existing.get("violation_count", 0) + 1
+
+                # Decrease confidence for violations
+                old_confidence = existing.get("confidence", 0.5)
+                new_confidence = self.decrease_confidence_for_violation(old_confidence)
+
+                self.logger.info(
+                    f"Updating violation pattern {pattern_id}: "
+                    f"occurrences={occurrences}, violation_count={violation_count}, confidence={new_confidence}"
+                )
+            else:
+                # Create new violation pattern
+                occurrences = 1
+                violation_count = 1
+                new_confidence = self.decrease_confidence_for_violation(confidence)
+
+                self.logger.info(f"Creating new violation pattern {pattern_id} for {tool_name}")
+
+            # Store the violation pattern
+            return self.store_pattern(
+                pattern_type="tactical",
+                name=f"Violation: {tool_name} ({context_type})",
+                description=f"{violation_type} violation detected for {tool_name} with {context_type} context",
+                preconditions={
+                    "tool_name": tool_name,
+                    "context_type": context_type,
+                    "violation_type": violation_type,
+                },
+                occurrences=occurrences,
+                successes=0,  # Violations never succeed
+                confidence=new_confidence,
+                source_events=[],
+                violation_count=violation_count,
+            )
+
+        except Exception as e:
+            self.logger.error(f"Failed to record violation: {e}")
+            raise
+
+    def decrease_confidence_for_violation(self, current_confidence: float) -> float:
+        """Decrease confidence score for a violation.
+
+        Reduces confidence by 0.10 for each violation, ensuring it never
+        goes below 0.0.
+
+        Args:
+            current_confidence: Current confidence score
+
+        Returns:
+            New confidence score (clamped to [0.0, 1.0])
+        """
+        new_confidence = max(0.0, current_confidence - 0.10)
+        return min(1.0, new_confidence)
 
     def get_pattern(self, pattern_id: str) -> Optional[dict[str, Any]]:
         """Retrieve a pattern from the ledger by ID.

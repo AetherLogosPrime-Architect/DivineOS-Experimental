@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Live probe: Test supersession system with 17×23 contradiction."""
 
-import sys
 from datetime import datetime
 from divineos.supersession.contradiction_detector import ContradictionDetector
 from divineos.supersession.resolution_engine import ResolutionEngine
@@ -55,7 +54,7 @@ print("\n3. Detecting Contradictions...")
 contradiction = detector.detect_contradiction(fact1, fact2)
 print(f"   Contradiction Detected: {contradiction is not None}")
 if contradiction:
-    print(f"\n   Contradiction Details:")
+    print("\n   Contradiction Details:")
     print(f"   - Severity: {contradiction.severity.value}")
     print(f"   - Fact 1: {contradiction.fact1_id}")
     print(f"   - Fact 2: {contradiction.fact2_id}")

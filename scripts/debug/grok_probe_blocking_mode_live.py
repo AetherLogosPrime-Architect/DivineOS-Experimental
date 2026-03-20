@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """Live probe: Test BLOCKING mode violation detection."""
 
-import sys
 import os
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
 from divineos.clarity_enforcement.violation_detector import ClarityViolation, ViolationSeverity
@@ -54,7 +53,7 @@ try:
         },
     )
     print(f"   Event ID: {event_id}")
-    print(f"   Event Type: CLARITY_VIOLATION")
+    print("   Event Type: CLARITY_VIOLATION")
     print(f"   Severity: {violation.severity.value}")
 except Exception as e:
     print(f"   Error: {e}")

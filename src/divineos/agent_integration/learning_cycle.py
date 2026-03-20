@@ -23,6 +23,14 @@ from divineos.agent_integration.pattern_store import PatternStore
 from divineos.agent_integration.learning_audit_store import LearningAuditStore
 from divineos.agent_integration.decision_store import DecisionStore
 
+# Import monitoring
+try:
+    from divineos.integration.system_monitor import get_system_monitor
+
+    HAS_MONITORING = True
+except ImportError:
+    HAS_MONITORING = False
+
 
 class LearningCycle:
     """Orchestrates the agent learning cycle.
@@ -65,6 +73,66 @@ class LearningCycle:
         self.pattern_store = PatternStore()
         self.audit_store = LearningAuditStore()
         self.decision_store = DecisionStore()
+
+    def capture_violation_event(self, violation_event: dict[str, Any]) -> None:
+        """Capture a clarity violation event and update pattern store.
+
+        Called by ClarityEnforcer when a violation is detected. Extracts the violation
+        pattern and stores it to the pattern store with violation metadata.
+
+        Args:
+            violation_event: Dictionary with keys:
+                - type: "CLARITY_VIOLATION"
+                - session_id: Session ID
+                - tool_name: Name of the tool that violated clarity
+                - tool_input: Input to the tool
+                - context: Context provided (may be empty, list, or string)
+                - violation_type: Type of violation (e.g., "UNEXPLAINED_TOOL")
+                - confidence: Confidence level of violation detection (0.0-1.0)
+                - timestamp: When violation occurred
+                - enforcement_mode: BLOCKING, LOGGING, or PERMISSIVE
+        """
+        try:
+            tool_name = violation_event.get("tool_name", "unknown")
+            context = violation_event.get("context", "")
+            violation_type = violation_event.get("violation_type", "unknown")
+            confidence = violation_event.get("confidence", 0.5)
+
+            # Handle context as list or string
+            if isinstance(context, list):
+                context_str = " ".join(context) if context else ""
+            else:
+                context_str = str(context) if context else ""
+
+            # Determine context type
+            if not context_str or context_str.strip() == "":
+                context_type = "empty"
+            elif len(context_str) < 50:
+                context_type = "minimal"
+            else:
+                context_type = "present"
+
+            # Create pattern ID from tool and context type
+            pattern_id = f"{tool_name}_{context_type}_{violation_type}"
+
+            self.logger.info(
+                f"Capturing violation: tool={tool_name}, context_type={context_type}, "
+                f"violation_type={violation_type}, confidence={confidence}"
+            )
+
+            # Update pattern store with violation
+            self.pattern_store.record_violation(
+                pattern_id=pattern_id,
+                tool_name=tool_name,
+                context_type=context_type,
+                violation_type=violation_type,
+                confidence=confidence,
+            )
+
+            self.logger.info(f"Violation pattern recorded: {pattern_id}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to capture violation event: {e}")
 
     def load_work_history(self) -> list[dict[str, Any]]:
         """Load AGENT_WORK events from the last 30 days.
@@ -463,6 +531,11 @@ class LearningCycle:
         Returns:
             Dictionary with results of the learning cycle
         """
+        import time
+
+        start_time = time.time()
+        monitor = get_system_monitor() if HAS_MONITORING else None
+
         try:
             self.logger.info(f"Starting learning cycle for session {session_id}")
 
@@ -514,7 +587,16 @@ class LearningCycle:
                 f"{len(archived_patterns)} archived, "
                 f"{len(conflicts)} conflicts detected"
             )
+
+            # Record success in monitoring
+            if monitor:
+                latency_ms = (time.time() - start_time) * 1000
+                monitor.record_latency(monitor.MEMORY_LEARNING, latency_ms)
+                monitor.record_success(monitor.MEMORY_LEARNING)
+
             return results
         except Exception as e:
             self.logger.error(f"Learning cycle failed: {e}")
+            if monitor:
+                monitor.record_error(monitor.MEMORY_LEARNING, e)
             raise

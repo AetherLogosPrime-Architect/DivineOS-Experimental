@@ -7,6 +7,7 @@ from loguru import logger
 from .violation_detector import ClarityViolation
 from .config import ClarityEnforcementMode
 from divineos.event.event_emission import emit_clarity_violation
+from divineos.agent_integration.learning_cycle import LearningCycle
 
 
 class ViolationLogger:
@@ -65,6 +66,26 @@ class ViolationLogger:
         )
 
         logger.debug(f"Emitted CLARITY_VIOLATION event: {event_id}")
+
+        # Capture violation in learning cycle
+        try:
+            learning_cycle = LearningCycle()
+            violation_event = {
+                "type": "CLARITY_VIOLATION",
+                "session_id": violation.session_id,
+                "tool_name": violation.tool_name,
+                "tool_input": violation.tool_input,
+                "context": violation.context,
+                "violation_type": "UNEXPLAINED_TOOL",
+                "confidence": 0.95,  # High confidence in violation detection
+                "timestamp": violation.timestamp,
+                "enforcement_mode": enforcement_mode.value,
+            }
+            learning_cycle.capture_violation_event(violation_event)
+            logger.debug(f"Captured violation in learning cycle for {violation.tool_name}")
+        except Exception as e:
+            logger.error(f"Failed to capture violation in learning cycle: {e}")
+
         return event_id
 
 
