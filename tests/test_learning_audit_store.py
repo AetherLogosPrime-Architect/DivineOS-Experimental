@@ -71,6 +71,8 @@ class TestStoreAudit:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -102,6 +104,8 @@ class TestStoreAudit:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -130,6 +134,8 @@ class TestStoreAudit:
             pattern_gaps=pattern_gaps,
             risky_assumptions=[],
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -160,6 +166,8 @@ class TestStoreAudit:
             pattern_gaps=[],
             risky_assumptions=risky_assumptions,
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -179,6 +187,8 @@ class TestStoreAudit:
             drift_detected=True,
             drift_reason="60% of patterns have confidence < 0.6",
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -198,6 +208,8 @@ class TestStoreAudit:
             risky_assumptions=[],
             drift_detected=False,
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -303,6 +315,8 @@ class TestStoreAudit:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -321,6 +335,8 @@ class TestStoreAudit:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -351,6 +367,8 @@ class TestStoreAudit:
             drift_detected=True,
             drift_reason="Test drift",
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         audit = store.get_latest_audit()
         assert audit is not None
@@ -374,6 +392,8 @@ class TestStoreAudit:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id is not None
+        assert isinstance(audit_id, str)
 
         # Check that AGENT_LEARNING_AUDIT event was logged
         events = get_events(event_type="AGENT_LEARNING_AUDIT", limit=100)
@@ -403,6 +423,8 @@ class TestGetLatestAudit:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id_1 is not None
+        assert isinstance(audit_id_1, str)
 
         # Store second audit
         audit_id_2 = store.store_audit(
@@ -412,6 +434,8 @@ class TestGetLatestAudit:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id_2 is not None
+        assert isinstance(audit_id_2, str)
 
         # Get latest should return the second audit
         latest = store.get_latest_audit()
@@ -651,6 +675,8 @@ class TestAuditIntegration:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id_1 is not None
+        assert isinstance(audit_id_1, str)
 
         # Store second audit
         session_id_2 = str(uuid.uuid4())
@@ -668,6 +694,8 @@ class TestAuditIntegration:
             pattern_gaps=[],
             risky_assumptions=[],
         )
+        assert audit_id_2 is not None
+        assert isinstance(audit_id_2, str)
 
         # Get latest should return second audit
         latest = store.get_latest_audit()

@@ -547,7 +547,7 @@ class TestRecordDecision:
         with patch.object(
             recommender.decision_store, "store_decision", return_value=decision_id
         ) as mock_store:
-            result = recommender.record_decision(session_id, task, recommendation, context)
+            recommender.record_decision(session_id, task, recommendation, context)
 
             # Verify that store_decision was called with alternatives
             mock_store.assert_called_once()

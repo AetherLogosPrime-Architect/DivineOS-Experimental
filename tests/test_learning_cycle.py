@@ -561,6 +561,8 @@ class TestRunFullCycle:
         # Run cycle
         session_id = str(uuid.uuid4())
         results = cycle.run(session_id)
+        assert results is not None
+        assert isinstance(results, dict)
 
         # Check that audit was stored
         latest_audit = audit_store.get_latest_audit()
