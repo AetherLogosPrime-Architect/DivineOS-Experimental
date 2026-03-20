@@ -5,7 +5,7 @@ These tests validate the same correctness properties as the property-based tests
 but without using hypothesis to avoid hanging issues.
 """
 
-from src.divineos.supersession import (
+from divineos.supersession import (
     ResolutionEngine,
     ResolutionStrategy,
     ContradictionDetector,
