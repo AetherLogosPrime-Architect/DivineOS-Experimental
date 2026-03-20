@@ -61,11 +61,3 @@ ignore = [
 python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-markers = [
-    "slow: marks tests as slow (property-based tests with hypothesis)",
-    "integration: marks tests as integration tests",
-]
-addopts = "-m 'not slow' -p no:asyncio"
