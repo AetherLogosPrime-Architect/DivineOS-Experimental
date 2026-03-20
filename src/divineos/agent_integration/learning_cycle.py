@@ -13,7 +13,7 @@ from its own work and improve future decisions.
 """
 
 import time
-from datetime import UTC, datetime
+from datetime import timezone, datetime
 from typing import Any
 
 from loguru import logger
@@ -504,7 +504,7 @@ class LearningCycle:
                 "conflicts_detected": len(conflicts),
                 "audit_id": audit_id,
                 "audit": audit,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             self.logger.info(

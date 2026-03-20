@@ -40,7 +40,7 @@ class TestRunLearningCycle:
         session_id = str(uuid.uuid4())
         monitor = AgentMemoryMonitor(session_id)
 
-        results = monitor.run_learning_cycle()
+        monitor.run_learning_cycle()
 
         # Check that audit was stored
         audit_store = LearningAuditStore()
@@ -508,7 +508,7 @@ class TestMemoryMonitorIntegration:
         )
 
         # Run learning cycle
-        results = monitor.run_learning_cycle()
+        monitor.run_learning_cycle()
 
         # Pattern confidence should have been updated
         updated_pattern = pattern_store.get_pattern(pattern_id)

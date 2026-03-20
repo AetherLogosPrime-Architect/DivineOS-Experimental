@@ -12,7 +12,7 @@ This module runs as part of DivineOS and automatically:
 This is NOT an IDE hook - it's part of the OS itself.
 """
 
-from datetime import UTC, datetime
+from datetime import timezone, datetime
 from typing import Any, Optional
 
 from loguru import logger
@@ -70,7 +70,7 @@ class AgentMemoryMonitor:
                 "session_id": self.session_id,
                 "previous_work": session_events,
                 "recent_context": recent,
-                "loaded_at": datetime.now(UTC).isoformat(),
+                "loaded_at": datetime.now(timezone.utc).isoformat(),
             }
 
             logger.info(f"Loaded session context: {len(session_events)} previous work items")
@@ -133,7 +133,7 @@ class AgentMemoryMonitor:
         remaining = self.TOTAL_BUDGET - current_tokens
         usage_percent = (current_tokens / self.TOTAL_BUDGET) * 100
 
-        status = {
+        status: dict[str, Any] = {
             "current_tokens": current_tokens,
             "remaining_tokens": remaining,
             "usage_percent": usage_percent,
@@ -191,7 +191,7 @@ class AgentMemoryMonitor:
                 "tests_passing": tests_passing,
                 "commit_hash": commit_hash,
                 "notes": notes,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "token_usage": self.current_tokens,
             }
 
@@ -225,7 +225,7 @@ class AgentMemoryMonitor:
                 "session_id": self.session_id,
                 "type": "context_compression",
                 "summary": summary,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "token_usage_at_compression": self.current_tokens,
             }
 
@@ -301,11 +301,20 @@ class AgentMemoryMonitor:
             # Generate recommendation
             recommendation = recommender.generate_recommendation(context)
 
-            logger.info(
-                f"Generated recommendation: {recommendation['pattern_name']} "
-                f"(confidence: {recommendation['confidence']})"
-            )
-            return recommendation
+            if recommendation:
+                logger.info(
+                    f"Generated recommendation: {recommendation['pattern_name']} "
+                    f"(confidence: {recommendation['confidence']})"
+                )
+                return recommendation
+            else:
+                logger.warning("No recommendation generated")
+                return {
+                    "pattern_id": "fallback",
+                    "pattern_name": "Generic Approach",
+                    "confidence": 0.3,
+                    "explanation": "No recommendation available",
+                }
         except Exception as e:
             logger.error(f"Failed to get recommendation: {e}")
             return {
@@ -361,7 +370,7 @@ class AgentMemoryMonitor:
                 "task": task,
                 "pattern_id": pattern_id,
                 "outcome": outcome,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             event_id = log_event(
@@ -400,7 +409,7 @@ class AgentMemoryMonitor:
                 "type": "session_end",
                 "summary": summary,
                 "final_status": final_status,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "final_token_usage": self.current_tokens,
                 "learning_cycle_results": cycle_results,
             }

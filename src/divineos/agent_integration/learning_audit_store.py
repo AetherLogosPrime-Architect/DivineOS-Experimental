@@ -8,7 +8,7 @@ events in the DivineOS ledger with SHA256 hashing for integrity.
 import hashlib
 import json
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from loguru import logger
@@ -77,7 +77,7 @@ class LearningAuditStore:
             raise ValueError("drift_reason is required when drift_detected is True")
 
         audit_id = str(uuid.uuid4())
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         payload = {
             "audit_id": audit_id,

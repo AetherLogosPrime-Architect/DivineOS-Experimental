@@ -5,7 +5,7 @@ including clarity statements, plans, execution data, deviations, lessons, and su
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -25,7 +25,7 @@ class ClarityStatement:
     """Pre-work clarity statement describing planned work."""
 
     id: UUID = field(default_factory=uuid4)
-    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     goal: str = ""
     approach: str = ""
     expected_outcome: str = ""
@@ -108,7 +108,7 @@ class Lesson:
     insight: str = ""
     confidence: float = 0.0
     source_session_id: UUID | None = None
-    created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 @dataclass
@@ -147,4 +147,4 @@ class PostWorkSummary:
     lessons_learned: list[Lesson] = field(default_factory=list)
     recommendations: list[Recommendation] = field(default_factory=list)
     metrics: ExecutionMetrics = field(default_factory=lambda: ExecutionMetrics(0, 0, 0, 0.0, 0.0))
-    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())

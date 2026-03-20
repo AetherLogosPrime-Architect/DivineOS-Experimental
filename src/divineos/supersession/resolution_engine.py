@@ -8,7 +8,7 @@ SUPERSESSION events to track the resolution.
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import hashlib
 import uuid
 
@@ -229,7 +229,7 @@ class ResolutionEngine:
             SupersessionEvent object
         """
         event_id = f"supersession_{uuid.uuid4().hex[:8]}"
-        timestamp = datetime.now(UTC).isoformat() + "Z"
+        timestamp = datetime.now(timezone.utc).isoformat() + "Z"
 
         # Create hash of the event
         event_data = f"{superseded_fact_id}_{superseding_fact_id}_{reason}_{timestamp}"

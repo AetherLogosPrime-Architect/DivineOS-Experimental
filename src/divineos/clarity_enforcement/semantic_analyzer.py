@@ -4,7 +4,7 @@ Analyzes the relationship between tool names and context to determine
 if a tool call is semantically explained by the surrounding context.
 """
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Any
 from enum import Enum
 
 
@@ -231,7 +231,7 @@ class SemanticAnalyzer:
         self,
         tool_name: str,
         context: List[str],
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """Get detailed explanation of semantic analysis.
 
         Args:

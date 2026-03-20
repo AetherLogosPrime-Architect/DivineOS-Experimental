@@ -8,7 +8,7 @@ contradiction, and capture full context for resolution.
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Optional
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 
 class ContradictionSeverity(Enum):
@@ -91,7 +91,7 @@ class ContradictionDetector:
         severity = self.classify_severity(fact1, fact2)
 
         # Create contradiction
-        timestamp = datetime.now(UTC).isoformat() + "Z"
+        timestamp = datetime.now(timezone.utc).isoformat() + "Z"
         contradiction = Contradiction(
             fact1_id=fact1_id,
             fact2_id=fact2_id,

@@ -8,7 +8,7 @@ in the DivineOS ledger with SHA256 hashing for integrity.
 import hashlib
 import json
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from loguru import logger
@@ -69,7 +69,7 @@ class PatternStore:
             raise ValueError("Successes cannot exceed occurrences")
 
         pattern_id = str(uuid.uuid4())
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         # Calculate success rate
         success_rate = successes / occurrences if occurrences > 0 else 0.0
@@ -226,7 +226,7 @@ class PatternStore:
 
             # Update pattern
             pattern["confidence"] = new_confidence
-            pattern["updated_at"] = datetime.now(UTC).isoformat()
+            pattern["updated_at"] = datetime.now(timezone.utc).isoformat()
 
             # Track source event if provided
             if source_event_id:
@@ -259,7 +259,7 @@ class PatternStore:
                     "delta": delta,
                     "reason": reason,
                     "source_event_id": source_event_id,
-                    "timestamp": datetime.now(UTC).isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 },
                 validate=False,
             )

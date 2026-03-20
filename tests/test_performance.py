@@ -205,7 +205,7 @@ class TestClarityEnforcementPerformance:
                 log_violations=True,
                 emit_events=True,
             )
-            enforcer = ClarityEnforcer(config)
+            ClarityEnforcer(config)
         elapsed = time.perf_counter() - start
 
         # Should initialize 100 enforcers in < 100ms
@@ -239,7 +239,7 @@ class TestContradictionDetectionPerformance:
 
         start = time.perf_counter()
         for _ in range(100):
-            contradiction = self.detector.detect_contradiction(fact_1, fact_2)
+            self.detector.detect_contradiction(fact_1, fact_2)
         elapsed = time.perf_counter() - start
 
         # Should detect 100 contradictions in < 100ms

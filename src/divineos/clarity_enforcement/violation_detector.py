@@ -6,7 +6,7 @@ Detects unexplained tool calls and determines violation severity.
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from loguru import logger
 
 from divineos.clarity_enforcement.semantic_analyzer import SemanticAnalyzer
@@ -28,7 +28,7 @@ class ClarityViolation:
     tool_input: Dict[str, Any]
     severity: ViolationSeverity
     context: List[str] = field(default_factory=list)  # Preceding messages
-    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     session_id: str = ""
     user_role: str = "user"
     agent_name: str = "agent"

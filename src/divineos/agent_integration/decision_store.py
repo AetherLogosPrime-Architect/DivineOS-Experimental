@@ -8,7 +8,7 @@ ledger with SHA256 hashing for integrity.
 import hashlib
 import json
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from loguru import logger
@@ -122,7 +122,7 @@ class DecisionStore:
                 raise ValueError("outcome.rework_needed must be a bool")
 
         decision_id = str(uuid.uuid4())
-        now = datetime.now(UTC).isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         payload = {
             "decision_id": decision_id,
