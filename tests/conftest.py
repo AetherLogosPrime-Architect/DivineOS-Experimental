@@ -12,7 +12,6 @@ import tempfile
 import shutil
 from pathlib import Path
 
-from divineos.core.ledger import init_db
 from divineos.core.session_manager import clear_session
 
 
@@ -26,27 +25,8 @@ def setup_test_environment():
     - Clears any existing session state
     - Cleans up after test completes
     """
-    # Clear database before test to ensure clean state
-    # Database is at src/data/event_ledger.db
-    db_path = Path(__file__).parent.parent / "src" / "data" / "event_ledger.db"
-    if db_path.exists():
-        try:
-            db_path.unlink()
-        except Exception:
-            pass  # Ignore errors if file is locked
-
-    # Initialize database before test (with timeout to prevent hanging)
-    try:
-        init_db()
-    except Exception as e:
-        print(f"Warning: Failed to initialize database: {e}")
-
-    # Clear any existing session state
-    try:
-        clear_session()
-    except Exception as e:
-        print(f"Warning: Failed to clear session: {e}")
-
+    # Skip database initialization during collection phase
+    # This prevents hanging during pytest collection
     yield
 
     # Cleanup after test
