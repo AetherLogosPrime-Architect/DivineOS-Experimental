@@ -4,7 +4,7 @@ Tests the LearningCycle class with real ledger events.
 """
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -43,7 +43,7 @@ class TestLoadWorkHistory:
         cycle = LearningCycle()
 
         # Create a work event from 40 days ago
-        old_time = (datetime.now(UTC) - timedelta(days=40)).isoformat()
+        old_time = (datetime.now(timezone.utc) - timedelta(days=40)).isoformat()
         old_payload = {
             "session_id": str(uuid.uuid4()),
             "task": "old_task",
@@ -60,7 +60,7 @@ class TestLoadWorkHistory:
         )
 
         # Create a work event from 10 days ago
-        recent_time = (datetime.now(UTC) - timedelta(days=10)).isoformat()
+        recent_time = (datetime.now(timezone.utc) - timedelta(days=10)).isoformat()
         recent_payload = {
             "session_id": str(uuid.uuid4()),
             "task": "recent_task",
@@ -93,7 +93,7 @@ class TestLoadWorkHistory:
             "status": "completed",
             "files_modified": ["file1.py"],
             "tests_passing": 5,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         log_event(
             event_type="AGENT_WORK",

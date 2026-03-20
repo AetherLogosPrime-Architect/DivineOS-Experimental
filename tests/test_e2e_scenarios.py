@@ -14,7 +14,7 @@ Property 9: End-to-end scenario correctness
 """
 
 import pytest
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from hypothesis import given, strategies as st, settings, HealthCheck
 
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
@@ -112,7 +112,7 @@ class TestEndToEndScenarios:
         fact_1 = {
             "id": "fact-1",
             "content": "Database uses PostgreSQL",
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "confidence": 0.95,
         }
         self.ledger.store_fact(fact_1)
@@ -121,7 +121,7 @@ class TestEndToEndScenarios:
         fact_2 = {
             "id": "fact-2",
             "content": "Database uses MySQL",
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "confidence": 0.90,
         }
         self.ledger.store_fact(fact_2)
@@ -281,14 +281,14 @@ class TestContradictionResolutionScenarios:
         fact_1 = {
             "id": "fact-1",
             "content": "API returns JSON",
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "confidence": 0.95,
         }
 
         fact_2 = {
             "id": "fact-2",
             "content": "API returns XML",
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "confidence": 0.90,
         }
 

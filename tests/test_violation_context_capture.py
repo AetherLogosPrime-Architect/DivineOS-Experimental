@@ -8,7 +8,7 @@ Validates that violations capture all required context:
 - Proper formatting and serialization
 """
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from divineos.clarity_enforcement.violation_detector import (
     ViolationDetector,
     ClarityViolation,
@@ -103,7 +103,7 @@ class TestViolationContextCapture:
     def test_capture_timestamp_iso_format(self):
         """Test that timestamp is captured in ISO format."""
         detector = ViolationDetector()
-        before = datetime.now(UTC).isoformat()
+        before = datetime.now(timezone.utc).isoformat()
 
         violation = detector.detect_violation(
             tool_name="deleteFile",
@@ -112,7 +112,7 @@ class TestViolationContextCapture:
             session_id="session-123",
         )
 
-        after = datetime.now(UTC).isoformat()
+        after = datetime.now(timezone.utc).isoformat()
 
         assert violation is not None
         # Timestamp should be in ISO format (YYYY-MM-DDTHH:MM:SS.ffffff)

@@ -9,7 +9,7 @@ Tests cover Task 4 subtasks:
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
@@ -476,7 +476,7 @@ class TestMemoryMonitorIntegration:
             "status": "completed",
             "files_modified": ["file.py"],
             "tests_passing": 5,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         log_event(
             event_type="AGENT_WORK",

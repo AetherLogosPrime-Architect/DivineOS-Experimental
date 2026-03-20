@@ -13,7 +13,7 @@ Tests cover Task 5 subtasks:
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 
 from divineos.agent_integration.pattern_store import PatternStore
@@ -160,7 +160,7 @@ class TestCP3OutcomeTracking:
             "status": "completed",
             "files_modified": ["file.py"],
             "tests_passing": 5,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         log_event(
             event_type="AGENT_WORK",
@@ -221,7 +221,7 @@ class TestCP3OutcomeTracking:
             "status": "failed",
             "files_modified": ["file.py"],
             "tests_passing": 0,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         log_event(
             event_type="AGENT_WORK",
@@ -291,7 +291,7 @@ class TestCP3OutcomeTracking:
             "status": "completed",
             "files_modified": ["file.py"],
             "tests_passing": 5,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         log_event(
             event_type="AGENT_WORK",
@@ -329,7 +329,7 @@ class TestCP3OutcomeTracking:
             "status": "completed",
             "files_modified": ["file.py"],
             "tests_passing": 5,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         log_event(
             event_type="AGENT_WORK",
@@ -396,7 +396,7 @@ class TestCP4NoCircularReasoning:
             "status": "completed",
             "files_modified": ["file.py"],
             "tests_passing": 5,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         log_event(
             event_type="AGENT_WORK",
@@ -701,7 +701,7 @@ class TestEdgeCases:
                 "status": "failed",
                 "files_modified": ["file.py"],
                 "tests_passing": 0,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             log_event(
                 event_type="AGENT_WORK",
@@ -771,7 +771,7 @@ class TestIntegrationScenarios:
                 "status": "completed",
                 "files_modified": ["file.py"],
                 "tests_passing": 5,
-                "timestamp": datetime.now(UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             log_event(
                 event_type="AGENT_WORK",

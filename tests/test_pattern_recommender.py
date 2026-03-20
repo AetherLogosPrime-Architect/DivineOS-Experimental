@@ -10,7 +10,7 @@ Tests cover all subtasks:
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import patch
 
@@ -57,7 +57,7 @@ class TestLoadHumilityAudit:
         audit = {
             "audit_id": str(uuid.uuid4()),
             "session_id": str(uuid.uuid4()),
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "low_confidence_patterns": [
                 {
                     "pattern_id": str(uuid.uuid4()),
@@ -87,7 +87,7 @@ class TestLoadHumilityAudit:
         audit = {
             "audit_id": str(uuid.uuid4()),
             "session_id": str(uuid.uuid4()),
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "low_confidence_patterns": [],
             "untested_patterns": [],
             "pattern_gaps": [],
@@ -109,7 +109,7 @@ class TestLoadHumilityAudit:
         audit = {
             "audit_id": str(uuid.uuid4()),
             "session_id": str(uuid.uuid4()),
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "low_confidence_patterns": [
                 {
                     "pattern_id": str(uuid.uuid4()),
