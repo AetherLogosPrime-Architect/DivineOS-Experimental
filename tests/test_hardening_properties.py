@@ -14,25 +14,7 @@ Tests formal correctness properties of the hardened system:
 import pytest
 import uuid
 
-try:
-    from hypothesis import given, strategies as st, settings, HealthCheck
-
-    HAS_HYPOTHESIS = True
-except ImportError:
-    HAS_HYPOTHESIS = False
-
-    # Provide dummy decorators for when hypothesis is not installed
-    def given(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
-
-    def settings(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
+from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
 
 
 from divineos.core.ledger import get_events, verify_event_hash

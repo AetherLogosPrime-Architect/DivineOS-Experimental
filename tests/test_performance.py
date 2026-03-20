@@ -17,25 +17,7 @@ import pytest
 import time
 from datetime import datetime, timezone
 
-try:
-    from hypothesis import given, strategies as st, settings, HealthCheck
-
-    HAS_HYPOTHESIS = True
-except ImportError:
-    HAS_HYPOTHESIS = False
-
-    # Provide dummy decorators for when hypothesis is not installed
-    def given(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
-
-    def settings(*args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
+from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
 
 
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
