@@ -14,13 +14,13 @@ Property 3: Supersession chain consistency
   SHALL be transitive (if A→B and B→C, then A→C).
 """
 
-from src.divineos.supersession.contradiction_detector import (
+from divineos.supersession.contradiction_detector import (
     ContradictionDetector,
     ContradictionSeverity,
 )
-from src.divineos.supersession.resolution_engine import ResolutionEngine
-from src.divineos.supersession.query_interface import QueryInterface
-from src.divineos.core.ledger import get_ledger
+from divineos.supersession.resolution_engine import ResolutionEngine
+from divineos.supersession.query_interface import QueryInterface
+from divineos.core.ledger import get_ledger
 
 
 class TestContradictionDetectionResolution:

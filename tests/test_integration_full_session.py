@@ -15,13 +15,13 @@ Property 5: Full session integration
 import pytest
 from datetime import datetime
 
-from src.divineos.clarity_enforcement.enforcer import ClarityEnforcer, ClarityViolationException
-from src.divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
-from src.divineos.agent_integration.learning_loop import analyze_session_for_lessons
-from src.divineos.agent_integration.memory_monitor import get_memory_monitor
-from src.divineos.core.ledger import get_ledger
-from src.divineos.supersession.contradiction_detector import ContradictionDetector
-from src.divineos.supersession.resolution_engine import ResolutionEngine
+from divineos.clarity_enforcement.enforcer import ClarityEnforcer, ClarityViolationException
+from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+from divineos.agent_integration.learning_loop import analyze_session_for_lessons
+from divineos.agent_integration.memory_monitor import get_memory_monitor
+from divineos.core.ledger import get_ledger
+from divineos.supersession.contradiction_detector import ContradictionDetector
+from divineos.supersession.resolution_engine import ResolutionEngine
 
 
 class TestFullSessionIntegration:

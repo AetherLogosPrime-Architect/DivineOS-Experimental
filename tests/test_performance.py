@@ -18,12 +18,12 @@ import time
 from datetime import datetime, UTC
 from hypothesis import given, strategies as st, settings, HealthCheck
 
-from src.divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
-from src.divineos.clarity_enforcement.enforcer import ClarityEnforcer
-from src.divineos.core.ledger import Ledger
-from src.divineos.core.session_manager import initialize_session, end_session as end_session_manager
-from src.divineos.agent_integration.memory_monitor import get_memory_monitor
-from src.divineos.supersession.contradiction_detector import ContradictionDetector
+from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+from divineos.clarity_enforcement.enforcer import ClarityEnforcer
+from divineos.core.ledger import Ledger
+from divineos.core.session_manager import initialize_session, end_session as end_session_manager
+from divineos.agent_integration.memory_monitor import get_memory_monitor
+from divineos.supersession.contradiction_detector import ContradictionDetector
 
 
 class TestToolCallLatency:

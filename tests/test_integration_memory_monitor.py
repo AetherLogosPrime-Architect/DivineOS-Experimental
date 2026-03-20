@@ -8,7 +8,7 @@ Property 4: Token budget enforcement
   the memory monitor SHALL trigger context compression and reduce token usage.
 """
 
-from src.divineos.agent_integration.memory_monitor import (
+from divineos.agent_integration.memory_monitor import (
     get_memory_monitor,
 )
 

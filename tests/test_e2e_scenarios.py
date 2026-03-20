@@ -17,12 +17,12 @@ import pytest
 from datetime import datetime, UTC
 from hypothesis import given, strategies as st, settings, HealthCheck
 
-from src.divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
-from src.divineos.clarity_enforcement.enforcer import ClarityEnforcer
-from src.divineos.core.ledger import Ledger
-from src.divineos.core.session_manager import initialize_session, end_session
-from src.divineos.agent_integration.memory_monitor import AgentMemoryMonitor
-from src.divineos.supersession.contradiction_detector import ContradictionDetector
+from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+from divineos.clarity_enforcement.enforcer import ClarityEnforcer
+from divineos.core.ledger import Ledger
+from divineos.core.session_manager import initialize_session, end_session
+from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
+from divineos.supersession.contradiction_detector import ContradictionDetector
 
 
 class TestEndToEndScenarios:
