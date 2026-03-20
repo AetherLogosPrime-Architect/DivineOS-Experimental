@@ -4,7 +4,8 @@ This module integrates the supersession system with the DivineOS ledger,
 allowing facts and SUPERSESSION events to be stored and queried.
 """
 
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
 from loguru import logger
 
 
@@ -15,7 +16,7 @@ class LedgerIntegration:
         """Initialize ledger integration.
 
         Args:
-            ledger: Optional ledger instance. If None, will be loaded on demand.
+            ledger: Optional Ledger instance. If None, will be loaded on demand.
         """
         self._ledger: Optional[Any] = ledger
 
@@ -25,17 +26,10 @@ class LedgerIntegration:
 
         Returns:
             Ledger instance or None if not available.
-
-        Note:
-            ARCHITECTURAL ISSUE: The ledger module provides module-level functions,
-            not a class-based API. This property attempts to load a get_ledger()
-            function that doesn't exist. In practice, this always returns None and
-            ledger operations are skipped. This is a known limitation that requires
-            architectural redesign to fix properly.
         """
         if self._ledger is None:
             try:
-                from divineos.core.ledger import get_ledger  # type: ignore
+                from divineos.core.ledger import get_ledger
 
                 self._ledger = get_ledger()
             except ImportError as e:
@@ -51,10 +45,6 @@ class LedgerIntegration:
 
         Returns:
             Fact ID or None if missing
-
-        Note:
-            The ledger module doesn't provide a store_fact() method.
-            This method returns the fact_id but doesn't actually store it.
         """
         fact_id: Optional[str] = fact.get("id")
 
@@ -67,9 +57,8 @@ class LedgerIntegration:
             return fact_id
 
         try:
-            # Store in ledger - NOTE: ledger module doesn't have store_fact()
-            # This will raise AttributeError if ledger is not None
-            self.ledger.store_fact(fact)  # type: ignore
+            # Store in ledger
+            self.ledger.store_fact(fact)
             logger.debug(f"Stored fact {fact_id} in ledger")
             return fact_id
         except Exception as e:
@@ -84,10 +73,6 @@ class LedgerIntegration:
 
         Returns:
             Event ID or None if missing
-
-        Note:
-            The ledger module doesn't provide a store_event() method.
-            This method returns the event_id but doesn't actually store it.
         """
         event_id: Optional[str] = event.get("event_id")
 
@@ -100,9 +85,8 @@ class LedgerIntegration:
             return event_id
 
         try:
-            # Store in ledger - NOTE: ledger module doesn't have store_event()
-            # This will raise AttributeError if ledger is not None
-            self.ledger.store_event(event)  # type: ignore
+            # Store in ledger
+            self.ledger.store_event(event)
             logger.debug(f"Stored SUPERSESSION event {event_id} in ledger")
             return event_id
         except Exception as e:
@@ -156,12 +140,9 @@ class LedgerIntegration:
 
         try:
             # Query ledger for SUPERSESSION events
-            events = self.ledger.query_events(
-                event_type="SUPERSESSION",
-                filters={
-                    "superseded_fact_id": superseded_fact_id,
-                    "superseding_fact_id": superseding_fact_id,
-                },
+            events = self.ledger.query_supersession_events(
+                superseded_fact_id=superseded_fact_id,
+                superseding_fact_id=superseding_fact_id,
             )
             logger.debug(f"Queried {len(events)} SUPERSESSION events from ledger")
             return events if isinstance(events, list) else []
@@ -185,8 +166,13 @@ class LedgerIntegration:
             return
 
         try:
-            # Update in ledger
-            self.ledger.update_fact(fact_id, {"superseded_by": superseding_fact_id})
+            # Update in ledger by storing a new event
+            self.ledger.log_event(
+                "FACT_SUPERSEDED",
+                "supersession",
+                {"fact_id": fact_id, "superseded_by": superseding_fact_id},
+                validate=False,
+            )
             logger.debug(f"Updated fact {fact_id} superseded_by link in ledger")
         except Exception as e:
             logger.error(f"Failed to update fact {fact_id} superseded_by link: {e}")
@@ -206,10 +192,14 @@ class LedgerIntegration:
             return None
 
         try:
-            # Get from ledger
-            fact = self.ledger.get_fact(fact_id)
-            logger.debug(f"Retrieved fact {fact_id} from ledger")
-            return fact  # type: ignore
+            # Query ledger for facts with this ID
+            facts: List[Dict[str, Any]] = self.ledger.query_facts()
+            for fact in facts:
+                if fact.get("id") == fact_id:
+                    logger.debug(f"Retrieved fact {fact_id} from ledger")
+                    return fact
+            logger.debug(f"Fact {fact_id} not found in ledger")
+            return None
         except Exception as e:
             logger.error(f"Failed to get fact {fact_id} from ledger: {e}")
             return None
