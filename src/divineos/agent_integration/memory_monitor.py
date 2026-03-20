@@ -45,8 +45,8 @@ class AgentMemoryMonitor:
 
         logger.info(f"AgentMemoryMonitor initialized for session: {session_id}")
 
-        # Automatically load previous context on initialization
-        self._auto_load_context()
+        # DO NOT auto-load context on initialization - this causes infinite loops
+        # Context must be loaded explicitly via load_session_context() when needed
 
     def load_session_context(self) -> dict[str, Any]:
         """Load work context from ledger for this session.

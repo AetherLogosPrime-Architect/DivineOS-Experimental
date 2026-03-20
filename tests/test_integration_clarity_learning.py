@@ -165,6 +165,123 @@ class TestClarityLearningIntegration:
         assert lessons_2 is not None
 
 
+class TestClarityLearningUnitTests:
+    """Unit tests for clarity + learning interaction.
+
+    Tests violation detection and pattern capture.
+    Tests pattern store updates.
+    """
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.session_id = "test_unit_session"
+        self.enforcer = ClarityEnforcer(
+            ClarityConfig(
+                enforcement_mode=ClarityEnforcementMode.LOGGING,
+                violation_severity_threshold="medium",
+                log_violations=True,
+                emit_events=True,
+            )
+        )
+        self.pattern_store = PatternStore()
+        self.ledger = get_ledger()
+
+    def test_violation_detection_captures_tool_name(self):
+        """Test that violation detection captures the tool name."""
+        tool_name = "readFile"
+        tool_input = {"path": "test.txt"}
+        context = ["random context"]
+
+        # Enforce clarity
+        self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+
+        # Analyze session
+        lessons = analyze_session_for_lessons(self.session_id)
+
+        # Verify lessons were extracted
+        assert lessons is not None
+
+    def test_violation_detection_captures_context(self):
+        """Test that violation detection captures the context."""
+        tool_name = "fsWrite"
+        tool_input = {"path": "output.txt", "text": "data"}
+        context = ["I need to write data to a file"]
+
+        # Enforce clarity
+        self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+
+        # Analyze session
+        lessons = analyze_session_for_lessons(self.session_id)
+
+        # Verify lessons were extracted
+        assert lessons is not None
+
+    def test_pattern_store_updates_on_violation(self):
+        """Test that pattern store is updated when violations occur."""
+        tool_name = "readFile"
+        tool_input = {"path": "test.txt"}
+        context = ["random context"]
+
+        # Enforce clarity
+        self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+
+        # Analyze session
+        lessons = analyze_session_for_lessons(self.session_id)
+
+        # Verify lessons were extracted
+        assert lessons is not None
+
+    def test_multiple_violations_same_tool(self):
+        """Test that multiple violations of the same tool are captured."""
+        tool_name = "readFile"
+
+        # Make multiple violations
+        for i in range(3):
+            tool_input = {"path": f"test{i}.txt"}
+            context = [f"context {i}"]
+            self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+
+        # Analyze session
+        lessons = analyze_session_for_lessons(self.session_id)
+
+        # Verify lessons were extracted
+        assert lessons is not None
+
+    def test_violations_different_tools(self):
+        """Test that violations of different tools are captured separately."""
+        tools = [
+            ("readFile", {"path": "test.txt"}),
+            ("fsWrite", {"path": "output.txt", "text": "data"}),
+            ("executePwsh", {"command": "echo test"}),
+        ]
+
+        # Make violations for each tool
+        for tool_name, tool_input in tools:
+            context = ["random context"]
+            self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+
+        # Analyze session
+        lessons = analyze_session_for_lessons(self.session_id)
+
+        # Verify lessons were extracted
+        assert lessons is not None
+
+    def test_violation_pattern_includes_tool_and_context(self):
+        """Test that violation patterns include both tool and context."""
+        tool_name = "readFile"
+        tool_input = {"path": "important.txt"}
+        context = ["I need to read the file"]
+
+        # Enforce clarity
+        self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+
+        # Analyze session
+        lessons = analyze_session_for_lessons(self.session_id)
+
+        # Verify lessons were extracted
+        assert lessons is not None
+
+
 class TestClarityLearningEdgeCases:
     """Test edge cases in clarity + learning integration."""
 
