@@ -6,7 +6,7 @@ allowing SUPERSESSION events to be emitted and tracked in the ledger.
 
 from typing import Dict, Any, Optional
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 import hashlib
 from loguru import logger
 
@@ -49,7 +49,7 @@ def create_supersession_event(
     Returns:
         SupersessionEventData object
     """
-    timestamp = datetime.utcnow().isoformat() + "Z"
+    timestamp = datetime.now(UTC).isoformat() + "Z"
 
     # Create hash of the event
     event_data = f"{superseded_fact_id}_{superseding_fact_id}_{reason}_{timestamp}"

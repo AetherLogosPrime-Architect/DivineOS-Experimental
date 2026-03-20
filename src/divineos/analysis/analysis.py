@@ -172,17 +172,21 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     from divineos.core.session_manager import get_session_tracker
 
     # Get current session ID for session isolation
-    # Priority: database query (actual user/tool events) > file (current session) > session tracker (fallback)
+    # Priority: database query (actual user/tool events) > file (current session)
+    # > session tracker (fallback)
     current_session_id = None
 
-    # First, query database for most recent USER_INPUT or TOOL_CALL event (actual work events)
-    # Skip analysis/report events which are metadata, not actual session work
+    # First, query database for most recent USER_INPUT or TOOL_CALL event
+    # (actual work events). Skip analysis/report events which are metadata,
+    # not actual session work
     from divineos.core.ledger import _get_connection
 
     conn = _get_connection()
     try:
         cursor = conn.execute(
-            "SELECT payload FROM system_events WHERE event_type IN ('USER_INPUT', 'TOOL_CALL', 'TOOL_RESULT') ORDER BY timestamp DESC LIMIT 1",
+            "SELECT payload FROM system_events WHERE event_type IN "
+            "('USER_INPUT', 'TOOL_CALL', 'TOOL_RESULT') "
+            "ORDER BY timestamp DESC LIMIT 1",
         )
         row = cursor.fetchone()
         if row:
@@ -224,7 +228,8 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
         logger.warning(f"Excluded {len(corrupted_events)} corrupted events from analysis")
         for corrupted in corrupted_events:
             logger.debug(
-                f"Corrupted event {corrupted['event_id']}: {corrupted.get('corruption_reason', 'unknown')}",
+                f"Corrupted event {corrupted['event_id']}: "
+                f"{corrupted.get('corruption_reason', 'unknown')}",
             )
 
     if not verified_events:
@@ -345,7 +350,9 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
 
         # Store session_report
         cursor.execute(
-            "INSERT OR REPLACE INTO session_report (session_id, created_at, report_text, evidence_hash) VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO session_report "
+            "(session_id, created_at, report_text, evidence_hash) "
+            "VALUES (?, ?, ?, ?)",
             (result.session_id, current_time, report_text, result.evidence_hash),
         )
 
@@ -371,7 +378,9 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
                 )
 
                 cursor.execute(
-                    "INSERT INTO check_result (session_id, check_name, passed, score, evidence_hash, summary, raw_evidence) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO check_result "
+                    "(session_id, check_name, passed, score, evidence_hash, "
+                    "summary, raw_evidence) VALUES (?, ?, ?, ?, ?, ?, ?)",
                     (
                         result.session_id,
                         check_name,
@@ -394,7 +403,9 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
 
         feature_result_id = str(uuid.uuid4())
         cursor.execute(
-            "INSERT INTO feature_result (result_id, session_id, feature_name, data_json, evidence_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO feature_result "
+            "(result_id, session_id, feature_name, data_json, "
+            "evidence_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (
                 feature_result_id,
                 result.session_id,
@@ -579,7 +590,8 @@ def format_analysis_report(result: AnalysisResult) -> str:
             activity = result.features.activity
             if hasattr(activity, "total_text_blocks"):
                 lines.append(
-                    f"Activity: {activity.total_text_blocks} explanations, {activity.total_tool_calls} actions",
+                    f"Activity: {activity.total_text_blocks} explanations, "
+                    f"{activity.total_tool_calls} actions",
                 )
 
     lines.append("")

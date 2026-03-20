@@ -6,8 +6,10 @@ Detects unexplained tool calls and determines violation severity.
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, UTC
 from loguru import logger
+
+from divineos.clarity_enforcement.semantic_analyzer import SemanticAnalyzer
 
 
 class ViolationSeverity(Enum):
@@ -26,10 +28,12 @@ class ClarityViolation:
     tool_input: Dict[str, Any]
     severity: ViolationSeverity
     context: List[str] = field(default_factory=list)  # Preceding messages
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     session_id: str = ""
     user_role: str = "user"
     agent_name: str = "agent"
+    confidence_score: float = 0.0  # Semantic confidence (0.0-1.0)
+    semantic_reasoning: str = ""  # Explanation from semantic analysis
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert violation to dictionary.
@@ -46,6 +50,8 @@ class ClarityViolation:
             "session_id": self.session_id,
             "user_role": self.user_role,
             "agent_name": self.agent_name,
+            "confidence_score": self.confidence_score,
+            "semantic_reasoning": self.semantic_reasoning,
         }
 
 
@@ -77,6 +83,10 @@ class ViolationDetector:
         "smartRelocate",
     }
 
+    def __init__(self):
+        """Initialize violation detector with semantic analyzer."""
+        self.semantic_analyzer = SemanticAnalyzer()
+
     def detect_violation(
         self,
         tool_name: str,
@@ -87,6 +97,9 @@ class ViolationDetector:
         agent_name: str = "agent",
     ) -> Optional[ClarityViolation]:
         """Detect if a tool call is unexplained.
+
+        Uses both simple heuristics and semantic analysis to determine
+        if a tool call is explained by the surrounding context.
 
         Args:
             tool_name: Name of the tool being called
@@ -99,15 +112,28 @@ class ViolationDetector:
         Returns:
             ClarityViolation if unexplained, None if explained
         """
-        # Check if tool call is explained in context
+        # Check simple heuristics first
         if self._is_explained(tool_name, context):
-            logger.debug(f"Tool call {tool_name} is explained")
+            logger.debug(f"Tool call {tool_name} is explained (heuristic)")
+            return None
+
+        # Use semantic analysis for more nuanced detection
+        is_semantically_explained, confidence_level, reasoning = (
+            self.semantic_analyzer.analyze_semantic_relationship(tool_name, context)
+        )
+
+        # Get confidence score
+        confidence_score = self.semantic_analyzer.get_confidence_score(tool_name, context)
+
+        # If semantic analysis shows high confidence explanation, accept it
+        if is_semantically_explained and confidence_level.value == "HIGH":
+            logger.debug(f"Tool call {tool_name} is explained (semantic: {reasoning})")
             return None
 
         # Determine severity
         severity = self._determine_severity(tool_name)
 
-        # Create violation
+        # Create violation with semantic details
         violation = ClarityViolation(
             tool_name=tool_name,
             tool_input=tool_input,
@@ -116,9 +142,14 @@ class ViolationDetector:
             session_id=session_id,
             user_role=user_role,
             agent_name=agent_name,
+            confidence_score=confidence_score,
+            semantic_reasoning=reasoning,
         )
 
-        logger.warning(f"Clarity violation detected: {tool_name} ({severity.value} severity)")
+        logger.warning(
+            f"Clarity violation detected: {tool_name} ({severity.value} severity, "
+            f"confidence: {confidence_score:.2f}, reason: {reasoning})"
+        )
         return violation
 
     @staticmethod

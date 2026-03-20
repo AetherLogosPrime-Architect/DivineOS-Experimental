@@ -5,7 +5,7 @@ including event payloads, analysis results, and configuration objects.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -145,7 +145,7 @@ class SessionLessons:
     tool_patterns: dict[str, ToolPattern] = field(default_factory=dict)
     timing_patterns: dict[str, TimingPattern] = field(default_factory=dict)
     error_patterns: dict[str, ErrorPattern] = field(default_factory=dict)
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
@@ -159,7 +159,7 @@ class BehaviorAnalysis:
     error_patterns: dict[str, dict[str, Any]]
     correction_patterns: dict[str, int]
     decision_patterns: dict[str, int]
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass
@@ -175,7 +175,7 @@ class SessionFeedback:
     recommendations: list[str]
     improvements: list[str]
     regressions: list[str]
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for knowledge entry storage."""
