@@ -7,13 +7,18 @@ Provides:
 - Temporary test directories
 """
 
+import sys
+from pathlib import Path
+
 import pytest
 import tempfile
 import shutil
-from pathlib import Path
 
 from divineos.core.ledger import init_db
 from divineos.core.session_manager import clear_session
+
+# Add tests directory to path so hypothesis_compat can be imported
+sys.path.insert(0, str(Path(__file__).parent))
 
 
 @pytest.fixture

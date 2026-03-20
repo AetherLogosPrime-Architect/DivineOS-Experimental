@@ -2,7 +2,7 @@
 
 import pytest
 
-from .hypothesis_compat import HAS_HYPOTHESIS, given, st, settings
+from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings
 
 
 from divineos.core.ledger import (

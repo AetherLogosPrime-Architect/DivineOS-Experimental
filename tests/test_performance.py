@@ -17,7 +17,7 @@ import pytest
 import time
 from datetime import datetime, timezone
 
-from .hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
+from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
 
 
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
