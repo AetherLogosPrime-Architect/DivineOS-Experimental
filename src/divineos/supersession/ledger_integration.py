@@ -32,53 +32,48 @@ class LedgerIntegration:
                 self._ledger = None
         return self._ledger
 
-    def store_fact(self, fact: Dict[str, Any]) -> str:
+    def store_fact(self, fact: Dict[str, Any]) -> Optional[str]:
         """Store a fact in the ledger.
 
         Args:
             fact: Fact dictionary to store
 
         Returns:
-            Fact ID
+            Fact ID or None if missing
         """
-        fact_id = fact.get("id", "")  # type: ignore
+        fact_id = fact.get("id")
+
+        if fact_id is None:
+            logger.warning("Cannot store fact without id")
+            return None
 
         if self.ledger is None:
             logger.debug(f"Storing fact {fact_id} in memory (ledger not available)")
-            return fact_id  # type: ignore
+            return fact_id
 
         try:
             # Store in ledger
             self.ledger.store_fact(fact)
             logger.debug(f"Stored fact {fact_id} in ledger")
-            return fact_id  # type: ignore
+            return fact_id
         except Exception as e:
             logger.error(f"Failed to store fact {fact_id} in ledger: {e}")
             raise
 
-    def store_supersession_event(self, event: Dict[str, Any]) -> str:
+    def store_supersession_event(self, event: Dict[str, Any]) -> Optional[str]:
         """Store a SUPERSESSION event in the ledger.
 
         Args:
             event: SUPERSESSION event dictionary
 
         Returns:
-            Event ID
+            Event ID or None if missing
         """
-        event_id = event.get("event_id", "")
+        event_id = event.get("event_id")
 
-        if self.ledger is None:
-            logger.debug(f"Storing SUPERSESSION event {event_id} in memory (ledger not available)")
-            return event_id  # type: ignore
-
-        try:
-            # Store in ledger
-            self.ledger.store_event(event)
-            logger.debug(f"Stored SUPERSESSION event {event_id} in ledger")
-            return event_id  # type: ignore
-        except Exception as e:
-            logger.error(f"Failed to store SUPERSESSION event {event_id} in ledger: {e}")
-            raise
+        if event_id is None:
+            logger.warning("Cannot store SUPERSESSION event without event_id")
+            return None
 
         if self.ledger is None:
             logger.debug(f"Storing SUPERSESSION event {event_id} in memory (ledger not available)")
@@ -215,39 +210,26 @@ def get_ledger_integration() -> LedgerIntegration:
     return _ledger_integration
 
 
-def store_fact(self, fact: Dict[str, Any]) -> str:
+def store_fact(fact: Dict[str, Any]) -> Optional[str]:
     """Store a fact in the ledger.
 
     Args:
         fact: Fact dictionary to store
 
     Returns:
-        Fact ID
+        Fact ID or None if missing
     """
-    fact_id: str = fact.get("id", "")  # type: ignore
-
-    if self.ledger is None:
-        logger.debug(f"Storing fact {fact_id} in memory (ledger not available)")
-        return fact_id
-
-    try:
-        # Store in ledger
-        self.ledger.store_fact(fact)
-        logger.debug(f"Stored fact {fact_id} in ledger")
-        return fact_id
-    except Exception as e:
-        logger.error(f"Failed to store fact {fact_id} in ledger: {e}")
-        raise
+    return get_ledger_integration().store_fact(fact)
 
 
-def store_supersession_event(event: Dict[str, Any]) -> str:
+def store_supersession_event(event: Dict[str, Any]) -> Optional[str]:
     """Store a SUPERSESSION event in the ledger.
 
     Args:
         event: SUPERSESSION event dictionary
 
     Returns:
-        Event ID
+        Event ID or None if missing
     """
     return get_ledger_integration().store_supersession_event(event)
 

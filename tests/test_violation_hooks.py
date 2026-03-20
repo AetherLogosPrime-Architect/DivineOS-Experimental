@@ -390,6 +390,6 @@ class TestRegisterDefaultHooks:
             context=["test context"],
         )
 
-        with patch("src.divineos.clarity_enforcement.hooks.logger"):
+        with patch("divineos.clarity_enforcement.hooks.logger"):
             # Should not raise
             registry.trigger(ViolationEventType.DETECTED, violation)
