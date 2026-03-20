@@ -352,6 +352,7 @@ class TestMemoryManagementScenarios:
     tool_count=st.integers(min_value=1, max_value=10),
     token_usage=st.integers(min_value=10000, max_value=100000),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_e2e_scenario_correctness(tool_count, token_usage):
     """

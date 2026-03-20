@@ -288,6 +288,7 @@ class TestScalability:
     operation_count=st.integers(min_value=10, max_value=100),
     token_amount=st.integers(min_value=5000, max_value=50000),
 )
+@pytest.mark.slow
 @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
 def test_property_performance_latency(operation_count, token_amount):
     """

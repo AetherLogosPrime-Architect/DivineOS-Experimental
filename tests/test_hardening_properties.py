@@ -11,6 +11,7 @@ Tests formal correctness properties of the hardened system:
 7. Tool execution duration property
 """
 
+import pytest
 from hypothesis import given, strategies as st, settings, HealthCheck
 import uuid
 
@@ -41,6 +42,7 @@ class TestEventImmutabilityProperty:
     """Property: Events stored in ledger are immutable."""
 
     @given(content=valid_content)
+    @pytest.mark.slow
     @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
     def test_event_immutability(self, content):
         """Test that events cannot be modified after storage."""
@@ -82,6 +84,7 @@ class TestToolCallResultPairingProperty:
         ).filter(lambda x: x[0].isalpha() and len(x) >= 2),  # Must start with letter
         result=valid_content,
     )
+    @pytest.mark.slow
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_tool_call_result_pairing(self, tool_name, result):
         """Test that tool calls are paired with results."""
@@ -138,6 +141,7 @@ class TestSessionUniquenessProperty:
     """Property: Each session has a unique session_id."""
 
     @given(st.just(None))  # Placeholder for hypothesis
+    @pytest.mark.slow
     @settings(max_examples=10)
     def test_session_uniqueness(self, _):
         """Test that sessions have unique IDs."""
@@ -157,6 +161,7 @@ class TestNoSilentErrorsProperty:
     """Property: No errors are silently swallowed."""
 
     @given(content=valid_content)
+    @pytest.mark.slow
     @settings(max_examples=20, suppress_health_check=[HealthCheck.too_slow])
     def test_no_silent_errors(self, content):
         """Test that errors are logged, not silently swallowed."""
@@ -181,6 +186,7 @@ class TestEventHashValidityProperty:
     """Property: All events have valid SHA256 hashes (truncated to 32 chars)."""
 
     @given(content=valid_content)
+    @pytest.mark.slow
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_event_hash_validity(self, content):
         """Test that all events have valid hashes."""
@@ -216,6 +222,7 @@ class TestSessionLifecycleProperty:
     """Property: Sessions follow correct lifecycle (init → use → end → clear)."""
 
     @given(st.just(None))  # Placeholder for hypothesis
+    @pytest.mark.slow
     @settings(max_examples=10)
     def test_session_lifecycle(self, _):
         """Test that sessions follow correct lifecycle."""
@@ -250,6 +257,7 @@ class TestToolExecutionDurationProperty:
     @given(
         duration_ms=st.integers(min_value=0, max_value=10000),
     )
+    @pytest.mark.slow
     @settings(max_examples=30, suppress_health_check=[HealthCheck.too_slow])
     def test_tool_execution_duration(self, duration_ms):
         """Test that tool execution duration is non-negative."""
@@ -293,6 +301,7 @@ class TestEventCaptureRateProperty:
     @given(
         num_inputs=st.integers(min_value=1, max_value=10),
     )
+    @pytest.mark.slow
     @settings(max_examples=10, suppress_health_check=[HealthCheck.too_slow])
     def test_event_capture_rate(self, num_inputs):
         """Test that all user inputs are captured."""

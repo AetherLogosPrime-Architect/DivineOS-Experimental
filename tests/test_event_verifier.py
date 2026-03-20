@@ -258,6 +258,7 @@ class TestEventVerifierProperties:
         event_type=st.text(min_size=1, max_size=50),
         content=st.text(min_size=1, max_size=500),
     )
+    @pytest.mark.slow
     @settings(max_examples=5)
     def test_all_events_have_valid_hashes(self, event_type, content):
         """Property: All events in ledger have valid hashes.
@@ -276,6 +277,7 @@ class TestEventVerifierProperties:
     @given(
         content=st.text(min_size=1, max_size=100),
     )
+    @pytest.mark.slow
     @settings(max_examples=5)
     def test_hash_computation_deterministic(self, content):
         """Property: Hash computation is deterministic.

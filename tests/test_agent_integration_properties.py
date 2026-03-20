@@ -51,6 +51,7 @@ from divineos.agent_integration.behavior_analyzer import (
         min_size=1,
     ),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_1_tool_calls_captured(tool_name, tool_input):
     """
@@ -98,6 +99,7 @@ def test_property_1_tool_calls_captured(tool_name, tool_input):
     result=st.text(max_size=1000),
     duration_ms=st.integers(min_value=0, max_value=10000),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_2_tool_results_captured(tool_name, result, duration_ms):
     """
@@ -141,6 +143,7 @@ def test_property_2_tool_results_captured(tool_name, result, duration_ms):
     tool_name=st.text(min_size=1, max_size=50),
     error_message=st.text(min_size=1, max_size=200),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_3_failed_executions_recorded(tool_name, error_message):
     """
@@ -178,6 +181,7 @@ def test_property_3_failed_executions_recorded(tool_name, error_message):
 @given(
     tool_name=st.text(min_size=1, max_size=50),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_4_events_stored_with_hash(tool_name):
     """
@@ -227,6 +231,7 @@ def test_property_4_events_stored_with_hash(tool_name):
 @given(
     tool_name=st.text(min_size=1, max_size=50),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_8_loop_prevention(tool_name):
     """
@@ -271,6 +276,7 @@ def test_property_8_loop_prevention(tool_name):
         ]
     ),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_9_all_tools_captured(tool_name):
     """
@@ -295,6 +301,7 @@ def test_property_9_all_tools_captured(tool_name):
 @given(
     tool_name=st.text(min_size=1, max_size=50),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_10_error_resilience(tool_name):
     """
@@ -326,6 +333,7 @@ def test_property_10_error_resilience(tool_name):
 @given(
     explanation=st.text(max_size=500),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_13_explanation_validation(explanation):
     """
@@ -353,6 +361,7 @@ def test_property_13_explanation_validation(explanation):
 @given(
     tool_name=st.text(min_size=1, max_size=50),
 )
+@pytest.mark.slow
 @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
 def test_property_14_performance_overhead(tool_name):
     """
@@ -382,6 +391,7 @@ def test_property_14_performance_overhead(tool_name):
 @given(
     num_events=st.integers(min_value=1, max_value=20),
 )
+@pytest.mark.slow
 @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
 def test_property_15_lessons_extracted(num_events):
     """
@@ -428,6 +438,7 @@ def test_property_15_lessons_extracted(num_events):
 @given(
     num_events=st.integers(min_value=1, max_value=20),
 )
+@pytest.mark.slow
 @settings(max_examples=50, suppress_health_check=[HealthCheck.too_slow])
 def test_property_17_behavior_metrics(num_events):
     """
@@ -475,6 +486,7 @@ def test_property_17_behavior_metrics(num_events):
 @given(
     tool_name=st.text(min_size=1, max_size=50),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_19_event_correlation(tool_name):
     """
@@ -523,6 +535,7 @@ def test_property_19_event_correlation(tool_name):
 @given(
     explanation=st.text(min_size=1, max_size=200),
 )
+@pytest.mark.slow
 @settings(max_examples=100, suppress_health_check=[HealthCheck.too_slow])
 def test_property_20_explanation_in_event(explanation):
     """
