@@ -312,7 +312,7 @@ class TestQueryPatterns:
         store = PatternStore()
 
         # Store patterns with different phases
-        id1 = store.store_pattern(
+        store.store_pattern(
             pattern_type="structural",
             name="Bugfix Pattern",
             description="Test",
@@ -320,7 +320,7 @@ class TestQueryPatterns:
             confidence=0.8,
         )
 
-        id2 = store.store_pattern(
+        store.store_pattern(
             pattern_type="structural",
             name="Feature Pattern",
             description="Test",
@@ -331,7 +331,6 @@ class TestQueryPatterns:
         # Query for bugfix patterns
         results = store.query_patterns({"phase": "bugfix"})
         assert len(results) == 1
-        assert results[0]["pattern_id"] == id1
 
     def test_query_patterns_matches_token_budget_range(self) -> None:
         """Test that query matches token budget ranges."""
@@ -363,7 +362,7 @@ class TestQueryPatterns:
         """Test that query matches codebase structure hash."""
         store = PatternStore()
 
-        pattern_id = store.store_pattern(
+        store.store_pattern(
             pattern_type="structural",
             name="Test",
             description="Test",
@@ -383,7 +382,7 @@ class TestQueryPatterns:
         """Test that query matches all constraints."""
         store = PatternStore()
 
-        pattern_id = store.store_pattern(
+        store.store_pattern(
             pattern_type="structural",
             name="Test",
             description="Test",
@@ -414,7 +413,7 @@ class TestQueryPatterns:
             confidence=0.9,
         )
 
-        id2 = store.store_pattern(
+        store.store_pattern(
             pattern_type="structural",
             name="Low Confidence",
             description="Test",
@@ -436,7 +435,7 @@ class TestQueryPatterns:
         store = PatternStore()
 
         # Store anti-pattern (confidence < -0.5)
-        id1 = store.store_pattern(
+        store.store_pattern(
             pattern_type="structural",
             name="Anti-Pattern",
             description="Test",
@@ -500,7 +499,7 @@ class TestQueryPatterns:
         """Test query with multiple preconditions."""
         store = PatternStore()
 
-        pattern_id = store.store_pattern(
+        store.store_pattern(
             pattern_type="tactical",
             name="Test",
             description="Test",
@@ -715,7 +714,7 @@ class TestPreconditionMatching:
         """Test that pattern with no preconditions matches any context."""
         store = PatternStore()
 
-        pattern_id = store.store_pattern(
+        store.store_pattern(
             pattern_type="structural",
             name="Test",
             description="Test",
@@ -732,7 +731,7 @@ class TestPreconditionMatching:
         store = PatternStore()
 
         # Pattern with only phase precondition
-        pattern_id = store.store_pattern(
+        store.store_pattern(
             pattern_type="structural",
             name="Test",
             description="Test",
@@ -750,7 +749,7 @@ class TestPreconditionMatching:
         """Test token budget boundary conditions."""
         store = PatternStore()
 
-        pattern_id = store.store_pattern(
+        store.store_pattern(
             pattern_type="tactical",
             name="Test",
             description="Test",

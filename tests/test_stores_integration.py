@@ -55,7 +55,7 @@ class TestPatternAndDecisionIntegration:
         )
 
         # Use the pattern in a decision
-        decision_id = decision_store.store_decision(
+        decision_store.store_decision(
             session_id=session_id,
             task="Fix cascading type errors",
             chosen_pattern=pattern_id,
@@ -95,10 +95,9 @@ class TestPatternAndDecisionIntegration:
         )
 
         # Create multiple decisions using this pattern
-        decision_ids = []
         for i in range(3):
             session_id = str(uuid.uuid4())
-            decision_id = decision_store.store_decision(
+            decision_store.store_decision(
                 session_id=session_id,
                 task=f"Compress tokens (attempt {i + 1})",
                 chosen_pattern=pattern_id,
@@ -111,7 +110,6 @@ class TestPatternAndDecisionIntegration:
                     "counterfactual_type": "estimated",
                 },
             )
-            decision_ids.append(decision_id)
 
         # Verify all decisions reference the pattern
         decisions = decision_store.get_decisions_for_pattern(pattern_id)
@@ -252,7 +250,7 @@ class TestPatternAndAuditIntegration:
             },
         ]
 
-        audit_id = audit_store.store_audit(
+        audit_store.store_audit(
             session_id=session_id,
             low_confidence_patterns=[],
             untested_patterns=[],
@@ -342,7 +340,7 @@ class TestAllThreeStoresWorkflow:
             }
         ]
 
-        audit_id = audit_store.store_audit(
+        audit_store.store_audit(
             session_id=session_id,
             low_confidence_patterns=low_confidence_patterns,
             untested_patterns=[],
@@ -457,7 +455,7 @@ class TestDataIntegrityAcrossStores:
         session_id = str(uuid.uuid4())
         pattern_id = str(uuid.uuid4())
 
-        decision_id = decision_store.store_decision(
+        decision_store.store_decision(
             session_id=session_id,
             task="Integrity test task",
             chosen_pattern=pattern_id,
@@ -482,7 +480,7 @@ class TestDataIntegrityAcrossStores:
         audit_store = LearningAuditStore()
         session_id = str(uuid.uuid4())
 
-        audit_id = audit_store.store_audit(
+        audit_store.store_audit(
             session_id=session_id,
             low_confidence_patterns=[],
             untested_patterns=[],
@@ -518,7 +516,7 @@ class TestDataIntegrityAcrossStores:
         pattern_timestamp = datetime.fromisoformat(pattern["created_at"])
 
         # Store decision
-        decision_id = decision_store.store_decision(
+        decision_store.store_decision(
             session_id=session_id,
             task="Timestamp test",
             chosen_pattern=pattern_id,
@@ -537,7 +535,7 @@ class TestDataIntegrityAcrossStores:
         decision_timestamp = datetime.fromisoformat(decisions[0]["timestamp"])
 
         # Store audit
-        audit_id = audit_store.store_audit(
+        audit_store.store_audit(
             session_id=session_id,
             low_confidence_patterns=[],
             untested_patterns=[],

@@ -31,7 +31,7 @@ class TestCP1PatternConsistency:
         pattern_store = PatternStore()
 
         # Create a pattern
-        pattern_id = pattern_store.store_pattern(
+        pattern_store.store_pattern(
             pattern_type="structural",
             name="Consistent Pattern",
             description="Test",
@@ -118,7 +118,7 @@ class TestCP2AntiPatternEnforcement:
         )
 
         # Create an anti-pattern
-        anti_pattern_id = pattern_store.store_pattern(
+        pattern_store.store_pattern(
             pattern_type="structural",
             name="Bad Pattern",
             description="Never use this",
