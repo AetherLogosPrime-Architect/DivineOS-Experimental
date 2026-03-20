@@ -1,72 +1,32 @@
 """
 Pytest configuration and fixtures for DivineOS tests.
-
-Provides:
-- Database initialization for each test
-- Session cleanup between tests
-- Temporary test directories
 """
 
 import sys
 from pathlib import Path
-
-import pytest
 import tempfile
 import shutil
 
-from divineos.core.ledger import init_db
-from divineos.core.session_manager import clear_session
+import pytest
 
-# Add tests directory to path so hypothesis_compat can be imported
+# Add tests directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
 
-@pytest.fixture
-def setup_test_environment():
-    """
-    Set up test environment (must be explicitly used by tests).
-
-    - Clears the ledger database
-    - Initializes the ledger database
-    - Clears any existing session state
-    - Cleans up after test completes
-    """
-    # Clear database before test to ensure clean state
-    db_path = Path(__file__).parent.parent / "src" / "data" / "event_ledger.db"
-    if db_path.exists():
-        try:
-            db_path.unlink()
-        except Exception:
-            pass
-
-    # Initialize database before test
+def pytest_configure(config):
+    """Initialize database before pytest runs - called early in pytest startup."""
     try:
+        from divineos.core.ledger import init_db
+
         init_db()
     except Exception as e:
-        print(f"Warning: Failed to initialize database: {e}")
-
-    # Clear any existing session state
-    try:
-        clear_session()
-    except Exception as e:
-        print(f"Warning: Failed to clear session: {e}")
-
-    yield
-
-    # Cleanup after test
-    try:
-        clear_session()
-    except Exception as e:
-        print(f"Warning: Failed to clear session during cleanup: {e}")
+        # Don't fail pytest startup if DB init fails
+        print(f"Warning: Database initialization failed: {e}", file=sys.stderr)
 
 
 @pytest.fixture
 def temp_test_dir():
-    """
-    Provide a temporary directory for test files.
-
-    Automatically cleaned up after test.
-    """
+    """Provide a temporary directory for test files."""
     temp_dir = tempfile.mkdtemp()
     yield Path(temp_dir)
     shutil.rmtree(temp_dir, ignore_errors=True)
