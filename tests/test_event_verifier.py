@@ -1,7 +1,27 @@
 """Tests for event integrity verification system."""
 
 import pytest
-from hypothesis import given, strategies as st, settings
+
+try:
+    from hypothesis import given, strategies as st, settings
+
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+
+    # Provide dummy decorators for when hypothesis is not installed
+    def given(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
+    def settings(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 from divineos.core.ledger import (
     init_db,
@@ -9,6 +29,9 @@ from divineos.core.ledger import (
     _get_connection,
 )
 from divineos.core.event_verifier import EventVerifier, VerificationReport
+
+# Skip all tests in this module if hypothesis is not installed
+pytestmark = pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
 
 
 @pytest.fixture(autouse=True)

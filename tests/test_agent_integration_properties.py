@@ -8,9 +8,29 @@ Feature: kiro-agent-integration
 """
 
 import pytest
-from hypothesis import given, strategies as st, settings, HealthCheck
 from datetime import datetime
 import uuid
+
+try:
+    from hypothesis import given, strategies as st, settings, HealthCheck
+
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+
+    # Provide dummy decorators for when hypothesis is not installed
+    def given(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
+    def settings(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 from divineos.agent_integration.types import (
     ToolCallEvent,
@@ -36,6 +56,9 @@ from divineos.agent_integration.behavior_analyzer import (
     calculate_success_rates,
     calculate_execution_times,
 )
+
+# Skip all tests in this module if hypothesis is not installed
+pytestmark = pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
 
 
 # ============================================================================

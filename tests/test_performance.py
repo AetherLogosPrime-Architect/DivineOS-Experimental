@@ -16,7 +16,27 @@ Property 10: Performance latency
 import pytest
 import time
 from datetime import datetime, timezone
-from hypothesis import given, strategies as st, settings, HealthCheck
+
+try:
+    from hypothesis import given, strategies as st, settings, HealthCheck
+
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+
+    # Provide dummy decorators for when hypothesis is not installed
+    def given(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
+    def settings(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
 from divineos.clarity_enforcement.enforcer import ClarityEnforcer
@@ -24,6 +44,9 @@ from divineos.core.ledger import Ledger
 from divineos.core.session_manager import initialize_session, end_session as end_session_manager
 from divineos.agent_integration.memory_monitor import get_memory_monitor
 from divineos.supersession.contradiction_detector import ContradictionDetector
+
+# Skip all tests in this module if hypothesis is not installed
+pytestmark = pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
 
 
 class TestToolCallLatency:

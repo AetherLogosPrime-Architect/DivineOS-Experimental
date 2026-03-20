@@ -12,8 +12,28 @@ Tests formal correctness properties of the hardened system:
 """
 
 import pytest
-from hypothesis import given, strategies as st, settings, HealthCheck
 import uuid
+
+try:
+    from hypothesis import given, strategies as st, settings, HealthCheck
+
+    HAS_HYPOTHESIS = True
+except ImportError:
+    HAS_HYPOTHESIS = False
+
+    # Provide dummy decorators for when hypothesis is not installed
+    def given(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
+    def settings(*args, **kwargs):
+        def decorator(func):
+            return func
+
+        return decorator
+
 
 from divineos.core.ledger import get_events, verify_event_hash
 from divineos.core.session_manager import (
@@ -27,6 +47,9 @@ from divineos.event.event_emission import (
     emit_tool_call,
     emit_tool_result,
 )
+
+# Skip all tests in this module if hypothesis is not installed
+pytestmark = pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
 
 
 # Strategy for generating valid content
