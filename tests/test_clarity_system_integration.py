@@ -7,7 +7,7 @@ execution analysis, deviation detection, and summary generation.
 
 import pytest
 from uuid import uuid4
-from datetime import datetime
+from datetime import UTC, datetime
 
 from divineos.clarity_system import (
     DefaultClarityStatementGenerator,
@@ -56,17 +56,17 @@ class TestClaritySystemIntegration:
         tool_calls = [
             ToolCall(
                 tool_name="readFile",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 input={"path": "auth.py"},
             ),
             ToolCall(
                 tool_name="fsWrite",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 input={"path": "auth.py"},
             ),
             ToolCall(
                 tool_name="readFile",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(UTC).isoformat(),
                 input={"path": "models.py"},
             ),
         ]
@@ -267,8 +267,8 @@ class TestClaritySystemIntegration:
         execution_data = ExecutionData(
             session_id=uuid4(),
             tool_calls=[
-                ToolCall("readFile", datetime.utcnow().isoformat(), {}),
-                ToolCall("fsWrite", datetime.utcnow().isoformat(), {}),
+                ToolCall("readFile", datetime.now(UTC).isoformat(), {}),
+                ToolCall("fsWrite", datetime.now(UTC).isoformat(), {}),
             ],
             errors=[],
             metrics=ExecutionMetrics(2, 2, 0, 10.0, 1.0),
