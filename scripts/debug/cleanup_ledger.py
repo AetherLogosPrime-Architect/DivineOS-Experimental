@@ -18,7 +18,7 @@ if result['deleted_count'] > 0:
     
     # Verify the ledger is now clean
     verify_result = verify_all_events()
-    print(f"\nVerification Results:")
+    print("\nVerification Results:")
     print(f"  Total events: {verify_result['total']}")
     print(f"  Passed:       {verify_result['passed']}")
     print(f"  Failed:       {verify_result['failed']}")

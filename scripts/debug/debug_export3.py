@@ -2,7 +2,6 @@
 """Debug script to check all sessions."""
 
 from divineos.ledger import get_events
-import json
 
 # Get all events
 all_events = get_events(limit=10000)
@@ -28,7 +27,7 @@ for sid, events in sorted(sessions.items(), key=lambda x: len(x[1]), reverse=Tru
     # Show USER_INPUT events
     user_inputs = [e for e in events if e.get('event_type') == 'USER_INPUT']
     if user_inputs:
-        print(f'  USER_INPUT events:')
+        print('  USER_INPUT events:')
         for e in user_inputs:
             content = e.get('payload', {}).get('content', '')[:50]
             print(f'    - {content}')
