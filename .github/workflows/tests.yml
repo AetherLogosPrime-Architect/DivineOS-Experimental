@@ -35,6 +35,6 @@ jobs:
       run: |
         mypy src/divineos --ignore-missing-imports
     
-    - name: Run tests with pytest
+    - name: Run tests with manual runner
       run: |
-        pytest tests/ -v --tb=short
+        python run_tests_simple.py
