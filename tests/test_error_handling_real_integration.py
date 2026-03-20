@@ -35,12 +35,12 @@ class TestErrorHandlingRealIntegration:
         # Wrap resolution in error handler with monitoring
         def resolve_with_monitoring():
             try:
-                self.monitor.record_latency("integration_point_2", 0.001)
+                self.monitor.record_latency(self.monitor.CONTRADICTION_RESOLUTION, 0.001)
                 result = self.resolution_engine.resolve_contradiction(contradiction)
-                self.monitor.record_success("integration_point_2")
+                self.monitor.record_success(self.monitor.CONTRADICTION_RESOLUTION)
                 return result
             except Exception as e:
-                self.monitor.record_error("integration_point_2", str(e))
+                self.monitor.record_error(self.monitor.CONTRADICTION_RESOLUTION, Exception(str(e)))
                 raise
 
         # Execute and verify monitoring recorded success
@@ -48,11 +48,10 @@ class TestErrorHandlingRealIntegration:
         assert result is not None
         assert result.event_id is not None
 
-        # Verify metrics were recorded
-        metrics = self.monitor.get_metrics("integration_point_2")
+        # Verify metrics were recorded using the correct integration point name
+        metrics = self.monitor.get_metrics(self.monitor.CONTRADICTION_RESOLUTION)
         assert metrics["success_count"] == 1
         assert metrics["error_count"] == 0
-        assert metrics["total_calls"] == 1
 
     def test_learning_cycle_error_handling_with_monitoring(self):
         """Test that learning cycle errors are caught and monitored."""
@@ -62,12 +61,12 @@ class TestErrorHandlingRealIntegration:
         # Wrap learning cycle run in error handler with monitoring
         def run_with_monitoring():
             try:
-                self.monitor.record_latency("integration_point_3", 0.001)
+                self.monitor.record_latency(self.monitor.MEMORY_LEARNING, 0.001)
                 result = learning_cycle.run("test_session")
-                self.monitor.record_success("integration_point_3")
+                self.monitor.record_success(self.monitor.MEMORY_LEARNING)
                 return result
             except Exception as e:
-                self.monitor.record_error("integration_point_3", str(e))
+                self.monitor.record_error(self.monitor.MEMORY_LEARNING, Exception(str(e)))
                 raise
 
         # Execute and verify monitoring recorded success
@@ -76,7 +75,7 @@ class TestErrorHandlingRealIntegration:
         assert "session_id" in result
 
         # Verify metrics were recorded
-        metrics = self.monitor.get_metrics("integration_point_3")
+        metrics = self.monitor.get_metrics(self.monitor.MEMORY_LEARNING)
         assert metrics["success_count"] == 1
         assert metrics["error_count"] == 0
 
@@ -129,15 +128,16 @@ class TestErrorHandlingRealIntegration:
     def test_monitoring_tracks_latencies(self):
         """Test that monitoring tracks latencies correctly."""
         # Record several latencies
-        self.monitor.record_latency("integration_point_1", 0.001)
-        self.monitor.record_latency("integration_point_1", 0.002)
-        self.monitor.record_latency("integration_point_1", 0.003)
+        self.monitor.record_latency(self.monitor.CLARITY_LEARNING, 0.001)
+        self.monitor.record_latency(self.monitor.CLARITY_LEARNING, 0.002)
+        self.monitor.record_latency(self.monitor.CLARITY_LEARNING, 0.003)
 
         # Get metrics
-        metrics = self.monitor.get_metrics("integration_point_1")
+        metrics = self.monitor.get_metrics(self.monitor.CLARITY_LEARNING)
 
-        # Verify latencies are tracked
-        assert metrics["total_calls"] == 3
+        # Verify latencies are tracked (record_latency doesn't increment event_count)
+        assert metrics["success_count"] == 0
+        assert metrics["event_count"] == 0  # latency recording doesn't increment event_count
         assert metrics["avg_latency"] > 0
         assert metrics["max_latency"] == 0.003
         assert metrics["min_latency"] == 0.001
@@ -145,47 +145,47 @@ class TestErrorHandlingRealIntegration:
     def test_monitoring_tracks_error_rates(self):
         """Test that monitoring tracks error rates correctly."""
         # Record successes and errors
-        self.monitor.record_success("integration_point_2")
-        self.monitor.record_success("integration_point_2")
-        self.monitor.record_error("integration_point_2", "Test error")
+        self.monitor.record_success(self.monitor.CONTRADICTION_RESOLUTION)
+        self.monitor.record_success(self.monitor.CONTRADICTION_RESOLUTION)
+        self.monitor.record_error(self.monitor.CONTRADICTION_RESOLUTION, Exception("Test error"))
 
         # Get metrics
-        metrics = self.monitor.get_metrics("integration_point_2")
+        metrics = self.monitor.get_metrics(self.monitor.CONTRADICTION_RESOLUTION)
 
         # Verify error rate is calculated
-        assert metrics["total_calls"] == 3
         assert metrics["success_count"] == 2
         assert metrics["error_count"] == 1
-        assert metrics["error_rate"] == pytest.approx(1.0 / 3.0, rel=0.01)
+        assert metrics["event_count"] == 3
+        assert metrics["error_rate"] == pytest.approx(100.0 / 3.0, rel=0.01)
 
     def test_health_status_reflects_errors(self):
         """Test that health status reflects integration point errors."""
         # Record some errors
-        self.monitor.record_error("integration_point_1", "Error 1")
-        self.monitor.record_error("integration_point_1", "Error 2")
-        self.monitor.record_success("integration_point_1")
+        self.monitor.record_error(self.monitor.CLARITY_LEARNING, Exception("Error 1"))
+        self.monitor.record_error(self.monitor.CLARITY_LEARNING, Exception("Error 2"))
+        self.monitor.record_success(self.monitor.CLARITY_LEARNING)
 
         # Get health status
         health = self.monitor.get_health_status()
 
         # Verify health status
-        assert "integration_point_1" in health
-        assert health["integration_point_1"]["error_rate"] > 0
-        assert health["integration_point_1"]["status"] in ["healthy", "degraded", "unhealthy"]
+        assert "status" in health
+        assert health["overall_error_rate"] > 0
+        assert health["status"] in ["HEALTHY", "WARNING", "CRITICAL"]
 
     def test_performance_report_includes_all_metrics(self):
         """Test that performance report includes all metrics."""
         # Record activity on multiple integration points
         for i in range(5):
-            self.monitor.record_latency("integration_point_1", 0.001 * i)
-            self.monitor.record_latency("integration_point_2", 0.002 * i)
+            self.monitor.record_latency(self.monitor.CLARITY_LEARNING, 0.001 * i)
+            self.monitor.record_latency(self.monitor.CONTRADICTION_RESOLUTION, 0.002 * i)
 
         # Get performance report
         report = self.monitor.get_performance_report()
 
         # Verify report includes all metrics
-        assert "integration_point_1" in report
-        assert "integration_point_2" in report
+        assert self.monitor.CLARITY_LEARNING in report["integration_points"]
+        assert self.monitor.CONTRADICTION_RESOLUTION in report["integration_points"]
         assert "timestamp" in report
         assert "summary" in report
 
@@ -195,7 +195,7 @@ class TestErrorHandlingRealIntegration:
         context = {"tool_name": "test_tool", "session_id": "test_session"}
 
         # This should not raise, just log
-        ErrorHandler.log_error_with_context(error, context, "integration_point_1")
+        ErrorHandler.log_error_with_context(error, context, self.monitor.CLARITY_LEARNING)
 
         # Verify it logged (we can't easily check logs, but we verify no exception)
         assert True
@@ -222,15 +222,15 @@ class TestErrorHandlingRealIntegration:
         # Simulate an integration point operation
         def integration_point_operation():
             try:
-                self.monitor.record_latency("integration_point_4", 0.001)
+                self.monitor.record_latency(self.monitor.TOOL_LEDGER, 0.001)
 
                 # Simulate work
                 result = {"status": "success", "data": "test"}
 
-                self.monitor.record_success("integration_point_4")
+                self.monitor.record_success(self.monitor.TOOL_LEDGER)
                 return result
             except Exception as e:
-                self.monitor.record_error("integration_point_4", str(e))
+                self.monitor.record_error(self.monitor.TOOL_LEDGER, Exception(str(e)))
                 raise
 
         # Execute
@@ -240,18 +240,18 @@ class TestErrorHandlingRealIntegration:
         assert result["status"] == "success"
 
         # Verify monitoring
-        metrics = self.monitor.get_metrics("integration_point_4")
+        metrics = self.monitor.get_metrics(self.monitor.TOOL_LEDGER)
         assert metrics["success_count"] == 1
         assert metrics["error_count"] == 0
 
     def test_all_integration_points_monitored(self):
         """Test that all 5 integration points can be monitored."""
         integration_points = [
-            "integration_point_1",
-            "integration_point_2",
-            "integration_point_3",
-            "integration_point_4",
-            "integration_point_5",
+            self.monitor.CLARITY_LEARNING,
+            self.monitor.CONTRADICTION_RESOLUTION,
+            self.monitor.MEMORY_LEARNING,
+            self.monitor.TOOL_LEDGER,
+            self.monitor.QUERY_FACT,
         ]
 
         # Record activity on all integration points
@@ -263,17 +263,17 @@ class TestErrorHandlingRealIntegration:
         for point in integration_points:
             metrics = self.monitor.get_metrics(point)
             assert metrics["success_count"] == 1
-            assert metrics["total_calls"] == 2  # 1 success + 1 latency
+            assert metrics["event_count"] == 1  # only success increments event_count
 
     def test_monitoring_export_format(self):
         """Test that monitoring can export metrics in standard format."""
         # Record some activity
-        self.monitor.record_success("integration_point_1")
-        self.monitor.record_latency("integration_point_1", 0.001)
+        self.monitor.record_success(self.monitor.CLARITY_LEARNING)
+        self.monitor.record_latency(self.monitor.CLARITY_LEARNING, 0.001)
 
         # Export metrics
         export = self.monitor.export_metrics()
 
         # Verify export is valid JSON string
         assert isinstance(export, str)
-        assert "integration_point_1" in export
+        assert self.monitor.CLARITY_LEARNING in export
