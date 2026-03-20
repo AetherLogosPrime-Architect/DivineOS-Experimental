@@ -26,7 +26,7 @@ for entry in similar:
     overlap = _compute_overlap(content2, entry["content"])
     print(f"    Overlap: {overlap}")
     if overlap > 0.6:
-        print(f"    -> Would match!")
+        print("    -> Would match!")
 
 # Now store the second entry
 print("\n=== Storing second entry ===")

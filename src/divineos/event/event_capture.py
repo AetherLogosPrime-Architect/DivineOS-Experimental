@@ -25,6 +25,7 @@ class EventType(str, Enum):
     TOOL_RESULT = "TOOL_RESULT"
     EXPLANATION = "EXPLANATION"
     SESSION_END = "SESSION_END"
+    CLARITY_VIOLATION = "CLARITY_VIOLATION"
 
 
 class EventValidationError(Exception):
@@ -306,6 +307,92 @@ class SessionEndPayload:
         return asdict(self)
 
 
+@dataclass
+class ClarityViolationPayload:
+    """Payload schema for CLARITY_VIOLATION events."""
+
+    tool_name: str
+    tool_input: dict[str, Any]
+    violation_severity: str
+    enforcement_mode: str
+    action_taken: str
+    context: list[str]
+    timestamp: str
+    session_id: str
+    user_role: str = "user"
+    agent_name: str = "agent"
+
+    def validate(self) -> None:
+        """Validate CLARITY_VIOLATION payload."""
+        if not isinstance(self.tool_name, str):
+            msg = "tool_name must be a string"
+            raise EventValidationError(msg)
+        if not self.tool_name:
+            msg = "tool_name cannot be empty"
+            raise EventValidationError(msg)
+
+        if not isinstance(self.tool_input, dict):
+            msg = "tool_input must be a dictionary"
+            raise EventValidationError(msg)
+
+        if not isinstance(self.violation_severity, str):
+            msg = "violation_severity must be a string"
+            raise EventValidationError(msg)
+        if self.violation_severity not in ("LOW", "MEDIUM", "HIGH"):
+            msg = "violation_severity must be LOW, MEDIUM, or HIGH"
+            raise EventValidationError(msg)
+
+        if not isinstance(self.enforcement_mode, str):
+            msg = "enforcement_mode must be a string"
+            raise EventValidationError(msg)
+        if self.enforcement_mode not in ("BLOCKING", "LOGGING", "PERMISSIVE"):
+            msg = "enforcement_mode must be BLOCKING, LOGGING, or PERMISSIVE"
+            raise EventValidationError(msg)
+
+        if not isinstance(self.action_taken, str):
+            msg = "action_taken must be a string"
+            raise EventValidationError(msg)
+        if not self.action_taken:
+            msg = "action_taken cannot be empty"
+            raise EventValidationError(msg)
+
+        if not isinstance(self.context, list):
+            msg = "context must be a list"
+            raise EventValidationError(msg)
+        for item in self.context:
+            if not isinstance(item, str):
+                msg = "context items must be strings"
+                raise EventValidationError(msg)
+
+        if not isinstance(self.timestamp, str):
+            msg = "timestamp must be a string"
+            raise EventValidationError(msg)
+        try:
+            datetime.fromisoformat(self.timestamp.replace("Z", "+00:00"))
+        except ValueError:
+            msg = "timestamp must be valid ISO8601 format"
+            raise EventValidationError(msg)
+
+        if not isinstance(self.session_id, str):
+            msg = "session_id must be a string"
+            raise EventValidationError(msg)
+        if not self.session_id:
+            msg = "session_id cannot be empty"
+            raise EventValidationError(msg)
+
+        if not isinstance(self.user_role, str):
+            msg = "user_role must be a string"
+            raise EventValidationError(msg)
+
+        if not isinstance(self.agent_name, str):
+            msg = "agent_name must be a string"
+            raise EventValidationError(msg)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary."""
+        return asdict(self)
+
+
 # ============================================================================
 # Session Tracker (Consolidated into core/session_manager.py)
 # ============================================================================
@@ -347,6 +434,7 @@ def validate_event_payload(event_type: EventType, payload: dict[str, Any]) -> No
             | ToolResultPayload
             | ExplanationPayload
             | SessionEndPayload
+            | ClarityViolationPayload
         )
         if event_type == EventType.USER_INPUT:
             p = UserInputPayload(**payload)
@@ -362,6 +450,9 @@ def validate_event_payload(event_type: EventType, payload: dict[str, Any]) -> No
             p.validate()
         elif event_type == EventType.SESSION_END:
             p = SessionEndPayload(**payload)
+            p.validate()
+        elif event_type == EventType.CLARITY_VIOLATION:
+            p = ClarityViolationPayload(**payload)
             p.validate()
         else:
             raise EventValidationError(f"Unknown event type: {event_type}")
@@ -386,6 +477,7 @@ def normalize_event_payload(event_type: EventType, payload: dict[str, Any]) -> d
         | ToolResultPayload
         | ExplanationPayload
         | SessionEndPayload
+        | ClarityViolationPayload
     )
     if event_type == EventType.USER_INPUT:
         p = UserInputPayload(**payload)
@@ -401,5 +493,8 @@ def normalize_event_payload(event_type: EventType, payload: dict[str, Any]) -> d
         return p.to_dict()
     if event_type == EventType.SESSION_END:
         p = SessionEndPayload(**payload)
+        return p.to_dict()
+    if event_type == EventType.CLARITY_VIOLATION:
+        p = ClarityViolationPayload(**payload)
         return p.to_dict()
     raise EventValidationError(f"Unknown event type: {event_type}")

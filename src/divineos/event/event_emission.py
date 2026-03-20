@@ -451,6 +451,93 @@ def emit_session_end(
         raise
 
 
+def emit_clarity_violation(
+    tool_name: str,
+    tool_input: dict[str, Any],
+    violation_severity: str,
+    enforcement_mode: str,
+    action_taken: str,
+    context: list[str],
+    session_id: str | None = None,
+    user_role: str = "user",
+    agent_name: str = "agent",
+) -> str:
+    """Emit a CLARITY_VIOLATION event to the ledger.
+
+    Args:
+        tool_name: Name of the tool that violated clarity
+        tool_input: Input parameters for the tool
+        violation_severity: Severity level (LOW, MEDIUM, HIGH)
+        enforcement_mode: Enforcement mode (BLOCKING, LOGGING, PERMISSIVE)
+        action_taken: Action taken in response to violation
+        context: Preceding messages (conversation context)
+        session_id: Optional session ID (uses current session if not provided)
+        user_role: Role of the user
+        agent_name: Name of the agent
+
+    Returns:
+        event_id: The ID of the stored event
+
+    Raises:
+        EventValidationError: If payload validation fails
+
+    Requirements:
+        - Requirement 4.1: Emit CLARITY_VIOLATION event with tool name
+        - Requirement 4.2: Include tool name
+        - Requirement 4.3: Include tool input parameters
+        - Requirement 4.4: Include enforcement mode
+        - Requirement 4.5: Include violation severity
+        - Requirement 4.6: Include context (conversation excerpt)
+        - Requirement 4.7: Include timestamp
+        - Requirement 4.8: Store in ledger with SHA256 hash
+
+    """
+    try:
+        # Get or create session ID using centralized helper
+        session_id = get_or_create_session_id(session_id)
+
+        # Get current timestamp
+        timestamp = get_current_timestamp()
+
+        # Create payload
+        payload = {
+            "tool_name": tool_name,
+            "tool_input": tool_input,
+            "violation_severity": violation_severity,
+            "enforcement_mode": enforcement_mode,
+            "action_taken": action_taken,
+            "context": context,
+            "timestamp": timestamp,
+            "session_id": session_id,
+            "user_role": user_role,
+            "agent_name": agent_name,
+        }
+
+        # Validate payload
+        validate_event_payload(EventType.CLARITY_VIOLATION, payload)
+
+        # Normalize payload
+        normalized_payload = normalize_event_payload(EventType.CLARITY_VIOLATION, payload)
+
+        # Store in ledger with validation enabled
+        event_id = log_event(
+            event_type=EventType.CLARITY_VIOLATION.value,
+            actor="system",
+            payload=normalized_payload,
+            validate=True,
+        )
+
+        logger.debug(f"Emitted CLARITY_VIOLATION event: {event_id} for tool {tool_name}")
+        return event_id
+
+    except EventValidationError as e:
+        logger.error(f"Failed to emit CLARITY_VIOLATION event: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error emitting CLARITY_VIOLATION event: {e}")
+        raise
+
+
 # ============================================================================
 # Event Dispatcher Pattern (Consolidated from event_dispatcher.py)
 # ============================================================================

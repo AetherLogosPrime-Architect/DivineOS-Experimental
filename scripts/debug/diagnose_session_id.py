@@ -2,7 +2,6 @@
 """Diagnose session ID mismatch issue."""
 
 import sqlite3
-import json
 from pathlib import Path
 
 def diagnose_session_id():

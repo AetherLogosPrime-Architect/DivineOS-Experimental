@@ -1,5 +1,3 @@
-import sqlite3
-from pathlib import Path
 from divineos.core.ledger import init_db
 from divineos.core.consolidation import _get_connection, _KNOWLEDGE_COLS_K, _row_to_dict, _extract_key_terms
 
