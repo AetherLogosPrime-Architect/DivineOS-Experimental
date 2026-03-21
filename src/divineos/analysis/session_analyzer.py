@@ -22,22 +22,22 @@ from typing import Any
 # --- Patterns for detecting user intent ---
 
 CORRECTION_PATTERNS: tuple[str, ...] = (
-    r"\bno[\s,.]",
+    r"^no[\s,.]",  # "no" at start of message = rejection
     r"\bwrong\b",
     r"\bthat'?s not\b",
-    r"\bdon'?t\b",
+    r"\bdon'?t (?:do|use|add|make|change|remove|delete|mock|skip|edit|write|create|run)\b",
     r"\byou missed\b",
-    r"\bi mean\b",
     r"\bnot what i\b",
     r"\bwhy did you\b",
     r"\bwhy were they\b",
     r"\byou only\b",
     r"\bthat doesn'?t\b",
     r"\bthis is wrong\b",
-    r"\bactually[,\s]",
-    r"\binstead[,\s]",
-    r"\bstop\b",
+    r"\bactually[,] (?:i|you|we|it|the)\b",
+    r"\binstead (?:of that|do|use)\b",
+    r"\bstop (?:doing|using|adding|that)\b",
     r"\bplease don'?t\b",
+    r"\bi (?:said|asked|meant|wanted)\b",
 )
 
 ENCOURAGEMENT_PATTERNS: tuple[str, ...] = (

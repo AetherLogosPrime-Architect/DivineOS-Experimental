@@ -1703,6 +1703,9 @@ def deep_extract_knowledge(
     # --- Decisions with context ---
     for decision in analysis.decisions:
         decision_text = decision.content
+        # Skip short affirmations that aren't real decisions
+        if len(decision_text.split()) < 8:
+            continue
         reason = _find_reason_in_text(decision_text)
         alternative = _find_alternative_in_text(decision_text)
 

@@ -1455,8 +1455,16 @@ def emit_cmd(
                     deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
                     stored = len(deep_ids)
 
-                    # Store tool usage pattern
-                    if analysis.tool_usage:
+                    # Store tool usage and episode — skip if already stored
+                    # (prevents duplicates from multiple SESSION_END emits)
+                    session_tag = f"session-{analysis.session_id[:12]}"
+                    existing = _wrapped_get_knowledge(
+                        knowledge_type=None, min_confidence=0.0, limit=100
+                    )
+                    existing_tags = {tag for e in existing for tag in (e.get("tags") or [])}
+                    has_session = session_tag in existing_tags
+
+                    if analysis.tool_usage and not has_session:
                         top_tools = sorted(
                             analysis.tool_usage.items(), key=lambda x: x[1], reverse=True
                         )[:10]
@@ -1465,26 +1473,31 @@ def emit_cmd(
                             knowledge_type="FACT",
                             content=f"Session tool usage ({analysis.session_id[:12]}): {tool_summary}",
                             confidence=1.0,
-                            tags=["session-analysis", "tool-usage"],
+                            tags=["session-analysis", "tool-usage", session_tag],
                         )
                         stored += 1
 
-                    # Store session summary as EPISODE
-                    _wrapped_store_knowledge(
-                        knowledge_type="EPISODE",
-                        content=(
-                            f"Session {analysis.session_id[:12]}: "
-                            f"{analysis.user_messages} user msgs, "
-                            f"{analysis.tool_calls_total} tool calls, "
-                            f"{len(analysis.corrections)} corrections, "
-                            f"{len(analysis.encouragements)} encouragements, "
-                            f"{len(getattr(analysis, 'preferences', []))} preferences, "
-                            f"{len(analysis.context_overflows)} overflows"
-                        ),
-                        confidence=1.0,
-                        tags=["session-analysis", "episode"],
-                    )
-                    stored += 1
+                    if not has_session:
+                        _wrapped_store_knowledge(
+                            knowledge_type="EPISODE",
+                            content=(
+                                f"Session {analysis.session_id[:12]}: "
+                                f"{analysis.user_messages} user msgs, "
+                                f"{analysis.tool_calls_total} tool calls, "
+                                f"{len(analysis.corrections)} corrections, "
+                                f"{len(analysis.encouragements)} encouragements, "
+                                f"{len(getattr(analysis, 'preferences', []))} preferences, "
+                                f"{len(analysis.context_overflows)} overflows"
+                            ),
+                            confidence=1.0,
+                            tags=["session-analysis", "episode", session_tag],
+                        )
+                        stored += 1
+                    elif has_session:
+                        click.secho(
+                            "[~] Session already scanned, skipping episode/fact.",
+                            fg="bright_black",
+                        )
 
                     click.secho(f"[+] Stored {stored} knowledge entries from session.", fg="green")
 
