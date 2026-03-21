@@ -22,7 +22,7 @@ from typing import Any
 from loguru import logger
 
 from divineos.core.loop_prevention import mark_internal_operation
-from divineos.core.session_manager import end_session, initialize_session, is_session_active
+from divineos.core.session_manager import initialize_session, is_session_active
 from divineos.event.event_emission import emit_user_input
 
 # Global state for signal handling
@@ -211,41 +211,30 @@ def _setup_signal_handlers() -> None:
 def _cleanup_on_exit() -> None:
     """Cleanup on CLI exit.
 
-    This function:
-    1. Emits SESSION_END event
-    2. Clears session state
-
-    Error Handling:
-    - Catches and logs all exceptions
-    - Attempts to clear session state even if SESSION_END fails
-    - Ensures cleanup is as complete as possible
+    Clears session state without emitting SESSION_END events.
+    SESSION_END should only be emitted explicitly via `divineos emit SESSION_END`,
+    not automatically when every CLI command finishes. Each CLI command is a
+    short-lived process — emitting SESSION_END on exit pollutes the ledger
+    with hundreds of zero-duration, zero-message session endings.
 
     Requirements:
-        - Requirement 5.4: Emit SESSION_END event on exit
         - Requirement 8.7-8.8: Clear session state
         - Requirement 10.1-10.6: Handle errors gracefully
     """
     with mark_internal_operation():
         try:
             if is_session_active():
-                logger.debug("Ending session on CLI exit")
+                logger.debug("Clearing session state on CLI exit")
                 try:
-                    end_session()
-                    logger.debug("Session ended successfully")
-                except Exception as e:
-                    logger.error(f"Failed to emit SESSION_END event: {e}", exc_info=True)
-                    logger.warning("Attempting to clear session state anyway")
-                    # Try to clear session state even if SESSION_END fails
-                    try:
-                        from divineos.core.session_manager import clear_session
+                    from divineos.core.session_manager import clear_session
 
-                        clear_session()
-                    except Exception as e2:
-                        logger.error(f"Failed to clear session state: {e2}")
+                    clear_session()
+                    logger.debug("Session state cleared")
+                except Exception as e:
+                    logger.error(f"Failed to clear session state: {e}")
 
         except Exception as e:
             logger.error(f"Unexpected error during cleanup: {e}", exc_info=True)
-            # Continue execution even if cleanup fails
 
 
 def handle_cli_error(error: Exception) -> None:
