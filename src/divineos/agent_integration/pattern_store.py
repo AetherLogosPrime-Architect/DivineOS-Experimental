@@ -288,6 +288,7 @@ class PatternStore:
         delta: float,
         reason: str,
         source_event_id: Optional[str] = None,
+        _cached_pattern: Optional[dict[str, Any]] = None,
     ) -> bool:
         """Update a pattern's confidence score with logging.
 
@@ -299,13 +300,14 @@ class PatternStore:
             delta: Confidence delta to apply (-1.0 to 1.0)
             reason: Reason for the update (logged for transparency)
             source_event_id: Event ID that triggered this update
+            _cached_pattern: Pre-fetched pattern dict to avoid redundant DB reads
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Get current pattern
-            pattern = self.get_pattern(pattern_id)
+            # Use cached pattern if provided, otherwise fetch from DB
+            pattern = _cached_pattern or self.get_pattern(pattern_id)
             if not pattern:
                 self.logger.error(f"Pattern {pattern_id} not found")
                 return False

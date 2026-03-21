@@ -16,6 +16,7 @@ from divineos.supersession import (
 )
 from divineos.clarity_enforcement.enforcer import ClarityEnforcer
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+from divineos.clarity_enforcement.violation_detector import ViolationDetector
 from divineos.agent_integration.learning_cycle import LearningCycle
 from divineos.agent_integration.memory_monitor import get_memory_monitor
 from divineos.core.ledger import log_event
@@ -39,6 +40,7 @@ class TestCompleteSystemIntegration:
             emit_events=True,
         )
         self.enforcer = ClarityEnforcer(config)
+        self.violation_detector = ViolationDetector()
 
         # Initialize memory monitor
         self.monitor = get_memory_monitor("test_session")
@@ -53,14 +55,13 @@ class TestCompleteSystemIntegration:
         # Simulate a tool call without explanation (violation)
         tool_name = "execute_query"
         tool_input = {"query": "SELECT * FROM users"}
-        context = {"session_id": "test_session"}
 
         # Detect violation
-        violation = self.enforcer.detect_violation(
+        violation = self.violation_detector.detect_violation(
             tool_name=tool_name,
             tool_input=tool_input,
-            context=context,
-            violation_type="missing_explanation",
+            context=[],
+            session_id="test_session",
         )
 
         # Verify violation detected
@@ -68,14 +69,24 @@ class TestCompleteSystemIntegration:
 
         # Capture violation in learning cycle
         self.learning_cycle.capture_violation_event(
-            tool_name=tool_name,
-            context_type="query_execution",
-            violation_type="missing_explanation",
-            confidence=0.95,
+            {
+                "type": "CLARITY_VIOLATION",
+                "session_id": "test_session",
+                "tool_name": tool_name,
+                "tool_input": tool_input,
+                "context": "query_execution",
+                "violation_type": "missing_explanation",
+                "confidence": 0.95,
+                "timestamp": "2026-03-20T10:00:00Z",
+                "enforcement_mode": "LOGGING",
+            }
         )
 
-        # Verify pattern stored
-        patterns = self.pattern_store.get_patterns_for_tool(tool_name)
+        # Verify pattern stored by querying with tool-related preconditions
+        patterns = self.pattern_store.query_patterns(
+            preconditions={"tool_name": tool_name},
+            min_confidence=0.0,
+        )
         assert len(patterns) > 0
 
     def test_integration_point_2_contradiction_to_resolution(self):
