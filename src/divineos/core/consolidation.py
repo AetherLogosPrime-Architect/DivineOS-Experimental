@@ -5,6 +5,23 @@ facts learned, preferences discovered, patterns identified, mistakes made.
 
 The AI extracts knowledge. This code stores and retrieves it.
 Rules: 1) Append-only (supersede, never delete). 2) Link back to source events.
+
+Section Map
+-----------
+Line ~56   | Core: DB connection, schema init, compute_hash
+Line ~188  | CRUD: store, get, search, update, supersede, record_access
+Line ~444  | Retrieval: unconsolidated events, find_similar, generate_briefing, stats
+Line ~690  | Lessons: record, query, mark_improving, summary, check_recurring
+Line ~865  | Report extraction: extract_lessons_from_report
+Line ~1003 | Row helpers: _lesson_row_to_dict, _row_to_dict
+Line ~1309 | Text analysis: normalize, key terms, overlap, extract_session_topics
+Line ~1355 | Smart storage: store_knowledge_smart (dedup via hash + FTS5)
+Line ~1509 | Deep extraction: corrections, preferences, decisions from sessions
+Line ~1819 | Consolidation: cluster & merge related knowledge entries
+Line ~1917 | Feedback: confidence adjustment, effectiveness, health_check
+Line ~2113 | Migration: reclassify legacy knowledge types
+Line ~2284 | Categorization: correction buckets, noise filter, apply_session_feedback
+Line ~2411 | Health report: aggregate effectiveness stats
 """
 
 import json
