@@ -589,7 +589,9 @@ class TestComputeOverlap:
         assert _compute_overlap("alpha beta gamma", "delta epsilon zeta") == 0.0
 
     def test_partial_overlap(self):
-        result = _compute_overlap("read files before editing", "always read files first")
+        result = _compute_overlap(
+            "database migration schema update", "database schema validation rules"
+        )
         assert 0.2 < result < 0.8  # some overlap but not identical
 
     def test_empty_text(self):

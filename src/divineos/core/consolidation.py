@@ -394,6 +394,31 @@ def update_knowledge(
         conn.close()
 
 
+def supersede_knowledge(knowledge_id: str, reason: str) -> None:
+    """Mark a knowledge entry as superseded without creating a replacement.
+
+    Use this for removing bad entries. The original is kept (append-only)
+    but marked so it no longer appears in queries.
+    """
+    conn = _get_connection()
+    try:
+        old = conn.execute(
+            "SELECT knowledge_id FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        if not old:
+            raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
+
+        # Mark as superseded by a sentinel value — no replacement entry needed
+        conn.execute(
+            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
+            (f"REMOVED:{reason[:200]}", knowledge_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def record_access(knowledge_id: str) -> None:
     """Increment access count for a knowledge entry."""
     conn = _get_connection()
@@ -1207,6 +1232,51 @@ _STOPWORDS = frozenset(
         "theyre",
         "hes",
         "shes",
+        # AI coding conversation filler — these appear in every session
+        "file",
+        "files",
+        "code",
+        "run",
+        "running",
+        "output",
+        "tool",
+        "tools",
+        "command",
+        "task",
+        "tasks",
+        "check",
+        "set",
+        "add",
+        "added",
+        "change",
+        "changes",
+        "changed",
+        "put",
+        "read",
+        "show",
+        "done",
+        "lol",
+        "haha",
+        "hey",
+        "thanks",
+        "thank",
+        "please",
+        "help",
+        "claude",
+        "kiro",
+        "notification",
+        "users",
+        "user",
+        "keep",
+        "start",
+        "stop",
+        "already",
+        "pretty",
+        "really",
+        "actually",
+        "basically",
+        "everything",
+        "able",
     },
 )
 

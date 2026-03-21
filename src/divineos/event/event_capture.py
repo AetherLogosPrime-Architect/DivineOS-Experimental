@@ -156,9 +156,6 @@ class ToolResultPayload:
         if not isinstance(self.result, str):
             msg = "result must be a string"
             raise EventValidationError(msg)
-        if not self.result:
-            msg = "result cannot be empty"
-            raise EventValidationError(msg)
         if len(self.result) > 10000000:  # 10MB limit
             msg = "result exceeds maximum length (10MB)"
             raise EventValidationError(msg)

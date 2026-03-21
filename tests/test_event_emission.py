@@ -330,10 +330,10 @@ class TestEmitToolResult:
         assert len(events) == 1
         assert events[0]["payload"]["result"] == long_result
 
-    def test_emit_tool_result_empty_result_fails(self, temp_db, fresh_session):
-        """Test that empty result fails validation."""
-        with pytest.raises(EventValidationError, match="result cannot be empty"):
-            emit_tool_result("readFile", "tool-use-123", "", 50)
+    def test_emit_tool_result_empty_result_passes(self, temp_db, fresh_session):
+        """Test that empty result passes — tools can succeed without output."""
+        event_id = emit_tool_result("readFile", "tool-use-123", "", 50)
+        assert event_id is not None
 
     def test_emit_tool_result_negative_duration_fails(self, temp_db, fresh_session):
         """Test that negative duration fails validation."""
