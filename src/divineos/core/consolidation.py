@@ -478,7 +478,7 @@ def generate_briefing(
     """
     conn = _get_connection()
     try:
-        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL"  # nosec B608 - column names are hardcoded constants, conditions built with parameterized queries
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND content NOT LIKE '[SUPERSEDED]%'"  # nosec B608 - column names are hardcoded constants, conditions built with parameterized queries
         params: list[Any] = []
 
         if include_types:
@@ -588,7 +588,13 @@ def generate_briefing(
         items = grouped.get(kt, [])
         if not items:
             continue
-        lines.append(f"### {kt}S ({len(items)})")
+        plural = {
+            "BOUNDARY": "BOUNDARIES",
+            "DIRECTORY": "DIRECTORIES",
+            "PROCEDURE": "PROCEDURES",
+            "EPISODE": "EPISODES",
+        }.get(kt, f"{kt}S")
+        lines.append(f"### {plural} ({len(items)})")
         for item in items:
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
             lines.append(
@@ -1538,6 +1544,32 @@ def deep_extract_knowledge(
     # --- Correction pairs → PRINCIPLE or BOUNDARY with insight content ---
     for correction in analysis.corrections:
         correction_text = correction.content
+
+        # Skip venting/frustration that matched correction patterns but isn't
+        # actionable guidance. Real corrections tell the AI what to do differently;
+        # frustrations just express displeasure.
+        lower_text = correction_text.lower().strip()
+        # Too short to be a real instruction (e.g. "no", "wrong")
+        if len(lower_text.split()) < 5:
+            continue
+        # Frustration indicators without actionable content
+        frustration_only = any(
+            marker in lower_text
+            for marker in (
+                "i dont even know",
+                "i don't even know",
+                "what is going on",
+                "fml",
+                "im lost",
+                "i'm lost",
+                "utterly lost",
+                "i have no idea",
+                "this is a mess",
+                "a nightmare",
+            )
+        )
+        if frustration_only:
+            continue
         # Find this correction in the raw records and get the assistant message before it
         ai_before = ""
         for i, rec in enumerate(records):
@@ -1643,10 +1675,12 @@ def deep_extract_knowledge(
                         break
                 break
 
-        if ai_before:
-            content = f"This approach works well: {ai_before}. User affirmed: {enc.content[:150]}"
-        else:
-            content = f"Positive signal: {enc.content[:250]}"
+        if not ai_before:
+            # Without knowing what the AI did right, the encouragement is just
+            # a raw user quote with no actionable insight. Skip it.
+            continue
+
+        content = f"This approach works well: {ai_before}. User affirmed: {enc.content[:150]}"
 
         kid = store_knowledge_smart(
             knowledge_type="PRINCIPLE",

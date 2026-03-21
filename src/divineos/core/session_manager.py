@@ -401,7 +401,7 @@ class SessionTracker:
 
         # Generate initial session ID (will be overridden by initialize_session if file exists)
         self._current_session_id: str | None = str(uuid.uuid4())
-        logger.debug(f"Initialized session tracker with session: {self._current_session_id}")
+        logger.trace(f"Initialized session tracker with session: {self._current_session_id}")
 
         # Always initialize start_time
         # This ensures end_session() and get_session_duration() never return None
