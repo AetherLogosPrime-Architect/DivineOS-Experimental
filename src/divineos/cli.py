@@ -175,6 +175,32 @@ def _auto_classify(content: str) -> str:
     return "PRINCIPLE"
 
 
+def _resolve_knowledge_id(partial: str) -> str:
+    """Resolve a partial knowledge ID to a full one.
+
+    Accepts full UUIDs or prefix matches (e.g. '48a788e7').
+    Raises click.ClickException if no match or ambiguous.
+    """
+    from divineos.core.consolidation import _get_connection
+
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT knowledge_id FROM knowledge WHERE knowledge_id LIKE ? AND superseded_by IS NULL",
+            (f"{partial}%",),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if len(rows) == 0:
+        raise click.ClickException(f"No knowledge entry matching '{partial}'")
+    if len(rows) > 1:
+        matches = ", ".join(r[0][:12] + "..." for r in rows[:5])
+        raise click.ClickException(f"Ambiguous ID '{partial}' matches: {matches}")
+    result: str = rows[0][0]
+    return result
+
+
 # Wrap critical tool calls for event capture
 _wrapped_log_event = wrap_tool_execution("log_event", log_event)
 _wrapped_get_events = wrap_tool_execution("get_events", get_events)
@@ -706,8 +732,11 @@ def forget_cmd(knowledge_id: str, reason: str) -> None:
     from divineos.core.consolidation import supersede_knowledge
 
     try:
-        supersede_knowledge(knowledge_id, reason)
-        click.secho(f"[+] Removed {knowledge_id[:8]}... ({reason})", fg="green")
+        full_id = _resolve_knowledge_id(knowledge_id)
+        supersede_knowledge(full_id, reason)
+        click.secho(f"[+] Removed {full_id[:8]}... ({reason})", fg="green")
+    except click.ClickException:
+        raise
     except ValueError as e:
         click.secho(f"[-] {e}", fg="red")
 
@@ -1129,9 +1158,12 @@ def remember_cmd(knowledge_id: str, reason: str, pin: bool) -> None:
     """Promote a knowledge entry to active memory."""
     init_memory_tables()
     try:
-        mid = _wrapped_promote_to_active(knowledge_id, reason=reason, pinned=pin)
+        full_id = _resolve_knowledge_id(knowledge_id)
+        mid = _wrapped_promote_to_active(full_id, reason=reason, pinned=pin)
         pin_note = " [pinned]" if pin else ""
         click.secho(f"[+] Promoted to active memory: {mid}{pin_note}", fg="green")
+    except click.ClickException:
+        raise
     except Exception as e:
         click.secho(f"[-] {e}", fg="red")
 
@@ -1420,8 +1452,19 @@ def report_cmd(session_id: str) -> None:
                 click.echo()
                 return
 
-            click.secho("\n=== Recent Sessions ===\n", fg="cyan", bold=True)
-            for i, session in enumerate(sessions, 1):
+            # Filter out test sessions (0 files touched = likely test data)
+            real_sessions = [s for s in sessions if s["file_count"] > 0]
+            if not real_sessions:
+                click.secho("\n[-] No real analyzed sessions found yet.", fg="yellow")
+                click.secho(
+                    "    Run 'divineos analyze <file.jsonl>' to analyze a session.",
+                    fg="bright_black",
+                )
+                click.echo()
+                return
+
+            click.secho(f"\n=== {len(real_sessions)} Analyzed Sessions ===\n", fg="cyan", bold=True)
+            for i, session in enumerate(real_sessions, 1):
                 click.secho(f"  {i}. {session['session_id']}", fg="white", bold=True)
 
                 # Format timestamp
