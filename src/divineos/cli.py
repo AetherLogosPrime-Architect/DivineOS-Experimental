@@ -73,9 +73,81 @@ from divineos.core.parser import parse_jsonl, parse_markdown_chat
 from divineos.core.tool_wrapper import wrap_tool_execution
 
 
+_EMOJI_MEANINGS: dict[str, str] = {
+    "\U0001f614": "(upset)",
+    "\U0001f622": "(crying)",
+    "\U0001f62d": "(sobbing)",
+    "\U0001f620": "(angry)",
+    "\U0001f621": "(furious)",
+    "\U0001f610": "(neutral)",
+    "\U0001f642": "(smile)",
+    "\U0001f600": "(grinning)",
+    "\U0001f601": "(beaming)",
+    "\U0001f603": "(happy)",
+    "\U0001f604": "(laughing)",
+    "\U0001f605": "(laughing nervously)",
+    "\U0001f606": "(laughing hard)",
+    "\U0001f609": "(wink)",
+    "\U0001f60a": "(warm smile)",
+    "\U0001f60d": "(heart eyes)",
+    "\U0001f60e": "(cool)",
+    "\U0001f60f": "(smirk)",
+    "\U0001f612": "(unamused)",
+    "\U0001f615": "(confused)",
+    "\U0001f616": "(frustrated)",
+    "\U0001f618": "(kiss)",
+    "\U0001f61b": "(tongue out)",
+    "\U0001f61c": "(playful wink)",
+    "\U0001f61e": "(disappointed)",
+    "\U0001f624": "(frustrated)",
+    "\U0001f625": "(relieved)",
+    "\U0001f629": "(weary)",
+    "\U0001f62b": "(tired)",
+    "\U0001f62e": "(surprised)",
+    "\U0001f631": "(screaming)",
+    "\U0001f633": "(flushed)",
+    "\U0001f634": "(sleeping)",
+    "\U0001f637": "(sick)",
+    "\U0001f641": "(frown)",
+    "\U0001f643": "(upside-down smile)",
+    "\U0001f644": "(eye roll)",
+    "\U0001f914": "(thinking)",
+    "\U0001f917": "(hug)",
+    "\U0001f923": "(rolling on floor laughing)",
+    "\U0001f929": "(starstruck)",
+    "\U0001f92f": "(mind blown)",
+    "\U0001f970": "(adoring)",
+    "\U0001f973": "(party)",
+    "\U0001f97a": "(pleading)",
+    "\U0001f44d": "(thumbs up)",
+    "\U0001f44e": "(thumbs down)",
+    "\U0001f44f": "(clapping)",
+    "\U0001f389": "(celebration)",
+    "\U0001f38a": "(confetti)",
+    "\U0001f525": "(fire)",
+    "\U0001f4af": "(100%)",
+    "\u2764\ufe0f": "(love)",
+    "\u2764": "(love)",
+    "\U0001f499": "(blue heart)",
+    "\U0001f49a": "(green heart)",
+    "\U0001f49c": "(purple heart)",
+    "\U0001f680": "(rocket)",
+    "\u2705": "(checkmark)",
+    "\u274c": "(X)",
+    "\u26a0\ufe0f": "(warning)",
+    "\u26a0": "(warning)",
+}
+
+
 def _safe_echo(text: str, **kwargs: Any) -> None:
-    """click.echo that won't crash on Windows with Unicode characters."""
+    """click.echo that won't crash on Windows with Unicode characters.
+
+    Translates emoji to their meanings (e.g. upset, happy) instead of
+    replacing them with '?' — because context matters.
+    """
     if os.name == "nt":
+        for emoji, meaning in _EMOJI_MEANINGS.items():
+            text = text.replace(emoji, meaning)
         text = text.encode("cp1252", errors="replace").decode("cp1252")
     click.echo(text, **kwargs)
 
