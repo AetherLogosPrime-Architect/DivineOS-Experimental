@@ -46,6 +46,8 @@ KNOWLEDGE_TYPES = {
     "DIRECTION",
     "OBSERVATION",
     "EPISODE",
+    # Sutra-style chained directives — high confidence, surface first in briefings
+    "DIRECTIVE",
     # Legacy types (still accepted, new code should not create these)
     "PATTERN",
     "PREFERENCE",
@@ -562,6 +564,8 @@ def generate_briefing(
 
     # Type-specific half-lives in days
     half_lives = {
+        # Sutra-style directives — never decay, always surface
+        "DIRECTIVE": None,
         # New types
         "BOUNDARY": 30.0,  # Hard constraints persist
         "PRINCIPLE": 30.0,  # Distilled wisdom persists
@@ -588,6 +592,10 @@ def generate_briefing(
             recency = 2 ** (-age_days / half_life)
 
         score = entry["confidence"] * 0.4 + access_score * 0.3 + recency * 0.3
+
+        # Directives always surface — they're the operating principles
+        if entry["knowledge_type"] == "DIRECTIVE":
+            score += 1.0
 
         # Boost if matching context hint
         if entry["knowledge_id"] in hint_matches:
@@ -632,6 +640,7 @@ def generate_briefing(
         lines.append("")
 
     for kt in [
+        "DIRECTIVE",
         "BOUNDARY",
         "PRINCIPLE",
         "DIRECTION",
@@ -647,6 +656,7 @@ def generate_briefing(
         if not items:
             continue
         plural = {
+            "DIRECTIVE": "DIRECTIVES",
             "BOUNDARY": "BOUNDARIES",
             "DIRECTORY": "DIRECTORIES",
             "PROCEDURE": "PROCEDURES",
