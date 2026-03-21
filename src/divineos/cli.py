@@ -157,26 +157,39 @@ def _safe_echo(text: str, **kwargs: Any) -> None:
     click.echo(text, **kwargs)
 
 
-def _auto_classify(content: str) -> str:
-    """Auto-classify knowledge type from content text."""
+def _auto_classify(content: str) -> tuple[str, str]:
+    """Auto-classify knowledge type from content text.
+
+    Returns (type, reason) so the user can see why.
+    """
     lower = content.lower()
-    # Hard constraints
-    if re.search(r"\b(never|always|must not|do not|don't|cannot|forbidden)\b", lower):
-        return "BOUNDARY"
-    # How-to / process
-    if re.search(r"\b(step \d|how to|first.*then|process|workflow|procedure)\b", lower):
-        return "PROCEDURE"
-    # Preferences / directions
-    if re.search(r"\b(use |prefer |default to |keep |avoid )\b", lower):
-        return "DIRECTION"
-    # Facts / data
-    if re.search(r"\b(is located|version |database |path |file |count |total )\b", lower):
-        return "FACT"
-    # Observations about behavior
-    if re.search(r"\b(noticed|found that|discovered|turns out|apparently)\b", lower):
-        return "OBSERVATION"
-    # Default to PRINCIPLE
-    return "PRINCIPLE"
+    rules: list[tuple[str, str, str]] = [
+        (
+            r"\b(never|always|must not|do not|don't|cannot|forbidden)\b",
+            "BOUNDARY",
+            "constraint language",
+        ),
+        (
+            r"\b(step \d|how to|first.*then|process|workflow|procedure)\b",
+            "PROCEDURE",
+            "process/how-to language",
+        ),
+        (r"\b(use |prefer |default to |keep |avoid )\b", "DIRECTION", "preference language"),
+        (
+            r"\b(is located|version |database |path |file |count |total )\b",
+            "FACT",
+            "factual language",
+        ),
+        (
+            r"\b(noticed|found that|discovered|turns out|apparently)\b",
+            "OBSERVATION",
+            "observation language",
+        ),
+    ]
+    for pattern, ktype, reason in rules:
+        if re.search(pattern, lower):
+            return ktype, reason
+    return "PRINCIPLE", "general knowledge (no specific pattern matched)"
 
 
 def _resolve_knowledge_id(partial: str) -> str:
@@ -200,7 +213,10 @@ def _resolve_knowledge_id(partial: str) -> str:
         raise click.ClickException(f"No knowledge entry matching '{partial}'")
     if len(rows) > 1:
         matches = ", ".join(r[0][:12] + "..." for r in rows[:5])
-        raise click.ClickException(f"Ambiguous ID '{partial}' matches: {matches}")
+        extra = f" (+{len(rows) - 5} more)" if len(rows) > 5 else ""
+        raise click.ClickException(
+            f"Ambiguous ID '{partial}' matches {len(rows)} entries: {matches}{extra}"
+        )
     result: str = rows[0][0]
     return result
 
@@ -642,8 +658,8 @@ def learn(
         raise SystemExit(1)
 
     if not knowledge_type:
-        knowledge_type = _auto_classify(content)
-        click.secho(f"[~] Auto-classified as: {knowledge_type}", fg="cyan")
+        knowledge_type, classify_reason = _auto_classify(content)
+        click.secho(f"[~] Auto-classified as: {knowledge_type} ({classify_reason})", fg="cyan")
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     source_list = [s.strip() for s in source.split(",") if s.strip()] if source else []
 
@@ -751,7 +767,11 @@ def briefing_cmd(max_items: int, types: str, topic: str) -> None:
         include_types=type_list,
         context_hint=topic,
     )
-    click.echo(output)
+    if output and output.strip():
+        click.echo(output)
+    else:
+        click.secho("[*] No knowledge entries match your filters.", fg="yellow")
+        click.secho('    Try: divineos learn "..." to add knowledge first.', fg="bright_black")
 
 
 @cli.command("forget")
@@ -802,7 +822,7 @@ def consolidate_stats_cmd() -> None:
 
 @cli.command("rebuild-index")
 def rebuild_index_cmd() -> None:
-    """Rebuild the Full-text search full-text search index from existing knowledge."""
+    """Rebuild the full-text search index from existing knowledge."""
     count = _wrapped_rebuild_fts_index()
     if count > 0:
         click.secho(f"[+] Full-text search index rebuilt: {count} entries indexed.", fg="green")
@@ -1202,6 +1222,9 @@ def remember_cmd(knowledge_id: str, reason: str, pin: bool) -> None:
 @click.option("--threshold", default=0.3, type=float, help="Importance threshold (0.0-1.0)")
 def refresh_cmd(threshold: float) -> None:
     """Auto-rebuild active memory from the knowledge store."""
+    if not 0.0 <= threshold <= 1.0:
+        click.secho(f"[-] Threshold must be between 0.0 and 1.0, got {threshold}", fg="red")
+        return
     init_memory_tables()
     result = _wrapped_refresh_active_memory(importance_threshold=threshold)
     click.secho("\n=== Memory Refresh ===\n", fg="cyan", bold=True)
@@ -1400,8 +1423,6 @@ def report_cmd(session_id: str) -> None:
 
     If no session_id provided, shows list of recent sessions.
     """
-    from datetime import datetime
-
     from divineos.analysis.analysis import get_stored_report, list_recent_sessions
 
     try:
@@ -1435,7 +1456,10 @@ def report_cmd(session_id: str) -> None:
 
                 # Format timestamp
                 try:
-                    ts = datetime.fromtimestamp(session["created_at"]).strftime("%Y-%m-%d %H:%M:%S")
+                    ts = datetime.fromtimestamp(
+                        session["created_at"],
+                        tz=timezone.utc,
+                    ).strftime("%Y-%m-%d %H:%M:%S UTC")
                     click.secho(f"     Time: {ts}", fg="bright_black")
                 except Exception:
                     click.secho(f"     Time: {session['created_at']}", fg="bright_black")
