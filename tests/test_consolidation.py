@@ -1302,6 +1302,7 @@ class TestExpandedTypes:
             "DIRECTION",
             "OBSERVATION",
             "EPISODE",
+            "DIRECTIVE",
             "PATTERN",
             "PREFERENCE",
             "MISTAKE",
