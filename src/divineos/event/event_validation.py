@@ -241,11 +241,13 @@ class EventValidator:
         if not EventValidator.is_valid_tool_name(tool_name):
             return False, f"Invalid tool name: {tool_name!r}"
 
-        # Validate result if provided
+        # Validate result if provided — allow any non-empty string or valid JSON.
+        # Tool results are often structured data (JSON dicts, lists), not
+        # human-readable prose, so the standard content validator rejects them.
         if "result" in payload:
             result = payload.get("result", "")
-            if not EventValidator.is_valid_content(result):
-                return False, f"Invalid result: {result[:50]!r}"
+            if not isinstance(result, str):
+                return False, f"Invalid result type: {type(result).__name__}"
 
         # Validate duration_ms if provided
         if "duration_ms" in payload:
