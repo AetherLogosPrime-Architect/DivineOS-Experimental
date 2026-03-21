@@ -832,6 +832,150 @@ def rebuild_index_cmd() -> None:
         click.secho("[*] No knowledge entries to index.", fg="yellow")
 
 
+@cli.command("digest")
+@click.argument("file_path", type=click.Path(exists=True))
+@click.option("--chunk-size", default=100, help="Lines per chunk (default 100)")
+def digest_cmd(file_path: str, chunk_size: int) -> None:
+    """Read a file in chunks and store a structured digest as knowledge.
+
+    Breaks the file into logical sections, summarizes each one,
+    and stores the result so future sessions can recall it
+    without re-reading the entire file.
+    """
+    path = Path(file_path)
+    try:
+        content = path.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:
+        click.secho(f"[-] Cannot read file: {e}", fg="red")
+        return
+
+    lines = content.splitlines()
+    total_lines = len(lines)
+    file_tag = path.name
+
+    click.secho(f"\n[+] Digesting: {path.name} ({total_lines} lines)", fg="cyan", bold=True)
+
+    # Build section map for Python files
+    sections: list[dict[str, Any]] = []
+    if path.suffix == ".py":
+        sections = _extract_python_sections(lines)
+    else:
+        # For non-Python files, chunk by line count
+        for start in range(0, total_lines, chunk_size):
+            end = min(start + chunk_size, total_lines)
+            sections.append(
+                {
+                    "name": f"lines {start + 1}-{end}",
+                    "start": start,
+                    "end": end,
+                    "kind": "chunk",
+                }
+            )
+
+    if not sections:
+        click.secho("[*] No sections found to digest.", fg="yellow")
+        return
+
+    # Build digest text
+    digest_lines = [f"File: {path.name} ({total_lines} lines)"]
+    if path.suffix == ".py":
+        # Extract module docstring
+        docstring = _extract_module_docstring(lines)
+        if docstring:
+            digest_lines.append(f"Purpose: {docstring}")
+    digest_lines.append("")
+
+    for sec in sections:
+        if sec["kind"] == "class":
+            digest_lines.append(f"  class {sec['name']} (line {sec['start'] + 1})")
+        elif sec["kind"] == "function":
+            digest_lines.append(f"  def {sec['name']} (line {sec['start'] + 1})")
+        elif sec["kind"] == "chunk":
+            digest_lines.append(f"  {sec['name']}")
+
+        # Extract a one-line docstring if present
+        body_start = sec["start"] + 1
+        if body_start < len(lines):
+            for k in range(body_start, min(body_start + 5, sec["end"])):
+                stripped = lines[k].strip()
+                if stripped.startswith('"""') or stripped.startswith("'''"):
+                    doc = stripped.strip("\"'").strip()
+                    if doc:
+                        digest_lines.append(f"    {doc}")
+                    break
+
+    digest_text = "\n".join(digest_lines)
+
+    click.echo()
+    click.echo(digest_text)
+    click.echo()
+
+    # Store as knowledge
+    click.secho("[+] Storing digest in knowledge store...", fg="cyan")
+    try:
+        # Check for existing digest of same file and supersede it
+        existing = search_knowledge(file_tag, limit=5)
+        superseded = 0
+        for entry in existing:
+            if entry.get("knowledge_type") == "FACT" and f"digest:{file_tag}" in entry.get(
+                "tags", ""
+            ):
+                from divineos.core.consolidation import supersede_knowledge
+
+                supersede_knowledge(entry["knowledge_id"], f"Updated digest of {file_tag}")
+                superseded += 1
+
+        entry_id = _wrapped_store_knowledge(
+            knowledge_type="FACT",
+            content=digest_text,
+            confidence=1.0,
+            source_events=[],
+            tags=["digest", f"digest:{file_tag}"],
+        )
+        click.secho(f"[+] Digest stored: {entry_id[:12]}...", fg="green")
+        if superseded:
+            click.secho(f"    (superseded {superseded} previous digest(s))", fg="bright_black")
+        click.secho(
+            f"[+] {len(sections)} sections indexed. "
+            f'Future sessions can run: divineos ask "{file_tag}"',
+            fg="green",
+        )
+    except Exception as e:
+        click.secho(f"[-] Failed to store digest: {e}", fg="red")
+        logger.exception("Digest storage failed")
+
+
+def _extract_python_sections(lines: list[str]) -> list[dict[str, Any]]:
+    """Extract top-level classes and functions from Python source lines."""
+    sections: list[dict[str, Any]] = []
+    for i, line in enumerate(lines):
+        if line.startswith("class ") and "(" in line:
+            name = line.split("(")[0].replace("class ", "").strip()
+            sections.append({"name": name, "start": i, "end": i, "kind": "class"})
+        elif line.startswith("def ") and "(" in line:
+            name = line.split("(")[0].replace("def ", "").strip()
+            sections.append({"name": name, "start": i, "end": i, "kind": "function"})
+
+    # Set end lines (each section ends where the next begins)
+    for j in range(len(sections) - 1):
+        sections[j]["end"] = sections[j + 1]["start"]
+    if sections:
+        sections[-1]["end"] = len(lines)
+
+    return sections
+
+
+def _extract_module_docstring(lines: list[str]) -> str:
+    """Extract the first line of a module docstring."""
+    for line in lines[:10]:
+        stripped = line.strip()
+        if stripped.startswith('"""') or stripped.startswith("'''"):
+            doc = stripped.strip("\"'").strip()
+            if doc:
+                return doc
+    return ""
+
+
 @cli.command("lessons")
 @click.option(
     "--status",
