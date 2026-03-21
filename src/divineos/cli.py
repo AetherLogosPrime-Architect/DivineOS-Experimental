@@ -203,7 +203,8 @@ def _resolve_knowledge_id(partial: str) -> str:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT knowledge_id FROM knowledge WHERE knowledge_id LIKE ? AND superseded_by IS NULL",
+            "SELECT knowledge_id, knowledge_type, content FROM knowledge"
+            " WHERE knowledge_id LIKE ? AND superseded_by IS NULL",
             (f"{partial}%",),
         ).fetchall()
     finally:
@@ -212,11 +213,12 @@ def _resolve_knowledge_id(partial: str) -> str:
     if len(rows) == 0:
         raise click.ClickException(f"No knowledge entry matching '{partial}'")
     if len(rows) > 1:
-        matches = ", ".join(r[0][:12] + "..." for r in rows[:5])
-        extra = f" (+{len(rows) - 5} more)" if len(rows) > 5 else ""
-        raise click.ClickException(
-            f"Ambiguous ID '{partial}' matches {len(rows)} entries: {matches}{extra}"
-        )
+        click.secho(f"Ambiguous ID '{partial}' matches {len(rows)} entries:\n", fg="yellow")
+        for kid, ktype, content in rows:
+            preview = (content[:60] + "...") if len(content) > 60 else content
+            preview = preview.replace("\n", " ")
+            click.echo(f"  {kid[:12]}  [{ktype}]  {preview}")
+        raise click.ClickException("Use more characters to narrow it down")
     result: str = rows[0][0]
     return result
 
