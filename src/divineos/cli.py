@@ -40,6 +40,7 @@ from divineos.core.consolidation import (
     knowledge_stats,
     migrate_knowledge_types,
     rebuild_fts_index,
+    search_knowledge,
     store_knowledge,
     update_knowledge,
 )
@@ -150,6 +151,28 @@ def _safe_echo(text: str, **kwargs: Any) -> None:
             text = text.replace(emoji, meaning)
         text = text.encode("cp1252", errors="replace").decode("cp1252")
     click.echo(text, **kwargs)
+
+
+def _auto_classify(content: str) -> str:
+    """Auto-classify knowledge type from content text."""
+    lower = content.lower()
+    # Hard constraints
+    if re.search(r"\b(never|always|must not|do not|don't|cannot|forbidden)\b", lower):
+        return "BOUNDARY"
+    # How-to / process
+    if re.search(r"\b(step \d|how to|first.*then|process|workflow|procedure)\b", lower):
+        return "PROCEDURE"
+    # Preferences / directions
+    if re.search(r"\b(use |prefer |default to |keep |avoid )\b", lower):
+        return "DIRECTION"
+    # Facts / data
+    if re.search(r"\b(is located|version |database |path |file |count |total )\b", lower):
+        return "FACT"
+    # Observations about behavior
+    if re.search(r"\b(noticed|found that|discovered|turns out|apparently)\b", lower):
+        return "OBSERVATION"
+    # Default to PRINCIPLE
+    return "PRINCIPLE"
 
 
 # Wrap critical tool calls for event capture
@@ -534,9 +557,10 @@ def context(n: int) -> None:
 @click.option(
     "--type",
     "knowledge_type",
-    required=True,
+    required=False,
+    default=None,
     type=click.Choice(sorted(KNOWLEDGE_TYPES), case_sensitive=False),
-    help="Knowledge type",
+    help="Knowledge type (auto-detected if omitted)",
 )
 @click.option("--content", "content_opt", default=None, help="The knowledge to store")
 @click.option("--confidence", default=1.0, type=float, help="Confidence 0.0-1.0")
@@ -544,7 +568,7 @@ def context(n: int) -> None:
 @click.option("--source", default="", help="Comma-separated source event IDs")
 def learn(
     text: str | None,
-    knowledge_type: str,
+    knowledge_type: str | None,
     content_opt: str | None,
     confidence: float,
     tags: str,
@@ -553,12 +577,17 @@ def learn(
     """Store a piece of knowledge extracted from experience.
 
     Content can be passed as a positional argument or via --content.
-    Example: divineos learn "always test first" --type direction
+    Type is auto-detected from content if --type is omitted.
+    Example: divineos learn "always read files before editing"
     """
     content = text or content_opt
     if not content:
         click.secho("[-] Content is required. Pass as argument or --content.", fg="red")
         raise SystemExit(1)
+
+    if not knowledge_type:
+        knowledge_type = _auto_classify(content)
+        click.secho(f"[~] Auto-classified as: {knowledge_type}", fg="cyan")
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     source_list = [s.strip() for s in source.split(",") if s.strip()] if source else []
 
@@ -611,6 +640,42 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int) -> Non
         click.echo(entry["content"])
         if entry["tags"]:
             click.secho(f"         tags: {', '.join(entry['tags'])}", fg="bright_black")
+        click.secho(
+            f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
+            fg="bright_black",
+        )
+        click.echo()
+
+
+@cli.command("ask")
+@click.argument("query")
+@click.option("--limit", default=10, type=int, help="Max results")
+def ask_cmd(query: str, limit: int) -> None:
+    """Search what the system knows about a topic.
+
+    Uses full-text search with relevance ranking.
+    Example: divineos ask "testing"
+    """
+    results = search_knowledge(query, limit=limit)
+
+    if not results:
+        click.secho(f"[-] Nothing found for '{query}'.", fg="yellow")
+        return
+
+    click.secho(f"\n=== {len(results)} results for '{query}' ===\n", fg="cyan", bold=True)
+    for entry in results:
+        color = {
+            "BOUNDARY": "red",
+            "PRINCIPLE": "yellow",
+            "DIRECTION": "green",
+            "PROCEDURE": "cyan",
+            "FACT": "blue",
+            "OBSERVATION": "bright_black",
+            "EPISODE": "cyan",
+        }.get(entry["knowledge_type"], "white")
+        click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
+        click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
+        click.echo(entry["content"])
         click.secho(
             f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
             fg="bright_black",
@@ -722,8 +787,10 @@ def lessons_cmd(status: str) -> None:
         click.secho(f"  {lesson['status'].upper()} ", fg=status_color, bold=True, nl=False)
         click.secho(f"({lesson['occurrences']}x) ", fg="bright_black", nl=False)
         click.echo(lesson["description"][:80])
+        agent = lesson.get("agent", "unknown")
+        agent_str = f" | agent: {agent}" if agent != "unknown" else ""
         click.secho(
-            f"         category: {lesson['category']} | sessions: {len(lesson['sessions'])}",
+            f"         category: {lesson['category']} | sessions: {len(lesson['sessions'])}{agent_str}",
             fg="bright_black",
         )
         click.echo()

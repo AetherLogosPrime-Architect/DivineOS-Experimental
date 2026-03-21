@@ -160,7 +160,8 @@ def init_knowledge_table() -> None:
                 last_seen     REAL NOT NULL,
                 sessions      TEXT NOT NULL DEFAULT '[]',
                 status        TEXT NOT NULL DEFAULT 'active',
-                content_hash  TEXT NOT NULL
+                content_hash  TEXT NOT NULL,
+                agent         TEXT NOT NULL DEFAULT 'unknown'
             )
         """)
         conn.execute("""
@@ -171,6 +172,13 @@ def init_knowledge_table() -> None:
             CREATE INDEX IF NOT EXISTS idx_lesson_status
             ON lesson_tracking(status)
         """)
+
+        # Migration: add agent column to lesson_tracking if missing
+        cols = [c[1] for c in conn.execute("PRAGMA table_info(lesson_tracking)").fetchall()]
+        if "agent" not in cols:
+            conn.execute(
+                "ALTER TABLE lesson_tracking ADD COLUMN agent TEXT NOT NULL DEFAULT 'unknown'"
+            )
 
         conn.commit()
     finally:
@@ -296,13 +304,13 @@ def search_knowledge(query: str, limit: int = 50) -> list[dict[str, Any]]:
     """
     conn = _get_connection()
     try:
-        query_str = f"""SELECT {_KNOWLEDGE_COLS_K}  # nosec B608 - column names are hardcoded constants, query parameters passed separately
+        query_str = f"""SELECT {_KNOWLEDGE_COLS_K}
                FROM knowledge_fts fts
                JOIN knowledge k ON k.rowid = fts.rowid
                WHERE knowledge_fts MATCH ?
                  AND k.superseded_by IS NULL
                ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
-               LIMIT ?"""
+               LIMIT ?"""  # nosec B608 - column names are hardcoded constants
         rows = conn.execute(query_str, (query, limit)).fetchall()
         return [_row_to_dict(row) for row in rows]
     except sqlite3.OperationalError:
@@ -679,7 +687,7 @@ def knowledge_stats() -> dict[str, Any]:
 # ─── Learning Loop ─────────────────────────────────────────────────────
 
 
-def record_lesson(category: str, description: str, session_id: str) -> str:
+def record_lesson(category: str, description: str, session_id: str, agent: str = "unknown") -> str:
     """Record a lesson or update an existing one for the same category.
 
     If a lesson with the same category already exists:
@@ -687,6 +695,9 @@ def record_lesson(category: str, description: str, session_id: str) -> str:
       - Add session_id to the sessions list
       - Update last_seen timestamp
       - Update status based on recurrence pattern
+
+    Args:
+        agent: Which AI agent made the mistake (e.g. 'claude-opus', 'kiro-haiku').
 
     Returns the lesson_id.
     """
@@ -719,8 +730,8 @@ def record_lesson(category: str, description: str, session_id: str) -> str:
         conn.execute(
             """INSERT INTO lesson_tracking
                (lesson_id, created_at, category, description, first_session,
-                occurrences, last_seen, sessions, status, content_hash)
-               VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'active', ?)""",
+                occurrences, last_seen, sessions, status, content_hash, agent)
+               VALUES (?, ?, ?, ?, ?, 1, ?, ?, 'active', ?, ?)""",
             (
                 lesson_id,
                 now,
@@ -730,6 +741,7 @@ def record_lesson(category: str, description: str, session_id: str) -> str:
                 now,
                 json.dumps([session_id]),
                 content_hash,
+                agent,
             ),
         )
         conn.commit()
@@ -746,7 +758,7 @@ def get_lessons(
     """Get lessons, optionally filtered by status or category."""
     conn = _get_connection()
     try:
-        query = "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash FROM lesson_tracking"
+        query = "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash, agent FROM lesson_tracking"
         conditions: list[str] = []
         params: list[Any] = []
 
@@ -990,7 +1002,7 @@ def extract_lessons_from_report(
 
 def _lesson_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     """Convert a lesson_tracking table row to a dict."""
-    return {
+    d = {
         "lesson_id": row[0],
         "created_at": row[1],
         "category": row[2],
@@ -1002,6 +1014,11 @@ def _lesson_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "status": row[8],
         "content_hash": row[9],
     }
+    if len(row) > 10:
+        d["agent"] = row[10]
+    else:
+        d["agent"] = "unknown"
+    return d
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
