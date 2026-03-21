@@ -72,7 +72,4 @@ __all__ = [
     "SessionManagerInterface",
     "SummaryGenerator",
     "ToolCall",
-    "get_clarity_logger",
-    # Logging
-    "setup_clarity_logging",
 ]
