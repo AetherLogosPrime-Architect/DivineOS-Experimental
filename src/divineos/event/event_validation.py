@@ -56,9 +56,9 @@ class EventValidator:
     def is_valid_tool_input_value(value: Any) -> bool:
         """Recursively validate tool_input values (supports nested structures)."""
         if isinstance(value, str):
-            # Allow empty strings, validate non-empty strings
-            if len(value) > 0:
-                return EventValidator.is_valid_content(value)
+            # Tool inputs are structured data (file paths, JSON, IDs) — not
+            # human-readable prose. Accept any string; the content validator
+            # rejects paths with backslashes and JSON with special chars.
             return True
         if isinstance(value, (int, float, bool, type(None))):
             return True

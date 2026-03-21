@@ -610,14 +610,16 @@ def clear_lessons_cmd() -> None:
 
 
 @cli.command("consolidate")
-@click.option("--min-cluster", default=3, type=int, help="Minimum entries to form a cluster")
+@click.option("--min-cluster", default=2, type=int, help="Minimum entries to form a cluster")
 def consolidate_cmd(min_cluster: int) -> None:
     """Merge related knowledge entries into consolidated ones."""
     merges = _wrapped_consolidate_related(min_cluster_size=min_cluster)
 
     if not merges:
         click.secho("[*] No clusters found to consolidate.", fg="yellow")
-        click.secho("    Need at least 3 similar entries of the same type.", fg="bright_black")
+        click.secho(
+            f"    Need at least {min_cluster} similar entries of the same type.", fg="bright_black"
+        )
         return
 
     click.secho(f"\n[+] Consolidated {len(merges)} clusters:\n", fg="green", bold=True)
@@ -1385,12 +1387,72 @@ def emit_cmd(
             click.secho("[+] Event emitted: SESSION_END", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
-            # Show what was captured
-            events = _wrapped_get_events(limit=10000, event_type="SESSION_END")
-            if events:
-                # Get the most recent SESSION_END (last in the list since ordered by timestamp ASC)
-                payload = events[-1]["payload"]
-                click.secho(f"    Payload: {json.dumps(payload, indent=2)}", fg="cyan")
+            # Auto-scan the most recent session file and store findings
+            session_files = _analyzer_mod.find_sessions()
+            if session_files:
+                latest = session_files[0]
+                click.secho(f"\n[~] Auto-scanning session: {latest.stem[:16]}...", fg="cyan")
+                try:
+                    analysis = _analyzer_mod.analyze_session(latest)
+                    click.echo(analysis.summary())
+
+                    # Deep extract and store
+                    records = _analyzer_mod._load_records(latest)
+                    deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
+                    stored = len(deep_ids)
+
+                    # Store tool usage pattern
+                    if analysis.tool_usage:
+                        top_tools = sorted(
+                            analysis.tool_usage.items(), key=lambda x: x[1], reverse=True
+                        )[:10]
+                        tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
+                        _wrapped_store_knowledge(
+                            knowledge_type="FACT",
+                            content=f"Session tool usage ({analysis.session_id[:12]}): {tool_summary}",
+                            confidence=1.0,
+                            tags=["session-analysis", "tool-usage"],
+                        )
+                        stored += 1
+
+                    # Store session summary as EPISODE
+                    _wrapped_store_knowledge(
+                        knowledge_type="EPISODE",
+                        content=(
+                            f"Session {analysis.session_id[:12]}: "
+                            f"{analysis.user_messages} user msgs, "
+                            f"{analysis.tool_calls_total} tool calls, "
+                            f"{len(analysis.corrections)} corrections, "
+                            f"{len(analysis.encouragements)} encouragements, "
+                            f"{len(getattr(analysis, 'preferences', []))} preferences, "
+                            f"{len(analysis.context_overflows)} overflows"
+                        ),
+                        confidence=1.0,
+                        tags=["session-analysis", "episode"],
+                    )
+                    stored += 1
+
+                    click.secho(f"[+] Stored {stored} knowledge entries from session.", fg="green")
+
+                    # Run feedback loop
+                    feedback = _wrapped_apply_session_feedback(analysis, analysis.session_id)
+                    parts = []
+                    if feedback["recurrences_found"]:
+                        parts.append(f"{feedback['recurrences_found']} recurrences")
+                    if feedback["patterns_reinforced"]:
+                        parts.append(f"{feedback['patterns_reinforced']} patterns reinforced")
+                    if feedback["lessons_improving"]:
+                        parts.append(f"{feedback['lessons_improving']} lessons improving")
+                    if feedback.get("noise_skipped"):
+                        parts.append(f"{feedback['noise_skipped']} noise skipped")
+                    if parts:
+                        click.secho(f"[~] Feedback: {', '.join(parts)}", fg="cyan")
+
+                except Exception as e:
+                    click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
+                    logger.warning(f"Auto-scan failed: {e}")
+            else:
+                click.secho("[~] No session files found for auto-scan.", fg="bright_black")
 
         elif event_type == "EXPLANATION":
             if not content:
