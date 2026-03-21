@@ -5,6 +5,7 @@ verifying data integrity, and consolidating knowledge.
 """
 
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -12,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+
 
 import divineos.analysis.session_analyzer as _analyzer_mod
 from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
@@ -69,6 +71,14 @@ from divineos.core.memory import (
 )
 from divineos.core.parser import parse_jsonl, parse_markdown_chat
 from divineos.core.tool_wrapper import wrap_tool_execution
+
+
+def _safe_echo(text: str, **kwargs: Any) -> None:
+    """click.echo that won't crash on Windows with Unicode characters."""
+    if os.name == "nt":
+        text = text.encode("cp1252", errors="replace").decode("cp1252")
+    click.echo(text, **kwargs)
+
 
 # Wrap critical tool calls for event capture
 _wrapped_log_event = wrap_tool_execution("log_event", log_event)
@@ -722,6 +732,8 @@ def sessions_cmd() -> None:
         click.secho(f"{s.stem[:12]}...", fg="white", bold=True, nl=False)
         click.secho(f"  {s.parent.name[:40]}", fg="cyan")
     click.echo()
+    click.secho("  Tip: use full path with scan/deep-report commands:", fg="bright_black")
+    click.secho(f'    divineos scan "{sessions[0]}"', fg="bright_black")
 
 
 @cli.command("scan")
@@ -846,7 +858,7 @@ def deep_report_cmd(file_path: str, store: bool) -> None:
     analysis = _wrapped_run_all_features(path)
 
     click.echo()
-    click.echo(analysis.report_text)
+    _safe_echo(analysis.report_text)
     click.echo()
     click.secho(f"Evidence hash: {analysis.evidence_hash}", fg="bright_black")
 
@@ -1107,13 +1119,13 @@ def _print_events(events: list[dict[str, Any]], highlight: str | None = None) ->
             parts = pattern.split(content)
             matches = pattern.findall(content)
             for i, part in enumerate(parts):
-                click.echo(part, nl=False)
+                _safe_echo(part, nl=False)
                 if i < len(matches):
                     click.secho(matches[i], fg="red", bold=True, nl=False)
             click.echo()
         else:
             color = {"USER": "blue", "ASSISTANT": "magenta", "SYSTEM": "yellow"}.get(actor, "white")
-            click.secho(f"  {content}", fg=color)
+            _safe_echo(click.style(f"  {content}", fg=color))
 
         click.echo(click.style("-" * 60, fg="bright_black"))
 
@@ -1327,7 +1339,7 @@ def cross_session_cmd(limit: int) -> None:
 
         # Display
         click.echo()
-        click.echo(report)
+        _safe_echo(report)
         click.echo()
 
     except Exception as e:

@@ -83,7 +83,7 @@ class VerificationReport:
                 [
                     "## Status",
                     "",
-                    "✓ All events verified successfully. No corruption detected.",
+                    "[+] All events verified successfully. No corruption detected.",
                     "",
                 ],
             )

@@ -554,7 +554,7 @@ def format_analysis_report(result: AnalysisResult) -> str:
     if hasattr(result.quality_report, "checks") and result.quality_report.checks:
         for check in result.quality_report.checks:
             passed = check.passed if hasattr(check, "passed") else check.get("passed", 0)
-            status = "✓ PASS" if passed else "✗ FAIL"
+            status = "[PASS]" if passed else "[FAIL]"
             name = (
                 check.check_name
                 if hasattr(check, "check_name")
@@ -800,13 +800,13 @@ def format_cross_session_report(trends: dict[str, Any]) -> str:
 
         # Determine trend
         if pass_rate >= 80:
-            trend = "✓ Strong"
+            trend = "[+] Strong"
             color_hint = "(good)"
         elif pass_rate >= 60:
-            trend = "→ Stable"
+            trend = "[~] Stable"
             color_hint = "(okay)"
         else:
-            trend = "↓ Needs work"
+            trend = "[-] Needs work"
             color_hint = "(needs improvement)"
 
         lines.append(f"{name}: {trend} {color_hint}")

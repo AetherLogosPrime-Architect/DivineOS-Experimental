@@ -314,10 +314,10 @@ def format_feedback_report(feedback: SessionFeedback) -> str:
         if feedback.improvements:
             report_lines.append("Improvements:")
             for imp in feedback.improvements:
-                report_lines.append(f"  ✓ {imp}")
+                report_lines.append(f"  [+] {imp}")
         if feedback.regressions:
             report_lines.append("Regressions:")
             for reg in feedback.regressions:
-                report_lines.append(f"  ✗ {reg}")
+                report_lines.append(f"  [-] {reg}")
 
     return "\n".join(report_lines)
