@@ -391,7 +391,7 @@ def list_cmd(limit: int, offset: int, event_type: str, actor: str) -> None:
 
 @cli.command()
 @click.argument("keyword")
-@click.option("--limit", default=50, help="Max results")
+@click.option("--limit", default=10, help="Max results")
 def search(keyword: str, limit: int) -> None:
     """Search the ledger for events matching KEYWORD."""
     logger.info(f"Searching for: '{keyword}'")
@@ -448,6 +448,7 @@ def context(n: int) -> None:
 
 
 @cli.command()
+@click.argument("text", required=False, default=None)
 @click.option(
     "--type",
     "knowledge_type",
@@ -455,12 +456,27 @@ def context(n: int) -> None:
     type=click.Choice(sorted(KNOWLEDGE_TYPES), case_sensitive=False),
     help="Knowledge type",
 )
-@click.option("--content", required=True, help="The knowledge to store")
+@click.option("--content", "content_opt", default=None, help="The knowledge to store")
 @click.option("--confidence", default=1.0, type=float, help="Confidence 0.0-1.0")
 @click.option("--tags", default="", help="Comma-separated tags")
 @click.option("--source", default="", help="Comma-separated source event IDs")
-def learn(knowledge_type: str, content: str, confidence: float, tags: str, source: str) -> None:
-    """Store a piece of knowledge extracted from experience."""
+def learn(
+    text: str | None,
+    knowledge_type: str,
+    content_opt: str | None,
+    confidence: float,
+    tags: str,
+    source: str,
+) -> None:
+    """Store a piece of knowledge extracted from experience.
+
+    Content can be passed as a positional argument or via --content.
+    Example: divineos learn "always test first" --type direction
+    """
+    content = text or content_opt
+    if not content:
+        click.secho("[-] Content is required. Pass as argument or --content.", fg="red")
+        raise SystemExit(1)
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
     source_list = [s.strip() for s in source.split(",") if s.strip()] if source else []
 
@@ -1076,9 +1092,15 @@ def _print_events(events: list[dict[str, Any]], highlight: str | None = None) ->
         click.secho(f"({actor}) ", fg="bright_black", nl=False)
         click.secho(f"[{content_hash}]", fg="bright_black")
 
-        content = payload.get("content", json.dumps(payload, indent=2))
+        content = payload.get("content")
+        if content is None:
+            content = json.dumps(payload, indent=2)
         if isinstance(content, (dict, list)):
             content = json.dumps(content, indent=2)
+        # Truncate long payloads to keep output readable
+        max_len = 500
+        if len(content) > max_len:
+            content = content[:max_len] + f"\n  ... ({len(content) - max_len} chars truncated)"
 
         if highlight:
             pattern = re.compile(re.escape(highlight), re.IGNORECASE)

@@ -263,6 +263,7 @@ def get_knowledge(
 
         if not include_superseded:
             conditions.append("superseded_by IS NULL")
+            conditions.append("content NOT LIKE '[SUPERSEDED]%'")
         if knowledge_type:
             conditions.append("knowledge_type = ?")
             params.append(knowledge_type)
