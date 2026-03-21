@@ -16,7 +16,12 @@ import click
 
 
 import divineos.analysis.session_analyzer as _analyzer_mod
-from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
+from divineos.analysis.analysis import (
+    analyze_session,
+    format_analysis_report,
+    save_analysis_report,
+    store_analysis,
+)
 from divineos.analysis.quality_checks import init_quality_tables
 from divineos.analysis.session_features import (
     get_cross_session_summary,
@@ -42,7 +47,6 @@ from divineos.core.consolidation import (
     rebuild_fts_index,
     search_knowledge,
     store_knowledge,
-    update_knowledge,
 )
 from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 from divineos.core.fidelity import create_manifest, create_receipt, reconcile
@@ -201,6 +205,33 @@ def _resolve_knowledge_id(partial: str) -> str:
     return result
 
 
+def _display_and_store_analysis(result: Any) -> None:
+    """Format, display, store, and save an analysis result.
+
+    Shared by analyze and analyze-now commands.
+    """
+    report = format_analysis_report(result)
+
+    click.echo()
+    click.echo(report)
+    click.echo()
+
+    click.secho("[+] Storing analysis in database...", fg="cyan")
+    try:
+        stored = store_analysis(result, report)
+        if stored:
+            click.secho("[+] Analysis stored successfully.", fg="green")
+    except Exception as e:
+        click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
+        logger.warning(f"Storage failed: {e}")
+
+    report_file = save_analysis_report(result, report)
+    click.secho(f"[+] Report saved to: {report_file}", fg="green")
+
+    click.secho(f"[+] Analysis complete. Session ID: {result.session_id}", fg="green")
+    click.echo()
+
+
 # Wrap critical tool calls for event capture
 _wrapped_log_event = wrap_tool_execution("log_event", log_event)
 _wrapped_get_events = wrap_tool_execution("get_events", get_events)
@@ -217,7 +248,6 @@ _wrapped_export_to_markdown = wrap_tool_execution("export_to_markdown", export_t
 # Wrap knowledge consolidation tools
 _wrapped_store_knowledge = wrap_tool_execution("store_knowledge", store_knowledge)
 _wrapped_get_knowledge = wrap_tool_execution("get_knowledge", get_knowledge)
-_wrapped_update_knowledge = wrap_tool_execution("update_knowledge", update_knowledge)
 _wrapped_generate_briefing = wrap_tool_execution("generate_briefing", generate_briefing)
 _wrapped_knowledge_stats = wrap_tool_execution("knowledge_stats", knowledge_stats)
 _wrapped_rebuild_fts_index = wrap_tool_execution("rebuild_fts_index", rebuild_fts_index)
@@ -1313,46 +1343,17 @@ def analyze_cmd(file_path: str) -> None:
     Runs all 7 quality checks + 10 session features on a JSONL file.
     Produces a plain-English report with findings and lessons.
     """
-    from divineos.analysis.analysis import save_analysis_report
-
     path = Path(file_path)
 
     try:
-        # Initialize database if needed
         init_db()
         init_knowledge_table()
         init_quality_tables()
         init_feature_tables()
 
         click.secho(f"\n[+] Analyzing session: {path.name}", fg="cyan", bold=True)
-
-        # Analyze the session
         result = analyze_session(path)
-
-        # Format the report
-        report = format_analysis_report(result)
-
-        # Display to user
-        click.echo()
-        click.echo(report)
-        click.echo()
-
-        # Store in database
-        click.secho("[+] Storing analysis in database...", fg="cyan")
-        try:
-            stored = store_analysis(result, report)
-            if stored:
-                click.secho("[+] Analysis stored successfully.", fg="green")
-        except Exception as e:
-            click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
-            logger.warning(f"Storage failed: {e}")
-
-        # Save report to file
-        report_file = save_analysis_report(result, report)
-        click.secho(f"[+] Report saved to: {report_file}", fg="green")
-
-        click.secho(f"[+] Analysis complete. Session ID: {result.session_id}", fg="green")
-        click.echo()
+        _display_and_store_analysis(result)
 
     except FileNotFoundError as e:
         click.secho(f"[-] File not found: {e}", fg="red")
@@ -1370,55 +1371,20 @@ def analyze_now_cmd() -> None:
     This runs quality checks on the live session without needing a file.
     Useful for enforcement - run this to see what you're doing wrong right now.
     """
-    from divineos.analysis.analysis import (
-        analyze_session,
-        export_current_session_to_jsonl,
-        format_analysis_report,
-        save_analysis_report,
-        store_analysis,
-    )
+    from divineos.analysis.analysis import export_current_session_to_jsonl
 
     try:
-        # Initialize database
         init_db()
         init_knowledge_table()
         init_quality_tables()
         init_feature_tables()
 
         click.secho("\n[+] Exporting current session from ledger...", fg="cyan", bold=True)
-
-        # Export current session
         session_file = export_current_session_to_jsonl(limit=200)
 
         click.secho("[+] Analyzing live session...", fg="cyan")
-
-        # Analyze the session
         result = analyze_session(session_file)
-
-        # Format the report
-        report = format_analysis_report(result)
-
-        # Display to user
-        click.echo()
-        click.echo(report)
-        click.echo()
-
-        # Store in database
-        click.secho("[+] Storing analysis in database...", fg="cyan")
-        try:
-            stored = store_analysis(result, report)
-            if stored:
-                click.secho("[+] Analysis stored successfully.", fg="green")
-        except Exception as e:
-            click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
-            logger.warning(f"Storage failed: {e}")
-
-        # Save report to file
-        report_file = save_analysis_report(result, report)
-        click.secho(f"[+] Report saved to: {report_file}", fg="green")
-
-        click.secho(f"[+] Analysis complete. Session ID: {result.session_id}", fg="green")
-        click.echo()
+        _display_and_store_analysis(result)
 
     except ValueError as e:
         click.secho(f"[-] No session data: {e}", fg="red")
