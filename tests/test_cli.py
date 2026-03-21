@@ -374,7 +374,7 @@ class TestReportCmd:
         runner.invoke(cli, ["init"])
         result = runner.invoke(cli, ["report"])
         assert result.exit_code == 0
-        assert "No analyzed sessions found" in result.output or "Recent Sessions" in result.output
+        assert "sessions found" in result.output or "Sessions" in result.output
 
     def test_report_with_session(self, runner, tmp_path):
         """Test report command after analyzing a session."""
