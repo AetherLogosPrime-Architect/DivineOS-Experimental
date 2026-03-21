@@ -1985,6 +1985,31 @@ def emit_cmd(
                     if parts:
                         click.secho(f"[~] Feedback: {', '.join(parts)}", fg="cyan")
 
+                    # Consolidate related knowledge entries
+                    try:
+                        merges = _wrapped_consolidate_related(min_cluster_size=3)
+                        if merges:
+                            click.secho(
+                                f"[~] Consolidated {len(merges)} clusters of related knowledge.",
+                                fg="cyan",
+                            )
+                    except Exception as e:
+                        logger.warning(f"Consolidation failed: {e}")
+
+                    # Refresh active memory for next session
+                    try:
+                        init_memory_tables()
+                        refresh = _wrapped_refresh_active_memory(importance_threshold=0.3)
+                        promoted = refresh["promoted"]
+                        demoted = refresh["demoted"]
+                        if promoted or demoted:
+                            click.secho(
+                                f"[~] Active memory: +{promoted} promoted, -{demoted} demoted.",
+                                fg="cyan",
+                            )
+                    except Exception as e:
+                        logger.warning(f"Memory refresh failed: {e}")
+
                 except Exception as e:
                     click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
                     logger.warning(f"Auto-scan failed: {e}")
