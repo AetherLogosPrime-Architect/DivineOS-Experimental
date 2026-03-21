@@ -170,6 +170,8 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
 
     # 30% from type — constraints and principles change behavior most
     type_weights = {
+        # Sutra-style directives — always max priority
+        "DIRECTIVE": 0.30,
         # New types
         "BOUNDARY": 0.30,  # Hard constraints — highest priority
         "PRINCIPLE": 0.28,  # Distilled wisdom from experience
