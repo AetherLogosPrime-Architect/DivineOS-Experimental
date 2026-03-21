@@ -256,8 +256,8 @@ def verify() -> None:
         click.secho("\n  Failures:", fg="red")
         for failure in result["failures"][:10]:
             click.echo(f"    Event {failure['event_id'][:8]}...")
-            click.echo(f"      Stored:   {failure['stored_hash']}")
-            click.echo(f"      Computed: {failure['computed_hash']}")
+            click.echo(f"      Type:   {failure.get('type', 'unknown')}")
+            click.echo(f"      Reason: {failure.get('reason', 'unknown')}")
 
 
 @cli.command()
