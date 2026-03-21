@@ -210,8 +210,8 @@ class TestToolResultPayload:
         )
         payload.validate()  # Should not raise
 
-    def test_empty_result_fails(self):
-        """Test that empty result fails validation."""
+    def test_empty_result_passes(self):
+        """Test that empty result passes validation — tools can succeed without output."""
         payload = ToolResultPayload(
             tool_name="readFile",
             tool_use_id="tool_123",
@@ -220,8 +220,7 @@ class TestToolResultPayload:
             timestamp="2026-03-16T23:05:00Z",
             session_id="abc123",
         )
-        with pytest.raises(EventValidationError, match="result cannot be empty"):
-            payload.validate()
+        payload.validate()  # Should not raise
 
     def test_negative_duration_fails(self):
         """Test that negative duration fails validation."""

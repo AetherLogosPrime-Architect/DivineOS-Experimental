@@ -509,10 +509,12 @@ def briefing_cmd(max_items: int, types: str, topic: str) -> None:
 @click.argument("knowledge_id")
 @click.option("--reason", required=True, help="Why this knowledge is being superseded")
 def forget_cmd(knowledge_id: str, reason: str) -> None:
-    """Supersede a knowledge entry (append-only: marks old, creates new)."""
+    """Supersede a knowledge entry (marks as removed, no replacement created)."""
+    from divineos.core.consolidation import supersede_knowledge
+
     try:
-        new_id = _wrapped_update_knowledge(knowledge_id, f"[SUPERSEDED] {reason}")
-        click.secho(f"[+] Superseded {knowledge_id[:8]}... -> {new_id[:8]}...", fg="green")
+        supersede_knowledge(knowledge_id, reason)
+        click.secho(f"[+] Removed {knowledge_id[:8]}... ({reason})", fg="green")
     except ValueError as e:
         click.secho(f"[-] {e}", fg="red")
 
