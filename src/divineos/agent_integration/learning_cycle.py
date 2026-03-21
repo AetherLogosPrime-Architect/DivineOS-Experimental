@@ -289,15 +289,18 @@ class LearningCycle:
         try:
             archived_patterns = []
 
-            # Get all patterns
+            # Get all patterns and deduplicate by pattern_id (keep most recent)
             all_patterns = get_events(event_type="AGENT_PATTERN", limit=10000)
-            pattern_payloads = [e.get("payload") for e in all_patterns]
+            latest_by_id: dict[str, dict[str, Any]] = {}
+            for e in all_patterns:
+                payload = e.get("payload")
+                if payload and payload.get("pattern_id"):
+                    latest_by_id[payload["pattern_id"]] = payload
 
-            for pattern in pattern_payloads:
-                if pattern is None:
+            for pattern in latest_by_id.values():
+                pattern_id: str = pattern.get("pattern_id", "")
+                if not pattern_id:
                     continue
-
-                pattern_id = pattern.get("pattern_id")
                 confidence = pattern.get("confidence", 0.0)
                 pattern_type = pattern.get("pattern_type")
 
@@ -329,6 +332,7 @@ class LearningCycle:
                         pattern_id=pattern_id,
                         delta=delta,
                         reason=f"Archived: {reason}",
+                        _cached_pattern=pattern,
                     )
                     archived_patterns.append(pattern_id)
                     self.logger.info(f"Archived pattern {pattern_id}: {reason}")
