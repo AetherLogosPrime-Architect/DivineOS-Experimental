@@ -377,10 +377,13 @@ def get_verified_events(
     return verified_events, corrupted_events
 
 
-def verify_all_events() -> dict[str, Any]:
+def verify_all_events(skip_types: list[str] | None = None) -> dict[str, Any]:
     """Verify integrity of all stored events.
     Checks that each event's content_hash matches the hash of its content.
     Also validates that payloads contain valid data (not corrupted).
+
+    Args:
+        skip_types: Event types to exclude from verification.
 
     Requirements:
         - Requirement 7.3: Verify stored hash matches payload
@@ -389,6 +392,8 @@ def verify_all_events() -> dict[str, Any]:
     """
     from divineos.event.event_validation import EventValidator
 
+    skip_set = set(skip_types) if skip_types else set()
+
     conn = _get_connection()
     try:
         cursor = conn.execute(
@@ -396,6 +401,7 @@ def verify_all_events() -> dict[str, Any]:
         )
         rows = cursor.fetchall()
 
+        skipped = 0
         total = len(rows)
         passed = 0
         failed = 0
@@ -403,6 +409,11 @@ def verify_all_events() -> dict[str, Any]:
 
         for row in rows:
             event_id, event_type, payload_json, stored_hash = row
+
+            if event_type in skip_set:
+                skipped += 1
+                continue
+
             payload = json.loads(payload_json)
 
             # First check: verify hash matches
@@ -442,6 +453,8 @@ def verify_all_events() -> dict[str, Any]:
 
         return {
             "total": total,
+            "skipped": skipped,
+            "checked": total - skipped,
             "passed": passed,
             "failed": failed,
             "failures": failures,

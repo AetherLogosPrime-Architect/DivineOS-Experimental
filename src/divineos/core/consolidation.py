@@ -573,6 +573,13 @@ def generate_briefing(
     entries.sort(key=lambda e: e["_score"], reverse=True)
     entries = entries[:max_items]
 
+    # Track access — every entry surfaced in a briefing gets counted
+    for entry in entries:
+        try:
+            record_access(entry["knowledge_id"])
+        except Exception:
+            pass  # Don't let access tracking break the briefing
+
     # Get active lessons for the header section
     lessons_text = ""
     try:

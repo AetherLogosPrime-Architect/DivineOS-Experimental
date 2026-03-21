@@ -238,14 +238,44 @@ def ingest(file_path: str) -> None:
 
 
 @cli.command()
-def verify() -> None:
+@click.option(
+    "--skip-types",
+    multiple=True,
+    help="Event types to skip (e.g. --skip-types AGENT_PATTERN --skip-types TEST)",
+)
+@click.option(
+    "--real-only",
+    is_flag=True,
+    default=False,
+    help="Only verify real events (skip test-generated types like AGENT_PATTERN)",
+)
+def verify(skip_types: tuple[str, ...], real_only: bool) -> None:
     """Verify integrity of all stored events."""
     logger.info("Running fidelity verification...")
 
-    result = _wrapped_verify_all_events()
+    types_to_skip = list(skip_types)
+    if real_only:
+        types_to_skip.extend(
+            [
+                "AGENT_PATTERN",
+                "AGENT_PATTERN_UPDATE",
+                "AGENT_DECISION",
+                "AGENT_LEARNING_AUDIT",
+                "AGENT_SESSION_END",
+                "AGENT_WORK",
+                "AGENT_CONTEXT_COMPRESSION",
+                "TEST",
+                "TEST_EVENT",
+            ]
+        )
+
+    result = _wrapped_verify_all_events(skip_types=types_to_skip or None)
 
     click.secho("\n=== Fidelity Verification ===\n", fg="cyan", bold=True)
     click.echo(f"  Total events: {result['total']}")
+    if result.get("skipped"):
+        click.echo(f"  Skipped:      {result['skipped']}  (filtered types)")
+        click.echo(f"  Checked:      {result['checked']}")
     click.echo(f"  Passed:       {result['passed']}")
     click.echo(f"  Failed:       {result['failed']}")
 

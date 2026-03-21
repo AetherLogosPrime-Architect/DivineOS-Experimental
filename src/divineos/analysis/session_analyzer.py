@@ -412,10 +412,17 @@ def _process_user_record(record: dict[str, Any], analysis: SessionAnalysis) -> N
         )
         return  # Don't classify continuation messages as signals
 
-    # Detect signals (check most specific first)
-    correction = _detect_signals(text, CORRECTION_PATTERNS, "correction", timestamp)
-    if correction:
-        analysis.corrections.append(correction)
+    # Detect signals — check frustration BEFORE correction, because a message
+    # can match both ("don't" appears in frustration AND correction patterns).
+    # If it's frustration, it's venting — not an actionable correction.
+    frustration = _detect_signals(text, FRUSTRATION_PATTERNS, "frustration", timestamp)
+    if frustration:
+        analysis.frustrations.append(frustration)
+        # Don't also classify as correction — frustration takes priority
+    else:
+        correction = _detect_signals(text, CORRECTION_PATTERNS, "correction", timestamp)
+        if correction:
+            analysis.corrections.append(correction)
 
     encouragement = _detect_signals(text, ENCOURAGEMENT_PATTERNS, "encouragement", timestamp)
     if encouragement:
@@ -424,10 +431,6 @@ def _process_user_record(record: dict[str, Any], analysis: SessionAnalysis) -> N
     decision = _detect_signals(text, DECISION_PATTERNS, "decision", timestamp)
     if decision:
         analysis.decisions.append(decision)
-
-    frustration = _detect_signals(text, FRUSTRATION_PATTERNS, "frustration", timestamp)
-    if frustration:
-        analysis.frustrations.append(frustration)
 
     preference = _detect_signals(text, PREFERENCE_PATTERNS, "preference", timestamp)
     if preference:
