@@ -294,6 +294,20 @@ def _run_session_end_pipeline() -> None:
         analysis = _analyzer_mod.analyze_session(latest)
         _safe_echo(analysis.summary())
 
+        # 1b. Extract goals from user messages into HUD
+        try:
+            from divineos.core.hud import add_goal, extract_goals_from_messages
+
+            extracted_goals = extract_goals_from_messages(analysis.user_message_texts)
+            for goal in extracted_goals:
+                add_goal(goal["text"], original_words=goal["original_words"])
+            if extracted_goals:
+                click.secho(
+                    f"[~] Captured {len(extracted_goals)} goals from user messages.", fg="cyan"
+                )
+        except Exception as e:
+            logger.warning(f"Goal extraction failed: {e}")
+
         # 2. Deep extract
         records = _analyzer_mod._load_records(latest)
         deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
@@ -372,6 +386,106 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Session feedback failed: {e}")
 
+        # 4c. Clarity pipeline — deviation analysis and post-work summary
+        clarity_summary = None
+        try:
+            from uuid import uuid4
+
+            from divineos.clarity_system.deviation_analyzer import DefaultDeviationAnalyzer
+            from divineos.clarity_system.learning_extractor import DefaultLearningExtractor
+            from divineos.clarity_system.summary_generator import DefaultSummaryGenerator
+            from divineos.clarity_system.types import (
+                ClarityStatement,
+                ExecutionData,
+                ExecutionMetrics,
+                PlanData,
+                PlanMetrics,
+            )
+
+            # Bridge: convert SessionAnalysis → clarity system types
+            # Estimate files from Read/Edit/Write tool usage
+            file_tools = sum(
+                analysis.tool_usage.get(t, 0) for t in ("Read", "Edit", "Write", "Glob")
+            )
+            exec_metrics = ExecutionMetrics(
+                actual_files=file_tools,
+                actual_tool_calls=analysis.tool_calls_total,
+                actual_errors=len(analysis.context_overflows),
+                actual_time_minutes=0.0,  # Not tracked yet
+                success_rate=1.0 - (len(analysis.corrections) / max(analysis.tool_calls_total, 1)),
+            )
+            exec_data = ExecutionData(
+                session_id=uuid4(),
+                tool_calls=[],  # Already counted in metrics
+                errors=[c.content[:100] for c in analysis.corrections],
+                metrics=exec_metrics,
+            )
+
+            # Synthesize baseline plan (expect 0 errors, actual scope as estimate)
+            plan_metrics = PlanMetrics(
+                estimated_files=exec_metrics.actual_files,
+                estimated_tool_calls=exec_metrics.actual_tool_calls,
+                estimated_complexity="medium",
+                estimated_time_minutes=0,
+            )
+            clarity_stmt = ClarityStatement(goal="Session work", approach="Iterative")
+            plan_data = PlanData(
+                clarity_statement_id=clarity_stmt.id,
+                goal=clarity_stmt.goal,
+                approach=clarity_stmt.approach,
+                expected_outcome="Complete tasks with minimal corrections",
+                metrics=plan_metrics,
+            )
+
+            # Run clarity chain
+            analyzer = DefaultDeviationAnalyzer()
+            extractor = DefaultLearningExtractor()
+            generator = DefaultSummaryGenerator()
+
+            deviations = analyzer.analyze_deviations(plan_data, exec_data)
+            lessons = extractor.extract_lessons(deviations, exec_data)
+            recommendations = extractor.generate_recommendations(lessons)
+            clarity_summary = generator.generate_post_work_summary(
+                clarity_stmt,
+                plan_data,
+                exec_data,
+                deviations,
+                lessons,
+                recommendations,
+            )
+
+            # Store high-severity deviations as knowledge
+            high_devs = [d for d in deviations if d.severity == "high"]
+            for dev in high_devs:
+                if not has_session:
+                    _wrapped_store_knowledge(
+                        knowledge_type="OBSERVATION",
+                        content=f"I deviated significantly in {dev.metric}: planned {dev.planned:.0f}, actual {dev.actual:.0f} ({dev.percentage:.0f}% off, session {analysis.session_id[:12]}).",
+                        confidence=0.8,
+                        tags=["clarity-pipeline", "deviation", session_tag],
+                    )
+                    stored += 1
+
+            # Store lessons as knowledge (first person)
+            for lesson in lessons:
+                if lesson.confidence >= 0.8 and not has_session:
+                    _wrapped_store_knowledge(
+                        knowledge_type="OBSERVATION",
+                        content=f"I noticed: {lesson.description}. {lesson.insight} (session {analysis.session_id[:12]}).",
+                        confidence=lesson.confidence,
+                        tags=["clarity-pipeline", "lesson", session_tag],
+                    )
+                    stored += 1
+
+            if deviations or lessons:
+                click.secho(
+                    f"[~] Clarity: {len(deviations)} deviations, {len(lessons)} lessons, "
+                    f"{len(recommendations)} recommendations.",
+                    fg="cyan",
+                )
+        except Exception as e:
+            logger.warning(f"Clarity pipeline failed: {e}")
+
         # 5. Health check — boost confirmed knowledge, escalate recurring lessons
         try:
             hc = _wrapped_health_check()
@@ -436,38 +550,7 @@ def _run_session_end_pipeline() -> None:
             health = None
             logger.warning(f"Session health scoring failed: {e}")
 
-        # 9. Clarity analysis — deviation detection + lesson extraction
-        clarity_result = None
-        try:
-            from divineos.clarity_system.session_bridge import run_clarity_analysis
-
-            clarity_result = run_clarity_analysis(analysis)
-            deviations = clarity_result["deviations"]
-            lessons = clarity_result["lessons"]
-
-            # Store high-severity deviation lessons as knowledge
-            clarity_stored = 0
-            for lesson in lessons:
-                if lesson.confidence >= 0.7:
-                    _wrapped_store_knowledge(
-                        knowledge_type="LESSON",
-                        content=f"I noticed: {lesson.description}. My takeaway: {lesson.insight}",
-                        confidence=lesson.confidence,
-                        tags=["clarity-analysis", lesson.type, session_tag],
-                    )
-                    clarity_stored += 1
-                    stored += 1
-
-            if deviations or lessons:
-                click.secho(
-                    f"[~] Clarity: {len(deviations)} deviations, "
-                    f"{len(lessons)} lessons, {clarity_stored} stored",
-                    fg="cyan",
-                )
-        except Exception as e:
-            logger.warning(f"Clarity analysis failed: {e}")
-
-        # 9b. Save HUD snapshot for next session
+        # 9. Save HUD snapshot for next session
         try:
             from divineos.core.hud import save_hud_snapshot
 
@@ -490,9 +573,9 @@ def _run_session_end_pipeline() -> None:
                 f"  Session grade:        {health['grade']} ({health['score']:.2f})",
                 fg=grade_color.get(health["grade"], "white"),
             )
-        if clarity_result:
-            score = clarity_result["alignment_score"]
-            recs = clarity_result["recommendations"]
+        if clarity_summary:
+            score = clarity_summary.plan_vs_actual.alignment_score
+            recs = clarity_summary.recommendations
             color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
             click.secho(f"  Alignment score:      {score:.0f}%", fg=color)
             if recs:
@@ -503,8 +586,8 @@ def _run_session_end_pipeline() -> None:
             click.secho(
                 f"  Session recs:         {len(session_feedback.recommendations)}", fg="white"
             )
-            for rec in session_feedback.recommendations[:3]:
-                _safe_echo(f"    - {rec}")
+            for fb_rec in session_feedback.recommendations[:3]:
+                _safe_echo(f"    - {fb_rec}")
         click.secho(
             "  Next session: run 'divineos hud' for full dashboard, or 'divineos briefing' for knowledge.",
             fg="bright_black",
@@ -1029,6 +1112,14 @@ def ask_cmd(query: str, limit: int) -> None:
 @click.option("--topic", default="", help="Topic hint to boost relevant knowledge (e.g. 'testing')")
 def briefing_cmd(max_items: int, types: str, topic: str) -> None:
     """Generate a session context briefing from stored knowledge."""
+    # Refresh active memory on briefing — this is my "waking up" moment,
+    # so knowledge should be freshly ranked before I see it.
+    try:
+        init_memory_tables()
+        _wrapped_refresh_active_memory(importance_threshold=0.3)
+    except Exception:
+        pass  # Non-fatal — briefing still works without refresh
+
     type_list = [t.strip().upper() for t in types.split(",") if t.strip()] if types else None
     output = _wrapped_generate_briefing(
         max_items=max_items,
@@ -2028,6 +2119,66 @@ def hud_cmd(save: bool, load: bool, slots: str) -> None:
     slot_list = [s.strip() for s in slots.split(",") if s.strip()] if slots else None
     hud_text = build_hud(slots=slot_list)
     _safe_echo(hud_text)
+
+
+@cli.group("goal")
+def goal_group() -> None:
+    """Track what the user asked me to do. My compass against drift."""
+
+
+@goal_group.command("add")
+@click.argument("text")
+@click.option("--original", default="", help="The user's exact words")
+def goal_add_cmd(text: str, original: str) -> None:
+    """Add a new goal to track."""
+    from divineos.core.hud import add_goal
+
+    add_goal(text, original_words=original)
+    click.secho(f"[+] Goal added: {text}", fg="green")
+    if original:
+        click.secho(f'    (User\'s words: "{original}")', fg="bright_black")
+
+
+@goal_group.command("done")
+@click.argument("text")
+def goal_done_cmd(text: str) -> None:
+    """Mark a goal as complete (matches partial text)."""
+    from divineos.core.hud import complete_goal
+
+    if complete_goal(text):
+        click.secho(f"[+] Goal completed: {text}", fg="green")
+    else:
+        click.secho(f"[~] No matching goal found for: {text}", fg="yellow")
+
+
+@goal_group.command("list")
+def goal_list_cmd() -> None:
+    """Show current goals."""
+    from divineos.core.hud import SLOT_BUILDERS
+
+    _safe_echo(SLOT_BUILDERS["active_goals"]())
+
+
+@goal_group.command("clear")
+def goal_clear_cmd() -> None:
+    """Remove completed goals from the list."""
+    import json
+
+    from divineos.core.hud import _ensure_hud_dir
+
+    path = _ensure_hud_dir() / "active_goals.json"
+    if not path.exists():
+        click.secho("[~] No goals to clear.", fg="yellow")
+        return
+
+    try:
+        goals = json.loads(path.read_text(encoding="utf-8"))
+        active = [g for g in goals if g.get("status") != "done"]
+        removed = len(goals) - len(active)
+        path.write_text(json.dumps(active, indent=2), encoding="utf-8")
+        click.secho(f"[+] Cleared {removed} completed goals, {len(active)} remain.", fg="green")
+    except Exception as e:
+        click.secho(f"[!] Failed to clear goals: {e}", fg="red")
 
 
 @cli.command("clarity")

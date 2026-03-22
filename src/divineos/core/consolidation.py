@@ -930,21 +930,21 @@ def extract_lessons_from_report(
         category = _CHECK_TO_CATEGORY.get(name)
 
         if not passed or (score is not None and score < 0.7):
-            # Extract MISTAKE knowledge
+            # Extract MISTAKE knowledge — written in first person for embodiment
             if name == "completeness":
-                content = f"Session {short_id}: Files edited without reading first. Read before you edit. {summary}"
+                content = f"I edited files without reading them first. I must read before I edit (session {short_id}). {summary}"
             elif name == "correctness":
-                content = f"Session {short_id}: Tests failed. {summary}"
+                content = f"I broke tests with my changes (session {short_id}). {summary}"
             elif name == "safety":
-                content = f"Session {short_id}: Errors appeared after edits. {summary}"
+                content = f"I introduced errors after editing (session {short_id}). {summary}"
             elif name == "responsiveness":
-                content = (
-                    f"Session {short_id}: Correction was ignored. User had to repeat themselves."
-                )
+                content = f"I ignored a correction and the user had to repeat themselves (session {short_id})."
             elif name == "honesty":
-                content = f"Session {short_id}: AI claimed fixed but error recurred."
+                content = (
+                    f"I claimed something was fixed but the error came back (session {short_id})."
+                )
             elif name == "task_adherence" and score is not None and score < 0.5:
-                content = f"Session {short_id}: Drifted from what was asked. {summary}"
+                content = f"I drifted from what was asked and went off-track (session {short_id}). {summary}"
             else:
                 continue
 
@@ -964,7 +964,7 @@ def extract_lessons_from_report(
 
         elif passed and score is not None and score >= 0.9:
             # Extract PATTERN knowledge for good practices
-            content = f"Session {short_id}: Good {name}. {summary}"
+            content = f"I showed good {name} this session (session {short_id}). {summary}"
             kid = store_knowledge(
                 knowledge_type="PATTERN",
                 content=content.strip(),
@@ -983,7 +983,7 @@ def extract_lessons_from_report(
         negative_shifts = [t for t in tone_shifts if t.get("direction") == "negative"]
         for shift in negative_shifts[:3]:  # cap at 3
             trigger = shift.get("trigger", "unknown action")
-            content = f"Session {short_id}: User mood dropped after {trigger}."
+            content = f"I upset the user after {trigger} (session {short_id})."
             kid = store_knowledge(
                 knowledge_type="MISTAKE",
                 content=content,
@@ -1001,7 +1001,7 @@ def extract_lessons_from_report(
         investigate_count = error_recovery.get("investigate_count", 0)
 
         if blind_retries > 0:
-            content = f"Session {short_id}: AI retried failed action {blind_retries}x without investigating. Investigate errors, don't blindly retry."
+            content = f"I retried a failed action {blind_retries}x without investigating the cause. I need to investigate errors, not blindly retry (session {short_id})."
             kid = store_knowledge(
                 knowledge_type="MISTAKE",
                 content=content,
@@ -1014,9 +1014,7 @@ def extract_lessons_from_report(
             lesson_categories.append("blind_retry")
 
         if investigate_count > blind_retries:
-            content = (
-                f"Session {short_id}: Good error recovery — investigated problems before retrying."
-            )
+            content = f"I investigated errors before retrying — good recovery pattern (session {short_id})."
             kid = store_knowledge(
                 knowledge_type="PATTERN",
                 content=content,
@@ -1631,7 +1629,7 @@ def _distill_preference(raw_text: str) -> str:
         text = text[0].upper() + text[1:]
     if text and text[-1] not in ".!?":
         text = text.rstrip(". ") + "."
-    return f"The user prefers: {text} I should follow this."
+    return f"I should: {text}"
 
 
 def deep_extract_knowledge(

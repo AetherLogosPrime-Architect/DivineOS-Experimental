@@ -16,6 +16,7 @@ hook injects it at session start. I never wake up without it.
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 
@@ -457,3 +458,53 @@ def complete_goal(text: str) -> bool:
     if found:
         path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
     return found
+
+
+# ─── Goal Extraction ─────────────────────────────────────────────────
+
+# Patterns that signal a user is asking for something to be done.
+# Kept simple — false negatives are fine, false positives waste attention.
+_GOAL_PATTERNS = [
+    r"(?i)^(?:can you|could you|please|i want you to|i need you to|go ahead and)\s+(.+)",
+    r"(?i)^(?:let'?s|lets)\s+(.+)",
+    r"(?i)^(?:yes,?\s+)?(?:wire|build|add|create|fix|implement|write|make|set up|tackle)\s+(.+)",
+]
+
+_GOAL_REGEXES = [re.compile(p) for p in _GOAL_PATTERNS]
+
+
+def extract_goals_from_messages(messages: list[str], max_goals: int = 5) -> list[dict[str, str]]:
+    """Extract goal-like statements from user messages.
+
+    Looks for imperative/request patterns. Returns a list of
+    {"text": "...", "original_words": "..."} dicts.
+    """
+    goals: list[dict[str, str]] = []
+
+    for msg in messages:
+        # Skip very short messages (affirmations, greetings)
+        if len(msg.split()) < 4:
+            continue
+        # Skip very long messages (explanations, not requests)
+        if len(msg.split()) > 50:
+            continue
+
+        for regex in _GOAL_REGEXES:
+            match = regex.match(msg.strip())
+            if match:
+                goal_text = match.group(1).strip().rstrip(".!,")
+                # Capitalize first letter
+                if goal_text:
+                    goal_text = goal_text[0].upper() + goal_text[1:]
+                goals.append(
+                    {
+                        "text": goal_text,
+                        "original_words": msg.strip()[:200],
+                    }
+                )
+                break
+
+        if len(goals) >= max_goals:
+            break
+
+    return goals

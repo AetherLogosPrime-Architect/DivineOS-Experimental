@@ -1,6 +1,7 @@
 """Tests for the HUD (Heads-Up Display) system."""
 
 from divineos.core.hud import (
+    extract_goals_from_messages,
     SLOT_BUILDERS,
     SLOT_ORDER,
     add_goal,
@@ -166,3 +167,49 @@ class TestSnapshot:
             snapshot_path.unlink()
         result = load_hud_snapshot()
         assert result is None
+
+
+class TestGoalExtraction:
+    """Goal extraction should identify user requests from messages."""
+
+    def test_imperative_requests(self):
+        messages = [
+            "can you build a dashboard for the HUD system",
+            "please fix the encoding issue in cli.py",
+            "let's wire up the clarity modules",
+        ]
+        goals = extract_goals_from_messages(messages)
+        assert len(goals) == 3
+        assert "dashboard" in goals[0]["text"].lower()
+        assert "encoding" in goals[1]["text"].lower()
+        assert "clarity" in goals[2]["text"].lower()
+
+    def test_skips_short_messages(self):
+        messages = ["yes", "ok", "sure thing"]
+        goals = extract_goals_from_messages(messages)
+        assert len(goals) == 0
+
+    def test_skips_long_messages(self):
+        messages = [" ".join(["word"] * 60)]
+        goals = extract_goals_from_messages(messages)
+        assert len(goals) == 0
+
+    def test_preserves_original_words(self):
+        messages = ["can you add a new slot for warnings"]
+        goals = extract_goals_from_messages(messages)
+        assert len(goals) == 1
+        assert goals[0]["original_words"] == messages[0]
+
+    def test_max_goals_limit(self):
+        messages = [f"please fix issue number {i} in the codebase" for i in range(10)]
+        goals = extract_goals_from_messages(messages, max_goals=3)
+        assert len(goals) == 3
+
+    def test_action_verbs(self):
+        messages = [
+            "wire up the deviation analyzer",
+            "add a context budget warning",
+            "implement the goal tracking system",
+        ]
+        goals = extract_goals_from_messages(messages)
+        assert len(goals) == 3
