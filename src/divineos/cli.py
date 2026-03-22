@@ -420,6 +420,18 @@ def _run_session_end_pipeline() -> None:
                 user_messages=analysis.user_messages,
             )
             grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
+
+            # Update HUD session health slot
+            try:
+                from divineos.core.hud import update_session_health
+
+                update_session_health(
+                    corrections=len(analysis.corrections),
+                    encouragements=len(analysis.encouragements),
+                    grade=health["grade"],
+                )
+            except Exception:
+                pass
         except Exception as e:
             health = None
             logger.warning(f"Session health scoring failed: {e}")
@@ -455,6 +467,15 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Clarity analysis failed: {e}")
 
+        # 9b. Save HUD snapshot for next session
+        try:
+            from divineos.core.hud import save_hud_snapshot
+
+            save_hud_snapshot()
+            click.secho("[~] HUD snapshot saved.", fg="cyan")
+        except Exception as e:
+            logger.warning(f"HUD snapshot save failed: {e}")
+
         # 10. Session summary
         click.secho("\n=== Session Complete ===", fg="cyan", bold=True)
         click.secho(f"  Knowledge extracted:  {stored}", fg="white")
@@ -485,7 +506,8 @@ def _run_session_end_pipeline() -> None:
             for rec in session_feedback.recommendations[:3]:
                 _safe_echo(f"    - {rec}")
         click.secho(
-            "  Next session: run 'divineos briefing' to see updated context.", fg="bright_black"
+            "  Next session: run 'divineos hud' for full dashboard, or 'divineos briefing' for knowledge.",
+            fg="bright_black",
         )
         click.echo()
 
@@ -1976,6 +1998,36 @@ def outcomes_cmd(days: int) -> None:
     else:
         click.secho("  TRAJECTORY: Mixed signals", fg="yellow", bold=True)
     click.echo()
+
+
+@cli.command("hud")
+@click.option("--save", is_flag=True, help="Save a HUD snapshot to disk")
+@click.option("--load", is_flag=True, help="Load the last saved HUD snapshot")
+@click.option("--slots", default="", help="Comma-separated slot names to display (default: all)")
+def hud_cmd(save: bool, load: bool, slots: str) -> None:
+    """Display my heads-up display — everything I need to know at once.
+
+    This is my dashboard: identity, goals, lessons, health, warnings,
+    and task state. All at equal weight, all simultaneous.
+    """
+    from divineos.core.hud import build_hud, load_hud_snapshot, save_hud_snapshot
+
+    if save:
+        path = save_hud_snapshot()
+        click.secho(f"[+] HUD snapshot saved to {path}", fg="green")
+        return
+
+    if load:
+        snapshot = load_hud_snapshot()
+        if snapshot:
+            _safe_echo(snapshot)
+        else:
+            click.secho("[~] No saved HUD snapshot found.", fg="yellow")
+        return
+
+    slot_list = [s.strip() for s in slots.split(",") if s.strip()] if slots else None
+    hud_text = build_hud(slots=slot_list)
+    _safe_echo(hud_text)
 
 
 @cli.command("clarity")
