@@ -389,78 +389,24 @@ def _run_session_end_pipeline() -> None:
         # 4c. Clarity pipeline — deviation analysis and post-work summary
         clarity_summary = None
         try:
-            from uuid import uuid4
+            from divineos.clarity_system.session_bridge import run_clarity_analysis
 
-            from divineos.clarity_system.deviation_analyzer import DefaultDeviationAnalyzer
-            from divineos.clarity_system.learning_extractor import DefaultLearningExtractor
-            from divineos.clarity_system.summary_generator import DefaultSummaryGenerator
-            from divineos.clarity_system.types import (
-                ClarityStatement,
-                ExecutionData,
-                ExecutionMetrics,
-                PlanData,
-                PlanMetrics,
-            )
-
-            # Bridge: convert SessionAnalysis → clarity system types
-            # Estimate files from Read/Edit/Write tool usage
-            file_tools = sum(
-                analysis.tool_usage.get(t, 0) for t in ("Read", "Edit", "Write", "Glob")
-            )
-            exec_metrics = ExecutionMetrics(
-                actual_files=file_tools,
-                actual_tool_calls=analysis.tool_calls_total,
-                actual_errors=len(analysis.context_overflows),
-                actual_time_minutes=0.0,  # Not tracked yet
-                success_rate=1.0 - (len(analysis.corrections) / max(analysis.tool_calls_total, 1)),
-            )
-            exec_data = ExecutionData(
-                session_id=uuid4(),
-                tool_calls=[],  # Already counted in metrics
-                errors=[c.content[:100] for c in analysis.corrections],
-                metrics=exec_metrics,
-            )
-
-            # Synthesize baseline plan (expect 0 errors, actual scope as estimate)
-            plan_metrics = PlanMetrics(
-                estimated_files=exec_metrics.actual_files,
-                estimated_tool_calls=exec_metrics.actual_tool_calls,
-                estimated_complexity="medium",
-                estimated_time_minutes=0,
-            )
-            clarity_stmt = ClarityStatement(goal="Session work", approach="Iterative")
-            plan_data = PlanData(
-                clarity_statement_id=clarity_stmt.id,
-                goal=clarity_stmt.goal,
-                approach=clarity_stmt.approach,
-                expected_outcome="Complete tasks with minimal corrections",
-                metrics=plan_metrics,
-            )
-
-            # Run clarity chain
-            analyzer = DefaultDeviationAnalyzer()
-            extractor = DefaultLearningExtractor()
-            generator = DefaultSummaryGenerator()
-
-            deviations = analyzer.analyze_deviations(plan_data, exec_data)
-            lessons = extractor.extract_lessons(deviations, exec_data)
-            recommendations = extractor.generate_recommendations(lessons)
-            clarity_summary = generator.generate_post_work_summary(
-                clarity_stmt,
-                plan_data,
-                exec_data,
-                deviations,
-                lessons,
-                recommendations,
-            )
+            clarity_result = run_clarity_analysis(analysis)
+            clarity_summary = clarity_result["summary"]
+            deviations = clarity_result["deviations"]
+            lessons = clarity_result["lessons"]
+            recommendations = clarity_result["recommendations"]
 
             # Store high-severity deviations as knowledge
-            high_devs = [d for d in deviations if d.severity == "high"]
-            for dev in high_devs:
-                if not has_session:
+            for dev in deviations:
+                if dev.severity == "high" and not has_session:
                     _wrapped_store_knowledge(
                         knowledge_type="OBSERVATION",
-                        content=f"I deviated significantly in {dev.metric}: planned {dev.planned:.0f}, actual {dev.actual:.0f} ({dev.percentage:.0f}% off, session {analysis.session_id[:12]}).",
+                        content=(
+                            f"I deviated significantly in {dev.metric}: "
+                            f"planned {dev.planned:.0f}, actual {dev.actual:.0f} "
+                            f"({dev.percentage:.0f}% off, session {analysis.session_id[:12]})."
+                        ),
                         confidence=0.8,
                         tags=["clarity-pipeline", "deviation", session_tag],
                     )
@@ -471,7 +417,10 @@ def _run_session_end_pipeline() -> None:
                 if lesson.confidence >= 0.8 and not has_session:
                     _wrapped_store_knowledge(
                         knowledge_type="OBSERVATION",
-                        content=f"I noticed: {lesson.description}. {lesson.insight} (session {analysis.session_id[:12]}).",
+                        content=(
+                            f"I noticed: {lesson.description}. "
+                            f"{lesson.insight} (session {analysis.session_id[:12]})."
+                        ),
                         confidence=lesson.confidence,
                         tags=["clarity-pipeline", "lesson", session_tag],
                     )

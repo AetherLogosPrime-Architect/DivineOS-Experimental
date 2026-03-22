@@ -207,12 +207,19 @@ def _build_context_budget_slot() -> str:
 
 def _build_active_knowledge_slot() -> str:
     """My most important knowledge, ranked and ready."""
-    from divineos.core.memory import get_active_memory
+    from divineos.core.memory import get_active_memory, refresh_active_memory
 
     lines = ["# What I Know That Matters\n"]
 
     try:
         active = get_active_memory()
+        # If active memory looks thin, try a refresh first
+        if len(active) < 3:
+            try:
+                refresh_active_memory(importance_threshold=0.3)
+                active = get_active_memory()
+            except Exception:
+                pass
     except Exception:
         return lines[0] + "Could not load active memory."
 
