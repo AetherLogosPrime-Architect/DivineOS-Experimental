@@ -78,7 +78,7 @@ def analyze_session(file_path: Path) -> AnalysisResult:
     # 3. Run session features
     features = run_all_features(file_path)
 
-    # 4. Extract lessons
+    # 4. Extract lessons — pass tone shifts and error recovery from features
     checks_list: list[dict[str, Any]] = [
         {
             "name": check.check_name,
@@ -88,7 +88,37 @@ def analyze_session(file_path: Path) -> AnalysisResult:
         }
         for check in (quality_report.checks if hasattr(quality_report, "checks") else [])
     ]
-    lessons_raw = extract_lessons_from_report(checks_list, session_id)
+
+    # Convert feature tone shifts to the format extract_lessons expects
+    tone_shifts_for_lessons: list[dict[str, Any]] | None = None
+    if hasattr(features, "tone_shifts") and features.tone_shifts:
+        tone_shifts_for_lessons = [
+            {
+                "direction": "negative" if ts.new_tone == "negative" else "positive",
+                "trigger": ts.trigger_action,
+            }
+            for ts in features.tone_shifts
+            if ts.previous_tone != ts.new_tone
+        ]
+
+    # Convert error recovery entries to aggregate counts
+    error_recovery_for_lessons: dict[str, Any] | None = None
+    if hasattr(features, "error_recovery") and features.error_recovery:
+        blind_retries = sum(1 for e in features.error_recovery if e.recovery_action == "retry")
+        investigate_count = sum(
+            1 for e in features.error_recovery if e.recovery_action == "investigate"
+        )
+        error_recovery_for_lessons = {
+            "blind_retries": blind_retries,
+            "investigate_count": investigate_count,
+        }
+
+    lessons_raw = extract_lessons_from_report(
+        checks_list,
+        session_id,
+        tone_shifts_for_lessons,
+        error_recovery_for_lessons,
+    )
     lessons = cast("list[dict[str, Any]]", lessons_raw if isinstance(lessons_raw, list) else [])
 
     # 5. Create evidence hash

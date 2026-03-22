@@ -12,7 +12,6 @@ import uuid
 import pytest
 
 from divineos.agent_integration.pattern_store import PatternStore
-from divineos.core.ledger import get_events
 
 
 class TestPatternStoreBasics:
@@ -655,8 +654,8 @@ class TestUpdatePatternConfidence:
         assert pattern is not None
         assert source_event_id in pattern["source_events"]
 
-    def test_update_pattern_confidence_logs_update_event(self) -> None:
-        """Test that update is logged as AGENT_PATTERN_UPDATE event."""
+    def test_update_pattern_confidence_updates_in_place(self) -> None:
+        """Test that update modifies the pattern row directly (no ledger flooding)."""
         store = PatternStore()
 
         pattern_id = store.store_pattern(
@@ -669,17 +668,10 @@ class TestUpdatePatternConfidence:
 
         store.update_pattern_confidence(pattern_id, delta=0.2, reason="Pattern succeeded")
 
-        # Check that AGENT_PATTERN_UPDATE event was logged
-        events = get_events(event_type="AGENT_PATTERN_UPDATE", limit=100)
-        update_events = [e for e in events if e.get("payload", {}).get("pattern_id") == pattern_id]
-        assert len(update_events) > 0
-
-        update_event = update_events[-1]
-        payload = update_event["payload"]
-        assert payload["old_confidence"] == 0.5
-        assert payload["new_confidence"] == 0.7
-        assert payload["delta"] == 0.2
-        assert payload["reason"] == "Pattern succeeded"
+        # Pattern should be updated in place
+        pattern = store.get_pattern(pattern_id)
+        assert pattern is not None
+        assert pattern["confidence"] == 0.7
 
     def test_update_pattern_confidence_recomputes_hash(self) -> None:
         """Test that content_hash is recomputed after update."""
