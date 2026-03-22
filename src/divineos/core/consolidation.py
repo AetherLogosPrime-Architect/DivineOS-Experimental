@@ -984,11 +984,11 @@ def extract_lessons_from_report(
         for shift in negative_shifts[:3]:  # cap at 3
             trigger = shift.get("trigger", "unknown action")
             user_response = shift.get("user_response", "")
-            # Use the user's actual words if available — much more informative than tool names
+            # Use what the user actually said if available, otherwise describe the trigger
             if user_response and len(user_response.split()) >= 3:
-                content = f'The user got upset and said: "{user_response[:150]}" — this happened after {trigger} (session {short_id}).'
+                content = f'The user got upset and said: "{user_response[:150]}" — this happened after {trigger[:80]} (session {short_id}).'
             else:
-                content = f"I upset the user after {trigger} (session {short_id})."
+                content = f"I upset the user after {trigger[:80]} (session {short_id})."
             kid = store_knowledge(
                 knowledge_type="MISTAKE",
                 content=content,
@@ -1735,35 +1735,10 @@ def deep_extract_knowledge(
         stored_ids.append(kid)
 
     # --- Preferences → DIRECTION ---
-    # Filter out vague or conversational messages that matched preference patterns
-    # but aren't actual instructions about how to work.
     for pref in getattr(analysis, "preferences", []):
-        pref_text = pref.content.strip()
-        words = pref_text.split()
-        # Too short to be a real preference (e.g. "always do that")
-        if len(words) < 5:
-            continue
-        # Skip messages that are mostly conversational/task-directed, not meta-preferences
-        lower = pref_text.lower()
-        if any(
-            marker in lower
-            for marker in (
-                "keep going",
-                "yes ",
-                "ok ",
-                "sounds good",
-                "lets do",
-                "let's do",
-                "go ahead",
-                "do it",
-                "try now",
-                "try again",
-            )
-        ):
-            continue
         kid = store_knowledge_smart(
             knowledge_type="DIRECTION",
-            content=_distill_preference(pref_text),
+            content=_distill_preference(pref.content),
             confidence=0.9,
             source="STATED",
             maturity="CONFIRMED",
