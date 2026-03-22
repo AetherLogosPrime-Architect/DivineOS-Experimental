@@ -68,7 +68,7 @@ def session_analysis_to_execution_data(analysis: object) -> ExecutionData:
     return ExecutionData(
         session_id=uuid4(),
         tool_calls=tool_call_list,
-        errors=[c.text for c in m["corrections"]] if m["corrections"] else [],
+        errors=[c.content[:100] for c in m["corrections"]] if m["corrections"] else [],
         metrics=metrics,
     )
 
