@@ -240,14 +240,37 @@ def search_events(keyword: str, limit: int = 50) -> list[dict[str, Any]]:
         conn.close()
 
 
-def get_recent_context(n: int = 20) -> list[dict[str, Any]]:
-    """Get the last N events for context injection."""
+def get_recent_context(n: int = 20, meaningful_only: bool = True) -> list[dict[str, Any]]:
+    """Get the last N events for context injection.
+
+    When meaningful_only is True, filters out high-volume internal events
+    (pattern tracking, health checks) to surface what actually happened:
+    user decisions, agent actions, errors, and session milestones.
+    """
+    # These event types are internal bookkeeping — not useful as working memory
+    _NOISE_TYPES = {
+        "AGENT_PATTERN",
+        "AGENT_PATTERN_UPDATE",
+        "TOOL_CALL",
+        "TOOL_RESULT",
+    }
+
     conn = _get_connection()
     try:
-        cursor = conn.execute(
-            "SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events ORDER BY timestamp DESC LIMIT ?",
-            (n,),
-        )
+        if meaningful_only:
+            placeholders = ",".join("?" for _ in _NOISE_TYPES)
+            cursor = conn.execute(
+                f"SELECT event_id, timestamp, event_type, actor, payload, content_hash "
+                f"FROM system_events "
+                f"WHERE event_type NOT IN ({placeholders}) "
+                f"ORDER BY timestamp DESC LIMIT ?",
+                (*_NOISE_TYPES, n),
+            )
+        else:
+            cursor = conn.execute(
+                "SELECT event_id, timestamp, event_type, actor, payload, content_hash FROM system_events ORDER BY timestamp DESC LIMIT ?",
+                (n,),
+            )
         rows = cursor.fetchall()
 
         events = [

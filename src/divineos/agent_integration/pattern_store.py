@@ -1,30 +1,67 @@
 """Pattern storage and retrieval for the agent learning loop.
 
-This module provides the PatternStore class for persisting patterns to the ledger
-and querying them based on context. All patterns are stored as AGENT_PATTERN events
-in the DivineOS ledger with SHA256 hashing for integrity.
+Patterns are stored in a dedicated SQLite table (not the append-only ledger)
+because patterns are mutable state — confidence scores change, occurrences
+increment. The ledger is for immutable events that happened.
 """
 
 import hashlib
 import json
+import os
+import sqlite3
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 from loguru import logger
 
-from divineos.core.ledger import log_event, get_events
+
+def _get_db_path() -> Path:
+    env_path = os.environ.get("DIVINEOS_DB")
+    if env_path:
+        return Path(env_path)
+    return Path(__file__).resolve().parents[2] / "data" / "event_ledger.db"
+
+
+def _get_connection() -> sqlite3.Connection:
+    db_path = _get_db_path()
+    db_path.parent.mkdir(exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    _init_table(conn)
+    return conn
+
+
+def _init_table(conn: sqlite3.Connection) -> None:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS patterns (
+            pattern_id TEXT PRIMARY KEY,
+            pattern_type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            preconditions TEXT NOT NULL,
+            occurrences INTEGER NOT NULL DEFAULT 0,
+            successes INTEGER NOT NULL DEFAULT 0,
+            success_rate REAL NOT NULL DEFAULT 0.0,
+            confidence REAL NOT NULL DEFAULT 0.0,
+            violation_count INTEGER NOT NULL DEFAULT 0,
+            decay_rate REAL NOT NULL DEFAULT 0.0,
+            source_events TEXT NOT NULL DEFAULT '[]',
+            content_hash TEXT NOT NULL,
+            last_validated TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
 
 
 class PatternStore:
-    """Stores and retrieves patterns from the DivineOS ledger.
-
-    All patterns are persisted as AGENT_PATTERN events with SHA256 hashing.
-    Patterns include preconditions for context-aware matching.
-    """
+    """Stores and retrieves patterns in a dedicated SQLite table."""
 
     def __init__(self) -> None:
-        """Initialize the pattern store."""
         self.logger = logger
 
     def store_pattern(
@@ -39,25 +76,6 @@ class PatternStore:
         source_events: Optional[list[str]] = None,
         violation_count: int = 0,
     ) -> str:
-        """Store a pattern to the ledger as an AGENT_PATTERN event.
-
-        Args:
-            pattern_type: "structural" or "tactical"
-            name: Human-readable pattern name
-            description: Pattern description
-            preconditions: Context conditions (token_budget_min, token_budget_max, phase, etc.)
-            occurrences: Number of times observed
-            successes: Number of times succeeded
-            confidence: Confidence score (-1.0 to 1.0)
-            source_events: Event IDs that contributed to this pattern
-            violation_count: Number of violations recorded for this pattern
-
-        Returns:
-            Pattern ID (UUID)
-
-        Raises:
-            ValueError: If pattern_type is invalid or confidence out of range
-        """
         if pattern_type not in ("structural", "tactical"):
             raise ValueError(f"Invalid pattern_type: {pattern_type}")
 
@@ -75,45 +93,65 @@ class PatternStore:
 
         pattern_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
-
-        # Calculate success rate
         success_rate = successes / occurrences if occurrences > 0 else 0.0
+        source_events_list = source_events or []
+        decay_rate = 0.05 if pattern_type == "tactical" else 0.0
 
-        payload = {
-            "pattern_id": pattern_id,
-            "pattern_type": pattern_type,
-            "name": name,
-            "description": description,
-            "preconditions": preconditions,
-            "occurrences": occurrences,
-            "successes": successes,
-            "success_rate": success_rate,
-            "confidence": confidence,
-            "violation_count": violation_count,
-            "last_validated": now,
-            "decay_rate": 0.05 if pattern_type == "tactical" else 0.0,
-            "source_events": source_events or [],
-            "created_at": now,
-            "updated_at": now,
-        }
+        content_hash = self._compute_hash(
+            {
+                "pattern_id": pattern_id,
+                "pattern_type": pattern_type,
+                "name": name,
+                "description": description,
+                "preconditions": preconditions,
+                "occurrences": occurrences,
+                "successes": successes,
+                "success_rate": success_rate,
+                "confidence": confidence,
+                "violation_count": violation_count,
+                "decay_rate": decay_rate,
+                "source_events": source_events_list,
+                "last_validated": now,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
 
-        # Compute SHA256 hash of pattern content for integrity (truncated to 32 chars like ledger)
-        pattern_json = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-        content_hash = hashlib.sha256(pattern_json.encode()).hexdigest()[:32]
-        payload["content_hash"] = content_hash
-
+        conn = _get_connection()
         try:
-            log_event(
-                event_type="AGENT_PATTERN",
-                actor="agent",
-                payload=payload,
-                validate=False,
+            conn.execute(
+                """INSERT INTO patterns (
+                    pattern_id, pattern_type, name, description, preconditions,
+                    occurrences, successes, success_rate, confidence, violation_count,
+                    decay_rate, source_events, content_hash, last_validated, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    pattern_id,
+                    pattern_type,
+                    name,
+                    description,
+                    json.dumps(preconditions, sort_keys=True),
+                    occurrences,
+                    successes,
+                    success_rate,
+                    confidence,
+                    violation_count,
+                    decay_rate,
+                    json.dumps(source_events_list),
+                    content_hash,
+                    now,
+                    now,
+                    now,
+                ),
             )
+            conn.commit()
             self.logger.info(f"Stored pattern {pattern_id} ({name}) with confidence {confidence}")
             return pattern_id
         except Exception as e:
             self.logger.error(f"Failed to store pattern: {e}")
             raise
+        finally:
+            conn.close()
 
     def record_violation(
         self,
@@ -123,109 +161,70 @@ class PatternStore:
         violation_type: str,
         confidence: float,
     ) -> str:
-        """Record a clarity violation for a pattern.
+        existing = self.get_pattern(pattern_id)
 
-        Called by LearningCycle when ClarityEnforcer detects a violation.
-        Creates or updates a violation pattern in the store.
+        if existing:
+            occurrences = existing.get("occurrences", 0) + 1
+            violation_count = existing.get("violation_count", 0) + 1
+            old_confidence = existing.get("confidence", 0.5)
+            new_confidence = self.decrease_confidence_for_violation(old_confidence)
 
-        Args:
-            pattern_id: ID for this violation pattern
-            tool_name: Name of the tool that violated clarity
-            context_type: Type of context (empty, minimal, present)
-            violation_type: Type of violation (UNEXPLAINED_TOOL, etc.)
-            confidence: Confidence of violation detection (0.0-1.0)
-
-        Returns:
-            Pattern ID
-        """
-        try:
-            # Check if pattern already exists
-            existing = self.get_pattern(pattern_id)
-
-            if existing:
-                # Update existing violation pattern
-                occurrences = existing.get("occurrences", 0) + 1
-                violation_count = existing.get("violation_count", 0) + 1
-
-                # Decrease confidence for violations
-                old_confidence = existing.get("confidence", 0.5)
-                new_confidence = self.decrease_confidence_for_violation(old_confidence)
-
-                self.logger.info(
-                    f"Updating violation pattern {pattern_id}: "
-                    f"occurrences={occurrences}, violation_count={violation_count}, confidence={new_confidence}"
-                )
-            else:
-                # Create new violation pattern
-                occurrences = 1
-                violation_count = 1
-                new_confidence = self.decrease_confidence_for_violation(confidence)
-
-                self.logger.info(f"Creating new violation pattern {pattern_id} for {tool_name}")
-
-            # Store the violation pattern
-            return self.store_pattern(
-                pattern_type="tactical",
-                name=f"Violation: {tool_name} ({context_type})",
-                description=f"{violation_type} violation detected for {tool_name} with {context_type} context",
-                preconditions={
-                    "tool_name": tool_name,
-                    "context_type": context_type,
-                    "violation_type": violation_type,
-                },
-                occurrences=occurrences,
-                successes=0,  # Violations never succeed
-                confidence=new_confidence,
-                source_events=[],
-                violation_count=violation_count,
+            self.logger.info(
+                f"Updating violation pattern {pattern_id}: "
+                f"occurrences={occurrences}, violation_count={violation_count}, confidence={new_confidence}"
             )
+        else:
+            occurrences = 1
+            violation_count = 1
+            new_confidence = self.decrease_confidence_for_violation(confidence)
+            self.logger.info(f"Creating new violation pattern {pattern_id} for {tool_name}")
 
-        except Exception as e:
-            self.logger.error(f"Failed to record violation: {e}")
-            raise
+        return self.store_pattern(
+            pattern_type="tactical",
+            name=f"Violation: {tool_name} ({context_type})",
+            description=f"{violation_type} violation detected for {tool_name} with {context_type} context",
+            preconditions={
+                "tool_name": tool_name,
+                "context_type": context_type,
+                "violation_type": violation_type,
+            },
+            occurrences=occurrences,
+            successes=0,
+            confidence=new_confidence,
+            source_events=[],
+            violation_count=violation_count,
+        )
 
     def decrease_confidence_for_violation(self, current_confidence: float) -> float:
-        """Decrease confidence score for a violation.
-
-        Reduces confidence by 0.10 for each violation, ensuring it never
-        goes below 0.0.
-
-        Args:
-            current_confidence: Current confidence score
-
-        Returns:
-            New confidence score (clamped to [0.0, 1.0])
-        """
         new_confidence = max(0.0, current_confidence - 0.10)
         return min(1.0, new_confidence)
 
     def get_pattern(self, pattern_id: str) -> Optional[dict[str, Any]]:
-        """Retrieve a pattern from the ledger by ID.
-
-        Returns the most recent version of the pattern.
-
-        Args:
-            pattern_id: UUID of the pattern to retrieve
-
-        Returns:
-            Pattern dictionary or None if not found
-        """
+        conn = _get_connection()
         try:
-            events = get_events(event_type="AGENT_PATTERN", limit=10000)
-
-            # Find all events for this pattern and return the most recent
-            matching_events = [
-                e for e in events if e.get("payload", {}).get("pattern_id") == pattern_id
-            ]
-
-            if not matching_events:
+            row = conn.execute(
+                "SELECT * FROM patterns WHERE pattern_id = ?", (pattern_id,)
+            ).fetchone()
+            if row is None:
                 return None
-
-            # Return the last (most recent) event
-            return matching_events[-1].get("payload")
+            return self._row_to_dict(row)
         except Exception as e:
             self.logger.error(f"Failed to get pattern {pattern_id}: {e}")
             return None
+        finally:
+            conn.close()
+
+    def get_all_patterns(self) -> list[dict[str, Any]]:
+        """Get all patterns from the store, unfiltered."""
+        conn = _get_connection()
+        try:
+            rows = conn.execute("SELECT * FROM patterns ORDER BY confidence DESC").fetchall()
+            return [self._row_to_dict(row) for row in rows]
+        except Exception as e:
+            self.logger.error(f"Failed to get all patterns: {e}")
+            return []
+        finally:
+            conn.close()
 
     def query_patterns(
         self,
@@ -233,54 +232,33 @@ class PatternStore:
         min_confidence: float = 0.65,
         exclude_anti_patterns: bool = True,
     ) -> list[dict[str, Any]]:
-        """Query patterns matching the given preconditions.
-
-        Filters patterns by context matching and confidence threshold.
-        Anti-patterns (confidence < -0.5) are excluded by default.
-
-        Args:
-            preconditions: Current context (token_budget, phase, codebase_structure, etc.)
-            min_confidence: Minimum confidence threshold (default 0.65)
-            exclude_anti_patterns: If True, exclude patterns with confidence < -0.5
-
-        Returns:
-            List of matching patterns sorted by confidence (highest first)
-        """
+        conn = _get_connection()
         try:
-            events = get_events(event_type="AGENT_PATTERN", limit=10000)
-            matched_patterns: list[dict[str, Any]] = []
+            rows = conn.execute("SELECT * FROM patterns ORDER BY confidence DESC").fetchall()
+            matched: list[dict[str, Any]] = []
 
-            for event in events:
-                payload = event.get("payload", {})
-                confidence = payload.get("confidence", 0)
+            for row in rows:
+                pattern = self._row_to_dict(row)
+                confidence = pattern["confidence"]
 
-                # Skip anti-patterns if requested
                 if exclude_anti_patterns and confidence < -0.5:
                     continue
 
-                # Skip patterns below confidence threshold
-                # (unless they're anti-patterns and we're including them)
                 if not exclude_anti_patterns and confidence < -0.5:
-                    # Anti-pattern: no min_confidence threshold
                     pass
                 elif confidence < min_confidence:
-                    # Regular pattern: apply min_confidence threshold
                     continue
 
-                # Check if preconditions match
-                if self._preconditions_match(payload.get("preconditions", {}), preconditions):
-                    matched_patterns.append(payload)
+                if self._preconditions_match(pattern["preconditions"], preconditions):
+                    matched.append(pattern)
 
-            # Sort by confidence (highest first)
-            matched_patterns.sort(key=lambda p: p.get("confidence", 0), reverse=True)
-
-            self.logger.info(
-                f"Query returned {len(matched_patterns)} patterns matching preconditions"
-            )
-            return matched_patterns
+            self.logger.info(f"Query returned {len(matched)} patterns matching preconditions")
+            return matched
         except Exception as e:
             self.logger.error(f"Failed to query patterns: {e}")
             return []
+        finally:
+            conn.close()
 
     def update_pattern_confidence(
         self,
@@ -290,71 +268,38 @@ class PatternStore:
         source_event_id: Optional[str] = None,
         _cached_pattern: Optional[dict[str, Any]] = None,
     ) -> bool:
-        """Update a pattern's confidence score with logging.
-
-        Creates a new AGENT_PATTERN event with updated confidence.
-        Logs the reasoning for the update.
-
-        Args:
-            pattern_id: UUID of the pattern to update
-            delta: Confidence delta to apply (-1.0 to 1.0)
-            reason: Reason for the update (logged for transparency)
-            source_event_id: Event ID that triggered this update
-            _cached_pattern: Pre-fetched pattern dict to avoid redundant DB reads
-
-        Returns:
-            True if successful, False otherwise
-        """
         try:
-            # Use cached pattern if provided, otherwise fetch from DB
             pattern = _cached_pattern or self.get_pattern(pattern_id)
             if not pattern:
                 self.logger.error(f"Pattern {pattern_id} not found")
                 return False
 
-            # Calculate new confidence (clamped to [-1.0, 1.0])
-            old_confidence = pattern.get("confidence", 0.0)
+            old_confidence = pattern["confidence"]
             new_confidence = max(-1.0, min(1.0, old_confidence + delta))
+            now = datetime.now(timezone.utc).isoformat()
 
-            # Update pattern
+            source_events = pattern.get("source_events", [])
+            if source_event_id and source_event_id not in source_events:
+                source_events.append(source_event_id)
+
+            # Recompute hash with updated values
             pattern["confidence"] = new_confidence
-            pattern["updated_at"] = datetime.now(timezone.utc).isoformat()
+            pattern["updated_at"] = now
+            pattern["source_events"] = source_events
+            content_hash = self._compute_hash(pattern)
 
-            # Track source event if provided
-            if source_event_id:
-                source_events = pattern.get("source_events", [])
-                if source_event_id not in source_events:
-                    source_events.append(source_event_id)
-                    pattern["source_events"] = source_events
-
-            # Recompute hash
-            pattern_json = json.dumps(pattern, sort_keys=True, ensure_ascii=False)
-            content_hash = hashlib.sha256(pattern_json.encode()).hexdigest()[:32]
-            pattern["content_hash"] = content_hash
-
-            # Store updated pattern
-            log_event(
-                event_type="AGENT_PATTERN",
-                actor="agent",
-                payload=pattern,
-                validate=False,
-            )
-
-            # Log the update with reasoning
-            log_event(
-                event_type="AGENT_PATTERN_UPDATE",
-                actor="agent",
-                payload={
-                    "pattern_id": pattern_id,
-                    "old_confidence": old_confidence,
-                    "new_confidence": new_confidence,
-                    "delta": delta,
-                    "reason": reason,
-                    "source_event_id": source_event_id,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-                validate=False,
-            )
+            conn = _get_connection()
+            try:
+                conn.execute(
+                    """UPDATE patterns SET
+                        confidence = ?, updated_at = ?, source_events = ?,
+                        content_hash = ?
+                    WHERE pattern_id = ?""",
+                    (new_confidence, now, json.dumps(source_events), content_hash, pattern_id),
+                )
+                conn.commit()
+            finally:
+                conn.close()
 
             self.logger.info(
                 f"Updated pattern {pattern_id} confidence: {old_confidence} → {new_confidence} "
@@ -365,53 +310,43 @@ class PatternStore:
             self.logger.error(f"Failed to update pattern confidence: {e}")
             return False
 
+    def _compute_hash(self, data: dict[str, Any]) -> str:
+        # Remove content_hash from data before hashing to avoid circular reference
+        clean = {k: v for k, v in data.items() if k != "content_hash"}
+        raw = json.dumps(clean, sort_keys=True, ensure_ascii=False)
+        return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+    def _row_to_dict(self, row: sqlite3.Row) -> dict[str, Any]:
+        d = dict(row)
+        d["preconditions"] = json.loads(d["preconditions"])
+        d["source_events"] = json.loads(d["source_events"])
+        return d
+
     def _preconditions_match(
         self, pattern_preconditions: dict[str, Any], current_context: dict[str, Any]
     ) -> bool:
-        """Check if pattern preconditions match current context.
-
-        Preconditions are optional - if not specified, they match any context.
-        Token budget ranges are inclusive.
-
-        Args:
-            pattern_preconditions: Preconditions from the pattern
-            current_context: Current context to match against
-
-        Returns:
-            True if all specified preconditions match
-        """
-        # Token budget range check
         if "token_budget_min" in pattern_preconditions:
-            min_budget = pattern_preconditions["token_budget_min"]
-            current_budget = current_context.get("token_budget", 0)
-            if current_budget < min_budget:
+            if current_context.get("token_budget", 0) < pattern_preconditions["token_budget_min"]:
                 return False
 
         if "token_budget_max" in pattern_preconditions:
-            max_budget = pattern_preconditions["token_budget_max"]
-            current_budget = current_context.get("token_budget", 0)
-            if current_budget > max_budget:
+            if current_context.get("token_budget", 0) > pattern_preconditions["token_budget_max"]:
                 return False
 
-        # Phase check
         if "phase" in pattern_preconditions:
-            pattern_phase = pattern_preconditions["phase"]
-            current_phase = current_context.get("phase")
-            if current_phase != pattern_phase:
+            if current_context.get("phase") != pattern_preconditions["phase"]:
                 return False
 
-        # Codebase structure check
         if "codebase_structure" in pattern_preconditions:
-            pattern_structure = pattern_preconditions["codebase_structure"]
-            current_structure = current_context.get("codebase_structure")
-            if current_structure != pattern_structure:
+            if (
+                current_context.get("codebase_structure")
+                != pattern_preconditions["codebase_structure"]
+            ):
                 return False
 
-        # Constraints check (all constraints must be satisfied)
         if "constraints" in pattern_preconditions:
-            pattern_constraints = pattern_preconditions["constraints"]
             current_constraints = current_context.get("constraints", [])
-            for constraint in pattern_constraints:
+            for constraint in pattern_preconditions["constraints"]:
                 if constraint not in current_constraints:
                     return False
 

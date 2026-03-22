@@ -1656,20 +1656,10 @@ def deep_extract_knowledge(
         if rec.get("type") == "user":
             user_indices.append(i)
 
-    # Extract session topics
+    # Session topics are extracted but only used as tags on other knowledge,
+    # not stored as standalone facts (word frequency alone produces keyword soup).
     topics = extract_session_topics(analysis.user_message_texts)
     topic_tags = [f"topic-{t}" for t in topics[:5]]
-
-    if topics:
-        topic_content = f"I worked on: {', '.join(topics)} (session {short_id})"
-        kid = store_knowledge_smart(
-            knowledge_type="FACT",
-            content=topic_content,
-            confidence=1.0,
-            source_events=[session_id],
-            tags=["auto-extracted", "session-topics", f"session-{short_id}", *topic_tags],
-        )
-        stored_ids.append(kid)
 
     # --- Correction pairs → PRINCIPLE or BOUNDARY with insight content ---
     for correction in analysis.corrections:

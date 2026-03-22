@@ -679,7 +679,8 @@ class _MockAnalysis:
 
 
 class TestDeepExtractKnowledge:
-    def test_extracts_topics(self):
+    def test_topics_not_stored_as_standalone_facts(self):
+        """Topics are used as tags on other knowledge, not stored as keyword-soup facts."""
         analysis = _MockAnalysis()
         analysis.user_message_texts = [
             "let's work on the testing framework",
@@ -688,10 +689,9 @@ class TestDeepExtractKnowledge:
         ]
         records = []
         deep_extract_knowledge(analysis, records)
-        # Should extract session topics
         knowledge = get_knowledge(knowledge_type="FACT")
         topic_entries = [k for k in knowledge if "I worked on:" in k["content"]]
-        assert len(topic_entries) >= 1
+        assert len(topic_entries) == 0
 
     def test_extracts_correction_pairs(self):
         analysis = _MockAnalysis()

@@ -911,16 +911,23 @@ def stats() -> None:
 
 @cli.command()
 @click.option("--n", default=20, help="Number of recent events for context")
-def context(n: int) -> None:
+@click.option(
+    "--raw", is_flag=True, default=False, help="Show all events including internal plumbing"
+)
+def context(n: int, raw: bool) -> None:
     """Show the last N events (working memory context window)."""
-    logger.info(f"Building context from last {n} events...")
-    events = _wrapped_get_recent_context(n=n)
+    meaningful_only = not raw
+    label = "all" if raw else "meaningful"
+    logger.info(f"Building context from last {n} {label} events...")
+    events = _wrapped_get_recent_context(n=n, meaningful_only=meaningful_only)
 
     if not events:
         click.secho("[-] No events in ledger yet.", fg="yellow")
         return
 
-    click.secho(f"\n=== Context Window (last {len(events)} events) ===\n", fg="cyan", bold=True)
+    click.secho(
+        f"\n=== Context Window (last {len(events)} {label} events) ===\n", fg="cyan", bold=True
+    )
     _print_events(events)
 
 
@@ -2309,19 +2316,10 @@ def report_cmd(session_id: str) -> None:
                 click.echo()
                 return
 
-            # Filter out test sessions (0 files touched = likely test data)
-            real_sessions = [s for s in sessions if s["file_count"] > 0]
-            if not real_sessions:
-                click.secho("\n[-] No real analyzed sessions found yet.", fg="yellow")
-                click.secho(
-                    "    Run 'divineos analyze <file.jsonl>' to analyze a session.",
-                    fg="bright_black",
-                )
-                click.echo()
-                return
-
-            click.secho(f"\n=== {len(real_sessions)} Analyzed Sessions ===\n", fg="cyan", bold=True)
-            for i, session in enumerate(real_sessions, 1):
+            # Show all analyzed sessions (file_count may be 0 if file_touched
+            # table wasn't populated — that's a data gap, not a reason to hide results)
+            click.secho(f"\n=== {len(sessions)} Analyzed Sessions ===\n", fg="cyan", bold=True)
+            for i, session in enumerate(sessions, 1):
                 click.secho(f"  {i}. {session['session_id']}", fg="white", bold=True)
 
                 # Format timestamp

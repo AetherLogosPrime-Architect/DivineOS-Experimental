@@ -280,8 +280,6 @@ class LearningCycle:
         Archives patterns that:
         - Failed 3+ times (tactical patterns)
         - Have confidence < -0.5 (anti-patterns)
-        - Context changed (codebase structure hash differs)
-        - Preconditions no longer match
 
         Returns:
             List of archived pattern IDs
@@ -289,33 +287,24 @@ class LearningCycle:
         try:
             archived_patterns = []
 
-            # Get all patterns and deduplicate by pattern_id (keep most recent)
-            all_patterns = get_events(event_type="AGENT_PATTERN", limit=10000)
-            latest_by_id: dict[str, dict[str, Any]] = {}
-            for e in all_patterns:
-                payload = e.get("payload")
-                if payload and payload.get("pattern_id"):
-                    latest_by_id[payload["pattern_id"]] = payload
+            all_patterns = self.pattern_store.get_all_patterns()
 
-            for pattern in latest_by_id.values():
-                pattern_id: str = pattern.get("pattern_id", "")
+            for pattern in all_patterns:
+                pattern_id = pattern.get("pattern_id", "")
                 if not pattern_id:
                     continue
                 confidence = pattern.get("confidence", 0.0)
                 pattern_type = pattern.get("pattern_type")
 
-                # Check if should be archived
                 should_archive = False
                 reason = ""
                 delta = 0.0
 
-                # Anti-patterns
                 if confidence < self.CONFIDENCE_ARCHIVE_THRESHOLD:
                     should_archive = True
                     reason = f"Anti-pattern (confidence: {confidence:.2f})"
-                    delta = -0.5 - confidence  # Set to -0.5
+                    delta = -0.5 - confidence
 
-                # Tactical patterns with 3+ failures
                 if pattern_type == "tactical":
                     successes = pattern.get("successes", 0)
                     occurrences = pattern.get("occurrences", 0)
@@ -324,10 +313,9 @@ class LearningCycle:
                     if failures >= self.TACTICAL_FAILURE_THRESHOLD:
                         should_archive = True
                         reason = f"Tactical pattern failed {failures} times"
-                        delta = -0.5 - confidence  # Set to -0.5
+                        delta = -0.5 - confidence
 
                 if should_archive:
-                    # Archive by setting confidence to -0.5
                     self.pattern_store.update_pattern_confidence(
                         pattern_id=pattern_id,
                         delta=delta,
@@ -354,27 +342,16 @@ class LearningCycle:
         try:
             conflicts = []
 
-            # Get all structural patterns
-            all_patterns = get_events(event_type="AGENT_PATTERN", limit=10000)
-            pattern_payloads = [e.get("payload") for e in all_patterns]
+            all_patterns = self.pattern_store.get_all_patterns()
+            structural_patterns = [p for p in all_patterns if p.get("pattern_type") == "structural"]
 
-            structural_patterns = [
-                p
-                for p in pattern_payloads
-                if p is not None and p.get("pattern_type") == "structural"
-            ]
-
-            # Check for contradictions
             for i, pattern1 in enumerate(structural_patterns):
                 for pattern2 in structural_patterns[i + 1 :]:
-                    # Check if preconditions contradict
                     prec1 = pattern1.get("preconditions", {})
                     prec2 = pattern2.get("preconditions", {})
 
-                    # Simple conflict detection: same precondition keys with different values
                     for key in prec1:
                         if key in prec2 and prec1[key] != prec2[key]:
-                            # Check if both patterns have high confidence
                             conf1 = pattern1.get("confidence", 0.0)
                             conf2 = pattern2.get("confidence", 0.0)
 
@@ -403,34 +380,23 @@ class LearningCycle:
     def generate_humility_audit(self) -> dict[str, Any]:
         """Generate a humility audit with warnings about pattern state.
 
-        Creates an audit that includes:
-        - Patterns with confidence < 0.7 (low confidence)
-        - Patterns never tested in current context
-        - Gaps in pattern coverage
-        - Risky assumptions
-        - Drift detection (>50% patterns < 0.6 confidence)
-
         Returns:
             Audit dictionary
         """
         try:
-            # Get all patterns
-            all_patterns = get_events(event_type="AGENT_PATTERN", limit=10000)
-            pattern_payloads = [e.get("payload") for e in all_patterns]
+            all_patterns = self.pattern_store.query_patterns(
+                {}, min_confidence=-1.0, exclude_anti_patterns=False
+            )
 
             low_confidence_patterns = []
             untested_patterns = []
             risky_assumptions = []
 
-            for pattern in pattern_payloads:
-                if pattern is None:
-                    continue
-
+            for pattern in all_patterns:
                 confidence = pattern.get("confidence", 0.0)
-                pattern_id = pattern.get("pattern_id")
+                pattern_id: str = pattern.get("pattern_id", "")
                 name = pattern.get("name", "Unknown")
 
-                # Low confidence patterns
                 if confidence < self.CONFIDENCE_LOW_THRESHOLD:
                     low_confidence_patterns.append(
                         {
@@ -444,7 +410,6 @@ class LearningCycle:
                         }
                     )
 
-                # Untested patterns (never used in decisions)
                 decisions = self.decision_store.get_decisions_for_pattern(pattern_id)
                 if not decisions:
                     untested_patterns.append(
@@ -455,7 +420,6 @@ class LearningCycle:
                         }
                     )
 
-                # Risky assumptions for low-confidence patterns
                 if confidence < 0.5:
                     risky_assumptions.append(
                         {
@@ -465,19 +429,15 @@ class LearningCycle:
                         }
                     )
 
-            # Detect drift
-            total_patterns = len([p for p in pattern_payloads if p is not None])
+            total_patterns = len(all_patterns)
             low_confidence_count = sum(
-                1
-                for p in pattern_payloads
-                if p is not None and p.get("confidence", 0.0) < self.DRIFT_CONFIDENCE_LEVEL
+                1 for p in all_patterns if p.get("confidence", 0.0) < self.DRIFT_CONFIDENCE_LEVEL
             )
             drift_ratio = low_confidence_count / total_patterns if total_patterns > 0 else 0.0
             drift_detected = drift_ratio > self.DRIFT_THRESHOLD
 
-            # Pattern gaps
             pattern_gaps = []
-            if not pattern_payloads:
+            if not all_patterns:
                 pattern_gaps.append(
                     {
                         "gap_type": "no_patterns",
