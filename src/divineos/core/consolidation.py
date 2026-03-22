@@ -1730,10 +1730,35 @@ def deep_extract_knowledge(
         stored_ids.append(kid)
 
     # --- Preferences → DIRECTION ---
+    # Filter out vague or conversational messages that matched preference patterns
+    # but aren't actual instructions about how to work.
     for pref in getattr(analysis, "preferences", []):
+        pref_text = pref.content.strip()
+        words = pref_text.split()
+        # Too short to be a real preference (e.g. "always do that")
+        if len(words) < 5:
+            continue
+        # Skip messages that are mostly conversational/task-directed, not meta-preferences
+        lower = pref_text.lower()
+        if any(
+            marker in lower
+            for marker in (
+                "keep going",
+                "yes ",
+                "ok ",
+                "sounds good",
+                "lets do",
+                "let's do",
+                "go ahead",
+                "do it",
+                "try now",
+                "try again",
+            )
+        ):
+            continue
         kid = store_knowledge_smart(
             knowledge_type="DIRECTION",
-            content=_distill_preference(pref.content),
+            content=_distill_preference(pref_text),
             confidence=0.9,
             source="STATED",
             maturity="CONFIRMED",

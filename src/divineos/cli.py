@@ -292,6 +292,17 @@ def _run_session_end_pipeline() -> None:
     try:
         # 1. Analyze
         analysis = _analyzer_mod.analyze_session(latest)
+
+        # Skip if we already processed this session (prevents re-analysis on manual emit)
+        session_tag = f"session-{analysis.session_id[:12]}"
+        existing = _wrapped_get_knowledge(tags=[session_tag], limit=1)
+        if existing:
+            click.secho(
+                f"[~] Session {analysis.session_id[:12]} already processed, skipping.",
+                fg="bright_black",
+            )
+            return
+
         _safe_echo(analysis.summary())
 
         # 1b. Extract goals from user messages into HUD
