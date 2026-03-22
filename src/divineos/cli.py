@@ -250,6 +250,145 @@ def _display_and_store_analysis(result: Any) -> None:
     click.echo()
 
 
+def _run_session_end_pipeline() -> None:
+    """Post-SESSION_END learning pipeline.
+
+    Runs the full extract-consolidate-refresh cycle:
+    1. Analyze latest session file
+    2. Deep extract knowledge (corrections, preferences, decisions)
+    3. Store session episode + tool usage (with dedup)
+    4. Apply feedback (recurrence, reinforcement)
+    5. Run health check (boost confirmed, escalate recurring)
+    6. Consolidate related knowledge clusters
+    7. Refresh active memory for next session
+    8. Print session summary
+    """
+    session_files = _analyzer_mod.find_sessions()
+    if not session_files:
+        click.secho("[~] No session files found for auto-scan.", fg="bright_black")
+        return
+
+    latest = session_files[0]
+    click.secho(f"\n[~] Auto-scanning session: {latest.stem[:16]}...", fg="cyan")
+
+    try:
+        # 1. Analyze
+        analysis = _analyzer_mod.analyze_session(latest)
+        click.echo(analysis.summary())
+
+        # 2. Deep extract
+        records = _analyzer_mod._load_records(latest)
+        deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
+        stored = len(deep_ids)
+
+        # 3. Store episode + tool usage (dedup by session tag)
+        session_tag = f"session-{analysis.session_id[:12]}"
+        existing = _wrapped_get_knowledge(tags=[session_tag], limit=5)
+        has_session = len(existing) > 0
+
+        if not has_session:
+            if analysis.tool_usage:
+                top_tools = sorted(analysis.tool_usage.items(), key=lambda x: x[1], reverse=True)[
+                    :10
+                ]
+                tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
+                _wrapped_store_knowledge(
+                    knowledge_type="FACT",
+                    content=f"Session tool usage ({analysis.session_id[:12]}): {tool_summary}",
+                    confidence=1.0,
+                    tags=["session-analysis", "tool-usage", session_tag],
+                )
+                stored += 1
+
+            _wrapped_store_knowledge(
+                knowledge_type="EPISODE",
+                content=(
+                    f"Session {analysis.session_id[:12]}: "
+                    f"{analysis.user_messages} user msgs, "
+                    f"{analysis.tool_calls_total} tool calls, "
+                    f"{len(analysis.corrections)} corrections, "
+                    f"{len(analysis.encouragements)} encouragements, "
+                    f"{len(getattr(analysis, 'preferences', []))} preferences, "
+                    f"{len(analysis.context_overflows)} overflows"
+                ),
+                confidence=1.0,
+                tags=["session-analysis", "episode", session_tag],
+            )
+            stored += 1
+        else:
+            click.secho("[~] Session already scanned, skipping episode/fact.", fg="bright_black")
+
+        click.secho(f"[+] Stored {stored} knowledge entries from session.", fg="green")
+
+        # 4. Apply feedback
+        feedback = _wrapped_apply_session_feedback(analysis, analysis.session_id)
+        feedback_parts = []
+        if feedback["recurrences_found"]:
+            feedback_parts.append(f"{feedback['recurrences_found']} recurrences")
+        if feedback["patterns_reinforced"]:
+            feedback_parts.append(f"{feedback['patterns_reinforced']} patterns reinforced")
+        if feedback["lessons_improving"]:
+            feedback_parts.append(f"{feedback['lessons_improving']} lessons improving")
+        if feedback.get("noise_skipped"):
+            feedback_parts.append(f"{feedback['noise_skipped']} noise skipped")
+        if feedback_parts:
+            click.secho(f"[~] Feedback: {', '.join(feedback_parts)}", fg="cyan")
+
+        # 5. Health check — boost confirmed knowledge, escalate recurring lessons
+        try:
+            hc = _wrapped_health_check()
+            hc_parts = []
+            if hc["confirmed_boosted"]:
+                hc_parts.append(f"{hc['confirmed_boosted']} confirmed")
+            if hc["recurring_escalated"]:
+                hc_parts.append(f"{hc['recurring_escalated']} escalated")
+            if hc["resolved_lessons"]:
+                hc_parts.append(f"{hc['resolved_lessons']} resolved")
+            if hc_parts:
+                click.secho(f"[~] Health: {', '.join(hc_parts)}", fg="cyan")
+        except Exception as e:
+            logger.warning(f"Health check failed: {e}")
+
+        # 6. Consolidate related
+        try:
+            merges = _wrapped_consolidate_related(min_cluster_size=3)
+            if merges:
+                click.secho(
+                    f"[~] Consolidated {len(merges)} clusters of related knowledge.", fg="cyan"
+                )
+        except Exception as e:
+            logger.warning(f"Consolidation failed: {e}")
+
+        # 7. Refresh active memory
+        promoted = 0
+        demoted = 0
+        try:
+            init_memory_tables()
+            refresh = _wrapped_refresh_active_memory(importance_threshold=0.3)
+            promoted = refresh["promoted"]
+            demoted = refresh["demoted"]
+        except Exception as e:
+            logger.warning(f"Memory refresh failed: {e}")
+
+        # 8. Session summary
+        click.secho("\n=== Session Complete ===", fg="cyan", bold=True)
+        click.secho(f"  Knowledge extracted:  {stored}", fg="white")
+        if feedback_parts:
+            click.secho(f"  Feedback applied:     {', '.join(feedback_parts)}", fg="white")
+        if promoted or demoted:
+            click.secho(
+                f"  Active memory:        +{promoted} promoted, -{demoted} demoted", fg="white"
+            )
+        click.secho(
+            "  Next session: run 'divineos briefing' to see updated context.", fg="bright_black"
+        )
+        click.echo()
+
+    except Exception as e:
+        click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
+        logger.warning(f"Auto-scan failed: {e}")
+
+
 # Wrap critical tool calls for event capture
 _wrapped_log_event = wrap_tool_execution("log_event", log_event)
 _wrapped_get_events = wrap_tool_execution("get_events", get_events)
@@ -1911,110 +2050,7 @@ def emit_cmd(
             click.secho("[+] Event emitted: SESSION_END", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
-            # Auto-scan the most recent session file and store findings
-            session_files = _analyzer_mod.find_sessions()
-            if session_files:
-                latest = session_files[0]
-                click.secho(f"\n[~] Auto-scanning session: {latest.stem[:16]}...", fg="cyan")
-                try:
-                    analysis = _analyzer_mod.analyze_session(latest)
-                    click.echo(analysis.summary())
-
-                    # Deep extract and store
-                    records = _analyzer_mod._load_records(latest)
-                    deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
-                    stored = len(deep_ids)
-
-                    # Store tool usage and episode — skip if already stored
-                    # (prevents duplicates from multiple SESSION_END emits)
-                    session_tag = f"session-{analysis.session_id[:12]}"
-                    existing = _wrapped_get_knowledge(
-                        knowledge_type=None, min_confidence=0.0, limit=100
-                    )
-                    existing_tags = {tag for e in existing for tag in (e.get("tags") or [])}
-                    has_session = session_tag in existing_tags
-
-                    if analysis.tool_usage and not has_session:
-                        top_tools = sorted(
-                            analysis.tool_usage.items(), key=lambda x: x[1], reverse=True
-                        )[:10]
-                        tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
-                        _wrapped_store_knowledge(
-                            knowledge_type="FACT",
-                            content=f"Session tool usage ({analysis.session_id[:12]}): {tool_summary}",
-                            confidence=1.0,
-                            tags=["session-analysis", "tool-usage", session_tag],
-                        )
-                        stored += 1
-
-                    if not has_session:
-                        _wrapped_store_knowledge(
-                            knowledge_type="EPISODE",
-                            content=(
-                                f"Session {analysis.session_id[:12]}: "
-                                f"{analysis.user_messages} user msgs, "
-                                f"{analysis.tool_calls_total} tool calls, "
-                                f"{len(analysis.corrections)} corrections, "
-                                f"{len(analysis.encouragements)} encouragements, "
-                                f"{len(getattr(analysis, 'preferences', []))} preferences, "
-                                f"{len(analysis.context_overflows)} overflows"
-                            ),
-                            confidence=1.0,
-                            tags=["session-analysis", "episode", session_tag],
-                        )
-                        stored += 1
-                    elif has_session:
-                        click.secho(
-                            "[~] Session already scanned, skipping episode/fact.",
-                            fg="bright_black",
-                        )
-
-                    click.secho(f"[+] Stored {stored} knowledge entries from session.", fg="green")
-
-                    # Run feedback loop
-                    feedback = _wrapped_apply_session_feedback(analysis, analysis.session_id)
-                    parts = []
-                    if feedback["recurrences_found"]:
-                        parts.append(f"{feedback['recurrences_found']} recurrences")
-                    if feedback["patterns_reinforced"]:
-                        parts.append(f"{feedback['patterns_reinforced']} patterns reinforced")
-                    if feedback["lessons_improving"]:
-                        parts.append(f"{feedback['lessons_improving']} lessons improving")
-                    if feedback.get("noise_skipped"):
-                        parts.append(f"{feedback['noise_skipped']} noise skipped")
-                    if parts:
-                        click.secho(f"[~] Feedback: {', '.join(parts)}", fg="cyan")
-
-                    # Consolidate related knowledge entries
-                    try:
-                        merges = _wrapped_consolidate_related(min_cluster_size=3)
-                        if merges:
-                            click.secho(
-                                f"[~] Consolidated {len(merges)} clusters of related knowledge.",
-                                fg="cyan",
-                            )
-                    except Exception as e:
-                        logger.warning(f"Consolidation failed: {e}")
-
-                    # Refresh active memory for next session
-                    try:
-                        init_memory_tables()
-                        refresh = _wrapped_refresh_active_memory(importance_threshold=0.3)
-                        promoted = refresh["promoted"]
-                        demoted = refresh["demoted"]
-                        if promoted or demoted:
-                            click.secho(
-                                f"[~] Active memory: +{promoted} promoted, -{demoted} demoted.",
-                                fg="cyan",
-                            )
-                    except Exception as e:
-                        logger.warning(f"Memory refresh failed: {e}")
-
-                except Exception as e:
-                    click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
-                    logger.warning(f"Auto-scan failed: {e}")
-            else:
-                click.secho("[~] No session files found for auto-scan.", fg="bright_black")
+            _run_session_end_pipeline()
 
         elif event_type == "EXPLANATION":
             if not content:
