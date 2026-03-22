@@ -5,8 +5,6 @@ and retrieving them. All decisions are stored as AGENT_DECISION events in the Di
 ledger with SHA256 hashing for integrity.
 """
 
-import hashlib
-import json
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -135,11 +133,6 @@ class DecisionStore:
             "counterfactual": counterfactual,
             "outcome": outcome,
         }
-
-        # Compute SHA256 hash of decision content for integrity (truncated to 32 chars like ledger)
-        decision_json = json.dumps(payload, sort_keys=True, ensure_ascii=False)
-        content_hash = hashlib.sha256(decision_json.encode()).hexdigest()[:32]
-        payload["content_hash"] = content_hash
 
         try:
             log_event(
