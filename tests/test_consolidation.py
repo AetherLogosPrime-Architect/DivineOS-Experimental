@@ -690,7 +690,7 @@ class TestDeepExtractKnowledge:
         deep_extract_knowledge(analysis, records)
         # Should extract session topics
         knowledge = get_knowledge(knowledge_type="FACT")
-        topic_entries = [k for k in knowledge if "topics" in k["content"]]
+        topic_entries = [k for k in knowledge if "I worked on:" in k["content"]]
         assert len(topic_entries) >= 1
 
     def test_extracts_correction_pairs(self):

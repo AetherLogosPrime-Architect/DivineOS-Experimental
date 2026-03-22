@@ -1597,10 +1597,10 @@ def _find_alternative_in_text(text: str) -> str:
 
 
 def _distill_correction(raw_text: str) -> str:
-    """Transform a raw correction quote into an insight-form statement.
+    """Transform a raw correction quote into a first-person insight.
 
     Instead of: "no when i say you.. you say i or me.."
-    Produce:    "When the user says 'you' referring to the AI, respond with 'I' or 'me'"
+    Produce:    "I was told: when the user says 'you' referring to me, I should respond with 'I' or 'me'."
     """
     text = raw_text.strip()[:300]
     # Strip common prefixes that add noise
@@ -1608,20 +1608,20 @@ def _distill_correction(raw_text: str) -> str:
         if text.lower().startswith(prefix):
             text = text[len(prefix) :]
             break
-    # Capitalize and clean up
+    # Clean up
     text = text.strip()
     if text and text[0].islower():
         text = text[0].upper() + text[1:]
     # Remove trailing fragments
     if text and text[-1] not in ".!?":
         text = text.rstrip(". ") + "."
-    return text
+    return f"I was corrected: {text}"
 
 
 def _distill_preference(raw_text: str) -> str:
-    """Transform a raw preference quote into a direction statement."""
+    """Transform a raw preference quote into a first-person direction."""
     text = raw_text.strip()[:300]
-    # Strip "I want", "I prefer", "I like" prefixes — rephrase as direction
+    # Strip "I want", "I prefer", "I like" prefixes — rephrase as what I should do
     for prefix in ("i want ", "i prefer ", "i like ", "i need ", "please "):
         if text.lower().startswith(prefix):
             text = text[len(prefix) :]
@@ -1631,7 +1631,7 @@ def _distill_preference(raw_text: str) -> str:
         text = text[0].upper() + text[1:]
     if text and text[-1] not in ".!?":
         text = text.rstrip(". ") + "."
-    return text
+    return f"The user prefers: {text} I should follow this."
 
 
 def deep_extract_knowledge(
@@ -1663,7 +1663,7 @@ def deep_extract_knowledge(
     topic_tags = [f"topic-{t}" for t in topics[:5]]
 
     if topics:
-        topic_content = f"Session {short_id} topics: {', '.join(topics)}"
+        topic_content = f"I worked on: {', '.join(topics)} (session {short_id})"
         kid = store_knowledge_smart(
             knowledge_type="FACT",
             content=topic_content,
@@ -1724,9 +1724,9 @@ def deep_extract_knowledge(
         )
         ktype = "BOUNDARY" if is_boundary else "PRINCIPLE"
 
-        # Store insight, not raw quote
+        # Store insight in first person — future me needs to inhabit this, not parse it
         if ai_before:
-            content = f"When {ai_before.lower()}, instead: {correction_text[:200]}"
+            content = f"I was {ai_before.lower()}, but got corrected — {correction_text[:200]}"
         else:
             content = _distill_correction(correction_text)
 
@@ -1778,11 +1778,11 @@ def deep_extract_knowledge(
                             break
                     break
 
-        parts = [f"Decision: {decision_text[:200]}"]
+        parts = [f"I decided: {decision_text[:200]}"]
         if alternative:
-            parts.append(f"Rejected: {alternative}")
+            parts.append(f"I considered but rejected: {alternative}")
         if reason:
-            parts.append(f"Reason: {reason}")
+            parts.append(f"Because: {reason}")
 
         kid = store_knowledge_smart(
             knowledge_type="PRINCIPLE",
@@ -1815,7 +1815,7 @@ def deep_extract_knowledge(
             # a raw user quote with no actionable insight. Skip it.
             continue
 
-        content = f"This approach works well: {ai_before}. User affirmed: {enc.content[:150]}"
+        content = f"I {ai_before.lower()} and it worked well — user affirmed: {enc.content[:150]}"
 
         kid = store_knowledge_smart(
             knowledge_type="PRINCIPLE",

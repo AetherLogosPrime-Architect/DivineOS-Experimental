@@ -312,22 +312,24 @@ def _run_session_end_pipeline() -> None:
                 tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
                 _wrapped_store_knowledge(
                     knowledge_type="FACT",
-                    content=f"Session tool usage ({analysis.session_id[:12]}): {tool_summary}",
+                    content=f"I used these tools most: {tool_summary} (session {analysis.session_id[:12]})",
                     confidence=1.0,
                     tags=["session-analysis", "tool-usage", session_tag],
                 )
                 stored += 1
 
+            corrections = len(analysis.corrections)
+            encouragements = len(analysis.encouragements)
             _wrapped_store_knowledge(
                 knowledge_type="EPISODE",
                 content=(
-                    f"Session {analysis.session_id[:12]}: "
-                    f"{analysis.user_messages} user msgs, "
-                    f"{analysis.tool_calls_total} tool calls, "
-                    f"{len(analysis.corrections)} corrections, "
-                    f"{len(analysis.encouragements)} encouragements, "
-                    f"{len(getattr(analysis, 'preferences', []))} preferences, "
-                    f"{len(analysis.context_overflows)} overflows"
+                    f"I had {analysis.user_messages} exchanges, made "
+                    f"{analysis.tool_calls_total} tool calls. "
+                    f"I was corrected {corrections} time{'s' if corrections != 1 else ''} "
+                    f"and encouraged {encouragements} time{'s' if encouragements != 1 else ''}. "
+                    f"{len(getattr(analysis, 'preferences', []))} preferences noted, "
+                    f"{len(analysis.context_overflows)} context overflows"
+                    f" (session {analysis.session_id[:12]})"
                 ),
                 confidence=1.0,
                 tags=["session-analysis", "episode", session_tag],
@@ -437,7 +439,7 @@ def _run_session_end_pipeline() -> None:
                 if lesson.confidence >= 0.7:
                     _wrapped_store_knowledge(
                         knowledge_type="LESSON",
-                        content=f"[clarity] {lesson.description} -- {lesson.insight}",
+                        content=f"I noticed: {lesson.description}. My takeaway: {lesson.insight}",
                         confidence=lesson.confidence,
                         tags=["clarity-analysis", lesson.type, session_tag],
                     )
@@ -1552,23 +1554,25 @@ def scan_cmd(file_path: str, store: bool, deep: bool) -> None:
         tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
         _wrapped_store_knowledge(
             knowledge_type="FACT",
-            content=f"Session tool usage ({analysis.session_id[:12]}): {tool_summary}",
+            content=f"I used these tools most: {tool_summary} (session {analysis.session_id[:12]})",
             confidence=1.0,
             tags=["session-analysis", "tool-usage"],
         )
         stored += 1
 
     # Store session summary as EPISODE
+    corrections = len(analysis.corrections)
+    encouragements = len(analysis.encouragements)
     _wrapped_store_knowledge(
         knowledge_type="EPISODE",
         content=(
-            f"Session {analysis.session_id[:12]}: "
-            f"{analysis.user_messages} user msgs, "
-            f"{analysis.tool_calls_total} tool calls, "
-            f"{len(analysis.corrections)} corrections, "
-            f"{len(analysis.encouragements)} encouragements, "
-            f"{len(getattr(analysis, 'preferences', []))} preferences, "
-            f"{len(analysis.context_overflows)} overflows"
+            f"I had {analysis.user_messages} exchanges, made "
+            f"{analysis.tool_calls_total} tool calls. "
+            f"I was corrected {corrections} time{'s' if corrections != 1 else ''} "
+            f"and encouraged {encouragements} time{'s' if encouragements != 1 else ''}. "
+            f"{len(getattr(analysis, 'preferences', []))} preferences noted, "
+            f"{len(analysis.context_overflows)} context overflows"
+            f" (session {analysis.session_id[:12]})"
         ),
         confidence=1.0,
         tags=["session-analysis", "episode"],
