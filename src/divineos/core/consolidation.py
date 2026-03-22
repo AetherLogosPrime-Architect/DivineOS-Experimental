@@ -665,9 +665,19 @@ def generate_briefing(
         lines.append(f"### {plural} ({len(items)})")
         for item in items:
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
-            lines.append(
-                f"- [{item['confidence']:.2f}] {item['content']} ({item['access_count']}x accessed){hint_marker}",
-            )
+            content = item["content"]
+            access = f"({item['access_count']}x accessed)"
+
+            if kt == "DIRECTIVE":
+                # Show full chain, access count on its own line
+                lines.append(f"- [{item['confidence']:.2f}] {content}{hint_marker}")
+                lines.append(f"  {access}")
+            else:
+                # Truncate long entries (digests, etc.)
+                display = content.replace("\n", " ")
+                if len(display) > 150:
+                    display = display[:147] + "..."
+                lines.append(f"- [{item['confidence']:.2f}] {display} {access}{hint_marker}")
         lines.append("")
 
     return "\n".join(lines)
