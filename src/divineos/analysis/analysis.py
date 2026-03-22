@@ -96,6 +96,7 @@ def analyze_session(file_path: Path) -> AnalysisResult:
             {
                 "direction": "negative" if ts.new_tone == "negative" else "positive",
                 "trigger": ts.trigger_action,
+                "user_response": getattr(ts, "after_message", ""),
             }
             for ts in features.tone_shifts
             if ts.previous_tone != ts.new_tone

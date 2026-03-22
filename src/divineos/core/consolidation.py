@@ -983,7 +983,12 @@ def extract_lessons_from_report(
         negative_shifts = [t for t in tone_shifts if t.get("direction") == "negative"]
         for shift in negative_shifts[:3]:  # cap at 3
             trigger = shift.get("trigger", "unknown action")
-            content = f"I upset the user after {trigger} (session {short_id})."
+            user_response = shift.get("user_response", "")
+            # Use the user's actual words if available — much more informative than tool names
+            if user_response and len(user_response.split()) >= 3:
+                content = f'The user got upset and said: "{user_response[:150]}" — this happened after {trigger} (session {short_id}).'
+            else:
+                content = f"I upset the user after {trigger} (session {short_id})."
             kid = store_knowledge(
                 knowledge_type="MISTAKE",
                 content=content,

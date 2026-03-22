@@ -309,9 +309,9 @@ class TestEmitCmd:
         assert result.exit_code == 0
         assert "Event emitted: TOOL_RESULT" in result.output
 
-        # Verify event was logged
+        # Verify event was logged (human-readable summary shows tool name)
         list_result = runner.invoke(cli, ["list"])
-        assert "def main" in list_result.output
+        assert "readFile" in list_result.output
 
     def test_emit_session_end(self, runner):
         """Test emitting a SESSION_END event via CLI."""

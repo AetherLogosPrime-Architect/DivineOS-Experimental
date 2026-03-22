@@ -91,14 +91,11 @@ class DefaultLearningExtractor(LearningExtractor):
             return []
 
     def identify_tool_patterns(self, execution_data: ExecutionData) -> list[Lesson]:
-        """Identify patterns in tool usage.
+        """Identify genuinely notable patterns in tool usage.
 
-        Args:
-            execution_data: Execution data
-
-        Returns:
-            List of lessons about tool patterns
-
+        Only generates lessons for patterns that indicate a problem (e.g. one
+        tool dominating at >80% of calls), not trivial stats like "you used
+        Bash the most."
         """
         try:
             lessons: list[Lesson] = []
@@ -106,24 +103,29 @@ class DefaultLearningExtractor(LearningExtractor):
             if not execution_data.tool_calls:
                 return lessons
 
-            # Count tool usage
             tool_counts: dict[str, int] = {}
             for tool_call in execution_data.tool_calls:
                 tool_counts[tool_call.tool_name] = tool_counts.get(tool_call.tool_name, 0) + 1
 
-            # Identify most-used tools
+            total_calls = sum(tool_counts.values())
+            if total_calls == 0:
+                return lessons
+
             sorted_tools = sorted(tool_counts.items(), key=lambda x: x[1], reverse=True)
 
+            # Only flag if a single tool accounts for >80% of calls — that's unusual
             if sorted_tools:
-                most_used = sorted_tools[0]
-                lesson = Lesson(
-                    type="pattern",
-                    description=f"Most frequently used tool: {most_used[0]} ({most_used[1]} calls)",
-                    context="Tool usage pattern",
-                    insight=f"Consider optimizing {most_used[0]} usage or batching calls",
-                    confidence=0.8,
-                )
-                lessons.append(lesson)
+                most_used_name, most_used_count = sorted_tools[0]
+                ratio = most_used_count / total_calls
+                if ratio > 0.80 and total_calls >= 10:
+                    lesson = Lesson(
+                        type="pattern",
+                        description=f"{most_used_name} accounted for {ratio:.0%} of tool calls ({most_used_count}/{total_calls})",
+                        context="Tool usage imbalance",
+                        insight=f"Heavy reliance on {most_used_name} — consider if other tools could reduce round trips",
+                        confidence=0.8,
+                    )
+                    lessons.append(lesson)
 
             logger.info(f"Identified {len(lessons)} tool patterns")
             return lessons

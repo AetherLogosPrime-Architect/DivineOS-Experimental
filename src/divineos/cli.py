@@ -1920,6 +1920,67 @@ def _role_to_event_type(role: str) -> str:
     return mapping.get(role.lower(), "MESSAGE")
 
 
+def _summarize_event(event: dict[str, Any]) -> str:
+    """Produce a human-readable one-liner for an event."""
+    etype = event["event_type"]
+    payload = event.get("payload", {})
+
+    # Events with explicit content
+    content = payload.get("content")
+    if content and isinstance(content, str):
+        return str(content[:300])
+
+    # Event-specific summaries
+    if etype == "USER_INPUT":
+        return str(payload.get("text", payload.get("content", str(payload))))[:300]
+    if etype in ("ASSISTANT_OUTPUT", "ASSISTANT", "ASSISTANT_RESPONSE"):
+        text = str(payload.get("text", payload.get("content", "")))
+        return text[:300] if text else "(assistant response)"
+    if etype == "SESSION_END":
+        dur = payload.get("duration_seconds", 0)
+        msgs = payload.get("message_count", 0)
+        tools = payload.get("tool_call_count", 0)
+        return f"{msgs} messages, {tools} tool calls, {dur:.0f}s"
+    if etype == "TOOL_CALL":
+        name = payload.get("tool_name", "?")
+        inp = str(payload.get("tool_input", ""))[:100]
+        return f"{name}: {inp}"
+    if etype == "TOOL_RESULT":
+        name = payload.get("tool_name", "?")
+        dur = payload.get("duration_ms", 0)
+        return f"{name} returned ({dur:.0f}ms)"
+    if etype == "CLARITY_SUMMARY":
+        score = payload.get("alignment_score", "?")
+        devs = payload.get("deviations_count", 0)
+        return f"alignment={score}%, {devs} deviations"
+    if etype == "CLARITY_LESSON":
+        return str(payload.get("description", str(payload)))[:300]
+    if etype == "QUALITY_REPORT":
+        checks = payload.get("check_count", "?")
+        return f"{checks} quality checks run"
+    if etype == "SESSION_ANALYSIS":
+        report = payload.get("report_text", "")
+        first_line = report.split("\n")[0] if report else "analysis complete"
+        return first_line[:200]
+    if etype == "ERROR":
+        return str(payload.get("message", payload.get("error", str(payload))))[:300]
+    if etype == "FACT_STORED":
+        return str(payload.get("fact", str(payload)))[:300]
+    if etype in ("AGENT_WORK", "AGENT_DECISION"):
+        desc = str(payload.get("description", payload.get("reason", "")))
+        return desc[:300] if desc else str(payload)[:200]
+
+    # Fallback: pick the most informative field
+    for key in ("description", "text", "message", "summary", "reason", "report_text"):
+        val = payload.get(key)
+        if val and isinstance(val, str):
+            return str(val[:300])
+
+    # Last resort: compact JSON
+    compact = json.dumps(payload, separators=(",", ":"))
+    return compact[:200]
+
+
 def _print_events(events: list[dict[str, Any]], highlight: str | None = None) -> None:
     """Pretty-print a list of events with optional keyword highlighting."""
     for event in events:
@@ -1932,23 +1993,12 @@ def _print_events(events: list[dict[str, Any]], highlight: str | None = None) ->
 
         actor = event["actor"].upper()
         etype = event["event_type"]
-        payload = event["payload"]
-        content_hash = event.get("content_hash", "")[:8]
 
         click.secho(f"[{time_str}] ", fg="bright_black", nl=False)
         click.secho(f"{etype} ", fg="white", bold=True, nl=False)
-        click.secho(f"({actor}) ", fg="bright_black", nl=False)
-        click.secho(f"[{content_hash}]", fg="bright_black")
+        click.secho(f"({actor})", fg="bright_black")
 
-        content = payload.get("content")
-        if content is None:
-            content = json.dumps(payload, indent=2)
-        if isinstance(content, (dict, list)):
-            content = json.dumps(content, indent=2)
-        # Truncate long payloads to keep output readable
-        max_len = 500
-        if len(content) > max_len:
-            content = content[:max_len] + f"\n  ... ({len(content) - max_len} chars truncated)"
+        content = _summarize_event(event)
 
         if highlight:
             pattern = re.compile(re.escape(highlight), re.IGNORECASE)
@@ -2494,7 +2544,19 @@ def emit_cmd(
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
         elif event_type == "SESSION_END":
-            # SESSION_END queries ledger for actual counts
+            # Check if the latest session was already processed (prevents empty SESSION_END spam)
+            session_files = _analyzer_mod.find_sessions()
+            if session_files:
+                probe = _analyzer_mod.analyze_session(session_files[0])
+                probe_tag = f"session-{probe.session_id[:12]}"
+                already = _wrapped_get_knowledge(tags=[probe_tag], limit=1)
+                if already:
+                    click.secho(
+                        f"[~] Session {probe.session_id[:12]} already processed. Nothing new to emit.",
+                        fg="bright_black",
+                    )
+                    return
+
             event_id = emit_session_end(session_id=session_id or None)
             click.secho("[+] Event emitted: SESSION_END", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
