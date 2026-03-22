@@ -1,323 +1,199 @@
 """Feedback System for Agent Integration.
 
-Generates comprehensive feedback on agent operations to support self-improvement.
+Generates actionable feedback from real session analysis data.
+Identifies tool performance issues, correction patterns, and generates
+recommendations for the next session.
 """
-
-from datetime import datetime, timezone
-from typing import Any
 
 from loguru import logger
 
-from divineos.agent_integration.behavior_analyzer import analyze_agent_behavior
-from divineos.agent_integration.learning_loop import analyze_session_for_lessons
 from divineos.agent_integration.types import SessionFeedback
 from divineos.core.consolidation import store_knowledge
-from divineos.core.error_handling import (
-    handle_error,
-)
 
 
-def get_iso8601_timestamp() -> str:
-    """Get current timestamp in ISO8601 format."""
-    return datetime.now(timezone.utc).isoformat()
-
-
-def generate_session_feedback(session_id: str) -> SessionFeedback:
-    """Generate feedback for a completed session.
+def generate_session_feedback(analysis: object) -> SessionFeedback:
+    """Generate feedback from a completed session's analysis.
 
     Args:
-        session_id: Session ID to analyze
+        analysis: SessionAnalysis object from session_analyzer
 
     Returns:
-        SessionFeedback object with comprehensive feedback
-
+        SessionFeedback with tool usage, error patterns, and recommendations
     """
-    logger.info(f"Generating session feedback for {session_id[:8]}...")
+    session_id = getattr(analysis, "session_id", "unknown")
+    tool_usage = getattr(analysis, "tool_usage", {})
+    corrections = getattr(analysis, "corrections", [])
+    encouragements = getattr(analysis, "encouragements", [])
+    frustrations = getattr(analysis, "frustrations", [])
+    tool_calls_total = getattr(analysis, "tool_calls_total", 0)
 
-    try:
-        # Get behavior analysis
-        analysis = analyze_agent_behavior(session_id)
-        logger.debug("Behavior analysis complete")
+    logger.debug(f"Generating feedback for session {session_id[:8]}...")
 
-        # Get lessons learned
-        lessons = analyze_session_for_lessons(session_id)
-        logger.debug("Lesson analysis complete")
+    # Build error list from corrections
+    errors = [c.text for c in corrections] if corrections else []
 
-        # Generate recommendations
-        recommendations = generate_recommendations(analysis, lessons)
-        logger.debug(f"Generated {len(recommendations)} recommendations")
+    # Build lessons from signals
+    lessons = []
+    if corrections:
+        lessons.append(f"{len(corrections)} corrections -- areas where approach needed adjustment")
+    if encouragements:
+        lessons.append(f"{len(encouragements)} encouragements -- approaches that worked well")
+    if frustrations:
+        lessons.append(f"{len(frustrations)} frustrations -- user pain points to address")
 
-        # Get historical patterns (for now, empty)
-        historical: dict[str, Any] = {}
-        comparison = compare_to_historical_patterns(analysis, historical)
-        logger.debug("Historical comparison complete")
+    # Generate recommendations from real data
+    recommendations = _generate_recommendations(
+        tool_usage=tool_usage,
+        corrections=corrections,
+        encouragements=encouragements,
+        frustrations=frustrations,
+        tool_calls_total=tool_calls_total,
+    )
 
-        # Create feedback object
-        feedback = SessionFeedback(
-            session_id=session_id,
-            tool_usage=analysis.tool_frequency,
-            success_rates=analysis.success_rates,
-            timing=analysis.execution_times,
-            errors=[
-                f"{tool}: {errors['error_count']} errors ({errors['error_rate'] * 100:.1f}%)"
-                for tool, errors in analysis.error_patterns.items()
-            ],
-            lessons_learned=[
-                f"{len(lessons.corrections)} corrections, "
-                f"{len(lessons.encouragements)} encouragements, "
-                f"{len(lessons.decisions)} decisions",
-            ],
-            recommendations=recommendations,
-            improvements=comparison.get("improvements", []),
-            regressions=comparison.get("regressions", []),
-        )
+    # Compute simple success rates per tool category
+    success_rates = {}
+    if tool_calls_total > 0:
+        error_count = len(corrections)
+        success_rates["overall"] = max(0.0, (tool_calls_total - error_count) / tool_calls_total)
 
-        logger.info(f"Session feedback generated: {len(recommendations)} recommendations")
-        return feedback
-
-    except Exception as e:
-        handle_error(e, "generate_session_feedback", {"session_id": session_id})
-        # Return empty feedback on error
-        return SessionFeedback(
-            session_id=session_id,
-            tool_usage={},
-            success_rates={},
-            timing={},
-            errors=[],
-            lessons_learned=[],
-            recommendations=[],
-            improvements=[],
-            regressions=[],
-        )
+    return SessionFeedback(
+        session_id=session_id,
+        tool_usage=tool_usage,
+        success_rates=success_rates,
+        timing={},
+        errors=errors,
+        lessons_learned=lessons,
+        recommendations=recommendations,
+        improvements=[e.text for e in encouragements] if encouragements else [],
+        regressions=[f.text for f in frustrations] if frustrations else [],
+    )
 
 
-def generate_session_summary(
-    session_id: str,
-    analysis: Any,
-    lessons: Any,
-    recommendations: list[str],
-) -> dict[str, Any]:
-    """Generate comprehensive session summary.
-
-    Args:
-        session_id: Session ID
-        analysis: BehaviorAnalysis object
-        lessons: SessionLessons object
-        recommendations: List of recommendations
-
-    Returns:
-        Dictionary with session summary
-
-    """
-    return {
-        "session_id": session_id,
-        "tool_usage": analysis.tool_frequency,
-        "success_rates": analysis.success_rates,
-        "timing": analysis.execution_times,
-        "errors": analysis.error_patterns,
-        "lessons_learned": {
-            "corrections": len(lessons.corrections),
-            "encouragements": len(lessons.encouragements),
-            "decisions": len(lessons.decisions),
-        },
-        "recommendations": recommendations,
-        "timestamp": get_iso8601_timestamp(),
-    }
-
-
-def compare_to_historical_patterns(
-    current_analysis: Any,  # pylint: disable=unused-argument
-    historical_data: dict[str, Any],  # pylint: disable=unused-argument
-) -> dict[str, Any]:
-    """Compare current session to historical patterns.
-
-    Args:
-        current_analysis: BehaviorAnalysis object for current session
-        historical_data: Historical data (empty for now)
-
-    Returns:
-        Dictionary with comparison results
-
-    """
-    # For now, return empty comparison
-    # This will be enhanced when historical data is available
-    return {
-        "improvements": [],
-        "regressions": [],
-        "comparison": {},
-    }
-
-
-def generate_recommendations(analysis: Any, lessons: Any) -> list[str]:
-    """Generate specific, actionable recommendations.
-
-    Args:
-        analysis: BehaviorAnalysis object
-        lessons: SessionLessons object
-
-    Returns:
-        List of recommendations
-
-    """
+def _generate_recommendations(
+    tool_usage: dict,
+    corrections: list,
+    encouragements: list,
+    frustrations: list,
+    tool_calls_total: int,
+) -> list[str]:
+    """Generate actionable recommendations from session data."""
     recommendations = []
 
-    # Recommendations based on success rates
-    if analysis.success_rates:
-        low_success_tools = [
-            (tool, rate) for tool, rate in analysis.success_rates.items() if rate < 0.8
-        ]
-        if low_success_tools:
-            for tool, rate in sorted(low_success_tools, key=lambda x: x[1]):
-                recommendations.append(
-                    f"Tool '{tool}' has {rate * 100:.1f}% success rate. "
-                    f"Consider improving error handling or validation.",
-                )
+    # High correction rate
+    if corrections and tool_calls_total > 0:
+        ratio = len(corrections) / tool_calls_total
+        if ratio > 0.3:
+            recommendations.append(
+                f"High correction rate ({ratio:.0%}). "
+                "Slow down, read more before writing, and verify assumptions."
+            )
+        elif ratio > 0.1:
+            recommendations.append(
+                f"Moderate correction rate ({ratio:.0%}). "
+                "Consider reading existing code more carefully before making changes."
+            )
 
-    # Recommendations based on timing
-    if analysis.execution_times:
-        slow_tools = [
-            (tool, times["avg_ms"])
-            for tool, times in analysis.execution_times.items()
-            if times["avg_ms"] > 1000
-        ]
-        if slow_tools:
-            for tool, avg_ms in sorted(slow_tools, key=lambda x: x[1], reverse=True):
-                recommendations.append(
-                    f"Tool '{tool}' takes {avg_ms:.0f}ms on average. "
-                    f"Consider optimizing or caching results.",
-                )
-
-    # Recommendations based on corrections
-    if analysis.correction_patterns:
-        corrected_tools = [
-            (tool, count) for tool, count in analysis.correction_patterns.items() if count > 1
-        ]
-        if corrected_tools:
-            for tool, count in sorted(corrected_tools, key=lambda x: x[1], reverse=True):
-                recommendations.append(
-                    f"Tool '{tool}' required {count} corrections. "
-                    f"Review error handling and add better validation.",
-                )
-
-    # Recommendations based on lessons
-    if lessons.encouragements:
+    # Frustration patterns
+    if frustrations:
         recommendations.append(
-            f"Great job! You successfully used {len(lessons.encouragements)} tools "
-            f"with consistent success. Keep up this pattern.",
+            f"{len(frustrations)} user frustrations detected. "
+            "Review what caused them and adjust approach."
         )
 
-    if lessons.corrections:
+    # Tool usage imbalance (writing way more than reading)
+    reads = tool_usage.get("Read", 0) + tool_usage.get("Grep", 0) + tool_usage.get("Glob", 0)
+    writes = tool_usage.get("Write", 0) + tool_usage.get("Edit", 0)
+    if writes > 0 and reads < writes:
         recommendations.append(
-            f"You made {len(lessons.corrections)} mistakes but fixed them. "
-            f"This shows good error recovery. Document these fixes for future reference.",
+            f"Read/write ratio is low ({reads}:{writes}). "
+            "Read more before writing to reduce corrections."
         )
 
-    # Add general recommendations
+    # Encouragement patterns
+    if encouragements and not corrections:
+        recommendations.append("Clean session with positive feedback. Maintain this approach.")
+    elif encouragements and corrections:
+        recommendations.append(
+            f"Mixed signals: {len(encouragements)} encouragements, "
+            f"{len(corrections)} corrections. "
+            "Focus on what earned the encouragements."
+        )
+
     if not recommendations:
-        recommendations.append("Session completed successfully. No specific improvements needed.")
+        recommendations.append("Session completed normally. No specific improvements needed.")
 
     return recommendations
 
 
-def store_episode_summary(session_id: str, feedback: SessionFeedback) -> str:
-    """Store session summary as EPISODE knowledge entry.
+def store_feedback_as_knowledge(
+    session_id: str, feedback: SessionFeedback, session_tag: str
+) -> str | None:
+    """Store session feedback summary as a knowledge entry.
 
     Args:
         session_id: Session ID
         feedback: SessionFeedback object
+        session_tag: Tag for deduplication
 
     Returns:
-        Knowledge entry ID
-
+        Knowledge entry ID, or None on failure
     """
-    logger.info(f"Storing episode summary for session {session_id[:8]}...")
-
     try:
+        recs = "; ".join(feedback.recommendations[:3])
+        content = (
+            f"Session feedback ({session_id[:8]}): "
+            f"{len(feedback.errors)} errors, "
+            f"{len(feedback.lessons_learned)} lessons. "
+            f"Recs: {recs}"
+        )
+
         entry_id = store_knowledge(
             knowledge_type="EPISODE",
-            content=str(feedback.to_dict()),
-            confidence=1.0,
-            source_events=[session_id],
-            tags=["agent-learning", "session-summary"],
+            content=content,
+            confidence=0.9,
+            tags=["session-feedback", session_tag],
         )
-        logger.debug(f"Stored episode summary: {entry_id[:8]}...")
+        logger.debug(f"Stored feedback as knowledge: {entry_id[:8]}...")
         return entry_id
     except Exception as e:
-        handle_error(e, "store_episode_summary", {"session_id": session_id})
-        raise
+        logger.warning(f"Failed to store feedback: {e}")
+        return None
 
 
 def format_feedback_report(feedback: SessionFeedback) -> str:
-    """Format feedback as a human-readable report.
-
-    Args:
-        feedback: SessionFeedback object
-
-    Returns:
-        Formatted report string
-
-    """
-    report_lines = [
-        "=== Session Feedback Report ===",
+    """Format feedback as a human-readable report."""
+    lines = [
+        "=== Session Feedback ===",
         f"Session: {feedback.session_id[:8]}...",
         "",
-        "Tool Usage:",
     ]
 
     # Tool usage
     if feedback.tool_usage:
-        for tool, count in sorted(feedback.tool_usage.items(), key=lambda x: x[1], reverse=True):
-            success_rate = feedback.success_rates.get(tool, 0)
-            report_lines.append(f"  {tool}: {count} calls, {success_rate * 100:.1f}% success")
-    else:
-        report_lines.append("  No tool calls recorded")
-
-    # Timing
-    report_lines.append("")
-    report_lines.append("Timing Analysis:")
-    if feedback.timing:
-        for tool, times in sorted(feedback.timing.items()):
-            report_lines.append(f"  {tool}: avg {times['avg_ms']:.0f}ms")
-    else:
-        report_lines.append("  No timing data available")
+        lines.append("Tool Usage:")
+        sorted_tools = sorted(feedback.tool_usage.items(), key=lambda x: x[1], reverse=True)
+        for tool, count in sorted_tools[:10]:
+            lines.append(f"  {tool}: {count}")
+        lines.append("")
 
     # Errors
-    report_lines.append("")
-    report_lines.append("Errors:")
     if feedback.errors:
-        for error in feedback.errors:
-            report_lines.append(f"  {error}")
-    else:
-        report_lines.append("  No errors recorded")
+        lines.append(f"Corrections ({len(feedback.errors)}):")
+        for error in feedback.errors[:5]:
+            lines.append(f"  - {error[:80]}")
+        lines.append("")
 
     # Lessons
-    report_lines.append("")
-    report_lines.append("Lessons Learned:")
     if feedback.lessons_learned:
+        lines.append("Lessons:")
         for lesson in feedback.lessons_learned:
-            report_lines.append(f"  {lesson}")
-    else:
-        report_lines.append("  No lessons recorded")
+            lines.append(f"  - {lesson}")
+        lines.append("")
 
     # Recommendations
-    report_lines.append("")
-    report_lines.append("Recommendations:")
     if feedback.recommendations:
+        lines.append("Recommendations:")
         for i, rec in enumerate(feedback.recommendations, 1):
-            report_lines.append(f"  {i}. {rec}")
-    else:
-        report_lines.append("  No recommendations")
+            lines.append(f"  {i}. {rec}")
 
-    # Improvements/Regressions
-    if feedback.improvements or feedback.regressions:
-        report_lines.append("")
-        if feedback.improvements:
-            report_lines.append("Improvements:")
-            for imp in feedback.improvements:
-                report_lines.append(f"  [+] {imp}")
-        if feedback.regressions:
-            report_lines.append("Regressions:")
-            for reg in feedback.regressions:
-                report_lines.append(f"  [-] {reg}")
-
-    return "\n".join(report_lines)
+    return "\n".join(lines)

@@ -658,7 +658,7 @@ def generate_briefing(
         plural = {
             "DIRECTIVE": "DIRECTIVES",
             "BOUNDARY": "BOUNDARIES",
-            "DIRECTORY": "DIRECTORIES",
+            "DIRECTION": "DIRECTIONS",
             "PROCEDURE": "PROCEDURES",
             "EPISODE": "EPISODES",
         }.get(kt, f"{kt}S")

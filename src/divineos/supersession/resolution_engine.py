@@ -113,6 +113,22 @@ class ResolutionEngine:
             logger.error(f"Error resolving contradiction: {e}")
             if monitor:
                 monitor.record_error(monitor.CONTRADICTION_RESOLUTION, e)
+
+            # Report unresolved contradiction to clarity enforcement
+            try:
+                from .clarity_integration import handle_unresolved_contradiction
+
+                handle_unresolved_contradiction(
+                    fact1_id=getattr(contradiction, "fact1_id", "unknown"),
+                    fact2_id=getattr(contradiction, "fact2_id", "unknown"),
+                    fact1_value=getattr(contradiction, "fact1_value", None),
+                    fact2_value=getattr(contradiction, "fact2_value", None),
+                    severity=getattr(contradiction, "severity", "MEDIUM"),
+                    session_id="resolution-engine",
+                )
+            except Exception:
+                pass  # clarity integration is best-effort
+
             raise
 
     def manual_resolution(

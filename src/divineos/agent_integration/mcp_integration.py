@@ -98,9 +98,6 @@ def emit_agent_tool_call(
             handle_error(e, "emit_explanation_warning", {"tool_name": tool_name})
 
     # Create TOOL_CALL event
-    get_iso8601_timestamp()
-    tool_input.get("explanation", "")
-
     try:
         with mark_internal_operation():
             event_id = emit_tool_call(

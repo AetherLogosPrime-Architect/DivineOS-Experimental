@@ -199,8 +199,6 @@ def initialize_session() -> str:
 
         # Store in global state
         _current_session_id = new_session_id
-        import time
-
         _session_start_time = time.time()
 
         return new_session_id

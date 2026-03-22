@@ -143,6 +143,21 @@ _EMOJI_MEANINGS: dict[str, str] = {
     "\u26a0": "(warning)",
 }
 
+# Typographic characters that cp1252 maps to bytes (0x80-0x9F) which
+# many Windows terminals can't render.  Replace with ASCII equivalents.
+_TYPOGRAPHIC_REPLACEMENTS: dict[str, str] = {
+    "\u2014": "--",  # em-dash
+    "\u2013": "-",  # en-dash
+    "\u2018": "'",  # left single quote
+    "\u2019": "'",  # right single quote
+    "\u201c": '"',  # left double quote
+    "\u201d": '"',  # right double quote
+    "\u2026": "...",  # ellipsis
+    "\u2022": "*",  # bullet
+    "\u00d7": "x",  # multiplication sign
+    "\u00f7": "/",  # division sign
+}
+
 
 def _safe_echo(text: str, **kwargs: Any) -> None:
     """click.echo that won't crash on Windows with Unicode characters.
@@ -153,6 +168,9 @@ def _safe_echo(text: str, **kwargs: Any) -> None:
     if os.name == "nt":
         for emoji, meaning in _EMOJI_MEANINGS.items():
             text = text.replace(emoji, meaning)
+        # Replace typographic chars that cp1252 maps to unprintable bytes
+        for fancy, plain in _TYPOGRAPHIC_REPLACEMENTS.items():
+            text = text.replace(fancy, plain)
         text = text.encode("cp1252", errors="replace").decode("cp1252")
     click.echo(text, **kwargs)
 
@@ -231,7 +249,7 @@ def _display_and_store_analysis(result: Any) -> None:
     report = format_analysis_report(result)
 
     click.echo()
-    click.echo(report)
+    _safe_echo(report)
     click.echo()
 
     click.secho("[+] Storing analysis in database...", fg="cyan")
@@ -274,7 +292,7 @@ def _run_session_end_pipeline() -> None:
     try:
         # 1. Analyze
         analysis = _analyzer_mod.analyze_session(latest)
-        click.echo(analysis.summary())
+        _safe_echo(analysis.summary())
 
         # 2. Deep extract
         records = _analyzer_mod._load_records(latest)
@@ -334,6 +352,24 @@ def _run_session_end_pipeline() -> None:
         if feedback_parts:
             click.secho(f"[~] Feedback: {', '.join(feedback_parts)}", fg="cyan")
 
+        # 4b. Session feedback — actionable recommendations from session signals
+        session_feedback = None
+        try:
+            from divineos.agent_integration.feedback_system import (
+                generate_session_feedback,
+                store_feedback_as_knowledge,
+            )
+
+            session_feedback = generate_session_feedback(analysis)
+            if session_feedback.recommendations and not has_session:
+                fb_id = store_feedback_as_knowledge(
+                    analysis.session_id, session_feedback, session_tag
+                )
+                if fb_id:
+                    stored += 1
+        except Exception as e:
+            logger.warning(f"Session feedback failed: {e}")
+
         # 5. Health check — boost confirmed knowledge, escalate recurring lessons
         try:
             hc = _wrapped_health_check()
@@ -370,7 +406,54 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Memory refresh failed: {e}")
 
-        # 8. Session summary
+        # 8. Session health score
+        try:
+            from divineos.agent_integration.outcome_measurement import measure_session_health
+
+            health = measure_session_health(
+                corrections=len(analysis.corrections),
+                encouragements=len(analysis.encouragements),
+                context_overflows=len(analysis.context_overflows),
+                tool_calls=analysis.tool_calls_total,
+                user_messages=analysis.user_messages,
+            )
+            grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
+        except Exception as e:
+            health = None
+            logger.warning(f"Session health scoring failed: {e}")
+
+        # 9. Clarity analysis — deviation detection + lesson extraction
+        clarity_result = None
+        try:
+            from divineos.clarity_system.session_bridge import run_clarity_analysis
+
+            clarity_result = run_clarity_analysis(analysis)
+            deviations = clarity_result["deviations"]
+            lessons = clarity_result["lessons"]
+
+            # Store high-severity deviation lessons as knowledge
+            clarity_stored = 0
+            for lesson in lessons:
+                if lesson.confidence >= 0.7:
+                    _wrapped_store_knowledge(
+                        knowledge_type="LESSON",
+                        content=f"[clarity] {lesson.description} -- {lesson.insight}",
+                        confidence=lesson.confidence,
+                        tags=["clarity-analysis", lesson.type, session_tag],
+                    )
+                    clarity_stored += 1
+                    stored += 1
+
+            if deviations or lessons:
+                click.secho(
+                    f"[~] Clarity: {len(deviations)} deviations, "
+                    f"{len(lessons)} lessons, {clarity_stored} stored",
+                    fg="cyan",
+                )
+        except Exception as e:
+            logger.warning(f"Clarity analysis failed: {e}")
+
+        # 10. Session summary
         click.secho("\n=== Session Complete ===", fg="cyan", bold=True)
         click.secho(f"  Knowledge extracted:  {stored}", fg="white")
         if feedback_parts:
@@ -379,6 +462,26 @@ def _run_session_end_pipeline() -> None:
             click.secho(
                 f"  Active memory:        +{promoted} promoted, -{demoted} demoted", fg="white"
             )
+        if health:
+            click.secho(
+                f"  Session grade:        {health['grade']} ({health['score']:.2f})",
+                fg=grade_color.get(health["grade"], "white"),
+            )
+        if clarity_result:
+            score = clarity_result["alignment_score"]
+            recs = clarity_result["recommendations"]
+            color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
+            click.secho(f"  Alignment score:      {score:.0f}%", fg=color)
+            if recs:
+                click.secho(f"  Clarity recs:         {len(recs)}", fg="white")
+                for rec in recs[:3]:
+                    _safe_echo(f"    [{rec.priority}] {rec.recommendation_text}")
+        if session_feedback and session_feedback.recommendations:
+            click.secho(
+                f"  Session recs:         {len(session_feedback.recommendations)}", fg="white"
+            )
+            for rec in session_feedback.recommendations[:3]:
+                _safe_echo(f"    - {rec}")
         click.secho(
             "  Next session: run 'divineos briefing' to see updated context.", fg="bright_black"
         )
@@ -850,7 +953,7 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int) -> Non
         }.get(entry["knowledge_type"], "white")
         click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
         click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
-        click.echo(entry["content"])
+        _safe_echo(entry["content"])
         if entry["tags"]:
             click.secho(f"         tags: {', '.join(entry['tags'])}", fg="bright_black")
         click.secho(
@@ -888,7 +991,7 @@ def ask_cmd(query: str, limit: int) -> None:
         }.get(entry["knowledge_type"], "white")
         click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
         click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
-        click.echo(entry["content"])
+        _safe_echo(entry["content"])
         click.secho(
             f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
             fg="bright_black",
@@ -909,7 +1012,7 @@ def briefing_cmd(max_items: int, types: str, topic: str) -> None:
         context_hint=topic,
     )
     if output and output.strip():
-        click.echo(output)
+        _safe_echo(output)
     else:
         click.secho("[*] No knowledge entries match your filters.", fg="yellow")
         click.secho('    Try: divineos learn "..." to add knowledge first.', fg="bright_black")
@@ -949,7 +1052,7 @@ def consolidate_stats_cmd() -> None:
     if stats["most_accessed"]:
         click.secho("\n  Most Accessed:", fg="cyan")
         for item in stats["most_accessed"][:5]:
-            click.echo(f"    [{item['access_count']}x] {item['content'][:60]}")
+            _safe_echo(f"    [{item['access_count']}x] {item['content'][:60]}")
 
     # Effectiveness breakdown
     report = _wrapped_knowledge_health_report()
@@ -1020,7 +1123,7 @@ def directive_cmd(name: str, links: tuple[str, ...], tags: str) -> None:
 
     click.secho(f"\n[+] Directive '{name}' stored: {entry_id[:12]}...", fg="green")
     click.echo()
-    click.echo(chain_text)
+    _safe_echo(chain_text)
     click.echo()
     click.secho(
         f"    {len(links)} links in chain. Surfaces first in all briefings.", fg="bright_black"
@@ -1107,7 +1210,7 @@ def directive_edit_cmd(name: str, link_number: int, new_text: str) -> None:
 
     click.secho(f"\n[+] Directive '{name}' updated: {entry_id[:12]}...", fg="green")
     click.echo()
-    click.echo(new_content)
+    _safe_echo(new_content)
     click.echo()
 
 
@@ -1186,7 +1289,7 @@ def digest_cmd(file_path: str, chunk_size: int) -> None:
     digest_text = "\n".join(digest_lines)
 
     click.echo()
-    click.echo(digest_text)
+    _safe_echo(digest_text)
     click.echo()
 
     # Store as knowledge
@@ -1276,7 +1379,7 @@ def lessons_cmd(status: str) -> None:
 
     summary = _wrapped_get_lesson_summary()
     click.echo()
-    click.echo(summary)
+    _safe_echo(summary)
     click.echo()
 
     # Show details
@@ -1290,7 +1393,7 @@ def lessons_cmd(status: str) -> None:
 
         click.secho(f"  {lesson['status'].upper()} ", fg=status_color, bold=True, nl=False)
         click.secho(f"({lesson['occurrences']}x) ", fg="bright_black", nl=False)
-        click.echo(lesson["description"][:80])
+        _safe_echo(lesson["description"][:80])
         agent = lesson.get("agent", "unknown")
         agent_str = f" | agent: {agent}" if agent != "unknown" else ""
         click.secho(
@@ -1583,7 +1686,7 @@ def recall_cmd(topic: str) -> None:
     init_memory_tables()
     result = _wrapped_recall(context_hint=topic)
     text = _wrapped_format_recall(result)
-    click.echo(text)
+    _safe_echo(text)
 
 
 @cli.command("active")
@@ -1617,7 +1720,7 @@ def active_cmd() -> None:
         }.get(item["knowledge_type"], "white")
         click.secho(f"  [{item['importance']:.2f}] ", fg="bright_black", nl=False)
         click.secho(f"{item['knowledge_type']} ", fg=color, bold=True, nl=False)
-        click.echo(f"{item['content'][:100]}{pin}")
+        _safe_echo(f"{item['content'][:100]}{pin}")
         click.secho(
             f"         reason: {item['reason']} | surfaced: {item['surface_count']}x",
             fg="bright_black",
@@ -1779,6 +1882,192 @@ def _print_events(events: list[dict[str, Any]], highlight: str | None = None) ->
         click.echo(click.style("-" * 60, fg="bright_black"))
 
 
+@cli.command("outcomes")
+@click.option("--days", default=30, type=int, help="Lookback window in days")
+def outcomes_cmd(days: int) -> None:
+    """Measure how well the system is actually learning.
+
+    Shows rework patterns, knowledge stability, correction rates,
+    and overall trajectory. Use this to see if things are improving
+    or if we're spinning in circles.
+    """
+    from divineos.agent_integration.outcome_measurement import (
+        measure_correction_rate,
+        measure_correction_trend,
+        measure_knowledge_drift,
+        measure_rework,
+    )
+
+    click.secho("\n=== Outcome Measurements ===\n", fg="cyan", bold=True)
+
+    # 1. Rework detection
+    rework = measure_rework(lookback_days=days)
+    if rework:
+        click.secho(f"  REWORK ({len(rework)} recurring issues):", fg="red", bold=True)
+        for item in rework[:5]:
+            click.secho(f"    [{item['severity']}] ", fg="bright_black", nl=False)
+            _safe_echo(f"{item['description'][:80]}")
+            click.secho(
+                f"         {item['occurrences']}x in {item['session_count']} sessions",
+                fg="bright_black",
+            )
+    else:
+        click.secho("  REWORK: None detected", fg="green")
+    click.echo()
+
+    # 2. Knowledge drift
+    drift = measure_knowledge_drift(lookback_days=days)
+    churn_color = (
+        "green" if drift["churn_rate"] < 0.1 else "yellow" if drift["churn_rate"] < 0.3 else "red"
+    )
+    click.secho("  KNOWLEDGE STABILITY:", fg="cyan", bold=True)
+    click.secho(f"    Churn rate: {drift['churn_rate']:.1%}", fg=churn_color)
+    click.echo(f"    Superseded: {drift['total_superseded']} entries in {days} days")
+    click.echo(f"    Avg lifespan: {drift['avg_lifespan_hours']:.0f} hours")
+    if drift["short_lived"]:
+        click.secho(f"    Short-lived (<24h): {len(drift['short_lived'])} entries", fg="yellow")
+        for item in drift["short_lived"][:3]:
+            _safe_echo(f"      [{item['knowledge_type']}] {item['content']}")
+    click.echo()
+
+    # 3. Correction rate + trend
+    rate = measure_correction_rate()
+    trend = measure_correction_trend()
+    rate_color = {"healthy": "green", "mixed": "yellow", "struggling": "red"}[rate["assessment"]]
+    trend_color = {
+        "improving": "green",
+        "stable": "yellow",
+        "worsening": "red",
+        "insufficient_data": "bright_black",
+    }
+    click.secho("  CORRECTION RATE:", fg="cyan", bold=True)
+    click.secho(
+        f"    {rate['corrections']} corrections / {rate['encouragements']} encouragements "
+        f"= {rate['ratio']:.0%}",
+        fg=rate_color,
+    )
+    if trend["trend"] != "insufficient_data":
+        click.secho(
+            f"    Trend: {trend['trend']} (recent {trend['recent_avg']:.0%} vs overall {trend['overall_avg']:.0%})",
+            fg=trend_color[trend["trend"]],
+        )
+    if trend["sessions"]:
+        click.secho("    Per session:", fg="bright_black")
+        for s in trend["sessions"][-5:]:
+            bar = "#" * int(s["ratio"] * 20)
+            click.secho(f"      {s['session_tag'][:8]}: ", fg="bright_black", nl=False)
+            click.secho(
+                f"{bar:<20s}",
+                fg="red" if s["ratio"] > 0.5 else "yellow" if s["ratio"] > 0.3 else "green",
+                nl=False,
+            )
+            click.echo(f" {s['corrections']}c/{s['encouragements']}e")
+    click.echo()
+
+    # Overall
+    if not rework and drift["churn_rate"] < 0.1 and rate["assessment"] == "healthy":
+        click.secho("  TRAJECTORY: Learning effectively", fg="green", bold=True)
+    elif rework or rate["assessment"] == "struggling":
+        click.secho("  TRAJECTORY: Needs attention", fg="red", bold=True)
+    else:
+        click.secho("  TRAJECTORY: Mixed signals", fg="yellow", bold=True)
+    click.echo()
+
+
+@cli.command("clarity")
+@click.option(
+    "--file",
+    "file_path",
+    type=click.Path(exists=True),
+    default=None,
+    help="Session file to analyze",
+)
+def clarity_cmd(file_path: str | None) -> None:
+    """Run clarity analysis on a session.
+
+    Analyzes deviations between expected and actual execution,
+    extracts lessons, and generates recommendations.
+    Defaults to the most recent session if no file given.
+    """
+    from divineos.clarity_system.session_bridge import run_clarity_analysis
+
+    if file_path:
+        from pathlib import Path
+
+        session_file = Path(file_path)
+    else:
+        session_files = _analyzer_mod.find_sessions()
+        if not session_files:
+            click.secho("[!] No session files found.", fg="red")
+            return
+        session_file = session_files[0]
+
+    click.secho(f"\n[~] Analyzing session: {session_file.stem[:16]}...", fg="cyan")
+
+    try:
+        analysis = _analyzer_mod.analyze_session(session_file)
+        result = run_clarity_analysis(analysis)
+
+        summary = result["summary"]
+        deviations = result["deviations"]
+        lessons = result["lessons"]
+        recommendations = result["recommendations"]
+
+        click.secho("\n=== Clarity Analysis ===\n", fg="cyan", bold=True)
+
+        # Execution metrics
+        m = summary.metrics
+        click.secho("  EXECUTION:", fg="cyan", bold=True)
+        click.echo(f"    Files touched:  {m.actual_files}")
+        click.echo(f"    Tool calls:     {m.actual_tool_calls}")
+        click.echo(f"    Errors:         {m.actual_errors}")
+        click.echo(f"    Duration:       {m.actual_time_minutes:.1f} min")
+        click.echo(f"    Success rate:   {m.success_rate:.0%}")
+        click.echo()
+
+        # Alignment score
+        score = result["alignment_score"]
+        color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
+        click.secho(f"  ALIGNMENT: {score:.0f}%", fg=color, bold=True)
+        click.echo()
+
+        # Deviations
+        if deviations:
+            click.secho(f"  DEVIATIONS ({len(deviations)}):", fg="cyan", bold=True)
+            for d in deviations:
+                sev_color = {"high": "red", "medium": "yellow", "low": "green"}[d.severity]
+                click.secho(f"    [{d.severity}] ", fg=sev_color, nl=False)
+                click.echo(
+                    f"{d.metric}: planned {d.planned:.0f}, actual {d.actual:.0f} "
+                    f"({d.percentage:.0f}% deviation)"
+                )
+            click.echo()
+
+        # Lessons
+        if lessons:
+            click.secho(f"  LESSONS ({len(lessons)}):", fg="cyan", bold=True)
+            for lesson in lessons:
+                _safe_echo(f"    [{lesson.type}] {lesson.description}")
+                _safe_echo(f"      -> {lesson.insight}")
+            click.echo()
+
+        # Recommendations
+        if recommendations:
+            click.secho(f"  RECOMMENDATIONS ({len(recommendations)}):", fg="cyan", bold=True)
+            for rec in recommendations:
+                priority_color = {"high": "red", "medium": "yellow", "low": "green"}[rec.priority]
+                click.secho(f"    [{rec.priority}] ", fg=priority_color, nl=False)
+                _safe_echo(rec.recommendation_text)
+            click.echo()
+
+        if not deviations and not lessons:
+            click.secho("  Clean session -- no significant deviations detected.", fg="green")
+            click.echo()
+
+    except Exception as e:
+        click.secho(f"[!] Clarity analysis failed: {e}", fg="red")
+
+
 if __name__ == "__main__":
     cli()
 
@@ -1903,12 +2192,7 @@ def report_cmd(session_id: str) -> None:
                 return
 
             click.echo()
-            # Use click.echo with default_text_stderr=False to handle UTF-8 properly
-            try:
-                click.echo(report)
-            except UnicodeEncodeError:
-                # Fallback: encode to ASCII with replacements
-                click.echo(report.encode("ascii", errors="replace").decode("ascii"))
+            _safe_echo(report)
             click.echo()
 
     except Exception as e:
@@ -2103,7 +2387,7 @@ def verify_enforcement_cmd() -> None:
 
         # Generate and display report
         report = generate_enforcement_report()
-        click.echo(report)
+        _safe_echo(report)
 
     except Exception as e:
         click.secho(f"[-] Error verifying enforcement: {e}", fg="red")
