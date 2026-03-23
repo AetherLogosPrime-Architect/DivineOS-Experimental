@@ -52,7 +52,7 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       }
