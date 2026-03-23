@@ -292,17 +292,6 @@ def _run_session_end_pipeline() -> None:
     try:
         # 1. Analyze
         analysis = _analyzer_mod.analyze_session(latest)
-
-        # Skip if we already processed this session (prevents re-analysis on manual emit)
-        session_tag = f"session-{analysis.session_id[:12]}"
-        existing = _wrapped_get_knowledge(tags=[session_tag], limit=1)
-        if existing:
-            click.secho(
-                f"[~] Session {analysis.session_id[:12]} already processed, skipping.",
-                fg="bright_black",
-            )
-            return
-
         _safe_echo(analysis.summary())
 
         # 1b. Extract goals from user messages into HUD
@@ -922,23 +911,16 @@ def stats() -> None:
 
 @cli.command()
 @click.option("--n", default=20, help="Number of recent events for context")
-@click.option(
-    "--raw", is_flag=True, default=False, help="Show all events including internal plumbing"
-)
-def context(n: int, raw: bool) -> None:
+def context(n: int) -> None:
     """Show the last N events (working memory context window)."""
-    meaningful_only = not raw
-    label = "all" if raw else "meaningful"
-    logger.info(f"Building context from last {n} {label} events...")
-    events = _wrapped_get_recent_context(n=n, meaningful_only=meaningful_only)
+    logger.info(f"Building context from last {n} events...")
+    events = _wrapped_get_recent_context(n=n)
 
     if not events:
         click.secho("[-] No events in ledger yet.", fg="yellow")
         return
 
-    click.secho(
-        f"\n=== Context Window (last {len(events)} {label} events) ===\n", fg="cyan", bold=True
-    )
+    click.secho(f"\n=== Context Window (last {len(events)} events) ===\n", fg="cyan", bold=True)
     _print_events(events)
 
 
@@ -1920,65 +1902,75 @@ def _role_to_event_type(role: str) -> str:
     return mapping.get(role.lower(), "MESSAGE")
 
 
-def _summarize_event(event: dict[str, Any]) -> str:
-    """Produce a human-readable one-liner for an event."""
-    etype = event["event_type"]
-    payload = event.get("payload", {})
+def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
+    """Produce a human-readable one-liner from an event payload."""
+    # Events with a plain content field (USER_INPUT, log entries, etc.)
+    if "content" in payload and isinstance(payload["content"], str):
+        return payload["content"]
 
-    # Events with explicit content
-    content = payload.get("content")
-    if content and isinstance(content, str):
-        return str(content[:300])
-
-    # Event-specific summaries
-    if etype == "USER_INPUT":
-        return str(payload.get("text", payload.get("content", str(payload))))[:300]
-    if etype in ("ASSISTANT_OUTPUT", "ASSISTANT", "ASSISTANT_RESPONSE"):
-        text = str(payload.get("text", payload.get("content", "")))
-        return text[:300] if text else "(assistant response)"
     if etype == "SESSION_END":
         dur = payload.get("duration_seconds", 0)
         msgs = payload.get("message_count", 0)
         tools = payload.get("tool_call_count", 0)
         return f"{msgs} messages, {tools} tool calls, {dur:.0f}s"
+
     if etype == "TOOL_CALL":
         name = payload.get("tool_name", "?")
-        inp = str(payload.get("tool_input", ""))[:100]
-        return f"{name}: {inp}"
+        inp = payload.get("tool_input", {})
+        # Show the most useful argument
+        detail = str(inp.get("file_path") or inp.get("command") or inp.get("pattern") or "")
+        if detail:
+            return f"{name}({detail[:80]})"
+        return str(name)
+
     if etype == "TOOL_RESULT":
         name = payload.get("tool_name", "?")
         dur = payload.get("duration_ms", 0)
-        return f"{name} returned ({dur:.0f}ms)"
-    if etype == "CLARITY_SUMMARY":
-        score = payload.get("alignment_score", "?")
-        devs = payload.get("deviations_count", 0)
-        return f"alignment={score}%, {devs} deviations"
-    if etype == "CLARITY_LESSON":
-        return str(payload.get("description", str(payload)))[:300]
+        failed = payload.get("failed", False)
+        result = str(payload.get("result", ""))[:120]
+        status = "FAILED" if failed else "ok"
+        return f"{name} → {status} ({dur:.0f}ms) {result}"
+
+    if etype == "USER_INPUT":
+        return str(payload.get("text", payload.get("content", "")))
+
+    if etype in ("ASSISTANT_OUTPUT", "ASSISTANT_RESPONSE", "ASSISTANT"):
+        text = str(payload.get("text", payload.get("content", "")))
+        return text[:200] if text else "(empty response)"
+
+    if etype == "AGENT_DECISION":
+        task = payload.get("task", "?")
+        pattern = payload.get("chosen_pattern", "?")
+        return f"Decision: {task[:80]} → pattern {pattern[:40]}"
+
+    if etype == "AGENT_LEARNING_AUDIT":
+        drift = payload.get("drift_detected", False)
+        gaps = len(payload.get("pattern_gaps", []))
+        return f"Learning audit: drift={'yes' if drift else 'no'}, {gaps} pattern gaps"
+
+    if etype == "AGENT_CONTEXT_COMPRESSION":
+        return str(payload.get("content", "context compressed"))
+
+    if etype.startswith("CLARITY_"):
+        return str(payload.get("content", payload.get("summary", etype)))
+
     if etype == "QUALITY_REPORT":
-        checks = payload.get("check_count", "?")
-        return f"{checks} quality checks run"
-    if etype == "SESSION_ANALYSIS":
-        report = payload.get("report_text", "")
-        first_line = report.split("\n")[0] if report else "analysis complete"
-        return first_line[:200]
-    if etype == "ERROR":
-        return str(payload.get("message", payload.get("error", str(payload))))[:300]
-    if etype == "FACT_STORED":
-        return str(payload.get("fact", str(payload)))[:300]
-    if etype in ("AGENT_WORK", "AGENT_DECISION"):
-        desc = str(payload.get("description", payload.get("reason", "")))
-        return desc[:300] if desc else str(payload)[:200]
+        score = payload.get("overall_score", "?")
+        return f"Quality score: {score}"
 
-    # Fallback: pick the most informative field
-    for key in ("description", "text", "message", "summary", "reason", "report_text"):
-        val = payload.get(key)
-        if val and isinstance(val, str):
-            return str(val[:300])
-
-    # Last resort: compact JSON
-    compact = json.dumps(payload, separators=(",", ":"))
-    return compact[:200]
+    # Fallback: show first meaningful field values
+    skip = {"content_hash", "session_id", "timestamp", "tool_use_id"}
+    parts = []
+    for k, v in payload.items():
+        if k in skip:
+            continue
+        sv = str(v)
+        if len(sv) > 80:
+            sv = sv[:80] + "..."
+        parts.append(f"{k}={sv}")
+        if len(parts) >= 3:
+            break
+    return ", ".join(parts) if parts else "(empty payload)"
 
 
 def _print_events(events: list[dict[str, Any]], highlight: str | None = None) -> None:
@@ -1993,12 +1985,19 @@ def _print_events(events: list[dict[str, Any]], highlight: str | None = None) ->
 
         actor = event["actor"].upper()
         etype = event["event_type"]
+        payload = event["payload"]
+        content_hash = event.get("content_hash", "")[:8]
 
         click.secho(f"[{time_str}] ", fg="bright_black", nl=False)
         click.secho(f"{etype} ", fg="white", bold=True, nl=False)
-        click.secho(f"({actor})", fg="bright_black")
+        click.secho(f"({actor}) ", fg="bright_black", nl=False)
+        click.secho(f"[{content_hash}]", fg="bright_black")
 
-        content = _summarize_event(event)
+        content = _summarize_event(etype, payload)
+        # Truncate long summaries to keep output readable
+        max_len = 300
+        if len(content) > max_len:
+            content = content[:max_len] + "..."
 
         if highlight:
             pattern = re.compile(re.escape(highlight), re.IGNORECASE)
@@ -2377,10 +2376,19 @@ def report_cmd(session_id: str) -> None:
                 click.echo()
                 return
 
-            # Show all analyzed sessions (file_count may be 0 if file_touched
-            # table wasn't populated — that's a data gap, not a reason to hide results)
-            click.secho(f"\n=== {len(sessions)} Analyzed Sessions ===\n", fg="cyan", bold=True)
-            for i, session in enumerate(sessions, 1):
+            # Filter out test sessions (0 files touched = likely test data)
+            real_sessions = [s for s in sessions if s["file_count"] > 0]
+            if not real_sessions:
+                click.secho("\n[-] No real analyzed sessions found yet.", fg="yellow")
+                click.secho(
+                    "    Run 'divineos analyze <file.jsonl>' to analyze a session.",
+                    fg="bright_black",
+                )
+                click.echo()
+                return
+
+            click.secho(f"\n=== {len(real_sessions)} Analyzed Sessions ===\n", fg="cyan", bold=True)
+            for i, session in enumerate(real_sessions, 1):
                 click.secho(f"  {i}. {session['session_id']}", fg="white", bold=True)
 
                 # Format timestamp
@@ -2544,19 +2552,7 @@ def emit_cmd(
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
         elif event_type == "SESSION_END":
-            # Check if the latest session was already processed (prevents empty SESSION_END spam)
-            session_files = _analyzer_mod.find_sessions()
-            if session_files:
-                probe = _analyzer_mod.analyze_session(session_files[0])
-                probe_tag = f"session-{probe.session_id[:12]}"
-                already = _wrapped_get_knowledge(tags=[probe_tag], limit=1)
-                if already:
-                    click.secho(
-                        f"[~] Session {probe.session_id[:12]} already processed. Nothing new to emit.",
-                        fg="bright_black",
-                    )
-                    return
-
+            # SESSION_END queries ledger for actual counts
             event_id = emit_session_end(session_id=session_id or None)
             click.secho("[+] Event emitted: SESSION_END", fg="green")
             click.secho(f"    Event ID: {event_id}", fg="cyan")
