@@ -1,5 +1,6 @@
 # Git worktrees (do not commit; code should live at repo root)
 .worktrees/
+.claude/worktrees/
 
 # Python
 __pycache__/
