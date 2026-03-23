@@ -90,13 +90,18 @@ def analyze_session(file_path: Path) -> AnalysisResult:
     ]
 
     # Convert feature tone shifts to the format extract_lessons expects
+    # Include sequence/before_message/previous_tone for recovery arc pairing
     tone_shifts_for_lessons: list[dict[str, Any]] | None = None
     if hasattr(features, "tone_shifts") and features.tone_shifts:
         tone_shifts_for_lessons = [
             {
                 "direction": "negative" if ts.new_tone == "negative" else "positive",
+                "previous_tone": ts.previous_tone,
+                "new_tone": ts.new_tone,
                 "trigger": ts.trigger_action,
                 "user_response": getattr(ts, "after_message", ""),
+                "before_message": getattr(ts, "before_message", ""),
+                "sequence": ts.sequence,
             }
             for ts in features.tone_shifts
             if ts.previous_tone != ts.new_tone
