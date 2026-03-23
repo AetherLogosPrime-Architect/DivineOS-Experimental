@@ -978,27 +978,65 @@ def extract_lessons_from_report(
             if category:
                 clean_categories.append(category)
 
-    # Tone shift extraction
+    # Tone shift extraction — capture full arcs (upset → recovery), not just negatives
     if tone_shifts:
+        # Index positive shifts by sequence for pairing with preceding negatives
+        positive_by_seq: dict[int, dict[str, Any]] = {
+            int(t.get("sequence", -1)): t for t in tone_shifts if t.get("direction") == "positive"
+        }
+
         negative_shifts = [t for t in tone_shifts if t.get("direction") == "negative"]
         for shift in negative_shifts[:3]:  # cap at 3
             trigger = shift.get("trigger", "unknown action")
             user_response = shift.get("user_response", "")
-            # Use what the user actually said if available, otherwise describe the trigger
+            seq = shift.get("sequence", -1)
+
+            # Look for a recovery (positive shift that follows this negative one)
+            recovery = None
+            for candidate_seq in sorted(positive_by_seq):
+                if candidate_seq > seq:
+                    recovery = positive_by_seq[candidate_seq]
+                    break
+
+            # Build the lesson content — include what went wrong AND what fixed it
             if user_response and len(user_response.split()) >= 3:
-                content = f'The user got upset and said: "{user_response[:150]}" — this happened after {trigger[:80]} (session {short_id}).'
+                problem = f'The user got upset and said: "{user_response[:150]}" — this happened after {trigger[:80]}'
             else:
-                content = f"I upset the user after {trigger[:80]} (session {short_id})."
-            kid = store_knowledge(
-                knowledge_type="MISTAKE",
-                content=content,
-                confidence=0.8,
-                source_events=[session_id],
-                tags=["auto-extracted", f"session-{short_id}", "tone_shift"],
-            )
-            stored_ids.append(kid)
-            record_lesson("upset_user", content, session_id)
-            lesson_categories.append("upset_user")
+                problem = f"I upset the user after {trigger[:80]}"
+
+            if recovery:
+                recovery_action = recovery.get("trigger", "changing approach")
+                recovery_response = recovery.get("user_response", "")
+                if recovery_response and len(recovery_response.split()) >= 3:
+                    content = f'{problem}. I recovered by {recovery_action[:80]} and the user responded: "{recovery_response[:120]}" (session {short_id}).'
+                else:
+                    content = (
+                        f"{problem}. I recovered by {recovery_action[:80]} (session {short_id})."
+                    )
+
+                # Store the recovery as a PATTERN (success), not just the upset as a MISTAKE
+                kid = store_knowledge(
+                    knowledge_type="PATTERN",
+                    content=content,
+                    confidence=0.8,
+                    source_events=[session_id],
+                    tags=["auto-extracted", f"session-{short_id}", "tone_recovery"],
+                )
+                stored_ids.append(kid)
+                record_lesson("upset_recovered", content, session_id)
+                lesson_categories.append("upset_recovered")
+            else:
+                content = f"{problem} (session {short_id})."
+                kid = store_knowledge(
+                    knowledge_type="MISTAKE",
+                    content=content,
+                    confidence=0.8,
+                    source_events=[session_id],
+                    tags=["auto-extracted", f"session-{short_id}", "tone_shift"],
+                )
+                stored_ids.append(kid)
+                record_lesson("upset_user", content, session_id)
+                lesson_categories.append("upset_user")
 
     # Error recovery extraction
     if error_recovery:
