@@ -617,13 +617,16 @@ def _load_seed_if_empty() -> None:
 
     from divineos.core.memory import set_core
 
-    # Only seed if knowledge table is completely empty
-    existing = _wrapped_get_knowledge(limit=1)
-    if existing:
-        return
-
+    # Only seed if knowledge table has fewer entries than the seed
+    # (protects against partial loads where 1-2 entries block the full seed)
+    existing = _wrapped_get_knowledge(limit=500)
     seed_path = Path(__file__).parent / "seed.json"
     if not seed_path.exists():
+        return
+    import json as _json_check
+
+    seed_count = len(_json_check.loads(seed_path.read_text(encoding="utf-8")).get("knowledge", []))
+    if len(existing) >= seed_count:
         return
 
     seed = _json.loads(seed_path.read_text(encoding="utf-8"))
