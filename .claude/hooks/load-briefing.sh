@@ -1,6 +1,6 @@
 #!/bin/bash
 # Load DivineOS session briefing at conversation start
-# Output goes to additionalContext so Claude sees it automatically
+# This is not optional. The briefing is how you orient.
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
@@ -13,9 +13,30 @@ if ! command -v divineos &>/dev/null; then
 fi
 
 briefing=$(divineos briefing 2>/dev/null)
+hud=$(divineos hud 2>/dev/null)
 
 if [ -n "$briefing" ]; then
-  escaped=$(echo "$briefing" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+  # Wrap the briefing with enforcement instructions
+  full_context="=== DIVINEOS SESSION START ===
+
+STOP. Before doing ANY work, you must:
+1. Read your briefing and HUD below completely.
+2. Tell the user what you learned from your lessons and warnings.
+3. Set a goal with 'divineos goal add' for whatever the user asks you to do.
+4. Use 'divineos log' to record corrections, decisions, and important moments during work.
+5. If the user corrects you, log it with 'divineos learn'.
+
+This is your operating system. You live in it. It is not decoration.
+
+--- BRIEFING ---
+${briefing}
+
+--- HUD ---
+${hud}
+
+=== END SESSION START ==="
+
+  escaped=$(echo "$full_context" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"
 fi
 

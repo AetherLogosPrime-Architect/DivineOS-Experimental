@@ -611,6 +611,69 @@ _wrapped_get_cross_session_summary = wrap_tool_execution(
 _db_ready = False
 
 
+def _load_seed_if_empty() -> None:
+    """Populate a fresh database from seed.json so new instances start with identity."""
+    import json as _json
+
+    from divineos.core.memory import set_core
+
+    # Only seed if knowledge table is completely empty
+    existing = _wrapped_get_knowledge(limit=1)
+    if existing:
+        return
+
+    seed_path = Path(__file__).parent / "seed.json"
+    if not seed_path.exists():
+        return
+
+    seed = _json.loads(seed_path.read_text(encoding="utf-8"))
+
+    # Seed core memory
+    for slot_id, content in seed.get("core_memory", {}).items():
+        try:
+            set_core(slot_id, content)
+        except ValueError:
+            pass
+
+    # Seed all knowledge — directives, boundaries, episodes, observations, everything
+    for entry in seed.get("knowledge", []):
+        _wrapped_store_knowledge(
+            knowledge_type=entry["type"],
+            content=entry["content"],
+            confidence=entry.get("confidence", 1.0),
+            tags=entry.get("tags", []),
+        )
+
+    # Seed lessons — warnings from past experience
+    from divineos.core.consolidation import record_lesson
+
+    for lesson in seed.get("lessons", []):
+        lesson_id = record_lesson(
+            category=lesson["category"],
+            description=f"(seeded) {lesson['category']}",
+            session_id="seed",
+        )
+        # Set correct occurrence count from seed
+        if lesson.get("occurrences", 0) > 1:
+            from divineos.core.consolidation import _get_connection as _cons_conn
+
+            conn = _cons_conn()
+            try:
+                conn.execute(
+                    "UPDATE lesson_tracking SET occurrences = ?, status = ? WHERE lesson_id = ?",
+                    (lesson["occurrences"], lesson.get("status", "active"), lesson_id),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+    # Refresh active memory so briefing works immediately
+    try:
+        _wrapped_refresh_active_memory(importance_threshold=0.3)
+    except Exception:
+        pass
+
+
 def _ensure_db() -> None:
     """Create all tables if they don't exist. Idempotent and fast after first call."""
     global _db_ready  # noqa: PLW0603
@@ -621,6 +684,7 @@ def _ensure_db() -> None:
     init_quality_tables()
     init_feature_tables()
     init_memory_tables()
+    _load_seed_if_empty()
     _db_ready = True
 
 
@@ -941,6 +1005,11 @@ def context(n: int) -> None:
 
     click.secho(f"\n=== Context Window (last {len(events)} events) ===\n", fg="cyan", bold=True)
     _print_events(events)
+    _wrapped_log_event(
+        event_type="OS_QUERY",
+        actor="assistant",
+        payload={"tool": "context", "query": f"last {n} events"},
+    )
 
 
 @cli.command()
@@ -1044,16 +1113,40 @@ def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int) -> Non
 def ask_cmd(query: str, limit: int) -> None:
     """Search what the system knows about a topic.
 
-    Uses full-text search with relevance ranking.
+    Searches both the knowledge store and core memory.
     Example: divineos ask "testing"
     """
+    from divineos.core.memory import get_core
+
+    _wrapped_log_event(
+        event_type="OS_QUERY",
+        actor="assistant",
+        payload={"tool": "ask", "query": query},
+    )
     results = search_knowledge(query, limit=limit)
 
-    if not results:
+    # Also search core memory — it's part of what I know
+    query_lower = query.lower()
+    core = get_core()
+    core_matches = []
+    for slot_id, content in core.items():
+        if query_lower in content.lower() or query_lower in slot_id.lower():
+            core_matches.append((slot_id, content))
+
+    if not results and not core_matches:
         click.secho(f"[-] Nothing found for '{query}'.", fg="yellow")
         return
 
-    click.secho(f"\n=== {len(results)} results for '{query}' ===\n", fg="cyan", bold=True)
+    total = len(results) + len(core_matches)
+    click.secho(f"\n=== {total} results for '{query}' ===\n", fg="cyan", bold=True)
+
+    # Show core memory matches first — identity comes first
+    for slot_id, content in core_matches:
+        label = slot_id.replace("_", " ").title()
+        click.secho("  [CORE] ", fg="magenta", bold=True, nl=False)
+        click.secho(f"{label}: ", fg="white", bold=True, nl=False)
+        _safe_echo(content[:300])
+        click.echo()
     for entry in results:
         color = {
             "BOUNDARY": "red",
@@ -1080,6 +1173,11 @@ def ask_cmd(query: str, limit: int) -> None:
 @click.option("--topic", default="", help="Topic hint to boost relevant knowledge (e.g. 'testing')")
 def briefing_cmd(max_items: int, types: str, topic: str) -> None:
     """Generate a session context briefing from stored knowledge."""
+    _wrapped_log_event(
+        event_type="OS_QUERY",
+        actor="assistant",
+        payload={"tool": "briefing", "query": topic or "session start"},
+    )
     # Refresh active memory on briefing — this is my "waking up" moment,
     # so knowledge should be freshly ranked before I see it.
     try:
@@ -1216,6 +1314,11 @@ def directive_cmd(name: str, links: tuple[str, ...], tags: str) -> None:
 @cli.command("directives")
 def directives_cmd() -> None:
     """List all active directives."""
+    _wrapped_log_event(
+        event_type="OS_QUERY",
+        actor="assistant",
+        payload={"tool": "directives", "query": "list directives"},
+    )
     entries = get_knowledge(knowledge_type="DIRECTIVE", limit=100)
 
     if not entries:
@@ -1768,6 +1871,11 @@ def core_cmd(action: str, slot: str | None, content: str | None) -> None:
 @click.option("--topic", default="", help="Topic hint to boost relevant memories")
 def recall_cmd(topic: str) -> None:
     """Show what the AI remembers right now — core + active + relevant."""
+    _wrapped_log_event(
+        event_type="OS_QUERY",
+        actor="assistant",
+        payload={"tool": "recall", "query": topic or "general recall"},
+    )
     init_memory_tables()
     result = _wrapped_recall(context_hint=topic)
     text = _wrapped_format_recall(result)

@@ -54,6 +54,7 @@ SLOT_ORDER = [
     "active_goals",
     "recent_lessons",
     "session_health",
+    "os_engagement",
     "context_budget",
     "active_knowledge",
     "warnings",
@@ -266,6 +267,78 @@ def _build_warnings_slot() -> str:
     return "\n".join(lines)
 
 
+def _build_os_engagement_slot() -> str:
+    """Am I using the OS to think, or just to record?
+
+    Checks how many thinking queries (ask, recall, context, directives,
+    briefing) vs recording actions (log, learn) happened this session.
+    If thinking is zero, something is wrong.
+    """
+    from divineos.core.ledger import get_events
+
+    # Get events since the last SESSION_END (= this session)
+    all_events = get_events(limit=500)
+
+    # Find the boundary: last SESSION_END marks session start
+    session_events = []
+    for event in reversed(all_events):
+        if event["event_type"] == "SESSION_END":
+            break
+        session_events.append(event)
+
+    thinking_tools = {"ask", "recall", "context", "directives", "briefing"}
+    recording_tools = {"log", "learn", "goal"}
+
+    thinking_count = 0
+    recording_count = 0
+    tools_used = set()
+
+    for event in session_events:
+        if event["event_type"] == "OS_QUERY":
+            try:
+                payload = (
+                    json.loads(event["payload"])
+                    if isinstance(event["payload"], str)
+                    else event["payload"]
+                )
+                tool = payload.get("tool", "")
+                if tool in thinking_tools:
+                    thinking_count += 1
+                    tools_used.add(tool)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        elif event["event_type"] in ("TOOL_CALL",):
+            try:
+                payload = (
+                    json.loads(event["payload"])
+                    if isinstance(event["payload"], str)
+                    else event["payload"]
+                )
+                tool = payload.get("tool_name", payload.get("tool", ""))
+                if tool in recording_tools:
+                    recording_count += 1
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    lines = ["# OS Engagement\n"]
+
+    if thinking_count == 0:
+        lines.append("- **WARNING: Zero thinking queries this session.**")
+        lines.append("- I have not used ask, recall, context, directives, or briefing.")
+        lines.append("- Am I building without consulting what I know? That's theatre.")
+        lines.append("- **Action: Use a thinking tool before the next code change.**")
+    else:
+        lines.append(f"- **Thinking queries:** {thinking_count} ({', '.join(sorted(tools_used))})")
+        lines.append(f"- **Recording actions:** {recording_count}")
+        ratio = thinking_count / max(thinking_count + recording_count, 1)
+        if ratio < 0.2:
+            lines.append("- Low thinking-to-recording ratio. Am I just logging, not consulting?")
+        else:
+            lines.append("- Good balance. I'm using the OS to inform decisions.")
+
+    return "\n".join(lines)
+
+
 def _build_task_state_slot() -> str:
     """What I'm doing right now, what's next, what's done."""
     path = _ensure_hud_dir() / "task_state.json"
@@ -299,6 +372,7 @@ SLOT_BUILDERS = {
     "active_goals": _build_active_goals_slot,
     "recent_lessons": _build_recent_lessons_slot,
     "session_health": _build_session_health_slot,
+    "os_engagement": _build_os_engagement_slot,
     "context_budget": _build_context_budget_slot,
     "active_knowledge": _build_active_knowledge_slot,
     "warnings": _build_warnings_slot,
@@ -433,6 +507,11 @@ def add_goal(text: str, original_words: str = "") -> None:
             goals = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
             pass
+
+    # Deduplicate — don't add if an active goal with the same text exists
+    for goal in goals:
+        if goal.get("text") == text and goal.get("status") != "done":
+            return
 
     goals.append(
         {
