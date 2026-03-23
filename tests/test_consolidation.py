@@ -680,7 +680,6 @@ class _MockAnalysis:
 
 class TestDeepExtractKnowledge:
     def test_topics_not_stored_as_standalone_facts(self):
-        """Topics are used as tags on other knowledge, not stored as keyword-soup facts."""
         analysis = _MockAnalysis()
         analysis.user_message_texts = [
             "let's work on the testing framework",
@@ -689,6 +688,7 @@ class TestDeepExtractKnowledge:
         ]
         records = []
         deep_extract_knowledge(analysis, records)
+        # Topics should NOT be stored as standalone facts (keyword soup)
         knowledge = get_knowledge(knowledge_type="FACT")
         topic_entries = [k for k in knowledge if "I worked on:" in k["content"]]
         assert len(topic_entries) == 0
