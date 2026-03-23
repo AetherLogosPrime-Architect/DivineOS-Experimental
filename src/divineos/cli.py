@@ -608,9 +608,28 @@ _wrapped_get_cross_session_summary = wrap_tool_execution(
 )
 
 
+_db_ready = False
+
+
+def _ensure_db() -> None:
+    """Create all tables if they don't exist. Idempotent and fast after first call."""
+    global _db_ready  # noqa: PLW0603
+    if _db_ready:
+        return
+    init_db()
+    init_knowledge_table()
+    init_quality_tables()
+    init_feature_tables()
+    init_memory_tables()
+    _db_ready = True
+
+
 @click.group()
 def cli() -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
+    # Auto-initialize database tables on first use (idempotent)
+    _ensure_db()
+
     # Setup CLI enforcement at startup
     setup_cli_enforcement()
 
