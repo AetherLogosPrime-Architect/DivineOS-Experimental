@@ -43,6 +43,43 @@ class TestConversationalNoise:
     def test_sure_go_ahead(self):
         assert _is_extraction_noise("I decided: sure go ahead", "PRINCIPLE")
 
+    def test_raw_user_quote_with_many_double_dots(self):
+        """User's typing style with 3+ '..' is a raw quote, not knowledge."""
+        assert _is_extraction_noise(
+            "I should: If nothing forces you to act.. you never will.. "
+            "so i guess none of this matters.. right",
+            "DIRECTION",
+        )
+
+    def test_oops_accident(self):
+        """Accidental UI actions aren't knowledge."""
+        assert _is_extraction_noise(
+            "I was corrected: Oops i pressed deny i meant to press accept.",
+            "PRINCIPLE",
+        )
+
+    def test_third_person_quote(self):
+        """Quoting someone else isn't a direction."""
+        assert _is_extraction_noise(
+            "I should: This is what he said about the architecture",
+            "DIRECTION",
+        )
+
+    def test_external_review_reference(self):
+        """References to external reviews aren't directions."""
+        assert _is_extraction_noise(
+            "I should: I got a review from grok on the repo",
+            "DIRECTION",
+        )
+
+    def test_affirmation_with_long_filler(self):
+        """Affirmation with lots of filler words is still noise."""
+        assert _is_extraction_noise(
+            "I should: Yes :) but make sure you study what needs done first "
+            "fully so you understand",
+            "DIRECTION",
+        )
+
 
 class TestRealKnowledgePassesThrough:
     """Real knowledge should NOT be filtered out."""
@@ -108,4 +145,24 @@ class TestRealKnowledgePassesThrough:
             "I should: All of it but less jargon because I'm not a coder and I don't "
             "speak jargon so the goal is to make it friendly and accessible.",
             "DIRECTION",
+        )
+
+    def test_you_must_directive(self):
+        """'You must' phrased as a rule passes through."""
+        assert not _is_extraction_noise(
+            "I should: You must always read files before editing them.",
+            "DIRECTION",
+        )
+
+    def test_real_correction_with_technical_detail(self):
+        assert not _is_extraction_noise(
+            "I was corrected: The DB path was leaking because of cached import-time evaluation.",
+            "PRINCIPLE",
+        )
+
+    def test_sqlite_reasoning(self):
+        """Affirmation with 'because' reasoning passes through."""
+        assert not _is_extraction_noise(
+            "yes lets use SQLite because it has no dependencies and is portable",
+            "PRINCIPLE",
         )

@@ -1499,7 +1499,7 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         "great",
     ):
         # Check for reasoning markers — if they explain WHY, it's real
-        has_reasoning = any(w in affirmation_words for w in ("because", "since", "reason", "so"))
+        has_reasoning = any(w in affirmation_words for w in ("because", "since", "reason"))
         if not has_reasoning:
             # If the meaningful content after the affirmation is short, it's noise
             non_affirmation = [
@@ -1529,9 +1529,29 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
                     "keep",
                     "going",
                     "now",
+                    "make",
+                    "sure",
+                    "what",
+                    "just",
+                    "first",
+                    "also",
+                    "get",
+                    "got",
+                    "need",
+                    "needs",
+                    "want",
+                    "have",
+                    "has",
+                    "done",
+                    "think",
+                    "know",
+                    "like",
+                    "look",
+                    "see",
+                    "try",
                 )
             ]
-            if len(non_affirmation) <= 5:
+            if len(non_affirmation) <= 8:
                 return True
 
     # Conversational noise pattern match
@@ -1543,6 +1563,29 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         question_words = stripped_lower.split()
         if len(question_words) < 15:
             return True
+
+    # Raw user quotes — conversational text stored verbatim as directions/principles
+    # These are raw chat messages, not synthesized knowledge.
+    if knowledge_type in ("DIRECTION", "PRINCIPLE"):
+        # User's typing style: ".." ellipsis — signal of raw quote
+        # 3+ occurrences in short text = clearly conversational
+        double_dot_count = stripped.count("..")
+        if double_dot_count >= 3 and len(stripped.split()) < 30:
+            return True
+        # Conversational statements about accidents/mistakes in the UI
+        if re.search(r"\b(oops|whoops|accidentally|i meant to)\b", stripped_lower):
+            return True
+        # Third-person quotes and meta-commentary about external input
+        if re.match(
+            r"(this is what (he|she|they) said|i got a review from|"
+            r"here is what|someone said|he said|she said)",
+            stripped_lower,
+        ):
+            return True
+        # Addressing the AI directly (not as a rule)
+        if stripped_lower.startswith(("you ", "if you ", "now you ", "while you ")):
+            if not any(w in stripped_lower for w in ("must", "always", "never", "rule")):
+                return True
 
     return False
 
