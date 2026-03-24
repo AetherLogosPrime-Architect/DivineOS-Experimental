@@ -113,13 +113,36 @@ def measure_knowledge_drift(lookback_days: int = 14) -> dict[str, Any]:
             "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL",
         ).fetchone()[0]
 
-        total_superseded = len(superseded)
+        # Filter out manual cleanup supersessions from churn calculations.
+        # These are quality improvements (removing noise), not real instability.
+        # Organic supersessions (updates, contradictions) still count.
+        _CLEANUP_MARKERS = (
+            "Momentary",
+            "Caught by noise",
+            "Duplicate of",
+            "Stale:",
+            "Accidental",
+            "Parsing artifact",
+            "Momentary conversational",
+            "Covered by existing",
+            "Philosophy already",
+            "User context already",
+            "Question, not a",
+            "Too short,",
+        )
+        organic_superseded = [
+            row
+            for row in superseded
+            if not any(marker in str(row[5]) for marker in _CLEANUP_MARKERS)
+        ]
+
+        total_superseded = len(organic_superseded)
         churn_rate = total_superseded / max(active_count, 1)
 
         lifespans: list[float] = []
         short_lived: list[dict[str, Any]] = []
 
-        for row in superseded:
+        for row in organic_superseded:
             kid, ktype, content, created_at, updated_at, _ = row
             lifespan_hours = (updated_at - created_at) / 3600
 

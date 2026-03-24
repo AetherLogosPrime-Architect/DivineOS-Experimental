@@ -2273,7 +2273,12 @@ def compute_effectiveness(entry: dict[str, Any]) -> dict[str, Any]:
                         "status": "active",
                         "detail": f"Tracked ({lesson['occurrences']} occurrences)",
                     }
-        return {"status": "unknown", "detail": "No lesson tracking data"}
+        # No matching lesson — classify by usage instead of "unknown"
+        if access > 3:
+            return {"status": "stable", "detail": f"No lesson match but accessed {access} times"}
+        if access > 0:
+            return {"status": "used", "detail": f"Accessed {access} times, no lesson match"}
+        return {"status": "unknown", "detail": "No lesson tracking data and never accessed"}
 
     if ktype in ("PATTERN", "PROCEDURE", "OBSERVATION"):
         if access > 3:
@@ -2282,8 +2287,8 @@ def compute_effectiveness(entry: dict[str, Any]) -> dict[str, Any]:
             return {"status": "used", "detail": f"Accessed {access} times"}
         return {"status": "unused", "detail": "Never accessed"}
 
-    if ktype in ("PREFERENCE", "DIRECTION"):
-        return {"status": "stable", "detail": "Directions are always active"}
+    if ktype in ("PREFERENCE", "DIRECTION", "DIRECTIVE"):
+        return {"status": "stable", "detail": "Directions and directives are always active"}
 
     if ktype == "FACT":
         if access > 0:
