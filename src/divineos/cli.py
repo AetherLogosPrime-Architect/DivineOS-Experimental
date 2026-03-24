@@ -1193,11 +1193,47 @@ def ask_cmd(query: str, limit: int) -> None:
     results = search_knowledge(query, limit=limit)
 
     # Also search core memory — it's part of what I know
+    # Match on individual meaningful words, not exact substring
     query_lower = query.lower()
+    query_words = {
+        w
+        for w in query_lower.split()
+        if len(w) > 2
+        and w
+        not in {
+            "the",
+            "and",
+            "are",
+            "was",
+            "for",
+            "what",
+            "how",
+            "who",
+            "why",
+            "when",
+            "where",
+            "which",
+            "does",
+            "that",
+            "this",
+            "with",
+            "from",
+            "have",
+            "has",
+            "had",
+            "not",
+            "but",
+            "can",
+            "will",
+            "about",
+        }
+    }
     core = get_core()
     core_matches = []
     for slot_id, content in core.items():
-        if query_lower in content.lower() or query_lower in slot_id.lower():
+        slot_text = (slot_id + " " + content).lower()
+        matching_words = sum(1 for w in query_words if w in slot_text)
+        if matching_words >= 1:
             core_matches.append((slot_id, content))
 
     if not results and not core_matches:
@@ -2144,6 +2180,24 @@ def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
 
     if etype == "AGENT_CONTEXT_COMPRESSION":
         return str(payload.get("content", "context compressed"))
+
+    if etype == "CLARITY_SUMMARY":
+        score = payload.get("alignment_score", "?")
+        devs = payload.get("deviations_count", 0)
+        lessons = payload.get("lessons_count", 0)
+        return f"Alignment: {score:.0f}%, {devs} deviations, {lessons} lessons"
+
+    if etype == "CLARITY_DEVIATION":
+        metric = payload.get("metric", "?")
+        planned = payload.get("planned", "?")
+        actual = payload.get("actual", "?")
+        severity = payload.get("severity", "?")
+        return f"{severity} deviation in {metric}: planned {planned}, actual {actual}"
+
+    if etype == "CLARITY_LESSON":
+        desc = payload.get("description", "")
+        ltype = payload.get("lesson_type", "")
+        return f"[{ltype}] {desc}" if desc else etype
 
     if etype.startswith("CLARITY_"):
         return str(payload.get("content", payload.get("summary", etype)))
