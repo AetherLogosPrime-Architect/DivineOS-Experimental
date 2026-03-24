@@ -106,7 +106,9 @@ class EventValidator:
 
         # If content is very short (< 3 chars), it's likely garbage unless it's a known word
         if len(stripped) < 3:
-            # Allow common short words
+            # Allow any single letter or common short words — users can type anything
+            if len(stripped) == 1 and stripped.isalpha():
+                return True
             common_short_words = {
                 "ok",
                 "no",

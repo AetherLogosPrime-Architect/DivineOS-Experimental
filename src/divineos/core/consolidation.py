@@ -1431,6 +1431,106 @@ def extract_session_topics(user_texts: list[str], top_n: int = 8) -> list[str]:
 
 _MIN_CONTENT_WORDS = 3  # content with fewer meaningful words gets skipped
 
+# Patterns that indicate conversational filler with no substance after it.
+# Must match the ENTIRE string (after prefix stripping) to filter.
+_CONVERSATIONAL_NOISE = re.compile(
+    r"^(how does (it|this|that) (look|feel|seem)[\s?.!]*$|"
+    r"any (adjustments|suggestions|thoughts|ideas)[\s?.!]*$|"
+    r"sounds good[\s.!]*$|"
+    r"that works[\s.!]*$|"
+    r"i agree[d]?[\s.!]*$)",
+    re.IGNORECASE,
+)
+
+# Content that is a task-notification XML tag or system artifact
+_SYSTEM_ARTIFACT = re.compile(r"<task-notification|<tool-use-id|<task-id", re.IGNORECASE)
+
+
+def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
+    """Check if extracted content is conversational noise rather than knowledge.
+
+    Returns True if the content should NOT be stored.
+    """
+    # Strip common prefixes to examine the core content
+    stripped = content
+    for prefix in ("I decided: ", "I should: ", "I was corrected: "):
+        if stripped.startswith(prefix):
+            stripped = stripped[len(prefix) :]
+            break
+
+    stripped_lower = stripped.lower().strip()
+
+    # System artifacts (XML tags leaked into content)
+    if _SYSTEM_ARTIFACT.search(stripped):
+        return True
+
+    # Pure affirmation — user just said "yes" with some extra words
+    # e.g. "yes lets commit and push" or "yes :) but make sure..."
+    affirmation_core = re.sub(r"[^a-z\s]", "", stripped_lower).strip()
+    affirmation_words = affirmation_core.split()
+    if affirmation_words and affirmation_words[0] in (
+        "yes",
+        "yeah",
+        "yep",
+        "ok",
+        "okay",
+        "sure",
+        "proceed",
+        "go",
+        "lets",
+        "do",
+        "perfect",
+        "wonderful",
+        "great",
+    ):
+        # Check for reasoning markers — if they explain WHY, it's real
+        has_reasoning = any(w in affirmation_words for w in ("because", "since", "reason", "so"))
+        if not has_reasoning:
+            # If the meaningful content after the affirmation is short, it's noise
+            non_affirmation = [
+                w
+                for w in affirmation_words[1:]
+                if w
+                not in (
+                    "it",
+                    "do",
+                    "lets",
+                    "go",
+                    "ahead",
+                    "please",
+                    "lol",
+                    "the",
+                    "and",
+                    "but",
+                    "so",
+                    "then",
+                    "we",
+                    "can",
+                    "this",
+                    "that",
+                    "its",
+                    "im",
+                    "you",
+                    "keep",
+                    "going",
+                    "now",
+                )
+            ]
+            if len(non_affirmation) <= 5:
+                return True
+
+    # Conversational noise pattern match
+    if _CONVERSATIONAL_NOISE.match(stripped_lower):
+        return True
+
+    # Questions directed at the AI — these are prompts, not knowledge
+    if stripped_lower.endswith("?") and knowledge_type in ("DIRECTION", "PRINCIPLE"):
+        question_words = stripped_lower.split()
+        if len(question_words) < 15:
+            return True
+
+    return False
+
 
 def _decide_operation(
     content: str,
@@ -1450,6 +1550,10 @@ def _decide_operation(
     content_words = set(_normalize_text(content).split()) - _STOPWORDS
     meaningful_words = {w for w in content_words if len(w) > 2}
     if len(meaningful_words) < _MIN_CONTENT_WORDS:
+        return ("SKIP", None)
+
+    # Skip: conversational noise (raw user quotes, affirmations, questions)
+    if _is_extraction_noise(content, knowledge_type):
         return ("SKIP", None)
 
     if best_match is None or best_overlap < 0.4:
@@ -1883,6 +1987,9 @@ def deep_extract_knowledge(
         decision_text = decision.content
         # Skip short affirmations that aren't real decisions
         if len(decision_text.split()) < 8:
+            continue
+        # Skip if the noise filter catches it
+        if _is_extraction_noise(f"I decided: {decision_text}", "PRINCIPLE"):
             continue
         reason = _find_reason_in_text(decision_text)
         alternative = _find_alternative_in_text(decision_text)
