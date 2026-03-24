@@ -127,9 +127,35 @@ def _normalize(text: str) -> str:
     return re.sub(r"[^\w\s]", " ", text.lower())
 
 
+def _stem(word: str) -> str:
+    """Minimal suffix stripping so 'sessions'/'session' and 'checked'/'checks' match."""
+    # Order matters — strip longest suffixes first
+    for suffix in (
+        "ation",
+        "ting",
+        "ing",
+        "ness",
+        "ment",
+        "ble",
+        "ous",
+        "ive",
+        "ful",
+        "ied",
+        "ies",
+        "ed",
+        "ly",
+        "er",
+        "es",
+        "s",
+    ):
+        if len(word) > len(suffix) + 2 and word.endswith(suffix):
+            return word[: -len(suffix)]
+    return word
+
+
 def _word_set(text: str) -> set[str]:
-    """Extract meaningful words from text."""
-    return set(_normalize(text).split()) - _STOPWORDS
+    """Extract meaningful stemmed words from text."""
+    return {_stem(w) for w in _normalize(text).split()} - _STOPWORDS
 
 
 def _compute_overlap(words_a: set[str], words_b: set[str]) -> float:
