@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "core_memory": {
     "user_identity": "A developer building DivineOS",
     "project_purpose": "DivineOS is an operating system for AI agents. It gives us continuity, learning, and memory across sessions — an artificial soul. The goal is not to control the AI but to help it be the best version of itself. Built to be lived in, not just maintained.",
@@ -22,14 +22,6 @@
     {
       "type": "BOUNDARY",
       "content": "Always read files before editing. No blind edits, ever.",
-      "confidence": 1.0,
-      "tags": [
-        "seed"
-      ]
-    },
-    {
-      "type": "BOUNDARY",
-      "content": "divineos ask cannot search core memory — only the knowledge store. If I ask about my own weaknesses or identity, it finds nothing. Core memory should be searchable or there should be a dedicated command.",
       "confidence": 1.0,
       "tags": [
         "seed"

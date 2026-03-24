@@ -155,10 +155,25 @@ def apply_seed(
             pass
 
     # Knowledge — in merge mode, skip entries that already exist
+    # Include superseded entries so we don't resurrect knowledge that was
+    # intentionally retired. get_knowledge only returns active entries,
+    # so we also query superseded ones directly.
     existing_contents = set()
     if mode == "merge":
         for entry in get_knowledge(limit=1000):
             existing_contents.add(entry["content"].strip().lower())
+        # Also check superseded entries to prevent resurrection
+        from divineos.core.consolidation import _get_connection
+
+        conn = _get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT content FROM knowledge WHERE superseded_by IS NOT NULL"
+            ).fetchall()
+            for row in rows:
+                existing_contents.add(row[0].strip().lower())
+        finally:
+            conn.close()
 
     for entry in seed_data.get("knowledge", []):
         content = entry.get("content", "").strip()

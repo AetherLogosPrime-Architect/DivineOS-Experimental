@@ -160,3 +160,47 @@ class TestApplySeed:
             assert get_applied_seed_version() == "1.2.3"
         finally:
             os.environ.pop("DIVINEOS_DB", None)
+
+    def test_merge_skips_superseded_entries(self, tmp_path):
+        """Seed should NOT resurrect knowledge that was previously superseded."""
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+        try:
+            init_db()
+            init_knowledge_table()
+            init_memory_tables()
+
+            seed = {
+                "version": "1.0.0",
+                "core_memory": {
+                    "user_identity": "test identity for resurrection check",
+                    "project_purpose": "test purpose for resurrection check",
+                },
+                "knowledge": [
+                    {"type": "FACT", "content": "This fact will be superseded"},
+                    {"type": "FACT", "content": "This fact stays active"},
+                ],
+                "lessons": [],
+            }
+
+            # First apply — both entries created
+            counts1 = apply_seed(seed, mode="merge")
+            assert counts1["knowledge"] == 2
+
+            # Supersede the first entry
+            from divineos.core.consolidation import get_knowledge, supersede_knowledge
+
+            entries = get_knowledge(knowledge_type="FACT")
+            superseded_entry = [e for e in entries if "will be superseded" in e["content"]][0]
+            supersede_knowledge(superseded_entry["knowledge_id"], reason="test")
+
+            # Re-apply seed — the superseded entry should NOT come back
+            counts2 = apply_seed(seed, mode="merge")
+            assert counts2["skipped"] == 2  # both skipped (1 active, 1 superseded)
+            assert counts2["knowledge"] == 0
+
+            # Verify only 1 active FACT remains
+            active = get_knowledge(knowledge_type="FACT")
+            assert len(active) == 1
+            assert "stays active" in active[0]["content"]
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
