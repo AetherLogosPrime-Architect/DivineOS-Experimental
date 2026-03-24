@@ -962,26 +962,27 @@ class TestHealthCheck:
         assert result["confirmed_boosted"] == 0
         assert result["total_checked"] == 0
 
-    def test_old_entry_not_decayed(self):
-        """Knowledge does NOT decay just because time passed."""
+    def test_old_accessed_entry_not_decayed(self):
+        """Recently-used knowledge does NOT decay just because it's old."""
         kid = store_knowledge("FACT", "old but still true fact", confidence=0.8)
-        # Backdate the entry to 60 days ago
+        # Give it access so it's not considered stale
+        record_access(kid)
+        # Backdate created_at but keep updated_at recent (entry is still in use)
         import divineos.core.ledger as lm
         import sqlite3
 
-        # Use _get_db_path() instead of DB_PATH to respect the environment variable
         db_path = lm._get_db_path()
         conn = sqlite3.connect(str(db_path))
         old_time = time.time() - (60 * 86400)
         conn.execute(
-            "UPDATE knowledge SET created_at = ?, updated_at = ? WHERE knowledge_id = ?",
-            (old_time, old_time, kid),
+            "UPDATE knowledge SET created_at = ? WHERE knowledge_id = ?",
+            (old_time, kid),
         )
         conn.commit()
         conn.close()
 
         health_check()
-        # Confidence should be UNCHANGED — age alone doesn't reduce trust
+        # Confidence should be UNCHANGED — old but recently used
         entry = get_knowledge(knowledge_type="FACT")[0]
         assert entry["confidence"] == pytest.approx(0.8)
 

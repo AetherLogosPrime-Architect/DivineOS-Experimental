@@ -308,6 +308,43 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Goal extraction failed: {e}")
 
+        # 1c. Quality gate — run quality checks and gate knowledge extraction
+        quality_verdict = None
+        maturity_override = ""
+        try:
+            from divineos.analysis.quality_checks import run_all_checks
+            from divineos.core.quality_gate import assess_session_quality, should_extract_knowledge
+
+            report = run_all_checks(latest)
+            check_results = [
+                {"check_name": c.check_name, "passed": c.passed, "score": c.score}
+                for c in report.checks
+            ]
+            quality_verdict = assess_session_quality(check_results)
+            extract_allowed, maturity_override = should_extract_knowledge(quality_verdict)
+
+            if quality_verdict.action == "BLOCK":
+                click.secho(
+                    f"[!] Quality gate BLOCKED: {quality_verdict.reason}", fg="red", bold=True
+                )
+                click.secho("[!] Skipping knowledge extraction for this session.", fg="red")
+                # Still run health check and memory refresh, just skip extraction
+                try:
+                    _wrapped_health_check()
+                except Exception:
+                    pass
+                try:
+                    from divineos.core.hud import save_hud_snapshot
+
+                    save_hud_snapshot()
+                except Exception:
+                    pass
+                return
+            elif quality_verdict.action == "DOWNGRADE":
+                click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
+        except Exception as e:
+            logger.warning(f"Quality gate failed (allowing extraction): {e}")
+
         # 2. Deep extract
         records = _analyzer_mod._load_records(latest)
         deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
@@ -353,6 +390,26 @@ def _run_session_end_pipeline() -> None:
             click.secho("[~] Session already scanned, skipping episode/fact.", fg="bright_black")
 
         click.secho(f"[+] Stored {stored} knowledge entries from session.", fg="green")
+
+        # 3b. Apply maturity override if quality was downgraded
+        if maturity_override and deep_ids:
+            try:
+                from divineos.core.consolidation import _get_connection
+
+                conn = _get_connection()
+                for did in deep_ids:
+                    if did:
+                        conn.execute(
+                            "UPDATE knowledge SET maturity = ? WHERE knowledge_id = ? AND maturity = 'RAW'",
+                            (maturity_override, did),
+                        )
+                conn.commit()
+                conn.close()
+                click.secho(
+                    f"[~] Downgraded {len(deep_ids)} entries to {maturity_override}.", fg="yellow"
+                )
+            except Exception as e:
+                logger.warning(f"Maturity override failed: {e}")
 
         # 4. Apply feedback
         feedback = _wrapped_apply_session_feedback(analysis, analysis.session_id)
@@ -445,10 +502,28 @@ def _run_session_end_pipeline() -> None:
                 hc_parts.append(f"{hc['recurring_escalated']} escalated")
             if hc["resolved_lessons"]:
                 hc_parts.append(f"{hc['resolved_lessons']} resolved")
+            if hc.get("stale_decayed"):
+                hc_parts.append(f"{hc['stale_decayed']} stale decayed")
+            if hc.get("temporal_decayed"):
+                hc_parts.append(f"{hc['temporal_decayed']} temporal decayed")
+            if hc.get("contradiction_flagged"):
+                hc_parts.append(f"{hc['contradiction_flagged']} contradiction flagged")
             if hc_parts:
                 click.secho(f"[~] Health: {', '.join(hc_parts)}", fg="cyan")
         except Exception as e:
             logger.warning(f"Health check failed: {e}")
+
+        # 5b. Maturity cycle — promote knowledge through trust levels
+        try:
+            from divineos.core.knowledge_maturity import run_maturity_cycle
+
+            all_knowledge = _wrapped_get_knowledge(limit=500)
+            promotions = run_maturity_cycle(all_knowledge)
+            if promotions:
+                promo_parts = [f"{v} to {k}" for k, v in promotions.items()]
+                click.secho(f"[~] Maturity: {', '.join(promo_parts)}", fg="cyan")
+        except Exception as e:
+            logger.warning(f"Maturity cycle failed: {e}")
 
         # 6. Consolidate related
         try:
@@ -612,63 +687,52 @@ _db_ready = False
 
 
 def _load_seed_if_empty() -> None:
-    """Populate a fresh database from seed.json so new instances start with identity."""
+    """Populate a fresh database from seed.json using the seed manager.
+
+    Uses version tracking to know when to reseed, validation to catch
+    bad seed data, and merge mode to avoid duplicating existing entries.
+    """
     import json as _json
 
-    from divineos.core.memory import set_core
+    from divineos.core.seed_manager import (
+        apply_seed,
+        get_applied_seed_version,
+        should_reseed,
+        validate_seed,
+    )
 
-    # Only seed if knowledge table has fewer entries than the seed
-    # (protects against partial loads where 1-2 entries block the full seed)
-    existing = _wrapped_get_knowledge(limit=500)
     seed_path = Path(__file__).parent / "seed.json"
     if not seed_path.exists():
-        return
-    import json as _json_check
-
-    seed_count = len(_json_check.loads(seed_path.read_text(encoding="utf-8")).get("knowledge", []))
-    if len(existing) >= seed_count:
         return
 
     seed = _json.loads(seed_path.read_text(encoding="utf-8"))
 
-    # Seed core memory
-    for slot_id, content in seed.get("core_memory", {}).items():
-        try:
-            set_core(slot_id, content)
-        except ValueError:
-            pass
+    # Validate before applying
+    errors = validate_seed(seed)
+    if errors:
+        logger.warning(f"Seed validation errors: {errors}")
+        # Still try to apply — partial seed is better than no seed
+        # but log the problems so they can be fixed
 
-    # Seed all knowledge — directives, boundaries, episodes, observations, everything
-    for entry in seed.get("knowledge", []):
-        _wrapped_store_knowledge(
-            knowledge_type=entry["type"],
-            content=entry["content"],
-            confidence=entry.get("confidence", 1.0),
-            tags=entry.get("tags", []),
+    # Check if we need to (re)seed
+    current_version = get_applied_seed_version()
+    seed_version = seed.get("version", "0.0.0")
+
+    if not should_reseed(current_version, seed_version):
+        return
+
+    # Apply seed in merge mode (only adds new entries)
+    counts = apply_seed(seed, mode="merge")
+
+    if counts["knowledge"] or counts["lessons"] or counts["core_slots"]:
+        click.secho(
+            f"[+] Seed v{seed_version} applied: "
+            f"{counts['core_slots']} core slots, "
+            f"{counts['knowledge']} knowledge, "
+            f"{counts['lessons']} lessons "
+            f"({counts['skipped']} skipped as existing).",
+            fg="green",
         )
-
-    # Seed lessons — warnings from past experience
-    from divineos.core.consolidation import record_lesson
-
-    for lesson in seed.get("lessons", []):
-        lesson_id = record_lesson(
-            category=lesson["category"],
-            description=f"(seeded) {lesson['category']}",
-            session_id="seed",
-        )
-        # Set correct occurrence count from seed
-        if lesson.get("occurrences", 0) > 1:
-            from divineos.core.consolidation import _get_connection as _cons_conn
-
-            conn = _cons_conn()
-            try:
-                conn.execute(
-                    "UPDATE lesson_tracking SET occurrences = ?, status = ? WHERE lesson_id = ?",
-                    (lesson["occurrences"], lesson.get("status", "active"), lesson_id),
-                )
-                conn.commit()
-            finally:
-                conn.close()
 
     # Refresh active memory so briefing works immediately
     try:

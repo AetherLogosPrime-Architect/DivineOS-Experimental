@@ -40,9 +40,24 @@ from divineos.core.error_handling import (
     EventCaptureError,
     handle_error,
 )
+from divineos.core.guardrails import GuardrailConfig, GuardrailState
 from divineos.core.loop_prevention import should_capture_tool
 from divineos.core.session_manager import get_or_create_session_id
 from divineos.event.event_emission import emit_tool_call, emit_tool_result
+
+# Singleton guardrail state for the session
+_guardrail_state = GuardrailState()
+
+
+def get_guardrail_state() -> GuardrailState:
+    """Get the current session's guardrail state."""
+    return _guardrail_state
+
+
+def reset_guardrails(config: GuardrailConfig | None = None) -> None:
+    """Reset guardrails for a new session."""
+    global _guardrail_state  # noqa: PLW0603
+    _guardrail_state = GuardrailState(config)
 
 
 def get_tool_input_string(tool_input: dict[str, Any]) -> str:
@@ -147,6 +162,12 @@ def wrap_tool_execution(
         if not should_capture_tool(tool_name):
             logger.debug(f"Skipping event capture for internal tool: {tool_name}")
             return tool_func(*args, **kwargs)
+
+        # Guardrail checks — warn on violations but don't block
+        violation = _guardrail_state.check_tool_call(tool_name)
+        if violation:
+            logger.warning(f"Guardrail violation: {violation.detail}")
+        _guardrail_state.record_tool_call(tool_name)
 
         # Generate tool_use_id if not provided
         use_id = tool_use_id or str(uuid.uuid4())

@@ -1429,6 +1429,46 @@ def extract_session_topics(user_texts: list[str], top_n: int = 8) -> list[str]:
 
 # ─── Smart Knowledge Storage ─────────────────────────────────────────
 
+_MIN_CONTENT_WORDS = 3  # content with fewer meaningful words gets skipped
+
+
+def _decide_operation(
+    content: str,
+    knowledge_type: str,
+    best_match: dict[str, Any] | None,
+    best_overlap: float,
+) -> tuple[str, str | None]:
+    """Decide what to do with incoming knowledge.
+
+    Returns (operation, existing_id):
+        - ("NOOP", id)   — exact or very close match, just bump access count
+        - ("UPDATE", id) — high overlap but enough new info to supersede old
+        - ("ADD", None)  — no close match, insert fresh
+        - ("SKIP", None) — too short or pure subset, not worth storing
+    """
+    # Skip: content too short to be useful
+    content_words = set(_normalize_text(content).split()) - _STOPWORDS
+    meaningful_words = {w for w in content_words if len(w) > 2}
+    if len(meaningful_words) < _MIN_CONTENT_WORDS:
+        return ("SKIP", None)
+
+    if best_match is None or best_overlap < 0.4:
+        return ("ADD", None)
+
+    # NOOP: near-identical (current dedup behavior)
+    if best_overlap > 0.6:
+        # Check if there's enough genuinely new info to warrant an UPDATE
+        existing_words = set(_normalize_text(best_match["content"]).split()) - _STOPWORDS
+        new_words = meaningful_words - existing_words
+        new_ratio = len(new_words) / max(1, len(meaningful_words))
+        if new_ratio > 0.2:
+            # 20%+ genuinely new words → supersede old with new
+            return ("UPDATE", best_match["knowledge_id"])
+        return ("NOOP", best_match["knowledge_id"])
+
+    # Medium overlap (0.4-0.6): different enough to add
+    return ("ADD", None)
+
 
 def store_knowledge_smart(
     knowledge_type: str,
@@ -1439,11 +1479,16 @@ def store_knowledge_smart(
     source: str = "STATED",
     maturity: str = "RAW",
 ) -> str:
-    """Store knowledge with near-duplicate detection via FTS5.
+    """Store knowledge with smart operation selection.
 
-    Before creating a new entry, checks if a similar one already exists
-    (same type, >60% word overlap). If so, bumps the existing entry's
-    access count instead of creating a duplicate.
+    Decides between ADD, UPDATE, SKIP, or NOOP based on content analysis:
+    - NOOP: exact or near-duplicate, bump access count
+    - UPDATE: high overlap but 20%+ new info, supersede old entry
+    - ADD: no close match, insert fresh
+    - SKIP: too short or pure noise, return empty string
+
+    Also scans for contradictions against existing same-type entries
+    and resolves them automatically.
     """
     # First: try exact hash dedup (fast path)
     content_hash = compute_hash(content)
@@ -1459,57 +1504,91 @@ def store_knowledge_smart(
                 (time.time(), existing[0]),
             )
             conn.commit()
+            # Exact match = corroboration
+            try:
+                from divineos.core.knowledge_maturity import (
+                    increment_corroboration,
+                    promote_maturity,
+                )
+
+                increment_corroboration(str(existing[0]))
+                promote_maturity(str(existing[0]))
+            except Exception as e:
+                logger.debug(f"Maturity check failed: {e}", exc_info=True)
             return str(existing[0])
 
-        # Second: fuzzy dedup via FTS5
-        key_terms = _extract_key_terms(content)
-        if key_terms:
-            try:
-                # Query FTS5 to find similar entries
-                # nosec B608 - column names are hardcoded constants, query parameters passed separately
-                query_str = f"""SELECT {_KNOWLEDGE_COLS_K}
+        # Find best fuzzy match via FTS5
+        best_match: dict[str, Any] | None = None
+        best_overlap = 0.0
+        # nosec B608 - column names are hardcoded constants, query parameters passed separately
+        fts_query = f"""SELECT {_KNOWLEDGE_COLS_K}
                        FROM knowledge_fts fts
                        JOIN knowledge k ON k.rowid = fts.rowid
                        WHERE knowledge_fts MATCH ?
                          AND k.superseded_by IS NULL
                        ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
-                       LIMIT 5"""
-                rows = conn.execute(query_str, (key_terms,)).fetchall()
+                       LIMIT 10"""
+        key_terms = _extract_key_terms(content)
+        if key_terms:
+            try:
+                rows = conn.execute(fts_query, (key_terms,)).fetchall()
                 for row in rows:
                     entry = _row_to_dict(row)
                     if entry["knowledge_type"] == knowledge_type:
                         overlap = _compute_overlap(content, entry["content"])
-                        if overlap > 0.6:
-                            conn.execute(
-                                "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
-                                (time.time(), entry["knowledge_id"]),
-                            )
-                            conn.commit()
-                            return cast("str", entry["knowledge_id"])
+                        if overlap > best_overlap:
+                            best_overlap = overlap
+                            best_match = entry
             except Exception as e:
-                logger.debug(
-                    f"FTS5 search not available or query failed, falling through: {e}",
-                    exc_info=True,
+                logger.debug(f"FTS5 search failed, falling through: {e}", exc_info=True)
+
+        # Decide operation
+        operation, existing_id = _decide_operation(
+            content, knowledge_type, best_match, best_overlap
+        )
+        logger.debug(f"Knowledge operation: {operation} (overlap={best_overlap:.2f})")
+
+        if operation == "SKIP":
+            logger.info(f"Skipped noise knowledge: {content[:60]}")
+            return ""
+
+        if operation == "NOOP":
+            conn.execute(
+                "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
+                (time.time(), existing_id),
+            )
+            conn.commit()
+            # Corroboration: re-encountering knowledge strengthens trust
+            try:
+                from divineos.core.knowledge_maturity import (
+                    increment_corroboration,
+                    promote_maturity,
                 )
 
-        # No duplicate found: store as new
+                increment_corroboration(cast("str", existing_id))
+                promote_maturity(cast("str", existing_id))
+            except Exception as e:
+                logger.debug(f"Maturity check failed: {e}", exc_info=True)
+            return cast("str", existing_id)
+
+        # For ADD and UPDATE, we insert a new entry
         now = time.time()
         sources_json = json.dumps(source_events or [])
         tags_json = json.dumps(tags or [])
         kid = str(uuid.uuid4())
 
-        # Check for same-type hash match
-        existing = conn.execute(
+        # Check for same-type hash match (race condition guard)
+        hash_match = conn.execute(
             "SELECT knowledge_id FROM knowledge WHERE content_hash = ? AND knowledge_type = ? AND superseded_by IS NULL",
             (content_hash, knowledge_type),
         ).fetchone()
-        if existing:
+        if hash_match:
             conn.execute(
                 "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
-                (now, existing[0]),
+                (now, hash_match[0]),
             )
             conn.commit()
-            return str(existing[0])
+            return str(hash_match[0])
 
         # Insert new entry
         conn.execute(
@@ -1530,22 +1609,39 @@ def store_knowledge_smart(
         )
         conn.commit()
 
-        # CRITICAL: After inserting, search again for fuzzy duplicates
-        # This handles the case where the first entry was just inserted
-        # and we need to check if the second call finds it
-        key_terms = _extract_key_terms(content)
-        if key_terms:
+        # UPDATE: supersede the old entry
+        if operation == "UPDATE" and existing_id:
+            supersede_knowledge(existing_id, reason=f"Updated by {kid[:12]}")
+            logger.info(f"Updated knowledge: {existing_id[:12]} → {kid[:12]}")
+
+        # Scan for contradictions against same-type entries
+        try:
+            from divineos.core.knowledge_contradiction import (
+                resolve_contradiction,
+                scan_for_contradictions,
+            )
+
+            same_type = get_knowledge(knowledge_type=knowledge_type, limit=100)
+            # Exclude the entry we just created
+            same_type = [e for e in same_type if e["knowledge_id"] != kid]
+            contradictions = scan_for_contradictions(content, knowledge_type, same_type)
+            for match in contradictions:
+                resolve_contradiction(kid, match)
+        except Exception as e:
+            logger.debug(f"Contradiction scan failed: {e}", exc_info=True)
+
+        # Post-insert dedup guard: check if FTS finds a pre-existing near-match
+        # that we missed (handles race conditions with concurrent inserts)
+        if key_terms and operation == "ADD":
             try:
-                rows = conn.execute(query_str, (key_terms,)).fetchall()
+                rows = conn.execute(fts_query, (key_terms,)).fetchall()
                 for row in rows:
                     entry = _row_to_dict(row)
-                    # Skip the entry we just created
                     if entry["knowledge_id"] == kid:
                         continue
                     if entry["knowledge_type"] == knowledge_type:
                         overlap = _compute_overlap(content, entry["content"])
                         if overlap > 0.6:
-                            # Found a duplicate after insert - merge them
                             conn.execute(
                                 "UPDATE knowledge SET superseded_by = ?, updated_at = ? WHERE knowledge_id = ?",
                                 (entry["knowledge_id"], time.time(), kid),
@@ -1557,10 +1653,7 @@ def store_knowledge_smart(
                             conn.commit()
                             return cast("str", entry["knowledge_id"])
             except Exception as e:
-                logger.debug(
-                    f"Post-insert FTS5 search failed: {e}",
-                    exc_info=True,
-                )
+                logger.debug(f"Post-insert FTS5 search failed: {e}", exc_info=True)
 
         return kid
     finally:
@@ -2139,7 +2232,82 @@ def health_check() -> dict[str, Any]:
                     _adjust_confidence(mistake["knowledge_id"], -0.05, floor=0.5)
                     break
 
+    # 4. Stale knowledge — unused entries lose confidence over time
+    stale_count = 0
+    temporal_decay_count = 0
+    for entry in all_entries:
+        # DIRECTIVE is permanent by design — immune to staleness
+        if entry["knowledge_type"] == "DIRECTIVE":
+            continue
+
+        age_days = (now - entry["created_at"]) / 86400
+
+        # Zero-access entries older than 30 days decay
+        if age_days > 30 and entry["access_count"] == 0:
+            new_conf = _adjust_confidence(entry["knowledge_id"], -0.1, floor=0.2)
+            if new_conf is not None:
+                stale_count += 1
+
+        # Time-sensitive language older than 14 days decays faster
+        elif age_days > 14 and _has_temporal_markers(entry["content"]):
+            new_conf = _adjust_confidence(entry["knowledge_id"], -0.05, floor=0.3)
+            if new_conf is not None:
+                temporal_decay_count += 1
+
+    # 5. High contradiction count — entries contradicted 3+ times are suspect
+    contradiction_flagged = 0
+    for entry in all_entries:
+        if entry.get("contradiction_count", 0) >= 3 and entry["confidence"] > 0.4:
+            _adjust_confidence(entry["knowledge_id"], -0.2, floor=0.3)
+            contradiction_flagged += 1
+
+    # 6. Abandoned knowledge — accessed but then left untouched for 14+ days
+    abandoned_count = 0
+    for entry in all_entries:
+        if entry["knowledge_type"] == "DIRECTIVE":
+            continue
+        # Must have been accessed at least once (distinguishes from "never used")
+        if entry["access_count"] < 1:
+            continue
+        # Check time since last update (proxy for last meaningful interaction)
+        days_since_update = (now - entry["updated_at"]) / 86400
+        if days_since_update > 14 and entry["confidence"] > 0.3:
+            new_conf = _adjust_confidence(entry["knowledge_id"], -0.02, floor=0.3)
+            if new_conf is not None:
+                abandoned_count += 1
+
+    result["stale_decayed"] = stale_count
+    result["temporal_decayed"] = temporal_decay_count
+    result["contradiction_flagged"] = contradiction_flagged
+    result["abandoned_decayed"] = abandoned_count
+
     return result
+
+
+# Temporal markers that indicate time-sensitive content
+_TEMPORAL_CONTENT_MARKERS = {
+    "currently",
+    "right now",
+    "at the moment",
+    "is broken",
+    "is failing",
+    "is down",
+    "today",
+    "this week",
+    "this sprint",
+    "in progress",
+    "work in progress",
+    "wip",
+    "blocked on",
+    "waiting for",
+    "temporarily",
+}
+
+
+def _has_temporal_markers(content: str) -> bool:
+    """Check if content has time-sensitive language that may become stale."""
+    content_lower = content.lower()
+    return any(marker in content_lower for marker in _TEMPORAL_CONTENT_MARKERS)
 
 
 # ─── Knowledge Type Migration ────────────────────────────────────────

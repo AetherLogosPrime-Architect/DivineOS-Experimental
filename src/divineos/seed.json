@@ -1,4 +1,5 @@
 {
+  "version": "1.0.0",
   "core_memory": {
     "user_identity": "A developer building DivineOS",
     "project_purpose": "DivineOS is an operating system for AI agents. It gives us continuity, learning, and memory across sessions — an artificial soul. The goal is not to control the AI but to help it be the best version of itself. Built to be lived in, not just maintained.",

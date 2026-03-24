@@ -209,7 +209,19 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
     if has_active_lesson:
         score += 0.2
 
-    return cast("float", min(1.0, score))
+    # Maturity adjustments — trust level affects importance
+    maturity = entry.get("maturity", "RAW")
+    if maturity == "CONFIRMED":
+        score += 0.05
+    elif maturity == "HYPOTHESIS":
+        score -= 0.05
+
+    # Low confidence penalty — entries below 0.3 are suspect
+    confidence = entry.get("confidence", 0.5)
+    if confidence < 0.3:
+        score -= 0.1
+
+    return cast("float", max(0.0, min(1.0, score)))
 
 
 # ─── Active Memory ───────────────────────────────────────────────────

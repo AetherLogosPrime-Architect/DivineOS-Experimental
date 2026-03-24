@@ -108,20 +108,20 @@ class TestImportanceScoring:
         for ktype in ("BOUNDARY", "MISTAKE"):
             entry = {"knowledge_type": ktype, "confidence": 0.0, "access_count": 0}
             score = compute_importance(entry)
-            # 0.30 type + 0.02 source(default) = 0.32
-            assert abs(score - 0.32) < 0.01, f"{ktype} scored {score}"
+            # 0.30 type + 0.02 source - 0.10 low_conf_penalty = 0.22
+            assert abs(score - 0.22) < 0.01, f"{ktype} scored {score}"
 
     def test_principle_scores_high(self):
         entry = {"knowledge_type": "PRINCIPLE", "confidence": 0.0, "access_count": 0}
         score = compute_importance(entry)
-        # 0.28 type + 0.02 source = 0.30
-        assert abs(score - 0.30) < 0.01
+        # 0.28 type + 0.02 source - 0.10 low_conf_penalty = 0.20
+        assert abs(score - 0.20) < 0.01
 
     def test_episode_scores_lowest_type_weight(self):
         entry = {"knowledge_type": "EPISODE", "confidence": 0.0, "access_count": 0}
         score = compute_importance(entry)
-        # 0.05 type + 0.02 source = 0.07
-        assert abs(score - 0.07) < 0.01
+        # 0.05 type + 0.02 source - 0.10 low_conf_penalty = 0.0 (floored)
+        assert abs(score - 0.0) < 0.01
 
     def test_confidence_contributes_25_percent(self):
         entry = {"knowledge_type": "FACT", "confidence": 1.0, "access_count": 0}

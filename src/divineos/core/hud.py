@@ -172,6 +172,16 @@ def _build_session_health_slot() -> str:
     if health.get("notes"):
         lines.append(f"- **Note:** {health['notes']}")
 
+    # Add quality trend from across sessions
+    try:
+        from divineos.analysis.quality_trends import format_trend_summary, get_session_trend
+
+        trend = get_session_trend(n=5)
+        if trend.sessions_analyzed >= 2:
+            lines.append(f"- **Trend:** {format_trend_summary(trend)}")
+    except Exception:
+        pass
+
     return "\n".join(lines)
 
 
