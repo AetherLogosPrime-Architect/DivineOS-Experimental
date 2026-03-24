@@ -19,7 +19,6 @@ from divineos.core.memory import (
     format_recall,
 )
 import divineos.core.ledger as ledger_mod
-import divineos.core.memory as memory_mod
 
 
 @pytest.fixture(autouse=True)
@@ -27,7 +26,7 @@ def clean_db(tmp_path, monkeypatch):
     """Use a temporary database for each test."""
     test_db = tmp_path / "test_ledger.db"
     monkeypatch.setattr(ledger_mod, "DB_PATH", test_db)
-    monkeypatch.setattr(memory_mod, "DB_PATH", test_db)
+    monkeypatch.setattr(ledger_mod, "_get_db_path", lambda: test_db)
     init_db()
     init_knowledge_table()
     init_memory_tables()
