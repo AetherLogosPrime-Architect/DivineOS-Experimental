@@ -753,11 +753,26 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             sessions = json.loads(existing[2])
             if session_id not in sessions:
                 sessions.append(session_id)
+            # Update description if the new one is more descriptive
+            # (the first description may be a seed placeholder)
+            old_desc = conn.execute(
+                "SELECT description FROM lesson_tracking WHERE lesson_id = ?",
+                (lesson_id,),
+            ).fetchone()
+            old_desc_text = old_desc[0] if old_desc else ""
+            use_desc = description
+            if old_desc_text.startswith("(seeded)") or (
+                len(description) > len(old_desc_text) and not description.startswith("(seeded)")
+            ):
+                use_desc = description
+            else:
+                use_desc = old_desc_text
             conn.execute(
                 """UPDATE lesson_tracking
-                   SET occurrences = ?, last_seen = ?, sessions = ?, status = 'active'
+                   SET occurrences = ?, last_seen = ?, sessions = ?, status = 'active',
+                       description = ?
                    WHERE lesson_id = ?""",
-                (occurrences, now, json.dumps(sessions), lesson_id),
+                (occurrences, now, json.dumps(sessions), use_desc, lesson_id),
             )
             conn.commit()
             return cast("str", lesson_id)
