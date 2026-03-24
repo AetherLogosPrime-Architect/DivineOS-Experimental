@@ -1,6 +1,6 @@
 # DivineOS
 
-Session analysis and persistent memory toolkit for AI coding assistants. Records interactions, verifies data integrity, parses chat logs, and extracts patterns from sessions.
+An operating system for AI agents — memory, continuity, accountability, and learning across sessions.
 
 ## You Are Running DivineOS
 
@@ -21,40 +21,67 @@ divineos emit SESSION_END
 ## Quick Reference
 
 ```bash
+# Session workflow
 divineos briefing          # Your session briefing (start here)
-divineos context           # Recent events (working memory)
+divineos hud               # Full heads-up display
+divineos emit SESSION_END  # End of session analysis + knowledge extraction
+
+# Memory & knowledge
 divineos recall            # Core memory + active memory
-divineos lessons           # Tracked lessons from past sessions
+divineos active            # Active memory ranked by importance
+divineos ask "topic"       # Search what the system knows
 divineos learn "..."       # Store knowledge from experience
-divineos log --type TYPE --actor ACTOR --content "..."  # Log an event
-divineos emit SESSION_END  # End of session summary
+divineos refresh           # Rebuild active memory from knowledge store
+
+# Lessons & goals
+divineos lessons           # Tracked lessons from past sessions
+divineos goal "..."        # Track a user goal
+divineos directives        # List active directives
+
+# Ledger & context
+divineos context           # Recent events (working memory)
+divineos log --type TYPE --actor ACTOR --content "..."
 divineos verify            # Check ledger integrity
+
+# Analysis & health
+divineos consolidate-stats # Knowledge statistics
+divineos outcomes          # Measure learning effectiveness
+divineos health            # Run knowledge health check
+
+# Tests
 pytest tests/ -q --tb=short  # Run tests after changes
 ```
 
-## Current State: Phase 1 — Foundation (v0.1.0)
+## Current Systems
 
 - **Event Ledger** — Append-only SQLite store. Every event hashed with SHA256. Never deletes, never updates.
-- **Chat Parser** — Ingests Claude Code / Codex JSONL sessions and markdown exports into the ledger.
-- **Fidelity** — Manifest-receipt pattern. Hash before storing, hash after storing, compare. Mismatch = corruption.
-- **Consolidation** — Extracts knowledge from raw events. Deduplication by hash, supersession instead of deletion.
-- **Session Analyzer** — Regex-based signal detection on JSONL sessions.
-- **Memory System** — Core memory (8 fixed slots) + active memory (ranked knowledge) + learning cycle.
-- **CLI** — Full command suite (see quick reference above).
+- **Memory Hierarchy** — Core memory (8 fixed identity slots) + active memory (ranked knowledge) + knowledge store.
+- **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, supersession chains.
+- **Quality Gate** — Blocks knowledge extraction from bad sessions. Dishonest = blocked. Low correctness = downgraded.
+- **Maturity Lifecycle** — Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED via corroboration.
+- **Extraction Noise Filter** — Prevents raw conversational quotes, affirmations, and system artifacts from polluting knowledge.
+- **Seed System** — Versioned initial knowledge with merge mode and resurrection prevention.
+- **Session Analysis** — Regex-based signal detection: corrections, encouragements, decisions, frustrations.
+- **HUD** — Heads-up display: identity, goals, lessons, health grade, engagement tracking, active memory.
+- **Outcome Measurement** — Rework detection, knowledge stability (churn), correction trends, session health scoring.
+- **Guardrails** — Runtime limits on iterations, tool calls, tokens.
+- **Lesson Tracking** — Occurrence counts, session tracking, status progression (active → improving → resolved).
 
 ## Project Structure
 
 ```
 src/divineos/
-├── cli.py                    # Main CLI entry point
-├── core/                     # Ledger, fidelity, memory, consolidation, parser
-├── analysis/                 # Session analysis, quality checks
-├── agent_integration/        # Memory monitor, learning cycles, pattern recommendation
+├── cli.py                    # Main CLI entry point (45+ commands)
+├── seed.json                 # Initial knowledge seed (versioned)
+├── core/                     # Ledger, memory, consolidation, quality gate, maturity, etc.
+├── analysis/                 # Session analysis, quality checks, quality trends
+├── agent_integration/        # Outcome measurement, memory monitor, learning cycles
 ├── clarity_enforcement/      # Clarity system
-└── event/                    # Event types and dispatch
-tests/                        # Pytest suite (real DB, no mocks)
+├── event/                    # Event types and dispatch
+├── integration/              # IDE and MCP integration
+└── supersession/             # Contradiction detection and resolution
+tests/                        # 1818 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
-scripts/                      # Helper scripts
 ```
 
 ## Rules for AI Assistants
