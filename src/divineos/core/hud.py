@@ -134,9 +134,11 @@ def _build_recent_lessons_slot() -> str:
     for lesson in all_lessons[:5]:
         status_label = "still working on" if lesson["status"] == "active" else "getting better at"
         count = lesson.get("occurrences", 1)
+        sessions = lesson.get("sessions", [])
+        session_count = len(sessions) if isinstance(sessions, list) else 0
         lines.append(
             f"- I'm {status_label}: {lesson['description']} "
-            f"({count}x across {len(json.loads(lesson.get('sessions', '[]')))} sessions)"
+            f"({count}x across {session_count} sessions)"
         )
 
     return "\n".join(lines)
@@ -284,14 +286,14 @@ def _build_os_engagement_slot() -> str:
     briefing) vs recording actions (log, learn) happened this session.
     If thinking is zero, something is wrong.
     """
-    from divineos.core.ledger import get_events
+    from divineos.core.ledger import get_recent_context
 
-    # Get events since the last SESSION_END (= this session)
-    all_events = get_events(limit=500)
+    # Get recent events (newest first) and find session boundary
+    all_events = get_recent_context(n=200, meaningful_only=False)
 
-    # Find the boundary: last SESSION_END marks session start
+    # Events are newest-first. Walk forward until SESSION_END = session boundary
     session_events = []
-    for event in reversed(all_events):
+    for event in all_events:
         if event["event_type"] == "SESSION_END":
             break
         session_events.append(event)
@@ -589,9 +591,14 @@ def extract_goals_from_messages(messages: list[str], max_goals: int = 5) -> list
             match = regex.match(msg.strip())
             if match:
                 goal_text = match.group(1).strip().rstrip(".!,")
-                # Capitalize first letter
-                if goal_text:
-                    goal_text = goal_text[0].upper() + goal_text[1:]
+                if not goal_text:
+                    continue
+                # Filter out conversational noise that matches goal patterns
+                # but isn't a real project goal
+                gt_lower = goal_text.lower()
+                if _is_conversational_goal(gt_lower):
+                    continue
+                goal_text = goal_text[0].upper() + goal_text[1:]
                 goals.append(
                     {
                         "text": goal_text,
@@ -604,3 +611,41 @@ def extract_goals_from_messages(messages: list[str], max_goals: int = 5) -> list
             break
 
     return goals
+
+
+def _is_conversational_goal(text: str) -> bool:
+    """Check if a goal-like statement is actually just conversation."""
+    # Pure action phrases without substance
+    noise_starters = (
+        "do it",
+        "do this",
+        "do that",
+        "go",
+        "keep going",
+        "keep looking",
+        "proceed",
+        "continue",
+        "start",
+        "try it",
+        "try that",
+        "see",
+        "check",
+    )
+    for starter in noise_starters:
+        if text.startswith(starter) and len(text.split()) < 6:
+            return True
+
+    # Generic meta-instructions
+    meta = (
+        "make a plan",
+        "make sure",
+        "do this correctly",
+        "commit and push",
+        "merge and",
+        "push and",
+    )
+    for m in meta:
+        if text.startswith(m):
+            return True
+
+    return False
