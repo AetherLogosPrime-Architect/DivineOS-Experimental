@@ -216,6 +216,8 @@ def _resolve_knowledge_id(partial: str) -> str:
     Accepts full UUIDs or prefix matches (e.g. '48a788e7').
     Raises click.ClickException if no match or ambiguous.
     """
+    if not partial.strip():
+        raise click.ClickException("Please provide a knowledge ID (or partial ID)")
     from divineos.core.consolidation import _get_connection
 
     conn = _get_connection()
@@ -1005,6 +1007,9 @@ def list_cmd(limit: int, offset: int, event_type: str, actor: str) -> None:
 @click.option("--limit", default=10, help="Max results")
 def search(keyword: str, limit: int) -> None:
     """Search the ledger for events matching KEYWORD."""
+    if not keyword.strip():
+        click.secho("[-] Please provide a search term.", fg="yellow")
+        return
     logger.info(f"Searching for: '{keyword}'")
     events = _wrapped_search_events(keyword=keyword, limit=limit)
 
@@ -1044,7 +1049,7 @@ def stats() -> None:
 
 
 @cli.command()
-@click.option("--n", default=20, help="Number of recent events for context")
+@click.option("--n", "--limit", default=20, help="Number of recent events for context")
 def context(n: int) -> None:
     """Show the last N events (working memory context window)."""
     logger.info(f"Building context from last {n} events...")
@@ -2430,6 +2435,9 @@ def goal_group() -> None:
 @click.option("--original", default="", help="The user's exact words")
 def goal_add_cmd(text: str, original: str) -> None:
     """Add a new goal to track."""
+    if not text.strip():
+        click.secho("[-] Goal text cannot be empty.", fg="yellow")
+        return
     from divineos.core.hud import add_goal
 
     add_goal(text, original_words=original)
@@ -2442,6 +2450,9 @@ def goal_add_cmd(text: str, original: str) -> None:
 @click.argument("text")
 def goal_done_cmd(text: str) -> None:
     """Mark a goal as complete (matches partial text)."""
+    if not text.strip():
+        click.secho("[-] Please specify which goal to complete.", fg="yellow")
+        return
     from divineos.core.hud import complete_goal
 
     if complete_goal(text):

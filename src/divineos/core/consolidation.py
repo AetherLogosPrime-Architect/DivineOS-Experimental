@@ -1230,8 +1230,8 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "knowledge_type": row[3],
         "content": row[4],
         "confidence": row[5],
-        "source_events": json.loads(row[6]),
-        "tags": json.loads(row[7]),
+        "source_events": json.loads(row[6]) if row[6] else [],
+        "tags": json.loads(row[7]) if row[7] else [],
         "access_count": row[8],
         "superseded_by": row[9],
         "content_hash": row[10],
@@ -1864,7 +1864,7 @@ def store_knowledge_smart(
                             best_overlap = overlap
                             best_match = entry
             except Exception as e:
-                logger.debug(f"FTS5 search failed, falling through: {e}", exc_info=True)
+                logger.warning(f"FTS5 search failed, dedup may miss matches: {e}")
 
         # Decide operation
         operation, existing_id = _decide_operation(

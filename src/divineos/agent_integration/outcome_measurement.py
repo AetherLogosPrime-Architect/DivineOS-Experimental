@@ -233,12 +233,12 @@ def measure_correction_rate(session_id: str | None = None) -> dict[str, Any]:
         total_encouragements = 0
 
         for (content,) in rows:
-            corr_match = re.search(r"(\d+) correction", content)
-            enc_match = re.search(r"(\d+) encouragement", content)
+            corr_match = re.search(r"(?:corrected (\d+) time|(\d+) correction)", content)
+            enc_match = re.search(r"(?:encouraged (\d+) time|(\d+) encouragement)", content)
             if corr_match:
-                total_corrections += int(corr_match.group(1))
+                total_corrections += int(corr_match.group(1) or corr_match.group(2))
             if enc_match:
-                total_encouragements += int(enc_match.group(1))
+                total_encouragements += int(enc_match.group(1) or enc_match.group(2))
 
         total = total_corrections + total_encouragements
         ratio = total_corrections / max(total, 1)
@@ -292,8 +292,8 @@ def measure_correction_trend(limit: int = 10) -> dict[str, Any]:
 
         sessions: list[dict[str, Any]] = []
         for content, created_at in rows:
-            corr_match = re.search(r"(\d+) correction", content)
-            enc_match = re.search(r"(\d+) encouragement", content)
+            corr_match = re.search(r"(?:corrected (\d+) time|(\d+) correction)", content)
+            enc_match = re.search(r"(?:encouraged (\d+) time|(\d+) encouragement)", content)
             corr = int(corr_match.group(1)) if corr_match else 0
             enc = int(enc_match.group(1)) if enc_match else 0
             total = corr + enc

@@ -133,14 +133,13 @@ def _build_recent_lessons_slot() -> str:
     all_lessons.sort(key=lambda entry: entry.get("last_seen", 0), reverse=True)
 
     for lesson in all_lessons[:5]:
-        status_label = "still working on" if lesson["status"] == "active" else "getting better at"
+        status = lesson.get("status", "active")
+        status_label = "still working on" if status == "active" else "getting better at"
         count = lesson.get("occurrences", 1)
         sessions = lesson.get("sessions", [])
         session_count = len(sessions) if isinstance(sessions, list) else 0
-        lines.append(
-            f"- I'm {status_label}: {lesson['description']} "
-            f"({count}x across {session_count} sessions)"
-        )
+        desc = lesson.get("description", "(no description)")
+        lines.append(f"- I'm {status_label}: {desc} ({count}x across {session_count} sessions)")
 
     return "\n".join(lines)
 
@@ -534,6 +533,8 @@ def update_task_state(
 
 def add_goal(text: str, original_words: str = "") -> None:
     """Add a single goal to the active goals list."""
+    if not text.strip():
+        return
     path = _ensure_hud_dir() / "active_goals.json"
     goals: list[dict[str, str]] = []
     if path.exists():
@@ -559,6 +560,8 @@ def add_goal(text: str, original_words: str = "") -> None:
 
 def complete_goal(text: str) -> bool:
     """Mark a goal as done by matching text. Returns True if found."""
+    if not text.strip():
+        return False
     path = _ensure_hud_dir() / "active_goals.json"
     if not path.exists():
         return False
