@@ -944,7 +944,7 @@ def export_cmd(fmt: str) -> None:
     """Export all events to markdown or JSON."""
     if fmt == "markdown":
         output = _wrapped_export_to_markdown()
-        click.echo(output)
+        _safe_echo(output)
     else:
         events = _wrapped_get_events(limit=10000)
         click.echo(json.dumps(events, indent=2, default=str))
@@ -1184,6 +1184,12 @@ def ask_cmd(query: str, limit: int) -> None:
     Example: divineos ask "testing"
     """
     from divineos.core.memory import get_core
+
+    if not query.strip():
+        click.secho(
+            '[-] Please provide a search query. Example: divineos ask "testing"', fg="yellow"
+        )
+        return
 
     _wrapped_log_event(
         event_type="OS_QUERY",
@@ -1910,7 +1916,7 @@ def patterns_cmd(limit: int) -> None:
     """Compare quality check results across stored sessions."""
     output = _wrapped_get_cross_session_summary(limit=limit)
     click.echo()
-    click.echo(output)
+    _safe_echo(output)
     click.echo()
 
 
@@ -1933,7 +1939,7 @@ def core_cmd(action: str, slot: str | None, content: str | None) -> None:
     if action == "show":
         text = _wrapped_format_core()
         if text:
-            click.echo(text)
+            _safe_echo(text)
         else:
             click.secho("[-] No core memory set yet.", fg="yellow")
             click.secho(f"    Available slots: {', '.join(CORE_SLOTS)}", fg="bright_black")
