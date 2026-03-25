@@ -284,3 +284,96 @@ class TestVacuousCheckDetection:
         assert not _is_vacuous_check(
             "You corrected the AI 7 times. Every time, it changed what it was doing."
         )
+
+
+class TestSessionSpecificDetection:
+    """Session-specific entries should be detected and penalized in importance."""
+
+    def test_session_tool_usage(self):
+        from divineos.core.memory import _is_session_specific
+
+        assert _is_session_specific(
+            "Session tool usage (128aed6f-8b8): Bash:253, Read:100, Grep:56"
+        )
+
+    def test_session_id_reference(self):
+        from divineos.core.memory import _is_session_specific
+
+        assert _is_session_specific(
+            "Session f95a6c6a: We spent the session getting GitHub CLI installed"
+        )
+
+    def test_exchange_and_tool_counts(self):
+        from divineos.core.memory import _is_session_specific
+
+        assert _is_session_specific(
+            "I had 96 exchanges, made 796 tool calls. I was corrected 3 times."
+        )
+
+    def test_most_frequently_used_tool(self):
+        from divineos.core.memory import _is_session_specific
+
+        assert _is_session_specific(
+            "Most frequently used tool: Bash (107 calls). Consider optimizing."
+        )
+
+    def test_timeless_principle_not_flagged(self):
+        from divineos.core.memory import _is_session_specific
+
+        assert not _is_session_specific("Always read files before editing. No blind edits, ever.")
+
+    def test_timeless_fact_not_flagged(self):
+        from divineos.core.memory import _is_session_specific
+
+        assert not _is_session_specific(
+            "Use SQLite for storage — zero dependencies, embedded, reliable."
+        )
+
+    def test_architecture_observation_not_flagged(self):
+        from divineos.core.memory import _is_session_specific
+
+        assert not _is_session_specific(
+            "The pattern store was using the append-only ledger for mutable state."
+        )
+
+    def test_session_id_as_citation_not_flagged(self):
+        """A session ID in parens at the end is just provenance, not noise."""
+        from divineos.core.memory import _is_session_specific
+
+        assert not _is_session_specific(
+            "I retried a failed action 27x without investigating the cause (session 7015aa770e4d)."
+        )
+
+    def test_this_session_pattern_flagged(self):
+        from divineos.core.memory import _is_session_specific
+
+        assert _is_session_specific(
+            "I showed good honesty this session (session 00a3fe531884). The AI said 'fixed' 54 times."
+        )
+
+    def test_importance_penalty_applied(self):
+        from divineos.core.memory import compute_importance
+
+        # Session-specific FACT should score below 0.3 threshold
+        session_fact = {
+            "knowledge_type": "FACT",
+            "content": "Session tool usage (128aed6f-8b8): Bash:253, Read:100",
+            "confidence": 1.0,
+            "access_count": 20,
+            "source": "SYNTHESIZED",
+        }
+        score = compute_importance(session_fact)
+        assert score < 0.3, f"Session-specific FACT scored {score}, should be < 0.3"
+
+    def test_timeless_fact_scores_above_threshold(self):
+        from divineos.core.memory import compute_importance
+
+        timeless_fact = {
+            "knowledge_type": "FACT",
+            "content": "Use SQLite for storage — zero dependencies, embedded, reliable.",
+            "confidence": 1.0,
+            "access_count": 20,
+            "source": "SYNTHESIZED",
+        }
+        score = compute_importance(timeless_fact)
+        assert score >= 0.3, f"Timeless FACT scored {score}, should be >= 0.3"

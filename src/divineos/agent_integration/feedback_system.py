@@ -30,7 +30,7 @@ def generate_session_feedback(analysis: object) -> SessionFeedback:
     logger.debug(f"Generating feedback for session {session_id[:8]}...")
 
     # Build error list from corrections
-    errors = [c.text for c in corrections] if corrections else []
+    errors = [c.content for c in corrections] if corrections else []
 
     # Build lessons from signals
     lessons = []
@@ -64,8 +64,8 @@ def generate_session_feedback(analysis: object) -> SessionFeedback:
         errors=errors,
         lessons_learned=lessons,
         recommendations=recommendations,
-        improvements=[e.text for e in encouragements] if encouragements else [],
-        regressions=[f.text for f in frustrations] if frustrations else [],
+        improvements=[e.content for e in encouragements] if encouragements else [],
+        regressions=[f.content for f in frustrations] if frustrations else [],
     )
 
 

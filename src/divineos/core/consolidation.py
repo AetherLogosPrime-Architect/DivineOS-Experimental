@@ -520,7 +520,7 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
         # Mark as superseded by a sentinel value — no replacement entry needed
         conn.execute(
             "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
-            (f"REMOVED:{reason[:200]}", knowledge_id),
+            (f"FORGET:{reason[:200]}", knowledge_id),
         )
         conn.commit()
     finally:

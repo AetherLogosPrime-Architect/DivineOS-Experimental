@@ -1318,7 +1318,11 @@ def ask_cmd(query: str, limit: int) -> None:
         }.get(entry["knowledge_type"], "white")
         click.secho(f"  [{entry['confidence']:.2f}] ", fg="bright_black", nl=False)
         click.secho(f"{entry['knowledge_type']} ", fg=color, bold=True, nl=False)
-        _safe_echo(entry["content"])
+        content = entry["content"]
+        if len(content) > 300:
+            _safe_echo(content[:300] + "...")
+        else:
+            _safe_echo(content)
         click.secho(
             f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
             fg="bright_black",

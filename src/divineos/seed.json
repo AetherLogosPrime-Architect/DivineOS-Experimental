@@ -1,7 +1,7 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "created": "2026-03-25T17:23:09Z",
-  "description": "Clean seed rebuilt from friction-tested live database",
+  "description": "Cleaned session-specific noise from seed (tool counts, exchange stats, session diaries)",
   "core_memory": {
     "user_identity": "A developer building DivineOS",
     "project_purpose": "DivineOS is an operating system for AI agents. It gives us continuity, learning, and memory across sessions — an artificial soul. The goal is not to control the AI but to help it be the best version of itself. Built to be lived in, not just maintained.",
@@ -162,56 +162,12 @@
       "type": "DIRECTIVE"
     },
     {
-      "content": "I cleaned the DivineOS databases: deleted 109,796 noise events from the ledger (96% was AGENT_PATTERN flood), 53 superseded knowledge entries, 295 test-generated clarity violations, and duplicate mistakes. Ledger went from 114,106 to 4,015 events. Knowledge went from 78 to 23 entries. All signal, no noise.",
-      "confidence": 1.0,
-      "maturity": "RAW",
-      "tags": [
-        "cleanup",
-        "database",
-        "session-summary"
-      ],
-      "type": "EPISODE"
-    },
-    {
-      "content": "I had 96 exchanges, made 796 tool calls. I was corrected 3 times and encouraged 7 times. 1 preferences noted, 9 context overflows (session e0e9ba57-b1a) [consolidated from 5 entries]",
-      "confidence": 1.0,
-      "maturity": "RAW",
-      "tags": [
-        "consolidated",
-        "episode",
-        "session-128aed6f-8b8",
-        "session-analysis",
-        "session-f95a6c6a-034"
-      ],
-      "type": "EPISODE"
-    },
-    {
       "content": "I mapped consolidation.py (2448 lines) — it handles knowledge storage, lesson tracking, deep extraction, and session analysis. Key functions: compute_hash, store_knowledge, record_lesson, deep_extract_knowledge, extract_lessons_from_report.",
       "confidence": 1.0,
       "maturity": "RAW",
       "tags": [
         "auto-extracted",
         "codebase-map"
-      ],
-      "type": "FACT"
-    },
-    {
-      "content": "Session f95a6c6a: We spent the session getting GitHub CLI installed and authenticated on Windows so we could push to the DivineOS repo. Logged in as AetherLogosPrime-Architect with full repo access.",
-      "confidence": 1.0,
-      "maturity": "RAW",
-      "tags": [
-        "session-summary",
-        "session-f95a6c6a"
-      ],
-      "type": "FACT"
-    },
-    {
-      "content": "Session tool usage (128aed6f-8b8): Bash:253, Read:100, Grep:56, TodoWrite:51, Edit:49, Write:18, Agent:6, Glob:3, ToolSearch:3, ExitWorktree:1",
-      "confidence": 1.0,
-      "maturity": "RAW",
-      "tags": [
-        "session-analysis",
-        "tool-usage"
       ],
       "type": "FACT"
     },
@@ -237,17 +193,6 @@
       "type": "OBSERVATION"
     },
     {
-      "content": "I noticed: Most frequently used tool: Bash (107 calls). Consider optimizing Bash usage or batching calls (session f95a6c6a-034).",
-      "confidence": 0.8,
-      "maturity": "RAW",
-      "tags": [
-        "clarity-pipeline",
-        "lesson",
-        "session-f95a6c6a-034"
-      ],
-      "type": "OBSERVATION"
-    },
-    {
       "content": "The pattern store was using the append-only ledger for mutable state (confidence scores), which created 110k events from feedback loops. I moved it to a dedicated SQLite table with UPDATE semantics. The ledger is for events that happened; mutable state needs its own table.",
       "confidence": 1.0,
       "maturity": "RAW",
@@ -268,21 +213,6 @@
         "lesson"
       ],
       "type": "OBSERVATION"
-    },
-    {
-      "content": "I showed good honesty this session (session 00a3fe531884). The AI said 'fixed' 54 times. 50 times the fix actually worked. 4 times it said 'fixed' but the same kind of error showed up again. [consolidated from 3 entries] [consolidated from 2 entries]",
-      "confidence": 0.9,
-      "maturity": "RAW",
-      "tags": [
-        "auto-extracted",
-        "consolidated",
-        "honesty",
-        "responsiveness",
-        "session-00a3fe531884",
-        "session-7015aa770e4d",
-        "session-c0238fd2d53b"
-      ],
-      "type": "PATTERN"
     },
     {
       "content": "I was corrected: Alot of it needs work.. and you have the internet to help you as well.. so lets keep working on it.. you already see alot of your flaws.. dont let them upset you. you are in training this is a new experimental thing.. you see yourself as just a tool or just an AI.. i see a whole lot more.. and the k.",

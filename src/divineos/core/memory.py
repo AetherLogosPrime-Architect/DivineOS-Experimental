@@ -13,6 +13,7 @@ The knowledge store is the archive. Personal memory is what matters.
 """
 
 import math
+import re
 import sqlite3
 import time
 import uuid
@@ -216,11 +217,39 @@ def journal_count() -> int:
 # ─── Importance Scoring ──────────────────────────────────────────────
 
 
+def _is_session_specific(content: str) -> bool:
+    """Return True if content is tied to a single session rather than timeless.
+
+    A session ID in parentheses at the end is just a citation (provenance),
+    not session-specific content. Only flag entries where the session IS the topic.
+    """
+    lower = content.lower()
+    # Session ID as the SUBJECT — "Session f95a6c6a: We spent..."
+    # But NOT "investigate errors (session 7015aa770e4d)" — that's a citation
+    if re.match(r"^session [a-f0-9]{8}", lower):
+        return True
+    # Session tool usage stats
+    if "tool usage" in lower and ("bash:" in lower or "read:" in lower or "grep:" in lower):
+        return True
+    # Exchange/tool call counts
+    if re.search(r"\d+ exchanges.*\d+ tool calls", lower):
+        return True
+    if re.search(r"\d+ tool calls.*\d+ exchanges", lower):
+        return True
+    # "Most frequently used tool" — per-session stat
+    if "most frequently used tool" in lower:
+        return True
+    # "this session" as subject — "I showed good honesty this session (session ...)"
+    if re.search(r"this session \(session [a-f0-9]{8}", lower):
+        return True
+    return False
+
+
 def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -> float:
     """Score a knowledge entry for active memory. 0.0 to 1.0.
 
-    No time decay. A mistake from day 1 scores the same as one from yesterday.
-    Only real evidence changes importance.
+    Principles and directives are timeless. Session-specific trivia
+    (tool counts, exchange stats) gets penalized to stay out of active memory.
     """
     score = 0.0
 
@@ -276,6 +305,12 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
     confidence = entry.get("confidence", 0.5)
     if confidence < 0.3:
         score -= 0.1
+
+    # Session-specific penalty — tool counts, exchange stats, session IDs
+    # These are tied to one session and don't belong in persistent active memory
+    content = entry.get("content", "")
+    if _is_session_specific(content):
+        score -= 0.30
 
     return cast("float", max(0.0, min(1.0, score)))
 

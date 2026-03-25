@@ -145,6 +145,7 @@ def measure_knowledge_drift(lookback_days: int = 14) -> dict[str, Any]:
             "Vacuous check",
             "Contradictory:",
             "Raw user quote with",
+            "REMOVED:",
         )
         organic_superseded = [
             row
