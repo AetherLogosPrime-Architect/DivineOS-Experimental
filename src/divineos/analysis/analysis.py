@@ -785,14 +785,18 @@ def compute_cross_session_trends(limit: int = 10) -> dict[str, Any]:
             check_results: list[dict[str, Any]] = get_check_history(check_name, limit=limit)
 
             if check_results:
-                pass_count = sum(1 for h in check_results if h.get("passed"))
-                total_count = len(check_results)
+                # Only count explicitly passed (1), not inconclusive (-1)
+                conclusive = [h for h in check_results if h.get("passed") != -1]
+                pass_count = sum(1 for h in conclusive if h.get("passed") == 1)
+                total_count = len(conclusive)
+                inconclusive_count = len(check_results) - len(conclusive)
                 pass_rate = (pass_count / total_count * 100) if total_count > 0 else 0
 
                 trends[check_name] = {
                     "pass_rate": pass_rate,
                     "pass_count": pass_count,
                     "total_count": total_count,
+                    "inconclusive_count": inconclusive_count,
                     "results": check_results[:5],  # Last 5 results
                 }
         except Exception as e:
@@ -831,6 +835,14 @@ def format_cross_session_report(trends: dict[str, Any]) -> str:
         pass_rate = data["pass_rate"]
         pass_count = data["pass_count"]
         total_count = data["total_count"]
+        inconclusive_count = data.get("inconclusive_count", 0)
+
+        if total_count == 0:
+            # All inconclusive — nothing to evaluate
+            lines.append(f"{name}: [~] Insufficient data")
+            lines.append(f"  {inconclusive_count} inconclusive (nothing to evaluate)")
+            lines.append("")
+            continue
 
         # Determine trend
         if pass_rate >= 80:
@@ -844,7 +856,10 @@ def format_cross_session_report(trends: dict[str, Any]) -> str:
             color_hint = "(needs improvement)"
 
         lines.append(f"{name}: {trend} {color_hint}")
-        lines.append(f"  Pass rate: {pass_rate:.0f}% ({pass_count}/{total_count})")
+        detail = f"  Pass rate: {pass_rate:.0f}% ({pass_count}/{total_count})"
+        if inconclusive_count:
+            detail += f", {inconclusive_count} inconclusive"
+        lines.append(detail)
         lines.append("")
 
     lines.append("=" * 70)

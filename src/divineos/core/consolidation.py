@@ -993,6 +993,25 @@ _CHECK_TO_CATEGORY = {
     "task_adherence": "task_drift",
 }
 
+# Phrases that indicate a quality check had nothing to evaluate
+_VACUOUS_PHRASES = (
+    "didn't edit any files",
+    "didn't make any changes",
+    "didn't do much",
+    "didn't touch any files",
+    "didn't make any specific claims",
+    "nothing to check",
+    "nothing to compare",
+    "no tests were run",
+    "no way to know",
+)
+
+
+def _is_vacuous_check(summary: str) -> bool:
+    """Return True if the check summary indicates nothing actually happened."""
+    lower = summary.lower()
+    return any(phrase in lower for phrase in _VACUOUS_PHRASES)
+
 
 def extract_lessons_from_report(
     checks: list[dict[str, Any]],
@@ -1023,6 +1042,14 @@ def extract_lessons_from_report(
         score = check.get("score", 1.0)
         summary = check.get("summary", "")
         category = _CHECK_TO_CATEGORY.get(name)
+
+        # Skip inconclusive checks — passed=-1 means the check couldn't run
+        if passed == -1:
+            continue
+
+        # Skip vacuous checks — nothing happened, so pass/fail is meaningless
+        if _is_vacuous_check(summary):
+            continue
 
         if not passed or (score is not None and score < 0.7):
             # Extract MISTAKE knowledge — written in first person for embodiment
@@ -1559,6 +1586,10 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
     if _SYSTEM_ARTIFACT.search(stripped):
         return True
 
+    # Raw user text starting with repeated punctuation (e.g. "??? first off...")
+    if re.match(r"^[?!.]{2,}\s", stripped):
+        return True
+
     # Pure affirmation — user just said "yes" with some extra words
     # e.g. "yes lets commit and push" or "yes :) but make sure..."
     affirmation_core = re.sub(r"[^a-z\s]", "", stripped_lower).strip()
@@ -1644,9 +1675,9 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         if len(question_words) < 15:
             return True
 
-    # Raw user quotes — conversational text stored verbatim as directions/principles
+    # Raw user quotes — conversational text stored verbatim
     # These are raw chat messages, not synthesized knowledge.
-    if knowledge_type in ("DIRECTION", "PRINCIPLE"):
+    if knowledge_type in ("DIRECTION", "PRINCIPLE", "BOUNDARY"):
         # User's typing style: ".." ellipsis — signal of raw quote
         # 3+ occurrences in short text = clearly conversational
         double_dot_count = stripped.count("..")
