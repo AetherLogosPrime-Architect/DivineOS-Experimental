@@ -1109,6 +1109,11 @@ def learn(
         click.secho("[-] Content is required. Pass as argument or --content.", fg="red")
         raise SystemExit(1)
 
+    words = content.split()
+    if len(words) < 3:
+        click.secho("[-] Knowledge must be at least 3 words. Too short to be meaningful.", fg="red")
+        raise SystemExit(1)
+
     if not knowledge_type:
         knowledge_type, classify_reason = _auto_classify(content)
         click.secho(f"[~] Auto-classified as: {knowledge_type} ({classify_reason})", fg="cyan")
