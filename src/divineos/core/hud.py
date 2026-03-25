@@ -58,6 +58,7 @@ SLOT_ORDER = [
     "context_budget",
     "active_knowledge",
     "warnings",
+    "journal",
     "task_state",
 ]
 
@@ -377,6 +378,25 @@ def _build_task_state_slot() -> str:
     return "\n".join(lines)
 
 
+def _build_journal_slot() -> str:
+    """Recent personal journal entries — things I chose to remember."""
+    try:
+        from divineos.core.memory import journal_count, journal_list
+
+        count = journal_count()
+        if count == 0:
+            return ""  # Don't show empty slot
+
+        entries = journal_list(limit=3)
+        lines = [f"# My Journal ({count} entries)\n"]
+        for entry in entries:
+            content = entry["content"][:120]
+            lines.append(f"- {content}")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -389,6 +409,7 @@ SLOT_BUILDERS = {
     "active_knowledge": _build_active_knowledge_slot,
     "warnings": _build_warnings_slot,
     "task_state": _build_task_state_slot,
+    "journal": _build_journal_slot,
 }
 
 
@@ -411,7 +432,8 @@ def build_hud(slots: list[str] | None = None) -> str:
             continue
         try:
             content = builder()
-            sections.append(content)
+            if content:  # Skip empty slots (e.g. journal when no entries)
+                sections.append(content)
         except Exception as e:
             logger.debug(f"HUD slot '{name}' failed: {e}")
             sections.append(f"# {name.replace('_', ' ').title()}\n\n[Error loading slot]")

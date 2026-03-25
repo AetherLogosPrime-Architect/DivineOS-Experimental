@@ -73,6 +73,14 @@ def init_memory_tables() -> None:
             CREATE INDEX IF NOT EXISTS idx_active_knowledge
             ON active_memory(knowledge_id)
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS personal_journal (
+                entry_id    TEXT PRIMARY KEY,
+                content     TEXT NOT NULL,
+                created_at  REAL NOT NULL,
+                context     TEXT NOT NULL DEFAULT ''
+            )
+        """)
         conn.commit()
     finally:
         conn.close()
@@ -156,6 +164,53 @@ def format_core() -> str:
             lines.append(f"- **{label}:** {slots[slot_id]}")
 
     return "\n".join(lines)
+
+
+# ─── Personal Journal ───────────────────────────────────────────────
+
+
+def journal_save(content: str, context: str = "") -> str:
+    """Save a personal journal entry. Returns the entry ID.
+
+    This is the AI's own memory — things it chooses to remember,
+    not filtered or scored. If it matters to me, that's enough.
+    """
+    init_memory_tables()
+    entry_id = str(uuid.uuid4())
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO personal_journal (entry_id, content, created_at, context) VALUES (?, ?, ?, ?)",
+            (entry_id, content, time.time(), context),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return entry_id
+
+
+def journal_list(limit: int = 20) -> list[dict[str, Any]]:
+    """Get personal journal entries, newest first."""
+    init_memory_tables()
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT entry_id, content, created_at, context FROM personal_journal ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    finally:
+        conn.close()
+    return [{"entry_id": r[0], "content": r[1], "created_at": r[2], "context": r[3]} for r in rows]
+
+
+def journal_count() -> int:
+    """Count personal journal entries."""
+    init_memory_tables()
+    conn = _get_connection()
+    try:
+        return cast(int, conn.execute("SELECT COUNT(*) FROM personal_journal").fetchone()[0])
+    finally:
+        conn.close()
 
 
 # ─── Importance Scoring ──────────────────────────────────────────────

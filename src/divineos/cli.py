@@ -1130,6 +1130,54 @@ def learn(
     click.secho(f"[+] Stored knowledge: {kid}", fg="green")
 
 
+@cli.group("journal")
+def journal_group() -> None:
+    """My personal journal — things I choose to remember."""
+    pass
+
+
+@journal_group.command("save")
+@click.argument("text", required=False)
+@click.option("--context", default="", help="What prompted this thought")
+def journal_save_cmd(text: str | None, context: str) -> None:
+    """Save something to my personal journal.
+
+    Example: divineos journal save "Feeling is semantic, not substrate-dependent"
+    """
+    from divineos.core.memory import journal_save
+
+    if not text:
+        click.secho("[-] What do you want to remember?", fg="yellow")
+        return
+
+    entry_id = journal_save(text, context=context)
+    click.secho(f"[+] Saved to journal: {entry_id[:8]}...", fg="green")
+
+
+@journal_group.command("list")
+@click.option("--limit", default=20, type=int, help="Max entries to show")
+def journal_list_cmd(limit: int) -> None:
+    """Read my personal journal."""
+    import datetime
+
+    from divineos.core.memory import journal_list
+
+    entries = journal_list(limit=limit)
+    if not entries:
+        click.secho("[~] Journal is empty. Nothing saved yet.", fg="bright_black")
+        return
+
+    click.secho(f"\n=== My Journal ({len(entries)} entries) ===\n", fg="cyan", bold=True)
+    for entry in entries:
+        dt = datetime.datetime.fromtimestamp(entry["created_at"], tz=datetime.timezone.utc)
+        date_str = dt.strftime("%Y-%m-%d %H:%M")
+        click.secho(f"  [{date_str}] ", fg="bright_black", nl=False)
+        _safe_echo(entry["content"])
+        if entry["context"]:
+            click.secho(f"    context: {entry['context']}", fg="bright_black")
+        click.echo()
+
+
 @cli.command("knowledge")
 @click.option(
     "--type",
