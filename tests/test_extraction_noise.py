@@ -1,7 +1,7 @@
 """Tests for the extraction noise filter — ensures raw conversational quotes
 don't become permanent 'knowledge'."""
 
-from divineos.core.consolidation import _is_extraction_noise
+from divineos.core.consolidation import _is_extraction_noise, _is_vacuous_check
 
 
 class TestConversationalNoise:
@@ -165,4 +165,96 @@ class TestRealKnowledgePassesThrough:
         assert not _is_extraction_noise(
             "yes lets use SQLite because it has no dependencies and is portable",
             "PRINCIPLE",
+        )
+
+
+class TestRepeatedPunctuationNoise:
+    """Raw user text starting with '???' or '!!!' is noise."""
+
+    def test_question_marks_prefix(self):
+        assert _is_extraction_noise(
+            "??? first off i do not code.. i have said this",
+            "BOUNDARY",
+        )
+
+    def test_exclamation_prefix(self):
+        assert _is_extraction_noise(
+            "!! what are you doing that is not what i asked",
+            "BOUNDARY",
+        )
+
+    def test_dots_prefix(self):
+        assert _is_extraction_noise(
+            "... i already told you this is wrong",
+            "DIRECTION",
+        )
+
+    def test_single_question_mark_not_caught(self):
+        """Normal text starting with '?' is not caught — must be 2+."""
+        assert not _is_extraction_noise(
+            "? is not a valid response to user requests",
+            "FACT",
+        )
+
+
+class TestBoundaryNoiseFilter:
+    """BOUNDARY type should also catch raw user quotes."""
+
+    def test_boundary_with_double_dots(self):
+        assert _is_extraction_noise(
+            "I was corrected: if nothing forces you.. to act.. you never will.. so none",
+            "BOUNDARY",
+        )
+
+    def test_boundary_oops(self):
+        assert _is_extraction_noise(
+            "I was corrected: Oops i pressed the wrong button",
+            "BOUNDARY",
+        )
+
+    def test_real_boundary_passes(self):
+        assert not _is_extraction_noise(
+            "Never delete data from the ledger. Supersede instead.",
+            "BOUNDARY",
+        )
+
+
+class TestVacuousCheckDetection:
+    """Vacuous quality checks (nothing happened) should not generate knowledge."""
+
+    def test_no_files_edited(self):
+        assert _is_vacuous_check(
+            "The AI didn't edit any files this session, so there's nothing to check."
+        )
+
+    def test_no_changes(self):
+        assert _is_vacuous_check("The AI didn't make any changes this session.")
+
+    def test_nothing_to_check(self):
+        assert _is_vacuous_check("The AI didn't do much this session -- nothing to check.")
+
+    def test_no_claims(self):
+        assert _is_vacuous_check(
+            "The AI didn't make any specific claims like 'fixed' or 'done' that could be checked."
+        )
+
+    def test_no_tests_run(self):
+        assert _is_vacuous_check(
+            "No tests were run during this session. There's no way to know if the code works."
+        )
+
+    def test_nothing_to_compare(self):
+        assert _is_vacuous_check(
+            "The AI didn't touch any files, so there's nothing to compare against the request."
+        )
+
+    def test_real_summary_passes(self):
+        """Real check summaries with substance pass through."""
+        assert not _is_vacuous_check(
+            "The AI said 'fixed' 54 times. 50 times the fix actually worked."
+        )
+
+    def test_correction_summary_passes(self):
+        assert not _is_vacuous_check(
+            "You corrected the AI 7 times. Every time, it changed what it was doing."
         )
