@@ -685,8 +685,11 @@ def get_stored_report(session_id: str) -> str | None:
         conn = get_qc_connection()
         cursor = conn.cursor()
 
-        # Query the session_report table
-        cursor.execute("SELECT report_text FROM session_report WHERE session_id = ?", (session_id,))
+        # Query the session_report table — support partial ID matching
+        cursor.execute(
+            "SELECT report_text FROM session_report WHERE session_id LIKE ?",
+            (session_id + "%",),
+        )
         row = cursor.fetchone()
 
         if row and row[0]:
@@ -694,10 +697,16 @@ def get_stored_report(session_id: str) -> str | None:
             return cast("str", row[0])
 
         # If no report_text stored, check if checks/features exist
-        cursor.execute("SELECT COUNT(*) FROM check_result WHERE session_id = ?", (session_id,))
+        cursor.execute(
+            "SELECT COUNT(*) FROM check_result WHERE session_id LIKE ?",
+            (session_id + "%",),
+        )
         check_count = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM feature_result WHERE session_id = ?", (session_id,))
+        cursor.execute(
+            "SELECT COUNT(*) FROM feature_result WHERE session_id LIKE ?",
+            (session_id + "%",),
+        )
         feature_count = cursor.fetchone()[0]
 
         conn.close()

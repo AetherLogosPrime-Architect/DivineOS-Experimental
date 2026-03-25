@@ -232,7 +232,6 @@ class ErrorRecoveryEntry:
 
 def _classify_tone(text: str) -> str:
     """Classify a user message as positive, negative, or neutral."""
-    text.lower()
 
     positive = _detect_signals(text, ENCOURAGEMENT_PATTERNS, "pos", "")
     negative_correction = _detect_signals(text, CORRECTION_PATTERNS, "neg", "")

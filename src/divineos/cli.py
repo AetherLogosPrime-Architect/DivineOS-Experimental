@@ -356,19 +356,6 @@ def _run_session_end_pipeline() -> None:
         has_session = len(existing) > 0
 
         if not has_session:
-            if analysis.tool_usage:
-                top_tools = sorted(analysis.tool_usage.items(), key=lambda x: x[1], reverse=True)[
-                    :10
-                ]
-                tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
-                _wrapped_store_knowledge(
-                    knowledge_type="FACT",
-                    content=f"I used these tools most: {tool_summary} (session {analysis.session_id[:12]})",
-                    confidence=1.0,
-                    tags=["session-analysis", "tool-usage", session_tag],
-                )
-                stored += 1
-
             corrections = len(analysis.corrections)
             encouragements = len(analysis.encouragements)
             _wrapped_store_knowledge(
@@ -1895,18 +1882,6 @@ def scan_cmd(file_path: str, store: bool, deep: bool) -> None:
             )
             stored += 1
 
-    # Store tool usage pattern as FACT (both modes)
-    if analysis.tool_usage:
-        top_tools = sorted(analysis.tool_usage.items(), key=lambda x: x[1], reverse=True)[:10]
-        tool_summary = ", ".join(f"{n}:{c}" for n, c in top_tools)
-        _wrapped_store_knowledge(
-            knowledge_type="FACT",
-            content=f"I used these tools most: {tool_summary} (session {analysis.session_id[:12]})",
-            confidence=1.0,
-            tags=["session-analysis", "tool-usage"],
-        )
-        stored += 1
-
     # Store session summary as EPISODE
     corrections = len(analysis.corrections)
     encouragements = len(analysis.encouragements)
@@ -2684,16 +2659,8 @@ def report_cmd(session_id: str) -> None:
                 click.echo()
                 return
 
-            # Filter out test sessions (0 files touched = likely test data)
-            real_sessions = [s for s in sessions if s["file_count"] > 0]
-            if not real_sessions:
-                click.secho("\n[-] No real analyzed sessions found yet.", fg="yellow")
-                click.secho(
-                    "    Run 'divineos analyze <file.jsonl>' to analyze a session.",
-                    fg="bright_black",
-                )
-                click.echo()
-                return
+            # Show all sessions — some may have 0 files if analyzed from ledger
+            real_sessions = sessions
 
             click.secho(f"\n=== {len(real_sessions)} Analyzed Sessions ===\n", fg="cyan", bold=True)
             for i, session in enumerate(real_sessions, 1):
