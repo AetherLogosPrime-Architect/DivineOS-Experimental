@@ -28,6 +28,7 @@ from divineos.core.consolidation import (
     extract_session_topics,
     store_knowledge_smart,
     deep_extract_knowledge,
+    supersede_knowledge,
     consolidate_related,
     record_access,
     _adjust_confidence,
@@ -129,6 +130,21 @@ class TestSearchKnowledge:
         store_knowledge("PREFERENCE", "use ruff for linting", tags=["tooling", "linting"])
         results = search_knowledge("tooling")
         assert len(results) == 1
+
+    def test_natural_language_query(self):
+        """Multi-word natural language queries should find partial matches."""
+        store_knowledge("FACT", "The noise filter prevents junk from entering knowledge")
+        store_knowledge("FACT", "SQLite uses WAL mode for concurrency")
+        results = search_knowledge("what does the noise filter do")
+        assert len(results) >= 1
+        assert any("noise" in r["content"] for r in results)
+
+    def test_two_word_or_query(self):
+        """Two unrelated keywords should match entries containing either."""
+        store_knowledge("FACT", "Bash is the most used tool")
+        store_knowledge("FACT", "pytest runs all tests quickly")
+        results = search_knowledge("Bash pytest")
+        assert len(results) == 2
 
 
 class TestUpdateKnowledge:
@@ -650,6 +666,21 @@ class TestStoreKnowledgeSmart:
         kid1 = store_knowledge_smart("FACT", "testing is important for code quality")
         kid2 = store_knowledge_smart("MISTAKE", "testing is important for code quality")
         assert kid1 != kid2
+
+    def test_superseded_content_not_resurrected(self):
+        """store_knowledge_smart must not re-create content that was superseded."""
+        kid1 = store_knowledge_smart("FACT", "This fact will be retired soon enough")
+        assert kid1  # Created
+
+        supersede_knowledge(kid1, reason="No longer true")
+
+        # Try to store the exact same content again
+        kid2 = store_knowledge_smart("FACT", "This fact will be retired soon enough")
+        assert kid2 == ""  # Blocked — empty string means skipped
+
+        # Verify only the superseded entry exists, no new active one
+        active = get_knowledge(knowledge_type="FACT")
+        assert not any("retired soon" in e["content"] for e in active)
 
 
 # ─── Deep Extraction Tests ────────────────────────────────────────────

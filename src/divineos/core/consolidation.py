@@ -314,13 +314,93 @@ def get_knowledge(
         conn.close()
 
 
+_FTS_STOPWORDS = frozenset(
+    {
+        "the",
+        "and",
+        "are",
+        "was",
+        "for",
+        "what",
+        "how",
+        "who",
+        "why",
+        "when",
+        "where",
+        "which",
+        "does",
+        "that",
+        "this",
+        "with",
+        "from",
+        "have",
+        "has",
+        "had",
+        "not",
+        "but",
+        "can",
+        "will",
+        "about",
+        "its",
+        "is",
+        "it",
+        "be",
+        "do",
+        "did",
+        "been",
+        "being",
+        "there",
+        "their",
+        "they",
+        "them",
+        "than",
+        "then",
+        "these",
+        "those",
+        "into",
+        "our",
+        "you",
+        "your",
+        "we",
+        "my",
+        "me",
+        "of",
+        "in",
+        "on",
+        "to",
+        "a",
+        "an",
+    }
+)
+
+
+def _build_fts_query(query: str) -> str:
+    """Convert natural language query into FTS5 OR-based search.
+
+    Strips stopwords and joins meaningful terms with OR so partial
+    matches still return results. Single-word queries pass through as-is.
+    """
+    words = [
+        w
+        for w in re.sub(r"[^a-zA-Z0-9\s]", "", query).lower().split()
+        if w not in _FTS_STOPWORDS and len(w) > 1
+    ]
+    if not words:
+        return query
+    if len(words) == 1:
+        return words[0]
+    return " OR ".join(words)
+
+
 def search_knowledge(query: str, limit: int = 50) -> list[dict[str, Any]]:
     """Search knowledge using FTS5 full-text search with BM25 relevance ranking.
 
     Falls back to LIKE-based search if FTS5 table doesn't exist yet.
     BM25 weights: content=10.0, tags=5.0, type=1.0 (lower score = better match).
     Porter stemmer means 'running' matches 'run', 'tests' matches 'test', etc.
+    Natural language queries are converted to OR-based search so partial matches work.
     """
+    fts_query = _build_fts_query(query)
     conn = _get_connection()
     try:
         query_str = f"""SELECT {_KNOWLEDGE_COLS_K}
@@ -330,7 +410,7 @@ def search_knowledge(query: str, limit: int = 50) -> list[dict[str, Any]]:
                  AND k.superseded_by IS NULL
                ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
                LIMIT ?"""  # nosec B608 - column names are hardcoded constants
-        rows = conn.execute(query_str, (query, limit)).fetchall()
+        rows = conn.execute(query_str, (fts_query, limit)).fetchall()
         return [_row_to_dict(row) for row in rows]
     except sqlite3.OperationalError:
         # FTS table doesn't exist yet — fall back to LIKE search
@@ -1656,14 +1736,23 @@ def store_knowledge_smart(
     content_hash = compute_hash(content)
     conn = _get_connection()
     try:
-        existing = conn.execute(
-            "SELECT knowledge_id, knowledge_type FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
+        # Check ALL entries with this hash (active AND superseded)
+        all_with_hash = conn.execute(
+            "SELECT knowledge_id, knowledge_type, superseded_by FROM knowledge WHERE content_hash = ?",
             (content_hash,),
-        ).fetchone()
-        if existing and existing[1] == knowledge_type:
+        ).fetchall()
+
+        for kid, ktype, superseded_by in all_with_hash:
+            if ktype != knowledge_type:
+                continue
+            if superseded_by is not None:
+                # This exact content was previously superseded — don't resurrect it
+                logger.debug(f"Skipping superseded duplicate: {content[:60]}")
+                return ""
+            # Active exact match — bump access count
             conn.execute(
                 "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
-                (time.time(), existing[0]),
+                (time.time(), kid),
             )
             conn.commit()
             # Exact match = corroboration
@@ -1673,11 +1762,11 @@ def store_knowledge_smart(
                     promote_maturity,
                 )
 
-                increment_corroboration(str(existing[0]))
-                promote_maturity(str(existing[0]))
+                increment_corroboration(str(kid))
+                promote_maturity(str(kid))
             except Exception as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
-            return str(existing[0])
+            return str(kid)
 
         # Find best fuzzy match via FTS5
         best_match: dict[str, Any] | None = None
