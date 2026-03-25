@@ -168,6 +168,32 @@ class TestRealKnowledgePassesThrough:
         )
 
 
+class TestLongAffirmationNoise:
+    """Long affirmations with generic words are still noise."""
+
+    def test_continue_the_hunt(self):
+        """User encouragement is noise, not knowledge."""
+        assert _is_extraction_noise(
+            "I was corrected: Yes so lets continue the hunt :) until we can "
+            "find nothing wrong then we can build more stuff for you :)",
+            "PRINCIPLE",
+        )
+
+    def test_keep_going_with_generic_words(self):
+        assert _is_extraction_noise(
+            "I decided: yes lets keep going and find more things to work on",
+            "PRINCIPLE",
+        )
+
+    def test_real_knowledge_with_specifics_passes(self):
+        """Knowledge with specific technical terms passes through."""
+        assert not _is_extraction_noise(
+            "I was corrected: yes but the SQLite WAL mode prevents concurrent "
+            "write conflicts and we should enable busy_timeout for robustness",
+            "PRINCIPLE",
+        )
+
+
 class TestRepeatedPunctuationNoise:
     """Raw user text starting with '???' or '!!!' is noise."""
 
