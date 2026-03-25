@@ -497,8 +497,22 @@ def recall(context_hint: str = "") -> dict[str, Any]:
     }
 
 
+_TYPOGRAPHIC_REPLACEMENTS: dict[str, str] = {
+    "\u2014": "--",  # em-dash
+    "\u2013": "-",  # en-dash
+    "\u2018": "'",  # left single quote
+    "\u2019": "'",  # right single quote
+    "\u201c": '"',  # left double quote
+    "\u201d": '"',  # right double quote
+    "\u2026": "...",  # ellipsis
+    "\u2022": "*",  # bullet
+}
+
+
 def _safe_text(text: str) -> str:
-    """Strip characters that can't be displayed on the current terminal."""
+    """Replace typographic characters with ASCII equivalents."""
+    for fancy, plain in _TYPOGRAPHIC_REPLACEMENTS.items():
+        text = text.replace(fancy, plain)
     return text.encode("ascii", errors="replace").decode("ascii")
 
 
