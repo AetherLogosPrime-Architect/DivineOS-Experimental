@@ -828,18 +828,22 @@ def get_cross_session_summary(limit: int = 10) -> str:
             return "Only 1 session analyzed so far. Need 2+ sessions to spot patterns."
 
         # Get pass/fail trends per check
+        # Exclude inconclusive from score average: passed=-1 (correct) or
+        # passed=1 with score=0.0 (bug: -1 was truthy, stored as 1)
         check_stats = conn.execute(
             "SELECT check_name, "
-            "SUM(CASE WHEN passed = 1 THEN 1 ELSE 0 END) as passes, "
+            "SUM(CASE WHEN passed = 1 AND score > 0 THEN 1 ELSE 0 END) as passes, "
             "SUM(CASE WHEN passed = 0 THEN 1 ELSE 0 END) as fails, "
-            "SUM(CASE WHEN passed = -1 THEN 1 ELSE 0 END) as inconclusive, "
-            "ROUND(AVG(score), 2) as avg_score "
+            "SUM(CASE WHEN passed = -1 OR (passed = 1 AND score = 0.0) THEN 1 ELSE 0 END) as inconclusive, "
+            "ROUND(AVG(CASE WHEN passed != -1 AND NOT (passed = 1 AND score = 0.0) THEN score END), 2) as avg_score "
             "FROM check_result GROUP BY check_name ORDER BY avg_score ASC",
         ).fetchall()
 
         parts: list[str] = [f"Patterns across {session_count} sessions:\n"]
 
         for check_name, passes, fails, inconclusive, avg_score in check_stats:
+            if avg_score is None:
+                avg_score = 0.0  # All inconclusive
             if fails > passes:
                 verdict = "struggling"
             elif fails == 0:
@@ -852,9 +856,9 @@ def get_cross_session_summary(limit: int = 10) -> str:
                 f"(avg {avg_score}, {passes} passed, {fails} failed, {inconclusive} inconclusive)",
             )
 
-        # Identify the biggest problem
+        # Identify the biggest problem — only flag if there are actual failures
         worst = check_stats[0] if check_stats else None
-        if worst and worst[4] < 0.7:
+        if worst and worst[2] > 0 and worst[4] is not None and worst[4] < 0.7:
             parts.append(
                 f"\nBiggest concern: {worst[0]} (average score {worst[4]}). "
                 f"Failed in {worst[2]} out of {session_count} sessions.",

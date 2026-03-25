@@ -400,11 +400,9 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
                     if hasattr(check, "check_name")
                     else check.get("check_name", "unknown")
                 )
-                passed = (
-                    1
-                    if (check.passed if hasattr(check, "passed") else check.get("passed", False))
-                    else 0
-                )
+                raw_passed = check.passed if hasattr(check, "passed") else check.get("passed", 0)
+                # Preserve -1 (inconclusive), 0 (failed), 1 (passed)
+                passed = int(raw_passed) if raw_passed in (-1, 0, 1) else (1 if raw_passed else 0)
                 score = check.score if hasattr(check, "score") else check.get("score", 0.0)
                 summary = check.summary if hasattr(check, "summary") else check.get("summary", "")
                 evidence_hash = (
