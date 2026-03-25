@@ -709,10 +709,22 @@ def get_stored_report(session_id: str) -> str | None:
         )
         feature_count = cursor.fetchone()[0]
 
-        conn.close()
-
         if check_count > 0 or feature_count > 0:
-            return f"Session {session_id}: Analysis stored"
+            # Build a summary from stored check results
+            parts = [f"Session {session_id}: {check_count} checks, {feature_count} features\n"]
+            if check_count > 0:
+                checks = cursor.execute(
+                    "SELECT check_name, passed, score FROM check_result WHERE session_id LIKE ?",
+                    (session_id + "%",),
+                ).fetchall()
+                parts.append("Quality Checks:")
+                for name, passed, score in checks:
+                    status = "PASS" if passed else "FAIL"
+                    parts.append(f"  [{status}] {name}: {score:.2f}")
+            conn.close()
+            return "\n".join(parts)
+
+        conn.close()
 
         return None
     except Exception as e:
