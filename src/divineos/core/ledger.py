@@ -39,7 +39,7 @@ logger.add(
     sys.stdout,
     colorize=True,
     format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{message}</cyan>",
-    level="INFO",
+    level="WARNING",
 )
 
 _LOG_DIR = Path(__file__).parent.parent.parent / "logs"

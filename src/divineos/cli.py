@@ -984,11 +984,8 @@ def log_cmd(event_type: str, actor: str, content: str) -> None:
         parsed = json.loads(content)
         if isinstance(parsed, dict):
             payload = parsed
-    except (json.JSONDecodeError, TypeError) as e:
-        logger.warning(
-            f"Failed to parse content as JSON, using raw content: {e}",
-            exc_info=True,
-        )
+    except (json.JSONDecodeError, TypeError):
+        pass  # Plain text content — no need to warn
 
     event_id = _wrapped_log_event(
         event_type=event_type.upper(),
