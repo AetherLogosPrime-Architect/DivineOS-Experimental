@@ -909,24 +909,39 @@ def verify(skip_types: tuple[str, ...], real_only: bool) -> None:
 
 
 @cli.command()
-def clean() -> None:
+@click.option("--force", is_flag=True, help="Skip confirmation prompt")
+def clean(force: bool) -> None:
     """Remove corrupted events from the ledger."""
-    logger.info("Cleaning corrupted events from ledger...")
+    from divineos.core.ledger import verify_all_events
+
+    result = verify_all_events()
+    corrupted = result.get("failures", [])
+
+    if not corrupted:
+        click.secho("[+] No corrupted events found. Ledger is clean.", fg="green")
+        return
+
+    click.secho(f"\n[!] Found {len(corrupted)} corrupted events:", fg="yellow")
+    for f in corrupted[:5]:
+        click.echo(f"  - {f.get('event_id', '?')[:12]}  {f.get('reason', 'hash mismatch')}")
+    if len(corrupted) > 5:
+        click.echo(f"  ... and {len(corrupted) - 5} more")
+
+    if not force:
+        click.confirm("\nDelete these corrupted events?", abort=True)
 
     result = _wrapped_clean_corrupted_events()
 
     click.secho("\n=== Ledger Cleanup ===\n", fg="cyan", bold=True)
-    click.echo(f"  Deleted corrupted events: {result['deleted_count']}")
-
     if result["deleted_count"] > 0:
         click.secho(
-            f"\n  Removed {result['deleted_count']} corrupted events",
+            f"  Removed {result['deleted_count']} corrupted events",
             fg="green",
             bold=True,
         )
         click.echo("\n  Run 'divineos verify' to confirm ledger integrity")
     else:
-        click.secho("\n  No corrupted events found", fg="green", bold=True)
+        click.secho("  No corrupted events found", fg="green", bold=True)
 
 
 @cli.command("export")
@@ -1509,7 +1524,7 @@ def directive_edit_cmd(name: str, link_number: int, new_text: str) -> None:
     entries = get_knowledge(knowledge_type="DIRECTIVE", limit=100)
     target = None
     for entry in entries:
-        if f"directive:{name}" in entry.get("tags", ""):
+        if f"directive:{name}" in entry.get("tags", []):
             target = entry
             break
 
@@ -1518,11 +1533,14 @@ def directive_edit_cmd(name: str, link_number: int, new_text: str) -> None:
         return
 
     # Parse existing chain
-    content_lines = target["content"].splitlines()
+    content_lines = target.get("content", "").splitlines()
+    if not content_lines:
+        click.secho(f"[-] Directive '{name}' has empty content — cannot edit.", fg="red")
+        return
     header = content_lines[0]
     links = [line.strip() for line in content_lines[1:] if line.strip()]
 
-    if link_number < 1 or link_number > len(links):
+    if not links or link_number < 1 or link_number > len(links):
         click.secho(f"[-] Link {link_number} out of range (1-{len(links)})", fg="red")
         return
 
@@ -1643,7 +1661,7 @@ def digest_cmd(file_path: str, chunk_size: int) -> None:
         superseded = 0
         for entry in existing:
             if entry.get("knowledge_type") == "FACT" and f"digest:{file_tag}" in entry.get(
-                "tags", ""
+                "tags", []
             ):
                 from divineos.core.consolidation import supersede_knowledge
 
@@ -1749,6 +1767,21 @@ def lessons_cmd(status: str) -> None:
 @cli.command("clear-lessons")
 def clear_lessons_cmd() -> None:
     """Wipe all lessons from lesson_tracking (for re-extraction after fixes)."""
+    from divineos.core.consolidation import get_lessons
+
+    active = get_lessons(status="active")
+    improving = get_lessons(status="improving")
+    total = len(active) + len(improving)
+    if not total:
+        click.secho("[*] No lessons to clear.", fg="yellow")
+        return
+
+    click.secho(
+        f"[!] This will delete {total} lessons ({len(active)} active, {len(improving)} improving).",
+        fg="yellow",
+    )
+    click.confirm("Proceed?", abort=True)
+
     count = _wrapped_clear_lessons()
     if count:
         click.secho(f"[+] Cleared {count} lessons.", fg="green")
@@ -1995,6 +2028,7 @@ def core_cmd(action: str, slot: str | None, content: str | None) -> None:
             click.secho(f"[+] Core memory '{slot}' updated.", fg="green")
         except ValueError as e:
             click.secho(f"[-] {e}", fg="red")
+            click.secho(f"    Available slots: {', '.join(CORE_SLOTS)}", fg="bright_black")
 
     elif action == "clear":
         if not slot:
@@ -2007,6 +2041,7 @@ def core_cmd(action: str, slot: str | None, content: str | None) -> None:
                 click.secho(f"[*] '{slot}' was already empty.", fg="yellow")
         except ValueError as e:
             click.secho(f"[-] {e}", fg="red")
+            click.secho(f"    Available slots: {', '.join(CORE_SLOTS)}", fg="bright_black")
 
     else:
         click.secho(f"[-] Unknown action '{action}'. Use: show, set, clear, slots", fg="red")
@@ -2118,6 +2153,14 @@ def migrate_types_cmd(execute: bool) -> None:
     if dry_run:
         click.secho("\n=== Migration Preview (dry run) ===\n", fg="cyan", bold=True)
     else:
+        # Preview first so user sees what will change
+        preview = _wrapped_migrate_knowledge_types(dry_run=True)
+        if not preview:
+            click.secho("\n  No entries to migrate.", fg="bright_black")
+            click.echo()
+            return
+        click.secho(f"\n[!] This will reclassify {len(preview)} knowledge entries.", fg="yellow")
+        click.confirm("Proceed?", abort=True)
         click.secho("\n=== Migrating Knowledge Types ===\n", fg="yellow", bold=True)
 
     changes = _wrapped_migrate_knowledge_types(dry_run=dry_run)
