@@ -19,9 +19,28 @@ class ConfidenceLevel(Enum):
 class SemanticAnalyzer:
     """Analyzes semantic relationships between tools and context."""
 
-    # Tool purpose mappings
+    # Tool purpose mappings (Claude Code + legacy VS Code/Kiro names)
     TOOL_PURPOSES: Dict[str, List[str]] = {
-        # Read tools
+        # Claude Code tools
+        "Read": [
+            "read",
+            "view",
+            "check",
+            "examine",
+            "look at",
+            "see",
+            "get",
+            "retrieve",
+            "fetch",
+            "content",
+        ],
+        "Edit": ["edit", "modify", "change", "update", "fix", "refactor", "replace", "correct"],
+        "Write": ["write", "create", "generate", "make", "new", "file"],
+        "Bash": ["run", "execute", "test", "build", "compile", "check", "command", "shell"],
+        "Glob": ["find", "search", "list", "files", "pattern", "match"],
+        "Grep": ["search", "find", "grep", "content", "pattern", "match"],
+        "Agent": ["delegate", "research", "explore", "investigate"],
+        # Legacy read tools
         "readFile": [
             "read",
             "view",
@@ -57,17 +76,15 @@ class SemanticAnalyzer:
             "files",
         ],
         "getDiagnostics": ["check", "diagnose", "error", "problem", "issue", "validate", "verify"],
-        # Write tools
+        # Legacy write tools
         "fsWrite": ["write", "create", "generate", "make", "new", "file"],
         "fsAppend": ["append", "add", "extend", "update", "modify"],
         "strReplace": ["replace", "change", "modify", "update", "fix", "correct"],
         "editCode": ["edit", "modify", "change", "update", "fix", "refactor"],
-        # Delete tools
+        # Legacy other tools
         "deleteFile": ["delete", "remove", "clean", "clear"],
-        # Rename tools
         "semanticRename": ["rename", "change name", "refactor"],
         "smartRelocate": ["move", "relocate", "reorganize", "refactor"],
-        # Execute tools
         "executePwsh": ["run", "execute", "test", "build", "compile", "check"],
         "executeCommand": ["run", "execute", "test", "build", "compile", "check"],
     }

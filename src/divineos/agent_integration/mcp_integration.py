@@ -1,6 +1,6 @@
-"""MCP Integration Layer for Kiro Agent Tool Capture.
+"""MCP Integration Layer for Agent Tool Capture.
 
-Intercepts Kiro agent tool calls at the MCP protocol layer and automatically
+Intercepts agent tool calls at the MCP protocol layer and automatically
 emits TOOL_CALL and TOOL_RESULT events for all agent operations.
 
 This layer is the core of the agent integration system, ensuring all agent
