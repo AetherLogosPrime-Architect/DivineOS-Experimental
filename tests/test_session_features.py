@@ -386,12 +386,8 @@ class TestRunAllFeatures:
 
 
 class TestStorage:
-    def test_store_features(self, tmp_path, monkeypatch):
-        import divineos.analysis.session_features as sf
-
-        db_path = tmp_path / "test.db"
-        monkeypatch.setattr(sf, "DB_PATH", db_path)
-
+    def test_store_features(self):
+        # Uses _isolated_db fixture (autouse) for DB isolation
         init_feature_tables()
 
         analysis = FullSessionAnalysis(
@@ -416,6 +412,8 @@ class TestStorage:
         store_features("test-123", analysis)
 
         # Verify data is in DB
+        import divineos.analysis.session_features as sf
+
         conn = sf._get_connection()
         try:
             assert (
