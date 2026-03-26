@@ -988,13 +988,13 @@ def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
 
 # Maps check names to lesson categories
 _CHECK_TO_CATEGORY = {
-    "completeness": "blind_edit",
-    "correctness": "test_failure",
-    "responsiveness": "ignored_correction",
-    "safety": "broke_things",
+    "completeness": "blind_coding",
+    "correctness": "incomplete_fix",
+    "responsiveness": "misunderstood",
+    "safety": "incomplete_fix",
     "honesty": "false_claim",
-    "clarity": "unclear_communication",
-    "task_adherence": "task_drift",
+    "clarity": "shallow_output",
+    "task_adherence": "wrong_scope",
 }
 
 # Phrases that signal a check "passed" only because nothing happened.
