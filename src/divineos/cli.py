@@ -1814,6 +1814,9 @@ def health_cmd() -> None:
         f"  Lessons resolved:       {result['resolved_lessons']}",
         fg="green" if result["resolved_lessons"] else "bright_black",
     )
+    noise_count = result.get("noise_penalized", 0)
+    if noise_count:
+        click.secho(f"  Noise penalized:        {noise_count}", fg="yellow")
 
     # Show effectiveness breakdown
     report = _wrapped_knowledge_health_report()
@@ -2538,6 +2541,33 @@ def goal_clear_cmd() -> None:
         click.secho(f"[+] Cleared {removed} completed goals, {len(active)} remain.", fg="green")
     except Exception as e:
         click.secho(f"[!] Failed to clear goals: {e}", fg="red")
+
+
+@goal_group.command("reset")
+def goal_reset_cmd() -> None:
+    """Remove ALL goals (completed and active). Use when goals are stale."""
+    import json
+
+    from divineos.core.hud import _ensure_hud_dir
+
+    path = _ensure_hud_dir() / "active_goals.json"
+    if not path.exists():
+        click.secho("[~] No goals to reset.", fg="yellow")
+        return
+
+    try:
+        goals = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        goals = []
+
+    if not goals:
+        click.secho("[~] No goals to reset.", fg="yellow")
+        return
+
+    click.secho(f"[!] This will remove all {len(goals)} goals.", fg="yellow")
+    click.confirm("Proceed?", abort=True)
+    path.write_text("[]", encoding="utf-8")
+    click.secho(f"[+] Reset {len(goals)} goals.", fg="green")
 
 
 @cli.command("clarity")
