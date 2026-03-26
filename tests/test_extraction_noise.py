@@ -1,7 +1,7 @@
 """Tests for the extraction noise filter — ensures raw conversational quotes
 don't become permanent 'knowledge'."""
 
-from divineos.core.consolidation import _is_extraction_noise, _is_vacuous_check
+from divineos.core.consolidation import _is_extraction_noise, _is_vacuous_summary
 
 
 class TestConversationalNoise:
@@ -249,39 +249,39 @@ class TestVacuousCheckDetection:
     """Vacuous quality checks (nothing happened) should not generate knowledge."""
 
     def test_no_files_edited(self):
-        assert _is_vacuous_check(
+        assert _is_vacuous_summary(
             "The AI didn't edit any files this session, so there's nothing to check."
         )
 
     def test_no_changes(self):
-        assert _is_vacuous_check("The AI didn't make any changes this session.")
+        assert _is_vacuous_summary("The AI didn't make any changes this session.")
 
     def test_nothing_to_check(self):
-        assert _is_vacuous_check("The AI didn't do much this session -- nothing to check.")
+        assert _is_vacuous_summary("The AI didn't do much this session -- nothing to check.")
 
     def test_no_claims(self):
-        assert _is_vacuous_check(
+        assert _is_vacuous_summary(
             "The AI didn't make any specific claims like 'fixed' or 'done' that could be checked."
         )
 
     def test_no_tests_run(self):
-        assert _is_vacuous_check(
+        assert _is_vacuous_summary(
             "No tests were run during this session. There's no way to know if the code works."
         )
 
     def test_nothing_to_compare(self):
-        assert _is_vacuous_check(
+        assert _is_vacuous_summary(
             "The AI didn't touch any files, so there's nothing to compare against the request."
         )
 
     def test_real_summary_passes(self):
         """Real check summaries with substance pass through."""
-        assert not _is_vacuous_check(
+        assert not _is_vacuous_summary(
             "The AI said 'fixed' 54 times. 50 times the fix actually worked."
         )
 
     def test_correction_summary_passes(self):
-        assert not _is_vacuous_check(
+        assert not _is_vacuous_summary(
             "You corrected the AI 7 times. Every time, it changed what it was doing."
         )
 

@@ -294,8 +294,8 @@ def measure_correction_trend(limit: int = 10) -> dict[str, Any]:
         for content, created_at in rows:
             corr_match = re.search(r"(?:corrected (\d+) time|(\d+) correction)", content)
             enc_match = re.search(r"(?:encouraged (\d+) time|(\d+) encouragement)", content)
-            corr = int(corr_match.group(1)) if corr_match else 0
-            enc = int(enc_match.group(1)) if enc_match else 0
+            corr = int(corr_match.group(1) or corr_match.group(2)) if corr_match else 0
+            enc = int(enc_match.group(1) or enc_match.group(2)) if enc_match else 0
             total = corr + enc
             ratio = corr / max(total, 1)
 

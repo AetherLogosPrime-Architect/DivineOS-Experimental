@@ -12,6 +12,7 @@ This module runs as part of DivineOS and automatically:
 This is NOT an IDE hook - it's part of the OS itself.
 """
 
+import threading
 from datetime import timezone, datetime
 from typing import Any, Optional
 
@@ -430,6 +431,7 @@ class AgentMemoryMonitor:
 
 # Global monitor instance
 _monitor: Optional[AgentMemoryMonitor] = None
+_monitor_lock = threading.Lock()
 
 
 def get_memory_monitor(session_id: str) -> AgentMemoryMonitor:
@@ -443,7 +445,9 @@ def get_memory_monitor(session_id: str) -> AgentMemoryMonitor:
     """
     global _monitor
     if _monitor is None:
-        _monitor = AgentMemoryMonitor(session_id)
+        with _monitor_lock:
+            if _monitor is None:
+                _monitor = AgentMemoryMonitor(session_id)
     return _monitor
 
 

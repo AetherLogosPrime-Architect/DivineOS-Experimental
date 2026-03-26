@@ -439,7 +439,9 @@ def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
     # Build set of knowledge content that has active/improving lessons
     lesson_descriptions = set()
     for lesson in active_lessons + improving_lessons:
-        lesson_descriptions.add(lesson["description"].lower())
+        desc = lesson.get("description") or ""
+        if desc:
+            lesson_descriptions.add(desc.lower())
 
     conn = _get_connection()
     try:
@@ -459,7 +461,7 @@ def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
         for entry in all_entries:
             # Check if any active lesson matches this entry
             has_lesson = False
-            content_lower = entry["content"].lower()
+            content_lower = (entry.get("content") or "").lower()
             for desc in lesson_descriptions:
                 # Simple word overlap check
                 entry_words = set(content_lower.split())

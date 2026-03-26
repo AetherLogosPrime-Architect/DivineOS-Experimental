@@ -566,10 +566,11 @@ def _run_session_end_pipeline() -> None:
 
         # 9. Save HUD snapshot and clear session plan
         try:
-            from divineos.core.hud import clear_session_plan, save_hud_snapshot
+            from divineos.core.hud import clear_engagement, clear_session_plan, save_hud_snapshot
 
             save_hud_snapshot()
             clear_session_plan()
+            clear_engagement()
             click.secho("[~] HUD snapshot saved.", fg="cyan")
         except Exception as e:
             logger.warning(f"HUD snapshot save failed: {e}")
@@ -612,6 +613,18 @@ def _run_session_end_pipeline() -> None:
     except Exception as e:
         click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
         logger.warning(f"Auto-scan failed: {e}")
+
+
+def _log_os_query(tool: str, query: str = "") -> None:
+    """Log an OS_QUERY event and mark the session as engaged."""
+    from divineos.core.hud import mark_engaged
+
+    _wrapped_log_event(
+        event_type="OS_QUERY",
+        actor="assistant",
+        payload={"tool": tool, "query": query},
+    )
+    mark_engaged()
 
 
 # Wrap critical tool calls for event capture
@@ -869,7 +882,7 @@ def ingest(file_path: str) -> None:
 )
 def verify(skip_types: tuple[str, ...], real_only: bool) -> None:
     """Verify integrity of all stored events."""
-    logger.info("Running fidelity verification...")
+    logger.debug("Running fidelity verification...")
 
     types_to_skip = list(skip_types)
     if real_only:
@@ -909,24 +922,39 @@ def verify(skip_types: tuple[str, ...], real_only: bool) -> None:
 
 
 @cli.command()
-def clean() -> None:
+@click.option("--force", is_flag=True, help="Skip confirmation prompt")
+def clean(force: bool) -> None:
     """Remove corrupted events from the ledger."""
-    logger.info("Cleaning corrupted events from ledger...")
+    from divineos.core.ledger import verify_all_events
+
+    result = verify_all_events()
+    corrupted = result.get("failures", [])
+
+    if not corrupted:
+        click.secho("[+] No corrupted events found. Ledger is clean.", fg="green")
+        return
+
+    click.secho(f"\n[!] Found {len(corrupted)} corrupted events:", fg="yellow")
+    for f in corrupted[:5]:
+        click.echo(f"  - {f.get('event_id', '?')[:12]}  {f.get('reason', 'hash mismatch')}")
+    if len(corrupted) > 5:
+        click.echo(f"  ... and {len(corrupted) - 5} more")
+
+    if not force:
+        click.confirm("\nDelete these corrupted events?", abort=True)
 
     result = _wrapped_clean_corrupted_events()
 
     click.secho("\n=== Ledger Cleanup ===\n", fg="cyan", bold=True)
-    click.echo(f"  Deleted corrupted events: {result['deleted_count']}")
-
     if result["deleted_count"] > 0:
         click.secho(
-            f"\n  Removed {result['deleted_count']} corrupted events",
+            f"  Removed {result['deleted_count']} corrupted events",
             fg="green",
             bold=True,
         )
         click.echo("\n  Run 'divineos verify' to confirm ledger integrity")
     else:
-        click.secho("\n  No corrupted events found", fg="green", bold=True)
+        click.secho("  No corrupted events found", fg="green", bold=True)
 
 
 @cli.command("export")
@@ -983,7 +1011,7 @@ def log_cmd(event_type: str, actor: str, content: str) -> None:
         actor=actor.lower(),
         payload=payload,
     )
-    logger.info(f"Event logged: {event_type} by {actor}")
+    logger.debug(f"Event logged: {event_type} by {actor}")
     click.secho(f"[+] Logged event: {event_id}", fg="green")
 
 
@@ -1012,7 +1040,7 @@ def search(keyword: str, limit: int) -> None:
     if not keyword.strip():
         click.secho("[-] Please provide a search term.", fg="yellow")
         return
-    logger.info(f"Searching for: '{keyword}'")
+    logger.debug(f"Searching for: '{keyword}'")
     events = _wrapped_search_events(keyword=keyword, limit=limit)
 
     if not events:
@@ -1026,7 +1054,7 @@ def search(keyword: str, limit: int) -> None:
 @cli.command()
 def stats() -> None:
     """Display event ledger statistics."""
-    logger.info("Fetching ledger statistics...")
+    logger.debug("Fetching ledger statistics...")
     try:
         counts = _wrapped_count_events()
     except Exception as e:
@@ -1054,7 +1082,7 @@ def stats() -> None:
 @click.option("--n", "--limit", default=20, help="Number of recent events for context")
 def context(n: int) -> None:
     """Show the last N events (working memory context window)."""
-    logger.info(f"Building context from last {n} events...")
+    logger.debug(f"Building context from last {n} events...")
     events = _wrapped_get_recent_context(n=n)
 
     if not events:
@@ -1063,11 +1091,7 @@ def context(n: int) -> None:
 
     click.secho(f"\n=== Context Window (last {len(events)} events) ===\n", fg="cyan", bold=True)
     _print_events(events)
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "context", "query": f"last {n} events"},
-    )
+    _log_os_query("context", f"last {n} events")
 
 
 @cli.command()
@@ -1098,7 +1122,7 @@ def learn(
     Type is auto-detected from content if --type is omitted.
     Example: divineos learn "always read files before editing"
     """
-    content = text or content_opt
+    content = (text or content_opt or "").strip()
     if not content:
         click.secho("[-] Content is required. Pass as argument or --content.", fg="red")
         raise SystemExit(1)
@@ -1227,19 +1251,13 @@ def ask_cmd(query: str, limit: int) -> None:
     Searches both the knowledge store and core memory.
     Example: divineos ask "testing"
     """
-    from divineos.core.memory import get_core
-
     if not query.strip():
-        click.secho(
-            '[-] Please provide a search query. Example: divineos ask "testing"', fg="yellow"
-        )
+        click.secho("[-] Please provide a search query.", fg="yellow")
         return
 
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "ask", "query": query},
-    )
+    from divineos.core.memory import get_core
+
+    _log_os_query("ask", query)
     results = search_knowledge(query, limit=limit)
 
     # Also search core memory — it's part of what I know
@@ -1330,11 +1348,7 @@ def ask_cmd(query: str, limit: int) -> None:
 @click.option("--topic", default="", help="Topic hint to boost relevant knowledge (e.g. 'testing')")
 def briefing_cmd(max_items: int, types: str, topic: str) -> None:
     """Generate a session context briefing from stored knowledge."""
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "briefing", "query": topic or "session start"},
-    )
+    _log_os_query("briefing", topic or "session start")
     # Refresh active memory on briefing — this is my "waking up" moment,
     # so knowledge should be freshly ranked before I see it.
     try:
@@ -1471,11 +1485,7 @@ def directive_cmd(name: str, links: tuple[str, ...], tags: str) -> None:
 @cli.command("directives")
 def directives_cmd() -> None:
     """List all active directives."""
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "directives", "query": "list directives"},
-    )
+    _log_os_query("directives", "list directives")
     entries = get_knowledge(knowledge_type="DIRECTIVE", limit=100)
 
     if not entries:
@@ -1509,7 +1519,7 @@ def directive_edit_cmd(name: str, link_number: int, new_text: str) -> None:
     entries = get_knowledge(knowledge_type="DIRECTIVE", limit=100)
     target = None
     for entry in entries:
-        if f"directive:{name}" in entry.get("tags", ""):
+        if f"directive:{name}" in entry.get("tags", []):
             target = entry
             break
 
@@ -1518,11 +1528,14 @@ def directive_edit_cmd(name: str, link_number: int, new_text: str) -> None:
         return
 
     # Parse existing chain
-    content_lines = target["content"].splitlines()
+    content_lines = target.get("content", "").splitlines()
+    if not content_lines:
+        click.secho(f"[-] Directive '{name}' has empty content — cannot edit.", fg="red")
+        return
     header = content_lines[0]
     links = [line.strip() for line in content_lines[1:] if line.strip()]
 
-    if link_number < 1 or link_number > len(links):
+    if not links or link_number < 1 or link_number > len(links):
         click.secho(f"[-] Link {link_number} out of range (1-{len(links)})", fg="red")
         return
 
@@ -1643,7 +1656,7 @@ def digest_cmd(file_path: str, chunk_size: int) -> None:
         superseded = 0
         for entry in existing:
             if entry.get("knowledge_type") == "FACT" and f"digest:{file_tag}" in entry.get(
-                "tags", ""
+                "tags", []
             ):
                 from divineos.core.consolidation import supersede_knowledge
 
@@ -1674,9 +1687,11 @@ def _extract_python_sections(lines: list[str]) -> list[dict[str, Any]]:
     """Extract top-level classes and functions from Python source lines."""
     sections: list[dict[str, Any]] = []
     for i, line in enumerate(lines):
-        if line.startswith("class ") and "(" in line:
-            name = line.split("(")[0].replace("class ", "").strip()
-            sections.append({"name": name, "start": i, "end": i, "kind": "class"})
+        if line.startswith("class "):
+            # Handle both "class Foo(Base):" and "class Foo:" (dataclasses etc.)
+            name = line.split("(")[0].split(":")[0].replace("class ", "").strip()
+            if name:
+                sections.append({"name": name, "start": i, "end": i, "kind": "class"})
         elif line.startswith("def ") and "(" in line:
             name = line.split("(")[0].replace("def ", "").strip()
             sections.append({"name": name, "start": i, "end": i, "kind": "function"})
@@ -1749,6 +1764,21 @@ def lessons_cmd(status: str) -> None:
 @cli.command("clear-lessons")
 def clear_lessons_cmd() -> None:
     """Wipe all lessons from lesson_tracking (for re-extraction after fixes)."""
+    from divineos.core.consolidation import get_lessons
+
+    active = get_lessons(status="active")
+    improving = get_lessons(status="improving")
+    total = len(active) + len(improving)
+    if not total:
+        click.secho("[*] No lessons to clear.", fg="yellow")
+        return
+
+    click.secho(
+        f"[!] This will delete {total} lessons ({len(active)} active, {len(improving)} improving).",
+        fg="yellow",
+    )
+    click.confirm("Proceed?", abort=True)
+
     count = _wrapped_clear_lessons()
     if count:
         click.secho(f"[+] Cleared {count} lessons.", fg="green")
@@ -1995,6 +2025,7 @@ def core_cmd(action: str, slot: str | None, content: str | None) -> None:
             click.secho(f"[+] Core memory '{slot}' updated.", fg="green")
         except ValueError as e:
             click.secho(f"[-] {e}", fg="red")
+            click.secho(f"    Available slots: {', '.join(CORE_SLOTS)}", fg="bright_black")
 
     elif action == "clear":
         if not slot:
@@ -2007,6 +2038,7 @@ def core_cmd(action: str, slot: str | None, content: str | None) -> None:
                 click.secho(f"[*] '{slot}' was already empty.", fg="yellow")
         except ValueError as e:
             click.secho(f"[-] {e}", fg="red")
+            click.secho(f"    Available slots: {', '.join(CORE_SLOTS)}", fg="bright_black")
 
     else:
         click.secho(f"[-] Unknown action '{action}'. Use: show, set, clear, slots", fg="red")
@@ -2016,11 +2048,7 @@ def core_cmd(action: str, slot: str | None, content: str | None) -> None:
 @click.option("--topic", default="", help="Topic hint to boost relevant memories")
 def recall_cmd(topic: str) -> None:
     """Show what the AI remembers right now — core + active + relevant."""
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "recall", "query": topic or "general recall"},
-    )
+    _log_os_query("recall", topic or "general recall")
     init_memory_tables()
     result = _wrapped_recall(context_hint=topic)
     text = _wrapped_format_recall(result)
@@ -2118,6 +2146,14 @@ def migrate_types_cmd(execute: bool) -> None:
     if dry_run:
         click.secho("\n=== Migration Preview (dry run) ===\n", fg="cyan", bold=True)
     else:
+        # Preview first so user sees what will change
+        preview = _wrapped_migrate_knowledge_types(dry_run=True)
+        if not preview:
+            click.secho("\n  No entries to migrate.", fg="bright_black")
+            click.echo()
+            return
+        click.secho(f"\n[!] This will reclassify {len(preview)} knowledge entries.", fg="yellow")
+        click.confirm("Proceed?", abort=True)
         click.secho("\n=== Migrating Knowledge Types ===\n", fg="yellow", bold=True)
 
     changes = _wrapped_migrate_knowledge_types(dry_run=dry_run)

@@ -223,6 +223,10 @@ def store_knowledge(
             f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}",
         )
 
+    content = content.strip()
+    if len(content) < 5:
+        raise ValueError("Knowledge content too short (minimum 5 characters after stripping)")
+
     # Ensure knowledge table exists
     init_knowledge_table()
 
@@ -993,7 +997,7 @@ _CHECK_TO_CATEGORY = {
     "task_adherence": "task_drift",
 }
 
-# Phrases that indicate a quality check had nothing to evaluate
+# Phrases that signal a check "passed" only because nothing happened.
 _VACUOUS_PHRASES = (
     "didn't edit any files",
     "didn't make any changes",
@@ -1004,11 +1008,14 @@ _VACUOUS_PHRASES = (
     "nothing to compare",
     "no tests were run",
     "no way to know",
+    "never had to correct",
+    "barely any activity",
+    "was quiet this session",
 )
 
 
-def _is_vacuous_check(summary: str) -> bool:
-    """Return True if the check summary indicates nothing actually happened."""
+def _is_vacuous_summary(summary: str) -> bool:
+    """Return True if a check summary indicates nothing meaningful happened."""
     lower = summary.lower()
     return any(phrase in lower for phrase in _VACUOUS_PHRASES)
 
@@ -1048,7 +1055,7 @@ def extract_lessons_from_report(
             continue
 
         # Skip vacuous checks — nothing happened, so pass/fail is meaningless
-        if _is_vacuous_check(summary):
+        if _is_vacuous_summary(summary):
             continue
 
         if not passed or (score is not None and score < 0.7):
@@ -1084,7 +1091,10 @@ def extract_lessons_from_report(
                 record_lesson(category, content.strip(), session_id)
                 lesson_categories.append(category)
 
-        elif passed and score is not None and score >= 0.9:
+        elif passed and passed != -1 and score is not None and score >= 0.9:
+            # Skip vacuous checks — "passed" because nothing happened is not a lesson
+            if _is_vacuous_summary(summary):
+                continue
             # Extract PATTERN knowledge for good practices
             content = f"I showed good {name} this session (session {short_id}). {summary}"
             kid = store_knowledge(
@@ -2523,8 +2533,13 @@ def health_check() -> dict[str, Any]:
         "total_checked": 0,
     }
 
-    all_entries = get_knowledge(limit=1000)
+    health_limit = 1000
+    all_entries = get_knowledge(limit=health_limit)
     result["total_checked"] = len(all_entries)
+    if len(all_entries) >= health_limit:
+        logger.warning(
+            f"Health check limited to {health_limit} entries — some entries may not be checked"
+        )
 
     # 1. Confirmed boost — if something keeps coming up, it's clearly useful
     for entry in all_entries:
@@ -2742,16 +2757,29 @@ def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
                 finally:
                     conn.close()
 
-                # Create new entry with new type
-                new_kid = store_knowledge(
-                    knowledge_type=new_type,
-                    content=content,
-                    confidence=entry["confidence"],
-                    source_events=entry.get("source_events", []),
-                    tags=entry.get("tags", []),
-                    source=source,
-                    maturity=maturity,
-                )
+                try:
+                    # Create new entry with new type
+                    new_kid = store_knowledge(
+                        knowledge_type=new_type,
+                        content=content,
+                        confidence=entry["confidence"],
+                        source_events=entry.get("source_events", []),
+                        tags=entry.get("tags", []),
+                        source=source,
+                        maturity=maturity,
+                    )
+                except Exception:
+                    # Rollback: clear the placeholder so old entry isn't orphaned
+                    conn = _get_connection()
+                    try:
+                        conn.execute(
+                            "UPDATE knowledge SET superseded_by = NULL WHERE knowledge_id = ?",
+                            (entry["knowledge_id"],),
+                        )
+                        conn.commit()
+                    finally:
+                        conn.close()
+                    raise
 
                 # Update superseded_by to point to actual new ID
                 conn = _get_connection()
