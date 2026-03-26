@@ -523,27 +523,30 @@ class TestCheckClarity:
 
 
 class TestCheckTaskAdherence:
-    def test_on_topic(self):
+    def test_good_discipline(self):
+        """Read before write + positive user feedback = high score."""
         records = [
             _make_user_record("Fix the login page"),
             _make_assistant_record(
                 tools=[
-                    {"name": "readFile", "input": {"path": "/src/login.py"}, "id": "t1"},
-                    {"name": "strReplace", "input": {"path": "/src/login.py"}, "id": "t2"},
+                    {"name": "Read", "input": {"file_path": "/src/login.py"}, "id": "t1"},
+                    {"name": "Edit", "input": {"file_path": "/src/login.py"}, "id": "t2"},
                 ],
             ),
+            _make_user_record("great thanks!", timestamp="2025-01-01T00:00:02Z"),
         ]
         result = check_task_adherence(records, {})
-        assert result.score > 0.5
+        assert result.score >= 0.5
         assert result.passed == 1
 
-    def test_off_topic(self):
+    def test_blind_edits_penalized(self):
+        """Writing without reading first lowers score."""
         records = [
             _make_user_record("Fix the login page"),
             _make_assistant_record(
                 tools=[
-                    {"name": "strReplace", "input": {"path": "/src/database.py"}, "id": "t1"},
-                    {"name": "strReplace", "input": {"path": "/src/utils.py"}, "id": "t2"},
+                    {"name": "Edit", "input": {"file_path": "/src/database.py"}, "id": "t1"},
+                    {"name": "Edit", "input": {"file_path": "/src/utils.py"}, "id": "t2"},
                 ],
                 timestamp="2025-01-01T00:00:01Z",
             ),
@@ -553,17 +556,19 @@ class TestCheckTaskAdherence:
         assert result.score < 0.8
 
     def test_no_files_touched(self):
+        """Explanatory session with no edits = pass."""
         records = [
             _make_user_record("explain how the auth works"),
             _make_assistant_record(text="The auth system uses JWT tokens..."),
         ]
         result = check_task_adherence(records, {})
-        assert result.passed == -1
+        assert result.passed == 1
 
-    def test_no_initial_request(self):
+    def test_no_user_messages(self):
+        """No user messages = neutral pass."""
         records = [_make_assistant_record(text="Hello")]
         result = check_task_adherence(records, {})
-        assert result.passed == -1
+        assert result.passed == 1
 
 
 # --- Integration tests ---
