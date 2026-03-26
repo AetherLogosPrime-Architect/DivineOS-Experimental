@@ -33,12 +33,16 @@ from divineos.core.fidelity import compute_content_hash
 
 # --- Database ---
 
-DB_PATH = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
+_DEFAULT_DB_PATH = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
 
 
 def _get_connection() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    import os
+
+    db_path_str = os.environ.get("DIVINEOS_DB")
+    db_path = Path(db_path_str) if db_path_str else _DEFAULT_DB_PATH
+    db_path.parent.mkdir(exist_ok=True)
+    conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
     conn.execute("PRAGMA foreign_keys=ON")

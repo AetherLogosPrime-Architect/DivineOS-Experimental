@@ -630,13 +630,8 @@ class TestRunAllChecks:
 
 
 class TestStorage:
-    def test_store_and_retrieve(self, tmp_path, monkeypatch):
-        # Use temp DB
-        import divineos.analysis.quality_checks as qc
-
-        db_path = tmp_path / "test.db"
-        monkeypatch.setattr(qc, "DB_PATH", db_path)
-
+    def test_store_and_retrieve(self):
+        # Uses _isolated_db fixture (autouse) for DB isolation
         init_quality_tables()
 
         report = SessionReport(
@@ -666,11 +661,6 @@ class TestStorage:
         assert retrieved.checks[0].check_name == "completeness"
         assert retrieved.checks[0].score == 0.85
 
-    def test_retrieve_nonexistent(self, tmp_path, monkeypatch):
-        import divineos.analysis.quality_checks as qc
-
-        db_path = tmp_path / "test.db"
-        monkeypatch.setattr(qc, "DB_PATH", db_path)
-
+    def test_retrieve_nonexistent(self):
         init_quality_tables()
         assert get_report("nonexistent") is None
