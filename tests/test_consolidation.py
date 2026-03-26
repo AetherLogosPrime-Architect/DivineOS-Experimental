@@ -485,16 +485,16 @@ class TestExtractLessonsFromReport:
             {"name": "completeness", "passed": False, "score": 0.4, "summary": "5 blind edits"},
         ]
         extract_lessons_from_report(checks, "session-lesson1")
-        lessons = get_lessons(category="blind_edit")
+        lessons = get_lessons(category="blind_coding")
         assert len(lessons) == 1
 
     def test_good_check_marks_improving(self):
         """If a category was previously problematic and now passes, mark improving."""
         # First: fail 3 times to create active lesson
         for i in range(3):
-            record_lesson("blind_edit", "Read first", f"s{i}")
+            record_lesson("blind_coding", "Read first", f"s{i}")
 
-        lessons = get_lessons(category="blind_edit")
+        lessons = get_lessons(category="blind_coding")
         assert lessons[0]["status"] == "active"
         assert lessons[0]["occurrences"] == 3
 
@@ -508,7 +508,7 @@ class TestExtractLessonsFromReport:
             },
         ]
         extract_lessons_from_report(checks, "session-clean")
-        lessons = get_lessons(category="blind_edit")
+        lessons = get_lessons(category="blind_coding")
         assert lessons[0]["status"] == "improving"
 
 
