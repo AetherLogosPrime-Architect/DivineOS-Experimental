@@ -1113,7 +1113,7 @@ def learn(
     Type is auto-detected from content if --type is omitted.
     Example: divineos learn "always read files before editing"
     """
-    content = text or content_opt
+    content = (text or content_opt or "").strip()
     if not content:
         click.secho("[-] Content is required. Pass as argument or --content.", fg="red")
         raise SystemExit(1)
@@ -1692,9 +1692,11 @@ def _extract_python_sections(lines: list[str]) -> list[dict[str, Any]]:
     """Extract top-level classes and functions from Python source lines."""
     sections: list[dict[str, Any]] = []
     for i, line in enumerate(lines):
-        if line.startswith("class ") and "(" in line:
-            name = line.split("(")[0].replace("class ", "").strip()
-            sections.append({"name": name, "start": i, "end": i, "kind": "class"})
+        if line.startswith("class "):
+            # Handle both "class Foo(Base):" and "class Foo:" (dataclasses etc.)
+            name = line.split("(")[0].split(":")[0].replace("class ", "").strip()
+            if name:
+                sections.append({"name": name, "start": i, "end": i, "kind": "class"})
         elif line.startswith("def ") and "(" in line:
             name = line.split("(")[0].replace("def ", "").strip()
             sections.append({"name": name, "start": i, "end": i, "kind": "function"})

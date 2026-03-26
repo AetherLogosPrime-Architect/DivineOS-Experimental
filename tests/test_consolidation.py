@@ -154,15 +154,15 @@ class TestUpdateKnowledge:
         assert kid1 != kid2
 
     def test_supersedes_old(self):
-        kid1 = store_knowledge("FACT", "old")
-        update_knowledge(kid1, "new")
+        kid1 = store_knowledge("FACT", "old content here")
+        update_knowledge(kid1, "new content here")
         all_entries = get_knowledge(include_superseded=True)
         old_entry = [e for e in all_entries if e["knowledge_id"] == kid1][0]
         assert old_entry["superseded_by"] is not None
 
     def test_preserves_source_chain(self):
-        kid1 = store_knowledge("FACT", "v1", source_events=["evt-1"])
-        update_knowledge(kid1, "v2", additional_sources=["evt-2"])
+        kid1 = store_knowledge("FACT", "version one content", source_events=["evt-1"])
+        update_knowledge(kid1, "version two content", additional_sources=["evt-2"])
         new_entry = get_knowledge()
         assert len(new_entry) == 1
         assert "evt-1" in new_entry[0]["source_events"]
@@ -211,9 +211,9 @@ class TestKnowledgeStats:
         assert stats["total"] == 0
 
     def test_counts_by_type(self):
-        store_knowledge("FACT", "f1")
-        store_knowledge("FACT", "f2")
-        store_knowledge("MISTAKE", "m1")
+        store_knowledge("FACT", "fact one for testing")
+        store_knowledge("FACT", "fact two for testing")
+        store_knowledge("MISTAKE", "mistake one for testing")
         stats = knowledge_stats()
         assert stats["total"] == 3
         assert stats["by_type"]["FACT"] == 2

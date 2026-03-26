@@ -223,6 +223,10 @@ def store_knowledge(
             f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}",
         )
 
+    content = content.strip()
+    if len(content) < 5:
+        raise ValueError("Knowledge content too short (minimum 5 characters after stripping)")
+
     # Ensure knowledge table exists
     init_knowledge_table()
 
