@@ -110,7 +110,7 @@ src/divineos/
   event/                       Event types, dispatch, capture
   clarity_enforcement/         Clarity checking system
   integration/                 IDE and MCP integration
-tests/                         1850 tests (real DB, no mocks)
+tests/                         1827 tests (real DB, no mocks)
 ```
 
 ## Design Rules
@@ -124,7 +124,7 @@ tests/                         1850 tests (real DB, no mocks)
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (1850 tests, ~37s)
+pytest tests/ -q --tb=short   # Run tests (1827 tests, ~37s)
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```

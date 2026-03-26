@@ -55,7 +55,7 @@ divineos outcomes          # Measure learning effectiveness
 divineos health            # Run knowledge health check
 
 # Tests
-pytest tests/ -q --tb=short  # Run tests after changes (1850 tests)
+pytest tests/ -q --tb=short  # Run tests after changes (1827 tests)
 ```
 
 ## Current Systems
@@ -86,7 +86,7 @@ src/divineos/
 ├── clarity_enforcement/      # Clarity system
 ├── event/                    # Event types and dispatch
 └── integration/              # IDE and MCP integration
-tests/                        # 1850 tests (real DB, no mocks)
+tests/                        # 1827 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 ```
 
