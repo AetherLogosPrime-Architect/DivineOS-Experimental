@@ -927,6 +927,8 @@ def clean(force: bool) -> None:
     """Remove corrupted events from the ledger."""
     from divineos.core.ledger import verify_all_events
 
+    # Preview first — show what would be deleted
+    logger.info("Scanning for corrupted events...")
     result = verify_all_events()
     corrupted = result.get("failures", [])
 
@@ -944,17 +946,8 @@ def clean(force: bool) -> None:
         click.confirm("\nDelete these corrupted events?", abort=True)
 
     result = _wrapped_clean_corrupted_events()
-
-    click.secho("\n=== Ledger Cleanup ===\n", fg="cyan", bold=True)
-    if result["deleted_count"] > 0:
-        click.secho(
-            f"  Removed {result['deleted_count']} corrupted events",
-            fg="green",
-            bold=True,
-        )
-        click.echo("\n  Run 'divineos verify' to confirm ledger integrity")
-    else:
-        click.secho("  No corrupted events found", fg="green", bold=True)
+    click.secho(f"[+] Removed {result['deleted_count']} corrupted events.", fg="green")
+    click.echo("    Run 'divineos verify' to confirm ledger integrity.")
 
 
 @cli.command("export")
@@ -1772,18 +1765,13 @@ def clear_lessons_cmd() -> None:
     if not total:
         click.secho("[*] No lessons to clear.", fg="yellow")
         return
-
     click.secho(
         f"[!] This will delete {total} lessons ({len(active)} active, {len(improving)} improving).",
         fg="yellow",
     )
     click.confirm("Proceed?", abort=True)
-
     count = _wrapped_clear_lessons()
-    if count:
-        click.secho(f"[+] Cleared {count} lessons.", fg="green")
-    else:
-        click.secho("[*] No lessons to clear.", fg="yellow")
+    click.secho(f"[+] Cleared {count} lessons.", fg="green")
 
 
 @cli.command("consolidate")
