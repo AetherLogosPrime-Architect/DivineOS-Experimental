@@ -200,17 +200,24 @@ def get_events(
         cursor = conn.execute(query, params)
         rows = cursor.fetchall()
 
-        return [
-            {
-                "event_id": row[0],
-                "timestamp": row[1],
-                "event_type": row[2],
-                "actor": row[3],
-                "payload": json.loads(row[4]),
-                "content_hash": row[5],
-            }
-            for row in rows
-        ]
+        events = []
+        for row in rows:
+            try:
+                payload = json.loads(row[4])
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Skipping event {row[0]}: corrupted JSON payload")
+                continue
+            events.append(
+                {
+                    "event_id": row[0],
+                    "timestamp": row[1],
+                    "event_type": row[2],
+                    "actor": row[3],
+                    "payload": payload,
+                    "content_hash": row[5],
+                }
+            )
+        return events
     finally:
         conn.close()
 
@@ -225,17 +232,24 @@ def search_events(keyword: str, limit: int = 50) -> list[dict[str, Any]]:
         )
         rows = cursor.fetchall()
 
-        return [
-            {
-                "event_id": row[0],
-                "timestamp": row[1],
-                "event_type": row[2],
-                "actor": row[3],
-                "payload": json.loads(row[4]),
-                "content_hash": row[5],
-            }
-            for row in rows
-        ]
+        events = []
+        for row in rows:
+            try:
+                payload = json.loads(row[4])
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(f"Skipping event {row[0]}: corrupted JSON payload")
+                continue
+            events.append(
+                {
+                    "event_id": row[0],
+                    "timestamp": row[1],
+                    "event_type": row[2],
+                    "actor": row[3],
+                    "payload": payload,
+                    "content_hash": row[5],
+                }
+            )
+        return events
     finally:
         conn.close()
 
