@@ -564,6 +564,30 @@ def _run_session_end_pipeline() -> None:
             health = None
             logger.warning(f"Session health scoring failed: {e}")
 
+        # 8b. Engagement check — record lesson if OS was not consulted
+        try:
+            from divineos.core.hud import is_engaged
+
+            if not is_engaged():
+                from divineos.core.consolidation import record_lesson
+
+                record_lesson(
+                    category="blind_coding",
+                    description=(
+                        "I coded through an entire session without consulting the OS "
+                        "(ask, recall, directives, briefing). "
+                        f"Session {analysis.session_id[:12]}."
+                    ),
+                    session_id=analysis.session_id,
+                )
+                click.secho(
+                    "[!] No thinking queries this session — recorded as blind_coding lesson.",
+                    fg="red",
+                    bold=True,
+                )
+        except Exception as e:
+            logger.warning(f"Engagement check failed: {e}")
+
         # 9. Save HUD snapshot and clear session plan
         try:
             from divineos.core.hud import clear_engagement, clear_session_plan, save_hud_snapshot
