@@ -2719,6 +2719,14 @@ def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
         for entry in entries:
             content = entry["content"]
 
+            # Skip noise and session-specific entries — don't promote them
+            if _is_extraction_noise(content, old_type):
+                continue
+            from divineos.core.memory import _is_session_specific
+
+            if _is_session_specific(content):
+                continue
+
             if old_type == "MISTAKE":
                 if rules["boundary_keywords"].search(content):
                     new_type = rules["boundary"]
