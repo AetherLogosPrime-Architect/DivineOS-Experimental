@@ -18,6 +18,7 @@ import json
 import os
 import re
 import time
+from typing import Any
 from pathlib import Path
 
 from loguru import logger
@@ -103,6 +104,20 @@ def _build_active_goals_slot() -> str:
         return "# My Current Goals\n\nGoal file corrupted. I need to re-establish what we're doing."
 
     lines = ["# My Current Goals\n"]
+
+    # Show session plan if set
+    plan = get_session_plan()
+    if plan and plan.get("goal"):
+        lines.append(f"**Session Plan:** {plan['goal']}")
+        parts = []
+        if plan.get("estimated_files"):
+            parts.append(f"{plan['estimated_files']} files")
+        if plan.get("estimated_time_minutes"):
+            parts.append(f"{plan['estimated_time_minutes']}min")
+        if parts:
+            lines.append(f"  (Estimates: {', '.join(parts)})")
+        lines.append("")
+
     for i, goal in enumerate(goals, 1):
         status = goal.get("status", "active")
         marker = "[x]" if status == "done" else "[ ]"
@@ -581,6 +596,50 @@ def complete_goal(text: str) -> bool:
     if found:
         path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
     return found
+
+
+# ─── Session Plan ────────────────────────────────────────────────────
+
+
+def set_session_plan(
+    goal: str,
+    estimated_files: int = 0,
+    estimated_tool_calls: int = 0,
+    estimated_time_minutes: int = 0,
+) -> None:
+    """Store a session plan so the clarity system can compare plan vs actual."""
+    if not goal.strip():
+        return
+    path = _ensure_hud_dir() / "session_plan.json"
+    import time
+
+    plan = {
+        "goal": goal,
+        "estimated_files": estimated_files,
+        "estimated_tool_calls": estimated_tool_calls,
+        "estimated_time_minutes": estimated_time_minutes,
+        "created_at": time.time(),
+    }
+    path.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+
+
+def get_session_plan() -> dict[str, Any] | None:
+    """Load the current session plan, if any."""
+    path = _ensure_hud_dir() / "session_plan.json"
+    if not path.exists():
+        return None
+    try:
+        result: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        return result
+    except Exception:
+        return None
+
+
+def clear_session_plan() -> None:
+    """Clear the session plan (called at session end)."""
+    path = _ensure_hud_dir() / "session_plan.json"
+    if path.exists():
+        path.unlink()
 
 
 # ─── Goal Extraction ─────────────────────────────────────────────────

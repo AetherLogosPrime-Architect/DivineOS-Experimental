@@ -314,10 +314,11 @@ def _run_session_end_pipeline() -> None:
         quality_verdict = None
         maturity_override = ""
         try:
-            from divineos.analysis.quality_checks import run_all_checks
+            from divineos.analysis.quality_checks import run_all_checks, store_report
             from divineos.core.quality_gate import assess_session_quality, should_extract_knowledge
 
             report = run_all_checks(latest)
+            store_report(report)
             check_results = [
                 {"check_name": c.check_name, "passed": c.passed, "score": c.score}
                 for c in report.checks
@@ -563,11 +564,12 @@ def _run_session_end_pipeline() -> None:
             health = None
             logger.warning(f"Session health scoring failed: {e}")
 
-        # 9. Save HUD snapshot for next session
+        # 9. Save HUD snapshot and clear session plan
         try:
-            from divineos.core.hud import save_hud_snapshot
+            from divineos.core.hud import clear_session_plan, save_hud_snapshot
 
             save_hud_snapshot()
+            clear_session_plan()
             click.secho("[~] HUD snapshot saved.", fg="cyan")
         except Exception as e:
             logger.warning(f"HUD snapshot save failed: {e}")
@@ -2467,6 +2469,29 @@ def goal_list_cmd() -> None:
     from divineos.core.hud import SLOT_BUILDERS
 
     _safe_echo(SLOT_BUILDERS["active_goals"]())
+
+
+@cli.command("plan")
+@click.argument("goal")
+@click.option("--files", default=0, type=int, help="Estimated files to touch")
+@click.option("--time", "time_min", default=0, type=int, help="Estimated minutes")
+def plan_cmd(goal: str, files: int, time_min: int) -> None:
+    """Set a session plan so clarity analysis can compare plan vs actual."""
+    if not goal.strip():
+        click.secho("[-] Plan goal cannot be empty.", fg="yellow")
+        return
+    from divineos.core.hud import set_session_plan
+
+    set_session_plan(
+        goal=goal,
+        estimated_files=files,
+        estimated_time_minutes=time_min,
+    )
+    click.secho(f"[+] Session plan set: {goal}", fg="green")
+    if files:
+        click.secho(f"    Estimated files: {files}", fg="bright_black")
+    if time_min:
+        click.secho(f"    Estimated time: {time_min}min", fg="bright_black")
 
 
 @goal_group.command("clear")

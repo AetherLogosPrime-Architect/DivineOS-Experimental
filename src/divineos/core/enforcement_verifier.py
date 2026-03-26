@@ -152,24 +152,24 @@ def check_event_capture_rate() -> dict[str, float]:
             return {}
 
 
-def detect_missing_events() -> list[dict[str, Any]]:
+def detect_missing_events(recent_only: int = 500) -> list[dict[str, Any]]:
     """Detect missing events in the ledger.
 
     This function checks for:
     1. TOOL_CALL without matching TOOL_RESULT
     2. Orphaned events
-    3. Events with invalid hashes
+
+    Only checks the most recent `recent_only` events for pair matching,
+    since older ingested/parsed data may have unpaired events that
+    cannot be retroactively fixed.
 
     Returns:
         List[Dict[str, Any]]: List of missing/invalid events
 
-    Requirements:
-        - Requirement 9.5-9.6: Detect missing and invalid events
-
     """
     with mark_internal_operation():
         try:
-            all_events = get_events(limit=10000)
+            all_events = get_events(limit=recent_only)
             missing = []
 
             # Build map of tool_use_ids
@@ -180,14 +180,19 @@ def detect_missing_events() -> list[dict[str, Any]]:
                 event_type = event.get("event_type")
                 payload = event.get("payload", {})
 
-                if event_type == "TOOL_CALL":
-                    tool_use_id = payload.get("tool_use_id")
-                    if tool_use_id:
+                # Only check pair matching on events from the enforcement wrapper.
+                # Ingested/parsed events (actor=assistant/system) don't have
+                # matched pairs and would produce false positives.
+                is_enforced = event.get("actor") == "agent"
+
+                if event_type == "TOOL_CALL" and is_enforced:
+                    tool_use_id = payload.get("tool_use_id", "")
+                    if tool_use_id and not tool_use_id.startswith("tool_use_"):
                         tool_calls[tool_use_id] = event
 
-                elif event_type == "TOOL_RESULT":
-                    tool_use_id = payload.get("tool_use_id")
-                    if tool_use_id:
+                elif event_type == "TOOL_RESULT" and is_enforced:
+                    tool_use_id = payload.get("tool_use_id", "")
+                    if tool_use_id and not tool_use_id.startswith("tool_use_"):
                         tool_results[tool_use_id] = event
 
             # Check for TOOL_CALL without matching TOOL_RESULT
@@ -254,7 +259,16 @@ def generate_enforcement_report() -> str:
 
             rates = report.get("capture_rates", {})
             for event_type, rate in rates.items():
-                lines.append(f"  {event_type}: {rate * 100:.1f}%")
+                lines.append(f"  {event_type}: {rate * 100:.1f}% of all events")
+
+            # Show pair completeness
+            tc = report.get("event_counts", {}).get("TOOL_CALL", 0)
+            tr = report.get("event_counts", {}).get("TOOL_RESULT", 0)
+            if tc > 0:
+                pair_rate = min(tr, tc) / tc * 100
+                lines.append(
+                    f"\nPair Completeness: {pair_rate:.1f}% ({tr}/{tc} tool calls have results)"
+                )
 
             # Add missing events section
             missing = report.get("missing_events", [])

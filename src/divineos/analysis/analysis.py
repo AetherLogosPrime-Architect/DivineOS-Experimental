@@ -12,7 +12,7 @@ from typing import Any, cast
 
 from loguru import logger
 
-from divineos.analysis.quality_checks import run_all_checks
+from divineos.analysis.quality_checks import run_all_checks, store_report
 from divineos.analysis.session_features import run_all_features
 from divineos.core.consolidation import extract_lessons_from_report
 from divineos.core.ledger import get_verified_events
@@ -72,8 +72,9 @@ def analyze_session(file_path: Path) -> AnalysisResult:
     # Generate session ID first
     session_id = _generate_session_id(file_path)
 
-    # 2. Run quality checks
+    # 2. Run quality checks and persist results
     quality_report = run_all_checks(file_path)
+    store_report(quality_report)
 
     # 3. Run session features
     features = run_all_features(file_path)
