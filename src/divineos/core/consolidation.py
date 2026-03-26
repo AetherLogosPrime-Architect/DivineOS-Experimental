@@ -2628,6 +2628,17 @@ def health_check() -> dict[str, Any]:
     result["contradiction_flagged"] = contradiction_flagged
     result["abandoned_decayed"] = abandoned_count
 
+    # 7. Retroactive noise sweep — entries the filter would now reject
+    noise_penalized = 0
+    for entry in all_entries:
+        if entry.get("superseded_by"):
+            continue
+        if _is_extraction_noise(entry["content"], entry["knowledge_type"]):
+            if entry["confidence"] > 0.2:
+                _adjust_confidence(entry["knowledge_id"], -0.5, floor=0.1)
+                noise_penalized += 1
+    result["noise_penalized"] = noise_penalized
+
     return result
 
 
@@ -2707,6 +2718,14 @@ def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
         entries = get_knowledge(knowledge_type=old_type, limit=1000)
         for entry in entries:
             content = entry["content"]
+
+            # Skip noise and session-specific entries — don't promote them
+            if _is_extraction_noise(content, old_type):
+                continue
+            from divineos.core.memory import _is_session_specific
+
+            if _is_session_specific(content):
+                continue
 
             if old_type == "MISTAKE":
                 if rules["boundary_keywords"].search(content):

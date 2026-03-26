@@ -88,7 +88,7 @@ src/divineos/
     fidelity.py                Manifest-receipt integrity verification
     consolidation.py           Knowledge store, extraction, lessons, briefings
     memory.py                  Core memory + active memory + importance scoring
-    hud.py                     Heads-up display rendering
+    hud.py                     Heads-up display rendering + engagement gate
     quality_gate.py            Session quality assessment before extraction
     knowledge_contradiction.py Contradiction detection and resolution
     knowledge_maturity.py      RAW → HYPOTHESIS → TESTED → CONFIRMED lifecycle
@@ -109,7 +109,8 @@ src/divineos/
   event/                       Event types, dispatch, capture
   clarity_enforcement/         Clarity checking system
   integration/                 IDE and MCP integration
-tests/                         1850 tests (real DB, no mocks)
+  supersession/                Contradiction detection and resolution
+tests/                         1853 tests (real DB, no mocks)
 ```
 
 ## Design Rules
@@ -123,10 +124,9 @@ tests/                         1850 tests (real DB, no mocks)
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (1850 tests, ~37s)
+pytest tests/ -q --tb=short   # Run tests (1853 tests, ~37s)
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
-mypy src/divineos/             # Type check
 ```
 
 ## License

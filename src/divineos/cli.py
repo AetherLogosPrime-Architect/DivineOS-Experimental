@@ -927,6 +927,8 @@ def clean(force: bool) -> None:
     """Remove corrupted events from the ledger."""
     from divineos.core.ledger import verify_all_events
 
+    # Preview first — show what would be deleted
+    logger.info("Scanning for corrupted events...")
     result = verify_all_events()
     corrupted = result.get("failures", [])
 
@@ -944,17 +946,8 @@ def clean(force: bool) -> None:
         click.confirm("\nDelete these corrupted events?", abort=True)
 
     result = _wrapped_clean_corrupted_events()
-
-    click.secho("\n=== Ledger Cleanup ===\n", fg="cyan", bold=True)
-    if result["deleted_count"] > 0:
-        click.secho(
-            f"  Removed {result['deleted_count']} corrupted events",
-            fg="green",
-            bold=True,
-        )
-        click.echo("\n  Run 'divineos verify' to confirm ledger integrity")
-    else:
-        click.secho("  No corrupted events found", fg="green", bold=True)
+    click.secho(f"[+] Removed {result['deleted_count']} corrupted events.", fg="green")
+    click.echo("    Run 'divineos verify' to confirm ledger integrity.")
 
 
 @cli.command("export")
@@ -1772,18 +1765,13 @@ def clear_lessons_cmd() -> None:
     if not total:
         click.secho("[*] No lessons to clear.", fg="yellow")
         return
-
     click.secho(
         f"[!] This will delete {total} lessons ({len(active)} active, {len(improving)} improving).",
         fg="yellow",
     )
     click.confirm("Proceed?", abort=True)
-
     count = _wrapped_clear_lessons()
-    if count:
-        click.secho(f"[+] Cleared {count} lessons.", fg="green")
-    else:
-        click.secho("[*] No lessons to clear.", fg="yellow")
+    click.secho(f"[+] Cleared {count} lessons.", fg="green")
 
 
 @cli.command("consolidate")
@@ -1826,6 +1814,9 @@ def health_cmd() -> None:
         f"  Lessons resolved:       {result['resolved_lessons']}",
         fg="green" if result["resolved_lessons"] else "bright_black",
     )
+    noise_count = result.get("noise_penalized", 0)
+    if noise_count:
+        click.secho(f"  Noise penalized:        {noise_count}", fg="yellow")
 
     # Show effectiveness breakdown
     report = _wrapped_knowledge_health_report()
@@ -2550,6 +2541,33 @@ def goal_clear_cmd() -> None:
         click.secho(f"[+] Cleared {removed} completed goals, {len(active)} remain.", fg="green")
     except Exception as e:
         click.secho(f"[!] Failed to clear goals: {e}", fg="red")
+
+
+@goal_group.command("reset")
+def goal_reset_cmd() -> None:
+    """Remove ALL goals (completed and active). Use when goals are stale."""
+    import json
+
+    from divineos.core.hud import _ensure_hud_dir
+
+    path = _ensure_hud_dir() / "active_goals.json"
+    if not path.exists():
+        click.secho("[~] No goals to reset.", fg="yellow")
+        return
+
+    try:
+        goals = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        goals = []
+
+    if not goals:
+        click.secho("[~] No goals to reset.", fg="yellow")
+        return
+
+    click.secho(f"[!] This will remove all {len(goals)} goals.", fg="yellow")
+    click.confirm("Proceed?", abort=True)
+    path.write_text("[]", encoding="utf-8")
+    click.secho(f"[+] Reset {len(goals)} goals.", fg="green")
 
 
 @cli.command("clarity")
