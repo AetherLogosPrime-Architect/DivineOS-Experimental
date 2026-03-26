@@ -1,6 +1,6 @@
 """Tool Registry for Agent Integration.
 
-Maintains a registry of all Kiro agent tools that should be captured,
+Maintains a registry of agent tools that should be captured,
 and provides utilities for tool registration and lookup.
 """
 
@@ -9,25 +9,31 @@ from typing import Any
 
 from loguru import logger
 
-# Registry of all Kiro agent tools that should be captured
+# Registry of agent tools that should be captured
 AGENT_TOOLS: set[str] = {
-    # File reading tools
+    # Claude Code tools
+    "Read",
+    "Edit",
+    "Write",
+    "Bash",
+    "Glob",
+    "Grep",
+    "Agent",
+    "TodoWrite",
+    # Legacy (VS Code/Kiro) tools
     "readFile",
     "readCode",
     "readMultipleFiles",
-    # File writing tools
     "strReplace",
     "fsWrite",
     "fsAppend",
     "editCode",
-    # File system tools
     "deleteFile",
     "listDirectory",
-    # Search and analysis tools
     "grepSearch",
     "fileSearch",
     "getDiagnostics",
-    # Additional tools
+    "executePwsh",
     "semanticRename",
     "smartRelocate",
 }

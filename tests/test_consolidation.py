@@ -485,16 +485,16 @@ class TestExtractLessonsFromReport:
             {"name": "completeness", "passed": False, "score": 0.4, "summary": "5 blind edits"},
         ]
         extract_lessons_from_report(checks, "session-lesson1")
-        lessons = get_lessons(category="blind_edit")
+        lessons = get_lessons(category="blind_coding")
         assert len(lessons) == 1
 
     def test_good_check_marks_improving(self):
         """If a category was previously problematic and now passes, mark improving."""
         # First: fail 3 times to create active lesson
         for i in range(3):
-            record_lesson("blind_edit", "Read first", f"s{i}")
+            record_lesson("blind_coding", "Read first", f"s{i}")
 
-        lessons = get_lessons(category="blind_edit")
+        lessons = get_lessons(category="blind_coding")
         assert lessons[0]["status"] == "active"
         assert lessons[0]["occurrences"] == 3
 
@@ -508,7 +508,7 @@ class TestExtractLessonsFromReport:
             },
         ]
         extract_lessons_from_report(checks, "session-clean")
-        lessons = get_lessons(category="blind_edit")
+        lessons = get_lessons(category="blind_coding")
         assert lessons[0]["status"] == "improving"
 
 
@@ -1097,6 +1097,51 @@ class TestHealthCheck:
         assert result["resolved_lessons"] == 1
         entry = get_knowledge(knowledge_type="MISTAKE")[0]
         assert entry["confidence"] == pytest.approx(0.5)  # floor
+
+    def test_retroactive_noise_sweep(self):
+        """Health check penalizes existing entries that the noise filter now catches."""
+        # Store something that _is_extraction_noise catches — a short affirmation
+        store_knowledge(
+            "PRINCIPLE",
+            "I was corrected: yes lets commit and push",
+            confidence=0.9,
+        )
+        # Store something legitimate — should NOT be penalized
+        store_knowledge(
+            "PRINCIPLE",
+            "Self-improvement works when it is transparent, collaborative, and auditable",
+            confidence=0.9,
+        )
+        result = health_check()
+        assert result["noise_penalized"] == 1
+
+        entries = get_knowledge(knowledge_type="PRINCIPLE")
+        noisy = [e for e in entries if "yes lets commit" in e["content"]][0]
+        legit = [e for e in entries if "transparent" in e["content"]][0]
+        assert noisy["confidence"] == pytest.approx(0.6)  # 0.9 - 0.3
+        assert legit["confidence"] == pytest.approx(0.9)  # unchanged
+
+    def test_noise_sweep_respects_floor(self):
+        """Noise penalty doesn't push confidence below 0.1."""
+        store_knowledge(
+            "DIRECTION",
+            "I should: yes perfect lets keep going now",
+            confidence=0.25,
+        )
+        result = health_check()
+        assert result["noise_penalized"] == 1
+        entry = get_knowledge(knowledge_type="DIRECTION")[0]
+        assert entry["confidence"] == pytest.approx(0.1)  # floor
+
+    def test_noise_sweep_skips_already_low(self):
+        """Entries already at 0.2 or below are not penalized further."""
+        store_knowledge(
+            "PRINCIPLE",
+            "I was corrected: ok sure do it",
+            confidence=0.2,
+        )
+        result = health_check()
+        assert result["noise_penalized"] == 0
 
 
 class TestApplySessionFeedback:

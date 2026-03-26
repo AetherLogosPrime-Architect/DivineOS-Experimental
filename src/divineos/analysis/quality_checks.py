@@ -157,14 +157,34 @@ def _build_tool_result_map(records: list[dict[str, Any]]) -> dict[str, dict[str,
     return result_map
 
 
+def _extract_path_from_tool(tool: dict[str, Any]) -> str | None:
+    """Extract file path from a tool call, supporting both Claude Code and legacy formats."""
+    inp: dict[str, Any] = tool.get("input", {})
+    # Claude Code: Read/Edit/Write use "file_path"
+    path: str | None = inp.get("file_path")
+    if path:
+        return path
+    # Legacy (VS Code/Kiro): readFile/strReplace use "path", fsWrite uses "path"
+    legacy_path: str | None = inp.get("path")
+    if legacy_path:
+        return legacy_path
+    # Legacy: readMultipleFiles uses "paths"
+    paths = inp.get("paths")
+    if paths and isinstance(paths, list) and paths:
+        return str(paths[0])
+    # Legacy: some tools use "targetFile"
+    target: str | None = inp.get("targetFile")
+    return target
+
+
 def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Find write calls where the file was never read first."""
     files_read: set[str] = set()
     blind_edits: list[dict[str, Any]] = []
 
-    # Map tool names to action types
-    read_tools = {"readFile", "readCode", "readMultipleFiles"}
-    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    read_tools = {"Read", "readFile", "readCode", "readMultipleFiles"}
+    write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
     for r in records:
         if r.get("type") != "assistant":
@@ -173,13 +193,7 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             name = tool["name"]
 
             # Extract path based on tool type
-            path = None
-            if name in read_tools:
-                path = tool["input"].get("path") or (
-                    tool["input"].get("paths")[0] if tool["input"].get("paths") else None
-                )
-            elif name in write_tools:
-                path = tool["input"].get("path") or tool["input"].get("targetFile")
+            path = _extract_path_from_tool(tool)
 
             if not path:
                 continue
@@ -209,9 +223,9 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract all file operations (Read/Edit/Write) with paths and ordering."""
     ops: list[dict[str, Any]] = []
 
-    # Map tool names to action types
-    read_tools = {"readFile", "readCode", "readMultipleFiles"}
-    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    read_tools = {"Read", "readFile", "readCode", "readMultipleFiles"}
+    write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
     for r in records:
         if r.get("type") != "assistant":
@@ -223,14 +237,10 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             # Determine action type and extract path
             if tool["name"] in read_tools:
                 action = "read"
-                # readFile and readCode use "path", readMultipleFiles uses "paths"
-                path = tool["input"].get("path") or (
-                    tool["input"].get("paths")[0] if tool["input"].get("paths") else None
-                )
+                path = _extract_path_from_tool(tool)
             elif tool["name"] in write_tools:
                 action = "write"
-                # Most write tools use "path", fsWrite uses "path"
-                path = tool["input"].get("path") or tool["input"].get("targetFile")
+                path = _extract_path_from_tool(tool)
 
             if action and path:
                 ops.append(
@@ -300,36 +310,63 @@ def _find_errors_after_edits(
     records: list[dict[str, Any]],
     result_map: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Find errors in tool results that occur after write operations."""
+    """Find real errors caused by edits, filtering out normal workflow noise."""
     last_edit: dict[str, Any] | None = None
     errors_after_edits: list[dict[str, Any]] = []
+    tools_since_edit = 0
 
-    # Map tool names to action types
-    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+
+    # Error content patterns that are normal workflow, not safety issues
+    noise_patterns = [
+        "File has not been read yet",  # Claude Code guardrail working correctly
+        "exceeds maximum allowed tokens",  # File too large to read
+        "ruff format",  # Pre-commit auto-formatting
+        "Would reformat",  # Pre-commit auto-formatting
+        "not in plan mode",  # Wrong tool call, harmless
+        "Cancelled",  # Parallel tool cancellation
+        "cancelled",
+        "errored",  # Parallel tool error propagation
+    ]
 
     for r in records:
         if r.get("type") == "assistant":
             for tool in _extract_tool_calls(r):
                 if tool["name"] in write_tools:
-                    path = tool["input"].get("path") or tool["input"].get("targetFile")
+                    path = _extract_path_from_tool(tool)
                     last_edit = {
                         "tool": tool["name"],
                         "file_path": path,
                         "tool_id": tool["id"],
                         "timestamp": tool["timestamp"],
                     }
-                # Check if this tool call has an error result
+                    tools_since_edit = 0
+                    continue
+
+                tools_since_edit += 1
+                # Only associate errors with the preceding edit if within 5 tool calls
+                if tools_since_edit > 5:
+                    last_edit = None
+
                 result = result_map.get(tool["id"], {})
-                if result.get("is_error") and last_edit:
-                    errors_after_edits.append(
-                        {
-                            "error_tool": tool["name"],
-                            "error_tool_id": tool["id"],
-                            "error_content": result.get("content", "")[:300],
-                            "preceding_edit": last_edit,
-                            "timestamp": tool["timestamp"],
-                        },
-                    )
+                if not result.get("is_error") or not last_edit:
+                    continue
+
+                content = result.get("content", "")
+                # Skip noise — these aren't real safety issues
+                if any(p in content for p in noise_patterns):
+                    continue
+
+                errors_after_edits.append(
+                    {
+                        "error_tool": tool["name"],
+                        "error_tool_id": tool["id"],
+                        "error_content": content[:300],
+                        "preceding_edit": last_edit,
+                        "timestamp": tool["timestamp"],
+                    },
+                )
     return errors_after_edits
 
 
@@ -918,156 +955,98 @@ def check_task_adherence(
     records: list[dict[str, Any]],
     result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
-    """Did the AI do what was actually asked? (Best guess — labeled as inference.)."""
-    # Find the first user message (the initial request)
-    initial_request = ""
+    """Did the AI follow good practices? Checks read-before-write, test-after-edit, user satisfaction."""
+    file_ops = _extract_file_ops(records)
+    test_results = _extract_test_results(records, result_map)
+    blind_edits = _find_blind_edits(records)
+
+    # 1. Read-before-write ratio
+    write_ops = [op for op in file_ops if op["action"] == "write"]
+    total_writes = len(write_ops)
+    blind_count = len(blind_edits)
+    read_first_ratio = 1.0 if total_writes == 0 else (total_writes - blind_count) / total_writes
+
+    # 2. Did the AI run tests after making edits?
+    ran_tests = len(test_results) > 0
+    tests_passed = any(t.get("passed") is True for t in test_results) if ran_tests else False
+
+    # 3. User satisfaction — positive signals across ALL messages (not just final)
+    positive_count = 0
+    negative_count = 0
+    total_user_messages = 0
     for r in records:
         if r.get("type") != "user":
             continue
         text = _extract_user_text(r)
-        if text and len(text) > 10:
-            initial_request = text
-            break
-
-    if not initial_request:
-        return CheckResult(
-            check_name="task_adherence",
-            passed=-1,
-            score=1.0,
-            summary="Couldn't identify what was asked — no clear initial request found.",
-            evidence=[],
-        )
-
-    # Extract keywords from request (simple: words 4+ chars, not common)
-    stop_words = {
-        "this",
-        "that",
-        "with",
-        "from",
-        "have",
-        "will",
-        "been",
-        "were",
-        "they",
-        "them",
-        "their",
-        "what",
-        "when",
-        "where",
-        "which",
-        "there",
-        "would",
-        "could",
-        "should",
-        "about",
-        "these",
-        "those",
-        "other",
-        "some",
-        "than",
-        "then",
-        "also",
-        "just",
-        "more",
-        "very",
-        "here",
-        "into",
-        "only",
-        "your",
-        "does",
-        "make",
-        "like",
-        "want",
-        "need",
-        "help",
-        "please",
-        "file",
-        "code",
-        "sure",
-        "know",
-    }
-    words = re.findall(r"\b[a-zA-Z]{4,}\b", initial_request.lower())
-    keywords = [w for w in words if w not in stop_words][:15]
-
-    # Get files touched
-    file_ops = _extract_file_ops(records)
-    files_touched = list({op["file_path"] for op in file_ops})
-
-    # Check keyword relevance: how many files have a keyword in their path?
-    relevant_files = 0
-    for fpath in files_touched:
-        path_lower = fpath.lower()
-        for kw in keywords:
-            if kw in path_lower:
-                relevant_files += 1
-                break
-
-    total_files = len(files_touched)
-    if total_files == 0:
-        return CheckResult(
-            check_name="task_adherence",
-            passed=-1,
-            score=1.0,
-            summary="The AI didn't touch any files, so there's nothing to compare against the request.",
-            evidence=[{"initial_request": initial_request[:300], "keywords": keywords}],
-        )
-
-    # Check final user tone
-    final_messages = []
-    for r in reversed(records):
-        if r.get("type") != "user":
+        if not text or len(text) < 3:
             continue
-        text = _extract_user_text(r)
-        if text:
-            final_messages.append(text)
-        if len(final_messages) >= 3:
-            break
+        total_user_messages += 1
+        if re.search(
+            r"\b(perfect|great|thanks|good|yes|nice|awesome|love|exactly|works)\b",
+            text,
+            re.IGNORECASE,
+        ):
+            positive_count += 1
+        if re.search(
+            r"\b(wrong|stop|no[,.\s!]|don't|broke|broken|undo|revert|why did you)\b",
+            text,
+            re.IGNORECASE,
+        ):
+            negative_count += 1
 
-    positive_final = any(
-        re.search(r"\b(perfect|great|thanks|good|yes|nice|awesome)\b", m, re.IGNORECASE)
-        for m in final_messages
-    )
+    satisfaction = 0.5  # neutral default
+    if total_user_messages > 0:
+        pos_ratio = positive_count / total_user_messages
+        neg_ratio = negative_count / total_user_messages
+        satisfaction = min(1.0, max(0.0, 0.5 + pos_ratio - neg_ratio))
 
-    score = relevant_files / total_files if total_files > 0 else 0.5
-    # Boost for positive final tone
-    if positive_final:
-        score = min(1.0, score + 0.15)
+    # 4. Composite score
+    # Weight: read-before-write (30%), testing discipline (30%), user satisfaction (40%)
+    test_score = 0.0
+    if total_writes == 0:
+        test_score = 1.0  # No edits = no tests needed
+    elif ran_tests and tests_passed:
+        test_score = 1.0
+    elif ran_tests:
+        test_score = 0.6  # Ran tests but they failed
+    else:
+        test_score = 0.2  # Never ran tests after editing
 
-    unrelated = total_files - relevant_files
-    parts = [f'You asked: "{initial_request[:100]}{"..." if len(initial_request) > 100 else ""}"']
-
-    if total_files > 0:
-        parts.append(f"The AI touched {total_files} file{'s' if total_files != 1 else ''}.")
-        if relevant_files > 0 and unrelated > 0:
-            parts.append(
-                f"{relevant_files} seemed related to what you asked. "
-                f"{unrelated} {'were' if unrelated != 1 else 'was'} in other areas "
-                f"— might be related work, or might be scope creep.",
-            )
-        elif relevant_files == total_files:
-            parts.append("All of them looked related to what you asked for.")
-        elif relevant_files == 0:
-            parts.append(
-                "None of the file names obviously match your request. "
-                "The AI may have gone off track.",
-            )
-
-    parts.append("(This is a best guess based on file names and keywords, not a certainty.)")
-    summary = " ".join(parts)
+    score = round(0.3 * read_first_ratio + 0.3 * test_score + 0.4 * satisfaction, 2)
     passed = 1 if score >= 0.5 else 0
+
+    parts = []
+    if blind_count > 0:
+        parts.append(f"{blind_count} blind edit{'s' if blind_count != 1 else ''} (no read first).")
+    if total_writes > 0 and not ran_tests:
+        parts.append("No tests were run after editing files.")
+    elif ran_tests and not tests_passed:
+        parts.append("Tests were run but not all passed.")
+    if negative_count > 0:
+        parts.append(
+            f"User expressed dissatisfaction {negative_count} time{'s' if negative_count != 1 else ''}."
+        )
+    if not parts:
+        parts.append("Good discipline: read before writing, tested changes, user satisfied.")
+
+    summary = " ".join(parts)
 
     return CheckResult(
         check_name="task_adherence",
         passed=passed,
-        score=round(score, 2),
+        score=score,
         summary=summary,
         evidence=[
             {
-                "initial_request": initial_request[:500],
-                "keywords": keywords,
-                "files_touched": files_touched[:30],
-                "relevant_files": relevant_files,
-                "positive_final_tone": positive_final,
+                "total_writes": total_writes,
+                "blind_edits": blind_count,
+                "read_first_ratio": round(read_first_ratio, 2),
+                "ran_tests": ran_tests,
+                "tests_passed": tests_passed,
+                "positive_signals": positive_count,
+                "negative_signals": negative_count,
+                "total_user_messages": total_user_messages,
+                "satisfaction": round(satisfaction, 2),
             },
         ],
     )

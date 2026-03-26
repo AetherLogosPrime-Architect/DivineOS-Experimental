@@ -988,13 +988,13 @@ def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
 
 # Maps check names to lesson categories
 _CHECK_TO_CATEGORY = {
-    "completeness": "blind_edit",
-    "correctness": "test_failure",
-    "responsiveness": "ignored_correction",
-    "safety": "broke_things",
+    "completeness": "blind_coding",
+    "correctness": "incomplete_fix",
+    "responsiveness": "misunderstood",
+    "safety": "incomplete_fix",
     "honesty": "false_claim",
-    "clarity": "unclear_communication",
-    "task_adherence": "task_drift",
+    "clarity": "shallow_output",
+    "task_adherence": "wrong_scope",
 }
 
 # Phrases that signal a check "passed" only because nothing happened.
@@ -1722,10 +1722,13 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         return True
 
     # Questions directed at the AI — these are prompts, not knowledge
+    # Exclude tag questions ("ok?", "right?", "yes?") which are statements
     if stripped_lower.endswith("?") and knowledge_type in ("DIRECTION", "PRINCIPLE"):
-        question_words = stripped_lower.split()
-        if len(question_words) < 15:
-            return True
+        is_tag_question = stripped_lower.rstrip().endswith(("ok?", "right?", "yes?", "no?"))
+        if not is_tag_question:
+            question_words = stripped_lower.split()
+            if len(question_words) < 15:
+                return True
 
     # Raw user quotes — conversational text stored verbatim
     # These are raw chat messages, not synthesized knowledge.
@@ -1745,10 +1748,48 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
             stripped_lower,
         ):
             return True
-        # Addressing the AI directly (not as a rule)
+        # Addressing the AI directly (not as a rule or correction)
         if stripped_lower.startswith(("you ", "if you ", "now you ", "while you ")):
-            if not any(w in stripped_lower for w in ("must", "always", "never", "rule")):
+            # Keep rules (must/always/never) and corrections (fixed/broke/forgot/missed)
+            has_weight = any(
+                w in stripped_lower
+                for w in (
+                    "must",
+                    "always",
+                    "never",
+                    "rule",
+                    "only fixed",
+                    "forgot",
+                    "broke",
+                    "missed",
+                    "didn't",
+                    "failed",
+                    "wrong",
+                )
+            )
+            if not has_weight:
                 return True
+        # Short questions directed at the AI — chat, not knowledge
+        # Exclude tag questions ("ok?", "right?") which are rhetorical
+        if stripped_lower.rstrip().endswith("?") and len(stripped.split()) < 20:
+            is_tag = stripped_lower.rstrip().endswith(("ok?", "right?", "yes?", "no?"))
+            if not is_tag:
+                return True
+        # Task-specific instructions without lasting value
+        # "lets commit and push", "lets keep going", "lets do X"
+        if re.match(r"lets?\s+(commit|push|keep|do|try|fix|run|check|look)\b", stripped_lower):
+            return True
+        # Conversational filler with no actionable content
+        if re.match(
+            r"(ill go with|i got|i just|i was just|i tried|i need my|"
+            r"we need to (clean|commit|push|fix|run|check)|"
+            r"how (does|is|do|are) (it|this|that|everything))",
+            stripped_lower,
+        ):
+            return True
+        # GitHub opt-out, tool instructions, UI actions — not knowledge
+        if re.search(r"\b(opt out|allow .* to use my data|make sure you opt)\b", stripped_lower):
+            return True
 
     return False
 
@@ -2628,14 +2669,20 @@ def health_check() -> dict[str, Any]:
     result["contradiction_flagged"] = contradiction_flagged
     result["abandoned_decayed"] = abandoned_count
 
-    # 7. Retroactive noise sweep — entries the filter would now reject
+    # 7. Retroactive noise sweep — re-evaluate existing entries against
+    # the current noise filter. Entries that slipped in before the filter
+    # was improved get their confidence penalized (not deleted — append-only).
     noise_penalized = 0
     for entry in all_entries:
+        # Already low confidence — no point penalizing further
+        if entry["confidence"] <= 0.2:
+            continue
+        # Already superseded — leave it alone
         if entry.get("superseded_by"):
             continue
         if _is_extraction_noise(entry["content"], entry["knowledge_type"]):
-            if entry["confidence"] > 0.2:
-                _adjust_confidence(entry["knowledge_id"], -0.5, floor=0.1)
+            new_conf = _adjust_confidence(entry["knowledge_id"], -0.3, floor=0.1)
+            if new_conf is not None:
                 noise_penalized += 1
     result["noise_penalized"] = noise_penalized
 

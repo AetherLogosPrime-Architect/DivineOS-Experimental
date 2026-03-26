@@ -21,14 +21,13 @@ DivineOS gives AI agents persistent memory, structured learning, and self-accoun
 | **Memory Hierarchy** | Core memory (8 fixed identity slots) + active memory (ranked knowledge) + knowledge store (all entries). |
 | **Knowledge Engine** | Smart extraction with deduplication, contradiction detection, noise filtering, and supersession chains. |
 | **Session Analysis** | Regex-based signal detection: corrections, encouragements, decisions, frustrations, tool usage. |
-| **Quality Gate** | Blocks knowledge extraction from dishonest or incorrect sessions. Downgrades uncertain sessions. |
+| **Quality Gate** | Blocks knowledge extraction from dishonest or incorrect sessions. |
 | **Maturity Lifecycle** | Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED. Corroboration drives promotion. |
 | **Seed System** | Versioned initial knowledge with merge mode, resurrection prevention, and validation. |
-| **HUD** | Heads-up display: identity, goals, lessons, health grade, engagement tracking, active memory. |
-| **Engagement Enforcement** | AI must consult the OS (ask, recall, directives, briefing) before writing code. Enforced by pre-tool hooks. |
+| **HUD** | Heads-up display showing identity, goals, lessons, health grade, engagement tracking, active memory. |
 | **Outcome Measurement** | Rework detection, knowledge stability (churn rate), correction trends, session health scoring. |
 | **Guardrails** | Runtime limits on iterations, tool calls, and tokens per session. |
-| **Extraction Noise Filter** | Prevents raw conversational quotes, affirmations, vacuous summaries, and system artifacts from becoming "knowledge." |
+| **Extraction Noise Filter** | Prevents raw conversational quotes, affirmations, and system artifacts from becoming "knowledge." |
 | **Lesson Tracking** | Lessons with occurrence counts, session tracking, status progression (active → improving → resolved). |
 
 ## Quick Start
@@ -110,7 +109,8 @@ src/divineos/
   event/                       Event types, dispatch, capture
   clarity_enforcement/         Clarity checking system
   integration/                 IDE and MCP integration
-tests/                         1827 tests (real DB, no mocks)
+  supersession/                Contradiction detection and resolution
+tests/                         1830 tests (real DB, no mocks)
 ```
 
 ## Design Rules
@@ -124,7 +124,7 @@ tests/                         1827 tests (real DB, no mocks)
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (1827 tests, ~37s)
+pytest tests/ -q --tb=short   # Run tests (1830 tests, ~37s)
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```

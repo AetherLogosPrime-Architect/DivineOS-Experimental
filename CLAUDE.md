@@ -18,12 +18,6 @@ At the end of a session, log what happened:
 divineos emit SESSION_END
 ```
 
-## Engagement Enforcement
-
-You cannot write code without first consulting the OS. The pre-tool hook checks for an engagement marker that is set when you use any thinking tool (ask, recall, directives, briefing, context). If you skip the OS, your Edit/Write calls will be blocked.
-
-This exists because speed-over-completeness is a known weakness. The enforcement makes sure you orient before acting.
-
 ## Quick Reference
 
 ```bash
@@ -55,7 +49,7 @@ divineos outcomes          # Measure learning effectiveness
 divineos health            # Run knowledge health check
 
 # Tests
-pytest tests/ -q --tb=short  # Run tests after changes (1827 tests)
+pytest tests/ -q --tb=short  # Run tests after changes
 ```
 
 ## Current Systems
@@ -65,11 +59,10 @@ pytest tests/ -q --tb=short  # Run tests after changes (1827 tests)
 - **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, supersession chains.
 - **Quality Gate** — Blocks knowledge extraction from bad sessions. Dishonest = blocked. Low correctness = downgraded.
 - **Maturity Lifecycle** — Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED via corroboration.
-- **Extraction Noise Filter** — Prevents raw conversational quotes, affirmations, vacuous summaries, and system artifacts from polluting knowledge.
+- **Extraction Noise Filter** — Prevents raw conversational quotes, affirmations, and system artifacts from polluting knowledge.
 - **Seed System** — Versioned initial knowledge with merge mode and resurrection prevention.
 - **Session Analysis** — Regex-based signal detection: corrections, encouragements, decisions, frustrations.
 - **HUD** — Heads-up display: identity, goals, lessons, health grade, engagement tracking, active memory.
-- **Engagement Enforcement** — Pre-tool hook blocks code changes until the AI has consulted the OS.
 - **Outcome Measurement** — Rework detection, knowledge stability (churn), correction trends, session health scoring.
 - **Guardrails** — Runtime limits on iterations, tool calls, tokens.
 - **Lesson Tracking** — Occurrence counts, session tracking, status progression (active → improving → resolved).
@@ -85,8 +78,9 @@ src/divineos/
 ├── agent_integration/        # Outcome measurement, memory monitor, learning cycles
 ├── clarity_enforcement/      # Clarity system
 ├── event/                    # Event types and dispatch
-└── integration/              # IDE and MCP integration
-tests/                        # 1827 tests (real DB, no mocks)
+├── integration/              # IDE and MCP integration
+└── supersession/             # Contradiction detection and resolution
+tests/                        # 1830 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 ```
 
@@ -100,7 +94,6 @@ data/                         # Runtime databases (gitignored)
 4. **Append-only data.** The ledger and knowledge store never delete or update in place. Supersede instead.
 5. **Run tests after code changes.** `pytest tests/ -q --tb=short` — if tests fail, fix them before moving on.
 6. **Use the memory system.** Load your briefing, learn from it, log your work. This is not optional.
-7. **Engage before coding.** Run at least one thinking command (ask, recall, directives, briefing) before making code changes.
 
 ### Anti-Vibe-Code Patterns
 

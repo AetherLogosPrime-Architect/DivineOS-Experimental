@@ -60,27 +60,34 @@ class ViolationDetector:
 
     # Tools commonly used without explanation (LOW severity)
     LOW_SEVERITY_TOOLS = {
+        "Read",
+        "Glob",
+        "Grep",  # Claude Code
         "readFile",
         "listDirectory",
         "readCode",
-        "getDiagnostics",
+        "getDiagnostics",  # Legacy
     }
 
     # Tools sometimes used without explanation (MEDIUM severity)
     MEDIUM_SEVERITY_TOOLS = {
+        "Bash",
+        "Edit",
+        "Agent",  # Claude Code
         "executeCommand",
         "executePwsh",
         "strReplace",
-        "editCode",
+        "editCode",  # Legacy
     }
 
     # Tools rarely used without explanation (HIGH severity)
     HIGH_SEVERITY_TOOLS = {
+        "Write",  # Claude Code
         "deleteFile",
         "fsWrite",
         "fsAppend",
         "semanticRename",
-        "smartRelocate",
+        "smartRelocate",  # Legacy
     }
 
     def __init__(self):
