@@ -74,21 +74,47 @@ def session_analysis_to_execution_data(analysis: object) -> ExecutionData:
 
 
 def synthesize_clarity_statement(analysis: object):
-    """Create a ClarityStatement from session analysis using the clarity generator."""
+    """Create a ClarityStatement from session analysis using the clarity generator.
+
+    If a session plan was set (via `divineos plan`), uses those estimates
+    as the baseline. Otherwise falls back to actual metrics (retroactive).
+    """
     from .clarity_generator import DefaultClarityStatementGenerator
 
     m = _extract_session_metrics(analysis)
 
+    # Try to load a real session plan
+    plan = None
+    try:
+        from divineos.core.hud import get_session_plan
+
+        plan = get_session_plan()
+    except Exception:
+        pass
+
+    if plan and plan.get("goal"):
+        # Real plan — use the user's stated estimates
+        goal = plan["goal"]
+        estimated_files = plan.get("estimated_files", 0) or m["files_touched"]
+        estimated_time = plan.get("estimated_time_minutes", 0) or int(m["duration_minutes"])
+        estimated_tools = plan.get("estimated_tool_calls", 0) or m["tool_calls_total"]
+    else:
+        # No plan — retroactive synthesis (deviations will be near-zero)
+        goal = "Session work"
+        estimated_files = m["files_touched"]
+        estimated_time = int(m["duration_minutes"])
+        estimated_tools = m["tool_calls_total"]
+
     generator = DefaultClarityStatementGenerator()
     return generator.generate_clarity_statement(
         {
-            "goal": "Session work",
+            "goal": goal,
             "approach": "Interactive development",
             "expected_outcome": "Clean execution with no corrections",
-            "estimated_files": m["files_touched"],
-            "estimated_tool_calls": m["tool_calls_total"],
+            "estimated_files": estimated_files,
+            "estimated_tool_calls": estimated_tools,
             "estimated_complexity": "medium",
-            "estimated_time_minutes": int(m["duration_minutes"]),
+            "estimated_time_minutes": estimated_time,
         }
     )
 
