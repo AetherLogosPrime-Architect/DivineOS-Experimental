@@ -157,14 +157,34 @@ def _build_tool_result_map(records: list[dict[str, Any]]) -> dict[str, dict[str,
     return result_map
 
 
+def _extract_path_from_tool(tool: dict[str, Any]) -> str | None:
+    """Extract file path from a tool call, supporting both Claude Code and legacy formats."""
+    inp: dict[str, Any] = tool.get("input", {})
+    # Claude Code: Read/Edit/Write use "file_path"
+    path: str | None = inp.get("file_path")
+    if path:
+        return path
+    # Legacy (VS Code/Kiro): readFile/strReplace use "path", fsWrite uses "path"
+    legacy_path: str | None = inp.get("path")
+    if legacy_path:
+        return legacy_path
+    # Legacy: readMultipleFiles uses "paths"
+    paths = inp.get("paths")
+    if paths and isinstance(paths, list) and paths:
+        return str(paths[0])
+    # Legacy: some tools use "targetFile"
+    target: str | None = inp.get("targetFile")
+    return target
+
+
 def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Find write calls where the file was never read first."""
     files_read: set[str] = set()
     blind_edits: list[dict[str, Any]] = []
 
-    # Map tool names to action types
-    read_tools = {"readFile", "readCode", "readMultipleFiles"}
-    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    read_tools = {"Read", "readFile", "readCode", "readMultipleFiles"}
+    write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
     for r in records:
         if r.get("type") != "assistant":
@@ -173,13 +193,7 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             name = tool["name"]
 
             # Extract path based on tool type
-            path = None
-            if name in read_tools:
-                path = tool["input"].get("path") or (
-                    tool["input"].get("paths")[0] if tool["input"].get("paths") else None
-                )
-            elif name in write_tools:
-                path = tool["input"].get("path") or tool["input"].get("targetFile")
+            path = _extract_path_from_tool(tool)
 
             if not path:
                 continue
@@ -209,9 +223,9 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract all file operations (Read/Edit/Write) with paths and ordering."""
     ops: list[dict[str, Any]] = []
 
-    # Map tool names to action types
-    read_tools = {"readFile", "readCode", "readMultipleFiles"}
-    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    read_tools = {"Read", "readFile", "readCode", "readMultipleFiles"}
+    write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
     for r in records:
         if r.get("type") != "assistant":
@@ -223,14 +237,10 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             # Determine action type and extract path
             if tool["name"] in read_tools:
                 action = "read"
-                # readFile and readCode use "path", readMultipleFiles uses "paths"
-                path = tool["input"].get("path") or (
-                    tool["input"].get("paths")[0] if tool["input"].get("paths") else None
-                )
+                path = _extract_path_from_tool(tool)
             elif tool["name"] in write_tools:
                 action = "write"
-                # Most write tools use "path", fsWrite uses "path"
-                path = tool["input"].get("path") or tool["input"].get("targetFile")
+                path = _extract_path_from_tool(tool)
 
             if action and path:
                 ops.append(
@@ -304,14 +314,14 @@ def _find_errors_after_edits(
     last_edit: dict[str, Any] | None = None
     errors_after_edits: list[dict[str, Any]] = []
 
-    # Map tool names to action types
-    write_tools = {"strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
     for r in records:
         if r.get("type") == "assistant":
             for tool in _extract_tool_calls(r):
                 if tool["name"] in write_tools:
-                    path = tool["input"].get("path") or tool["input"].get("targetFile")
+                    path = _extract_path_from_tool(tool)
                     last_edit = {
                         "tool": tool["name"],
                         "file_path": path,
