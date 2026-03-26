@@ -261,7 +261,7 @@ Four measurements of whether the system is actually working:
 | CLI | click | Battle-tested, composable commands |
 | Logging | loguru | Structured, rotated, colored |
 | Hashing | hashlib SHA256 | Standard, deterministic, fast |
-| Testing | pytest | 1818 tests, fixtures, real DB operations |
+| Testing | pytest | 1850 tests, fixtures, real DB operations |
 | Linting | ruff | Fast, replaces flake8+isort+black |
 | Types | mypy | Catch bugs before runtime |
 | License | AGPL-3.0 | Copyleft — derivatives must share source |

@@ -80,7 +80,7 @@ src/divineos/
 ├── event/                    # Event types and dispatch
 ├── integration/              # IDE and MCP integration
 └── supersession/             # Contradiction detection and resolution
-tests/                        # 1818 tests (real DB, no mocks)
+tests/                        # 1850 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 ```
 
