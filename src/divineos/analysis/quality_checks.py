@@ -310,12 +310,25 @@ def _find_errors_after_edits(
     records: list[dict[str, Any]],
     result_map: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Find errors in tool results that occur after write operations."""
+    """Find real errors caused by edits, filtering out normal workflow noise."""
     last_edit: dict[str, Any] | None = None
     errors_after_edits: list[dict[str, Any]] = []
+    tools_since_edit = 0
 
     # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
     write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
+
+    # Error content patterns that are normal workflow, not safety issues
+    noise_patterns = [
+        "File has not been read yet",  # Claude Code guardrail working correctly
+        "exceeds maximum allowed tokens",  # File too large to read
+        "ruff format",  # Pre-commit auto-formatting
+        "Would reformat",  # Pre-commit auto-formatting
+        "not in plan mode",  # Wrong tool call, harmless
+        "Cancelled",  # Parallel tool cancellation
+        "cancelled",
+        "errored",  # Parallel tool error propagation
+    ]
 
     for r in records:
         if r.get("type") == "assistant":
@@ -328,18 +341,32 @@ def _find_errors_after_edits(
                         "tool_id": tool["id"],
                         "timestamp": tool["timestamp"],
                     }
-                # Check if this tool call has an error result
+                    tools_since_edit = 0
+                    continue
+
+                tools_since_edit += 1
+                # Only associate errors with the preceding edit if within 5 tool calls
+                if tools_since_edit > 5:
+                    last_edit = None
+
                 result = result_map.get(tool["id"], {})
-                if result.get("is_error") and last_edit:
-                    errors_after_edits.append(
-                        {
-                            "error_tool": tool["name"],
-                            "error_tool_id": tool["id"],
-                            "error_content": result.get("content", "")[:300],
-                            "preceding_edit": last_edit,
-                            "timestamp": tool["timestamp"],
-                        },
-                    )
+                if not result.get("is_error") or not last_edit:
+                    continue
+
+                content = result.get("content", "")
+                # Skip noise — these aren't real safety issues
+                if any(p in content for p in noise_patterns):
+                    continue
+
+                errors_after_edits.append(
+                    {
+                        "error_tool": tool["name"],
+                        "error_tool_id": tool["id"],
+                        "error_content": content[:300],
+                        "preceding_edit": last_edit,
+                        "timestamp": tool["timestamp"],
+                    },
+                )
     return errors_after_edits
 
 
