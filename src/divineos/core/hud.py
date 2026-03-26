@@ -730,6 +730,7 @@ def _is_conversational_goal(text: str) -> bool:
         "do it",
         "do this",
         "do that",
+        "do both",
         "go",
         "keep going",
         "keep looking",
@@ -740,12 +741,13 @@ def _is_conversational_goal(text: str) -> bool:
         "try that",
         "see",
         "check",
+        "work on",
     )
     for starter in noise_starters:
-        if text.startswith(starter) and len(text.split()) < 6:
+        if text.startswith(starter) and len(text.split()) < 8:
             return True
 
-    # Generic meta-instructions
+    # Generic meta-instructions — these direct how to work, not what to build
     meta = (
         "make a plan",
         "make sure",
@@ -753,9 +755,17 @@ def _is_conversational_goal(text: str) -> bool:
         "commit and push",
         "merge and",
         "push and",
+        "fix the root cause",
+        "fix the issues",
+        "fix it",
     )
     for m in meta:
         if text.startswith(m):
             return True
+
+    # Emoticon-heavy or very short — chat, not goals
+    stripped = text.replace(":)", "").replace(":D", "").replace("lol", "").strip()
+    if len(stripped.split()) < 3:
+        return True
 
     return False

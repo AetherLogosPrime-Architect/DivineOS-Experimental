@@ -312,6 +312,14 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
     if _is_session_specific(content):
         score -= 0.30
 
+    # Extraction noise penalty — raw user quotes, affirmations, task instructions
+    # These slipped past earlier filters and shouldn't rank in active memory
+    from divineos.core.consolidation import _is_extraction_noise
+
+    knowledge_type = entry.get("knowledge_type", "")
+    if _is_extraction_noise(content, knowledge_type):
+        score -= 0.35
+
     return cast("float", max(0.0, min(1.0, score)))
 
 

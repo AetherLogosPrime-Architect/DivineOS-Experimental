@@ -188,13 +188,18 @@ def apply_seed(
         )
         counts["knowledge"] += 1
 
-    # Lessons
-    from divineos.core.consolidation import record_lesson
+    # Lessons — only seed categories that don't already exist
+    from divineos.core.consolidation import get_lessons, record_lesson
 
+    existing_categories = {les["category"] for les in get_lessons()}
     for lesson in seed_data.get("lessons", []):
+        category = lesson["category"]
+        if category in existing_categories:
+            counts["skipped"] += 1
+            continue
         record_lesson(
-            category=lesson["category"],
-            description=f"(seeded) {lesson['category']}",
+            category=category,
+            description=f"(seeded) {category}",
             session_id="seed",
         )
         counts["lessons"] += 1
