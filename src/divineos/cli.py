@@ -869,7 +869,7 @@ def ingest(file_path: str) -> None:
 )
 def verify(skip_types: tuple[str, ...], real_only: bool) -> None:
     """Verify integrity of all stored events."""
-    logger.info("Running fidelity verification...")
+    logger.debug("Running fidelity verification...")
 
     types_to_skip = list(skip_types)
     if real_only:
@@ -998,7 +998,7 @@ def log_cmd(event_type: str, actor: str, content: str) -> None:
         actor=actor.lower(),
         payload=payload,
     )
-    logger.info(f"Event logged: {event_type} by {actor}")
+    logger.debug(f"Event logged: {event_type} by {actor}")
     click.secho(f"[+] Logged event: {event_id}", fg="green")
 
 
@@ -1027,7 +1027,7 @@ def search(keyword: str, limit: int) -> None:
     if not keyword.strip():
         click.secho("[-] Please provide a search term.", fg="yellow")
         return
-    logger.info(f"Searching for: '{keyword}'")
+    logger.debug(f"Searching for: '{keyword}'")
     events = _wrapped_search_events(keyword=keyword, limit=limit)
 
     if not events:
@@ -1041,7 +1041,7 @@ def search(keyword: str, limit: int) -> None:
 @cli.command()
 def stats() -> None:
     """Display event ledger statistics."""
-    logger.info("Fetching ledger statistics...")
+    logger.debug("Fetching ledger statistics...")
     try:
         counts = _wrapped_count_events()
     except Exception as e:
@@ -1069,7 +1069,7 @@ def stats() -> None:
 @click.option("--n", "--limit", default=20, help="Number of recent events for context")
 def context(n: int) -> None:
     """Show the last N events (working memory context window)."""
-    logger.info(f"Building context from last {n} events...")
+    logger.debug(f"Building context from last {n} events...")
     events = _wrapped_get_recent_context(n=n)
 
     if not events:
@@ -1242,6 +1242,10 @@ def ask_cmd(query: str, limit: int) -> None:
     Searches both the knowledge store and core memory.
     Example: divineos ask "testing"
     """
+    if not query.strip():
+        click.secho("[-] Please provide a search query.", fg="yellow")
+        return
+
     from divineos.core.memory import get_core
 
     if not query.strip():
