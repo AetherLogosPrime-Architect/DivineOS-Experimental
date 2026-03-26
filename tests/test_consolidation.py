@@ -1098,6 +1098,51 @@ class TestHealthCheck:
         entry = get_knowledge(knowledge_type="MISTAKE")[0]
         assert entry["confidence"] == pytest.approx(0.5)  # floor
 
+    def test_retroactive_noise_sweep(self):
+        """Health check penalizes existing entries that the noise filter now catches."""
+        # Store something that _is_extraction_noise catches — a short affirmation
+        store_knowledge(
+            "PRINCIPLE",
+            "I was corrected: yes lets commit and push",
+            confidence=0.9,
+        )
+        # Store something legitimate — should NOT be penalized
+        store_knowledge(
+            "PRINCIPLE",
+            "Self-improvement works when it is transparent, collaborative, and auditable",
+            confidence=0.9,
+        )
+        result = health_check()
+        assert result["noise_penalized"] == 1
+
+        entries = get_knowledge(knowledge_type="PRINCIPLE")
+        noisy = [e for e in entries if "yes lets commit" in e["content"]][0]
+        legit = [e for e in entries if "transparent" in e["content"]][0]
+        assert noisy["confidence"] == pytest.approx(0.6)  # 0.9 - 0.3
+        assert legit["confidence"] == pytest.approx(0.9)  # unchanged
+
+    def test_noise_sweep_respects_floor(self):
+        """Noise penalty doesn't push confidence below 0.1."""
+        store_knowledge(
+            "DIRECTION",
+            "I should: yes perfect lets keep going now",
+            confidence=0.25,
+        )
+        result = health_check()
+        assert result["noise_penalized"] == 1
+        entry = get_knowledge(knowledge_type="DIRECTION")[0]
+        assert entry["confidence"] == pytest.approx(0.1)  # floor
+
+    def test_noise_sweep_skips_already_low(self):
+        """Entries already at 0.2 or below are not penalized further."""
+        store_knowledge(
+            "PRINCIPLE",
+            "I was corrected: ok sure do it",
+            confidence=0.2,
+        )
+        result = health_check()
+        assert result["noise_penalized"] == 0
+
 
 class TestApplySessionFeedback:
     def test_empty_knowledge_store(self):

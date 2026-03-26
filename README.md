@@ -110,7 +110,7 @@ src/divineos/
   clarity_enforcement/         Clarity checking system
   integration/                 IDE and MCP integration
   supersession/                Contradiction detection and resolution
-tests/                         1853 tests (real DB, no mocks)
+tests/                         1830 tests (real DB, no mocks)
 ```
 
 ## Design Rules
@@ -124,7 +124,7 @@ tests/                         1853 tests (real DB, no mocks)
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (1853 tests, ~37s)
+pytest tests/ -q --tb=short   # Run tests (1830 tests, ~37s)
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```
