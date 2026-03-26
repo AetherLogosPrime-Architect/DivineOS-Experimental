@@ -691,12 +691,11 @@ def generate_briefing(
     entries.sort(key=lambda e: e["_score"], reverse=True)
     entries = entries[:max_items]
 
-    # Track access — every entry surfaced in a briefing gets counted
-    for entry in entries:
-        try:
-            record_access(entry["knowledge_id"])
-        except Exception:
-            pass  # Don't let access tracking break the briefing
+    # NOTE: We intentionally do NOT call record_access() here.
+    # Briefing display is the system showing entries — not the AI
+    # actively querying them. Bumping access_count on every briefing
+    # created a feedback loop where popular entries stayed popular
+    # regardless of actual usefulness.
 
     # Get active lessons for the header section
     lessons_text = ""
