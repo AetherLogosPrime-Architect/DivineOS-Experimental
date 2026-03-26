@@ -642,6 +642,32 @@ def clear_session_plan() -> None:
         path.unlink()
 
 
+# ─── Session Engagement Gate ─────────────────────────────────────────
+
+
+def mark_engaged() -> None:
+    """Mark that the OS was used for thinking this session.
+
+    Called when a thinking tool (ask, recall, directives, context, briefing)
+    is used. The pre-tool hook checks for this marker before allowing writes.
+    """
+    path = _ensure_hud_dir() / ".session_engaged"
+    path.write_text(str(time.time()), encoding="utf-8")
+
+
+def is_engaged() -> bool:
+    """Check if the OS has been engaged this session."""
+    path = _ensure_hud_dir() / ".session_engaged"
+    return path.exists()
+
+
+def clear_engagement() -> None:
+    """Clear the engagement marker (called at session end)."""
+    path = _ensure_hud_dir() / ".session_engaged"
+    if path.exists():
+        path.unlink()
+
+
 # ─── Goal Extraction ─────────────────────────────────────────────────
 
 # Patterns that signal a user is asking for something to be done.

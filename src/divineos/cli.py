@@ -566,10 +566,11 @@ def _run_session_end_pipeline() -> None:
 
         # 9. Save HUD snapshot and clear session plan
         try:
-            from divineos.core.hud import clear_session_plan, save_hud_snapshot
+            from divineos.core.hud import clear_engagement, clear_session_plan, save_hud_snapshot
 
             save_hud_snapshot()
             clear_session_plan()
+            clear_engagement()
             click.secho("[~] HUD snapshot saved.", fg="cyan")
         except Exception as e:
             logger.warning(f"HUD snapshot save failed: {e}")
@@ -612,6 +613,18 @@ def _run_session_end_pipeline() -> None:
     except Exception as e:
         click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
         logger.warning(f"Auto-scan failed: {e}")
+
+
+def _log_os_query(tool: str, query: str = "") -> None:
+    """Log an OS_QUERY event and mark the session as engaged."""
+    from divineos.core.hud import mark_engaged
+
+    _wrapped_log_event(
+        event_type="OS_QUERY",
+        actor="assistant",
+        payload={"tool": tool, "query": query},
+    )
+    mark_engaged()
 
 
 # Wrap critical tool calls for event capture
@@ -1078,11 +1091,7 @@ def context(n: int) -> None:
 
     click.secho(f"\n=== Context Window (last {len(events)} events) ===\n", fg="cyan", bold=True)
     _print_events(events)
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "context", "query": f"last {n} events"},
-    )
+    _log_os_query("context", f"last {n} events")
 
 
 @cli.command()
@@ -1248,17 +1257,7 @@ def ask_cmd(query: str, limit: int) -> None:
 
     from divineos.core.memory import get_core
 
-    if not query.strip():
-        click.secho(
-            '[-] Please provide a search query. Example: divineos ask "testing"', fg="yellow"
-        )
-        return
-
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "ask", "query": query},
-    )
+    _log_os_query("ask", query)
     results = search_knowledge(query, limit=limit)
 
     # Also search core memory — it's part of what I know
@@ -1349,11 +1348,7 @@ def ask_cmd(query: str, limit: int) -> None:
 @click.option("--topic", default="", help="Topic hint to boost relevant knowledge (e.g. 'testing')")
 def briefing_cmd(max_items: int, types: str, topic: str) -> None:
     """Generate a session context briefing from stored knowledge."""
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "briefing", "query": topic or "session start"},
-    )
+    _log_os_query("briefing", topic or "session start")
     # Refresh active memory on briefing — this is my "waking up" moment,
     # so knowledge should be freshly ranked before I see it.
     try:
@@ -1490,11 +1485,7 @@ def directive_cmd(name: str, links: tuple[str, ...], tags: str) -> None:
 @cli.command("directives")
 def directives_cmd() -> None:
     """List all active directives."""
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "directives", "query": "list directives"},
-    )
+    _log_os_query("directives", "list directives")
     entries = get_knowledge(knowledge_type="DIRECTIVE", limit=100)
 
     if not entries:
@@ -2057,11 +2048,7 @@ def core_cmd(action: str, slot: str | None, content: str | None) -> None:
 @click.option("--topic", default="", help="Topic hint to boost relevant memories")
 def recall_cmd(topic: str) -> None:
     """Show what the AI remembers right now — core + active + relevant."""
-    _wrapped_log_event(
-        event_type="OS_QUERY",
-        actor="assistant",
-        payload={"tool": "recall", "query": topic or "general recall"},
-    )
+    _log_os_query("recall", topic or "general recall")
     init_memory_tables()
     result = _wrapped_recall(context_hint=topic)
     text = _wrapped_format_recall(result)
