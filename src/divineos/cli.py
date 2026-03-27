@@ -1920,7 +1920,8 @@ def distill_cmd(
             f"  Type: {entry['knowledge_type']}  Confidence: {entry['confidence']:.2f}",
             fg="bright_black",
         )
-        click.secho(f"  Raw: {entry['content']}", fg="white")
+        raw_text = entry["content"].encode("ascii", errors="replace").decode("ascii")
+        click.secho(f"  Raw: {raw_text}", fg="white")
         click.echo()
 
     click.secho(
