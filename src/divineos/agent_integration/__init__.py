@@ -1,9 +1,9 @@
-"""Kiro Agent Integration Module.
+"""Agent Integration Module.
 
-Provides automatic event capture for Kiro agent tool calls,
+Provides automatic event capture for agent tool calls,
 learning loop integration, behavior analysis, and self-improvement feedback.
 
-This module enables the OS to enforce that the Kiro agent uses the system
+This module enables the OS to enforce that the agent uses the system
 for all its operations, making self-observation built-in and unavoidable.
 """
 

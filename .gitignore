@@ -39,10 +39,15 @@ env/
 
 # Testing
 .pytest_cache/
+.pytest_tmp/
 .hypothesis/
 .coverage
 htmlcov/
 pytestdebug.log
+
+# Linting / type checking
+.mypy_cache/
+.ruff_cache/
 
 # Databases (runtime — never commit)
 *.db

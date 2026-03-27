@@ -303,8 +303,8 @@ def _run_session_end_pipeline() -> None:
         ).fetchall()
         access_snapshot = {r[0]: r[1] for r in _snap_rows}
         _snap_conn.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Access snapshot unavailable (corroboration sweep will skip delta): %s", e)
 
     try:
         # 1. Analyze
@@ -349,14 +349,16 @@ def _run_session_end_pipeline() -> None:
                 # Still run health check and memory refresh, just skip extraction
                 try:
                     _wrapped_health_check()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("Health check failed after quality gate block: %s", e)
                 try:
                     from divineos.core.hud import save_hud_snapshot
 
                     save_hud_snapshot()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(
+                        "HUD snapshot failed after quality gate block (best-effort): %s", e
+                    )
                 return
             elif quality_verdict.action == "DOWNGRADE":
                 click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
@@ -573,8 +575,8 @@ def _run_session_end_pipeline() -> None:
                     encouragements=len(analysis.encouragements),
                     grade=health["grade"],
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("HUD session health update failed (best-effort): %s", e)
         except Exception as e:
             health = None
             logger.warning(f"Session health scoring failed: {e}")
@@ -811,8 +813,8 @@ def _load_seed_if_empty() -> None:
     # Refresh active memory so briefing works immediately
     try:
         _wrapped_refresh_active_memory(importance_threshold=0.3)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Post-seed memory refresh failed (best-effort): %s", e)
 
 
 def _ensure_db() -> None:
@@ -1424,8 +1426,8 @@ def briefing_cmd(max_items: int, types: str, topic: str) -> None:
     try:
         init_memory_tables()
         _wrapped_refresh_active_memory(importance_threshold=0.3)
-    except Exception:
-        pass  # Non-fatal — briefing still works without refresh
+    except Exception as e:
+        logger.debug("Pre-briefing memory refresh failed (non-fatal, briefing continues): %s", e)
 
     type_list = [t.strip().upper() for t in types.split(",") if t.strip()] if types else None
     output = _wrapped_generate_briefing(

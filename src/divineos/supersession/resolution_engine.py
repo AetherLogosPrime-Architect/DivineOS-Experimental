@@ -126,8 +126,8 @@ class ResolutionEngine:
                     severity=getattr(contradiction, "severity", "MEDIUM"),
                     session_id="resolution-engine",
                 )
-            except Exception:
-                pass  # clarity integration is best-effort
+            except Exception as e:
+                logger.debug("Clarity integration failed on resolution error (best-effort): %s", e)
 
             raise
 

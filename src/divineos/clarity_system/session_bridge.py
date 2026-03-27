@@ -9,6 +9,8 @@ as the canonical path for creating ClarityStatements and PlanData.
 
 from uuid import uuid4
 
+from loguru import logger
+
 from .types import (
     ExecutionData,
     ExecutionMetrics,
@@ -89,8 +91,8 @@ def synthesize_clarity_statement(analysis: object):
         from divineos.core.hud import get_session_plan
 
         plan = get_session_plan()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Could not load session plan (using defaults): %s", e)
 
     if plan and plan.get("goal"):
         # Real plan — use the user's stated estimates
@@ -211,5 +213,5 @@ def _emit_clarity_events(session_id, summary, deviations, lessons):
                 description=lesson.description,
                 confidence=lesson.confidence,
             )
-    except Exception:
-        pass  # Event emission is best-effort, never block the pipeline
+    except Exception as e:
+        logger.debug("Lesson event emission failed (best-effort, pipeline unaffected): %s", e)
