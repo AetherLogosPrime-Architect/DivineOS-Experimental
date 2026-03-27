@@ -968,7 +968,14 @@ def get_lesson_summary() -> str:
     if not lessons:
         return "No lessons tracked yet."
 
-    active = [lesson for lesson in lessons if lesson["status"] == "active"]
+    # Only show lessons that have actually fired — seeded lessons at 1 occurrence
+    # with "(seeded)" descriptions have never been triggered by real behavior.
+    active = [
+        lesson
+        for lesson in lessons
+        if lesson["status"] == "active"
+        and not (lesson["occurrences"] <= 1 and lesson["description"].startswith("(seeded)"))
+    ]
     improving = [lesson for lesson in lessons if lesson["status"] == "improving"]
 
     lines = [f"### ACTIVE LESSONS ({len(active) + len(improving)})"]
