@@ -21,6 +21,7 @@ __all__ = [
     "logger",
     "Ledger",
     "get_ledger",
+    "get_connection",
     "log_event",
     "get_events",
     "search_events",
@@ -71,8 +72,12 @@ def compute_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()[:32]
 
 
-def _get_connection() -> sqlite3.Connection:
-    """Returns a connection to the ledger database."""
+def get_connection() -> sqlite3.Connection:
+    """Returns a connection to the ledger database.
+
+    Shared connection factory — all modules should import this
+    instead of defining their own _get_connection().
+    """
     import os
 
     # Check environment variable each time to support test isolation
@@ -85,7 +90,12 @@ def _get_connection() -> sqlite3.Connection:
     db_path.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
+
+
+# Keep backward compat for internal usage in this file
+_get_connection = get_connection
 
 
 def init_db() -> None:

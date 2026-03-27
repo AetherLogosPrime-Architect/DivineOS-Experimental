@@ -5,7 +5,6 @@ and optimization opportunities.
 """
 
 from collections import defaultdict
-from datetime import datetime, timezone
 from typing import Any
 
 from loguru import logger
@@ -15,11 +14,6 @@ from divineos.core.error_handling import (
     handle_error,
 )
 from divineos.core.ledger import get_events
-
-
-def get_iso8601_timestamp() -> str:
-    """Get current timestamp in ISO8601 format."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 def analyze_agent_behavior(session_id: str) -> BehaviorAnalysis:

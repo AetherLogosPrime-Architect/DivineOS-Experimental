@@ -7,9 +7,7 @@ Usage:
     from divineos.core.error_handling import (
         DivineOSError,
         EventCaptureError,
-        LedgerError,
         SessionError,
-        ToolExecutionError,
         handle_error,
     )
     from loguru import logger
@@ -42,27 +40,11 @@ class EventCaptureError(DivineOSError):
     """
 
 
-class LedgerError(DivineOSError):
-    """Exception raised when ledger operations fail.
-
-    This error occurs when the system cannot read from or write to the
-    ledger (SQLite database), including validation and integrity issues.
-    """
-
-
 class SessionError(DivineOSError):
     """Exception raised when session management fails.
 
     This error occurs when the system cannot create, retrieve, or manage
     session state, including session_id generation and persistence.
-    """
-
-
-class ToolExecutionError(DivineOSError):
-    """Exception raised when tool execution fails.
-
-    This error occurs when a wrapped tool fails to execute, including
-    parameter validation, execution errors, and result capture failures.
     """
 
 

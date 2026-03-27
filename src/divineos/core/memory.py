@@ -19,7 +19,7 @@ import time
 import uuid
 from typing import Any, cast
 
-from divineos.core.ledger import _get_db_path, compute_hash
+from divineos.core.ledger import get_connection, compute_hash
 
 # ─── Core Memory Slots ───────────────────────────────────────────────
 
@@ -36,11 +36,7 @@ CORE_SLOTS = (
 
 
 def _get_connection() -> sqlite3.Connection:
-    db_path = _get_db_path()
-    db_path.parent.mkdir(exist_ok=True)
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("PRAGMA journal_mode=WAL")
-    return conn
+    return get_connection()
 
 
 def init_memory_tables() -> None:

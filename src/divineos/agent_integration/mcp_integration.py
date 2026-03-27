@@ -10,7 +10,6 @@ tool invocations are captured transparently without requiring code changes.
 import time
 import uuid
 from collections.abc import Callable
-from datetime import datetime, timezone
 from functools import wraps
 from typing import Any
 
@@ -27,11 +26,6 @@ from divineos.core.loop_prevention import (
 )
 from divineos.core.session_manager import get_current_session_id
 from divineos.event.event_emission import emit_explanation, emit_tool_call, emit_tool_result
-
-
-def get_iso8601_timestamp() -> str:
-    """Get current timestamp in ISO8601 format."""
-    return datetime.now(timezone.utc).isoformat()
 
 
 def validate_explanation(tool_input: dict[str, Any]) -> bool:

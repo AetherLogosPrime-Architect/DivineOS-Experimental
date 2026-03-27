@@ -7,29 +7,19 @@ increment. The ledger is for immutable events that happened.
 
 import hashlib
 import json
-import os
 import sqlite3
 import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Optional
 
 from loguru import logger
 
-
-def _get_db_path() -> Path:
-    env_path = os.environ.get("DIVINEOS_DB")
-    if env_path:
-        return Path(env_path)
-    return Path(__file__).resolve().parents[2] / "data" / "event_ledger.db"
+from divineos.core.ledger import get_connection as _base_get_connection
 
 
 def _get_connection() -> sqlite3.Connection:
-    db_path = _get_db_path()
-    db_path.parent.mkdir(exist_ok=True)
-    conn = sqlite3.connect(str(db_path))
+    conn = _base_get_connection()
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
     _init_table(conn)
     return conn
 

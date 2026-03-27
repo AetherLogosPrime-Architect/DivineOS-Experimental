@@ -14,9 +14,7 @@ from loguru import logger
 from divineos.core.error_handling import (
     DivineOSError,
     EventCaptureError,
-    LedgerError,
     SessionError,
-    ToolExecutionError,
     handle_error,
 )
 
@@ -36,17 +34,9 @@ class TestExceptionHierarchy:
         """EventCaptureError should inherit from DivineOSError."""
         assert issubclass(EventCaptureError, DivineOSError)
 
-    def test_ledger_error_inherits_from_divineos_error(self) -> None:
-        """LedgerError should inherit from DivineOSError."""
-        assert issubclass(LedgerError, DivineOSError)
-
     def test_session_error_inherits_from_divineos_error(self) -> None:
         """SessionError should inherit from DivineOSError."""
         assert issubclass(SessionError, DivineOSError)
-
-    def test_tool_execution_error_inherits_from_divineos_error(self) -> None:
-        """ToolExecutionError should inherit from DivineOSError."""
-        assert issubclass(ToolExecutionError, DivineOSError)
 
     def test_divineos_error_inherits_from_exception(self) -> None:
         """DivineOSError should inherit from Exception."""
@@ -66,20 +56,10 @@ class TestExceptionRaising:
         with pytest.raises(EventCaptureError):
             raise EventCaptureError("Event capture failed")
 
-    def test_raise_and_catch_ledger_error(self) -> None:
-        """LedgerError can be raised and caught."""
-        with pytest.raises(LedgerError):
-            raise LedgerError("Ledger operation failed")
-
     def test_raise_and_catch_session_error(self) -> None:
         """SessionError can be raised and caught."""
         with pytest.raises(SessionError):
             raise SessionError("Session management failed")
-
-    def test_raise_and_catch_tool_execution_error(self) -> None:
-        """ToolExecutionError can be raised and caught."""
-        with pytest.raises(ToolExecutionError):
-            raise ToolExecutionError("Tool execution failed")
 
     def test_catch_specific_error_with_base_class(self) -> None:
         """Specific errors can be caught with base DivineOSError."""
@@ -102,16 +82,15 @@ class TestHandleError:
         error = EventCaptureError("Test error")
         handle_error(error, "test_context")
 
-        # Check that error was logged
         assert "Error in test_context" in caplog_loguru.text
         assert "Test error" in caplog_loguru.text
 
     def test_handle_error_includes_context(self, caplog_loguru) -> None:
         """handle_error() should include context in the log."""
-        error = LedgerError("Database error")
-        handle_error(error, "ledger_operation")
+        error = SessionError("Session error")
+        handle_error(error, "session_operation")
 
-        assert "ledger_operation" in caplog_loguru.text
+        assert "session_operation" in caplog_loguru.text
 
     def test_handle_error_with_extra_info(self, caplog_loguru) -> None:
         """handle_error() should include extra context information."""
@@ -120,16 +99,13 @@ class TestHandleError:
 
         handle_error(error, "session_lookup", extra_info)
 
-        # The extra info is passed to logger but may not appear in text
-        # depending on log format, so we just verify the error was logged
         assert "Error in session_lookup" in caplog_loguru.text
 
     def test_handle_error_logs_at_error_level(self, caplog_loguru) -> None:
         """handle_error() should log at ERROR level."""
-        error = ToolExecutionError("Tool failed")
+        error = EventCaptureError("Tool failed")
         handle_error(error, "tool_execution")
 
-        # Check that error was logged
         assert "Error in tool_execution" in caplog_loguru.text
 
     def test_handle_error_with_different_error_types(self, caplog_loguru) -> None:
@@ -137,15 +113,12 @@ class TestHandleError:
         errors = [
             DivineOSError("Base error"),
             EventCaptureError("Event error"),
-            LedgerError("Ledger error"),
             SessionError("Session error"),
-            ToolExecutionError("Tool error"),
         ]
 
         for error in errors:
             handle_error(error, "test_context")
 
-        # All errors should be logged
         assert caplog_loguru.text.count("Error in test_context") >= len(errors)
 
 
@@ -169,8 +142,8 @@ class TestErrorHandlingIntegration:
             handle_error(e, "operation_1")
 
         try:
-            raise LedgerError("Second error")
-        except LedgerError as e:
+            raise SessionError("Second error")
+        except SessionError as e:
             handle_error(e, "operation_2")
 
         assert "operation_1" in caplog_loguru.text
@@ -184,7 +157,7 @@ class TestErrorHandlingIntegration:
             "attempt": 1,
         }
 
-        error = LedgerError("Database connection failed")
+        error = SessionError("Database connection failed")
         handle_error(error, "ledger_save", extra_info)
 
         assert "Error in ledger_save" in caplog_loguru.text
@@ -204,20 +177,10 @@ class TestExceptionDocstrings:
         assert EventCaptureError.__doc__ is not None
         assert len(EventCaptureError.__doc__) > 0
 
-    def test_ledger_error_has_docstring(self) -> None:
-        """LedgerError should have a docstring."""
-        assert LedgerError.__doc__ is not None
-        assert len(LedgerError.__doc__) > 0
-
     def test_session_error_has_docstring(self) -> None:
         """SessionError should have a docstring."""
         assert SessionError.__doc__ is not None
         assert len(SessionError.__doc__) > 0
-
-    def test_tool_execution_error_has_docstring(self) -> None:
-        """ToolExecutionError should have a docstring."""
-        assert ToolExecutionError.__doc__ is not None
-        assert len(ToolExecutionError.__doc__) > 0
 
     def test_handle_error_has_docstring(self) -> None:
         """handle_error() should have a docstring."""
@@ -233,16 +196,12 @@ class TestErrorImports:
         from divineos.core.error_handling import (
             DivineOSError,
             EventCaptureError,
-            LedgerError,
             SessionError,
-            ToolExecutionError,
         )
 
         assert DivineOSError is not None
         assert EventCaptureError is not None
-        assert LedgerError is not None
         assert SessionError is not None
-        assert ToolExecutionError is not None
 
     def test_import_handle_error(self) -> None:
         """handle_error() should be importable."""

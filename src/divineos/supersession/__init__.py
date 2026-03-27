@@ -62,7 +62,7 @@ from .ledger_integration import (
 )
 
 # Ensure all components are available
-__version__ = "0.2.0"
+__version__ = "0.1.0"
 
 __all__ = [
     "ContradictionDetector",
