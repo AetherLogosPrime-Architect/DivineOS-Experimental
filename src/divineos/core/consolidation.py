@@ -728,6 +728,35 @@ def generate_briefing(
     finally:
         mat_conn.close()
 
+    # Find what changed recently (last 24h) for the "what's new" section
+    # Only highlight: new non-RAW entries, and promotions. New RAW entries
+    # aren't interesting enough — they'll show up in the main list.
+    recent_cutoff = now - 86400
+    recent_changes: list[dict[str, Any]] = []
+    # Check ALL non-superseded entries, not just top-N briefing items
+    for entry in [_row_to_dict(row) for row in rows]:
+        if entry["updated_at"] < recent_cutoff:
+            continue
+        mat = entry.get("maturity", "RAW")
+        is_new = entry["created_at"] > recent_cutoff
+        was_promoted = not is_new and mat != "RAW"
+        if is_new and mat != "RAW":
+            recent_changes.append(
+                {
+                    "label": f"NEW {mat}",
+                    "type": entry["knowledge_type"],
+                    "content": entry["content"].replace("\n", " ")[:100],
+                }
+            )
+        elif was_promoted:
+            recent_changes.append(
+                {
+                    "label": f"PROMOTED {mat}",
+                    "type": entry["knowledge_type"],
+                    "content": entry["content"].replace("\n", " ")[:100],
+                }
+            )
+
     # Format output
     lines = [f"## Session Briefing ({len(entries)} items)\n"]
 
@@ -739,6 +768,15 @@ def generate_briefing(
             mat_parts.append(f"{count} {level}")
     if mat_parts:
         lines.append(f"**Knowledge:** {' | '.join(mat_parts)}\n")
+
+    # What changed since last session
+    if recent_changes:
+        lines.append(f"### RECENT CHANGES ({len(recent_changes)})")
+        for rc in recent_changes[:5]:
+            lines.append(f"- [{rc['label']}] {rc['type']}: {rc['content']}")
+        if len(recent_changes) > 5:
+            lines.append(f"  ...and {len(recent_changes) - 5} more")
+        lines.append("")
 
     if lessons_text:
         lines.append(lessons_text)
