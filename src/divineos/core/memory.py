@@ -576,7 +576,10 @@ def recall(context_hint: str = "") -> dict[str, Any]:
             if result["knowledge_id"] not in active_kids:
                 relevant.append(result)
 
-    # Track that these items were surfaced
+    # Track that these items were surfaced and register real access
+    from divineos.core.consolidation import record_access
+    from divineos.core.knowledge_maturity import promote_maturity
+
     conn = _get_connection()
     try:
         for item in active:
@@ -589,6 +592,14 @@ def recall(context_hint: str = "") -> dict[str, Any]:
         conn.commit()
     finally:
         conn.close()
+
+    # Record access and check maturity promotion for surfaced knowledge
+    for item in active:
+        record_access(item["knowledge_id"])
+        promote_maturity(item["knowledge_id"])
+    for item in relevant:
+        record_access(item["knowledge_id"])
+        promote_maturity(item["knowledge_id"])
 
     return {
         "core": core_text,

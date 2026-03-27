@@ -858,6 +858,29 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
                 (occurrences, now, json.dumps(sessions), use_desc, lesson_id),
             )
             conn.commit()
+
+            # Corroborate linked knowledge — when a lesson recurs, it means
+            # the pattern was observed again. Find knowledge entries whose
+            # content references this lesson category and boost them.
+            try:
+                from divineos.core.knowledge_maturity import (
+                    increment_corroboration,
+                    promote_maturity,
+                )
+
+                cat_words = category.replace("_", " ")
+                linked = conn.execute(
+                    "SELECT knowledge_id FROM knowledge "
+                    "WHERE superseded_by IS NULL AND confidence >= 0.3 "
+                    "AND (LOWER(content) LIKE ? OR LOWER(content) LIKE ?)",
+                    (f"%{cat_words}%", f"%{category}%"),
+                ).fetchall()
+                for (kid,) in linked:
+                    increment_corroboration(kid)
+                    promote_maturity(kid)
+            except Exception:
+                pass  # corroboration is best-effort, don't break lesson recording
+
             return cast("str", lesson_id)
 
         lesson_id = str(uuid.uuid4())
@@ -1743,9 +1766,19 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         # Third-person quotes and meta-commentary about external input
         if re.match(
             r"(this is what (he|she|they) said|i got a review from|"
-            r"here is what|someone said|he said|she said)",
+            r"here is what|someone said|he said|she said|"
+            r"my friend (said|wanted|sent|asked))",
             stripped_lower,
         ):
+            return True
+        # Relayed messages from other AIs or people — not self-knowledge
+        if re.search(
+            r"(here is the reply|hey claude|your move|ready when you are)",
+            stripped_lower,
+        ):
+            return True
+        # Short declarative chat — under 10 words ending with ".."
+        if stripped.rstrip().endswith("..") and len(stripped.split()) < 10:
             return True
         # Addressing the AI directly (not as a rule or correction)
         if stripped_lower.startswith(("you ", "if you ", "now you ", "while you ")):
@@ -2582,8 +2615,12 @@ def health_check() -> dict[str, Any]:
         )
 
     # 1. Confirmed boost — if something keeps coming up, it's clearly useful
+    # Skip entries that are extraction noise — inflated access counts from
+    # the old feedback loop should not keep boosting garbage.
     for entry in all_entries:
         if entry["access_count"] > 5 and entry["confidence"] < 1.0:
+            if _is_extraction_noise(entry["content"], entry["knowledge_type"]):
+                continue
             new_conf = _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
             if new_conf is not None:
                 result["confirmed_boosted"] += 1
@@ -2684,6 +2721,36 @@ def health_check() -> dict[str, Any]:
             if new_conf is not None:
                 noise_penalized += 1
     result["noise_penalized"] = noise_penalized
+
+    # 8. Maturity demotion — entries that reached high maturity through
+    # inflated counts but now have low confidence should be demoted.
+    # A CONFIRMED entry at 0.3 or below is not confirmed by any honest measure.
+    demoted = 0
+    conn = _get_connection()
+    try:
+        high_maturity = conn.execute(
+            "SELECT knowledge_id, maturity, confidence FROM knowledge "
+            "WHERE superseded_by IS NULL AND maturity IN ('CONFIRMED', 'TESTED', 'HYPOTHESIS')"
+        ).fetchall()
+        for kid, maturity, confidence in high_maturity:
+            new_maturity = None
+            if maturity == "CONFIRMED" and confidence < 0.8:
+                new_maturity = "RAW"
+            elif maturity == "TESTED" and confidence < 0.5:
+                new_maturity = "RAW"
+            elif maturity == "HYPOTHESIS" and confidence < 0.4:
+                new_maturity = "RAW"
+            if new_maturity:
+                conn.execute(
+                    "UPDATE knowledge SET maturity = ? WHERE knowledge_id = ?",
+                    (new_maturity, kid),
+                )
+                demoted += 1
+        if demoted:
+            conn.commit()
+    finally:
+        conn.close()
+    result["maturity_demoted"] = demoted
 
     return result
 

@@ -21,9 +21,11 @@ from loguru import logger
 
 
 # Promotion rules: (from_maturity, min_corroboration, min_confidence) → to_maturity
+# Confidence floors prevent noise-penalized entries from being promoted
+# by inflated corroboration counts from the old feedback loop era.
 _PROMOTION_RULES: list[tuple[str, int, float, str]] = [
-    ("RAW", 1, 0.0, "HYPOTHESIS"),
-    ("HYPOTHESIS", 2, 0.0, "TESTED"),
+    ("RAW", 1, 0.4, "HYPOTHESIS"),
+    ("HYPOTHESIS", 2, 0.5, "TESTED"),
     ("TESTED", 5, 0.8, "CONFIRMED"),
 ]
 
