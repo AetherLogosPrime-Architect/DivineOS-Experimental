@@ -137,7 +137,15 @@ def _build_recent_lessons_slot() -> str:
     try:
         active = get_lessons(status="active")
         improving = get_lessons(status="improving")
-        all_lessons = active + improving
+        # Filter out seeded lessons that have never actually fired
+        all_lessons = [
+            lesson
+            for lesson in active + improving
+            if not (
+                lesson.get("occurrences", 1) <= 1
+                and (lesson.get("description") or "").startswith("(seeded)")
+            )
+        ]
     except Exception:
         return lines[0] + "Could not load lessons."
 
