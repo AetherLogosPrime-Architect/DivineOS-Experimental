@@ -942,8 +942,10 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
                 for (kid,) in linked:
                     increment_corroboration(kid)
                     promote_maturity(kid)
-            except Exception:
-                pass  # corroboration is best-effort, don't break lesson recording
+            except Exception as e:
+                logger.debug(
+                    "Corroboration sweep failed (best-effort, lesson recording unaffected): %s", e
+                )
 
             return cast("str", lesson_id)
 
