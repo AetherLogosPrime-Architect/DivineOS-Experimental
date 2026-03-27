@@ -1894,6 +1894,21 @@ def health_cmd() -> None:
     noise_count = result.get("noise_penalized", 0)
     if noise_count:
         click.secho(f"  Noise penalized:        {noise_count}", fg="yellow")
+    stale = result.get("stale_decayed", 0)
+    temporal = result.get("temporal_decayed", 0)
+    abandoned = result.get("abandoned_decayed", 0)
+    contradiction = result.get("contradiction_flagged", 0)
+    decay_total = stale + temporal + abandoned + contradiction
+    if decay_total:
+        click.secho(f"  Decayed:                {decay_total}", fg="yellow")
+        if stale:
+            click.secho(f"    stale (unused 30d+):   {stale}", fg="bright_black")
+        if temporal:
+            click.secho(f"    temporal markers:      {temporal}", fg="bright_black")
+        if abandoned:
+            click.secho(f"    abandoned (14d+):      {abandoned}", fg="bright_black")
+        if contradiction:
+            click.secho(f"    contradicted (3x+):    {contradiction}", fg="bright_black")
 
     # Show effectiveness breakdown
     report = _wrapped_knowledge_health_report()
