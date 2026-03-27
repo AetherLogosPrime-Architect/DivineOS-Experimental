@@ -291,6 +291,21 @@ def _run_session_end_pipeline() -> None:
     latest = session_files[0]
     click.secho(f"\n[~] Auto-scanning session: {latest.stem[:16]}...", fg="cyan")
 
+    # Snapshot knowledge access counts before the pipeline runs.
+    # Used later by the session-end corroboration sweep (step 8c).
+    access_snapshot: dict[str, int] = {}
+    try:
+        from divineos.core.consolidation import _get_connection
+
+        _snap_conn = _get_connection()
+        _snap_rows = _snap_conn.execute(
+            "SELECT knowledge_id, access_count FROM knowledge WHERE superseded_by IS NULL"
+        ).fetchall()
+        access_snapshot = {r[0]: r[1] for r in _snap_rows}
+        _snap_conn.close()
+    except Exception:
+        pass
+
     try:
         # 1. Analyze
         analysis = _analyzer_mod.analyze_session(latest)
@@ -587,6 +602,37 @@ def _run_session_end_pipeline() -> None:
                 )
         except Exception as e:
             logger.warning(f"Engagement check failed: {e}")
+
+        # 8c. Session-end corroboration sweep — knowledge entries accessed 2+
+        # times during this session earned corroboration through real usage.
+        try:
+            from divineos.core.consolidation import _get_connection as _get_conn
+            from divineos.core.knowledge_maturity import (
+                increment_corroboration,
+                promote_maturity,
+            )
+
+            corroborated = 0
+            conn = _get_conn()
+            current_rows = conn.execute(
+                "SELECT knowledge_id, access_count FROM knowledge "
+                "WHERE superseded_by IS NULL AND confidence >= 0.3"
+            ).fetchall()
+            conn.close()
+            for kid, current_access in current_rows:
+                start_access = access_snapshot.get(kid, 0)
+                delta = current_access - start_access
+                if delta >= 2:
+                    increment_corroboration(kid)
+                    promote_maturity(kid)
+                    corroborated += 1
+            if corroborated:
+                click.secho(
+                    f"[~] Corroborated {corroborated} knowledge entries (accessed 2+ times).",
+                    fg="cyan",
+                )
+        except Exception as e:
+            logger.warning(f"Session-end corroboration sweep failed: {e}")
 
         # 9. Save HUD snapshot and clear session plan
         try:
