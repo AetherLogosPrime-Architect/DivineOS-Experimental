@@ -1851,6 +1851,85 @@ def health_cmd() -> None:
     click.echo()
 
 
+@cli.command("distill")
+@click.option("--id", "knowledge_id", default=None, help="ID of entry to distill")
+@click.option("--to", "new_content", default=None, help="Distilled content to replace raw entry")
+@click.option("--limit", default=10, help="Max candidates to show")
+@click.option("--type", "knowledge_type", default=None, help="Filter by knowledge type")
+def distill_cmd(
+    knowledge_id: str | None, new_content: str | None, limit: int, knowledge_type: str | None
+) -> None:
+    """Distill raw knowledge into clean, actionable entries.
+
+    Without --id: lists raw entries that need synthesis (prefixed quotes,
+    conversational language, unprocessed user corrections).
+
+    With --id and --to: supersedes the raw entry with a clean version.
+    The raw entry is kept (append-only) but marked as superseded.
+
+    Examples:
+        divineos distill                    # List candidates
+        divineos distill --type PRINCIPLE   # Only PRINCIPLEs
+        divineos distill --id abc123 --to "Dead code should be examined for ideas, not dismissed"
+    """
+    from divineos.core.consolidation import get_knowledge, update_knowledge
+
+    if knowledge_id and new_content:
+        # Apply distillation — supersede raw entry with clean version
+        try:
+            new_id = update_knowledge(knowledge_id, new_content)
+            click.secho(f"[+] Distilled: {knowledge_id[:12]} -> {new_id[:12]}", fg="green")
+            click.secho(f"    New content: {new_content[:100]}", fg="white")
+        except ValueError as e:
+            click.secho(f"[!] {e}", fg="red")
+        return
+
+    if knowledge_id and not new_content:
+        click.secho("[!] --id requires --to with the distilled content.", fg="red")
+        return
+
+    # List candidates — raw entries that look like unprocessed quotes
+    raw_prefixes = ("I was corrected: ", "I decided: ", "I should: ")
+    types_to_check = [knowledge_type] if knowledge_type else ["PRINCIPLE", "DIRECTION", "BOUNDARY"]
+
+    candidates = []
+    for ktype in types_to_check:
+        entries = get_knowledge(knowledge_type=ktype, limit=200)
+        for entry in entries:
+            content = entry["content"]
+            # Skip already-clean entries (directives, short rules, no prefix)
+            if not any(content.startswith(p) for p in raw_prefixes):
+                continue
+            # Skip low confidence (already penalized by noise filter)
+            if entry["confidence"] < 0.3:
+                continue
+            candidates.append(entry)
+
+    if not candidates:
+        click.secho("[~] No raw entries need distillation.", fg="green")
+        return
+
+    candidates.sort(key=lambda e: e["confidence"], reverse=True)
+    candidates = candidates[:limit]
+
+    click.secho(f"\n=== {len(candidates)} Entries Need Distillation ===\n", fg="cyan", bold=True)
+    for entry in candidates:
+        kid = entry["knowledge_id"]
+        click.secho(f"  ID: {kid}", fg="yellow")
+        click.secho(
+            f"  Type: {entry['knowledge_type']}  Confidence: {entry['confidence']:.2f}",
+            fg="bright_black",
+        )
+        click.secho(f"  Raw: {entry['content']}", fg="white")
+        click.echo()
+
+    click.secho(
+        'To distill, run: divineos distill --id <ID> --to "clean first-person version"',
+        fg="bright_black",
+    )
+    click.echo()
+
+
 @cli.command("sessions")
 def sessions_cmd() -> None:
     """Find and list all Claude Code session files."""
