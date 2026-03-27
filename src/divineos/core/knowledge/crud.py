@@ -1,0 +1,283 @@
+"""Knowledge CRUD — store, get, search, update, supersede, record_access."""
+
+import json
+import sqlite3
+import time
+import uuid
+from typing import Any
+
+from divineos.core.knowledge._base import (
+    KNOWLEDGE_TYPES,
+    _KNOWLEDGE_COLS,
+    _KNOWLEDGE_COLS_K,
+    _get_connection,
+    _row_to_dict,
+    compute_hash,
+    init_knowledge_table,
+)
+from divineos.core.knowledge._text import _build_fts_query
+
+
+def store_knowledge(
+    knowledge_type: str,
+    content: str,
+    confidence: float = 1.0,
+    source_events: list[str] | None = None,
+    tags: list[str] | None = None,
+    source: str = "STATED",
+    maturity: str = "RAW",
+) -> str:
+    """Store a piece of knowledge. Returns the knowledge_id.
+
+    Auto-deduplicates: if identical content already exists (and is not superseded),
+    increments access_count on the existing entry and returns its id.
+    """
+    if knowledge_type not in KNOWLEDGE_TYPES:
+        raise ValueError(
+            f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}",
+        )
+
+    content = content.strip()
+    if len(content) < 5:
+        raise ValueError("Knowledge content too short (minimum 5 characters after stripping)")
+
+    # Ensure knowledge table exists
+    init_knowledge_table()
+
+    content_hash = compute_hash(content)
+    sources_json = json.dumps(source_events or [])
+    tags_json = json.dumps(tags or [])
+    now = time.time()
+
+    conn = _get_connection()
+    try:
+        # Check for exact duplicate (non-superseded)
+        existing = conn.execute(
+            "SELECT knowledge_id FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
+            (content_hash,),
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
+                (now, existing[0]),
+            )
+            conn.commit()
+            return str(existing[0])
+
+        knowledge_id = str(uuid.uuid4())
+        conn.execute(
+            """INSERT INTO knowledge
+               (knowledge_id, created_at, updated_at, knowledge_type, content,
+                confidence, source_events, tags, access_count, content_hash,
+                source, maturity)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
+            (
+                knowledge_id,
+                now,
+                now,
+                knowledge_type,
+                content,
+                confidence,
+                sources_json,
+                tags_json,
+                content_hash,
+                source,
+                maturity,
+            ),
+        )
+        conn.commit()
+        return knowledge_id
+    finally:
+        conn.close()
+
+
+def get_knowledge(
+    knowledge_type: str | None = None,
+    min_confidence: float = 0.0,
+    tags: list[str] | None = None,
+    include_superseded: bool = False,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    """Query knowledge with optional filters."""
+    conn = _get_connection()
+    try:
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge"  # nosec B608
+        conditions: list[str] = []
+        params: list[Any] = []
+
+        if not include_superseded:
+            conditions.append("superseded_by IS NULL")
+            conditions.append("content NOT LIKE '[SUPERSEDED]%'")
+        if knowledge_type:
+            conditions.append("knowledge_type = ?")
+            params.append(knowledge_type)
+        if min_confidence > 0.0:
+            conditions.append("confidence >= ?")
+            params.append(min_confidence)
+        if tags:
+            for tag in tags:
+                conditions.append("tags LIKE ?")
+                params.append(f"%{tag}%")
+
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+
+        query += " ORDER BY updated_at DESC LIMIT ?"
+        params.append(limit)
+
+        rows = conn.execute(query, params).fetchall()
+        return [_row_to_dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def search_knowledge(query: str, limit: int = 50) -> list[dict[str, Any]]:
+    """Search knowledge using FTS5 full-text search with BM25 relevance ranking.
+
+    Falls back to LIKE-based search if FTS5 table doesn't exist yet.
+    """
+    fts_query = _build_fts_query(query)
+    conn = _get_connection()
+    try:
+        query_str = f"""SELECT {_KNOWLEDGE_COLS_K}
+               FROM knowledge_fts fts
+               JOIN knowledge k ON k.rowid = fts.rowid
+               WHERE knowledge_fts MATCH ?
+                 AND k.superseded_by IS NULL
+                 AND k.confidence >= 0.2
+               ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
+               LIMIT ?"""  # nosec B608
+        rows = conn.execute(query_str, (fts_query, limit)).fetchall()
+        return [_row_to_dict(row) for row in rows]
+    except sqlite3.OperationalError:
+        # FTS table doesn't exist yet — fall back to LIKE search
+        return _search_knowledge_legacy(query, limit)
+    finally:
+        conn.close()
+
+
+def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict[str, Any]]:
+    """Legacy LIKE-based search. Used when FTS5 table doesn't exist."""
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND confidence >= 0.2 AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",  # nosec B608
+            (f"%{keyword}%", f"%{keyword}%", limit),
+        ).fetchall()
+        return [_row_to_dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def rebuild_fts_index() -> int:
+    """Rebuild the FTS5 index from existing knowledge rows."""
+    conn = _get_connection()
+    try:
+        conn.execute("DELETE FROM knowledge_fts")
+        cursor = conn.execute(
+            """INSERT INTO knowledge_fts(rowid, content, tags, knowledge_type)
+               SELECT rowid, content, tags, knowledge_type FROM knowledge""",
+        )
+        conn.commit()
+        return cursor.rowcount
+    finally:
+        conn.close()
+
+
+def update_knowledge(
+    knowledge_id: str,
+    new_content: str,
+    new_confidence: float | None = None,
+    additional_sources: list[str] | None = None,
+) -> str:
+    """Create a new knowledge entry that supersedes an existing one.
+    Returns the new knowledge_id.
+    """
+    conn = _get_connection()
+    try:
+        old = conn.execute(
+            "SELECT knowledge_type, confidence, source_events, tags FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        if not old:
+            raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
+
+        old_type, old_confidence, old_sources_json, old_tags = old
+        old_sources = json.loads(old_sources_json)
+
+        confidence = new_confidence if new_confidence is not None else old_confidence
+        sources = old_sources + (additional_sources or [])
+        content_hash = compute_hash(new_content)
+        now = time.time()
+        new_id = str(uuid.uuid4())
+
+        conn.execute(
+            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+            (
+                new_id,
+                now,
+                now,
+                old_type,
+                new_content,
+                confidence,
+                json.dumps(sources),
+                old_tags,
+                content_hash,
+            ),
+        )
+        conn.execute(
+            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
+            (new_id, knowledge_id),
+        )
+        conn.commit()
+        return new_id
+    finally:
+        conn.close()
+
+
+def supersede_knowledge(knowledge_id: str, reason: str) -> None:
+    """Mark a knowledge entry as superseded without creating a replacement."""
+    conn = _get_connection()
+    try:
+        old = conn.execute(
+            "SELECT knowledge_id FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        if not old:
+            raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
+
+        conn.execute(
+            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
+            (f"FORGET:{reason[:200]}", knowledge_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def record_access(knowledge_id: str) -> None:
+    """Increment access count for a knowledge entry."""
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
+            (time.time(), knowledge_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def find_similar(content: str) -> list[dict[str, Any]]:
+    """Find non-superseded knowledge with identical content (hash-based)."""
+    content_hash = compute_hash(content)
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",  # nosec B608
+            (content_hash,),
+        ).fetchall()
+        return [_row_to_dict(row) for row in rows]
+    finally:
+        conn.close()
