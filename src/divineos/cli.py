@@ -1335,7 +1335,14 @@ def ask_cmd(query: str, limit: int) -> None:
         click.secho(f"{label}: ", fg="white", bold=True, nl=False)
         _safe_echo(content[:300])
         click.echo()
+    # Record access for returned results — active queries are real usage
+    from divineos.core.consolidation import record_access
+    from divineos.core.knowledge_maturity import promote_maturity
+
     for entry in results:
+        record_access(entry["knowledge_id"])
+        promote_maturity(entry["knowledge_id"])
+
         color = {
             "BOUNDARY": "red",
             "PRINCIPLE": "yellow",
