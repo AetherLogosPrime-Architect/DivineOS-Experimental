@@ -1,6 +1,6 @@
-"""MCP Event Capture Server - Automatic tool event emission for Kiro IDE.
+"""MCP Event Capture Server - Automatic tool event emission.
 
-This MCP server provides tools that the Kiro IDE can use to automatically
+This MCP server provides tools that an AI IDE can use to automatically
 emit TOOL_CALL and TOOL_RESULT events when tools are executed.
 
 The server exposes:
@@ -169,13 +169,13 @@ if __name__ == "__main__":
     """
     This script can be run as an MCP server.
 
-    To use with Kiro IDE, add to ~/.kiro/settings/mcp.json:
+    To use as an MCP server, configure your IDE:
 
     {
       "mcpServers": {
         "divineos-event-capture": {
           "command": "python",
-          "args": ["-m", "divineos.mcp_event_capture_server"],
+          "args": ["-m", "divineos.integration.mcp_event_capture_server"],
           "env": {
             "PYTHONPATH": "/path/to/divineos"
           }
