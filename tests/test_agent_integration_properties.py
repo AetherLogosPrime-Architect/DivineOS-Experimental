@@ -21,8 +21,8 @@ from divineos.agent_integration.types import (
 )
 from divineos.agent_integration.mcp_integration import (
     validate_explanation,
-    get_iso8601_timestamp,
 )
+from divineos.event.event_capture import get_current_timestamp as get_iso8601_timestamp
 from divineos.core.loop_prevention import (
     should_capture_tool,
     mark_internal_operation,

@@ -5,7 +5,6 @@ for self-improvement and behavior analysis.
 """
 
 from collections import defaultdict
-from datetime import datetime, timezone
 from typing import Any
 
 from loguru import logger
@@ -24,11 +23,7 @@ from divineos.core.error_handling import (
     handle_error,
 )
 from divineos.core.ledger import get_events
-
-
-def get_iso8601_timestamp() -> str:
-    """Get current timestamp in ISO8601 format."""
-    return datetime.now(timezone.utc).isoformat()
+from divineos.event.event_capture import get_current_timestamp
 
 
 def analyze_session_for_lessons(session_id: str) -> SessionLessons:
@@ -123,7 +118,7 @@ def extract_corrections(events: list[dict[str, Any]]) -> list[Correction]:
                         error_message=error_msg,
                         fixed=True,
                         session_id=failure.get("payload", {}).get("session_id", ""),
-                        timestamp=get_iso8601_timestamp(),
+                        timestamp=get_current_timestamp(),
                     )
                     corrections.append(correction)
                     break
@@ -159,7 +154,7 @@ def extract_encouragements(events: list[dict[str, Any]]) -> list[Encouragement]:
                 tool_names=[tool_name],
                 success_count=success_count,
                 session_id="",
-                timestamp=get_iso8601_timestamp(),
+                timestamp=get_current_timestamp(),
             )
             encouragements.append(encouragement)
 
@@ -188,7 +183,7 @@ def extract_decisions(events: list[dict[str, Any]]) -> list[Decision]:
                     context="User input",
                     outcome="Processed",
                     session_id=event.get("payload", {}).get("session_id", ""),
-                    timestamp=get_iso8601_timestamp(),
+                    timestamp=get_current_timestamp(),
                 )
                 decisions.append(decision)
 
@@ -414,7 +409,7 @@ def provide_session_briefing(session_id: str) -> dict[str, Any]:
             "session_id": session_id,
             "lessons": [],
             "recommendations": [],
-            "timestamp": get_iso8601_timestamp(),
+            "timestamp": get_current_timestamp(),
         }
     except Exception as e:
         handle_error(e, "provide_session_briefing", {"session_id": session_id})
@@ -422,5 +417,5 @@ def provide_session_briefing(session_id: str) -> dict[str, Any]:
             "session_id": session_id,
             "lessons": [],
             "recommendations": [],
-            "timestamp": get_iso8601_timestamp(),
+            "timestamp": get_current_timestamp(),
         }
