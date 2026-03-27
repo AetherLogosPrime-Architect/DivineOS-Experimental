@@ -261,16 +261,23 @@ class TestRefreshActiveMemory:
         pinned_ids = [a["knowledge_id"] for a in active if a["pinned"]]
         assert kid in pinned_ids
 
-    def test_no_hard_cap(self):
-        """All entries above threshold should be promoted — no arbitrary limit."""
-        # Store 50 high-confidence mistakes
+    def test_respects_max_active_cap(self):
+        """Active memory caps at max_active entries (default 30)."""
         for i in range(50):
             store_knowledge("MISTAKE", f"Mistake number {i}", confidence=1.0)
 
         refresh_active_memory(importance_threshold=0.3)
         active = get_active_memory()
-        # All 50 should be in active memory
-        assert len(active) >= 50
+        assert len(active) == 30
+
+    def test_custom_max_active(self):
+        """Can override the cap."""
+        for i in range(50):
+            store_knowledge("MISTAKE", f"Mistake number {i}", confidence=1.0)
+
+        refresh_active_memory(importance_threshold=0.3, max_active=10)
+        active = get_active_memory()
+        assert len(active) == 10
 
 
 # ─── Recall ──────────────────────────────────────────────────────────

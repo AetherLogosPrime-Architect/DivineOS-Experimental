@@ -432,11 +432,15 @@ def get_active_memory() -> list[dict[str, Any]]:
         conn.close()
 
 
-def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
+def refresh_active_memory(
+    importance_threshold: float = 0.3,
+    max_active: int = 30,
+) -> dict[str, int]:
     """Rebuild active memory from the knowledge store.
 
-    Everything above the importance threshold gets in. No hard cap.
-    Pinned items are never removed. Superseded items are cleaned out.
+    Takes the top entries by importance, up to max_active. Pinned items
+    are always kept (don't count toward the cap). Entries below the
+    importance threshold are excluded regardless of cap.
     """
     from divineos.core.consolidation import get_knowledge, get_lessons
 
@@ -483,13 +487,19 @@ def refresh_active_memory(importance_threshold: float = 0.3) -> dict[str, int]:
             importance = compute_importance(entry, has_active_lesson=has_lesson)
             candidates[entry["knowledge_id"]] = (importance, has_lesson)
 
-        # Determine what should be in active memory
-        should_be_active = set()
-        for kid, (importance, _) in candidates.items():
-            if importance >= importance_threshold:
-                should_be_active.add(kid)
+        # Determine what should be in active memory:
+        # 1. Filter by threshold
+        # 2. Rank by importance
+        # 3. Take top max_active (pinned items don't count toward cap)
+        above_threshold = [
+            (kid, imp)
+            for kid, (imp, _) in candidates.items()
+            if imp >= importance_threshold and kid not in pinned
+        ]
+        above_threshold.sort(key=lambda x: x[1], reverse=True)
+        should_be_active = {kid for kid, _ in above_threshold[:max_active]}
 
-        # Always keep pinned items
+        # Always keep pinned items (outside the cap)
         should_be_active |= pinned
 
         # Get current active memory
