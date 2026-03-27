@@ -1789,9 +1789,24 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
     # These are raw chat messages, not synthesized knowledge.
     if knowledge_type in ("DIRECTION", "PRINCIPLE", "BOUNDARY"):
         # User's typing style: ".." ellipsis — signal of raw quote
-        # 3+ occurrences in short text = clearly conversational
+        # 3+ in any length = clearly conversational
         double_dot_count = stripped.count("..")
-        if double_dot_count >= 3 and len(stripped.split()) < 30:
+        if double_dot_count >= 3:
+            return True
+        # Even 2 double-dots + casual markers = raw quote
+        if double_dot_count >= 2 and re.search(
+            r"\b(lol|haha|dont |isnt |cant |wont |arent |youre |theyre |ive |youve )",
+            stripped_lower,
+        ):
+            return True
+        # Casual speech markers alone — emoticons, repeated letters, no-apostrophe contractions
+        casual_count = len(
+            re.findall(
+                r"(:\)|;\)|:D|<3|lol\b|haha\b|soooo|sooo|dont |isnt |cant |wont |arent |youre )",
+                stripped_lower,
+            )
+        )
+        if casual_count >= 2:
             return True
         # Conversational statements about accidents/mistakes in the UI
         if re.search(r"\b(oops|whoops|accidentally|i meant to)\b", stripped_lower):
@@ -1815,7 +1830,7 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
             return True
         # Addressing the AI directly (not as a rule or correction)
         if stripped_lower.startswith(("you ", "if you ", "now you ", "while you ")):
-            # Keep rules (must/always/never) and corrections (fixed/broke/forgot/missed)
+            # Keep rules (must/always/never) and corrections with specific action words
             has_weight = any(
                 w in stripped_lower
                 for w in (
@@ -1829,7 +1844,6 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
                     "missed",
                     "didn't",
                     "failed",
-                    "wrong",
                 )
             )
             if not has_weight:
@@ -1840,6 +1854,13 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
             is_tag = stripped_lower.rstrip().endswith(("ok?", "right?", "yes?", "no?"))
             if not is_tag:
                 return True
+        # Task-specific instructions: "feel free to X", "go ahead and X", "clear it out"
+        if re.search(
+            r"\b(feel free to|go ahead and|clear it out|clean it up|"
+            r"keep going|keep at it|keep it up)\b",
+            stripped_lower,
+        ):
+            return True
         # Task-specific instructions without lasting value
         # "lets commit and push", "lets keep going", "lets do X"
         if re.match(r"lets?\s+(commit|push|keep|do|try|fix|run|check|look)\b", stripped_lower):
