@@ -204,8 +204,8 @@ def _build_session_health_slot() -> str:
         trend = get_session_trend(n=5)
         if trend.sessions_analyzed >= 2:
             lines.append(f"- **Trend:** {format_trend_summary(trend)}")
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Quality trend unavailable for health slot: %s", e)
 
     return "\n".join(lines)
 
@@ -254,8 +254,8 @@ def _build_active_knowledge_slot() -> str:
             try:
                 refresh_active_memory(importance_threshold=0.3)
                 active = get_active_memory()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Active memory refresh failed (proceeding with thin memory): %s", e)
     except Exception:
         return lines[0] + "Could not load active memory."
 
@@ -538,8 +538,8 @@ def update_task_state(
         try:
             existing = json.loads(path.read_text(encoding="utf-8"))
             existing_done = existing.get("done", [])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Could not read existing session plan done list (starting fresh): %s", e)
 
     if done:
         existing_done.extend(done)
@@ -563,8 +563,8 @@ def add_goal(text: str, original_words: str = "") -> None:
     if path.exists():
         try:
             goals = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Could not read active goals file (starting with empty list): %s", e)
 
     # Deduplicate — don't add if an active goal with the same text exists
     for goal in goals:

@@ -210,6 +210,7 @@ class TestEndToEndSessionFlow:
         assert len(events) == 8
 
 
+@pytest.mark.slow
 class TestPerformanceValidation:
     """Test performance under realistic conditions."""
 

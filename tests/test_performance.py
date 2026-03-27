@@ -18,8 +18,6 @@ import time
 from datetime import datetime, timezone
 
 from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
-
-
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
 from divineos.clarity_enforcement.enforcer import ClarityEnforcer
 from divineos.core.ledger import Ledger
@@ -27,8 +25,11 @@ from divineos.core.session_manager import initialize_session, end_session as end
 from divineos.agent_integration.memory_monitor import get_memory_monitor
 from divineos.supersession.contradiction_detector import ContradictionDetector
 
-# Skip all tests in this module if hypothesis is not installed
-pytestmark = pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")
+# All tests: skip if hypothesis missing, mark as slow (hardware-dependent timing)
+pytestmark = [
+    pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed"),
+    pytest.mark.slow,
+]
 
 
 class TestToolCallLatency:
