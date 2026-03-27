@@ -106,11 +106,15 @@ src/divineos/
     outcome_measurement.py     Rework, churn, correction rate, session health
     memory_monitor.py          Token tracking and compression
     learning_cycle.py          Pattern extraction and confidence updates
+  clarity_system/              Clarity rules and violation tracking
   event/                       Event types, dispatch, capture
   clarity_enforcement/         Clarity checking system
+  hooks/                       Git hook integration
   integration/                 IDE and MCP integration
   supersession/                Contradiction detection and resolution
-tests/                         1830 tests (real DB, no mocks)
+  violations_cli/              Violation reporting CLI
+tests/                         1793 tests (real DB, no mocks)
+setup/                         Hook setup scripts
 ```
 
 ## Design Rules
@@ -124,7 +128,7 @@ tests/                         1830 tests (real DB, no mocks)
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (1830 tests, ~37s)
+pytest tests/ -q --tb=short   # Run tests (1793 tests, ~37s)
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```

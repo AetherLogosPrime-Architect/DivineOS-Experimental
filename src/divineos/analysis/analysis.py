@@ -216,7 +216,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     # First, query database for most recent USER_INPUT or TOOL_CALL event
     # (actual work events). Skip analysis/report events which are metadata,
     # not actual session work
-    from divineos.core.ledger import _get_connection
+    from divineos.core.ledger import get_connection as _get_connection
 
     conn = _get_connection()
     try:

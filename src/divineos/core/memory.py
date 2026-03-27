@@ -614,7 +614,7 @@ def recall(context_hint: str = "") -> dict[str, Any]:
     }
 
 
-_TYPOGRAPHIC_REPLACEMENTS: dict[str, str] = {
+TYPOGRAPHIC_REPLACEMENTS: dict[str, str] = {
     "\u2014": "--",  # em-dash
     "\u2013": "-",  # en-dash
     "\u2018": "'",  # left single quote
@@ -623,12 +623,14 @@ _TYPOGRAPHIC_REPLACEMENTS: dict[str, str] = {
     "\u201d": '"',  # right double quote
     "\u2026": "...",  # ellipsis
     "\u2022": "*",  # bullet
+    "\u00d7": "x",  # multiplication sign
+    "\u00f7": "/",  # division sign
 }
 
 
 def _safe_text(text: str) -> str:
     """Replace typographic characters with ASCII equivalents."""
-    for fancy, plain in _TYPOGRAPHIC_REPLACEMENTS.items():
+    for fancy, plain in TYPOGRAPHIC_REPLACEMENTS.items():
         text = text.replace(fancy, plain)
     return text.encode("ascii", errors="replace").decode("ascii")
 
