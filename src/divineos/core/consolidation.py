@@ -716,8 +716,29 @@ def generate_briefing(
         kt = entry["knowledge_type"]
         grouped.setdefault(kt, []).append(entry)
 
+    # Maturity summary — count across ALL non-superseded entries, not just briefing items
+    mat_conn = _get_connection()
+    try:
+        mat_rows = mat_conn.execute(
+            "SELECT maturity, COUNT(*) FROM knowledge "
+            "WHERE superseded_by IS NULL AND confidence >= 0.2 "
+            "GROUP BY maturity"
+        ).fetchall()
+        mat_counts = {r[0]: r[1] for r in mat_rows}
+    finally:
+        mat_conn.close()
+
     # Format output
     lines = [f"## Session Briefing ({len(entries)} items)\n"]
+
+    # One-line maturity pyramid
+    mat_parts = []
+    for level in ("CONFIRMED", "TESTED", "HYPOTHESIS", "RAW"):
+        count = mat_counts.get(level, 0)
+        if count:
+            mat_parts.append(f"{count} {level}")
+    if mat_parts:
+        lines.append(f"**Knowledge:** {' | '.join(mat_parts)}\n")
 
     if lessons_text:
         lines.append(lessons_text)
@@ -749,19 +770,23 @@ def generate_briefing(
         lines.append(f"### {plural} ({len(items)})")
         for item in items:
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
+            mat = item.get("maturity", "RAW")
+            mat_marker = " ++" if mat == "CONFIRMED" else " +" if mat == "TESTED" else ""
             content = item["content"]
             access = f"({item['access_count']}x accessed)"
 
             if kt == "DIRECTIVE":
                 # Show full chain, access count on its own line
-                lines.append(f"- [{item['confidence']:.2f}] {content}{hint_marker}")
+                lines.append(f"- [{item['confidence']:.2f}] {content}{mat_marker}{hint_marker}")
                 lines.append(f"  {access}")
             else:
                 # Truncate long entries (digests, etc.)
                 display = content.replace("\n", " ")
                 if len(display) > 150:
                     display = display[:147] + "..."
-                lines.append(f"- [{item['confidence']:.2f}] {display} {access}{hint_marker}")
+                lines.append(
+                    f"- [{item['confidence']:.2f}] {display} {access}{mat_marker}{hint_marker}"
+                )
         lines.append("")
 
     return "\n".join(lines)
@@ -2623,11 +2648,14 @@ def health_check() -> dict[str, Any]:
         )
 
     # 1. Confirmed boost — if something keeps coming up, it's clearly useful
-    # Skip entries that are extraction noise — inflated access counts from
-    # the old feedback loop should not keep boosting garbage.
+    # Skip entries that are extraction noise or raw user quotes —
+    # inflated access counts from the old feedback loop should not boost garbage.
+    _raw_prefixes = ("i should:", "i was corrected:", "i was bash:", "i decided:")
     for entry in all_entries:
         if entry["access_count"] > 5 and entry["confidence"] < 1.0:
             if _is_extraction_noise(entry["content"], entry["knowledge_type"]):
+                continue
+            if entry["content"].strip().lower().startswith(_raw_prefixes):
                 continue
             new_conf = _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
             if new_conf is not None:
