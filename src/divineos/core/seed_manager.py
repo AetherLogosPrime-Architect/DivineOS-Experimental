@@ -185,6 +185,7 @@ def apply_seed(
             content=content,
             confidence=entry.get("confidence", 1.0),
             tags=entry.get("tags", []),
+            maturity=entry.get("maturity", "RAW"),
         )
         counts["knowledge"] += 1
 
