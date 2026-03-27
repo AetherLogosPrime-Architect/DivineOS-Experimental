@@ -126,6 +126,9 @@ class SystemMonitor:
 
         metrics = self.metrics[integration_point]
         metrics.latencies.append(latency_ms)
+        # Rolling window — keep last 1000 entries to prevent unbounded growth
+        if len(metrics.latencies) > 1000:
+            metrics.latencies = metrics.latencies[-1000:]
 
         # Check if latency exceeds target
         target = self.LATENCY_TARGETS.get(integration_point, 100)
