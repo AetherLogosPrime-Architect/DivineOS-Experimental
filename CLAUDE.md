@@ -77,11 +77,15 @@ src/divineos/
 ├── analysis/                 # Session analysis, quality checks, quality trends
 ├── agent_integration/        # Outcome measurement, memory monitor, learning cycles
 ├── clarity_enforcement/      # Clarity system
+├── clarity_system/           # Clarity rules and violation tracking
 ├── event/                    # Event types and dispatch
+├── hooks/                    # Git hook integration
 ├── integration/              # IDE and MCP integration
-└── supersession/             # Contradiction detection and resolution
-tests/                        # 1830 tests (real DB, no mocks)
+├── supersession/             # Contradiction detection and resolution
+└── violations_cli/           # Violation reporting CLI
+tests/                        # 1793 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
+setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
 
 ## Rules for AI Assistants

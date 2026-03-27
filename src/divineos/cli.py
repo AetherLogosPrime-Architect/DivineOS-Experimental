@@ -64,6 +64,7 @@ from divineos.core.ledger import (
 )
 from divineos.core.memory import (
     CORE_SLOTS,
+    TYPOGRAPHIC_REPLACEMENTS as _TYPOGRAPHIC_REPLACEMENTS,
     clear_core,
     format_core,
     format_recall,
@@ -141,21 +142,6 @@ _EMOJI_MEANINGS: dict[str, str] = {
     "\u274c": "(X)",
     "\u26a0\ufe0f": "(warning)",
     "\u26a0": "(warning)",
-}
-
-# Typographic characters that cp1252 maps to bytes (0x80-0x9F) which
-# many Windows terminals can't render.  Replace with ASCII equivalents.
-_TYPOGRAPHIC_REPLACEMENTS: dict[str, str] = {
-    "\u2014": "--",  # em-dash
-    "\u2013": "-",  # en-dash
-    "\u2018": "'",  # left single quote
-    "\u2019": "'",  # right single quote
-    "\u201c": '"',  # left double quote
-    "\u201d": '"',  # right double quote
-    "\u2026": "...",  # ellipsis
-    "\u2022": "*",  # bullet
-    "\u00d7": "x",  # multiplication sign
-    "\u00f7": "/",  # division sign
 }
 
 
@@ -2838,10 +2824,6 @@ def clarity_cmd(file_path: str | None) -> None:
         click.secho(f"[!] Clarity analysis failed: {e}", fg="red")
 
 
-if __name__ == "__main__":
-    cli()
-
-
 @cli.command("analyze")
 @click.argument("file_path", type=click.Path(exists=True))
 def analyze_cmd(file_path: str) -> None:
@@ -3155,3 +3137,7 @@ def verify_enforcement_cmd() -> None:
         click.secho(f"[-] Error verifying enforcement: {e}", fg="red")
         logger.exception("Enforcement verification failed")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    cli()
