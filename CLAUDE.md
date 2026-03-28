@@ -74,7 +74,7 @@ pytest tests/ -q --tb=short  # Run tests after changes
 
 ```
 src/divineos/
-├── cli/                      # CLI package (54 commands across 10+ modules)
+├── cli/                      # CLI package (58 commands across 10+ modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestration pipeline
 │   ├── knowledge_commands.py # learn, ask, briefing, forget, lessons
