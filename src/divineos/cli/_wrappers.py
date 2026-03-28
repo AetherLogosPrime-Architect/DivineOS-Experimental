@@ -170,9 +170,9 @@ def _ensure_db() -> None:
     init_quality_tables()
     init_feature_tables()
     init_memory_tables()
-    from divineos.core.knowledge.relationships import init_relationship_table
+    from divineos.core.knowledge.edges import init_edge_table
 
-    init_relationship_table()
+    init_edge_table()
 
     from divineos.core.growth import init_session_history_table
     from divineos.core.tone_texture import init_tone_texture_table
@@ -181,10 +181,8 @@ def _ensure_db() -> None:
     init_tone_texture_table()
 
     from divineos.core.logic.warrants import init_warrant_table
-    from divineos.core.logic.relations import init_relation_table
 
     init_warrant_table()
-    init_relation_table()
 
     _load_seed_if_empty()
     _db_ready = True

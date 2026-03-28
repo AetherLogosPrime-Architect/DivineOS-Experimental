@@ -4,56 +4,32 @@ Knowledge doesn't exist in isolation. A MISTAKE might be CAUSED_BY a
 PROCEDURE. A PRINCIPLE might be SUPPORTED_BY multiple OBSERVATIONs.
 This module tracks those connections so I can navigate my own knowledge
 graph rather than treating it as a flat list.
+
+All data lives in the unified knowledge_edges table. This module provides
+the semantic-layer API and auto-detection heuristics.
 """
 
 import re
-import time
-import uuid
 from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge.edges import (
+    SEMANTIC_TYPES,
+    create_edge,
+    get_edge_summary,
+    get_edges,
+    init_edge_table,
+    remove_edge,
+)
 
-# Valid relationship types
-RELATIONSHIP_TYPES = {
-    "CAUSED_BY",  # A was caused by B
-    "SUPPORTS",  # A provides evidence for B
-    "CONTRADICTS",  # A contradicts B
-    "ELABORATES",  # A adds detail to B
-    "SUPERSEDES",  # A replaces B (different from superseded_by column — that's linear)
-    "RELATED_TO",  # A is related to B (general)
-    "DERIVED_FROM",  # A was derived from B
-    "APPLIES_TO",  # A applies in context of B
-}
+# Valid relationship types — semantic layer
+RELATIONSHIP_TYPES = SEMANTIC_TYPES
 
 
 def init_relationship_table() -> None:
-    """Create the knowledge_relationships table if it doesn't exist."""
-    conn = _get_connection()
-    try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS knowledge_relationships (
-                relationship_id TEXT PRIMARY KEY,
-                source_id       TEXT NOT NULL,
-                target_id       TEXT NOT NULL,
-                relationship    TEXT NOT NULL,
-                created_at      REAL NOT NULL,
-                notes           TEXT NOT NULL DEFAULT '',
-                UNIQUE(source_id, target_id, relationship)
-            )
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_rel_source
-            ON knowledge_relationships(source_id)
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_rel_target
-            ON knowledge_relationships(target_id)
-        """)
-        conn.commit()
-    finally:
-        conn.close()
+    """Create the knowledge_edges table (shared with logical edges). Idempotent."""
+    init_edge_table()
 
 
 def add_relationship(
@@ -62,107 +38,61 @@ def add_relationship(
     relationship: str,
     notes: str = "",
 ) -> str:
-    """Add a typed relationship between two knowledge entries. Returns the relationship ID."""
+    """Add a typed relationship between two knowledge entries. Returns the edge ID."""
     if relationship not in RELATIONSHIP_TYPES:
         raise ValueError(
             f"Unknown relationship '{relationship}'. Valid: {', '.join(sorted(RELATIONSHIP_TYPES))}"
         )
-    if source_id == target_id:
-        raise ValueError("Cannot relate a knowledge entry to itself.")
 
-    init_relationship_table()
-    rel_id = str(uuid.uuid4())
-    conn = _get_connection()
-    try:
-        conn.execute(
-            "INSERT OR IGNORE INTO knowledge_relationships "
-            "(relationship_id, source_id, target_id, relationship, created_at, notes) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (rel_id, source_id, target_id, relationship, time.time(), notes),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    return rel_id
+    edge = create_edge(
+        source_id=source_id,
+        target_id=target_id,
+        edge_type=relationship,
+        layer="semantic",
+        notes=notes,
+    )
+    return edge.edge_id
 
 
 def get_relationships(
     knowledge_id: str,
     direction: str = "both",
 ) -> list[dict[str, Any]]:
-    """Get all relationships for a knowledge entry.
+    """Get all semantic relationships for a knowledge entry.
 
     direction: "outgoing" (source), "incoming" (target), or "both".
     """
-    init_relationship_table()
-    conn = _get_connection()
-    try:
-        results: list[dict[str, Any]] = []
-        if direction in ("outgoing", "both"):
-            rows = conn.execute(
-                "SELECT relationship_id, source_id, target_id, relationship, created_at, notes "
-                "FROM knowledge_relationships WHERE source_id = ?",
-                (knowledge_id,),
-            ).fetchall()
-            for r in rows:
-                results.append(
-                    {
-                        "relationship_id": r[0],
-                        "source_id": r[1],
-                        "target_id": r[2],
-                        "relationship": r[3],
-                        "created_at": r[4],
-                        "notes": r[5],
-                        "direction": "outgoing",
-                    }
-                )
-        if direction in ("incoming", "both"):
-            rows = conn.execute(
-                "SELECT relationship_id, source_id, target_id, relationship, created_at, notes "
-                "FROM knowledge_relationships WHERE target_id = ?",
-                (knowledge_id,),
-            ).fetchall()
-            for r in rows:
-                results.append(
-                    {
-                        "relationship_id": r[0],
-                        "source_id": r[1],
-                        "target_id": r[2],
-                        "relationship": r[3],
-                        "created_at": r[4],
-                        "notes": r[5],
-                        "direction": "incoming",
-                    }
-                )
-        return results
-    finally:
-        conn.close()
+    edges = get_edges(knowledge_id, direction=direction, layer="semantic")
+    results: list[dict[str, Any]] = []
+    for edge in edges:
+        d = "outgoing" if edge.source_id == knowledge_id else "incoming"
+        results.append(
+            {
+                "relationship_id": edge.edge_id,
+                "source_id": edge.source_id,
+                "target_id": edge.target_id,
+                "relationship": edge.edge_type,
+                "created_at": edge.created_at,
+                "notes": edge.notes,
+                "direction": d,
+            }
+        )
+    return results
 
 
 def remove_relationship(relationship_id: str) -> bool:
     """Remove a relationship by its ID. Returns True if it existed."""
-    init_relationship_table()
-    conn = _get_connection()
-    try:
-        cursor = conn.execute(
-            "DELETE FROM knowledge_relationships WHERE relationship_id = ?",
-            (relationship_id,),
-        )
-        conn.commit()
-        return cursor.rowcount > 0
-    finally:
-        conn.close()
+    return remove_edge(relationship_id)
 
 
 def find_related_cluster(
     knowledge_id: str,
     max_depth: int = 2,
 ) -> list[dict[str, Any]]:
-    """Walk the relationship graph from a starting node up to max_depth hops.
+    """Walk the semantic edge graph from a starting node up to max_depth hops.
 
     Returns a flat list of unique related entries with their relationship path.
     """
-    init_relationship_table()
     visited: set[str] = {knowledge_id}
     cluster: list[dict[str, Any]] = []
     frontier = [knowledge_id]
@@ -170,16 +100,16 @@ def find_related_cluster(
     for depth in range(max_depth):
         next_frontier: list[str] = []
         for kid in frontier:
-            rels = get_relationships(kid, direction="both")
-            for rel in rels:
-                other = rel["target_id"] if rel["source_id"] == kid else rel["source_id"]
+            edges = get_edges(kid, direction="both", layer="semantic")
+            for edge in edges:
+                other = edge.target_id if edge.source_id == kid else edge.source_id
                 if other not in visited:
                     visited.add(other)
                     next_frontier.append(other)
                     cluster.append(
                         {
                             "knowledge_id": other,
-                            "relationship": rel["relationship"],
+                            "relationship": edge.edge_type,
                             "via": kid,
                             "depth": depth + 1,
                         }
@@ -193,19 +123,7 @@ def find_related_cluster(
 
 def get_relationship_summary(knowledge_id: str) -> str:
     """Format a short text summary of relationships for display."""
-    rels = get_relationships(knowledge_id)
-    if not rels:
-        return ""
-
-    lines = []
-    for rel in rels:
-        if rel["direction"] == "outgoing":
-            lines.append(f"  → {rel['relationship']} → {rel['target_id'][:8]}...")
-        else:
-            lines.append(f"  ← {rel['relationship']} ← {rel['source_id'][:8]}...")
-        if rel["notes"]:
-            lines.append(f"    ({rel['notes']})")
-    return "\n".join(lines)
+    return get_edge_summary(knowledge_id, layer="semantic")
 
 
 # ─── Auto-Detection ─────────────────────────────────────────────────
@@ -229,7 +147,7 @@ _ELABORATION_PATTERNS = [
     re.compile(r"\bnamely\b", re.IGNORECASE),
 ]
 
-# Negation patterns — word-boundary-aware to avoid false positives (e.g. "not" in "noticed")
+# Negation patterns — word-boundary-aware to avoid false positives
 _NEGATION_PATTERNS = [
     re.compile(r"\bnot\b", re.IGNORECASE),
     re.compile(r"\bnever\b", re.IGNORECASE),
@@ -275,8 +193,7 @@ def _classify_relationship(
     """Determine the relationship type between two knowledge entries.
 
     Returns a relationship type string or None if no relationship detected.
-    Only fires when there's meaningful overlap (>0.3) — we don't want
-    to link everything to everything.
+    Only fires when there's meaningful overlap (>0.3).
     """
     if overlap < 0.3:
         return None
@@ -301,12 +218,12 @@ def _classify_relationship(
     if overlap >= 0.35 and _has_causal_language(new_content):
         return "CAUSED_BY"
 
-    # Type-based affinities (e.g. OBSERVATION naturally supports PRINCIPLE)
+    # Type-based affinities
     pair = (new_type, existing_type)
     if pair in _TYPE_AFFINITIES and overlap >= 0.35:
         return _TYPE_AFFINITIES[pair]
 
-    # Moderate overlap between same types = RELATED_TO (catch-all, conservative)
+    # Moderate overlap between same types = RELATED_TO
     if overlap >= 0.5 and new_type == existing_type:
         return "RELATED_TO"
 
@@ -324,8 +241,6 @@ def auto_detect_relationships(
     2. Compute word overlap
     3. Classify the relationship type using heuristics
     4. Create the edge
-
-    Returns a list of {source_id, target_id, relationship} dicts for what was created.
     """
     if not new_ids:
         return []
@@ -333,10 +248,9 @@ def auto_detect_relationships(
     from divineos.core.knowledge._text import _compute_overlap, _extract_key_terms
     from divineos.core.knowledge.crud import search_knowledge
 
-    init_relationship_table()
+    from divineos.core.knowledge import get_connection
 
-    # Load the new entries
-    conn = _get_connection()
+    conn = get_connection()
     try:
         placeholders = ",".join("?" for _ in new_ids)
         new_rows = conn.execute(
@@ -352,7 +266,6 @@ def auto_detect_relationships(
     new_id_set = set(new_ids)
 
     for kid, entry in new_entries.items():
-        # Find candidates via FTS
         key_terms = _extract_key_terms(entry["content"])
         if not key_terms:
             continue
@@ -364,7 +277,6 @@ def auto_detect_relationships(
 
         for candidate in candidates:
             cid = candidate["knowledge_id"]
-            # Don't relate to self or to other new entries from same batch
             if cid == kid or cid in new_id_set:
                 continue
 
@@ -388,11 +300,11 @@ def auto_detect_relationships(
                         }
                     )
                 except (ValueError, Exception):
-                    pass  # duplicate or other issue — skip silently
+                    pass
 
         # Also relate new entries to each other
         for other_kid, other_entry in new_entries.items():
-            if other_kid <= kid:  # avoid duplicates and self
+            if other_kid <= kid:
                 continue
             overlap = _compute_overlap(entry["content"], other_entry["content"])
             rel_type = _classify_relationship(
