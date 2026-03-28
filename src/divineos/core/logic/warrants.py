@@ -201,6 +201,20 @@ def defeat_warrant(warrant_id: str, reason: str) -> bool:
         conn.close()
 
     logger.debug("Defeated warrant {}: {}", warrant_id[:8], reason)
+
+    # Check if this defeat creates a recurring pattern worth learning from
+    try:
+        warrant = get_warrant_by_id(warrant_id)
+        if warrant:
+            from divineos.core.logic.defeat_lessons import check_defeat_pattern
+
+            check_defeat_pattern(
+                knowledge_id=warrant.knowledge_id,
+                defeated_warrant_type=warrant.warrant_type,
+            )
+    except Exception as e:
+        logger.debug("Defeat lesson check failed (non-fatal): {}", e)
+
     return True
 
 
