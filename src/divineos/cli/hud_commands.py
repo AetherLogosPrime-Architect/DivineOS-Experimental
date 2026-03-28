@@ -144,3 +144,51 @@ def register(cli: click.Group) -> None:
             click.secho(f"    Estimated files: {files}", fg="bright_black")
         if time_min:
             click.secho(f"    Estimated time: {time_min}min", fg="bright_black")
+
+    @cli.command("handoff")
+    @click.argument("note", required=False)
+    @click.option("--show", is_flag=True, help="Show current handoff note without clearing")
+    @click.option("--clear", is_flag=True, help="Clear the handoff note")
+    def handoff_cmd(note: str | None, show: bool, clear: bool) -> None:
+        """View or write a handoff note for the next session.
+
+        Without arguments, shows the current handoff note.
+        With a NOTE argument, saves a manual handoff note.
+        """
+        from divineos.core.hud import clear_handoff_note, load_handoff_note, save_handoff_note
+
+        if clear:
+            clear_handoff_note()
+            click.secho("[+] Handoff note cleared.", fg="green")
+            return
+
+        if note:
+            save_handoff_note(summary=note)
+            click.secho("[+] Handoff note saved.", fg="green")
+            return
+
+        # Show current handoff note
+        existing = load_handoff_note()
+        if not existing:
+            click.secho("[~] No handoff note from previous session.", fg="yellow")
+            return
+
+        click.secho("\n=== Handoff Note ===\n", fg="cyan", bold=True)
+        if existing.get("summary"):
+            _safe_echo(existing["summary"])
+        if existing.get("open_threads"):
+            click.secho("\nOpen threads:", fg="white", bold=True)
+            for thread in existing["open_threads"]:
+                _safe_echo(f"  - {thread}")
+        if existing.get("mood"):
+            click.secho(f"\nMood: {existing['mood']}", fg="bright_black")
+        if existing.get("goals_state"):
+            click.secho(f"Goals: {existing['goals_state']}", fg="bright_black")
+        click.echo()
+
+        if not show:
+            clear_handoff_note()
+            click.secho(
+                "[~] Note consumed (cleared). Use --show to peek without clearing.",
+                fg="bright_black",
+            )
