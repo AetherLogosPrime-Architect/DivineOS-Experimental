@@ -180,6 +180,17 @@ def _build_session_health_slot() -> str:
         return "# Session Health\n\nHealth data corrupted."
 
     lines = ["# How I'm Doing This Session\n"]
+
+    # Briefing gate check — structural, not optional
+    try:
+        from divineos.core.hud_handoff import was_briefing_loaded
+
+        if not was_briefing_loaded():
+            lines.append("- **WARNING: BRIEFING NOT LOADED.** Grade will be penalized -0.25.")
+            lines.append("  Run `divineos briefing` before doing anything else.\n")
+    except Exception:
+        pass
+
     corrections = health.get("corrections", 0)
     encouragements = health.get("encouragements", 0)
     grade = health.get("grade", "?")

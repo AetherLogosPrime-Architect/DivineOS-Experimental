@@ -86,6 +86,29 @@ def clear_engagement() -> None:
         path.unlink()
 
 
+def mark_briefing_loaded() -> None:
+    """Mark that the briefing was loaded this session.
+
+    Separate from general engagement — the briefing is the specific gate.
+    Without it, the session grade takes a structural penalty.
+    """
+    path = _ensure_hud_dir() / ".briefing_loaded"
+    path.write_text(str(time.time()), encoding="utf-8")
+
+
+def was_briefing_loaded() -> bool:
+    """Check if the briefing was loaded this session."""
+    path = _get_hud_dir() / ".briefing_loaded"
+    return path.exists()
+
+
+def clear_briefing_marker() -> None:
+    """Clear the briefing marker (called at session end)."""
+    path = _get_hud_dir() / ".briefing_loaded"
+    if path.exists():
+        path.unlink()
+
+
 # ─── Goal Extraction ─────────────────────────────────────────────────
 
 # Patterns that signal a user is asking for something to be done.
