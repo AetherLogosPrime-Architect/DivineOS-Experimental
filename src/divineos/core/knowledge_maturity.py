@@ -7,9 +7,12 @@ Maturity levels represent how much we trust a piece of knowledge:
 - CONFIRMED: reliable knowledge (corroboration_count >= 5 AND confidence >= 0.8)
 - REVISED: superseded by newer knowledge
 
-Promotion is based on corroboration (how many times the knowledge has been
-re-encountered across sessions) and confidence score. Demotion happens
-when knowledge is superseded.
+Promotion requires two gates:
+1. Corroboration gate — enough re-encounters across sessions
+2. Validity gate — warrant-based justification (HYPOTHESIS→TESTED needs 1 warrant,
+   TESTED→CONFIRMED needs 2+ warrants from different types)
+
+Demotion happens when knowledge is superseded.
 """
 
 from __future__ import annotations
@@ -18,6 +21,8 @@ import time
 from typing import Any
 
 from loguru import logger
+
+from divineos.core.knowledge import get_connection
 
 
 # Promotion rules: (from_maturity, min_corroboration, min_confidence) → to_maturity
@@ -46,14 +51,27 @@ def check_promotion(entry: dict[str, Any]) -> str | None:
     return None
 
 
+def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
+    """Check if the validity gate allows this promotion.
+
+    Fails gracefully if logic tables aren't initialized yet.
+    """
+    try:
+        from divineos.core.logic.validity_gate import can_promote
+
+        return can_promote(knowledge_id, current, target)
+    except Exception:
+        # Logic tables may not exist yet — allow promotion (backward compat)
+        return True
+
+
 def promote_maturity(knowledge_id: str) -> str | None:
     """Check and apply maturity promotion for a knowledge entry.
 
+    Both corroboration AND validity gates must pass.
     Returns the new maturity level if promoted, None otherwise.
     """
-    from divineos.core.knowledge import _get_connection
-
-    conn = _get_connection()
+    conn = get_connection()
     try:
         row = conn.execute(
             "SELECT maturity, corroboration_count, confidence FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",
@@ -69,15 +87,26 @@ def promote_maturity(knowledge_id: str) -> str | None:
         }
 
         new_maturity = check_promotion(entry)
-        if new_maturity:
-            conn.execute(
-                "UPDATE knowledge SET maturity = ?, updated_at = ? WHERE knowledge_id = ?",
-                (new_maturity, time.time(), knowledge_id),
+        if not new_maturity:
+            return None
+
+        # Second gate: warrant-based validity
+        if not _passes_validity_gate(knowledge_id, entry["maturity"], new_maturity):
+            logger.debug(
+                "Validity gate blocked promotion of {}: {} -> {}",
+                knowledge_id[:12],
+                entry["maturity"],
+                new_maturity,
             )
-            conn.commit()
-            logger.info(f"Promoted {knowledge_id[:12]}: {entry['maturity']} -> {new_maturity}")
-            return new_maturity
-        return None
+            return None
+
+        conn.execute(
+            "UPDATE knowledge SET maturity = ?, updated_at = ? WHERE knowledge_id = ?",
+            (new_maturity, time.time(), knowledge_id),
+        )
+        conn.commit()
+        logger.info(f"Promoted {knowledge_id[:12]}: {entry['maturity']} -> {new_maturity}")
+        return new_maturity
     finally:
         conn.close()
 
@@ -88,9 +117,7 @@ def increment_corroboration(knowledge_id: str) -> int:
     Called when knowledge is re-encountered in a new session.
     Returns the new corroboration count.
     """
-    from divineos.core.knowledge import _get_connection
-
-    conn = _get_connection()
+    conn = get_connection()
     try:
         conn.execute(
             "UPDATE knowledge SET corroboration_count = corroboration_count + 1, updated_at = ? WHERE knowledge_id = ?",
@@ -111,6 +138,7 @@ def increment_corroboration(knowledge_id: str) -> int:
 def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
     """Batch check for maturity promotions across entries.
 
+    Both corroboration AND validity gates must pass.
     Returns counts of promotions by type.
     """
     promotions: dict[str, int] = {}
@@ -123,20 +151,30 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
             continue
 
         new_maturity = check_promotion(entry)
-        if new_maturity:
-            from divineos.core.knowledge import _get_connection
+        if not new_maturity:
+            continue
 
-            conn = _get_connection()
-            try:
-                conn.execute(
-                    "UPDATE knowledge SET maturity = ?, updated_at = ? WHERE knowledge_id = ?",
-                    (new_maturity, time.time(), kid),
-                )
-                conn.commit()
-            finally:
-                conn.close()
+        # Second gate: warrant-based validity
+        if not _passes_validity_gate(kid, entry["maturity"], new_maturity):
+            logger.debug(
+                "Validity gate blocked batch promotion of {}: {} -> {}",
+                kid[:12],
+                entry["maturity"],
+                new_maturity,
+            )
+            continue
 
-            promotions[new_maturity] = promotions.get(new_maturity, 0) + 1
-            logger.info(f"Batch promoted {kid[:12]}: {entry['maturity']} -> {new_maturity}")
+        conn = get_connection()
+        try:
+            conn.execute(
+                "UPDATE knowledge SET maturity = ?, updated_at = ? WHERE knowledge_id = ?",
+                (new_maturity, time.time(), kid),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        promotions[new_maturity] = promotions.get(new_maturity, 0) + 1
+        logger.info(f"Batch promoted {kid[:12]}: {entry['maturity']} -> {new_maturity}")
 
     return promotions
