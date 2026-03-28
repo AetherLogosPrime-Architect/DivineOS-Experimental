@@ -470,3 +470,12 @@ def register(cli: click.Group) -> None:
 
         except Exception as e:
             click.secho(f"[!] Clarity analysis failed: {e}", fg="red")
+
+    @cli.command("growth")
+    @click.option("--limit", default=20, type=int, help="Number of sessions to analyze")
+    def growth_cmd(limit: int) -> None:
+        """Show my growth map — how I'm changing over time."""
+        from divineos.core.growth import compute_growth_map, format_growth_map
+
+        growth = compute_growth_map(limit=limit)
+        _safe_echo(format_growth_map(growth))

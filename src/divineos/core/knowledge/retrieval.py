@@ -241,6 +241,22 @@ def generate_briefing(
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
+    # Growth trajectory (one-liner from session history)
+    try:
+        from divineos.core.growth import compute_growth_map
+
+        growth = compute_growth_map(limit=10)
+        if growth["sessions"] >= 2:
+            icons = {"improving": "+", "declining": "!", "stable": "~"}
+            icon = icons.get(growth["trend"], "~")
+            lines.append(
+                f"**Growth:** [{icon}] {growth['trend']} over {growth['sessions']} sessions | "
+                f"avg score {growth['avg_health_score']:.2f} | "
+                f"{growth['lessons']['resolved']} lessons resolved\n"
+            )
+    except Exception:
+        pass
+
     # One-line maturity pyramid
     mat_parts = []
     for level in ("CONFIRMED", "TESTED", "HYPOTHESIS", "RAW"):

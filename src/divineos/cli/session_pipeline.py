@@ -402,7 +402,45 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"HUD snapshot save failed: {e}")
 
-        # 9b. Write handoff note for next session
+        # 9b. Record session metrics for growth tracking
+        try:
+            from divineos.core.growth import record_session_metrics
+            from divineos.core.hud import is_engaged
+
+            auto_rel_count = len(auto_rels) if "auto_rels" in dir() else 0
+            record_session_metrics(
+                session_id=analysis.session_id,
+                corrections=len(analysis.corrections),
+                encouragements=len(analysis.encouragements),
+                tool_calls=analysis.tool_calls_total,
+                user_messages=analysis.user_messages,
+                knowledge_stored=stored,
+                relationships_created=auto_rel_count,
+                health_grade=health["grade"] if health else "",
+                health_score=health["score"] if health else 0.0,
+                engaged=is_engaged(),
+            )
+        except Exception as e:
+            logger.warning(f"Session metrics recording failed: {e}")
+
+        # 9c. Record emotional arc for tone texture
+        try:
+            from divineos.analysis.session_features import classify_all_user_tones
+            from divineos.core.tone_texture import (
+                compute_emotional_arc,
+                record_session_tone,
+            )
+
+            tone_sequence = classify_all_user_tones(records)
+            if tone_sequence:
+                arc = compute_emotional_arc(tone_sequence)
+                record_session_tone(analysis.session_id, arc)
+                if arc.get("narrative"):
+                    _safe_echo(f"  Tone: {arc['narrative']}")
+        except Exception as e:
+            logger.warning(f"Tone texture recording failed: {e}")
+
+        # 9d. Write handoff note for next session
         try:
             from divineos.core.hud import save_handoff_note
 

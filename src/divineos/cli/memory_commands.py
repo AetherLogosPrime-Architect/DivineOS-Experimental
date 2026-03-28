@@ -86,6 +86,18 @@ def register(cli: click.Group) -> None:
         text = _wrapped_format_recall(result)
         _safe_echo(text)
 
+        # Proactive pattern warnings based on current topic
+        if topic:
+            try:
+                from divineos.core.anticipation import anticipate, format_anticipation
+
+                warnings = anticipate(topic)
+                if warnings:
+                    click.echo()
+                    _safe_echo(format_anticipation(warnings))
+            except Exception:
+                pass  # anticipation is best-effort
+
     @cli.command("active")
     def active_cmd() -> None:
         """List active memory ranked by importance."""

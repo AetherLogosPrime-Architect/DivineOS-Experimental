@@ -382,6 +382,17 @@ def register(cli: click.Group) -> None:
         except Exception:
             pass  # journal search is best-effort
 
+        # Pattern anticipation — warn if this topic touches past mistakes
+        try:
+            from divineos.core.anticipation import anticipate, format_anticipation
+
+            warnings = anticipate(query)
+            if warnings:
+                click.echo()
+                _safe_echo(format_anticipation(warnings))
+        except Exception:
+            pass  # anticipation is best-effort
+
     @cli.command("briefing")
     @click.option("--max", "max_items", default=20, type=int, help="Max items in briefing")
     @click.option("--types", default="", help="Comma-separated knowledge types to include")
