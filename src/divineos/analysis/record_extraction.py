@@ -5,19 +5,10 @@ and other utilities used by quality_checks and session_features.
 """
 
 import re
-import sqlite3
 from dataclasses import dataclass, field
 from typing import Any
 
-from divineos.core.ledger import get_connection
-
-# --- Database ---
-
-
-def _get_connection() -> sqlite3.Connection:
-    conn = get_connection()
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
+from divineos.core.ledger import get_connection_fk as _get_connection
 
 
 def init_quality_tables() -> None:
