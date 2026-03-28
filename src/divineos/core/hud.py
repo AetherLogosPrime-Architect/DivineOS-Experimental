@@ -403,7 +403,7 @@ def _build_task_state_slot() -> str:
 def _build_journal_slot() -> str:
     """Recent personal journal entries — things I chose to remember."""
     try:
-        from divineos.core.memory import journal_count, journal_list
+        from divineos.core.memory_journal import journal_count, journal_list
 
         count = journal_count()
         if count == 0:
