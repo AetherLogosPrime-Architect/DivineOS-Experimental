@@ -515,10 +515,10 @@ def _run_session_end_pipeline() -> None:
             # Open threads from corrections and decisions
             open_threads: list[str] = []
             for corr in analysis.corrections[:3]:
-                text = corr if isinstance(corr, str) else str(corr)
+                text = corr.content if hasattr(corr, "content") else str(corr)
                 open_threads.append(f"Correction: {text[:120]}")
             for d in getattr(analysis, "decisions", [])[:2]:
-                text = d if isinstance(d, str) else str(d)
+                text = d.content if hasattr(d, "content") else str(d)
                 open_threads.append(f"Decision: {text[:120]}")
 
             # Mood from health grade

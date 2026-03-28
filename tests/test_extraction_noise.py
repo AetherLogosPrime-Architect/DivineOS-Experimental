@@ -377,3 +377,39 @@ class TestSessionSpecificDetection:
         }
         score = compute_importance(timeless_fact)
         assert score >= 0.3, f"Timeless FACT scored {score}, should be >= 0.3"
+
+
+class TestAuditReviewNoise:
+    """Audit/review pastes from the user should not become knowledge entries."""
+
+    def test_here_is_the_audit(self):
+        assert _is_extraction_noise(
+            "I was corrected: Here is the audit. Found a real bug. "
+            "Here's the full report on this push.",
+            "PRINCIPLE",
+        )
+
+    def test_here_is_the_review(self):
+        assert _is_extraction_noise(
+            "I was corrected: Here is the review. Scrutinized test coverage "
+            "and identified potential improvements.",
+            "DIRECTION",
+        )
+
+    def test_here_is_the_report(self):
+        assert _is_extraction_noise(
+            "I should: Here is the report on the latest changes.",
+            "DIRECTION",
+        )
+
+    def test_here_is_my_audit(self):
+        assert _is_extraction_noise(
+            "I was corrected: Here is my audit of the PR.",
+            "PRINCIPLE",
+        )
+
+    def test_real_correction_still_passes(self):
+        assert not _is_extraction_noise(
+            "I was corrected: always check return values before using them.",
+            "PRINCIPLE",
+        )

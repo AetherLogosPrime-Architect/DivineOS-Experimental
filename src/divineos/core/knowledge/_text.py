@@ -579,7 +579,9 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         ):
             return True
         if re.search(
-            r"(here is the reply|hey claude|your move|ready when you are)",
+            r"(here is the reply|here is the audit|here is the review|"
+            r"here is the report|here is my review|here is my audit|"
+            r"hey claude|your move|ready when you are)",
             stripped_lower,
         ):
             return True
