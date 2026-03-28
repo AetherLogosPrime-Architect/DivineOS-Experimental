@@ -391,6 +391,69 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"HUD snapshot save failed: {e}")
 
+        # 9b. Write handoff note for next session
+        try:
+            from divineos.core.hud import save_handoff_note
+
+            # Build summary from what we know
+            handoff_summary_parts = []
+            handoff_summary_parts.append(
+                f"Last session: {analysis.user_messages} exchanges, "
+                f"{stored} knowledge entries extracted."
+            )
+            if len(analysis.corrections) > 0:
+                handoff_summary_parts.append(
+                    f"I was corrected {len(analysis.corrections)} time(s) — review what went wrong."
+                )
+            if health:
+                handoff_summary_parts.append(f"Session grade: {health['grade']}.")
+
+            # Open threads from corrections and decisions
+            open_threads: list[str] = []
+            for c in analysis.corrections[:3]:
+                text = c if isinstance(c, str) else str(c)
+                open_threads.append(f"Correction: {text[:120]}")
+            for d in getattr(analysis, "decisions", [])[:2]:
+                text = d if isinstance(d, str) else str(d)
+                open_threads.append(f"Decision: {text[:120]}")
+
+            # Mood from health grade
+            mood = ""
+            if health:
+                mood = {
+                    "A": "strong session",
+                    "B": "solid session",
+                    "C": "mixed session",
+                    "D": "rough session",
+                    "F": "difficult session",
+                }.get(health["grade"], "")
+
+            # Goals state
+            goals_state = ""
+            try:
+                import json as _json
+                from divineos.core.hud import _ensure_hud_dir
+
+                goals_path = _ensure_hud_dir() / "active_goals.json"
+                if goals_path.exists():
+                    goals = _json.loads(goals_path.read_text(encoding="utf-8"))
+                    active = [g for g in goals if g.get("status") != "done"]
+                    done = [g for g in goals if g.get("status") == "done"]
+                    goals_state = f"{len(done)} completed, {len(active)} still active"
+            except Exception:
+                pass
+
+            save_handoff_note(
+                summary=" ".join(handoff_summary_parts),
+                open_threads=open_threads,
+                mood=mood,
+                goals_state=goals_state,
+                session_id=analysis.session_id,
+            )
+            click.secho("[~] Handoff note saved for next session.", fg="cyan")
+        except Exception as e:
+            logger.warning(f"Handoff note failed: {e}")
+
         # 10. Session summary
         click.secho("\n=== Session Complete ===", fg="cyan", bold=True)
         click.secho(f"  Knowledge extracted:  {stored}", fg="white")

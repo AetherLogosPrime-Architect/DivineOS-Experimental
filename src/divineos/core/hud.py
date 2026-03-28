@@ -51,6 +51,7 @@ def _ensure_hud_dir() -> Path:
 # ─── Slot Definitions ───────────────────────────────────────────────
 
 SLOT_ORDER = [
+    "handoff",
     "identity",
     "active_goals",
     "recent_lessons",
@@ -419,9 +420,36 @@ def _build_journal_slot() -> str:
         return ""
 
 
+# ─── Handoff Note (Shift-Log Between Sessions) ─────────────────────
+
+
+def _build_handoff_slot() -> str:
+    """Display the handoff note from the previous session, if any."""
+    note = load_handoff_note()
+    if not note:
+        return ""
+
+    lines = ["# Handoff from Last Session", ""]
+    if note.get("summary"):
+        lines.append(note["summary"])
+        lines.append("")
+    if note.get("open_threads"):
+        lines.append("**Open threads:**")
+        for thread in note["open_threads"]:
+            lines.append(f"  - {thread}")
+        lines.append("")
+    if note.get("mood"):
+        lines.append(f"*Session ended: {note['mood']}*")
+    if note.get("goals_state"):
+        lines.append(f"*Goals: {note['goals_state']}*")
+
+    return "\n".join(lines)
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
+    "handoff": _build_handoff_slot,
     "identity": _build_identity_slot,
     "active_goals": _build_active_goals_slot,
     "recent_lessons": _build_recent_lessons_slot,
@@ -646,6 +674,50 @@ def get_session_plan() -> dict[str, Any] | None:
 def clear_session_plan() -> None:
     """Clear the session plan (called at session end)."""
     path = _ensure_hud_dir() / "session_plan.json"
+    if path.exists():
+        path.unlink()
+
+
+# ─── Session Handoff Notes ───────────────────────────────────────────
+
+
+def save_handoff_note(
+    summary: str,
+    open_threads: list[str] | None = None,
+    mood: str = "",
+    goals_state: str = "",
+    session_id: str = "",
+) -> Path:
+    """Write a handoff note for the next session to pick up."""
+    path = _ensure_hud_dir() / "handoff_note.json"
+    note = {
+        "session_id": session_id,
+        "written_at": time.time(),
+        "summary": summary,
+        "open_threads": open_threads or [],
+        "mood": mood,
+        "goals_state": goals_state,
+    }
+    path.write_text(json.dumps(note, indent=2), encoding="utf-8")
+    logger.debug("Handoff note saved to %s", path)
+    return path
+
+
+def load_handoff_note() -> dict[str, Any] | None:
+    """Load the handoff note from the previous session, if any."""
+    path = _ensure_hud_dir() / "handoff_note.json"
+    if not path.exists():
+        return None
+    try:
+        result: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        return result
+    except Exception:
+        return None
+
+
+def clear_handoff_note() -> None:
+    """Clear the handoff note (called after briefing consumes it)."""
+    path = _ensure_hud_dir() / "handoff_note.json"
     if path.exists():
         path.unlink()
 

@@ -6,8 +6,11 @@ from divineos.core.hud import (
     SLOT_ORDER,
     add_goal,
     build_hud,
+    clear_handoff_note,
     complete_goal,
+    load_handoff_note,
     load_hud_snapshot,
+    save_handoff_note,
     save_hud_snapshot,
     update_context_budget,
     update_session_health,
@@ -213,3 +216,65 @@ class TestGoalExtraction:
         ]
         goals = extract_goals_from_messages(messages)
         assert len(goals) == 3
+
+
+class TestHandoffNotes:
+    """Session handoff notes — shift-log between sessions."""
+
+    def test_save_and_load(self):
+        path = save_handoff_note(
+            summary="Worked on feature X.",
+            open_threads=["Fix test_foo", "Review PR #42"],
+            mood="solid session",
+            goals_state="2 completed, 1 active",
+            session_id="test-session-123",
+        )
+        assert path.exists()
+
+        note = load_handoff_note()
+        assert note is not None
+        assert note["summary"] == "Worked on feature X."
+        assert len(note["open_threads"]) == 2
+        assert note["mood"] == "solid session"
+        assert note["goals_state"] == "2 completed, 1 active"
+        assert note["session_id"] == "test-session-123"
+        assert "written_at" in note
+
+    def test_clear(self):
+        save_handoff_note(summary="Test note")
+        assert load_handoff_note() is not None
+        clear_handoff_note()
+        assert load_handoff_note() is None
+
+    def test_load_when_none(self):
+        clear_handoff_note()
+        assert load_handoff_note() is None
+
+    def test_handoff_slot_empty(self):
+        clear_handoff_note()
+        result = SLOT_BUILDERS["handoff"]()
+        assert result == ""
+
+    def test_handoff_slot_with_data(self):
+        save_handoff_note(
+            summary="Did good work.",
+            open_threads=["Thread A"],
+            mood="strong session",
+        )
+        result = SLOT_BUILDERS["handoff"]()
+        assert "Handoff" in result
+        assert "Did good work." in result
+        assert "Thread A" in result
+        assert "strong session" in result
+
+    def test_handoff_in_slot_order(self):
+        assert "handoff" in SLOT_ORDER
+        assert SLOT_ORDER[0] == "handoff"
+
+    def test_save_minimal(self):
+        save_handoff_note(summary="Just a summary")
+        note = load_handoff_note()
+        assert note is not None
+        assert note["summary"] == "Just a summary"
+        assert note["open_threads"] == []
+        assert note["mood"] == ""

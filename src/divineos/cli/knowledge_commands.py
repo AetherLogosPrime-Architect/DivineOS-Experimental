@@ -133,7 +133,56 @@ def register(cli: click.Group) -> None:
             _safe_echo(entry["content"])
             if entry["context"]:
                 click.secho(f"    context: {entry['context']}", fg="bright_black")
+            if entry.get("linked_knowledge_id"):
+                click.secho(
+                    f"    linked: {entry['linked_knowledge_id'][:8]}...",
+                    fg="bright_black",
+                )
             click.echo()
+
+    @journal_group.command("search")
+    @click.argument("query")
+    @click.option("--limit", default=10, type=int, help="Max results")
+    def journal_search_cmd(query: str, limit: int) -> None:
+        """Search journal entries by content."""
+        import datetime
+
+        from divineos.core.memory import journal_search
+
+        results = journal_search(query, limit=limit)
+        if not results:
+            click.secho(f"[-] No journal entries match '{query}'.", fg="yellow")
+            return
+
+        click.secho(
+            f"\n=== {len(results)} journal results for '{query}' ===\n",
+            fg="cyan",
+            bold=True,
+        )
+        for entry in results:
+            dt = datetime.datetime.fromtimestamp(entry["created_at"], tz=datetime.timezone.utc)
+            date_str = dt.strftime("%Y-%m-%d %H:%M")
+            click.secho(f"  [{date_str}] ", fg="bright_black", nl=False)
+            _safe_echo(entry["content"])
+            if entry.get("linked_knowledge_id"):
+                click.secho(
+                    f"    linked: {entry['linked_knowledge_id'][:8]}...",
+                    fg="bright_black",
+                )
+            click.echo()
+
+    @journal_group.command("link")
+    @click.argument("entry_id")
+    @click.argument("knowledge_id")
+    def journal_link_cmd(entry_id: str, knowledge_id: str) -> None:
+        """Link a journal entry to a knowledge entry."""
+        from divineos.core.memory import journal_link
+
+        full_kid = _resolve_knowledge_id(knowledge_id)
+        if journal_link(entry_id, full_kid):
+            click.secho(f"[+] Linked journal {entry_id[:8]}... → {full_kid[:8]}...", fg="green")
+        else:
+            click.secho(f"[-] Journal entry {entry_id} not found.", fg="red")
 
     @cli.command("knowledge")
     @click.option(
@@ -282,7 +331,56 @@ def register(cli: click.Group) -> None:
                 f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
                 fg="bright_black",
             )
+            # Show relationships if any
+            try:
+                from divineos.core.knowledge.relationships import get_relationships
+
+                rels = get_relationships(entry["knowledge_id"])
+                for rel in rels[:3]:
+                    if rel["direction"] == "outgoing":
+                        click.secho(
+                            f"         → {rel['relationship']} → {rel['target_id'][:8]}...",
+                            fg="bright_black",
+                        )
+                    else:
+                        click.secho(
+                            f"         ← {rel['relationship']} ← {rel['source_id'][:8]}...",
+                            fg="bright_black",
+                        )
+                if len(rels) > 3:
+                    click.secho(
+                        f"         ...and {len(rels) - 3} more relationships",
+                        fg="bright_black",
+                    )
+            except Exception:
+                pass
             click.echo()
+
+        # Also search journal entries
+        try:
+            from divineos.core.memory import journal_search
+
+            journal_results = journal_search(query, limit=5)
+            if journal_results:
+                click.secho(f"  --- Journal ({len(journal_results)} entries) ---\n", fg="cyan")
+                for jentry in journal_results:
+                    import datetime
+
+                    dt = datetime.datetime.fromtimestamp(jentry["created_at"])
+                    click.secho(f"  [{dt:%Y-%m-%d}] ", fg="bright_black", nl=False)
+                    content = jentry["content"]
+                    if len(content) > 200:
+                        _safe_echo(content[:200] + "...")
+                    else:
+                        _safe_echo(content)
+                    if jentry.get("linked_knowledge_id"):
+                        click.secho(
+                            f"         linked: {jentry['linked_knowledge_id'][:8]}...",
+                            fg="bright_black",
+                        )
+                    click.echo()
+        except Exception:
+            pass  # journal search is best-effort
 
     @cli.command("briefing")
     @click.option("--max", "max_items", default=20, type=int, help="Max items in briefing")
@@ -869,6 +967,101 @@ def register(cli: click.Group) -> None:
         else:
             click.secho(f"\n  Migrated {len(changes)} entries.", fg="green", bold=True)
         click.echo()
+
+    @cli.command("relate")
+    @click.argument("source_id")
+    @click.argument("relationship")
+    @click.argument("target_id")
+    @click.option("--notes", default="", help="Optional notes about this relationship")
+    def relate_cmd(source_id: str, relationship: str, target_id: str, notes: str) -> None:
+        """Create a typed relationship between two knowledge entries.
+
+        Example: divineos relate abc123 SUPPORTS def456
+        """
+        from divineos.core.knowledge.relationships import RELATIONSHIP_TYPES, add_relationship
+
+        relationship = relationship.upper()
+        if relationship not in RELATIONSHIP_TYPES:
+            click.secho(
+                f"[-] Unknown relationship '{relationship}'. "
+                f"Valid: {', '.join(sorted(RELATIONSHIP_TYPES))}",
+                fg="red",
+            )
+            return
+
+        try:
+            full_source = _resolve_knowledge_id(source_id)
+            full_target = _resolve_knowledge_id(target_id)
+            add_relationship(full_source, full_target, relationship, notes=notes)
+            click.secho(
+                f"[+] {full_source[:8]}... {relationship} {full_target[:8]}...",
+                fg="green",
+            )
+        except click.ClickException:
+            raise
+        except ValueError as e:
+            click.secho(f"[-] {e}", fg="red")
+
+    @cli.command("related")
+    @click.argument("knowledge_id")
+    @click.option("--depth", default=2, type=int, help="How many hops to traverse")
+    def related_cmd(knowledge_id: str, depth: int) -> None:
+        """Show relationships for a knowledge entry."""
+        from divineos.core.knowledge.relationships import (
+            find_related_cluster,
+            get_relationships,
+        )
+
+        try:
+            full_id = _resolve_knowledge_id(knowledge_id)
+        except click.ClickException:
+            raise
+
+        rels = get_relationships(full_id)
+        if not rels:
+            click.secho(f"[-] No relationships for {full_id[:8]}...", fg="yellow")
+            return
+
+        click.secho(f"\n=== Relationships for {full_id[:8]}... ===\n", fg="cyan", bold=True)
+        for rel in rels:
+            if rel["direction"] == "outgoing":
+                click.secho(
+                    f"  → {rel['relationship']} → {rel['target_id'][:8]}...",
+                    fg="white",
+                )
+            else:
+                click.secho(
+                    f"  ← {rel['relationship']} ← {rel['source_id'][:8]}...",
+                    fg="white",
+                )
+            if rel["notes"]:
+                click.secho(f"    ({rel['notes']})", fg="bright_black")
+
+        if depth > 1:
+            cluster = find_related_cluster(full_id, max_depth=depth)
+            if len(cluster) > len(rels):
+                click.secho(
+                    f"\n  Cluster ({len(cluster)} entries within {depth} hops):",
+                    fg="cyan",
+                )
+                for item in cluster:
+                    click.secho(
+                        f"    [{item['depth']}] {item['knowledge_id'][:8]}... "
+                        f"via {item['relationship']}",
+                        fg="bright_black",
+                    )
+        click.echo()
+
+    @cli.command("unrelate")
+    @click.argument("relationship_id")
+    def unrelate_cmd(relationship_id: str) -> None:
+        """Remove a relationship by its ID."""
+        from divineos.core.knowledge.relationships import remove_relationship
+
+        if remove_relationship(relationship_id):
+            click.secho(f"[+] Removed relationship {relationship_id[:8]}...", fg="green")
+        else:
+            click.secho(f"[-] Relationship {relationship_id} not found.", fg="yellow")
 
 
 def _extract_python_sections(lines: list[str]) -> list[dict[str, Any]]:

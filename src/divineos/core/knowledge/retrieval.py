@@ -212,7 +212,34 @@ def generate_briefing(
             )
 
     # Format output
-    lines = [f"## Session Briefing ({len(entries)} items)\n"]
+    lines = []
+
+    # Handoff note from previous session (one-shot: consumed then cleared)
+    try:
+        from divineos.core.hud import clear_handoff_note, load_handoff_note
+
+        handoff = load_handoff_note()
+        if handoff:
+            lines.append("## Handoff from Last Session\n")
+            if handoff.get("summary"):
+                lines.append(handoff["summary"])
+            if handoff.get("open_threads"):
+                lines.append("\n**Open threads:**")
+                for thread in handoff["open_threads"]:
+                    lines.append(f"  - {thread}")
+            meta_parts = []
+            if handoff.get("mood"):
+                meta_parts.append(handoff["mood"])
+            if handoff.get("goals_state"):
+                meta_parts.append(f"goals: {handoff['goals_state']}")
+            if meta_parts:
+                lines.append(f"\n*{' | '.join(meta_parts)}*")
+            lines.append("\n---\n")
+            clear_handoff_note()
+    except Exception as e:
+        logger.warning(f"Handoff note retrieval failed: {e}")
+
+    lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
     # One-line maturity pyramid
     mat_parts = []
@@ -280,6 +307,26 @@ def generate_briefing(
                     f"- [{item['confidence']:.2f}] {display} {access}{mat_marker}{hint_marker}"
                 )
         lines.append("")
+
+    # Recent journal entries (last 48h)
+    try:
+        from divineos.core.memory import journal_list
+
+        journal_entries = journal_list(limit=5)
+        recent_journal = [j for j in journal_entries if (now - j["created_at"]) < 172800]
+        if recent_journal:
+            lines.append("### JOURNAL (recent)")
+            for j in recent_journal:
+                import datetime
+
+                dt = datetime.datetime.fromtimestamp(j["created_at"])
+                display = j["content"].replace("\n", " ")
+                if len(display) > 120:
+                    display = display[:117] + "..."
+                lines.append(f"- [{dt:%Y-%m-%d}] {display}")
+            lines.append("")
+    except Exception as e:
+        logger.debug(f"Journal retrieval for briefing failed: {e}")
 
     return "\n".join(lines)
 

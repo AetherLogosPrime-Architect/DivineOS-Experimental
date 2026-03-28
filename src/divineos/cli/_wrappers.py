@@ -171,5 +171,8 @@ def _ensure_db() -> None:
     init_quality_tables()
     init_feature_tables()
     init_memory_tables()
+    from divineos.core.knowledge.relationships import init_relationship_table
+
+    init_relationship_table()
     _load_seed_if_empty()
     _db_ready = True
