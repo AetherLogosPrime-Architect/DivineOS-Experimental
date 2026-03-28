@@ -413,9 +413,9 @@ class TestStorage:
         store_features("test-123", analysis)
 
         # Verify data is in DB
-        import divineos.analysis.session_features as sf
+        from divineos.analysis.feature_storage import _get_connection
 
-        conn = sf._get_connection()
+        conn = _get_connection()
         try:
             assert (
                 conn.execute(
