@@ -257,7 +257,7 @@ def register(cli: click.Group) -> None:
 
         # Also search journal entries
         try:
-            from divineos.core.memory import journal_search
+            from divineos.core.memory_journal import journal_search
 
             journal_results = journal_search(query, limit=5)
             if journal_results:
