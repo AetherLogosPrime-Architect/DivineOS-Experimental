@@ -522,10 +522,10 @@ def emit_tool_result_for_ide(
 
 
 class UnifiedToolCapture:
-    """Unified tool capture system for both Kiro and MCP.
+    """Unified tool capture system for Claude Code and MCP.
 
     This class provides a thread-safe singleton pattern for capturing tool
-    executions from both Kiro IDE and MCP servers. It ensures consistent
+    executions from Claude Code and MCP servers. It ensures consistent
     event emission and prevents duplicate captures.
 
     Features:

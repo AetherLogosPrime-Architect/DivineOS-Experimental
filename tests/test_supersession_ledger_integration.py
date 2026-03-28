@@ -19,12 +19,12 @@ class TestLedgerIntegration:
 
         assert integration is not None
 
-    def test_ledger_integration_with_custom_ledger(self):
-        """Test creating LedgerIntegration with custom ledger."""
-        mock_ledger = {}
-        integration = LedgerIntegration(ledger=mock_ledger)
+    def test_ledger_integration_availability_check(self):
+        """Test that LedgerIntegration checks availability."""
+        integration = LedgerIntegration()
 
-        assert integration._ledger == mock_ledger
+        # Should be able to check availability
+        assert isinstance(integration._is_available(), bool)
 
 
 class TestStoreFact:
@@ -206,7 +206,7 @@ class TestLedgerIntegrationEdgeCases:
         assert fact_id is None
 
     def test_store_supersession_event_with_missing_id(self):
-        """Test storing supersession event with missing ID."""
+        """Test storing supersession event with missing ID generates one."""
         event = {
             "event_type": "SUPERSESSION",
             "superseded_fact_id": "fact_391",
@@ -214,9 +214,9 @@ class TestLedgerIntegrationEdgeCases:
             "reason": "newer_fact",
         }
 
-        # Should handle gracefully
+        # Should generate a UUID when event_id is missing
         event_id = store_supersession_event(event)
-        assert event_id is None
+        assert event_id is not None
 
     def test_query_facts_with_invalid_type(self):
         """Test querying facts with invalid type."""

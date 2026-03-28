@@ -15,7 +15,7 @@ from divineos.hooks.hook_validator import load_hooks_from_directory
 class HookDiagnostics:
     """Diagnoses hook configuration and triggering issues."""
 
-    def __init__(self, hooks_dir: str = ".kiro/hooks") -> None:
+    def __init__(self, hooks_dir: str = ".divineos/hooks") -> None:
         self.hooks_dir = Path(hooks_dir)
         self.hooks: list[dict[str, Any]] = []
         self.issues: list[str] = []

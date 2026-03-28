@@ -188,8 +188,8 @@ def load_hooks_from_directory(directory: Path) -> tuple[list[dict[str, Any]], li
         logger.warning(f"Hook directory does not exist: {directory}")
         return valid_hooks, invalid_hooks
 
-    # Find all .kiro.hook files
-    hook_files = list(directory.glob("*.kiro.hook"))
+    # Find all .divineos.hook files
+    hook_files = list(directory.glob("*.divineos.hook"))
 
     if not hook_files:
         logger.debug(f"No hook files found in {directory}")

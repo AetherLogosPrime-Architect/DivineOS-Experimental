@@ -321,7 +321,7 @@ _STOPWORDS = frozenset(
         "please",
         "help",
         "claude",
-        "kiro",
+        "divineos",
         "notification",
         "users",
         "user",
