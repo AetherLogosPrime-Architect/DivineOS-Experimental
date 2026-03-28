@@ -165,6 +165,17 @@ def _run_session_end_pipeline() -> None:
             except Exception as e:
                 logger.warning(f"Maturity override failed: {e}")
 
+        # 3c. Auto-detect relationships between new and existing knowledge
+        try:
+            from divineos.core.knowledge.relationships import auto_detect_relationships
+
+            valid_ids = [did for did in deep_ids if did]
+            auto_rels = auto_detect_relationships(valid_ids)
+            if auto_rels:
+                click.secho(f"[~] Auto-linked {len(auto_rels)} knowledge relationships.", fg="cyan")
+        except Exception as e:
+            logger.warning(f"Auto-relationship detection failed: {e}")
+
         # 4. Apply feedback
         feedback = _wrapped_apply_session_feedback(analysis, analysis.session_id)
         feedback_parts: list[str] = []
