@@ -66,15 +66,51 @@ pytest tests/ -q --tb=short  # Run tests after changes
 - **Outcome Measurement** — Rework detection, knowledge stability (churn), correction trends, session health scoring.
 - **Guardrails** — Runtime limits on iterations, tool calls, tokens.
 - **Lesson Tracking** — Occurrence counts, session tracking, status progression (active → improving → resolved).
+- **Pattern Anticipation** — Detects recurring user patterns and surfaces proactive warnings.
+- **Growth Awareness** — Tracks session-over-session improvement with milestone detection.
+- **Tone Texture** — Rich emotional classification (sub-tones, intensity, arcs, recovery velocity).
 
 ## Project Structure
 
 ```
 src/divineos/
-├── cli.py                    # Main CLI entry point (45+ commands)
+├── cli/                      # CLI package (54 commands across 10+ modules)
+│   ├── __init__.py           # CLI entry point and command registration
+│   ├── session_pipeline.py   # SESSION_END orchestration pipeline
+│   ├── knowledge_commands.py # learn, ask, briefing, forget, lessons
+│   ├── analysis_commands.py  # analyze, report, trends
+│   ├── hud_commands.py       # hud, goal, plan commands
+│   ├── journal_commands.py   # journal save/list/search/link
+│   ├── directive_commands.py # directive management
+│   ├── relationship_commands.py  # knowledge relationships
+│   └── knowledge_health_commands.py  # health, distill, migrate
 ├── seed.json                 # Initial knowledge seed (versioned)
-├── core/                     # Ledger, memory, consolidation, quality gate, maturity, etc.
-├── analysis/                 # Session analysis, quality checks, quality trends
+├── core/
+│   ├── ledger.py             # Append-only event ledger (core read/write/search)
+│   ├── ledger_class.py       # OOP Ledger wrapper for integration code
+│   ├── memory.py             # Core memory slots, active memory, importance scoring
+│   ├── memory_journal.py     # Personal journal (save/list/search/link)
+│   ├── hud.py                # HUD slot builders and assembly
+│   ├── hud_state.py          # Goal/plan/health state management
+│   ├── hud_handoff.py        # Session handoff, engagement, goal extraction
+│   ├── knowledge/            # Knowledge engine sub-package
+│   │   ├── _base.py          # DB connection, public get_connection() API
+│   │   ├── extraction.py     # Knowledge extraction from sessions
+│   │   ├── deep_extraction.py # Deep multi-pass extraction
+│   │   ├── feedback.py       # Session feedback application
+│   │   ├── migration.py      # Knowledge type migration
+│   │   └── _text.py          # Text analysis utilities (FTS, overlap, noise)
+│   └── ...                   # consolidation, quality gate, maturity, etc.
+├── analysis/
+│   ├── analysis.py           # Core session analysis pipeline
+│   ├── analysis_storage.py   # Report storage, formatting, cross-session trends
+│   ├── quality_checks.py     # 7 measurable quality checks
+│   ├── record_extraction.py  # JSONL record parsing helpers
+│   ├── quality_storage.py    # Quality report DB storage
+│   ├── session_features.py   # Timeline, files, activity, error recovery features
+│   ├── tone_tracking.py      # Tone shift detection and classification
+│   ├── feature_storage.py    # Feature result DB storage
+│   └── session_analyzer.py   # Signal detection (corrections, encouragements)
 ├── agent_integration/        # Outcome measurement, memory monitor, learning cycles
 ├── clarity_enforcement/      # Clarity system
 ├── clarity_system/           # Clarity rules and violation tracking
@@ -83,7 +119,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 1793 tests (real DB, no mocks)
+tests/                        # 1889 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
