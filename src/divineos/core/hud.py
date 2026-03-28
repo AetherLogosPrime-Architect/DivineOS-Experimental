@@ -52,6 +52,7 @@ SLOT_ORDER = [
     "identity",
     "active_goals",
     "recent_lessons",
+    "growth_awareness",
     "session_health",
     "os_engagement",
     "context_budget",
@@ -444,6 +445,44 @@ def _build_handoff_slot() -> str:
     return "\n".join(lines)
 
 
+def _build_growth_awareness_slot() -> str:
+    """How I'm evolving. Growth trend, tone patterns, and anticipation."""
+    lines: list[str] = []
+
+    # Growth trend
+    try:
+        from divineos.core.growth import compute_growth_map
+
+        growth = compute_growth_map(limit=10)
+        if growth["sessions"] >= 2:
+            icons = {"improving": "↑", "declining": "↓", "stable": "→"}
+            icon = icons.get(growth["trend"], "→")
+            lines.append("# My Growth\n")
+            lines.append(
+                f"**Trend:** {icon} {growth['trend']} over {growth['sessions']} sessions "
+                f"(avg score {growth['avg_health_score']:.2f})"
+            )
+            if growth.get("trend_detail"):
+                lines.append(f"  {growth['trend_detail']}")
+
+            # Tone insight
+            tone = growth.get("tone_insight", "")
+            if tone:
+                lines.append(f"**Tone:** {tone}")
+
+            # Milestones
+            lessons = growth.get("lessons", {})
+            resolved = lessons.get("resolved", 0)
+            if resolved > 0:
+                lines.append(f"**Milestones:** {resolved} lessons resolved")
+        else:
+            return ""
+    except Exception:
+        return ""
+
+    return "\n".join(lines)
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -451,6 +490,7 @@ SLOT_BUILDERS = {
     "identity": _build_identity_slot,
     "active_goals": _build_active_goals_slot,
     "recent_lessons": _build_recent_lessons_slot,
+    "growth_awareness": _build_growth_awareness_slot,
     "session_health": _build_session_health_slot,
     "os_engagement": _build_os_engagement_slot,
     "context_budget": _build_context_budget_slot,

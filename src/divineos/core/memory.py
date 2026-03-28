@@ -14,7 +14,6 @@ The knowledge store is the archive. Personal memory is what matters.
 
 import math
 import re
-import sqlite3
 import time
 import uuid
 from typing import Any, cast
@@ -35,8 +34,7 @@ CORE_SLOTS = (
 )
 
 
-def _get_connection() -> sqlite3.Connection:
-    return get_connection()
+_get_connection = get_connection
 
 
 def init_memory_tables() -> None:
