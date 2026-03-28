@@ -321,7 +321,7 @@ def format_analysis_report(result: AnalysisResult) -> str:
         lines.append("-" * 70)
 
         # If lessons are knowledge IDs, try to retrieve the content
-        from divineos.core.consolidation import get_knowledge
+        from divineos.core.knowledge import get_knowledge
 
         for lesson in result.lessons:
             try:

@@ -19,7 +19,7 @@ from divineos.cli._wrappers import (
     logger,
 )
 from divineos.analysis.analysis import analyze_session
-from divineos.core.consolidation import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.ledger import init_db
 
 

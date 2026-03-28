@@ -8,7 +8,7 @@ from divineos.analysis.quality_trends import (
     format_trend_summary,
     get_session_trend,
 )
-from divineos.core.consolidation import init_knowledge_table, store_knowledge
+from divineos.core.knowledge import init_knowledge_table, store_knowledge
 from divineos.core.ledger import init_db
 
 

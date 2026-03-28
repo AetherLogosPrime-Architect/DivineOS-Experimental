@@ -18,7 +18,7 @@ from divineos.agent_integration.types import (
     TimingPattern,
     ToolPattern,
 )
-from divineos.core.consolidation import store_knowledge
+from divineos.core.knowledge import store_knowledge
 from divineos.core.error_handling import (
     handle_error,
 )

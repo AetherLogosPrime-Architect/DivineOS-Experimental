@@ -3,7 +3,7 @@
 import pytest
 import time
 from divineos.core.ledger import init_db, get_events, count_events
-from divineos.core.consolidation import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.event.event_emission import emit_event
 
 

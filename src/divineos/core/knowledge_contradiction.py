@@ -263,7 +263,7 @@ def scan_for_contradictions(
 
 def increment_contradiction_count(knowledge_id: str) -> None:
     """Increment the contradiction_count for a knowledge entry."""
-    from divineos.core.consolidation import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     conn = _get_connection()
     try:
@@ -287,7 +287,7 @@ def resolve_contradiction(
     - DIRECT: flag both, reduce confidence on both
     - SUPERSESSION: supersede old with new
     """
-    from divineos.core.consolidation import supersede_knowledge
+    from divineos.core.knowledge import supersede_knowledge
 
     increment_contradiction_count(match.existing_id)
 
@@ -301,7 +301,7 @@ def resolve_contradiction(
         )
     elif match.contradiction_type == "DIRECT":
         # Both entries are suspect — reduce confidence on old
-        from divineos.core.consolidation import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:

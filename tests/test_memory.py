@@ -2,7 +2,7 @@
 
 import pytest
 from divineos.core.ledger import init_db
-from divineos.core.consolidation import init_knowledge_table, store_knowledge
+from divineos.core.knowledge import init_knowledge_table, store_knowledge
 from divineos.core.memory import (
     CORE_SLOTS,
     init_memory_tables,

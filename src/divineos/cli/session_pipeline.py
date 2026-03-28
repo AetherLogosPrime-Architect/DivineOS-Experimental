@@ -43,7 +43,7 @@ def _run_session_end_pipeline() -> None:
     # Snapshot knowledge access counts before the pipeline runs.
     access_snapshot: dict[str, int] = {}
     try:
-        from divineos.core.consolidation import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         _snap_conn = _get_connection()
         _snap_rows = _snap_conn.execute(
@@ -150,7 +150,7 @@ def _run_session_end_pipeline() -> None:
         # 3b. Apply maturity override if quality was downgraded
         if maturity_override and deep_ids:
             try:
-                from divineos.core.consolidation import _get_connection
+                from divineos.core.knowledge import _get_connection
 
                 conn = _get_connection()
                 for did in deep_ids:
@@ -344,7 +344,7 @@ def _run_session_end_pipeline() -> None:
             from divineos.core.hud_handoff import is_engaged
 
             if not is_engaged():
-                from divineos.core.consolidation import record_lesson
+                from divineos.core.knowledge import record_lesson
 
                 record_lesson(
                     category="blind_coding",
@@ -365,7 +365,7 @@ def _run_session_end_pipeline() -> None:
 
         # 8c. Session-end corroboration sweep
         try:
-            from divineos.core.consolidation import _get_connection as _get_conn
+            from divineos.core.knowledge import _get_connection as _get_conn
             from divineos.core.knowledge_maturity import (
                 increment_corroboration,
                 promote_maturity,

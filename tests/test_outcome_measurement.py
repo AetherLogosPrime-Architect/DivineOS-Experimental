@@ -6,7 +6,7 @@ from divineos.agent_integration.outcome_measurement import (
     measure_rework,
     measure_session_health,
 )
-from divineos.core.consolidation import (
+from divineos.core.knowledge import (
     init_knowledge_table,
     record_lesson,
     store_knowledge,

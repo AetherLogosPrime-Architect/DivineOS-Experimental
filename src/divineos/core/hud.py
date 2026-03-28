@@ -131,7 +131,7 @@ def _build_active_goals_slot() -> str:
 
 def _build_recent_lessons_slot() -> str:
     """What I've learned recently. Written so I can inhabit them."""
-    from divineos.core.consolidation import get_lessons
+    from divineos.core.knowledge import get_lessons
 
     lines = ["# What I've Learned Recently\n"]
 
@@ -278,7 +278,7 @@ def _build_active_knowledge_slot() -> str:
 
 def _build_warnings_slot() -> str:
     """Patterns I've been corrected for. Pre-action awareness."""
-    from divineos.core.consolidation import get_lessons
+    from divineos.core.knowledge import get_lessons
 
     lines = ["# Warnings -- Patterns I Repeat\n"]
 

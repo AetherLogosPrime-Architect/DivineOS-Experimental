@@ -9,7 +9,7 @@ from divineos.core.seed_manager import (
     should_reseed,
     validate_seed,
 )
-from divineos.core.consolidation import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.ledger import init_db
 from divineos.core.memory import init_memory_tables
 
@@ -187,7 +187,7 @@ class TestApplySeed:
             assert counts1["knowledge"] == 2
 
             # Supersede the first entry
-            from divineos.core.consolidation import get_knowledge, supersede_knowledge
+            from divineos.core.knowledge import get_knowledge, supersede_knowledge
 
             entries = get_knowledge(knowledge_type="FACT")
             superseded_entry = [e for e in entries if "will be superseded" in e["content"]][0]

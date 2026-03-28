@@ -27,7 +27,7 @@ def get_session_trend(n: int = 5) -> SessionTrend:
     Looks at EPISODE entries which contain corrections and encouragements
     counts from each session.
     """
-    from divineos.core.consolidation import get_knowledge
+    from divineos.core.knowledge import get_knowledge
 
     episodes = get_knowledge(knowledge_type="EPISODE", limit=n * 2)
 

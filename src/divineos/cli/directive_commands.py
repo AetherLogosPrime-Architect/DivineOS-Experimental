@@ -4,7 +4,7 @@ import click
 
 from divineos.cli._helpers import _log_os_query, _safe_echo
 from divineos.cli._wrappers import _wrapped_store_knowledge
-from divineos.core.consolidation import get_knowledge, search_knowledge
+from divineos.core.knowledge import get_knowledge, search_knowledge
 
 
 def register(cli: click.Group) -> None:
@@ -42,7 +42,7 @@ def register(cli: click.Group) -> None:
             if entry.get("knowledge_type") == "DIRECTIVE" and f"directive:{name}" in entry.get(
                 "tags", ""
             ):
-                from divineos.core.consolidation import supersede_knowledge
+                from divineos.core.knowledge import supersede_knowledge
 
                 supersede_knowledge(entry["knowledge_id"], f"Updated directive: {name}")
                 click.secho(f"[~] Superseding previous version of '{name}'", fg="yellow")
@@ -127,7 +127,7 @@ def register(cli: click.Group) -> None:
         links[link_number - 1] = f"{link_number}. {new_text}"
         new_content = header + "\n" + "\n".join(f"  {link}" for link in links)
 
-        from divineos.core.consolidation import supersede_knowledge
+        from divineos.core.knowledge import supersede_knowledge
 
         supersede_knowledge(target["knowledge_id"], f"Edited link {link_number}: {new_text[:50]}")
 

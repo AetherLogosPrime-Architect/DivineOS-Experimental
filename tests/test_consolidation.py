@@ -4,7 +4,7 @@ import time
 
 import pytest
 from divineos.core.ledger import init_db, log_event
-from divineos.core.consolidation import (
+from divineos.core.knowledge import (
     init_knowledge_table,
     store_knowledge,
     get_knowledge,

@@ -38,7 +38,7 @@ def register(cli: click.Group) -> None:
     @cli.command()
     def init() -> None:
         """Initialize the SQLite database and tables."""
-        from divineos.core.consolidation import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         logger.info("Initializing the event ledger database...")
         init_db()

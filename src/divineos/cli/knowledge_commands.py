@@ -20,7 +20,7 @@ from divineos.cli._wrappers import (
     _wrapped_store_knowledge,
     logger,
 )
-from divineos.core.consolidation import KNOWLEDGE_TYPES, search_knowledge
+from divineos.core.knowledge import KNOWLEDGE_TYPES, search_knowledge
 from divineos.core.memory import init_memory_tables
 
 
@@ -203,7 +203,7 @@ def register(cli: click.Group) -> None:
             _safe_echo(content[:300])
             click.echo()
 
-        from divineos.core.consolidation import record_access
+        from divineos.core.knowledge import record_access
         from divineos.core.knowledge_maturity import promote_maturity
 
         for entry in results:
@@ -328,7 +328,7 @@ def register(cli: click.Group) -> None:
     @click.option("--reason", required=True, help="Why this knowledge is being superseded")
     def forget_cmd(knowledge_id: str, reason: str) -> None:
         """Supersede a knowledge entry (marks as removed, no replacement created)."""
-        from divineos.core.consolidation import supersede_knowledge
+        from divineos.core.knowledge import supersede_knowledge
 
         try:
             full_id = _resolve_knowledge_id(knowledge_id)
@@ -385,7 +385,7 @@ def register(cli: click.Group) -> None:
     @cli.command("clear-lessons")
     def clear_lessons_cmd() -> None:
         """Wipe all lessons from lesson_tracking (for re-extraction after fixes)."""
-        from divineos.core.consolidation import get_lessons
+        from divineos.core.knowledge import get_lessons
 
         active = get_lessons(status="active")
         improving = get_lessons(status="improving")

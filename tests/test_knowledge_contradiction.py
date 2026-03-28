@@ -133,7 +133,7 @@ class TestIncrementContradictionCount:
     def test_increment_updates_database(self, tmp_path):
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
         try:
-            from divineos.core.consolidation import (
+            from divineos.core.knowledge import (
                 _get_connection,
                 init_knowledge_table,
                 store_knowledge,
@@ -189,7 +189,7 @@ class TestResolveContradiction:
     def test_temporal_supersedes_old(self, tmp_path):
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
         try:
-            from divineos.core.consolidation import (
+            from divineos.core.knowledge import (
                 _get_connection,
                 init_knowledge_table,
                 store_knowledge,
@@ -235,7 +235,7 @@ class TestResolveContradiction:
     def test_direct_lowers_confidence(self, tmp_path):
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
         try:
-            from divineos.core.consolidation import (
+            from divineos.core.knowledge import (
                 _get_connection,
                 init_knowledge_table,
                 store_knowledge,
