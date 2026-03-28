@@ -326,7 +326,7 @@ def generate_briefing(
 
     # Recent journal entries (last 48h)
     try:
-        from divineos.core.memory import journal_list
+        from divineos.core.memory_journal import journal_list
 
         journal_entries = journal_list(limit=5)
         recent_journal = [j for j in journal_entries if (now - j["created_at"]) < 172800]

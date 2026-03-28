@@ -1,7 +1,7 @@
 """Tests for the journal system — save, search, link, FTS."""
 
-from divineos.core.memory import (
-    init_memory_tables,
+from divineos.core.memory import init_memory_tables
+from divineos.core.memory_journal import (
     journal_count,
     journal_link,
     journal_list,

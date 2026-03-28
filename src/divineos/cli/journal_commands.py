@@ -18,7 +18,7 @@ def register(cli: click.Group) -> None:
     @click.option("--context", default="", help="What prompted this thought")
     def journal_save_cmd(text: str | None, context: str) -> None:
         """Save something to my personal journal."""
-        from divineos.core.memory import journal_save
+        from divineos.core.memory_journal import journal_save
 
         if not text:
             click.secho("[-] What do you want to remember?", fg="yellow")
@@ -33,7 +33,7 @@ def register(cli: click.Group) -> None:
         """Read my personal journal."""
         import datetime
 
-        from divineos.core.memory import journal_list
+        from divineos.core.memory_journal import journal_list
 
         entries = journal_list(limit=limit)
         if not entries:
@@ -62,7 +62,7 @@ def register(cli: click.Group) -> None:
         """Search journal entries by content."""
         import datetime
 
-        from divineos.core.memory import journal_search
+        from divineos.core.memory_journal import journal_search
 
         results = journal_search(query, limit=limit)
         if not results:
@@ -91,7 +91,7 @@ def register(cli: click.Group) -> None:
     @click.argument("knowledge_id")
     def journal_link_cmd(entry_id: str, knowledge_id: str) -> None:
         """Link a journal entry to a knowledge entry."""
-        from divineos.core.memory import journal_link
+        from divineos.core.memory_journal import journal_link
 
         full_kid = _resolve_knowledge_id(knowledge_id)
         if journal_link(entry_id, full_kid):
