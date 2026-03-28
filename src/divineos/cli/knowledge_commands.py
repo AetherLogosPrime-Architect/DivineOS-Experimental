@@ -253,6 +253,19 @@ def register(cli: click.Group) -> None:
                     )
             except Exception:
                 pass
+            # Show warrant chain — why do I believe this?
+            try:
+                from divineos.core.logic.logic_summary import (
+                    format_warrant_chain,
+                    get_warrant_chain,
+                )
+
+                warrants = get_warrant_chain(entry["knowledge_id"])
+                chain_str = format_warrant_chain(warrants)
+                if chain_str:
+                    click.secho(chain_str, fg="bright_black")
+            except Exception:
+                pass
             click.echo()
 
         # Also search journal entries
