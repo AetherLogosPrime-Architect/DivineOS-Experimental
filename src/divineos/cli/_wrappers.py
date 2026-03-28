@@ -180,5 +180,11 @@ def _ensure_db() -> None:
     init_session_history_table()
     init_tone_texture_table()
 
+    from divineos.core.logic.warrants import init_warrant_table
+    from divineos.core.logic.relations import init_relation_table
+
+    init_warrant_table()
+    init_relation_table()
+
     _load_seed_if_empty()
     _db_ready = True
