@@ -29,6 +29,16 @@ from divineos.core.knowledge.crud import (
 )
 
 
+# Maps knowledge source to warrant type for auto-warrant creation
+_SOURCE_TO_WARRANT = {
+    "STATED": "TESTIMONIAL",
+    "CORRECTED": "TESTIMONIAL",
+    "DEMONSTRATED": "EMPIRICAL",
+    "SYNTHESIZED": "INFERENTIAL",
+    "INHERITED": "INHERITED",
+}
+
+
 # ─── Smart Knowledge Storage ─────────────────────────────────────────
 
 
@@ -226,6 +236,20 @@ def store_knowledge_smart(
         if operation == "UPDATE" and existing_id:
             supersede_knowledge(existing_id, reason=f"Updated by {kid[:12]}")
             logger.info(f"Updated knowledge: {existing_id[:12]} → {kid[:12]}")
+
+        # Auto-create warrant — every new knowledge entry is born with justification
+        try:
+            from divineos.core.logic.warrants import create_warrant
+
+            warrant_type = _SOURCE_TO_WARRANT.get(source, "TESTIMONIAL")
+            create_warrant(
+                knowledge_id=kid,
+                warrant_type=warrant_type,
+                grounds=f"{source.lower()} knowledge: {content[:80]}",
+                source_events=source_events or [],
+            )
+        except Exception as e:
+            logger.debug(f"Auto-warrant creation failed: {e}", exc_info=True)
 
         # Scan for contradictions against same-type entries
         try:

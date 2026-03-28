@@ -1,7 +1,8 @@
 """Typed logical relations between knowledge entries.
 
-Edges in a knowledge graph. Each relation says "entry A relates to entry B
-in this specific way" with a confidence score and optional warrant.
+Thin wrapper around the unified knowledge_edges table, filtered to the
+logical layer. All data lives in knowledge_edges — this module provides
+the logical-specific API and type validation.
 
 Relation types:
 - IMPLIES: if A is true, B follows
@@ -14,65 +15,30 @@ Relation types:
 
 from __future__ import annotations
 
-import time
-import uuid
 from dataclasses import dataclass
-from typing import Any
 
-from loguru import logger
-
-from divineos.core.knowledge import get_connection
-
+from divineos.core.knowledge.edges import (
+    LOGICAL_TYPES,
+    KnowledgeEdge,
+    create_edge,
+    deactivate_edge,
+    find_edge,
+    get_edges,
+    get_neighbors as _get_neighbors,
+    init_edge_table,
+)
 
 # ─── Schema ──────────────────────────────────────────────────────────
 
 
 def init_relation_table() -> None:
-    """Create the logical_relations table. Idempotent."""
-    conn = get_connection()
-    try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS logical_relations (
-                relation_id   TEXT PRIMARY KEY,
-                source_id     TEXT NOT NULL,
-                target_id     TEXT NOT NULL,
-                relation_type TEXT NOT NULL,
-                confidence    REAL NOT NULL DEFAULT 1.0,
-                warrant_id    TEXT DEFAULT NULL,
-                created_at    REAL NOT NULL,
-                status        TEXT NOT NULL DEFAULT 'ACTIVE',
-                notes         TEXT NOT NULL DEFAULT '',
-                FOREIGN KEY (source_id) REFERENCES knowledge(knowledge_id),
-                FOREIGN KEY (target_id) REFERENCES knowledge(knowledge_id)
-            )
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_relations_source
-            ON logical_relations(source_id)
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_relations_target
-            ON logical_relations(target_id)
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_relations_type
-            ON logical_relations(relation_type)
-        """)
-        conn.commit()
-    finally:
-        conn.close()
+    """Create the knowledge_edges table (shared with semantic edges). Idempotent."""
+    init_edge_table()
 
 
 # ─── Types ───────────────────────────────────────────────────────────
 
-RELATION_TYPES = {
-    "IMPLIES",
-    "CONTRADICTS",
-    "REQUIRES",
-    "SUPPORTS",
-    "GENERALIZES",
-    "SPECIALIZES",
-}
+RELATION_TYPES = LOGICAL_TYPES
 
 # Inverse mapping — if A→B is X, then B→A is Y
 INVERSE_RELATIONS = {
@@ -87,7 +53,7 @@ INVERSE_RELATIONS = {
 
 @dataclass
 class LogicalRelation:
-    """A typed edge between two knowledge entries."""
+    """A typed logical edge between two knowledge entries."""
 
     relation_id: str
     source_id: str
@@ -114,82 +80,23 @@ def create_relation(
     """Create a logical relation between two knowledge entries."""
     if relation_type not in RELATION_TYPES:
         raise ValueError(f"Invalid relation type: {relation_type}. Must be one of {RELATION_TYPES}")
-    if source_id == target_id:
-        raise ValueError("Cannot create a relation from a knowledge entry to itself")
-    if not 0.0 <= confidence <= 1.0:
-        raise ValueError(f"Confidence must be between 0.0 and 1.0, got {confidence}")
 
-    # Check for duplicate
-    existing = find_relation(source_id, target_id, relation_type)
-    if existing:
-        logger.debug(
-            "Relation {} already exists between {} and {}",
-            relation_type,
-            source_id[:8],
-            target_id[:8],
-        )
-        return existing
-
-    rel = LogicalRelation(
-        relation_id=str(uuid.uuid4()),
+    edge = create_edge(
         source_id=source_id,
         target_id=target_id,
-        relation_type=relation_type,
+        edge_type=relation_type,
+        layer="logical",
         confidence=confidence,
         warrant_id=warrant_id,
-        created_at=time.time(),
         notes=notes,
     )
-
-    conn = get_connection()
-    try:
-        conn.execute(
-            """
-            INSERT INTO logical_relations
-                (relation_id, source_id, target_id, relation_type, confidence,
-                 warrant_id, created_at, status, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                rel.relation_id,
-                rel.source_id,
-                rel.target_id,
-                rel.relation_type,
-                rel.confidence,
-                rel.warrant_id,
-                rel.created_at,
-                rel.status,
-                rel.notes,
-            ),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-    logger.debug(
-        "Created relation {} --{}-> {}",
-        source_id[:8],
-        relation_type,
-        target_id[:8],
-    )
-    return rel
+    return _edge_to_relation(edge)
 
 
 def find_relation(source_id: str, target_id: str, relation_type: str) -> LogicalRelation | None:
-    """Find an existing active relation between two entries of a given type."""
-    conn = get_connection()
-    try:
-        row = conn.execute(
-            """
-            SELECT * FROM logical_relations
-            WHERE source_id = ? AND target_id = ? AND relation_type = ? AND status = 'ACTIVE'
-            """,
-            (source_id, target_id, relation_type),
-        ).fetchone()
-    finally:
-        conn.close()
-
-    return _row_to_relation(row) if row else None
+    """Find an existing active logical relation between two entries."""
+    edge = find_edge(source_id, target_id, relation_type)
+    return _edge_to_relation(edge) if edge else None
 
 
 def get_relations(
@@ -197,100 +104,46 @@ def get_relations(
     direction: str = "both",
     relation_type: str | None = None,
 ) -> list[LogicalRelation]:
-    """Get all active relations for a knowledge entry.
-
-    direction: "outgoing" (source=id), "incoming" (target=id), or "both".
-    """
-    conn = get_connection()
-    try:
-        results: list[LogicalRelation] = []
-
-        if direction in ("outgoing", "both"):
-            if relation_type:
-                rows = conn.execute(
-                    "SELECT * FROM logical_relations WHERE source_id = ? AND relation_type = ? AND status = 'ACTIVE'",
-                    (knowledge_id, relation_type),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM logical_relations WHERE source_id = ? AND status = 'ACTIVE'",
-                    (knowledge_id,),
-                ).fetchall()
-            results.extend(_row_to_relation(r) for r in rows)
-
-        if direction in ("incoming", "both"):
-            if relation_type:
-                rows = conn.execute(
-                    "SELECT * FROM logical_relations WHERE target_id = ? AND relation_type = ? AND status = 'ACTIVE'",
-                    (knowledge_id, relation_type),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM logical_relations WHERE target_id = ? AND status = 'ACTIVE'",
-                    (knowledge_id,),
-                ).fetchall()
-            results.extend(_row_to_relation(r) for r in rows)
-
-        return results
-    finally:
-        conn.close()
+    """Get all active logical relations for a knowledge entry."""
+    edges = get_edges(
+        knowledge_id,
+        direction=direction,
+        edge_type=relation_type,
+        layer="logical",
+    )
+    return [_edge_to_relation(e) for e in edges]
 
 
 def deactivate_relation(relation_id: str) -> bool:
-    """Deactivate a relation (soft delete)."""
-    conn = get_connection()
-    try:
-        cursor = conn.execute(
-            "UPDATE logical_relations SET status = 'INACTIVE' WHERE relation_id = ?",
-            (relation_id,),
-        )
-        conn.commit()
-        return cursor.rowcount > 0
-    finally:
-        conn.close()
+    """Deactivate a logical relation (soft delete)."""
+    return deactivate_edge(relation_id)
 
 
 def get_neighbors(
     knowledge_id: str, relation_type: str | None = None, max_depth: int = 1
 ) -> list[str]:
-    """Get IDs of knowledge entries connected within max_depth hops.
-
-    Breadth-first traversal. Returns unique IDs excluding the start node.
-    """
-    visited: set[str] = {knowledge_id}
-    frontier: set[str] = {knowledge_id}
-    result: list[str] = []
-
-    for _ in range(max_depth):
-        next_frontier: set[str] = set()
-        for node_id in frontier:
-            relations = get_relations(node_id, direction="both", relation_type=relation_type)
-            for rel in relations:
-                neighbor = rel.target_id if rel.source_id == node_id else rel.source_id
-                if neighbor not in visited:
-                    visited.add(neighbor)
-                    next_frontier.add(neighbor)
-                    result.append(neighbor)
-        frontier = next_frontier
-        if not frontier:
-            break
-
-    return result
+    """Get IDs of knowledge entries connected via logical edges within max_depth hops."""
+    return _get_neighbors(
+        knowledge_id,
+        edge_type=relation_type,
+        layer="logical",
+        max_depth=max_depth,
+    )
 
 
-# ─── Row Helpers ─────────────────────────────────────────────────────
+# ─── Helpers ─────────────────────────────────────────────────────────
 
 
-def _row_to_relation(row: tuple[Any, ...]) -> LogicalRelation:
-    """Convert a database row to a LogicalRelation."""
+def _edge_to_relation(edge: KnowledgeEdge) -> LogicalRelation:
+    """Convert a KnowledgeEdge to a LogicalRelation."""
     return LogicalRelation(
-        relation_id=row[0],
-        source_id=row[1],
-        target_id=row[2],
-        relation_type=row[3],
-        confidence=row[4],
-        warrant_id=row[5],
-        created_at=row[6],
-        status=row[7],
-        notes=row[8],
+        relation_id=edge.edge_id,
+        source_id=edge.source_id,
+        target_id=edge.target_id,
+        relation_type=edge.edge_type,
+        confidence=edge.confidence,
+        warrant_id=edge.warrant_id,
+        created_at=edge.created_at,
+        status=edge.status,
+        notes=edge.notes,
     )

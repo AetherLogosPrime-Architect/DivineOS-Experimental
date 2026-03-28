@@ -35,7 +35,7 @@ class TestAddRelationship:
 
     def test_self_relationship_rejected(self):
         _setup()
-        with pytest.raises(ValueError, match="Cannot relate"):
+        with pytest.raises(ValueError, match="Cannot create an edge"):
             add_relationship("k-aaa", "k-aaa", "SUPPORTS")
 
     def test_duplicate_ignored(self):
