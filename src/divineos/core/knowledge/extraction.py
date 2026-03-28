@@ -29,6 +29,16 @@ from divineos.core.knowledge.crud import (
 )
 
 
+# Maps knowledge source to warrant type for auto-warrant creation
+_SOURCE_TO_WARRANT = {
+    "STATED": "TESTIMONIAL",
+    "CORRECTED": "TESTIMONIAL",
+    "DEMONSTRATED": "EMPIRICAL",
+    "SYNTHESIZED": "INFERENTIAL",
+    "INHERITED": "INHERITED",
+}
+
+
 # ─── Smart Knowledge Storage ─────────────────────────────────────────
 
 
@@ -231,13 +241,6 @@ def store_knowledge_smart(
         try:
             from divineos.core.logic.warrants import create_warrant
 
-            _SOURCE_TO_WARRANT = {
-                "STATED": "TESTIMONIAL",
-                "CORRECTED": "TESTIMONIAL",
-                "DEMONSTRATED": "EMPIRICAL",
-                "SYNTHESIZED": "INFERENTIAL",
-                "INHERITED": "INHERITED",
-            }
             warrant_type = _SOURCE_TO_WARRANT.get(source, "TESTIMONIAL")
             create_warrant(
                 knowledge_id=kid,
