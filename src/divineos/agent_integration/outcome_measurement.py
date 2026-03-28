@@ -352,6 +352,7 @@ def measure_session_health(
     context_overflows: int,
     tool_calls: int,
     user_messages: int,
+    briefing_loaded: bool = True,
 ) -> dict[str, Any]:
     """Score a session's health from its analysis signals.
 
@@ -360,6 +361,7 @@ def measure_session_health(
     - Encouragement bonus: user approval signal
     - Overflow penalty: hitting context limits means inefficiency
     - Interaction ratio: tool_calls / user_messages (higher = more autonomous)
+    - Briefing penalty: skipping the briefing = structural -0.25
 
     Args:
         corrections: Number of user corrections detected
@@ -367,6 +369,7 @@ def measure_session_health(
         context_overflows: Number of context window overflows
         tool_calls: Total tool calls in session
         user_messages: Total user messages in session
+        briefing_loaded: Whether divineos briefing was called this session
 
     Returns:
         {
@@ -396,9 +399,17 @@ def measure_session_health(
         autonomy = 0.5
     factors["autonomy"] = round(autonomy, 2)
 
+    # Briefing gate: structural penalty for skipping the briefing
+    briefing_factor = 1.0 if briefing_loaded else 0.0
+    factors["briefing_loaded"] = briefing_factor
+
     # Composite: weighted average
     score = (
-        correction_factor * 0.35 + encouragement_factor + overflow_factor * 0.25 + autonomy * 0.20
+        correction_factor * 0.35
+        + encouragement_factor
+        + overflow_factor * 0.25
+        + autonomy * 0.20
+        - (0.0 if briefing_loaded else 0.25)
     )
     score = max(0.0, min(1.0, score))
 

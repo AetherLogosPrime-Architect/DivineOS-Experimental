@@ -367,12 +367,15 @@ def _run_session_end_pipeline() -> None:
         try:
             from divineos.agent_integration.outcome_measurement import measure_session_health
 
+            from divineos.core.hud_handoff import was_briefing_loaded
+
             health = measure_session_health(
                 corrections=len(analysis.corrections),
                 encouragements=len(analysis.encouragements),
                 context_overflows=len(analysis.context_overflows),
                 tool_calls=analysis.tool_calls_total,
                 user_messages=analysis.user_messages,
+                briefing_loaded=was_briefing_loaded(),
             )
             grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
 
@@ -413,6 +416,27 @@ def _run_session_end_pipeline() -> None:
                 )
         except Exception as e:
             logger.warning(f"Engagement check failed: {e}")
+
+        # 8b2. Briefing gate — structural penalty, not just a lesson
+        try:
+            from divineos.core.hud_handoff import (
+                clear_briefing_marker,
+                was_briefing_loaded,
+            )
+
+            if not was_briefing_loaded():
+                click.secho(
+                    "[!] Briefing was never loaded. Grade penalized by -0.25.",
+                    fg="red",
+                    bold=True,
+                )
+                click.secho(
+                    "    This is structural, not a suggestion. Load briefing first next time.",
+                    fg="red",
+                )
+            clear_briefing_marker()
+        except Exception as e:
+            logger.warning(f"Briefing gate check failed: {e}")
 
         # 8c. Session-end corroboration sweep
         try:
