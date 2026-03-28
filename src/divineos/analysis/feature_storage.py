@@ -6,20 +6,13 @@ Extracted from session_features.py.
 from __future__ import annotations
 
 import json
-import sqlite3
 from typing import TYPE_CHECKING
 
 from divineos.core.fidelity import compute_content_hash
-from divineos.core.ledger import get_connection
+from divineos.core.ledger import get_connection_fk as _get_connection
 
 if TYPE_CHECKING:
     from divineos.analysis.session_features import FullSessionAnalysis
-
-
-def _get_connection() -> sqlite3.Connection:
-    conn = get_connection()
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
 
 
 def init_feature_tables() -> None:

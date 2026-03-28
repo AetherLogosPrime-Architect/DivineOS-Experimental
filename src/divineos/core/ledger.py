@@ -94,6 +94,13 @@ def get_connection() -> sqlite3.Connection:
     return conn
 
 
+def get_connection_fk() -> sqlite3.Connection:
+    """Connection with foreign keys enabled. For modules with FK constraints."""
+    conn = get_connection()
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
 # Keep backward compat for internal usage in this file
 _get_connection = get_connection
 

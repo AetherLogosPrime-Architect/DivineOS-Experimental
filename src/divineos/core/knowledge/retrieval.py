@@ -252,10 +252,27 @@ def generate_briefing(
             lines.append(
                 f"**Growth:** [{icon}] {growth['trend']} over {growth['sessions']} sessions | "
                 f"avg score {growth['avg_health_score']:.2f} | "
-                f"{growth['lessons']['resolved']} lessons resolved\n"
+                f"{growth['lessons']['resolved']} lessons resolved"
             )
+            # Tone insight from recent sessions
+            tone = growth.get("tone_insight", "")
+            if tone:
+                lines.append(f"**Tone:** {tone}")
+            lines.append("")
     except Exception:
         pass
+
+    # Pattern anticipation — proactive warnings based on context
+    if context_hint:
+        try:
+            from divineos.core.anticipation import anticipate, format_anticipation
+
+            warnings = anticipate(context_hint, max_warnings=3)
+            if warnings:
+                lines.append(format_anticipation(warnings))
+                lines.append("")
+        except Exception:
+            pass
 
     # One-line maturity pyramid
     mat_parts = []
