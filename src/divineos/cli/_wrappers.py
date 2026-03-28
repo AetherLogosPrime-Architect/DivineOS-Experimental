@@ -4,12 +4,11 @@ from pathlib import Path
 
 import click
 
-from divineos.analysis.quality_checks import init_quality_tables
+from divineos.analysis.record_extraction import init_quality_tables
+from divineos.analysis.feature_storage import init_feature_tables, store_features
 from divineos.analysis.session_features import (
     get_cross_session_summary,
-    init_feature_tables,
     run_all_features,
-    store_features,
 )
 from divineos.core.consolidation import (
     apply_session_feedback,

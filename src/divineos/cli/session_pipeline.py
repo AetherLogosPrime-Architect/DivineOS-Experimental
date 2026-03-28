@@ -61,7 +61,8 @@ def _run_session_end_pipeline() -> None:
 
         # 1b. Extract goals from user messages into HUD
         try:
-            from divineos.core.hud import add_goal, extract_goals_from_messages
+            from divineos.core.hud_handoff import extract_goals_from_messages
+            from divineos.core.hud_state import add_goal
 
             extracted_goals = extract_goals_from_messages(analysis.user_message_texts)
             for goal in extracted_goals:
@@ -77,7 +78,8 @@ def _run_session_end_pipeline() -> None:
         quality_verdict = None
         maturity_override = ""
         try:
-            from divineos.analysis.quality_checks import run_all_checks, store_report
+            from divineos.analysis.quality_checks import run_all_checks
+            from divineos.analysis.quality_storage import store_report
             from divineos.core.quality_gate import assess_session_quality, should_extract_knowledge
 
             report = run_all_checks(latest)
@@ -324,7 +326,7 @@ def _run_session_end_pipeline() -> None:
             grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
 
             try:
-                from divineos.core.hud import update_session_health
+                from divineos.core.hud_state import update_session_health
 
                 update_session_health(
                     corrections=len(analysis.corrections),
@@ -339,7 +341,7 @@ def _run_session_end_pipeline() -> None:
 
         # 8b. Engagement check
         try:
-            from divineos.core.hud import is_engaged
+            from divineos.core.hud_handoff import is_engaged
 
             if not is_engaged():
                 from divineos.core.consolidation import record_lesson
@@ -393,7 +395,9 @@ def _run_session_end_pipeline() -> None:
 
         # 9. Save HUD snapshot and clear session plan
         try:
-            from divineos.core.hud import clear_engagement, clear_session_plan, save_hud_snapshot
+            from divineos.core.hud import save_hud_snapshot
+            from divineos.core.hud_handoff import clear_engagement
+            from divineos.core.hud_state import clear_session_plan
 
             save_hud_snapshot()
             clear_session_plan()
@@ -405,7 +409,7 @@ def _run_session_end_pipeline() -> None:
         # 9b. Record session metrics for growth tracking
         try:
             from divineos.core.growth import record_session_metrics
-            from divineos.core.hud import is_engaged
+            from divineos.core.hud_handoff import is_engaged
 
             auto_rel_count = len(auto_rels) if "auto_rels" in dir() else 0
             record_session_metrics(
@@ -425,7 +429,7 @@ def _run_session_end_pipeline() -> None:
 
         # 9c. Record emotional arc for tone texture
         try:
-            from divineos.analysis.session_features import classify_all_user_tones
+            from divineos.analysis.tone_tracking import classify_all_user_tones
             from divineos.core.tone_texture import (
                 compute_emotional_arc,
                 record_session_tone,
@@ -442,7 +446,7 @@ def _run_session_end_pipeline() -> None:
 
         # 9d. Write handoff note for next session
         try:
-            from divineos.core.hud import save_handoff_note
+            from divineos.core.hud_handoff import save_handoff_note
 
             # Build summary from what we know
             handoff_summary_parts = []

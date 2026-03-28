@@ -9,8 +9,8 @@ from divineos.core.consolidation import (
     search_knowledge,
     generate_briefing,
 )
-from divineos.analysis.quality_checks import init_quality_tables
-from divineos.analysis.session_features import init_feature_tables
+from divineos.analysis.record_extraction import init_quality_tables
+from divineos.analysis.feature_storage import init_feature_tables
 from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
 
 
