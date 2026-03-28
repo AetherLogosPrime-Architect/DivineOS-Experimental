@@ -1,7 +1,7 @@
 """Tests for the extraction noise filter — ensures raw conversational quotes
 don't become permanent 'knowledge'."""
 
-from divineos.core.consolidation import _is_extraction_noise, _is_vacuous_summary
+from divineos.core.knowledge import _is_extraction_noise, _is_vacuous_summary
 
 
 class TestConversationalNoise:

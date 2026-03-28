@@ -2,7 +2,7 @@
 
 import os
 
-from divineos.core.consolidation import (
+from divineos.core.knowledge import (
     _get_connection,
     init_knowledge_table,
     store_knowledge,
@@ -160,7 +160,7 @@ class TestRunMaturityCycle:
             conn.commit()
             conn.close()
 
-            from divineos.core.consolidation import get_knowledge
+            from divineos.core.knowledge import get_knowledge
 
             entries = get_knowledge(limit=100)
             promotions = run_maturity_cycle(entries)

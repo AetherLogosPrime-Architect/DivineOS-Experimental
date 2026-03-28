@@ -125,7 +125,7 @@ def _resolve_knowledge_id(partial: str) -> str:
     """Resolve a partial knowledge ID to a full one."""
     if not partial.strip():
         raise click.ClickException("Please provide a knowledge ID (or partial ID)")
-    from divineos.core.consolidation import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     conn = _get_connection()
     try:

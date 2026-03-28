@@ -2,13 +2,13 @@
 
 import os
 
-from divineos.core.consolidation import (
+from divineos.core.knowledge import (
     _get_connection,
     init_knowledge_table,
     store_knowledge,
     store_knowledge_smart,
 )
-from divineos.core.consolidation import (
+from divineos.core.knowledge import (
     _decide_operation,
 )
 from divineos.core.ledger import init_db

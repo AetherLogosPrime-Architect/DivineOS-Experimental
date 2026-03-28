@@ -8,7 +8,7 @@ recommendations for the next session.
 from loguru import logger
 
 from divineos.agent_integration.types import SessionFeedback
-from divineos.core.consolidation import store_knowledge
+from divineos.core.knowledge import store_knowledge
 
 
 def generate_session_feedback(analysis: object) -> SessionFeedback:

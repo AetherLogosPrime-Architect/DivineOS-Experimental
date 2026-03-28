@@ -3,7 +3,7 @@
 import os
 import time
 
-from divineos.core.consolidation import (
+from divineos.core.knowledge import (
     _get_connection,
     health_check,
     init_knowledge_table,

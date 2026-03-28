@@ -17,7 +17,7 @@ from divineos.cli._wrappers import (
     init_knowledge_table,
     logger,
 )
-from divineos.core.consolidation import search_knowledge
+from divineos.core.knowledge import search_knowledge
 
 
 def register(cli: click.Group) -> None:
@@ -135,7 +135,7 @@ def register(cli: click.Group) -> None:
                 if entry.get("knowledge_type") == "FACT" and f"digest:{file_tag}" in entry.get(
                     "tags", []
                 ):
-                    from divineos.core.consolidation import supersede_knowledge
+                    from divineos.core.knowledge import supersede_knowledge
 
                     supersede_knowledge(entry["knowledge_id"], f"Updated digest of {file_tag}")
                     superseded += 1
@@ -218,7 +218,7 @@ def register(cli: click.Group) -> None:
         knowledge_type: str | None,
     ) -> None:
         """Distill raw knowledge into clean, actionable entries."""
-        from divineos.core.consolidation import get_knowledge, update_knowledge
+        from divineos.core.knowledge import get_knowledge, update_knowledge
 
         if knowledge_id and new_content:
             try:

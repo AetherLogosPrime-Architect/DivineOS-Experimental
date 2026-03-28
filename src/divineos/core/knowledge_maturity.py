@@ -51,7 +51,7 @@ def promote_maturity(knowledge_id: str) -> str | None:
 
     Returns the new maturity level if promoted, None otherwise.
     """
-    from divineos.core.consolidation import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     conn = _get_connection()
     try:
@@ -88,7 +88,7 @@ def increment_corroboration(knowledge_id: str) -> int:
     Called when knowledge is re-encountered in a new session.
     Returns the new corroboration count.
     """
-    from divineos.core.consolidation import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     conn = _get_connection()
     try:
@@ -124,7 +124,7 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
 
         new_maturity = check_promotion(entry)
         if new_maturity:
-            from divineos.core.consolidation import _get_connection
+            from divineos.core.knowledge import _get_connection
 
             conn = _get_connection()
             try:

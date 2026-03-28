@@ -10,7 +10,7 @@ from divineos.analysis.session_features import (
     get_cross_session_summary,
     run_all_features,
 )
-from divineos.core.consolidation import (
+from divineos.core.knowledge import (
     apply_session_feedback,
     clear_lessons,
     consolidate_related,
