@@ -29,6 +29,9 @@ DivineOS gives AI agents persistent memory, structured learning, and self-accoun
 | **Guardrails** | Runtime limits on iterations, tool calls, and tokens per session. |
 | **Extraction Noise Filter** | Prevents raw conversational quotes, affirmations, and system artifacts from becoming "knowledge." |
 | **Lesson Tracking** | Lessons with occurrence counts, session tracking, status progression (active → improving → resolved). |
+| **Pattern Anticipation** | Detects recurring user patterns and surfaces proactive warnings. |
+| **Growth Awareness** | Tracks session-over-session improvement with milestone detection. |
+| **Tone Texture** | Rich emotional classification with sub-tones, intensity, arcs, and recovery velocity. |
 
 ## Quick Start
 
@@ -81,26 +84,55 @@ divineos patterns            # Cross-session quality patterns
 
 ```
 src/divineos/
-  cli.py                       CLI entry point (click) — 45+ commands
+  cli/                         CLI package (54 commands across 10+ modules)
+    __init__.py                Entry point and command registration
+    session_pipeline.py        SESSION_END orchestration pipeline
+    knowledge_commands.py      learn, ask, briefing, forget, lessons
+    analysis_commands.py       analyze, report, trends
+    hud_commands.py            hud, goal, plan commands
+    journal_commands.py        journal save/list/search/link
+    directive_commands.py      directive management
+    relationship_commands.py   knowledge relationships
+    knowledge_health_commands.py  health, distill, migrate
   seed.json                    Initial knowledge seed (versioned)
   core/
     ledger.py                  Append-only event store (SQLite, WAL mode)
+    ledger_class.py            OOP Ledger wrapper for integration code
     fidelity.py                Manifest-receipt integrity verification
-    consolidation.py           Knowledge store, extraction, lessons, briefings
     memory.py                  Core memory + active memory + importance scoring
-    hud.py                     Heads-up display rendering + engagement gate
+    memory_journal.py          Personal journal (save/list/search/link)
+    hud.py                     HUD slot builders and assembly
+    hud_state.py               Goal/plan/health state management
+    hud_handoff.py             Session handoff, engagement, goal extraction
+    knowledge/                 Knowledge engine sub-package
+      _base.py                 DB connection, public get_connection() API
+      extraction.py            Knowledge extraction from sessions
+      deep_extraction.py       Deep multi-pass extraction
+      feedback.py              Session feedback application
+      migration.py             Knowledge type migration
+      _text.py                 Text analysis utilities (FTS, overlap, noise)
     quality_gate.py            Session quality assessment before extraction
     knowledge_contradiction.py Contradiction detection and resolution
     knowledge_maturity.py      RAW → HYPOTHESIS → TESTED → CONFIRMED lifecycle
     guardrails.py              Runtime limits and violation tracking
     seed_manager.py            Seed versioning, validation, merge/apply
+    anticipation.py            Pattern anticipation engine
+    growth.py                  Growth awareness and milestone tracking
+    tone_texture.py            Emotional arc and tone classification
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
     enforcement.py             CLI-level event capture
     tool_wrapper.py            Tool execution interception
   analysis/
+    analysis.py                Core session analysis pipeline
+    analysis_storage.py        Report storage, formatting, cross-session trends
     session_analyzer.py        Session parsing and signal detection
-    quality_checks.py          Quality metrics (honesty, depth, correctness)
+    quality_checks.py          7 measurable quality checks
+    record_extraction.py       JSONL record parsing helpers
+    quality_storage.py         Quality report DB storage
+    session_features.py        Timeline, files, activity, error recovery
+    tone_tracking.py           Tone shift detection and classification
+    feature_storage.py         Feature result DB storage
     quality_trends.py          Session quality trending over time
   agent_integration/
     outcome_measurement.py     Rework, churn, correction rate, session health
@@ -113,7 +145,7 @@ src/divineos/
   integration/                 IDE and MCP integration
   supersession/                Contradiction detection and resolution
   violations_cli/              Violation reporting CLI
-tests/                         1793 tests (real DB, no mocks)
+tests/                         1889 tests (real DB, no mocks)
 setup/                         Hook setup scripts
 ```
 
@@ -128,7 +160,7 @@ setup/                         Hook setup scripts
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (1793 tests, ~37s)
+pytest tests/ -q --tb=short   # Run tests (1889 tests, ~42s)
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```
