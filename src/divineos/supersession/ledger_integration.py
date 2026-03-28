@@ -1,9 +1,10 @@
 """Ledger integration for supersession and contradiction resolution.
 
-This module integrates the supersession system with the DivineOS ledger,
-allowing facts and SUPERSESSION events to be stored and queried.
+Integrates the supersession system with the DivineOS ledger, calling
+the functional API in ledger.py directly (no intermediate class wrapper).
 """
 
+import uuid
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -12,197 +13,114 @@ from loguru import logger
 class LedgerIntegration:
     """Integrates supersession system with the ledger."""
 
-    def __init__(self, ledger: Optional[Any] = None) -> None:
-        """Initialize ledger integration.
+    def __init__(self) -> None:
+        self._available: Optional[bool] = None
 
-        Args:
-            ledger: Optional Ledger instance. If None, will be loaded on demand.
-        """
-        self._ledger: Optional[Any] = ledger
-
-    @property
-    def ledger(self) -> Optional[Any]:
-        """Get the ledger instance, loading if necessary.
-
-        Returns:
-            Ledger instance or None if not available.
-        """
-        if self._ledger is None:
+    def _is_available(self) -> bool:
+        if self._available is None:
             try:
-                from divineos.core.ledger import get_ledger
+                from divineos.core.ledger import log_event  # noqa: F401
 
-                self._ledger = get_ledger()
+                self._available = True
             except ImportError as e:
-                logger.warning(f"Ledger not available (ImportError: {e}), using in-memory storage")
-                self._ledger = None
-        return self._ledger
+                logger.warning(f"Ledger not available (ImportError: {e})")
+                self._available = False
+        return self._available
 
     def store_fact(self, fact: Dict[str, Any]) -> Optional[str]:
-        """Store a fact in the ledger.
-
-        Args:
-            fact: Fact dictionary to store
-
-        Returns:
-            Fact ID or None if missing
-        """
+        """Store a fact as a FACT_STORED event in the ledger."""
         fact_id: Optional[str] = fact.get("id")
-
         if fact_id is None:
             logger.warning("Cannot store fact without id")
             return None
-
-        if self.ledger is None:
-            logger.debug(f"Storing fact {fact_id} in memory (ledger not available)")
+        if not self._is_available():
             return fact_id
 
-        try:
-            # Store in ledger
-            self.ledger.store_fact(fact)
-            logger.debug(f"Stored fact {fact_id} in ledger")
-            return fact_id
-        except Exception as e:
-            logger.error(f"Failed to store fact {fact_id} in ledger: {e}")
-            raise
+        from divineos.core.ledger import log_event
+
+        log_event("FACT_STORED", "supersession", fact, validate=False)
+        return fact_id
 
     def store_supersession_event(self, event: Dict[str, Any]) -> Optional[str]:
-        """Store a SUPERSESSION event in the ledger.
-
-        Args:
-            event: SUPERSESSION event dictionary
-
-        Returns:
-            Event ID or None if missing
-        """
-        event_id: Optional[str] = event.get("event_id")
-
-        if event_id is None:
-            logger.warning("Cannot store SUPERSESSION event without event_id")
-            return None
-
-        if self.ledger is None:
-            logger.debug(f"Storing SUPERSESSION event {event_id} in memory (ledger not available)")
+        """Store a SUPERSESSION event in the ledger."""
+        event_id: Optional[str] = event.get("event_id", str(uuid.uuid4()))
+        if not self._is_available():
             return event_id
 
-        try:
-            # Store in ledger
-            self.ledger.store_event(event)
-            logger.debug(f"Stored SUPERSESSION event {event_id} in ledger")
-            return event_id
-        except Exception as e:
-            logger.error(f"Failed to store SUPERSESSION event {event_id} in ledger: {e}")
-            raise
+        from divineos.core.ledger import log_event
+
+        log_event("SUPERSESSION", "supersession", event, validate=False)
+        return event_id
 
     def query_facts(
         self,
         fact_type: Optional[str] = None,
         fact_key: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Query facts from the ledger.
-
-        Args:
-            fact_type: Optional fact type filter
-            fact_key: Optional fact key filter
-
-        Returns:
-            List of fact dictionaries
-        """
-        if self.ledger is None:
-            logger.debug("Querying facts from memory (ledger not available)")
+        """Query FACT_STORED events, optionally filtering by type/key."""
+        if not self._is_available():
             return []
 
-        try:
-            # Query ledger
-            facts = self.ledger.query_facts(fact_type=fact_type, fact_key=fact_key)
-            logger.debug(f"Queried {len(facts)} facts from ledger")
-            return facts if isinstance(facts, list) else []
-        except Exception as e:
-            logger.error(f"Failed to query facts from ledger: {e}")
-            return []
+        from divineos.core.ledger import get_events
+
+        events = get_events(event_type="FACT_STORED", limit=10000)
+        facts = []
+        for event in events:
+            payload = event.get("payload", {})
+            if fact_type and payload.get("fact_type") != fact_type:
+                continue
+            if fact_key and payload.get("fact_key") != fact_key:
+                continue
+            facts.append(payload)
+        return facts
 
     def query_supersession_events(
         self,
         superseded_fact_id: Optional[str] = None,
         superseding_fact_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Query SUPERSESSION events from the ledger.
-
-        Args:
-            superseded_fact_id: Optional filter for superseded fact ID
-            superseding_fact_id: Optional filter for superseding fact ID
-
-        Returns:
-            List of SUPERSESSION event dictionaries
-        """
-        if self.ledger is None:
-            logger.debug("Querying SUPERSESSION events from memory (ledger not available)")
+        """Query SUPERSESSION events, optionally filtering by fact IDs."""
+        if not self._is_available():
             return []
 
-        try:
-            # Query ledger for SUPERSESSION events
-            events = self.ledger.query_supersession_events(
-                superseded_fact_id=superseded_fact_id,
-                superseding_fact_id=superseding_fact_id,
-            )
-            logger.debug(f"Queried {len(events)} SUPERSESSION events from ledger")
-            return events if isinstance(events, list) else []
-        except Exception as e:
-            logger.error(f"Failed to query SUPERSESSION events from ledger: {e}")
-            return []
+        from divineos.core.ledger import get_events
+
+        events = get_events(event_type="SUPERSESSION", limit=10000)
+        result = []
+        for event in events:
+            payload = event.get("payload", {})
+            if superseded_fact_id and payload.get("superseded_fact_id") != superseded_fact_id:
+                continue
+            if superseding_fact_id and payload.get("superseding_fact_id") != superseding_fact_id:
+                continue
+            result.append(payload)
+        return result
 
     def update_fact_superseded_by(
         self,
         fact_id: str,
         superseding_fact_id: str,
     ) -> None:
-        """Update a fact's superseded_by link in the ledger.
-
-        Args:
-            fact_id: ID of the fact being superseded
-            superseding_fact_id: ID of the fact that supersedes
-        """
-        if self.ledger is None:
-            logger.debug(f"Updating fact {fact_id} superseded_by link in memory")
+        """Record a FACT_SUPERSEDED event linking old fact to new."""
+        if not self._is_available():
             return
 
-        try:
-            # Update in ledger by storing a new event
-            self.ledger.log_event(
-                "FACT_SUPERSEDED",
-                "supersession",
-                {"fact_id": fact_id, "superseded_by": superseding_fact_id},
-                validate=False,
-            )
-            logger.debug(f"Updated fact {fact_id} superseded_by link in ledger")
-        except Exception as e:
-            logger.error(f"Failed to update fact {fact_id} superseded_by link: {e}")
-            raise
+        from divineos.core.ledger import log_event
+
+        log_event(
+            "FACT_SUPERSEDED",
+            "supersession",
+            {"fact_id": fact_id, "superseded_by": superseding_fact_id},
+            validate=False,
+        )
 
     def get_fact(self, fact_id: str) -> Optional[Dict[str, Any]]:
-        """Get a fact from the ledger.
-
-        Args:
-            fact_id: ID of the fact
-
-        Returns:
-            Fact dictionary or None
-        """
-        if self.ledger is None:
-            logger.debug(f"Getting fact {fact_id} from memory (ledger not available)")
-            return None
-
-        try:
-            # Query ledger for facts with this ID
-            facts: List[Dict[str, Any]] = self.ledger.query_facts()
-            for fact in facts:
-                if fact.get("id") == fact_id:
-                    logger.debug(f"Retrieved fact {fact_id} from ledger")
-                    return fact
-            logger.debug(f"Fact {fact_id} not found in ledger")
-            return None
-        except Exception as e:
-            logger.error(f"Failed to get fact {fact_id} from ledger: {e}")
-            return None
+        """Get a single fact by ID."""
+        facts = self.query_facts()
+        for fact in facts:
+            if fact.get("id") == fact_id:
+                return fact
+        return None
 
 
 # Global ledger integration instance

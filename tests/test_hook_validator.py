@@ -181,7 +181,7 @@ class TestHookFileValidation:
     def test_valid_hook_file(self):
         """Test validation of a valid hook file."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            hook_file = Path(tmpdir) / "test.kiro.hook"
+            hook_file = Path(tmpdir) / "test.divineos.hook"
             hook_data = {
                 "name": "Test Hook",
                 "version": "1.0.0",
@@ -198,7 +198,7 @@ class TestHookFileValidation:
     def test_invalid_json(self):
         """Test validation fails with invalid JSON."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            hook_file = Path(tmpdir) / "test.kiro.hook"
+            hook_file = Path(tmpdir) / "test.divineos.hook"
             hook_file.write_text("{invalid json")
 
             is_valid, error, data = validate_hook_file(hook_file)
@@ -208,7 +208,7 @@ class TestHookFileValidation:
 
     def test_file_not_found(self):
         """Test validation fails when file doesn't exist."""
-        hook_file = Path("/nonexistent/hook.kiro.hook")
+        hook_file = Path("/nonexistent/hook.divineos.hook")
         is_valid, error, data = validate_hook_file(hook_file)
         assert not is_valid
         assert "not found" in error.lower()
@@ -217,7 +217,7 @@ class TestHookFileValidation:
     def test_invalid_structure_in_file(self):
         """Test validation fails with invalid structure in file."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            hook_file = Path(tmpdir) / "test.kiro.hook"
+            hook_file = Path(tmpdir) / "test.divineos.hook"
             hook_data = {
                 "name": "Test",
                 # Missing version, when, then
@@ -251,8 +251,8 @@ class TestLoadHooksFromDirectory:
                 "then": {"type": "runCommand", "command": "test"},
             }
 
-            (tmpdir_path / "hook1.kiro.hook").write_text(json.dumps(hook1))
-            (tmpdir_path / "hook2.kiro.hook").write_text(json.dumps(hook2))
+            (tmpdir_path / "hook1.divineos.hook").write_text(json.dumps(hook1))
+            (tmpdir_path / "hook2.divineos.hook").write_text(json.dumps(hook2))
 
             valid_hooks, invalid_hooks = load_hooks_from_directory(tmpdir_path)
 
@@ -271,17 +271,17 @@ class TestLoadHooksFromDirectory:
                 "when": {"type": "promptSubmit"},
                 "then": {"type": "askAgent", "prompt": "test"},
             }
-            (tmpdir_path / "valid.kiro.hook").write_text(json.dumps(valid_hook))
+            (tmpdir_path / "valid.divineos.hook").write_text(json.dumps(valid_hook))
 
             # Invalid hook (missing fields)
             invalid_hook = {"name": "Invalid"}
-            (tmpdir_path / "invalid.kiro.hook").write_text(json.dumps(invalid_hook))
+            (tmpdir_path / "invalid.divineos.hook").write_text(json.dumps(invalid_hook))
 
             valid_hooks, invalid_hooks = load_hooks_from_directory(tmpdir_path)
 
             assert len(valid_hooks) == 1
             assert len(invalid_hooks) == 1
-            assert invalid_hooks[0]["file"] == "invalid.kiro.hook"
+            assert invalid_hooks[0]["file"] == "invalid.divineos.hook"
 
     def test_load_from_nonexistent_directory(self):
         """Test loading from nonexistent directory."""
@@ -312,7 +312,7 @@ class TestLoadHooksFromDirectory:
                 "when": {"type": "promptSubmit"},
                 "then": {"type": "askAgent", "prompt": "test"},
             }
-            (tmpdir_path / "hook.kiro.hook").write_text(json.dumps(hook))
+            (tmpdir_path / "hook.divineos.hook").write_text(json.dumps(hook))
 
             # Create non-hook files
             (tmpdir_path / "readme.txt").write_text("not a hook")

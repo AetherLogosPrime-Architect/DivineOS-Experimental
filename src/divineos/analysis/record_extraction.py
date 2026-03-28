@@ -130,7 +130,7 @@ def _extract_path_from_tool(tool: dict[str, Any]) -> str | None:
     path: str | None = inp.get("file_path")
     if path:
         return path
-    # Legacy (VS Code/Kiro): readFile/strReplace use "path", fsWrite uses "path"
+    # Legacy (VS Code): readFile/strReplace use "path", fsWrite uses "path"
     legacy_path: str | None = inp.get("path")
     if legacy_path:
         return legacy_path
@@ -148,7 +148,7 @@ def _find_blind_edits(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     files_read: set[str] = set()
     blind_edits: list[dict[str, Any]] = []
 
-    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    # Map tool names to action types (Claude Code + legacy VS Code names)
     read_tools = {"Read", "readFile", "readCode", "readMultipleFiles"}
     write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
@@ -189,7 +189,7 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Extract all file operations (Read/Edit/Write) with paths and ordering."""
     ops: list[dict[str, Any]] = []
 
-    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    # Map tool names to action types (Claude Code + legacy VS Code names)
     read_tools = {"Read", "readFile", "readCode", "readMultipleFiles"}
     write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
@@ -281,7 +281,7 @@ def _find_errors_after_edits(
     errors_after_edits: list[dict[str, Any]] = []
     tools_since_edit = 0
 
-    # Map tool names to action types (Claude Code + legacy VS Code/Kiro names)
+    # Map tool names to action types (Claude Code + legacy VS Code names)
     write_tools = {"Edit", "Write", "strReplace", "editCode", "fsWrite", "fsAppend", "deleteFile"}
 
     # Error content patterns that are normal workflow, not safety issues

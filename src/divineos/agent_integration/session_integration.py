@@ -45,7 +45,7 @@ def get_agent_session_id() -> str:
     """Get the current session ID for agent operations.
 
     Attempts to retrieve session ID from:
-    1. Environment variable KIRO_SESSION_ID
+    1. Environment variable DIVINEOS_SESSION_ID
     2. Session manager
     3. Creates new session if needed
 
@@ -57,7 +57,7 @@ def get_agent_session_id() -> str:
 
     """
     # Check environment variable first
-    env_session_id = os.environ.get("KIRO_SESSION_ID")
+    env_session_id = os.environ.get("DIVINEOS_SESSION_ID")
     if env_session_id:
         logger.debug(f"Using session ID from environment: {env_session_id[:8]}...")
         return env_session_id

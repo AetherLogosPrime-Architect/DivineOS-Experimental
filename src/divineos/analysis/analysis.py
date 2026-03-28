@@ -5,34 +5,20 @@ to produce actionable insights about AI performance.
 """
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
 from loguru import logger
 
+from divineos.analysis.analysis_types import AnalysisResult
 from divineos.analysis.quality_checks import run_all_checks
 from divineos.analysis.quality_storage import store_report
 from divineos.analysis.session_features import run_all_features
 from divineos.core.knowledge import extract_lessons_from_report
 from divineos.core.ledger import get_verified_events
 from divineos.core.parser import parse_jsonl
-
-
-@dataclass
-class AnalysisResult:
-    """Complete analysis of a session."""
-
-    session_id: str
-    file_path: str
-    timestamp: str
-    quality_report: Any  # SessionReport from quality_checks
-    features: Any  # FullSessionAnalysis from session_features
-    lessons: list[dict[str, Any]]  # Extracted lessons
-    evidence_hash: str  # Hash of all findings
-    duration_seconds: float = 0.0  # Session duration
-    files_touched_count: int = 0  # Number of files touched
 
 
 def analyze_session(file_path: Path) -> AnalysisResult:

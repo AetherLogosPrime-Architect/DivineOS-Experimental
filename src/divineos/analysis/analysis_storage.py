@@ -11,7 +11,7 @@ from typing import Any, cast
 
 from loguru import logger
 
-from divineos.analysis.analysis import AnalysisResult
+from divineos.analysis.analysis_types import AnalysisResult
 
 
 def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:

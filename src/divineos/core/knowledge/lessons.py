@@ -27,7 +27,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
       - Update status based on recurrence pattern
 
     Args:
-        agent: Which AI agent made the mistake (e.g. 'claude-opus', 'kiro-haiku').
+        agent: Which AI agent made the mistake (e.g. 'claude-opus', 'claude-haiku').
 
     Returns the lesson_id.
     """

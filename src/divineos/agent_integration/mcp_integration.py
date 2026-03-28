@@ -231,7 +231,7 @@ def create_tool_interceptor(
             # Continue without capture if session ID unavailable
             return original_tool(*args, **kwargs)
 
-        # Extract tool_input from kwargs (standard for Kiro tools)
+        # Extract tool_input from kwargs (standard for MCP tools)
         tool_input = kwargs.copy()
         tool_use_id = str(uuid.uuid4())
 
@@ -310,7 +310,7 @@ def create_tool_interceptor(
 def setup_mcp_agent_integration() -> None:
     """Initialize MCP integration for agent tool capture.
 
-    This function sets up the MCP protocol layer to intercept all Kiro agent
+    This function sets up the MCP protocol layer to intercept all agent
     tool calls and automatically emit TOOL_CALL and TOOL_RESULT events.
 
     This is called once at system startup to enable agent self-observation.
