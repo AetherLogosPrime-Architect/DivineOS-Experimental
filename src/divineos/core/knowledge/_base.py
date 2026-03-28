@@ -58,6 +58,10 @@ def _get_connection() -> sqlite3.Connection:
     return _ledger_mod.get_connection()
 
 
+# Public alias — use this from modules outside core/knowledge/
+get_connection = _get_connection
+
+
 # ─── Schema ──────────────────────────────────────────────────────────
 
 

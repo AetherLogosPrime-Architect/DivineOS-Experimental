@@ -174,5 +174,12 @@ def _ensure_db() -> None:
     from divineos.core.knowledge.relationships import init_relationship_table
 
     init_relationship_table()
+
+    from divineos.core.growth import init_session_history_table
+    from divineos.core.tone_texture import init_tone_texture_table
+
+    init_session_history_table()
+    init_tone_texture_table()
+
     _load_seed_if_empty()
     _db_ready = True
