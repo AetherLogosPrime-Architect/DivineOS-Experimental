@@ -16,7 +16,7 @@ from divineos.analysis.session_analyzer import (
     FRUSTRATION_PATTERNS,
     _detect_signals,
 )
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import get_connection
 
 # ── Sub-tone patterns ───────────────────────────────────────
 
@@ -287,7 +287,7 @@ def _build_narrative(
 
 def init_tone_texture_table() -> None:
     """Create tone_texture table for per-session emotional arcs."""
-    conn = _get_connection()
+    conn = get_connection()
     try:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS tone_texture (
@@ -314,7 +314,7 @@ def init_tone_texture_table() -> None:
 def record_session_tone(session_id: str, arc: dict[str, Any]) -> None:
     """Store a session's emotional arc."""
     init_tone_texture_table()
-    conn = _get_connection()
+    conn = get_connection()
     try:
         conn.execute(
             "INSERT OR REPLACE INTO tone_texture "
@@ -343,7 +343,7 @@ def record_session_tone(session_id: str, arc: dict[str, Any]) -> None:
 def get_tone_history(limit: int = 10) -> list[dict[str, Any]]:
     """Retrieve emotional arcs across sessions, newest first."""
     init_tone_texture_table()
-    conn = _get_connection()
+    conn = get_connection()
     try:
         rows = conn.execute(
             "SELECT session_id, recorded_at, arc_type, overall_tone, "

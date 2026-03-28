@@ -11,12 +11,12 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import get_connection
 
 
 def init_session_history_table() -> None:
     """Create the session_history table for persistent session metrics."""
-    conn = _get_connection()
+    conn = get_connection()
     try:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS session_history (
@@ -65,7 +65,7 @@ def record_session_metrics(
     init_session_history_table()
 
     # Get current lesson and maturity counts
-    conn = _get_connection()
+    conn = get_connection()
     try:
         lesson_counts = {"active": 0, "improving": 0, "resolved": 0}
         try:
@@ -128,7 +128,7 @@ def record_session_metrics(
 def get_session_history(limit: int = 20) -> list[dict[str, Any]]:
     """Get recent session history, newest first."""
     init_session_history_table()
-    conn = _get_connection()
+    conn = get_connection()
     try:
         rows = conn.execute(
             "SELECT session_id, recorded_at, corrections, encouragements, "

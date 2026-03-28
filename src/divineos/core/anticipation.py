@@ -9,13 +9,13 @@ I should know about it before I repeat it.
 import re
 from typing import Any
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import get_connection
 from divineos.core.knowledge._text import _compute_overlap
 
 
 def _get_active_warnings() -> list[dict[str, Any]]:
     """Get lessons and MISTAKE/BOUNDARY knowledge that could be relevant warnings."""
-    conn = _get_connection()
+    conn = get_connection()
     try:
         # Active and improving lessons with 2+ occurrences
         lessons = conn.execute(
