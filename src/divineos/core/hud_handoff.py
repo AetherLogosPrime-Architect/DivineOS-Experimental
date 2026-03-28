@@ -87,19 +87,75 @@ def clear_engagement() -> None:
 
 
 def mark_briefing_loaded() -> None:
-    """Mark that the briefing was loaded this session.
+    """Mark that the briefing was loaded, with timestamp and activity counter.
 
     Separate from general engagement — the briefing is the specific gate.
     Without it, the session grade takes a structural penalty.
+    The marker expires after too much activity (context drift).
     """
-    path = _ensure_hud_dir() / ".briefing_loaded"
-    path.write_text(str(time.time()), encoding="utf-8")
+    hud_dir = _ensure_hud_dir()
+    marker = {
+        "loaded_at": time.time(),
+        "tool_calls_at_load": _count_session_tool_calls(),
+    }
+    (hud_dir / ".briefing_loaded").write_text(json.dumps(marker), encoding="utf-8")
+
+
+# After this many tool calls since last briefing load, the context is stale.
+_BRIEFING_STALENESS_THRESHOLD = 150
 
 
 def was_briefing_loaded() -> bool:
-    """Check if the briefing was loaded this session."""
+    """Check if the briefing was loaded AND is still fresh.
+
+    Returns False if:
+    - Briefing was never loaded
+    - More than 150 tool calls have happened since it was loaded
+      (context has drifted too far — the briefing content is fuzzy)
+    """
     path = _get_hud_dir() / ".briefing_loaded"
-    return path.exists()
+    if not path.exists():
+        return False
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        calls_at_load = marker.get("tool_calls_at_load", 0)
+        calls_now = _count_session_tool_calls()
+        return bool((calls_now - calls_at_load) < _BRIEFING_STALENESS_THRESHOLD)
+    except Exception:
+        return path.exists()
+
+
+def briefing_staleness() -> dict[str, Any]:
+    """Return how stale the briefing context is.
+
+    Returns dict with 'loaded', 'stale', 'calls_since', 'threshold'.
+    """
+    path = _get_hud_dir() / ".briefing_loaded"
+    if not path.exists():
+        return {
+            "loaded": False,
+            "stale": True,
+            "calls_since": 0,
+            "threshold": _BRIEFING_STALENESS_THRESHOLD,
+        }
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        calls_at_load = marker.get("tool_calls_at_load", 0)
+        calls_now = _count_session_tool_calls()
+        delta = calls_now - calls_at_load
+        return {
+            "loaded": True,
+            "stale": delta >= _BRIEFING_STALENESS_THRESHOLD,
+            "calls_since": delta,
+            "threshold": _BRIEFING_STALENESS_THRESHOLD,
+        }
+    except Exception:
+        return {
+            "loaded": True,
+            "stale": False,
+            "calls_since": 0,
+            "threshold": _BRIEFING_STALENESS_THRESHOLD,
+        }
 
 
 def clear_briefing_marker() -> None:
@@ -107,6 +163,17 @@ def clear_briefing_marker() -> None:
     path = _get_hud_dir() / ".briefing_loaded"
     if path.exists():
         path.unlink()
+
+
+def _count_session_tool_calls() -> int:
+    """Count tool calls in the current session from the ledger."""
+    try:
+        from divineos.core.ledger import count_events
+
+        counts = count_events()
+        return int(counts.get("by_type", {}).get("TOOL_CALL", 0))
+    except Exception:
+        return 0
 
 
 # ─── Goal Extraction ─────────────────────────────────────────────────
