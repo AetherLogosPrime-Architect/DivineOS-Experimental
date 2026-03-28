@@ -292,6 +292,20 @@ def generate_briefing(
             lines.append(f"  ...and {len(recent_changes) - 5} more")
         lines.append("")
 
+    # Logic layer health — surface unwarranted/contradictions
+    try:
+        from divineos.core.logic.logic_summary import (
+            format_logic_health_line,
+            get_logic_health_summary,
+        )
+
+        logic_stats = get_logic_health_summary()
+        logic_line = format_logic_health_line(logic_stats)
+        if logic_line:
+            lines.append(f"**Logic health:** {logic_line}\n")
+    except Exception:
+        pass
+
     if lessons_text:
         lines.append(lessons_text)
         lines.append("")
@@ -360,6 +374,17 @@ def generate_briefing(
             lines.append("")
     except Exception as e:
         logger.debug(f"Journal retrieval for briefing failed: {e}")
+
+    # Open questions — things I'm still uncertain about
+    try:
+        from divineos.core.questions import get_open_questions_summary
+
+        questions_text = get_open_questions_summary(max_items=5)
+        if questions_text:
+            lines.append(questions_text)
+            lines.append("")
+    except Exception:
+        pass
 
     return "\n".join(lines)
 

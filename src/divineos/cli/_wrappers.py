@@ -184,5 +184,9 @@ def _ensure_db() -> None:
 
     init_warrant_table()
 
+    from divineos.core.questions import init_questions_table
+
+    init_questions_table()
+
     _load_seed_if_empty()
     _db_ready = True

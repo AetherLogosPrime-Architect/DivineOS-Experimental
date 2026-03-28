@@ -279,6 +279,7 @@ def _run_session_end_pipeline() -> None:
             logger.warning(f"Health check failed: {e}")
 
         # 5b. Maturity cycle
+        promoted_ids: list[str] = []
         try:
             from divineos.core.knowledge_maturity import run_maturity_cycle
 
@@ -287,8 +288,58 @@ def _run_session_end_pipeline() -> None:
             if promotions:
                 promo_parts = [f"{v} to {k}" for k, v in promotions.items()]
                 click.secho(f"[~] Maturity: {', '.join(promo_parts)}", fg="cyan")
+                # Collect promoted IDs for logic pass
+                for entry in all_knowledge:
+                    mat = entry.get("maturity", "RAW")
+                    if mat in ("TESTED", "CONFIRMED"):
+                        promoted_ids.append(entry["knowledge_id"])
         except Exception as e:
             logger.warning(f"Maturity cycle failed: {e}")
+
+        # 5c. Logic pass — consistency, inference, defeat scanning
+        try:
+            from divineos.core.logic.session_logic import (
+                format_logic_summary,
+                run_session_logic_pass,
+            )
+
+            valid_deep_ids = [did for did in deep_ids if did]
+            logic_result = run_session_logic_pass(
+                new_knowledge_ids=valid_deep_ids,
+                promoted_ids=promoted_ids or None,
+                session_id=analysis.session_id,
+            )
+            logic_line = format_logic_summary(logic_result)
+            click.secho(f"[~] {logic_line}", fg="cyan")
+            for detail in logic_result.details[:5]:
+                click.secho(f"     {detail}", fg="bright_black")
+        except Exception as e:
+            logger.warning(f"Logic pass failed: {e}")
+
+        # 5d. Check if new knowledge answers open questions
+        try:
+            from divineos.core.questions import check_auto_answers, init_questions_table
+
+            init_questions_table()
+            for did in valid_deep_ids:
+                from divineos.core.knowledge import _get_connection
+
+                qa_conn = _get_connection()
+                try:
+                    row = qa_conn.execute(
+                        "SELECT content FROM knowledge WHERE knowledge_id = ?", (did,)
+                    ).fetchone()
+                finally:
+                    qa_conn.close()
+                if row:
+                    candidates = check_auto_answers(row[0], did)
+                    for c in candidates[:3]:
+                        click.secho(
+                            f"[?] New knowledge may answer: {c['question'][:80]}...",
+                            fg="yellow",
+                        )
+        except Exception as e:
+            logger.warning(f"Auto-answer check failed: {e}")
 
         # 6. Consolidate related
         try:
@@ -463,8 +514,8 @@ def _run_session_end_pipeline() -> None:
 
             # Open threads from corrections and decisions
             open_threads: list[str] = []
-            for c in analysis.corrections[:3]:
-                text = c if isinstance(c, str) else str(c)
+            for corr in analysis.corrections[:3]:
+                text = corr if isinstance(corr, str) else str(corr)
                 open_threads.append(f"Correction: {text[:120]}")
             for d in getattr(analysis, "decisions", [])[:2]:
                 text = d if isinstance(d, str) else str(d)
