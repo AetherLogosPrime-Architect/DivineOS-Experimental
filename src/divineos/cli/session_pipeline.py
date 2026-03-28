@@ -420,11 +420,12 @@ def _run_session_end_pipeline() -> None:
         # 8b2. Briefing gate — structural penalty, not just a lesson
         try:
             from divineos.core.hud_handoff import (
+                briefing_staleness,
                 clear_briefing_marker,
-                was_briefing_loaded,
             )
 
-            if not was_briefing_loaded():
+            staleness = briefing_staleness()
+            if not staleness["loaded"]:
                 click.secho(
                     "[!] Briefing was never loaded. Grade penalized by -0.25.",
                     fg="red",
@@ -433,6 +434,13 @@ def _run_session_end_pipeline() -> None:
                 click.secho(
                     "    This is structural, not a suggestion. Load briefing first next time.",
                     fg="red",
+                )
+            elif staleness["stale"]:
+                click.secho(
+                    f"[!] Briefing went stale ({staleness['calls_since']} tool calls since load). "
+                    f"Re-load after ~{staleness['threshold']} tool calls to stay oriented.",
+                    fg="yellow",
+                    bold=True,
                 )
             clear_briefing_marker()
         except Exception as e:

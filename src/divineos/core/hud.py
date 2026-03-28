@@ -183,11 +183,18 @@ def _build_session_health_slot() -> str:
 
     # Briefing gate check — structural, not optional
     try:
-        from divineos.core.hud_handoff import was_briefing_loaded
+        from divineos.core.hud_handoff import briefing_staleness
 
-        if not was_briefing_loaded():
+        staleness = briefing_staleness()
+        if not staleness["loaded"]:
             lines.append("- **WARNING: BRIEFING NOT LOADED.** Grade will be penalized -0.25.")
             lines.append("  Run `divineos briefing` before doing anything else.\n")
+        elif staleness["stale"]:
+            lines.append(
+                f"- **WARNING: BRIEFING IS STALE.** {staleness['calls_since']} tool calls "
+                f"since last load (threshold: {staleness['threshold']}). Context has drifted."
+            )
+            lines.append("  Run `divineos briefing` to re-orient.\n")
     except Exception:
         pass
 
