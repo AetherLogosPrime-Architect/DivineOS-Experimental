@@ -183,7 +183,7 @@ def _display_and_store_analysis(result: Any) -> None:
 
 def _log_os_query(tool: str, query: str = "") -> None:
     """Log an OS_QUERY event and mark the session as engaged."""
-    from divineos.core.hud import mark_engaged
+    from divineos.core.hud_handoff import mark_engaged
 
     from divineos.cli._wrappers import _wrapped_log_event
 

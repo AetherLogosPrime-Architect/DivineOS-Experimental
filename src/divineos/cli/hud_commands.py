@@ -49,7 +49,7 @@ def register(cli: click.Group) -> None:
         if not text.strip():
             click.secho("[-] Goal text cannot be empty.", fg="yellow")
             return
-        from divineos.core.hud import add_goal
+        from divineos.core.hud_state import add_goal
 
         add_goal(text, original_words=original)
         click.secho(f"[+] Goal added: {text}", fg="green")
@@ -63,7 +63,7 @@ def register(cli: click.Group) -> None:
         if not text.strip():
             click.secho("[-] Please specify which goal to complete.", fg="yellow")
             return
-        from divineos.core.hud import complete_goal
+        from divineos.core.hud_state import complete_goal
 
         if complete_goal(text):
             click.secho(f"[+] Goal completed: {text}", fg="green")
@@ -132,7 +132,7 @@ def register(cli: click.Group) -> None:
         if not goal.strip():
             click.secho("[-] Plan goal cannot be empty.", fg="yellow")
             return
-        from divineos.core.hud import set_session_plan
+        from divineos.core.hud_state import set_session_plan
 
         set_session_plan(
             goal=goal,
@@ -155,7 +155,11 @@ def register(cli: click.Group) -> None:
         Without arguments, shows the current handoff note.
         With a NOTE argument, saves a manual handoff note.
         """
-        from divineos.core.hud import clear_handoff_note, load_handoff_note, save_handoff_note
+        from divineos.core.hud_handoff import (
+            clear_handoff_note,
+            load_handoff_note,
+            save_handoff_note,
+        )
 
         if clear:
             clear_handoff_note()

@@ -88,7 +88,7 @@ def synthesize_clarity_statement(analysis: object):
     # Try to load a real session plan
     plan = None
     try:
-        from divineos.core.hud import get_session_plan
+        from divineos.core.hud_state import get_session_plan
 
         plan = get_session_plan()
     except Exception as e:

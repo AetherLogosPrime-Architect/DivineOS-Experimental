@@ -216,7 +216,7 @@ def generate_briefing(
 
     # Handoff note from previous session (one-shot: consumed then cleared)
     try:
-        from divineos.core.hud import clear_handoff_note, load_handoff_note
+        from divineos.core.hud_handoff import clear_handoff_note, load_handoff_note
 
         handoff = load_handoff_note()
         if handoff:

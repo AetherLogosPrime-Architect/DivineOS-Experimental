@@ -1,17 +1,21 @@
 """Tests for the HUD (Heads-Up Display) system."""
 
 from divineos.core.hud import (
-    extract_goals_from_messages,
     SLOT_BUILDERS,
     SLOT_ORDER,
-    add_goal,
     build_hud,
-    clear_handoff_note,
-    complete_goal,
-    load_handoff_note,
     load_hud_snapshot,
-    save_handoff_note,
     save_hud_snapshot,
+)
+from divineos.core.hud_handoff import (
+    clear_handoff_note,
+    extract_goals_from_messages,
+    load_handoff_note,
+    save_handoff_note,
+)
+from divineos.core.hud_state import (
+    add_goal,
+    complete_goal,
     update_context_budget,
     update_session_health,
     update_task_state,

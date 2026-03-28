@@ -5,8 +5,8 @@ from pathlib import Path
 from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
 from divineos.core.ledger import init_db
 from divineos.core.consolidation import init_knowledge_table
-from divineos.analysis.quality_checks import init_quality_tables
-from divineos.analysis.session_features import init_feature_tables
+from divineos.analysis.record_extraction import init_quality_tables
+from divineos.analysis.feature_storage import init_feature_tables
 
 
 @pytest.fixture(autouse=True)
