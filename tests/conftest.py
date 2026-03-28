@@ -14,6 +14,14 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    """Set basetemp to a project-local directory to avoid Windows permissions issues."""
+    if config.option.basetemp is None:
+        local_tmp = Path(__file__).parent.parent / "tmp" / "pytest"
+        local_tmp.mkdir(parents=True, exist_ok=True)
+        config.option.basetemp = str(local_tmp)
+
+
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path):
     """Give every test its own fresh database so tests never interfere with each other."""

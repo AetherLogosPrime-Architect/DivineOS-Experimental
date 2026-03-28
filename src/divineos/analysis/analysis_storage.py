@@ -37,7 +37,7 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
     import time
     import uuid
 
-    from divineos.analysis.record_extraction import _get_connection as get_qc_connection
+    from divineos.core.ledger import get_connection_fk as get_qc_connection
     from divineos.core import fidelity
 
     try:
@@ -364,7 +364,7 @@ def get_stored_report(session_id: str) -> str | None:
         Report text if found, None otherwise
 
     """
-    from divineos.analysis.record_extraction import _get_connection as get_qc_connection
+    from divineos.core.ledger import get_connection_fk as get_qc_connection
 
     try:
         conn = get_qc_connection()
@@ -427,7 +427,7 @@ def list_recent_sessions(limit: int = 10) -> list[dict[str, Any]]:
         List of session dicts with id, created_at, file_count
 
     """
-    from divineos.analysis.record_extraction import _get_connection as get_qc_connection
+    from divineos.core.ledger import get_connection_fk as get_qc_connection
 
     try:
         conn = get_qc_connection()
