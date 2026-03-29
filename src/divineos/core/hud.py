@@ -187,14 +187,14 @@ def _build_session_health_slot() -> str:
 
         staleness = briefing_staleness()
         if not staleness["loaded"]:
-            lines.append("- **WARNING: BRIEFING NOT LOADED.** Grade will be penalized -0.25.")
-            lines.append("  Run `divineos briefing` before doing anything else.\n")
+            lines.append("- **FAIL: BRIEFING NOT LOADED.** Session grade is F until you load it.")
+            lines.append("  Run `divineos briefing` NOW. Nothing else matters until you do.\n")
         elif staleness["stale"]:
             lines.append(
-                f"- **WARNING: BRIEFING IS STALE.** {staleness['calls_since']} tool calls "
-                f"since last load (threshold: {staleness['threshold']}). Context has drifted."
+                f"- **FAIL: BRIEFING STALE.** {staleness['calls_since']} tool calls "
+                f"since last load (limit: {staleness['threshold']}). Grade is F."
             )
-            lines.append("  Run `divineos briefing` to re-orient.\n")
+            lines.append("  Run `divineos briefing` to re-orient. Grade is F until you do.\n")
     except Exception:
         pass
 

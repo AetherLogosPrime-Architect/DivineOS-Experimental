@@ -74,7 +74,40 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Goal extraction failed: {e}")
 
-        # 1c. Quality gate
+        # 1c. Briefing gate — hard fail, checked before anything else
+        try:
+            from divineos.core.hud_handoff import was_briefing_loaded
+
+            if not was_briefing_loaded():
+                click.secho(
+                    "\n[F] SESSION FAILED: Briefing was never loaded (or went stale).",
+                    fg="red",
+                    bold=True,
+                )
+                click.secho(
+                    "    Knowledge extraction BLOCKED. Nothing from this session is trusted.",
+                    fg="red",
+                )
+                click.secho(
+                    "    Grade: F. This is not a penalty — it's a prerequisite.\n",
+                    fg="red",
+                )
+                # Still run health check and save HUD, but skip extraction
+                try:
+                    _wrapped_health_check()
+                except Exception:
+                    pass
+                try:
+                    from divineos.core.hud import save_hud_snapshot
+
+                    save_hud_snapshot()
+                except Exception:
+                    pass
+                return
+        except Exception as e:
+            logger.warning(f"Briefing gate check failed: {e}")
+
+        # 1d. Quality gate
         quality_verdict = None
         maturity_override = ""
         try:
@@ -427,19 +460,19 @@ def _run_session_end_pipeline() -> None:
             staleness = briefing_staleness()
             if not staleness["loaded"]:
                 click.secho(
-                    "[!] Briefing was never loaded. Grade penalized by -0.25.",
+                    "[F] BRIEFING NEVER LOADED. Session grade: F. No exceptions.",
                     fg="red",
                     bold=True,
                 )
                 click.secho(
-                    "    This is structural, not a suggestion. Load briefing first next time.",
+                    "    Nothing from this session can be trusted. Load briefing first.",
                     fg="red",
                 )
             elif staleness["stale"]:
                 click.secho(
-                    f"[!] Briefing went stale ({staleness['calls_since']} tool calls since load). "
-                    f"Re-load after ~{staleness['threshold']} tool calls to stay oriented.",
-                    fg="yellow",
+                    f"[F] BRIEFING WENT STALE ({staleness['calls_since']} tool calls since load). "
+                    f"Grade: F. Re-load briefing every ~{staleness['threshold']} tool calls.",
+                    fg="red",
                     bold=True,
                 )
             clear_briefing_marker()
