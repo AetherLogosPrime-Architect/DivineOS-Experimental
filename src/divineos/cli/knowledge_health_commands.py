@@ -1,5 +1,5 @@
 """Knowledge health commands — consolidate-stats, rebuild-index, digest,
-health, distill, migrate-types."""
+health, distill, migrate-types, hooks."""
 
 from pathlib import Path
 from typing import Any
@@ -343,6 +343,49 @@ def register(cli: click.Group) -> None:
         else:
             click.secho(f"\n  Migrated {len(changes)} entries.", fg="green", bold=True)
         click.echo()
+
+    @cli.command("hooks")
+    @click.option(
+        "--dir",
+        "hooks_dir",
+        default=".divineos/hooks",
+        help="Directory containing hook files",
+    )
+    def hooks_cmd(hooks_dir: str) -> None:
+        """Diagnose hook configuration — validate all .divineos.hook files."""
+        from divineos.hooks.hook_diagnostics import HookDiagnostics
+
+        diag = HookDiagnostics(hooks_dir=hooks_dir)
+        report = diag.diagnose_all_hooks()
+
+        click.secho("\n=== Hook Diagnostics ===\n", fg="cyan", bold=True)
+        click.secho(f"  Directory: {hooks_dir}", fg="bright_black")
+        click.secho(f"  Valid:     {report['valid_hooks']}", fg="green")
+        click.secho(
+            f"  Invalid:   {report['invalid_hooks']}",
+            fg="red" if report["invalid_hooks"] else "green",
+        )
+
+        if report["global_issues"]:
+            click.echo()
+            for issue in report["global_issues"]:
+                click.secho(f"  [!] {issue}", fg="red")
+
+        if report["hooks"]:
+            click.echo()
+            for hook in report["hooks"]:
+                status = (
+                    click.style("OK", fg="green")
+                    if hook["valid"]
+                    else click.style("FAIL", fg="red")
+                )
+                click.echo(
+                    f"  [{status}] {hook['name']}  ({hook['event_type']} -> {hook['action_type']})"
+                )
+
+        if not report["hooks"] and not report["global_issues"]:
+            click.secho(f"\n  No hook files found in {hooks_dir}.", fg="yellow")
+            click.secho("  Create .divineos.hook JSON files to add hooks.", fg="bright_black")
 
 
 def _extract_python_sections(lines: list[str]) -> list[dict[str, Any]]:

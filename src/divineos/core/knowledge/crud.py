@@ -255,6 +255,16 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
     finally:
         conn.close()
 
+    # Deactivate any logical relations pointing to/from the superseded entry
+    try:
+        from divineos.core.logic.relations import deactivate_relation, get_relations
+
+        relations = get_relations(knowledge_id, direction="both")
+        for rel in relations:
+            deactivate_relation(rel.relation_id)
+    except Exception:
+        pass  # relation cleanup is best-effort
+
 
 def record_access(knowledge_id: str) -> None:
     """Increment access count for a knowledge entry."""
