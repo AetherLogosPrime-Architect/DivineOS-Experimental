@@ -399,30 +399,34 @@ def measure_session_health(
         autonomy = 0.5
     factors["autonomy"] = round(autonomy, 2)
 
-    # Briefing gate: structural penalty for skipping the briefing
+    # Briefing gate: hard fail. No briefing = F. No exceptions.
+    # Everything else is irrelevant if you didn't orient first.
     briefing_factor = 1.0 if briefing_loaded else 0.0
     factors["briefing_loaded"] = briefing_factor
 
-    # Composite: weighted average
-    score = (
-        correction_factor * 0.35
-        + encouragement_factor
-        + overflow_factor * 0.25
-        + autonomy * 0.20
-        - (0.0 if briefing_loaded else 0.25)
-    )
-    score = max(0.0, min(1.0, score))
-
-    if score >= 0.85:
-        grade = "A"
-    elif score >= 0.70:
-        grade = "B"
-    elif score >= 0.55:
-        grade = "C"
-    elif score >= 0.40:
-        grade = "D"
-    else:
+    if not briefing_loaded:
+        score = 0.0
         grade = "F"
+    else:
+        # Composite: weighted average (only meaningful if briefing was loaded)
+        score = (
+            correction_factor * 0.35
+            + encouragement_factor
+            + overflow_factor * 0.25
+            + autonomy * 0.20
+        )
+        score = max(0.0, min(1.0, score))
+
+        if score >= 0.85:
+            grade = "A"
+        elif score >= 0.70:
+            grade = "B"
+        elif score >= 0.55:
+            grade = "C"
+        elif score >= 0.40:
+            grade = "D"
+        else:
+            grade = "F"
 
     result = {
         "score": round(score, 2),
