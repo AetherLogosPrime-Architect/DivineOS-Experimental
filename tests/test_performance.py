@@ -22,7 +22,7 @@ from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcemen
 from divineos.clarity_enforcement.enforcer import ClarityEnforcer
 from divineos.core.ledger import Ledger
 from divineos.core.session_manager import initialize_session, end_session as end_session_manager
-from divineos.agent_integration.memory_monitor import get_memory_monitor
+from divineos.agent_integration.memory_actions import get_memory_monitor
 from divineos.supersession.contradiction_detector import ContradictionDetector
 
 # All tests: skip if hypothesis missing, mark as slow (hardware-dependent timing)
