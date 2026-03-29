@@ -140,6 +140,55 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Auto-relationship detection failed: {e}")
 
+        # 3d. Contradiction scan — check new knowledge against existing entries
+        contradictions_resolved = 0
+        try:
+            from divineos.core.knowledge import _get_connection as _get_conn_contra
+            from divineos.core.knowledge_contradiction import (
+                resolve_contradiction,
+                scan_for_contradictions,
+            )
+
+            valid_deep_ids = [did for did in deep_ids if did]
+            if valid_deep_ids:
+                conn_c = _get_conn_contra()
+                for did in valid_deep_ids:
+                    row = conn_c.execute(
+                        "SELECT content, knowledge_type FROM knowledge WHERE knowledge_id = ?",
+                        (did,),
+                    ).fetchone()
+                    if not row:
+                        continue
+                    new_content, new_type = row[0], row[1]
+                    # Get all non-superseded entries of the same type (excluding self)
+                    existing_rows = conn_c.execute(
+                        "SELECT knowledge_id, content, knowledge_type, superseded_by "
+                        "FROM knowledge WHERE knowledge_type = ? AND knowledge_id != ? "
+                        "AND superseded_by IS NULL",
+                        (new_type, did),
+                    ).fetchall()
+                    existing_entries = [
+                        {
+                            "knowledge_id": r[0],
+                            "content": r[1],
+                            "knowledge_type": r[2],
+                            "superseded_by": r[3],
+                        }
+                        for r in existing_rows
+                    ]
+                    matches = scan_for_contradictions(new_content, new_type, existing_entries)
+                    for match in matches:
+                        resolve_contradiction(did, match)
+                        contradictions_resolved += 1
+                conn_c.close()
+            if contradictions_resolved:
+                click.secho(
+                    f"[~] Resolved {contradictions_resolved} contradiction(s) in new knowledge.",
+                    fg="yellow",
+                )
+        except Exception as e:
+            logger.warning(f"Contradiction scan failed: {e}")
+
         # 4. Apply feedback
         feedback = _wrapped_apply_session_feedback(analysis, analysis.session_id)
         feedback_parts: list[str] = []
