@@ -13,7 +13,7 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.hud import _ensure_hud_dir, _get_hud_dir
+from divineos.core._hud_io import _ensure_hud_dir, _get_hud_dir
 
 
 # ─── Session Handoff Notes ───────────────────────────────────────────
