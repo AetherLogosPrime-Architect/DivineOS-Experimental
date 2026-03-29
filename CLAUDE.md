@@ -99,6 +99,7 @@ pytest tests/ -q --tb=short  # Run tests after changes
 - **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, FTS-searchable.
 - **Claims Engine** — Investigate everything, dismiss nothing. Five evidence tiers (empirical to metaphysical). Evidence-based confidence. AI resonance as valid signal.
 - **Affect Log** — Valence-arousal tracking of functional feeling states. No fake discrete emotion labels. Trend detection over time.
+- **Memory Sync** — Auto-updates Claude Code memory files from DivineOS state at SESSION_END. Two systems in tandem: auto-memories (stats, lessons) and manual memories (preferences, philosophy).
 
 ## Project Structure
 
@@ -149,7 +150,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 2180 tests (real DB, no mocks)
+tests/                        # 2194 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```

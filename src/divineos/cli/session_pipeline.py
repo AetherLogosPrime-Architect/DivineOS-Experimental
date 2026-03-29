@@ -473,6 +473,17 @@ def _run_session_end_pipeline() -> None:
         # 9d. Write handoff note for next session
         write_handoff_note(analysis, stored, health)
 
+        # 9e. Sync auto-memories to Claude Code memory system
+        try:
+            from divineos.core.memory_sync import sync_auto_memories
+
+            sync_results = sync_auto_memories(analysis)
+            synced = [f for f, changed in sync_results.items() if changed]
+            if synced:
+                click.secho(f"[~] Auto-memories synced: {', '.join(synced)}", fg="cyan")
+        except (ImportError, OSError) as e:
+            logger.debug(f"Memory sync skipped: {e}")
+
         # 10. Session summary
         click.secho("\n=== Session Complete ===", fg="cyan", bold=True)
         click.secho(f"  Knowledge extracted:  {stored}", fg="white")
