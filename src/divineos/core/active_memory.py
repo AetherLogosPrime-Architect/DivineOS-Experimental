@@ -95,6 +95,14 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
     if has_active_lesson:
         score += 0.2
 
+    # 5% recency boost — fresh knowledge surfaces above stale entries
+    # Decays linearly over 30 days: full boost at day 0, zero at day 30+
+    created_at = entry.get("created_at", 0)
+    if created_at:
+        age_days = (time.time() - created_at) / 86400
+        recency = max(0.0, 1.0 - age_days / 30.0)
+        score += recency * 0.05
+
     # Maturity adjustments — trust level affects importance
     maturity = entry.get("maturity", "RAW")
     if maturity == "CONFIRMED":

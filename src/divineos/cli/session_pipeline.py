@@ -373,6 +373,17 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Memory refresh failed: {e}")
 
+        # 7b. Refresh dynamic core memory slots
+        try:
+            from divineos.core.core_memory_refresh import refresh_core_memory
+
+            core_updates = refresh_core_memory(analysis)
+            updated_slots = [s for s, changed in core_updates.items() if changed]
+            if updated_slots:
+                click.secho(f"[~] Core memory refreshed: {', '.join(updated_slots)}", fg="cyan")
+        except Exception as e:
+            logger.warning(f"Core memory refresh failed: {e}")
+
         # 8. Session health score
         health: dict[str, Any] | None = None
         try:
