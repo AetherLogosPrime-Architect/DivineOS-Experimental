@@ -277,3 +277,130 @@ class TestResolveContradiction:
             assert row[1] == 1
         finally:
             os.environ.pop("DIVINEOS_DB", None)
+
+
+class TestPipelineContradictionWiring:
+    """Test that contradiction scanning works end-to-end with real DB entries."""
+
+    def test_new_knowledge_triggers_contradiction_resolution(self, tmp_path):
+        """Simulate what the pipeline does: store entries, scan, resolve."""
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+        try:
+            from divineos.core.knowledge import (
+                _get_connection,
+                init_knowledge_table,
+                store_knowledge,
+            )
+            from divineos.core.ledger import init_db
+
+            init_db()
+            init_knowledge_table()
+
+            # Store an existing fact
+            old_id = store_knowledge(
+                knowledge_type="FACT",
+                content="The project has 1500 tests passing in the test suite",
+                confidence=0.9,
+            )
+
+            # Store a new fact that supersedes it (high overlap, updated number)
+            new_id = store_knowledge(
+                knowledge_type="FACT",
+                content="The project has 2073 tests passing in the test suite",
+                confidence=0.9,
+            )
+
+            # Run the same logic the pipeline uses
+            conn = _get_connection()
+            row = conn.execute(
+                "SELECT content, knowledge_type FROM knowledge WHERE knowledge_id = ?",
+                (new_id,),
+            ).fetchone()
+            new_content, new_type = row[0], row[1]
+
+            existing_rows = conn.execute(
+                "SELECT knowledge_id, content, knowledge_type, superseded_by "
+                "FROM knowledge WHERE knowledge_type = ? AND knowledge_id != ? "
+                "AND superseded_by IS NULL",
+                (new_type, new_id),
+            ).fetchall()
+            conn.close()
+
+            existing_entries = [
+                {
+                    "knowledge_id": r[0],
+                    "content": r[1],
+                    "knowledge_type": r[2],
+                    "superseded_by": r[3],
+                }
+                for r in existing_rows
+            ]
+
+            matches = scan_for_contradictions(new_content, new_type, existing_entries)
+            assert len(matches) >= 1
+            assert matches[0].existing_id == old_id
+
+            # Resolve it
+            resolve_contradiction(new_id, matches[0])
+
+            # Old entry should now be superseded
+            conn = _get_connection()
+            row = conn.execute(
+                "SELECT superseded_by FROM knowledge WHERE knowledge_id = ?",
+                (old_id,),
+            ).fetchone()
+            conn.close()
+            assert row[0] is not None
+
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
+
+    def test_no_self_contradiction(self, tmp_path):
+        """New knowledge should not contradict itself."""
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+        try:
+            from divineos.core.knowledge import (
+                _get_connection,
+                init_knowledge_table,
+                store_knowledge,
+            )
+            from divineos.core.ledger import init_db
+
+            init_db()
+            init_knowledge_table()
+
+            kid = store_knowledge(
+                knowledge_type="FACT",
+                content="DivineOS uses append-only ledger for event storage",
+                confidence=0.9,
+            )
+
+            # Query excludes self (knowledge_id != kid)
+            conn = _get_connection()
+            existing_rows = conn.execute(
+                "SELECT knowledge_id, content, knowledge_type, superseded_by "
+                "FROM knowledge WHERE knowledge_type = 'FACT' AND knowledge_id != ? "
+                "AND superseded_by IS NULL",
+                (kid,),
+            ).fetchall()
+            conn.close()
+
+            existing_entries = [
+                {
+                    "knowledge_id": r[0],
+                    "content": r[1],
+                    "knowledge_type": r[2],
+                    "superseded_by": r[3],
+                }
+                for r in existing_rows
+            ]
+
+            matches = scan_for_contradictions(
+                "DivineOS uses append-only ledger for event storage",
+                "FACT",
+                existing_entries,
+            )
+            assert matches == []
+
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
