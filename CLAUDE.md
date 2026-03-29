@@ -104,7 +104,7 @@ pytest tests/ -q --tb=short  # Run tests after changes
 
 ```
 src/divineos/
-├── cli/                      # CLI package (78 commands across 10+ modules)
+├── cli/                      # CLI package (66 commands across 10+ modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestration pipeline
 │   ├── knowledge_commands.py # learn, ask, briefing, forget, lessons
@@ -149,7 +149,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 2148 tests (real DB, no mocks)
+tests/                        # 2180 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```

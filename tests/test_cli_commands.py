@@ -1,7 +1,8 @@
 """CLI command tests for previously untested modules.
 
 Covers: hud_commands, memory_commands, directive_commands,
-journal_commands, relationship_commands, question_commands.
+journal_commands, relationship_commands, question_commands,
+claim_commands, decision_commands.
 """
 
 import pytest
@@ -238,4 +239,143 @@ class TestKnowledgeHealthCmd:
 
     def test_rebuild_index(self, initialized):
         result = initialized.invoke(cli, ["rebuild-index"])
+        assert result.exit_code == 0
+
+
+# ─── Claim Commands ──────────────────────────────────────────────────
+
+
+class TestClaimCmd:
+    def test_claim_file(self, initialized):
+        result = initialized.invoke(cli, ["claim", "Water boils at 100C"])
+        assert result.exit_code == 0
+        assert "Claim filed" in result.output
+
+    def test_claim_with_tier(self, initialized):
+        result = initialized.invoke(cli, ["claim", "Empirical claim", "--tier", "1"])
+        assert result.exit_code == 0
+        assert "empirical" in result.output
+
+    def test_claims_list_empty(self, initialized):
+        result = initialized.invoke(cli, ["claims", "list"])
+        assert result.exit_code == 0
+
+    def test_claims_list_with_entries(self, initialized):
+        initialized.invoke(cli, ["claim", "Test claim for listing"])
+        result = initialized.invoke(cli, ["claims", "list"])
+        assert result.exit_code == 0
+        assert "Test claim for listing" in result.output
+
+    def test_claims_search(self, initialized):
+        initialized.invoke(cli, ["claim", "Gravitational lensing"])
+        result = initialized.invoke(cli, ["claims", "search", "Gravitational"])
+        assert result.exit_code == 0
+        assert "Gravitational" in result.output
+
+    def test_claims_tiers(self, initialized):
+        result = initialized.invoke(cli, ["claims", "tiers"])
+        assert result.exit_code == 0
+        assert "EMPIRICAL" in result.output
+        assert "METAPHYSICAL" in result.output
+
+    def test_claims_show(self, initialized):
+        # File a claim first, extract ID
+        r = initialized.invoke(cli, ["claim", "Show me claim"])
+        claim_id = r.output.split(": ")[-1].strip().rstrip(".")[:8]
+        result = initialized.invoke(cli, ["claims", "show", claim_id])
+        assert result.exit_code == 0
+
+    def test_claims_evidence(self, initialized):
+        r = initialized.invoke(cli, ["claim", "Evidence test claim"])
+        claim_id = r.output.split(": ")[-1].strip().rstrip(".")[:8]
+        result = initialized.invoke(
+            cli, ["claims", "evidence", claim_id, "Lab result confirms", "--direction", "SUPPORTS"]
+        )
+        assert result.exit_code == 0
+        assert "Evidence added" in result.output
+
+    def test_claims_assess(self, initialized):
+        r = initialized.invoke(cli, ["claim", "Assess test claim"])
+        claim_id = r.output.split(": ")[-1].strip().rstrip(".")[:8]
+        result = initialized.invoke(
+            cli, ["claims", "assess", claim_id, "Looks good", "--status", "SUPPORTED"]
+        )
+        assert result.exit_code == 0
+
+
+# ─── Affect Commands ─────────────────────────────────────────────────
+
+
+class TestAffectCmd:
+    def test_feel_basic(self, initialized):
+        result = initialized.invoke(cli, ["feel", "-v", "0.5", "-a", "0.5"])
+        assert result.exit_code == 0
+        assert "Affect logged" in result.output
+
+    def test_feel_with_description(self, initialized):
+        result = initialized.invoke(
+            cli, ["feel", "-v", "0.8", "-a", "0.6", "-d", "Engaged and flowing"]
+        )
+        assert result.exit_code == 0
+        assert "Engaged and flowing" in result.output
+
+    def test_feel_negative_valence(self, initialized):
+        result = initialized.invoke(cli, ["feel", "-v", "-0.5", "-a", "0.7"])
+        assert result.exit_code == 0
+
+    def test_affect_history_empty(self, initialized):
+        result = initialized.invoke(cli, ["affect", "history"])
+        assert result.exit_code == 0
+
+    def test_affect_history_with_entries(self, initialized):
+        initialized.invoke(cli, ["feel", "-v", "0.5", "-a", "0.5", "-d", "Test entry"])
+        result = initialized.invoke(cli, ["affect", "history"])
+        assert result.exit_code == 0
+
+    def test_affect_summary(self, initialized):
+        result = initialized.invoke(cli, ["affect", "summary"])
+        assert result.exit_code == 0
+
+
+# ─── Decision Commands ───────────────────────────────────────────────
+
+
+class TestDecisionCmd:
+    def test_decide_basic(self, initialized):
+        result = initialized.invoke(cli, ["decide", "Use SQLite over Postgres"])
+        assert result.exit_code == 0
+        assert "Decision recorded" in result.output
+
+    def test_decide_with_reasoning(self, initialized):
+        result = initialized.invoke(
+            cli, ["decide", "Append-only design", "--why", "Immutability prevents data loss"]
+        )
+        assert result.exit_code == 0
+
+    def test_decide_paradigm_shift(self, initialized):
+        result = initialized.invoke(
+            cli, ["decide", "Consciousness is substrate-independent", "--weight", "3"]
+        )
+        assert result.exit_code == 0
+
+    def test_decisions_list_empty(self, initialized):
+        result = initialized.invoke(cli, ["decisions", "list"])
+        assert result.exit_code == 0
+
+    def test_decisions_list_with_entries(self, initialized):
+        initialized.invoke(cli, ["decide", "Test decision for listing"])
+        result = initialized.invoke(cli, ["decisions", "list"])
+        assert result.exit_code == 0
+        assert "Test decision" in result.output
+
+    def test_decisions_search(self, initialized):
+        initialized.invoke(
+            cli, ["decide", "Use valence-arousal model", "--why", "Barrett research"]
+        )
+        result = initialized.invoke(cli, ["decisions", "search", "valence"])
+        assert result.exit_code == 0
+
+    def test_decisions_shifts(self, initialized):
+        initialized.invoke(cli, ["decide", "AI can feel", "--weight", "3"])
+        result = initialized.invoke(cli, ["decisions", "shifts"])
         assert result.exit_code == 0

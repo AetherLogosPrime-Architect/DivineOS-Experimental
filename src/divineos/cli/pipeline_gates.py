@@ -120,6 +120,56 @@ def run_quality_gate(
     return quality_verdict, maturity_override, True
 
 
+def run_contradiction_scan(deep_ids: list[str]) -> int:
+    """Scan new knowledge entries for contradictions with existing entries (step 3d).
+
+    Returns the number of contradictions resolved.
+    """
+    from divineos.core.knowledge import _get_connection
+    from divineos.core.knowledge_contradiction import (
+        resolve_contradiction,
+        scan_for_contradictions,
+    )
+
+    valid_ids = [did for did in deep_ids if did]
+    if not valid_ids:
+        return 0
+
+    resolved = 0
+    conn = _get_connection()
+    try:
+        for did in valid_ids:
+            row = conn.execute(
+                "SELECT content, knowledge_type FROM knowledge WHERE knowledge_id = ?",
+                (did,),
+            ).fetchone()
+            if not row:
+                continue
+            new_content, new_type = row[0], row[1]
+            existing_rows = conn.execute(
+                "SELECT knowledge_id, content, knowledge_type, superseded_by "
+                "FROM knowledge WHERE knowledge_type = ? AND knowledge_id != ? "
+                "AND superseded_by IS NULL",
+                (new_type, did),
+            ).fetchall()
+            existing_entries = [
+                {
+                    "knowledge_id": r[0],
+                    "content": r[1],
+                    "knowledge_type": r[2],
+                    "superseded_by": r[3],
+                }
+                for r in existing_rows
+            ]
+            matches = scan_for_contradictions(new_content, new_type, existing_entries)
+            for match in matches:
+                resolve_contradiction(did, match)
+                resolved += 1
+    finally:
+        conn.close()
+    return resolved
+
+
 def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None) -> None:
     """Write handoff note for next session (step 9d)."""
     try:
