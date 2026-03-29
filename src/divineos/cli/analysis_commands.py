@@ -343,7 +343,7 @@ def register(cli: click.Group) -> None:
                             tz=timezone.utc,
                         ).strftime("%Y-%m-%d %H:%M:%S UTC")
                         click.secho(f"     Time: {ts}", fg="bright_black")
-                    except Exception:
+                    except (ValueError, OSError, TypeError):
                         click.secho(f"     Time: {session['created_at']}", fg="bright_black")
 
                     click.secho(f"     Files: {session['file_count']}", fg="bright_black")

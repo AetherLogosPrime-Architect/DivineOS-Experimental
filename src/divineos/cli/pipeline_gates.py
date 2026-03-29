@@ -4,6 +4,7 @@ Extracted from session_pipeline.py to keep the orchestrator focused
 on sequencing, not on gate/enforcement/handoff details.
 """
 
+import json
 from typing import Any
 
 import click
@@ -165,7 +166,7 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
                 active = [g for g in goals if g.get("status") != "done"]
                 done = [g for g in goals if g.get("status") == "done"]
                 goals_state = f"{len(done)} completed, {len(active)} still active"
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             pass
 
         save_handoff_note(

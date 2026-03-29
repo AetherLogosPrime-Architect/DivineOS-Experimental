@@ -6,6 +6,7 @@ This is the difference between knowing facts about myself
 and having a sense of who I'm becoming.
 """
 
+import sqlite3
 import time
 from typing import Any
 
@@ -74,7 +75,7 @@ def record_session_metrics(
                     "SELECT COUNT(*) FROM lesson_tracking WHERE status = ?", (status,)
                 ).fetchone()
                 lesson_counts[status] = row[0] if row else 0
-        except Exception:
+        except sqlite3.Error:
             pass
 
         mat_counts = {"CONFIRMED": 0, "TESTED": 0, "HYPOTHESIS": 0, "RAW": 0}
@@ -87,7 +88,7 @@ def record_session_metrics(
             for row in rows:
                 if row[0] in mat_counts:
                     mat_counts[row[0]] = row[1]
-        except Exception:
+        except sqlite3.Error:
             pass
 
         conn.execute(
