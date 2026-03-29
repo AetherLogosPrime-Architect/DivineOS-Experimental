@@ -50,6 +50,66 @@ def _build_journal_slot() -> str:
         return ""
 
 
+def _build_affect_slot() -> str:
+    """Current affect state and trend."""
+    try:
+        from divineos.core.affect_log import (
+            count_affect_entries,
+            get_affect_history,
+            get_affect_summary,
+        )
+
+        count = count_affect_entries()
+        if count == 0:
+            return ""
+
+        lines = ["# My Affect State\n"]
+        summary = get_affect_summary()
+        lines.append(
+            f"**Avg:** valence {summary['avg_valence']:+.2f}, "
+            f"arousal {summary['avg_arousal']:.2f} "
+            f"({summary['trend']})"
+        )
+
+        recent = get_affect_history(limit=1)
+        if recent:
+            entry = recent[0]
+            desc = entry["description"][:80] if entry["description"] else "no description"
+            lines.append(f"**Latest:** {desc}")
+
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
+def _build_claims_slot() -> str:
+    """Active claims under investigation."""
+    try:
+        from divineos.core.claim_store import count_claims, list_claims
+
+        counts = count_claims()
+        if counts["total"] == 0:
+            return ""
+
+        lines = [f"# My Claims ({counts['total']} total)\n"]
+        status_parts = []
+        for status in ("INVESTIGATING", "OPEN", "SUPPORTED", "CONTESTED", "REFUTED"):
+            if counts.get(status, 0) > 0:
+                status_parts.append(f"{counts[status]} {status.lower()}")
+        if status_parts:
+            lines.append(f"**Status:** {', '.join(status_parts)}")
+
+        active = list_claims(limit=3, status="INVESTIGATING")
+        if not active:
+            active = list_claims(limit=3)
+        for claim in active[:3]:
+            lines.append(f"  - [{claim['tier_label']}] {claim['statement'][:80]}")
+
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def _build_decision_journal_slot() -> str:
     """Recent decisions and paradigm shifts for continuity."""
     try:

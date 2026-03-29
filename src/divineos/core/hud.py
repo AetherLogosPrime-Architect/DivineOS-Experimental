@@ -26,6 +26,8 @@ SLOT_ORDER = [
     "warnings",
     "journal",
     "decision_journal",
+    "affect",
+    "claims",
     "task_state",
 ]
 
@@ -361,6 +363,8 @@ def _build_os_engagement_slot() -> str:
 
 
 from divineos.core.hud_slots_extra import (  # noqa: E402
+    _build_affect_slot,
+    _build_claims_slot,
     _build_decision_journal_slot,
     _build_growth_awareness_slot,
     _build_handoff_slot,
@@ -385,6 +389,8 @@ SLOT_BUILDERS = {
     "task_state": _build_task_state_slot,
     "journal": _build_journal_slot,
     "decision_journal": _build_decision_journal_slot,
+    "affect": _build_affect_slot,
+    "claims": _build_claims_slot,
 }
 
 
