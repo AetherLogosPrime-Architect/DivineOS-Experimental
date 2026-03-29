@@ -50,6 +50,42 @@ def _build_journal_slot() -> str:
         return ""
 
 
+def _build_decision_journal_slot() -> str:
+    """Recent decisions and paradigm shifts for continuity."""
+    try:
+        from divineos.core.decision_journal import (
+            count_decisions,
+            get_paradigm_shifts,
+            list_decisions,
+        )
+
+        total = count_decisions()
+        if total == 0:
+            return ""
+
+        lines = [f"# My Decision Journal ({total} decisions)\n"]
+
+        # Show paradigm shifts first — these are the ones that matter most
+        shifts = get_paradigm_shifts(limit=3)
+        if shifts:
+            lines.append("**Paradigm shifts:**")
+            for entry in shifts:
+                lines.append(f"  - {entry['content'][:100]}")
+            lines.append("")
+
+        # Then recent decisions (non-shift)
+        recent = list_decisions(limit=3)
+        non_shift = [d for d in recent if d["emotional_weight"] < 3][:2]
+        if non_shift:
+            lines.append("**Recent:**")
+            for entry in non_shift:
+                lines.append(f"  - {entry['content'][:100]}")
+
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def _build_handoff_slot() -> str:
     """Display the handoff note from the previous session."""
     from divineos.core.hud_handoff import load_handoff_note

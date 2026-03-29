@@ -47,6 +47,12 @@ divineos lessons           # Tracked lessons from past sessions
 divineos goal "..."        # Track a user goal
 divineos directives        # List active directives
 
+# Decision journal
+divineos decide "what" --why "reasoning"  # Record a decision
+divineos decisions list                    # Browse recent decisions
+divineos decisions search "query"          # Search by reasoning/context
+divineos decisions shifts                  # Paradigm shifts only
+
 # Ledger & context
 divineos context           # Recent events (working memory)
 divineos log --type TYPE --actor ACTOR --content "..."
@@ -78,12 +84,13 @@ pytest tests/ -q --tb=short  # Run tests after changes
 - **Pattern Anticipation** — Detects recurring user patterns and surfaces proactive warnings.
 - **Growth Awareness** — Tracks session-over-session improvement with milestone detection.
 - **Tone Texture** — Rich emotional classification (sub-tones, intensity, arcs, recovery velocity).
+- **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, FTS-searchable.
 
 ## Project Structure
 
 ```
 src/divineos/
-├── cli/                      # CLI package (60 commands across 10+ modules)
+├── cli/                      # CLI package (66 commands across 10+ modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestration pipeline
 │   ├── knowledge_commands.py # learn, ask, briefing, forget, lessons
@@ -128,7 +135,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 2075 tests (real DB, no mocks)
+tests/                        # 2104 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
