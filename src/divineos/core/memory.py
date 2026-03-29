@@ -12,6 +12,7 @@ Two tiers on top of the knowledge store:
 The knowledge store is the archive. Personal memory is what matters.
 """
 
+import sqlite3
 import time
 
 from divineos.core.ledger import get_connection, compute_hash
@@ -79,7 +80,7 @@ def init_memory_tables() -> None:
         ]:
             try:
                 conn.execute(f"ALTER TABLE personal_journal ADD COLUMN {col} {defn}")
-            except Exception:
+            except sqlite3.OperationalError:
                 pass  # column already exists
         # FTS5 index for journal full-text search
         conn.execute("""

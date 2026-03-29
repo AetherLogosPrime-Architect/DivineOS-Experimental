@@ -6,6 +6,7 @@ see why I believe things, not just what I believe.
 
 from __future__ import annotations
 
+import sqlite3
 from typing import Any
 
 
@@ -31,7 +32,7 @@ def get_logic_health_summary() -> dict[str, Any]:
         try:
             rows = conn.execute("SELECT DISTINCT knowledge_id FROM warrants").fetchall()
             warranted_ids = {r[0] for r in rows}
-        except Exception:
+        except sqlite3.OperationalError:
             pass
 
         # Active entries with warrants
@@ -41,7 +42,7 @@ def get_logic_health_summary() -> dict[str, Any]:
                 "SELECT knowledge_id FROM knowledge WHERE superseded_by IS NULL"
             ).fetchall()
             active_ids = {r[0] for r in rows}
-        except Exception:
+        except sqlite3.OperationalError:
             pass
 
         # Unwarranted = active entries with no warrant at all
@@ -63,7 +64,7 @@ def get_logic_health_summary() -> dict[str, Any]:
                 "SELECT COUNT(*) FROM knowledge_edges WHERE edge_type = 'CONTRADICTS' AND status = 'ACTIVE'"
             ).fetchone()
             contradictions = row[0] if row else 0
-        except Exception:
+        except sqlite3.OperationalError:
             pass
 
         return {

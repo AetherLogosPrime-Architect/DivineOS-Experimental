@@ -13,7 +13,7 @@ def _build_task_state_slot() -> str:
 
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return "# My Current Task\n\nTask state corrupted."
 
     lines = ["# My Current Task\n"]

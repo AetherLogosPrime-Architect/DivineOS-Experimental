@@ -67,7 +67,7 @@ def _build_active_goals_slot() -> str:
 
     try:
         goals = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return "# My Current Goals\n\nGoal file corrupted. I need to re-establish what we're doing."
 
     lines = ["# My Current Goals\n"]
@@ -142,7 +142,7 @@ def _build_session_health_slot() -> str:
 
     try:
         health = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return "# Session Health\n\nHealth data corrupted."
 
     lines = ["# How I'm Doing This Session\n"]
@@ -203,7 +203,7 @@ def _build_context_budget_slot() -> str:
 
     try:
         budget = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return "# Context Budget\n\nBudget data corrupted."
 
     used = budget.get("used_pct", 0)
