@@ -365,9 +365,36 @@ def register(cli: click.Group) -> None:
         type=click.Choice(["active", "improving", "resolved"]),
         help="Filter by lesson status",
     )
-    def lessons_cmd(status: str) -> None:
-        """Show the learning loop — tracked lessons from past sessions."""
-        lessons = _wrapped_get_lessons(status=status)
+    @click.option(
+        "--archive",
+        is_flag=True,
+        default=False,
+        help="Show resolved (archived) lessons instead of active ones",
+    )
+    @click.option(
+        "--all",
+        "show_all",
+        is_flag=True,
+        default=False,
+        help="Show all lessons regardless of status",
+    )
+    def lessons_cmd(status: str, archive: bool, show_all: bool) -> None:
+        """Show the learning loop — tracked lessons from past sessions.
+
+        By default shows only active and improving lessons.
+        Use --archive for resolved lessons, --all for everything.
+        """
+        if archive:
+            lessons = _wrapped_get_lessons(status="resolved")
+        elif show_all:
+            lessons = _wrapped_get_lessons(status=status)
+        elif status:
+            lessons = _wrapped_get_lessons(status=status)
+        else:
+            # Default: active + improving only (resolved goes to archive)
+            active = _wrapped_get_lessons(status="active")
+            improving = _wrapped_get_lessons(status="improving")
+            lessons = (active or []) + (improving or [])
 
         if not lessons:
             click.secho("[-] No lessons tracked yet.", fg="yellow")
@@ -400,6 +427,16 @@ def register(cli: click.Group) -> None:
                 fg="bright_black",
             )
             click.echo()
+
+        # Hint about archive if showing default view
+        if not archive and not show_all and not status:
+            resolved = _wrapped_get_lessons(status="resolved")
+            if resolved:
+                click.secho(
+                    f"    ({len(resolved)} resolved lessons in archive — use --archive to view)",
+                    fg="bright_black",
+                )
+                click.echo()
 
     @cli.command("clear-lessons")
     def clear_lessons_cmd() -> None:

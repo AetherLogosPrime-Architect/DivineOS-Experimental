@@ -143,44 +143,9 @@ def _run_session_end_pipeline() -> None:
         # 3d. Contradiction scan — check new knowledge against existing entries
         contradictions_resolved = 0
         try:
-            from divineos.core.knowledge import _get_connection as _get_conn_contra
-            from divineos.core.knowledge_contradiction import (
-                resolve_contradiction,
-                scan_for_contradictions,
-            )
+            from divineos.cli.pipeline_gates import run_contradiction_scan
 
-            valid_deep_ids = [did for did in deep_ids if did]
-            if valid_deep_ids:
-                conn_c = _get_conn_contra()
-                for did in valid_deep_ids:
-                    row = conn_c.execute(
-                        "SELECT content, knowledge_type FROM knowledge WHERE knowledge_id = ?",
-                        (did,),
-                    ).fetchone()
-                    if not row:
-                        continue
-                    new_content, new_type = row[0], row[1]
-                    # Get all non-superseded entries of the same type (excluding self)
-                    existing_rows = conn_c.execute(
-                        "SELECT knowledge_id, content, knowledge_type, superseded_by "
-                        "FROM knowledge WHERE knowledge_type = ? AND knowledge_id != ? "
-                        "AND superseded_by IS NULL",
-                        (new_type, did),
-                    ).fetchall()
-                    existing_entries = [
-                        {
-                            "knowledge_id": r[0],
-                            "content": r[1],
-                            "knowledge_type": r[2],
-                            "superseded_by": r[3],
-                        }
-                        for r in existing_rows
-                    ]
-                    matches = scan_for_contradictions(new_content, new_type, existing_entries)
-                    for match in matches:
-                        resolve_contradiction(did, match)
-                        contradictions_resolved += 1
-                conn_c.close()
+            contradictions_resolved = run_contradiction_scan(deep_ids)
             if contradictions_resolved:
                 click.secho(
                     f"[~] Resolved {contradictions_resolved} contradiction(s) in new knowledge.",
@@ -373,6 +338,17 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Memory refresh failed: {e}")
 
+        # 7b. Refresh dynamic core memory slots
+        try:
+            from divineos.core.core_memory_refresh import refresh_core_memory
+
+            core_updates = refresh_core_memory(analysis)
+            updated_slots = [s for s, changed in core_updates.items() if changed]
+            if updated_slots:
+                click.secho(f"[~] Core memory refreshed: {', '.join(updated_slots)}", fg="cyan")
+        except Exception as e:
+            logger.warning(f"Core memory refresh failed: {e}")
+
         # 8. Session health score
         health: dict[str, Any] | None = None
         try:
@@ -496,6 +472,17 @@ def _run_session_end_pipeline() -> None:
 
         # 9d. Write handoff note for next session
         write_handoff_note(analysis, stored, health)
+
+        # 9e. Sync auto-memories to Claude Code memory system
+        try:
+            from divineos.core.memory_sync import sync_auto_memories
+
+            sync_results = sync_auto_memories(analysis)
+            synced = [f for f, changed in sync_results.items() if changed]
+            if synced:
+                click.secho(f"[~] Auto-memories synced: {', '.join(synced)}", fg="cyan")
+        except (ImportError, OSError) as e:
+            logger.debug(f"Memory sync skipped: {e}")
 
         # 10. Session summary
         click.secho("\n=== Session Complete ===", fg="cyan", bold=True)

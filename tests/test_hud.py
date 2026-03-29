@@ -147,7 +147,19 @@ class TestGoals:
         add_goal("Build the dashboard")
         complete_goal("dashboard")
         result = SLOT_BUILDERS["active_goals"]()
-        assert "[x]" in result
+        # Completed goals no longer clutter the HUD — they're archived
+        assert "All goals completed" in result
+        assert "goal clear" in result
+
+    def test_complete_goal_mixed(self):
+        """Active goals show, completed ones are counted but hidden."""
+        add_goal("Build the dashboard")
+        add_goal("Fix the bug")
+        complete_goal("dashboard")
+        result = SLOT_BUILDERS["active_goals"]()
+        assert "Fix the bug" in result
+        assert "Build the dashboard" not in result
+        assert "1 completed" in result
 
     def test_complete_nonexistent_goal(self):
         assert complete_goal("something that doesn't exist") is False
