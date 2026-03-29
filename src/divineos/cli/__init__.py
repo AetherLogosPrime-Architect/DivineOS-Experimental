@@ -24,6 +24,7 @@ def cli() -> None:
 # Register all command modules
 from divineos.cli import (  # noqa: E402
     analysis_commands,
+    decision_commands,
     directive_commands,
     event_commands,
     hud_commands,
@@ -39,6 +40,7 @@ from divineos.cli import (  # noqa: E402
 ledger_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
+decision_commands.register(cli)
 directive_commands.register(cli)
 relationship_commands.register(cli)
 memory_commands.register(cli)
