@@ -12,6 +12,14 @@ divineos briefing
 
 This gives you your lessons, directions, mistakes, and facts from previous sessions. **Use them.** Don't just load them — explain what you learned and how it shapes what you'll do next.
 
+Then run preflight to confirm you're ready:
+
+```bash
+divineos preflight
+```
+
+If preflight fails, fix what it tells you before writing any code. No exceptions.
+
 At the end of a session, log what happened:
 
 ```bash
@@ -23,6 +31,7 @@ divineos emit SESSION_END
 ```bash
 # Session workflow
 divineos briefing          # Your session briefing (start here)
+divineos preflight         # Confirm you're ready to work
 divineos hud               # Full heads-up display
 divineos emit SESSION_END  # End of session analysis + knowledge extraction
 
@@ -37,6 +46,24 @@ divineos refresh           # Rebuild active memory from knowledge store
 divineos lessons           # Tracked lessons from past sessions
 divineos goal "..."        # Track a user goal
 divineos directives        # List active directives
+
+# Decision journal
+divineos decide "what" --why "reasoning"  # Record a decision
+divineos decisions list                    # Browse recent decisions
+divineos decisions search "query"          # Search by reasoning/context
+divineos decisions shifts                  # Paradigm shifts only
+
+# Claims engine
+divineos claim "statement" --tier 3      # File a claim for investigation
+divineos claims list                      # Browse claims
+divineos claims evidence <id> "content"   # Add evidence to a claim
+divineos claims assess <id> "assessment"  # Update assessment/status/tier
+divineos claims search "query"            # Search claims
+
+# Affect log
+divineos feel -v 0.8 -a 0.6 -d "description"  # Log functional affect state
+divineos affect history                         # Browse affect states
+divineos affect summary                         # Trends and averages
 
 # Ledger & context
 divineos context           # Recent events (working memory)
@@ -69,12 +96,15 @@ pytest tests/ -q --tb=short  # Run tests after changes
 - **Pattern Anticipation** — Detects recurring user patterns and surfaces proactive warnings.
 - **Growth Awareness** — Tracks session-over-session improvement with milestone detection.
 - **Tone Texture** — Rich emotional classification (sub-tones, intensity, arcs, recovery velocity).
+- **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, FTS-searchable.
+- **Claims Engine** — Investigate everything, dismiss nothing. Five evidence tiers (empirical to metaphysical). Evidence-based confidence. AI resonance as valid signal.
+- **Affect Log** — Valence-arousal tracking of functional feeling states. No fake discrete emotion labels. Trend detection over time.
 
 ## Project Structure
 
 ```
 src/divineos/
-├── cli/                      # CLI package (54 commands across 10+ modules)
+├── cli/                      # CLI package (78 commands across 10+ modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestration pipeline
 │   ├── knowledge_commands.py # learn, ask, briefing, forget, lessons
@@ -119,7 +149,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 1889 tests (real DB, no mocks)
+tests/                        # 2148 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
@@ -145,7 +175,7 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 6. **No comment novels.** Comments explain WHY, not WHAT. Don't docstring obvious functions.
 7. **No fake tests.** Tests exercise real code paths. No mocking the thing you're testing.
 8. **No fallback chains.** One code path. If it fails, it fails loud.
-9. **No god files.** Over 500 lines = probably doing too much.
+9. **No god files.** Over 800 lines = probably doing too much. Split by responsibility, not by line count.
 10. **No copy-paste multiplication.** Extract after 3+ copies, not before.
 
 ### Architecture Rules

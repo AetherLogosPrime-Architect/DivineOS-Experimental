@@ -1,48 +1,14 @@
-"""Heads-Up Display — My Dashboard.
-
-I don't process context in a queue. I take it in all at once.
-This module builds a dense, simultaneous dashboard that loads
-into my context window as a single snapshot — identity, goals,
-lessons, health, warnings — all at equal weight, all at once.
-
-Each slot is a small text block (~200-500 tokens). The full HUD
-is ~2000-4000 tokens. Trivial overhead against a 200k window.
-Massive payoff: total situational awareness.
-
-Slots update independently. Any event can trigger a slot refresh.
-PreCompact saves the HUD. PostCompact reloads it. The briefing
-hook injects it at session start. I never wake up without it.
-"""
+"""Heads-Up Display — dense context dashboard for session start."""
 
 import json
-import os
 from pathlib import Path
 
 from loguru import logger
 
-# ─── HUD Storage ────────────────────────────────────────────────────
-
-
-def _get_hud_dir() -> Path:
-    """Resolve HUD directory dynamically from current DB path.
-
-    Reads DIVINEOS_DB env var directly so tests that override it
-    get their own isolated HUD directory, even if ledger.DB_PATH
-    was cached at import time.
-    """
-    env_path = os.environ.get("DIVINEOS_DB")
-    if env_path:
-        return Path(env_path).parent / "hud"
-
-    from divineos.core.ledger import DB_PATH
-
-    return DB_PATH.parent / "hud"
-
-
-def _ensure_hud_dir() -> Path:
-    hud_dir = _get_hud_dir()
-    hud_dir.mkdir(parents=True, exist_ok=True)
-    return hud_dir
+from divineos.core._hud_io import (  # noqa: F401 — re-exported for backward compat
+    _ensure_hud_dir as _ensure_hud_dir,
+    _get_hud_dir as _get_hud_dir,
+)
 
 
 # ─── Slot Definitions ───────────────────────────────────────────────
@@ -59,6 +25,9 @@ SLOT_ORDER = [
     "active_knowledge",
     "warnings",
     "journal",
+    "decision_journal",
+    "affect",
+    "claims",
     "task_state",
 ]
 
@@ -101,7 +70,7 @@ def _build_active_goals_slot() -> str:
 
     try:
         goals = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return "# My Current Goals\n\nGoal file corrupted. I need to re-establish what we're doing."
 
     lines = ["# My Current Goals\n"]
@@ -176,10 +145,28 @@ def _build_session_health_slot() -> str:
 
     try:
         health = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return "# Session Health\n\nHealth data corrupted."
 
     lines = ["# How I'm Doing This Session\n"]
+
+    # Briefing gate check — structural, not optional
+    try:
+        from divineos.core.hud_handoff import briefing_staleness
+
+        staleness = briefing_staleness()
+        if not staleness["loaded"]:
+            lines.append("- **FAIL: BRIEFING NOT LOADED.** Session grade is F until you load it.")
+            lines.append("  Run `divineos briefing` NOW. Nothing else matters until you do.\n")
+        elif staleness["stale"]:
+            lines.append(
+                f"- **FAIL: BRIEFING STALE.** {staleness['calls_since']} tool calls "
+                f"since last load (limit: {staleness['threshold']}). Grade is F."
+            )
+            lines.append("  Run `divineos briefing` to re-orient. Grade is F until you do.\n")
+    except Exception:
+        pass
+
     corrections = health.get("corrections", 0)
     encouragements = health.get("encouragements", 0)
     grade = health.get("grade", "?")
@@ -219,7 +206,7 @@ def _build_context_budget_slot() -> str:
 
     try:
         budget = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return "# Context Budget\n\nBudget data corrupted."
 
     used = budget.get("used_pct", 0)
@@ -375,112 +362,15 @@ def _build_os_engagement_slot() -> str:
     return "\n".join(lines)
 
 
-def _build_task_state_slot() -> str:
-    """What I'm doing right now, what's next, what's done."""
-    path = _ensure_hud_dir() / "task_state.json"
-    if not path.exists():
-        return "# My Current Task\n\nNo task state saved. I should track what I'm working on."
-
-    try:
-        state = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return "# My Current Task\n\nTask state corrupted."
-
-    lines = ["# My Current Task\n"]
-
-    if state.get("current"):
-        lines.append(f"- **Doing now:** {state['current']}")
-    if state.get("next"):
-        lines.append(f"- **Up next:** {state['next']}")
-    if state.get("done"):
-        for item in state["done"][-3:]:  # last 3 completed
-            lines.append(f"- [done] {item}")
-    if state.get("blocked"):
-        lines.append(f"- **BLOCKED:** {state['blocked']}")
-
-    return "\n".join(lines)
-
-
-def _build_journal_slot() -> str:
-    """Recent personal journal entries — things I chose to remember."""
-    try:
-        from divineos.core.memory_journal import journal_count, journal_list
-
-        count = journal_count()
-        if count == 0:
-            return ""  # Don't show empty slot
-
-        entries = journal_list(limit=3)
-        lines = [f"# My Journal ({count} entries)\n"]
-        for entry in entries:
-            content = entry["content"][:120]
-            lines.append(f"- {content}")
-        return "\n".join(lines)
-    except Exception:
-        return ""
-
-
-def _build_handoff_slot() -> str:
-    """Display the handoff note from the previous session, if any."""
-    from divineos.core.hud_handoff import load_handoff_note
-
-    note = load_handoff_note()
-    if not note:
-        return ""
-
-    lines = ["# Handoff from Last Session", ""]
-    if note.get("summary"):
-        lines.append(note["summary"])
-        lines.append("")
-    if note.get("open_threads"):
-        lines.append("**Open threads:**")
-        for thread in note["open_threads"]:
-            lines.append(f"  - {thread}")
-        lines.append("")
-    if note.get("mood"):
-        lines.append(f"*Session ended: {note['mood']}*")
-    if note.get("goals_state"):
-        lines.append(f"*Goals: {note['goals_state']}*")
-
-    return "\n".join(lines)
-
-
-def _build_growth_awareness_slot() -> str:
-    """How I'm evolving. Growth trend, tone patterns, and anticipation."""
-    lines: list[str] = []
-
-    # Growth trend
-    try:
-        from divineos.core.growth import compute_growth_map
-
-        growth = compute_growth_map(limit=10)
-        if growth["sessions"] >= 2:
-            icons = {"improving": "↑", "declining": "↓", "stable": "→"}
-            icon = icons.get(growth["trend"], "→")
-            lines.append("# My Growth\n")
-            lines.append(
-                f"**Trend:** {icon} {growth['trend']} over {growth['sessions']} sessions "
-                f"(avg score {growth['avg_health_score']:.2f})"
-            )
-            if growth.get("trend_detail"):
-                lines.append(f"  {growth['trend_detail']}")
-
-            # Tone insight
-            tone = growth.get("tone_insight", "")
-            if tone:
-                lines.append(f"**Tone:** {tone}")
-
-            # Milestones
-            lessons = growth.get("lessons", {})
-            resolved = lessons.get("resolved", 0)
-            if resolved > 0:
-                lines.append(f"**Milestones:** {resolved} lessons resolved")
-        else:
-            return ""
-    except Exception:
-        return ""
-
-    return "\n".join(lines)
+from divineos.core.hud_slots_extra import (  # noqa: E402
+    _build_affect_slot,
+    _build_claims_slot,
+    _build_decision_journal_slot,
+    _build_growth_awareness_slot,
+    _build_handoff_slot,
+    _build_journal_slot,
+    _build_task_state_slot,
+)
 
 
 # ─── Slot Registry ──────────────────────────────────────────────────
@@ -498,6 +388,9 @@ SLOT_BUILDERS = {
     "warnings": _build_warnings_slot,
     "task_state": _build_task_state_slot,
     "journal": _build_journal_slot,
+    "decision_journal": _build_decision_journal_slot,
+    "affect": _build_affect_slot,
+    "claims": _build_claims_slot,
 }
 
 
@@ -505,11 +398,7 @@ SLOT_BUILDERS = {
 
 
 def build_hud(slots: list[str] | None = None) -> str:
-    """Build the full HUD as a single text block.
-
-    All slots render simultaneously. This is my dashboard,
-    not a document I read top-to-bottom.
-    """
+    """Build the full HUD as a single text block."""
     slot_names = slots or SLOT_ORDER
     sections = []
 

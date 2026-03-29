@@ -28,6 +28,11 @@ DivineOS gives AI agents persistent memory, structured learning, and self-accoun
 | **Outcome Measurement** | Rework detection, knowledge stability (churn rate), correction trends, session health scoring. |
 | **Guardrails** | Runtime limits on iterations, tool calls, and tokens per session. |
 | **Extraction Noise Filter** | Prevents raw conversational quotes, affirmations, and system artifacts from becoming "knowledge." |
+| **Formal Logic Layer** | Warrants (evidence backing knowledge), logical relations (supports/contradicts/requires), consistency checking, and inference engine. |
+| **Validity Gate** | Blocks knowledge that lacks warrant support or has unresolved contradictions. |
+| **Defeat Lessons** | When knowledge is superseded or contradicted, extracts lessons from what went wrong. |
+| **Unified Knowledge Edges** | Single edge table linking knowledge entries with typed relationships and auto-created warrants. |
+| **Open Questions** | Tracks unresolved questions surfaced during sessions, with linking to related knowledge. |
 | **Lesson Tracking** | Lessons with occurrence counts, session tracking, status progression (active → improving → resolved). |
 | **Pattern Anticipation** | Detects recurring user patterns and surfaces proactive warnings. |
 | **Growth Awareness** | Tracks session-over-session improvement with milestone detection. |
@@ -74,6 +79,11 @@ divineos context             # Recent events (working memory)
 divineos verify              # Check ledger integrity
 divineos search KEYWORD      # Full-text search
 
+# Logic & reasoning
+divineos questions           # List open questions
+divineos question "..."      # Record an open question
+divineos question-resolve ID # Resolve an open question
+
 # Analysis
 divineos scan SESSION        # Deep-scan session, extract knowledge
 divineos analyze SESSION     # Quality report for a session
@@ -84,7 +94,7 @@ divineos patterns            # Cross-session quality patterns
 
 ```
 src/divineos/
-  cli/                         CLI package (54 commands across 10+ modules)
+  cli/                         CLI package (58 commands across 10+ modules)
     __init__.py                Entry point and command registration
     session_pipeline.py        SESSION_END orchestration pipeline
     knowledge_commands.py      learn, ask, briefing, forget, lessons
@@ -94,6 +104,7 @@ src/divineos/
     directive_commands.py      directive management
     relationship_commands.py   knowledge relationships
     knowledge_health_commands.py  health, distill, migrate
+    question_commands.py       Open question tracking commands
   seed.json                    Initial knowledge seed (versioned)
   core/
     ledger.py                  Append-only event store (SQLite, WAL mode)
@@ -111,6 +122,17 @@ src/divineos/
       feedback.py              Session feedback application
       migration.py             Knowledge type migration
       _text.py                 Text analysis utilities (FTS, overlap, noise)
+      edges.py                 Unified edge table (typed relations, auto-warrants)
+    logic/                     Formal logic sub-package
+      warrants.py              Evidence backing for knowledge claims
+      relations.py             Logical relations (supports/contradicts/requires)
+      consistency.py           Contradiction and cycle detection
+      inference.py             Forward-chaining inference engine
+      validity_gate.py         Blocks under-supported knowledge
+      defeat_lessons.py        Learn from superseded/contradicted knowledge
+      session_logic.py         Per-session logic pass (SESSION_END integration)
+      logic_summary.py         Logic health summary for HUD
+    questions.py               Open question tracking and resolution
     quality_gate.py            Session quality assessment before extraction
     knowledge_contradiction.py Contradiction detection and resolution
     knowledge_maturity.py      RAW → HYPOTHESIS → TESTED → CONFIRMED lifecycle
@@ -145,7 +167,7 @@ src/divineos/
   integration/                 IDE and MCP integration
   supersession/                Contradiction detection and resolution
   violations_cli/              Violation reporting CLI
-tests/                         1889 tests (real DB, no mocks)
+tests/                         2148 tests (real DB, no mocks)
 setup/                         Hook setup scripts
 ```
 
@@ -160,7 +182,7 @@ setup/                         Hook setup scripts
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (1889 tests, ~42s)
+pytest tests/ -q --tb=short   # Run tests (2148 tests, ~42s)
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```

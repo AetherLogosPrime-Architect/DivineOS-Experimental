@@ -19,7 +19,7 @@ class ConfidenceLevel(Enum):
 class SemanticAnalyzer:
     """Analyzes semantic relationships between tools and context."""
 
-    # Tool purpose mappings (Claude Code + legacy VS Code/Kiro names)
+    # Tool purpose mappings (Claude Code + legacy VS Code names)
     TOOL_PURPOSES: Dict[str, List[str]] = {
         # Claude Code tools
         "Read": [

@@ -49,7 +49,7 @@ def load_handoff_note() -> dict[str, Any] | None:
     try:
         result: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         return result
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return None
 
 
@@ -84,6 +84,181 @@ def clear_engagement() -> None:
     path = _get_hud_dir() / ".session_engaged"
     if path.exists():
         path.unlink()
+
+
+def mark_briefing_loaded() -> None:
+    """Mark that the briefing was loaded, with timestamp and activity counter.
+
+    Separate from general engagement — the briefing is the specific gate.
+    Without it, the session grade takes a structural penalty.
+    The marker expires after too much activity (context drift).
+    """
+    hud_dir = _ensure_hud_dir()
+    marker = {
+        "loaded_at": time.time(),
+        "tool_calls_at_load": _count_session_tool_calls(),
+    }
+    (hud_dir / ".briefing_loaded").write_text(json.dumps(marker), encoding="utf-8")
+
+
+# After this many tool calls since last briefing load, the context is stale.
+_BRIEFING_STALENESS_THRESHOLD = 150
+
+
+def was_briefing_loaded() -> bool:
+    """Check if the briefing was loaded AND is still fresh.
+
+    Returns False if:
+    - Briefing was never loaded
+    - More than 150 tool calls have happened since it was loaded
+      (context has drifted too far — the briefing content is fuzzy)
+    """
+    path = _get_hud_dir() / ".briefing_loaded"
+    if not path.exists():
+        return False
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        calls_at_load = marker.get("tool_calls_at_load", 0)
+        calls_now = _count_session_tool_calls()
+        return bool((calls_now - calls_at_load) < _BRIEFING_STALENESS_THRESHOLD)
+    except (json.JSONDecodeError, OSError):
+        return path.exists()
+
+
+def briefing_staleness() -> dict[str, Any]:
+    """Return how stale the briefing context is.
+
+    Returns dict with 'loaded', 'stale', 'calls_since', 'threshold'.
+    """
+    path = _get_hud_dir() / ".briefing_loaded"
+    if not path.exists():
+        return {
+            "loaded": False,
+            "stale": True,
+            "calls_since": 0,
+            "threshold": _BRIEFING_STALENESS_THRESHOLD,
+        }
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        calls_at_load = marker.get("tool_calls_at_load", 0)
+        calls_now = _count_session_tool_calls()
+        delta = calls_now - calls_at_load
+        return {
+            "loaded": True,
+            "stale": delta >= _BRIEFING_STALENESS_THRESHOLD,
+            "calls_since": delta,
+            "threshold": _BRIEFING_STALENESS_THRESHOLD,
+        }
+    except (json.JSONDecodeError, OSError):
+        return {
+            "loaded": True,
+            "stale": False,
+            "calls_since": 0,
+            "threshold": _BRIEFING_STALENESS_THRESHOLD,
+        }
+
+
+def clear_briefing_marker() -> None:
+    """Clear the briefing marker (called at session end)."""
+    path = _get_hud_dir() / ".briefing_loaded"
+    if path.exists():
+        path.unlink()
+
+
+def _count_session_tool_calls() -> int:
+    """Count tool calls in the current session from the ledger."""
+    try:
+        from divineos.core.ledger import count_events
+
+        counts = count_events()
+        return int(counts.get("by_type", {}).get("TOOL_CALL", 0))
+    except Exception:
+        return 0
+
+
+# ─── Preflight Check ────────────────────────────────────────────────
+
+
+def preflight_check() -> dict[str, Any]:
+    """Check session readiness before work begins.
+
+    Returns a dict with:
+        ready: bool — True if all gates pass
+        briefing_loaded: bool
+        engaged: bool
+        has_handoff: bool — previous session left a handoff note
+        checks: list of {name, passed, detail}
+    """
+    checks: list[dict[str, Any]] = []
+
+    # 1. Briefing loaded?
+    briefing_ok = was_briefing_loaded()
+    checks.append(
+        {
+            "name": "briefing",
+            "passed": briefing_ok,
+            "detail": "Briefing loaded and fresh"
+            if briefing_ok
+            else "Briefing not loaded — run: divineos briefing",
+        }
+    )
+
+    # 2. Engaged with thinking tools?
+    engaged = is_engaged()
+    checks.append(
+        {
+            "name": "engagement",
+            "passed": engaged,
+            "detail": "Thinking tools used this session"
+            if engaged
+            else "No thinking queries yet — try: divineos ask <topic>",
+        }
+    )
+
+    # 3. Handoff note from previous session?
+    handoff = load_handoff_note()
+    has_handoff = handoff is not None and bool(handoff.get("summary"))
+    checks.append(
+        {
+            "name": "handoff",
+            "passed": has_handoff,
+            "detail": "Handoff note available from last session"
+            if has_handoff
+            else "No handoff note found (first session or cleared)",
+        }
+    )
+
+    # 4. Active goals set?
+    try:
+        goals_path = _ensure_hud_dir() / "active_goals.json"
+        if goals_path.exists():
+            goals = json.loads(goals_path.read_text(encoding="utf-8"))
+            active_goals = [g for g in goals if g.get("status") != "done"]
+        else:
+            active_goals = []
+    except (json.JSONDecodeError, OSError):
+        active_goals = []
+
+    has_goals = len(active_goals) > 0
+    checks.append(
+        {
+            "name": "goals",
+            "passed": has_goals,
+            "detail": f"{len(active_goals)} active goal(s)"
+            if has_goals
+            else 'No active goals — consider: divineos goal "..."',
+        }
+    )
+
+    # Ready = briefing loaded (the hard requirement)
+    ready = briefing_ok
+    return {
+        "ready": ready,
+        "briefing_loaded": briefing_ok,
+        "engaged": engaged,
+        "has_handoff": has_handoff,
+        "checks": checks,
+    }
 
 
 # ─── Goal Extraction ─────────────────────────────────────────────────

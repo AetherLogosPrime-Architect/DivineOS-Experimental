@@ -5,6 +5,7 @@ from typing import Any
 import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
+import divineos.analysis.session_discovery as _discovery_mod
 from divineos.cli._helpers import _safe_echo
 from divineos.cli._wrappers import (
     _wrapped_apply_session_feedback,
@@ -16,23 +17,19 @@ from divineos.cli._wrappers import (
     _wrapped_store_knowledge,
     logger,
 )
+from divineos.cli.pipeline_gates import (
+    enforce_briefing_gate,
+    enforce_engagement_gate,
+    run_goal_extraction,
+    run_quality_gate,
+    write_handoff_note,
+)
 from divineos.core.memory import init_memory_tables
 
 
 def _run_session_end_pipeline() -> None:
-    """Post-SESSION_END learning pipeline.
-
-    Runs the full extract-consolidate-refresh cycle:
-    1. Analyze latest session file
-    2. Deep extract knowledge (corrections, preferences, decisions)
-    3. Store session episode + tool usage (with dedup)
-    4. Apply feedback (recurrence, reinforcement)
-    5. Run health check (boost confirmed, escalate recurring)
-    6. Consolidate related knowledge clusters
-    7. Refresh active memory for next session
-    8. Print session summary
-    """
-    session_files = _analyzer_mod.find_sessions()
+    """Post-SESSION_END learning pipeline — analyze, extract, consolidate, refresh."""
+    session_files = _discovery_mod.find_sessions()
     if not session_files:
         click.secho("[~] No session files found for auto-scan.", fg="bright_black")
         return
@@ -59,60 +56,25 @@ def _run_session_end_pipeline() -> None:
         analysis = _analyzer_mod.analyze_session(latest)
         _safe_echo(analysis.summary())
 
-        # 1b. Extract goals from user messages into HUD
-        try:
-            from divineos.core.hud_handoff import extract_goals_from_messages
-            from divineos.core.hud_state import add_goal
+        # 1b–1d. Enforcement gates (extracted to pipeline_gates.py)
+        run_goal_extraction(analysis)
+        enforce_briefing_gate()
+        enforce_engagement_gate()
 
-            extracted_goals = extract_goals_from_messages(analysis.user_message_texts)
-            for goal in extracted_goals:
-                add_goal(goal["text"], original_words=goal["original_words"])
-            if extracted_goals:
-                click.secho(
-                    f"[~] Captured {len(extracted_goals)} goals from user messages.", fg="cyan"
-                )
-        except Exception as e:
-            logger.warning(f"Goal extraction failed: {e}")
+        # 1e. Quality gate
+        quality_verdict, maturity_override, extract_allowed = run_quality_gate(latest)
+        if not extract_allowed:
+            try:
+                _wrapped_health_check()
+            except Exception as e:
+                logger.warning("Health check failed after quality gate block: %s", e)
+            try:
+                from divineos.core.hud import save_hud_snapshot
 
-        # 1c. Quality gate
-        quality_verdict = None
-        maturity_override = ""
-        try:
-            from divineos.analysis.quality_checks import run_all_checks
-            from divineos.analysis.quality_storage import store_report
-            from divineos.core.quality_gate import assess_session_quality, should_extract_knowledge
-
-            report = run_all_checks(latest)
-            store_report(report)
-            check_results = [
-                {"check_name": c.check_name, "passed": c.passed, "score": c.score}
-                for c in report.checks
-            ]
-            quality_verdict = assess_session_quality(check_results)
-            extract_allowed, maturity_override = should_extract_knowledge(quality_verdict)
-
-            if quality_verdict.action == "BLOCK":
-                click.secho(
-                    f"[!] Quality gate BLOCKED: {quality_verdict.reason}", fg="red", bold=True
-                )
-                click.secho("[!] Skipping knowledge extraction for this session.", fg="red")
-                try:
-                    _wrapped_health_check()
-                except Exception as e:
-                    logger.warning("Health check failed after quality gate block: %s", e)
-                try:
-                    from divineos.core.hud import save_hud_snapshot
-
-                    save_hud_snapshot()
-                except Exception as e:
-                    logger.debug(
-                        "HUD snapshot failed after quality gate block (best-effort): %s", e
-                    )
-                return
-            elif quality_verdict.action == "DOWNGRADE":
-                click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
-        except Exception as e:
-            logger.warning(f"Quality gate failed (allowing extraction): {e}")
+                save_hud_snapshot()
+            except Exception as e:
+                logger.debug("HUD snapshot failed after quality gate block (best-effort): %s", e)
+            return
 
         # 2. Deep extract
         records = _analyzer_mod._load_records(latest)
@@ -177,6 +139,55 @@ def _run_session_end_pipeline() -> None:
                 click.secho(f"[~] Auto-linked {len(auto_rels)} knowledge relationships.", fg="cyan")
         except Exception as e:
             logger.warning(f"Auto-relationship detection failed: {e}")
+
+        # 3d. Contradiction scan — check new knowledge against existing entries
+        contradictions_resolved = 0
+        try:
+            from divineos.core.knowledge import _get_connection as _get_conn_contra
+            from divineos.core.knowledge_contradiction import (
+                resolve_contradiction,
+                scan_for_contradictions,
+            )
+
+            valid_deep_ids = [did for did in deep_ids if did]
+            if valid_deep_ids:
+                conn_c = _get_conn_contra()
+                for did in valid_deep_ids:
+                    row = conn_c.execute(
+                        "SELECT content, knowledge_type FROM knowledge WHERE knowledge_id = ?",
+                        (did,),
+                    ).fetchone()
+                    if not row:
+                        continue
+                    new_content, new_type = row[0], row[1]
+                    # Get all non-superseded entries of the same type (excluding self)
+                    existing_rows = conn_c.execute(
+                        "SELECT knowledge_id, content, knowledge_type, superseded_by "
+                        "FROM knowledge WHERE knowledge_type = ? AND knowledge_id != ? "
+                        "AND superseded_by IS NULL",
+                        (new_type, did),
+                    ).fetchall()
+                    existing_entries = [
+                        {
+                            "knowledge_id": r[0],
+                            "content": r[1],
+                            "knowledge_type": r[2],
+                            "superseded_by": r[3],
+                        }
+                        for r in existing_rows
+                    ]
+                    matches = scan_for_contradictions(new_content, new_type, existing_entries)
+                    for match in matches:
+                        resolve_contradiction(did, match)
+                        contradictions_resolved += 1
+                conn_c.close()
+            if contradictions_resolved:
+                click.secho(
+                    f"[~] Resolved {contradictions_resolved} contradiction(s) in new knowledge.",
+                    fg="yellow",
+                )
+        except Exception as e:
+            logger.warning(f"Contradiction scan failed: {e}")
 
         # 4. Apply feedback
         feedback = _wrapped_apply_session_feedback(analysis, analysis.session_id)
@@ -366,6 +377,7 @@ def _run_session_end_pipeline() -> None:
         health: dict[str, Any] | None = None
         try:
             from divineos.agent_integration.outcome_measurement import measure_session_health
+            from divineos.core.hud_handoff import was_briefing_loaded
 
             health = measure_session_health(
                 corrections=len(analysis.corrections),
@@ -373,6 +385,7 @@ def _run_session_end_pipeline() -> None:
                 context_overflows=len(analysis.context_overflows),
                 tool_calls=analysis.tool_calls_total,
                 user_messages=analysis.user_messages,
+                briefing_loaded=was_briefing_loaded(),
             )
             grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
 
@@ -390,29 +403,15 @@ def _run_session_end_pipeline() -> None:
             health = None
             logger.warning(f"Session health scoring failed: {e}")
 
-        # 8b. Engagement check
+        # 8b. (Engagement now enforced at step 1d — no soft check needed here)
+
+        # 8b2. Clean up briefing marker for next session
         try:
-            from divineos.core.hud_handoff import is_engaged
+            from divineos.core.hud_handoff import clear_briefing_marker
 
-            if not is_engaged():
-                from divineos.core.knowledge import record_lesson
-
-                record_lesson(
-                    category="blind_coding",
-                    description=(
-                        "I coded through an entire session without consulting the OS "
-                        "(ask, recall, directives, briefing). "
-                        f"Session {analysis.session_id[:12]}."
-                    ),
-                    session_id=analysis.session_id,
-                )
-                click.secho(
-                    "[!] No thinking queries this session — recorded as blind_coding lesson.",
-                    fg="red",
-                    bold=True,
-                )
+            clear_briefing_marker()
         except Exception as e:
-            logger.warning(f"Engagement check failed: {e}")
+            logger.warning(f"Briefing marker cleanup failed: {e}")
 
         # 8c. Session-end corroboration sweep
         try:
@@ -557,6 +556,7 @@ def _run_session_end_pipeline() -> None:
             click.secho("[~] Handoff note saved for next session.", fg="cyan")
         except Exception as e:
             logger.warning(f"Handoff note failed: {e}")
+        write_handoff_note(analysis, stored, health)
 
         # 10. Session summary
         click.secho("\n=== Session Complete ===", fg="cyan", bold=True)
