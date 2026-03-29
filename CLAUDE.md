@@ -129,6 +129,7 @@ src/divineos/
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
 tests/                        # 2075 tests (real DB, no mocks)
+tests/                        # 2075 tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
