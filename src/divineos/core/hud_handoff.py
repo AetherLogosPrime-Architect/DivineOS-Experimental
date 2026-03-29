@@ -49,7 +49,7 @@ def load_handoff_note() -> dict[str, Any] | None:
     try:
         result: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         return result
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return None
 
 
@@ -121,7 +121,7 @@ def was_briefing_loaded() -> bool:
         calls_at_load = marker.get("tool_calls_at_load", 0)
         calls_now = _count_session_tool_calls()
         return bool((calls_now - calls_at_load) < _BRIEFING_STALENESS_THRESHOLD)
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return path.exists()
 
 
@@ -149,7 +149,7 @@ def briefing_staleness() -> dict[str, Any]:
             "calls_since": delta,
             "threshold": _BRIEFING_STALENESS_THRESHOLD,
         }
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return {
             "loaded": True,
             "stale": False,
@@ -236,7 +236,7 @@ def preflight_check() -> dict[str, Any]:
             active_goals = [g for g in goals if g.get("status") != "done"]
         else:
             active_goals = []
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         active_goals = []
 
     has_goals = len(active_goals) > 0

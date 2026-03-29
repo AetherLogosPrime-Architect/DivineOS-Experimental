@@ -111,7 +111,7 @@ def register(cli: click.Group) -> None:
 
         try:
             goals = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             goals = []
 
         if not goals:

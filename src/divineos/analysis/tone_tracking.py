@@ -59,7 +59,7 @@ def classify_all_user_tones(records: list[dict[str, Any]]) -> list[dict[str, Any
         from divineos.core.tone_texture import classify_tone_rich
 
         use_rich = True
-    except Exception:
+    except ImportError:
         use_rich = False
 
     result: list[dict[str, Any]] = []
@@ -109,7 +109,7 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
         from divineos.core.tone_texture import classify_tone_rich
 
         use_rich = True
-    except Exception:
+    except ImportError:
         use_rich = False
 
     user_messages: list[dict[str, Any]] = []

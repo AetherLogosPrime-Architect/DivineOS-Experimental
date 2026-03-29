@@ -117,7 +117,7 @@ def complete_goal(text: str) -> bool:
 
     try:
         goals = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return False
 
     found = False
@@ -164,7 +164,7 @@ def get_session_plan() -> dict[str, Any] | None:
     try:
         result: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         return result
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         return None
 
 

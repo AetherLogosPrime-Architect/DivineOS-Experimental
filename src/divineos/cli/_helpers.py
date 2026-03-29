@@ -301,7 +301,7 @@ def _print_events(events: list[dict[str, Any]], highlight: str | None = None) ->
         try:
             dt = datetime.fromtimestamp(ts, tz=timezone.utc)
             time_str = dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-        except Exception:
+        except (ValueError, OSError, TypeError):
             time_str = str(ts)
 
         actor = event["actor"].upper()
