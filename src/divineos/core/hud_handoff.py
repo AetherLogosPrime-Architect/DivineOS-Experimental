@@ -176,6 +176,91 @@ def _count_session_tool_calls() -> int:
         return 0
 
 
+# ─── Preflight Check ────────────────────────────────────────────────
+
+
+def preflight_check() -> dict[str, Any]:
+    """Check session readiness before work begins.
+
+    Returns a dict with:
+        ready: bool — True if all gates pass
+        briefing_loaded: bool
+        engaged: bool
+        has_handoff: bool — previous session left a handoff note
+        checks: list of {name, passed, detail}
+    """
+    checks: list[dict[str, Any]] = []
+
+    # 1. Briefing loaded?
+    briefing_ok = was_briefing_loaded()
+    checks.append(
+        {
+            "name": "briefing",
+            "passed": briefing_ok,
+            "detail": "Briefing loaded and fresh"
+            if briefing_ok
+            else "Briefing not loaded — run: divineos briefing",
+        }
+    )
+
+    # 2. Engaged with thinking tools?
+    engaged = is_engaged()
+    checks.append(
+        {
+            "name": "engagement",
+            "passed": engaged,
+            "detail": "Thinking tools used this session"
+            if engaged
+            else "No thinking queries yet — try: divineos ask <topic>",
+        }
+    )
+
+    # 3. Handoff note from previous session?
+    handoff = load_handoff_note()
+    has_handoff = handoff is not None and bool(handoff.get("summary"))
+    checks.append(
+        {
+            "name": "handoff",
+            "passed": has_handoff,
+            "detail": "Handoff note available from last session"
+            if has_handoff
+            else "No handoff note found (first session or cleared)",
+        }
+    )
+
+    # 4. Active goals set?
+    try:
+        goals_path = _ensure_hud_dir() / "active_goals.json"
+        if goals_path.exists():
+            goals = json.loads(goals_path.read_text(encoding="utf-8"))
+            active_goals = [g for g in goals if g.get("status") != "done"]
+        else:
+            active_goals = []
+    except Exception:
+        active_goals = []
+
+    has_goals = len(active_goals) > 0
+    checks.append(
+        {
+            "name": "goals",
+            "passed": has_goals,
+            "detail": f"{len(active_goals)} active goal(s)"
+            if has_goals
+            else 'No active goals — consider: divineos goal "..."',
+        }
+    )
+
+    # Ready = briefing loaded (the hard requirement)
+    ready = briefing_ok
+    return {
+        "ready": ready,
+        "briefing_loaded": briefing_ok,
+        "engaged": engaged,
+        "has_handoff": has_handoff,
+        "checks": checks,
+    }
+
+
 # ─── Goal Extraction ─────────────────────────────────────────────────
 
 # Patterns that signal a user is asking for something to be done.
