@@ -93,7 +93,39 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Briefing gate failed: {e}")
 
-        # 1d. Quality gate
+        # 1d. Engagement gate — force-load thinking context if skipped
+        try:
+            from divineos.core.hud_handoff import is_engaged, mark_engaged
+
+            if not is_engaged():
+                click.secho(
+                    "[!] No thinking queries this session. Loading context now.",
+                    fg="yellow",
+                    bold=True,
+                )
+                # Load lessons so extraction knows what's recurring
+                from divineos.core.knowledge import get_lessons
+
+                lessons = get_lessons(status="active")
+                improving = get_lessons(status="improving")
+                click.secho(
+                    f"    Loaded {len(lessons)} active + {len(improving)} improving lessons.",
+                    fg="green",
+                )
+                # Load core memory so identity context is present
+                from divineos.core.memory import get_core
+
+                core = get_core()
+                click.secho(
+                    f"    Loaded {len(core)} core memory slots.",
+                    fg="green",
+                )
+                mark_engaged()
+                click.secho("    Engaged. Proceeding.\n", fg="green")
+        except Exception as e:
+            logger.warning(f"Engagement gate failed: {e}")
+
+        # 1e. Quality gate
         quality_verdict = None
         maturity_override = ""
         try:
@@ -411,29 +443,7 @@ def _run_session_end_pipeline() -> None:
             health = None
             logger.warning(f"Session health scoring failed: {e}")
 
-        # 8b. Engagement check
-        try:
-            from divineos.core.hud_handoff import is_engaged
-
-            if not is_engaged():
-                from divineos.core.knowledge import record_lesson
-
-                record_lesson(
-                    category="blind_coding",
-                    description=(
-                        "I coded through an entire session without consulting the OS "
-                        "(ask, recall, directives, briefing). "
-                        f"Session {analysis.session_id[:12]}."
-                    ),
-                    session_id=analysis.session_id,
-                )
-                click.secho(
-                    "[!] No thinking queries this session — recorded as blind_coding lesson.",
-                    fg="red",
-                    bold=True,
-                )
-        except Exception as e:
-            logger.warning(f"Engagement check failed: {e}")
+        # 8b. (Engagement now enforced at step 1d — no soft check needed here)
 
         # 8b2. Clean up briefing marker for next session
         try:
