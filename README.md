@@ -168,7 +168,6 @@ src/divineos/
   supersession/                Contradiction detection and resolution
   violations_cli/              Violation reporting CLI
 tests/                         2075 tests (real DB, no mocks)
-tests/                         2075 tests (real DB, no mocks)
 setup/                         Hook setup scripts
 ```
 
@@ -183,7 +182,6 @@ setup/                         Hook setup scripts
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (2075 tests, ~42s)
 pytest tests/ -q --tb=short   # Run tests (2075 tests, ~42s)
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
