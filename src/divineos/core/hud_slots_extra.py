@@ -2,7 +2,7 @@
 
 import json
 
-from divineos.core.hud import _ensure_hud_dir
+from divineos.core._hud_io import _ensure_hud_dir
 
 
 def _build_task_state_slot() -> str:

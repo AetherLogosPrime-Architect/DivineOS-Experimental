@@ -1,29 +1,14 @@
 """Heads-Up Display — dense context dashboard for session start."""
 
 import json
-import os
 from pathlib import Path
 
 from loguru import logger
 
-# ─── HUD Storage ────────────────────────────────────────────────────
-
-
-def _get_hud_dir() -> Path:
-    """Resolve HUD directory from current DB path."""
-    env_path = os.environ.get("DIVINEOS_DB")
-    if env_path:
-        return Path(env_path).parent / "hud"
-
-    from divineos.core.ledger import DB_PATH
-
-    return DB_PATH.parent / "hud"
-
-
-def _ensure_hud_dir() -> Path:
-    hud_dir = _get_hud_dir()
-    hud_dir.mkdir(parents=True, exist_ok=True)
-    return hud_dir
+from divineos.core._hud_io import (  # noqa: F401 — re-exported for backward compat
+    _ensure_hud_dir as _ensure_hud_dir,
+    _get_hud_dir as _get_hud_dir,
+)
 
 
 # ─── Slot Definitions ───────────────────────────────────────────────
