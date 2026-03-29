@@ -426,23 +426,3 @@ class AgentMemoryMonitor:
         except Exception as e:
             logger.error(f"Failed to end session: {e}")
             raise
-
-
-# Backward compatibility: re-export from memory_actions
-# so existing `from divineos.agent_integration.memory_monitor import X` still works.
-from divineos.agent_integration.memory_actions import (  # noqa: F401, E402
-    get_memory_monitor,
-    load_context,
-    check_token_usage,
-    save_checkpoint,
-    compress,
-    end_session,
-)
-import divineos.agent_integration.memory_actions as _actions_module  # noqa: E402
-
-
-def __getattr__(name: str):
-    """Proxy _monitor and _monitor_lock reads to memory_actions."""
-    if name in ("_monitor", "_monitor_lock"):
-        return getattr(_actions_module, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

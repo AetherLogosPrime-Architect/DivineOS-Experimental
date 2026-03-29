@@ -9,7 +9,7 @@ Property 4: Token budget enforcement
 """
 
 import divineos.agent_integration.memory_actions as memory_monitor_module
-from divineos.agent_integration.memory_monitor import (
+from divineos.agent_integration.memory_actions import (
     get_memory_monitor,
 )
 

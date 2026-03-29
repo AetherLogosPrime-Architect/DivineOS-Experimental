@@ -5,6 +5,7 @@ from typing import Any
 import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
+import divineos.analysis.session_discovery as _discovery_mod
 from divineos.cli._helpers import _safe_echo
 from divineos.cli._wrappers import (
     _wrapped_apply_session_feedback,
@@ -28,7 +29,7 @@ from divineos.core.memory import init_memory_tables
 
 def _run_session_end_pipeline() -> None:
     """Post-SESSION_END learning pipeline — analyze, extract, consolidate, refresh."""
-    session_files = _analyzer_mod.find_sessions()
+    session_files = _discovery_mod.find_sessions()
     if not session_files:
         click.secho("[~] No session files found for auto-scan.", fg="bright_black")
         return
