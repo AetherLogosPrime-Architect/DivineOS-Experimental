@@ -15,6 +15,7 @@ Recursive Event Capture Prevention:
 - Prevents stack overflow and infinite loops in event capture
 """
 
+import json
 import threading
 from typing import Any
 
@@ -167,6 +168,11 @@ def emit_tool_call(
             tool_use_id = str(uuid.uuid4())
 
         timestamp = get_current_timestamp()
+
+        # Size guard: truncate oversized tool_input to prevent DB bloat.
+        # Full conversation contexts were being dumped as tool_input (80MB+).
+        tool_input = _truncate_payload(tool_input, max_bytes=50_000)
+
         payload = {
             "tool_name": tool_name,
             "tool_input": tool_input,
@@ -225,6 +231,10 @@ def emit_tool_result(
     try:
         session_id = get_or_create_session_id(session_id)
         timestamp = get_current_timestamp()
+        # Size guard: truncate oversized results to prevent DB bloat.
+        if len(result) > 50_000:
+            result = result[:50_000] + f"\n[TRUNCATED: {len(result)} chars -> 50000]"
+
         payload = {
             "tool_name": tool_name,
             "tool_use_id": tool_use_id,
@@ -421,6 +431,42 @@ def emit_clarity_violation(
     except Exception as e:
         logger.error(f"Unexpected error emitting CLARITY_VIOLATION event: {e}")
         raise
+
+
+# ─── Payload Size Guard ───────────────────────────────────────────────
+
+_MAX_PAYLOAD_BYTES = 50_000
+
+
+def _truncate_payload(data: dict[str, Any], max_bytes: int = _MAX_PAYLOAD_BYTES) -> dict[str, Any]:
+    """Truncate a payload dict if its JSON serialization exceeds max_bytes.
+
+    Replaces the largest string values with truncation markers until
+    the payload fits. Prevents DB bloat from oversized tool inputs.
+    """
+    serialized = json.dumps(data, default=str)
+    if len(serialized) <= max_bytes:
+        return data
+
+    # Deep copy to avoid mutating the caller's dict
+    import copy
+
+    truncated = copy.deepcopy(data)
+
+    # Find and truncate the largest string values
+    for key in sorted(truncated, key=lambda k: len(str(truncated[k])), reverse=True):
+        val = truncated[key]
+        if isinstance(val, str) and len(val) > 500:
+            truncated[key] = val[:500] + f"[TRUNCATED: {len(val)} chars]"
+        elif isinstance(val, (dict, list)):
+            val_str = json.dumps(val, default=str)
+            if len(val_str) > 1000:
+                truncated[key] = f"[TRUNCATED {type(val).__name__}: {len(val_str)} chars]"
+
+        if len(json.dumps(truncated, default=str)) <= max_bytes:
+            break
+
+    return truncated
 
 
 # Re-export dispatcher components for backward compatibility
