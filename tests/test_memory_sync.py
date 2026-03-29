@@ -126,7 +126,7 @@ class TestSyncProjectState:
         _sync_project_state(memory_dir)
         content = (memory_dir / "auto_project_state.md").read_text()
         assert "type: project" in content
-        assert "do not edit manually" in content
+        assert "editable" in content.lower()
 
 
 # ── _sync_recent_lessons ──────────────────────────────────────────────

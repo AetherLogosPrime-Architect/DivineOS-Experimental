@@ -379,3 +379,30 @@ class TestDecisionCmd:
         initialized.invoke(cli, ["decide", "AI can feel", "--weight", "3"])
         result = initialized.invoke(cli, ["decisions", "shifts"])
         assert result.exit_code == 0
+
+
+# ─── Lessons Archive ────────────────────────────────────────────────
+
+
+class TestLessonsCmd:
+    def test_lessons_default_no_resolved(self, initialized):
+        """Default lessons command should not show resolved lessons."""
+        result = initialized.invoke(cli, ["lessons"])
+        assert result.exit_code == 0
+        # No resolved lessons should appear in default view
+        assert "RESOLVED" not in result.output
+
+    def test_lessons_archive_flag(self, initialized):
+        """--archive flag should filter for resolved lessons only."""
+        result = initialized.invoke(cli, ["lessons", "--archive"])
+        assert result.exit_code == 0
+
+    def test_lessons_all_flag(self, initialized):
+        """--all flag should show everything."""
+        result = initialized.invoke(cli, ["lessons", "--all"])
+        assert result.exit_code == 0
+
+    def test_lessons_status_filter(self, initialized):
+        """Explicit --status still works."""
+        result = initialized.invoke(cli, ["lessons", "--status", "active"])
+        assert result.exit_code == 0

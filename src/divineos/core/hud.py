@@ -88,12 +88,21 @@ def _build_active_goals_slot() -> str:
             lines.append(f"  (Estimates: {', '.join(parts)})")
         lines.append("")
 
-    for i, goal in enumerate(goals, 1):
-        status = goal.get("status", "active")
-        marker = "[x]" if status == "done" else "[ ]"
-        lines.append(f"{i}. {marker} {goal.get('text', '???')}")
+    active_goals = [g for g in goals if g.get("status", "active") != "done"]
+    done_goals = [g for g in goals if g.get("status", "active") == "done"]
+
+    if not active_goals and done_goals:
+        lines.append("All goals completed! Time for new ones.")
+        lines.append(f"({len(done_goals)} done — use 'divineos goal clear' to archive)")
+        return "\n".join(lines)
+
+    for i, goal in enumerate(active_goals, 1):
+        lines.append(f"{i}. [ ] {goal.get('text', '???')}")
         if goal.get("original_words"):
             lines.append(f'   (User\'s words: "{goal["original_words"]}")')
+
+    if done_goals:
+        lines.append(f"\n({len(done_goals)} completed — use 'divineos goal clear' to archive)")
 
     return "\n".join(lines)
 
