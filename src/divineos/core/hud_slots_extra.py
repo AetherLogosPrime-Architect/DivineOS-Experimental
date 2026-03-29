@@ -1,8 +1,11 @@
 """Extra HUD slot builders — task state, journal, handoff, growth."""
 
 import json
+import sqlite3
 
 from divineos.core._hud_io import _ensure_hud_dir
+
+_HUD_ERRORS = (ImportError, sqlite3.OperationalError, json.JSONDecodeError, OSError)
 
 
 def _build_task_state_slot() -> str:
@@ -46,7 +49,7 @@ def _build_journal_slot() -> str:
             content = entry["content"][:120]
             lines.append(f"- {content}")
         return "\n".join(lines)
-    except Exception:
+    except _HUD_ERRORS:
         return ""
 
 
@@ -78,7 +81,7 @@ def _build_affect_slot() -> str:
             lines.append(f"**Latest:** {desc}")
 
         return "\n".join(lines)
-    except Exception:
+    except _HUD_ERRORS:
         return ""
 
 
@@ -106,7 +109,7 @@ def _build_claims_slot() -> str:
             lines.append(f"  - [{claim['tier_label']}] {claim['statement'][:80]}")
 
         return "\n".join(lines)
-    except Exception:
+    except _HUD_ERRORS:
         return ""
 
 
@@ -142,7 +145,7 @@ def _build_decision_journal_slot() -> str:
                 lines.append(f"  - {entry['content'][:100]}")
 
         return "\n".join(lines)
-    except Exception:
+    except _HUD_ERRORS:
         return ""
 
 
@@ -200,7 +203,7 @@ def _build_growth_awareness_slot() -> str:
                 lines.append(f"**Milestones:** {resolved} lessons resolved")
         else:
             return ""
-    except Exception:
+    except _HUD_ERRORS:
         return ""
 
     return "\n".join(lines)

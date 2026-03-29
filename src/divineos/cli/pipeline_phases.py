@@ -4,6 +4,7 @@ Each function is a self-contained phase of the SESSION_END pipeline.
 They handle their own errors (log + continue) so the orchestrator stays clean.
 """
 
+import sqlite3
 from typing import Any
 
 import click
@@ -18,6 +19,9 @@ from divineos.cli._wrappers import (
     _wrapped_store_knowledge,
 )
 from divineos.core.memory import init_memory_tables
+
+# Pipeline phases catch at integration boundaries — these are the real failure modes.
+_PHASE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError)
 
 
 # ─── Phase 3: Post-extraction processing ─────────────────────────────
@@ -47,7 +51,7 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
             click.secho(
                 f"[~] Downgraded {len(deep_ids)} entries to {maturity_override}.", fg="yellow"
             )
-        except Exception as e:
+        except _PHASE_ERRORS as e:
             logger.warning(f"Maturity override failed: {e}")
 
     # 3c. Auto-detect relationships
@@ -58,7 +62,7 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
         auto_rels = auto_detect_relationships(valid_ids)
         if auto_rels:
             click.secho(f"[~] Auto-linked {len(auto_rels)} knowledge relationships.", fg="cyan")
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Auto-relationship detection failed: {e}")
 
     # 3d. Contradiction scan
@@ -68,7 +72,7 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
         resolved = run_contradiction_scan(deep_ids)
         if resolved:
             click.secho(f"[~] Resolved {resolved} contradiction(s) in new knowledge.", fg="yellow")
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Contradiction scan failed: {e}")
 
     return 0, auto_rels
@@ -116,7 +120,7 @@ def run_feedback_cycle(
             fb_id = store_feedback_as_knowledge(analysis.session_id, session_feedback, session_tag)
             if fb_id:
                 extra_stored += 1
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Session feedback failed: {e}")
 
     # 4c. Clarity pipeline
@@ -161,7 +165,7 @@ def run_feedback_cycle(
                 f"{len(clarity_result['recommendations'])} recommendations.",
                 fg="cyan",
             )
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Clarity pipeline failed: {e}")
 
     return feedback_parts, session_feedback, clarity_summary, extra_stored
@@ -193,7 +197,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
             hc_parts.append(f"{hc['contradiction_flagged']} contradiction flagged")
         if hc_parts:
             click.secho(f"[~] Health: {', '.join(hc_parts)}", fg="cyan")
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Health check failed: {e}")
 
     # 5b. Maturity cycle
@@ -210,7 +214,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
                 mat = entry.get("maturity", "RAW")
                 if mat in ("TESTED", "CONFIRMED"):
                     promoted_ids.append(entry["knowledge_id"])
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Maturity cycle failed: {e}")
 
     # 5c. Logic pass
@@ -227,7 +231,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
         click.secho(f"[~] {logic_line}", fg="cyan")
         for detail in logic_result.details[:5]:
             click.secho(f"     {detail}", fg="bright_black")
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Logic pass failed: {e}")
 
     # 5d. Auto-answer check
@@ -252,7 +256,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
                     click.secho(
                         f"[?] New knowledge may answer: {c['question'][:80]}...", fg="yellow"
                     )
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Auto-answer check failed: {e}")
 
     return promoted_ids
@@ -271,7 +275,7 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
         merges = _wrapped_consolidate_related(min_cluster_size=3)
         if merges:
             click.secho(f"[~] Consolidated {len(merges)} clusters of related knowledge.", fg="cyan")
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Consolidation failed: {e}")
 
     # 7. Refresh active memory
@@ -282,7 +286,7 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
         refresh = _wrapped_refresh_active_memory(importance_threshold=0.3)
         promoted = refresh["promoted"]
         demoted = refresh["demoted"]
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Memory refresh failed: {e}")
 
     # 7b. Refresh core memory
@@ -293,7 +297,7 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
         updated_slots = [s for s, changed in core_updates.items() if changed]
         if updated_slots:
             click.secho(f"[~] Core memory refreshed: {', '.join(updated_slots)}", fg="cyan")
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Core memory refresh failed: {e}")
 
     return promoted, demoted
@@ -330,9 +334,9 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
                 encouragements=len(analysis.encouragements),
                 grade=health["grade"],
             )
-        except Exception as e:
+        except _PHASE_ERRORS as e:
             logger.debug("HUD session health update failed (best-effort): %s", e)
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Session health scoring failed: {e}")
 
     # 8b2. Clear briefing marker
@@ -340,7 +344,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         from divineos.core.hud_handoff import clear_briefing_marker
 
         clear_briefing_marker()
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Briefing marker cleanup failed: {e}")
 
     # 8c. Corroboration sweep
@@ -367,7 +371,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
                 f"[~] Corroborated {corroborated} knowledge entries (accessed 2+ times).",
                 fg="cyan",
             )
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Session-end corroboration sweep failed: {e}")
 
     return health
@@ -387,7 +391,7 @@ def run_session_finalization(
         clear_session_plan()
         clear_engagement()
         click.secho("[~] HUD snapshot saved.", fg="cyan")
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"HUD snapshot save failed: {e}")
 
     # 9b. Growth metrics
@@ -407,7 +411,7 @@ def run_session_finalization(
             health_score=health["score"] if health else 0.0,
             engaged=is_engaged(),
         )
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Session metrics recording failed: {e}")
 
     # 9c. Tone texture
@@ -421,7 +425,7 @@ def run_session_finalization(
             record_session_tone(analysis.session_id, arc)
             if arc.get("narrative"):
                 _safe_echo(f"  Tone: {arc['narrative']}")
-    except Exception as e:
+    except _PHASE_ERRORS as e:
         logger.warning(f"Tone texture recording failed: {e}")
 
     # 9d. Handoff note

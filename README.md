@@ -94,7 +94,7 @@ divineos patterns            # Cross-session quality patterns
 
 ```
 src/divineos/
-  cli/                         CLI package (66 commands across 10+ modules)
+  cli/                         CLI package (67 commands across 10+ modules)
     __init__.py                Entry point and command registration
     session_pipeline.py        SESSION_END orchestrator (calls phases)
     pipeline_gates.py          Enforcement gates (quality, briefing, engagement)

@@ -5,10 +5,13 @@ on sequencing, not on gate/enforcement/handoff details.
 """
 
 import json
+import sqlite3
 from typing import Any
 
 import click
 from loguru import logger
+
+_GATE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError)
 
 
 def run_goal_extraction(analysis: Any) -> None:
@@ -22,7 +25,7 @@ def run_goal_extraction(analysis: Any) -> None:
             add_goal(goal["text"], original_words=goal["original_words"])
         if extracted_goals:
             click.secho(f"[~] Captured {len(extracted_goals)} goals from user messages.", fg="cyan")
-    except Exception as e:
+    except _GATE_ERRORS as e:
         logger.warning(f"Goal extraction failed: {e}")
 
 
@@ -48,7 +51,7 @@ def enforce_briefing_gate() -> None:
             click.secho("    Briefing loaded. Proceeding.\n", fg="green")
         # Always reset the staleness counter so step 8 sees a fresh briefing.
         mark_briefing_loaded()
-    except Exception as e:
+    except _GATE_ERRORS as e:
         logger.warning(f"Briefing gate failed: {e}")
 
 
@@ -79,7 +82,7 @@ def enforce_engagement_gate() -> None:
             )
             mark_engaged()
             click.secho("    Engaged. Proceeding.\n", fg="green")
-    except Exception as e:
+    except _GATE_ERRORS as e:
         logger.warning(f"Engagement gate failed: {e}")
 
 
@@ -114,7 +117,7 @@ def run_quality_gate(
             return quality_verdict, maturity_override, False
         elif quality_verdict.action == "DOWNGRADE":
             click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
-    except Exception as e:
+    except _GATE_ERRORS as e:
         logger.warning(f"Quality gate failed (allowing extraction): {e}")
 
     return quality_verdict, maturity_override, True
@@ -227,5 +230,5 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
             session_id=analysis.session_id,
         )
         click.secho("[~] Handoff note saved for next session.", fg="cyan")
-    except Exception as e:
+    except _GATE_ERRORS as e:
         logger.warning(f"Handoff note failed: {e}")

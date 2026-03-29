@@ -4,6 +4,8 @@ This file is the orchestrator. Each phase is a single function call to
 pipeline_gates.py (enforcement) or pipeline_phases.py (heavy lifting).
 """
 
+import sqlite3
+
 import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
@@ -54,7 +56,7 @@ def _run_session_end_pipeline() -> None:
         ).fetchall()
         access_snapshot = {r[0]: r[1] for r in _snap_rows}
         _snap_conn.close()
-    except Exception as e:
+    except (ImportError, sqlite3.OperationalError) as e:
         logger.debug("Access snapshot unavailable (corroboration sweep will skip delta): %s", e)
 
     try:
@@ -70,13 +72,13 @@ def _run_session_end_pipeline() -> None:
         if not extract_allowed:
             try:
                 _wrapped_health_check()
-            except Exception as e:
+            except (ImportError, sqlite3.OperationalError) as e:
                 logger.warning("Health check failed after quality gate block: %s", e)
             try:
                 from divineos.core.hud import save_hud_snapshot
 
                 save_hud_snapshot()
-            except Exception as e:
+            except (ImportError, OSError) as e:
                 logger.debug("HUD snapshot failed after quality gate block: %s", e)
             return
 
