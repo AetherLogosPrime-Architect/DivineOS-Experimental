@@ -278,6 +278,35 @@ def register(cli: click.Group) -> None:
         )
         click.echo()
 
+    @cli.command("backfill-warrants")
+    @click.option(
+        "--execute",
+        is_flag=True,
+        help="Actually create warrants (default is dry-run)",
+    )
+    def backfill_warrants_cmd(execute: bool) -> None:
+        """Give pre-existing knowledge entries INHERITED warrants.
+
+        Entries created before the warrant system have no justification chain.
+        This creates an INHERITED warrant for each unwarranted entry.
+        """
+        from divineos.core.logic.warrant_backfill import backfill_inherited_warrants
+
+        dry_run = not execute
+        if dry_run:
+            click.secho("\n=== Warrant Backfill Preview (dry run) ===\n", fg="cyan", bold=True)
+
+        counts = backfill_inherited_warrants(dry_run=dry_run)
+        click.secho(f"  Checked:          {counts['checked']}", fg="white")
+        click.secho(f"  Already warranted: {counts['already_warranted']}", fg="bright_black")
+
+        if dry_run:
+            click.secho(f"  Would backfill:   {counts['backfilled']}", fg="yellow")
+            click.secho("\n  Run with --execute to apply.", fg="bright_black")
+        else:
+            click.secho(f"  Backfilled:       {counts['backfilled']}", fg="green")
+        click.echo()
+
     @cli.command("migrate-types")
     @click.option(
         "--execute",
