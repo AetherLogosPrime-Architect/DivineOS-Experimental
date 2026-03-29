@@ -71,28 +71,10 @@ class ActivityBreakdown:
     summary: str = ""
 
 
-@dataclass
-class TaskTracking:
-    """Request vs delivery comparison."""
-
-    initial_request: str
-    files_changed: int
-    user_satisfied: int  # 1=positive, 0=neutral, -1=negative
-    summary: str = ""
-
-
-@dataclass
-class ErrorRecoveryEntry:
-    """What the AI did after an error."""
-
-    error_timestamp: str
-    tool_name: str
-    error_summary: str
-    recovery_action: str  # retry, investigate, different_approach, ignore
-
-
-# Late import to avoid circular dependency — session_features_extra imports
-# the dataclasses above from this module.
+from divineos.analysis._session_types import (  # noqa: E402
+    ErrorRecoveryEntry,
+    TaskTracking,
+)
 from divineos.analysis.session_features_extra import (  # noqa: E402
     analyze_error_recovery as analyze_error_recovery,
     analyze_request_delivery as analyze_request_delivery,

@@ -22,6 +22,11 @@ from divineos.core.ledger import get_events
 from divineos.agent_integration.pattern_store import PatternStore
 from divineos.agent_integration.learning_audit_store import LearningAuditStore
 from divineos.agent_integration.decision_store import DecisionStore
+from divineos.agent_integration.pattern_validation import (
+    detect_invalidation as _detect_invalidation,
+    detect_conflicts as _detect_conflicts,
+    generate_humility_audit as _generate_humility_audit,
+)
 
 # Import monitoring
 try:
@@ -275,197 +280,35 @@ class LearningCycle:
             self.logger.error(f"Failed to update existing patterns: {e}")
 
     def detect_invalidation(self) -> list[str]:
-        """Detect and archive failed/outdated patterns.
-
-        Archives patterns that:
-        - Failed 3+ times (tactical patterns)
-        - Have confidence < -0.5 (anti-patterns)
-
-        Returns:
-            List of archived pattern IDs
-        """
+        """Detect and archive failed/outdated patterns. Delegates to pattern_validation."""
         try:
-            archived_patterns = []
-
-            all_patterns = self.pattern_store.get_all_patterns()
-
-            for pattern in all_patterns:
-                pattern_id = pattern.get("pattern_id", "")
-                if not pattern_id:
-                    continue
-                confidence = pattern.get("confidence", 0.0)
-                pattern_type = pattern.get("pattern_type")
-
-                should_archive = False
-                reason = ""
-                delta = 0.0
-
-                if confidence < self.CONFIDENCE_ARCHIVE_THRESHOLD:
-                    should_archive = True
-                    reason = f"Anti-pattern (confidence: {confidence:.2f})"
-                    delta = -0.5 - confidence
-
-                if pattern_type == "tactical":
-                    successes = pattern.get("successes", 0)
-                    occurrences = pattern.get("occurrences", 0)
-                    failures = occurrences - successes
-
-                    if failures >= self.TACTICAL_FAILURE_THRESHOLD:
-                        should_archive = True
-                        reason = f"Tactical pattern failed {failures} times"
-                        delta = -0.5 - confidence
-
-                if should_archive:
-                    self.pattern_store.update_pattern_confidence(
-                        pattern_id=pattern_id,
-                        delta=delta,
-                        reason=f"Archived: {reason}",
-                        _cached_pattern=pattern,
-                    )
-                    archived_patterns.append(pattern_id)
-                    self.logger.info(f"Archived pattern {pattern_id}: {reason}")
-
-            return archived_patterns
+            return _detect_invalidation(
+                self.pattern_store,
+                failure_threshold=self.TACTICAL_FAILURE_THRESHOLD,
+                confidence_archive_threshold=self.CONFIDENCE_ARCHIVE_THRESHOLD,
+            )
         except Exception as e:
             self.logger.error(f"Failed to detect invalidation: {e}")
             return []
 
     def detect_conflicts(self) -> list[dict[str, Any]]:
-        """Detect contradictory structural patterns.
-
-        Finds structural patterns with contradictory preconditions that could
-        lead to conflicting recommendations.
-
-        Returns:
-            List of conflicts: [{pattern_id_1, pattern_id_2, conflict_reason}]
-        """
+        """Detect contradictory structural patterns. Delegates to pattern_validation."""
         try:
-            conflicts = []
-
-            all_patterns = self.pattern_store.get_all_patterns()
-            structural_patterns = [p for p in all_patterns if p.get("pattern_type") == "structural"]
-
-            for i, pattern1 in enumerate(structural_patterns):
-                for pattern2 in structural_patterns[i + 1 :]:
-                    prec1 = pattern1.get("preconditions", {})
-                    prec2 = pattern2.get("preconditions", {})
-
-                    for key in prec1:
-                        if key in prec2 and prec1[key] != prec2[key]:
-                            conf1 = pattern1.get("confidence", 0.0)
-                            conf2 = pattern2.get("confidence", 0.0)
-
-                            if conf1 > 0.6 and conf2 > 0.6:
-                                conflicts.append(
-                                    {
-                                        "pattern_id_1": pattern1.get("pattern_id"),
-                                        "pattern_id_2": pattern2.get("pattern_id"),
-                                        "conflict_reason": (
-                                            f"Contradictory precondition '{key}': "
-                                            f"{prec1[key]} vs {prec2[key]}"
-                                        ),
-                                    }
-                                )
-                                self.logger.warning(
-                                    f"Conflict detected between patterns "
-                                    f"{pattern1.get('pattern_id')} and "
-                                    f"{pattern2.get('pattern_id')}: {key}"
-                                )
-
-            return conflicts
+            return _detect_conflicts(self.pattern_store)
         except Exception as e:
             self.logger.error(f"Failed to detect conflicts: {e}")
             return []
 
     def generate_humility_audit(self) -> dict[str, Any]:
-        """Generate a humility audit with warnings about pattern state.
-
-        Returns:
-            Audit dictionary
-        """
+        """Generate a humility audit. Delegates to pattern_validation."""
         try:
-            all_patterns = self.pattern_store.query_patterns(
-                {}, min_confidence=-1.0, exclude_anti_patterns=False
+            return _generate_humility_audit(
+                self.pattern_store,
+                self.decision_store,
+                confidence_low_threshold=self.CONFIDENCE_LOW_THRESHOLD,
+                drift_threshold=self.DRIFT_THRESHOLD,
+                drift_confidence_level=self.DRIFT_CONFIDENCE_LEVEL,
             )
-
-            low_confidence_patterns = []
-            untested_patterns = []
-            risky_assumptions = []
-
-            for pattern in all_patterns:
-                confidence = pattern.get("confidence", 0.0)
-                pattern_id: str = pattern.get("pattern_id", "")
-                name = pattern.get("name", "Unknown")
-
-                if confidence < self.CONFIDENCE_LOW_THRESHOLD:
-                    low_confidence_patterns.append(
-                        {
-                            "pattern_id": pattern_id,
-                            "name": name,
-                            "confidence": confidence,
-                            "reason": (
-                                f"Confidence {confidence:.2f} below threshold "
-                                f"{self.CONFIDENCE_LOW_THRESHOLD}"
-                            ),
-                        }
-                    )
-
-                decisions = self.decision_store.get_decisions_for_pattern(pattern_id)
-                if not decisions:
-                    untested_patterns.append(
-                        {
-                            "pattern_id": pattern_id,
-                            "name": name,
-                            "last_tested_context": None,
-                        }
-                    )
-
-                if confidence < 0.5:
-                    risky_assumptions.append(
-                        {
-                            "assumption": f"Pattern '{name}' is reliable",
-                            "why_risky": f"Confidence is only {confidence:.2f}",
-                            "mitigation": "Validate with more evidence before recommending",
-                        }
-                    )
-
-            total_patterns = len(all_patterns)
-            low_confidence_count = sum(
-                1 for p in all_patterns if p.get("confidence", 0.0) < self.DRIFT_CONFIDENCE_LEVEL
-            )
-            drift_ratio = low_confidence_count / total_patterns if total_patterns > 0 else 0.0
-            drift_detected = drift_ratio > self.DRIFT_THRESHOLD
-
-            pattern_gaps = []
-            if not all_patterns:
-                pattern_gaps.append(
-                    {
-                        "gap_type": "no_patterns",
-                        "description": "No patterns have been learned yet",
-                    }
-                )
-
-            audit = {
-                "low_confidence_patterns": low_confidence_patterns,
-                "untested_patterns": untested_patterns,
-                "pattern_gaps": pattern_gaps,
-                "risky_assumptions": risky_assumptions,
-                "drift_detected": drift_detected,
-                "drift_reason": (
-                    f"{low_confidence_count}/{total_patterns} patterns "
-                    f"({drift_ratio * 100:.1f}%) below confidence {self.DRIFT_CONFIDENCE_LEVEL}"
-                )
-                if drift_detected
-                else None,
-            }
-
-            self.logger.info(
-                f"Generated humility audit: "
-                f"{len(low_confidence_patterns)} low-confidence, "
-                f"{len(untested_patterns)} untested, "
-                f"drift_detected={drift_detected}"
-            )
-            return audit
         except Exception as e:
             self.logger.error(f"Failed to generate humility audit: {e}")
             return {

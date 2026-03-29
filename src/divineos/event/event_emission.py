@@ -16,7 +16,6 @@ Recursive Event Capture Prevention:
 """
 
 import json
-import threading
 from typing import Any
 
 from loguru import logger
@@ -26,6 +25,10 @@ from divineos.core.session_manager import (
     get_or_create_session_id,
     get_session_duration,
 )
+from divineos.event._event_context import (  # noqa: F401
+    _is_in_event_emission,
+    _set_in_event_emission,
+)
 from divineos.event.event_capture import (
     EventType,
     EventValidationError,
@@ -33,19 +36,6 @@ from divineos.event.event_capture import (
     normalize_event_payload,
     validate_event_payload,
 )
-
-# Thread-local storage for recursive event capture prevention
-_event_emission_context = threading.local()
-
-
-def _is_in_event_emission() -> bool:
-    """Check if we're currently in event emission (recursive call detection)."""
-    return getattr(_event_emission_context, "in_emission", False)
-
-
-def _set_in_event_emission(value: bool) -> None:
-    """Set the event emission flag."""
-    _event_emission_context.in_emission = value
 
 
 def emit_user_input(content: str, session_id: str | None = None) -> str:

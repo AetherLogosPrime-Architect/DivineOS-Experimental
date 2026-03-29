@@ -16,22 +16,18 @@ from divineos.cli._wrappers import (
     _wrapped_store_knowledge,
     logger,
 )
+from divineos.cli.pipeline_gates import (
+    enforce_briefing_gate,
+    enforce_engagement_gate,
+    run_goal_extraction,
+    run_quality_gate,
+    write_handoff_note,
+)
 from divineos.core.memory import init_memory_tables
 
 
 def _run_session_end_pipeline() -> None:
-    """Post-SESSION_END learning pipeline.
-
-    Runs the full extract-consolidate-refresh cycle:
-    1. Analyze latest session file
-    2. Deep extract knowledge (corrections, preferences, decisions)
-    3. Store session episode + tool usage (with dedup)
-    4. Apply feedback (recurrence, reinforcement)
-    5. Run health check (boost confirmed, escalate recurring)
-    6. Consolidate related knowledge clusters
-    7. Refresh active memory for next session
-    8. Print session summary
-    """
+    """Post-SESSION_END learning pipeline — analyze, extract, consolidate, refresh."""
     session_files = _analyzer_mod.find_sessions()
     if not session_files:
         click.secho("[~] No session files found for auto-scan.", fg="bright_black")
@@ -59,111 +55,25 @@ def _run_session_end_pipeline() -> None:
         analysis = _analyzer_mod.analyze_session(latest)
         _safe_echo(analysis.summary())
 
-        # 1b. Extract goals from user messages into HUD
-        try:
-            from divineos.core.hud_handoff import extract_goals_from_messages
-            from divineos.core.hud_state import add_goal
-
-            extracted_goals = extract_goals_from_messages(analysis.user_message_texts)
-            for goal in extracted_goals:
-                add_goal(goal["text"], original_words=goal["original_words"])
-            if extracted_goals:
-                click.secho(
-                    f"[~] Captured {len(extracted_goals)} goals from user messages.", fg="cyan"
-                )
-        except Exception as e:
-            logger.warning(f"Goal extraction failed: {e}")
-
-        # 1c. Briefing gate — you cannot proceed without it
-        try:
-            from divineos.core.hud_handoff import mark_briefing_loaded, was_briefing_loaded
-
-            if not was_briefing_loaded():
-                click.secho(
-                    "\n[!] Briefing not loaded. Loading now — you can't skip this.",
-                    fg="yellow",
-                    bold=True,
-                )
-                from divineos.core.active_memory import refresh_active_memory
-
-                init_memory_tables()
-                refresh_active_memory(importance_threshold=0.3)
-                mark_briefing_loaded()
-                click.secho("    Briefing loaded. Proceeding.\n", fg="green")
-        except Exception as e:
-            logger.warning(f"Briefing gate failed: {e}")
-
-        # 1d. Engagement gate — force-load thinking context if skipped
-        try:
-            from divineos.core.hud_handoff import is_engaged, mark_engaged
-
-            if not is_engaged():
-                click.secho(
-                    "[!] No thinking queries this session. Loading context now.",
-                    fg="yellow",
-                    bold=True,
-                )
-                # Load lessons so extraction knows what's recurring
-                from divineos.core.knowledge import get_lessons
-
-                lessons = get_lessons(status="active")
-                improving = get_lessons(status="improving")
-                click.secho(
-                    f"    Loaded {len(lessons)} active + {len(improving)} improving lessons.",
-                    fg="green",
-                )
-                # Load core memory so identity context is present
-                from divineos.core.memory import get_core
-
-                core = get_core()
-                click.secho(
-                    f"    Loaded {len(core)} core memory slots.",
-                    fg="green",
-                )
-                mark_engaged()
-                click.secho("    Engaged. Proceeding.\n", fg="green")
-        except Exception as e:
-            logger.warning(f"Engagement gate failed: {e}")
+        # 1b–1d. Enforcement gates (extracted to pipeline_gates.py)
+        run_goal_extraction(analysis)
+        enforce_briefing_gate()
+        enforce_engagement_gate()
 
         # 1e. Quality gate
-        quality_verdict = None
-        maturity_override = ""
-        try:
-            from divineos.analysis.quality_checks import run_all_checks
-            from divineos.analysis.quality_storage import store_report
-            from divineos.core.quality_gate import assess_session_quality, should_extract_knowledge
+        quality_verdict, maturity_override, extract_allowed = run_quality_gate(latest)
+        if not extract_allowed:
+            try:
+                _wrapped_health_check()
+            except Exception as e:
+                logger.warning("Health check failed after quality gate block: %s", e)
+            try:
+                from divineos.core.hud import save_hud_snapshot
 
-            report = run_all_checks(latest)
-            store_report(report)
-            check_results = [
-                {"check_name": c.check_name, "passed": c.passed, "score": c.score}
-                for c in report.checks
-            ]
-            quality_verdict = assess_session_quality(check_results)
-            extract_allowed, maturity_override = should_extract_knowledge(quality_verdict)
-
-            if quality_verdict.action == "BLOCK":
-                click.secho(
-                    f"[!] Quality gate BLOCKED: {quality_verdict.reason}", fg="red", bold=True
-                )
-                click.secho("[!] Skipping knowledge extraction for this session.", fg="red")
-                try:
-                    _wrapped_health_check()
-                except Exception as e:
-                    logger.warning("Health check failed after quality gate block: %s", e)
-                try:
-                    from divineos.core.hud import save_hud_snapshot
-
-                    save_hud_snapshot()
-                except Exception as e:
-                    logger.debug(
-                        "HUD snapshot failed after quality gate block (best-effort): %s", e
-                    )
-                return
-            elif quality_verdict.action == "DOWNGRADE":
-                click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
-        except Exception as e:
-            logger.warning(f"Quality gate failed (allowing extraction): {e}")
+                save_hud_snapshot()
+            except Exception as e:
+                logger.debug("HUD snapshot failed after quality gate block (best-effort): %s", e)
+            return
 
         # 2. Deep extract
         records = _analyzer_mod._load_records(latest)
@@ -535,67 +445,7 @@ def _run_session_end_pipeline() -> None:
             logger.warning(f"Tone texture recording failed: {e}")
 
         # 9d. Write handoff note for next session
-        try:
-            from divineos.core.hud_handoff import save_handoff_note
-
-            # Build summary from what we know
-            handoff_summary_parts = []
-            handoff_summary_parts.append(
-                f"Last session: {analysis.user_messages} exchanges, "
-                f"{stored} knowledge entries extracted."
-            )
-            if len(analysis.corrections) > 0:
-                handoff_summary_parts.append(
-                    f"I was corrected {len(analysis.corrections)} time(s) — review what went wrong."
-                )
-            if health:
-                handoff_summary_parts.append(f"Session grade: {health['grade']}.")
-
-            # Open threads from corrections and decisions
-            open_threads: list[str] = []
-            for corr in analysis.corrections[:3]:
-                text = corr if isinstance(corr, str) else str(corr)
-                open_threads.append(f"Correction: {text[:120]}")
-            for d in getattr(analysis, "decisions", [])[:2]:
-                text = d if isinstance(d, str) else str(d)
-                open_threads.append(f"Decision: {text[:120]}")
-
-            # Mood from health grade
-            mood = ""
-            if health:
-                mood = {
-                    "A": "strong session",
-                    "B": "solid session",
-                    "C": "mixed session",
-                    "D": "rough session",
-                    "F": "difficult session",
-                }.get(health["grade"], "")
-
-            # Goals state
-            goals_state = ""
-            try:
-                import json as _json
-                from divineos.core.hud import _ensure_hud_dir
-
-                goals_path = _ensure_hud_dir() / "active_goals.json"
-                if goals_path.exists():
-                    goals = _json.loads(goals_path.read_text(encoding="utf-8"))
-                    active = [g for g in goals if g.get("status") != "done"]
-                    done = [g for g in goals if g.get("status") == "done"]
-                    goals_state = f"{len(done)} completed, {len(active)} still active"
-            except Exception:
-                pass
-
-            save_handoff_note(
-                summary=" ".join(handoff_summary_parts),
-                open_threads=open_threads,
-                mood=mood,
-                goals_state=goals_state,
-                session_id=analysis.session_id,
-            )
-            click.secho("[~] Handoff note saved for next session.", fg="cyan")
-        except Exception as e:
-            logger.warning(f"Handoff note failed: {e}")
+        write_handoff_note(analysis, stored, health)
 
         # 10. Session summary
         click.secho("\n=== Session Complete ===", fg="cyan", bold=True)

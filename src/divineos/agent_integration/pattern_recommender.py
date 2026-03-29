@@ -1,10 +1,4 @@
-"""Pattern recommendation engine for the agent learning loop.
-
-This module provides the PatternRecommender class for querying patterns,
-generating recommendations with explanations, and recording decisions.
-All recommendations include confidence scores, supporting evidence, and
-uncertainty statements.
-"""
+"""Pattern recommendation engine for the agent learning loop."""
 
 from typing import Any, Optional
 

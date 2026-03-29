@@ -14,7 +14,7 @@ from typing import Any
 from loguru import logger
 
 from divineos.core.ledger import log_event
-from divineos.event.event_emission import _is_in_event_emission, _set_in_event_emission
+from divineos.event._event_context import _is_in_event_emission, _set_in_event_emission
 
 
 class EventDispatcher:

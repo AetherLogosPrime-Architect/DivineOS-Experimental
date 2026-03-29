@@ -8,7 +8,8 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.ledger import compute_hash, get_connection, get_events
+from divineos.core._ledger_base import compute_hash, get_connection
+from divineos.core.ledger import get_events
 
 
 def verify_event_hash(event_id: str, payload: dict[str, Any], stored_hash: str) -> tuple[bool, str]:

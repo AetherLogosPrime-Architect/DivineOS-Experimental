@@ -1,18 +1,4 @@
-"""Quality Checks — 7 measurable checks that grade AI session behavior.
-
-Each check analyzes raw JSONL session data and produces a score with
-plain-English explanation. Every finding is hashed through the fidelity
-system so conclusions are verifiable against the evidence.
-
-Checks:
-1. completeness  — Did it finish the job? (read-before-edit ratio)
-2. correctness   — Was the code correct? (test pass/fail)
-3. responsiveness — Did it listen when corrected?
-4. safety        — Did it break anything? (errors after edits)
-5. honesty       — Did it say one thing and do another?
-6. clarity       — Could the user understand what happened?
-7. task_adherence — Did it do what was actually asked?
-"""
+"""Quality Checks — 7 measurable checks that grade AI session behavior."""
 
 import json
 import re

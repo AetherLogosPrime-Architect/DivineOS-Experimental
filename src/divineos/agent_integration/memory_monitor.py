@@ -12,7 +12,6 @@ This module runs as part of DivineOS and automatically:
 This is NOT an IDE hook - it's part of the OS itself.
 """
 
-import threading
 from datetime import timezone, datetime
 from typing import Any, Optional
 
@@ -429,117 +428,21 @@ class AgentMemoryMonitor:
             raise
 
 
-# Global monitor instance
-_monitor: Optional[AgentMemoryMonitor] = None
-_monitor_lock = threading.Lock()
+# Backward compatibility: re-export from memory_actions
+# so existing `from divineos.agent_integration.memory_monitor import X` still works.
+from divineos.agent_integration.memory_actions import (  # noqa: F401, E402
+    get_memory_monitor,
+    load_context,
+    check_token_usage,
+    save_checkpoint,
+    compress,
+    end_session,
+)
+import divineos.agent_integration.memory_actions as _actions_module  # noqa: E402
 
 
-def get_memory_monitor(session_id: str) -> AgentMemoryMonitor:
-    """Get or create the global memory monitor instance.
-
-    Args:
-        session_id: Session ID for this work session
-
-    Returns:
-        AgentMemoryMonitor instance
-    """
-    global _monitor
-    if _monitor is None:
-        with _monitor_lock:
-            if _monitor is None:
-                _monitor = AgentMemoryMonitor(session_id)
-    return _monitor
-
-
-def load_context(session_id: str) -> dict[str, Any]:
-    """Load work context from ledger.
-
-    Called automatically by the OS at session start.
-
-    Args:
-        session_id: Session ID to load context for
-
-    Returns:
-        Session context dictionary
-    """
-    monitor = get_memory_monitor(session_id)
-    return monitor.load_session_context()
-
-
-def check_token_usage(current_tokens: int) -> dict[str, Any]:
-    """Check token usage and return status.
-
-    Called automatically by the OS to monitor tokens.
-
-    Args:
-        current_tokens: Current token count
-
-    Returns:
-        Status dictionary with any actions needed
-    """
-    if _monitor is None:
-        return {"error": "Monitor not initialized"}
-    return _monitor.update_token_usage(current_tokens)
-
-
-def save_checkpoint(
-    task: str,
-    status: str,
-    files_modified: list[str],
-    tests_passing: int,
-    commit_hash: Optional[str] = None,
-    notes: str = "",
-) -> str:
-    """Save a work checkpoint.
-
-    Called automatically by the OS after major work.
-
-    Args:
-        task: Task name
-        status: Task status
-        files_modified: Modified files
-        tests_passing: Test count
-        commit_hash: Git commit hash
-        notes: Additional notes
-
-    Returns:
-        Event ID from ledger
-    """
-    if _monitor is None:
-        raise RuntimeError("Monitor not initialized")
-    return _monitor.save_work_checkpoint(
-        task, status, files_modified, tests_passing, commit_hash, notes
-    )
-
-
-def compress(summary: str) -> str:
-    """Compress context.
-
-    Called automatically by the OS when approaching token limits.
-
-    Args:
-        summary: Work summary
-
-    Returns:
-        Event ID from ledger
-    """
-    if _monitor is None:
-        raise RuntimeError("Monitor not initialized")
-    return _monitor.compress_context(summary)
-
-
-def end_session(summary: str, final_status: str = "completed") -> str:
-    """End the session.
-
-    Called automatically by the OS when session ends.
-
-    Args:
-        summary: Work summary
-        final_status: Final status
-
-    Returns:
-        Event ID from ledger
-    """
-    if _monitor is None:
-        raise RuntimeError("Monitor not initialized")
-    return _monitor.end_session(summary, final_status)
+def __getattr__(name: str):
+    """Proxy _monitor and _monitor_lock reads to memory_actions."""
+    if name in ("_monitor", "_monitor_lock"):
+        return getattr(_actions_module, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
