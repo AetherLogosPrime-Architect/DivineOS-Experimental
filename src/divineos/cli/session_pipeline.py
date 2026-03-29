@@ -74,41 +74,24 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Goal extraction failed: {e}")
 
-        # 1c. Briefing gate — auto-recover, not just fail
-        briefing_failed = False
+        # 1c. Briefing gate — you cannot proceed without it
         try:
             from divineos.core.hud_handoff import mark_briefing_loaded, was_briefing_loaded
 
             if not was_briefing_loaded():
-                briefing_failed = True
                 click.secho(
-                    "\n[F] Briefing was never loaded (or went stale). Grade: F.",
-                    fg="red",
+                    "\n[!] Briefing not loaded. Loading now — you can't skip this.",
+                    fg="yellow",
                     bold=True,
                 )
-                click.secho(
-                    "    Auto-loading briefing now to recover session extraction...",
-                    fg="yellow",
-                )
-                # Force-load the briefing so the session isn't wasted
-                try:
-                    from divineos.core.active_memory import refresh_active_memory
+                from divineos.core.active_memory import refresh_active_memory
 
-                    init_memory_tables()
-                    refresh_active_memory(importance_threshold=0.3)
-                    mark_briefing_loaded()
-                    click.secho(
-                        "    Briefing force-loaded. Extraction will proceed. Grade remains F.",
-                        fg="yellow",
-                    )
-                except Exception as e:
-                    logger.warning(f"Briefing auto-load failed: {e}")
-                    click.secho(
-                        f"    Auto-load failed ({e}). Extraction continues but grade is F.",
-                        fg="red",
-                    )
+                init_memory_tables()
+                refresh_active_memory(importance_threshold=0.3)
+                mark_briefing_loaded()
+                click.secho("    Briefing loaded. Proceeding.\n", fg="green")
         except Exception as e:
-            logger.warning(f"Briefing gate check failed: {e}")
+            logger.warning(f"Briefing gate failed: {e}")
 
         # 1d. Quality gate
         quality_verdict = None
@@ -402,6 +385,7 @@ def _run_session_end_pipeline() -> None:
         health: dict[str, Any] | None = None
         try:
             from divineos.agent_integration.outcome_measurement import measure_session_health
+            from divineos.core.hud_handoff import was_briefing_loaded
 
             health = measure_session_health(
                 corrections=len(analysis.corrections),
@@ -409,7 +393,7 @@ def _run_session_end_pipeline() -> None:
                 context_overflows=len(analysis.context_overflows),
                 tool_calls=analysis.tool_calls_total,
                 user_messages=analysis.user_messages,
-                briefing_loaded=not briefing_failed,
+                briefing_loaded=was_briefing_loaded(),
             )
             grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
 
