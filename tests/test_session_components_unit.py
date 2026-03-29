@@ -24,7 +24,7 @@ from divineos.agent_integration.learning_loop import (
     extract_timing_patterns,
     extract_error_patterns,
 )
-from divineos.agent_integration.memory_monitor import get_memory_monitor
+from divineos.agent_integration.memory_actions import get_memory_monitor
 from divineos.core.ledger import get_ledger, log_event
 
 

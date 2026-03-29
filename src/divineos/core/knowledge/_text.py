@@ -321,7 +321,7 @@ _STOPWORDS = frozenset(
         "please",
         "help",
         "claude",
-        "kiro",
+        "divineos",
         "notification",
         "users",
         "user",
@@ -385,18 +385,14 @@ def extract_session_topics(user_texts: list[str], top_n: int = 8) -> list[str]:
     return [word for word, _ in word_counts.most_common(top_n)]
 
 
-# ─── Noise Filter ────────────────────────────────────────────────────
-
-_MIN_CONTENT_WORDS = 3  # content with fewer meaningful words gets skipped
-
-# Patterns that indicate conversational filler with no substance after it.
-_CONVERSATIONAL_NOISE = re.compile(
-    r"^(how does (it|this|that) (look|feel|seem)[\s?.!]*$|"
-    r"any (adjustments|suggestions|thoughts|ideas)[\s?.!]*$|"
-    r"sounds good[\s.!]*$|"
-    r"that works[\s.!]*$|"
-    r"i agree[d]?[\s.!]*$)",
-    re.IGNORECASE,
+# ─── Re-exports from _noise.py (split for file-size hygiene) ────────
+from divineos.core.knowledge._noise import (  # noqa: E402
+    _CONVERSATIONAL_NOISE as _CONVERSATIONAL_NOISE,
+    _MIN_CONTENT_WORDS as _MIN_CONTENT_WORDS,
+    _SYSTEM_ARTIFACT as _SYSTEM_ARTIFACT,
+    _TEMPORAL_CONTENT_MARKERS as _TEMPORAL_CONTENT_MARKERS,
+    _has_temporal_markers as _has_temporal_markers,
+    _is_extraction_noise as _is_extraction_noise,
 )
 
 # Content that is a task-notification XML tag or system artifact

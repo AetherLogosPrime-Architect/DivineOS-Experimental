@@ -11,6 +11,7 @@ richer schema (confidence, warrant_id, status, layer).
 
 from __future__ import annotations
 
+import sqlite3
 import time
 import uuid
 from dataclasses import dataclass
@@ -93,7 +94,7 @@ def _migrate_old_tables(conn: Any) -> None:
                 )
             conn.commit()
             logger.debug(f"Migrated {len(old_rows)} edges from knowledge_relationships")
-    except Exception:
+    except sqlite3.OperationalError:
         pass  # Table doesn't exist yet — nothing to migrate
 
     # Migrate logical_relations → logical layer
@@ -113,7 +114,7 @@ def _migrate_old_tables(conn: Any) -> None:
                 )
             conn.commit()
             logger.debug(f"Migrated {len(old_rows)} edges from logical_relations")
-    except Exception:
+    except sqlite3.OperationalError:
         pass  # Table doesn't exist yet
 
 

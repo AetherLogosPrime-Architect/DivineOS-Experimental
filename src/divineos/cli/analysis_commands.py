@@ -6,6 +6,7 @@ from pathlib import Path
 import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
+import divineos.analysis.session_discovery as _discovery_mod
 from divineos.cli._helpers import _display_and_store_analysis, _safe_echo
 from divineos.cli._wrappers import (
     _wrapped_apply_session_feedback,
@@ -29,7 +30,7 @@ def register(cli: click.Group) -> None:
     @cli.command("sessions")
     def sessions_cmd() -> None:
         """Find and list all Claude Code session files."""
-        sessions = _analyzer_mod.find_sessions()
+        sessions = _discovery_mod.find_sessions()
         if not sessions:
             click.secho("[-] No session files found.", fg="yellow")
             return
@@ -342,7 +343,7 @@ def register(cli: click.Group) -> None:
                             tz=timezone.utc,
                         ).strftime("%Y-%m-%d %H:%M:%S UTC")
                         click.secho(f"     Time: {ts}", fg="bright_black")
-                    except Exception:
+                    except (ValueError, OSError, TypeError):
                         click.secho(f"     Time: {session['created_at']}", fg="bright_black")
 
                     click.secho(f"     Files: {session['file_count']}", fg="bright_black")
@@ -403,7 +404,7 @@ def register(cli: click.Group) -> None:
         if file_path:
             session_file = Path(file_path)
         else:
-            session_files = _analyzer_mod.find_sessions()
+            session_files = _discovery_mod.find_sessions()
             if not session_files:
                 click.secho("[!] No session files found.", fg="red")
                 return

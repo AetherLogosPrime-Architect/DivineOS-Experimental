@@ -322,13 +322,15 @@ class TestEmitToolResult:
         assert events[0]["payload"]["error_message"] == error_msg
 
     def test_emit_tool_result_long_output(self, temp_db, fresh_session):
-        """Test TOOL_RESULT with long output."""
+        """Test TOOL_RESULT with long output is truncated by size guard."""
         long_result = "x" * 1000000  # 1MB
         emit_tool_result("readFile", "tool-use-123", long_result, 100)
 
         events = get_events(limit=10, event_type="TOOL_RESULT")
         assert len(events) == 1
-        assert events[0]["payload"]["result"] == long_result
+        stored = events[0]["payload"]["result"]
+        assert len(stored) < len(long_result)
+        assert "TRUNCATED" in stored
 
     def test_emit_tool_result_empty_result_passes(self, temp_db, fresh_session):
         """Test that empty result passes — tools can succeed without output."""

@@ -1,4 +1,4 @@
-"""Type definitions and data models for Kiro Agent Integration.
+"""Type definitions and data models for DivineOS Agent Integration.
 
 Defines all data structures used across the agent integration system,
 including event payloads, analysis results, and configuration objects.

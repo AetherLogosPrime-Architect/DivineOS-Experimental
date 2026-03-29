@@ -317,6 +317,12 @@ def register(cli: click.Group) -> None:
         """Generate a session context briefing from stored knowledge."""
         _log_os_query("briefing", topic or "session start")
         try:
+            from divineos.core.hud_handoff import mark_briefing_loaded
+
+            mark_briefing_loaded()
+        except Exception:
+            pass
+        try:
             init_memory_tables()
             _wrapped_refresh_active_memory(importance_threshold=0.3)
         except Exception as e:

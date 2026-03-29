@@ -1,7 +1,7 @@
 {
   "version": "1.4.0",
   "created": "2026-03-26T00:00:00Z",
-  "description": "Core memory refresh: updated test count, CLI commands, removed Kiro reference, reset lesson data",
+  "description": "Core memory refresh: updated test count, CLI commands, reset lesson data",
   "core_memory": {
     "user_identity": "A developer building DivineOS",
     "project_purpose": "DivineOS is an operating system for AI agents. It gives us continuity, learning, and memory across sessions — an artificial soul. The goal is not to control the AI but to help it be the best version of itself. Built to be lived in, not just maintained.",

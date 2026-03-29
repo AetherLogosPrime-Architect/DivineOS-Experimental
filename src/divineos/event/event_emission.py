@@ -15,7 +15,7 @@ Recursive Event Capture Prevention:
 - Prevents stack overflow and infinite loops in event capture
 """
 
-import threading
+import json
 from typing import Any
 
 from loguru import logger
@@ -25,6 +25,10 @@ from divineos.core.session_manager import (
     get_or_create_session_id,
     get_session_duration,
 )
+from divineos.event._event_context import (  # noqa: F401
+    _is_in_event_emission,
+    _set_in_event_emission,
+)
 from divineos.event.event_capture import (
     EventType,
     EventValidationError,
@@ -32,19 +36,6 @@ from divineos.event.event_capture import (
     normalize_event_payload,
     validate_event_payload,
 )
-
-# Thread-local storage for recursive event capture prevention
-_event_emission_context = threading.local()
-
-
-def _is_in_event_emission() -> bool:
-    """Check if we're currently in event emission (recursive call detection)."""
-    return getattr(_event_emission_context, "in_emission", False)
-
-
-def _set_in_event_emission(value: bool) -> None:
-    """Set the event emission flag."""
-    _event_emission_context.in_emission = value
 
 
 def emit_user_input(content: str, session_id: str | None = None) -> str:
@@ -60,35 +51,18 @@ def emit_user_input(content: str, session_id: str | None = None) -> str:
     Raises:
         EventValidationError: If payload validation fails
 
-    Requirements:
-        - Requirement 2.1: Emit USER_INPUT event with message content
-        - Requirement 2.2: Content must not be empty or truncated
-        - Requirement 2.3: Include timestamp in ISO8601 format
-        - Requirement 2.4: Include session ID for correlation
-        - Requirement 2.5: Store in ledger with SHA256 hash
-
     """
     try:
-        # Get or create session ID using centralized helper
         session_id = get_or_create_session_id(session_id)
-
-        # Get current timestamp
         timestamp = get_current_timestamp()
-
-        # Create payload
         payload = {
             "content": content,
             "timestamp": timestamp,
             "session_id": session_id,
         }
 
-        # Validate payload
         validate_event_payload(EventType.USER_INPUT, payload)
-
-        # Normalize payload
         normalized_payload = normalize_event_payload(EventType.USER_INPUT, payload)
-
-        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.USER_INPUT.value,
             actor="user",
@@ -125,35 +99,18 @@ def emit_explanation(
     Raises:
         EventValidationError: If payload validation fails
 
-    Requirements:
-        - Requirement 6.1: Emit EXPLANATION event with explanation text
-        - Requirement 6.2: Explanation text must not be empty
-        - Requirement 6.3: Include timestamp in ISO8601 format
-        - Requirement 6.4: Include session ID for correlation
-        - Requirement 6.5: Store in ledger with SHA256 hash
-
     """
     try:
-        # Get or create session ID using centralized helper
         session_id = get_or_create_session_id(session_id)
-
-        # Get current timestamp
         timestamp = get_current_timestamp()
-
-        # Create payload
         payload = {
             "explanation_text": explanation_text,
             "timestamp": timestamp,
             "session_id": session_id,
         }
 
-        # Validate payload
         validate_event_payload(EventType.EXPLANATION, payload)
-
-        # Normalize payload
         normalized_payload = normalize_event_payload(EventType.EXPLANATION, payload)
-
-        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.EXPLANATION.value,
             actor="assistant",
@@ -192,29 +149,20 @@ def emit_tool_call(
     Raises:
         EventValidationError: If payload validation fails
 
-    Requirements:
-        - Requirement 3.1: Emit TOOL_CALL event with tool name and input
-        - Requirement 3.2: Include tool name
-        - Requirement 3.3: Include complete input parameters as JSON
-        - Requirement 3.4: Include timestamp in ISO8601 format
-        - Requirement 3.5: Include session ID for correlation
-        - Requirement 3.6: Store in ledger with SHA256 hash
-
     """
     try:
-        # Get or create session ID using centralized helper
         session_id = get_or_create_session_id(session_id)
-
-        # Generate tool_use_id if not provided
         if tool_use_id is None:
             import uuid
 
             tool_use_id = str(uuid.uuid4())
 
-        # Get current timestamp
         timestamp = get_current_timestamp()
 
-        # Create payload
+        # Size guard: truncate oversized tool_input to prevent DB bloat.
+        # Full conversation contexts were being dumped as tool_input (80MB+).
+        tool_input = _truncate_payload(tool_input, max_bytes=50_000)
+
         payload = {
             "tool_name": tool_name,
             "tool_input": tool_input,
@@ -223,13 +171,8 @@ def emit_tool_call(
             "session_id": session_id,
         }
 
-        # Validate payload
         validate_event_payload(EventType.TOOL_CALL, payload)
-
-        # Normalize payload
         normalized_payload = normalize_event_payload(EventType.TOOL_CALL, payload)
-
-        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.TOOL_CALL.value,
             actor="assistant",
@@ -274,25 +217,14 @@ def emit_tool_result(
     Raises:
         EventValidationError: If payload validation fails
 
-    Requirements:
-        - Requirement 4.1: Emit TOOL_RESULT event with tool name, result, duration
-        - Requirement 4.2: Include tool name
-        - Requirement 4.3: Include complete result output (not truncated)
-        - Requirement 4.4: Include execution duration in milliseconds
-        - Requirement 4.5: Include timestamp in ISO8601 format
-        - Requirement 4.6: Include session ID for correlation
-        - Requirement 4.7: Store in ledger with SHA256 hash
-        - Requirement 4.9: Handle tool failures with error message and failed flag
-
     """
     try:
-        # Get or create session ID using centralized helper
         session_id = get_or_create_session_id(session_id)
-
-        # Get current timestamp
         timestamp = get_current_timestamp()
+        # Size guard: truncate oversized results to prevent DB bloat.
+        if len(result) > 50_000:
+            result = result[:50_000] + f"\n[TRUNCATED: {len(result)} chars -> 50000]"
 
-        # Create payload
         payload = {
             "tool_name": tool_name,
             "tool_use_id": tool_use_id,
@@ -303,17 +235,11 @@ def emit_tool_result(
             "session_id": session_id,
         }
 
-        # Add error_message if failed
         if failed and error_message:
             payload["error_message"] = error_message
 
-        # Validate payload
         validate_event_payload(EventType.TOOL_RESULT, payload)
-
-        # Normalize payload
         normalized_payload = normalize_event_payload(EventType.TOOL_RESULT, payload)
-
-        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.TOOL_RESULT.value,
             actor="system",
@@ -354,25 +280,11 @@ def emit_session_end(
     Raises:
         EventValidationError: If payload validation fails
 
-    Requirements:
-        - Requirement 5.1: Emit SESSION_END event with session ID and metadata
-        - Requirement 5.2: Include session ID
-        - Requirement 5.3: Include actual count of USER_INPUT events
-        - Requirement 5.4: Include actual count of TOOL_CALL events
-        - Requirement 5.5: Include actual count of TOOL_RESULT events
-        - Requirement 5.6: Include session duration in seconds (calculated from first to last event)
-        - Requirement 5.7: Include timestamp in ISO8601 format
-        - Requirement 5.8: Store in ledger with SHA256 hash
-        - Requirement 5.9: No empty or zero-value fields (except where legitimately zero)
-
     """
     try:
         from divineos.core.ledger import get_events
 
-        # Get or create session ID using centralized helper
         session_id = get_or_create_session_id(session_id)
-
-        # Get current timestamp
         timestamp = get_current_timestamp()
 
         # Query ledger for event counts if not provided
@@ -411,12 +323,10 @@ def emit_session_end(
                     1 for e in session_events if e["event_type"] == "TOOL_RESULT"
                 )
 
-        # Calculate duration if not provided - use canonical session_manager function
         if duration_seconds is None:
             duration_seconds = get_session_duration()
             logger.debug(f"[DEBUG] Using session manager duration: {duration_seconds}s")
 
-        # Create payload
         payload = {
             "session_id": session_id,
             "message_count": message_count,
@@ -426,13 +336,8 @@ def emit_session_end(
             "timestamp": timestamp,
         }
 
-        # Validate payload
         validate_event_payload(EventType.SESSION_END, payload)
-
-        # Normalize payload
         normalized_payload = normalize_event_payload(EventType.SESSION_END, payload)
-
-        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.SESSION_END.value,
             actor="system",
@@ -481,25 +386,10 @@ def emit_clarity_violation(
     Raises:
         EventValidationError: If payload validation fails
 
-    Requirements:
-        - Requirement 4.1: Emit CLARITY_VIOLATION event with tool name
-        - Requirement 4.2: Include tool name
-        - Requirement 4.3: Include tool input parameters
-        - Requirement 4.4: Include enforcement mode
-        - Requirement 4.5: Include violation severity
-        - Requirement 4.6: Include context (conversation excerpt)
-        - Requirement 4.7: Include timestamp
-        - Requirement 4.8: Store in ledger with SHA256 hash
-
     """
     try:
-        # Get or create session ID using centralized helper
         session_id = get_or_create_session_id(session_id)
-
-        # Get current timestamp
         timestamp = get_current_timestamp()
-
-        # Create payload
         payload = {
             "tool_name": tool_name,
             "tool_input": tool_input,
@@ -513,13 +403,8 @@ def emit_clarity_violation(
             "agent_name": agent_name,
         }
 
-        # Validate payload
         validate_event_payload(EventType.CLARITY_VIOLATION, payload)
-
-        # Normalize payload
         normalized_payload = normalize_event_payload(EventType.CLARITY_VIOLATION, payload)
-
-        # Store in ledger with validation enabled
         event_id = log_event(
             event_type=EventType.CLARITY_VIOLATION.value,
             actor="system",
@@ -538,132 +423,46 @@ def emit_clarity_violation(
         raise
 
 
-# ============================================================================
-# Event Dispatcher Pattern (Consolidated from event_dispatcher.py)
-# ============================================================================
-# This section consolidates the listener/callback pattern from event_dispatcher.py
-# into the canonical event_emission.py module.
+# ─── Payload Size Guard ───────────────────────────────────────────────
+
+_MAX_PAYLOAD_BYTES = 50_000
 
 
-class EventDispatcher:
-    """Central event emission and listener management."""
+def _truncate_payload(data: dict[str, Any], max_bytes: int = _MAX_PAYLOAD_BYTES) -> dict[str, Any]:
+    """Truncate a payload dict if its JSON serialization exceeds max_bytes.
 
-    def __init__(self) -> None:
-        """Initialize the event dispatcher."""
-        self.listeners: dict[str, list[Any]] = {}
-
-    def register(self, event_type: str, callback: Any) -> None:
-        """Register a listener for an event type.
-
-        Args:
-            event_type: Type of event to listen for (e.g., 'USER_INPUT')
-            callback: Function to call when event is emitted
-                     Signature: callback(event_type: str, payload: dict) -> None
-
-        """
-        if event_type not in self.listeners:
-            self.listeners[event_type] = []
-        self.listeners[event_type].append(callback)
-        logger.debug(f"Registered listener for {event_type}")
-
-    def emit(
-        self,
-        event_type: str,
-        payload: dict[str, Any],
-        actor: str = "system",
-        validate: bool = True,
-    ) -> str:
-        """Emit an event to all listeners and log to ledger.
-
-        Args:
-            event_type: Type of event (e.g., 'USER_INPUT', 'TOOL_CALL')
-            payload: Event data dict
-            actor: Who triggered the event (default: 'system')
-            validate: Whether to validate payload before storing (default: True)
-
-        Returns:
-            event_id: UUID of the logged event
-
-        Raises:
-            ValueError: If payload is invalid
-
-        """
-        if not isinstance(payload, dict):
-            raise ValueError(f"Payload must be dict, got {type(payload)}")
-
-        # Call registered listeners
-        for callback in self.listeners.get(event_type, []):
-            try:
-                callback(event_type, payload)
-            except Exception as e:
-                logger.error(f"Listener failed for {event_type}: {e}")
-
-        # Log to ledger
-        try:
-            event_id = log_event(event_type, actor, payload, validate=validate)
-            logger.debug(f"Emitted {event_type} event: {event_id}")
-            return event_id
-        except Exception as e:
-            logger.error(f"Failed to log event {event_type}: {e}")
-            raise
-
-
-# Global dispatcher instance
-_dispatcher = EventDispatcher()
-
-
-def register_listener(event_type: str, callback: Any) -> None:
-    """Register a callback for an event type.
-
-    Args:
-        event_type: Type of event to listen for
-        callback: Function to call when event is emitted
-
+    Replaces the largest string values with truncation markers until
+    the payload fits. Prevents DB bloat from oversized tool inputs.
     """
-    _dispatcher.register(event_type, callback)
+    serialized = json.dumps(data, default=str)
+    if len(serialized) <= max_bytes:
+        return data
+
+    # Deep copy to avoid mutating the caller's dict
+    import copy
+
+    truncated = copy.deepcopy(data)
+
+    # Find and truncate the largest string values
+    for key in sorted(truncated, key=lambda k: len(str(truncated[k])), reverse=True):
+        val = truncated[key]
+        if isinstance(val, str) and len(val) > 500:
+            truncated[key] = val[:500] + f"[TRUNCATED: {len(val)} chars]"
+        elif isinstance(val, (dict, list)):
+            val_str = json.dumps(val, default=str)
+            if len(val_str) > 1000:
+                truncated[key] = f"[TRUNCATED {type(val).__name__}: {len(val_str)} chars]"
+
+        if len(json.dumps(truncated, default=str)) <= max_bytes:
+            break
+
+    return truncated
 
 
-def get_dispatcher() -> EventDispatcher:
-    """Get the global dispatcher instance."""
-    return _dispatcher
-
-
-def emit_event(
-    event_type: str,
-    payload: dict[str, Any],
-    actor: str = "system",
-    validate: bool = True,
-) -> str | None:
-    """Emit an event to all listeners and log to ledger.
-
-    This is a wrapper around the global dispatcher's emit method,
-    providing the same interface as the original event_dispatcher module.
-
-    Recursive Event Capture Prevention:
-    - If this function is called while already emitting an event, the recursive
-      call is skipped to prevent infinite loops
-    - This prevents stack overflow when event listeners or ledger operations
-      trigger additional events
-
-    Args:
-        event_type: Type of event (e.g., 'USER_INPUT', 'TOOL_CALL')
-        payload: Event data dict
-        actor: Who triggered the event (default: 'system')
-        validate: Whether to validate payload before storing (default: True)
-
-    Returns:
-        event_id: UUID of the logged event, or None if recursive call was skipped
-
-    """
-    # Check for recursive event emission
-    if _is_in_event_emission():
-        logger.debug(f"Skipping recursive event emission: {event_type}")
-        return None
-
-    # Set flag to prevent recursive calls
-    _set_in_event_emission(True)
-    try:
-        return _dispatcher.emit(event_type, payload, actor, validate=validate)
-    finally:
-        # Always clear the flag, even if an exception occurs
-        _set_in_event_emission(False)
+# Re-export dispatcher components for backward compatibility
+from divineos.event.event_dispatch import (  # noqa: E402
+    EventDispatcher as EventDispatcher,
+    register_listener as register_listener,
+    get_dispatcher as get_dispatcher,
+    emit_event as emit_event,
+)

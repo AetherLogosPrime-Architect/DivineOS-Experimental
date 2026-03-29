@@ -6,8 +6,6 @@ from pathlib import Path
 
 from divineos.analysis.session_analyzer import (
     analyze_session,
-    find_sessions,
-    aggregate_analyses,
     CORRECTION_PATTERNS,
     ENCOURAGEMENT_PATTERNS,
     DECISION_PATTERNS,
@@ -18,6 +16,10 @@ from divineos.analysis.session_analyzer import (
     _summarize_tool_input,
     _extract_timestamps,
     _load_records,
+)
+from divineos.analysis.session_discovery import (
+    find_sessions,
+    aggregate_analyses,
 )
 
 
