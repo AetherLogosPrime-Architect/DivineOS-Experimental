@@ -96,7 +96,9 @@ divineos patterns            # Cross-session quality patterns
 src/divineos/
   cli/                         CLI package (66 commands across 10+ modules)
     __init__.py                Entry point and command registration
-    session_pipeline.py        SESSION_END orchestration pipeline
+    session_pipeline.py        SESSION_END orchestrator (calls phases)
+    pipeline_gates.py          Enforcement gates (quality, briefing, engagement)
+    pipeline_phases.py         Heavy-lifting phases (feedback, scoring, finalization)
     knowledge_commands.py      learn, ask, briefing, forget, lessons
     analysis_commands.py       analyze, report, trends
     hud_commands.py            hud, goal, plan commands
@@ -167,7 +169,7 @@ src/divineos/
   integration/                 IDE and MCP integration
   supersession/                Contradiction detection and resolution
   violations_cli/              Violation reporting CLI
-tests/                         2199 tests (real DB, no mocks)
+tests/                         2000+ tests (real DB, no mocks)
 setup/                         Hook setup scripts
 ```
 
@@ -182,7 +184,7 @@ setup/                         Hook setup scripts
 ## Development
 
 ```bash
-pytest tests/ -q --tb=short   # Run tests (2199 tests, ~42s)
+pytest tests/ -q --tb=short   # Run all tests
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```
