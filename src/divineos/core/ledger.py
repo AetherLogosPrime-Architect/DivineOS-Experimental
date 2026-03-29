@@ -6,9 +6,7 @@ Rules: 1) Never update or delete. 2) Store raw data, not summaries.
 Every row has a SHA256 content_hash for integrity verification.
 """
 
-import hashlib
 import json
-import sqlite3
 import sys
 import time
 import uuid
@@ -16,6 +14,14 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger
+
+from divineos.core._ledger_base import (
+    DB_PATH as DB_PATH,
+    _get_db_path as _get_db_path,
+    compute_hash as compute_hash,
+    get_connection as get_connection,
+    get_connection_fk as get_connection_fk,
+)
 
 __all__ = [
     "logger",
@@ -52,54 +58,6 @@ logger.add(
     level="DEBUG",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
 )
-
-
-def _get_db_path() -> Path:
-    """Get the database path, respecting DIVINEOS_DB environment variable."""
-    import os
-
-    env_path = os.environ.get("DIVINEOS_DB")
-    if env_path:
-        return Path(env_path)
-    return Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
-
-
-DB_PATH = _get_db_path()
-
-
-def compute_hash(content: str) -> str:
-    """Compute SHA256 hash of content, truncated to 32 chars."""
-    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:32]
-
-
-def get_connection() -> sqlite3.Connection:
-    """Returns a connection to the ledger database.
-
-    Shared connection factory — all modules should import this
-    instead of defining their own _get_connection().
-    """
-    import os
-
-    # Check environment variable each time to support test isolation
-    db_path_str = os.environ.get("DIVINEOS_DB")
-    if db_path_str:
-        db_path: Path = Path(db_path_str)
-    else:
-        db_path = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
-
-    db_path.parent.mkdir(exist_ok=True)
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
-    return conn
-
-
-def get_connection_fk() -> sqlite3.Connection:
-    """Connection with foreign keys enabled. For modules with FK constraints."""
-    conn = get_connection()
-    conn.execute("PRAGMA foreign_keys=ON")
-    return conn
-
 
 # Keep backward compat for internal usage in this file
 _get_connection = get_connection

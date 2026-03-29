@@ -11,7 +11,6 @@ import uuid
 from typing import Any, cast
 
 from divineos.core.knowledge import get_connection
-from divineos.core.memory import format_core
 
 _get_connection = get_connection
 
@@ -359,6 +358,8 @@ def recall(context_hint: str = "") -> dict[str, Any]:
         }
 
     """
+    from divineos.core.memory import format_core  # late import to avoid cycle
+
     core_text = format_core()
     active = get_active_memory()
 

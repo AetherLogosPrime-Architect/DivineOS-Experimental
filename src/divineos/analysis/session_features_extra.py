@@ -15,7 +15,7 @@ from divineos.analysis.record_extraction import (
     _get_assistant_text,
 )
 from divineos.analysis.session_analyzer import _extract_user_text
-from divineos.analysis.session_features import ErrorRecoveryEntry, TaskTracking
+from divineos.analysis._session_types import ErrorRecoveryEntry, TaskTracking
 from divineos.analysis.tone_tracking import _classify_tone
 
 
