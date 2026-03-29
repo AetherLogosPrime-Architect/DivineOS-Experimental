@@ -486,13 +486,3 @@ def _summarize_tool_input(tool_name: str, tool_input: dict[str, Any]) -> str:
         if isinstance(v, str) and v:
             return v[:80]
     return ""
-
-
-# --- Discovery functions ---
-
-
-from divineos.analysis.session_discovery import (  # noqa: E402
-    aggregate_analyses as aggregate_analyses,
-    analyze_all_sessions as analyze_all_sessions,
-    find_sessions as find_sessions,
-)
