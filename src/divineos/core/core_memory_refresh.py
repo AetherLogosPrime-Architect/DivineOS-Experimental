@@ -6,6 +6,8 @@ known_weaknesses, relationship_context) evolve session-to-session and need
 automatic updates so they don't go stale.
 """
 
+import json
+import sqlite3
 from typing import Any
 
 from loguru import logger
@@ -36,17 +38,16 @@ def _refresh_priorities() -> bool:
 
     # Active goals
     try:
-        import json as _json
         from divineos.core.hud import _ensure_hud_dir
 
         goals_path = _ensure_hud_dir() / "active_goals.json"
         if goals_path.exists():
-            goals = _json.loads(goals_path.read_text(encoding="utf-8"))
+            goals = json.loads(goals_path.read_text(encoding="utf-8"))
             active_goals = [g for g in goals if g.get("status") == "active"]
             if active_goals:
                 for i, g in enumerate(active_goals[:5], 1):
                     parts.append(f"{i}. {g['text']}")
-    except Exception:
+    except (json.JSONDecodeError, OSError):
         pass
 
     # Recent paradigm-level decisions inform priorities
@@ -59,7 +60,7 @@ def _refresh_priorities() -> bool:
             parts.append("Recent paradigm shifts:")
             for s in shifts:
                 parts.append(f"- {s['content'][:120]}")
-    except Exception:
+    except (ImportError, sqlite3.OperationalError):
         pass
 
     if not parts:
@@ -80,7 +81,7 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
     """Rebuild known_strengths from test data, session health, and knowledge."""
     parts: list[str] = []
 
-    # Test count from knowledge store
+    # Knowledge count from the store
     try:
         from divineos.core.knowledge import get_connection
 
@@ -90,7 +91,7 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
         conn.close()
         if knowledge_count:
             parts.append(f"Knowledge store: {knowledge_count} active entries.")
-    except Exception:
+    except (ImportError, sqlite3.OperationalError):
         pass
 
     # Session health trend
@@ -103,7 +104,7 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
                 f"Growth trend: {growth['trend']} over {growth['sessions']} sessions "
                 f"(avg score {growth['avg_health_score']:.2f})."
             )
-    except Exception:
+    except (ImportError, sqlite3.OperationalError):
         pass
 
     # Strengths from knowledge (PRINCIPLE type, high confidence)
@@ -114,7 +115,7 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
         high_conf = [p for p in principles if p.get("confidence", 0) >= 0.8]
         if high_conf:
             parts.append(f"{len(high_conf)} confirmed principles in knowledge store.")
-    except Exception:
+    except (ImportError, sqlite3.OperationalError):
         pass
 
     # Current session performance
@@ -153,7 +154,7 @@ def _refresh_weaknesses(analysis: Any | None = None) -> bool:
                 parts.append(f"- {desc}")
         if improving:
             parts.append(f"{len(improving)} lesson(s) improving.")
-    except Exception:
+    except (ImportError, sqlite3.OperationalError):
         pass
 
     # Recent corrections from this session
@@ -169,7 +170,7 @@ def _refresh_weaknesses(analysis: Any | None = None) -> bool:
         warnings = _get_active_warnings()
         if warnings:
             parts.append(f"{len(warnings)} active pattern warning(s) to watch for.")
-    except Exception:
+    except (ImportError, sqlite3.OperationalError, json.JSONDecodeError):
         pass
 
     if not parts:
