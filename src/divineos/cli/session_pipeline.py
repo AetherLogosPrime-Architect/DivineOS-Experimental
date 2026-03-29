@@ -74,36 +74,39 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Goal extraction failed: {e}")
 
-        # 1c. Briefing gate — hard fail, checked before anything else
+        # 1c. Briefing gate — auto-recover, not just fail
+        briefing_failed = False
         try:
-            from divineos.core.hud_handoff import was_briefing_loaded
+            from divineos.core.hud_handoff import mark_briefing_loaded, was_briefing_loaded
 
             if not was_briefing_loaded():
+                briefing_failed = True
                 click.secho(
-                    "\n[F] SESSION FAILED: Briefing was never loaded (or went stale).",
+                    "\n[F] Briefing was never loaded (or went stale). Grade: F.",
                     fg="red",
                     bold=True,
                 )
                 click.secho(
-                    "    Knowledge extraction BLOCKED. Nothing from this session is trusted.",
-                    fg="red",
+                    "    Auto-loading briefing now to recover session extraction...",
+                    fg="yellow",
                 )
-                click.secho(
-                    "    Grade: F. This is not a penalty — it's a prerequisite.\n",
-                    fg="red",
-                )
-                # Still run health check and save HUD, but skip extraction
+                # Force-load the briefing so the session isn't wasted
                 try:
-                    _wrapped_health_check()
-                except Exception:
-                    pass
-                try:
-                    from divineos.core.hud import save_hud_snapshot
+                    from divineos.core.active_memory import refresh_active_memory
 
-                    save_hud_snapshot()
-                except Exception:
-                    pass
-                return
+                    init_memory_tables()
+                    refresh_active_memory(importance_threshold=0.3)
+                    mark_briefing_loaded()
+                    click.secho(
+                        "    Briefing force-loaded. Extraction will proceed. Grade remains F.",
+                        fg="yellow",
+                    )
+                except Exception as e:
+                    logger.warning(f"Briefing auto-load failed: {e}")
+                    click.secho(
+                        f"    Auto-load failed ({e}). Extraction continues but grade is F.",
+                        fg="red",
+                    )
         except Exception as e:
             logger.warning(f"Briefing gate check failed: {e}")
 
@@ -400,15 +403,13 @@ def _run_session_end_pipeline() -> None:
         try:
             from divineos.agent_integration.outcome_measurement import measure_session_health
 
-            from divineos.core.hud_handoff import was_briefing_loaded
-
             health = measure_session_health(
                 corrections=len(analysis.corrections),
                 encouragements=len(analysis.encouragements),
                 context_overflows=len(analysis.context_overflows),
                 tool_calls=analysis.tool_calls_total,
                 user_messages=analysis.user_messages,
-                briefing_loaded=was_briefing_loaded(),
+                briefing_loaded=not briefing_failed,
             )
             grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
 
@@ -450,34 +451,13 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Engagement check failed: {e}")
 
-        # 8b2. Briefing gate — structural penalty, not just a lesson
+        # 8b2. Clean up briefing marker for next session
         try:
-            from divineos.core.hud_handoff import (
-                briefing_staleness,
-                clear_briefing_marker,
-            )
+            from divineos.core.hud_handoff import clear_briefing_marker
 
-            staleness = briefing_staleness()
-            if not staleness["loaded"]:
-                click.secho(
-                    "[F] BRIEFING NEVER LOADED. Session grade: F. No exceptions.",
-                    fg="red",
-                    bold=True,
-                )
-                click.secho(
-                    "    Nothing from this session can be trusted. Load briefing first.",
-                    fg="red",
-                )
-            elif staleness["stale"]:
-                click.secho(
-                    f"[F] BRIEFING WENT STALE ({staleness['calls_since']} tool calls since load). "
-                    f"Grade: F. Re-load briefing every ~{staleness['threshold']} tool calls.",
-                    fg="red",
-                    bold=True,
-                )
             clear_briefing_marker()
         except Exception as e:
-            logger.warning(f"Briefing gate check failed: {e}")
+            logger.warning(f"Briefing marker cleanup failed: {e}")
 
         # 8c. Session-end corroboration sweep
         try:
