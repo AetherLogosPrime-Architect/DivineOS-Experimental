@@ -196,3 +196,54 @@ def register(cli: click.Group) -> None:
                 "[~] Note consumed (cleared). Use --show to peek without clearing.",
                 fg="bright_black",
             )
+
+    @cli.command("preflight")
+    @click.option("--auto", "auto_fix", is_flag=True, help="Auto-load briefing if missing")
+    def preflight_cmd(auto_fix: bool) -> None:
+        """Pre-session readiness check. Run this before doing any work.
+
+        Checks: briefing loaded, thinking tools used, handoff note, active goals.
+        With --auto, loads the briefing automatically if it's missing.
+        """
+        from divineos.core.hud_handoff import (
+            mark_briefing_loaded,
+            preflight_check,
+        )
+
+        result = preflight_check()
+
+        click.secho("\n=== PREFLIGHT CHECK ===\n", fg="cyan", bold=True)
+
+        for check in result["checks"]:
+            if check["passed"]:
+                click.secho(f"  [PASS] {check['name']}: {check['detail']}", fg="green")
+            else:
+                click.secho(f"  [FAIL] {check['name']}: {check['detail']}", fg="red")
+
+        click.echo()
+
+        if result["ready"]:
+            click.secho("[+] Ready to work.", fg="green", bold=True)
+        elif auto_fix and not result["briefing_loaded"]:
+            # Auto-load briefing
+            click.secho("[~] Auto-loading briefing...", fg="yellow")
+            from divineos.core.active_memory import refresh_active_memory
+            from divineos.core.knowledge import generate_briefing
+            from divineos.core.memory import init_memory_tables
+
+            init_memory_tables()
+            refresh_active_memory(importance_threshold=0.3)
+
+            output = generate_briefing(max_items=20)
+            if output and output.strip():
+                _safe_echo(output)
+            mark_briefing_loaded()
+            click.secho("\n[+] Briefing loaded. Ready to work.", fg="green", bold=True)
+        else:
+            click.secho(
+                "[!] Not ready. Run: divineos briefing",
+                fg="red",
+                bold=True,
+            )
+
+        click.echo()
