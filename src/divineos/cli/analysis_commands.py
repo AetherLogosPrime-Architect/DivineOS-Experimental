@@ -1,6 +1,7 @@
 """Analysis commands — sessions, scan, deep-report, patterns, outcomes, analyze, analyze-now,
 report, cross-session, clarity."""
 
+import sqlite3
 from pathlib import Path
 
 import click
@@ -362,7 +363,7 @@ def register(cli: click.Group) -> None:
                 _safe_echo(report)
                 click.echo()
 
-        except Exception as e:
+        except (sqlite3.OperationalError, ValueError, KeyError, OSError) as e:
             click.secho(f"[-] Error retrieving report: {e}", fg="red")
             logger.exception("Report retrieval failed")
 
@@ -385,7 +386,7 @@ def register(cli: click.Group) -> None:
             _safe_echo(report)
             click.echo()
 
-        except Exception as e:
+        except (sqlite3.OperationalError, ValueError, KeyError) as e:
             click.secho(f"[-] Error during cross-session analysis: {e}", fg="red")
             logger.exception("Cross-session analysis failed")
 
@@ -469,7 +470,7 @@ def register(cli: click.Group) -> None:
                 click.secho("  Clean session -- no significant deviations detected.", fg="green")
                 click.echo()
 
-        except Exception as e:
+        except (ValueError, KeyError, TypeError, sqlite3.OperationalError) as e:
             click.secho(f"[!] Clarity analysis failed: {e}", fg="red")
 
     @cli.command("growth")

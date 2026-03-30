@@ -3,20 +3,22 @@
 import pytest
 from divineos.core.ledger import init_db
 from divineos.core.knowledge import init_knowledge_table, store_knowledge
+from divineos.core.active_memory import (
+    compute_importance,
+    demote_from_active,
+    format_recall,
+    get_active_memory,
+    promote_to_active,
+    recall,
+    refresh_active_memory,
+)
 from divineos.core.memory import (
     CORE_SLOTS,
-    init_memory_tables,
-    set_core,
-    get_core,
     clear_core,
     format_core,
-    compute_importance,
-    promote_to_active,
-    demote_from_active,
-    get_active_memory,
-    refresh_active_memory,
-    recall,
-    format_recall,
+    get_core,
+    init_memory_tables,
+    set_core,
 )
 import divineos.core.ledger as ledger_mod
 

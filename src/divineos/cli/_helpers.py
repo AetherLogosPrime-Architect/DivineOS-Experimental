@@ -7,7 +7,7 @@ from typing import Any
 
 import click
 
-from divineos.core.memory import TYPOGRAPHIC_REPLACEMENTS as _TYPOGRAPHIC_REPLACEMENTS
+from divineos.core.active_memory import TYPOGRAPHIC_REPLACEMENTS as _TYPOGRAPHIC_REPLACEMENTS
 
 _EMOJI_MEANINGS: dict[str, str] = {
     "\U0001f614": "(upset)",

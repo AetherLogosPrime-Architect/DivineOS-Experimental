@@ -79,7 +79,7 @@ def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
             # Skip noise and session-specific entries — don't promote them
             if _is_extraction_noise(content, old_type):
                 continue
-            from divineos.core.memory import _is_session_specific
+            from divineos.core.active_memory import _is_session_specific
 
             if _is_session_specific(content):
                 continue

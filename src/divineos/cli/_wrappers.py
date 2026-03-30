@@ -39,15 +39,17 @@ from divineos.core.ledger import (
     search_events,
     verify_all_events,
 )
-from divineos.core.memory import (
-    clear_core,
-    format_core,
+from divineos.core.active_memory import (
     format_recall,
     get_active_memory,
-    init_memory_tables,
     promote_to_active,
     recall,
     refresh_active_memory,
+)
+from divineos.core.memory import (
+    clear_core,
+    format_core,
+    init_memory_tables,
     set_core,
 )
 from divineos.core.tool_wrapper import wrap_tool_execution
