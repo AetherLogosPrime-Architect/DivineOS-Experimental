@@ -10,6 +10,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/resume-session.sh",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "PreCompact": [
