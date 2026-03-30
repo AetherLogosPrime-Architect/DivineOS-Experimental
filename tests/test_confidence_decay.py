@@ -10,7 +10,7 @@ from divineos.core.knowledge import (
     store_knowledge,
 )
 from divineos.core.ledger import init_db
-from divineos.core.memory import compute_importance
+from divineos.core.active_memory import compute_importance
 
 
 class TestAbandonedKnowledgeDecay:

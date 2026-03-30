@@ -3,6 +3,7 @@
 Integrates with the existing DivineOS ledger for querying execution events.
 """
 
+import sqlite3
 from typing import Any
 from uuid import UUID
 
@@ -11,6 +12,15 @@ from loguru import logger
 from divineos.core import ledger
 
 from .types import ExecutionData, ExecutionMetrics, ToolCall
+
+_LEDGER_INT_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+)
 
 
 class LedgerQueryInterface:
@@ -55,7 +65,7 @@ class LedgerQueryInterface:
             )
             return verified_events
 
-        except Exception as e:
+        except _LEDGER_INT_ERRORS as e:
             logger.error(f"Error querying ledger for session {session_id}: {e}")
             return []
 
@@ -84,13 +94,13 @@ class LedgerQueryInterface:
                             input=payload.get("tool_input", {}),
                         )
                         tool_calls.append(tool_call)
-                except Exception as e:
+                except (KeyError, TypeError, ValueError) as e:
                     logger.warning(f"Error extracting tool call from event: {e}")
 
             logger.info(f"Extracted {len(tool_calls)} tool calls from {len(events)} events")
             return tool_calls
 
-        except Exception as e:
+        except _LEDGER_INT_ERRORS as e:
             logger.error(f"Error extracting tool calls: {e}")
             return []
 
@@ -116,13 +126,13 @@ class LedgerQueryInterface:
                         if payload.get("error"):
                             error_msg = payload.get("error", "Unknown error")
                             errors.append(error_msg)
-                except Exception as e:
+                except (KeyError, TypeError, ValueError) as e:
                     logger.warning(f"Error extracting error from event: {e}")
 
             logger.info(f"Extracted {len(errors)} errors from {len(events)} events")
             return errors
 
-        except Exception as e:
+        except _LEDGER_INT_ERRORS as e:
             logger.error(f"Error extracting errors: {e}")
             return []
 
@@ -213,7 +223,7 @@ class LedgerQueryInterface:
                     last_time = datetime.fromisoformat(tool_calls[-1].timestamp)
                     duration = (last_time - first_time).total_seconds() / 60.0
                     actual_time_minutes = max(0.0, duration)
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     logger.warning(f"Error calculating time from events: {e}")
 
             metrics = ExecutionMetrics(
@@ -230,6 +240,6 @@ class LedgerQueryInterface:
             )
             return metrics
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, ZeroDivisionError) as e:
             logger.error(f"Error calculating metrics: {e}")
             return ExecutionMetrics(0, 0, 0, 0.0, 0.0)

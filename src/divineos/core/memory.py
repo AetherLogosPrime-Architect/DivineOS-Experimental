@@ -190,20 +190,3 @@ def format_core() -> str:
             lines.append(f"- **{label}:** {slots[slot_id]}")
 
     return "\n".join(lines)
-
-
-# ─── Re-exports from active_memory.py ────────────────────────────────
-# Active memory operations were extracted to active_memory.py to keep this
-# file under 500 lines. Re-export here so existing imports still work.
-from divineos.core.active_memory import (  # noqa: F401, E402
-    TYPOGRAPHIC_REPLACEMENTS,
-    _is_session_specific,
-    _safe_text,
-    compute_importance,
-    demote_from_active,
-    format_recall,
-    get_active_memory,
-    promote_to_active,
-    recall,
-    refresh_active_memory,
-)
