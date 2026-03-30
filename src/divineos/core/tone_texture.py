@@ -270,8 +270,11 @@ def _build_narrative(
         trigger_hint = ""
         if triggers:
             trigger_hint = f" (triggered by: {triggers[0][:60]})"
+        recovery_hint = ""
+        if recoveries:
+            recovery_hint = f" via {recoveries[0][:60]}"
         speed = "quickly" if velocity <= 2 else "gradually" if velocity <= 5 else "slowly"
-        return f"Hit frustration{trigger_hint}, {speed} recovered."
+        return f"Hit frustration{trigger_hint}, {speed} recovered{recovery_hint}."
 
     if arc_type == "declining":
         return f"Session ended on a negative note after {n} messages."

@@ -2,7 +2,7 @@
 Targeted tests for enforcement system gaps identified by Grok audit.
 
 Tests cover:
-- Merged Kiro/MCP failure modes
+- Merged IDE/MCP failure modes
 - Clarity violation handling
 - Concurrent tool calls under RLock
 - Full session lifecycle
@@ -16,8 +16,8 @@ from divineos.hooks.clarity_enforcement import ClarityChecker
 from divineos.core.tool_wrapper import get_unified_capture
 
 
-class TestMergedKiroMCPFailureModes:
-    """Test failure modes in merged Kiro/MCP paths."""
+class TestMergedIDEMCPFailureModes:
+    """Test failure modes in merged IDE/MCP paths."""
 
     def test_unified_capture_singleton_pattern(self):
         """Test that unified capture uses singleton pattern."""

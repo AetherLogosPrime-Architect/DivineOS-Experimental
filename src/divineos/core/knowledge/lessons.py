@@ -171,13 +171,17 @@ def mark_lesson_improving(category: str, clean_session_id: str) -> None:
     conn = _get_connection()
     try:
         existing = conn.execute(
-            "SELECT lesson_id, occurrences, status FROM lesson_tracking WHERE category = ? AND status = 'active'",
+            "SELECT lesson_id, occurrences, status, sessions FROM lesson_tracking WHERE category = ? AND status = 'active'",
             (category,),
         ).fetchone()
         if existing and existing[1] >= 3:
+            # Track which session triggered the improvement
+            sessions_list = json.loads(existing[3]) if existing[3] else []
+            if clean_session_id not in sessions_list:
+                sessions_list.append(clean_session_id)
             conn.execute(
-                "UPDATE lesson_tracking SET status = 'improving' WHERE lesson_id = ?",
-                (existing[0],),
+                "UPDATE lesson_tracking SET status = 'improving', sessions = ?, last_seen = ? WHERE lesson_id = ?",
+                (json.dumps(sessions_list), time.time(), existing[0]),
             )
             conn.commit()
     finally:

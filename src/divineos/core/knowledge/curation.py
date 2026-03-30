@@ -16,6 +16,7 @@ Curation runs at SESSION_END after knowledge extraction. It:
 """
 
 import re
+import sqlite3
 import time
 from typing import Any
 
@@ -37,7 +38,7 @@ def ensure_layer_column() -> None:
     try:
         conn.execute("ALTER TABLE knowledge ADD COLUMN layer TEXT NOT NULL DEFAULT 'active'")
         conn.commit()
-    except Exception:
+    except sqlite3.OperationalError:
         pass  # column already exists
     finally:
         conn.close()
@@ -188,7 +189,7 @@ def assign_lesson_layers() -> dict[str, int]:
                 counts["archived"] += 1
 
         conn.commit()
-    except Exception as e:
+    except (sqlite3.Error, KeyError, TypeError) as e:
         logger.warning("Lesson layer assignment failed: %s", e)
     finally:
         conn.close()
@@ -280,7 +281,7 @@ def run_curation() -> dict[str, Any]:
                     )
 
         conn.commit()
-    except Exception as e:
+    except (sqlite3.Error, KeyError, TypeError) as e:
         logger.warning("Curation pass failed: %s", e)
     finally:
         conn.close()
