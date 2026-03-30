@@ -19,7 +19,6 @@ from divineos.agent_integration.types import (
     TimingPattern,
     ToolPattern,
 )
-from divineos.core.knowledge import store_knowledge
 from divineos.core.error_handling import (
     handle_error,
 )
@@ -352,73 +351,3 @@ def extract_error_patterns(events: list[dict[str, Any]]) -> dict[str, ErrorPatte
             patterns[tool_name] = pattern
 
     return patterns
-
-
-def store_lesson(
-    lesson_type: str,
-    content: dict[str, Any],
-    session_id: str,
-    tags: list[str] | None = None,
-) -> str:
-    """Store a lesson as a knowledge entry.
-
-    Args:
-        lesson_type: Type of lesson (correction, encouragement, etc.)
-        content: Lesson content
-        session_id: Source session ID
-        tags: Optional tags for the lesson
-
-    Returns:
-        Knowledge entry ID
-
-    """
-    if tags is None:
-        tags = []
-
-    # Add standard tags
-    tags.extend(["agent-learning", "self-observation"])
-
-    try:
-        entry_id = store_knowledge(
-            knowledge_type="LESSON",
-            content=str(content),
-            confidence=0.8,
-            source_events=[session_id],
-            tags=tags,
-        )
-        logger.debug(f"Stored lesson: {entry_id[:8]}...")
-        return entry_id
-    except _LL_ERRORS as e:
-        handle_error(e, "store_lesson", {"session_id": session_id})
-        raise
-
-
-def provide_session_briefing(session_id: str) -> dict[str, Any]:
-    """Provide briefing of relevant lessons for new session.
-
-    Args:
-        session_id: Current session ID
-
-    Returns:
-        Dictionary with briefing information
-
-    """
-    logger.info(f"Generating session briefing for {session_id[:8]}...")
-
-    try:
-        # For now, return empty briefing
-        # This will be enhanced when knowledge retrieval is integrated
-        return {
-            "session_id": session_id,
-            "lessons": [],
-            "recommendations": [],
-            "timestamp": get_current_timestamp(),
-        }
-    except _LL_ERRORS as e:
-        handle_error(e, "provide_session_briefing", {"session_id": session_id})
-        return {
-            "session_id": session_id,
-            "lessons": [],
-            "recommendations": [],
-            "timestamp": get_current_timestamp(),
-        }

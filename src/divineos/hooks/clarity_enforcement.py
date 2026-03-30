@@ -9,9 +9,7 @@ This module provides decorators and utilities to enforce the clarity principle:
 Also integrates with IDE tool execution to emit TOOL_CALL and TOOL_RESULT events.
 """
 
-import functools
 import threading
-from collections.abc import Callable
 from typing import Any
 import sqlite3
 
@@ -19,92 +17,9 @@ from loguru import logger
 
 _CE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
-# Import IDE tool integration for capturing tool execution
-try:
-    from divineos.core.tool_wrapper import (
-        emit_tool_call_for_ide,
-        emit_tool_result_for_ide,
-    )
-
-    IDE_INTEGRATION_AVAILABLE = True
-except ImportError:
-    IDE_INTEGRATION_AVAILABLE = False
-    logger.warning("IDE tool integration not available")
-
 
 class ClarityViolation(Exception):
     """Raised when a tool call is made without proper explanation."""
-
-
-def require_explanation(tool_name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Decorator that requires an explanation before a tool is called.
-
-    Usage:
-        @require_explanation("readFile")
-        def read_file(path: str) -> str:
-            ...
-
-    This decorator ensures that:
-    1. The tool call is logged with context
-    2. An explanation is provided before execution
-    3. The result is interpreted and explained
-    4. TOOL_CALL and TOOL_RESULT events are emitted for tracking
-    """
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            # Log the tool call with context
-            logger.info(f"Tool call: {tool_name}")
-            logger.info(f"Arguments: args={args}, kwargs={kwargs}")
-
-            # Emit TOOL_CALL event if IDE integration is available
-            tool_use_id = None
-            if IDE_INTEGRATION_AVAILABLE:
-                try:
-                    tool_use_id = emit_tool_call_for_ide(tool_name, kwargs)
-                    logger.debug(f"Emitted TOOL_CALL for {tool_name}: {tool_use_id}")
-                except _CE_ERRORS as e:
-                    logger.warning(f"Failed to emit TOOL_CALL for {tool_name}: {e}")
-
-            try:
-                # Execute the tool
-                result = func(*args, **kwargs)
-
-                # Log the result
-                logger.info(f"Tool result: {tool_name} returned {type(result).__name__}")
-
-                # Emit TOOL_RESULT event if IDE integration is available
-                if IDE_INTEGRATION_AVAILABLE and tool_use_id:
-                    try:
-                        result_str = str(result) if not isinstance(result, str) else result
-                        emit_tool_result_for_ide(tool_use_id, result_str, failed=False)
-                        logger.debug(f"Emitted TOOL_RESULT for {tool_name}: success")
-                    except _CE_ERRORS as e:
-                        logger.warning(f"Failed to emit TOOL_RESULT for {tool_name}: {e}")
-
-                return result
-
-            except _CE_ERRORS as e:
-                # Emit TOOL_RESULT event with failure if IDE integration is available
-                if IDE_INTEGRATION_AVAILABLE and tool_use_id:
-                    try:
-                        error_msg = str(e)
-                        emit_tool_result_for_ide(
-                            tool_use_id,
-                            error_msg,
-                            failed=True,
-                            error_message=error_msg,
-                        )
-                        logger.debug(f"Emitted TOOL_RESULT for {tool_name}: failed")
-                    except Exception as emit_error:
-                        logger.warning(f"Failed to emit TOOL_RESULT for {tool_name}: {emit_error}")
-
-                raise
-
-        return wrapper
-
-    return decorator
 
 
 class ClarityChecker:
@@ -263,21 +178,3 @@ class ClarityChecker:
                 "status": "PASS" if unexplained_calls == 0 else "FAIL",
                 "unexplained_details": self.get_unexplained_calls(),
             }
-
-
-# Global clarity checker instance
-_clarity_checker: ClarityChecker | None = None
-
-
-def get_clarity_checker() -> ClarityChecker:
-    """Get or create the global clarity checker."""
-    global _clarity_checker
-    if _clarity_checker is None:
-        _clarity_checker = ClarityChecker()
-    return _clarity_checker
-
-
-def reset_clarity_checker() -> None:
-    """Reset the clarity checker for a new session."""
-    global _clarity_checker
-    _clarity_checker = ClarityChecker()

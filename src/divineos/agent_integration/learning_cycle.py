@@ -58,22 +58,15 @@ class LearningCycle:
     SUCCESS_DELTA = 0.05
     FAILURE_DELTA = -0.15  # 3× heavier than success
     SECONDARY_EFFECTS_DELTA = -0.1  # Additional penalty for violations/debt
-    CONTEXT_CHANGE_DOWNWEIGHT = 0.30  # 30% downweight
-    PRECONDITION_MISMATCH_DOWNWEIGHT = 0.20  # 20% downweight
-
     # Thresholds
     TACTICAL_FAILURE_THRESHOLD = 3  # Archive after 3+ failures
     CONFIDENCE_ARCHIVE_THRESHOLD = -0.5  # Archive patterns below this
-    CONFIDENCE_RECOMMENDATION_THRESHOLD = 0.65  # Don't recommend below this
     CONFIDENCE_LOW_THRESHOLD = 0.7  # Flag as low confidence
     DRIFT_THRESHOLD = 0.5  # >50% patterns below 0.6 = drift
     DRIFT_CONFIDENCE_LEVEL = 0.6  # Threshold for drift detection
-    MIN_OCCURRENCES = 5  # Minimum occurrences before recommendation
-    MIN_SUCCESS_RATE = 0.6  # Minimum success rate for positive patterns
 
     # Time windows
     WORK_HISTORY_DAYS = 30
-    TACTICAL_VALIDATION_DAYS = 30
 
     def __init__(self) -> None:
         """Initialize the learning cycle."""
