@@ -7,8 +7,11 @@ Orchestrates the logic layer modules and returns stats for display.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import sqlite3
 
 from loguru import logger
+
+_SL_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 @dataclass
@@ -61,7 +64,7 @@ def run_session_logic_pass(
                     result.details.append(
                         f"Contradiction: {inc.entry_a[:8]}..↔{inc.entry_b[:8]}.. ({inc.contradiction_type})"
                     )
-    except Exception as e:
+    except _SL_ERRORS as e:
         logger.warning(f"Consistency check failed: {e}")
 
     # Step 2: Inference propagation on promoted entries
@@ -75,7 +78,7 @@ def run_session_logic_pass(
                     result.inferences_made += len(derivations)
                     result.warrants_created += len(derivations)
                     result.details.append(f"Inferred {len(derivations)} from {kid[:8]}.. promotion")
-        except Exception as e:
+        except _SL_ERRORS as e:
             logger.warning(f"Inference propagation failed: {e}")
 
     # Step 3: Scan for defeated-only entries
@@ -84,7 +87,7 @@ def run_session_logic_pass(
 
         defeated = scan_defeated_only_entries(limit=50)
         result.defeated_only_count = len(defeated)
-    except Exception as e:
+    except _SL_ERRORS as e:
         logger.warning(f"Defeated-only scan failed: {e}")
 
     return result

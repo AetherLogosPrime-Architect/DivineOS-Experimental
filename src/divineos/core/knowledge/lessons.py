@@ -4,6 +4,7 @@ import json
 import time
 import uuid
 from typing import Any, cast
+import sqlite3
 
 from loguru import logger
 
@@ -14,6 +15,16 @@ from divineos.core.knowledge._base import (
 )
 from divineos.core.knowledge.crud import (
     store_knowledge,
+)
+
+_LESSONS_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
 )
 
 
@@ -88,7 +99,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
                 for (kid,) in linked:
                     increment_corroboration(kid)
                     promote_maturity(kid)
-            except Exception as e:
+            except _LESSONS_ERRORS as e:
                 logger.debug(
                     "Corroboration sweep failed (best-effort, lesson recording unaffected): %s", e
                 )

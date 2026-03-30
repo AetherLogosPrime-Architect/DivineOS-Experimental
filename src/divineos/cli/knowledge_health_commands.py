@@ -3,6 +3,7 @@ health, distill, migrate-types, hooks."""
 
 from pathlib import Path
 from typing import Any
+import sqlite3
 
 import click
 
@@ -18,6 +19,8 @@ from divineos.cli._wrappers import (
     logger,
 )
 from divineos.core.knowledge import search_knowledge
+
+_KHC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def register(cli: click.Group) -> None:
@@ -67,7 +70,7 @@ def register(cli: click.Group) -> None:
         path = Path(file_path)
         try:
             content = path.read_text(encoding="utf-8", errors="replace")
-        except Exception as e:
+        except _KHC_ERRORS as e:
             click.secho(f"[-] Cannot read file: {e}", fg="red")
             return
 
@@ -155,7 +158,7 @@ def register(cli: click.Group) -> None:
                 f'Future sessions can run: divineos ask "{file_tag}"',
                 fg="green",
             )
-        except Exception as e:
+        except _KHC_ERRORS as e:
             click.secho(f"[-] Failed to store digest: {e}", fg="red")
             logger.exception("Digest storage failed")
 
@@ -276,6 +279,35 @@ def register(cli: click.Group) -> None:
             'To distill, run: divineos distill --id <ID> --to "clean first-person version"',
             fg="bright_black",
         )
+        click.echo()
+
+    @cli.command("backfill-warrants")
+    @click.option(
+        "--execute",
+        is_flag=True,
+        help="Actually create warrants (default is dry-run)",
+    )
+    def backfill_warrants_cmd(execute: bool) -> None:
+        """Give pre-existing knowledge entries INHERITED warrants.
+
+        Entries created before the warrant system have no justification chain.
+        This creates an INHERITED warrant for each unwarranted entry.
+        """
+        from divineos.core.logic.warrant_backfill import backfill_inherited_warrants
+
+        dry_run = not execute
+        if dry_run:
+            click.secho("\n=== Warrant Backfill Preview (dry run) ===\n", fg="cyan", bold=True)
+
+        counts = backfill_inherited_warrants(dry_run=dry_run)
+        click.secho(f"  Checked:          {counts['checked']}", fg="white")
+        click.secho(f"  Already warranted: {counts['already_warranted']}", fg="bright_black")
+
+        if dry_run:
+            click.secho(f"  Would backfill:   {counts['backfilled']}", fg="yellow")
+            click.secho("\n  Run with --execute to apply.", fg="bright_black")
+        else:
+            click.secho(f"  Backfilled:       {counts['backfilled']}", fg="green")
         click.echo()
 
     @cli.command("migrate-types")

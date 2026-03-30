@@ -18,6 +18,9 @@ from .types import (
     PostWorkSummary,
     Recommendation,
 )
+import sqlite3
+
+_SG_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class DefaultSummaryGenerator(SummaryGenerator):
@@ -83,7 +86,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             )
             return summary
 
-        except Exception as e:
+        except _SG_ERRORS as e:
             logger.error(f"Error generating post-work summary: {e}")
             # Return minimal summary
             return PostWorkSummary(
@@ -141,7 +144,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             logger.debug(f"Generated plan vs actual section with alignment {alignment_score:.1f}%")
             return section
 
-        except Exception as e:
+        except _SG_ERRORS as e:
             logger.error(f"Error generating plan vs actual section: {e}")
             return {}
 
@@ -184,7 +187,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             logger.debug(f"Generated deviations section with {len(deviations)} deviations")
             return section
 
-        except Exception as e:
+        except _SG_ERRORS as e:
             logger.error(f"Error generating deviations section: {e}")
             return {}
 
@@ -212,7 +215,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             logger.debug("Generated metrics section")
             return section
 
-        except Exception as e:
+        except _SG_ERRORS as e:
             logger.error(f"Error generating metrics section: {e}")
             return {}
 
@@ -230,7 +233,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             # In a real implementation, this would present to the user
             # For now, we just log it
 
-        except Exception as e:
+        except _SG_ERRORS as e:
             logger.error(f"Error presenting summary: {e}")
 
     def _calculate_alignment_score(
@@ -279,7 +282,7 @@ class DefaultSummaryGenerator(SummaryGenerator):
             # Average all scores
             return sum(scores) / len(scores) if scores else 0.0
 
-        except Exception as e:
+        except _SG_ERRORS as e:
             logger.error(f"Error calculating alignment score: {e}")
             return 0.0
 

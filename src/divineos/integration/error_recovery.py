@@ -1,12 +1,15 @@
 """Error recovery implementations for each integration point."""
 
 from typing import Any, Optional
+import sqlite3
 from loguru import logger
 
 from divineos.integration.error_handler import (
     RetryableError,
     retry_on_error,
 )
+
+_ER_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class ClarityEnforcementRecovery:
@@ -31,7 +34,7 @@ class ClarityEnforcementRecovery:
             learning_cycle.capture_violation_event(violation_event)
             logger.info(f"Violation captured: {violation_event.get('tool_name')}")
             return True
-        except Exception as e:
+        except _ER_ERRORS as e:
             logger.error(f"Failed to capture violation: {e}")
             raise RetryableError(f"Violation capture failed: {e}")
 
@@ -74,7 +77,7 @@ class ContradictionResolutionRecovery:
             )
             logger.info(f"Contradiction resolved: {supersession.event_id}")
             return supersession
-        except Exception as e:
+        except _ER_ERRORS as e:
             logger.error(f"Failed to resolve contradiction: {e}")
             raise RetryableError(f"Contradiction resolution failed: {e}")
 
@@ -112,7 +115,7 @@ class MemoryMonitorRecovery:
             )
             logger.info(f"Checkpoint saved: {task}")
             return True
-        except Exception as e:
+        except _ER_ERRORS as e:
             logger.error(f"Failed to save checkpoint: {e}")
             raise RetryableError(f"Checkpoint save failed: {e}")
 
@@ -135,7 +138,7 @@ class MemoryMonitorRecovery:
             monitor.update_token_usage(tokens)
             logger.info(f"Token usage updated: {tokens}")
             return True
-        except Exception as e:
+        except _ER_ERRORS as e:
             logger.error(f"Failed to update token usage: {e}")
             raise RetryableError(f"Token update failed: {e}")
 
@@ -171,7 +174,7 @@ class LedgerStorageRecovery:
             )
             logger.info(f"Event logged: {event_type} ({event_id})")
             return event_id
-        except Exception as e:
+        except _ER_ERRORS as e:
             logger.error(f"Failed to log event: {e}")
             raise RetryableError(f"Event logging failed: {e}")
 
@@ -203,7 +206,7 @@ class QueryInterfaceRecovery:
             else:
                 logger.warning(f"No current fact found: {fact_type}/{fact_key}")
             return current
-        except Exception as e:
+        except _ER_ERRORS as e:
             logger.error(f"Failed to get current fact: {e}")
             raise RetryableError(f"Query failed: {e}")
 
@@ -226,6 +229,6 @@ class QueryInterfaceRecovery:
             chain: Optional[list[Any]] = engine.get_supersession_chain(fact_id)
             logger.info(f"Supersession chain retrieved: {len(chain) if chain else 0} events")
             return chain
-        except Exception as e:
+        except _ER_ERRORS as e:
             logger.error(f"Failed to get supersession chain: {e}")
             raise RetryableError(f"Chain retrieval failed: {e}")

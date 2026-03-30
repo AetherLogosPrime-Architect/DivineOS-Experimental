@@ -15,6 +15,7 @@ from its own work and improve future decisions.
 import time
 from datetime import timezone, datetime
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -27,6 +28,8 @@ from divineos.agent_integration.pattern_validation import (
     detect_conflicts as _detect_conflicts,
     generate_humility_audit as _generate_humility_audit,
 )
+
+_LC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 # Import monitoring
 try:
@@ -136,7 +139,7 @@ class LearningCycle:
 
             self.logger.info(f"Violation pattern recorded: {pattern_id}")
 
-        except Exception as e:
+        except _LC_ERRORS as e:
             self.logger.error(f"Failed to capture violation event: {e}")
 
     def load_work_history(self) -> list[dict[str, Any]]:
@@ -167,7 +170,7 @@ class LearningCycle:
                 if payload is not None:
                     result.append(payload)
             return result
-        except Exception as e:
+        except _LC_ERRORS as e:
             self.logger.error(f"Failed to load work history: {e}")
             return []
 
@@ -220,7 +223,7 @@ class LearningCycle:
 
             self.logger.info(f"Extracted {len(extracted_patterns)} patterns from work history")
             return extracted_patterns
-        except Exception as e:
+        except _LC_ERRORS as e:
             self.logger.error(f"Failed to extract patterns: {e}")
             return []
 
@@ -276,7 +279,7 @@ class LearningCycle:
                     f"Updated pattern {pattern_id}: "
                     f"delta: {total_delta:+.2f} based on {len(decisions)} outcomes"
                 )
-        except Exception as e:
+        except _LC_ERRORS as e:
             self.logger.error(f"Failed to update existing patterns: {e}")
 
     def detect_invalidation(self) -> list[str]:
@@ -287,7 +290,7 @@ class LearningCycle:
                 failure_threshold=self.TACTICAL_FAILURE_THRESHOLD,
                 confidence_archive_threshold=self.CONFIDENCE_ARCHIVE_THRESHOLD,
             )
-        except Exception as e:
+        except _LC_ERRORS as e:
             self.logger.error(f"Failed to detect invalidation: {e}")
             return []
 
@@ -295,7 +298,7 @@ class LearningCycle:
         """Detect contradictory structural patterns. Delegates to pattern_validation."""
         try:
             return _detect_conflicts(self.pattern_store)
-        except Exception as e:
+        except _LC_ERRORS as e:
             self.logger.error(f"Failed to detect conflicts: {e}")
             return []
 
@@ -309,7 +312,7 @@ class LearningCycle:
                 drift_threshold=self.DRIFT_THRESHOLD,
                 drift_confidence_level=self.DRIFT_CONFIDENCE_LEVEL,
             )
-        except Exception as e:
+        except _LC_ERRORS as e:
             self.logger.error(f"Failed to generate humility audit: {e}")
             return {
                 "low_confidence_patterns": [],
@@ -402,7 +405,7 @@ class LearningCycle:
                 monitor.record_success(monitor.MEMORY_LEARNING)
 
             return results
-        except Exception as e:
+        except _LC_ERRORS as e:
             self.logger.error(f"Learning cycle failed: {e}")
             if monitor:
                 monitor.record_error(monitor.MEMORY_LEARNING, e)

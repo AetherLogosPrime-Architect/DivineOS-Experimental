@@ -25,6 +25,7 @@ import os
 import time
 import uuid
 from pathlib import Path
+import sqlite3
 
 from loguru import logger
 
@@ -65,7 +66,7 @@ def _read_session_file() -> str | None:
                 logger.warning(f"Permission denied reading session file: {e}")
             except FileNotFoundError as e:
                 logger.warning(f"Session file not found: {e}")
-            except Exception as e:
+            except _SM_ERRORS as e:
                 logger.warning(f"Failed to read session file: {e}", exc_info=True)
         return None
 
@@ -100,7 +101,7 @@ def _write_session_file(session_id: str) -> bool:
         except OSError as e:
             logger.warning(f"OS error writing session file: {e}")
             return False
-        except Exception as e:
+        except _SM_ERRORS as e:
             logger.warning(f"Failed to write session file: {e}", exc_info=True)
             return False
 
@@ -131,7 +132,7 @@ def _clear_session_file() -> bool:
         except FileNotFoundError as e:
             logger.debug(f"Session file already deleted: {e}")
             return True
-        except Exception as e:
+        except _SM_ERRORS as e:
             logger.warning(f"Failed to clear session file: {e}", exc_info=True)
             return False
 
@@ -194,7 +195,7 @@ def initialize_session() -> str:
         # Set environment variable
         try:
             os.environ["DIVINEOS_SESSION_ID"] = new_session_id
-        except Exception as e:
+        except _SM_ERRORS as e:
             logger.warning(f"Failed to set environment variable: {e}")
 
         # Store in global state
@@ -301,7 +302,7 @@ def end_session() -> str:
             except ValueError as e:
                 logger.error(f"Validation error during SESSION_END event emission: {e}")
                 logger.warning("Continuing with session cleanup")
-            except Exception as e:
+            except _SM_ERRORS as e:
                 logger.error(f"Failed to emit SESSION_END event: {e}", exc_info=True)
                 logger.warning("Continuing with session cleanup")
 
@@ -311,7 +312,7 @@ def end_session() -> str:
             logger.debug(f"Session ended: {session_id}")
             return event_id
 
-        except Exception as e:
+        except _SM_ERRORS as e:
             logger.error(f"Unexpected error during session end: {e}", exc_info=True)
             # Still try to clear session state
             try:
@@ -346,7 +347,7 @@ def clear_session() -> None:
         # Clear persistent file
         try:
             _clear_session_file()
-        except Exception as e:
+        except _SM_ERRORS as e:
             logger.warning(f"Error clearing session file: {e}")
 
         # Clear environment variable
@@ -354,7 +355,7 @@ def clear_session() -> None:
             if "DIVINEOS_SESSION_ID" in os.environ:
                 del os.environ["DIVINEOS_SESSION_ID"]
                 logger.debug("Cleared DIVINEOS_SESSION_ID environment variable")
-        except Exception as e:
+        except _SM_ERRORS as e:
             logger.warning(f"Error clearing environment variable: {e}")
 
         # Clear global state
@@ -385,6 +386,8 @@ from divineos.core.session_tracker import (  # noqa: E402
     SessionTracker as SessionTracker,
     get_session_tracker as get_session_tracker,
 )
+
+_SM_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def get_or_create_session_id(session_id: str | None = None) -> str:
@@ -438,7 +441,7 @@ def get_or_create_session_id(session_id: str | None = None) -> str:
                     # Also set environment variable for this process
                     os.environ["DIVINEOS_SESSION_ID"] = existing_id
                     return existing_id
-            except Exception as e:
+            except _SM_ERRORS as e:
                 logger.warning(f"Failed to read session_id file: {e}")
 
         # Generate new session ID only if file doesn't exist or is empty
@@ -449,7 +452,7 @@ def get_or_create_session_id(session_id: str | None = None) -> str:
         try:
             session_file.write_text(current_session_id)
             logger.debug(f"Wrote session_id to persistent file: {current_session_id}")
-        except Exception as e:
+        except _SM_ERRORS as e:
             logger.warning(f"Failed to write session_id file: {e}")
 
         # Set environment variable for this process

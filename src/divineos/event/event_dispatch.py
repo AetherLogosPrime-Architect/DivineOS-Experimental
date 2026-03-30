@@ -10,11 +10,14 @@ Recursive Event Capture Prevention:
 """
 
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
 from divineos.core.ledger import log_event
 from divineos.event._event_context import _is_in_event_emission, _set_in_event_emission
+
+_ED_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class EventDispatcher:
@@ -67,7 +70,7 @@ class EventDispatcher:
         for callback in self.listeners.get(event_type, []):
             try:
                 callback(event_type, payload)
-            except Exception as e:
+            except _ED_ERRORS as e:
                 logger.error(f"Listener failed for {event_type}: {e}")
 
         # Log to ledger
@@ -75,7 +78,7 @@ class EventDispatcher:
             event_id = log_event(event_type, actor, payload, validate=validate)
             logger.debug(f"Emitted {event_type} event: {event_id}")
             return event_id
-        except Exception as e:
+        except _ED_ERRORS as e:
             logger.error(f"Failed to log event {event_type}: {e}")
             raise
 

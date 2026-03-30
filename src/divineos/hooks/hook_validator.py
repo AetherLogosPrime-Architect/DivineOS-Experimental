@@ -15,8 +15,19 @@ Requirements:
 import json
 from pathlib import Path
 from typing import Any
+import sqlite3
 
 from loguru import logger
+
+_HV_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 # Valid event types that hooks can listen for
 VALID_EVENT_TYPES = {
@@ -162,7 +173,7 @@ def validate_hook_file(file_path: Path) -> tuple[bool, str, dict[str, Any] | Non
 
         return True, "", hook_data
 
-    except Exception as e:
+    except _HV_ERRORS as e:
         return False, f"Error reading hook file: {e}", None
 
 

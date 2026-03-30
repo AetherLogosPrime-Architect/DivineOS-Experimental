@@ -20,10 +20,21 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
 from divineos.core.knowledge import get_connection
+
+_WARRANTS_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 
 # ─── Schema ──────────────────────────────────────────────────────────
@@ -212,7 +223,7 @@ def defeat_warrant(warrant_id: str, reason: str) -> bool:
                 knowledge_id=warrant.knowledge_id,
                 defeated_warrant_type=warrant.warrant_type,
             )
-    except Exception as e:
+    except _WARRANTS_ERRORS as e:
         logger.debug("Defeat lesson check failed (non-fatal): {}", e)
 
     return True

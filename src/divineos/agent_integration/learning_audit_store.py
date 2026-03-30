@@ -8,10 +8,13 @@ events in the DivineOS ledger with SHA256 hashing for integrity.
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
+import sqlite3
 
 from loguru import logger
 
 from divineos.core.ledger import log_event, get_events
+
+_LAS_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class LearningAuditStore:
@@ -101,7 +104,7 @@ class LearningAuditStore:
                 f"(drift_detected={drift_detected})"
             )
             return audit_id
-        except Exception as e:
+        except _LAS_ERRORS as e:
             self.logger.error(f"Failed to store learning audit: {e}")
             raise
 
@@ -121,6 +124,6 @@ class LearningAuditStore:
 
             # Return the last (most recent) event
             return events[-1].get("payload")
-        except Exception as e:
+        except _LAS_ERRORS as e:
             self.logger.error(f"Failed to get latest audit: {e}")
             return None

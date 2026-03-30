@@ -7,6 +7,9 @@ from loguru import logger
 
 from .base import DeviationAnalyzer
 from .types import Deviation, ExecutionData, PlanData
+import sqlite3
+
+_DA_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class DefaultDeviationAnalyzer(DeviationAnalyzer):
@@ -93,7 +96,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
             )
             return deviations
 
-        except Exception as e:
+        except _DA_ERRORS as e:
             logger.error(f"Error analyzing deviations: {e}")
             return []
 
@@ -142,7 +145,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
             )
             return deviation
 
-        except Exception as e:
+        except _DA_ERRORS as e:
             logger.error(f"Error comparing metric {metric_name}: {e}")
             # Return a zero deviation on error
             return Deviation(
@@ -186,7 +189,7 @@ class DefaultDeviationAnalyzer(DeviationAnalyzer):
             )
             return categorized
 
-        except Exception as e:
+        except _DA_ERRORS as e:
             logger.error(f"Error categorizing deviations: {e}")
             return {"scope": [], "efficiency": [], "quality": [], "approach": []}
 

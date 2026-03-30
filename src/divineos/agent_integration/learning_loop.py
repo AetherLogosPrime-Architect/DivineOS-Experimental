@@ -6,6 +6,7 @@ for self-improvement and behavior analysis.
 
 from collections import defaultdict
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -24,6 +25,8 @@ from divineos.core.error_handling import (
 )
 from divineos.core.ledger import get_events
 from divineos.event.event_capture import get_current_timestamp
+
+_LL_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def analyze_session_for_lessons(session_id: str) -> SessionLessons:
@@ -73,7 +76,7 @@ def analyze_session_for_lessons(session_id: str) -> SessionLessons:
 
         return lessons
 
-    except Exception as e:
+    except _LL_ERRORS as e:
         handle_error(e, "analyze_session_for_lessons", {"session_id": session_id})
         # Return empty lessons on error
         return SessionLessons(session_id=session_id)
@@ -385,7 +388,7 @@ def store_lesson(
         )
         logger.debug(f"Stored lesson: {entry_id[:8]}...")
         return entry_id
-    except Exception as e:
+    except _LL_ERRORS as e:
         handle_error(e, "store_lesson", {"session_id": session_id})
         raise
 
@@ -411,7 +414,7 @@ def provide_session_briefing(session_id: str) -> dict[str, Any]:
             "recommendations": [],
             "timestamp": get_current_timestamp(),
         }
-    except Exception as e:
+    except _LL_ERRORS as e:
         handle_error(e, "provide_session_briefing", {"session_id": session_id})
         return {
             "session_id": session_id,

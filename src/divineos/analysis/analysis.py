@@ -9,6 +9,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
+import sqlite3
 
 from loguru import logger
 
@@ -231,7 +232,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
                 logger.debug(
                     f"[DEBUG] Read session_id from file for analysis: {current_session_id}",
                 )
-            except Exception as e:
+            except _ANALYSIS_ERRORS as e:
                 logger.warning(f"Failed to read session_id file: {e}")
                 current_session_id = None
 
@@ -328,4 +329,14 @@ from divineos.analysis.analysis_storage import (  # noqa: E402, F401
     list_recent_sessions,
     save_analysis_report,
     store_analysis,
+)
+
+_ANALYSIS_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
 )

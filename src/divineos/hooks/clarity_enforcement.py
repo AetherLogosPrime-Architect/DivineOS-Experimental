@@ -13,8 +13,11 @@ import functools
 import threading
 from collections.abc import Callable
 from typing import Any
+import sqlite3
 
 from loguru import logger
+
+_CE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 # Import IDE tool integration for capturing tool execution
 try:
@@ -61,7 +64,7 @@ def require_explanation(tool_name: str) -> Callable[[Callable[..., Any]], Callab
                 try:
                     tool_use_id = emit_tool_call_for_ide(tool_name, kwargs)
                     logger.debug(f"Emitted TOOL_CALL for {tool_name}: {tool_use_id}")
-                except Exception as e:
+                except _CE_ERRORS as e:
                     logger.warning(f"Failed to emit TOOL_CALL for {tool_name}: {e}")
 
             try:
@@ -77,12 +80,12 @@ def require_explanation(tool_name: str) -> Callable[[Callable[..., Any]], Callab
                         result_str = str(result) if not isinstance(result, str) else result
                         emit_tool_result_for_ide(tool_use_id, result_str, failed=False)
                         logger.debug(f"Emitted TOOL_RESULT for {tool_name}: success")
-                    except Exception as e:
+                    except _CE_ERRORS as e:
                         logger.warning(f"Failed to emit TOOL_RESULT for {tool_name}: {e}")
 
                 return result
 
-            except Exception as e:
+            except _CE_ERRORS as e:
                 # Emit TOOL_RESULT event with failure if IDE integration is available
                 if IDE_INTEGRATION_AVAILABLE and tool_use_id:
                     try:
@@ -223,7 +226,7 @@ class ClarityChecker:
             return report
         except ClarityViolation:
             raise
-        except Exception as e:
+        except _CE_ERRORS as e:
             logger.error(f"Failed to check clarity for session {session_id}: {e}", exc_info=True)
             return {
                 "session_id": session_id,

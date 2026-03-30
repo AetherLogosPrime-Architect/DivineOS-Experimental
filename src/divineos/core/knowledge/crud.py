@@ -17,6 +17,16 @@ from divineos.core.knowledge._base import (
 )
 from divineos.core.knowledge._text import _build_fts_query
 
+_CRUD_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
+
 
 def store_knowledge(
     knowledge_type: str,
@@ -262,7 +272,7 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
         relations = get_relations(knowledge_id, direction="both")
         for rel in relations:
             deactivate_relation(rel.relation_id)
-    except Exception:
+    except _CRUD_ERRORS:
         pass  # relation cleanup is best-effort
 
 

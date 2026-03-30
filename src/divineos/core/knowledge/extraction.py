@@ -4,6 +4,7 @@ import json
 import time
 import uuid
 from typing import Any, cast
+import sqlite3
 
 from loguru import logger
 
@@ -26,6 +27,16 @@ from divineos.core.knowledge.crud import (
     get_knowledge,
     store_knowledge,
     supersede_knowledge,
+)
+
+_EXTRACTION_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
 )
 
 
@@ -136,7 +147,7 @@ def store_knowledge_smart(
 
                 increment_corroboration(str(kid))
                 promote_maturity(str(kid))
-            except Exception as e:
+            except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
             return str(kid)
 
@@ -162,7 +173,7 @@ def store_knowledge_smart(
                         if overlap > best_overlap:
                             best_overlap = overlap
                             best_match = entry
-            except Exception as e:
+            except _EXTRACTION_ERRORS as e:
                 logger.warning(f"FTS5 search failed, dedup may miss matches: {e}")
 
         # Decide operation
@@ -190,7 +201,7 @@ def store_knowledge_smart(
 
                 increment_corroboration(cast("str", existing_id))
                 promote_maturity(cast("str", existing_id))
-            except Exception as e:
+            except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
             return cast("str", existing_id)
 
@@ -248,7 +259,7 @@ def store_knowledge_smart(
                 grounds=f"{source.lower()} knowledge: {content[:80]}",
                 source_events=source_events or [],
             )
-        except Exception as e:
+        except _EXTRACTION_ERRORS as e:
             logger.debug(f"Auto-warrant creation failed: {e}", exc_info=True)
 
         # Scan for contradictions against same-type entries
@@ -264,7 +275,7 @@ def store_knowledge_smart(
             contradictions = scan_for_contradictions(content, knowledge_type, same_type)
             for match in contradictions:
                 resolve_contradiction(kid, match)
-        except Exception as e:
+        except _EXTRACTION_ERRORS as e:
             logger.debug(f"Contradiction scan failed: {e}", exc_info=True)
 
         # Post-insert dedup guard: check if FTS finds a pre-existing near-match
@@ -289,7 +300,7 @@ def store_knowledge_smart(
                             )
                             conn.commit()
                             return cast("str", entry["knowledge_id"])
-            except Exception as e:
+            except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Post-insert FTS5 search failed: {e}", exc_info=True)
 
         return kid

@@ -11,6 +11,7 @@ the semantic-layer API and auto-detection heuristics.
 
 import re
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -21,6 +22,15 @@ from divineos.core.knowledge.edges import (
     get_edges,
     init_edge_table,
     remove_edge,
+)
+
+_RELATIONSHIPS_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
 )
 
 # Valid relationship types — semantic layer
@@ -272,7 +282,7 @@ def auto_detect_relationships(
 
         try:
             candidates = search_knowledge(key_terms, limit=max_candidates)
-        except Exception:
+        except _RELATIONSHIPS_ERRORS:
             continue
 
         for candidate in candidates:

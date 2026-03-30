@@ -38,7 +38,7 @@ def _refresh_priorities() -> bool:
 
     # Active goals
     try:
-        from divineos.core.hud import _ensure_hud_dir
+        from divineos.core._hud_io import _ensure_hud_dir
 
         goals_path = _ensure_hud_dir() / "active_goals.json"
         if goals_path.exists():

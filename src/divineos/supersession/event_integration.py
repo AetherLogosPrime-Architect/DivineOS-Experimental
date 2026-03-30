@@ -8,7 +8,10 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import sqlite3
 from loguru import logger
+
+_EI_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 @dataclass
@@ -107,5 +110,5 @@ def register_supersession_listener(callback) -> None:
 
         register_listener("SUPERSESSION", callback)
         logger.debug("Registered SUPERSESSION event listener")
-    except Exception as e:
+    except _EI_ERRORS as e:
         logger.warning(f"Could not register SUPERSESSION listener: {e}")
