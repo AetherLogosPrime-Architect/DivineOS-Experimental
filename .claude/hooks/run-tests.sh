@@ -4,11 +4,11 @@
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
-# Read stdin (Claude Code sends tool info as JSON)
-read -r input 2>/dev/null || true
+# Read full stdin (Claude Code sends tool info as JSON)
+INPUT=$(cat)
 
 # Check if the edited file is a Python file worth testing
-file_path=$(echo "$input" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")
+file_path=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")
 
 # Only run tests for Python source/test files
 if echo "$file_path" | grep -qE '\.(py)$'; then
