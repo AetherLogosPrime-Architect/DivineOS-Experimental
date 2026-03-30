@@ -1,6 +1,6 @@
 """Pattern recommendation engine for the agent learning loop."""
 
-from typing import Any, Optional
+from typing import Any
 import sqlite3
 
 from loguru import logger
@@ -13,12 +13,7 @@ _PR_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeErro
 
 
 class PatternRecommender:
-    """Recommends patterns based on current context and historical evidence.
-
-    The recommender loads the humility audit, matches patterns to current context,
-    ranks by confidence, and generates recommendations with detailed explanations
-    including uncertainty statements and failure modes.
-    """
+    """Recommends patterns based on current context and historical evidence."""
 
     def __init__(self) -> None:
         """Initialize the pattern recommender."""
@@ -26,10 +21,10 @@ class PatternRecommender:
         self.pattern_store = PatternStore()
         self.audit_store = LearningAuditStore()
         self.decision_store = DecisionStore()
-        self.current_audit: Optional[dict[str, Any]] = None
+        self.current_audit: dict[str, Any] | None = None
         self.matched_patterns: list[dict[str, Any]] = []
 
-    def load_humility_audit(self) -> Optional[dict[str, Any]]:
+    def load_humility_audit(self) -> dict[str, Any] | None:
         """Load the latest humility audit and display warnings.
 
         Retrieves the most recent AGENT_LEARNING_AUDIT event and logs
@@ -142,7 +137,7 @@ class PatternRecommender:
             return []
 
     def rank_by_confidence(
-        self, patterns: Optional[list[dict[str, Any]]] = None
+        self, patterns: list[dict[str, Any]] | None = None
     ) -> list[dict[str, Any]]:
         """Sort matched patterns by confidence (highest first).
 
@@ -177,7 +172,7 @@ class PatternRecommender:
         self,
         context: dict[str, Any],
         top_n: int = 3,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Generate a recommendation with detailed explanation.
 
         Creates a recommendation for the given context, including:
@@ -284,7 +279,7 @@ class PatternRecommender:
         task: str,
         recommendation: dict[str, Any],
         context: dict[str, Any],
-    ) -> Optional[str]:
+    ) -> str | None:
         """Record the decision to use a recommended pattern.
 
         Stores an AGENT_DECISION event with the chosen pattern, alternatives,
