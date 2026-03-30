@@ -1,9 +1,8 @@
 #!/bin/bash
-# Block code changes until a goal has been set AND the OS has been engaged.
-# Two gates:
-#   1. At least one active goal must exist
-#   2. The AI must have used a thinking tool (ask, recall, directives, etc.)
-# If you haven't engaged with the OS, you can't write code.
+# Block code changes until briefing loaded, goal set, and OS engaged.
+# Uses exit 2 / JSON deny to ACTUALLY block — exit 1 does nothing.
+
+INPUT=$(cat)
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
@@ -11,32 +10,24 @@ if ! command -v divineos &>/dev/null; then
   exit 0
 fi
 
-# Gate 1: Check if any active goal exists
-goals=$(divineos goal list 2>/dev/null)
-
-if echo "$goals" | grep -q "No goals"; then
-  echo "BLOCKED: You have not set a goal yet."
-  echo ""
-  echo "Before writing any code, you must:"
-  echo "  1. Read your briefing (already loaded at session start)"
-  echo "  2. Set a goal: divineos goal add \"what you are working on\" --original \"user's exact words\""
-  echo ""
-  echo "This is not optional. The OS requires you to know what you are doing before you do it."
-  exit 1
+# Gate 1: Briefing must be loaded
+preflight=$(divineos preflight 2>/dev/null)
+if echo "$preflight" | grep -q "\[FAIL\] briefing"; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: Briefing not loaded. Run: divineos briefing"}}'
+  exit 0
 fi
 
-# Gate 2: Check for engagement marker (set by ask, recall, directives, etc.)
-hud_dir="src/data/hud"
-if [ ! -f "$hud_dir/.session_engaged" ]; then
-  echo "BLOCKED: You have not engaged with the OS yet this session."
-  echo ""
-  echo "You have goals set, but you haven't consulted your knowledge. Before writing code:"
-  echo "  - divineos ask \"topic\"     -- search what you know"
-  echo "  - divineos recall           -- load core + active memory"
-  echo "  - divineos directives       -- review operating principles"
-  echo ""
-  echo "The OS is not decoration. Use it to think, then write."
-  exit 1
+# Gate 2: At least one active goal must exist
+goals=$(divineos goal list 2>/dev/null)
+if echo "$goals" | grep -q "No goals"; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: No goal set. Run: divineos goal \"what you are working on\""}}'
+  exit 0
+fi
+
+# Gate 3: Must have engaged with thinking tools
+if echo "$preflight" | grep -q "\[FAIL\] engagement"; then
+  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: OS not engaged. Run: divineos ask or divineos recall first."}}'
+  exit 0
 fi
 
 exit 0
