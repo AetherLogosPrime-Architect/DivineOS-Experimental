@@ -11,12 +11,66 @@ import click
 from divineos.cli._wrappers import _ensure_db
 from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 
+# Commands that work without briefing loaded — the minimum to bootstrap.
+_BYPASS_COMMANDS = frozenset(
+    {
+        "briefing",
+        "init",
+        "preflight",
+        "emit",
+        "hud",
+        "recall",
+        "active",
+        "ask",
+        "context",
+        "verify",
+        "health",
+        "feel",
+        "affect",
+    }
+)
+
+
+def _enforce_briefing_gate() -> None:
+    """Block all non-essential commands until briefing is loaded.
+
+    This is not a suggestion. This is a wall. Load your briefing
+    or you don't get to work.
+    """
+    if "pytest" in sys.modules:
+        return
+
+    # Parse which command is being invoked
+    args = sys.argv[1:]
+    if not args:
+        return  # just `divineos` with no subcommand — show help
+
+    cmd = args[0].lower()
+    if cmd in _BYPASS_COMMANDS:
+        return
+    if cmd.startswith("-"):
+        return  # flags like --help
+
+    try:
+        from divineos.core.hud_handoff import was_briefing_loaded
+
+        if was_briefing_loaded():
+            return
+    except Exception:
+        return  # DB not initialized yet — allow bootstrap commands
+
+    click.secho("\n  BLOCKED: Briefing not loaded.", fg="red", bold=True)
+    click.secho("  Run: divineos briefing", fg="red", bold=True)
+    click.secho("  Then you can work. Not before.\n", fg="red", bold=True)
+    raise SystemExit(1)
+
 
 @click.group()
 def cli() -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
     _ensure_db()
     setup_cli_enforcement()
+    _enforce_briefing_gate()
     if "pytest" not in sys.modules:
         capture_user_input(sys.argv[1:])
 
