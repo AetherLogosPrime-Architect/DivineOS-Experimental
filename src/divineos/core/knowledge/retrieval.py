@@ -90,8 +90,8 @@ def generate_briefing(
         from divineos.core.knowledge.curation import ensure_layer_column
 
         ensure_layer_column()
-    except Exception:
-        pass
+    except (sqlite3.OperationalError, ImportError):
+        pass  # table doesn't exist yet or curation not available
 
     conn = _get_connection()
     try:
