@@ -12,6 +12,9 @@ from loguru import logger
 from .base import ExecutionAnalyzer
 from .ledger_integration import LedgerQueryInterface
 from .types import ExecutionData, ExecutionMetrics, ToolCall
+import sqlite3
+
+_EA_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class DefaultExecutionAnalyzer(ExecutionAnalyzer):
@@ -50,7 +53,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
             )
             return execution_data
 
-        except Exception as e:
+        except _EA_ERRORS as e:
             logger.error(f"Error analyzing execution: {e}")
             # Return minimal execution data
             return ExecutionData(
@@ -90,13 +93,13 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
                         input=event.payload.get("tool_input", {}),
                     )
                     tool_calls.append(tool_call)
-                except Exception as e:
+                except _EA_ERRORS as e:
                     logger.warning(f"Error extracting tool call from event: {e}")
 
             logger.info(f"Extracted {len(tool_calls)} tool calls for session {session_id}")
             return tool_calls
 
-        except Exception as e:
+        except _EA_ERRORS as e:
             logger.error(f"Error extracting tool calls: {e}")
             return []
 
@@ -128,13 +131,13 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
                     if event.payload.get("error"):
                         error_msg = event.payload.get("error", "Unknown error")
                         errors.append(error_msg)
-                except Exception as e:
+                except _EA_ERRORS as e:
                     logger.warning(f"Error extracting error from event: {e}")
 
             logger.info(f"Extracted {len(errors)} errors for session {session_id}")
             return errors
 
-        except Exception as e:
+        except _EA_ERRORS as e:
             logger.error(f"Error extracting errors: {e}")
             return []
 
@@ -194,7 +197,7 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
                     end = datetime.fromisoformat(end_time)
                     duration = (end - start).total_seconds() / 60.0
                     actual_time_minutes = max(0.0, duration)
-                except Exception as e:
+                except _EA_ERRORS as e:
                     logger.warning(f"Error calculating duration: {e}")
 
             # Calculate success rate
@@ -217,6 +220,6 @@ class DefaultExecutionAnalyzer(ExecutionAnalyzer):
             )
             return metrics
 
-        except Exception as e:
+        except _EA_ERRORS as e:
             logger.error(f"Error calculating execution metrics: {e}")
             return ExecutionMetrics(0, 0, 0, 0.0, 0.0)

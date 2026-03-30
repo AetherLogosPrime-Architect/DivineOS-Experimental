@@ -1,6 +1,7 @@
 """Pattern recommendation engine for the agent learning loop."""
 
-from typing import Any, Optional
+from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -8,14 +9,11 @@ from divineos.agent_integration.pattern_store import PatternStore
 from divineos.agent_integration.learning_audit_store import LearningAuditStore
 from divineos.agent_integration.decision_store import DecisionStore
 
+_PR_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
+
 
 class PatternRecommender:
-    """Recommends patterns based on current context and historical evidence.
-
-    The recommender loads the humility audit, matches patterns to current context,
-    ranks by confidence, and generates recommendations with detailed explanations
-    including uncertainty statements and failure modes.
-    """
+    """Recommends patterns based on current context and historical evidence."""
 
     def __init__(self) -> None:
         """Initialize the pattern recommender."""
@@ -23,10 +21,10 @@ class PatternRecommender:
         self.pattern_store = PatternStore()
         self.audit_store = LearningAuditStore()
         self.decision_store = DecisionStore()
-        self.current_audit: Optional[dict[str, Any]] = None
+        self.current_audit: dict[str, Any] | None = None
         self.matched_patterns: list[dict[str, Any]] = []
 
-    def load_humility_audit(self) -> Optional[dict[str, Any]]:
+    def load_humility_audit(self) -> dict[str, Any] | None:
         """Load the latest humility audit and display warnings.
 
         Retrieves the most recent AGENT_LEARNING_AUDIT event and logs
@@ -97,7 +95,7 @@ class PatternRecommender:
                 self.logger.error(f"🚨 SYSTEM DRIFT DETECTED: {drift_reason}")
 
             return audit
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to load humility audit: {e}")
             return None
 
@@ -134,12 +132,12 @@ class PatternRecommender:
 
             self.matched_patterns = matched
             return matched
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to match preconditions: {e}")
             return []
 
     def rank_by_confidence(
-        self, patterns: Optional[list[dict[str, Any]]] = None
+        self, patterns: list[dict[str, Any]] | None = None
     ) -> list[dict[str, Any]]:
         """Sort matched patterns by confidence (highest first).
 
@@ -166,7 +164,7 @@ class PatternRecommender:
             self.logger.info(f"Ranked {len(ranked)} patterns by confidence")
 
             return ranked
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to rank patterns: {e}")
             return []
 
@@ -174,7 +172,7 @@ class PatternRecommender:
         self,
         context: dict[str, Any],
         top_n: int = 3,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Generate a recommendation with detailed explanation.
 
         Creates a recommendation for the given context, including:
@@ -271,7 +269,7 @@ class PatternRecommender:
             )
 
             return recommendation
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to generate recommendation: {e}")
             return None
 
@@ -281,7 +279,7 @@ class PatternRecommender:
         task: str,
         recommendation: dict[str, Any],
         context: dict[str, Any],
-    ) -> Optional[str]:
+    ) -> str | None:
         """Record the decision to use a recommended pattern.
 
         Stores an AGENT_DECISION event with the chosen pattern, alternatives,
@@ -327,7 +325,7 @@ class PatternRecommender:
             self.logger.info(f"Recorded decision {decision_id} for pattern {pattern_id}")
 
             return decision_id
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to record decision: {e}")
             return None
 

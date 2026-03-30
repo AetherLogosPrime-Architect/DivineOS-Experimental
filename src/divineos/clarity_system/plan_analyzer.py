@@ -9,6 +9,9 @@ from loguru import logger
 
 from .base import PlanAnalyzer
 from .types import ClarityStatement, PlanData, PlanMetrics
+import sqlite3
+
+_PA_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class DefaultPlanAnalyzer(PlanAnalyzer):
@@ -60,7 +63,7 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
             logger.info(f"Analyzed plan from clarity statement {clarity_statement.id}")
             return plan_data
 
-        except Exception as e:
+        except _PA_ERRORS as e:
             logger.error(f"Error analyzing plan: {e}")
             # Return minimal plan data
             return PlanData(
@@ -113,7 +116,7 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
                 "estimated_complexity": scope.estimated_complexity,
                 "estimated_time_minutes": scope.estimated_time_minutes,
             }
-        except Exception as e:
+        except _PA_ERRORS as e:
             logger.warning(f"Error extracting scope metrics: {e}")
             return {
                 "estimated_files": 0,
@@ -163,6 +166,6 @@ class DefaultPlanAnalyzer(PlanAnalyzer):
             )
             return normalized_plan
 
-        except Exception as e:
+        except _PA_ERRORS as e:
             logger.error(f"Error normalizing plan data: {e}")
             return plan_data

@@ -24,6 +24,8 @@ from divineos.analysis.analysis import analyze_session
 from divineos.core.knowledge import init_knowledge_table
 from divineos.core.ledger import init_db
 
+_AC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
+
 
 def register(cli: click.Group) -> None:
     """Register all analysis commands on the CLI group."""
@@ -280,7 +282,7 @@ def register(cli: click.Group) -> None:
             click.secho(f"[-] File not found: {e}", fg="red")
         except ValueError as e:
             click.secho(f"[-] Invalid session: {e}", fg="red")
-        except Exception as e:
+        except _AC_ERRORS as e:
             click.secho(f"[-] Error during analysis: {e}", fg="red")
             logger.exception("Analysis failed")
 
@@ -304,7 +306,7 @@ def register(cli: click.Group) -> None:
 
         except ValueError as e:
             click.secho(f"[-] No session data: {e}", fg="red")
-        except Exception as e:
+        except _AC_ERRORS as e:
             click.secho(f"[-] Error during analysis: {e}", fg="red")
             logger.exception("Analysis failed")
 
@@ -363,7 +365,7 @@ def register(cli: click.Group) -> None:
                 _safe_echo(report)
                 click.echo()
 
-        except (sqlite3.OperationalError, ValueError, KeyError, OSError) as e:
+        except _AC_ERRORS as e:
             click.secho(f"[-] Error retrieving report: {e}", fg="red")
             logger.exception("Report retrieval failed")
 
@@ -386,7 +388,7 @@ def register(cli: click.Group) -> None:
             _safe_echo(report)
             click.echo()
 
-        except (sqlite3.OperationalError, ValueError, KeyError) as e:
+        except _AC_ERRORS as e:
             click.secho(f"[-] Error during cross-session analysis: {e}", fg="red")
             logger.exception("Cross-session analysis failed")
 
@@ -470,7 +472,7 @@ def register(cli: click.Group) -> None:
                 click.secho("  Clean session -- no significant deviations detected.", fg="green")
                 click.echo()
 
-        except (ValueError, KeyError, TypeError, sqlite3.OperationalError) as e:
+        except _AC_ERRORS as e:
             click.secho(f"[!] Clarity analysis failed: {e}", fg="red")
 
     @cli.command("growth")

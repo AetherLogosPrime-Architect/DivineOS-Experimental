@@ -6,6 +6,7 @@ and optimization opportunities.
 
 from collections import defaultdict
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -14,6 +15,8 @@ from divineos.core.error_handling import (
     handle_error,
 )
 from divineos.core.ledger import get_events
+
+_BA_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def analyze_agent_behavior(session_id: str) -> BehaviorAnalysis:
@@ -55,7 +58,7 @@ def analyze_agent_behavior(session_id: str) -> BehaviorAnalysis:
         logger.info(f"Behavior analysis complete: {len(tool_frequency)} tools analyzed")
         return analysis
 
-    except Exception as e:
+    except _BA_ERRORS as e:
         handle_error(e, "analyze_agent_behavior", {"session_id": session_id})
         # Return empty analysis on error
         return BehaviorAnalysis(

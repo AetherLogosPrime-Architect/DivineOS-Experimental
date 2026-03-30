@@ -1,6 +1,7 @@
 """Heads-Up Display — dense context dashboard for session start."""
 
 import json
+import sqlite3
 from pathlib import Path
 
 from loguru import logger
@@ -9,6 +10,8 @@ from divineos.core._hud_io import (  # noqa: F401 — re-exported for backward c
     _ensure_hud_dir as _ensure_hud_dir,
     _get_hud_dir as _get_hud_dir,
 )
+
+_HUD_ERRORS = (ImportError, sqlite3.OperationalError, json.JSONDecodeError, OSError)
 
 
 # ─── Slot Definitions ───────────────────────────────────────────────
@@ -125,7 +128,7 @@ def _build_recent_lessons_slot() -> str:
                 and (lesson.get("description") or "").startswith("(seeded)")
             )
         ]
-    except Exception:
+    except _HUD_ERRORS:
         return lines[0] + "Could not load lessons."
 
     if not all_lessons:
@@ -173,7 +176,7 @@ def _build_session_health_slot() -> str:
                 f"since last load (limit: {staleness['threshold']}). Grade is F."
             )
             lines.append("  Run `divineos briefing` to re-orient. Grade is F until you do.\n")
-    except Exception:
+    except _HUD_ERRORS:
         pass
 
     corrections = health.get("corrections", 0)
@@ -201,7 +204,7 @@ def _build_session_health_slot() -> str:
         trend = get_session_trend(n=5)
         if trend.sessions_analyzed >= 2:
             lines.append(f"- **Trend:** {format_trend_summary(trend)}")
-    except Exception as e:
+    except _HUD_ERRORS as e:
         logger.debug("Quality trend unavailable for health slot: %s", e)
 
     return "\n".join(lines)
@@ -251,9 +254,9 @@ def _build_active_knowledge_slot() -> str:
             try:
                 refresh_active_memory(importance_threshold=0.3)
                 active = get_active_memory()
-            except Exception as e:
+            except _HUD_ERRORS as e:
                 logger.debug("Active memory refresh failed (proceeding with thin memory): %s", e)
-    except Exception:
+    except _HUD_ERRORS:
         return lines[0] + "Could not load active memory."
 
     if not active:
@@ -280,7 +283,7 @@ def _build_warnings_slot() -> str:
 
     try:
         active = get_lessons(status="active")
-    except Exception:
+    except _HUD_ERRORS:
         return lines[0] + "Could not load lesson data."
 
     # Only show lessons with 2+ occurrences — those are real patterns
@@ -420,7 +423,7 @@ def build_hud(slots: list[str] | None = None) -> str:
             content = builder()
             if content:  # Skip empty slots (e.g. journal when no entries)
                 sections.append(content)
-        except Exception as e:
+        except _HUD_ERRORS as e:
             logger.debug(f"HUD slot '{name}' failed: {e}")
             sections.append(f"# {name.replace('_', ' ').title()}\n\n[Error loading slot]")
 

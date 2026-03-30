@@ -3,6 +3,7 @@
 import json
 import time
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -13,6 +14,16 @@ from divineos.core.knowledge._base import (
 )
 from divineos.core.knowledge.crud import search_knowledge
 from divineos.core.knowledge.lessons import get_lesson_summary
+
+_RETRIEVAL_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 
 def get_unconsolidated_events(limit: int = 100) -> list[dict[str, Any]]:
@@ -123,7 +134,7 @@ def generate_briefing(
         try:
             matched = search_knowledge(context_hint, limit=100)
             hint_matches = {m["knowledge_id"] for m in matched}
-        except Exception as e:
+        except _RETRIEVAL_ERRORS as e:
             logger.warning(
                 f"Failed to search knowledge for context hint: {e}",
                 exc_info=True,
@@ -190,7 +201,7 @@ def generate_briefing(
         lesson_summary = get_lesson_summary()
         if lesson_summary and "No lessons" not in lesson_summary:
             lessons_text = lesson_summary
-    except Exception as e:
+    except _RETRIEVAL_ERRORS as e:
         logger.warning(
             f"Failed to retrieve lesson summary: {e}",
             exc_info=True,
@@ -279,7 +290,7 @@ def generate_briefing(
                 lines.append(f"\n*{' | '.join(meta_parts)}*")
             lines.append("\n---\n")
             clear_handoff_note()
-    except Exception as e:
+    except _RETRIEVAL_ERRORS as e:
         logger.warning(f"Handoff note retrieval failed: {e}")
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
@@ -302,7 +313,7 @@ def generate_briefing(
             if tone:
                 lines.append(f"**Tone:** {tone}")
             lines.append("")
-    except Exception:
+    except _RETRIEVAL_ERRORS:
         pass
 
     # Pattern anticipation — proactive warnings based on context
@@ -314,7 +325,7 @@ def generate_briefing(
             if warnings:
                 lines.append(format_anticipation(warnings))
                 lines.append("")
-        except Exception:
+        except _RETRIEVAL_ERRORS:
             pass
 
     # One-line maturity pyramid
@@ -346,7 +357,7 @@ def generate_briefing(
         logic_line = format_logic_health_line(logic_stats)
         if logic_line:
             lines.append(f"**Logic health:** {logic_line}\n")
-    except Exception:
+    except _RETRIEVAL_ERRORS:
         pass
 
     if lessons_text:
@@ -415,7 +426,7 @@ def generate_briefing(
                     display = display[:117] + "..."
                 lines.append(f"- [{dt:%Y-%m-%d}] {display}")
             lines.append("")
-    except Exception as e:
+    except _RETRIEVAL_ERRORS as e:
         logger.debug(f"Journal retrieval for briefing failed: {e}")
 
     # Open questions — things I'm still uncertain about
@@ -426,7 +437,7 @@ def generate_briefing(
         if questions_text:
             lines.append(questions_text)
             lines.append("")
-    except Exception:
+    except _RETRIEVAL_ERRORS:
         pass
 
     return "\n".join(lines)

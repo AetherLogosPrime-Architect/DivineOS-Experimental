@@ -5,10 +5,13 @@ Integrates with the existing DivineOS event emission system.
 
 from typing import Any
 from uuid import UUID
+import sqlite3
 
 from loguru import logger
 
 from divineos.core import ledger
+
+_EI_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class EventEmissionInterface:
@@ -56,7 +59,7 @@ class EventEmissionInterface:
             logger.info(f"Emitted clarity statement event for session {session_id}")
             return True
 
-        except Exception as e:
+        except _EI_ERRORS as e:
             logger.error(f"Error emitting clarity statement event: {e}")
             return False
 
@@ -102,7 +105,7 @@ class EventEmissionInterface:
             logger.info(f"Emitted summary event for session {session_id}")
             return True
 
-        except Exception as e:
+        except _EI_ERRORS as e:
             logger.error(f"Error emitting summary event: {e}")
             return False
 
@@ -145,7 +148,7 @@ class EventEmissionInterface:
             logger.debug(f"Emitted deviation event for metric {metric}")
             return True
 
-        except Exception as e:
+        except _EI_ERRORS as e:
             logger.error(f"Error emitting deviation event: {e}")
             return False
 
@@ -188,6 +191,6 @@ class EventEmissionInterface:
             logger.debug(f"Emitted lesson event: {lesson_type}")
             return True
 
-        except Exception as e:
+        except _EI_ERRORS as e:
             logger.error(f"Error emitting lesson event: {e}")
             return False

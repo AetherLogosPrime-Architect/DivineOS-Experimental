@@ -16,6 +16,9 @@ from .types import (
     ExecutionMetrics,
     ToolCall,
 )
+import sqlite3
+
+_SB_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def _extract_session_metrics(analysis: object) -> dict:
@@ -91,7 +94,7 @@ def synthesize_clarity_statement(analysis: object):
         from divineos.core.hud_state import get_session_plan
 
         plan = get_session_plan()
-    except Exception as e:
+    except _SB_ERRORS as e:
         logger.debug("Could not load session plan (using defaults): %s", e)
 
     if plan and plan.get("goal"):
@@ -213,5 +216,5 @@ def _emit_clarity_events(session_id, summary, deviations, lessons):
                 description=lesson.description,
                 confidence=lesson.confidence,
             )
-    except Exception as e:
+    except _SB_ERRORS as e:
         logger.debug("Lesson event emission failed (best-effort, pipeline unaffected): %s", e)

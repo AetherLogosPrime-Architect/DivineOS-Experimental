@@ -6,8 +6,11 @@ Emits CLARITY_VIOLATION events and logs violations to system log.
 from loguru import logger
 from .violation_detector import ClarityViolation
 from .config import ClarityEnforcementMode
+import sqlite3
 from divineos.event.event_emission import emit_clarity_violation
 from divineos.agent_integration.learning_cycle import LearningCycle
+
+_VL_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class ViolationLogger:
@@ -83,7 +86,7 @@ class ViolationLogger:
             }
             learning_cycle.capture_violation_event(violation_event)
             logger.debug(f"Captured violation in learning cycle for {violation.tool_name}")
-        except Exception as e:
+        except _VL_ERRORS as e:
             logger.error(f"Failed to capture violation in learning cycle: {e}")
 
         return event_id

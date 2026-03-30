@@ -1,10 +1,21 @@
 """HUD commands — hud, goal group, plan."""
 
 import json
+import sqlite3
 
 import click
 
 from divineos.cli._helpers import _safe_echo
+
+_HC_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 
 def register(cli: click.Group) -> None:
@@ -96,7 +107,7 @@ def register(cli: click.Group) -> None:
                 f"[+] Cleared {removed} completed goals, {len(active)} remain.",
                 fg="green",
             )
-        except Exception as e:
+        except _HC_ERRORS as e:
             click.secho(f"[!] Failed to clear goals: {e}", fg="red")
 
     @goal_group.command("reset")

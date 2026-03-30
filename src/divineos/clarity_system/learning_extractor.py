@@ -7,6 +7,9 @@ from loguru import logger
 
 from .base import LearningExtractor
 from .types import Deviation, ExecutionData, Lesson, Recommendation
+import sqlite3
+
+_LE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class DefaultLearningExtractor(LearningExtractor):
@@ -52,7 +55,7 @@ class DefaultLearningExtractor(LearningExtractor):
             logger.info(f"Extracted {len(lessons)} lessons from execution")
             return lessons
 
-        except Exception as e:
+        except _LE_ERRORS as e:
             logger.error(f"Error extracting lessons: {e}")
             return []
 
@@ -86,7 +89,7 @@ class DefaultLearningExtractor(LearningExtractor):
             logger.info(f"Extracted {len(lessons)} deviation lessons")
             return lessons
 
-        except Exception as e:
+        except _LE_ERRORS as e:
             logger.error(f"Error extracting deviation lessons: {e}")
             return []
 
@@ -130,7 +133,7 @@ class DefaultLearningExtractor(LearningExtractor):
             logger.info(f"Identified {len(lessons)} tool patterns")
             return lessons
 
-        except Exception as e:
+        except _LE_ERRORS as e:
             logger.error(f"Error identifying tool patterns: {e}")
             return []
 
@@ -160,7 +163,7 @@ class DefaultLearningExtractor(LearningExtractor):
             logger.info(f"Generated {len(recommendations)} recommendations")
             return recommendations
 
-        except Exception as e:
+        except _LE_ERRORS as e:
             logger.error(f"Error generating recommendations: {e}")
             return []
 
@@ -203,7 +206,7 @@ class DefaultLearningExtractor(LearningExtractor):
 
             return lessons
 
-        except Exception as e:
+        except _LE_ERRORS as e:
             logger.error(f"Error identifying error patterns: {e}")
             return []
 

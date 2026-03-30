@@ -19,10 +19,13 @@ from __future__ import annotations
 
 import time
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
 from divineos.core.knowledge import get_connection
+
+_KM_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 # Promotion rules: (from_maturity, min_corroboration, min_confidence) → to_maturity
@@ -60,7 +63,7 @@ def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
         from divineos.core.logic.validity_gate import can_promote
 
         return can_promote(knowledge_id, current, target)
-    except Exception:
+    except _KM_ERRORS:
         # Logic tables may not exist yet — allow promotion (backward compat)
         return True
 

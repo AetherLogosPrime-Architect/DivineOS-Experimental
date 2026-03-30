@@ -17,6 +17,7 @@ Recursive Event Capture Prevention:
 
 import json
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -76,7 +77,7 @@ def emit_user_input(content: str, session_id: str | None = None) -> str:
     except EventValidationError as e:
         logger.error(f"Failed to emit USER_INPUT event: {e}")
         raise
-    except Exception as e:
+    except _EE_ERRORS as e:
         logger.error(f"Unexpected error emitting USER_INPUT event: {e}")
         raise
 
@@ -124,7 +125,7 @@ def emit_explanation(
     except EventValidationError as e:
         logger.error(f"Failed to emit EXPLANATION event: {e}")
         raise
-    except Exception as e:
+    except _EE_ERRORS as e:
         logger.error(f"Unexpected error emitting EXPLANATION event: {e}")
         raise
 
@@ -186,7 +187,7 @@ def emit_tool_call(
     except EventValidationError as e:
         logger.error(f"Failed to emit TOOL_CALL event: {e}")
         raise
-    except Exception as e:
+    except _EE_ERRORS as e:
         logger.error(f"Unexpected error emitting TOOL_CALL event: {e}")
         raise
 
@@ -253,7 +254,7 @@ def emit_tool_result(
     except EventValidationError as e:
         logger.error(f"Failed to emit TOOL_RESULT event: {e}")
         raise
-    except Exception as e:
+    except _EE_ERRORS as e:
         logger.error(f"Unexpected error emitting TOOL_RESULT event: {e}")
         raise
 
@@ -351,7 +352,7 @@ def emit_session_end(
     except EventValidationError as e:
         logger.error(f"Failed to emit SESSION_END event: {e}")
         raise
-    except Exception as e:
+    except _EE_ERRORS as e:
         logger.error(f"Unexpected error emitting SESSION_END event: {e}")
         raise
 
@@ -418,7 +419,7 @@ def emit_clarity_violation(
     except EventValidationError as e:
         logger.error(f"Failed to emit CLARITY_VIOLATION event: {e}")
         raise
-    except Exception as e:
+    except _EE_ERRORS as e:
         logger.error(f"Unexpected error emitting CLARITY_VIOLATION event: {e}")
         raise
 
@@ -465,4 +466,14 @@ from divineos.event.event_dispatch import (  # noqa: E402
     register_listener as register_listener,
     get_dispatcher as get_dispatcher,
     emit_event as emit_event,
+)
+
+_EE_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
 )

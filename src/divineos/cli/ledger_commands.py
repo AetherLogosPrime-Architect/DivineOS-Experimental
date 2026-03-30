@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from typing import Any
+import sqlite3
 
 import click
 
@@ -30,6 +31,16 @@ from divineos.cli._wrappers import (
 from divineos.core.fidelity import create_manifest, create_receipt, reconcile
 from divineos.core.memory import init_memory_tables
 from divineos.core.parser import parse_jsonl, parse_markdown_chat
+
+_LC_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 
 def register(cli: click.Group) -> None:
@@ -308,7 +319,7 @@ def register(cli: click.Group) -> None:
         logger.debug("Fetching ledger statistics...")
         try:
             counts = _wrapped_count_events()
-        except Exception as e:
+        except _LC_ERRORS as e:
             logger.error(f"Could not retrieve stats: {e}")
             click.secho(f"[-] Error: {e}", fg="red")
             return
