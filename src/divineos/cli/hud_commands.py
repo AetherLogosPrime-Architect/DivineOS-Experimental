@@ -247,3 +247,47 @@ def register(cli: click.Group) -> None:
             )
 
         click.echo()
+
+    @cli.command("checkpoint")
+    def checkpoint_cmd() -> None:
+        """Run a lightweight session checkpoint — save state without full pipeline.
+
+        Saves HUD snapshot, handoff note, and ledger event. Use this periodically
+        to preserve state. Lighter than SESSION_END (no knowledge extraction).
+        """
+        from divineos.core.session_checkpoint import run_checkpoint
+
+        result = run_checkpoint()
+        click.secho(f"[+] {result}", fg="green")
+
+    @cli.command("context-status")
+    def context_status_cmd() -> None:
+        """Show current context usage estimate and checkpoint state."""
+        from divineos.core.session_checkpoint import (
+            _load_state,
+            context_warning_level,
+            format_context_warning,
+        )
+
+        state = _load_state()
+        edits = state.get("edits", 0)
+        calls = state.get("tool_calls", 0)
+        checkpoints = state.get("checkpoints_run", 0)
+        level = context_warning_level(state)
+
+        click.secho(f"\n  Edits: {edits}", fg="cyan")
+        click.secho(f"  Tool calls: {calls}", fg="cyan")
+        click.secho(f"  Checkpoints run: {checkpoints}", fg="cyan")
+        click.secho(
+            f"  Context level: {level}",
+            fg={"ok": "green", "warn": "yellow", "urgent": "red", "critical": "red"}.get(
+                level, "white"
+            ),
+        )
+
+        warning = format_context_warning(state)
+        if warning:
+            click.secho(f"\n  {warning}", fg="yellow" if level == "warn" else "red")
+        else:
+            click.secho("\n  Context usage normal.", fg="green")
+        click.echo()

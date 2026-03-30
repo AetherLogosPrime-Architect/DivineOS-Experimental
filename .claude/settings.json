@@ -66,6 +66,16 @@
             "timeout": 120
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-checkpoint.sh",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "Stop": [

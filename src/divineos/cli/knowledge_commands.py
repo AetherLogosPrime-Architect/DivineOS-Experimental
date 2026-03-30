@@ -313,8 +313,19 @@ def register(cli: click.Group) -> None:
         default="",
         help="Topic hint to boost relevant knowledge (e.g. 'testing')",
     )
-    def briefing_cmd(max_items: int, types: str, topic: str) -> None:
-        """Generate a session context briefing from stored knowledge."""
+    @click.option("--deep", is_flag=True, help="Include stable layer (established knowledge)")
+    @click.option(
+        "--layer",
+        default="",
+        help="Load specific layer: urgent, active, stable, archive, all",
+    )
+    def briefing_cmd(max_items: int, types: str, topic: str, deep: bool, layer: str) -> None:
+        """Generate a session context briefing from stored knowledge.
+
+        Default shows urgent + active layers (focused, actionable).
+        Use --deep for the full picture including stable knowledge.
+        Use --layer archive to see archived/resolved entries.
+        """
         _log_os_query("briefing", topic or "session start")
         try:
             from divineos.core.hud_handoff import mark_briefing_loaded
@@ -335,6 +346,8 @@ def register(cli: click.Group) -> None:
             max_items=max_items,
             include_types=type_list,
             context_hint=topic,
+            deep=deep,
+            layer=layer,
         )
         if output and output.strip():
             _safe_echo(output)

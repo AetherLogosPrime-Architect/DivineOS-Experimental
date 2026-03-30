@@ -56,20 +56,32 @@ def generate_briefing(
     max_items: int = 20,
     include_types: list[str] | None = None,
     context_hint: str = "",
+    deep: bool = False,
+    layer: str = "",
 ) -> str:
     """Generate a structured text briefing for AI session context.
 
+    Layers control what shows up:
+      - default: urgent + active layers (focused, actionable)
+      - deep=True: urgent + active + stable (full picture)
+      - layer="archive": just archived entries (historical)
+      - layer="stable": just stable entries
+      - layer="all": everything
+
     Scores knowledge by: confidence * 0.4 + access_frequency * 0.3 + recency * 0.3
-    with type-specific decay rates:
-      - MISTAKE: 30-day half-life (errors should stick around)
-      - FACT: 7-day half-life
-      - PATTERN: 14-day half-life
-      - PREFERENCE: no decay (always relevant)
-      - EPISODE: 14-day half-life
+    with type-specific decay rates.
 
     If context_hint is provided, knowledge matching the hint gets a 0.3 score boost.
     Active lessons are always included at the top.
     """
+    # Ensure the layer column exists
+    try:
+        from divineos.core.knowledge.curation import ensure_layer_column
+
+        ensure_layer_column()
+    except Exception:
+        pass
+
     conn = _get_connection()
     try:
         query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND confidence >= 0.2 AND content NOT LIKE '[SUPERSEDED]%'"  # nosec B608
@@ -79,6 +91,24 @@ def generate_briefing(
             placeholders = ",".join("?" for _ in include_types)
             query += f" AND knowledge_type IN ({placeholders})"
             params.extend(include_types)
+
+        # Layer filtering
+        if layer == "archive":
+            # Archive: show regardless of confidence (they were archived, not deleted)
+            query = query.replace("AND confidence >= 0.2 ", "")
+            query += " AND layer = 'archive'"
+        elif layer == "stable":
+            query += " AND layer = 'stable'"
+        elif layer and layer != "all":
+            query += " AND layer = ?"
+            params.append(layer)
+        elif not layer and not deep:
+            # Default: urgent + active only
+            query += " AND layer IN ('urgent', 'active')"
+        elif deep:
+            # Deep: urgent + active + stable (exclude archive)
+            query += " AND layer != 'archive'"
+        # layer="all" — no filter
 
         rows = conn.execute(query, params).fetchall()
     finally:

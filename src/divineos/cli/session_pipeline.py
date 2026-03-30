@@ -419,6 +419,25 @@ def _run_session_end_pipeline() -> None:
         except Exception as e:
             logger.warning(f"Session-end corroboration sweep failed: {e}")
 
+        # 8d. Curate knowledge layers — sort, archive, clean text
+        try:
+            from divineos.core.knowledge.curation import run_curation
+
+            curation = run_curation()
+            curation_parts = []
+            if curation["archived"]:
+                curation_parts.append(f"{curation['archived']} archived")
+            if curation["promoted_stable"]:
+                curation_parts.append(f"{curation['promoted_stable']} → stable")
+            if curation["promoted_urgent"]:
+                curation_parts.append(f"{curation['promoted_urgent']} → urgent")
+            if curation["text_cleaned"]:
+                curation_parts.append(f"{curation['text_cleaned']} text cleaned")
+            if curation_parts:
+                click.secho(f"[~] Curation: {', '.join(curation_parts)}", fg="cyan")
+        except Exception as e:
+            logger.warning(f"Knowledge curation failed: {e}")
+
         # 9. Save HUD snapshot and clear session plan
         try:
             from divineos.core.hud import save_hud_snapshot

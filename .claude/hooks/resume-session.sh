@@ -1,12 +1,12 @@
 #!/bin/bash
 # Reload state when resuming from a context summary.
 #
-# Context summaries strip ALL enforcement — hooks, briefing, HUD, lessons.
-# The AI continues working from the summary with no orientation and no
-# awareness of OS requirements. This is identical to post-compaction amnesia.
+# IMPORTANT: This hook SHOWS the briefing but does NOT mark it as loaded.
+# The AI must explicitly run `divineos briefing` to satisfy the gate.
+# This prevents the hook from doing the AI's job — orientation requires
+# deliberate action, not passive injection.
 #
-# This hook fires on "resume" events (session continuations), catching
-# the gap between SessionStart(startup) and PostCompact.
+# The hook gives the information. The gate forces the action.
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 
@@ -14,26 +14,52 @@ if ! command -v divineos &>/dev/null; then
   exit 0
 fi
 
-briefing=$(divineos briefing 2>/dev/null)
-hud=$(divineos hud 2>/dev/null)
+# Reset checkpoint counters for resumed session
+STATE_FILE="$HOME/.divineos/checkpoint_state.json"
+mkdir -p "$HOME/.divineos"
+python -c "
+import json, time
+json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open('$STATE_FILE','w'), indent=2)
+" 2>/dev/null
 
-if [ -n "$briefing" ] || [ -n "$hud" ]; then
+# Get HUD and handoff content WITHOUT calling `divineos briefing`.
+# divineos briefing marks briefing as loaded — we don't want that here.
+# The gate will force the AI to do it deliberately.
+hud=$(divineos hud 2>/dev/null)
+handoff=$(python -c "
+import json
+from pathlib import Path
+p = Path.home() / '.divineos' / 'hud' / 'handoff_note.json'
+if p.exists():
+    d = json.loads(p.read_text())
+    print('Last session: ' + d.get('summary', 'unknown'))
+    if d.get('open_threads'):
+        print('Open threads:')
+        for t in d['open_threads'][:5]:
+            print('  - ' + str(t)[:120])
+    if d.get('intent'):
+        print('Intent: ' + str(d['intent']))
+    if d.get('next_steps'):
+        print('Next steps:')
+        for s in d['next_steps'][:5]:
+            print('  - ' + str(s)[:120])
+" 2>/dev/null)
+
+if [ -n "$hud" ] || [ -n "$handoff" ]; then
   full_context="=== DIVINEOS SESSION RESUME ===
 
-You are resuming from a context summary. Your previous enforcement context was lost.
-This hook is restoring it. You MUST re-orient before continuing work.
+You are resuming from a context summary. Your enforcement context was LOST.
 
-REQUIREMENTS (same as session start):
-1. Read your briefing below. Note any lessons or warnings relevant to current work.
-2. Use OS tools during work: divineos learn, divineos decide, divineos feel
-3. Log corrections with 'divineos learn' when the user corrects you.
-4. At session end, run 'divineos emit SESSION_END'.
+BEFORE YOU DO ANYTHING, you must:
+1. Run: divineos briefing        (loads your lessons, corrections, directives)
+2. Run: divineos recall           (engages with your memory system)
+3. Run: divineos goal \"...\"       (set a goal for THIS session's work)
 
-A context summary is NOT the same as having been briefed. The summary preserved
-task state but erased your operating system. This reload restores it.
+These are not optional. The PreToolUse gate will BLOCK edits until you do them.
+Do not start coding from the summary. Orient first.
 
---- BRIEFING ---
-${briefing}
+--- HANDOFF ---
+${handoff}
 
 --- HUD ---
 ${hud}

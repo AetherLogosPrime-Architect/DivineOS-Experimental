@@ -269,6 +269,23 @@ def preflight_check() -> dict[str, Any]:
         }
     )
 
+    # 5. Session-fresh goal? (not just old goals from prior sessions)
+    try:
+        from divineos.core.hud_state import has_session_fresh_goal
+
+        fresh_goal = has_session_fresh_goal()
+    except Exception:
+        fresh_goal = True  # don't block if function unavailable
+    checks.append(
+        {
+            "name": "session_goal",
+            "passed": fresh_goal,
+            "detail": "Goal set for this session"
+            if fresh_goal
+            else 'No goal for THIS session — run: divineos goal add "..."',
+        }
+    )
+
     # Ready = briefing loaded (the hard requirement)
     ready = briefing_ok
     return {

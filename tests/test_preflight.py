@@ -110,4 +110,4 @@ class TestPreflightCheck:
         ):
             result = preflight_check()
             check_names = {c["name"] for c in result["checks"]}
-            assert check_names == {"briefing", "engagement", "handoff", "goals"}
+            assert check_names == {"briefing", "engagement", "handoff", "goals", "session_goal"}

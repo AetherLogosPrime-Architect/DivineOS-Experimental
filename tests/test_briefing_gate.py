@@ -31,8 +31,10 @@ class TestBriefingGate:
             _enforce_briefing_gate()
 
     def test_bypass_set_contains_essentials(self):
-        """The bypass set must include briefing, init, preflight, and emit."""
+        """The bypass set must include briefing, init, preflight, emit, and checkpoint."""
         assert "briefing" in _BYPASS_COMMANDS
         assert "init" in _BYPASS_COMMANDS
         assert "preflight" in _BYPASS_COMMANDS
         assert "emit" in _BYPASS_COMMANDS
+        assert "checkpoint" in _BYPASS_COMMANDS
+        assert "context-status" in _BYPASS_COMMANDS

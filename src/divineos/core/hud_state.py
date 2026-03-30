@@ -97,13 +97,13 @@ def add_goal(text: str, original_words: str = "") -> None:
         if goal.get("text") == text and goal.get("status") != "done":
             return
 
-    goals.append(
-        {
-            "text": text,
-            "original_words": original_words,
-            "status": "active",
-        }
-    )
+    goal_entry: dict[str, Any] = {
+        "text": text,
+        "original_words": original_words,
+        "status": "active",
+        "added_at": time.time(),
+    }
+    goals.append(goal_entry)
     path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
 
 
@@ -130,6 +130,29 @@ def complete_goal(text: str) -> bool:
     if found:
         path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
     return found
+
+
+def has_session_fresh_goal(max_age_seconds: float = 7200.0) -> bool:
+    """Check if any goal was added recently (within max_age_seconds).
+
+    Old goals from previous sessions don't count — the AI must set
+    a goal for THIS session's work before it can start editing.
+    Default: 2 hours, generous enough for long sessions.
+    """
+    path = _ensure_hud_dir() / "active_goals.json"
+    if not path.exists():
+        return False
+    try:
+        goals = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+
+    cutoff = time.time() - max_age_seconds
+    for goal in goals:
+        added_at = goal.get("added_at", 0)
+        if added_at > cutoff and goal.get("status") == "active":
+            return True
+    return False
 
 
 # ─── Session Plan ────────────────────────────────────────────────────

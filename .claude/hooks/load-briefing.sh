@@ -12,6 +12,14 @@ if ! command -v divineos &>/dev/null; then
   exit 0
 fi
 
+# Reset checkpoint counters for new session
+STATE_FILE="$HOME/.divineos/checkpoint_state.json"
+mkdir -p "$HOME/.divineos"
+python -c "
+import json, time
+json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open('$STATE_FILE','w'), indent=2)
+" 2>/dev/null
+
 briefing=$(divineos briefing 2>/dev/null)
 hud=$(divineos hud 2>/dev/null)
 

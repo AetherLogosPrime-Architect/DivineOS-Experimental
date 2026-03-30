@@ -27,6 +27,8 @@ _BYPASS_COMMANDS = frozenset(
         "health",
         "feel",
         "affect",
+        "checkpoint",
+        "context-status",
     }
 )
 
