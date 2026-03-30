@@ -227,11 +227,24 @@ def generate_briefing(
                 lines.append("\n**Open threads:**")
                 for thread in handoff["open_threads"]:
                     lines.append(f"  - {thread}")
+            if handoff.get("intent"):
+                lines.append(f"\n**Intent:** {handoff['intent']}")
+            if handoff.get("blockers"):
+                lines.append("\n**Blockers:**")
+                for blocker in handoff["blockers"]:
+                    lines.append(f"  - {blocker}")
+            if handoff.get("next_steps"):
+                lines.append("\n**Next steps:**")
+                for step in handoff["next_steps"]:
+                    lines.append(f"  - {step}")
             meta_parts = []
             if handoff.get("mood"):
                 meta_parts.append(handoff["mood"])
             if handoff.get("goals_state"):
                 meta_parts.append(f"goals: {handoff['goals_state']}")
+            snapshot = handoff.get("context_snapshot", {})
+            if snapshot.get("session_grade"):
+                meta_parts.append(f"grade: {snapshot['session_grade']}")
             if meta_parts:
                 lines.append(f"\n*{' | '.join(meta_parts)}*")
             lines.append("\n---\n")

@@ -403,6 +403,122 @@ def get_edge_summary(knowledge_id: str, layer: str | None = None) -> str:
     return "\n".join(lines)
 
 
+# ─── Graph Export ────────────────────────────────────────────────────
+
+
+# Mermaid node shapes by knowledge type
+_MERMAID_SHAPES: dict[str, tuple[str, str]] = {
+    "FACT": ("[", "]"),
+    "BOUNDARY": ("{{", "}}"),
+    "PRINCIPLE": ("(", ")"),
+    "DIRECTION": ("([", "])"),
+    "PROCEDURE": ("[[", "]]"),
+    "DIRECTIVE": ("[/", "/]"),
+}
+
+
+def graph_export(
+    center_id: str | None = None,
+    depth: int = 2,
+    fmt: str = "mermaid",
+) -> str:
+    """Export the knowledge graph in a portable format.
+
+    fmt: "mermaid" for Mermaid diagram syntax, "json" for JSON adjacency list.
+    center_id: if given, only include nodes within `depth` hops.
+    """
+    import json as json_mod
+
+    init_edge_table()
+    conn = get_connection()
+    try:
+        # Collect node IDs
+        if center_id:
+            node_ids = set(get_neighbors(center_id, max_depth=depth))
+            node_ids.add(center_id)
+        else:
+            # All nodes that have edges (limit 200)
+            rows = conn.execute(
+                f"SELECT DISTINCT source_id FROM {_TABLE} WHERE status = 'ACTIVE' "
+                f"UNION SELECT DISTINCT target_id FROM {_TABLE} WHERE status = 'ACTIVE' "
+                "LIMIT 200"
+            ).fetchall()
+            node_ids = {r[0] for r in rows}
+
+        if not node_ids:
+            return "graph LR\n" if fmt == "mermaid" else json_mod.dumps({"nodes": [], "edges": []})
+
+        # Collect node metadata
+        nodes: dict[str, dict[str, Any]] = {}
+        placeholders = ",".join("?" * len(node_ids))
+        id_list = list(node_ids)
+        try:
+            krows = conn.execute(
+                f"SELECT knowledge_id, knowledge_type, content, confidence "
+                f"FROM knowledge WHERE knowledge_id IN ({placeholders})",  # nosec B608
+                id_list,
+            ).fetchall()
+            for kr in krows:
+                label = kr[2][:40].replace('"', "'") if kr[2] else "?"
+                nodes[kr[0]] = {"type": kr[1], "label": label, "confidence": kr[3]}
+        except sqlite3.OperationalError:
+            for nid in node_ids:
+                nodes[nid] = {"type": "UNKNOWN", "label": nid[:8], "confidence": 0.0}
+
+        # Collect edges between these nodes
+        edges_list: list[dict[str, Any]] = []
+        erows = conn.execute(
+            f"SELECT source_id, target_id, edge_type, confidence FROM {_TABLE} "
+            f"WHERE status = 'ACTIVE' AND source_id IN ({placeholders}) "
+            f"AND target_id IN ({placeholders})",  # nosec B608
+            id_list + id_list,
+        ).fetchall()
+        for er in erows:
+            edges_list.append(
+                {"source": er[0], "target": er[1], "type": er[2], "confidence": er[3]}
+            )
+    finally:
+        conn.close()
+
+    if fmt == "json":
+        return json_mod.dumps(
+            {
+                "nodes": [
+                    {
+                        "id": nid,
+                        "type": n["type"],
+                        "label": n["label"],
+                        "confidence": n["confidence"],
+                    }
+                    for nid, n in nodes.items()
+                ],
+                "edges": edges_list,
+            },
+            indent=2,
+        )
+
+    # Mermaid format
+    lines = ["graph LR"]
+    for nid, n in nodes.items():
+        short = nid[:8]
+        lbl = n["label"]
+        open_br, close_br = _MERMAID_SHAPES.get(n["type"], ("[", "]"))
+        lines.append(f'    {short}{open_br}"{lbl}"{close_br}')
+    for e in edges_list:
+        lines.append(f"    {e['source'][:8]} -->|{e['type']}| {e['target'][:8]}")
+    # Style classes
+    lines.append("")
+    lines.append("    classDef fact fill:#4a86c8,color:#fff")
+    lines.append("    classDef boundary fill:#c84a4a,color:#fff")
+    lines.append("    classDef principle fill:#c8a84a,color:#fff")
+    lines.append("    classDef direction fill:#4ac886,color:#fff")
+    for nid, n in nodes.items():
+        cls = n["type"].lower()
+        if cls in ("fact", "boundary", "principle", "direction"):
+            lines.append(f"    class {nid[:8]} {cls}")
+    return "\n".join(lines)
+
+
 # ─── Row Helpers ─────────────────────────────────────────────────────
 
 

@@ -54,6 +54,19 @@ def register(cli: click.Group) -> None:
         if reasoning:
             click.secho(f"    Why: {reasoning[:80]}", fg="bright_black")
 
+        # Show linked affect state if one was auto-captured
+        from divineos.core.decision_journal import get_affect_at_decision
+
+        affect = get_affect_at_decision(decision_id)
+        if affect:
+            from divineos.core.affect_log import describe_affect
+
+            desc = affect["description"] or describe_affect(affect["valence"], affect["arousal"])
+            click.secho(
+                f"    Affect: {desc} (v={affect['valence']:.1f}, a={affect['arousal']:.1f})",
+                fg="bright_black",
+            )
+
     @cli.group("decisions")
     def decisions_group() -> None:
         """Browse and search my decision journal."""
@@ -132,6 +145,34 @@ def register(cli: click.Group) -> None:
         click.secho(f"\n=== Paradigm Shifts ({len(entries)}) ===\n", fg="magenta", bold=True)
         for entry in entries:
             _display_decision(entry, verbose=True)
+
+    @decisions_group.command("context")
+    @click.argument("decision_id")
+    def decisions_context_cmd(decision_id: str) -> None:
+        """Show a decision with its emotional context at the time."""
+        from divineos.core.affect_log import describe_affect
+        from divineos.core.decision_journal import get_affect_at_decision, get_decision
+
+        entry = get_decision(decision_id)
+        if not entry:
+            click.secho(f"[-] Decision {decision_id} not found.", fg="red")
+            return
+
+        _display_decision(entry, verbose=True)
+
+        affect = get_affect_at_decision(entry["decision_id"])
+        if affect:
+            desc = affect["description"] or describe_affect(affect["valence"], affect["arousal"])
+            click.secho("  Emotional context at decision time:", fg="cyan")
+            click.secho(f"    State: {desc}", fg="white")
+            click.secho(
+                f"    Valence: {affect['valence']:.2f}  Arousal: {affect['arousal']:.2f}",
+                fg="bright_black",
+            )
+            if affect["trigger"]:
+                click.secho(f"    Trigger: {affect['trigger']}", fg="bright_black")
+        else:
+            click.secho("  No affect state recorded near this decision.", fg="bright_black")
 
     @decisions_group.command("link")
     @click.argument("decision_id")

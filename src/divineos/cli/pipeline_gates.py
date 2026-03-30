@@ -219,12 +219,51 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
         except (json.JSONDecodeError, OSError):
             pass
 
+        # Structured continuation fields
+        intent = ""
+        blockers: list[str] = []
+        next_steps: list[str] = []
+        context_snapshot: dict[str, Any] = {}
+
+        # Intent: derive from active goals
+        try:
+            if goals_path.exists():
+                for g in active[:2]:
+                    if g.get("text"):
+                        intent = g["text"] if not intent else f"{intent}; {g['text']}"
+        except (NameError, OSError):
+            pass
+
+        # Blockers: corrections are things that went wrong
+        for corr in analysis.corrections[:3]:
+            text = corr if isinstance(corr, str) else str(corr)
+            blockers.append(text[:120])
+
+        # Next steps: active goals not yet done
+        try:
+            if goals_path.exists():
+                for g in active[:5]:
+                    if g.get("text"):
+                        next_steps.append(g["text"][:120])
+        except (NameError, OSError):
+            pass
+
+        # Context snapshot: grade and recent knowledge
+        if health:
+            context_snapshot["session_grade"] = health["grade"]
+        if stored > 0:
+            context_snapshot["knowledge_stored"] = stored
+
         save_handoff_note(
             summary=" ".join(parts),
             open_threads=open_threads,
             mood=mood,
             goals_state=goals_state,
             session_id=analysis.session_id,
+            intent=intent,
+            blockers=blockers if blockers else None,
+            next_steps=next_steps if next_steps else None,
+            context_snapshot=context_snapshot if context_snapshot else None,
         )
         click.secho("[~] Handoff note saved for next session.", fg="cyan")
     except Exception as e:

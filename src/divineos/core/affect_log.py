@@ -181,6 +181,33 @@ def count_affect_entries() -> int:
         conn.close()
 
 
+def get_recent_affect(within_seconds: float = 300.0) -> dict[str, Any] | None:
+    """Get the most recent affect entry within within_seconds. Returns None if none found."""
+    init_affect_log()
+    cutoff = time.time() - within_seconds
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT entry_id, created_at, valence, arousal, description, trigger, "
+            "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id "
+            "FROM affect_log WHERE created_at >= ? ORDER BY created_at DESC LIMIT 1",
+            (cutoff,),
+        ).fetchone()
+    finally:
+        conn.close()
+    return _affect_row_to_dict(row) if row else None
+
+
+def describe_affect(valence: float, arousal: float) -> str:
+    """Map valence/arousal to a descriptive region label."""
+    if valence > 0.2:
+        return "engaged-resonant" if arousal > 0.5 else "calm-aligned"
+    elif valence < -0.2:
+        return "tense-dissonant" if arousal > 0.5 else "flat-distant"
+    else:
+        return "alert-neutral" if arousal > 0.5 else "idle"
+
+
 def _affect_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     return {
         "entry_id": row[0],

@@ -25,10 +25,21 @@ def save_handoff_note(
     mood: str = "",
     goals_state: str = "",
     session_id: str = "",
+    intent: str = "",
+    blockers: list[str] | None = None,
+    next_steps: list[str] | None = None,
+    context_snapshot: dict[str, Any] | None = None,
 ) -> Path:
-    """Write a handoff note for the next session to pick up."""
+    """Write a handoff note for the next session to pick up.
+
+    New structured fields for richer continuation:
+    - intent: what the user was trying to accomplish
+    - blockers: what stopped progress
+    - next_steps: concrete actions for the next session
+    - context_snapshot: key facts (knowledge IDs, recent decisions, grade)
+    """
     path = _ensure_hud_dir() / "handoff_note.json"
-    note = {
+    note: dict[str, Any] = {
         "session_id": session_id,
         "written_at": time.time(),
         "summary": summary,
@@ -36,6 +47,14 @@ def save_handoff_note(
         "mood": mood,
         "goals_state": goals_state,
     }
+    if intent:
+        note["intent"] = intent
+    if blockers:
+        note["blockers"] = blockers
+    if next_steps:
+        note["next_steps"] = next_steps
+    if context_snapshot:
+        note["context_snapshot"] = context_snapshot
     path.write_text(json.dumps(note, indent=2), encoding="utf-8")
     logger.debug("Handoff note saved to %s", path)
     return path

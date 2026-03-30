@@ -92,6 +92,35 @@ def register(cli: click.Group) -> None:
                     )
         click.echo()
 
+    @cli.command("graph")
+    @click.option("--center", default=None, help="Knowledge ID to center the graph on")
+    @click.option("--depth", default=2, type=int, help="Traversal depth from center")
+    @click.option(
+        "--format",
+        "fmt",
+        default="mermaid",
+        type=click.Choice(["mermaid", "json"]),
+        help="Export format",
+    )
+    def graph_cmd(center: str | None, depth: int, fmt: str) -> None:
+        """Export the knowledge graph as Mermaid or JSON."""
+        from divineos.core.knowledge.edges import graph_export
+
+        center_id = None
+        if center:
+            try:
+                center_id = _resolve_knowledge_id(center)
+            except click.ClickException:
+                raise
+
+        result = graph_export(center_id=center_id, depth=depth, fmt=fmt)
+        if fmt == "mermaid":
+            click.echo("```mermaid")
+            click.echo(result)
+            click.echo("```")
+        else:
+            click.echo(result)
+
     @cli.command("unrelate")
     @click.argument("relationship_id")
     def unrelate_cmd(relationship_id: str) -> None:

@@ -115,7 +115,57 @@ def record_decision(
         conn.commit()
     finally:
         conn.close()
+
+    # Auto-link the most recent affect state if one exists within 5 minutes
+    try:
+        from divineos.core.affect_log import get_recent_affect
+
+        recent = get_recent_affect(within_seconds=300.0)
+        if recent and not recent.get("linked_decision_id"):
+            conn = _get_connection()
+            try:
+                conn.execute(
+                    "UPDATE affect_log SET linked_decision_id = ? WHERE entry_id = ?",
+                    (decision_id, recent["entry_id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+    except (ImportError, sqlite3.OperationalError):
+        pass  # affect_log table may not exist yet
+
     return decision_id
+
+
+def get_affect_at_decision(decision_id: str) -> dict[str, Any] | None:
+    """Find the closest affect state to when a decision was made."""
+    init_decision_journal()
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT created_at FROM decision_journal WHERE decision_id = ?",
+            (decision_id,),
+        ).fetchone()
+        if not row:
+            return None
+        decision_time = row[0]
+
+        affect_row = conn.execute(
+            "SELECT entry_id, created_at, valence, arousal, description, trigger, "
+            "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id "
+            "FROM affect_log "
+            "ORDER BY ABS(created_at - ?) LIMIT 1",
+            (decision_time,),
+        ).fetchone()
+    except sqlite3.OperationalError:
+        return None  # affect_log table doesn't exist
+    finally:
+        conn.close()
+    if not affect_row:
+        return None
+    from divineos.core.affect_log import _affect_row_to_dict
+
+    return _affect_row_to_dict(affect_row)
 
 
 def list_decisions(
