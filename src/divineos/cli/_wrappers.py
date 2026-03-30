@@ -1,6 +1,8 @@
 """Tool wrappers and DB initialization for the CLI."""
 
 from pathlib import Path
+import sqlite3
+import json
 
 import click
 
@@ -51,6 +53,16 @@ from divineos.core.memory import (
     set_core,
 )
 from divineos.core.tool_wrapper import wrap_tool_execution
+
+_WRAPPERS_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 # Wrap critical tool calls for event capture
 _wrapped_log_event = wrap_tool_execution("log_event", log_event)
@@ -156,7 +168,7 @@ def _load_seed_if_empty() -> None:
 
     try:
         _wrapped_refresh_active_memory(importance_threshold=0.3)
-    except Exception as e:
+    except _WRAPPERS_ERRORS as e:
         logger.debug("Post-seed memory refresh failed (best-effort): %s", e)
 
 

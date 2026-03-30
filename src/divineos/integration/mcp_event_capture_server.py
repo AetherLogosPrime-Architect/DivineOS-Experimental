@@ -13,6 +13,7 @@ This server uses the unified tool capture system for consistency.
 
 import json
 from typing import Any
+import sqlite3
 
 from divineos.core.error_handling import (
     EventCaptureError,
@@ -21,6 +22,16 @@ from divineos.core.error_handling import (
 )
 from divineos.core.session_manager import get_or_create_session_id
 from divineos.core.tool_wrapper import capture_tool_execution
+
+_MEC_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 
 def emit_tool_call_mcp(
@@ -62,7 +73,7 @@ def emit_tool_call_mcp(
             "error": str(e),
             "tool_name": tool_name,
         }
-    except Exception as e:
+    except _MEC_ERRORS as e:
         handle_error(e, "emit_tool_call_mcp", {"tool_name": tool_name})
         return {
             "status": "error",
@@ -124,7 +135,7 @@ def emit_tool_result_mcp(
             "error": str(e),
             "tool_name": tool_name,
         }
-    except Exception as e:
+    except _MEC_ERRORS as e:
         handle_error(
             e,
             "emit_tool_result_mcp",
@@ -156,7 +167,7 @@ def get_session_id_mcp() -> dict[str, Any]:
             "status": "error",
             "error": str(e),
         }
-    except Exception as e:
+    except _MEC_ERRORS as e:
         handle_error(e, "get_session_id_mcp")
         return {
             "status": "error",
@@ -211,7 +222,7 @@ if __name__ == "__main__":
             handle_error(e, "mcp_server_json_decode")
             print(json.dumps({"status": "error", "error": f"Invalid JSON: {e!s}"}))  # noqa: T201
             sys.stdout.flush()
-        except Exception as e:
+        except _MEC_ERRORS as e:
             handle_error(e, "mcp_server_request_handling")
             print(json.dumps({"status": "error", "error": str(e)}))  # noqa: T201
             sys.stdout.flush()

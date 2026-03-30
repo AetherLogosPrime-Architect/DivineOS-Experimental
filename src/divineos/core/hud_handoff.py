@@ -10,10 +10,21 @@ import re
 import time
 from pathlib import Path
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
 from divineos.core._hud_io import _ensure_hud_dir, _get_hud_dir
+
+_HH_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 
 # ─── Session Handoff Notes ───────────────────────────────────────────
@@ -172,7 +183,7 @@ def _count_session_tool_calls() -> int:
 
         counts = count_events()
         return int(counts.get("by_type", {}).get("TOOL_CALL", 0))
-    except Exception:
+    except _HH_ERRORS:
         return 0
 
 

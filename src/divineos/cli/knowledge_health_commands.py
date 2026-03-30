@@ -3,6 +3,7 @@ health, distill, migrate-types, hooks."""
 
 from pathlib import Path
 from typing import Any
+import sqlite3
 
 import click
 
@@ -18,6 +19,8 @@ from divineos.cli._wrappers import (
     logger,
 )
 from divineos.core.knowledge import search_knowledge
+
+_KHC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def register(cli: click.Group) -> None:
@@ -67,7 +70,7 @@ def register(cli: click.Group) -> None:
         path = Path(file_path)
         try:
             content = path.read_text(encoding="utf-8", errors="replace")
-        except Exception as e:
+        except _KHC_ERRORS as e:
             click.secho(f"[-] Cannot read file: {e}", fg="red")
             return
 
@@ -155,7 +158,7 @@ def register(cli: click.Group) -> None:
                 f'Future sessions can run: divineos ask "{file_tag}"',
                 fg="green",
             )
-        except Exception as e:
+        except _KHC_ERRORS as e:
             click.secho(f"[-] Failed to store digest: {e}", fg="red")
             logger.exception("Digest storage failed")
 

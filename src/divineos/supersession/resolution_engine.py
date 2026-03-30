@@ -11,7 +11,10 @@ from typing import Any, Dict, Optional
 from datetime import datetime, timezone
 import hashlib
 import uuid
+import sqlite3
 from loguru import logger
+
+_RE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 # Import error handling and monitoring
 try:
@@ -109,7 +112,7 @@ class ResolutionEngine:
                 monitor.record_success(monitor.CONTRADICTION_RESOLUTION)
 
             return supersession_event
-        except Exception as e:
+        except _RE_ERRORS as e:
             logger.error(f"Error resolving contradiction: {e}")
             if monitor:
                 monitor.record_error(monitor.CONTRADICTION_RESOLUTION, e)
@@ -126,7 +129,7 @@ class ResolutionEngine:
                     severity=getattr(contradiction, "severity", "MEDIUM"),
                     session_id="resolution-engine",
                 )
-            except Exception as e:
+            except _RE_ERRORS as e:
                 logger.debug("Clarity integration failed on resolution error (best-effort): %s", e)
 
             raise

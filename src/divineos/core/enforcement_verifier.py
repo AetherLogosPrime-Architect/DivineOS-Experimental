@@ -14,11 +14,14 @@ Requirements:
 """
 
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
 from divineos.core.ledger import get_events, verify_event_hash
 from divineos.core.loop_prevention import mark_internal_operation
+
+_EV_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def verify_enforcement() -> dict[str, Any]:
@@ -88,7 +91,7 @@ def verify_enforcement() -> dict[str, Any]:
             logger.debug(f"Enforcement verification complete: {report['status']}")
             return report
 
-        except Exception as e:
+        except _EV_ERRORS as e:
             logger.error(f"Failed to verify enforcement: {e}")
             return {
                 "status": "error",
@@ -147,7 +150,7 @@ def check_event_capture_rate() -> dict[str, float]:
                 "TOOL_RESULT": event_counts["TOOL_RESULT"] / total,
             }
 
-        except Exception as e:
+        except _EV_ERRORS as e:
             logger.error(f"Failed to check event capture rate: {e}")
             return {}
 
@@ -220,7 +223,7 @@ def detect_missing_events(recent_only: int = 500) -> list[dict[str, Any]]:
             logger.debug(f"Detected {len(missing)} missing/orphaned events")
             return missing
 
-        except Exception as e:
+        except _EV_ERRORS as e:
             logger.error(f"Failed to detect missing events: {e}")
             return []
 
@@ -295,6 +298,6 @@ def generate_enforcement_report() -> str:
 
             return "\n".join(lines)
 
-        except Exception as e:
+        except _EV_ERRORS as e:
             logger.error(f"Failed to generate enforcement report: {e}")
             return f"Error generating report: {e}"

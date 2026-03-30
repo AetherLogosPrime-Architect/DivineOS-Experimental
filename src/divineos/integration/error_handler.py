@@ -7,7 +7,10 @@ for all 5 integration points.
 import time
 from typing import Any, Callable, Optional, TypeVar, Tuple
 from functools import wraps
+import sqlite3
 from loguru import logger
+
+_EH_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 T = TypeVar("T")
 

@@ -28,6 +28,7 @@ import uuid
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -72,7 +73,7 @@ def get_tool_input_string(tool_input: dict[str, Any]) -> str:
             json_str = json_str[:1000000] + "... [truncated]"
 
         return json_str
-    except Exception as e:
+    except _TW_ERRORS as e:
         logger.warning(f"Failed to serialize tool input: {e}")
         return str(tool_input)
 
@@ -103,7 +104,7 @@ def get_tool_result_string(result: Any) -> str:
             result_str = result_str[:1000000] + "... [truncated]"
 
         return result_str
-    except Exception as e:
+    except _TW_ERRORS as e:
         logger.warning(f"Failed to serialize tool result: {e}")
         return str(result)
 
@@ -180,7 +181,7 @@ def wrap_tool_execution(
         except ValueError as e:
             logger.error(f"Validation error during TOOL_CALL event emission: {e}")
             logger.warning(f"Continuing without TOOL_CALL event for {tool_name}")
-        except Exception as e:
+        except _TW_ERRORS as e:
             logger.error(f"Failed to emit TOOL_CALL event for {tool_name}: {e}", exc_info=True)
             logger.warning(f"Continuing without TOOL_CALL event for {tool_name}")
 
@@ -197,7 +198,7 @@ def wrap_tool_execution(
             return result
 
         except Exception as e:
-            # Tool execution failed
+            # Tool execution failed — must catch all since tool_func is arbitrary code
             failed = True
             error_message = str(e)
             logger.error(f"Tool {tool_name} failed: {error_message}", exc_info=True)
@@ -244,7 +245,7 @@ def wrap_tool_execution(
                 except ValueError as e:
                     logger.error(f"Validation error during TOOL_RESULT event emission: {e}")
                     logger.warning(f"Continuing without TOOL_RESULT event for {tool_name}")
-                except Exception as e:
+                except _TW_ERRORS as e:
                     logger.error(
                         f"Failed to emit TOOL_RESULT event for {tool_name}: {e}",
                         exc_info=True,
@@ -309,4 +310,14 @@ from divineos.core.tool_capture import (  # noqa: E402
     emit_tool_result_for_ide as emit_tool_result_for_ide,
     get_ide_tool_executor as get_ide_tool_executor,
     get_unified_capture as get_unified_capture,
+)
+
+_TW_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
 )

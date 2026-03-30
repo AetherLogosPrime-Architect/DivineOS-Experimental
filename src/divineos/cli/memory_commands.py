@@ -14,6 +14,9 @@ from divineos.cli._wrappers import (
     _wrapped_set_core,
 )
 from divineos.core.memory import CORE_SLOTS, init_memory_tables
+import sqlite3
+
+_MC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def register(cli: click.Group) -> None:
@@ -95,7 +98,7 @@ def register(cli: click.Group) -> None:
                 if warnings:
                     click.echo()
                     _safe_echo(format_anticipation(warnings))
-            except Exception:
+            except _MC_ERRORS:
                 pass  # anticipation is best-effort
 
     @cli.command("active")
@@ -150,7 +153,7 @@ def register(cli: click.Group) -> None:
             click.secho(f"[+] Promoted to active memory: {mid}{pin_note}", fg="green")
         except click.ClickException:
             raise
-        except Exception as e:
+        except _MC_ERRORS as e:
             click.secho(f"[-] {e}", fg="red")
 
     @cli.command("refresh")

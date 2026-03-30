@@ -14,12 +14,15 @@ This is NOT an IDE hook - it's part of the OS itself.
 
 from datetime import timezone, datetime
 from typing import Any, Optional
+import sqlite3
 
 from loguru import logger
 
 from divineos.core.ledger import log_event, get_events, get_recent_context
 from divineos.agent_integration.learning_cycle import LearningCycle
 from divineos.agent_integration.pattern_recommender import PatternRecommender
+
+_MM_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class AgentMemoryMonitor:
@@ -75,7 +78,7 @@ class AgentMemoryMonitor:
 
             logger.info(f"Loaded session context: {len(session_events)} previous work items")
             return context
-        except Exception as e:
+        except _MM_ERRORS as e:
             logger.error(f"Failed to load session context: {e}")
             return {
                 "session_id": self.session_id,
@@ -114,7 +117,7 @@ class AgentMemoryMonitor:
             if recent_count > 0:
                 logger.info(f"Auto-loaded {recent_count} recent context items")
 
-        except Exception as e:
+        except _MM_ERRORS as e:
             logger.error(f"Failed to auto-load context: {e}")
             self.context_loaded = False
 
@@ -205,7 +208,7 @@ class AgentMemoryMonitor:
             self.last_checkpoint_tokens = self.current_tokens
             logger.info(f"Saved work checkpoint: {task} (event_id: {event_id})")
             return event_id
-        except Exception as e:
+        except _MM_ERRORS as e:
             logger.error(f"Failed to save work checkpoint: {e}")
             raise
 
@@ -240,7 +243,7 @@ class AgentMemoryMonitor:
                 f"Context compressed at {self.current_tokens} tokens (event_id: {event_id})"
             )
             return event_id
-        except Exception as e:
+        except _MM_ERRORS as e:
             logger.error(f"Failed to compress context: {e}")
             raise
 
@@ -264,7 +267,7 @@ class AgentMemoryMonitor:
                 f"audit_id: {results['audit_id']}"
             )
             return results
-        except Exception as e:
+        except _MM_ERRORS as e:
             logger.error(f"Failed to run learning cycle: {e}")
             return {
                 "session_id": self.session_id,
@@ -315,7 +318,7 @@ class AgentMemoryMonitor:
                     "confidence": 0.3,
                     "explanation": "No recommendation available",
                 }
-        except Exception as e:
+        except _MM_ERRORS as e:
             logger.error(f"Failed to get recommendation: {e}")
             return {
                 "pattern_id": "fallback",
@@ -382,7 +385,7 @@ class AgentMemoryMonitor:
 
             logger.info(f"Recorded work outcome (event_id: {event_id})")
             return event_id
-        except Exception as e:
+        except _MM_ERRORS as e:
             logger.error(f"Failed to record work outcome: {e}")
             raise
 
@@ -423,6 +426,6 @@ class AgentMemoryMonitor:
 
             logger.info(f"Session ended: {final_status} (event_id: {event_id})")
             return event_id
-        except Exception as e:
+        except _MM_ERRORS as e:
             logger.error(f"Failed to end session: {e}")
             raise

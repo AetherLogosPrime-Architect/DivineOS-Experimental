@@ -2,6 +2,7 @@
 
 import re
 from typing import Any
+import sqlite3
 
 from divineos.core.knowledge._base import (
     _get_connection,
@@ -23,6 +24,15 @@ from divineos.core.knowledge.lessons import (
     get_lessons,
     mark_lesson_improving,
     record_lesson,
+)
+
+_MIGRATION_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
 )
 
 
@@ -144,7 +154,7 @@ def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
                         source=source,
                         maturity=maturity,
                     )
-                except Exception:
+                except _MIGRATION_ERRORS:
                     # Rollback: clear the placeholder so old entry isn't orphaned
                     conn = _get_connection()
                     try:

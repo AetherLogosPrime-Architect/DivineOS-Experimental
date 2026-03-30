@@ -1,12 +1,15 @@
 """Pattern recommendation engine for the agent learning loop."""
 
 from typing import Any, Optional
+import sqlite3
 
 from loguru import logger
 
 from divineos.agent_integration.pattern_store import PatternStore
 from divineos.agent_integration.learning_audit_store import LearningAuditStore
 from divineos.agent_integration.decision_store import DecisionStore
+
+_PR_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class PatternRecommender:
@@ -97,7 +100,7 @@ class PatternRecommender:
                 self.logger.error(f"🚨 SYSTEM DRIFT DETECTED: {drift_reason}")
 
             return audit
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to load humility audit: {e}")
             return None
 
@@ -134,7 +137,7 @@ class PatternRecommender:
 
             self.matched_patterns = matched
             return matched
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to match preconditions: {e}")
             return []
 
@@ -166,7 +169,7 @@ class PatternRecommender:
             self.logger.info(f"Ranked {len(ranked)} patterns by confidence")
 
             return ranked
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to rank patterns: {e}")
             return []
 
@@ -271,7 +274,7 @@ class PatternRecommender:
             )
 
             return recommendation
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to generate recommendation: {e}")
             return None
 
@@ -327,7 +330,7 @@ class PatternRecommender:
             self.logger.info(f"Recorded decision {decision_id} for pattern {pattern_id}")
 
             return decision_id
-        except Exception as e:
+        except _PR_ERRORS as e:
             self.logger.error(f"Failed to record decision: {e}")
             return None
 

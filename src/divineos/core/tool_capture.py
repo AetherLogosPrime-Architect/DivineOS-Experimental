@@ -13,6 +13,7 @@ import threading
 import time
 import uuid
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -22,6 +23,8 @@ from divineos.core.error_handling import (
 )
 from divineos.core.session_manager import get_or_create_session_id
 from divineos.event.event_emission import emit_tool_call, emit_tool_result
+
+_TC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class IDEToolExecutor:
@@ -79,7 +82,7 @@ class IDEToolExecutor:
             logger.debug(f"Emitted TOOL_CALL for {tool_name}: {event_id}")
         except ValueError as e:
             logger.error(f"Validation error during TOOL_CALL event emission: {e}")
-        except Exception as e:
+        except _TC_ERRORS as e:
             logger.error(f"Failed to emit TOOL_CALL event for {tool_name}: {e}", exc_info=True)
 
         return tool_use_id
@@ -127,7 +130,7 @@ class IDEToolExecutor:
         except ValueError as e:
             logger.error(f"Validation error during TOOL_RESULT event emission: {e}")
             return None
-        except Exception as e:
+        except _TC_ERRORS as e:
             logger.error(
                 f"Failed to emit TOOL_RESULT event for {tool_info['tool_name']}: {e}",
                 exc_info=True,
@@ -169,7 +172,7 @@ class IDEToolExecutor:
 
             return result
 
-        except Exception as e:
+        except _TC_ERRORS as e:
             # End tool execution with failure and emit TOOL_RESULT
             error_msg = str(e)
             self.end_tool_execution(tool_use_id, error_msg, failed=True, error_message=error_msg)
@@ -299,7 +302,7 @@ class UnifiedToolCapture:
                     logger.debug(f"Emitted TOOL_CALL for {tool_name}: {tool_call_id}")
                 except EventCaptureError as e:
                     handle_error(e, "emit_tool_call_unified", {"tool_name": tool_name})
-                except Exception as e:
+                except _TC_ERRORS as e:
                     handle_error(e, "emit_tool_call_unified", {"tool_name": tool_name})
 
                 # Convert result to string and truncate if needed
@@ -321,7 +324,7 @@ class UnifiedToolCapture:
                     logger.debug(f"Emitted TOOL_RESULT for {tool_name}: {tool_result_id}")
                 except EventCaptureError as e:
                     handle_error(e, "emit_tool_result_unified", {"tool_name": tool_name})
-                except Exception as e:
+                except _TC_ERRORS as e:
                     handle_error(e, "emit_tool_result_unified", {"tool_name": tool_name})
 
                 return tool_call_id, tool_result_id
@@ -329,7 +332,7 @@ class UnifiedToolCapture:
             except EventCaptureError as e:
                 handle_error(e, "capture_tool_execution_unified", {"tool_name": tool_name})
                 return None, None
-            except Exception as e:
+            except _TC_ERRORS as e:
                 handle_error(e, "capture_tool_execution_unified", {"tool_name": tool_name})
                 return None, None
 

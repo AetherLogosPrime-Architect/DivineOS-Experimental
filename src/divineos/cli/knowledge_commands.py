@@ -22,6 +22,9 @@ from divineos.cli._wrappers import (
 )
 from divineos.core.knowledge import KNOWLEDGE_TYPES, search_knowledge
 from divineos.core.memory import init_memory_tables
+import sqlite3
+
+_KC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def register(cli: click.Group) -> None:
@@ -251,7 +254,7 @@ def register(cli: click.Group) -> None:
                         f"         ...and {len(rels) - 3} more relationships",
                         fg="bright_black",
                     )
-            except Exception:
+            except _KC_ERRORS:
                 pass
             # Show warrant chain — why do I believe this?
             try:
@@ -264,7 +267,7 @@ def register(cli: click.Group) -> None:
                 chain_str = format_warrant_chain(warrants)
                 if chain_str:
                     click.secho(chain_str, fg="bright_black")
-            except Exception:
+            except _KC_ERRORS:
                 pass
             click.echo()
 
@@ -291,7 +294,7 @@ def register(cli: click.Group) -> None:
                             fg="bright_black",
                         )
                     click.echo()
-        except Exception:
+        except _KC_ERRORS:
             pass  # journal search is best-effort
 
         # Pattern anticipation — warn if this topic touches past mistakes
@@ -302,7 +305,7 @@ def register(cli: click.Group) -> None:
             if warnings:
                 click.echo()
                 _safe_echo(format_anticipation(warnings))
-        except Exception:
+        except _KC_ERRORS:
             pass  # anticipation is best-effort
 
     @cli.command("briefing")
@@ -320,12 +323,12 @@ def register(cli: click.Group) -> None:
             from divineos.core.hud_handoff import mark_briefing_loaded
 
             mark_briefing_loaded()
-        except Exception:
+        except _KC_ERRORS:
             pass
         try:
             init_memory_tables()
             _wrapped_refresh_active_memory(importance_threshold=0.3)
-        except Exception as e:
+        except _KC_ERRORS as e:
             logger.debug(
                 "Pre-briefing memory refresh failed (non-fatal, briefing continues): %s", e
             )

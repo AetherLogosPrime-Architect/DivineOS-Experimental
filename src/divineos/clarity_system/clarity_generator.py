@@ -9,6 +9,9 @@ from loguru import logger
 
 from .base import ClarityStatementGenerator
 from .types import ClarityStatement, ScopeEstimate
+import sqlite3
+
+_CG_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class DefaultClarityStatementGenerator(ClarityStatementGenerator):
@@ -50,7 +53,7 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
             )
             return clarity_statement
 
-        except Exception as e:
+        except _CG_ERRORS as e:
             logger.error(f"Error generating clarity statement: {e}")
             # Return minimal clarity statement with available info
             return ClarityStatement(
@@ -145,7 +148,7 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
                 estimated_time_minutes=estimated_time_minutes,
             )
 
-        except Exception as e:
+        except _CG_ERRORS as e:
             logger.warning(f"Error extracting scope: {e}, using defaults")
             return ScopeEstimate(0, 0, "medium", 0)
 
@@ -168,7 +171,7 @@ class DefaultClarityStatementGenerator(ClarityStatementGenerator):
             # and optionally capture feedback. For now, we just log it.
             return None
 
-        except Exception as e:
+        except _CG_ERRORS as e:
             logger.error(f"Error presenting clarity statement: {e}")
             return None
 

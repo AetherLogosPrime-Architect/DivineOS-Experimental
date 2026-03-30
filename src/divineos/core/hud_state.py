@@ -6,10 +6,21 @@ Mutable slot files that let the dashboard reflect real-time state changes.
 import json
 import time
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
 from divineos.core._hud_io import _ensure_hud_dir
+
+_HS_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 
 # ─── Slot Update Functions ───────────────────────────────────────────
@@ -64,7 +75,7 @@ def update_task_state(
         try:
             existing = json.loads(path.read_text(encoding="utf-8"))
             existing_done = existing.get("done", [])
-        except Exception as e:
+        except _HS_ERRORS as e:
             logger.warning("Could not read existing session plan done list (starting fresh): %s", e)
 
     if done:
@@ -89,7 +100,7 @@ def add_goal(text: str, original_words: str = "") -> None:
     if path.exists():
         try:
             goals = json.loads(path.read_text(encoding="utf-8"))
-        except Exception as e:
+        except _HS_ERRORS as e:
             logger.warning("Could not read active goals file (starting with empty list): %s", e)
 
     # Deduplicate — don't add if an active goal with the same text exists

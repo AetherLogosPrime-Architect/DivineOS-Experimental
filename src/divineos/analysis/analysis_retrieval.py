@@ -5,10 +5,13 @@ Functions split from analysis_storage.py to keep modules focused.
 
 from pathlib import Path
 from typing import Any, cast
+import sqlite3
 
 from loguru import logger
 
 from divineos.analysis.analysis_types import AnalysisResult
+
+_AR_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def get_stored_report(session_id: str) -> str | None:
@@ -69,7 +72,7 @@ def get_stored_report(session_id: str) -> str | None:
         conn.close()
 
         return None
-    except Exception as e:
+    except _AR_ERRORS as e:
         logger.error(f"Failed to retrieve report: {e}")
         return None
 
@@ -116,7 +119,7 @@ def list_recent_sessions(limit: int = 10) -> list[dict[str, Any]]:
 
         conn.close()
         return sessions
-    except Exception as e:
+    except _AR_ERRORS as e:
         logger.error(f"Failed to list sessions: {e}")
         return []
 
@@ -162,7 +165,7 @@ def compute_cross_session_trends(limit: int = 10) -> dict[str, Any]:
                     "inconclusive_count": inconclusive_count,
                     "results": check_results[:5],  # Last 5 results
                 }
-        except Exception as e:
+        except _AR_ERRORS as e:
             # If check history not available, skip but log the error
             logger.debug(f"Failed to get check history for {check_name}: {e}")
 

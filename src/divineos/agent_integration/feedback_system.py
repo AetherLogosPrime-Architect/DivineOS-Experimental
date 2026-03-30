@@ -9,6 +9,9 @@ from loguru import logger
 
 from divineos.agent_integration.types import SessionFeedback
 from divineos.core.knowledge import store_knowledge
+import sqlite3
+
+_FS_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def generate_session_feedback(analysis: object) -> SessionFeedback:
@@ -155,7 +158,7 @@ def store_feedback_as_knowledge(
         )
         logger.debug(f"Stored feedback as knowledge: {entry_id[:8]}...")
         return entry_id
-    except Exception as e:
+    except _FS_ERRORS as e:
         logger.warning(f"Failed to store feedback: {e}")
         return None
 

@@ -16,6 +16,16 @@ from loguru import logger
 
 from divineos.core.ledger import get_connection as _base_get_connection
 
+_PS_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
+
 
 def _get_connection() -> sqlite3.Connection:
     conn = _base_get_connection()
@@ -137,7 +147,7 @@ class PatternStore:
             conn.commit()
             self.logger.info(f"Stored pattern {pattern_id} ({name}) with confidence {confidence}")
             return pattern_id
-        except Exception as e:
+        except _PS_ERRORS as e:
             self.logger.error(f"Failed to store pattern: {e}")
             raise
         finally:
@@ -198,7 +208,7 @@ class PatternStore:
             if row is None:
                 return None
             return self._row_to_dict(row)
-        except Exception as e:
+        except _PS_ERRORS as e:
             self.logger.error(f"Failed to get pattern {pattern_id}: {e}")
             return None
         finally:
@@ -210,7 +220,7 @@ class PatternStore:
         try:
             rows = conn.execute("SELECT * FROM patterns ORDER BY confidence DESC").fetchall()
             return [self._row_to_dict(row) for row in rows]
-        except Exception as e:
+        except _PS_ERRORS as e:
             self.logger.error(f"Failed to get all patterns: {e}")
             return []
         finally:
@@ -244,7 +254,7 @@ class PatternStore:
 
             self.logger.info(f"Query returned {len(matched)} patterns matching preconditions")
             return matched
-        except Exception as e:
+        except _PS_ERRORS as e:
             self.logger.error(f"Failed to query patterns: {e}")
             return []
         finally:
@@ -296,7 +306,7 @@ class PatternStore:
                 f"(delta: {delta:+.2f}, reason: {reason})"
             )
             return True
-        except Exception as e:
+        except _PS_ERRORS as e:
             self.logger.error(f"Failed to update pattern confidence: {e}")
             return False
 

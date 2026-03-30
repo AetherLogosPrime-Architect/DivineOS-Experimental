@@ -6,6 +6,7 @@ Extracted from quality_checks.py to keep files under 500 lines.
 import re
 from pathlib import Path
 from typing import Any
+import sqlite3
 
 from divineos.analysis.record_extraction import (
     CheckResult,
@@ -17,6 +18,8 @@ from divineos.analysis.session_analyzer import (
     _extract_timestamps,
     _extract_user_text,
 )
+
+_QCE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 # Jargon terms a non-coder wouldn't know
@@ -127,7 +130,7 @@ def check_clarity(
 
         event_counts = count_events()
         ledger_explanation_count = event_counts.get("by_type", {}).get("EXPLANATION", 0)
-    except Exception:
+    except _QCE_ERRORS:
         ledger_explanation_count = 0
 
     if total_tool_calls == 0 and text_blocks_count == 0 and ledger_explanation_count == 0:

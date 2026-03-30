@@ -1,12 +1,24 @@
 """Event commands — emit, verify-enforcement."""
 
 import sys
+import sqlite3
+import json
 
 import click
 
 from divineos.cli._helpers import _safe_echo
 from divineos.cli._wrappers import logger
 from divineos.cli.session_pipeline import _run_session_end_pipeline
+
+_EC_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
+)
 
 
 def register(cli: click.Group) -> None:
@@ -142,7 +154,7 @@ def register(cli: click.Group) -> None:
                 )
                 sys.exit(1)
 
-        except Exception as e:
+        except _EC_ERRORS as e:
             click.secho(f"[-] Error emitting event: {e}", fg="red")
             logger.exception("Event emission failed")
             sys.exit(1)
@@ -159,7 +171,7 @@ def register(cli: click.Group) -> None:
             report = generate_enforcement_report()
             _safe_echo(report)
 
-        except Exception as e:
+        except _EC_ERRORS as e:
             click.secho(f"[-] Error verifying enforcement: {e}", fg="red")
             logger.exception("Enforcement verification failed")
             sys.exit(1)

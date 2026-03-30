@@ -6,8 +6,11 @@ Integrates clarity system with the existing hook infrastructure.
 from collections.abc import Callable
 from typing import Any
 from uuid import UUID
+import sqlite3
 
 from loguru import logger
+
+_HI_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 class HookIntegrationInterface:
@@ -36,7 +39,7 @@ class HookIntegrationInterface:
             HookIntegrationInterface._clarity_hooks["pre_work"].append(callback)
             logger.info(f"Registered pre-work hook: {callback.__name__}")
             return True
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error registering pre-work hook: {e}")
             return False
 
@@ -55,7 +58,7 @@ class HookIntegrationInterface:
             HookIntegrationInterface._clarity_hooks["post_work"].append(callback)
             logger.info(f"Registered post-work hook: {callback.__name__}")
             return True
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error registering post-work hook: {e}")
             return False
 
@@ -74,7 +77,7 @@ class HookIntegrationInterface:
             HookIntegrationInterface._clarity_hooks["clarity_generated"].append(callback)
             logger.info(f"Registered clarity-generated hook: {callback.__name__}")
             return True
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error registering clarity-generated hook: {e}")
             return False
 
@@ -93,7 +96,7 @@ class HookIntegrationInterface:
             HookIntegrationInterface._clarity_hooks["summary_generated"].append(callback)
             logger.info(f"Registered summary-generated hook: {callback.__name__}")
             return True
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error registering summary-generated hook: {e}")
             return False
 
@@ -123,7 +126,7 @@ class HookIntegrationInterface:
             )
             return all_succeeded
 
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error triggering pre-work hooks: {e}")
             return False
 
@@ -153,7 +156,7 @@ class HookIntegrationInterface:
             )
             return all_succeeded
 
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error triggering post-work hooks: {e}")
             return False
 
@@ -183,7 +186,7 @@ class HookIntegrationInterface:
             )
             return all_succeeded
 
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error triggering clarity-generated hooks: {e}")
             return False
 
@@ -213,7 +216,7 @@ class HookIntegrationInterface:
             )
             return all_succeeded
 
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error triggering summary-generated hooks: {e}")
             return False
 
@@ -243,6 +246,6 @@ class HookIntegrationInterface:
                 HookIntegrationInterface._clarity_hooks[hook_type].clear()
             logger.info("Cleared all clarity hooks")
             return True
-        except Exception as e:
+        except _HI_ERRORS as e:
             logger.error(f"Error clearing hooks: {e}")
             return False

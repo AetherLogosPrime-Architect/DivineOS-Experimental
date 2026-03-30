@@ -4,10 +4,13 @@ import os
 import re
 from datetime import datetime, timezone
 from typing import Any
+import sqlite3
 
 import click
 
 from divineos.core.memory import TYPOGRAPHIC_REPLACEMENTS as _TYPOGRAPHIC_REPLACEMENTS
+
+_HELPERS_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 _EMOJI_MEANINGS: dict[str, str] = {
     "\U0001f614": "(upset)",
@@ -170,7 +173,7 @@ def _display_and_store_analysis(result: Any) -> None:
         stored = store_analysis(result, report)
         if stored:
             click.secho("[+] Analysis stored successfully.", fg="green")
-    except Exception as e:
+    except _HELPERS_ERRORS as e:
         click.secho(f"[!] Warning: Analysis storage failed: {e}", fg="yellow")
         logger.warning(f"Storage failed: {e}")
 

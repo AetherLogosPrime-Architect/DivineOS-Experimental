@@ -3,8 +3,11 @@
 from typing import Callable, Optional, List, Dict
 from enum import Enum
 import logging
+import sqlite3
 
 from divineos.clarity_enforcement.violation_detector import ClarityViolation
+
+_HOOKS_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +52,7 @@ class ViolationHook:
         """
         try:
             self.handler(violation)
-        except Exception as e:
+        except _HOOKS_ERRORS as e:
             logger.error(
                 f"Error in hook {self.name}: {e}",
                 exc_info=True,

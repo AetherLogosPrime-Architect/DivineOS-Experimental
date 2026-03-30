@@ -6,6 +6,7 @@ retrieving stored reports, and computing trends across sessions.
 
 import json
 from dataclasses import asdict
+import sqlite3
 
 from loguru import logger
 
@@ -220,13 +221,13 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
                 },
                 actor="system",
             )
-        except Exception as e:
+        except _AS_ERRORS as e:
             logger.warning(f"Failed to emit analysis events: {e}")
             # Don't fail the whole operation if event emission fails
 
         return True
 
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.error(f"Failed to store analysis: {e}")
         raise
 
@@ -336,7 +337,7 @@ def format_analysis_report(result: AnalysisResult) -> str:
                 else:
                     # If not found, just show the ID
                     lines.append(f"• Lesson {lesson_id[:8]}...")
-            except Exception:
+            except _AS_ERRORS:
                 # Fallback: just show the ID
                 lesson_id_str = str(lesson)[:8] if isinstance(lesson, dict) else str(lesson)[:8]
                 lines.append(f"• Lesson {lesson_id_str}...")
@@ -358,4 +359,14 @@ from divineos.analysis.analysis_retrieval import (  # noqa: E402
     compute_cross_session_trends as compute_cross_session_trends,
     format_cross_session_report as format_cross_session_report,
     save_analysis_report as save_analysis_report,
+)
+
+_AS_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+    json.JSONDecodeError,
 )

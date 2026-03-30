@@ -43,7 +43,7 @@ class TestEnforcementErrorHandling:
         enf_module._session_initialized = False
 
         with patch("divineos.core.enforcement.initialize_session") as mock_init:
-            mock_init.side_effect = RuntimeError("Session init failed")
+            mock_init.side_effect = OSError("Session init failed")
             with patch("divineos.core.enforcement._is_test_environment", return_value=False):
                 # Should not raise, should continue
                 setup_cli_enforcement()
@@ -61,7 +61,7 @@ class TestEnforcementErrorHandling:
 
         with patch("divineos.core.enforcement.initialize_session"):
             with patch("divineos.core.enforcement._setup_signal_handlers") as mock_signal:
-                mock_signal.side_effect = RuntimeError("Signal setup failed")
+                mock_signal.side_effect = OSError("Signal setup failed")
                 with patch("divineos.core.enforcement._is_test_environment", return_value=False):
                     # Should not raise, should continue
                     setup_cli_enforcement()
@@ -83,7 +83,7 @@ class TestEnforcementErrorHandling:
     def test_capture_user_input_with_unexpected_error(self):
         """Test capture_user_input handles unexpected errors"""
         with patch("divineos.core.enforcement.emit_user_input") as mock_emit:
-            mock_emit.side_effect = Exception("Unexpected error")
+            mock_emit.side_effect = OSError("Unexpected error")
 
             # Should not raise, should return input
             result = capture_user_input(["test", "command"])
@@ -132,7 +132,7 @@ class TestSessionManagerErrorHandling:
         """Test _read_session_file handles unexpected errors"""
         with patch("pathlib.Path.exists", return_value=True):
             with patch("pathlib.Path.read_text") as mock_read:
-                mock_read.side_effect = Exception("Unexpected error")
+                mock_read.side_effect = OSError("Unexpected error")
 
                 result = _read_session_file()
 
@@ -159,7 +159,7 @@ class TestSessionManagerErrorHandling:
     def test_write_session_file_with_unexpected_error(self):
         """Test _write_session_file handles unexpected errors"""
         with patch("pathlib.Path.parent") as mock_parent:
-            mock_parent.mkdir.side_effect = Exception("Unexpected error")
+            mock_parent.mkdir.side_effect = OSError("Unexpected error")
 
             result = _write_session_file("test-session-id")
 
@@ -203,7 +203,7 @@ class TestSessionManagerErrorHandling:
                 # Mock os.environ as a dict-like object that raises on setitem
                 mock_env = MagicMock()
                 mock_env.get.return_value = None
-                mock_env.__setitem__.side_effect = Exception("Env var error")
+                mock_env.__setitem__.side_effect = TypeError("Env var error")
 
                 with patch("os.environ", mock_env):
                     # Should not raise
@@ -245,7 +245,7 @@ class TestSessionManagerErrorHandling:
     def test_clear_session_with_file_error(self):
         """Test clear_session continues when file clear fails"""
         with patch("divineos.core.session_manager._clear_session_file") as mock_clear:
-            mock_clear.side_effect = Exception("File clear failed")
+            mock_clear.side_effect = OSError("File clear failed")
 
             with patch("os.environ", {"DIVINEOS_SESSION_ID": "test-id"}):
                 # Should not raise

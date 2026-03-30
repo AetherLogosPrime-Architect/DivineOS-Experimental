@@ -12,6 +12,7 @@ import uuid
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
+import sqlite3
 
 from loguru import logger
 
@@ -26,6 +27,8 @@ from divineos.core.loop_prevention import (
 )
 from divineos.core.session_manager import get_current_session_id
 from divineos.event.event_emission import emit_explanation, emit_tool_call, emit_tool_result
+
+_MI_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 def validate_explanation(tool_input: dict[str, Any]) -> bool:
@@ -88,7 +91,7 @@ def emit_agent_tool_call(
                 )
         except EventCaptureError as e:
             handle_error(e, "emit_explanation_warning", {"tool_name": tool_name})
-        except Exception as e:
+        except _MI_ERRORS as e:
             handle_error(e, "emit_explanation_warning", {"tool_name": tool_name})
 
     # Create TOOL_CALL event
@@ -112,7 +115,7 @@ def emit_agent_tool_call(
             {"tool_name": tool_name, "tool_use_id": tool_use_id},
         )
         raise
-    except Exception as e:
+    except _MI_ERRORS as e:
         handle_error(
             e,
             "emit_agent_tool_call",
@@ -180,7 +183,7 @@ def emit_agent_tool_result(
             {"tool_name": tool_name, "tool_use_id": tool_use_id},
         )
         raise
-    except Exception as e:
+    except _MI_ERRORS as e:
         handle_error(
             e,
             "emit_agent_tool_result",
@@ -226,7 +229,7 @@ def create_tool_interceptor(
             handle_error(e, "get_current_session_id_in_wrapper", {"tool_name": tool_name})
             # Continue without capture if session ID unavailable
             return original_tool(*args, **kwargs)
-        except Exception as e:
+        except _MI_ERRORS as e:
             handle_error(e, "get_current_session_id_in_wrapper", {"tool_name": tool_name})
             # Continue without capture if session ID unavailable
             return original_tool(*args, **kwargs)
@@ -246,7 +249,7 @@ def create_tool_interceptor(
         except EventCaptureError as e:
             handle_error(e, "emit_tool_call_in_wrapper", {"tool_name": tool_name})
             # Continue execution even if event capture fails
-        except Exception as e:
+        except _MI_ERRORS as e:
             handle_error(e, "emit_tool_call_in_wrapper", {"tool_name": tool_name})
             # Continue execution even if event capture fails
 
@@ -269,12 +272,12 @@ def create_tool_interceptor(
                 )
             except EventCaptureError as e:
                 handle_error(e, "emit_tool_result_in_wrapper", {"tool_name": tool_name})
-            except Exception as e:
+            except _MI_ERRORS as e:
                 handle_error(e, "emit_tool_result_in_wrapper", {"tool_name": tool_name})
 
             return result
 
-        except Exception as e:
+        except _MI_ERRORS as e:
             duration_ms = int((time.perf_counter() - start_time) * 1000)
 
             # Emit TOOL_RESULT with error
@@ -327,7 +330,7 @@ def setup_mcp_agent_integration() -> None:
         # Log successful setup
         logger.info("MCP agent integration setup complete")
 
-    except Exception as e:
+    except _MI_ERRORS as e:
         handle_error(e, "setup_mcp_agent_integration")
         raise
 
@@ -348,5 +351,5 @@ def shutdown_mcp_agent_integration() -> None:
 
         logger.info("MCP agent integration shutdown complete")
 
-    except Exception as e:
+    except _MI_ERRORS as e:
         handle_error(e, "shutdown_mcp_agent_integration")
