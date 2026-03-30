@@ -161,3 +161,42 @@ def store_feedback_as_knowledge(
     except _FS_ERRORS as e:
         logger.warning(f"Failed to store feedback: {e}")
         return None
+
+
+def format_feedback_report(feedback: SessionFeedback) -> str:
+    """Format feedback as a human-readable report."""
+    lines = [
+        "=== Session Feedback ===",
+        f"Session: {feedback.session_id[:8]}...",
+        "",
+    ]
+
+    # Tool usage
+    if feedback.tool_usage:
+        lines.append("Tool Usage:")
+        sorted_tools = sorted(feedback.tool_usage.items(), key=lambda x: x[1], reverse=True)
+        for tool, count in sorted_tools[:10]:
+            lines.append(f"  {tool}: {count}")
+        lines.append("")
+
+    # Errors
+    if feedback.errors:
+        lines.append(f"Corrections ({len(feedback.errors)}):")
+        for error in feedback.errors[:5]:
+            lines.append(f"  - {error[:80]}")
+        lines.append("")
+
+    # Lessons
+    if feedback.lessons_learned:
+        lines.append("Lessons:")
+        for lesson in feedback.lessons_learned:
+            lines.append(f"  - {lesson}")
+        lines.append("")
+
+    # Recommendations
+    if feedback.recommendations:
+        lines.append("Recommendations:")
+        for i, rec in enumerate(feedback.recommendations, 1):
+            lines.append(f"  {i}. {rec}")
+
+    return "\n".join(lines)
