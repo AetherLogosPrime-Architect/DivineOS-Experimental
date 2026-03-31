@@ -400,6 +400,9 @@ def register(cli: click.Group) -> None:
         By default shows only active and improving lessons.
         Use --archive for resolved lessons, --all for everything.
         """
+        # Mark OS engagement — lessons is a thinking tool
+        _log_os_query("lessons", f"status={status}")
+
         if archive:
             lessons = _wrapped_get_lessons(status="resolved")
         elif show_all:

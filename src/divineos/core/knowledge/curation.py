@@ -51,9 +51,12 @@ def clean_entry_text(content: str) -> str:
     """Clean up raw conversational text into something readable.
 
     Handles:
-    - "I was X, but got corrected -- Y" → extracts the correction Y
     - Python repr strings like UserSignal(signal_type=...) → strips them
-    - Leading "I " narratives → keep but trim
+    - Casual text markers (.., :), contractions) → cleans up
+    - "I should: X" → just "X" (type already says DIRECTION)
+    - "I decided: X" → just "X" (type already says PRINCIPLE)
+    - "I was corrected: X" → just "X"
+    - "User correction: X" / "User affirmed: X" → just "X"
     """
     cleaned = content
 
@@ -68,43 +71,101 @@ def clean_entry_text(content: str) -> str:
     # Normalize dashes: em dash (—), en dash (–) → double hyphen (--)
     cleaned = cleaned.replace("\u2014", "--").replace("\u2013", "--")
 
-    # Clean up "I was X, but got corrected -- Y" → "User correction: Y"
-    # Only if the correction part is substantial
+    # Strip stale prefixes — the knowledge TYPE already says what it is
+    for prefix_pattern in (
+        r"^User correction:\s*",
+        r"^User affirmed:\s*",
+        r"^I was corrected:\s*",
+        r"^I should:\s*",
+        r"^I decided:\s*",
+    ):
+        match = re.match(prefix_pattern, cleaned, re.IGNORECASE)
+        if match:
+            rest = cleaned[match.end() :].strip()
+            if len(rest) > 15:  # Only strip if there's substance after the prefix
+                cleaned = rest
+                break
+
+    # Clean up "I was X, but got corrected -- Y" → just the Y part
     match = re.match(
-        r"I was .{5,80}?,\s*but got corrected\s*--\s*(.+)",
+        r"I was .{5,80}?,\s*but (?:got corrected|the correct approach is:?)\s*[-—]*\s*(.+)",
         cleaned,
         re.DOTALL,
     )
     if match:
         correction = match.group(1).strip()
         if len(correction) > 20:
-            cleaned = f"User correction: {correction}"
+            cleaned = correction
 
-    # Clean up "I X and it worked well -- user affirmed: Y"
-    match = re.match(
-        r"I .{5,80}? and it worked well\s*--\s*user affirmed:\s*(.+)",
-        cleaned,
-        re.DOTALL,
-    )
-    if match:
-        affirmation = match.group(1).strip()
-        if len(affirmation) > 10:
-            cleaned = f"User affirmed: {affirmation}"
-
-    # Clean up "I should: X" → just "X" (the type already says DIRECTION)
-    match = re.match(r"I should:\s*(.+)", cleaned, re.DOTALL)
-    if match:
-        cleaned = match.group(1).strip()
-
-    # Clean up "I decided: X" → just "X" (the type already says PRINCIPLE)
-    match = re.match(r"I decided:\s*(.+)", cleaned, re.DOTALL)
-    if match:
-        cleaned = match.group(1).strip()
+    # Clean casual text markers
+    cleaned = re.sub(r"\.\.+", ".", cleaned)  # ".." → "."
+    cleaned = re.sub(r"\s*:\)+", "", cleaned)  # :)
+    cleaned = re.sub(r"\s*lol\b", "", cleaned, flags=re.IGNORECASE)
 
     # Remove double spaces and normalize whitespace
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
 
+    # Capitalize first letter
+    if cleaned and cleaned[0].islower():
+        cleaned = cleaned[0].upper() + cleaned[1:]
+
+    # Ensure ends with punctuation
+    if cleaned and cleaned[-1] not in ".!?":
+        cleaned = cleaned.rstrip(". ") + "."
+
     return cleaned
+
+
+def is_raw_transcript_noise(content: str, knowledge_type: str) -> bool:
+    """Detect entries that are raw transcript dumps, not distilled knowledge.
+
+    These should be auto-archived during curation — they pollute the briefing.
+    """
+    if knowledge_type in ("DIRECTIVE", "BOUNDARY"):
+        return False  # Never auto-archive rules
+
+    lower = content.lower()
+
+    # Raw user affirmations stored as knowledge
+    if re.match(r"^(perfect|wonderful|great|ok|okay|yes)\s", lower):
+        words = lower.split()
+        # If it's mostly an affirmation with no substance
+        if len(words) < 15:
+            return True
+
+    # Raw audit/review dumps (long paste-ins from external tools)
+    if any(
+        marker in lower
+        for marker in (
+            "audit results:",
+            "round 3 audit",
+            "round 2 audit",
+            "here is the audit",
+            "here is the review",
+            "here is the report",
+            "scrutinized test coverage",
+        )
+    ):
+        return True
+
+    # Messages from other people (not user instructions)
+    if any(
+        marker in lower
+        for marker in (
+            "my friend sent",
+            "make sure you opt out",
+            "allow github to use my data",
+        )
+    ):
+        return True
+
+    # Excessive casual markers in a PRINCIPLE/DIRECTION
+    if knowledge_type in ("PRINCIPLE", "DIRECTION"):
+        casual_count = len(re.findall(r"\.\.+|:\)|lol\b|haha\b|soooo|:D", lower))
+        if casual_count >= 3:
+            return True
+
+    return False
 
 
 # ─── Layer Assignment Rules ───────────────────────────────────────────
@@ -238,6 +299,17 @@ def run_curation() -> dict[str, Any]:
                 "corroboration_count": row[10],
                 "layer": row[11] if len(row) > 11 else "active",
             }
+
+            # Auto-archive raw transcript noise before layer assignment
+            if is_raw_transcript_noise(entry["content"], entry["knowledge_type"]):
+                if entry.get("layer") != "archive":
+                    conn.execute(
+                        "UPDATE knowledge SET layer = 'archive', confidence = 0.1 "
+                        "WHERE knowledge_id = ?",
+                        (entry["knowledge_id"],),
+                    )
+                    result["archived"] += 1
+                continue
 
             new_layer = assign_layer(entry)
             old_layer = entry.get("layer", "active")

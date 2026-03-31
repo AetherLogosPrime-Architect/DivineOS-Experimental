@@ -92,21 +92,108 @@ def clear_handoff_note() -> None:
 
 # ─── Session Engagement Gate ─────────────────────────────────────────
 
+# After this many code-changing actions (Edit, Write, Bash) without
+# consulting the OS (ask, recall, decide, feel, context, directives),
+# the engagement gate blocks until the AI re-engages.
+_ENGAGEMENT_DECAY_THRESHOLD = 8
+
 
 def mark_engaged() -> None:
     """Mark that the OS was used for thinking this session.
 
-    Called when a thinking tool (ask, recall, directives, context, briefing)
-    is used. The pre-tool hook checks for this marker before allowing writes.
+    Called when a thinking tool (ask, recall, directives, context, briefing,
+    decide, feel) is used. Resets the code-action counter so the engagement
+    gate reopens. This means engagement is PERIODIC — you must keep
+    consulting the OS throughout your work, not just once at the start.
     """
     path = _ensure_hud_dir() / ".session_engaged"
-    path.write_text(str(time.time()), encoding="utf-8")
+    marker = {
+        "engaged_at": time.time(),
+        "code_actions_since": 0,
+    }
+    path.write_text(json.dumps(marker), encoding="utf-8")
+
+
+def record_code_action() -> None:
+    """Record that a code-changing action (Edit/Write/Bash) occurred.
+
+    Increments the counter that tracks how many code actions have happened
+    since the last OS query. When this counter exceeds _ENGAGEMENT_DECAY_THRESHOLD,
+    is_engaged() returns False and the PreToolUse gate blocks until the AI
+    consults the OS again.
+    """
+    path = _ensure_hud_dir() / ".session_engaged"
+    if not path.exists():
+        return
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(marker, dict):
+            # Old format — upgrade to new format
+            marker = {"engaged_at": float(marker), "code_actions_since": 0}
+        marker["code_actions_since"] = marker.get("code_actions_since", 0) + 1
+        path.write_text(json.dumps(marker), encoding="utf-8")
+    except (json.JSONDecodeError, OSError):
+        pass
 
 
 def is_engaged() -> bool:
-    """Check if the OS has been engaged this session."""
+    """Check if the OS has been engaged recently enough.
+
+    Returns False if:
+    - No engagement marker exists (never engaged)
+    - More than _ENGAGEMENT_DECAY_THRESHOLD code-changing actions have
+      happened since the last OS query (engagement has decayed)
+    """
     path = _get_hud_dir() / ".session_engaged"
-    return path.exists()
+    if not path.exists():
+        return False
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(marker, dict):
+            # Old format (plain timestamp) — treat as engaged, will be
+            # overwritten on next mark_engaged() call
+            return True
+        code_actions = marker.get("code_actions_since", 0)
+        return bool(code_actions < _ENGAGEMENT_DECAY_THRESHOLD)
+    except (json.JSONDecodeError, OSError):
+        return path.exists()
+
+
+def engagement_status() -> dict[str, Any]:
+    """Return detailed engagement status for HUD display."""
+    path = _get_hud_dir() / ".session_engaged"
+    if not path.exists():
+        return {
+            "engaged": False,
+            "code_actions_since": 0,
+            "threshold": _ENGAGEMENT_DECAY_THRESHOLD,
+            "remaining": 0,
+        }
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(marker, dict):
+            # Old format (plain timestamp) — treat as fully engaged
+            return {
+                "engaged": True,
+                "code_actions_since": 0,
+                "threshold": _ENGAGEMENT_DECAY_THRESHOLD,
+                "remaining": _ENGAGEMENT_DECAY_THRESHOLD,
+            }
+        code_actions = marker.get("code_actions_since", 0)
+        remaining = max(0, _ENGAGEMENT_DECAY_THRESHOLD - code_actions)
+        return {
+            "engaged": code_actions < _ENGAGEMENT_DECAY_THRESHOLD,
+            "code_actions_since": code_actions,
+            "threshold": _ENGAGEMENT_DECAY_THRESHOLD,
+            "remaining": remaining,
+        }
+    except (json.JSONDecodeError, OSError):
+        return {
+            "engaged": True,
+            "code_actions_since": 0,
+            "threshold": _ENGAGEMENT_DECAY_THRESHOLD,
+            "remaining": _ENGAGEMENT_DECAY_THRESHOLD,
+        }
 
 
 def clear_engagement() -> None:
@@ -233,15 +320,23 @@ def preflight_check() -> dict[str, Any]:
         }
     )
 
-    # 2. Engaged with thinking tools?
-    engaged = is_engaged()
+    # 2. Engaged with thinking tools? (periodic — decays after code actions)
+    eng_status = engagement_status()
+    engaged = eng_status["engaged"]
+    if engaged:
+        remaining = eng_status["remaining"]
+        eng_detail = f"OS engaged ({remaining} code actions before next check-in needed)"
+    else:
+        actions = eng_status["code_actions_since"]
+        eng_detail = (
+            f"Engagement expired — {actions} code actions without OS consultation. "
+            "Run: divineos ask <topic> or divineos recall"
+        )
     checks.append(
         {
             "name": "engagement",
             "passed": engaged,
-            "detail": "Thinking tools used this session"
-            if engaged
-            else "No thinking queries yet — try: divineos ask <topic>",
+            "detail": eng_detail,
         }
     )
 
