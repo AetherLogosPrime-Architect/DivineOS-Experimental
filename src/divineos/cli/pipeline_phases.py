@@ -381,6 +381,15 @@ def run_session_finalization(
     analysis: Any, stored: int, health: dict[str, Any] | None, auto_rels: list, records: list
 ) -> None:
     """Save HUD, record growth metrics, tone, handoff note, sync memories."""
+    # Capture engagement state BEFORE clearing it (step 9b needs this)
+    was_engaged = False
+    try:
+        from divineos.core.hud_handoff import is_engaged
+
+        was_engaged = is_engaged()
+    except _PHASE_ERRORS:
+        pass
+
     # 9. Save HUD + clear plan
     try:
         from divineos.core.hud import save_hud_snapshot
@@ -408,7 +417,6 @@ def run_session_finalization(
     # 9b. Growth metrics
     try:
         from divineos.core.growth import record_session_metrics
-        from divineos.core.hud_handoff import is_engaged
 
         record_session_metrics(
             session_id=analysis.session_id,
@@ -420,7 +428,7 @@ def run_session_finalization(
             relationships_created=len(auto_rels),
             health_grade=health["grade"] if health else "",
             health_score=health["score"] if health else 0.0,
-            engaged=is_engaged(),
+            engaged=was_engaged,
         )
     except _PHASE_ERRORS as e:
         logger.warning(f"Session metrics recording failed: {e}")
