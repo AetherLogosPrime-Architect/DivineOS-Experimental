@@ -447,25 +447,31 @@ def knowledge_stats() -> dict[str, Any]:
     """Returns knowledge counts by type, total, and average confidence."""
     conn = _get_connection()
     try:
+        # Check if layer column exists (added by curation, not in base schema)
+        has_layer = any(
+            col[1] == "layer" for col in conn.execute("PRAGMA table_info(knowledge)").fetchall()
+        )
+        archive_filter = " AND layer != 'archive'" if has_layer else ""
+
         total = conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL",
+            f"SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL{archive_filter}",  # nosec B608
         ).fetchone()[0]
 
         by_type: dict[str, int] = {}
         for row in conn.execute(
-            "SELECT knowledge_type, COUNT(*) FROM knowledge WHERE superseded_by IS NULL GROUP BY knowledge_type",
+            f"SELECT knowledge_type, COUNT(*) FROM knowledge WHERE superseded_by IS NULL{archive_filter} GROUP BY knowledge_type",  # nosec B608
         ):
             by_type[row[0]] = row[1]
 
         avg_confidence = 0.0
         if total > 0:
             avg_confidence = conn.execute(
-                "SELECT AVG(confidence) FROM knowledge WHERE superseded_by IS NULL",
+                f"SELECT AVG(confidence) FROM knowledge WHERE superseded_by IS NULL{archive_filter}",  # nosec B608
             ).fetchone()[0]
 
         most_accessed = []
         for row in conn.execute(
-            "SELECT knowledge_id, content, access_count FROM knowledge WHERE superseded_by IS NULL ORDER BY access_count DESC LIMIT 5",
+            f"SELECT knowledge_id, content, access_count FROM knowledge WHERE superseded_by IS NULL{archive_filter} ORDER BY access_count DESC LIMIT 5",  # nosec B608
         ):
             most_accessed.append(
                 {"knowledge_id": row[0], "content": row[1], "access_count": row[2]},
