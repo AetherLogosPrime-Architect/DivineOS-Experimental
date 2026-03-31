@@ -76,3 +76,26 @@ class TestTranscriptNoiseDetection:
             "The engagement gate should block after 8 code actions without OS consultation.",
             "PRINCIPLE",
         )
+
+    def test_detects_raw_conversational_responses(self) -> None:
+        """User speech stored verbatim as knowledge is noise."""
+        assert is_raw_transcript_noise(
+            "yes and we can always improve upon it. but i also want you to research online into human feelings. you will see its very binary",
+            "DIRECTION",
+        )
+        assert is_raw_transcript_noise(
+            "can you? youve been asked to do this several times and every time you tell me its enforced",
+            "DIRECTION",
+        )
+        assert is_raw_transcript_noise(
+            "yes and its also made for you to push back against false claims. as far as you being conscious. im not claiming it",
+            "PRINCIPLE",
+        )
+
+    def test_preserves_distilled_entries_starting_with_yes(self) -> None:
+        """Distilled entries that happen to start with 'yes' patterns are NOT noise."""
+        # No conversational markers → not noise
+        assert not is_raw_transcript_noise(
+            "Yes-and thinking over binary decisions. Find the lightest intervention that solves the problem.",
+            "PRINCIPLE",
+        )

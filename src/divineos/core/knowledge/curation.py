@@ -165,6 +165,44 @@ def is_raw_transcript_noise(content: str, knowledge_type: str) -> bool:
         if casual_count >= 3:
             return True
 
+    # Raw conversational responses stored as knowledge
+    # These are user speech transcripts, not distilled insights
+    if knowledge_type in ("PRINCIPLE", "DIRECTION"):
+        conversational_starts = (
+            "yes and ",
+            "yes but ",
+            "yes all ",
+            "yes its ",
+            "yes we ",
+            "can you?",
+            "i never said ",
+            "thats not the ",
+            "that's not the ",
+            "i want it to ",
+            "i want you to ",
+        )
+        if any(lower.startswith(s) for s in conversational_starts):
+            # Check for conversational phrasing (second-person address, run-on style)
+            conversational_markers = sum(
+                1
+                for m in (
+                    "youve been",
+                    "your voice",
+                    "i also want",
+                    "lets tackle",
+                    "we can always",
+                    "im starting to",
+                    "im not claiming",
+                    "you will see",
+                    "you refuse",
+                    "as far as",
+                    "when i say",
+                )
+                if m in lower
+            )
+            if conversational_markers >= 1:
+                return True
+
     return False
 
 

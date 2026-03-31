@@ -4,6 +4,7 @@ from divineos.core.knowledge.deep_extraction import (
     _distill_correction,
     _distill_preference,
 )
+from divineos.core.knowledge.lessons import record_lesson
 
 
 class TestCorrectionDistillation:
@@ -71,3 +72,43 @@ class TestPreferenceDistillation:
         result = _distill_preference("keep it simple.. dont over-engineer :)")
         assert ".." not in result
         assert ":)" not in result
+
+
+class TestLessonDistillation:
+    """Lessons should be distilled on entry, not stored as raw quotes."""
+
+    def test_lesson_description_is_cleaned(self) -> None:
+        """record_lesson should clean the description text."""
+        from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+
+        init_knowledge_table()
+        # Ensure lesson_tracking table exists
+        conn = _get_connection()
+        conn.execute(
+            """CREATE TABLE IF NOT EXISTS lesson_tracking (
+                lesson_id TEXT PRIMARY KEY, created_at REAL, category TEXT,
+                description TEXT, first_session TEXT, occurrences INTEGER,
+                last_seen REAL, sessions TEXT, status TEXT, content_hash TEXT,
+                agent TEXT)"""
+        )
+        conn.commit()
+        conn.close()
+
+        lid = record_lesson(
+            "test_cat",
+            "i want it to block.. thats what i meant.. otherwise every session will be an F :)",
+            "test-session-123",
+        )
+        conn = _get_connection()
+        row = conn.execute(
+            "SELECT description FROM lesson_tracking WHERE lesson_id = ?", (lid,)
+        ).fetchone()
+        conn.close()
+
+        assert row is not None
+        desc = row[0]
+        # Should be cleaned: no "..", no ":)", capitalized, ends with punctuation
+        assert ".." not in desc
+        assert ":)" not in desc
+        assert desc[0].isupper()
+        assert desc[-1] in ".!?"

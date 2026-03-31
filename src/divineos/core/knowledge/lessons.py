@@ -13,6 +13,7 @@ from divineos.core.knowledge._base import (
     _lesson_row_to_dict,
     compute_hash,
 )
+from divineos.core.knowledge.curation import clean_entry_text
 from divineos.core.knowledge.crud import (
     store_knowledge,
 )
@@ -42,6 +43,9 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
 
     Returns the lesson_id.
     """
+    # Distill the description — no raw transcript quotes as lesson text
+    description = clean_entry_text(description)
+
     now = time.time()
     conn = _get_connection()
     try:
