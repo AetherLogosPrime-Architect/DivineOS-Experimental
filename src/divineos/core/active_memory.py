@@ -274,9 +274,25 @@ def refresh_active_memory(
         demoted = 0
         kept = 0
 
-        # Score every knowledge entry
+        # Find archived entries so we can skip them
+        archived_ids: set[str] = set()
+        try:
+            has_layer = any(
+                col[1] == "layer" for col in conn.execute("PRAGMA table_info(knowledge)").fetchall()
+            )
+            if has_layer:
+                for row in conn.execute(
+                    "SELECT knowledge_id FROM knowledge WHERE layer = 'archive'"
+                ).fetchall():
+                    archived_ids.add(row[0])
+        except Exception:
+            pass
+
+        # Score every knowledge entry (skip archived — they shouldn't surface)
         candidates = {}
         for entry in all_entries:
+            if entry["knowledge_id"] in archived_ids:
+                continue
             # Check if any active lesson matches this entry
             has_lesson = False
             content_lower = (entry.get("content") or "").lower()
@@ -437,6 +453,12 @@ TYPOGRAPHIC_REPLACEMENTS: dict[str, str] = {
     "\u2022": "*",  # bullet
     "\u00d7": "x",  # multiplication sign
     "\u00f7": "/",  # division sign
+    "\u2192": "->",  # right arrow
+    "\u2190": "<-",  # left arrow
+    "\u2191": "^",  # up arrow
+    "\u2193": "v",  # down arrow
+    "\u2194": "<->",  # left-right arrow
+    "\u21d2": "=>",  # right double arrow
 }
 
 
