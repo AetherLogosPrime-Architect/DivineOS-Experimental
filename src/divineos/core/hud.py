@@ -20,6 +20,7 @@ SLOT_ORDER = [
     "handoff",
     "identity",
     "active_goals",
+    "commitments",
     "recent_lessons",
     "growth_awareness",
     "session_health",
@@ -107,6 +108,21 @@ def _build_active_goals_slot() -> str:
     if done_goals:
         lines.append(f"\n({len(done_goals)} completed — use 'divineos goal clear' to archive)")
 
+    return "\n".join(lines)
+
+
+def _build_commitments_slot() -> str:
+    """Promises I made. Tracked so I don't quietly drop them."""
+    from divineos.core.planning_commitments import get_pending_commitments
+
+    pending = get_pending_commitments()
+    if not pending:
+        return ""  # empty = skip slot entirely
+
+    lines = ["# My Pending Commitments\n"]
+    for c in pending:
+        lines.append(f"- {c.text}")
+    lines.append("\nI promised these. I should follow through or explicitly defer them.")
     return "\n".join(lines)
 
 
@@ -391,6 +407,7 @@ SLOT_BUILDERS = {
     "handoff": _build_handoff_slot,
     "identity": _build_identity_slot,
     "active_goals": _build_active_goals_slot,
+    "commitments": _build_commitments_slot,
     "recent_lessons": _build_recent_lessons_slot,
     "growth_awareness": _build_growth_awareness_slot,
     "session_health": _build_session_health_slot,

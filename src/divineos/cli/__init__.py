@@ -81,6 +81,7 @@ def cli() -> None:
 from divineos.cli import (  # noqa: E402
     analysis_commands,
     claim_commands,
+    commitment_commands,
     decision_commands,
     directive_commands,
     event_commands,
@@ -100,6 +101,7 @@ knowledge_commands.register(cli)
 journal_commands.register(cli)
 decision_commands.register(cli)
 claim_commands.register(cli)
+commitment_commands.register(cli)
 directive_commands.register(cli)
 relationship_commands.register(cli)
 memory_commands.register(cli)
