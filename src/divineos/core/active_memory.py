@@ -83,15 +83,10 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
     usage = min(1.0, math.log1p(access) / math.log1p(20))
     score += usage * 0.15
 
-    # 10% from source — corrections carry more weight than synthesis
-    source_bonus = {
-        "CORRECTED": 0.10,
-        "DEMONSTRATED": 0.07,
-        "STATED": 0.05,
-        "SYNTHESIZED": 0.03,
-        "INHERITED": 0.02,
-    }
-    score += source_bonus.get(entry.get("source", ""), 0.02)
+    # 10% from source — weighted by trust tier (MEASURED > BEHAVIORAL > SELF_REPORTED)
+    from divineos.core.trust_tiers import weighted_source_bonus
+
+    score += weighted_source_bonus(entry.get("source", ""))
 
     # 20% from lesson connection
     if has_active_lesson:

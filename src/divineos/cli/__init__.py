@@ -92,6 +92,7 @@ from divineos.cli import (  # noqa: E402
     memory_commands,
     question_commands,
     relationship_commands,
+    temporal_commands,
 )
 
 ledger_commands.register(cli)
@@ -107,6 +108,7 @@ hud_commands.register(cli)
 event_commands.register(cli)
 knowledge_health_commands.register(cli)
 question_commands.register(cli)
+temporal_commands.register(cli)
 
 if __name__ == "__main__":
     cli()

@@ -138,6 +138,18 @@ def init_knowledge_table() -> None:
             except sqlite3.OperationalError as e:
                 logger.debug(f"Column {col} already exists in knowledge table: {e}")
 
+        # Temporal dimension columns (nullable — NULL means unbounded)
+        for col, col_type, default in [
+            ("valid_from", "REAL", "NULL"),
+            ("valid_until", "REAL", "NULL"),
+        ]:
+            try:
+                conn.execute(
+                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} DEFAULT {default}",
+                )
+            except sqlite3.OperationalError as e:
+                logger.debug(f"Column {col} already exists in knowledge table: {e}")
+
         # Lesson tracking table — connects repeated mistakes across sessions
         conn.execute("""
             CREATE TABLE IF NOT EXISTS lesson_tracking (
