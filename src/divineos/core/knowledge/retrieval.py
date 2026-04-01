@@ -475,6 +475,27 @@ def _format_briefing(
 
     lines.extend(_format_knowledge_sections(grouped, hint_matches))
 
+    # Graph connections — show relationships between briefing entries
+    try:
+        from divineos.core.knowledge.graph_retrieval import (
+            cluster_for_briefing,
+            format_cluster_line,
+        )
+
+        clusters = cluster_for_briefing(entries, max_clusters=5)
+        connected = [c for c in clusters if not c["standalone"]]
+        if connected:
+            lines.append("### CONNECTIONS")
+            for cluster in connected:
+                seed = cluster["seed"]
+                seed_content = seed["content"].replace("\n", " ")[:80]
+                lines.append(f"**{seed['knowledge_type']}:** {seed_content}")
+                for conn in cluster["connected_entries"]:
+                    lines.append(format_cluster_line(conn))
+            lines.append("")
+    except _RETRIEVAL_ERRORS:
+        pass
+
     # Recent journal entries (last 48h)
     try:
         from divineos.core.memory_journal import journal_list
