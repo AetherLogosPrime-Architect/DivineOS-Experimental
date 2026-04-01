@@ -143,6 +143,62 @@ def complete_goal(text: str) -> bool:
     return found
 
 
+def auto_clean_goals(max_age_days: float = 3.0) -> dict[str, int]:
+    """Auto-clean stale goals at session end.
+
+    - Goals older than max_age_days are marked done (they're stale)
+    - Duplicate/near-duplicate goals are deduplicated (keep newest)
+
+    Returns counts of actions taken.
+    """
+    path = _ensure_hud_dir() / "active_goals.json"
+    if not path.exists():
+        return {"stale_archived": 0, "deduped": 0}
+
+    try:
+        goals = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"stale_archived": 0, "deduped": 0}
+
+    cutoff = time.time() - (max_age_days * 86400)
+    stale_archived = 0
+    deduped = 0
+
+    # Archive stale goals
+    for goal in goals:
+        if goal.get("status") == "active" and goal.get("added_at", 0) < cutoff:
+            goal["status"] = "done"
+            stale_archived += 1
+
+    # Deduplicate: if two active goals share 60%+ words, keep the newer one
+    active = [g for g in goals if g.get("status") == "active"]
+    to_dedup: set[int] = set()
+    for i, g1 in enumerate(active):
+        if i in to_dedup:
+            continue
+        words1 = set(g1.get("text", "").lower().split())
+        for j in range(i + 1, len(active)):
+            if j in to_dedup:
+                continue
+            words2 = set(active[j].get("text", "").lower().split())
+            if not words1 or not words2:
+                continue
+            overlap = len(words1 & words2) / max(len(words1 | words2), 1)
+            if overlap > 0.6:
+                # Keep newer, mark older as done
+                older = i if g1.get("added_at", 0) < active[j].get("added_at", 0) else j
+                to_dedup.add(older)
+                deduped += 1
+
+    for idx in to_dedup:
+        active[idx]["status"] = "done"
+
+    if stale_archived > 0 or deduped > 0:
+        path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
+
+    return {"stale_archived": stale_archived, "deduped": deduped}
+
+
 def has_session_fresh_goal(max_age_seconds: float = 7200.0) -> bool:
     """Check if any goal was added recently (within max_age_seconds).
 

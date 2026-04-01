@@ -38,6 +38,15 @@ if echo "$tool_name" | grep -qE "^(Edit|Write)$"; then
   edits=$((edits + 1))
 fi
 
+# Track code actions for periodic engagement gate.
+# Every Edit/Write/Bash increments the counter. When it exceeds the
+# threshold, the PreToolUse gate blocks until the AI consults the OS
+# (ask, recall, decide, feel, context) which resets the counter.
+python -c "
+from divineos.core.hud_handoff import record_code_action
+record_code_action()
+" 2>/dev/null
+
 # Save updated state
 python -c "
 import json, time
@@ -63,14 +72,23 @@ json.dump(d, open('$STATE_FILE', 'w'), indent=2)
 " 2>/dev/null
 fi
 
-# Context monitoring — warn the AI when context is getting full
+# Context monitoring — warn the AI when context is getting full.
+# At critical thresholds, AUTO-EMIT SESSION_END to save knowledge.
+# Warnings alone are ignorable. Enforcement is not.
 warning=""
-if [ "$tool_calls" -ge 350 ]; then
-  warning="CRITICAL: ~90% context used ($tool_calls tool calls, $edits edits). Run 'divineos emit SESSION_END' IMMEDIATELY. Context compaction is imminent."
-elif [ "$tool_calls" -ge 250 ]; then
-  warning="URGENT: ~80% context used ($tool_calls tool calls, $edits edits). Run 'divineos emit SESSION_END' NOW to save knowledge before compaction."
-elif [ "$tool_calls" -ge 150 ]; then
-  warning="Context monitor: ~50% used ($tool_calls tool calls, $edits edits). Consider running 'divineos emit SESSION_END' to checkpoint knowledge."
+
+# Check if we already auto-emitted (don't flood with repeated SESSION_ENDs)
+AUTO_EMITTED_FILE="$HOME/.divineos/auto_session_end_emitted"
+
+if [ "$tool_calls" -ge 150 ]; then
+  # Auto-emit SESSION_END if we haven't already — save knowledge before it's lost
+  if [ ! -f "$AUTO_EMITTED_FILE" ]; then
+    divineos emit SESSION_END 2>/dev/null
+    echo "1" > "$AUTO_EMITTED_FILE"
+  fi
+  warning="SESSION_END auto-emitted at $tool_calls tool calls. Knowledge saved. Continue working — compaction may happen soon."
+elif [ "$tool_calls" -ge 100 ]; then
+  warning="Context monitor: $tool_calls tool calls, $edits edits. SESSION_END will auto-emit at 150 to save knowledge."
 fi
 
 if [ -n "$warning" ]; then

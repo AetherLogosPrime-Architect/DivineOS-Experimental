@@ -79,41 +79,90 @@ def _find_alternative_in_text(text: str) -> str:
 
 
 def _distill_correction(raw_text: str) -> str:
-    """Transform a raw correction quote into a first-person insight.
+    """Transform a raw correction quote into a clean, actionable insight.
 
-    Instead of: "no when i say you.. you say i or me.."
-    Produce:    "I was told: when the user says 'you' referring to me, I should respond with 'I' or 'me'."
+    The goal is to produce something a future session can act on —
+    not a transcript of what the user said.
     """
     text = raw_text.strip()[:300]
+
     # Strip common prefixes that add noise
-    for prefix in ("no ", "no, ", "wrong ", "wrong, ", "stop ", "don't "):
+    for prefix in (
+        "no ",
+        "no, ",
+        "wrong ",
+        "wrong, ",
+        "stop ",
+        "don't ",
+        "thats not ",
+        "that's not ",
+        "i said ",
+        "i meant ",
+        "user correction: ",
+        "i was corrected: ",
+    ):
         if text.lower().startswith(prefix):
             text = text[len(prefix) :]
             break
-    # Clean up
-    text = text.strip()
+
+    # Strip casual markers that clutter knowledge
+    text = re.sub(r"\.\.+", ".", text)  # ".." → "."
+    text = re.sub(r"\s*:\)+", "", text)  # :) noise
+    text = re.sub(r"\s*lol\b", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bidk\b", "I don't know", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bdont\b", "don't", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bisnt\b", "isn't", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bcant\b", "can't", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bwont\b", "won't", text, flags=re.IGNORECASE)
+
+    # Truncate at first long tangent indicator
+    for breaker in (" also ", " and also ", " btw ", " anyway "):
+        idx = text.lower().find(breaker)
+        if idx > 30:  # Only break if we have enough content before it
+            text = text[:idx]
+            break
+
+    # Clean up whitespace and punctuation
+    text = re.sub(r"\s+", " ", text).strip()
     if text and text[0].islower():
         text = text[0].upper() + text[1:]
-    # Remove trailing fragments
     if text and text[-1] not in ".!?":
         text = text.rstrip(". ") + "."
-    return f"I was corrected: {text}"
+
+    return text
 
 
 def _distill_preference(raw_text: str) -> str:
-    """Transform a raw preference quote into a first-person direction."""
+    """Transform a raw preference quote into a clean direction."""
     text = raw_text.strip()[:300]
-    # Strip "I want", "I prefer", "I like" prefixes — rephrase as what I should do
-    for prefix in ("i want ", "i prefer ", "i like ", "i need ", "please "):
+    # Strip "I want", "I prefer", etc. — rephrase as what I should do
+    for prefix in (
+        "i want you to ",
+        "i want ",
+        "i prefer ",
+        "i like ",
+        "i need you to ",
+        "i need ",
+        "please ",
+        "can you ",
+        "could you ",
+        "make sure you ",
+        "make sure to ",
+    ):
         if text.lower().startswith(prefix):
             text = text[len(prefix) :]
             break
-    text = text.strip()
+
+    # Clean casual markers
+    text = re.sub(r"\.\.+", ".", text)
+    text = re.sub(r"\s*:\)+", "", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
     if text and text[0].islower():
         text = text[0].upper() + text[1:]
     if text and text[-1] not in ".!?":
         text = text.rstrip(". ") + "."
-    return f"I should: {text}"
+    return text
 
 
 def _extract_user_text_from_record(record: dict[str, Any]) -> str:
@@ -215,11 +264,13 @@ def deep_extract_knowledge(
         )
         ktype = "BOUNDARY" if is_boundary else "PRINCIPLE"
 
-        # Store insight in first person — future me needs to inhabit this, not parse it
+        # Store as a clean, actionable insight — not a transcript
+        distilled = _distill_correction(correction_text)
         if ai_before:
-            content = f"I was {ai_before.lower()}, but got corrected — {correction_text[:200]}"
+            # Include what I was doing wrong for context
+            content = f"I was {ai_before.lower()}, but the correct approach is: {distilled}"
         else:
-            content = _distill_correction(correction_text)
+            content = distilled
 
         kid = store_knowledge_smart(
             knowledge_type=ktype,
@@ -309,7 +360,8 @@ def deep_extract_knowledge(
             # a raw user quote with no actionable insight. Skip it.
             continue
 
-        content = f"I {ai_before.lower()} and it worked well — user affirmed: {enc.content[:150]}"
+        # Don't include raw user quote — just capture what I did right
+        content = f"I {ai_before.lower()} and the user confirmed this was the right approach."
 
         kid = store_knowledge_smart(
             knowledge_type="PRINCIPLE",

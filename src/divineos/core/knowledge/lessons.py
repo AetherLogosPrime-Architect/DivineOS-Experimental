@@ -13,6 +13,7 @@ from divineos.core.knowledge._base import (
     _lesson_row_to_dict,
     compute_hash,
 )
+from divineos.core.knowledge.curation import clean_entry_text
 from divineos.core.knowledge.crud import (
     store_knowledge,
 )
@@ -42,6 +43,9 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
 
     Returns the lesson_id.
     """
+    # Distill the description — no raw transcript quotes as lesson text
+    description = clean_entry_text(description)
+
     now = time.time()
     conn = _get_connection()
     try:
@@ -168,13 +172,17 @@ def mark_lesson_improving(category: str, clean_session_id: str) -> None:
     conn = _get_connection()
     try:
         existing = conn.execute(
-            "SELECT lesson_id, occurrences, status FROM lesson_tracking WHERE category = ? AND status = 'active'",
+            "SELECT lesson_id, occurrences, status, sessions FROM lesson_tracking WHERE category = ? AND status = 'active'",
             (category,),
         ).fetchone()
         if existing and existing[1] >= 3:
+            # Track which session triggered the improvement
+            sessions_list = json.loads(existing[3]) if existing[3] else []
+            if clean_session_id not in sessions_list:
+                sessions_list.append(clean_session_id)
             conn.execute(
-                "UPDATE lesson_tracking SET status = 'improving' WHERE lesson_id = ?",
-                (existing[0],),
+                "UPDATE lesson_tracking SET status = 'improving', sessions = ?, last_seen = ? WHERE lesson_id = ?",
+                (json.dumps(sessions_list), time.time(), existing[0]),
             )
             conn.commit()
     finally:

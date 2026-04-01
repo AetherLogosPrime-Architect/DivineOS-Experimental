@@ -51,10 +51,21 @@ logger.add(
 
 _LOG_DIR = Path(__file__).parent.parent.parent / "logs"
 _LOG_DIR.mkdir(exist_ok=True)
+
+# Clean up old rotated logs on startup (loguru retention doesn't always fire on Windows)
+_MAX_LOG_FILES = 5
+try:
+    _old_logs = sorted(_LOG_DIR.glob("divineos.*.log"), key=lambda p: p.stat().st_mtime)
+    if len(_old_logs) > _MAX_LOG_FILES:
+        for _stale in _old_logs[: len(_old_logs) - _MAX_LOG_FILES]:
+            _stale.unlink()
+except OSError:
+    pass
+
 logger.add(
     _LOG_DIR / "divineos.log",
     rotation="10 MB",
-    retention="1 week",
+    retention=_MAX_LOG_FILES,
     level="DEBUG",
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
 )

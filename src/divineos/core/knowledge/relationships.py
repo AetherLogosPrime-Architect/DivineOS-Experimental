@@ -309,8 +309,8 @@ def auto_detect_relationships(
                             "relationship": rel_type,
                         }
                     )
-                except (ValueError, Exception):
-                    pass
+                except (ValueError, sqlite3.IntegrityError):
+                    pass  # duplicate or invalid relationship type
 
         # Also relate new entries to each other
         for other_kid, other_entry in new_entries.items():
@@ -334,8 +334,8 @@ def auto_detect_relationships(
                             "relationship": rel_type,
                         }
                     )
-                except (ValueError, Exception):
-                    pass
+                except (ValueError, sqlite3.IntegrityError):
+                    pass  # duplicate or invalid relationship type
 
     if created:
         logger.debug(f"Auto-detected {len(created)} relationships for {len(new_ids)} new entries")

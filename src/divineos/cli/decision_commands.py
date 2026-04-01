@@ -48,6 +48,11 @@ def register(cli: click.Group) -> None:
             emotional_weight=weight,
             tags=list(tags) if tags else None,
         )
+        # Mark OS engagement — decide is a thinking tool
+        from divineos.core.hud_handoff import mark_engaged
+
+        mark_engaged()
+
         label = _WEIGHT_LABELS.get(weight, "routine")
         color = _WEIGHT_COLORS.get(weight, "white")
         click.secho(f"[+] Decision recorded ({label}): {decision_id[:8]}...", fg=color)

@@ -45,7 +45,7 @@ def _get_active_warnings() -> list[dict[str, Any]]:
                 "text": row[2],
                 "occurrences": row[3],
                 "status": row[4],
-                "weight": row[3] * 0.3,  # base weight from recurrence
+                "weight": min(row[3] * 0.3, 0.3),  # base weight from recurrence, capped
             }
         )
     for row in mistakes:
@@ -56,7 +56,7 @@ def _get_active_warnings() -> list[dict[str, Any]]:
                 "type": row[1],
                 "text": row[2],
                 "confidence": row[3],
-                "weight": row[3] * 0.2,  # base weight from confidence
+                "weight": min(row[3] * 0.2, 0.2),  # base weight from confidence, capped
             }
         )
     return warnings

@@ -400,6 +400,9 @@ def register(cli: click.Group) -> None:
         By default shows only active and improving lessons.
         Use --archive for resolved lessons, --all for everything.
         """
+        # Mark OS engagement — lessons is a thinking tool
+        _log_os_query("lessons", f"status={status}")
+
         if archive:
             lessons = _wrapped_get_lessons(status="resolved")
         elif show_all:
@@ -493,3 +496,74 @@ def register(cli: click.Group) -> None:
             click.secho(f"({merge['merged_count']} entries merged) ", fg="bright_black", nl=False)
             click.echo(merge["content"])
         click.echo()
+
+    @cli.command("sis")
+    @click.argument("text")
+    @click.option("--translate/--no-translate", default=True, help="Show translation")
+    @click.option("--deep", is_flag=True, help="Use all tiers (norms + TF-IDF + embeddings)")
+    def sis_cmd(text: str, translate: bool, deep: bool) -> None:
+        """Semantic Integrity Shield — assess and translate text.
+
+        Scores text on four dimensions (esoteric, speculation, concreteness,
+        actionability) and translates metaphysical language into architecture.
+
+        Use --deep to activate Tier 2 (concreteness norms + TF-IDF) and
+        Tier 3 (sentence embeddings) for maximum accuracy.
+        """
+        try:
+            from divineos.core.semantic_integrity import (
+                assess_and_translate,
+                assess_integrity,
+                format_assessment,
+                format_translation,
+            )
+
+            if deep:
+                click.secho("[~] Loading SIS tiers...", fg="bright_black")
+
+            if translate:
+                result = assess_and_translate(text, deep=deep)
+                _safe_echo(format_translation(result))
+            else:
+                report = assess_integrity(text, deep=deep)
+                _safe_echo(format_assessment(report))
+
+            if deep:
+                try:
+                    from divineos.core.sis_tiers import score_all_tiers
+
+                    tiers = score_all_tiers(text)
+                    click.echo()
+                    click.secho("  Tier details:", fg="bright_black")
+                    if tiers.get("concreteness_norms") is not None:
+                        click.secho(
+                            f"    norms: {tiers['concreteness_norms']:.2f}",
+                            fg="bright_black",
+                        )
+                    if tiers.get("tfidf"):
+                        t = tiers["tfidf"]
+                        click.secho(
+                            f"    tfidf: grounded={t['grounded']:.2f} "
+                            f"esoteric={t['esoteric']:.2f} ratio={t['ratio']:+.2f}",
+                            fg="bright_black",
+                        )
+                    if tiers.get("semantic"):
+                        s = tiers["semantic"]
+                        click.secho(
+                            f"    semantic: grounded={s['grounded']:.2f} "
+                            f"esoteric={s['esoteric']:.2f} ratio={s['ratio']:+.2f}",
+                            fg="bright_black",
+                        )
+                    click.secho(
+                        f"    tiers used: {', '.join(tiers['tiers_used'])}",
+                        fg="bright_black",
+                    )
+                    if tiers.get("combined_grounding") is not None:
+                        click.secho(
+                            f"    combined grounding: {tiers['combined_grounding']:.2f}",
+                            fg="bright_black",
+                        )
+                except _KC_ERRORS:
+                    pass
+        except _KC_ERRORS as e:
+            click.secho(f"[!] SIS error: {e}", fg="red")

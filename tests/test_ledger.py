@@ -286,13 +286,14 @@ class TestGetVerifiedEvents:
         conn.commit()
         conn.close()
 
-        # Retrieve events with skip_corrupted=False
-        # Note: get_verified_events always returns (verified, corrupted) separately
-        # skip_corrupted parameter doesn't change the return format
+        # Retrieve events with skip_corrupted=False — corrupted events appear in BOTH lists
         verified, corrupted = get_verified_events(skip_corrupted=False)
-        assert len(verified) == 1
+        assert len(verified) == 2  # 1 valid + 1 corrupted (included when skip_corrupted=False)
         assert len(corrupted) == 1
         assert corrupted[0]["is_corrupted"] is True
+        # The corrupted event in verified list is also flagged
+        corrupted_in_verified = [e for e in verified if e.get("is_corrupted")]
+        assert len(corrupted_in_verified) == 1
 
     def test_filter_by_type_with_verification(self):
         """Test filtering by type while verifying hashes."""
