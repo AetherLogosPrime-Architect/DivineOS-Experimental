@@ -71,13 +71,25 @@ def save_handoff_note(
     return path
 
 
+_HANDOFF_EXPIRY_SECONDS = 172800  # 48 hours
+
+
 def load_handoff_note() -> dict[str, Any] | None:
-    """Load the handoff note from the previous session, if any."""
+    """Load the handoff note from the previous session, if any.
+
+    Returns None and auto-clears if the note is older than 48 hours.
+    """
     path = _get_hud_dir() / "handoff_note.json"
     if not path.exists():
         return None
     try:
         result: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        # Auto-expire stale handoff notes
+        written_at = result.get("written_at", 0)
+        if written_at and (time.time() - written_at) > _HANDOFF_EXPIRY_SECONDS:
+            logger.debug("Handoff note expired (>48h old), clearing")
+            path.unlink(missing_ok=True)
+            return None
         return result
     except (json.JSONDecodeError, OSError):
         return None

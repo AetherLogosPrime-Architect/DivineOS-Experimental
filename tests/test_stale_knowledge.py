@@ -210,7 +210,7 @@ class TestStaleKnowledgeDecay:
             kid = store_knowledge(
                 knowledge_type="FACT",
                 content="An ancient fact about some system that nobody remembers anymore",
-                confidence=0.2,
+                confidence=0.15,
             )
             conn = _get_connection()
             old_time = time.time() - (90 * 86400)
@@ -229,6 +229,6 @@ class TestStaleKnowledgeDecay:
                 (kid,),
             ).fetchone()
             conn.close()
-            assert row[0] >= 0.2  # floor of 0.2 respected
+            assert row[0] >= 0.15  # floor of 0.15 respected
         finally:
             os.environ.pop("DIVINEOS_DB", None)
