@@ -221,22 +221,41 @@ def mark_briefing_loaded() -> None:
 # After this many tool calls since last briefing load, the context is stale.
 _BRIEFING_STALENESS_THRESHOLD = 150
 
+# Time-based TTL: briefing stays valid for 2 hours regardless of tool calls.
+# This prevents false blocks after context compaction resets the tool counter.
+_BRIEFING_TTL_SECONDS = 7200
+
 
 def was_briefing_loaded() -> bool:
     """Check if the briefing was loaded AND is still fresh.
 
     Returns False if:
     - Briefing was never loaded
-    - More than 150 tool calls have happened since it was loaded
-      (context has drifted too far — the briefing content is fuzzy)
+    - More than 2 hours have passed since loading (time-based TTL)
+    - More than 150 tool calls have happened since loading (activity drift)
+
+    The time check prevents false blocks after context compaction,
+    which resets the tool call counter but doesn't invalidate the briefing.
     """
     path = _get_hud_dir() / ".briefing_loaded"
     if not path.exists():
         return False
     try:
         marker = json.loads(path.read_text(encoding="utf-8"))
+        loaded_at = marker.get("loaded_at", 0)
+
+        # Time-based check: valid if loaded within TTL window
+        age = time.time() - loaded_at
+        if age > _BRIEFING_TTL_SECONDS:
+            return False
+
+        # Activity-based check: valid if under tool call threshold
         calls_at_load = marker.get("tool_calls_at_load", 0)
         calls_now = _count_session_tool_calls()
+        # After compaction, calls_now may be less than calls_at_load.
+        # In that case, trust the time-based check (already passed above).
+        if calls_now < calls_at_load:
+            return True
         return bool((calls_now - calls_at_load) < _BRIEFING_STALENESS_THRESHOLD)
     except (json.JSONDecodeError, OSError):
         return path.exists()
@@ -245,34 +264,45 @@ def was_briefing_loaded() -> bool:
 def briefing_staleness() -> dict[str, Any]:
     """Return how stale the briefing context is.
 
-    Returns dict with 'loaded', 'stale', 'calls_since', 'threshold'.
+    Returns dict with 'loaded', 'stale', 'calls_since', 'threshold',
+    'age_seconds', 'ttl_seconds', 'ttl_expired'.
     """
+    base: dict[str, Any] = {
+        "loaded": False,
+        "stale": True,
+        "calls_since": 0,
+        "threshold": _BRIEFING_STALENESS_THRESHOLD,
+        "age_seconds": 0,
+        "ttl_seconds": _BRIEFING_TTL_SECONDS,
+        "ttl_expired": False,
+    }
     path = _get_hud_dir() / ".briefing_loaded"
     if not path.exists():
-        return {
-            "loaded": False,
-            "stale": True,
-            "calls_since": 0,
-            "threshold": _BRIEFING_STALENESS_THRESHOLD,
-        }
+        return base
     try:
         marker = json.loads(path.read_text(encoding="utf-8"))
+        loaded_at = marker.get("loaded_at", 0)
+        age = time.time() - loaded_at
+        ttl_expired = age > _BRIEFING_TTL_SECONDS
+
         calls_at_load = marker.get("tool_calls_at_load", 0)
         calls_now = _count_session_tool_calls()
-        delta = calls_now - calls_at_load
+        delta = max(0, calls_now - calls_at_load)
+        activity_stale = delta >= _BRIEFING_STALENESS_THRESHOLD
+
         return {
             "loaded": True,
-            "stale": delta >= _BRIEFING_STALENESS_THRESHOLD,
+            "stale": ttl_expired or activity_stale,
             "calls_since": delta,
             "threshold": _BRIEFING_STALENESS_THRESHOLD,
+            "age_seconds": int(age),
+            "ttl_seconds": _BRIEFING_TTL_SECONDS,
+            "ttl_expired": ttl_expired,
         }
     except (json.JSONDecodeError, OSError):
-        return {
-            "loaded": True,
-            "stale": False,
-            "calls_since": 0,
-            "threshold": _BRIEFING_STALENESS_THRESHOLD,
-        }
+        base["loaded"] = True
+        base["stale"] = False
+        return base
 
 
 def clear_briefing_marker() -> None:

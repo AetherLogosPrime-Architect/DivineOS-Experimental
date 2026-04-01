@@ -231,8 +231,8 @@ _LESSON_CATEGORIES = (
     (
         "jargon_usage",
         re.compile(
-            r"\bjargon|plain english|like.+(?:dumb|stupid|5|new)|break it down|"
-            r"\bsimpl(?:e|ify|er)|not a coder|don.t speak",
+            r"\bjargon|plain english|like.+(?:dumb|stupid|5.year.old)|break it down|"
+            r"explain.+(?:simply|plainly)|not a coder|don.t speak|too technical",
             re.IGNORECASE,
         ),
     ),

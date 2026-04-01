@@ -512,6 +512,53 @@ def register(cli: click.Group) -> None:
             click.secho(f"\n  No hook files found in {hooks_dir}.", fg="yellow")
             click.secho("  Create .divineos.hook JSON files to add hooks.", fg="bright_black")
 
+    @cli.command("compress")
+    @click.option("--days", default=7, help="Keep events newer than N days (default: 7)")
+    @click.option("--dry-run", is_flag=True, help="Show what would be compressed without deleting")
+    @click.option("--vacuum/--no-vacuum", default=True, help="VACUUM DB after compression")
+    def compress_cmd(days: int, dry_run: bool, vacuum: bool) -> None:
+        """ELMO — compress the event ledger by archiving old noise events."""
+        from divineos.core.ledger_compressor import (
+            analyze_ledger,
+            compress_ledger,
+            vacuum_ledger,
+        )
+
+        click.secho("\n=== ELMO: Event Ledger Memory Optimizer ===\n", fg="cyan", bold=True)
+
+        # Analyze first
+        stats = analyze_ledger()
+        click.echo(f"  Total events:      {stats['total_events']}")
+        click.echo(f"  Compressible:      {stats['compressible_count']}")
+        click.echo(f"  Meaningful (kept): {stats['meaningful_kept']}")
+        click.echo(f"  Est. savings:      {stats['estimated_savings_mb']} MB")
+        click.echo()
+
+        if stats["compressible_count"] == 0:
+            click.secho("  Nothing to compress. Ledger is clean.", fg="green")
+            return
+
+        # Compress
+        result = compress_ledger(retention_days=days, dry_run=dry_run)
+        if dry_run:
+            click.secho(f"  [DRY RUN] Would compress {result['compressed']} events:", fg="yellow")
+            for etype, count in result["by_type"].items():
+                click.echo(f"    {etype}: {count}")
+            return
+
+        click.secho(f"  Compressed {result['compressed']} events.", fg="green")
+        for etype, count in result["by_type"].items():
+            click.echo(f"    {etype}: {count}")
+
+        # Vacuum
+        if vacuum:
+            click.echo()
+            vresult = vacuum_ledger()
+            click.echo(
+                f"  DB size: {vresult['size_before_mb']} MB -> {vresult['size_after_mb']} MB"
+            )
+            click.secho(f"  Saved:   {vresult['saved_mb']} MB", fg="green")
+
 
 def _extract_python_sections(lines: list[str]) -> list[dict[str, Any]]:
     """Extract top-level classes and functions from Python source lines."""

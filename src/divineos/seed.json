@@ -250,6 +250,12 @@
       "description": "I claimed something was fixed when it was not. Do not claim victory without proof.",
       "occurrences": 1,
       "status": "active"
+    },
+    {
+      "category": "jargon_usage",
+      "description": "I used technical jargon when I should have explained clearly. Plain English, not spec language.",
+      "occurrences": 1,
+      "status": "active"
     }
   ]
 }

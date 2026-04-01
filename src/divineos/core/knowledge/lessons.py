@@ -61,9 +61,8 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             sessions = json.loads(existing[2])
             if session_id not in sessions:
                 sessions.append(session_id)
-            # Keep existing description unless it's a seed placeholder.
-            # The existing description is the canonical (possibly distilled) version.
-            # Only replace it if it was a seed that never got real content.
+            # Update description only if the old one is a seed placeholder.
+            # Don't replace a curated description with raw correction text.
             old_desc = conn.execute(
                 "SELECT description FROM lesson_tracking WHERE lesson_id = ?",
                 (lesson_id,),
