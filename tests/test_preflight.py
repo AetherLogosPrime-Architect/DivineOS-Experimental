@@ -1,6 +1,7 @@
 """Tests for the preflight check system."""
 
 import json
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -25,7 +26,7 @@ class TestPreflightCheck:
 
     def test_ready_when_briefing_loaded(self, tmp_path: Path) -> None:
         """Preflight passes when briefing is loaded and fresh."""
-        marker = {"loaded_at": 1000.0, "tool_calls_at_load": 0}
+        marker = {"loaded_at": time.time(), "tool_calls_at_load": 0}
         (tmp_path / ".briefing_loaded").write_text(json.dumps(marker))
 
         with (
@@ -39,7 +40,7 @@ class TestPreflightCheck:
 
     def test_engagement_check(self, tmp_path: Path) -> None:
         """Engagement check reflects whether thinking tools were used."""
-        marker = {"loaded_at": 1000.0, "tool_calls_at_load": 0}
+        marker = {"loaded_at": time.time(), "tool_calls_at_load": 0}
         (tmp_path / ".briefing_loaded").write_text(json.dumps(marker))
 
         with (
@@ -60,7 +61,7 @@ class TestPreflightCheck:
 
     def test_goals_check(self, tmp_path: Path) -> None:
         """Goals check reflects whether active goals exist."""
-        marker = {"loaded_at": 1000.0, "tool_calls_at_load": 0}
+        marker = {"loaded_at": time.time(), "tool_calls_at_load": 0}
         (tmp_path / ".briefing_loaded").write_text(json.dumps(marker))
 
         with (
@@ -82,7 +83,7 @@ class TestPreflightCheck:
 
     def test_handoff_check(self, tmp_path: Path) -> None:
         """Handoff check reflects whether a handoff note exists."""
-        marker = {"loaded_at": 1000.0, "tool_calls_at_load": 0}
+        marker = {"loaded_at": time.time(), "tool_calls_at_load": 0}
         (tmp_path / ".briefing_loaded").write_text(json.dumps(marker))
 
         with (

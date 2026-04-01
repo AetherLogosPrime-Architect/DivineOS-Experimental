@@ -57,17 +57,14 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             sessions = json.loads(existing[2])
             if session_id not in sessions:
                 sessions.append(session_id)
-            # Update description if the new one is more descriptive
-            # (the first description may be a seed placeholder)
+            # Update description only if the old one is a seed placeholder.
+            # Don't replace a curated description with raw correction text.
             old_desc = conn.execute(
                 "SELECT description FROM lesson_tracking WHERE lesson_id = ?",
                 (lesson_id,),
             ).fetchone()
             old_desc_text = old_desc[0] if old_desc else ""
-            use_desc = description
-            if old_desc_text.startswith("(seeded)") or (
-                len(description) > len(old_desc_text) and not description.startswith("(seeded)")
-            ):
+            if old_desc_text.startswith("(seeded)"):
                 use_desc = description
             else:
                 use_desc = old_desc_text
