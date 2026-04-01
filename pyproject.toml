@@ -47,7 +47,7 @@ ignore = [
     "PLR0915", # Too many statements is acceptable
     "ARG001",  # Unused arguments are acceptable for callbacks
     "ARG002",  # Unused arguments are acceptable for callbacks
-    "E501",    # Line too long is acceptable for long strings
+    "E501",    # Formatter targets 100; remaining long lines are strings/SQL that can't auto-wrap
     "FBT001",  # Boolean-typed positional arguments are acceptable
     "FBT002",  # Boolean default positional arguments are acceptable
     "ANN401",  # Dynamically typed expressions are acceptable

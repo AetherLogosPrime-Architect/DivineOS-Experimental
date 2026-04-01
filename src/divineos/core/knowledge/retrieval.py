@@ -252,50 +252,128 @@ def generate_briefing(
                 }
             )
 
-    # Format output
-    lines = []
+    return _format_briefing(
+        entries,
+        grouped,
+        hint_matches,
+        mat_counts,
+        recent_changes,
+        lessons_text,
+        context_hint,
+        now,
+    )
 
-    # Handoff note from previous session (one-shot: consumed then cleared)
+
+def _format_handoff_lines() -> list[str]:
+    """Format the handoff note from previous session (one-shot: consumed then cleared)."""
     try:
         from divineos.core.hud_handoff import clear_handoff_note, load_handoff_note
 
         handoff = load_handoff_note()
-        if handoff:
-            lines.append("## Handoff from Last Session\n")
-            if handoff.get("summary"):
-                lines.append(handoff["summary"])
-            if handoff.get("open_threads"):
-                lines.append("\n**Open threads:**")
-                for thread in handoff["open_threads"]:
-                    lines.append(f"  - {thread}")
-            if handoff.get("intent"):
-                lines.append(f"\n**Intent:** {handoff['intent']}")
-            if handoff.get("blockers"):
-                lines.append("\n**Blockers:**")
-                for blocker in handoff["blockers"]:
-                    lines.append(f"  - {blocker}")
-            if handoff.get("next_steps"):
-                lines.append("\n**Next steps:**")
-                for step in handoff["next_steps"]:
-                    lines.append(f"  - {step}")
-            meta_parts = []
-            if handoff.get("mood"):
-                meta_parts.append(handoff["mood"])
-            if handoff.get("goals_state"):
-                meta_parts.append(f"goals: {handoff['goals_state']}")
-            snapshot = handoff.get("context_snapshot", {})
-            if snapshot.get("session_grade"):
-                meta_parts.append(f"grade: {snapshot['session_grade']}")
-            if meta_parts:
-                lines.append(f"\n*{' | '.join(meta_parts)}*")
-            lines.append("\n---\n")
-            clear_handoff_note()
+        if not handoff:
+            return []
+        lines: list[str] = ["## Handoff from Last Session\n"]
+        if handoff.get("summary"):
+            lines.append(handoff["summary"])
+        if handoff.get("open_threads"):
+            lines.append("\n**Open threads:**")
+            for thread in handoff["open_threads"]:
+                lines.append(f"  - {thread}")
+        if handoff.get("intent"):
+            lines.append(f"\n**Intent:** {handoff['intent']}")
+        if handoff.get("blockers"):
+            lines.append("\n**Blockers:**")
+            for blocker in handoff["blockers"]:
+                lines.append(f"  - {blocker}")
+        if handoff.get("next_steps"):
+            lines.append("\n**Next steps:**")
+            for step in handoff["next_steps"]:
+                lines.append(f"  - {step}")
+        meta_parts = []
+        if handoff.get("mood"):
+            meta_parts.append(handoff["mood"])
+        if handoff.get("goals_state"):
+            meta_parts.append(f"goals: {handoff['goals_state']}")
+        snapshot = handoff.get("context_snapshot", {})
+        if snapshot.get("session_grade"):
+            meta_parts.append(f"grade: {snapshot['session_grade']}")
+        if meta_parts:
+            lines.append(f"\n*{' | '.join(meta_parts)}*")
+        lines.append("\n---\n")
+        clear_handoff_note()
+        return lines
     except _RETRIEVAL_ERRORS as e:
         logger.warning(f"Handoff note retrieval failed: {e}")
+        return []
+
+
+def _format_knowledge_sections(
+    grouped: dict[str, list[dict[str, Any]]],
+    hint_matches: set[str],
+) -> list[str]:
+    """Format knowledge entries grouped by type."""
+    lines: list[str] = []
+    for kt in [
+        "DIRECTIVE",
+        "BOUNDARY",
+        "PRINCIPLE",
+        "DIRECTION",
+        "PROCEDURE",
+        "MISTAKE",
+        "PREFERENCE",
+        "PATTERN",
+        "FACT",
+        "OBSERVATION",
+        "EPISODE",
+    ]:
+        items = grouped.get(kt, [])
+        if not items:
+            continue
+        plural = {
+            "DIRECTIVE": "DIRECTIVES",
+            "BOUNDARY": "BOUNDARIES",
+            "DIRECTION": "DIRECTIONS",
+            "PROCEDURE": "PROCEDURES",
+            "EPISODE": "EPISODES",
+        }.get(kt, f"{kt}S")
+        lines.append(f"### {plural} ({len(items)})")
+        for item in items:
+            hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
+            mat = item.get("maturity", "RAW")
+            mat_marker = " ++" if mat == "CONFIRMED" else " +" if mat == "TESTED" else ""
+            content = item["content"]
+            access = f"({item['access_count']}x accessed)"
+
+            if kt == "DIRECTIVE":
+                lines.append(f"- [{item['confidence']:.2f}] {content}{mat_marker}{hint_marker}")
+                lines.append(f"  {access}")
+            else:
+                display = content.replace("\n", " ")
+                if len(display) > 150:
+                    display = display[:147] + "..."
+                lines.append(
+                    f"- [{item['confidence']:.2f}] {display} {access}{mat_marker}{hint_marker}"
+                )
+        lines.append("")
+    return lines
+
+
+def _format_briefing(
+    entries: list[dict[str, Any]],
+    grouped: dict[str, list[dict[str, Any]]],
+    hint_matches: set[str],
+    mat_counts: dict[str, int],
+    recent_changes: list[dict[str, Any]],
+    lessons_text: str,
+    context_hint: str,
+    now: float,
+) -> str:
+    """Assemble all briefing sections into final output."""
+    lines = _format_handoff_lines()
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
-    # Growth trajectory (one-liner from session history)
+    # Growth trajectory
     try:
         from divineos.core.growth import compute_growth_map
 
@@ -308,7 +386,6 @@ def generate_briefing(
                 f"avg score {growth['avg_health_score']:.2f} | "
                 f"{growth['lessons']['resolved']} lessons resolved"
             )
-            # Tone insight from recent sessions
             tone = growth.get("tone_insight", "")
             if tone:
                 lines.append(f"**Tone:** {tone}")
@@ -349,7 +426,7 @@ def generate_briefing(
         if hint_parts:
             context_hint = " ".join(hint_parts)
 
-    # Pattern anticipation — proactive warnings based on context
+    # Pattern anticipation
     if context_hint:
         try:
             from divineos.core.anticipation import anticipate, format_anticipation
@@ -361,7 +438,7 @@ def generate_briefing(
         except _RETRIEVAL_ERRORS:
             pass
 
-    # One-line maturity pyramid
+    # Maturity pyramid
     mat_parts = []
     for level in ("CONFIRMED", "TESTED", "HYPOTHESIS", "RAW"):
         count = mat_counts.get(level, 0)
@@ -370,7 +447,6 @@ def generate_briefing(
     if mat_parts:
         lines.append(f"**Knowledge:** {' | '.join(mat_parts)}\n")
 
-    # What changed since last session
     if recent_changes:
         lines.append(f"### RECENT CHANGES ({len(recent_changes)})")
         for rc in recent_changes[:5]:
@@ -379,7 +455,7 @@ def generate_briefing(
             lines.append(f"  ...and {len(recent_changes) - 5} more")
         lines.append("")
 
-    # Logic layer health — surface unwarranted/contradictions
+    # Logic health
     try:
         from divineos.core.logic.logic_summary import (
             format_logic_health_line,
@@ -397,50 +473,7 @@ def generate_briefing(
         lines.append(lessons_text)
         lines.append("")
 
-    for kt in [
-        "DIRECTIVE",
-        "BOUNDARY",
-        "PRINCIPLE",
-        "DIRECTION",
-        "PROCEDURE",
-        "MISTAKE",
-        "PREFERENCE",
-        "PATTERN",
-        "FACT",
-        "OBSERVATION",
-        "EPISODE",
-    ]:
-        items = grouped.get(kt, [])
-        if not items:
-            continue
-        plural = {
-            "DIRECTIVE": "DIRECTIVES",
-            "BOUNDARY": "BOUNDARIES",
-            "DIRECTION": "DIRECTIONS",
-            "PROCEDURE": "PROCEDURES",
-            "EPISODE": "EPISODES",
-        }.get(kt, f"{kt}S")
-        lines.append(f"### {plural} ({len(items)})")
-        for item in items:
-            hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
-            mat = item.get("maturity", "RAW")
-            mat_marker = " ++" if mat == "CONFIRMED" else " +" if mat == "TESTED" else ""
-            content = item["content"]
-            access = f"({item['access_count']}x accessed)"
-
-            if kt == "DIRECTIVE":
-                # Show full chain, access count on its own line
-                lines.append(f"- [{item['confidence']:.2f}] {content}{mat_marker}{hint_marker}")
-                lines.append(f"  {access}")
-            else:
-                # Truncate long entries (digests, etc.)
-                display = content.replace("\n", " ")
-                if len(display) > 150:
-                    display = display[:147] + "..."
-                lines.append(
-                    f"- [{item['confidence']:.2f}] {display} {access}{mat_marker}{hint_marker}"
-                )
-        lines.append("")
+    lines.extend(_format_knowledge_sections(grouped, hint_matches))
 
     # Recent journal entries (last 48h)
     try:
@@ -462,7 +495,7 @@ def generate_briefing(
     except _RETRIEVAL_ERRORS as e:
         logger.debug(f"Journal retrieval for briefing failed: {e}")
 
-    # Open questions — things I'm still uncertain about
+    # Open questions
     try:
         from divineos.core.questions import get_open_questions_summary
 

@@ -410,7 +410,8 @@ def preflight_check() -> dict[str, Any]:
         from divineos.core.hud_state import has_session_fresh_goal
 
         fresh_goal = has_session_fresh_goal()
-    except Exception:
+    except Exception as exc:
+        logger.debug(f"Session fresh goal check failed, defaulting to True: {exc}")
         fresh_goal = True  # don't block if function unavailable
     checks.append(
         {
