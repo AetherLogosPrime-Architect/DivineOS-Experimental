@@ -144,27 +144,32 @@ def complete_goal(text: str) -> bool:
 
 
 def auto_clean_goals(max_age_days: float = 3.0) -> dict[str, int]:
-    """Auto-clean stale goals at session end.
+    """Auto-clean goals at session end.
 
-    - Goals older than max_age_days are marked done (they're stale)
+    - Completed goals are removed from the list entirely
+    - Active goals older than max_age_days are marked done (stale)
     - Duplicate/near-duplicate goals are deduplicated (keep newest)
 
     Returns counts of actions taken.
     """
     path = _ensure_hud_dir() / "active_goals.json"
     if not path.exists():
-        return {"stale_archived": 0, "deduped": 0}
+        return {"stale_archived": 0, "deduped": 0, "completed_cleared": 0}
 
     try:
         goals = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return {"stale_archived": 0, "deduped": 0}
+        return {"stale_archived": 0, "deduped": 0, "completed_cleared": 0}
+
+    # Remove completed goals — they've served their purpose
+    completed_cleared = sum(1 for g in goals if g.get("status") == "done")
+    goals = [g for g in goals if g.get("status") != "done"]
 
     cutoff = time.time() - (max_age_days * 86400)
     stale_archived = 0
     deduped = 0
 
-    # Archive stale goals
+    # Archive stale active goals
     for goal in goals:
         if goal.get("status") == "active" and goal.get("added_at", 0) < cutoff:
             goal["status"] = "done"
@@ -185,7 +190,6 @@ def auto_clean_goals(max_age_days: float = 3.0) -> dict[str, int]:
                 continue
             overlap = len(words1 & words2) / max(len(words1 | words2), 1)
             if overlap > 0.6:
-                # Keep newer, mark older as done
                 older = i if g1.get("added_at", 0) < active[j].get("added_at", 0) else j
                 to_dedup.add(older)
                 deduped += 1
@@ -193,10 +197,17 @@ def auto_clean_goals(max_age_days: float = 3.0) -> dict[str, int]:
     for idx in to_dedup:
         active[idx]["status"] = "done"
 
-    if stale_archived > 0 or deduped > 0:
+    changed = completed_cleared > 0 or stale_archived > 0 or deduped > 0
+    if changed:
+        # Remove any newly-marked-done goals too
+        goals = [g for g in goals if g.get("status") != "done"]
         path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
 
-    return {"stale_archived": stale_archived, "deduped": deduped}
+    return {
+        "stale_archived": stale_archived,
+        "deduped": deduped,
+        "completed_cleared": completed_cleared,
+    }
 
 
 def has_session_fresh_goal(max_age_seconds: float = 7200.0) -> bool:
