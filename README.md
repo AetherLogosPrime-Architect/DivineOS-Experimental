@@ -51,7 +51,7 @@ divineos init
 divineos briefing
 ```
 
-## CLI Commands (75 total)
+## CLI Commands (73 total)
 
 ```bash
 # Session workflow
@@ -152,7 +152,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (75 commands across 19 modules)
+  cli/                         CLI package (73 commands across 19 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -315,7 +315,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,300+ tests (real DB, no mocks)
+tests/                         2,375+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks
   load-briefing.sh             Marks briefing as loaded
