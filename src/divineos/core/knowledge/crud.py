@@ -80,8 +80,8 @@ def store_knowledge(
             """INSERT INTO knowledge
                (knowledge_id, created_at, updated_at, knowledge_type, content,
                 confidence, source_events, tags, access_count, content_hash,
-                source, maturity)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
+                source, maturity, valid_from)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)""",
             (
                 knowledge_id,
                 now,
@@ -94,6 +94,7 @@ def store_knowledge(
                 content_hash,
                 source,
                 maturity,
+                now,  # temporal dimension: knowledge is valid from creation
             ),
         )
         conn.commit()
@@ -223,7 +224,7 @@ def update_knowledge(
         new_id = str(uuid.uuid4())
 
         conn.execute(
-            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
+            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, valid_from) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)",
             (
                 new_id,
                 now,
@@ -234,11 +235,12 @@ def update_knowledge(
                 json.dumps(sources),
                 old_tags,
                 content_hash,
+                now,  # temporal dimension: valid from creation
             ),
         )
         conn.execute(
-            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
-            (new_id, knowledge_id),
+            "UPDATE knowledge SET superseded_by = ?, valid_until = ? WHERE knowledge_id = ?",
+            (new_id, now, knowledge_id),
         )
         conn.commit()
         return new_id
@@ -258,8 +260,8 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
             raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
 
         conn.execute(
-            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
-            (f"FORGET:{reason[:200]}", knowledge_id),
+            "UPDATE knowledge SET superseded_by = ?, valid_until = ? WHERE knowledge_id = ?",
+            (f"FORGET:{reason[:200]}", time.time(), knowledge_id),
         )
         conn.commit()
     finally:
