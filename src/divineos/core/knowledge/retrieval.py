@@ -316,6 +316,39 @@ def generate_briefing(
     except _RETRIEVAL_ERRORS:
         pass
 
+    # Auto-derive context hint from handoff + goals if not provided
+    if not context_hint:
+        hint_parts: list[str] = []
+        try:
+            from divineos.core.hud_handoff import load_handoff_note as _load_ho
+
+            ho = _load_ho()
+            if ho:
+                if ho.get("intent"):
+                    hint_parts.append(ho["intent"])
+                for thread in (ho.get("open_threads") or [])[:3]:
+                    hint_parts.append(thread[:100])
+                for step in (ho.get("next_steps") or [])[:3]:
+                    hint_parts.append(step[:100])
+        except _RETRIEVAL_ERRORS:
+            pass
+        try:
+            import json as _json
+
+            from divineos.core.hud_state import _ensure_hud_dir
+
+            goals_path = _ensure_hud_dir() / "active_goals.json"
+            if goals_path.exists():
+                goals = _json.loads(goals_path.read_text(encoding="utf-8"))
+                for g in goals[:3]:
+                    text = g.get("text", g.get("goal", ""))
+                    if text and g.get("status") != "done":
+                        hint_parts.append(text[:100])
+        except _RETRIEVAL_ERRORS:
+            pass
+        if hint_parts:
+            context_hint = " ".join(hint_parts)
+
     # Pattern anticipation — proactive warnings based on context
     if context_hint:
         try:
