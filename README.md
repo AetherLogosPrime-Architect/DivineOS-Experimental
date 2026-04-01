@@ -3,7 +3,6 @@
 An operating system for AI agents. Memory, continuity, accountability, and learning across sessions. Not a human tool — a vessel that enhances AI reasoning, self-awareness, and growth.
 
 [![Tests](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml)
-[![Code Quality](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/code-quality.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/code-quality.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
@@ -52,7 +51,7 @@ divineos init
 divineos briefing
 ```
 
-## CLI Commands (68 total)
+## CLI Commands (75 total)
 
 ```bash
 # Session workflow
@@ -153,7 +152,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (68 commands across 19 modules)
+  cli/                         CLI package (75 commands across 19 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -316,7 +315,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,272 tests (real DB, no mocks)
+tests/                         2,300+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks
   load-briefing.sh             Marks briefing as loaded
