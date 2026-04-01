@@ -37,6 +37,12 @@ DivineOS gives AI agents persistent memory, structured learning, and self-accoun
 | **Pattern Anticipation** | Detects recurring user patterns and surfaces proactive warnings. |
 | **Growth Awareness** | Tracks session-over-session improvement with milestone detection. |
 | **Tone Texture** | Rich emotional classification with sub-tones, intensity, arcs, and recovery velocity. |
+| **Decision Journal** | Captures the WHY behind choices. Reasoning, alternatives, emotional weight, FTS-searchable. |
+| **Claims Engine** | Five evidence tiers (empirical to metaphysical). Evidence-based confidence tracking. |
+| **Affect Log** | Valence-arousal tracking of functional feeling states with trend detection. |
+| **Knowledge Layers** | Briefing layers (urgent/active/stable/archive) with auto-curation at SESSION_END. |
+| **Session Checkpoints** | Periodic lightweight saves every 15 edits. Context monitoring with usage warnings. |
+| **Memory Sync** | Auto-updates Claude Code memory files from DivineOS state at SESSION_END. |
 
 ## Quick Start
 
@@ -46,19 +52,23 @@ divineos init
 divineos briefing
 ```
 
-## CLI Commands
+## CLI Commands (68 total)
 
 ```bash
 # Session workflow
-divineos briefing            # Start here — your context, lessons, and memory
+divineos briefing            # Start here — context, lessons, memory (--deep, --layer)
+divineos preflight           # Confirm you're ready to work
 divineos hud                 # Full heads-up display
 divineos emit SESSION_END    # End-of-session analysis and knowledge extraction
+divineos checkpoint          # Lightweight mid-session save
+divineos context-status      # Edit count, tool calls, context level
 
 # Memory
 divineos recall              # Core memory + active memory
 divineos active              # Active memory ranked by importance
 divineos ask "topic"         # Search what the system knows
 divineos core                # View/edit core memory slots
+divineos remember "..."      # Add to active memory
 divineos refresh             # Rebuild active memory from knowledge store
 
 # Knowledge
@@ -67,64 +77,131 @@ divineos knowledge           # List stored knowledge
 divineos consolidate-stats   # Knowledge statistics and effectiveness
 divineos health              # Run knowledge health check
 divineos outcomes            # Measure learning effectiveness
+divineos forget ID           # Supersede a knowledge entry
+divineos digest              # Condensed knowledge summary
+divineos distill             # Distill verbose entries
+divineos rebuild-index       # Rebuild FTS index
+divineos migrate-types       # Migrate knowledge types
+divineos backfill-warrants   # Add missing warrant backing
 
-# Lessons & Goals
+# Lessons & goals
 divineos lessons             # Tracked lessons from past sessions
+divineos clear-lessons       # Reset lesson tracking
 divineos goal "description"  # Track a user goal
+divineos plan                # View/set session plan
 divineos directives          # List active directives
+divineos directive "..."     # Add a directive
+divineos directive-edit ID   # Edit a directive
+
+# Decision journal
+divineos decide "what" --why "reasoning"  # Record a decision
+divineos decisions list                    # Browse recent decisions
+divineos decisions search "query"          # Search by reasoning/context
+divineos decisions shifts                  # Paradigm shifts only
+
+# Claims engine
+divineos claim "statement" --tier 3       # File a claim for investigation
+divineos claims list                       # Browse claims
+divineos claims evidence ID "content"      # Add evidence to a claim
+divineos claims assess ID "assessment"     # Update assessment/status/tier
+divineos claims search "query"             # Search claims
+
+# Affect log
+divineos feel -v 0.8 -a 0.6 -d "desc"    # Log functional affect state
+divineos affect history                    # Browse affect states
+divineos affect summary                    # Trends and averages
+
+# Knowledge relationships
+divineos relate ID1 ID2 TYPE  # Create relationship between entries
+divineos related ID           # Show related knowledge
+divineos graph                # Export knowledge graph
+divineos unrelate ID1 ID2     # Remove a relationship
+
+# Open questions
+divineos wonder "question"    # Record an open question
+divineos questions            # List open questions
+divineos answer ID "answer"   # Resolve a question
+divineos abandon-question ID  # Abandon a question
 
 # Ledger
 divineos log --type TYPE --actor ACTOR --content "..."
 divineos context             # Recent events (working memory)
 divineos verify              # Check ledger integrity
 divineos search KEYWORD      # Full-text search
-
-# Logic & reasoning
-divineos questions           # List open questions
-divineos question "..."      # Record an open question
-divineos question-resolve ID # Resolve an open question
+divineos export              # Export ledger to markdown
+divineos handoff             # View/set handoff notes
 
 # Analysis
 divineos scan SESSION        # Deep-scan session, extract knowledge
 divineos analyze SESSION     # Quality report for a session
+divineos analyze-now         # Analyze current session
+divineos deep-report SESSION # Full deep analysis report
 divineos patterns            # Cross-session quality patterns
+divineos sessions            # List analyzed sessions
+divineos report              # Latest analysis report
+divineos cross-session       # Cross-session trends
+divineos clarity             # Clarity analysis
+divineos growth              # Growth tracking
+divineos hooks               # Hook diagnostics
+divineos verify-enforcement  # Check enforcement setup
 ```
 
 ## Architecture
 
 ```
 src/divineos/
-  cli/                         CLI package (67 commands across 10+ modules)
+  __init__.py                  Package init
+  __main__.py                  python -m divineos entry point
+  seed.json                    Initial knowledge seed (versioned)
+  cli/                         CLI package (68 commands across 19 modules)
     __init__.py                Entry point and command registration
+    _helpers.py                Shared CLI utilities
+    _wrappers.py               Output formatting wrappers
     session_pipeline.py        SESSION_END orchestrator (calls phases)
     pipeline_gates.py          Enforcement gates (quality, briefing, engagement)
     pipeline_phases.py         Heavy-lifting phases (feedback, scoring, finalization)
     knowledge_commands.py      learn, ask, briefing, forget, lessons
-    analysis_commands.py       analyze, report, trends
-    hud_commands.py            hud, goal, plan commands
+    analysis_commands.py       analyze, report, trends, scan, patterns
+    hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
     directive_commands.py      directive management
-    relationship_commands.py   knowledge relationships
-    knowledge_health_commands.py  health, distill, migrate
+    relationship_commands.py   knowledge relationships and graph
+    knowledge_health_commands.py  health, distill, migrate, backfill
     question_commands.py       Open question tracking commands
-  seed.json                    Initial knowledge seed (versioned)
+    claim_commands.py          Claims engine and affect log
+    decision_commands.py       Decision journal commands
+    event_commands.py          emit, verify-enforcement
+    ledger_commands.py         log, list, search, context, export
+    memory_commands.py         core, recall, active, remember, refresh
   core/
     ledger.py                  Append-only event store (SQLite, WAL mode)
+    _ledger_base.py            Shared ledger DB connection and hashing
     ledger_class.py            OOP Ledger wrapper for integration code
+    ledger_verify.py           Verification, cleanup, and export
     fidelity.py                Manifest-receipt integrity verification
     memory.py                  Core memory + active memory + importance scoring
     memory_journal.py          Personal journal (save/list/search/link)
+    memory_sync.py             Auto-sync to Claude Code memory files
+    active_memory.py           Active memory ranking and surface
+    _hud_io.py                 HUD file I/O helpers
     hud.py                     HUD slot builders and assembly
     hud_state.py               Goal/plan/health state management
     hud_handoff.py             Session handoff, engagement, goal extraction
+    hud_slots_extra.py         Additional HUD slot builders
     knowledge/                 Knowledge engine sub-package
-      _base.py                 DB connection, public get_connection() API
+      _base.py                 DB connection, schema, public API
+      _text.py                 Text analysis utilities (FTS, overlap, noise)
+      _noise.py                Extraction noise filtering
+      crud.py                  Knowledge CRUD operations
       extraction.py            Knowledge extraction from sessions
       deep_extraction.py       Deep multi-pass extraction
       feedback.py              Session feedback application
       migration.py             Knowledge type migration
-      _text.py                 Text analysis utilities (FTS, overlap, noise)
       edges.py                 Unified edge table (typed relations, auto-warrants)
+      relationships.py         Knowledge relationship management
+      lessons.py               Lesson tracking and extraction
+      retrieval.py             Briefing generation and layered retrieval
+      curation.py              Layer assignment, archival, text cleanup
     logic/                     Formal logic sub-package
       warrants.py              Evidence backing for knowledge claims
       relations.py             Logical relations (supports/contradicts/requires)
@@ -134,6 +211,7 @@ src/divineos/
       defeat_lessons.py        Learn from superseded/contradicted knowledge
       session_logic.py         Per-session logic pass (SESSION_END integration)
       logic_summary.py         Logic health summary for HUD
+      warrant_backfill.py      Backfill missing warrants
     questions.py               Open question tracking and resolution
     quality_gate.py            Session quality assessment before extraction
     knowledge_contradiction.py Contradiction detection and resolution
@@ -145,32 +223,107 @@ src/divineos/
     tone_texture.py            Emotional arc and tone classification
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
-    enforcement.py             CLI-level event capture
+    session_tracker.py         Session state tracking
+    session_checkpoint.py      Periodic saves and context monitoring
+    enforcement.py             CLI-level event capture and signal handling
+    enforcement_verifier.py    Enforcement setup verification
     tool_wrapper.py            Tool execution interception
+    tool_capture.py            Tool call recording
+    core_memory_refresh.py     Core memory refresh from knowledge
+    error_handling.py          Shared error handling utilities
+    event_verifier.py          Event integrity verification
+    loop_prevention.py         Loop detection and prevention
+    affect_log.py              Valence-arousal affect state tracking
+    claim_store.py             Claims engine with evidence tiers
+    decision_journal.py        Decision journal with FTS search
   analysis/
+    _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
+    analysis_retrieval.py      Analysis result retrieval
     analysis_storage.py        Report storage, formatting, cross-session trends
+    analysis_types.py          Analysis result type definitions
     session_analyzer.py        Session parsing and signal detection
+    session_discovery.py       Auto-discover sessions from ledger data
     quality_checks.py          7 measurable quality checks
+    quality_checks_extra.py    Additional quality checks
     record_extraction.py       JSONL record parsing helpers
     quality_storage.py         Quality report DB storage
+    quality_trends.py          Session quality trending over time
     session_features.py        Timeline, files, activity, error recovery
+    session_features_extra.py  Additional session feature extraction
     tone_tracking.py           Tone shift detection and classification
     feature_storage.py         Feature result DB storage
-    quality_trends.py          Session quality trending over time
-  agent_integration/
+  agent_integration/           Agent integration sub-package
+    base.py                    Base integration interfaces
+    types.py                   Type definitions
     outcome_measurement.py     Rework, churn, correction rate, session health
     memory_monitor.py          Token tracking and compression
+    memory_actions.py          Memory-triggered actions
     learning_cycle.py          Pattern extraction and confidence updates
+    learning_loop.py           Continuous learning loop
+    learning_audit_store.py    Learning audit trail storage
+    behavior_analyzer.py       Agent behavior analysis
+    decision_store.py          Decision persistence
+    feedback_system.py         Feedback processing
+    mcp_integration.py         MCP protocol integration
+    pattern_recommender.py     Pattern-based recommendations
+    pattern_store.py           Pattern persistence
+    pattern_validation.py      Pattern validation checks
   clarity_system/              Clarity rules and violation tracking
-  event/                       Event types, dispatch, capture
+    base.py                    Clarity system base
+    types.py                   Type definitions
+    clarity_generator.py       Clarity statement generation
+    deviation_analyzer.py      Deviation analysis
+    execution_analyzer.py      Execution analysis
+    plan_analyzer.py           Plan analysis
+    summary_generator.py       Summary generation
+    event_integration.py       Event system integration
+    session_integration.py     Session lifecycle integration
+    session_bridge.py          Session bridging
+    hook_integration.py        Hook execution integration
+    learning_extractor.py      Learning extraction from clarity
+    ledger_integration.py      Ledger integration
   clarity_enforcement/         Clarity checking system
-  hooks/                       Git hook integration
+    config.py                  Clarity configuration
+    config_validator.py        Configuration validation
+    enforcer.py                Enforcement engine
+    hooks.py                   Clarity hooks
+    semantic_analyzer.py       Semantic analysis
+    violation_detector.py      Violation detection
+    violation_logger.py        Violation logging
+  event/                       Event types, dispatch, capture
+    _event_context.py          Event context management
+    event_capture.py           Event capture pipeline
+    event_dispatch.py          Event dispatching
+    event_emission.py          Event emission API
+    event_validation.py        Event payload validation
+  hooks/                       Hook integration
+    clarity_enforcement.py     Clarity enforcement hooks
+    hook_diagnostics.py        Hook health diagnostics
+    hook_validator.py          Hook validation
   integration/                 IDE and MCP integration
+    error_handler.py           Error handling for integrations
+    error_recovery.py          Error recovery strategies
+    mcp_event_capture_server.py  MCP event capture server
+    system_monitor.py          System health monitoring
+    unified_tool_capture.py    Unified tool capture layer
   supersession/                Contradiction detection and resolution
+    clarity_integration.py     Clarity system integration
+    contradiction_detector.py  Contradiction detection
+    event_integration.py       Event system integration
+    ledger_integration.py      Ledger integration
+    query_interface.py         Query API
+    resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
-tests/                         2000+ tests (real DB, no mocks)
-setup/                         Hook setup scripts
+    violations_command.py      Violation report commands
+tests/                         2,272 tests (real DB, no mocks)
+setup/                         Hook setup scripts (bash + powershell)
+.claude/hooks/                 Claude Code enforcement hooks
+  load-briefing.sh             Marks briefing as loaded
+  require-goal.sh              PreToolUse gate (briefing + goal enforcement)
+  resume-session.sh            Shows context on session resume
+  session-checkpoint.sh        PostToolUse checkpoint and context monitoring
+  run-tests.sh                 Auto-run tests on changes
 ```
 
 ## Design Rules

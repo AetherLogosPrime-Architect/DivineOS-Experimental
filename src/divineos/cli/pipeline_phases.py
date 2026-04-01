@@ -75,6 +75,57 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
     except _PHASE_ERRORS as e:
         logger.warning(f"Contradiction scan failed: {e}")
 
+    # 3e. SIS — assess and translate esoteric language in new entries
+    try:
+        from divineos.core.semantic_integrity import assess_and_translate
+        from divineos.core.knowledge import _get_connection
+
+        valid_ids = [did for did in deep_ids if did]
+        if valid_ids:
+            conn = _get_connection()
+            translated_count = 0
+            quarantined_count = 0
+            for kid in valid_ids:
+                row = conn.execute(
+                    "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (kid,)
+                ).fetchone()
+                if not row:
+                    continue
+                content, tags_json = row[0], row[1]
+                sis = assess_and_translate(content)
+                if sis["verdict"] == "TRANSLATE" and sis["changed"]:
+                    import json as _json
+
+                    tags = _json.loads(tags_json) if tags_json else []
+                    tags.append("sis-translated")
+                    conn.execute(
+                        "UPDATE knowledge SET content = ?, tags = ? WHERE knowledge_id = ?",
+                        (sis["translated"], _json.dumps(tags), kid),
+                    )
+                    translated_count += 1
+                elif sis["verdict"] == "QUARANTINE":
+                    import json as _json
+
+                    tags = _json.loads(tags_json) if tags_json else []
+                    tags.append("sis-quarantined")
+                    conn.execute(
+                        "UPDATE knowledge SET tags = ?, confidence = MIN(confidence, 0.4) "
+                        "WHERE knowledge_id = ?",
+                        (_json.dumps(tags), kid),
+                    )
+                    quarantined_count += 1
+            conn.commit()
+            conn.close()
+            if translated_count or quarantined_count:
+                parts = []
+                if translated_count:
+                    parts.append(f"{translated_count} translated")
+                if quarantined_count:
+                    parts.append(f"{quarantined_count} quarantined")
+                click.secho(f"[~] SIS: {', '.join(parts)}", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"SIS assessment failed: {e}")
+
     return 0, auto_rels
 
 
@@ -259,6 +310,50 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Auto-answer check failed: {e}")
 
+    # 5e. Auto-distill raw entries from this session
+    try:
+        from divineos.core.knowledge import _get_connection
+        from divineos.core.knowledge.deep_extraction import _distill_correction
+
+        conn = _get_connection()
+        distilled = 0
+        raw_prefixes = ("I was corrected: ", "I should: ", "I decided: ")
+        valid_ids = [did for did in deep_ids if did]
+        for kid in valid_ids:
+            row = conn.execute(
+                "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
+            ).fetchone()
+            if not row:
+                continue
+            content = row[0]
+            for prefix in raw_prefixes:
+                if content.startswith(prefix):
+                    stripped = content[len(prefix) :]
+                    cleaned = _distill_correction(stripped)
+                    if cleaned and cleaned != content:
+                        conn.execute(
+                            "UPDATE knowledge SET content = ? WHERE knowledge_id = ?",
+                            (cleaned, kid),
+                        )
+                        distilled += 1
+                    break
+        conn.commit()
+        conn.close()
+        if distilled:
+            click.secho(f"[~] Auto-distilled {distilled} raw entries.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Auto-distill failed: {e}")
+
+    # 5f. Backfill warrants for new entries
+    try:
+        from divineos.core.logic.warrant_backfill import backfill_inherited_warrants
+
+        wresult = backfill_inherited_warrants()
+        if wresult["backfilled"]:
+            click.secho(f"[~] Backfilled {wresult['backfilled']} warrants.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Warrant backfill failed: {e}")
+
     return promoted_ids
 
 
@@ -381,6 +476,15 @@ def run_session_finalization(
     analysis: Any, stored: int, health: dict[str, Any] | None, auto_rels: list, records: list
 ) -> None:
     """Save HUD, record growth metrics, tone, handoff note, sync memories."""
+    # Capture engagement state BEFORE clearing it (step 9b needs this)
+    was_engaged = False
+    try:
+        from divineos.core.hud_handoff import is_engaged
+
+        was_engaged = is_engaged()
+    except _PHASE_ERRORS:
+        pass
+
     # 9. Save HUD + clear plan
     try:
         from divineos.core.hud import save_hud_snapshot
@@ -391,13 +495,23 @@ def run_session_finalization(
         clear_session_plan()
         clear_engagement()
         click.secho("[~] HUD snapshot saved.", fg="cyan")
+
+        # Auto-clean stale and duplicate goals
+        from divineos.core.hud_state import auto_clean_goals
+
+        goal_result = auto_clean_goals()
+        if goal_result["stale_archived"] or goal_result["deduped"]:
+            click.secho(
+                f"[~] Goals cleaned: {goal_result['stale_archived']} stale archived, "
+                f"{goal_result['deduped']} duplicates removed.",
+                fg="cyan",
+            )
     except _PHASE_ERRORS as e:
         logger.warning(f"HUD snapshot save failed: {e}")
 
     # 9b. Growth metrics
     try:
         from divineos.core.growth import record_session_metrics
-        from divineos.core.hud_handoff import is_engaged
 
         record_session_metrics(
             session_id=analysis.session_id,
@@ -409,7 +523,7 @@ def run_session_finalization(
             relationships_created=len(auto_rels),
             health_grade=health["grade"] if health else "",
             health_score=health["score"] if health else 0.0,
-            engaged=is_engaged(),
+            engaged=was_engaged,
         )
     except _PHASE_ERRORS as e:
         logger.warning(f"Session metrics recording failed: {e}")

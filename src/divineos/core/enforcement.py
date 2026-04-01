@@ -188,7 +188,7 @@ def _setup_signal_handlers() -> None:
     with mark_internal_operation():
         try:
 
-            def signal_handler(signum: int, frame: Any) -> None:
+            def signal_handler(signum: int, _frame: Any) -> None:
                 logger.debug(f"Received signal {signum}, ending session")
                 try:
                     _cleanup_on_exit()

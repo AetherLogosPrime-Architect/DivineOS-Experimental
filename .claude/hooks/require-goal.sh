@@ -41,10 +41,22 @@ if [ "$has_fresh" = "no" ]; then
   exit 0
 fi
 
-# Gate 3: Must have engaged with thinking tools
+# Gate 3: Must have engaged with thinking tools RECENTLY (periodic, not one-time)
 if echo "$preflight" | grep -q "\[FAIL\] engagement"; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: OS not engaged. Run: divineos ask or divineos recall first."}}'
-  exit 0
+  # Get specific status for a helpful message
+  eng_detail=$(python -c "
+from divineos.core.hud_handoff import engagement_status
+s = engagement_status()
+if not s['engaged']:
+    print(f'BLOCKED: {s[\"code_actions_since\"]} code actions without consulting the OS. Stop and think. Run: divineos ask, recall, decide, or context before continuing.')
+else:
+    print('OK')
+" 2>/dev/null || echo "BLOCKED: OS engagement expired. Run: divineos ask or divineos recall.")
+  if [ "$eng_detail" != "OK" ]; then
+    escaped=$(echo "$eng_detail" | python -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" 2>/dev/null)
+    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":${escaped}}}"
+    exit 0
+  fi
 fi
 
 exit 0

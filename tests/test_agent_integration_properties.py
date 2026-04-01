@@ -1,10 +1,10 @@
 """
-Property-Based Tests for Kiro Agent Integration
+Property-Based Tests for DivineOS Agent Integration
 
 Tests formal correctness properties that must hold across all valid inputs.
 Each property is universally quantified and validated using hypothesis.
 
-Feature: kiro-agent-integration
+Feature: agent-integration
 """
 
 import pytest
@@ -62,7 +62,7 @@ def test_property_1_tool_calls_captured(tool_name, tool_input):
     """
     Property 1: All Agent Tool Calls Are Captured
 
-    For any Kiro agent tool invocation, a TOOL_CALL event SHALL be emitted
+    For any DivineOS agent tool invocation, a TOOL_CALL event SHALL be emitted
     before the tool executes, containing the tool name, input parameters,
     unique tool_use_id, timestamp in ISO8601 format, and actor="assistant".
     """
@@ -110,7 +110,7 @@ def test_property_2_tool_results_captured(tool_name, result, duration_ms):
     """
     Property 2: All Agent Tool Results Are Captured
 
-    For any completed Kiro agent tool execution, a TOOL_RESULT event SHALL be
+    For any completed DivineOS agent tool execution, a TOOL_RESULT event SHALL be
     emitted after the tool returns, containing the tool name, matching
     tool_use_id, complete result output, execution duration in milliseconds,
     and actor="assistant".
@@ -154,7 +154,7 @@ def test_property_3_failed_executions_recorded(tool_name, error_message):
     """
     Property 3: Failed Tool Executions Are Recorded
 
-    For any Kiro agent tool execution that fails with an exception, a
+    For any DivineOS agent tool execution that fails with an exception, a
     TOOL_RESULT event SHALL be emitted with failed=true and error_message
     containing the exception details.
     """
@@ -287,7 +287,7 @@ def test_property_9_all_tools_captured(tool_name):
     """
     Property 9: All Specified Agent Tools Are Captured
 
-    For any Kiro agent tool call (readFile, strReplace, fsWrite, editCode,
+    For any DivineOS agent tool call (readFile, strReplace, fsWrite, editCode,
     getDiagnostics, etc.), the tool invocation SHALL be captured as
     TOOL_CALL and TOOL_RESULT events.
     """

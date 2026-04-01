@@ -191,11 +191,11 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
 
         open_threads: list[str] = []
         for corr in analysis.corrections[:3]:
-            text = corr if isinstance(corr, str) else str(corr)
-            open_threads.append(f"Correction: {text[:120]}")
+            text = getattr(corr, "content", corr) if not isinstance(corr, str) else corr
+            open_threads.append(f"Correction: {str(text)[:120]}")
         for d in getattr(analysis, "decisions", [])[:2]:
-            text = d if isinstance(d, str) else str(d)
-            open_threads.append(f"Decision: {text[:120]}")
+            text = getattr(d, "content", d) if not isinstance(d, str) else d
+            open_threads.append(f"Decision: {str(text)[:120]}")
 
         mood = ""
         if health:
@@ -239,8 +239,8 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
 
         # Blockers: corrections are things that went wrong
         for corr in analysis.corrections[:3]:
-            text = corr if isinstance(corr, str) else str(corr)
-            blockers.append(text[:120])
+            text = getattr(corr, "content", corr) if not isinstance(corr, str) else corr
+            blockers.append(str(text)[:120])
 
         # Next steps: active goals not yet done
         try:

@@ -1,5 +1,5 @@
 """
-Tests for the observation layer - Kiro/MCP/hook execution/clarity paths.
+Tests for the observation layer - IDE/MCP/hook execution/clarity paths.
 
 This test suite validates that the observation layer correctly captures
 and enforces tool execution, clarity, and hook execution.

@@ -165,7 +165,7 @@ def run_checkpoint() -> str:
 
         save_hud_snapshot()
         parts.append("HUD snapshot saved")
-    except Exception as e:
+    except (OSError, ValueError, KeyError) as e:
         logger.warning("Checkpoint: HUD snapshot failed: %s", e)
 
     # 2. Save handoff note with current goals
@@ -193,7 +193,7 @@ def run_checkpoint() -> str:
             },
         )
         parts.append("handoff note updated")
-    except Exception as e:
+    except (OSError, ValueError, KeyError) as e:
         logger.warning("Checkpoint: handoff note failed: %s", e)
 
     # 3. Log checkpoint event to ledger
@@ -212,7 +212,7 @@ def run_checkpoint() -> str:
             validate=False,
         )
         parts.append("ledger checkpoint logged")
-    except Exception as e:
+    except (OSError, ValueError, KeyError) as e:
         logger.warning("Checkpoint: ledger event failed: %s", e)
 
     # 4. Update counter state

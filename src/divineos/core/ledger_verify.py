@@ -96,6 +96,9 @@ def get_verified_events(
             corrupted_event["is_corrupted"] = True
             corrupted_events.append(corrupted_event)
 
+            if not skip_corrupted:
+                verified_events.append(corrupted_event)
+
             logger.warning(f"Corrupted event detected: {event['event_id']} - {reason}")
 
     return verified_events, corrupted_events

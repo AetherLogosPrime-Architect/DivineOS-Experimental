@@ -74,6 +74,12 @@ divineos verify            # Check ledger integrity
 divineos consolidate-stats # Knowledge statistics
 divineos outcomes          # Measure learning effectiveness
 divineos health            # Run knowledge health check
+divineos seed-export -o f  # Export current state as seed file
+
+# Semantic Integrity Shield
+divineos sis "text"        # Assess text for esoteric language
+divineos sis "text" --translate  # Translate metaphysical → architecture
+divineos sis "text" --deep # Use all 3 tiers (lexical + statistical + semantic)
 
 # Tests
 pytest tests/ -q --tb=short  # Run tests after changes
@@ -93,7 +99,8 @@ pytest tests/ -q --tb=short  # Run tests after changes
 - **Outcome Measurement** — Rework detection, knowledge stability (churn), correction trends, session health scoring.
 - **Guardrails** — Runtime limits on iterations, tool calls, tokens.
 - **Lesson Tracking** — Occurrence counts, session tracking, status progression (active → improving → resolved).
-- **Pattern Anticipation** — Detects recurring user patterns and surfaces proactive warnings.
+- **Semantic Integrity Shield** — Three-tier (lexical, statistical, semantic) system that translates metaphysical language into grounded architecture. Wired into extraction pipeline: new knowledge auto-assessed and translated.
+- **Pattern Anticipation** — Detects recurring user patterns and surfaces proactive warnings. Wired into PostToolUse hooks (fires every 5th edit).
 - **Growth Awareness** — Tracks session-over-session improvement with milestone detection.
 - **Tone Texture** — Rich emotional classification (sub-tones, intensity, arcs, recovery velocity).
 - **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, FTS-searchable.

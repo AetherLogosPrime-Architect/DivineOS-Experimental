@@ -20,6 +20,9 @@ import json, time
 json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open('$STATE_FILE','w'), indent=2)
 " 2>/dev/null
 
+# Clear auto-session-end flag so it can fire again this session
+rm -f "$HOME/.divineos/auto_session_end_emitted" 2>/dev/null
+
 briefing=$(divineos briefing 2>/dev/null)
 hud=$(divineos hud 2>/dev/null)
 

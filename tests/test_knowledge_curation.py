@@ -48,15 +48,25 @@ class TestCleanEntryText:
     def test_cleans_correction_pattern(self):
         raw = "I was it works exactly as designed:, but got corrected -- i want it to block not just warn"
         cleaned = clean_entry_text(raw)
-        assert "User correction:" in cleaned
-        assert "i want it to block" in cleaned
+        # Should extract the actionable content, not keep "I was..." wrapper
+        assert "block not just warn" in cleaned.lower()
         assert "I was it works" not in cleaned
 
     def test_cleans_affirmation_pattern(self):
         raw = "I fixed and pushed and it worked well -- user affirmed: perfect how is this all feeling now?"
         cleaned = clean_entry_text(raw)
-        assert "User affirmed:" in cleaned
-        assert "perfect" in cleaned
+        # Should strip "User affirmed:" prefix — the type already says what it is
+        assert "feeling" in cleaned.lower()
+
+    def test_strips_stale_prefixes(self):
+        assert "User correction:" not in clean_entry_text(
+            "User correction: Don't use mocks in tests."
+        )
+        assert "I should:" not in clean_entry_text("I should: Run tests after code changes.")
+        assert "I was corrected:" not in clean_entry_text("I was corrected: Read before you write.")
+        # But preserves the substance
+        assert "mocks" in clean_entry_text("User correction: Don't use mocks in tests.").lower()
+        assert "tests" in clean_entry_text("I should: Run tests after code changes.").lower()
 
     def test_preserves_clean_text(self):
         clean = "Use SQLite for storage -- zero dependencies, embedded, reliable."
@@ -186,7 +196,9 @@ class TestRunCuration:
             conn.close()
 
         assert row is not None
-        assert "User correction:" in row[0]
+        # Should extract actionable content, not keep "I was..." wrapper
+        assert "Y instead" in row[0]
+        assert "I was doing X" not in row[0]
         assert result["text_cleaned"] > 0
 
     def test_curation_returns_counts(self):

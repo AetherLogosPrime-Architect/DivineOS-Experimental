@@ -231,6 +231,11 @@ def register(cli: click.Group) -> None:
             trigger=trigger,
             tags=list(tags) if tags else None,
         )
+        # Mark OS engagement — feel is a thinking tool
+        from divineos.core.hud_handoff import mark_engaged
+
+        mark_engaged()
+
         # Map to a human-readable region
         region = _affect_region(valence, arousal)
         click.secho(f"[+] Affect logged ({region}): {entry_id[:8]}...", fg="cyan")

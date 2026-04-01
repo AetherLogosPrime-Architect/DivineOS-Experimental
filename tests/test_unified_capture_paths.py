@@ -1,8 +1,8 @@
 """
-Tests for unified Kiro/MCP capture paths.
+Tests for unified IDE/MCP capture paths.
 
 Validates that the merged capture system works correctly for both
-Kiro IDE and MCP server scenarios.
+IDE IDE and MCP server scenarios.
 """
 
 from divineos.core.tool_wrapper import (
@@ -83,11 +83,11 @@ class TestUnifiedCaptureFailurePath:
         assert tool_result_id is not None
 
 
-class TestKiroIntegrationWithUnified:
-    """Test Kiro integration using unified capture."""
+class TestIDEIntegrationWithUnified:
+    """Test IDE integration using unified capture."""
 
-    def test_kiro_capture_uses_unified(self):
-        """Test that KiroToolCapture uses unified capture."""
+    def test_ide_capture_uses_unified(self):
+        """Test that IDEToolCapture uses unified capture."""
         executor = get_ide_tool_executor()
         tool_use_id = executor.start_tool_execution(
             tool_name="readFile",
@@ -98,8 +98,8 @@ class TestKiroIntegrationWithUnified:
         assert tool_use_id is not None
         assert result_id is not None
 
-    def test_kiro_capture_multiple_calls(self):
-        """Test multiple Kiro captures in sequence."""
+    def test_ide_capture_multiple_calls(self):
+        """Test multiple IDE captures in sequence."""
         executor = get_ide_tool_executor()
 
         for i in range(3):
