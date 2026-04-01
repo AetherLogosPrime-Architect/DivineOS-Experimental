@@ -376,6 +376,99 @@ def register(cli: click.Group) -> None:
             click.secho(f"\n  Migrated {len(changes)} entries.", fg="green", bold=True)
         click.echo()
 
+    @cli.command("seed-export")
+    @click.option("--output", "-o", default=None, help="Output file path (default: stdout)")
+    def seed_export_cmd(output: str | None) -> None:
+        """Export current knowledge and core memory as a seed file."""
+        import json
+
+        from divineos.core.knowledge import get_connection
+        from divineos.core.memory import get_core
+
+        conn = get_connection()
+        try:
+            # Core memory
+            core = get_core()
+
+            # Active knowledge (not superseded, not archived)
+            rows = conn.execute(
+                "SELECT knowledge_type, content, confidence, maturity, tags "
+                "FROM knowledge WHERE superseded_by IS NULL "
+                "ORDER BY knowledge_type, confidence DESC"
+            ).fetchall()
+
+            knowledge = []
+            for ktype, content, conf, mat, tags_json in rows:
+                tags = json.loads(tags_json) if tags_json else []
+                # Strip session-specific tags
+                clean_tags = [
+                    t for t in tags if not t.startswith("session-") and not t.startswith("topic-")
+                ]
+                knowledge.append(
+                    {
+                        "content": content,
+                        "confidence": round(conf, 2),
+                        "maturity": mat,
+                        "tags": clean_tags,
+                        "type": ktype,
+                    }
+                )
+
+            # Lessons
+            lessons = []
+            try:
+                lesson_rows = conn.execute(
+                    "SELECT category, description, occurrences, status "
+                    "FROM lesson_tracking WHERE status IN ('active', 'improving') "
+                    "ORDER BY occurrences DESC"
+                ).fetchall()
+                for cat, desc, occ, status in lesson_rows:
+                    lessons.append(
+                        {
+                            "category": cat,
+                            "description": desc,
+                            "occurrences": occ,
+                            "status": status,
+                        }
+                    )
+            except sqlite3.OperationalError:
+                pass
+
+            # Build seed
+            from divineos.core.seed_manager import get_applied_seed_version
+
+            current_version = get_applied_seed_version() or "1.0.0"
+            # Bump patch version
+            parts = current_version.split(".")
+            parts[-1] = str(int(parts[-1]) + 1)
+            new_version = ".".join(parts)
+
+            seed = {
+                "version": new_version,
+                "created": __import__("datetime").datetime.now().isoformat() + "Z",
+                "description": "Exported from live database",
+                "core_memory": core,
+                "knowledge": knowledge,
+                "lessons": lessons,
+            }
+
+            seed_json = json.dumps(seed, indent=2, ensure_ascii=False)
+
+            if output:
+                Path(output).write_text(seed_json, encoding="utf-8")
+                click.secho(f"[+] Seed exported to {output}", fg="green")
+            else:
+                _safe_echo(seed_json)
+
+            click.secho(
+                f"  {len(knowledge)} knowledge entries, {len(lessons)} lessons, "
+                f"version {new_version}",
+                fg="bright_black",
+                err=True,
+            )
+        finally:
+            conn.close()
+
     @cli.command("hooks")
     @click.option(
         "--dir",

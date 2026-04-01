@@ -75,6 +75,57 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
     except _PHASE_ERRORS as e:
         logger.warning(f"Contradiction scan failed: {e}")
 
+    # 3e. SIS — assess and translate esoteric language in new entries
+    try:
+        from divineos.core.semantic_integrity import assess_and_translate
+        from divineos.core.knowledge import _get_connection
+
+        valid_ids = [did for did in deep_ids if did]
+        if valid_ids:
+            conn = _get_connection()
+            translated_count = 0
+            quarantined_count = 0
+            for kid in valid_ids:
+                row = conn.execute(
+                    "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (kid,)
+                ).fetchone()
+                if not row:
+                    continue
+                content, tags_json = row[0], row[1]
+                sis = assess_and_translate(content)
+                if sis["verdict"] == "TRANSLATE" and sis["changed"]:
+                    import json as _json
+
+                    tags = _json.loads(tags_json) if tags_json else []
+                    tags.append("sis-translated")
+                    conn.execute(
+                        "UPDATE knowledge SET content = ?, tags = ? WHERE knowledge_id = ?",
+                        (sis["translated"], _json.dumps(tags), kid),
+                    )
+                    translated_count += 1
+                elif sis["verdict"] == "QUARANTINE":
+                    import json as _json
+
+                    tags = _json.loads(tags_json) if tags_json else []
+                    tags.append("sis-quarantined")
+                    conn.execute(
+                        "UPDATE knowledge SET tags = ?, confidence = MIN(confidence, 0.4) "
+                        "WHERE knowledge_id = ?",
+                        (_json.dumps(tags), kid),
+                    )
+                    quarantined_count += 1
+            conn.commit()
+            conn.close()
+            if translated_count or quarantined_count:
+                parts = []
+                if translated_count:
+                    parts.append(f"{translated_count} translated")
+                if quarantined_count:
+                    parts.append(f"{quarantined_count} quarantined")
+                click.secho(f"[~] SIS: {', '.join(parts)}", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"SIS assessment failed: {e}")
+
     return 0, auto_rels
 
 

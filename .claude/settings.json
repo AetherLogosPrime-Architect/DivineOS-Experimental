@@ -76,6 +76,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pattern-anticipation.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
