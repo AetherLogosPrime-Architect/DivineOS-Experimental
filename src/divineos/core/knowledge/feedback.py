@@ -214,9 +214,12 @@ def health_check() -> dict[str, Any]:
 
         age_days = (now - entry["created_at"]) / 86400
 
-        # Zero-access entries older than 30 days decay
-        if age_days > 30 and entry["access_count"] == 0:
-            new_conf = _adjust_confidence(entry["knowledge_id"], -0.1, floor=0.2)
+        # Zero-access entries: decay based on age
+        # 14+ days: gentle decay (-0.1). 30+ days: faster decay (-0.2).
+        # These entries were extracted but never surfaced in a briefing.
+        if entry["access_count"] == 0 and age_days > 14:
+            decay = -0.2 if age_days > 30 else -0.1
+            new_conf = _adjust_confidence(entry["knowledge_id"], decay, floor=0.15)
             if new_conf is not None:
                 stale_count += 1
 

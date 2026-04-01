@@ -500,12 +500,19 @@ def run_session_finalization(
         from divineos.core.hud_state import auto_clean_goals
 
         goal_result = auto_clean_goals()
-        if goal_result["stale_archived"] or goal_result["deduped"]:
-            click.secho(
-                f"[~] Goals cleaned: {goal_result['stale_archived']} stale archived, "
-                f"{goal_result['deduped']} duplicates removed.",
-                fg="cyan",
-            )
+        if (
+            goal_result.get("completed_cleared")
+            or goal_result["stale_archived"]
+            or goal_result["deduped"]
+        ):
+            parts = []
+            if goal_result.get("completed_cleared"):
+                parts.append(f"{goal_result['completed_cleared']} completed cleared")
+            if goal_result["stale_archived"]:
+                parts.append(f"{goal_result['stale_archived']} stale archived")
+            if goal_result["deduped"]:
+                parts.append(f"{goal_result['deduped']} duplicates removed")
+            click.secho(f"[~] Goals cleaned: {', '.join(parts)}.", fg="cyan")
     except _PHASE_ERRORS as e:
         logger.warning(f"HUD snapshot save failed: {e}")
 
