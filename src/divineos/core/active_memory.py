@@ -8,6 +8,8 @@ import math
 import re
 import time
 import uuid
+
+from loguru import logger
 from typing import Any, cast
 
 from divineos.core.knowledge import get_connection
@@ -285,8 +287,8 @@ def refresh_active_memory(
                     "SELECT knowledge_id FROM knowledge WHERE layer = 'archive'"
                 ).fetchall():
                     archived_ids.add(row[0])
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(f"Failed to query archived entries: {exc}")
 
         # Score every knowledge entry (skip archived — they shouldn't surface)
         candidates = {}
