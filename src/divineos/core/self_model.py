@@ -112,16 +112,25 @@ def _get_weaknesses() -> list[dict[str, Any]]:
 
 
 def _get_emotional_baseline() -> dict[str, Any]:
-    """Current emotional state from affect log."""
-    try:
-        from divineos.core.affect_feedback import compute_affect_modifiers
+    """Current emotional state from affect log.
 
-        modifiers = compute_affect_modifiers()
+    Uses the full affect context (including quality correlation) so the
+    praise-chasing flag reflects actual evidence, not just raw valence.
+    """
+    try:
+        from divineos.core.affect_feedback import get_session_affect_context
+
+        ctx = get_session_affect_context()
+        modifiers = ctx.get("modifiers", {})
+        praise = ctx.get("praise_chasing", {})
+        # Only flag praise-chasing if the quality correlation confirmed it
+        praise_confirmed = praise.get("detected", False)
         return {
             "avg_valence": modifiers.get("avg_valence", 0.0),
             "avg_arousal": modifiers.get("avg_arousal", 0.0),
             "verification_level": modifiers.get("verification_level", "normal"),
-            "praise_chasing": modifiers.get("praise_chasing_flag", False),
+            "praise_chasing": praise_confirmed,
+            "praise_detail": praise.get("detail", "") if praise_confirmed else "",
         }
     except Exception as e:
         logger.debug("Self-model emotional baseline failed: %s", e)
@@ -224,7 +233,11 @@ def format_self_model(model: dict[str, Any]) -> str:
     tone = "positive" if v > 0.3 else "negative" if v < -0.3 else "neutral"
     lines.append(f"  Baseline: {tone} (valence: {v:.1f})")
     if emo.get("praise_chasing"):
-        lines.append("  ⚠ Praise-chasing detected — verify quality before celebrating")
+        detail = emo.get("praise_detail", "")
+        if detail:
+            lines.append(f"  ⚠ Praise-chasing detected: {detail}")
+        else:
+            lines.append("  ⚠ Praise-chasing detected — verify quality before celebrating")
 
     # Active concerns
     concerns = model.get("active_concerns", [])
