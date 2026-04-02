@@ -438,6 +438,28 @@ def _format_briefing(
         except _RETRIEVAL_ERRORS:
             pass
 
+    # Session predictions — what will I likely need?
+    try:
+        from divineos.core.predictive_session import predict_session_needs
+
+        pred_result = predict_session_needs()
+        cur_profile = pred_result.get("current_profile", {})
+        pred_list = pred_result.get("predictions", [])
+        pred_parts = []
+        if cur_profile.get("profile") not in ("unknown", None):
+            pred_parts.append(
+                f"Session type: **{cur_profile['description']}** ({cur_profile['confidence']:.0%})"
+            )
+        for pred in pred_list[:3]:
+            pred_parts.append(f"→ {pred['prediction']}")
+        if pred_parts:
+            lines.append("**Predictions:**")
+            for p in pred_parts:
+                lines.append(f"  {p}")
+            lines.append("")
+    except _RETRIEVAL_ERRORS:
+        pass
+
     # Maturity pyramid
     mat_parts = []
     for level in ("CONFIRMED", "TESTED", "HYPOTHESIS", "RAW"):

@@ -219,6 +219,23 @@ def run_feedback_cycle(
     except _PHASE_ERRORS as e:
         logger.warning(f"Clarity pipeline failed: {e}")
 
+    # 4d. Auto-file curiosities from corrections (things we got wrong = things worth investigating)
+    try:
+        from divineos.core.curiosity_engine import add_curiosity, get_open_curiosities
+
+        existing = {c["question"][:50] for c in get_open_curiosities()}
+        filed = 0
+        for correction in analysis.corrections[:5]:
+            text = correction if isinstance(correction, str) else str(correction)
+            question = f"Why did I get this wrong: {text[:80]}?"
+            if question[:50] not in existing:
+                add_curiosity(question, category="correction")
+                filed += 1
+        if filed:
+            click.secho(f"[~] Filed {filed} curiosities from corrections.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Auto-curiosity filing failed: {e}")
+
     return feedback_parts, session_feedback, clarity_summary, extra_stored
 
 
@@ -354,6 +371,22 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Warrant backfill failed: {e}")
 
+    # 5g. Drift detection — catch behavioral backsliding
+    try:
+        from divineos.core.drift_detection import run_drift_detection
+
+        drift = run_drift_detection()
+        severity = drift.get("severity", "none")
+        if severity not in ("none", None):
+            signals = drift.get("signals", [])
+            click.secho(f"[!] Drift detected ({severity}): {len(signals)} signal(s)", fg="yellow")
+            for sig in signals[:3]:
+                click.secho(
+                    f"     {sig.get('type', '?')}: {sig.get('detail', '')[:80]}", fg="yellow"
+                )
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Drift detection failed: {e}")
+
     return promoted_ids
 
 
@@ -372,6 +405,17 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
             click.secho(f"[~] Consolidated {len(merges)} clusters of related knowledge.", fg="cyan")
     except _PHASE_ERRORS as e:
         logger.warning(f"Consolidation failed: {e}")
+
+    # 6b. Knowledge compression — merge redundant entries
+    try:
+        from divineos.core.knowledge.compression import run_compression
+
+        comp_results = run_compression(strategies=["dedup"])
+        comp_total = comp_results.get("total_compressed", 0)
+        if comp_total:
+            click.secho(f"[~] Compressed {comp_total} redundant knowledge entries.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Knowledge compression failed: {e}")
 
     # 7. Refresh active memory
     promoted = 0
@@ -534,6 +578,53 @@ def run_session_finalization(
         )
     except _PHASE_ERRORS as e:
         logger.warning(f"Session metrics recording failed: {e}")
+
+    # 9b2. Auto-record skills from tool usage
+    try:
+        from divineos.core.skill_library import record_skill_use
+
+        tool_counts: dict[str, int] = {}
+        for record in records:
+            if isinstance(record, dict) and record.get("role") == "assistant":
+                for tc in record.get("content", []):
+                    if isinstance(tc, dict) and tc.get("type") == "tool_use":
+                        name = tc.get("name", "unknown")
+                        tool_counts[name] = tool_counts.get(name, 0) + 1
+
+        skills_recorded = 0
+        for tool_name, count in tool_counts.items():
+            if count >= 3:  # Only track tools used meaningfully (3+ times)
+                record_skill_use(tool_name, success=True)
+                skills_recorded += 1
+        if skills_recorded:
+            click.secho(f"[~] Recorded {skills_recorded} skills from tool usage.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Skill recording failed: {e}")
+
+    # 9b3. Affect feedback — log how affect influenced this session
+    try:
+        from divineos.core.affect_feedback import get_session_affect_context
+
+        affect_ctx = get_session_affect_context()
+        modifiers = affect_ctx.get("modifiers", {})
+        praise = affect_ctx.get("praise_chasing", {})
+        if modifiers.get("verification_level") == "careful":
+            click.secho(
+                "[!] Affect: frustration detected — verification level was CAREFUL.", fg="yellow"
+            )
+        if modifiers.get("confidence_threshold_modifier", 0) > 0:
+            click.secho(
+                f"[~] Affect: extraction threshold raised by +{modifiers['confidence_threshold_modifier']:.1f}",
+                fg="cyan",
+            )
+        if praise.get("detected"):
+            click.secho(
+                f"[!] PRAISE-CHASING [{praise['severity'].upper()}]: {praise['detail']}",
+                fg="red",
+                bold=True,
+            )
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Affect feedback failed: {e}")
 
     # 9c. Tone texture
     try:

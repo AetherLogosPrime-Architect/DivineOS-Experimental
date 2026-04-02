@@ -33,6 +33,7 @@ SLOT_ORDER = [
     "affect",
     "claims",
     "task_state",
+    "self_model",
 ]
 
 
@@ -390,6 +391,24 @@ def _build_os_engagement_slot() -> str:
     return "\n".join(lines)
 
 
+def _build_self_model_slot() -> str:
+    """Unified self-model — who I am, from evidence."""
+    try:
+        from divineos.core.self_model import build_self_model, format_self_model
+
+        model = build_self_model()
+        # Only show if there's meaningful content
+        has_content = (
+            model.get("strengths") or model.get("weaknesses") or model.get("active_concerns")
+        )
+        if not has_content:
+            return ""
+        return f"# Self-Model\n\n{format_self_model(model)}"
+    except _HUD_ERRORS as e:
+        logger.debug(f"Self-model slot failed: {e}")
+        return ""
+
+
 from divineos.core.hud_slots_extra import (  # noqa: E402
     _build_affect_slot,
     _build_claims_slot,
@@ -420,6 +439,7 @@ SLOT_BUILDERS = {
     "decision_journal": _build_decision_journal_slot,
     "affect": _build_affect_slot,
     "claims": _build_claims_slot,
+    "self_model": _build_self_model_slot,
 }
 
 
