@@ -49,6 +49,8 @@ DivineOS gives AI agents persistent memory, structured learning, and self-accoun
 | **Planning Commitments** | Track agent promises during sessions, check fulfillment at SESSION_END. |
 | **Knowledge Compression** | Three strategies: dedup (>70%), synthesis (40-70%), graph-aware clustering. |
 | **Predictive Session** | Session profile detection (build/fix/refactor/test/review/explore), recurring pattern prediction. |
+| **Knowledge Hygiene** | Automated cleanup: type audits, stale temporal decay, orphan flagging. Runs at SESSION_END. |
+| **Tuning Constants** | All behavioral levers in one file (`constants.py`): confidence, decay, scoring, maturity gates, overlap. |
 | **Drift Detection** | Lesson regressions, quality drift, correction trends — catches behavioral backsliding. |
 | **Skill Library** | Evidence-based proficiency tracking: NOVICE → DEVELOPING → COMPETENT → EXPERT. |
 | **Curiosity Engine** | Track questions worth investigating: OPEN → INVESTIGATING → ANSWERED/DORMANT. |
@@ -62,7 +64,7 @@ divineos init
 divineos briefing
 ```
 
-## CLI Commands (108 total)
+## CLI Commands (109 total)
 
 ```bash
 # Session workflow
@@ -168,6 +170,7 @@ divineos drift                   # Check behavioral drift
 divineos predict [events...]     # Predict session needs
 divineos affect-feedback         # How affect influences behavior
 divineos knowledge-compress      # Compress redundant knowledge
+divineos knowledge-hygiene       # Audit types, sweep stale, flag orphans
 
 # Skills & curiosity
 divineos skill list              # Show tracked skills
@@ -188,7 +191,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (108 commands across 22 modules)
+  cli/                         CLI package (109 commands across 23 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -200,21 +203,22 @@ src/divineos/
     hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
     directive_commands.py      directive management
-    relationship_commands.py   knowledge relationships and graph
+    relationship_commands.py   relationships (backward-compat shim → entity_commands)
     knowledge_health_commands.py  health, distill, migrate, backfill
-    question_commands.py       Open question tracking commands
+    question_commands.py       Questions (backward-compat shim → entity_commands)
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
-    commitment_commands.py     commitment add/list/done/review/clear
-    selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback
-    temporal_commands.py       changes (temporal knowledge queries)
+    commitment_commands.py     commitments (backward-compat shim → entity_commands)
+    selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
+    entity_commands.py         commitments, temporal, questions, relationships (consolidated)
+    temporal_commands.py       changes (backward-compat shim → entity_commands)
     event_commands.py          emit, verify-enforcement
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
   core/
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
-    ledger_class.py            OOP Ledger wrapper for integration code
+    ledger_class.py            OOP Ledger wrapper (backward-compat shim → ledger)
     ledger_verify.py           Verification, cleanup, and export
     fidelity.py                Manifest-receipt integrity verification
     memory.py                  Core memory + active memory + importance scoring
@@ -225,11 +229,12 @@ src/divineos/
     hud.py                     HUD slot builders and assembly
     hud_state.py               Goal/plan/health state management
     hud_handoff.py             Session handoff, engagement, goal extraction
-    hud_slots_extra.py         Additional HUD slot builders
+    hud_slots_extra.py         Additional HUD slot builders (backward-compat shim → hud)
+    constants.py               Central tuning constants (all behavioral levers in one place)
     knowledge/                 Knowledge engine sub-package
       _base.py                 DB connection, schema, public API
-      _text.py                 Text analysis utilities (FTS, overlap, noise)
-      _noise.py                Extraction noise filtering
+      _text.py                 Text analysis, noise filtering, FTS, overlap (consolidated)
+      _noise.py                Extraction noise (backward-compat shim → _text)
       crud.py                  Knowledge CRUD operations
       extraction.py            Knowledge extraction from sessions
       deep_extraction.py       Deep multi-pass extraction
@@ -246,18 +251,23 @@ src/divineos/
       signal_trust.py          Signal trust tiers (MEASURED > BEHAVIORAL > SELF_REPORTED)
     logic/                     Formal logic sub-package
       warrants.py              Evidence backing for knowledge claims
-      relations.py             Logical relations (supports/contradicts/requires)
-      consistency.py           Contradiction and cycle detection
-      inference.py             Forward-chaining inference engine
-      validity_gate.py         Blocks under-supported knowledge
-      defeat_lessons.py        Learn from superseded/contradicted knowledge
-      session_logic.py         Per-session logic pass (SESSION_END integration)
-      logic_summary.py         Logic health summary for HUD
-      warrant_backfill.py      Backfill missing warrants
+      logic_validation.py      Consistency, validity gate, defeat lessons (consolidated)
+      logic_reasoning.py       Inference engine, relations, warrant backfill (consolidated)
+      logic_session.py         Session logic pass and logic summary (consolidated)
+      relations.py             Logical relations (backward-compat shim → logic_reasoning)
+      consistency.py           Contradiction detection (backward-compat shim → logic_validation)
+      inference.py             Inference engine (backward-compat shim → logic_reasoning)
+      validity_gate.py         Validity gate (backward-compat shim → logic_validation)
+      defeat_lessons.py        Defeat lessons (backward-compat shim → logic_validation)
+      session_logic.py         Session logic (backward-compat shim → logic_session)
+      logic_summary.py         Logic summary (backward-compat shim → logic_session)
+      warrant_backfill.py      Warrant backfill (backward-compat shim → logic_reasoning)
     questions.py               Open question tracking and resolution
-    quality_gate.py            Session quality assessment before extraction
-    knowledge_contradiction.py Contradiction detection and resolution
-    knowledge_maturity.py      RAW → HYPOTHESIS → TESTED → CONFIRMED lifecycle
+    quality_gate.py            Session quality assessment (backward-compat shim → pipeline_gates)
+    knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle (consolidated)
+    knowledge_hygiene.py       Knowledge hygiene (backward-compat shim → knowledge_maintenance)
+    knowledge_contradiction.py Contradiction detection (backward-compat shim → knowledge_maintenance)
+    knowledge_maturity.py      Maturity lifecycle (backward-compat shim → knowledge_maintenance)
     guardrails.py              Runtime limits and violation tracking
     seed_manager.py            Seed versioning, validation, merge/apply
     anticipation.py            Pattern anticipation engine
@@ -265,7 +275,7 @@ src/divineos/
     tone_texture.py            Emotional arc and tone classification
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
-    session_tracker.py         Session state tracking
+    session_tracker.py         Session state (backward-compat shim → session_manager)
     session_checkpoint.py      Periodic saves and context monitoring
     enforcement.py             CLI-level event capture and signal handling
     enforcement_verifier.py    Enforcement setup verification
@@ -275,8 +285,9 @@ src/divineos/
     error_handling.py          Shared error handling utilities
     event_verifier.py          Event integrity verification
     loop_prevention.py         Loop detection and prevention
-    affect_log.py              Valence-arousal affect state tracking
-    affect_feedback.py         Affect feedback loop (praise-chasing, frustration, extraction thresholds)
+    affect.py                  Affect tracking and feedback loop (consolidated)
+    affect_log.py              Valence-arousal affect state (backward-compat shim → affect)
+    affect_feedback.py         Affect feedback loop (backward-compat shim → affect)
     trust_tiers.py             Signal trust weighting (MEASURED > BEHAVIORAL > SELF_REPORTED)
     planning_commitments.py    Commitment tracking and fulfillment checking
     skill_library.py           Evidence-based skill proficiency tracking
@@ -295,12 +306,12 @@ src/divineos/
     session_analyzer.py        Session parsing and signal detection
     session_discovery.py       Auto-discover sessions from ledger data
     quality_checks.py          7 measurable quality checks
-    quality_checks_extra.py    Additional quality checks
+    quality_checks_extra.py    Additional quality checks (backward-compat shim → quality_checks)
     record_extraction.py       JSONL record parsing helpers
     quality_storage.py         Quality report DB storage
     quality_trends.py          Session quality trending over time
     session_features.py        Timeline, files, activity, error recovery
-    session_features_extra.py  Additional session feature extraction
+    session_features_extra.py  Additional session features (backward-compat shim → session_features)
     tone_tracking.py           Tone shift detection and classification
     feature_storage.py         Feature result DB storage
   agent_integration/           Agent integration sub-package
@@ -366,7 +377,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,612+ tests (real DB, no mocks)
+tests/                         2,645+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks
   load-briefing.sh             Marks briefing as loaded
