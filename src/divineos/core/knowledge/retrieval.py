@@ -7,6 +7,13 @@ import sqlite3
 
 from loguru import logger
 
+from divineos.core.constants import (
+    CONFIDENCE_RETRIEVAL_FLOOR,
+    RETRIEVAL_WEIGHT_ACCESS,
+    RETRIEVAL_WEIGHT_CONFIDENCE,
+    RETRIEVAL_WEIGHT_RECENCY,
+    SECONDS_PER_DAY,
+)
 from divineos.core.knowledge._base import (
     _KNOWLEDGE_COLS,
     _get_connection,
@@ -95,7 +102,7 @@ def generate_briefing(
 
     conn = _get_connection()
     try:
-        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND confidence >= 0.2 AND content NOT LIKE '[SUPERSEDED]%'"  # nosec B608
+        query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_RETRIEVAL_FLOOR} AND content NOT LIKE '[SUPERSEDED]%'"  # nosec B608
         params: list[Any] = []
 
         if include_types:
@@ -106,7 +113,7 @@ def generate_briefing(
         # Layer filtering
         if layer == "archive":
             # Archive: show regardless of confidence (they were archived, not deleted)
-            query = query.replace("AND confidence >= 0.2 ", "")
+            query = query.replace(f"AND confidence >= {CONFIDENCE_RETRIEVAL_FLOOR} ", "")
             query += " AND layer = 'archive'"
         elif layer == "stable":
             query += " AND layer = 'stable'"
@@ -165,7 +172,7 @@ def generate_briefing(
     # Score each entry
     for entry in entries:
         access_score = min(entry["access_count"], max_access) / max_access
-        age_days = (now - entry["updated_at"]) / 86400
+        age_days = (now - entry["updated_at"]) / SECONDS_PER_DAY
 
         half_life = half_lives.get(entry["knowledge_type"], 7.0)
         if half_life is None:
@@ -173,7 +180,11 @@ def generate_briefing(
         else:
             recency = 2 ** (-age_days / half_life)
 
-        score = entry["confidence"] * 0.4 + access_score * 0.3 + recency * 0.3
+        score = (
+            entry["confidence"] * RETRIEVAL_WEIGHT_CONFIDENCE
+            + access_score * RETRIEVAL_WEIGHT_ACCESS
+            + recency * RETRIEVAL_WEIGHT_RECENCY
+        )
 
         # Directives always surface — they're the operating principles
         if entry["knowledge_type"] == "DIRECTIVE":
@@ -218,7 +229,7 @@ def generate_briefing(
     try:
         mat_rows = mat_conn.execute(
             "SELECT maturity, COUNT(*) FROM knowledge "
-            "WHERE superseded_by IS NULL AND confidence >= 0.2 "
+            f"WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_RETRIEVAL_FLOOR} "
             "GROUP BY maturity"
         ).fetchall()
         mat_counts = {r[0]: r[1] for r in mat_rows}

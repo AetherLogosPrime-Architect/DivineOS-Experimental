@@ -5,6 +5,22 @@ from typing import Any, cast
 
 from loguru import logger
 
+from divineos.core.constants import (
+    CONFIDENCE_LOW,
+    DECAY_AGGRESSIVE,
+    DECAY_FLOOR,
+    DECAY_GENTLE,
+    DECAY_HEAVY,
+    DECAY_MILD,
+    DECAY_STANDARD,
+    MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
+    MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE,
+    MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
+    OVERLAP_DUPLICATE,
+    SECONDS_PER_DAY,
+    TIME_STALE_KNOWLEDGE_DAYS,
+    TIME_TEMPORAL_DECAY_DAYS,
+)
 from divineos.core.knowledge._base import (
     _get_connection,
 )
@@ -87,7 +103,7 @@ def compute_effectiveness(entry: dict[str, Any]) -> dict[str, Any]:
         lessons = get_lessons()
         for lesson in lessons:
             overlap = _compute_overlap(entry.get("content", ""), lesson["description"])
-            if overlap > 0.4:
+            if overlap > OVERLAP_DUPLICATE:
                 if lesson["status"] in ("improving", "resolved"):
                     return {
                         "status": "effective",
@@ -169,7 +185,7 @@ def health_check() -> dict[str, Any]:
                 continue
             if entry["content"].strip().lower().startswith(_raw_prefixes):
                 continue
-            new_conf = _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
+            new_conf = _adjust_confidence(entry["knowledge_id"], DECAY_MILD, cap=1.0)
             if new_conf is not None:
                 result["confirmed_boosted"] += 1
 
@@ -182,7 +198,7 @@ def health_check() -> dict[str, Any]:
         if lesson["occurrences"] >= 3:
             for mistake in mistakes:
                 overlap = _compute_overlap(lesson["description"], mistake["content"])
-                if overlap > 0.4:
+                if overlap > OVERLAP_DUPLICATE:
                     current = mistake["confidence"]
                     if current < 0.95:
                         _adjust_confidence(mistake["knowledge_id"], 0.95 - current)
@@ -192,16 +208,16 @@ def health_check() -> dict[str, Any]:
     # 3. Resolve old improving lessons — hasn't come back in 30 days = fixed
     improving_lessons = get_lessons(status="improving")
     for lesson in improving_lessons:
-        age_days = (now - lesson["last_seen"]) / 86400
-        if age_days > 30:
+        age_days = (now - lesson["last_seen"]) / SECONDS_PER_DAY
+        if age_days > TIME_STALE_KNOWLEDGE_DAYS:
             _resolve_lesson(lesson["lesson_id"])
             result["resolved_lessons"] += 1
             # Gently lower the associated MISTAKE — the problem went away,
             # but the knowledge is still worth keeping in case it comes back
             for mistake in mistakes:
                 overlap = _compute_overlap(lesson["description"], mistake["content"])
-                if overlap > 0.4:
-                    _adjust_confidence(mistake["knowledge_id"], -0.05, floor=0.5)
+                if overlap > OVERLAP_DUPLICATE:
+                    _adjust_confidence(mistake["knowledge_id"], -DECAY_MILD, floor=0.5)
                     break
 
     # 4. Stale knowledge — unused entries lose confidence over time
@@ -212,28 +228,28 @@ def health_check() -> dict[str, Any]:
         if entry["knowledge_type"] == "DIRECTIVE":
             continue
 
-        age_days = (now - entry["created_at"]) / 86400
+        age_days = (now - entry["created_at"]) / SECONDS_PER_DAY
 
         # Zero-access entries: decay based on age
-        # 14+ days: gentle decay (-0.1). 30+ days: faster decay (-0.2).
+        # 14+ days: gentle decay. 30+ days: faster decay.
         # These entries were extracted but never surfaced in a briefing.
-        if entry["access_count"] == 0 and age_days > 14:
-            decay = -0.2 if age_days > 30 else -0.1
+        if entry["access_count"] == 0 and age_days > TIME_TEMPORAL_DECAY_DAYS:
+            decay = -DECAY_AGGRESSIVE if age_days > TIME_STALE_KNOWLEDGE_DAYS else -DECAY_STANDARD
             new_conf = _adjust_confidence(entry["knowledge_id"], decay, floor=0.15)
             if new_conf is not None:
                 stale_count += 1
 
         # Time-sensitive language older than 14 days decays faster
-        elif age_days > 14 and _has_temporal_markers(entry["content"]):
-            new_conf = _adjust_confidence(entry["knowledge_id"], -0.05, floor=0.3)
+        elif age_days > TIME_TEMPORAL_DECAY_DAYS and _has_temporal_markers(entry["content"]):
+            new_conf = _adjust_confidence(entry["knowledge_id"], -DECAY_MILD, floor=DECAY_FLOOR)
             if new_conf is not None:
                 temporal_decay_count += 1
 
     # 5. High contradiction count — entries contradicted 3+ times are suspect
     contradiction_flagged = 0
     for entry in all_entries:
-        if entry.get("contradiction_count", 0) >= 3 and entry["confidence"] > 0.4:
-            _adjust_confidence(entry["knowledge_id"], -0.2, floor=0.3)
+        if entry.get("contradiction_count", 0) >= 3 and entry["confidence"] > CONFIDENCE_LOW:
+            _adjust_confidence(entry["knowledge_id"], -DECAY_AGGRESSIVE, floor=DECAY_FLOOR)
             contradiction_flagged += 1
 
     # 6. Abandoned knowledge — accessed but then left untouched for 14+ days
@@ -245,9 +261,9 @@ def health_check() -> dict[str, Any]:
         if entry["access_count"] < 1:
             continue
         # Check time since last update (proxy for last meaningful interaction)
-        days_since_update = (now - entry["updated_at"]) / 86400
-        if days_since_update > 14 and entry["confidence"] > 0.3:
-            new_conf = _adjust_confidence(entry["knowledge_id"], -0.02, floor=0.3)
+        days_since_update = (now - entry["updated_at"]) / SECONDS_PER_DAY
+        if days_since_update > TIME_TEMPORAL_DECAY_DAYS and entry["confidence"] > DECAY_FLOOR:
+            new_conf = _adjust_confidence(entry["knowledge_id"], -DECAY_GENTLE, floor=DECAY_FLOOR)
             if new_conf is not None:
                 abandoned_count += 1
 
@@ -268,7 +284,7 @@ def health_check() -> dict[str, Any]:
         if entry.get("superseded_by"):
             continue
         if _is_extraction_noise(entry["content"], entry["knowledge_type"]):
-            new_conf = _adjust_confidence(entry["knowledge_id"], -0.3, floor=0.1)
+            new_conf = _adjust_confidence(entry["knowledge_id"], -DECAY_HEAVY, floor=0.1)
             if new_conf is not None:
                 noise_penalized += 1
     result["noise_penalized"] = noise_penalized
@@ -285,11 +301,11 @@ def health_check() -> dict[str, Any]:
         ).fetchall()
         for kid, maturity, confidence in high_maturity:
             new_maturity = None
-            if maturity == "CONFIRMED" and confidence < 0.8:
+            if maturity == "CONFIRMED" and confidence < MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE:
                 new_maturity = "RAW"
-            elif maturity == "TESTED" and confidence < 0.5:
+            elif maturity == "TESTED" and confidence < MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE:
                 new_maturity = "RAW"
-            elif maturity == "HYPOTHESIS" and confidence < 0.4:
+            elif maturity == "HYPOTHESIS" and confidence < MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE:
                 new_maturity = "RAW"
             if new_maturity:
                 conn.execute(

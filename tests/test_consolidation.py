@@ -792,7 +792,8 @@ class TestDeepExtractKnowledge:
         combined = " ".join(p["content"] for p in decision_entries)
         assert "sqlite" in combined.lower()
 
-    def test_extracts_encouragements_with_context(self):
+    def test_pure_affirmation_encouragement_filtered(self):
+        """Pure affirmation encouragements should be filtered as noise, not stored as PRINCIPLE."""
         analysis = _MockAnalysis()
         analysis.encouragements = [_MockSignal("perfect that's exactly right")]
         analysis.user_message_texts = ["perfect that's exactly right"]
@@ -818,8 +819,8 @@ class TestDeepExtractKnowledge:
         deep_extract_knowledge(analysis, records)
         principles = get_knowledge(knowledge_type="PRINCIPLE")
         enc_entries = [p for p in principles if "encouragement" in " ".join(p["tags"]).lower()]
-        assert len(enc_entries) >= 1
-        assert enc_entries[0]["source"] == "DEMONSTRATED"
+        # Pure affirmations like "perfect that's exactly right" are noise, not knowledge
+        assert len(enc_entries) == 0
 
     def test_topic_tags_applied(self):
         analysis = _MockAnalysis()
