@@ -71,7 +71,7 @@ def save_handoff_note(
     return path
 
 
-_HANDOFF_EXPIRY_SECONDS = 172800  # 48 hours
+_HANDOFF_EXPIRY_SECONDS = 43200  # 12 hours — older handoffs are from a different context
 
 
 def load_handoff_note() -> dict[str, Any] | None:

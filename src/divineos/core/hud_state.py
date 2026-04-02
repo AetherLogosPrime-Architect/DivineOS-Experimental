@@ -143,12 +143,13 @@ def complete_goal(text: str) -> bool:
     return found
 
 
-def auto_clean_goals(max_age_days: float = 3.0) -> dict[str, int]:
+def auto_clean_goals(max_age_days: float = 1.0) -> dict[str, int]:
     """Auto-clean goals at session end.
 
     - Completed goals are removed from the list entirely
     - Active goals older than max_age_days are marked done (stale)
     - Duplicate/near-duplicate goals are deduplicated (keep newest)
+    - Goals that are subsets of newer goals are removed (superseded)
 
     Returns counts of actions taken.
     """
@@ -175,21 +176,30 @@ def auto_clean_goals(max_age_days: float = 3.0) -> dict[str, int]:
             goal["status"] = "done"
             stale_archived += 1
 
-    # Deduplicate: if two active goals share 60%+ words, keep the newer one
+    # Deduplicate: word overlap OR substring containment
     active = [g for g in goals if g.get("status") == "active"]
     to_dedup: set[int] = set()
     for i, g1 in enumerate(active):
         if i in to_dedup:
             continue
-        words1 = set(g1.get("text", "").lower().split())
+        text1 = g1.get("text", "").lower()
+        words1 = set(text1.split())
         for j in range(i + 1, len(active)):
             if j in to_dedup:
                 continue
-            words2 = set(active[j].get("text", "").lower().split())
+            text2 = active[j].get("text", "").lower()
+            words2 = set(text2.split())
             if not words1 or not words2:
                 continue
+
+            # Word overlap check
             overlap = len(words1 & words2) / max(len(words1 | words2), 1)
-            if overlap > 0.6:
+
+            # Substring containment: one goal's core text inside another
+            short, long = (text1, text2) if len(text1) < len(text2) else (text2, text1)
+            is_subset = len(short) > 10 and short[:40] in long
+
+            if overlap > 0.6 or is_subset:
                 older = i if g1.get("added_at", 0) < active[j].get("added_at", 0) else j
                 to_dedup.add(older)
                 deduped += 1

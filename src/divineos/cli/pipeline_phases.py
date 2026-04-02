@@ -226,7 +226,13 @@ def run_feedback_cycle(
         existing = {c["question"][:50] for c in get_open_curiosities()}
         filed = 0
         for correction in analysis.corrections[:5]:
-            text = correction if isinstance(correction, str) else str(correction)
+            # Extract the actual text content, not the object repr
+            text = getattr(correction, "content", None)
+            if text is None:
+                text = correction if isinstance(correction, str) else str(correction)
+            # Skip if it's still a repr or too short to be useful
+            if text.startswith("UserSignal(") or len(text) < 15:
+                continue
             question = f"Why did I get this wrong: {text[:80]}?"
             if question[:50] not in existing:
                 add_curiosity(question, category="correction")
@@ -417,6 +423,23 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
     except _PHASE_ERRORS as e:
         logger.warning(f"Knowledge compression failed: {e}")
 
+    # 6c. Clean goals BEFORE refreshing core memory — stale goals pollute priorities
+    try:
+        from divineos.core.hud_state import auto_clean_goals
+
+        goal_result = auto_clean_goals()
+        goal_parts = []
+        if goal_result.get("completed_cleared"):
+            goal_parts.append(f"{goal_result['completed_cleared']} completed cleared")
+        if goal_result["stale_archived"]:
+            goal_parts.append(f"{goal_result['stale_archived']} stale archived")
+        if goal_result["deduped"]:
+            goal_parts.append(f"{goal_result['deduped']} duplicates removed")
+        if goal_parts:
+            click.secho(f"[~] Goals cleaned: {', '.join(goal_parts)}.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Goal cleanup failed: {e}")
+
     # 7. Refresh active memory
     promoted = 0
     demoted = 0
@@ -428,7 +451,7 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
     except _PHASE_ERRORS as e:
         logger.warning(f"Memory refresh failed: {e}")
 
-    # 7b. Refresh core memory
+    # 7b. Refresh core memory (now reads from cleaned goals)
     try:
         from divineos.core.core_memory_refresh import refresh_core_memory
 
@@ -539,24 +562,6 @@ def run_session_finalization(
         clear_session_plan()
         clear_engagement()
         click.secho("[~] HUD snapshot saved.", fg="cyan")
-
-        # Auto-clean stale and duplicate goals
-        from divineos.core.hud_state import auto_clean_goals
-
-        goal_result = auto_clean_goals()
-        if (
-            goal_result.get("completed_cleared")
-            or goal_result["stale_archived"]
-            or goal_result["deduped"]
-        ):
-            parts = []
-            if goal_result.get("completed_cleared"):
-                parts.append(f"{goal_result['completed_cleared']} completed cleared")
-            if goal_result["stale_archived"]:
-                parts.append(f"{goal_result['stale_archived']} stale archived")
-            if goal_result["deduped"]:
-                parts.append(f"{goal_result['deduped']} duplicates removed")
-            click.secho(f"[~] Goals cleaned: {', '.join(parts)}.", fg="cyan")
     except _PHASE_ERRORS as e:
         logger.warning(f"HUD snapshot save failed: {e}")
 
