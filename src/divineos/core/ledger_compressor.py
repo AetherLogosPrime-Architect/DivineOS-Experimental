@@ -207,3 +207,72 @@ def vacuum_ledger() -> dict[str, Any]:
         }
     finally:
         conn.close()
+
+
+# ─── Size Guard ─────────────────────────────────────────────────────
+
+
+# Default max ledger size: 50 GB. User has 1.37 TB but doesn't want garbage.
+_DEFAULT_MAX_SIZE_GB = 50.0
+
+
+def get_ledger_size_mb() -> float:
+    """Get the current ledger database file size in MB."""
+    from divineos.core._ledger_base import _get_db_path
+
+    db_path = _get_db_path()
+    if not db_path.exists():
+        return 0.0
+    return db_path.stat().st_size / (1024 * 1024)
+
+
+def check_ledger_size(max_size_gb: float = _DEFAULT_MAX_SIZE_GB) -> dict[str, Any]:
+    """Check if ledger exceeds the size limit.
+
+    Returns status and size info. Does NOT auto-compress — the caller decides.
+    """
+    size_mb = get_ledger_size_mb()
+    max_mb = max_size_gb * 1024
+    usage_pct = (size_mb / max_mb * 100) if max_mb > 0 else 0
+
+    return {
+        "size_mb": round(size_mb, 1),
+        "max_size_gb": max_size_gb,
+        "usage_percent": round(usage_pct, 1),
+        "over_limit": size_mb > max_mb,
+        "warning": size_mb > (max_mb * 0.8),  # Warn at 80%
+    }
+
+
+def auto_compress_if_needed(
+    max_size_gb: float = _DEFAULT_MAX_SIZE_GB,
+    retention_days: int = _DEFAULT_RETENTION_DAYS,
+) -> dict[str, Any] | None:
+    """Auto-compress and vacuum if ledger exceeds 80% of size limit.
+
+    Returns compression result if triggered, None if not needed.
+    """
+    status = check_ledger_size(max_size_gb)
+
+    if not status["warning"]:
+        return None
+
+    logger.info(
+        "Ledger at %.1f MB (%.1f%% of %.0f GB limit) — auto-compressing",
+        status["size_mb"],
+        status["usage_percent"],
+        max_size_gb,
+    )
+
+    # Aggressively compress if over limit — reduce retention to 3 days
+    if status["over_limit"]:
+        retention_days = min(retention_days, 3)
+
+    result = compress_ledger(retention_days=retention_days)
+    if result["compressed"] > 0:
+        vac = vacuum_ledger()
+        result["vacuum"] = vac
+
+    result["trigger"] = "over_limit" if status["over_limit"] else "warning_80pct"
+    result["size_before_check_mb"] = status["size_mb"]
+    return result

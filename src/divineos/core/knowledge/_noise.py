@@ -204,12 +204,14 @@ def _is_raw_quote_noise(stripped: str, stripped_lower: str) -> bool:
         stripped_lower,
     ):
         return True
-    if re.match(r"lets?\s+(commit|push|keep|do|try|fix|run|check|look)\b", stripped_lower):
+    if re.search(
+        r"\blets?\s+(commit|push|keep|do|try|fix|run|check|look|merge|ship)\b", stripped_lower
+    ):
         return True
-    if re.match(
-        r"(ill go with|i got|i just|i was just|i tried|i need my|"
+    if re.search(
+        r"\b(ill go with|i got|i just|i was just|i tried|i need my|"
         r"we need to (clean|commit|push|fix|run|check)|"
-        r"how (does|is|do|are) (it|this|that|everything))",
+        r"how (does|is|do|are) (it|this|that|everything))\b",
         stripped_lower,
     ):
         return True
@@ -254,7 +256,54 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         if _is_raw_quote_noise(stripped, stripped_lower):
             return True
 
+    # Positive signal check: PRINCIPLE and BOUNDARY must contain prescriptive
+    # or declarative structure. Raw quotes lack this. Without it, downgrade
+    # happens in the caller — here we just flag it as noise.
+    if knowledge_type in ("PRINCIPLE", "BOUNDARY"):
+        if not _has_prescriptive_signal(stripped_lower):
+            return True
+
     return False
+
+
+# ─── Prescriptive Signal Detection ──────────────────────────────────
+
+
+_PRESCRIPTIVE_PATTERNS = re.compile(
+    r"\b("
+    # Obligation / prohibition
+    r"should|must|always|never|do not|don't|cannot|can't|"
+    # Conditional / causal structure
+    r"if .+ then|when .+ then|because|in order to|so that|"
+    # Rules and preferences
+    r"prefer .+ over|rule|principle|directive|requirement|"
+    # Declarative knowledge patterns
+    r"is (never|always|only|required|forbidden|mandatory)|"
+    # Comparative / evaluative
+    r"better than|worse than|instead of|rather than|"
+    # Lessons learned
+    r"lesson|learned|mistake|corrected|fixed|broken|"
+    # Needs / importance
+    r"needs? (work|fixing|attention|improvement|to be)|still needs|"
+    # Identity / self-knowledge
+    r"i am|i need to|i will|i refuse|i commit to"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _has_prescriptive_signal(content_lower: str) -> bool:
+    """Check if content has at least one signal that it's a real principle.
+
+    Principles are prescriptive or declarative statements about how things
+    should be. Raw user quotes and conversational fragments lack these
+    signals. Without at least one, content isn't a principle — it's noise.
+    """
+    # Short content gets a pass — compact statements are often principles
+    if len(content_lower.split()) <= 12:
+        return True
+
+    return bool(_PRESCRIPTIVE_PATTERNS.search(content_lower))
 
 
 # ─── Temporal Markers ────────────────────────────────────────────────
