@@ -111,7 +111,10 @@ def get_session_history(limit: int = 10) -> list[dict[str, Any]]:
             (limit,),
         ).fetchall()
         return [{"content": r[0], "created_at": r[1]} for r in rows]
-    except Exception:
+    except Exception as e:
+        from loguru import logger
+
+        logger.debug("Session history fetch failed: %s", e)
         return []
     finally:
         conn.close()

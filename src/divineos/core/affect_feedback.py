@@ -39,7 +39,10 @@ def compute_affect_modifiers(
         from divineos.core.affect_log import get_affect_summary
 
         summary = get_affect_summary(limit=lookback)
-    except Exception:
+    except Exception as e:
+        from loguru import logger
+
+        logger.debug("Affect summary fetch failed: %s", e)
         return _default_modifiers()
 
     if summary["count"] == 0:

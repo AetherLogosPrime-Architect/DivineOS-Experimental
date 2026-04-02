@@ -62,7 +62,7 @@ divineos init
 divineos briefing
 ```
 
-## CLI Commands (90 total)
+## CLI Commands (108 total)
 
 ```bash
 # Session workflow
@@ -188,7 +188,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (90 commands across 22 modules)
+  cli/                         CLI package (108 commands across 22 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -277,6 +277,7 @@ src/divineos/
     loop_prevention.py         Loop detection and prevention
     affect_log.py              Valence-arousal affect state tracking
     affect_feedback.py         Affect feedback loop (praise-chasing, frustration, extraction thresholds)
+    trust_tiers.py             Signal trust weighting (MEASURED > BEHAVIORAL > SELF_REPORTED)
     planning_commitments.py    Commitment tracking and fulfillment checking
     skill_library.py           Evidence-based skill proficiency tracking
     curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)

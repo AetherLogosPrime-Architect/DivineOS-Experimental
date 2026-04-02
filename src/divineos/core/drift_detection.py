@@ -43,7 +43,10 @@ def detect_lesson_regressions(lookback: int = 5) -> list[dict[str, Any]]:
                LIMIT ?""",
             (lookback * 10,),
         ).fetchall()
-    except Exception:
+    except Exception as e:
+        from loguru import logger
+
+        logger.debug("Lesson regression query failed: %s", e)
         return []
     finally:
         conn.close()
@@ -90,7 +93,10 @@ def _get_session_payloads(limit: int = 10) -> list[str]:
             else:
                 payloads.append(str(payload))
         return payloads
-    except Exception:
+    except Exception as e:
+        from loguru import logger
+
+        logger.debug("Session payload fetch failed: %s", e)
         return []
 
 
