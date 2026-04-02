@@ -169,8 +169,10 @@ def get_session_affect_context() -> dict[str, Any]:
             if history:
                 scores = [h.get("overall_score", 0.7) for h in history]
                 praise_result = detect_praise_chasing(modifiers["avg_valence"], scores)
-        except Exception:
-            pass
+        except Exception as e:
+            from loguru import logger
+
+            logger.debug("Praise-chasing detection failed: %s", e)
 
     return {
         "modifiers": modifiers,

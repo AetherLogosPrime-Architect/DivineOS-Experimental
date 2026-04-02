@@ -29,6 +29,10 @@ _BYPASS_COMMANDS = frozenset(
         "affect",
         "checkpoint",
         "context-status",
+        "self-model",
+        "drift",
+        "predict",
+        "affect-feedback",
     }
 )
 
@@ -93,6 +97,7 @@ from divineos.cli import (  # noqa: E402
     memory_commands,
     question_commands,
     relationship_commands,
+    selfmodel_commands,
     temporal_commands,
 )
 
@@ -110,6 +115,7 @@ hud_commands.register(cli)
 event_commands.register(cli)
 knowledge_health_commands.register(cli)
 question_commands.register(cli)
+selfmodel_commands.register(cli)
 temporal_commands.register(cli)
 
 if __name__ == "__main__":
