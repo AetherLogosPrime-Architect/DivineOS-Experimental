@@ -25,6 +25,28 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.constants import (
+    CONFIDENCE_DEMOTE_CAP,
+    CONFIDENCE_ORPHAN_DEMOTE,
+    CONFIDENCE_RETRIEVAL_FLOOR,
+    DECAY_FLOOR,
+    DECAY_MODERATE,
+    DECAY_STANDARD,
+    HYGIENE_MIN_AGE_DAYS,
+    HYGIENE_ORPHAN_MIN_SESSIONS,
+    HYGIENE_STALE_AGE_DAYS,
+    MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
+    MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
+    MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE,
+    MATURITY_RAW_TO_HYPOTHESIS_CORROBORATION,
+    MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
+    MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+    OVERLAP_DUPLICATE,
+    OVERLAP_NEAR_IDENTICAL,
+    OVERLAP_STRONG,
+    SECONDS_PER_DAY,
+)
+
 
 # ─── Contradiction Detection ────────────────────────────────────────────────
 
@@ -204,7 +226,7 @@ def _classify_contradiction(
     existing_temporal = _has_temporal_change(existing_content)
 
     # High overlap with different negation states = contradiction
-    if overlap >= 0.5:
+    if overlap >= OVERLAP_STRONG:
         # Temporal: one references past state, other references current
         if new_temporal or existing_temporal:
             return "TEMPORAL"
@@ -214,7 +236,7 @@ def _classify_contradiction(
             return "DIRECT"
 
         # Very high overlap = likely supersession (updated version)
-        if overlap >= 0.8:
+        if overlap >= OVERLAP_NEAR_IDENTICAL:
             return "SUPERSESSION"
 
     return None
@@ -250,7 +272,7 @@ def scan_for_contradictions(
         existing_words = _word_set(entry.get("content", ""))
         overlap = _compute_overlap(new_words, existing_words)
 
-        if overlap < 0.4:
+        if overlap < OVERLAP_DUPLICATE:
             continue
 
         contradiction_type = _classify_contradiction(new_content, entry.get("content", ""), overlap)
@@ -315,8 +337,8 @@ def resolve_contradiction(
         conn = _get_connection()
         try:
             conn.execute(
-                "UPDATE knowledge SET confidence = MAX(0.3, confidence - 0.15), updated_at = ? WHERE knowledge_id = ?",
-                (time.time(), match.existing_id),
+                "UPDATE knowledge SET confidence = MAX(?, confidence - ?), updated_at = ? WHERE knowledge_id = ?",
+                (DECAY_FLOOR, DECAY_MODERATE, time.time(), match.existing_id),
             )
             conn.commit()
         finally:
@@ -333,9 +355,9 @@ def run_knowledge_hygiene(
     demote_noise: bool = True,
     decay_stale: bool = True,
     flag_orphans: bool = True,
-    min_age_days: float = 1.0,
-    stale_age_days: float = 14.0,
-    orphan_min_sessions: int = 3,
+    min_age_days: float = HYGIENE_MIN_AGE_DAYS,
+    stale_age_days: float = HYGIENE_STALE_AGE_DAYS,
+    orphan_min_sessions: int = HYGIENE_ORPHAN_MIN_SESSIONS,
 ) -> dict[str, Any]:
     """Run all hygiene operations on the knowledge store.
 
@@ -356,8 +378,9 @@ def run_knowledge_hygiene(
     try:
         rows = conn.execute(
             f"SELECT {_KNOWLEDGE_COLS} FROM knowledge "
-            "WHERE superseded_by IS NULL AND confidence >= 0.2 "
-            "ORDER BY updated_at DESC"
+            "WHERE superseded_by IS NULL AND confidence >= ? "
+            "ORDER BY updated_at DESC",
+            (CONFIDENCE_RETRIEVAL_FLOOR,),
         ).fetchall()
         entries = [_row_to_dict(row) for row in rows]
         report["entries_scanned"] = len(entries)
@@ -365,7 +388,7 @@ def run_knowledge_hygiene(
         conn.close()
 
     now = time.time()
-    cutoff = now - (min_age_days * 86400)
+    cutoff = now - (min_age_days * SECONDS_PER_DAY)
 
     if demote_noise:
         noise_report = _audit_types(entries, cutoff)
@@ -438,9 +461,9 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
             if not _has_prescriptive_signal(content_lower):
                 conn.execute(
                     "UPDATE knowledge SET knowledge_type = 'OBSERVATION', "
-                    "confidence = CASE WHEN confidence > 0.6 THEN 0.6 ELSE confidence END "
+                    "confidence = CASE WHEN confidence > ? THEN ? ELSE confidence END "
                     "WHERE knowledge_id = ?",
-                    (kid,),
+                    (CONFIDENCE_DEMOTE_CAP, CONFIDENCE_DEMOTE_CAP, kid),
                 )
                 result["demoted"] += 1
                 result["details"].append(f"Demoted to OBSERVATION: {content[:60]}...")
@@ -461,7 +484,7 @@ def _sweep_stale(
 
     result: dict[str, Any] = {"decayed": 0, "details": []}
     conn = _get_connection()
-    stale_cutoff = now - (stale_age_days * 86400)
+    stale_cutoff = now - (stale_age_days * SECONDS_PER_DAY)
 
     try:
         for entry in entries:
@@ -480,10 +503,10 @@ def _sweep_stale(
             if not _has_temporal_markers(content):
                 continue
             # Don't decay below floor
-            if confidence <= 0.3:
+            if confidence <= DECAY_FLOOR:
                 continue
 
-            new_confidence = max(confidence - 0.1, 0.3)
+            new_confidence = max(confidence - DECAY_STANDARD, DECAY_FLOOR)
             conn.execute(
                 "UPDATE knowledge SET confidence = ? WHERE knowledge_id = ?",
                 (new_confidence, kid),
@@ -523,9 +546,9 @@ def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str,
                 continue
 
             # Demote orphaned entries to low confidence
-            confidence = entry.get("confidence", 0.5)
-            if confidence > 0.5:
-                new_confidence = 0.5
+            confidence = entry.get("confidence", CONFIDENCE_ORPHAN_DEMOTE)
+            if confidence > CONFIDENCE_ORPHAN_DEMOTE:
+                new_confidence = CONFIDENCE_ORPHAN_DEMOTE
                 conn.execute(
                     "UPDATE knowledge SET confidence = ? WHERE knowledge_id = ?",
                     (new_confidence, kid),
@@ -582,9 +605,24 @@ _KM_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeErro
 # Confidence floors prevent noise-penalized entries from being promoted
 # by inflated corroboration counts from the old feedback loop era.
 _PROMOTION_RULES: list[tuple[str, int, float, str]] = [
-    ("RAW", 1, 0.4, "HYPOTHESIS"),
-    ("HYPOTHESIS", 2, 0.5, "TESTED"),
-    ("TESTED", 5, 0.8, "CONFIRMED"),
+    (
+        "RAW",
+        MATURITY_RAW_TO_HYPOTHESIS_CORROBORATION,
+        MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE,
+        "HYPOTHESIS",
+    ),
+    (
+        "HYPOTHESIS",
+        MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
+        MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
+        "TESTED",
+    ),
+    (
+        "TESTED",
+        MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+        MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
+        "CONFIRMED",
+    ),
 ]
 
 

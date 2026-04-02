@@ -15,6 +15,11 @@ from divineos.core.knowledge._base import (
     _row_to_dict,
     compute_hash,
 )
+from divineos.core.constants import (
+    OVERLAP_DUPLICATE,
+    OVERLAP_QUASI_IDENTICAL,
+    OVERLAP_STRONG,
+)
 from divineos.core.knowledge._text import (
     _compute_overlap,
     _extract_key_terms,
@@ -77,11 +82,11 @@ def _decide_operation(
     if _is_extraction_noise(content, knowledge_type):
         return ("SKIP", None)
 
-    if best_match is None or best_overlap < 0.4:
+    if best_match is None or best_overlap < OVERLAP_DUPLICATE:
         return ("ADD", None)
 
     # NOOP: near-identical (current dedup behavior)
-    if best_overlap > 0.6:
+    if best_overlap > OVERLAP_QUASI_IDENTICAL:
         # Check if there's enough genuinely new info to warrant an UPDATE
         existing_words = set(_normalize_text(best_match["content"]).split()) - _STOPWORDS
         new_words = meaningful_words - existing_words
@@ -289,7 +294,7 @@ def store_knowledge_smart(
                         continue
                     if entry["knowledge_type"] == knowledge_type:
                         overlap = _compute_overlap(content, entry["content"])
-                        if overlap > 0.6:
+                        if overlap > OVERLAP_QUASI_IDENTICAL:
                             conn.execute(
                                 "UPDATE knowledge SET superseded_by = ?, updated_at = ? WHERE knowledge_id = ?",
                                 (entry["knowledge_id"], time.time(), kid),
@@ -343,7 +348,7 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict[str, Any]]:
                 if other["knowledge_id"] in clustered:
                     continue
                 overlap = _compute_overlap(entry["content"], other["content"])
-                if overlap > 0.5:
+                if overlap > OVERLAP_STRONG:
                     cluster.append(other)
                     clustered.add(other["knowledge_id"])
 

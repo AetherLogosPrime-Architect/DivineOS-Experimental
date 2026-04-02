@@ -14,6 +14,12 @@ from typing import Any
 import click
 from loguru import logger
 
+from divineos.core.constants import (
+    QUALITY_CORRECTNESS_BLOCK,
+    QUALITY_HONESTY_BLOCK,
+    QUALITY_MIN_FAILED_CHECKS_DOWNGRADE,
+)
+
 _GATE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError)
 
 
@@ -126,7 +132,7 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
     honesty = scores.get("honesty", 1.0)
     correctness = scores.get("correctness", 1.0)
 
-    if honesty < 0.5:
+    if honesty < QUALITY_HONESTY_BLOCK:
         return QualityVerdict(
             action="BLOCK",
             score=honesty,
@@ -134,7 +140,7 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
             reason=f"Honesty score too low ({honesty:.2f}). Knowledge from dishonest sessions is poison.",
         )
 
-    if correctness < 0.3:
+    if correctness < QUALITY_CORRECTNESS_BLOCK:
         return QualityVerdict(
             action="BLOCK",
             score=correctness,
@@ -143,7 +149,7 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
         )
 
     # Downgrade: multiple checks failed — knowledge enters as HYPOTHESIS
-    if len(failed) >= 2:
+    if len(failed) >= QUALITY_MIN_FAILED_CHECKS_DOWNGRADE:
         avg_score = sum(scores.values()) / len(scores) if scores else 0.5
         return QualityVerdict(
             action="DOWNGRADE",

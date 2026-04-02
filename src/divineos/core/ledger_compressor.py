@@ -23,6 +23,13 @@ from typing import Any
 from loguru import logger
 
 from divineos.core._ledger_base import compute_hash, get_connection
+from divineos.core.constants import (
+    LEDGER_MAX_SIZE_GB,
+    LEDGER_WARNING_PERCENT,
+    SECONDS_PER_DAY,
+    TIME_LEDGER_EMERGENCY_RETENTION_DAYS,
+    TIME_LEDGER_RETENTION_DAYS,
+)
 
 # Events that are safe to archive after the retention window.
 # These are high-volume bookkeeping — their content is not needed
@@ -41,7 +48,7 @@ _COMPRESSIBLE_TYPES = frozenset(
 )
 
 # Default retention: keep 7 days of everything, compress older.
-_DEFAULT_RETENTION_DAYS = 7
+_DEFAULT_RETENTION_DAYS = TIME_LEDGER_RETENTION_DAYS
 
 
 def analyze_ledger() -> dict[str, Any]:
@@ -61,7 +68,7 @@ def analyze_ledger() -> dict[str, Any]:
         by_type = {r[0]: r[1] for r in rows}
 
         # Compressible events older than retention window
-        cutoff = time.time() - (_DEFAULT_RETENTION_DAYS * 86400)
+        cutoff = time.time() - (_DEFAULT_RETENTION_DAYS * SECONDS_PER_DAY)
         placeholders = ",".join("?" for _ in _COMPRESSIBLE_TYPES)
         compressible = conn.execute(
             f"SELECT COUNT(*) FROM system_events "
@@ -101,7 +108,7 @@ def compress_ledger(
     Returns:
         Summary of compression results.
     """
-    cutoff = time.time() - (retention_days * 86400)
+    cutoff = time.time() - (retention_days * SECONDS_PER_DAY)
     conn = get_connection()
     try:
         # Count what we're about to compress, grouped by type
@@ -212,8 +219,8 @@ def vacuum_ledger() -> dict[str, Any]:
 # ─── Size Guard ─────────────────────────────────────────────────────
 
 
-# Default max ledger size: 50 GB. User has 1.37 TB but doesn't want garbage.
-_DEFAULT_MAX_SIZE_GB = 50.0
+# Default max ledger size from constants.
+_DEFAULT_MAX_SIZE_GB = LEDGER_MAX_SIZE_GB
 
 
 def get_ledger_size_mb() -> float:
@@ -240,7 +247,7 @@ def check_ledger_size(max_size_gb: float = _DEFAULT_MAX_SIZE_GB) -> dict[str, An
         "max_size_gb": max_size_gb,
         "usage_percent": round(usage_pct, 1),
         "over_limit": size_mb > max_mb,
-        "warning": size_mb > (max_mb * 0.8),  # Warn at 80%
+        "warning": size_mb > (max_mb * LEDGER_WARNING_PERCENT / 100),
     }
 
 
@@ -264,9 +271,9 @@ def auto_compress_if_needed(
         max_size_gb,
     )
 
-    # Aggressively compress if over limit — reduce retention to 3 days
+    # Aggressively compress if over limit — reduce retention
     if status["over_limit"]:
-        retention_days = min(retention_days, 3)
+        retention_days = min(retention_days, TIME_LEDGER_EMERGENCY_RETENTION_DAYS)
 
     result = compress_ledger(retention_days=retention_days)
     if result["compressed"] > 0:

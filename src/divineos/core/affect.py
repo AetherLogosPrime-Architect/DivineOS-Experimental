@@ -26,6 +26,15 @@ import time
 import uuid
 from typing import Any, cast
 
+from divineos.core.constants import (
+    AFFECT_DECLINING_BOOST,
+    AFFECT_FRUSTRATION_AROUSAL,
+    AFFECT_FRUSTRATION_VALENCE,
+    AFFECT_MILD_NEGATIVE_BOOST,
+    AFFECT_MIN_ENTRIES,
+    AFFECT_NEGATIVE_THRESHOLD_BOOST,
+    AFFECT_PRAISE_VALENCE_THRESHOLD,
+)
 from divineos.core.memory import _get_connection
 
 
@@ -272,21 +281,21 @@ def compute_affect_modifiers(
     # Negative valence -> raise confidence threshold
     confidence_modifier = 0.0
     if avg_valence < -0.3:
-        confidence_modifier = 0.3  # Strongly negative -> max caution
+        confidence_modifier = AFFECT_NEGATIVE_THRESHOLD_BOOST
     elif avg_valence < 0.0:
-        confidence_modifier = 0.15  # Mildly negative -> moderate caution
+        confidence_modifier = AFFECT_MILD_NEGATIVE_BOOST
     elif trend == "declining":
-        confidence_modifier = 0.1  # Getting worse -> slight caution
+        confidence_modifier = AFFECT_DECLINING_BOOST
 
     # 2. Frustration detection: high arousal + low valence
     verification = "normal"
-    if avg_arousal > 0.6 and avg_valence < 0.0:
+    if avg_arousal > AFFECT_FRUSTRATION_AROUSAL and avg_valence < AFFECT_FRUSTRATION_VALENCE:
         verification = "careful"
 
     # 3. Praise-chasing: consistently positive affect is suspicious
     # (quality check correlation happens in detect_praise_chasing)
     praise_flag = False
-    if avg_valence > 0.5 and summary["count"] >= 5:
+    if avg_valence > AFFECT_PRAISE_VALENCE_THRESHOLD and summary["count"] >= AFFECT_MIN_ENTRIES + 1:
         # Suspiciously happy -- needs quality check comparison
         praise_flag = True
 
