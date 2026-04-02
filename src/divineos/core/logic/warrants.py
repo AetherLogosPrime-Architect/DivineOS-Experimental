@@ -217,7 +217,7 @@ def defeat_warrant(warrant_id: str, reason: str) -> bool:
     try:
         warrant = get_warrant_by_id(warrant_id)
         if warrant:
-            from divineos.core.logic.defeat_lessons import check_defeat_pattern
+            from divineos.core.logic.logic_validation import check_defeat_pattern
 
             check_defeat_pattern(
                 knowledge_id=warrant.knowledge_id,

@@ -12,6 +12,32 @@ import uuid
 from loguru import logger
 from typing import Any, cast
 
+from divineos.core.constants import (
+    ACTIVE_MEMORY_CAP,
+    CONFIDENCE_ACTIVE_MEMORY_FLOOR,
+    CONFIDENCE_MODERATE,
+    MATURITY_BOOST_CONFIRMED,
+    MATURITY_PENALTY_HYPOTHESIS,
+    OVERLAP_RELATIONSHIP,
+    SCORE_WEIGHT_CONFIDENCE,
+    SCORE_WEIGHT_LESSON,
+    SCORE_WEIGHT_RECENCY,
+    SCORE_WEIGHT_USAGE,
+    SECONDS_PER_DAY,
+    TIME_RECENCY_WINDOW_DAYS,
+    TYPE_WEIGHT_BOUNDARY,
+    TYPE_WEIGHT_DIRECTION,
+    TYPE_WEIGHT_DIRECTIVE,
+    TYPE_WEIGHT_EPISODE,
+    TYPE_WEIGHT_FACT,
+    TYPE_WEIGHT_MISTAKE,
+    TYPE_WEIGHT_OBSERVATION,
+    TYPE_WEIGHT_PATTERN,
+    TYPE_WEIGHT_PREFERENCE,
+    TYPE_WEIGHT_PRINCIPLE,
+    TYPE_WEIGHT_PROCEDURE,
+    USAGE_LOG_SCALE,
+)
 from divineos.core.knowledge import get_connection
 
 _get_connection = get_connection
@@ -58,30 +84,28 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
 
     # 30% from type — constraints and principles change behavior most
     type_weights = {
-        # Sutra-style directives — always max priority
-        "DIRECTIVE": 0.30,
-        # New types
-        "BOUNDARY": 0.30,  # Hard constraints — highest priority
-        "PRINCIPLE": 0.28,  # Distilled wisdom from experience
-        "DIRECTION": 0.25,  # How the user wants things done
-        "PROCEDURE": 0.20,  # How to do something
-        "FACT": 0.10,  # Something true about the world
-        "OBSERVATION": 0.08,  # Noticed but unconfirmed
-        "EPISODE": 0.05,  # A specific event
+        "DIRECTIVE": TYPE_WEIGHT_DIRECTIVE,
+        "BOUNDARY": TYPE_WEIGHT_BOUNDARY,
+        "PRINCIPLE": TYPE_WEIGHT_PRINCIPLE,
+        "DIRECTION": TYPE_WEIGHT_DIRECTION,
+        "PROCEDURE": TYPE_WEIGHT_PROCEDURE,
+        "FACT": TYPE_WEIGHT_FACT,
+        "OBSERVATION": TYPE_WEIGHT_OBSERVATION,
+        "EPISODE": TYPE_WEIGHT_EPISODE,
         # Legacy types — map to their successors
-        "MISTAKE": 0.30,  # → BOUNDARY/PRINCIPLE
-        "PREFERENCE": 0.25,  # → DIRECTION
-        "PATTERN": 0.20,  # → PRINCIPLE/PROCEDURE
+        "MISTAKE": TYPE_WEIGHT_MISTAKE,
+        "PREFERENCE": TYPE_WEIGHT_PREFERENCE,
+        "PATTERN": TYPE_WEIGHT_PATTERN,
     }
-    score += type_weights.get(entry.get("knowledge_type", ""), 0.1)
+    score += type_weights.get(entry.get("knowledge_type", ""), TYPE_WEIGHT_FACT)
 
     # 25% from confidence
-    score += entry.get("confidence", 0.5) * 0.25
+    score += entry.get("confidence", CONFIDENCE_MODERATE) * SCORE_WEIGHT_CONFIDENCE
 
     # 15% from usage — logarithmic, first few accesses matter most
     access = entry.get("access_count", 0)
-    usage = min(1.0, math.log1p(access) / math.log1p(20))
-    score += usage * 0.15
+    usage = min(1.0, math.log1p(access) / math.log1p(USAGE_LOG_SCALE))
+    score += usage * SCORE_WEIGHT_USAGE
 
     # 10% from source — weighted by trust tier (MEASURED > BEHAVIORAL > SELF_REPORTED)
     from divineos.core.trust_tiers import weighted_source_bonus
@@ -90,26 +114,26 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
 
     # 20% from lesson connection
     if has_active_lesson:
-        score += 0.2
+        score += SCORE_WEIGHT_LESSON
 
     # 5% recency boost — fresh knowledge surfaces above stale entries
-    # Decays linearly over 30 days: full boost at day 0, zero at day 30+
+    # Decays linearly over TIME_RECENCY_WINDOW_DAYS
     created_at = entry.get("created_at", 0)
     if created_at:
-        age_days = (time.time() - created_at) / 86400
-        recency = max(0.0, 1.0 - age_days / 30.0)
-        score += recency * 0.05
+        age_days = (time.time() - created_at) / SECONDS_PER_DAY
+        recency = max(0.0, 1.0 - age_days / TIME_RECENCY_WINDOW_DAYS)
+        score += recency * SCORE_WEIGHT_RECENCY
 
     # Maturity adjustments — trust level affects importance
     maturity = entry.get("maturity", "RAW")
     if maturity == "CONFIRMED":
-        score += 0.05
+        score += MATURITY_BOOST_CONFIRMED
     elif maturity == "HYPOTHESIS":
-        score -= 0.05
+        score -= MATURITY_PENALTY_HYPOTHESIS
 
-    # Low confidence penalty — entries below 0.3 are suspect
-    confidence = entry.get("confidence", 0.5)
-    if confidence < 0.3:
+    # Low confidence penalty — entries below active memory floor are suspect
+    confidence = entry.get("confidence", CONFIDENCE_MODERATE)
+    if confidence < CONFIDENCE_ACTIVE_MEMORY_FLOOR:
         score -= 0.1
 
     # Session-specific penalty — tool counts, exchange stats, session IDs
@@ -236,8 +260,8 @@ def get_active_memory() -> list[dict[str, Any]]:
 
 
 def refresh_active_memory(
-    importance_threshold: float = 0.3,
-    max_active: int = 30,
+    importance_threshold: float = CONFIDENCE_ACTIVE_MEMORY_FLOOR,
+    max_active: int = ACTIVE_MEMORY_CAP,
 ) -> dict[str, int]:
     """Rebuild active memory from the knowledge store.
 
@@ -299,7 +323,7 @@ def refresh_active_memory(
                 desc_words = set(desc.split())
                 if entry_words and desc_words:
                     overlap = len(entry_words & desc_words) / max(len(entry_words), len(desc_words))
-                    if overlap > 0.3:
+                    if overlap > OVERLAP_RELATIONSHIP:
                         has_lesson = True
                         break
 

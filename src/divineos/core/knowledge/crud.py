@@ -6,6 +6,7 @@ import time
 import uuid
 from typing import Any
 
+from divineos.core.constants import CONFIDENCE_RETRIEVAL_FLOOR
 from divineos.core.knowledge._base import (
     KNOWLEDGE_TYPES,
     _KNOWLEDGE_COLS,
@@ -156,7 +157,7 @@ def search_knowledge(query: str, limit: int = 50) -> list[dict[str, Any]]:
                JOIN knowledge k ON k.rowid = fts.rowid
                WHERE knowledge_fts MATCH ?
                  AND k.superseded_by IS NULL
-                 AND k.confidence >= 0.2
+                 AND k.confidence >= {CONFIDENCE_RETRIEVAL_FLOOR}
                ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
                LIMIT ?"""  # nosec B608
         rows = conn.execute(query_str, (fts_query, limit)).fetchall()
@@ -173,7 +174,7 @@ def _search_knowledge_legacy(keyword: str, limit: int = 50) -> list[dict[str, An
     conn = _get_connection()
     try:
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND confidence >= 0.2 AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",  # nosec B608
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_RETRIEVAL_FLOOR} AND (content LIKE ? OR tags LIKE ?) ORDER BY updated_at DESC LIMIT ?",  # nosec B608
             (f"%{keyword}%", f"%{keyword}%", limit),
         ).fetchall()
         return [_row_to_dict(row) for row in rows]
