@@ -85,9 +85,9 @@ def cli() -> None:
 from divineos.cli import (  # noqa: E402
     analysis_commands,
     claim_commands,
-    commitment_commands,
     decision_commands,
     directive_commands,
+    entity_commands,
     event_commands,
     hud_commands,
     journal_commands,
@@ -95,10 +95,7 @@ from divineos.cli import (  # noqa: E402
     knowledge_health_commands,
     ledger_commands,
     memory_commands,
-    question_commands,
-    relationship_commands,
     selfmodel_commands,
-    temporal_commands,
 )
 
 ledger_commands.register(cli)
@@ -106,17 +103,14 @@ knowledge_commands.register(cli)
 journal_commands.register(cli)
 decision_commands.register(cli)
 claim_commands.register(cli)
-commitment_commands.register(cli)
 directive_commands.register(cli)
-relationship_commands.register(cli)
+entity_commands.register(cli)
 memory_commands.register(cli)
 analysis_commands.register(cli)
 hud_commands.register(cli)
 event_commands.register(cli)
 knowledge_health_commands.register(cli)
-question_commands.register(cli)
 selfmodel_commands.register(cli)
-temporal_commands.register(cli)
 
 if __name__ == "__main__":
     cli()
