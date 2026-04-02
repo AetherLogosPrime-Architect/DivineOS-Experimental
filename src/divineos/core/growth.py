@@ -13,6 +13,7 @@ from typing import Any
 from loguru import logger
 
 from divineos.core.knowledge import get_connection
+from divineos.core.tone_texture import format_tone_insight, get_tone_history
 
 _GROWTH_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -246,8 +247,6 @@ def compute_growth_map(limit: int = 20) -> dict[str, Any]:
     # Tone texture summary
     tone_insight = ""
     try:
-        from divineos.core.tone_texture import format_tone_insight, get_tone_history
-
         tone_history = get_tone_history(limit=limit)
         if tone_history:
             tone_insight = format_tone_insight(tone_history)

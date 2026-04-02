@@ -14,6 +14,7 @@ from divineos.analysis.session_analyzer import (
     _detect_signals,
     _extract_user_text,
 )
+from divineos.core.tone_texture import classify_tone_rich
 
 
 @dataclass
@@ -56,8 +57,6 @@ def classify_all_user_tones(records: list[dict[str, Any]]) -> list[dict[str, Any
     for use in emotional arc computation.
     """
     try:
-        from divineos.core.tone_texture import classify_tone_rich
-
         use_rich = True
     except ImportError:
         use_rich = False
@@ -106,8 +105,6 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
     # Build ordered list of user messages with their tones
     # Use rich classification for sub-tone and intensity
     try:
-        from divineos.core.tone_texture import classify_tone_rich
-
         use_rich = True
     except ImportError:
         use_rich = False

@@ -15,6 +15,8 @@ import sqlite3
 from loguru import logger
 
 from divineos.core._hud_io import _ensure_hud_dir, _get_hud_dir
+from divineos.core.hud_state import has_session_fresh_goal
+from divineos.core.ledger import count_events
 
 _HH_ERRORS = (
     ImportError,
@@ -327,8 +329,6 @@ def clear_briefing_marker() -> None:
 def _count_session_tool_calls() -> int:
     """Count tool calls in the current session from the ledger."""
     try:
-        from divineos.core.ledger import count_events
-
         counts = count_events()
         return int(counts.get("by_type", {}).get("TOOL_CALL", 0))
     except _HH_ERRORS:
@@ -419,8 +419,6 @@ def preflight_check() -> dict[str, Any]:
 
     # 5. Session-fresh goal? (not just old goals from prior sessions)
     try:
-        from divineos.core.hud_state import has_session_fresh_goal
-
         fresh_goal = has_session_fresh_goal()
     except Exception as exc:
         logger.debug(f"Session fresh goal check failed, defaulting to True: {exc}")

@@ -21,7 +21,7 @@ import sqlite3
 
 from loguru import logger
 
-from divineos.core.ledger import log_event
+from divineos.core.ledger import log_event, get_events
 from divineos.core.session_manager import (
     get_or_create_session_id,
     get_session_duration,
@@ -283,8 +283,6 @@ def emit_session_end(
 
     """
     try:
-        from divineos.core.ledger import get_events
-
         session_id = get_or_create_session_id(session_id)
         timestamp = get_current_timestamp()
 

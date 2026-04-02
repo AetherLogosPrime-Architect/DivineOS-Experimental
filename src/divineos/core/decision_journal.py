@@ -14,6 +14,7 @@ import time
 import uuid
 from typing import Any, cast
 
+from divineos.core.affect import _affect_row_to_dict, get_recent_affect
 from divineos.core.memory import _get_connection
 
 
@@ -118,8 +119,6 @@ def record_decision(
 
     # Auto-link the most recent affect state if one exists within 5 minutes
     try:
-        from divineos.core.affect import get_recent_affect
-
         recent = get_recent_affect(within_seconds=300.0)
         if recent and not recent.get("linked_decision_id"):
             conn = _get_connection()
@@ -163,8 +162,6 @@ def get_affect_at_decision(decision_id: str) -> dict[str, Any] | None:
         conn.close()
     if not affect_row:
         return None
-    from divineos.core.affect import _affect_row_to_dict
-
     return _affect_row_to_dict(affect_row)
 
 

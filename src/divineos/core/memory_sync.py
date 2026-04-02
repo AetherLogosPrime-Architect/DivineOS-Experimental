@@ -16,6 +16,10 @@ It runs during SESSION_END to keep cross-session context accurate.
 
 import os
 import sqlite3
+from divineos.core.claim_store import count_claims
+from divineos.core.decision_journal import count_decisions, get_paradigm_shifts
+from divineos.core.growth import compute_growth_map
+from divineos.core.knowledge import get_connection, get_lessons
 from pathlib import Path
 from typing import Any
 
@@ -93,8 +97,6 @@ def _sync_project_state(memory_dir: Path) -> bool:
 
     # Knowledge store stats
     try:
-        from divineos.core.knowledge import get_connection
-
         conn = get_connection()
         row = conn.execute("SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL").fetchone()
         total = row[0] if row else 0
@@ -125,8 +127,6 @@ def _sync_project_state(memory_dir: Path) -> bool:
 
     # Active lessons
     try:
-        from divineos.core.knowledge import get_lessons
-
         active = get_lessons(status="active")
         improving = get_lessons(status="improving")
         resolved = get_lessons(status="resolved")
@@ -140,8 +140,6 @@ def _sync_project_state(memory_dir: Path) -> bool:
 
     # Growth trend
     try:
-        from divineos.core.growth import compute_growth_map
-
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
             parts.append(
@@ -153,8 +151,6 @@ def _sync_project_state(memory_dir: Path) -> bool:
 
     # Claims count
     try:
-        from divineos.core.claim_store import count_claims
-
         counts = count_claims()
         if counts["total"] > 0:
             parts.append(f"Claims: {counts['total']} filed")
@@ -163,8 +159,6 @@ def _sync_project_state(memory_dir: Path) -> bool:
 
     # Decisions count
     try:
-        from divineos.core.decision_journal import count_decisions, get_paradigm_shifts
-
         total_decisions = count_decisions()
         shifts = get_paradigm_shifts(limit=10)
         if total_decisions > 0:
@@ -194,8 +188,6 @@ def _sync_recent_lessons(memory_dir: Path) -> bool:
     parts: list[str] = []
 
     try:
-        from divineos.core.knowledge import get_lessons
-
         active = get_lessons(status="active")
         improving = get_lessons(status="improving")
 

@@ -10,6 +10,7 @@ from loguru import logger
 
 from divineos.core._ledger_base import compute_hash, get_connection
 from divineos.core.ledger import get_events
+from divineos.event.event_validation import EventValidator
 
 
 def verify_event_hash(event_id: str, payload: dict[str, Any], stored_hash: str) -> tuple[bool, str]:
@@ -117,8 +118,6 @@ def verify_all_events(skip_types: list[str] | None = None) -> dict[str, Any]:
         - Requirement 7.4: Flag event as corrupted if hash mismatch
         - Requirement 7.6: Validate payload content for data validity
     """
-    from divineos.event.event_validation import EventValidator
-
     skip_set = set(skip_types) if skip_types else set()
 
     conn = get_connection()
@@ -198,8 +197,6 @@ def clean_corrupted_events() -> dict[str, Any]:
         dict: Summary of cleanup operation with count of removed events
 
     """
-    from divineos.event.event_validation import EventValidator
-
     conn = get_connection()
     try:
         # First, identify all corrupted events

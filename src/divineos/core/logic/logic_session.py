@@ -17,6 +17,12 @@ from loguru import logger
 
 from divineos.core.knowledge import get_connection
 from divineos.core.logic.warrants import get_warrants
+from divineos.core.logic.logic_validation import (
+    check_consistency,
+    register_contradiction,
+    scan_defeated_only_entries,
+)
+from divineos.core.logic.logic_reasoning import propagate_from
 
 
 _SL_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
@@ -64,8 +70,6 @@ def run_session_logic_pass(
 
     # Step 1: Consistency checks on new entries
     try:
-        from divineos.core.logic.logic_validation import check_consistency, register_contradiction
-
         for kid in ids_to_check:
             inconsistencies = check_consistency(kid, max_depth=2)
             for inc in inconsistencies:
@@ -86,8 +90,6 @@ def run_session_logic_pass(
     # Step 2: Inference propagation on promoted entries
     if promoted_ids:
         try:
-            from divineos.core.logic.logic_reasoning import propagate_from
-
             for kid in promoted_ids[:max_entries]:
                 derivations = propagate_from(kid, source_session=session_id)
                 if derivations:
@@ -99,8 +101,6 @@ def run_session_logic_pass(
 
     # Step 3: Scan for defeated-only entries
     try:
-        from divineos.core.logic.logic_validation import scan_defeated_only_entries
-
         defeated = scan_defeated_only_entries(limit=50)
         result.defeated_only_count = len(defeated)
     except _SL_ERRORS as e:

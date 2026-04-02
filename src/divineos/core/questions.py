@@ -15,6 +15,7 @@ from typing import Any
 from loguru import logger
 
 from divineos.core.knowledge import get_connection
+from divineos.core.knowledge._text import _compute_overlap
 
 
 QUESTION_STATUSES = {"OPEN", "ANSWERED", "ABANDONED"}
@@ -137,8 +138,6 @@ def check_auto_answers(
     Uses word overlap to find candidates. Does NOT auto-answer —
     just flags candidates for the pipeline to surface.
     """
-    from divineos.core.knowledge._text import _compute_overlap
-
     open_qs = get_questions(status="OPEN", limit=50)
     candidates: list[dict[str, Any]] = []
 

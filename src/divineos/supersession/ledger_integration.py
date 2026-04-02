@@ -8,6 +8,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
+from divineos.core.ledger import get_events, log_event
 
 
 class LedgerIntegration:
@@ -19,8 +20,6 @@ class LedgerIntegration:
     def _is_available(self) -> bool:
         if self._available is None:
             try:
-                from divineos.core.ledger import log_event  # noqa: F401
-
                 self._available = True
             except ImportError as e:
                 logger.warning(f"Ledger not available (ImportError: {e})")
@@ -36,8 +35,6 @@ class LedgerIntegration:
         if not self._is_available():
             return fact_id
 
-        from divineos.core.ledger import log_event
-
         log_event("FACT_STORED", "supersession", fact, validate=False)
         return fact_id
 
@@ -46,8 +43,6 @@ class LedgerIntegration:
         event_id: Optional[str] = event.get("event_id", str(uuid.uuid4()))
         if not self._is_available():
             return event_id
-
-        from divineos.core.ledger import log_event
 
         log_event("SUPERSESSION", "supersession", event, validate=False)
         return event_id
@@ -60,8 +55,6 @@ class LedgerIntegration:
         """Query FACT_STORED events, optionally filtering by type/key."""
         if not self._is_available():
             return []
-
-        from divineos.core.ledger import get_events
 
         events = get_events(event_type="FACT_STORED", limit=10000)
         facts = []
@@ -83,8 +76,6 @@ class LedgerIntegration:
         if not self._is_available():
             return []
 
-        from divineos.core.ledger import get_events
-
         events = get_events(event_type="SUPERSESSION", limit=10000)
         result = []
         for event in events:
@@ -104,8 +95,6 @@ class LedgerIntegration:
         """Record a FACT_SUPERSEDED event linking old fact to new."""
         if not self._is_available():
             return
-
-        from divineos.core.ledger import log_event
 
         log_event(
             "FACT_SUPERSEDED",

@@ -36,6 +36,7 @@ from divineos.core.constants import (
     AFFECT_PRAISE_VALENCE_THRESHOLD,
 )
 from divineos.core.memory import _get_connection
+from divineos.analysis.quality_storage import get_check_history
 
 
 # ===================================================================
@@ -391,8 +392,6 @@ def get_session_affect_context() -> dict[str, Any]:
     praise_result = {"detected": False, "detail": "No quality data", "severity": "none"}
     if modifiers["praise_chasing_flag"]:
         try:
-            from divineos.analysis.quality_storage import get_check_history
-
             history = get_check_history("correctness", limit=5)
             if history:
                 scores = [h.get("overall_score", 0.7) for h in history]

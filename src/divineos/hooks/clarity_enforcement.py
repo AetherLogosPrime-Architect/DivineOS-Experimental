@@ -14,6 +14,7 @@ from typing import Any
 import sqlite3
 
 from loguru import logger
+from divineos.core.ledger import get_events
 
 _CE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -95,8 +96,6 @@ class ClarityChecker:
 
         """
         try:
-            from divineos.core.ledger import get_events
-
             events = get_events()
             tool_calls = [e for e in events if e.get("event_type") == "TOOL_CALL"]
             explanations = [e for e in events if e.get("event_type") == "EXPLANATION"]

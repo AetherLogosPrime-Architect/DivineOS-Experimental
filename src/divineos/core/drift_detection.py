@@ -21,6 +21,7 @@ import re
 from typing import Any
 
 from divineos.core.knowledge._base import _get_connection
+from divineos.core.ledger import get_events
 
 
 # ─── Lesson Regression Detection ──────────────────────────────────
@@ -80,8 +81,6 @@ def _get_session_payloads(limit: int = 10) -> list[str]:
     Tries the ledger (system_events) first, falls back gracefully.
     """
     try:
-        from divineos.core.ledger import get_events
-
         events = get_events(limit=limit, event_type="SESSION_END")
         # Reverse to get newest first
         events.reverse()

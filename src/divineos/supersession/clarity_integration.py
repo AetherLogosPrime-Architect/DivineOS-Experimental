@@ -9,6 +9,7 @@ from loguru import logger
 
 from divineos.clarity_enforcement.config import ClarityEnforcementMode, get_clarity_config
 from divineos.clarity_enforcement.violation_detector import ClarityViolation, ViolationSeverity
+from divineos.clarity_enforcement.enforcer import ClarityViolationException
 
 
 def create_contradiction_violation(
@@ -123,7 +124,6 @@ def _handle_blocking_contradiction(
     Raises:
         ClarityViolationException: Always raised to block execution
     """
-    from divineos.clarity_enforcement.enforcer import ClarityViolationException
 
     logger.error(f"BLOCKING mode: Unresolved contradiction between {fact1_id} and {fact2_id}")
 

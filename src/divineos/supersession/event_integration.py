@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import hashlib
 import sqlite3
 from loguru import logger
+from divineos.event.event_emission import register_listener
 
 _EI_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -106,8 +107,6 @@ def register_supersession_listener(callback) -> None:
         callback: Function to call when SUPERSESSION event is emitted
     """
     try:
-        from divineos.event.event_emission import register_listener
-
         register_listener("SUPERSESSION", callback)
         logger.debug("Registered SUPERSESSION event listener")
     except _EI_ERRORS as e:

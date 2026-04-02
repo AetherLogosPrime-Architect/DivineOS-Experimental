@@ -11,6 +11,10 @@ import sqlite3
 from loguru import logger
 
 from divineos.analysis.analysis_types import AnalysisResult
+from divineos.core.ledger import get_connection_fk as get_qc_connection
+from divineos.core import fidelity
+from divineos.event.event_emission import emit_event
+from divineos.core.knowledge import get_knowledge
 
 
 def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
@@ -35,9 +39,6 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
     """
     import time
     import uuid
-
-    from divineos.core.ledger import get_connection_fk as get_qc_connection
-    from divineos.core import fidelity
 
     try:
         # Count items to store
@@ -191,8 +192,6 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
 
         # Step 5: Emit events to ledger
         try:
-            from divineos.event.event_emission import emit_event
-
             # Emit quality report event
             emit_event(
                 "QUALITY_REPORT",
@@ -320,7 +319,6 @@ def format_analysis_report(result: AnalysisResult) -> str:
         lines.append("-" * 70)
 
         # If lessons are knowledge IDs, try to retrieve the content
-        from divineos.core.knowledge import get_knowledge
 
         for lesson in result.lessons:
             try:

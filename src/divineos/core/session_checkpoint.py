@@ -13,6 +13,10 @@ when the session is approaching token limits.
 
 import json
 import time
+from divineos.core.hud import save_hud_snapshot
+from divineos.core.hud_handoff import save_handoff_note
+from divineos.core.hud_state import _ensure_hud_dir
+from divineos.event.event_emission import emit_event
 from pathlib import Path
 from typing import Any
 
@@ -161,8 +165,6 @@ def run_checkpoint() -> str:
 
     # 1. Save HUD snapshot
     try:
-        from divineos.core.hud import save_hud_snapshot
-
         save_hud_snapshot()
         parts.append("HUD snapshot saved")
     except (OSError, ValueError, KeyError) as e:
@@ -170,9 +172,6 @@ def run_checkpoint() -> str:
 
     # 2. Save handoff note with current goals
     try:
-        from divineos.core.hud_handoff import save_handoff_note
-        from divineos.core.hud_state import _ensure_hud_dir
-
         goals_path = _ensure_hud_dir() / "active_goals.json"
         goals_text = ""
         if goals_path.exists():
@@ -198,8 +197,6 @@ def run_checkpoint() -> str:
 
     # 3. Log checkpoint event to ledger
     try:
-        from divineos.event.event_emission import emit_event
-
         state = _load_state()
         emit_event(
             "SESSION_CHECKPOINT",

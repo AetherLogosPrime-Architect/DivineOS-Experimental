@@ -8,6 +8,7 @@ so the agent knows its trajectory at a glance.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from divineos.core.knowledge import get_knowledge
 
 
 @dataclass
@@ -27,8 +28,6 @@ def get_session_trend(n: int = 5) -> SessionTrend:
     Looks at EPISODE entries which contain corrections and encouragements
     counts from each session.
     """
-    from divineos.core.knowledge import get_knowledge
-
     episodes = get_knowledge(knowledge_type="EPISODE", limit=n * 2)
 
     # Filter to actual session episodes (contain "exchanges" and "corrected")

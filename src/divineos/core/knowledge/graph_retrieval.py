@@ -17,8 +17,9 @@ from divineos.core.knowledge._base import (
     _get_connection,
     _row_to_dict,
 )
+from divineos.core.knowledge.edges import get_edges
 
-_GRAPH_ERRORS = (ImportError, OSError, Exception)
+_GRAPH_ERRORS = (OSError, Exception)
 
 # Edge type labels for display — short, human-readable
 _EDGE_LABELS: dict[str, str] = {
@@ -61,11 +62,6 @@ def build_knowledge_cluster(
       - "seed": the central entry
       - "connections": list of {"entry": dict, "edge_type": str, "direction": str}
     """
-    try:
-        from divineos.core.knowledge.edges import get_edges
-    except ImportError:
-        return {"seed": _get_entry_by_id(knowledge_id), "connections": []}
-
     seed = _get_entry_by_id(knowledge_id)
     if not seed:
         return {"seed": None, "connections": []}
@@ -109,11 +105,6 @@ def cluster_for_briefing(
 
     Entries not connected to any other briefing entry appear as standalone.
     """
-    try:
-        from divineos.core.knowledge.edges import get_edges
-    except ImportError:
-        return [{"seed": e, "connected_entries": [], "standalone": True} for e in entries]
-
     entry_ids = {e["knowledge_id"] for e in entries}
     entry_map = {e["knowledge_id"]: e for e in entries}
 
@@ -192,11 +183,6 @@ def get_graph_connections_for_recall(
     For the recall() function: after getting active memory items,
     traverse edges to pull in connected items that add context.
     """
-    try:
-        from divineos.core.knowledge.edges import get_edges
-    except ImportError:
-        return []
-
     active_ids = {e.get("knowledge_id", "") for e in active_entries}
     connections: list[dict[str, Any]] = []
     seen: set[str] = set(active_ids)
