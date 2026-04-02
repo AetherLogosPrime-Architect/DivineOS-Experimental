@@ -13,13 +13,12 @@ import hashlib
 import uuid
 import sqlite3
 from loguru import logger
+from divineos.integration.system_monitor import get_system_monitor
 
 _RE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 # Import error handling and monitoring
 try:
-    from divineos.integration.system_monitor import get_system_monitor
-
     HAS_ERROR_HANDLING = True
 except ImportError:
     HAS_ERROR_HANDLING = False

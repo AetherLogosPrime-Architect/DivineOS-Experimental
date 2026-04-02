@@ -23,7 +23,7 @@ import sqlite3
 from loguru import logger
 
 from divineos.core.loop_prevention import mark_internal_operation
-from divineos.core.session_manager import initialize_session, is_session_active
+from divineos.core.session_manager import initialize_session, is_session_active, clear_session
 from divineos.event.event_emission import emit_user_input
 
 _ENFORCEMENT_ERRORS = (
@@ -236,8 +236,6 @@ def _cleanup_on_exit() -> None:
             if is_session_active():
                 logger.debug("Clearing session state on CLI exit")
                 try:
-                    from divineos.core.session_manager import clear_session
-
                     clear_session()
                     logger.debug("Session state cleared")
                 except _ENFORCEMENT_ERRORS as e:

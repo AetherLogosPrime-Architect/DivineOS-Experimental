@@ -17,6 +17,7 @@ from .types import (
     ToolCall,
 )
 import sqlite3
+from divineos.core.hud_state import get_session_plan
 
 _SB_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -91,8 +92,6 @@ def synthesize_clarity_statement(analysis: object):
     # Try to load a real session plan
     plan = None
     try:
-        from divineos.core.hud_state import get_session_plan
-
         plan = get_session_plan()
     except _SB_ERRORS as e:
         logger.debug("Could not load session plan (using defaults): %s", e)

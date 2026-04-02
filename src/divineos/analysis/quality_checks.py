@@ -34,6 +34,7 @@ from divineos.analysis.session_analyzer import (
     _load_records,
 )
 from divineos.core.fidelity import compute_content_hash
+from divineos.core.ledger import count_events
 
 # Re-export everything that was previously importable from this module
 __all__ = [
@@ -604,8 +605,6 @@ def check_clarity(
 
     # Count EXPLANATION events from ledger
     try:
-        from divineos.core.ledger import count_events
-
         event_counts = count_events()
         ledger_explanation_count = event_counts.get("by_type", {}).get("EXPLANATION", 0)
     except _QCE_ERRORS:

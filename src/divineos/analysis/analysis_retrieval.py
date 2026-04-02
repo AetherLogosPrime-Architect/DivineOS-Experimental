@@ -10,6 +10,8 @@ import sqlite3
 from loguru import logger
 
 from divineos.analysis.analysis_types import AnalysisResult
+from divineos.analysis.quality_storage import get_check_history
+from divineos.core.ledger import get_connection_fk as get_qc_connection
 
 _AR_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -24,8 +26,6 @@ def get_stored_report(session_id: str) -> str | None:
         Report text if found, None otherwise
 
     """
-    from divineos.core.ledger import get_connection_fk as get_qc_connection
-
     try:
         conn = get_qc_connection()
         cursor = conn.cursor()
@@ -87,7 +87,6 @@ def list_recent_sessions(limit: int = 10) -> list[dict[str, Any]]:
         List of session dicts with id, created_at, file_count
 
     """
-    from divineos.core.ledger import get_connection_fk as get_qc_connection
 
     try:
         conn = get_qc_connection()
@@ -134,8 +133,6 @@ def compute_cross_session_trends(limit: int = 10) -> dict[str, Any]:
         Dict with trends and patterns
 
     """
-    from divineos.analysis.quality_storage import get_check_history
-
     # Get check history for each check
     trends: dict[str, Any] = {}
     for check_name in [

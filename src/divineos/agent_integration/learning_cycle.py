@@ -28,13 +28,12 @@ from divineos.agent_integration.pattern_validation import (
     detect_conflicts as _detect_conflicts,
     generate_humility_audit as _generate_humility_audit,
 )
+from divineos.integration.system_monitor import get_system_monitor
 
 _LC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 # Import monitoring
 try:
-    from divineos.integration.system_monitor import get_system_monitor
-
     HAS_MONITORING = True
 except ImportError:
     HAS_MONITORING = False

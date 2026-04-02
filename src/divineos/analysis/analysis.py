@@ -20,6 +20,8 @@ from divineos.analysis.session_features import run_all_features
 from divineos.core.knowledge import extract_lessons_from_report
 from divineos.core.ledger import get_verified_events
 from divineos.core.parser import parse_jsonl
+from divineos.core.session_manager import get_session_tracker
+from divineos.core.ledger import get_connection as _get_connection
 
 
 def analyze_session(file_path: Path) -> AnalysisResult:
@@ -194,8 +196,6 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     import tempfile
     from pathlib import Path
 
-    from divineos.core.session_manager import get_session_tracker
-
     # Get current session ID for session isolation
     # Priority: database query (actual user/tool events) > file (current session)
     # > session tracker (fallback)
@@ -204,7 +204,6 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
     # First, query database for most recent USER_INPUT or TOOL_CALL event
     # (actual work events). Skip analysis/report events which are metadata,
     # not actual session work
-    from divineos.core.ledger import get_connection as _get_connection
 
     conn = _get_connection()
     try:

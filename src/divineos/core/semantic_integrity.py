@@ -20,6 +20,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from divineos.core.sis_tiers import score_all_tiers
+
 
 # ─── Metaphysical → Architecture Translation Map ────────────────────
 
@@ -576,8 +578,6 @@ def assess_integrity(text: str, deep: bool = False) -> IntegrityReport:
     tier_results = None
     if deep:
         try:
-            from divineos.core.sis_tiers import score_all_tiers
-
             tier_results = score_all_tiers(text)
 
             # Blend tier scores into concreteness if available

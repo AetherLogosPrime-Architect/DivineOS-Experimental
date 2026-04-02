@@ -42,6 +42,7 @@ class Inconsistency:
 
 def check_local_consistency(knowledge_id: str) -> list[Inconsistency]:
     """Check for direct CONTRADICTS relations on this entry."""
+    # Late import: logic_validation → logic_reasoning → knowledge → extraction → knowledge_maintenance → logic_validation cycle
     from divineos.core.logic.logic_reasoning import get_relations
 
     contradictions = get_relations(knowledge_id, direction="both", relation_type="CONTRADICTS")
@@ -71,6 +72,7 @@ def check_transitive_consistency(knowledge_id: str, max_depth: int = 3) -> list[
 
     max_depth limits how far we search to avoid runaway graph traversal.
     """
+    # Late import: same cycle as check_local_consistency
     from divineos.core.logic.logic_reasoning import get_relations
 
     results: list[Inconsistency] = []
@@ -152,6 +154,7 @@ def register_contradiction(
 
     Also increments contradiction_count on both entries.
     """
+    # Late import: same cycle as check_local_consistency
     from divineos.core.logic.logic_reasoning import create_relation
 
     create_relation(
@@ -352,12 +355,14 @@ def record_defeat_lesson(
     session_id: str | None = None,
 ) -> str:
     """Create a lesson from a warrant defeat pattern."""
-    from divineos.core.knowledge.lessons import record_lesson
 
     description = (
         f"I keep believing claims based on {warrant_type} evidence that turn out wrong. "
         f"Defeated {defeat_count}x on: {topic_hint}"
     )
+
+    # Late import: logic_validation → lessons → knowledge_maintenance → logic_validation cycle
+    from divineos.core.knowledge.lessons import record_lesson
 
     lesson_id = record_lesson(
         category="reasoning_failure",

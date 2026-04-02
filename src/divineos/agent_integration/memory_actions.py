@@ -5,6 +5,7 @@ that delegate to the global monitor instance.
 """
 
 import threading
+from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
 
 
 # Global monitor instance (typed loosely to avoid circular import at module level)
@@ -14,7 +15,6 @@ _monitor_lock = threading.Lock()
 
 def get_memory_monitor(session_id: str):
     """Get or create the global memory monitor instance."""
-    from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
 
     global _monitor
     if _monitor is None:

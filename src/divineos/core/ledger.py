@@ -22,6 +22,7 @@ from divineos.core._ledger_base import (
     get_connection as get_connection,
     get_connection_fk as get_connection_fk,
 )
+from divineos.event.event_validation import EventValidator
 
 __all__ = [
     "logger",
@@ -117,8 +118,6 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     """
     # Validate payload before storing (only for known event types)
     if validate and event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
-        from divineos.event.event_validation import EventValidator
-
         is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
         if not is_valid:
             logger.error(f"Event validation failed for {event_type}: {validation_msg}")

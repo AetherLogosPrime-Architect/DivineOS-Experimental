@@ -15,6 +15,9 @@ import sqlite3
 
 from loguru import logger
 
+from divineos.core.knowledge import get_connection
+from divineos.core.knowledge._text import _compute_overlap, _extract_key_terms
+from divineos.core.knowledge.crud import search_knowledge
 from divineos.core.knowledge.edges import (
     SEMANTIC_TYPES,
     create_edge,
@@ -254,11 +257,6 @@ def auto_detect_relationships(
     """
     if not new_ids:
         return []
-
-    from divineos.core.knowledge._text import _compute_overlap, _extract_key_terms
-    from divineos.core.knowledge.crud import search_knowledge
-
-    from divineos.core.knowledge import get_connection
 
     conn = get_connection()
     try:

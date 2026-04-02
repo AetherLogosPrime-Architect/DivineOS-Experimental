@@ -22,7 +22,7 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core._ledger_base import compute_hash, get_connection
+from divineos.core._ledger_base import _get_db_path, compute_hash, get_connection
 from divineos.core.constants import (
     LEDGER_MAX_SIZE_GB,
     LEDGER_WARNING_PERCENT,
@@ -225,8 +225,6 @@ _DEFAULT_MAX_SIZE_GB = LEDGER_MAX_SIZE_GB
 
 def get_ledger_size_mb() -> float:
     """Get the current ledger database file size in MB."""
-    from divineos.core._ledger_base import _get_db_path
-
     db_path = _get_db_path()
     if not db_path.exists():
         return 0.0

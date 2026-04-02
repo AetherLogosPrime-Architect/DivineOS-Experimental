@@ -11,6 +11,14 @@ import time
 from typing import Any
 
 from loguru import logger
+from divineos.core.knowledge import (
+    _get_connection,
+    get_knowledge,
+    get_lessons,
+    record_lesson,
+    store_knowledge,
+)
+from divineos.core.memory import set_core
 
 
 def validate_seed(seed_data: dict[str, Any]) -> list[str]:
@@ -70,8 +78,6 @@ def validate_seed(seed_data: dict[str, Any]) -> list[str]:
 
 def get_applied_seed_version() -> str | None:
     """Get the version of the seed that was last applied to this database."""
-    from divineos.core.knowledge import _get_connection
-
     conn = _get_connection()
     try:
         # Check if metadata table exists
@@ -88,7 +94,6 @@ def get_applied_seed_version() -> str | None:
 
 def set_applied_seed_version(version: str) -> None:
     """Record which seed version was applied."""
-    from divineos.core.knowledge import _get_connection
 
     conn = _get_connection()
     try:
@@ -138,12 +143,6 @@ def apply_seed(
     Returns:
         Counts of what was applied.
     """
-    from divineos.core.knowledge import (
-        get_knowledge,
-        store_knowledge,
-    )
-    from divineos.core.memory import set_core
-
     counts = {"core_slots": 0, "knowledge": 0, "lessons": 0, "skipped": 0}
 
     # Core memory — always update (identity may have changed)
@@ -163,8 +162,6 @@ def apply_seed(
         for entry in get_knowledge(limit=1000):
             existing_contents.add(entry["content"].strip().lower())
         # Also check superseded entries to prevent resurrection
-        from divineos.core.knowledge import _get_connection
-
         conn = _get_connection()
         try:
             rows = conn.execute(
@@ -190,8 +187,6 @@ def apply_seed(
         counts["knowledge"] += 1
 
     # Lessons — only seed categories that don't already exist
-    from divineos.core.knowledge import get_lessons, record_lesson
-
     existing_categories = {les["category"] for les in get_lessons()}
     for lesson in seed_data.get("lessons", []):
         category = lesson["category"]
