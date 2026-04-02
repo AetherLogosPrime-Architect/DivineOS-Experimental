@@ -311,8 +311,82 @@ def count_events() -> dict[str, Any]:
         conn.close()
 
 
-# Backward-compat re-exports: Ledger class and get_ledger() now live in ledger_class.py
-from divineos.core.ledger_class import Ledger, get_ledger  # noqa: F401, E402
+class Ledger:
+    """Ledger class for code that needs an object-based API.
+
+    Provides supersession-specific operations (store_fact, query_facts, etc.)
+    and delegates basic operations to the module-level functions.
+    """
+
+    def log_event(
+        self, event_type: str, actor: str, payload: dict[str, Any], validate: bool = True
+    ) -> str:
+        return log_event(event_type, actor, payload, validate)
+
+    def get_events(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        event_type: str | None = None,
+        actor: str | None = None,
+    ) -> list[dict[str, Any]]:
+        return get_events(limit, offset, event_type, actor)
+
+    def store_fact(self, fact: dict[str, Any]) -> str:
+        """Store a fact as a FACT_STORED event. Returns fact ID."""
+        fact_id: str = fact.get("id", str(uuid.uuid4()))
+        log_event("FACT_STORED", "supersession", fact, validate=False)
+        return fact_id
+
+    def store_event(self, event: dict[str, Any]) -> str:
+        """Store a SUPERSESSION event. Returns event ID."""
+        event_id: str = event.get("event_id", str(uuid.uuid4()))
+        log_event("SUPERSESSION", "supersession", event, validate=False)
+        return event_id
+
+    def query_facts(
+        self, fact_type: str | None = None, fact_key: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Query FACT_STORED events, optionally filtering by type/key."""
+        events = get_events(event_type="FACT_STORED", limit=10000)
+        facts = []
+        for event in events:
+            payload = event.get("payload", {})
+            if fact_type and payload.get("fact_type") != fact_type:
+                continue
+            if fact_key and payload.get("fact_key") != fact_key:
+                continue
+            facts.append(payload)
+        return facts
+
+    def query_supersession_events(
+        self,
+        superseded_fact_id: str | None = None,
+        superseding_fact_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Query SUPERSESSION events, optionally filtering by fact IDs."""
+        events = get_events(event_type="SUPERSESSION", limit=10000)
+        result = []
+        for event in events:
+            payload = event.get("payload", {})
+            if superseded_fact_id and payload.get("superseded_fact_id") != superseded_fact_id:
+                continue
+            if superseding_fact_id and payload.get("superseding_fact_id") != superseding_fact_id:
+                continue
+            result.append(payload)
+        return result
+
+
+_ledger_instance: Ledger | None = None
+
+
+def get_ledger() -> Ledger:
+    """Get the global Ledger instance."""
+    global _ledger_instance
+    if _ledger_instance is None:
+        _ledger_instance = Ledger()
+    return _ledger_instance
+
 
 # Backward-compat re-exports: verification/cleanup/export now live in ledger_verify.py
 from divineos.core.ledger_verify import (  # noqa: E402
