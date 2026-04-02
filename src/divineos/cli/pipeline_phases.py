@@ -393,6 +393,25 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Drift detection failed: {e}")
 
+    # 5h. Knowledge hygiene — demote noise, decay stale, flag orphans
+    try:
+        from divineos.core.knowledge_hygiene import run_knowledge_hygiene
+
+        hygiene = run_knowledge_hygiene()
+        hygiene_parts = []
+        if hygiene["noise_demoted"]:
+            hygiene_parts.append(f"{hygiene['noise_demoted']} demoted")
+        if hygiene["noise_superseded"]:
+            hygiene_parts.append(f"{hygiene['noise_superseded']} superseded")
+        if hygiene["stale_decayed"]:
+            hygiene_parts.append(f"{hygiene['stale_decayed']} stale decayed")
+        if hygiene["orphans_flagged"]:
+            hygiene_parts.append(f"{hygiene['orphans_flagged']} orphans flagged")
+        if hygiene_parts:
+            click.secho(f"[~] Hygiene: {', '.join(hygiene_parts)}", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Knowledge hygiene failed: {e}")
+
     return promoted_ids
 
 
@@ -660,6 +679,20 @@ def run_session_finalization(
             click.secho(f"[~] Auto-memories synced: {', '.join(synced)}", fg="cyan")
     except (ImportError, OSError) as e:
         logger.debug(f"Memory sync skipped: {e}")
+
+    # 9f. Ledger size guard — auto-compress if approaching limit
+    try:
+        from divineos.core.ledger_compressor import auto_compress_if_needed
+
+        compress_result = auto_compress_if_needed()
+        if compress_result:
+            click.secho(
+                f"[~] Ledger auto-compressed: {compress_result['compressed']} events "
+                f"({compress_result['trigger']})",
+                fg="cyan",
+            )
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Ledger size guard failed: {e}")
 
 
 # ─── Phase 10: Summary ───────────────────────────────────────────────

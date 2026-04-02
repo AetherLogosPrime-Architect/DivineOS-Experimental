@@ -117,3 +117,18 @@ def register(cli: click.Group) -> None:
 
         context = get_session_affect_context()
         click.echo(format_affect_feedback(context))
+
+    @cli.command("knowledge-hygiene")
+    @click.option("--no-demote", is_flag=True, help="Skip noise demotion")
+    @click.option("--no-decay", is_flag=True, help="Skip stale decay")
+    @click.option("--no-orphans", is_flag=True, help="Skip orphan flagging")
+    def knowledge_hygiene_cmd(no_demote: bool, no_decay: bool, no_orphans: bool) -> None:
+        """Audit and clean the knowledge store — demote noise, decay stale, flag orphans."""
+        from divineos.core.knowledge_hygiene import format_hygiene_report, run_knowledge_hygiene
+
+        report = run_knowledge_hygiene(
+            demote_noise=not no_demote,
+            decay_stale=not no_decay,
+            flag_orphans=not no_orphans,
+        )
+        click.echo(format_hygiene_report(report))

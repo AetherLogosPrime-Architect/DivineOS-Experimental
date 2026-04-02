@@ -379,6 +379,59 @@ class TestSessionSpecificDetection:
         assert score >= 0.3, f"Timeless FACT scored {score}, should be >= 0.3"
 
 
+class TestPrescriptiveSignal:
+    """PRINCIPLE/BOUNDARY without prescriptive signal → filtered as noise."""
+
+    def test_descriptive_blob_filtered(self):
+        """Long descriptive text with no prescriptive words is noise for PRINCIPLE."""
+        assert _is_extraction_noise(
+            "The project has many modules organized into packages with "
+            "different responsibilities and the codebase uses Python and SQLite",
+            "PRINCIPLE",
+        )
+
+    def test_prescriptive_passes(self):
+        assert not _is_extraction_noise(
+            "I should always validate user input before processing to prevent errors",
+            "PRINCIPLE",
+        )
+
+    def test_short_content_passes(self):
+        """Short content (<= 12 words) gets a pass — compact statements are often principles."""
+        assert not _is_extraction_noise(
+            "Never delete ledger data.",
+            "PRINCIPLE",
+        )
+
+    def test_lesson_learned_passes(self):
+        assert not _is_extraction_noise(
+            "I learned that the import order matters when initializing the database "
+            "because modules cache connections at import time",
+            "PRINCIPLE",
+        )
+
+    def test_boundary_without_signal_filtered(self):
+        assert _is_extraction_noise(
+            "The system was running and processing events and the user was "
+            "interacting with the CLI and looking at the output",
+            "BOUNDARY",
+        )
+
+    def test_boundary_with_never_passes(self):
+        assert not _is_extraction_noise(
+            "Never modify events after they are stored in the append-only ledger",
+            "BOUNDARY",
+        )
+
+    def test_observation_type_not_checked(self):
+        """OBSERVATION type is not subject to prescriptive signal check."""
+        assert not _is_extraction_noise(
+            "The project has many modules organized into packages with "
+            "different responsibilities and the codebase uses Python",
+            "OBSERVATION",
+        )
+
+
 class TestAuditReviewNoise:
     """Audit/review pastes from the user should not become knowledge entries."""
 
