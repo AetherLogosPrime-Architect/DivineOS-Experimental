@@ -17,13 +17,17 @@ This module consolidates three knowledge lifecycle operations:
 
 from __future__ import annotations
 
-import re
 import sqlite3
 import time
 from dataclasses import dataclass
 from typing import Any
 
 from loguru import logger
+
+from divineos.core.knowledge._text import (
+    _compute_stemmed_overlap,
+    _stemmed_word_set,
+)
 
 from divineos.core.constants import (
     CONFIDENCE_DEMOTE_CAP,
@@ -99,104 +103,6 @@ _TEMPORAL_MARKERS = {
     "no longer",
 }
 
-_STOPWORDS = {
-    "the",
-    "a",
-    "an",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "being",
-    "have",
-    "has",
-    "had",
-    "do",
-    "does",
-    "did",
-    "will",
-    "would",
-    "could",
-    "should",
-    "may",
-    "might",
-    "shall",
-    "can",
-    "to",
-    "of",
-    "in",
-    "for",
-    "on",
-    "with",
-    "at",
-    "by",
-    "from",
-    "as",
-    "into",
-    "through",
-    "during",
-    "it",
-    "its",
-    "this",
-    "that",
-    "and",
-    "but",
-    "or",
-    "if",
-    "then",
-    "so",
-    "i",
-    "my",
-    "me",
-}
-
-
-def _normalize(text: str) -> str:
-    """Lowercase and strip punctuation for comparison."""
-    return re.sub(r"[^\w\s]", " ", text.lower())
-
-
-def _stem(word: str) -> str:
-    """Minimal suffix stripping so 'sessions'/'session' and 'checked'/'checks' match."""
-    # Order matters — strip longest suffixes first
-    for suffix in (
-        "ation",
-        "ting",
-        "ing",
-        "ness",
-        "ment",
-        "ble",
-        "ous",
-        "ive",
-        "ful",
-        "ied",
-        "ies",
-        "ed",
-        "ly",
-        "er",
-        "es",
-        "s",
-    ):
-        if len(word) > len(suffix) + 2 and word.endswith(suffix):
-            return word[: -len(suffix)]
-    return word
-
-
-def _word_set(text: str) -> set[str]:
-    """Extract meaningful stemmed words from text."""
-    return {_stem(w) for w in _normalize(text).split()} - _STOPWORDS
-
-
-def _compute_overlap(words_a: set[str], words_b: set[str]) -> float:
-    """Word set overlap ratio (0.0-1.0)."""
-    if not words_a or not words_b:
-        return 0.0
-    intersection = words_a & words_b
-    smaller = min(len(words_a), len(words_b))
-    return len(intersection) / smaller
-
 
 def _has_negation(text: str) -> bool:
     """Check if text contains negation markers."""
@@ -258,7 +164,7 @@ def scan_for_contradictions(
         List of ContradictionMatch objects for each detected contradiction.
     """
     matches: list[ContradictionMatch] = []
-    new_words = _word_set(new_content)
+    new_words = _stemmed_word_set(new_content)
 
     for entry in existing_entries:
         # Only compare same-type entries
@@ -269,8 +175,8 @@ def scan_for_contradictions(
         if entry.get("superseded_by"):
             continue
 
-        existing_words = _word_set(entry.get("content", ""))
-        overlap = _compute_overlap(new_words, existing_words)
+        existing_words = _stemmed_word_set(entry.get("content", ""))
+        overlap = _compute_stemmed_overlap(new_words, existing_words)
 
         if overlap < OVERLAP_DUPLICATE:
             continue

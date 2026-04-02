@@ -349,6 +349,45 @@ def _normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _stem(word: str) -> str:
+    """Minimal suffix stripping so 'sessions'/'session' and 'checked'/'checks' match."""
+    for suffix in (
+        "ation",
+        "ting",
+        "ing",
+        "ness",
+        "ment",
+        "ble",
+        "ous",
+        "ive",
+        "ful",
+        "ied",
+        "ies",
+        "ed",
+        "ly",
+        "er",
+        "es",
+        "s",
+    ):
+        if len(word) > len(suffix) + 2 and word.endswith(suffix):
+            return word[: -len(suffix)]
+    return word
+
+
+def _stemmed_word_set(text: str) -> set[str]:
+    """Extract meaningful stemmed words from text (for contradiction detection)."""
+    return {_stem(w) for w in _normalize_text(text).split()} - _STOPWORDS
+
+
+def _compute_stemmed_overlap(words_a: set[str], words_b: set[str]) -> float:
+    """Word set overlap ratio from pre-stemmed sets. Returns 0.0-1.0."""
+    if not words_a or not words_b:
+        return 0.0
+    intersection = words_a & words_b
+    smaller = min(len(words_a), len(words_b))
+    return len(intersection) / smaller
+
+
 def _extract_key_terms(text: str) -> str:
     """Remove stopwords, return space-separated key terms for FTS5 queries."""
     normalized = _normalize_text(text)
