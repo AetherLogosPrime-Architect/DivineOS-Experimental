@@ -33,9 +33,15 @@ from divineos.core.knowledge.crud import (
     store_knowledge,
     supersede_knowledge,
 )
+from divineos.core.knowledge_maintenance import (
+    increment_corroboration,
+    promote_maturity,
+    resolve_contradiction,
+    scan_for_contradictions,
+)
+from divineos.core.logic.warrants import create_warrant
 
 _EXTRACTION_ERRORS = (
-    ImportError,
     sqlite3.OperationalError,
     OSError,
     KeyError,
@@ -145,11 +151,6 @@ def store_knowledge_smart(
             conn.commit()
             # Exact match = corroboration
             try:
-                from divineos.core.knowledge_maintenance import (
-                    increment_corroboration,
-                    promote_maturity,
-                )
-
                 increment_corroboration(str(kid))
                 promote_maturity(str(kid))
             except _EXTRACTION_ERRORS as e:
@@ -199,11 +200,6 @@ def store_knowledge_smart(
             conn.commit()
             # Corroboration: re-encountering knowledge strengthens trust
             try:
-                from divineos.core.knowledge_maintenance import (
-                    increment_corroboration,
-                    promote_maturity,
-                )
-
                 increment_corroboration(cast("str", existing_id))
                 promote_maturity(cast("str", existing_id))
             except _EXTRACTION_ERRORS as e:
@@ -255,8 +251,6 @@ def store_knowledge_smart(
 
         # Auto-create warrant — every new knowledge entry is born with justification
         try:
-            from divineos.core.logic.warrants import create_warrant
-
             warrant_type = _SOURCE_TO_WARRANT.get(source, "TESTIMONIAL")
             create_warrant(
                 knowledge_id=kid,
@@ -269,11 +263,6 @@ def store_knowledge_smart(
 
         # Scan for contradictions against same-type entries
         try:
-            from divineos.core.knowledge_maintenance import (
-                resolve_contradiction,
-                scan_for_contradictions,
-            )
-
             same_type = get_knowledge(knowledge_type=knowledge_type, limit=100)
             # Exclude the entry we just created
             same_type = [e for e in same_type if e["knowledge_id"] != kid]

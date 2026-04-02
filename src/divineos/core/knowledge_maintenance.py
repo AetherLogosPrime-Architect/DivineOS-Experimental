@@ -24,10 +24,21 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.knowledge._base import (
+    _KNOWLEDGE_COLS,
+    _get_connection,
+    _row_to_dict,
+)
 from divineos.core.knowledge._text import (
     _compute_stemmed_overlap,
+    _has_prescriptive_signal,
+    _has_temporal_markers,
+    _is_extraction_noise,
     _stemmed_word_set,
 )
+from divineos.core.knowledge import get_connection
+from divineos.core.knowledge.crud import supersede_knowledge
+from divineos.core.logic.logic_validation import can_promote
 
 from divineos.core.constants import (
     CONFIDENCE_DEMOTE_CAP,
@@ -200,8 +211,6 @@ def scan_for_contradictions(
 
 def increment_contradiction_count(knowledge_id: str) -> None:
     """Increment the contradiction_count for a knowledge entry."""
-    from divineos.core.knowledge import _get_connection
-
     conn = _get_connection()
     try:
         conn.execute(
@@ -224,8 +233,6 @@ def resolve_contradiction(
     - DIRECT: flag both, reduce confidence on both
     - SUPERSESSION: supersede old with new
     """
-    from divineos.core.knowledge import supersede_knowledge
-
     increment_contradiction_count(match.existing_id)
 
     if match.contradiction_type in ("TEMPORAL", "SUPERSESSION"):
@@ -238,8 +245,6 @@ def resolve_contradiction(
         )
     elif match.contradiction_type == "DIRECT":
         # Both entries are suspect — reduce confidence on old
-        from divineos.core.knowledge import _get_connection
-
         conn = _get_connection()
         try:
             conn.execute(
@@ -269,8 +274,6 @@ def run_knowledge_hygiene(
 
     Returns a report of actions taken.
     """
-    from divineos.core.knowledge._base import _get_connection, _KNOWLEDGE_COLS, _row_to_dict
-
     report: dict[str, Any] = {
         "noise_demoted": 0,
         "noise_superseded": 0,
@@ -321,12 +324,6 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
     Entries that would be rejected by today's filter get demoted to
     OBSERVATION (if they have some value) or superseded (if pure noise).
     """
-    from divineos.core.knowledge._base import _get_connection
-    from divineos.core.knowledge._text import (
-        _has_prescriptive_signal,
-        _is_extraction_noise,
-    )
-
     result: dict[str, Any] = {"demoted": 0, "superseded": 0, "details": []}
     conn = _get_connection()
 
@@ -385,9 +382,6 @@ def _sweep_stale(
     entries: list[dict[str, Any]], now: float, stale_age_days: float
 ) -> dict[str, Any]:
     """Decay confidence on entries with temporal markers that are old."""
-    from divineos.core.knowledge._base import _get_connection
-    from divineos.core.knowledge._text import _has_temporal_markers
-
     result: dict[str, Any] = {"decayed": 0, "details": []}
     conn = _get_connection()
     stale_cutoff = now - (stale_age_days * SECONDS_PER_DAY)
@@ -431,8 +425,6 @@ def _sweep_stale(
 
 def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str, Any]:
     """Flag entries that were never accessed and are old enough to judge."""
-    from divineos.core.knowledge._base import _get_connection
-
     result: dict[str, Any] = {"flagged": 0, "details": []}
     conn = _get_connection()
 
@@ -554,8 +546,6 @@ def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
     Fails gracefully if logic tables aren't initialized yet.
     """
     try:
-        from divineos.core.logic.logic_validation import can_promote
-
         return can_promote(knowledge_id, current, target)
     except _KM_ERRORS:
         # Logic tables may not exist yet — allow promotion (backward compat)
@@ -568,8 +558,6 @@ def promote_maturity(knowledge_id: str) -> str | None:
     Both corroboration AND validity gates must pass.
     Returns the new maturity level if promoted, None otherwise.
     """
-    from divineos.core.knowledge import get_connection
-
     conn = get_connection()
     try:
         row = conn.execute(
@@ -616,8 +604,6 @@ def increment_corroboration(knowledge_id: str) -> int:
     Called when knowledge is re-encountered in a new session.
     Returns the new corroboration count.
     """
-    from divineos.core.knowledge import get_connection
-
     conn = get_connection()
     try:
         conn.execute(
@@ -642,8 +628,6 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
     Both corroboration AND validity gates must pass.
     Returns counts of promotions by type.
     """
-    from divineos.core.knowledge import get_connection
-
     promotions: dict[str, int] = {}
     for entry in entries:
         kid = entry.get("knowledge_id", "")

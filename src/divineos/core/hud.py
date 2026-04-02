@@ -10,8 +10,29 @@ from divineos.core._hud_io import (  # noqa: F401 — re-exported for backward c
     _ensure_hud_dir as _ensure_hud_dir,
     _get_hud_dir as _get_hud_dir,
 )
+from divineos.core.affect import (
+    count_affect_entries,
+    get_affect_history,
+    get_affect_summary,
+)
+from divineos.core.claim_store import count_claims, list_claims
+from divineos.core.decision_journal import (
+    count_decisions,
+    get_paradigm_shifts,
+    list_decisions,
+)
+from divineos.core.growth import compute_growth_map
+from divineos.core.hud_handoff import briefing_staleness, load_handoff_note
+from divineos.core.hud_state import get_session_plan
+from divineos.core.knowledge import get_lessons
+from divineos.core.ledger import get_recent_context
+from divineos.core.memory import get_core
+from divineos.core.memory_journal import journal_count, journal_list
+from divineos.core.planning_commitments import get_pending_commitments
+from divineos.core.self_model import build_self_model, format_self_model
+from divineos.analysis.quality_trends import format_trend_summary, get_session_trend
 
-_HUD_ERRORS = (ImportError, sqlite3.OperationalError, json.JSONDecodeError, OSError)
+_HUD_ERRORS = (sqlite3.OperationalError, json.JSONDecodeError, OSError)
 
 
 # ─── Slot Definitions ───────────────────────────────────────────────
@@ -39,8 +60,6 @@ SLOT_ORDER = [
 
 def _build_identity_slot() -> str:
     """Who I am. My core memory formatted as self-knowledge."""
-    from divineos.core.memory import get_core
-
     slots = get_core()
     if not slots:
         return "I haven't set my core memory yet. I should do this early."
@@ -67,8 +86,6 @@ def _build_identity_slot() -> str:
 
 def _build_active_goals_slot() -> str:
     """What the user actually asked for. Pinned so I don't drift."""
-    from divineos.core.hud_state import get_session_plan
-
     path = _ensure_hud_dir() / "active_goals.json"
     if not path.exists():
         return "# My Current Goals\n\nNo goals set yet. I should ask what we're working on."
@@ -114,8 +131,6 @@ def _build_active_goals_slot() -> str:
 
 def _build_commitments_slot() -> str:
     """Promises I made. Tracked so I don't quietly drop them."""
-    from divineos.core.planning_commitments import get_pending_commitments
-
     pending = get_pending_commitments()
     if not pending:
         return ""  # empty = skip slot entirely
@@ -129,8 +144,6 @@ def _build_commitments_slot() -> str:
 
 def _build_recent_lessons_slot() -> str:
     """What I've learned recently. Written so I can inhabit them."""
-    from divineos.core.knowledge import get_lessons
-
     lines = ["# What I've Learned Recently\n"]
 
     try:
@@ -181,8 +194,6 @@ def _build_session_health_slot() -> str:
 
     # Briefing gate check — structural, not optional
     try:
-        from divineos.core.hud_handoff import briefing_staleness
-
         staleness = briefing_staleness()
         if not staleness["loaded"]:
             lines.append("- **FAIL: BRIEFING NOT LOADED.** Session grade is F until you load it.")
@@ -216,8 +227,6 @@ def _build_session_health_slot() -> str:
 
     # Add quality trend from across sessions
     try:
-        from divineos.analysis.quality_trends import format_trend_summary, get_session_trend
-
         trend = get_session_trend(n=5)
         if trend.sessions_analyzed >= 2:
             lines.append(f"- **Trend:** {format_trend_summary(trend)}")
@@ -294,8 +303,6 @@ def _build_active_knowledge_slot() -> str:
 
 def _build_warnings_slot() -> str:
     """Patterns I've been corrected for. Pre-action awareness."""
-    from divineos.core.knowledge import get_lessons
-
     lines = ["# Warnings -- Patterns I Repeat\n"]
 
     try:
@@ -326,8 +333,6 @@ def _build_os_engagement_slot() -> str:
     briefing) vs recording actions (log, learn) happened this session.
     If thinking is zero, something is wrong.
     """
-    from divineos.core.ledger import get_recent_context
-
     # Get recent events (newest first) and find session boundary
     all_events = get_recent_context(n=200, meaningful_only=False)
 
@@ -394,8 +399,6 @@ def _build_os_engagement_slot() -> str:
 def _build_self_model_slot() -> str:
     """Unified self-model — who I am, from evidence."""
     try:
-        from divineos.core.self_model import build_self_model, format_self_model
-
         model = build_self_model()
         # Only show if there's meaningful content
         has_content = (
@@ -438,8 +441,6 @@ def _build_task_state_slot() -> str:
 def _build_journal_slot() -> str:
     """Recent personal journal entries."""
     try:
-        from divineos.core.memory_journal import journal_count, journal_list
-
         count = journal_count()
         if count == 0:
             return ""
@@ -457,12 +458,6 @@ def _build_journal_slot() -> str:
 def _build_affect_slot() -> str:
     """Current affect state and trend."""
     try:
-        from divineos.core.affect import (
-            count_affect_entries,
-            get_affect_history,
-            get_affect_summary,
-        )
-
         count = count_affect_entries()
         if count == 0:
             return ""
@@ -489,8 +484,6 @@ def _build_affect_slot() -> str:
 def _build_claims_slot() -> str:
     """Active claims under investigation."""
     try:
-        from divineos.core.claim_store import count_claims, list_claims
-
         counts = count_claims()
         if counts["total"] == 0:
             return ""
@@ -517,12 +510,6 @@ def _build_claims_slot() -> str:
 def _build_decision_journal_slot() -> str:
     """Recent decisions and paradigm shifts for continuity."""
     try:
-        from divineos.core.decision_journal import (
-            count_decisions,
-            get_paradigm_shifts,
-            list_decisions,
-        )
-
         total = count_decisions()
         if total == 0:
             return ""
@@ -552,8 +539,6 @@ def _build_decision_journal_slot() -> str:
 
 def _build_handoff_slot() -> str:
     """Display the handoff note from the previous session."""
-    from divineos.core.hud_handoff import load_handoff_note
-
     note = load_handoff_note()
     if not note:
         return ""
@@ -580,8 +565,6 @@ def _build_growth_awareness_slot() -> str:
     lines: list[str] = []
 
     try:
-        from divineos.core.growth import compute_growth_map
-
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
             icons = {"improving": "↑", "declining": "↓", "stable": "→"}

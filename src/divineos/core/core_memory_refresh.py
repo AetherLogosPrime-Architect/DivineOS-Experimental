@@ -12,6 +12,11 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core._hud_io import _ensure_hud_dir
+from divineos.core.anticipation import _get_active_warnings
+from divineos.core.decision_journal import get_paradigm_shifts
+from divineos.core.growth import compute_growth_map
+from divineos.core.knowledge import get_connection, get_knowledge, get_lessons
 from divineos.core.memory import get_core, set_core
 
 
@@ -38,8 +43,6 @@ def _refresh_priorities() -> bool:
 
     # Active goals
     try:
-        from divineos.core._hud_io import _ensure_hud_dir
-
         goals_path = _ensure_hud_dir() / "active_goals.json"
         if goals_path.exists():
             goals = json.loads(goals_path.read_text(encoding="utf-8"))
@@ -52,15 +55,13 @@ def _refresh_priorities() -> bool:
 
     # Recent paradigm-level decisions inform priorities
     try:
-        from divineos.core.decision_journal import get_paradigm_shifts
-
         shifts = get_paradigm_shifts(limit=2)
         if shifts:
             parts.append("")
             parts.append("Recent paradigm shifts:")
             for s in shifts:
                 parts.append(f"- {s['content'][:120]}")
-    except (ImportError, sqlite3.OperationalError):
+    except sqlite3.OperationalError:
         pass
 
     if not parts:
@@ -83,39 +84,33 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
 
     # Knowledge count from the store
     try:
-        from divineos.core.knowledge import get_connection
-
         conn = get_connection()
         row = conn.execute("SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL").fetchone()
         knowledge_count = row[0] if row else 0
         conn.close()
         if knowledge_count:
             parts.append(f"Knowledge store: {knowledge_count} active entries.")
-    except (ImportError, sqlite3.OperationalError):
+    except sqlite3.OperationalError:
         pass
 
     # Session health trend
     try:
-        from divineos.core.growth import compute_growth_map
-
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
             parts.append(
                 f"Growth trend: {growth['trend']} over {growth['sessions']} sessions "
                 f"(avg score {growth['avg_health_score']:.2f})."
             )
-    except (ImportError, sqlite3.OperationalError):
+    except sqlite3.OperationalError:
         pass
 
     # Strengths from knowledge (PRINCIPLE type, high confidence)
     try:
-        from divineos.core.knowledge import get_knowledge
-
         principles = get_knowledge(knowledge_type="PRINCIPLE", limit=100)
         high_conf = [p for p in principles if p.get("confidence", 0) >= 0.8]
         if high_conf:
             parts.append(f"{len(high_conf)} confirmed principles in knowledge store.")
-    except (ImportError, sqlite3.OperationalError):
+    except sqlite3.OperationalError:
         pass
 
     # Current session performance
@@ -143,8 +138,6 @@ def _refresh_weaknesses(analysis: Any | None = None) -> bool:
 
     # Active lessons (things I'm still working on)
     try:
-        from divineos.core.knowledge import get_lessons
-
         active = get_lessons(status="active")
         improving = get_lessons(status="improving")
         if active:
@@ -154,7 +147,7 @@ def _refresh_weaknesses(analysis: Any | None = None) -> bool:
                 parts.append(f"- {desc}")
         if improving:
             parts.append(f"{len(improving)} lesson(s) improving.")
-    except (ImportError, sqlite3.OperationalError):
+    except sqlite3.OperationalError:
         pass
 
     # Recent corrections from this session
@@ -165,12 +158,10 @@ def _refresh_weaknesses(analysis: Any | None = None) -> bool:
 
     # Anticipation warnings (recurring issues)
     try:
-        from divineos.core.anticipation import _get_active_warnings
-
         warnings = _get_active_warnings()
         if warnings:
             parts.append(f"{len(warnings)} active pattern warning(s) to watch for.")
-    except (ImportError, sqlite3.OperationalError, json.JSONDecodeError):
+    except (sqlite3.OperationalError, json.JSONDecodeError):
         pass
 
     if not parts:

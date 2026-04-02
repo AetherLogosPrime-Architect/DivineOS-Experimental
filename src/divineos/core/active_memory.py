@@ -38,7 +38,16 @@ from divineos.core.constants import (
     TYPE_WEIGHT_PROCEDURE,
     USAGE_LOG_SCALE,
 )
-from divineos.core.knowledge import get_connection
+from divineos.core.knowledge import (
+    _is_extraction_noise,
+    get_connection,
+    get_knowledge,
+    get_lessons,
+    record_access,
+    search_knowledge,
+)
+from divineos.core.knowledge_maintenance import promote_maturity
+from divineos.core.trust_tiers import weighted_source_bonus
 
 _get_connection = get_connection
 
@@ -108,8 +117,6 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
     score += usage * SCORE_WEIGHT_USAGE
 
     # 10% from source — weighted by trust tier (MEASURED > BEHAVIORAL > SELF_REPORTED)
-    from divineos.core.trust_tiers import weighted_source_bonus
-
     score += weighted_source_bonus(entry.get("source", ""))
 
     # 20% from lesson connection
@@ -144,8 +151,6 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
 
     # Extraction noise penalty — raw user quotes, affirmations, task instructions
     # These slipped past earlier filters and shouldn't rank in active memory
-    from divineos.core.knowledge import _is_extraction_noise
-
     knowledge_type = entry.get("knowledge_type", "")
     if _is_extraction_noise(content, knowledge_type):
         score -= 0.35
@@ -269,8 +274,6 @@ def refresh_active_memory(
     are always kept (don't count toward the cap). Entries below the
     importance threshold are excluded regardless of cap.
     """
-    from divineos.core.knowledge import get_knowledge, get_lessons
-
     all_entries = get_knowledge(limit=10000)
     active_lessons = get_lessons(status="active")
     improving_lessons = get_lessons(status="improving")
@@ -411,8 +414,6 @@ def recall(context_hint: str = "") -> dict[str, Any]:
     # If a topic hint is given, boost matching active items and search archive
     relevant = []
     if context_hint:
-        from divineos.core.knowledge import search_knowledge
-
         hint_words = set(context_hint.lower().split())
 
         # Boost matching active items (move to top by adding bonus)
@@ -432,9 +433,6 @@ def recall(context_hint: str = "") -> dict[str, Any]:
                 relevant.append(result)
 
     # Track that these items were surfaced and register real access
-    from divineos.core.knowledge import record_access
-    from divineos.core.knowledge_maintenance import promote_maturity
-
     conn = _get_connection()
     try:
         for item in active:

@@ -21,6 +21,11 @@ from divineos.core.knowledge._base import (
 )
 from divineos.core.knowledge.crud import search_knowledge
 from divineos.core.knowledge.lessons import get_lesson_summary
+from divineos.core.hud_handoff import clear_handoff_note, load_handoff_note
+from divineos.core.hud_state import _ensure_hud_dir
+from divineos.core.knowledge.curation import ensure_layer_column
+from divineos.core.knowledge.graph_retrieval import cluster_for_briefing, format_cluster_line
+from divineos.core.memory_journal import journal_list
 
 _RETRIEVAL_ERRORS = (
     ImportError,
@@ -94,8 +99,6 @@ def generate_briefing(
     """
     # Ensure the layer column exists
     try:
-        from divineos.core.knowledge.curation import ensure_layer_column
-
         ensure_layer_column()
     except (sqlite3.OperationalError, ImportError):
         pass  # table doesn't exist yet or curation not available
@@ -278,8 +281,6 @@ def generate_briefing(
 def _format_handoff_lines() -> list[str]:
     """Format the handoff note from previous session (one-shot: consumed then cleared)."""
     try:
-        from divineos.core.hud_handoff import clear_handoff_note, load_handoff_note
-
         handoff = load_handoff_note()
         if not handoff:
             return []
@@ -386,7 +387,7 @@ def _format_briefing(
 
     # Growth trajectory
     try:
-        from divineos.core.growth import compute_growth_map
+        from divineos.core.growth import compute_growth_map  # late: growth → knowledge → retrieval
 
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
@@ -408,9 +409,7 @@ def _format_briefing(
     if not context_hint:
         hint_parts: list[str] = []
         try:
-            from divineos.core.hud_handoff import load_handoff_note as _load_ho
-
-            ho = _load_ho()
+            ho = load_handoff_note()
             if ho:
                 if ho.get("intent"):
                     hint_parts.append(ho["intent"])
@@ -422,8 +421,6 @@ def _format_briefing(
             pass
         try:
             import json as _json
-
-            from divineos.core.hud_state import _ensure_hud_dir
 
             goals_path = _ensure_hud_dir() / "active_goals.json"
             if goals_path.exists():
@@ -440,7 +437,10 @@ def _format_briefing(
     # Pattern anticipation
     if context_hint:
         try:
-            from divineos.core.anticipation import anticipate, format_anticipation
+            from divineos.core.anticipation import (
+                anticipate,
+                format_anticipation,
+            )  # late: anticipation → knowledge → retrieval
 
             warnings = anticipate(context_hint, max_warnings=3)
             if warnings:
@@ -451,7 +451,9 @@ def _format_briefing(
 
     # Session predictions — what will I likely need?
     try:
-        from divineos.core.predictive_session import predict_session_needs
+        from divineos.core.predictive_session import (
+            predict_session_needs,
+        )  # late: predictive_session → knowledge → retrieval
 
         pred_result = predict_session_needs()
         cur_profile = pred_result.get("current_profile", {})
@@ -493,7 +495,7 @@ def _format_briefing(
         from divineos.core.logic.logic_session import (
             format_logic_health_line,
             get_logic_health_summary,
-        )
+        )  # late: logic_session → knowledge → retrieval
 
         logic_stats = get_logic_health_summary()
         logic_line = format_logic_health_line(logic_stats)
@@ -510,11 +512,6 @@ def _format_briefing(
 
     # Graph connections — show relationships between briefing entries
     try:
-        from divineos.core.knowledge.graph_retrieval import (
-            cluster_for_briefing,
-            format_cluster_line,
-        )
-
         clusters = cluster_for_briefing(entries, max_clusters=5)
         connected = [c for c in clusters if not c["standalone"]]
         if connected:
@@ -531,8 +528,6 @@ def _format_briefing(
 
     # Recent journal entries (last 48h)
     try:
-        from divineos.core.memory_journal import journal_list
-
         journal_entries = journal_list(limit=5)
         recent_journal = [j for j in journal_entries if (now - j["created_at"]) < 172800]
         if recent_journal:
@@ -551,7 +546,9 @@ def _format_briefing(
 
     # Open questions
     try:
-        from divineos.core.questions import get_open_questions_summary
+        from divineos.core.questions import (
+            get_open_questions_summary,
+        )  # late: questions → knowledge → retrieval
 
         questions_text = get_open_questions_summary(max_items=5)
         if questions_text:

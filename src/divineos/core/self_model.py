@@ -15,6 +15,17 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.affect import get_session_affect_context
+from divineos.core.curiosity_engine import get_open_curiosities
+from divineos.core.drift_detection import (
+    detect_lesson_regressions,
+    detect_quality_drift,
+    run_drift_detection,
+)
+from divineos.core.memory import get_core
+from divineos.core.planning_commitments import get_pending_commitments
+from divineos.core.skill_library import get_strongest_skills, get_weakest_skills
+
 
 # ─── Self-Model Assembly ──────────────────────────────────────────
 
@@ -39,8 +50,6 @@ def build_self_model() -> dict[str, Any]:
 def _get_identity() -> dict[str, Any]:
     """Core identity from memory slots."""
     try:
-        from divineos.core.memory import get_core
-
         slots = get_core()
         return {
             "purpose": slots.get("project_purpose", "Not set"),
@@ -55,8 +64,6 @@ def _get_identity() -> dict[str, Any]:
 def _get_strengths() -> list[dict[str, Any]]:
     """What the agent is good at, from skill library."""
     try:
-        from divineos.core.skill_library import get_strongest_skills
-
         strongest = get_strongest_skills(limit=5)
         return [
             {
@@ -78,8 +85,6 @@ def _get_weaknesses() -> list[dict[str, Any]]:
 
     # From lesson regressions
     try:
-        from divineos.core.drift_detection import detect_lesson_regressions
-
         regressions = detect_lesson_regressions()
         for reg in regressions[:3]:
             weaknesses.append(
@@ -94,8 +99,6 @@ def _get_weaknesses() -> list[dict[str, Any]]:
 
     # From weak skills
     try:
-        from divineos.core.skill_library import get_weakest_skills
-
         weakest = get_weakest_skills(limit=3)
         for name, data in weakest:
             weaknesses.append(
@@ -118,8 +121,6 @@ def _get_emotional_baseline() -> dict[str, Any]:
     praise-chasing flag reflects actual evidence, not just raw valence.
     """
     try:
-        from divineos.core.affect import get_session_affect_context
-
         ctx = get_session_affect_context()
         modifiers = ctx.get("modifiers", {})
         praise = ctx.get("praise_chasing", {})
@@ -148,8 +149,6 @@ def _get_active_concerns() -> list[str]:
 
     # From open curiosities
     try:
-        from divineos.core.curiosity_engine import get_open_curiosities
-
         curiosities = get_open_curiosities()
         for c in curiosities[:3]:
             concerns.append(f"Curious: {c.get('question', '')[:60]}")
@@ -158,8 +157,6 @@ def _get_active_concerns() -> list[str]:
 
     # From pending commitments
     try:
-        from divineos.core.planning_commitments import get_pending_commitments
-
         pending = get_pending_commitments()
         for p in pending[:3]:
             concerns.append(f"Committed: {p.text[:60]}")
@@ -168,8 +165,6 @@ def _get_active_concerns() -> list[str]:
 
     # From drift signals
     try:
-        from divineos.core.drift_detection import run_drift_detection
-
         drift = run_drift_detection()
         if drift.get("severity") not in ("none", None):
             concerns.append(f"Drift alert: {drift['severity']} severity")
@@ -182,8 +177,6 @@ def _get_active_concerns() -> list[str]:
 def _get_growth_trajectory() -> dict[str, Any]:
     """How the agent is changing over time."""
     try:
-        from divineos.core.drift_detection import detect_quality_drift
-
         quality = detect_quality_drift()
         return {
             "quality_trend": "improving"
