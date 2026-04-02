@@ -110,8 +110,11 @@ def stamp_valid_from(knowledge_id: str) -> bool:
         )
         conn.commit()
         return True
-    except Exception:
-        # valid_from column might not exist yet
+    except Exception as e:
+        # valid_from column might not exist yet (pre-migration DB)
+        from loguru import logger
+
+        logger.debug("stamp_valid_from failed (column may not exist): %s", e)
         return False
     finally:
         conn.close()
@@ -190,8 +193,10 @@ def get_changes_since(
                 (since, limit),
             ).fetchall()
             result["expired"] = [_row_to_dict(r) for r in rows]
-        except Exception:
-            pass
+        except Exception as e:
+            from loguru import logger
+
+            logger.debug("Temporal expired query failed (columns may not exist): %s", e)
 
         # Updated entries (confidence/maturity changes, not new)
         rows = conn.execute(

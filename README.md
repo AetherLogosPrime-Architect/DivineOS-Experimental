@@ -42,6 +42,17 @@ DivineOS gives AI agents persistent memory, structured learning, and self-accoun
 | **Knowledge Layers** | Briefing layers (urgent/active/stable/archive) with auto-curation at SESSION_END. |
 | **Session Checkpoints** | Periodic lightweight saves every 15 edits. Context monitoring with usage warnings. |
 | **Memory Sync** | Auto-updates Claude Code memory files from DivineOS state at SESSION_END. |
+| **Signal Trust Tiers** | MEASURED > BEHAVIORAL > SELF_REPORTED weighting for evidence quality. |
+| **Temporal Knowledge** | valid_from/valid_until bounds on knowledge. Time-aware queries: "what was true at time X?" |
+| **Graph-Enhanced Retrieval** | BFS traversal of knowledge edges for clustering related entries in briefings. |
+| **Affect Feedback Loop** | Valence/arousal → conservative extraction thresholds, frustration detection, praise-chasing alerts. |
+| **Planning Commitments** | Track agent promises during sessions, check fulfillment at SESSION_END. |
+| **Knowledge Compression** | Three strategies: dedup (>70%), synthesis (40-70%), graph-aware clustering. |
+| **Predictive Session** | Session profile detection (build/fix/refactor/test/review/explore), recurring pattern prediction. |
+| **Drift Detection** | Lesson regressions, quality drift, correction trends — catches behavioral backsliding. |
+| **Skill Library** | Evidence-based proficiency tracking: NOVICE → DEVELOPING → COMPETENT → EXPERT. |
+| **Curiosity Engine** | Track questions worth investigating: OPEN → INVESTIGATING → ANSWERED/DORMANT. |
+| **Unified Self-Model** | Capstone: assembles identity, strengths, weaknesses, affect, concerns, growth from evidence. |
 
 ## Quick Start
 
@@ -51,7 +62,7 @@ divineos init
 divineos briefing
 ```
 
-## CLI Commands (73 total)
+## CLI Commands (90 total)
 
 ```bash
 # Session workflow
@@ -143,6 +154,31 @@ divineos clarity             # Clarity analysis
 divineos growth              # Growth tracking
 divineos hooks               # Hook diagnostics
 divineos verify-enforcement  # Check enforcement setup
+
+# Commitments
+divineos commitment add "text"    # Record a commitment
+divineos commitment list          # Show pending commitments
+divineos commitment done "text"   # Mark commitment fulfilled
+divineos commitment review        # Review all at session end
+divineos commitment clear         # Clear after review
+
+# Self-awareness
+divineos self-model              # Unified self-model from evidence
+divineos drift                   # Check behavioral drift
+divineos predict [events...]     # Predict session needs
+divineos affect-feedback         # How affect influences behavior
+divineos knowledge-compress      # Compress redundant knowledge
+
+# Skills & curiosity
+divineos skill list              # Show tracked skills
+divineos skill record NAME       # Record skill use (--success/--failure)
+divineos curiosity add "question" # File a new curiosity
+divineos curiosity list          # Show open curiosities
+divineos curiosity answer Q A    # Mark curiosity answered
+divineos curiosity note Q NOTE   # Add note to curiosity
+
+# Temporal knowledge
+divineos changes                 # Knowledge changes (--hours, --days)
 ```
 
 ## Architecture
@@ -152,7 +188,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (73 commands across 19 modules)
+  cli/                         CLI package (90 commands across 22 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -169,6 +205,9 @@ src/divineos/
     question_commands.py       Open question tracking commands
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
+    commitment_commands.py     commitment add/list/done/review/clear
+    selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback
+    temporal_commands.py       changes (temporal knowledge queries)
     event_commands.py          emit, verify-enforcement
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
@@ -201,6 +240,10 @@ src/divineos/
       lessons.py               Lesson tracking and extraction
       retrieval.py             Briefing generation and layered retrieval
       curation.py              Layer assignment, archival, text cleanup
+      temporal.py              Temporal bounds (valid_from/valid_until) and time-aware queries
+      compression.py           Knowledge compression (dedup, synthesis, graph-aware)
+      graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
+      signal_trust.py          Signal trust tiers (MEASURED > BEHAVIORAL > SELF_REPORTED)
     logic/                     Formal logic sub-package
       warrants.py              Evidence backing for knowledge claims
       relations.py             Logical relations (supports/contradicts/requires)
@@ -233,6 +276,13 @@ src/divineos/
     event_verifier.py          Event integrity verification
     loop_prevention.py         Loop detection and prevention
     affect_log.py              Valence-arousal affect state tracking
+    affect_feedback.py         Affect feedback loop (praise-chasing, frustration, extraction thresholds)
+    planning_commitments.py    Commitment tracking and fulfillment checking
+    skill_library.py           Evidence-based skill proficiency tracking
+    curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
+    self_model.py              Unified self-model assembled from all OS systems
+    drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
+    predictive_session.py      Session profile detection and need prediction
     claim_store.py             Claims engine with evidence tiers
     decision_journal.py        Decision journal with FTS search
   analysis/
@@ -315,7 +365,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,375+ tests (real DB, no mocks)
+tests/                         2,612+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks
   load-briefing.sh             Marks briefing as loaded
