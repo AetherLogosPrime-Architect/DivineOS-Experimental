@@ -207,7 +207,7 @@ def register(cli: click.Group) -> None:
             click.echo()
 
         from divineos.core.knowledge import record_access
-        from divineos.core.knowledge_maturity import promote_maturity
+        from divineos.core.knowledge_maintenance import promote_maturity
 
         for entry in results:
             record_access(entry["knowledge_id"])
@@ -258,7 +258,7 @@ def register(cli: click.Group) -> None:
                 pass
             # Show warrant chain — why do I believe this?
             try:
-                from divineos.core.logic.logic_summary import (
+                from divineos.core.logic.logic_session import (
                     format_warrant_chain,
                     get_warrant_chain,
                 )

@@ -2,7 +2,7 @@
 
 import pytest
 
-from divineos.core.logic.logic_summary import (
+from divineos.core.logic.logic_session import (
     format_logic_health_line,
     format_warrant_chain,
     get_logic_health_summary,

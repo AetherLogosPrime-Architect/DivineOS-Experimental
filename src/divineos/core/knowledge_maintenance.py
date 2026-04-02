@@ -416,7 +416,7 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
     OBSERVATION (if they have some value) or superseded (if pure noise).
     """
     from divineos.core.knowledge._base import _get_connection
-    from divineos.core.knowledge._noise import (
+    from divineos.core.knowledge._text import (
         _has_prescriptive_signal,
         _is_extraction_noise,
     )
@@ -480,7 +480,7 @@ def _sweep_stale(
 ) -> dict[str, Any]:
     """Decay confidence on entries with temporal markers that are old."""
     from divineos.core.knowledge._base import _get_connection
-    from divineos.core.knowledge._noise import _has_temporal_markers
+    from divineos.core.knowledge._text import _has_temporal_markers
 
     result: dict[str, Any] = {"decayed": 0, "details": []}
     conn = _get_connection()
@@ -648,7 +648,7 @@ def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
     Fails gracefully if logic tables aren't initialized yet.
     """
     try:
-        from divineos.core.logic.validity_gate import can_promote
+        from divineos.core.logic.logic_validation import can_promote
 
         return can_promote(knowledge_id, current, target)
     except _KM_ERRORS:

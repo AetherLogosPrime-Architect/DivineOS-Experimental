@@ -3,7 +3,7 @@
 import time
 
 from divineos.core.knowledge._base import _get_connection, _KNOWLEDGE_COLS, _row_to_dict
-from divineos.core.knowledge_hygiene import (
+from divineos.core.knowledge_maintenance import (
     _audit_types,
     _flag_orphans,
     _sweep_stale,

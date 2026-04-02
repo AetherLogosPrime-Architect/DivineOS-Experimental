@@ -490,7 +490,7 @@ def _format_briefing(
 
     # Logic health
     try:
-        from divineos.core.logic.logic_summary import (
+        from divineos.core.logic.logic_session import (
             format_logic_health_line,
             get_logic_health_summary,
         )

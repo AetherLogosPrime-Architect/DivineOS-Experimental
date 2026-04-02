@@ -22,7 +22,7 @@ from divineos.core.claim_store import (
     search_claims,
     update_claim,
 )
-from divineos.core.affect_log import (
+from divineos.core.affect import (
     count_affect_entries,
     get_affect_history,
     get_affect_summary,

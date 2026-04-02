@@ -113,7 +113,7 @@ def register(cli: click.Group) -> None:
     @cli.command("affect-feedback")
     def affect_feedback_cmd() -> None:
         """Show how affect states are influencing behavior."""
-        from divineos.core.affect_feedback import format_affect_feedback, get_session_affect_context
+        from divineos.core.affect import format_affect_feedback, get_session_affect_context
 
         context = get_session_affect_context()
         click.echo(format_affect_feedback(context))
@@ -124,7 +124,7 @@ def register(cli: click.Group) -> None:
     @click.option("--no-orphans", is_flag=True, help="Skip orphan flagging")
     def knowledge_hygiene_cmd(no_demote: bool, no_decay: bool, no_orphans: bool) -> None:
         """Audit and clean the knowledge store — demote noise, decay stale, flag orphans."""
-        from divineos.core.knowledge_hygiene import format_hygiene_report, run_knowledge_hygiene
+        from divineos.core.knowledge_maintenance import format_hygiene_report, run_knowledge_hygiene
 
         report = run_knowledge_hygiene(
             demote_noise=not no_demote,

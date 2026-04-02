@@ -8,7 +8,7 @@ from divineos.core.knowledge import (
     store_knowledge,
     store_knowledge_smart,
 )
-from divineos.core.knowledge_maturity import (
+from divineos.core.knowledge_maintenance import (
     check_promotion,
     increment_corroboration,
     promote_maturity,

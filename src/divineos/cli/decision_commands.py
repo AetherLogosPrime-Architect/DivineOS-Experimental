@@ -64,7 +64,7 @@ def register(cli: click.Group) -> None:
 
         affect = get_affect_at_decision(decision_id)
         if affect:
-            from divineos.core.affect_log import describe_affect
+            from divineos.core.affect import describe_affect
 
             desc = affect["description"] or describe_affect(affect["valence"], affect["arousal"])
             click.secho(
@@ -155,7 +155,7 @@ def register(cli: click.Group) -> None:
     @click.argument("decision_id")
     def decisions_context_cmd(decision_id: str) -> None:
         """Show a decision with its emotional context at the time."""
-        from divineos.core.affect_log import describe_affect
+        from divineos.core.affect import describe_affect
         from divineos.core.decision_journal import get_affect_at_decision, get_decision
 
         entry = get_decision(decision_id)

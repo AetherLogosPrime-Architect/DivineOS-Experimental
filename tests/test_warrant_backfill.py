@@ -4,7 +4,7 @@ import hashlib
 
 import pytest
 
-from divineos.core.logic.warrant_backfill import backfill_inherited_warrants
+from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
 from divineos.core.logic.warrants import create_warrant, get_warrants, init_warrant_table
 
 

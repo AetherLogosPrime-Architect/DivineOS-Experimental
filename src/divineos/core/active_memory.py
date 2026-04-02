@@ -433,7 +433,7 @@ def recall(context_hint: str = "") -> dict[str, Any]:
 
     # Track that these items were surfaced and register real access
     from divineos.core.knowledge import record_access
-    from divineos.core.knowledge_maturity import promote_maturity
+    from divineos.core.knowledge_maintenance import promote_maturity
 
     conn = _get_connection()
     try:

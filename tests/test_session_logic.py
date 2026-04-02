@@ -2,7 +2,7 @@
 
 import pytest
 
-from divineos.core.logic.session_logic import (
+from divineos.core.logic.logic_session import (
     LogicPassResult,
     format_logic_summary,
     run_session_logic_pass,
