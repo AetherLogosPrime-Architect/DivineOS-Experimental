@@ -224,7 +224,7 @@ def run_contradiction_scan(deep_ids: list[str]) -> int:
     Returns the number of contradictions resolved.
     """
     from divineos.core.knowledge import _get_connection
-    from divineos.core.knowledge_contradiction import (
+    from divineos.core.knowledge_maintenance import (
         resolve_contradiction,
         scan_for_contradictions,
     )

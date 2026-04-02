@@ -145,7 +145,7 @@ def store_knowledge_smart(
             conn.commit()
             # Exact match = corroboration
             try:
-                from divineos.core.knowledge_maturity import (
+                from divineos.core.knowledge_maintenance import (
                     increment_corroboration,
                     promote_maturity,
                 )
@@ -199,7 +199,7 @@ def store_knowledge_smart(
             conn.commit()
             # Corroboration: re-encountering knowledge strengthens trust
             try:
-                from divineos.core.knowledge_maturity import (
+                from divineos.core.knowledge_maintenance import (
                     increment_corroboration,
                     promote_maturity,
                 )
@@ -269,7 +269,7 @@ def store_knowledge_smart(
 
         # Scan for contradictions against same-type entries
         try:
-            from divineos.core.knowledge_contradiction import (
+            from divineos.core.knowledge_maintenance import (
                 resolve_contradiction,
                 scan_for_contradictions,
             )

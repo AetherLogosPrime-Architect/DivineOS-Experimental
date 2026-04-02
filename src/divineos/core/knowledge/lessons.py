@@ -85,7 +85,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             # the pattern was observed again. Find knowledge entries whose
             # content references this lesson category and boost them.
             try:
-                from divineos.core.knowledge_maturity import (
+                from divineos.core.knowledge_maintenance import (
                     increment_corroboration,
                     promote_maturity,
                 )

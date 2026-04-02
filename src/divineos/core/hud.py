@@ -457,7 +457,7 @@ def _build_journal_slot() -> str:
 def _build_affect_slot() -> str:
     """Current affect state and trend."""
     try:
-        from divineos.core.affect_log import (
+        from divineos.core.affect import (
             count_affect_entries,
             get_affect_history,
             get_affect_summary,

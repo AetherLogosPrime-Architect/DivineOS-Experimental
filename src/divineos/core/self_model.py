@@ -118,7 +118,7 @@ def _get_emotional_baseline() -> dict[str, Any]:
     praise-chasing flag reflects actual evidence, not just raw valence.
     """
     try:
-        from divineos.core.affect_feedback import get_session_affect_context
+        from divineos.core.affect import get_session_affect_context
 
         ctx = get_session_affect_context()
         modifiers = ctx.get("modifiers", {})

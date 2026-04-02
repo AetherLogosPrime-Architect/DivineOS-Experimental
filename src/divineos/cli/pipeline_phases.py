@@ -277,7 +277,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     # 5b. Maturity cycle
     promoted_ids: list[str] = []
     try:
-        from divineos.core.knowledge_maturity import run_maturity_cycle
+        from divineos.core.knowledge_maintenance import run_maturity_cycle
 
         all_knowledge = _wrapped_get_knowledge(limit=500)
         promotions = run_maturity_cycle(all_knowledge)
@@ -293,7 +293,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
 
     # 5c. Logic pass
     try:
-        from divineos.core.logic.session_logic import format_logic_summary, run_session_logic_pass
+        from divineos.core.logic.logic_session import format_logic_summary, run_session_logic_pass
 
         valid_deep_ids = [did for did in deep_ids if did]
         logic_result = run_session_logic_pass(
@@ -369,7 +369,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
 
     # 5f. Backfill warrants for new entries
     try:
-        from divineos.core.logic.warrant_backfill import backfill_inherited_warrants
+        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
 
         wresult = backfill_inherited_warrants()
         if wresult["backfilled"]:
@@ -395,7 +395,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
 
     # 5h. Knowledge hygiene — demote noise, decay stale, flag orphans
     try:
-        from divineos.core.knowledge_hygiene import run_knowledge_hygiene
+        from divineos.core.knowledge_maintenance import run_knowledge_hygiene
 
         hygiene = run_knowledge_hygiene()
         hygiene_parts = []
@@ -531,7 +531,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
     # 8c. Corroboration sweep
     try:
         from divineos.core.knowledge import _get_connection as _get_conn
-        from divineos.core.knowledge_maturity import increment_corroboration, promote_maturity
+        from divineos.core.knowledge_maintenance import increment_corroboration, promote_maturity
 
         corroborated = 0
         conn = _get_conn()
@@ -627,7 +627,7 @@ def run_session_finalization(
 
     # 9b3. Affect feedback — log how affect influenced this session
     try:
-        from divineos.core.affect_feedback import get_session_affect_context
+        from divineos.core.affect import get_session_affect_context
 
         affect_ctx = get_session_affect_context()
         modifiers = affect_ctx.get("modifiers", {})

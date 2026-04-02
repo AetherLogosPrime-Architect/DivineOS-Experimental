@@ -293,7 +293,7 @@ def register(cli: click.Group) -> None:
         Entries created before the warrant system have no justification chain.
         This creates an INHERITED warrant for each unwarranted entry.
         """
-        from divineos.core.logic.warrant_backfill import backfill_inherited_warrants
+        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
 
         dry_run = not execute
         if dry_run:

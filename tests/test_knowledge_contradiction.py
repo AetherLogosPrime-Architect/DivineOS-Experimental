@@ -2,7 +2,7 @@
 
 import os
 
-from divineos.core.knowledge_contradiction import (
+from divineos.core.knowledge_maintenance import (
     ContradictionMatch,
     increment_contradiction_count,
     resolve_contradiction,

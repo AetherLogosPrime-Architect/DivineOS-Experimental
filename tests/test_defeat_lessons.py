@@ -2,7 +2,7 @@
 
 import pytest
 
-from divineos.core.logic.defeat_lessons import (
+from divineos.core.logic.logic_validation import (
     check_defeat_pattern,
     record_defeat_lesson,
     scan_defeated_only_entries,

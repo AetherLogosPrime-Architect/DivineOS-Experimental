@@ -7,8 +7,9 @@ import uuid
 from divineos.core.ledger import init_db
 from divineos.core.knowledge._base import init_knowledge_table, _get_connection, compute_hash
 from divineos.core.logic.warrants import init_warrant_table, get_warrants
-from divineos.core.logic.relations import init_relation_table, create_relation
-from divineos.core.logic.inference import (
+from divineos.core.logic.logic_reasoning import (
+    init_relation_table,
+    create_relation,
     Derivation,
     create_inference_warrants,
     forward_chain,

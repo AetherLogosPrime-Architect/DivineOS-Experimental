@@ -2,7 +2,7 @@
 
 from unittest.mock import patch
 
-from divineos.core.affect_feedback import (
+from divineos.core.affect import (
     compute_affect_modifiers,
     detect_praise_chasing,
     format_affect_feedback,

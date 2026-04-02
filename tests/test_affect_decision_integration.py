@@ -3,7 +3,7 @@
 import pytest
 
 import divineos.core.ledger as ledger_mod
-from divineos.core.affect_log import (
+from divineos.core.affect import (
     describe_affect,
     get_recent_affect,
     init_affect_log,

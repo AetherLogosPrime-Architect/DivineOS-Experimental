@@ -222,7 +222,7 @@ def register(cli: click.Group) -> None:
         tags: tuple[str, ...],
     ) -> None:
         """Log a functional affect state - how I feel right now."""
-        from divineos.core.affect_log import log_affect
+        from divineos.core.affect import log_affect
 
         entry_id = log_affect(
             valence=valence,
@@ -251,7 +251,7 @@ def register(cli: click.Group) -> None:
     @click.option("--limit", default=20, type=int)
     def affect_history_cmd(limit: int) -> None:
         """Browse recent affect states."""
-        from divineos.core.affect_log import get_affect_history
+        from divineos.core.affect import get_affect_history
 
         entries = get_affect_history(limit=limit)
         if not entries:
@@ -277,7 +277,7 @@ def register(cli: click.Group) -> None:
     @affect_group.command("summary")
     def affect_summary_cmd() -> None:
         """Show affect state summary and trends."""
-        from divineos.core.affect_log import get_affect_summary
+        from divineos.core.affect import get_affect_summary
 
         summary = get_affect_summary()
         if summary["count"] == 0:

@@ -6,7 +6,7 @@ import uuid
 
 from divineos.core.ledger import init_db
 from divineos.core.knowledge._base import init_knowledge_table, _get_connection, compute_hash
-from divineos.core.logic.relations import (
+from divineos.core.logic.logic_reasoning import (
     INVERSE_RELATIONS,
     RELATION_TYPES,
     create_relation,

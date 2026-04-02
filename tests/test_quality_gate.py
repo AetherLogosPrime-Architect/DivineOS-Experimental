@@ -1,6 +1,6 @@
 """Tests for the quality gate that protects the knowledge store from bad sessions."""
 
-from divineos.core.quality_gate import (
+from divineos.cli.pipeline_gates import (
     QualityVerdict,
     assess_session_quality,
     should_extract_knowledge,
