@@ -349,7 +349,10 @@ def find_graph_clusters(max_clusters: int = 10) -> list[dict[str, Any]]:
                 )
 
         return clusters
-    except Exception:
+    except Exception as e:
+        from loguru import logger
+
+        logger.debug("Graph cluster discovery failed: %s", e)
         return []
     finally:
         conn.close()

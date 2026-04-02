@@ -184,7 +184,8 @@ def _get_growth_trajectory() -> dict[str, Any]:
             else "stable",
             "detail": quality.get("detail", "No data"),
         }
-    except Exception:
+    except Exception as e:
+        logger.debug("Self-model growth trajectory failed: %s", e)
         return {"quality_trend": "unknown", "detail": "No data available"}
 
 
