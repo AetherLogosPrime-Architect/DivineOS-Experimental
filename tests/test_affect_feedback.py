@@ -14,7 +14,7 @@ class TestComputeAffectModifiers:
     """Affect states should produce behavioral modifiers."""
 
     def test_negative_valence_raises_threshold(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 10,
                 "avg_valence": -0.5,
@@ -25,7 +25,7 @@ class TestComputeAffectModifiers:
             assert mods["confidence_threshold_modifier"] == 0.3
 
     def test_mildly_negative_moderate_threshold(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 10,
                 "avg_valence": -0.1,
@@ -36,7 +36,7 @@ class TestComputeAffectModifiers:
             assert mods["confidence_threshold_modifier"] == 0.15
 
     def test_declining_trend_slight_threshold(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 10,
                 "avg_valence": 0.2,
@@ -47,7 +47,7 @@ class TestComputeAffectModifiers:
             assert mods["confidence_threshold_modifier"] == 0.1
 
     def test_positive_valence_no_threshold_change(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 10,
                 "avg_valence": 0.6,
@@ -58,7 +58,7 @@ class TestComputeAffectModifiers:
             assert mods["confidence_threshold_modifier"] == 0.0
 
     def test_frustration_triggers_careful_verification(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 10,
                 "avg_valence": -0.2,
@@ -69,7 +69,7 @@ class TestComputeAffectModifiers:
             assert mods["verification_level"] == "careful"
 
     def test_calm_positive_normal_verification(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 10,
                 "avg_valence": 0.5,
@@ -80,7 +80,7 @@ class TestComputeAffectModifiers:
             assert mods["verification_level"] == "normal"
 
     def test_high_valence_flags_praise_chasing(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 8,
                 "avg_valence": 0.7,
@@ -91,7 +91,7 @@ class TestComputeAffectModifiers:
             assert mods["praise_chasing_flag"] is True
 
     def test_no_data_returns_defaults(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 0,
                 "avg_valence": 0.0,
@@ -104,7 +104,7 @@ class TestComputeAffectModifiers:
             assert mods["praise_chasing_flag"] is False
 
     def test_import_error_returns_defaults(self):
-        with patch("divineos.core.affect_log.get_affect_summary", side_effect=ImportError):
+        with patch("divineos.core.affect.get_affect_summary", side_effect=ImportError):
             mods = compute_affect_modifiers()
             assert mods["affect_trend"] == "no data"
 
@@ -146,7 +146,7 @@ class TestGetSessionAffectContext:
     """Full affect context for session health scoring."""
 
     def test_combines_modifiers_and_praise(self):
-        with patch("divineos.core.affect_log.get_affect_summary") as mock:
+        with patch("divineos.core.affect.get_affect_summary") as mock:
             mock.return_value = {
                 "count": 3,
                 "avg_valence": 0.3,
