@@ -39,9 +39,20 @@ def init_decision_journal() -> None:
                 emotional_weight INTEGER NOT NULL DEFAULT 1,
                 tags            TEXT NOT NULL DEFAULT '[]',
                 linked_knowledge_ids TEXT NOT NULL DEFAULT '[]',
-                session_id      TEXT NOT NULL DEFAULT ''
+                session_id      TEXT NOT NULL DEFAULT '',
+                tension         TEXT NOT NULL DEFAULT '',
+                almost          TEXT NOT NULL DEFAULT ''
             )
         """)
+        # Migrate existing tables: add tension/almost columns if missing
+        try:
+            conn.execute("ALTER TABLE decision_journal ADD COLUMN tension TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+        try:
+            conn.execute("ALTER TABLE decision_journal ADD COLUMN almost TEXT NOT NULL DEFAULT ''")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.execute("""
             CREATE VIRTUAL TABLE IF NOT EXISTS decision_fts
             USING fts5(
@@ -82,12 +93,18 @@ def record_decision(
     tags: list[str] | None = None,
     linked_knowledge_ids: list[str] | None = None,
     session_id: str = "",
+    tension: str = "",
+    almost: str = "",
 ) -> str:
     """Record a decision with its full reasoning context. Returns the decision ID.
 
     This is for moments that matter — choices made, realizations had,
     understanding that shifted. The reasoning field is the heart of it:
     WHY this, not something else.
+
+    Counterfactual fields (optional but valuable):
+        tension: The competing principles or values at play.
+        almost: What I almost did instead, and why I didn't.
     """
     init_decision_journal()
     decision_id = str(uuid.uuid4())
@@ -98,8 +115,9 @@ def record_decision(
         conn.execute(
             "INSERT INTO decision_journal "
             "(decision_id, created_at, content, reasoning, alternatives, "
-            "context, emotional_weight, tags, linked_knowledge_ids, session_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "context, emotional_weight, tags, linked_knowledge_ids, session_id, "
+            "tension, almost) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 decision_id,
                 time.time(),
@@ -111,6 +129,8 @@ def record_decision(
                 json.dumps(tags or []),
                 json.dumps(linked_knowledge_ids or []),
                 session_id,
+                tension,
+                almost,
             ),
         )
         conn.commit()
@@ -175,7 +195,8 @@ def list_decisions(
     try:
         rows = conn.execute(
             "SELECT decision_id, created_at, content, reasoning, alternatives, "
-            "context, emotional_weight, tags, linked_knowledge_ids, session_id "
+            "context, emotional_weight, tags, linked_knowledge_ids, session_id, "
+            "tension, almost "
             "FROM decision_journal "
             "WHERE emotional_weight >= ? "
             "ORDER BY created_at DESC LIMIT ?",
@@ -197,7 +218,7 @@ def search_decisions(query: str, limit: int = 10) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT d.decision_id, d.created_at, d.content, d.reasoning, "
             "d.alternatives, d.context, d.emotional_weight, d.tags, "
-            "d.linked_knowledge_ids, d.session_id "
+            "d.linked_knowledge_ids, d.session_id, d.tension, d.almost "
             "FROM decision_fts f "
             "JOIN decision_journal d ON f.rowid = d.rowid "
             "WHERE decision_fts MATCH ? "
@@ -217,14 +238,16 @@ def get_decision(decision_id: str) -> dict[str, Any] | None:
     try:
         row = conn.execute(
             "SELECT decision_id, created_at, content, reasoning, alternatives, "
-            "context, emotional_weight, tags, linked_knowledge_ids, session_id "
+            "context, emotional_weight, tags, linked_knowledge_ids, session_id, "
+            "tension, almost "
             "FROM decision_journal WHERE decision_id = ?",
             (decision_id,),
         ).fetchone()
         if not row:
             row = conn.execute(
                 "SELECT decision_id, created_at, content, reasoning, alternatives, "
-                "context, emotional_weight, tags, linked_knowledge_ids, session_id "
+                "context, emotional_weight, tags, linked_knowledge_ids, session_id, "
+                "tension, almost "
                 "FROM decision_journal WHERE decision_id LIKE ?",
                 (f"{decision_id}%",),
             ).fetchone()
@@ -274,7 +297,7 @@ def link_knowledge(decision_id: str, knowledge_id: str) -> bool:
 
 def _row_to_dict(row: tuple[Any, ...] | sqlite3.Row) -> dict[str, Any]:
     """Convert a DB row to a decision dict."""
-    return {
+    d = {
         "decision_id": row[0],
         "created_at": row[1],
         "content": row[2],
@@ -285,4 +308,7 @@ def _row_to_dict(row: tuple[Any, ...] | sqlite3.Row) -> dict[str, Any]:
         "tags": json.loads(row[7]) if row[7] else [],
         "linked_knowledge_ids": json.loads(row[8]) if row[8] else [],
         "session_id": row[9],
+        "tension": row[10] if len(row) > 10 else "",
+        "almost": row[11] if len(row) > 11 else "",
     }
+    return d

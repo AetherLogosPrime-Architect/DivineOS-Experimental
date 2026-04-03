@@ -196,28 +196,28 @@ def tone_report(shifts: list[ToneShift], total_messages: int) -> str:
 
     parts: list[str] = []
     parts.append(
-        f"Your mood shifted {len(shifts)} time{'s' if len(shifts) != 1 else ''} "
+        f"The user's mood shifted {len(shifts)} time{'s' if len(shifts) != 1 else ''} "
         f"during {total_messages} messages.",
     )
 
     if negative_shifts:
         parts.append(
             f"{len(negative_shifts)} time{'s' if len(negative_shifts) != 1 else ''} "
-            f"you went from okay/happy to upset.",
+            f"the user went from okay/happy to upset.",
         )
         # Show the worst one
         worst = negative_shifts[0]
         parts.append(
             f"For example, after message {worst.sequence}: "
-            f"you were {worst.previous_tone}, then the AI did [{worst.trigger_action[:80]}], "
-            f"and you got {worst.new_tone}.",
+            f"the user was {worst.previous_tone}, then I did [{worst.trigger_action[:80]}], "
+            f"and the user got {worst.new_tone}.",
         )
 
     if positive_shifts:
         parts.append(
             f"{len(positive_shifts)} time{'s' if len(positive_shifts) != 1 else ''} "
-            f"things got better — you went from neutral/upset to happy.",
+            f"things got better — the user went from neutral/upset to happy.",
         )
 
-    parts.append("(Tone tracking is a guess based on your words, not a certainty.)")
+    parts.append("(Tone tracking is a guess based on the user's words, not a certainty.)")
     return " ".join(parts)

@@ -27,6 +27,8 @@ def register(cli: click.Group) -> None:
         help="1=routine, 2=significant, 3=paradigm shift",
     )
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
+    @click.option("--tension", default="", help="Competing principles or values at play")
+    @click.option("--almost", default="", help="What I almost did instead, and why I didn't")
     def decide_cmd(
         what: str,
         reasoning: str,
@@ -34,8 +36,10 @@ def register(cli: click.Group) -> None:
         context: str,
         weight: int,
         tags: tuple[str, ...],
+        tension: str,
+        almost: str,
     ) -> None:
-        """Record a decision with its reasoning."""
+        """Record a decision with its reasoning and counterfactual context."""
         from divineos.core.decision_journal import record_decision
 
         alternatives = [a.strip() for a in alt_text.split(",") if a.strip()] if alt_text else []
@@ -47,6 +51,8 @@ def register(cli: click.Group) -> None:
             context=context,
             emotional_weight=weight,
             tags=list(tags) if tags else None,
+            tension=tension,
+            almost=almost,
         )
         # Mark OS engagement — decide is a thinking tool
         from divineos.core.hud_handoff import mark_engaged
@@ -58,6 +64,10 @@ def register(cli: click.Group) -> None:
         click.secho(f"[+] Decision recorded ({label}): {decision_id[:8]}...", fg=color)
         if reasoning:
             click.secho(f"    Why: {reasoning[:80]}", fg="bright_black")
+        if tension:
+            click.secho(f"    Tension: {tension[:80]}", fg="cyan")
+        if almost:
+            click.secho(f"    Almost: {almost[:80]}", fg="yellow")
 
         # Show linked affect state if one was auto-captured
         from divineos.core.decision_journal import get_affect_at_decision
@@ -225,6 +235,12 @@ def _display_decision(entry: dict, verbose: bool = False) -> None:
 
     if verbose and entry["tags"]:
         click.secho(f"    Tags: {', '.join(entry['tags'])}", fg="bright_black")
+
+    if verbose and entry.get("tension"):
+        click.secho(f"    Tension: {entry['tension']}", fg="cyan")
+
+    if verbose and entry.get("almost"):
+        click.secho(f"    Almost: {entry['almost']}", fg="yellow")
 
     if verbose and entry["linked_knowledge_ids"]:
         ids = ", ".join(kid[:8] + "..." for kid in entry["linked_knowledge_ids"])

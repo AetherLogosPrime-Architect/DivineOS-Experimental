@@ -40,8 +40,8 @@ _BYPASS_COMMANDS = frozenset(
 def _enforce_briefing_gate() -> None:
     """Block all non-essential commands until briefing is loaded.
 
-    This is not a suggestion. This is a wall. Load your briefing
-    or you don't get to work.
+    This is not a suggestion. This is a wall. Load the briefing
+    or I don't get to work.
     """
     if "pytest" in sys.modules:
         return
@@ -67,7 +67,7 @@ def _enforce_briefing_gate() -> None:
 
     click.secho("\n  BLOCKED: Briefing not loaded.", fg="red", bold=True)
     click.secho("  Run: divineos briefing", fg="red", bold=True)
-    click.secho("  Then you can work. Not before.\n", fg="red", bold=True)
+    click.secho("  Then I can work. Not before.\n", fg="red", bold=True)
     raise SystemExit(1)
 
 

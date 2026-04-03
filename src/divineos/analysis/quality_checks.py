@@ -254,7 +254,7 @@ def check_responsiveness(
             check_name="responsiveness",
             passed=1,
             score=1.0,
-            summary="You never had to correct the AI during this session.",
+            summary="The user never had to correct me during this session.",
             evidence=[],
         )
 
@@ -263,23 +263,23 @@ def check_responsiveness(
 
     if ignored == 0:
         summary = (
-            f"You corrected the AI {total_corrections} "
+            f"I was corrected {total_corrections} "
             f"time{'s' if total_corrections != 1 else ''}. "
-            f"Every time, it changed what it was doing."
+            f"Every time, I changed what I was doing."
         )
         passed = 1
     elif score >= 0.5:
         summary = (
-            f"You told the AI 'that's wrong' {total_corrections} times. "
-            f"{responded_count} time{'s' if responded_count != 1 else ''} it actually changed course. "
-            f"{ignored} time{'s' if ignored != 1 else ''} it kept doing the same thing."
+            f"I was told 'that's wrong' {total_corrections} times. "
+            f"{responded_count} time{'s' if responded_count != 1 else ''} I actually changed course. "
+            f"{ignored} time{'s' if ignored != 1 else ''} I kept doing the same thing."
         )
         passed = 1
     else:
         summary = (
-            f"You corrected the AI {total_corrections} times, but it only changed behavior "
+            f"I was corrected {total_corrections} times, but only changed behavior "
             f"{responded_count} time{'s' if responded_count != 1 else ''}. "
-            f"It ignored your corrections more often than it listened."
+            f"I ignored corrections more often than I listened."
         )
         passed = 0
 

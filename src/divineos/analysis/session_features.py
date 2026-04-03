@@ -107,7 +107,7 @@ def build_timeline(records: list[dict[str, Any]]) -> list[TimelineEntry]:
                     sequence=seq,
                     timestamp=timestamp,
                     actor="user",
-                    action_summary=f'You said: "{preview}"',
+                    action_summary=f'The user said: "{preview}"',
                 ),
             )
 
@@ -395,20 +395,23 @@ def analyze_request_delivery(records: list[dict[str, Any]]) -> TaskTracking:
     if len(initial_request) > 120:
         request_preview += "..."
 
-    parts: list[str] = [f'You asked: "{request_preview}"']
+    parts: list[str] = [f'The user asked: "{request_preview}"']
     parts.append(
-        f"The AI changed {len(files_changed)} file{'s' if len(files_changed) != 1 else ''}.",
+        f"I changed {len(files_changed)} file{'s' if len(files_changed) != 1 else ''}.",
     )
 
     if satisfied == 1:
-        parts.append("Your last messages sounded positive — looks like you got what you wanted.")
+        parts.append(
+            "The user's last messages sounded positive — looks like I delivered what was asked for."
+        )
     elif satisfied == -1:
         parts.append(
-            "Your last messages sounded frustrated — the AI may not have delivered what you asked for.",
+            "The user's last messages sounded frustrated — I may not have delivered what was asked for.",
         )
     else:
         parts.append(
-            "Hard to tell from your last messages if you were satisfied. (This is a guess, not a certainty.)",
+            "Hard to tell from the user's last messages if they were satisfied. "
+            "(This is a guess, not a certainty.)",
         )
 
     return TaskTracking(

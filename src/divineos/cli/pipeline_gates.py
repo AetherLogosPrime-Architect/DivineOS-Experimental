@@ -48,7 +48,7 @@ def enforce_briefing_gate() -> None:
 
         if not was_briefing_loaded():
             click.secho(
-                "\n[!] Briefing not loaded. Loading now — you can't skip this.",
+                "\n[!] Briefing not loaded. Loading now — I can't skip this.",
                 fg="yellow",
                 bold=True,
             )

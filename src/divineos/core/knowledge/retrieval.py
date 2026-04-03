@@ -526,6 +526,18 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS:
         pass
 
+    # Recurring value tensions from the decision journal
+    try:
+        from divineos.core.value_tensions import detect_tension_patterns, format_tension_summary
+
+        tension_report = detect_tension_patterns(limit=5)
+        tension_text = format_tension_summary(tension_report)
+        if tension_text:
+            lines.append(tension_text)
+            lines.append("")
+    except _RETRIEVAL_ERRORS:
+        pass
+
     # Recent journal entries (last 48h)
     try:
         journal_entries = journal_list(limit=5)
