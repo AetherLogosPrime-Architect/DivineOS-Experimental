@@ -64,7 +64,7 @@ divineos init
 divineos briefing
 ```
 
-## CLI Commands (109 total)
+## CLI Commands (116 total)
 
 ```bash
 # Session workflow
@@ -352,7 +352,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,716+ tests (real DB, no mocks)
+tests/                         2,730+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks
   load-briefing.sh             Marks briefing as loaded
