@@ -22,66 +22,48 @@ AI agents lose everything between sessions. Every conversation starts from zero 
 ### Memory
 Persistent, layered, evidence-ranked.
 
-| System | Purpose |
-|--------|---------|
-| **Event Ledger** | Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates. |
-| **Memory Hierarchy** | Core memory (8 identity slots) + active memory (ranked) + knowledge store (archive). |
-| **Knowledge Engine** | Smart extraction with dedup, contradiction detection, noise filtering, supersession chains. |
-| **Temporal Knowledge** | Valid-from/valid-until bounds. Time-aware queries: "what was true at time X?" |
-| **Graph Retrieval** | BFS traversal of knowledge edges for clustering related entries in briefings. |
-| **Knowledge Compression** | Three strategies: dedup (>70% overlap), synthesis (40-70%), graph-aware clustering. |
+- **Event Ledger** — Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
+- **Memory Hierarchy** — Core memory (8 identity slots) + active memory (ranked by importance) + knowledge store (full archive).
+- **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
+
+Also: temporal knowledge (valid-from/valid-until), graph-enhanced retrieval (BFS traversal of knowledge edges), knowledge compression (dedup/synthesis/graph-aware).
 
 ### Governance
-Quality gates, integrity checks, trust weighting.
+Quality gates that protect knowledge integrity.
 
-| System | Purpose |
-|--------|---------|
-| **Quality Gate** | Blocks knowledge extraction from dishonest or incorrect sessions. Compass-informed thresholds. |
-| **Maturity Lifecycle** | Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED via corroboration. |
-| **Validity Gate** | Blocks knowledge lacking warrant support or with unresolved contradictions. |
-| **Formal Logic** | Warrants (evidence backing), logical relations (supports/contradicts/requires), inference engine. |
-| **Guardrails** | Runtime limits on iterations, tool calls, and tokens per session. |
-| **Signal Trust Tiers** | MEASURED > BEHAVIORAL > SELF_REPORTED weighting for evidence quality. |
-| **Semantic Integrity Shield** | Three-tier esoteric language detection. Translates metaphysical → architecture. |
+- **Quality Gate** — Blocks knowledge extraction from dishonest or incorrect sessions. Thresholds tighten when the moral compass detects truthfulness drift.
+- **Maturity Lifecycle** — Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED. Corroboration drives promotion. Nothing starts as truth.
+- **Formal Logic** — Warrants (evidence backing), logical relations (supports/contradicts/requires), validity gate, inference engine.
+
+Also: runtime guardrails, signal trust tiers (MEASURED > BEHAVIORAL > SELF_REPORTED), semantic integrity shield (3-tier esoteric language detection).
 
 ### Analysis
-Session quality, correction tracking, pattern detection.
+Session quality tracking and pattern detection.
 
-| System | Purpose |
-|--------|---------|
-| **Session Analysis** | Signal detection: corrections, encouragements, decisions, frustrations, tool usage. |
-| **Outcome Measurement** | Rework detection, knowledge stability (churn), correction trends, session health scoring. |
-| **Quality Trends** | Session-over-session quality trajectory: improving, declining, or stable. |
-| **Drift Detection** | Lesson regressions, quality drift, correction trends — catches behavioral backsliding. |
-| **Pattern Anticipation** | Matches current context against past mistakes. Proactive warnings before you repeat them. |
-| **Proactive Patterns** | Prescriptive recommendations from positive experience — what worked well in similar contexts. |
+- **Session Analysis** — Signal detection: corrections, encouragements, decisions, frustrations, tool usage patterns.
+- **Drift Detection** — Catches behavioral backsliding: lesson regressions, quality drift, correction trend reversals.
+- **Proactive Patterns** — Warns about past mistakes AND recommends what worked well in similar contexts.
+
+Also: outcome measurement (rework, churn, health scoring), quality trends (improving/declining/stable), growth awareness with milestone detection.
 
 ### Self-Model
-The agent's coherent picture of itself, computed from evidence.
+The agent's coherent picture of itself, computed from evidence — not self-reported.
 
-| System | Purpose |
-|--------|---------|
-| **Unified Self-Model** | Assembles identity, strengths, weaknesses, affect, concerns, growth from evidence. |
-| **Moral Compass** | Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END. |
-| **Decision Journal** | Captures the WHY behind choices. Reasoning, alternatives, emotional weight, FTS-searchable. |
-| **Value Tensions** | Detects recurring competing principles. Correlates with compass drift. |
-| **Affect Log** | Valence-arousal-dominance tracking of functional feeling states. Eight PAD octants. |
-| **Body Awareness** | Computational interoception: database sizes, table health, cache monitoring with auto-pruning. |
-| **Self-Critique** | Craft quality assessment across 5 spectrums (elegance, thoroughness, autonomy, proportionality, communication). |
-| **Opinion Store** | First-class opinions with evidence tracking, confidence evolution, and supersession history. |
+- **Moral Compass** — Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END.
+- **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight. FTS-searchable.
+- **Self-Critique** — Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
+- **Opinion Store** — First-class opinions with evidence tracking, confidence evolution, and supersession history.
 
-### Integration
-User modeling, communication, feedback loops.
+Also: affect log (valence-arousal-dominance tracking), body awareness (computational interoception), value tension detection, unified self-model assembly.
 
-| System | Purpose |
-|--------|---------|
-| **User Model** | Structured user preferences and skill level tracking from observed behavior signals. |
-| **Communication Calibration** | Adapts verbosity, jargon, examples, and explanation depth to learned user preferences. |
-| **Advice Tracking** | Long-term feedback: record advice → assess outcomes → compute success rate by category. |
-| **HUD** | Heads-up display: identity, goals, lessons, health grade, engagement tracking, active memory. |
-| **Memory Sync** | Auto-updates Claude Code memory files from DivineOS state at SESSION_END. |
-| **Seed System** | Versioned initial knowledge with merge mode, resurrection prevention, and validation. |
-| **Session Checkpoints** | Periodic saves every 15 edits. Context monitoring with usage warnings. |
+### Interaction Intelligence
+Adapts to the user over time.
+
+- **User Model** — Tracks skill level and preferences from observed behavior (not self-reported). Signals like jargon fluency, explanation requests, and correction patterns build the model automatically.
+- **Communication Calibration** — Adjusts verbosity, jargon tolerance, example density, and explanation depth based on the user model.
+- **Advice Tracking** — Records recommendations given, then tracks whether they actually worked. Computes success rate by category.
+
+Also: HUD (heads-up display), memory sync to Claude Code, session checkpoints, seed versioning.
 
 ## How It Works
 
