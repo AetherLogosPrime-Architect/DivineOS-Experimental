@@ -191,7 +191,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (109 commands across 19 modules)
+  cli/                         CLI package (115 commands across 20 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -352,7 +352,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,665+ tests (real DB, no mocks)
+tests/                         2,695+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks
   load-briefing.sh             Marks briefing as loaded

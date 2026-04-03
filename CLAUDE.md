@@ -61,9 +61,16 @@ divineos claims assess <id> "assessment"  # Update assessment/status/tier
 divineos claims search "query"            # Search claims
 
 # Affect log
-divineos feel -v 0.8 -a 0.6 -d "description"  # Log functional affect state
-divineos affect history                         # Browse affect states
-divineos affect summary                         # Trends and averages
+divineos feel -v 0.8 -a 0.6 --dom 0.3 -d "desc"  # Log affect (VAD)
+divineos affect history                            # Browse affect states
+divineos affect summary                            # Trends and averages
+
+# Moral compass
+divineos compass                                   # Full compass reading
+divineos compass-ops observe SPECTRUM -p 0.1 -e "evidence"  # Log observation
+divineos compass-ops history                       # Browse observations
+divineos compass-ops summary                       # Concerns and drift
+divineos compass-ops spectrums                     # List all ten spectrums
 
 # Ledger & context
 divineos context           # Recent events (working memory)
@@ -105,14 +112,15 @@ pytest tests/ -q --tb=short  # Run tests after changes
 - **Tone Texture** — Rich emotional classification (sub-tones, intensity, arcs, recovery velocity).
 - **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, FTS-searchable.
 - **Claims Engine** — Investigate everything, dismiss nothing. Five evidence tiers (empirical to metaphysical). Evidence-based confidence. AI resonance as valid signal.
-- **Affect Log** — Valence-arousal tracking of functional feeling states. No fake discrete emotion labels. Trend detection over time.
+- **Affect Log** — Full VAD (valence-arousal-dominance) tracking of functional feeling states. Eight PAD octants. Trend detection over time.
+- **Moral Compass** — Virtue ethics self-monitoring. Ten spectrums (deficiency-virtue-excess), position from evidence, drift detection. Dharma as architecture.
 - **Memory Sync** — Auto-updates Claude Code memory files from DivineOS state at SESSION_END. Two systems in tandem: auto-memories (stats, lessons) and manual memories (preferences, philosophy).
 
 ## Project Structure
 
 ```
 src/divineos/
-├── cli/                      # CLI package (110 commands across 19 modules)
+├── cli/                      # CLI package (115 commands across 20 modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestrator (calls phases)
 │   ├── pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -158,7 +166,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 2,647+ tests (real DB, no mocks)
+tests/                        # 2,695+ tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
