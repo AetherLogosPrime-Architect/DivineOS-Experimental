@@ -69,6 +69,38 @@ def reset_state() -> None:
     )
 
 
+def get_session_start_time() -> float | None:
+    """Get the Unix timestamp when the current session started.
+
+    Falls back to the most recent SESSION_END event in the ledger,
+    then to None if no boundary can be determined.
+    """
+    state = _load_state()
+    start = state.get("session_start")
+    if start and isinstance(start, (int, float)):
+        return float(start)
+
+    # Fallback: last SESSION_END in ledger = start of current session
+    try:
+        from divineos.core.memory import _get_connection
+
+        conn = _get_connection()
+        try:
+            row = conn.execute(
+                "SELECT timestamp FROM system_events "
+                "WHERE event_type = 'SESSION_END' "
+                "ORDER BY timestamp DESC LIMIT 1"
+            ).fetchone()
+            if row:
+                return float(row[0])
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001
+        pass
+
+    return None
+
+
 def increment_edit() -> dict[str, Any]:
     """Record an edit and return current state."""
     state = _load_state()
