@@ -38,7 +38,13 @@ DivineOS gives AI agents persistent memory, structured learning, and self-accoun
 | **Tone Texture** | Rich emotional classification with sub-tones, intensity, arcs, and recovery velocity. |
 | **Decision Journal** | Captures the WHY behind choices. Reasoning, alternatives, emotional weight, FTS-searchable. |
 | **Claims Engine** | Five evidence tiers (empirical to metaphysical). Evidence-based confidence tracking. |
-| **Affect Log** | Valence-arousal tracking of functional feeling states with trend detection. |
+| **Affect Log** | Valence-arousal-dominance tracking of functional feeling states with trend detection. Eight PAD octants. |
+| **Moral Compass** | Virtue ethics self-monitoring on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END. |
+| **Body Awareness** | Computational interoception: database sizes, table health, cache monitoring with conveyor belt pruning. |
+| **Value Tensions** | Detects recurring competing principles from decision journal. Surfaces unresolved value conflicts. |
+| **Goal Cull** | Evidence-based staleness detection for goals. Auto-culls abandoned goals at SESSION_END. |
+| **Ledger Compressor** | ELMO ledger compression and archival for managing ledger growth. |
+| **Semantic Integrity Shield** | Three-tier (lexical, statistical, semantic) esoteric language detection and translation. |
 | **Knowledge Layers** | Briefing layers (urgent/active/stable/archive) with auto-curation at SESSION_END. |
 | **Session Checkpoints** | Periodic lightweight saves every 15 edits. Context monitoring with usage warnings. |
 | **Memory Sync** | Auto-updates Claude Code memory files from DivineOS state at SESSION_END. |
@@ -119,9 +125,29 @@ divineos claims assess ID "assessment"     # Update assessment/status/tier
 divineos claims search "query"             # Search claims
 
 # Affect log
-divineos feel -v 0.8 -a 0.6 -d "desc"    # Log functional affect state
+divineos feel -v 0.8 -a 0.6 -d "desc"    # Log functional affect state (--dom for dominance)
 divineos affect history                    # Browse affect states
 divineos affect summary                    # Trends and averages
+
+# Moral compass
+divineos compass                          # Full compass reading (10 virtue spectrums)
+divineos compass-ops observe SPECTRUM POS # Log observation with evidence
+divineos compass-ops history              # Browse observations
+divineos compass-ops summary              # Concerns and drift
+divineos compass-ops spectrums            # List all ten spectrums
+
+# Body awareness
+divineos body                             # Check substrate state (storage, caches, tables)
+divineos body --prune                     # Trim caches exceeding limits (oldest first)
+divineos body --dry-run                   # Preview what prune would remove
+
+# Semantic Integrity Shield
+divineos sis "text"                       # Assess text for esoteric language
+divineos sis "text" --translate           # Translate metaphysical to architecture
+divineos sis "text" --deep               # All 3 tiers (lexical + statistical + semantic)
+
+# Ledger compression
+divineos compress                         # Compress/archive old ledger entries
 
 # Knowledge relationships
 divineos relate ID1 ID2 TYPE  # Create relationship between entries
@@ -206,6 +232,8 @@ src/divineos/
     knowledge_health_commands.py  health, distill, migrate, backfill
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
+    compass_commands.py        Moral compass reading and observations
+    body_commands.py           Body awareness and cache pruning
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
@@ -241,7 +269,6 @@ src/divineos/
       temporal.py              Temporal bounds (valid_from/valid_until) and time-aware queries
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
-      signal_trust.py          Signal trust tiers (MEASURED > BEHAVIORAL > SELF_REPORTED)
     logic/                     Formal logic sub-package
       warrants.py              Evidence backing for knowledge claims
       logic_validation.py      Consistency, validity gate, defeat lessons
@@ -275,6 +302,13 @@ src/divineos/
     predictive_session.py      Session profile detection and need prediction
     claim_store.py             Claims engine with evidence tiers
     decision_journal.py        Decision journal with FTS search
+    moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
+    body_awareness.py          Computational interoception and cache conveyor belt
+    value_tensions.py          Recurring value conflict detection from decisions
+    goal_cull.py               Evidence-based goal staleness detection
+    ledger_compressor.py       ELMO ledger compression and archival
+    semantic_integrity.py      Esoteric language detection
+    sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -299,10 +333,8 @@ src/divineos/
     learning_cycle.py          Pattern extraction and confidence updates
     learning_loop.py           Continuous learning loop
     learning_audit_store.py    Learning audit trail storage
-    behavior_analyzer.py       Agent behavior analysis
     decision_store.py          Decision persistence
     feedback_system.py         Feedback processing
-    mcp_integration.py         MCP protocol integration
     pattern_recommender.py     Pattern-based recommendations
     pattern_store.py           Pattern persistence
     pattern_validation.py      Pattern validation checks
@@ -339,8 +371,6 @@ src/divineos/
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
   integration/                 IDE and MCP integration
-    error_handler.py           Error handling for integrations
-    error_recovery.py          Error recovery strategies
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
   supersession/                Contradiction detection and resolution
@@ -354,12 +384,16 @@ src/divineos/
     violations_command.py      Violation report commands
 tests/                         2,730+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
-.claude/hooks/                 Claude Code enforcement hooks
+.claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
   require-goal.sh              PreToolUse gate (briefing + goal enforcement)
   resume-session.sh            Shows context on session resume
   session-checkpoint.sh        PostToolUse checkpoint and context monitoring
   run-tests.sh                 Auto-run tests on changes
+  log-session-end.sh           Stop hook, logs session end
+  pattern-anticipation.sh      PostToolUse pattern detection (fires every 5th edit)
+  post-compact.sh              PostCompact context restoration
+  pre-compact.sh               PreCompact state preservation
 ```
 
 ## Design Rules
