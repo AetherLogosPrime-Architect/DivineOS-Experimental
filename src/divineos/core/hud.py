@@ -54,6 +54,7 @@ SLOT_ORDER = [
     "affect",
     "claims",
     "compass",
+    "body",
     "task_state",
     "self_model",
 ]
@@ -594,6 +595,22 @@ def _build_growth_awareness_slot() -> str:
     return "\n".join(lines)
 
 
+def _build_body_slot() -> str:
+    """Substrate state -- storage, table health, warnings."""
+    try:
+        from divineos.core.body_awareness import format_vitals_brief, measure_vitals
+
+        vitals = measure_vitals()
+        brief = format_vitals_brief(vitals)
+        if not vitals.warnings:
+            return ""  # Only show when there's something to report
+        lines = ["# Body Awareness\n"]
+        lines.append(brief)
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 def _build_compass_slot() -> str:
     """Moral compass -- where I stand on virtue spectrums."""
     try:
@@ -629,6 +646,7 @@ SLOT_BUILDERS = {
     "affect": _build_affect_slot,
     "claims": _build_claims_slot,
     "compass": _build_compass_slot,
+    "body": _build_body_slot,
     "self_model": _build_self_model_slot,
 }
 
