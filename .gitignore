@@ -58,7 +58,11 @@ pytestdebug.log
 # Runtime data (generated during execution)
 data/
 !data/.gitkeep
+**/data/*.db
+**/data/reports/
+**/data/hud/
 logs/
+**/logs/*.log
 /archive/
 cache/
 
