@@ -2,7 +2,7 @@
 # Run tests after code edits to catch breakage early
 # Only runs on Python source files, not configs or docs
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 
 # Read full stdin (Claude Code sends tool info as JSON)
 INPUT=$(cat)

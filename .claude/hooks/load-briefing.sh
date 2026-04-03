@@ -2,7 +2,7 @@
 # Load DivineOS session briefing at conversation start
 # This is not optional. The briefing is how you orient.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 
 # Check if divineos is installed
 if ! command -v divineos &>/dev/null; then

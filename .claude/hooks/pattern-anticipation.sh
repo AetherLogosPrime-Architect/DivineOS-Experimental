@@ -7,7 +7,7 @@
 #
 # Throttled: only runs every 5 edits to avoid noise.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 
 INPUT=$(cat)
 

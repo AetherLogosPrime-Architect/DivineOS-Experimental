@@ -3,7 +3,7 @@
 # This is the critical checkpoint — everything in-context is about to be lost.
 # If SESSION_END doesn't fire here, all session knowledge evaporates.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 
 if ! command -v divineos &>/dev/null; then
   exit 0
