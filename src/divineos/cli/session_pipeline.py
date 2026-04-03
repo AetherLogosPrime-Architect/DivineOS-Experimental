@@ -159,6 +159,17 @@ def _run_session_end_pipeline() -> None:
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.warning(f"Knowledge curation failed: {e}")
 
+        # ── Phase 8e: Compass reflection ────────────────────────
+        try:
+            from divineos.core.moral_compass import format_compass_brief, reflect_on_session
+
+            compass_obs = reflect_on_session(analysis)
+            if compass_obs:
+                click.secho(f"[~] Compass: {len(compass_obs)} observations logged", fg="cyan")
+                click.secho(format_compass_brief(), fg="bright_black")
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Compass reflection failed: {e}")
+
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)
 
