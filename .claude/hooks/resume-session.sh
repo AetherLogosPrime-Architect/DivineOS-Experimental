@@ -8,7 +8,7 @@
 #
 # The hook gives the information. The gate forces the action.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 
 if ! command -v divineos &>/dev/null; then
   exit 0

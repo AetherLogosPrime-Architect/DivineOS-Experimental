@@ -4,7 +4,7 @@
 # Without this, the AI continues working post-compaction with no
 # briefing, no orientation, and no awareness of OS requirements.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 
 if ! command -v divineos &>/dev/null; then
   exit 0
