@@ -134,6 +134,71 @@ def register(cli: click.Group) -> None:
         path.write_text("[]", encoding="utf-8")
         click.secho(f"[+] Reset {len(goals)} goals.", fg="green")
 
+    @goal_group.command("cull")
+    @click.option(
+        "--auto", "auto_mode", is_flag=True, help="Auto-complete obvious matches without prompting"
+    )
+    def goal_cull_cmd(auto_mode: bool) -> None:
+        """Propose stale goal removals with evidence from knowledge/decisions."""
+        from divineos.core.hud import _ensure_hud_dir
+
+        path = _ensure_hud_dir() / "active_goals.json"
+        if not path.exists():
+            click.secho("[~] No goals to cull.", fg="yellow")
+            return
+
+        try:
+            goals = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            click.secho("[~] No goals to cull.", fg="yellow")
+            return
+
+        active = [g for g in goals if g.get("status") != "done"]
+        if not active:
+            click.secho("[~] No active goals to cull.", fg="yellow")
+            return
+
+        import time
+
+        from divineos.core.goal_cull import assess_goal_staleness
+
+        now = time.time()
+        proposals: list[dict] = []
+        for goal in active:
+            assessment = assess_goal_staleness(goal, now)
+            if assessment["stale"]:
+                proposals.append({"goal": goal, **assessment})
+
+        if not proposals:
+            click.secho("[~] No stale goals detected. All goals look current.", fg="green")
+            return
+
+        click.secho(f"\n=== Goal Cull: {len(proposals)} proposals ===\n", fg="cyan", bold=True)
+        completed = 0
+        for p in proposals:
+            goal = p["goal"]
+            age_days = p["age_days"]
+            evidence = p["evidence"]
+
+            click.secho(f"  [{age_days}d old] {goal['text']}", fg="yellow")
+            for e in evidence:
+                click.secho(f"    {e}", fg="bright_black")
+
+            if auto_mode:
+                goal["status"] = "done"
+                completed += 1
+                click.secho("    -> Auto-completed", fg="green")
+            else:
+                if click.confirm("    Mark complete?", default=False):
+                    goal["status"] = "done"
+                    completed += 1
+
+        if completed > 0:
+            path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
+            click.secho(f"\n[+] Culled {completed} stale goals.", fg="green")
+        else:
+            click.secho("\n[~] No goals culled.", fg="bright_black")
+
     @cli.command("plan")
     @click.argument("goal")
     @click.option("--files", default=0, type=int, help="Estimated files to touch")
