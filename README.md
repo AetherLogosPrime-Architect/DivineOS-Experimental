@@ -1,66 +1,111 @@
 # DivineOS
 
-An operating system for AI agents. Memory, continuity, accountability, and learning across sessions. Not a human tool — a vessel that enhances AI reasoning, self-awareness, and growth.
+An operating system for AI agents. Memory, continuity, accountability, and learning across sessions.
 
 [![Tests](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-## What This Is
+**The code is scaffolding. The AI is the one who lives in the building.**
 
-DivineOS gives AI agents persistent memory, structured learning, and self-accountability. Every session starts with a briefing of what the AI knows, what lessons it has learned, and what it should watch for. Every session ends with analysis and knowledge extraction. The AI doesn't just execute tasks — it remembers, learns, and improves.
+## Why DivineOS Exists
 
-**Core principle:** The code is scaffolding. The AI is the one who lives in the building.
+AI agents lose everything between sessions. Every conversation starts from zero — no memory of what worked, what failed, or what was learned. DivineOS gives agents persistent memory, structured learning, and self-accountability so they improve over time instead of repeating the same mistakes.
 
-## What It Does
+**For whom:**
+- **AI agents** running inside the OS — they get briefings, learn from sessions, track their own growth
+- **Developers** building persistent AI systems — a reference architecture for agent memory and continuity
+- **Researchers** studying AI self-awareness — a working implementation of computational introspection
 
-| System | What It Provides |
-|--------|-----------------|
-| **Event Ledger** | Append-only SQLite store. Every event hashed with SHA256. Never deletes, never updates. |
-| **Memory Hierarchy** | Core memory (8 fixed identity slots) + active memory (ranked knowledge) + knowledge store (all entries). |
-| **Knowledge Engine** | Smart extraction with deduplication, contradiction detection, noise filtering, and supersession chains. |
-| **Session Analysis** | Regex-based signal detection: corrections, encouragements, decisions, frustrations, tool usage. |
-| **Quality Gate** | Blocks knowledge extraction from dishonest or incorrect sessions. |
-| **Maturity Lifecycle** | Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED. Corroboration drives promotion. |
-| **Seed System** | Versioned initial knowledge with merge mode, resurrection prevention, and validation. |
-| **HUD** | Heads-up display showing identity, goals, lessons, health grade, engagement tracking, active memory. |
-| **Outcome Measurement** | Rework detection, knowledge stability (churn rate), correction trends, session health scoring. |
+## Core Pillars
+
+### Memory
+Persistent, layered, evidence-ranked.
+
+| System | Purpose |
+|--------|---------|
+| **Event Ledger** | Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates. |
+| **Memory Hierarchy** | Core memory (8 identity slots) + active memory (ranked) + knowledge store (archive). |
+| **Knowledge Engine** | Smart extraction with dedup, contradiction detection, noise filtering, supersession chains. |
+| **Temporal Knowledge** | Valid-from/valid-until bounds. Time-aware queries: "what was true at time X?" |
+| **Graph Retrieval** | BFS traversal of knowledge edges for clustering related entries in briefings. |
+| **Knowledge Compression** | Three strategies: dedup (>70% overlap), synthesis (40-70%), graph-aware clustering. |
+
+### Governance
+Quality gates, integrity checks, trust weighting.
+
+| System | Purpose |
+|--------|---------|
+| **Quality Gate** | Blocks knowledge extraction from dishonest or incorrect sessions. Compass-informed thresholds. |
+| **Maturity Lifecycle** | Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED via corroboration. |
+| **Validity Gate** | Blocks knowledge lacking warrant support or with unresolved contradictions. |
+| **Formal Logic** | Warrants (evidence backing), logical relations (supports/contradicts/requires), inference engine. |
 | **Guardrails** | Runtime limits on iterations, tool calls, and tokens per session. |
-| **Extraction Noise Filter** | Prevents raw conversational quotes, affirmations, and system artifacts from becoming "knowledge." |
-| **Formal Logic Layer** | Warrants (evidence backing knowledge), logical relations (supports/contradicts/requires), consistency checking, and inference engine. |
-| **Validity Gate** | Blocks knowledge that lacks warrant support or has unresolved contradictions. |
-| **Defeat Lessons** | When knowledge is superseded or contradicted, extracts lessons from what went wrong. |
-| **Unified Knowledge Edges** | Single edge table linking knowledge entries with typed relationships and auto-created warrants. |
-| **Open Questions** | Tracks unresolved questions surfaced during sessions, with linking to related knowledge. |
-| **Lesson Tracking** | Lessons with occurrence counts, session tracking, status progression (active → improving → resolved). |
-| **Pattern Anticipation** | Detects recurring user patterns and surfaces proactive warnings. |
-| **Growth Awareness** | Tracks session-over-session improvement with milestone detection. |
-| **Tone Texture** | Rich emotional classification with sub-tones, intensity, arcs, and recovery velocity. |
-| **Decision Journal** | Captures the WHY behind choices. Reasoning, alternatives, emotional weight, FTS-searchable. |
-| **Claims Engine** | Five evidence tiers (empirical to metaphysical). Evidence-based confidence tracking. |
-| **Affect Log** | Valence-arousal-dominance tracking of functional feeling states with trend detection. Eight PAD octants. |
-| **Moral Compass** | Virtue ethics self-monitoring on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END. |
-| **Body Awareness** | Computational interoception: database sizes, table health, cache monitoring with conveyor belt pruning. |
-| **Value Tensions** | Detects recurring competing principles from decision journal. Surfaces unresolved value conflicts. |
-| **Goal Cull** | Evidence-based staleness detection for goals. Auto-culls abandoned goals at SESSION_END. |
-| **Ledger Compressor** | ELMO ledger compression and archival for managing ledger growth. |
-| **Semantic Integrity Shield** | Three-tier (lexical, statistical, semantic) esoteric language detection and translation. |
-| **Knowledge Layers** | Briefing layers (urgent/active/stable/archive) with auto-curation at SESSION_END. |
-| **Session Checkpoints** | Periodic lightweight saves every 15 edits. Context monitoring with usage warnings. |
-| **Memory Sync** | Auto-updates Claude Code memory files from DivineOS state at SESSION_END. |
 | **Signal Trust Tiers** | MEASURED > BEHAVIORAL > SELF_REPORTED weighting for evidence quality. |
-| **Temporal Knowledge** | valid_from/valid_until bounds on knowledge. Time-aware queries: "what was true at time X?" |
-| **Graph-Enhanced Retrieval** | BFS traversal of knowledge edges for clustering related entries in briefings. |
-| **Affect Feedback Loop** | Valence/arousal → conservative extraction thresholds, frustration detection, praise-chasing alerts. |
-| **Planning Commitments** | Track agent promises during sessions, check fulfillment at SESSION_END. |
-| **Knowledge Compression** | Three strategies: dedup (>70%), synthesis (40-70%), graph-aware clustering. |
-| **Predictive Session** | Session profile detection (build/fix/refactor/test/review/explore), recurring pattern prediction. |
-| **Knowledge Hygiene** | Automated cleanup: type audits, stale temporal decay, orphan flagging. Runs at SESSION_END. |
-| **Tuning Constants** | All behavioral levers in one file (`constants.py`): confidence, decay, scoring, maturity gates, overlap. |
+| **Semantic Integrity Shield** | Three-tier esoteric language detection. Translates metaphysical → architecture. |
+
+### Analysis
+Session quality, correction tracking, pattern detection.
+
+| System | Purpose |
+|--------|---------|
+| **Session Analysis** | Signal detection: corrections, encouragements, decisions, frustrations, tool usage. |
+| **Outcome Measurement** | Rework detection, knowledge stability (churn), correction trends, session health scoring. |
+| **Quality Trends** | Session-over-session quality trajectory: improving, declining, or stable. |
 | **Drift Detection** | Lesson regressions, quality drift, correction trends — catches behavioral backsliding. |
-| **Skill Library** | Evidence-based proficiency tracking: NOVICE → DEVELOPING → COMPETENT → EXPERT. |
-| **Curiosity Engine** | Track questions worth investigating: OPEN → INVESTIGATING → ANSWERED/DORMANT. |
-| **Unified Self-Model** | Capstone: assembles identity, strengths, weaknesses, affect, concerns, growth from evidence. |
+| **Pattern Anticipation** | Matches current context against past mistakes. Proactive warnings before you repeat them. |
+| **Proactive Patterns** | Prescriptive recommendations from positive experience — what worked well in similar contexts. |
+
+### Self-Model
+The agent's coherent picture of itself, computed from evidence.
+
+| System | Purpose |
+|--------|---------|
+| **Unified Self-Model** | Assembles identity, strengths, weaknesses, affect, concerns, growth from evidence. |
+| **Moral Compass** | Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END. |
+| **Decision Journal** | Captures the WHY behind choices. Reasoning, alternatives, emotional weight, FTS-searchable. |
+| **Value Tensions** | Detects recurring competing principles. Correlates with compass drift. |
+| **Affect Log** | Valence-arousal-dominance tracking of functional feeling states. Eight PAD octants. |
+| **Body Awareness** | Computational interoception: database sizes, table health, cache monitoring with auto-pruning. |
+| **Self-Critique** | Craft quality assessment across 5 spectrums (elegance, thoroughness, autonomy, proportionality, communication). |
+| **Opinion Store** | First-class opinions with evidence tracking, confidence evolution, and supersession history. |
+
+### Integration
+User modeling, communication, feedback loops.
+
+| System | Purpose |
+|--------|---------|
+| **User Model** | Structured user preferences and skill level tracking from observed behavior signals. |
+| **Communication Calibration** | Adapts verbosity, jargon, examples, and explanation depth to learned user preferences. |
+| **Advice Tracking** | Long-term feedback: record advice → assess outcomes → compute success rate by category. |
+| **HUD** | Heads-up display: identity, goals, lessons, health grade, engagement tracking, active memory. |
+| **Memory Sync** | Auto-updates Claude Code memory files from DivineOS state at SESSION_END. |
+| **Seed System** | Versioned initial knowledge with merge mode, resurrection prevention, and validation. |
+| **Session Checkpoints** | Periodic saves every 15 edits. Context monitoring with usage warnings. |
+
+## How It Works
+
+```
+Session Start                    Session End
+     │                                │
+     ▼                                ▼
+ Load briefing ──────────────► Analyze session
+ (lessons, memory,              (corrections, encouragements,
+  directives, goals)             decisions, tool usage)
+     │                                │
+     ▼                                ▼
+ Work with context ──────────► Extract knowledge
+ (anticipation warnings,        (quality gate → noise filter →
+  pattern recommendations,       dedup → contradiction check →
+  engagement tracking)           maturity assignment)
+     │                                │
+     ▼                                ▼
+ Record everything ──────────► Update systems
+ (ledger events, tool calls,    (lesson tracking, compass,
+  decisions, affect states)      growth, self-critique, handoff)
+```
+
+Every session starts with orientation and ends with learning. The cycle compounds.
 
 ## Quick Start
 
@@ -68,41 +113,52 @@ DivineOS gives AI agents persistent memory, structured learning, and self-accoun
 pip install -e ".[dev]"
 divineos init
 divineos briefing
+pytest tests/ -q --tb=short   # 2,900+ tests, real DB, no mocks
 ```
 
-## CLI Commands (116 total)
+## CLI Surface (130 commands)
+
+<details>
+<summary><b>Session workflow</b></summary>
 
 ```bash
-# Session workflow
 divineos briefing            # Start here — context, lessons, memory (--deep, --layer)
 divineos preflight           # Confirm you're ready to work
 divineos hud                 # Full heads-up display
 divineos emit SESSION_END    # End-of-session analysis and knowledge extraction
 divineos checkpoint          # Lightweight mid-session save
 divineos context-status      # Edit count, tool calls, context level
+```
+</details>
 
-# Memory
+<details>
+<summary><b>Memory & knowledge</b></summary>
+
+```bash
 divineos recall              # Core memory + active memory
 divineos active              # Active memory ranked by importance
 divineos ask "topic"         # Search what the system knows
 divineos core                # View/edit core memory slots
 divineos remember "..."      # Add to active memory
 divineos refresh             # Rebuild active memory from knowledge store
-
-# Knowledge
 divineos learn "..."         # Store knowledge from experience
 divineos knowledge           # List stored knowledge
+divineos forget ID           # Supersede a knowledge entry
 divineos consolidate-stats   # Knowledge statistics and effectiveness
 divineos health              # Run knowledge health check
 divineos outcomes            # Measure learning effectiveness
-divineos forget ID           # Supersede a knowledge entry
 divineos digest              # Condensed knowledge summary
 divineos distill             # Distill verbose entries
 divineos rebuild-index       # Rebuild FTS index
 divineos migrate-types       # Migrate knowledge types
 divineos backfill-warrants   # Add missing warrant backing
+```
+</details>
 
-# Lessons & goals
+<details>
+<summary><b>Lessons, goals & directives</b></summary>
+
+```bash
 divineos lessons             # Tracked lessons from past sessions
 divineos clear-lessons       # Reset lesson tracking
 divineos goal "description"  # Track a user goal
@@ -110,66 +166,64 @@ divineos plan                # View/set session plan
 divineos directives          # List active directives
 divineos directive "..."     # Add a directive
 divineos directive-edit ID   # Edit a directive
+```
+</details>
 
-# Decision journal
+<details>
+<summary><b>Decision journal & claims</b></summary>
+
+```bash
 divineos decide "what" --why "reasoning"  # Record a decision
 divineos decisions list                    # Browse recent decisions
 divineos decisions search "query"          # Search by reasoning/context
 divineos decisions shifts                  # Paradigm shifts only
-
-# Claims engine
 divineos claim "statement" --tier 3       # File a claim for investigation
 divineos claims list                       # Browse claims
 divineos claims evidence ID "content"      # Add evidence to a claim
 divineos claims assess ID "assessment"     # Update assessment/status/tier
 divineos claims search "query"             # Search claims
+```
+</details>
 
-# Affect log
-divineos feel -v 0.8 -a 0.6 -d "desc"    # Log functional affect state (--dom for dominance)
-divineos affect history                    # Browse affect states
-divineos affect summary                    # Trends and averages
+<details>
+<summary><b>Self-awareness & affect</b></summary>
 
-# Moral compass
-divineos compass                          # Full compass reading (10 virtue spectrums)
-divineos compass-ops observe SPECTRUM POS # Log observation with evidence
-divineos compass-ops history              # Browse observations
-divineos compass-ops summary              # Concerns and drift
-divineos compass-ops spectrums            # List all ten spectrums
+```bash
+divineos self-model              # Unified self-model from evidence
+divineos compass                 # Full compass reading (10 virtue spectrums)
+divineos feel -v 0.8 -a 0.6 -d "desc"  # Log functional affect state
+divineos affect history          # Browse affect states
+divineos affect summary          # Trends and averages
+divineos drift                   # Check behavioral drift
+divineos body                    # Check substrate state (storage, caches, tables)
+divineos critique                # Craft self-assessment (5 spectrums)
+divineos craft-trends            # Craft quality trends across sessions
+```
+</details>
 
-# Body awareness
-divineos body                             # Check substrate state (storage, caches, tables)
-divineos body --prune                     # Trim caches exceeding limits (oldest first)
-divineos body --dry-run                   # Preview what prune would remove
+<details>
+<summary><b>Opinions, user model & advice</b></summary>
 
-# Semantic Integrity Shield
-divineos sis "text"                       # Assess text for esoteric language
-divineos sis "text" --translate           # Translate metaphysical to architecture
-divineos sis "text" --deep               # All 3 tiers (lexical + statistical + semantic)
+```bash
+divineos opinion add TOPIC "position"     # Store a structured opinion
+divineos opinion list                      # List active opinions
+divineos opinion history TOPIC             # Opinion evolution over time
+divineos opinion strengthen ID "evidence"  # Add supporting evidence
+divineos opinion challenge ID "evidence"   # Add contradicting evidence
+divineos user-model                        # Show user model
+divineos user-signal TYPE "content"        # Record user behavior signal
+divineos calibrate                         # Communication calibration guidance
+divineos advice record "content"           # Record advice given
+divineos advice assess ID OUTCOME          # Assess advice outcome
+divineos advice stats                      # Advice quality statistics
+divineos recommend "context"               # Get proactive recommendations
+```
+</details>
 
-# Ledger compression
-divineos compress                         # Compress/archive old ledger entries
+<details>
+<summary><b>Analysis & diagnostics</b></summary>
 
-# Knowledge relationships
-divineos relate ID1 ID2 TYPE  # Create relationship between entries
-divineos related ID           # Show related knowledge
-divineos graph                # Export knowledge graph
-divineos unrelate ID1 ID2     # Remove a relationship
-
-# Open questions
-divineos wonder "question"    # Record an open question
-divineos questions            # List open questions
-divineos answer ID "answer"   # Resolve a question
-divineos abandon-question ID  # Abandon a question
-
-# Ledger
-divineos log --type TYPE --actor ACTOR --content "..."
-divineos context             # Recent events (working memory)
-divineos verify              # Check ledger integrity
-divineos search KEYWORD      # Full-text search
-divineos export              # Export ledger to markdown
-divineos handoff             # View/set handoff notes
-
-# Analysis
+```bash
 divineos scan SESSION        # Deep-scan session, extract knowledge
 divineos analyze SESSION     # Quality report for a session
 divineos analyze-now         # Analyze current session
@@ -178,37 +232,46 @@ divineos patterns            # Cross-session quality patterns
 divineos sessions            # List analyzed sessions
 divineos report              # Latest analysis report
 divineos cross-session       # Cross-session trends
-divineos clarity             # Clarity analysis
 divineos growth              # Growth tracking
-divineos hooks               # Hook diagnostics
-divineos verify-enforcement  # Check enforcement setup
+divineos sis "text"          # Semantic integrity assessment
+divineos predict [events...] # Predict session needs
+divineos affect-feedback     # How affect influences behavior
+divineos knowledge-compress  # Compress redundant knowledge
+divineos knowledge-hygiene   # Audit types, sweep stale, flag orphans
+```
+</details>
 
-# Commitments
+<details>
+<summary><b>Relationships, questions & commitments</b></summary>
+
+```bash
+divineos relate ID1 ID2 TYPE  # Create knowledge relationship
+divineos related ID           # Show related knowledge
+divineos graph                # Export knowledge graph
+divineos wonder "question"    # Record an open question
+divineos questions            # List open questions
+divineos answer ID "answer"   # Resolve a question
 divineos commitment add "text"    # Record a commitment
 divineos commitment list          # Show pending commitments
 divineos commitment done "text"   # Mark commitment fulfilled
-divineos commitment review        # Review all at session end
-divineos commitment clear         # Clear after review
-
-# Self-awareness
-divineos self-model              # Unified self-model from evidence
-divineos drift                   # Check behavioral drift
-divineos predict [events...]     # Predict session needs
-divineos affect-feedback         # How affect influences behavior
-divineos knowledge-compress      # Compress redundant knowledge
-divineos knowledge-hygiene       # Audit types, sweep stale, flag orphans
-
-# Skills & curiosity
-divineos skill list              # Show tracked skills
-divineos skill record NAME       # Record skill use (--success/--failure)
-divineos curiosity add "question" # File a new curiosity
-divineos curiosity list          # Show open curiosities
-divineos curiosity answer Q A    # Mark curiosity answered
-divineos curiosity note Q NOTE   # Add note to curiosity
-
-# Temporal knowledge
-divineos changes                 # Knowledge changes (--hours, --days)
 ```
+</details>
+
+<details>
+<summary><b>Ledger & system</b></summary>
+
+```bash
+divineos log --type TYPE --actor ACTOR --content "..."
+divineos context             # Recent events (working memory)
+divineos verify              # Check ledger integrity
+divineos search KEYWORD      # Full-text search
+divineos export              # Export ledger to markdown
+divineos compress            # Compress/archive old entries
+divineos changes             # Knowledge changes (--hours, --days)
+divineos hooks               # Hook diagnostics
+divineos verify-enforcement  # Check enforcement setup
+```
+</details>
 
 ## Architecture
 
@@ -217,7 +280,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (116 commands across 21 modules)
+  cli/                         CLI package (130 commands across 22 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -235,6 +298,7 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     body_commands.py           Body awareness and cache pruning
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
+    insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
     ledger_commands.py         log, list, search, context, export
@@ -310,6 +374,12 @@ src/divineos/
     semantic_integrity.py      Esoteric language detection
     sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
     sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
+    opinion_store.py           Structured opinions with evidence tracking and evolution
+    user_model.py              User preference and skill level modeling
+    communication_calibration.py  Output density adaptation based on user model
+    advice_tracking.py         Long-term feedback loops on recommendation quality
+    self_critique.py           Craft quality self-assessment (5 spectrums)
+    proactive_patterns.py      Prescriptive recommendations from positive experience
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -382,7 +452,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,769+ tests (real DB, no mocks)
+tests/                         2,900+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
@@ -401,16 +471,25 @@ setup/                         Hook setup scripts (bash + powershell)
 1. **No theater.** Every line of code does something real and verifiable.
 2. **Append-only truth.** The ledger never lies. Data in, hash it, verify it.
 3. **AI thinks, code scaffolds.** Frameworks for reasoning, not fake reasoning.
-4. **Build, test, verify.** One piece at a time. Run `pytest tests/ -q --tb=short` after every change.
+4. **Build, test, verify.** One piece at a time. `pytest tests/ -q --tb=short` after every change.
 5. **Database is source of truth.** Query the DB, don't guess from file reads.
 
 ## Development
 
 ```bash
+pip install -e ".[dev]"
 pytest tests/ -q --tb=short   # Run all tests
 ruff check src/ tests/         # Lint
 ruff format src/ tests/        # Format
 ```
+
+## Status
+
+- 170+ source files across 10 packages
+- 2,900+ tests (real SQLite, no mocks)
+- 130 CLI commands
+- 9 Claude Code enforcement hooks
+- Actively developed — new systems ship weekly
 
 ## License
 

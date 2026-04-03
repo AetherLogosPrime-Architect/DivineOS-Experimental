@@ -1,0 +1,200 @@
+"""Proactive Pattern Detection — prescriptive recommendations from experience.
+
+Complements anticipation.py (which warns about past mistakes) by
+recommending patterns that worked well in similar contexts. Instead of
+just "watch out for X," this says "last time you did something like
+this, Y worked well."
+
+Sources recommendations from:
+1. Knowledge store (PRINCIPLE, PROCEDURE entries with high confidence)
+2. Decision journal (decisions with positive outcomes in similar contexts)
+3. Opinion store (relevant opinions with high confidence)
+
+Sanskrit anchor: prajna (wisdom, practical insight applied to action).
+"""
+
+import re
+import sqlite3
+from typing import Any
+
+
+from divineos.core.knowledge import get_connection
+from divineos.core.knowledge._text import _compute_overlap
+
+_PP_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
+
+
+def _get_positive_patterns() -> list[dict[str, Any]]:
+    """Collect patterns that worked well — principles, procedures, high-confidence knowledge."""
+    patterns: list[dict[str, Any]] = []
+
+    conn = get_connection()
+    try:
+        knowledge_rows = conn.execute(
+            "SELECT knowledge_id, knowledge_type, content, confidence, access_count "
+            "FROM knowledge "
+            "WHERE knowledge_type IN ('PRINCIPLE', 'PROCEDURE', 'OBSERVATION') "
+            "AND superseded_by IS NULL AND confidence >= 0.6 "
+            "ORDER BY confidence DESC, access_count DESC LIMIT 30"
+        ).fetchall()
+        for row in knowledge_rows:
+            patterns.append(
+                {
+                    "source": "knowledge",
+                    "id": row[0],
+                    "type": row[1],
+                    "text": row[2],
+                    "confidence": row[3],
+                    "access_count": row[4],
+                    "weight": row[3] * 0.3,
+                }
+            )
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        conn.close()
+
+    # Add opinions if available
+    try:
+        from divineos.core.opinion_store import get_opinions, init_opinion_table
+
+        init_opinion_table()
+        opinions = get_opinions(min_confidence=0.6, limit=15)
+        for op in opinions:
+            patterns.append(
+                {
+                    "source": "opinion",
+                    "id": op["opinion_id"],
+                    "type": "OPINION",
+                    "text": f"[{op['topic']}] {op['position']}",
+                    "confidence": op["confidence"],
+                    "access_count": 0,
+                    "weight": op["confidence"] * 0.2,
+                }
+            )
+    except _PP_ERRORS:
+        pass
+
+    # Add positive decisions if available
+    try:
+        from divineos.core.decision_journal import init_decision_journal
+
+        init_decision_journal()
+        dconn = get_connection()
+        try:
+            decision_rows = dconn.execute(
+                "SELECT decision_id, content, tension FROM decision_journal "
+                "WHERE tension != '' ORDER BY created_at DESC LIMIT 20"
+            ).fetchall()
+        finally:
+            dconn.close()
+        for row in decision_rows:
+            patterns.append(
+                {
+                    "source": "decision",
+                    "id": row[0],
+                    "type": "DECISION",
+                    "text": row[1],
+                    "confidence": 0.6,
+                    "access_count": 0,
+                    "weight": 0.15,
+                }
+            )
+    except _PP_ERRORS:
+        pass
+
+    return patterns
+
+
+def recommend(context: str, max_recommendations: int = 3) -> list[dict[str, Any]]:
+    """Match current context against positive patterns and recommend applicable ones.
+
+    Returns recommendations ranked by relevance. Each has:
+    text, relevance (0-1), source, type, reason.
+    """
+    if not context or not context.strip():
+        return []
+
+    patterns = _get_positive_patterns()
+    if not patterns:
+        return []
+
+    context_lower = context.lower()
+    context_words = set(re.findall(r"\b\w{3,}\b", context_lower))
+
+    scored: list[dict[str, Any]] = []
+
+    for pattern in patterns:
+        text = pattern["text"]
+        overlap = _compute_overlap(context, text)
+
+        # Keyword signal boost
+        text_lower = text.lower()
+        signal_boost = 0.0
+        for word in context_words:
+            if len(word) > 4 and word in text_lower:
+                signal_boost += 0.1
+        signal_boost = min(signal_boost, 0.3)
+
+        # Frequently accessed patterns are more likely useful
+        access_boost = min(pattern.get("access_count", 0) * 0.01, 0.1)
+
+        relevance = overlap + signal_boost + pattern["weight"] + access_boost
+
+        if relevance >= 0.3:
+            reason_parts = []
+            if overlap >= 0.2:
+                reason_parts.append(f"content match ({overlap:.0%})")
+            if signal_boost > 0:
+                reason_parts.append("keyword match")
+            if access_boost > 0:
+                reason_parts.append(f"well-tested ({pattern.get('access_count', 0)}x)")
+
+            scored.append(
+                {
+                    "text": text,
+                    "relevance": min(relevance, 1.0),
+                    "source": pattern["source"],
+                    "type": pattern["type"],
+                    "id": pattern["id"],
+                    "confidence": pattern["confidence"],
+                    "reason": ", ".join(reason_parts) if reason_parts else "relevant principle",
+                }
+            )
+
+    scored.sort(key=lambda r: r["relevance"], reverse=True)
+    return scored[:max_recommendations]
+
+
+def format_recommendations(recs: list[dict[str, Any]]) -> str:
+    """Format recommendations for display."""
+    if not recs:
+        return ""
+
+    lines = ["**Relevant patterns:**"]
+    for r in recs:
+        conf = r.get("confidence", 0)
+        icon = "★" if conf >= 0.8 else "☆"
+        lines.append(f"  {icon} {r['text'][:150]}")
+        lines.append(f"    from: {r['source']} ({r['type']}) | {r['reason']}")
+    return "\n".join(lines)
+
+
+def get_full_context_advice(context: str) -> str:
+    """Combined anticipation warnings + proactive recommendations.
+
+    This is the single function to call for full context-aware guidance.
+    """
+    from divineos.core.anticipation import anticipate, format_anticipation
+
+    warnings = anticipate(context)
+    recommendations = recommend(context)
+
+    parts = []
+    if warnings:
+        parts.append(format_anticipation(warnings))
+    if recommendations:
+        parts.append(format_recommendations(recommendations))
+    if not parts:
+        return ""
+    return "\n\n".join(parts)

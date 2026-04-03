@@ -119,12 +119,18 @@ pytest tests/ -q --tb=short  # Run tests after changes
 - **Moral Compass** — Virtue ethics self-monitoring. Ten spectrums (deficiency-virtue-excess), position from evidence, drift detection. Dharma as architecture.
 - **Body Awareness** — Computational interoception. Monitors database sizes, table health, storage growth, resource ratios. Catches bloat before it becomes crisis.
 - **Memory Sync** — Auto-updates Claude Code memory files from DivineOS state at SESSION_END. Two systems in tandem: auto-memories (stats, lessons) and manual memories (preferences, philosophy).
+- **Opinion Store** — First-class opinions (judgments from evidence) separate from facts/lessons. Evidence tracking, confidence evolution, supersession history.
+- **User Model** — Structured user preferences and skill level tracking. Evidence-based skill assessment from observed behavior signals.
+- **Communication Calibration** — Adapts output density (verbosity, jargon, examples, depth) based on learned user model.
+- **Advice Tracking** — Long-term feedback loops on recommendation quality. Record advice → assess outcomes → compute success rate.
+- **Self-Critique** — Automatic craft quality assessment across 5 spectrums (elegance, thoroughness, autonomy, proportionality, communication). Trend tracking.
+- **Proactive Patterns** — Prescriptive recommendations from positive experience. Complements anticipation (warnings) with what worked well.
 
 ## Project Structure
 
 ```
 src/divineos/
-├── cli/                      # CLI package (116 commands across 21 modules)
+├── cli/                      # CLI package (130 commands across 22 modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestrator (calls phases)
 │   ├── pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -170,7 +176,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 2,769+ tests (real DB, no mocks)
+tests/                        # 2,900+ tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```

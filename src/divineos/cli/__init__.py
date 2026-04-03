@@ -92,6 +92,7 @@ from divineos.cli import (  # noqa: E402
     entity_commands,
     event_commands,
     hud_commands,
+    insight_commands,
     journal_commands,
     knowledge_commands,
     knowledge_health_commands,
@@ -115,6 +116,7 @@ hud_commands.register(cli)
 event_commands.register(cli)
 knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)
+insight_commands.register(cli)
 
 if __name__ == "__main__":
     cli()
