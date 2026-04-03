@@ -84,6 +84,7 @@ def cli() -> None:
 # Register all command modules
 from divineos.cli import (  # noqa: E402
     analysis_commands,
+    body_commands,
     claim_commands,
     compass_commands,
     decision_commands,
@@ -105,6 +106,7 @@ journal_commands.register(cli)
 decision_commands.register(cli)
 claim_commands.register(cli)
 compass_commands.register(cli)
+body_commands.register(cli)
 directive_commands.register(cli)
 entity_commands.register(cli)
 memory_commands.register(cli)
