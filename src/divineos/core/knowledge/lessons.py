@@ -29,6 +29,20 @@ _LESSONS_ERRORS = (
 )
 
 
+def _ensure_regressions_column(conn: Any) -> None:
+    """Add the regressions column if it doesn't exist yet."""
+    try:
+        conn.execute(
+            "ALTER TABLE lesson_tracking ADD COLUMN regressions INTEGER NOT NULL DEFAULT 0"
+        )
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
+
+# How many regressions before a lesson is flagged for directive promotion.
+REGRESSION_ESCALATION_THRESHOLD = 3
+
+
 def record_lesson(category: str, description: str, session_id: str, agent: str = "unknown") -> str:
     """Record a lesson or update an existing one for the same category.
 
@@ -36,7 +50,11 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
       - Increment occurrences
       - Add session_id to the sessions list
       - Update last_seen timestamp
-      - Update status based on recurrence pattern
+      - Detect regression: if status was 'improving', track it
+
+    Regression detection: if a lesson was IMPROVING and the mistake recurs,
+    that's a regression. After REGRESSION_ESCALATION_THRESHOLD regressions,
+    the lesson is flagged for directive promotion — structure over willpower.
 
     Args:
         agent: Which AI agent made the mistake (e.g. 'claude-opus', 'claude-haiku').
@@ -49,9 +67,11 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
     now = time.time()
     conn = _get_connection()
     try:
+        _ensure_regressions_column(conn)
+
         # Check if a lesson with same category exists
         existing = conn.execute(
-            "SELECT lesson_id, occurrences, sessions FROM lesson_tracking WHERE category = ?",
+            "SELECT lesson_id, occurrences, sessions, status FROM lesson_tracking WHERE category = ?",
             (category,),
         ).fetchone()
 
@@ -59,8 +79,20 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             lesson_id = existing[0]
             occurrences = existing[1] + 1
             sessions = json.loads(existing[2])
+            old_status = existing[3] if len(existing) > 3 else "active"
             if session_id not in sessions:
                 sessions.append(session_id)
+
+            # Regression detection: was IMPROVING, now recurring again
+            regression_bump = 0
+            if old_status == "improving":
+                regression_bump = 1
+                logger.info(
+                    "Lesson '%s' REGRESSED: was improving, mistake recurred (session %s)",
+                    category,
+                    session_id[:12],
+                )
+
             # Update description only if the old one is a seed placeholder.
             # Don't replace a curated description with raw correction text.
             old_desc = conn.execute(
@@ -75,9 +107,9 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             conn.execute(
                 """UPDATE lesson_tracking
                    SET occurrences = ?, last_seen = ?, sessions = ?, status = 'active',
-                       description = ?
+                       description = ?, regressions = regressions + ?
                    WHERE lesson_id = ?""",
-                (occurrences, now, json.dumps(sessions), use_desc, lesson_id),
+                (occurrences, now, json.dumps(sessions), use_desc, regression_bump, lesson_id),
             )
             conn.commit()
 
@@ -141,7 +173,8 @@ def get_lessons(
     """Get lessons, optionally filtered by status or category."""
     conn = _get_connection()
     try:
-        query = "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash, agent FROM lesson_tracking"
+        _ensure_regressions_column(conn)
+        query = "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash, agent, regressions FROM lesson_tracking"
         conditions: list[str] = []
         params: list[Any] = []
 
@@ -209,8 +242,14 @@ def get_lesson_summary() -> str:
     lines = [f"### ACTIVE LESSONS ({len(active) + len(improving)})"]
 
     for lesson in active:
+        regressions = lesson.get("regressions", 0)
+        suffix = ""
+        if regressions >= REGRESSION_ESCALATION_THRESHOLD:
+            suffix = " [ESCALATE: consider making this a directive]"
+        elif regressions > 0:
+            suffix = f" [regressed {regressions}x]"
         lines.append(
-            f"- [{lesson['occurrences']}x] {lesson['description']} (last: {lesson['category']})",
+            f"- [{lesson['occurrences']}x] {lesson['description']} (last: {lesson['category']}){suffix}",
         )
 
     for lesson in improving:
@@ -220,6 +259,26 @@ def get_lesson_summary() -> str:
         return "No lessons tracked yet."
 
     return "\n".join(lines)
+
+
+def get_escalation_candidates() -> list[dict[str, Any]]:
+    """Find lessons that have regressed enough times to warrant directive promotion.
+
+    A lesson that keeps cycling between IMPROVING and ACTIVE isn't being
+    solved by awareness alone — it needs structural enforcement (a directive).
+    """
+    conn = _get_connection()
+    try:
+        _ensure_regressions_column(conn)
+        rows = conn.execute(
+            "SELECT lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent "
+            "FROM lesson_tracking WHERE regressions >= ?",
+            (REGRESSION_ESCALATION_THRESHOLD,),
+        ).fetchall()
+        return [_lesson_row_to_dict(row) for row in rows]
+    finally:
+        conn.close()
 
 
 def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
@@ -232,7 +291,7 @@ def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
         results: list[dict[str, Any]] = []
         for cat in categories:
             row = conn.execute(
-                "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash FROM lesson_tracking WHERE category = ? AND occurrences > 1",
+                "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash, agent, regressions FROM lesson_tracking WHERE category = ? AND occurrences > 1",
                 (cat,),
             ).fetchone()
             if row:

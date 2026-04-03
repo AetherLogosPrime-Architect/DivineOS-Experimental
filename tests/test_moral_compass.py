@@ -9,16 +9,20 @@ import pytest
 from divineos.core.moral_compass import (
     SPECTRUMS,
     SpectrumPosition,
+    _SOURCE_TRUST,
     _position_to_zone,
     _render_bar,
+    classify_observation_source,
     compass_summary,
     compute_position,
     format_compass_brief,
     format_compass_reading,
     get_observations,
     log_observation,
+    observation_weight,
     read_compass,
 )
+from divineos.core.trust_tiers import SignalTier
 
 
 class TestSpectrums:
@@ -331,3 +335,144 @@ class TestReflectOnSession:
         # Too few messages to draw conclusions
         # Should not crash, may or may not produce observations
         assert isinstance(obs_ids, list)
+
+    def test_reflection_uses_measured_sources(self):
+        """Auto-observations should use specific source tags, not generic 'session_end'."""
+        from divineos.core.moral_compass import reflect_on_session
+        from types import SimpleNamespace
+
+        corrections = [SimpleNamespace(content=f"fix {i}") for i in range(4)]
+        analysis = self._make_analysis(user_messages=10, corrections=corrections)
+        reflect_on_session(analysis)
+
+        obs = get_observations(spectrum="truthfulness", limit=1)
+        assert obs[0]["source"] == "correction_rate"
+
+    def test_reflection_engagement_uses_affect_derived_source(self):
+        """Engagement observations derived from affect should use affect_derived source."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        # This test just verifies the source tag is set correctly
+        # in the code path — actual affect data may not be available
+        analysis = self._make_analysis()
+        reflect_on_session(analysis)
+        # Check any engagement observations have the right source
+        obs = get_observations(spectrum="engagement", limit=5)
+        for o in obs:
+            if "affect" in o.get("tags", []):
+                assert o["source"] == "affect_derived"
+
+
+class TestTrustTierWeighting:
+    """Trust tiers weight compass observations by reliability.
+
+    MEASURED observations (correction rates, tool ratios) should
+    influence position more than SELF_REPORTED ones (affect data).
+    """
+
+    def test_source_classification(self):
+        assert classify_observation_source("correction_rate") == SignalTier.MEASURED
+        assert classify_observation_source("tool_ratio") == SignalTier.MEASURED
+        assert classify_observation_source("affect_derived") == SignalTier.SELF_REPORTED
+        assert classify_observation_source("self_report") == SignalTier.SELF_REPORTED
+        assert classify_observation_source("session_end") == SignalTier.BEHAVIORAL
+
+    def test_unknown_source_defaults_self_reported(self):
+        assert classify_observation_source("unknown_thing") == SignalTier.SELF_REPORTED
+
+    def test_measured_weight_higher_than_self_reported(self):
+        measured_w = observation_weight("correction_rate")
+        self_reported_w = observation_weight("affect_derived")
+        assert measured_w > self_reported_w
+
+    def test_behavioral_weight_between_measured_and_self_reported(self):
+        measured_w = observation_weight("correction_rate")
+        behavioral_w = observation_weight("session_end")
+        self_reported_w = observation_weight("self_report")
+        assert measured_w > behavioral_w > self_reported_w
+
+    def test_weight_values_match_trust_tiers(self):
+        assert observation_weight("correction_rate") == 1.0
+        assert observation_weight("session_end") == 0.7
+        assert observation_weight("affect_derived") == 0.4
+
+    def test_all_source_classifications_valid(self):
+        for source, tier in _SOURCE_TRUST.items():
+            assert isinstance(tier, SignalTier)
+            assert observation_weight(source) > 0
+
+    def test_measured_observation_moves_compass_more(self):
+        """A MEASURED observation should have more influence than SELF_REPORTED."""
+        # Log a SELF_REPORTED observation at -0.5
+        log_observation(
+            spectrum="confidence",
+            position=-0.5,
+            evidence="I feel uncertain",
+            source="self_report",
+        )
+        compute_position("confidence", lookback=1)
+
+        # Log a MEASURED observation at +0.5
+        log_observation(
+            spectrum="confidence",
+            position=0.5,
+            evidence="0 corrections in 20 exchanges",
+            source="correction_rate",
+        )
+        pos_after_measured = compute_position("confidence", lookback=2)
+
+        # The measured observation (weight 1.0) at +0.5 should pull position
+        # toward positive more than the self-reported (weight 0.4) at -0.5
+        # pulls it negative. So the combined position should be positive.
+        assert pos_after_measured.position > 0.0
+
+    def test_equal_positions_different_sources_favor_measured(self):
+        """Two observations at same position but different trust tiers:
+        measured one should dominate the average."""
+        # 3 self-reported at -0.6
+        for _ in range(3):
+            log_observation(
+                spectrum="humility",
+                position=-0.6,
+                evidence="self assessment: too humble",
+                source="self_report",
+            )
+        # 1 measured at +0.4
+        log_observation(
+            spectrum="humility",
+            position=0.4,
+            evidence="tool ratio indicates appropriate scope",
+            source="correction_rate",
+        )
+
+        pos = compute_position("humility", lookback=4)
+        # Without trust weighting: 3 x -0.6 + 1 x 0.4 = average pulled negative
+        # With trust weighting: 3 x -0.6 x 0.4 + 1 x 0.4 x 1.0
+        #   = -0.72 + 0.4 = -0.32 / (3*0.4 + 1.0) = -0.32/2.2 = -0.145
+        # Much less negative than unweighted: -0.35
+        # The measured observation has disproportionate influence.
+        assert pos.position > -0.35  # Less negative than naive average
+
+    def test_drift_detection_trust_weighted(self):
+        """Drift calculation should also account for trust tiers."""
+        # Older: measured at +0.3
+        for _ in range(3):
+            log_observation(
+                spectrum="precision",
+                position=0.3,
+                evidence="older measured",
+                source="correction_rate",
+            )
+        # Newer: self-reported at -0.3
+        for _ in range(3):
+            log_observation(
+                spectrum="precision",
+                position=-0.3,
+                evidence="newer self-reported",
+                source="self_report",
+            )
+
+        pos = compute_position("precision", lookback=6)
+        # Drift exists but should be moderated by the lower weight of
+        # the newer self-reported observations
+        assert isinstance(pos.drift, float)

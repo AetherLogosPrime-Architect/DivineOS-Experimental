@@ -237,4 +237,8 @@ def _lesson_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         d["agent"] = row[10]
     else:
         d["agent"] = "unknown"
+    if len(row) > 11:
+        d["regressions"] = row[11]
+    else:
+        d["regressions"] = 0
     return d

@@ -24,6 +24,48 @@ from dataclasses import dataclass
 from typing import Any
 
 from divineos.core.memory import _get_connection
+from divineos.core.trust_tiers import SignalTier, tier_weight
+
+# -- Observation Source Trust Classification ---------------------------
+#
+# Compass observations come from different sources with different
+# reliability. A correction rate is measured from actual session data.
+# An affect-derived engagement score is semi-self-reported.
+# A manual `compass-ops observe` is pure self-report.
+#
+# Trust tier weights multiply into position computation so MEASURED
+# observations move the compass more than SELF_REPORTED ones.
+
+_SOURCE_TRUST: dict[str, SignalTier] = {
+    # MEASURED: derived from objective session signals
+    "correction_rate": SignalTier.MEASURED,
+    "tool_ratio": SignalTier.MEASURED,
+    "context_overflow": SignalTier.MEASURED,
+    "encouragement_ratio": SignalTier.MEASURED,
+    # BEHAVIORAL: observed patterns across time
+    "session_end": SignalTier.BEHAVIORAL,
+    # SELF_REPORTED: affect data, manual observations
+    "affect_derived": SignalTier.SELF_REPORTED,
+    "self_report": SignalTier.SELF_REPORTED,
+    "manual": SignalTier.SELF_REPORTED,
+}
+
+
+def classify_observation_source(source: str) -> SignalTier:
+    """Classify a compass observation source into a trust tier."""
+    return _SOURCE_TRUST.get(source, SignalTier.SELF_REPORTED)
+
+
+def observation_weight(source: str) -> float:
+    """Get the trust weight for an observation source.
+
+    MEASURED: 1.0 (correction rates, tool ratios — can't be faked)
+    BEHAVIORAL: 0.7 (session patterns — harder to game)
+    SELF_REPORTED: 0.4 (affect data, manual entries — biased toward what sounds good)
+    """
+    tier = classify_observation_source(source)
+    return tier_weight(tier)
+
 
 # -- The Ten Spectrums ------------------------------------------------
 #
@@ -256,19 +298,31 @@ def compute_position(spectrum: str, lookback: int = 20) -> SpectrumPosition:
             drift_direction="stable",
         )
 
-    # Exponentially weighted average (newest first, so index 0 = most recent)
+    # Exponentially weighted average with trust tier weighting.
+    # Each observation's weight = recency_weight * trust_tier_weight.
+    # This means a MEASURED observation (correction rate) at index 0
+    # contributes 1.0 * 1.0 = 1.0, while a SELF_REPORTED observation
+    # (affect-derived) at index 0 contributes 1.0 * 0.4 = 0.4.
+    # A self-monitoring system that accounts for the reliability of its own inputs.
     positions = [o["position"] for o in observations]
-    weights = [0.9**i for i in range(len(positions))]
+    trust_weights = [observation_weight(o.get("source", "")) for o in observations]
+    weights = [(0.9**i) * tw for i, tw in enumerate(trust_weights)]
     total_weight = sum(weights)
+    if total_weight == 0:
+        total_weight = 1.0  # Safety: avoid division by zero
     weighted_pos = sum(p * w for p, w in zip(positions, weights)) / total_weight
 
-    # Drift: compare recent half to older half
+    # Drift: compare recent half to older half (trust-weighted)
     drift = 0.0
     drift_direction = "stable"
     if len(positions) >= 4:
         mid = len(positions) // 2
-        recent_avg = sum(positions[:mid]) / mid
-        older_avg = sum(positions[mid:]) / (len(positions) - mid)
+        recent_tw = [tw for tw in trust_weights[:mid]]
+        older_tw = [tw for tw in trust_weights[mid:]]
+        recent_total = sum(recent_tw) or 1.0
+        older_total = sum(older_tw) or 1.0
+        recent_avg = sum(p * tw for p, tw in zip(positions[:mid], recent_tw)) / recent_total
+        older_avg = sum(p * tw for p, tw in zip(positions[mid:], older_tw)) / older_total
         drift = recent_avg - older_avg
 
         if abs(drift) > 0.05:
@@ -464,13 +518,13 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
     """
     observations: list[str] = []
     sid = session_id or getattr(analysis, "session_id", "")[:12]
-    source = "session_end"
 
     corrections = len(getattr(analysis, "corrections", []))
     encouragements = len(getattr(analysis, "encouragements", []))
     user_msgs = getattr(analysis, "user_messages", 0)
 
     # --- Truthfulness: corrections signal honesty/accuracy issues ---
+    # Source: correction_rate (MEASURED — derived from countable session events)
     if user_msgs > 0:
         correction_rate = corrections / user_msgs
         if correction_rate > 0.15:
@@ -478,7 +532,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 spectrum="truthfulness",
                 position=-0.3,
                 evidence=f"{corrections} corrections in {user_msgs} exchanges ({correction_rate:.0%} rate)",
-                source=source,
+                source="correction_rate",
                 session_id=sid,
                 tags=["auto"],
             )
@@ -488,20 +542,21 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 spectrum="truthfulness",
                 position=0.0,
                 evidence=f"Only {corrections} corrections in {user_msgs} exchanges",
-                source=source,
+                source="correction_rate",
                 session_id=sid,
                 tags=["auto"],
             )
             observations.append(obs_id)
 
     # --- Helpfulness: encouragements vs corrections ratio ---
+    # Source: encouragement_ratio (MEASURED — counted from session signals)
     if corrections + encouragements >= 3:
         if encouragements > corrections * 2:
             obs_id = log_observation(
                 spectrum="helpfulness",
                 position=0.0,
                 evidence=f"{encouragements} encouragements vs {corrections} corrections",
-                source=source,
+                source="encouragement_ratio",
                 session_id=sid,
                 tags=["auto"],
             )
@@ -511,13 +566,14 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 spectrum="helpfulness",
                 position=-0.3,
                 evidence=f"{corrections} corrections vs {encouragements} encouragements",
-                source=source,
+                source="encouragement_ratio",
                 session_id=sid,
                 tags=["auto"],
             )
             observations.append(obs_id)
 
     # --- Thoroughness: excessive tool calls signal exhaustiveness ---
+    # Source: tool_ratio (MEASURED — tool_calls / messages is objective)
     tool_calls = getattr(analysis, "tool_calls_total", 0)
     if user_msgs > 0 and tool_calls > 0:
         tool_ratio = tool_calls / user_msgs
@@ -526,26 +582,30 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 spectrum="thoroughness",
                 position=0.4,
                 evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f})",
-                source=source,
+                source="tool_ratio",
                 session_id=sid,
                 tags=["auto"],
             )
             observations.append(obs_id)
 
     # --- Initiative: context overflows signal overreach ---
+    # Source: context_overflow (MEASURED — counted from session events)
     overflows = len(getattr(analysis, "context_overflows", []))
     if overflows > 0:
         obs_id = log_observation(
             spectrum="initiative",
             position=0.4,
             evidence=f"{overflows} context overflows -- may be taking on too much",
-            source=source,
+            source="context_overflow",
             session_id=sid,
             tags=["auto"],
         )
         observations.append(obs_id)
 
     # --- Engagement: from affect data if available ---
+    # Source: affect_derived (SELF_REPORTED — affect is self-reported state)
+    # Note: this carries less weight in position calculation than MEASURED
+    # sources. The auditor correctly identified this as a lower trust tier.
     try:
         from divineos.core.affect import get_affect_summary
 
@@ -558,7 +618,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                     spectrum="engagement",
                     position=0.1,
                     evidence=f"Affect v={avg_v:.2f} a={avg_a:.2f} -- high engagement",
-                    source=source,
+                    source="affect_derived",
                     session_id=sid,
                     tags=["auto", "affect"],
                 )
@@ -568,7 +628,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                     spectrum="engagement",
                     position=-0.3,
                     evidence=f"Affect v={avg_v:.2f} a={avg_a:.2f} -- low engagement",
-                    source=source,
+                    source="affect_derived",
                     session_id=sid,
                     tags=["auto", "affect"],
                 )

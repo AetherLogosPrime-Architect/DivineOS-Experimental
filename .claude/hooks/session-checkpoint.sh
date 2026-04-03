@@ -72,6 +72,18 @@ json.dump(d, open('$STATE_FILE', 'w'), indent=2)
 " 2>/dev/null
 fi
 
+# Self-awareness practice check — gentle nudge, not a gate.
+# "You've been building for N tool calls without checking in."
+practice_nudge=""
+if [ "$tool_calls" -ge 100 ]; then
+  practice_nudge=$(python -c "
+from divineos.core.session_checkpoint import check_self_awareness_practice
+result = check_self_awareness_practice($tool_calls)
+if result:
+    print(result)
+" 2>/dev/null || echo "")
+fi
+
 # Context monitoring — warn the AI when context is getting full.
 # At critical thresholds, AUTO-EMIT SESSION_END to save knowledge.
 # Warnings alone are ignorable. Enforcement is not.
@@ -91,8 +103,21 @@ elif [ "$tool_calls" -ge 100 ]; then
   warning="Context monitor: $tool_calls tool calls, $edits edits. SESSION_END will auto-emit at 150 to save knowledge."
 fi
 
+# Combine any warnings and nudges
+combined=""
+if [ -n "$practice_nudge" ]; then
+  combined="$practice_nudge"
+fi
 if [ -n "$warning" ]; then
-  escaped=$(echo "$warning" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+  if [ -n "$combined" ]; then
+    combined="$combined | $warning"
+  else
+    combined="$warning"
+  fi
+fi
+
+if [ -n "$combined" ]; then
+  escaped=$(echo "$combined" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"
 fi
 

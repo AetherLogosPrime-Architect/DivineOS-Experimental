@@ -309,6 +309,7 @@ src/divineos/
     ledger_compressor.py       ELMO ledger compression and archival
     semantic_integrity.py      Esoteric language detection
     sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
+    sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -382,7 +383,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,730+ tests (real DB, no mocks)
+tests/                         2,769+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded

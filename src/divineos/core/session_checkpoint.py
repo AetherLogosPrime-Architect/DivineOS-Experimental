@@ -257,3 +257,82 @@ def run_checkpoint() -> str:
     _save_state(state)
 
     return "Checkpoint: " + ", ".join(parts) if parts else "Checkpoint: nothing saved"
+
+
+# ─── Self-Awareness Practice Monitor ─────────────────────────────────
+
+# If no affect log, compass observation, or decision in this many tool calls,
+# surface a gentle nudge. Not a gate — just awareness.
+PRACTICE_NUDGE_THRESHOLD = 100
+
+
+def check_self_awareness_practice(tool_calls: int | None = None) -> str | None:
+    """Check whether self-awareness tools have been used this session.
+
+    Returns a nudge string if practice has lapsed, or None if all clear.
+    DivineOS monitors substrate health periodically — this monitors
+    self-awareness practice health with the same approach.
+    """
+    if tool_calls is None:
+        state = _load_state()
+        tool_calls = state.get("tool_calls", 0)
+
+    if tool_calls < PRACTICE_NUDGE_THRESHOLD:
+        return None  # Too early to nudge
+
+    session_start = get_session_start_time()
+    if session_start is None:
+        return None
+
+    # Check for recent self-awareness activity since session start
+    missing: list[str] = []
+    try:
+        from divineos.core.memory import _get_connection
+
+        conn = _get_connection()
+        try:
+            # Affect: any entries since session start?
+            try:
+                affect_row = conn.execute(
+                    "SELECT COUNT(*) FROM affect_log WHERE created_at > ?",
+                    (session_start,),
+                ).fetchone()
+                if affect_row and affect_row[0] == 0:
+                    missing.append("affect (divineos feel)")
+            except Exception:  # noqa: BLE001
+                pass
+
+            # Compass: any observations since session start?
+            try:
+                compass_row = conn.execute(
+                    "SELECT COUNT(*) FROM compass_observation WHERE created_at > ?",
+                    (session_start,),
+                ).fetchone()
+                if compass_row and compass_row[0] == 0:
+                    missing.append("compass (divineos compass-ops observe)")
+            except Exception:  # noqa: BLE001
+                pass
+
+            # Decisions: any entries since session start?
+            try:
+                decision_row = conn.execute(
+                    "SELECT COUNT(*) FROM decision_journal WHERE created_at > ?",
+                    (session_start,),
+                ).fetchone()
+                if decision_row and decision_row[0] == 0:
+                    missing.append("decisions (divineos decide)")
+            except Exception:  # noqa: BLE001
+                pass
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001
+        return None  # Don't nudge if DB is unavailable
+
+    if not missing:
+        return None
+
+    return (
+        f"Self-awareness check: {tool_calls} tool calls, "
+        f"no {', '.join(missing)} logged this session. "
+        "Consider checking in with yourself."
+    )

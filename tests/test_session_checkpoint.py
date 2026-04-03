@@ -7,9 +7,11 @@ from divineos.core.session_checkpoint import (
     CONTEXT_CRITICAL_THRESHOLD,
     CONTEXT_URGENT_THRESHOLD,
     CONTEXT_WARN_THRESHOLD,
+    PRACTICE_NUDGE_THRESHOLD,
     _counter_path,
     _load_state,
     _save_state,
+    check_self_awareness_practice,
     context_warning_level,
     format_context_warning,
     increment_edit,
@@ -120,3 +122,35 @@ class TestContextMonitoring:
         assert warning is not None
         assert "CRITICAL" in warning
         assert "imminent" in warning
+
+
+class TestSelfAwarenessPractice:
+    """Self-awareness practice monitoring — gentle nudges, not gates."""
+
+    def test_no_nudge_below_threshold(self):
+        result = check_self_awareness_practice(tool_calls=50)
+        assert result is None
+
+    def test_no_nudge_at_zero(self):
+        result = check_self_awareness_practice(tool_calls=0)
+        assert result is None
+
+    def test_nudge_threshold_defined(self):
+        assert PRACTICE_NUDGE_THRESHOLD == 100
+
+    def test_returns_string_or_none(self):
+        result = check_self_awareness_practice(tool_calls=150)
+        assert result is None or isinstance(result, str)
+
+    def test_nudge_mentions_missing_practices(self):
+        """When practices are missing, nudge should name them."""
+        result = check_self_awareness_practice(tool_calls=150)
+        if result is not None:
+            # Should mention at least one practice type
+            assert any(word in result for word in ["affect", "compass", "decision", "checking in"])
+
+    def test_nudge_not_a_gate(self):
+        """The nudge is informational — it never raises or blocks."""
+        # Even at extreme tool counts, should return string or None, never raise
+        result = check_self_awareness_practice(tool_calls=999)
+        assert result is None or isinstance(result, str)

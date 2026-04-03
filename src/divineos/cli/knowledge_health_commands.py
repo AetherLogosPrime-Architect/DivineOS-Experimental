@@ -205,6 +205,28 @@ def register(cli: click.Group) -> None:
             click.secho("\n  Effectiveness breakdown:", fg="white")
             for status, count in sorted(report["by_status"].items()):
                 click.secho(f"    {status:15s} {count}", fg="bright_black")
+
+        # SIS self-audit — check own docstrings for ungrounded esoteric language
+        try:
+            from divineos.core.sis_self_audit import audit_summary
+
+            sis = audit_summary()
+            click.secho(
+                f"\n  SIS self-audit:         {sis['modules_scanned']} modules scanned",
+                fg="white",
+            )
+            if sis["clean"]:
+                click.secho("    All docstrings grounded", fg="green")
+            else:
+                click.secho(
+                    f"    {sis['flagged_count']} flagged (ungrounded esoteric language)",
+                    fg="yellow",
+                )
+                for mod in sis["flagged_modules"][:5]:
+                    click.secho(f"      - {mod}", fg="bright_black")
+        except (ImportError, OSError) as e:
+            click.secho(f"\n  SIS self-audit: unavailable ({e})", fg="bright_black")
+
         click.echo()
 
     @cli.command("distill")
