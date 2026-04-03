@@ -22,6 +22,7 @@ store and frustration triggers more careful verification.
 """
 
 import json
+import sqlite3
 import time
 import uuid
 from typing import Any, cast
@@ -37,6 +38,8 @@ from divineos.core.constants import (
 )
 from divineos.core.memory import _get_connection
 from divineos.analysis.quality_storage import get_check_history
+
+_AFFECT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 # ===================================================================
@@ -265,7 +268,7 @@ def compute_affect_modifiers(
     """
     try:
         summary = get_affect_summary(limit=lookback)
-    except Exception as e:
+    except _AFFECT_ERRORS as e:
         from loguru import logger
 
         logger.debug("Affect summary fetch failed: %s", e)
@@ -396,7 +399,7 @@ def get_session_affect_context() -> dict[str, Any]:
             if history:
                 scores = [h.get("overall_score", 0.7) for h in history]
                 praise_result = detect_praise_chasing(modifiers["avg_valence"], scores)
-        except Exception as e:
+        except _AFFECT_ERRORS as e:
             from loguru import logger
 
             logger.debug("Praise-chasing detection failed: %s", e)

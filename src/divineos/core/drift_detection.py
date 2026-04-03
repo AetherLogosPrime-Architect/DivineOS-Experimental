@@ -18,10 +18,13 @@ Three drift signals:
 
 import json
 import re
+import sqlite3
 from typing import Any
 
 from divineos.core.knowledge._base import _get_connection
 from divineos.core.ledger import get_events
+
+_DRIFT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 # ─── Lesson Regression Detection ──────────────────────────────────
@@ -44,7 +47,7 @@ def detect_lesson_regressions(lookback: int = 5) -> list[dict[str, Any]]:
                LIMIT ?""",
             (lookback * 10,),
         ).fetchall()
-    except Exception as e:
+    except _DRIFT_ERRORS as e:
         from loguru import logger
 
         logger.debug("Lesson regression query failed: %s", e)
@@ -92,7 +95,7 @@ def _get_session_payloads(limit: int = 10) -> list[str]:
             else:
                 payloads.append(str(payload))
         return payloads
-    except Exception as e:
+    except _DRIFT_ERRORS as e:
         from loguru import logger
 
         logger.debug("Session payload fetch failed: %s", e)

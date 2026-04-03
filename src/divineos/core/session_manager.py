@@ -317,7 +317,7 @@ def end_session() -> str:
             # Still try to clear session state
             try:
                 clear_session()
-            except Exception as e2:
+            except _SM_ERRORS as e2:
                 logger.error(f"Failed to clear session state: {e2}")
             raise
 

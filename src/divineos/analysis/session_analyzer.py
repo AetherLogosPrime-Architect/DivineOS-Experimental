@@ -116,18 +116,6 @@ class ContextOverflow:
 
 
 @dataclass
-class TopicSegment:
-    """A segment of conversation about a particular topic."""
-
-    topic: str
-    start_index: int
-    end_index: int
-    message_count: int
-    user_messages: int
-    tool_calls: int
-
-
-@dataclass
 class SessionAnalysis:
     """Complete analysis of a single session."""
 

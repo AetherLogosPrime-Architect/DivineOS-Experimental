@@ -420,7 +420,7 @@ def preflight_check() -> dict[str, Any]:
     # 5. Session-fresh goal? (not just old goals from prior sessions)
     try:
         fresh_goal = has_session_fresh_goal()
-    except Exception as exc:
+    except (sqlite3.OperationalError, OSError, KeyError, TypeError) as exc:
         logger.debug(f"Session fresh goal check failed, defaulting to True: {exc}")
         fresh_goal = True  # don't block if function unavailable
     checks.append(

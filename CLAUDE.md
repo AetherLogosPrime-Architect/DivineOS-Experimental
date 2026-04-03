@@ -112,7 +112,7 @@ pytest tests/ -q --tb=short  # Run tests after changes
 
 ```
 src/divineos/
-├── cli/                      # CLI package (67 commands across 10+ modules)
+├── cli/                      # CLI package (109 commands across 19 modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestrator (calls phases)
 │   ├── pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -122,12 +122,11 @@ src/divineos/
 │   ├── hud_commands.py       # hud, goal, plan commands
 │   ├── journal_commands.py   # journal save/list/search/link
 │   ├── directive_commands.py # directive management
-│   ├── relationship_commands.py  # knowledge relationships
+│   ├── entity_commands.py    # questions, relationships, knowledge entities
 │   └── knowledge_health_commands.py  # health, distill, migrate
 ├── seed.json                 # Initial knowledge seed (versioned)
 ├── core/
 │   ├── ledger.py             # Append-only event ledger (core read/write/search)
-│   ├── ledger_class.py       # OOP Ledger wrapper for integration code
 │   ├── memory.py             # Core memory slots, active memory, importance scoring
 │   ├── memory_journal.py     # Personal journal (save/list/search/link)
 │   ├── hud.py                # HUD slot builders and assembly
@@ -159,7 +158,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 2000+ tests (real DB, no mocks)
+tests/                        # 2,608+ tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```

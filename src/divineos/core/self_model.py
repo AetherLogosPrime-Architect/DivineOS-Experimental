@@ -11,6 +11,7 @@ It's not aspirational — it's computed from evidence. Every claim
 in the self-model traces back to data in the OS.
 """
 
+import sqlite3
 from typing import Any
 
 from loguru import logger
@@ -25,6 +26,15 @@ from divineos.core.drift_detection import (
 from divineos.core.memory import get_core
 from divineos.core.planning_commitments import get_pending_commitments
 from divineos.core.skill_library import get_strongest_skills, get_weakest_skills
+
+_SELF_MODEL_ERRORS = (
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    ValueError,
+)
 
 
 # ─── Self-Model Assembly ──────────────────────────────────────────
@@ -56,7 +66,7 @@ def _get_identity() -> dict[str, Any]:
             "user": slots.get("user_identity", "Not set"),
             "style": slots.get("communication_style", "Not set"),
         }
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model identity failed: %s", e)
         return {"purpose": "Unknown", "user": "Unknown", "style": "Unknown"}
 
@@ -74,7 +84,7 @@ def _get_strengths() -> list[dict[str, Any]]:
             }
             for name, data in strongest
         ]
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model strengths failed: %s", e)
         return []
 
@@ -94,7 +104,7 @@ def _get_weaknesses() -> list[dict[str, Any]]:
                     "occurrences": reg.get("occurrences", 0),
                 }
             )
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model lesson regressions failed: %s", e)
 
     # From weak skills
@@ -108,7 +118,7 @@ def _get_weaknesses() -> list[dict[str, Any]]:
                     "failures": data.get("failures", 0),
                 }
             )
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model weak skills failed: %s", e)
 
     return weaknesses
@@ -133,7 +143,7 @@ def _get_emotional_baseline() -> dict[str, Any]:
             "praise_chasing": praise_confirmed,
             "praise_detail": praise.get("detail", "") if praise_confirmed else "",
         }
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model emotional baseline failed: %s", e)
         return {
             "avg_valence": 0.0,
@@ -152,7 +162,7 @@ def _get_active_concerns() -> list[str]:
         curiosities = get_open_curiosities()
         for c in curiosities[:3]:
             concerns.append(f"Curious: {c.get('question', '')[:60]}")
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model curiosities failed: %s", e)
 
     # From pending commitments
@@ -160,7 +170,7 @@ def _get_active_concerns() -> list[str]:
         pending = get_pending_commitments()
         for p in pending[:3]:
             concerns.append(f"Committed: {p.text[:60]}")
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model commitments failed: %s", e)
 
     # From drift signals
@@ -168,7 +178,7 @@ def _get_active_concerns() -> list[str]:
         drift = run_drift_detection()
         if drift.get("severity") not in ("none", None):
             concerns.append(f"Drift alert: {drift['severity']} severity")
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model drift detection failed: %s", e)
 
     return concerns
@@ -186,7 +196,7 @@ def _get_growth_trajectory() -> dict[str, Any]:
             else "stable",
             "detail": quality.get("detail", "No data"),
         }
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model growth trajectory failed: %s", e)
         return {"quality_trend": "unknown", "detail": "No data available"}
 

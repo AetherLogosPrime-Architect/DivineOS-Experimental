@@ -117,7 +117,7 @@ class HookIntegrationInterface:
             for hook in HookIntegrationInterface._clarity_hooks["pre_work"]:
                 try:
                     hook(session_id=session_id, work_context=work_context)
-                except Exception as e:
+                except _HI_ERRORS as e:
                     logger.error(f"Error executing pre-work hook {hook.__name__}: {e}")
                     all_succeeded = False
 
@@ -147,7 +147,7 @@ class HookIntegrationInterface:
             for hook in HookIntegrationInterface._clarity_hooks["post_work"]:
                 try:
                     hook(session_id=session_id, summary=summary)
-                except Exception as e:
+                except _HI_ERRORS as e:
                     logger.error(f"Error executing post-work hook {hook.__name__}: {e}")
                     all_succeeded = False
 
@@ -177,7 +177,7 @@ class HookIntegrationInterface:
             for hook in HookIntegrationInterface._clarity_hooks["clarity_generated"]:
                 try:
                     hook(session_id=session_id, clarity_statement=clarity_statement)
-                except Exception as e:
+                except _HI_ERRORS as e:
                     logger.error(f"Error executing clarity-generated hook {hook.__name__}: {e}")
                     all_succeeded = False
 
@@ -207,7 +207,7 @@ class HookIntegrationInterface:
             for hook in HookIntegrationInterface._clarity_hooks["summary_generated"]:
                 try:
                     hook(session_id=session_id, summary=summary)
-                except Exception as e:
+                except _HI_ERRORS as e:
                     logger.error(f"Error executing summary-generated hook {hook.__name__}: {e}")
                     all_succeeded = False
 

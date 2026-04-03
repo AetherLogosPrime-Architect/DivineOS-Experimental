@@ -159,6 +159,13 @@ def _run_session_end_pipeline() -> None:
             stored, feedback_parts, promoted, demoted, health, clarity_summary, session_feedback
         )
 
-    except Exception as e:
+    except (
+        sqlite3.OperationalError,
+        OSError,
+        KeyError,
+        TypeError,
+        ValueError,
+        AttributeError,
+    ) as e:
         click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
         logger.warning(f"Auto-scan failed: {e}")

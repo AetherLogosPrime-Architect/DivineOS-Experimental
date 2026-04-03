@@ -1,10 +1,15 @@
 """Real-time testing for IDE hook integration - Phase 3."""
 
+import os
 import pytest
 import time
-from divineos.core.ledger import init_db, get_events, count_events
+
 from divineos.core.knowledge import init_knowledge_table
+from divineos.core.ledger import init_db, get_events, count_events
 from divineos.event.event_emission import emit_event
+
+# CI environments and loaded machines need slack on timing assertions.
+_PERF_MULT = float(os.environ.get("DIVINEOS_PERF_MULTIPLIER", "2"))
 
 
 @pytest.fixture(autouse=True)
@@ -229,7 +234,9 @@ class TestPerformanceValidation:
         assert len(events) == 100
 
         # Performance should be good (< 1 second for 100 events)
-        assert elapsed < 1.0
+        assert elapsed < 1.0 * _PERF_MULT, (
+            f"Bulk emit took {elapsed:.3f}s, budget {1.0 * _PERF_MULT:.1f}s"
+        )
 
     def test_mixed_event_types_performance(self):
         """Test performance with mixed event types."""
@@ -268,7 +275,9 @@ class TestPerformanceValidation:
         assert len(events) == 50
 
         # Performance should be good
-        assert elapsed < 1.0
+        assert elapsed < 1.0 * _PERF_MULT, (
+            f"Mixed events took {elapsed:.3f}s, budget {1.0 * _PERF_MULT:.1f}s"
+        )
 
     def test_large_payload_handling(self):
         """Test handling of large payloads."""
@@ -280,7 +289,9 @@ class TestPerformanceValidation:
         elapsed = time.time() - start_time
 
         # Should handle large payloads efficiently
-        assert elapsed < 0.5
+        assert elapsed < 0.5 * _PERF_MULT, (
+            f"Large payload took {elapsed:.3f}s, budget {0.5 * _PERF_MULT:.1f}s"
+        )
 
         # Verify event stored
         events = get_events(limit=10)

@@ -103,8 +103,13 @@ class TestComputeAffectModifiers:
             assert mods["verification_level"] == "normal"
             assert mods["praise_chasing_flag"] is False
 
-    def test_import_error_returns_defaults(self):
-        with patch("divineos.core.affect.get_affect_summary", side_effect=ImportError):
+    def test_db_error_returns_defaults(self):
+        import sqlite3
+
+        with patch(
+            "divineos.core.affect.get_affect_summary",
+            side_effect=sqlite3.OperationalError,
+        ):
             mods = compute_affect_modifiers()
             assert mods["affect_trend"] == "no data"
 

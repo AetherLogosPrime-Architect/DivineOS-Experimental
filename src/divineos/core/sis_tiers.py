@@ -14,6 +14,10 @@ from typing import Any
 
 from loguru import logger
 
+# ML libraries (sklearn, sentence-transformers) can throw RuntimeError,
+# ValueError, or numpy errors. This tuple covers the realistic set.
+_SIS_ML_ERRORS = (ImportError, RuntimeError, ValueError, TypeError, OSError)
+
 
 # ─── Tier 2: Concreteness Norms ──────────────────────────────────────
 #
@@ -470,7 +474,7 @@ def score_tfidf_grounding(text: str) -> dict[str, float] | None:
             "esoteric": esoteric_score,
             "ratio": ratio,
         }
-    except Exception as e:
+    except _SIS_ML_ERRORS as e:
         logger.debug(f"TF-IDF scoring failed: {e}")
         return None
 
@@ -500,7 +504,7 @@ def _ensure_embeddings() -> bool:
     except ImportError:
         logger.debug("sentence-transformers not available for embedding scoring")
         return False
-    except Exception as e:
+    except _SIS_ML_ERRORS as e:
         logger.debug(f"Failed to load embedding model: {e}")
         return False
 
@@ -536,7 +540,7 @@ def score_semantic_grounding(text: str) -> dict[str, float] | None:
             "esoteric": esoteric_score,
             "ratio": ratio,
         }
-    except Exception as e:
+    except _SIS_ML_ERRORS as e:
         logger.debug(f"Embedding scoring failed: {e}")
         return None
 

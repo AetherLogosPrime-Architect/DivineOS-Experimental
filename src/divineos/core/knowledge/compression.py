@@ -17,6 +17,7 @@ Three compression strategies:
    edges → compress into a principle + evidence summary.
 """
 
+import sqlite3
 from typing import Any
 
 from divineos.core.knowledge._base import _get_connection, _row_to_dict, _KNOWLEDGE_COLS
@@ -349,7 +350,7 @@ def find_graph_clusters(max_clusters: int = 10) -> list[dict[str, Any]]:
                 )
 
         return clusters
-    except Exception as e:
+    except (sqlite3.OperationalError, OSError, KeyError, TypeError) as e:
         from loguru import logger
 
         logger.debug("Graph cluster discovery failed: %s", e)

@@ -14,6 +14,7 @@ This enables:
   - Time-aware retrieval that respects knowledge validity windows
 """
 
+import sqlite3
 import time
 from typing import Any
 
@@ -24,6 +25,8 @@ from divineos.core.knowledge._base import (
     _get_connection,
     _row_to_dict,
 )
+
+_TEMPORAL_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 # ─── Schema Migration ───────────────────────────────────────────────
@@ -110,7 +113,7 @@ def stamp_valid_from(knowledge_id: str) -> bool:
         )
         conn.commit()
         return True
-    except Exception as e:
+    except _TEMPORAL_ERRORS as e:
         # valid_from column might not exist yet (pre-migration DB)
         from loguru import logger
 
@@ -143,7 +146,7 @@ def get_valid_at(timestamp: float, limit: int = 50) -> list[dict[str, Any]]:
         """
         rows = conn.execute(query, (timestamp, timestamp, limit)).fetchall()
         return [_row_to_dict(row) for row in rows]
-    except Exception as e:
+    except _TEMPORAL_ERRORS as e:
         # Columns might not exist yet
         logger.debug("Temporal query failed (columns may not exist): %s", e)
         return []
@@ -193,7 +196,7 @@ def get_changes_since(
                 (since, limit),
             ).fetchall()
             result["expired"] = [_row_to_dict(r) for r in rows]
-        except Exception as e:
+        except _TEMPORAL_ERRORS as e:
             from loguru import logger
 
             logger.debug("Temporal expired query failed (columns may not exist): %s", e)

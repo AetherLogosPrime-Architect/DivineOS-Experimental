@@ -18,6 +18,7 @@ Three prediction sources:
    point in a project? (e.g., always asks for tests after new features)
 """
 
+import sqlite3
 from typing import Any
 
 from divineos.core.knowledge._base import _get_connection
@@ -111,7 +112,7 @@ def get_session_history(limit: int = 10) -> list[dict[str, Any]]:
             (limit,),
         ).fetchall()
         return [{"content": r[0], "created_at": r[1]} for r in rows]
-    except Exception as e:
+    except (sqlite3.OperationalError, OSError, KeyError, TypeError) as e:
         from loguru import logger
 
         logger.debug("Session history fetch failed: %s", e)

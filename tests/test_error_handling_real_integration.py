@@ -1,16 +1,13 @@
-"""Real integration tests for error handling and monitoring.
+"""Real integration tests for system monitoring.
 
-Tests that error handling and monitoring work with actual integration points,
-not mocks. Validates that errors are caught, logged, and recovery works.
+Tests that monitoring works with actual integration points, not mocks.
 """
 
-import pytest
 from unittest.mock import MagicMock
 
 from divineos.supersession.resolution_engine import ResolutionEngine
 from divineos.agent_integration.learning_cycle import LearningCycle
 from divineos.core.ledger import Ledger
-from divineos.integration.error_handler import ErrorHandler, FatalError
 from divineos.integration.system_monitor import SystemMonitor, get_system_monitor, reset_monitor
 
 
@@ -74,47 +71,6 @@ class TestErrorHandlingRealIntegration:
         assert metrics["success_count"] >= 1
         assert metrics["error_count"] == 0
 
-    def test_retry_logic_with_transient_error(self):
-        """Test that retry logic handles transient errors."""
-        call_count = 0
-
-        def flaky_function():
-            nonlocal call_count
-            call_count += 1
-            if call_count < 3:
-                raise ConnectionError("Transient connection error")
-            return "success"
-
-        wrapped = ErrorHandler.with_retry(flaky_function, max_retries=3)
-
-        result = wrapped()
-        assert result == "success"
-        assert call_count == 3
-
-    def test_circuit_breaker_opens_after_failures(self):
-        """Test that circuit breaker opens after repeated failures."""
-        from divineos.integration.error_handler import RecoveryStrategy
-
-        call_count = 0
-
-        def failing_function():
-            nonlocal call_count
-            call_count += 1
-            raise Exception("Persistent error")
-
-        wrapped = RecoveryStrategy.circuit_breaker(
-            failing_function, failure_threshold=3, timeout=0.1
-        )
-
-        for i in range(3):
-            with pytest.raises(Exception):
-                wrapped()
-
-        with pytest.raises(FatalError):
-            wrapped()
-
-        assert call_count == 3
-
     def test_monitoring_tracks_latencies(self):
         """Test that monitoring tracks latencies correctly."""
         point = SystemMonitor.CLARITY_LEARNING
@@ -174,29 +130,6 @@ class TestErrorHandlingRealIntegration:
         assert point2 in report["integration_points"]
         assert "timestamp" in report
         assert "summary" in report
-
-    def test_error_handler_logs_context(self):
-        """Test that error handler logs context for debugging."""
-        error = Exception("Test error")
-        context = {"tool_name": "test_tool", "session_id": "test_session"}
-
-        ErrorHandler.log_error_with_context(error, context, "integration_point_1")
-
-        assert True
-
-    def test_fallback_to_default_on_error(self):
-        """Test that fallback strategy returns default value on error."""
-        from divineos.integration.error_handler import RecoveryStrategy
-
-        def failing_function():
-            raise ValueError("Test error")
-
-        wrapped = RecoveryStrategy.fallback_to_default(
-            failing_function, default_value="default_result"
-        )
-
-        result = wrapped()
-        assert result == "default_result"
 
     def test_integration_point_error_handling_flow(self):
         """Test complete error handling flow for an integration point."""

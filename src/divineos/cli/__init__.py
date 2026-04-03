@@ -62,7 +62,7 @@ def _enforce_briefing_gate() -> None:
 
         if was_briefing_loaded():
             return
-    except Exception:
+    except (ImportError, OSError, KeyError):
         return  # DB not initialized yet — allow bootstrap commands
 
     click.secho("\n  BLOCKED: Briefing not loaded.", fg="red", bold=True)

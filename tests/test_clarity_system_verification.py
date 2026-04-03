@@ -307,7 +307,7 @@ class TestHookIntegration:
         HookIntegrationInterface.clear_hooks()
 
         def failing_hook(**kwargs):
-            raise Exception("Test error")
+            raise TypeError("Test error")
 
         HookIntegrationInterface.register_pre_work_hook(failing_hook)
 

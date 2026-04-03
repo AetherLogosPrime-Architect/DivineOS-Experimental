@@ -218,7 +218,7 @@ def wrap_tool_execution(
             except ValueError as e2:
                 logger.error(f"Validation error during TOOL_RESULT event emission: {e2}")
                 logger.warning(f"Continuing without TOOL_RESULT event for {tool_name}")
-            except Exception as e2:
+            except _TW_ERRORS as e2:
                 logger.error(
                     f"Failed to emit TOOL_RESULT event for {tool_name}: {e2}",
                     exc_info=True,

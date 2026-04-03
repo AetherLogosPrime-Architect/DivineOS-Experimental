@@ -6,6 +6,7 @@ by importance, promoted/demoted based on thresholds, and surfaced during recall.
 
 import math
 import re
+import sqlite3
 import time
 import uuid
 
@@ -309,7 +310,7 @@ def refresh_active_memory(
                     "SELECT knowledge_id FROM knowledge WHERE layer = 'archive'"
                 ).fetchall():
                     archived_ids.add(row[0])
-        except Exception as exc:
+        except (sqlite3.OperationalError, OSError) as exc:
             logger.debug(f"Failed to query archived entries: {exc}")
 
         # Score every knowledge entry (skip archived — they shouldn't surface)
