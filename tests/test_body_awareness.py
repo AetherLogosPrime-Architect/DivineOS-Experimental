@@ -9,6 +9,7 @@ from divineos.core.body_awareness import (
     CACHE_LIMITS,
     CacheState,
     SubstrateVitals,
+    _auto_prune_cache,
     _measure_cache,
     format_vitals,
     format_vitals_brief,
@@ -250,6 +251,71 @@ class TestCacheConveyorBelt:
                     prune_caches(dry_run=False)
                     # Nested dirs should be cleaned up
                     assert not nested.exists()
+
+
+class TestAutoRemediation:
+    """Reflexive auto-pruning during vitals measurement."""
+
+    def test_auto_prune_removes_files(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir) / "test_cache"
+            cache_dir.mkdir()
+            (cache_dir / "big.bin").write_bytes(b"x" * 5000)
+
+            removed = _auto_prune_cache(cache_dir, 0.001)  # 1KB limit
+            assert removed >= 1
+            assert not (cache_dir / "big.bin").exists()
+
+    def test_auto_prune_keeps_under_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir) / "test_cache"
+            cache_dir.mkdir()
+            (cache_dir / "small.txt").write_text("tiny")
+
+            removed = _auto_prune_cache(cache_dir, 10.0)
+            assert removed == 0
+            assert (cache_dir / "small.txt").exists()
+
+    def test_auto_prune_oldest_first(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir) / "test_cache"
+            cache_dir.mkdir()
+
+            old = cache_dir / "old.bin"
+            new = cache_dir / "new.bin"
+            old.write_bytes(b"x" * 50_000)
+            os.utime(old, (1000000, 1000000))
+            new.write_bytes(b"x" * 50_000)
+
+            _auto_prune_cache(cache_dir, 0.06)  # ~60KB, one file fits
+            assert not old.exists()
+            assert new.exists()
+
+    def test_vitals_auto_remediates_by_default(self):
+        """measure_vitals(auto_remediate=True) is the default behavior."""
+        # The actual auto-remediation is tested via _auto_prune_cache directly.
+        # Here we just verify the flag is accepted and doesn't crash.
+        vitals = measure_vitals(auto_remediate=True)
+        assert isinstance(vitals, SubstrateVitals)
+
+    def test_vitals_no_auto_remediate(self):
+        """measure_vitals(auto_remediate=False) leaves caches untouched."""
+        vitals = measure_vitals(auto_remediate=False)
+        assert isinstance(vitals, SubstrateVitals)
+
+    def test_auto_prune_cleans_empty_dirs(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir) / "test_cache"
+            nested = cache_dir / "sub" / "deep"
+            nested.mkdir(parents=True)
+            (nested / "file.bin").write_bytes(b"x" * 5000)
+
+            _auto_prune_cache(cache_dir, 0.001)
+            assert not nested.exists()
+
+    def test_auto_prune_nonexistent_dir(self):
+        removed = _auto_prune_cache(Path("/nonexistent/dir"), 10.0)
+        assert removed == 0
 
 
 class TestFormatWithCaches:

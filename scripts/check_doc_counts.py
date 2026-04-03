@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Check that documented test/command counts haven't drifted from reality.
+"""Check that documented counts and architecture tree haven't drifted from reality.
 
 Greps the actual codebase for test functions and CLI commands, then compares
-to the numbers in CLAUDE.md, README.md, and seed.json.  Fails if any
-documented count has drifted beyond the allowed threshold.
+to the numbers in CLAUDE.md, README.md, and seed.json.  Also verifies that
+files listed in the README architecture tree actually exist, and flags real
+.py files that are missing from the tree.
 
-Fast enough for pre-commit: pure grep, no imports or pytest collection.
+Fast enough for pre-commit: pure grep/path checks, no imports or pytest collection.
 """
 
 import re
@@ -17,6 +18,7 @@ TEST_DRIFT_THRESHOLD = 50  # tests get added/removed in batches
 CMD_DRIFT_THRESHOLD = 5
 
 ROOT = Path(__file__).resolve().parent.parent
+SRC = ROOT / "src" / "divineos"
 
 
 def count_test_functions() -> int:
@@ -54,6 +56,113 @@ def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     return findings
 
 
+# ── Architecture tree verification ─────────────────────────────────────
+
+def _extract_tree_paths(readme_path: Path) -> list[str]:
+    """Extract .py file paths from the README architecture code block.
+
+    Parses lines like '    ledger.py   Append-only event store' inside the
+    Architecture section and reconstructs relative paths from indentation.
+    Returns paths relative to src/divineos/ (e.g. 'cli/__init__.py').
+    """
+    text = readme_path.read_text(errors="replace")
+
+    # Find the architecture code block
+    arch_match = re.search(r"## Architecture\s*\n\s*```\s*\n(.*?)```", text, re.DOTALL)
+    if not arch_match:
+        return []
+
+    block = arch_match.group(1)
+    paths: list[str] = []
+    dir_stack: list[str] = []  # track directory nesting by indent level
+
+    # Find the base indent (first non-blank, non-root line)
+    base_indent = 2  # README uses 2-space base indent under src/divineos/
+
+    for line in block.splitlines():
+        # Skip blank lines and the root 'src/divineos/' line
+        stripped = line.strip()
+        if not stripped or stripped.startswith("src/divineos/"):
+            dir_stack = []
+            continue
+
+        # Measure indent (spaces)
+        indent = len(line) - len(line.lstrip())
+
+        # Extract the file/dir name (first token before whitespace description)
+        parts = stripped.split(None, 1)
+        if not parts:
+            continue
+        name = parts[0]
+
+        # Determine nesting depth: base_indent = top level (depth 0)
+        depth = max(0, (indent - base_indent) // 2)
+
+        # Trim stack to current depth
+        dir_stack = dir_stack[:depth]
+
+        if name.endswith("/"):
+            # It's a directory — push onto stack
+            dir_stack.append(name.rstrip("/"))
+        elif name.endswith(".py"):
+            # It's a Python file — reconstruct full path
+            rel = "/".join(dir_stack + [name])
+            paths.append(rel)
+        elif name.endswith(".json") or name.endswith(".sh"):
+            # Non-Python files we don't verify
+            continue
+
+    return paths
+
+
+def _get_actual_py_files() -> set[str]:
+    """Get all .py files under src/divineos/ as relative paths."""
+    result = set()
+    for f in SRC.rglob("*.py"):
+        rel = f.relative_to(SRC)
+        result.add(str(rel).replace("\\", "/"))
+    return result
+
+
+def check_architecture_tree(readme_path: Path) -> list[str]:
+    """Verify README architecture tree against actual files.
+
+    Returns list of error strings (empty = all good).
+    """
+    if not readme_path.exists():
+        return []
+
+    tree_paths = _extract_tree_paths(readme_path)
+    if not tree_paths:
+        return ["Could not parse architecture tree from README.md"]
+
+    actual_files = _get_actual_py_files()
+    errors: list[str] = []
+
+    # Check for ghost files (listed in README but don't exist)
+    tree_set = set(tree_paths)
+    ghosts = tree_set - actual_files
+    if ghosts:
+        for g in sorted(ghosts):
+            errors.append(f"  GHOST: {g} (listed in README but doesn't exist)")
+
+    # Check for undocumented files (exist but not in README)
+    # Exclude __pycache__, __init__.py (every package has one), and generated files
+    missing = actual_files - tree_set
+    missing = {
+        m for m in missing
+        if not any(part == "__pycache__" for part in m.split("/"))
+        and not m.endswith("__init__.py")  # every package has one, not worth listing
+    }
+    if missing:
+        for m in sorted(missing):
+            errors.append(f"  UNDOCUMENTED: {m} (exists but not in README architecture tree)")
+
+    return errors
+
+
+# ── Main ───────────────────────────────────────────────────────────────
+
 def main() -> int:
     actual_tests = count_test_functions()
     actual_cmds = count_cli_commands()
@@ -84,13 +193,20 @@ def main() -> int:
                     f"    documented: {documented}, actual: {actual}, drift: {drift}"
                 )
 
+    # Architecture tree check
+    readme = ROOT / "README.md"
+    tree_errors = check_architecture_tree(readme)
+    if tree_errors:
+        errors.append("Architecture tree drift:")
+        errors.extend(tree_errors)
+
     if errors:
-        print(f"Doc count drift detected (tests={actual_tests}, commands={actual_cmds}):")
+        print(f"Doc drift detected (tests={actual_tests}, commands={actual_cmds}):")
         print("\n".join(errors))
-        print(f"\nUpdate the documented counts to match reality.")
+        print("\nUpdate documentation to match reality.")
         return 1
 
-    print(f"Doc counts OK (tests={actual_tests}, commands={actual_cmds})")
+    print(f"Doc checks OK (tests={actual_tests}, commands={actual_cmds}, tree=synced)")
     return 0
 
 

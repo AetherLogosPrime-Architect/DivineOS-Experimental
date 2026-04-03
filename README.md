@@ -355,7 +355,6 @@ src/divineos/
     ledger_integration.py      Ledger integration
   clarity_enforcement/         Clarity checking system
     config.py                  Clarity configuration
-    config_validator.py        Configuration validation
     enforcer.py                Enforcement engine
     hooks.py                   Clarity hooks
     semantic_analyzer.py       Semantic analysis

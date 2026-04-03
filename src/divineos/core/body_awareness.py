@@ -185,8 +185,55 @@ def prune_caches(dry_run: bool = False) -> list[str]:
     return actions
 
 
-def measure_vitals() -> SubstrateVitals:
-    """Take a full measurement of substrate health."""
+def _auto_prune_cache(cache_dir: Path, limit_mb: float) -> int:
+    """Silently prune a single cache directory back under its limit.
+
+    Removes oldest files first. Returns the number of files removed.
+    This is the reflexive version — no output, no dry-run, just cleanup.
+    """
+    try:
+        files_by_age: list[tuple[float, Path]] = []
+        for f in cache_dir.rglob("*"):
+            if f.is_file():
+                files_by_age.append((f.stat().st_mtime, f))
+    except OSError:
+        return 0
+
+    files_by_age.sort()  # oldest first
+    target_bytes = int(limit_mb * 1024 * 1024)
+    current_bytes = sum(f.stat().st_size for _, f in files_by_age)
+    removed = 0
+
+    for _mtime, filepath in files_by_age:
+        if current_bytes <= target_bytes:
+            break
+        try:
+            fsize = filepath.stat().st_size
+            filepath.unlink()
+            current_bytes -= fsize
+            removed += 1
+        except OSError:
+            continue
+
+    # Clean empty directories
+    try:
+        for d in sorted(cache_dir.rglob("*"), reverse=True):
+            if d.is_dir() and not any(d.iterdir()):
+                d.rmdir()
+    except OSError:
+        pass
+
+    return removed
+
+
+def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
+    """Take a full measurement of substrate health.
+
+    Args:
+        auto_remediate: If True (default), automatically prune caches
+            that exceed their size limits. Reflexive, not conscious —
+            the body cleans up without being asked.
+    """
     vitals = SubstrateVitals(measured_at=time.time())
 
     # -- Storage sizes --
@@ -207,12 +254,18 @@ def measure_vitals() -> SubstrateVitals:
 
     vitals.total_size_mb = round(vitals.db_size_mb + vitals.reports_size_mb, 2)
 
-    # -- Cache sizes --
+    # -- Cache sizes (with auto-remediation) --
     project_root = Path(__file__).parent.parent.parent.parent
+    auto_pruned: list[str] = []
     for cache_name, limit_mb in CACHE_LIMITS.items():
         cache_dir = project_root / cache_name
         if cache_dir.exists() and cache_dir.is_dir():
             cs = _measure_cache(cache_dir, cache_name, limit_mb)
+            if cs.over_limit and auto_remediate:
+                # Reflexive: prune automatically, then re-measure
+                _auto_prune_cache(cache_dir, limit_mb)
+                cs = _measure_cache(cache_dir, cache_name, limit_mb)
+                auto_pruned.append(cache_name)
             vitals.caches.append(cs)
             vitals.cache_total_mb = round(vitals.cache_total_mb + cs.size_mb, 2)
             if cs.over_limit:
@@ -220,6 +273,8 @@ def measure_vitals() -> SubstrateVitals:
                     f"Cache {cache_name}: {cs.size_mb:.0f}MB exceeds {limit_mb:.0f}MB limit "
                     f"({cs.file_count} files) -- run 'divineos body --prune' to trim"
                 )
+    if auto_pruned:
+        vitals.warnings.append(f"Auto-pruned {len(auto_pruned)} cache(s): {', '.join(auto_pruned)}")
 
     vitals.total_size_mb = round(vitals.total_size_mb + vitals.cache_total_mb, 2)
 

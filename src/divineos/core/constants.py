@@ -116,6 +116,10 @@ QUALITY_HONESTY_BLOCK = 0.5  # Below this: BLOCK extraction (dishonest)
 QUALITY_CORRECTNESS_BLOCK = 0.3  # Below this: BLOCK extraction (incorrect)
 QUALITY_MIN_FAILED_CHECKS_DOWNGRADE = 2  # This many failures: DOWNGRADE
 
+# Compass-informed gate tightening: when truthfulness is in deficiency zone,
+# raise the block threshold by this much (making the gate stricter).
+QUALITY_COMPASS_TIGHTEN = 0.1  # Added to block thresholds when compass is concerned
+
 # Quality check scoring thresholds
 QUALITY_CHECK_PASS = 0.7  # Score needed to pass a quality check
 

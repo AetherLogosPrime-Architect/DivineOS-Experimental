@@ -1,10 +1,32 @@
-"""Agent Integration Module.
+"""Agent Integration — self-observation infrastructure for agent sessions.
 
-Provides automatic event capture for agent tool calls,
-learning loop integration, behavior analysis, and self-improvement feedback.
+Captures tool calls as events, extracts lessons from session patterns,
+and feeds learning back into future behavior via confidence-weighted
+pattern recommendations.
 
-This module enables the OS to enforce that the agent uses the system
-for all its operations, making self-observation built-in and unavoidable.
+Status: STABLE. Core data flow works end-to-end:
+  Tool execution → event capture → learning loop → pattern store → recommendations.
+
+Module map (14 files):
+  base.py              Abstract contracts: ToolInterceptor, LearningLoopSystem, etc.
+  types.py             Dataclasses: ToolCallEvent, Correction, SessionLessons, etc.
+  decision_store.py    Persists AGENT_DECISION events to the ledger.
+  learning_audit_store.py  Stores AGENT_LEARNING_AUDIT events for self-reflection.
+  pattern_store.py     SQLite mutable store for pattern confidence (not ledger).
+  learning_loop.py     Extracts corrections, encouragements, decisions from sessions.
+  learning_cycle.py    Session-end reflection: updates confidence, detects conflicts.
+  feedback_system.py   Converts analysis into actionable feedback + recommendations.
+  outcome_measurement.py  Measures rework, knowledge drift, correction rates, health.
+  memory_monitor.py    Token budget tracking and automatic context compression.
+  memory_actions.py    Singleton access and convenience functions.
+  pattern_recommender.py  Context-aware pattern matching and humility warnings.
+  pattern_validation.py   Invalidation, conflict detection, humility audits.
+
+Integrates with:
+  - core/ledger.py (event storage and retrieval)
+  - core/knowledge/ (lesson and feedback storage)
+  - analysis/ (session analysis pipeline)
+  - core/hud.py (engagement and briefing display)
 """
 
 from divineos.agent_integration.base import (

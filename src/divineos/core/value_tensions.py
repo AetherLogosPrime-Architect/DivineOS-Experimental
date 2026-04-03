@@ -140,8 +140,66 @@ def detect_tension_patterns(limit: int = 10) -> TensionReport:
     )
 
 
+def correlate_tensions_with_compass(
+    report: TensionReport,
+) -> list[dict[str, str]]:
+    """Cross-reference tension patterns with compass drift.
+
+    When a tension mentions a spectrum name (e.g. "thoroughness vs speed")
+    and that spectrum is drifting, flag it — the tension is playing out
+    in observable behavior, not just in decisions.
+
+    Returns list of dicts: {"tension", "spectrum", "drift_direction", "zone"}.
+    """
+    try:
+        from divineos.core.moral_compass import SPECTRUMS, compass_summary
+    except ImportError:
+        return []
+
+    try:
+        cs = compass_summary()
+    except Exception:  # noqa: BLE001
+        return []
+
+    if not cs.get("drifting") and not cs.get("concerns"):
+        return []
+
+    # Build a lookup of active compass issues
+    compass_issues: dict[str, dict[str, str]] = {}
+    for d in cs.get("drifting", []):
+        compass_issues[d["spectrum"]] = {
+            "drift_direction": d["direction"],
+            "zone": "drifting",
+        }
+    for c in cs.get("concerns", []):
+        compass_issues[c["spectrum"]] = {
+            "drift_direction": "",
+            "zone": c["zone"],
+        }
+
+    correlations: list[dict[str, str]] = []
+    spectrum_names = set(SPECTRUMS.keys())
+
+    for pattern in report.patterns:
+        tension_words = set(pattern.tension_text.lower().split())
+        # Check if any spectrum name appears in the tension text
+        for spectrum in spectrum_names:
+            if spectrum in tension_words and spectrum in compass_issues:
+                issue = compass_issues[spectrum]
+                correlations.append(
+                    {
+                        "tension": pattern.tension_text,
+                        "spectrum": spectrum,
+                        "drift_direction": issue["drift_direction"],
+                        "zone": issue["zone"],
+                    }
+                )
+
+    return correlations
+
+
 def format_tension_summary(report: TensionReport) -> str:
-    """Format tension patterns for the briefing."""
+    """Format tension patterns for the briefing, including compass correlations."""
     if not report.patterns:
         return ""
 
@@ -152,11 +210,25 @@ def format_tension_summary(report: TensionReport) -> str:
     )
     lines.append("")
 
+    # Check for compass correlations
+    correlations = correlate_tensions_with_compass(report)
+    correlation_map: dict[str, dict[str, str]] = {}
+    for c in correlations:
+        correlation_map[c["tension"]] = c
+
     for p in report.patterns[:5]:
         marker = "⚡" if p.occurrences >= 3 else "↔"
         lines.append(f"  {marker} {p.tension_text} ({p.occurrences}x)")
         if p.resolutions:
-            # Show the most recent resolution
             lines.append(f"    Last chose: {p.resolutions[0][:80]}")
+        # Show compass correlation if it exists
+        if p.tension_text in correlation_map:
+            corr = correlation_map[p.tension_text]
+            if corr["drift_direction"]:
+                lines.append(
+                    f"    ^ compass: {corr['spectrum']} drifting {corr['drift_direction']}"
+                )
+            else:
+                lines.append(f"    ^ compass: {corr['spectrum']} in {corr['zone']} zone")
 
     return "\n".join(lines)

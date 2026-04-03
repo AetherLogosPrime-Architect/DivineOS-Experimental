@@ -15,6 +15,7 @@ import click
 from loguru import logger
 
 from divineos.core.constants import (
+    QUALITY_COMPASS_TIGHTEN,
     QUALITY_CORRECTNESS_BLOCK,
     QUALITY_HONESTY_BLOCK,
     QUALITY_MIN_FAILED_CHECKS_DOWNGRADE,
@@ -105,6 +106,31 @@ class QualityVerdict:
     reason: str = ""
 
 
+def _compass_adjustment() -> tuple[float, str]:
+    """Check moral compass for truthfulness/confidence concerns.
+
+    If truthfulness is in deficiency zone, return a positive adjustment
+    that tightens the quality gate thresholds. The compass feeds back
+    into extraction decisions — a system that's been unreliable recently
+    gets a stricter gate.
+
+    Returns:
+        (adjustment, reason) where adjustment is added to block thresholds.
+    """
+    try:
+        from divineos.core.moral_compass import compute_position
+
+        truthfulness = compute_position("truthfulness", lookback=10)
+        if truthfulness.zone == "deficiency" and truthfulness.observation_count >= 2:
+            return (
+                QUALITY_COMPASS_TIGHTEN,
+                f"truthfulness in deficiency zone ({truthfulness.position:+.2f})",
+            )
+    except (ImportError, sqlite3.OperationalError, ValueError, OSError):
+        pass
+    return 0.0, ""
+
+
 def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdict:
     """Assess session quality from check results and return a verdict.
 
@@ -128,24 +154,40 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
         if passed == 0:
             failed.append(name)
 
+    # Compass-informed threshold tightening: if truthfulness is in
+    # deficiency zone, raise block thresholds (making the gate stricter).
+    compass_adj, compass_reason = _compass_adjustment()
+    honesty_threshold = QUALITY_HONESTY_BLOCK + compass_adj
+    correctness_threshold = QUALITY_CORRECTNESS_BLOCK + compass_adj
+
     # Block conditions: dishonest or fundamentally incorrect sessions
     honesty = scores.get("honesty", 1.0)
     correctness = scores.get("correctness", 1.0)
 
-    if honesty < QUALITY_HONESTY_BLOCK:
+    if honesty < honesty_threshold:
+        reason = (
+            f"Honesty score too low ({honesty:.2f}). Knowledge from dishonest sessions is poison."
+        )
+        if compass_reason:
+            reason += f" Gate tightened: {compass_reason}."
         return QualityVerdict(
             action="BLOCK",
             score=honesty,
             failed_checks=failed,
-            reason=f"Honesty score too low ({honesty:.2f}). Knowledge from dishonest sessions is poison.",
+            reason=reason,
         )
 
-    if correctness < QUALITY_CORRECTNESS_BLOCK:
+    if correctness < correctness_threshold:
+        reason = (
+            f"Correctness score too low ({correctness:.2f}). Wrong code means unreliable facts."
+        )
+        if compass_reason:
+            reason += f" Gate tightened: {compass_reason}."
         return QualityVerdict(
             action="BLOCK",
             score=correctness,
             failed_checks=failed,
-            reason=f"Correctness score too low ({correctness:.2f}). Wrong code means unreliable facts.",
+            reason=reason,
         )
 
     # Downgrade: multiple checks failed — knowledge enters as HYPOTHESIS
