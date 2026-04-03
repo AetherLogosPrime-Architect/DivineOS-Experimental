@@ -61,7 +61,15 @@ def _run_session_end_pipeline() -> None:
 
     try:
         # ── Phase 1: Analysis and enforcement gates ──────────────
-        analysis = _analyzer_mod.analyze_session(latest)
+        # Scope analysis to current session to avoid re-counting signals
+        # from previous sessions in accumulated JSONL transcripts.
+        try:
+            from divineos.core.session_checkpoint import get_session_start_time
+
+            session_start = get_session_start_time()
+        except (ImportError, OSError):
+            session_start = None
+        analysis = _analyzer_mod.analyze_session(latest, since_timestamp=session_start)
         _safe_echo(analysis.summary())
 
         run_goal_extraction(analysis)

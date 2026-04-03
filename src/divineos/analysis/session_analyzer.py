@@ -249,11 +249,20 @@ class SessionAnalysis:
 # --- Core analysis functions ---
 
 
-def analyze_session(file_path: Path) -> SessionAnalysis:
+def analyze_session(
+    file_path: Path,
+    since_timestamp: float | None = None,
+) -> SessionAnalysis:
     """Analyze a Claude Code JSONL session file.
 
     Extracts user signals, tool patterns, context overflows,
     and conversation flow from raw session data.
+
+    Args:
+        file_path: Path to the JSONL session file.
+        since_timestamp: If provided, only analyze records with timestamps
+            at or after this Unix epoch time. This prevents re-counting
+            signals from previous sessions in accumulated transcripts.
     """
     analysis = SessionAnalysis(
         source_file=str(file_path),
@@ -264,6 +273,11 @@ def analyze_session(file_path: Path) -> SessionAnalysis:
         return analysis
 
     records = _load_records(file_path)
+
+    # Filter to current session if a boundary is provided
+    if since_timestamp is not None:
+        records = _filter_records_since(records, since_timestamp)
+
     analysis.total_records = len(records)
 
     # Extract timeline
@@ -284,6 +298,31 @@ def analyze_session(file_path: Path) -> SessionAnalysis:
             _process_assistant_record(record, analysis)
 
     return analysis
+
+
+def _filter_records_since(records: list[dict[str, Any]], since: float) -> list[dict[str, Any]]:
+    """Keep only records with timestamps at or after the given Unix epoch."""
+    filtered: list[dict[str, Any]] = []
+    for record in records:
+        ts = record.get("timestamp", "")
+        if not ts:
+            # Records without timestamps pass through (conservative)
+            filtered.append(record)
+            continue
+        try:
+            if isinstance(ts, str):
+                dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                epoch = dt.timestamp()
+            elif isinstance(ts, (int, float)):
+                epoch = ts / 1000 if ts > 1e12 else ts
+            else:
+                filtered.append(record)
+                continue
+            if epoch >= since:
+                filtered.append(record)
+        except (ValueError, OSError):
+            filtered.append(record)  # conservative: keep unparseable records
+    return filtered
 
 
 def _load_records(file_path: Path) -> list[dict[str, Any]]:
