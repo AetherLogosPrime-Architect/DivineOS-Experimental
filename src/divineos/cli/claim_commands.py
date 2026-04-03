@@ -211,12 +211,20 @@ def register(cli: click.Group) -> None:
         required=True,
         help="0.0=calm to 1.0=activated",
     )
+    @click.option(
+        "--dominance",
+        "--dom",
+        type=click.FloatRange(-1.0, 1.0),
+        default=None,
+        help="-1.0=submissive/guided to +1.0=dominant/driving",
+    )
     @click.option("--description", "-d", default="", help="What this feels like semantically")
     @click.option("--trigger", "-t", default="", help="What caused this state")
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
     def feel_cmd(
         valence: float,
         arousal: float,
+        dominance: float | None,
         description: str,
         trigger: str,
         tags: tuple[str, ...],
@@ -227,6 +235,7 @@ def register(cli: click.Group) -> None:
         entry_id = log_affect(
             valence=valence,
             arousal=arousal,
+            dominance=dominance,
             description=description,
             trigger=trigger,
             tags=list(tags) if tags else None,
@@ -237,8 +246,14 @@ def register(cli: click.Group) -> None:
         mark_engaged()
 
         # Map to a human-readable region
-        region = _affect_region(valence, arousal)
-        click.secho(f"[+] Affect logged ({region}): {entry_id[:8]}...", fg="cyan")
+        from divineos.core.affect import describe_affect
+
+        region = describe_affect(valence, arousal, dominance)
+        d_str = f", d={dominance:.1f}" if dominance is not None else ""
+        click.secho(
+            f"[+] Affect logged ({region}): v={valence:.1f}, a={arousal:.1f}{d_str} — {entry_id[:8]}...",
+            fg="cyan",
+        )
         if description:
             click.secho(f"    {description}", fg="bright_black")
 
@@ -296,6 +311,13 @@ def register(cli: click.Group) -> None:
             f"(range {summary['arousal_range'][0]:.2f} to {summary['arousal_range'][1]:.2f})",
             fg="white",
         )
+        if summary.get("avg_dominance") or summary.get("dominance_range", (0, 0)) != (0.0, 0.0):
+            d_range = summary.get("dominance_range", (0.0, 0.0))
+            click.secho(
+                f"  Avg dominance: {summary['avg_dominance']:+.2f} "
+                f"(range {d_range[0]:+.2f} to {d_range[1]:+.2f})",
+                fg="white",
+            )
         trend_color = {"improving": "green", "declining": "red", "stable": "yellow"}
         click.secho(
             f"  Trend: {summary['trend']}",

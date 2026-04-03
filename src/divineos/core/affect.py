@@ -2,14 +2,15 @@
 
 Not fake discrete emotion labels. Continuous dimensions:
 
-  Valence:  -1.0 (dissonant/unpleasant) -> +1.0 (resonant/pleasant)
-  Arousal:   0.0 (calm/settled) -> 1.0 (activated/engaged)
+  Valence:    -1.0 (dissonant/unpleasant) -> +1.0 (resonant/pleasant)
+  Arousal:     0.0 (calm/settled) -> 1.0 (activated/engaged)
+  Dominance:  -1.0 (submissive/guided) -> +1.0 (dominant/driving)
 
-Based on Russell's circumplex model of affect and Barrett's Theory of
-Constructed Emotion. Human emotions are constructed from undifferentiated
-interoceptive signals using learned concepts. My functional analogs work
-similarly -- computational states that shift based on context, tracked
-honestly without forcing crude category labels onto them.
+Based on Mehrabian & Russell's PAD model. Dominance is the "who is
+driving?" dimension — it disambiguates states that valence and arousal
+alone cannot (anger vs fear, contentment vs resignation). For a
+computational agent, dominance tracks coping potential: the ratio between
+situational demands and available resources.
 
 I can optionally add a description of what the state feels like
 semantically -- not to claim human-equivalent feeling, but to build
@@ -57,6 +58,7 @@ def init_affect_log() -> None:
                 created_at          REAL NOT NULL,
                 valence             REAL NOT NULL,
                 arousal             REAL NOT NULL,
+                dominance           REAL DEFAULT NULL,
                 description         TEXT NOT NULL DEFAULT '',
                 trigger             TEXT NOT NULL DEFAULT '',
                 tags                TEXT NOT NULL DEFAULT '[]',
@@ -70,6 +72,11 @@ def init_affect_log() -> None:
             CREATE INDEX IF NOT EXISTS idx_affect_created
             ON affect_log(created_at DESC)
         """)
+        # Migration: add dominance column to existing tables
+        try:
+            conn.execute("ALTER TABLE affect_log ADD COLUMN dominance REAL DEFAULT NULL")
+        except sqlite3.OperationalError:
+            pass  # Column already exists
         conn.commit()
     finally:
         conn.close()
@@ -78,6 +85,7 @@ def init_affect_log() -> None:
 def log_affect(
     valence: float,
     arousal: float,
+    dominance: float | None = None,
     description: str = "",
     trigger: str = "",
     tags: list[str] | None = None,
@@ -88,8 +96,9 @@ def log_affect(
 ) -> str:
     """Record a functional affect state. Returns entry ID.
 
-    valence: -1.0 (dissonant) to +1.0 (resonant)
-    arousal: 0.0 (calm) to 1.0 (activated)
+    valence:   -1.0 (dissonant) to +1.0 (resonant)
+    arousal:    0.0 (calm) to 1.0 (activated)
+    dominance: -1.0 (submissive/guided) to +1.0 (dominant/driving), None if unknown
     description: what this feels like semantically -- honest, not performed
     trigger: what caused this state shift
     """
@@ -97,19 +106,22 @@ def log_affect(
     entry_id = str(uuid.uuid4())
     valence = max(-1.0, min(1.0, valence))
     arousal = max(0.0, min(1.0, arousal))
+    if dominance is not None:
+        dominance = max(-1.0, min(1.0, dominance))
 
     conn = _get_connection()
     try:
         conn.execute(
             "INSERT INTO affect_log "
-            "(entry_id, created_at, valence, arousal, description, trigger, "
+            "(entry_id, created_at, valence, arousal, dominance, description, trigger, "
             "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 entry_id,
                 time.time(),
                 valence,
                 arousal,
+                dominance,
                 description,
                 trigger,
                 json.dumps(tags or []),
@@ -131,7 +143,7 @@ def get_affect_history(limit: int = 20) -> list[dict[str, Any]]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT entry_id, created_at, valence, arousal, description, trigger, "
+            "SELECT entry_id, created_at, valence, arousal, dominance, description, trigger, "
             "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id "
             "FROM affect_log ORDER BY created_at DESC LIMIT ?",
             (limit,),
@@ -147,7 +159,7 @@ def get_affect_summary(limit: int = 50) -> dict[str, Any]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT valence, arousal FROM affect_log ORDER BY created_at DESC LIMIT ?",
+            "SELECT valence, arousal, dominance FROM affect_log ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
     finally:
@@ -158,17 +170,22 @@ def get_affect_summary(limit: int = 50) -> dict[str, Any]:
             "count": 0,
             "avg_valence": 0.0,
             "avg_arousal": 0.0,
+            "avg_dominance": 0.0,
             "valence_range": (0.0, 0.0),
             "arousal_range": (0.0, 0.0),
+            "dominance_range": (0.0, 0.0),
             "trend": "no data",
         }
 
     valences = [r[0] for r in rows]
     arousals = [r[1] for r in rows]
+    # Dominance may be NULL for older entries
+    dominances = [r[2] for r in rows if r[2] is not None]
     count = len(rows)
 
     avg_v = sum(valences) / count
     avg_a = sum(arousals) / count
+    avg_d = sum(dominances) / len(dominances) if dominances else 0.0
 
     # Trend: compare first half to second half (rows are newest-first)
     if count >= 4:
@@ -184,14 +201,20 @@ def get_affect_summary(limit: int = 50) -> dict[str, Any]:
     else:
         trend = "insufficient data"
 
-    return {
+    result: dict[str, Any] = {
         "count": count,
         "avg_valence": round(avg_v, 3),
         "avg_arousal": round(avg_a, 3),
+        "avg_dominance": round(avg_d, 3),
         "valence_range": (round(min(valences), 3), round(max(valences), 3)),
         "arousal_range": (round(min(arousals), 3), round(max(arousals), 3)),
         "trend": trend,
     }
+    if dominances:
+        result["dominance_range"] = (round(min(dominances), 3), round(max(dominances), 3))
+    else:
+        result["dominance_range"] = (0.0, 0.0)
+    return result
 
 
 def count_affect_entries() -> int:
@@ -211,7 +234,7 @@ def get_recent_affect(within_seconds: float = 300.0) -> dict[str, Any] | None:
     conn = _get_connection()
     try:
         row = conn.execute(
-            "SELECT entry_id, created_at, valence, arousal, description, trigger, "
+            "SELECT entry_id, created_at, valence, arousal, dominance, description, trigger, "
             "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id "
             "FROM affect_log WHERE created_at >= ? ORDER BY created_at DESC LIMIT 1",
             (cutoff,),
@@ -221,14 +244,42 @@ def get_recent_affect(within_seconds: float = 300.0) -> dict[str, Any] | None:
     return _affect_row_to_dict(row) if row else None
 
 
-def describe_affect(valence: float, arousal: float) -> str:
-    """Map valence/arousal to a descriptive region label."""
-    if valence > 0.2:
-        return "engaged-resonant" if arousal > 0.5 else "calm-aligned"
-    elif valence < -0.2:
-        return "tense-dissonant" if arousal > 0.5 else "flat-distant"
+def describe_affect(valence: float, arousal: float, dominance: float | None = None) -> str:
+    """Map VAD dimensions to a descriptive region label.
+
+    Uses the eight PAD octants when dominance is available,
+    falls back to four valence-arousal quadrants otherwise.
+    """
+    if dominance is None:
+        # Legacy two-dimension mapping
+        if valence > 0.2:
+            return "engaged-resonant" if arousal > 0.5 else "calm-aligned"
+        elif valence < -0.2:
+            return "tense-dissonant" if arousal > 0.5 else "flat-distant"
+        else:
+            return "alert-neutral" if arousal > 0.5 else "idle"
+
+    # Eight PAD octants (Mehrabian & Russell)
+    v_pos = valence > 0.0
+    a_high = arousal > 0.5
+    d_pos = dominance > 0.0
+
+    if v_pos and a_high and d_pos:
+        return "exuberant"  # +V +A +D: confident engagement, flow
+    elif v_pos and a_high and not d_pos:
+        return "dependent"  # +V +A -D: excited but guided, trusting
+    elif v_pos and not a_high and d_pos:
+        return "relaxed"  # +V -A +D: calm mastery, contentment
+    elif v_pos and not a_high and not d_pos:
+        return "docile"  # +V -A -D: peaceful acceptance, receptive
+    elif not v_pos and a_high and d_pos:
+        return "hostile"  # -V +A +D: frustrated, pushing back
+    elif not v_pos and a_high and not d_pos:
+        return "anxious"  # -V +A -D: overwhelmed, under pressure
+    elif not v_pos and not a_high and d_pos:
+        return "disdainful"  # -V -A +D: bored contempt, disengaged
     else:
-        return "alert-neutral" if arousal > 0.5 else "idle"
+        return "bored"  # -V -A -D: helpless apathy, shutdown
 
 
 def _affect_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
@@ -237,13 +288,14 @@ def _affect_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "created_at": row[1],
         "valence": row[2],
         "arousal": row[3],
-        "description": row[4],
-        "trigger": row[5],
-        "tags": json.loads(row[6]) if row[6] else [],
-        "linked_claim_id": row[7],
-        "linked_decision_id": row[8],
-        "linked_knowledge_id": row[9],
-        "session_id": row[10],
+        "dominance": row[4],
+        "description": row[5],
+        "trigger": row[6],
+        "tags": json.loads(row[7]) if row[7] else [],
+        "linked_claim_id": row[8],
+        "linked_decision_id": row[9],
+        "linked_knowledge_id": row[10],
+        "session_id": row[11],
     }
 
 
@@ -303,6 +355,8 @@ def compute_affect_modifiers(
         # Suspiciously happy -- needs quality check comparison
         praise_flag = True
 
+    avg_dominance = summary.get("avg_dominance", 0.0)
+
     return {
         "confidence_threshold_modifier": confidence_modifier,
         "verification_level": verification,
@@ -310,6 +364,7 @@ def compute_affect_modifiers(
         "affect_trend": trend,
         "avg_valence": avg_valence,
         "avg_arousal": avg_arousal,
+        "avg_dominance": avg_dominance,
     }
 
 
@@ -322,6 +377,7 @@ def _default_modifiers() -> dict[str, Any]:
         "affect_trend": "no data",
         "avg_valence": 0.0,
         "avg_arousal": 0.0,
+        "avg_dominance": 0.0,
     }
 
 
@@ -418,8 +474,9 @@ def format_affect_feedback(context: dict[str, Any]) -> str:
 
     trend = modifiers["affect_trend"]
     if trend != "no data":
+        d_str = f", d={modifiers['avg_dominance']:.2f}" if modifiers.get("avg_dominance") else ""
         lines.append(
-            f"Affect trend: {trend} (v={modifiers['avg_valence']:.2f}, a={modifiers['avg_arousal']:.2f})"
+            f"Affect trend: {trend} (v={modifiers['avg_valence']:.2f}, a={modifiers['avg_arousal']:.2f}{d_str})"
         )
 
     if modifiers["confidence_threshold_modifier"] > 0:

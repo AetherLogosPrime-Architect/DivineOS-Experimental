@@ -520,13 +520,11 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
     except _PHASE_ERRORS as e:
         logger.warning(f"Session health scoring failed: {e}")
 
-    # 8b2. Clear briefing marker
-    try:
-        from divineos.core.hud_handoff import clear_briefing_marker
-
-        clear_briefing_marker()
-    except _PHASE_ERRORS as e:
-        logger.warning(f"Briefing marker cleanup failed: {e}")
+    # 8b2. Briefing marker — let it expire via TTL naturally.
+    # Previously cleared here, but SESSION_END fires mid-session
+    # (auto-emit at 150 tool calls, pre-compact hook) and clearing
+    # the marker blocks the next tool call. The 4-hour TTL and
+    # 400-tool-call threshold handle staleness without interrupting work.
 
     # 8c. Corroboration sweep
     try:
