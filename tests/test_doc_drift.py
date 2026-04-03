@@ -1,8 +1,14 @@
 """Tests for the expanded doc-drift checker (architecture tree verification)."""
 
+import sys
 from pathlib import Path
 
-from scripts.check_doc_counts import (
+# scripts/ isn't a package — add project root to sys.path so we can import it
+_project_root = str(Path(__file__).parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
+from scripts.check_doc_counts import (  # noqa: E402
     _extract_tree_paths,
     _get_actual_py_files,
     check_architecture_tree,
