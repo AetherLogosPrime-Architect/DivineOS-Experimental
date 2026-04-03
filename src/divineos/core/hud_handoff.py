@@ -109,7 +109,10 @@ def clear_handoff_note() -> None:
 # After this many code-changing actions (Edit, Write, Bash) without
 # consulting the OS (ask, recall, decide, feel, context, directives),
 # the engagement gate blocks until the AI re-engages.
-_ENGAGEMENT_DECAY_THRESHOLD = 8
+# Was 8 — too tight for mechanical repetitive work (same edit across
+# 9 files).  15 gives room for a batch of related changes before
+# requiring a thinking pause, while still catching runaway coding.
+_ENGAGEMENT_DECAY_THRESHOLD = 15
 
 
 def mark_engaged() -> None:
@@ -233,11 +236,13 @@ def mark_briefing_loaded() -> None:
 
 
 # After this many tool calls since last briefing load, the context is stale.
-_BRIEFING_STALENESS_THRESHOLD = 150
+# Was 150 — too low for productive sessions (a single audit fix pass can be
+# 200+ tool calls).  400 means roughly "one full context window of work."
+_BRIEFING_STALENESS_THRESHOLD = 400
 
-# Time-based TTL: briefing stays valid for 2 hours regardless of tool calls.
-# This prevents false blocks after context compaction resets the tool counter.
-_BRIEFING_TTL_SECONDS = 7200
+# Time-based TTL: briefing stays valid for 4 hours regardless of tool calls.
+# Was 2 hours — but productive sessions can easily run 3+ hours.
+_BRIEFING_TTL_SECONDS = 14400
 
 
 def was_briefing_loaded() -> bool:

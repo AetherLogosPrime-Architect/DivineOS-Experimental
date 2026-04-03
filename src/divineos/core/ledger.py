@@ -246,12 +246,18 @@ def get_recent_context(n: int = 20, meaningful_only: bool = True) -> list[dict[s
     (pattern tracking, health checks) to surface what actually happened:
     user decisions, agent actions, errors, and session milestones.
     """
-    # These event types are internal bookkeeping — not useful as working memory
+    # These event types are internal bookkeeping — not useful as working memory.
+    # Without this filter, context is dominated by OS gate cycling
+    # (preflight/briefing/ask resets) instead of actual work events.
     _NOISE_TYPES = {
         "AGENT_PATTERN",
         "AGENT_PATTERN_UPDATE",
         "TOOL_CALL",
         "TOOL_RESULT",
+        "OS_QUERY",  # internal engagement resets (ask, recall, decide)
+        "CLARITY_SUMMARY",  # post-session analysis noise
+        "CLARITY_DEVIATION",  # post-session analysis noise
+        "CLARITY_LESSON",  # post-session analysis noise
     }
 
     conn = _get_connection()

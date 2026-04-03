@@ -381,11 +381,25 @@ def measure_session_health(
     factors: dict[str, float] = {}
 
     # Correction penalty (0.0 = many corrections, 1.0 = none)
-    correction_factor = max(0.0, 1.0 - (corrections * 0.15))
+    # Diminishing returns: first corrections hurt most, later ones less.
+    # Old formula: 1.0 - (corrections * 0.15) → 7 corrections = floor.
+    # New: logarithmic decay so 20 corrections ≈ 0.25, not 0.0.
+    if corrections == 0:
+        correction_factor = 1.0
+    else:
+        import math
+
+        correction_factor = max(0.0, 1.0 - 0.25 * math.log2(1 + corrections))
     factors["corrections"] = round(correction_factor, 2)
 
-    # Encouragement bonus (caps at 0.2 extra)
-    encouragement_factor = min(0.2, encouragements * 0.04)
+    # Encouragement bonus — scales logarithmically like corrections.
+    # Old: capped at 0.2 raw, so even 24 encouragements barely moved the needle.
+    if encouragements == 0:
+        encouragement_factor = 0.0
+    else:
+        import math
+
+        encouragement_factor = min(1.0, 0.25 * math.log2(1 + encouragements))
     factors["encouragements"] = round(encouragement_factor, 2)
 
     # Overflow penalty (each overflow is a sign of inefficiency)
@@ -409,9 +423,10 @@ def measure_session_health(
         grade = "F"
     else:
         # Composite: weighted average (only meaningful if briefing was loaded)
+        # Balanced so no single noisy signal dominates.
         score = (
-            correction_factor * 0.35
-            + encouragement_factor
+            correction_factor * 0.25
+            + encouragement_factor * 0.30
             + overflow_factor * 0.25
             + autonomy * 0.20
         )

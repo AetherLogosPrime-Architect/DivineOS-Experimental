@@ -228,11 +228,11 @@ class TestPreflight:
 class TestThresholdValue:
     """The threshold should be reasonable — not too tight, not too loose."""
 
-    def test_threshold_is_8(self) -> None:
-        """8 code actions before re-engagement is required.
+    def test_threshold_is_15(self) -> None:
+        """15 code actions before re-engagement is required.
 
-        This means roughly: you can do a few edits and bash commands,
-        but every significant batch of work requires pausing to think
-        through the OS. Not every single edit, but every logical chunk.
+        Enough room for a batch of related mechanical changes (e.g.,
+        same edit across 9 files + git commands) without interrupting
+        flow, while still catching runaway coding without thinking.
         """
-        assert _ENGAGEMENT_DECAY_THRESHOLD == 8
+        assert _ENGAGEMENT_DECAY_THRESHOLD == 15
