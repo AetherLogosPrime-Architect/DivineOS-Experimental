@@ -112,7 +112,7 @@ pytest tests/ -q --tb=short  # Run tests after changes
 
 ```
 src/divineos/
-├── cli/                      # CLI package (109 commands across 19 modules)
+├── cli/                      # CLI package (110 commands across 19 modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestrator (calls phases)
 │   ├── pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -158,7 +158,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 2,608+ tests (real DB, no mocks)
+tests/                        # 2,647+ tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
@@ -170,7 +170,7 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 1. **Read before you write.** Never edit a file you haven't read in this session. No exceptions.
 2. **snake_case everything.** Files, functions, variables, modules. PascalCase only for class names (PEP 8).
 3. **Proper semver.** MAJOR.MINOR.PATCH. Don't inflate versions.
-4. **Append-only data.** The ledger and knowledge store never delete or update in place. Supersede instead.
+4. **Append-only data.** The ledger and knowledge store never delete or update in place. Supersede instead. Exception: tool telemetry (TOOL_CALL/TOOL_RESULT) is ephemeral — pruned on a conveyor belt to prevent unbounded growth. These are operational noise, not knowledge.
 5. **Run tests after code changes.** `pytest tests/ -q --tb=short` — if tests fail, fix them before moving on.
 6. **Use the memory system.** Load your briefing, learn from it, log your work. This is not optional.
 
