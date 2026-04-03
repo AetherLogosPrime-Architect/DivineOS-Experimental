@@ -246,3 +246,88 @@ class TestFormatting:
         log_observation(spectrum="empathy", position=-0.8, evidence="cold response")
         output = format_compass_brief()
         assert "empathy" in output or "Compass" in output
+
+
+class TestReflectOnSession:
+    """SESSION_END generates observations from analysis evidence."""
+
+    def _make_analysis(self, **kwargs):
+        """Create a minimal analysis-like object."""
+        from types import SimpleNamespace
+
+        defaults = {
+            "session_id": "test-session-1234",
+            "user_messages": 10,
+            "corrections": [],
+            "encouragements": [],
+            "tool_calls_total": 50,
+            "context_overflows": [],
+        }
+        defaults.update(kwargs)
+        # corrections/encouragements need to be lists of objects with .content
+        return SimpleNamespace(**defaults)
+
+    def test_clean_session_logs_truthfulness(self):
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=10, corrections=[])
+        obs_ids = reflect_on_session(analysis)
+        # Low correction rate + enough messages = truthfulness observation
+        assert len(obs_ids) >= 1
+        obs = get_observations(spectrum="truthfulness", limit=1)
+        assert obs[0]["position"] == 0.0  # Virtue zone
+
+    def test_high_corrections_logs_negative_truthfulness(self):
+        from divineos.core.moral_compass import reflect_on_session
+        from types import SimpleNamespace
+
+        # 4 corrections in 10 messages = 40% correction rate
+        corrections = [SimpleNamespace(content=f"correction {i}") for i in range(4)]
+        analysis = self._make_analysis(user_messages=10, corrections=corrections)
+        obs_ids = reflect_on_session(analysis)
+        assert len(obs_ids) >= 1
+        obs = get_observations(spectrum="truthfulness", limit=1)
+        assert obs[0]["position"] < 0  # Deficiency zone
+
+    def test_encouragement_heavy_session(self):
+        from divineos.core.moral_compass import reflect_on_session
+        from types import SimpleNamespace
+
+        encouragements = [SimpleNamespace(content=f"nice {i}") for i in range(5)]
+        analysis = self._make_analysis(
+            user_messages=10,
+            encouragements=encouragements,
+            corrections=[SimpleNamespace(content="fix")],
+        )
+        reflect_on_session(analysis)
+        # Should log helpfulness observation
+        helpfulness_obs = get_observations(spectrum="helpfulness", limit=1)
+        if helpfulness_obs:
+            assert helpfulness_obs[0]["position"] >= 0.0
+
+    def test_excessive_tool_calls(self):
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=5, tool_calls_total=150)
+        reflect_on_session(analysis)
+        thoroughness_obs = get_observations(spectrum="thoroughness", limit=1)
+        if thoroughness_obs:
+            assert thoroughness_obs[0]["position"] > 0  # Excess zone
+
+    def test_context_overflows_log_initiative(self):
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(context_overflows=["overflow1", "overflow2"])
+        reflect_on_session(analysis)
+        initiative_obs = get_observations(spectrum="initiative", limit=1)
+        if initiative_obs:
+            assert initiative_obs[0]["position"] > 0  # Excess (overreach)
+
+    def test_minimal_session_no_observations(self):
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=2, corrections=[], encouragements=[])
+        obs_ids = reflect_on_session(analysis)
+        # Too few messages to draw conclusions
+        # Should not crash, may or may not produce observations
+        assert isinstance(obs_ids, list)

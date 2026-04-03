@@ -53,6 +53,7 @@ SLOT_ORDER = [
     "decision_journal",
     "affect",
     "claims",
+    "compass",
     "task_state",
     "self_model",
 ]
@@ -593,6 +594,21 @@ def _build_growth_awareness_slot() -> str:
     return "\n".join(lines)
 
 
+def _build_compass_slot() -> str:
+    """Moral compass -- where I stand on virtue spectrums."""
+    try:
+        from divineos.core.moral_compass import compass_summary, format_compass_brief
+
+        summary = compass_summary()
+        if summary["observed_spectrums"] == 0:
+            return ""
+        lines = ["# Moral Compass\n"]
+        lines.append(format_compass_brief())
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -612,6 +628,7 @@ SLOT_BUILDERS = {
     "decision_journal": _build_decision_journal_slot,
     "affect": _build_affect_slot,
     "claims": _build_claims_slot,
+    "compass": _build_compass_slot,
     "self_model": _build_self_model_slot,
 }
 

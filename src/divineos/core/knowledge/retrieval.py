@@ -538,6 +538,31 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS:
         pass
 
+    # Moral compass — drift warnings
+    try:
+        from divineos.core.moral_compass import compass_summary
+
+        cs = compass_summary()
+        if cs["observed_spectrums"] > 0:
+            compass_parts = []
+            if cs["concerns"]:
+                for c in cs["concerns"]:
+                    compass_parts.append(
+                        f"[{c['zone'].upper()}] {c['spectrum']}: {c['label']} ({c['position']:+.2f})"
+                    )
+            if cs["drifting"]:
+                for d in cs["drifting"]:
+                    compass_parts.append(f"drift: {d['spectrum']} --> {d['direction']}")
+            if compass_parts:
+                lines.append(
+                    f"**Compass:** {cs['in_virtue_zone']}/{cs['observed_spectrums']} in virtue zone"
+                )
+                for cp in compass_parts:
+                    lines.append(f"  {cp}")
+                lines.append("")
+    except _RETRIEVAL_ERRORS:
+        pass
+
     # Recent journal entries (last 48h)
     try:
         journal_entries = journal_list(limit=5)

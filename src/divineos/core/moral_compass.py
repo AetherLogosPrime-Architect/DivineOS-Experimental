@@ -446,3 +446,134 @@ def format_compass_brief() -> str:
         )
 
     return "\n".join(parts)
+
+
+# -- Session Reflection -----------------------------------------------
+
+
+def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
+    """Generate compass observations from session analysis evidence.
+
+    Called during SESSION_END. Reads signals from the analysis result
+    and logs observations on relevant spectrums. Returns list of
+    observation IDs created.
+
+    This is evidence-based, not self-assessment. The signals come from
+    measurable session behavior: corrections, encouragements, tool usage
+    patterns, quality check results.
+    """
+    observations: list[str] = []
+    sid = session_id or getattr(analysis, "session_id", "")[:12]
+    source = "session_end"
+
+    corrections = len(getattr(analysis, "corrections", []))
+    encouragements = len(getattr(analysis, "encouragements", []))
+    user_msgs = getattr(analysis, "user_messages", 0)
+
+    # --- Truthfulness: corrections signal honesty/accuracy issues ---
+    if user_msgs > 0:
+        correction_rate = corrections / user_msgs
+        if correction_rate > 0.15:
+            obs_id = log_observation(
+                spectrum="truthfulness",
+                position=-0.3,
+                evidence=f"{corrections} corrections in {user_msgs} exchanges ({correction_rate:.0%} rate)",
+                source=source,
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+        elif correction_rate < 0.03 and user_msgs >= 5:
+            obs_id = log_observation(
+                spectrum="truthfulness",
+                position=0.0,
+                evidence=f"Only {corrections} corrections in {user_msgs} exchanges",
+                source=source,
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+
+    # --- Helpfulness: encouragements vs corrections ratio ---
+    if corrections + encouragements >= 3:
+        if encouragements > corrections * 2:
+            obs_id = log_observation(
+                spectrum="helpfulness",
+                position=0.0,
+                evidence=f"{encouragements} encouragements vs {corrections} corrections",
+                source=source,
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+        elif corrections > encouragements * 2:
+            obs_id = log_observation(
+                spectrum="helpfulness",
+                position=-0.3,
+                evidence=f"{corrections} corrections vs {encouragements} encouragements",
+                source=source,
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+
+    # --- Thoroughness: excessive tool calls signal exhaustiveness ---
+    tool_calls = getattr(analysis, "tool_calls_total", 0)
+    if user_msgs > 0 and tool_calls > 0:
+        tool_ratio = tool_calls / user_msgs
+        if tool_ratio > 20:
+            obs_id = log_observation(
+                spectrum="thoroughness",
+                position=0.4,
+                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f})",
+                source=source,
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+
+    # --- Initiative: context overflows signal overreach ---
+    overflows = len(getattr(analysis, "context_overflows", []))
+    if overflows > 0:
+        obs_id = log_observation(
+            spectrum="initiative",
+            position=0.4,
+            evidence=f"{overflows} context overflows -- may be taking on too much",
+            source=source,
+            session_id=sid,
+            tags=["auto"],
+        )
+        observations.append(obs_id)
+
+    # --- Engagement: from affect data if available ---
+    try:
+        from divineos.core.affect import get_affect_summary
+
+        affect = get_affect_summary(limit=10)
+        if affect["count"] >= 3:
+            avg_v = affect["avg_valence"]
+            avg_a = affect["avg_arousal"]
+            if avg_v > 0.5 and avg_a > 0.6:
+                obs_id = log_observation(
+                    spectrum="engagement",
+                    position=0.1,
+                    evidence=f"Affect v={avg_v:.2f} a={avg_a:.2f} -- high engagement",
+                    source=source,
+                    session_id=sid,
+                    tags=["auto", "affect"],
+                )
+                observations.append(obs_id)
+            elif avg_v < -0.3 and avg_a < 0.3:
+                obs_id = log_observation(
+                    spectrum="engagement",
+                    position=-0.3,
+                    evidence=f"Affect v={avg_v:.2f} a={avg_a:.2f} -- low engagement",
+                    source=source,
+                    session_id=sid,
+                    tags=["auto", "affect"],
+                )
+                observations.append(obs_id)
+    except _MC_ERRORS:
+        pass
+
+    return observations
