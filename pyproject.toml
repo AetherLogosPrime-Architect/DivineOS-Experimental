@@ -21,6 +21,7 @@ dev = [
     "hypothesis>=6.0",
     "mypy>=1.0",
     "ruff>=0.1.0",
+    "vulture>=2.0",
 ]
 
 [project.scripts]

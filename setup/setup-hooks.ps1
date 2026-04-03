@@ -18,7 +18,7 @@ Write-Host "Configured Git to use hooks from $hooksDir"
 $preCommitContent = @'
 #!/bin/bash
 # Pre-commit hook for DivineOS
-# Enforces ruff formatting, linting, and mypy type checking
+# Enforces ruff formatting, linting, mypy, doc-drift, dead-code, and shellcheck
 
 set -e
 
@@ -44,6 +44,32 @@ mypy src/divineos --ignore-missing-imports || {
     exit 1
 }
 
+echo "Checking doc counts for drift..."
+python scripts/check_doc_counts.py || {
+    echo "Doc counts have drifted. Update CLAUDE.md, README.md, and/or seed.json."
+    exit 1
+}
+
+echo "Running vulture dead-code check..."
+if command -v vulture &>/dev/null; then
+    vulture src/divineos/ scripts/vulture_whitelist.py --min-confidence 70 || {
+        echo "Dead code detected. Remove it or add to scripts/vulture_whitelist.py."
+        exit 1
+    }
+else
+    echo "  (vulture not installed, skipping — pip install vulture)"
+fi
+
+echo "Running shellcheck on hooks..."
+if command -v shellcheck &>/dev/null; then
+    shellcheck .claude/hooks/*.sh || {
+        echo "Shellcheck violations in hook scripts. Fix them before committing."
+        exit 1
+    }
+else
+    echo "  (shellcheck not installed, skipping)"
+fi
+
 echo "All checks passed!"
 exit 0
 '@
@@ -59,5 +85,8 @@ Write-Host "The following checks will run before each commit:" -ForegroundColor 
 Write-Host "  1. ruff format --check (formatting compliance)"
 Write-Host "  2. ruff check (linting)"
 Write-Host "  3. mypy (type checking)"
+Write-Host "  4. doc count drift (test/command counts vs reality)"
+Write-Host "  5. vulture dead-code (if installed)"
+Write-Host "  6. shellcheck on hooks (if installed)"
 Write-Host ""
 Write-Host "If any check fails, the commit will be blocked and you'll need to fix the issues." -ForegroundColor Cyan

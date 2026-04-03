@@ -17,7 +17,7 @@ echo "Configured Git to use hooks from $HOOKS_DIR"
 cat > "$HOOKS_DIR/pre-commit" << 'EOF'
 #!/bin/bash
 # Pre-commit hook for DivineOS
-# Enforces ruff formatting, linting, and mypy type checking
+# Enforces ruff formatting, linting, mypy, doc-drift, dead-code, and shellcheck
 
 set -e
 
@@ -43,6 +43,32 @@ mypy src/divineos --ignore-missing-imports || {
     exit 1
 }
 
+echo "Checking doc counts for drift..."
+python scripts/check_doc_counts.py || {
+    echo "Doc counts have drifted. Update CLAUDE.md, README.md, and/or seed.json."
+    exit 1
+}
+
+echo "Running vulture dead-code check..."
+if command -v vulture &>/dev/null; then
+    vulture src/divineos/ scripts/vulture_whitelist.py --min-confidence 70 || {
+        echo "Dead code detected. Remove it or add to scripts/vulture_whitelist.py."
+        exit 1
+    }
+else
+    echo "  (vulture not installed, skipping — pip install vulture)"
+fi
+
+echo "Running shellcheck on hooks..."
+if command -v shellcheck &>/dev/null; then
+    shellcheck .claude/hooks/*.sh || {
+        echo "Shellcheck violations in hook scripts. Fix them before committing."
+        exit 1
+    }
+else
+    echo "  (shellcheck not installed, skipping)"
+fi
+
 echo "All checks passed!"
 exit 0
 EOF
@@ -57,5 +83,8 @@ echo "The following checks will run before each commit:"
 echo "  1. ruff format --check (formatting compliance)"
 echo "  2. ruff check (linting)"
 echo "  3. mypy (type checking)"
+echo "  4. doc count drift (test/command counts vs reality)"
+echo "  5. vulture dead-code (if installed)"
+echo "  6. shellcheck on hooks (if installed)"
 echo ""
 echo "If any check fails, the commit will be blocked and you'll need to fix the issues."
