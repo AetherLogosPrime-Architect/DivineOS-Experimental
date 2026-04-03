@@ -163,11 +163,9 @@ def wrap_tool_execution(
         # Generate tool_use_id if not provided
         use_id = tool_use_id or str(uuid.uuid4())
 
-        # Prepare tool input
-        tool_input = {
-            "args": args,
-            "kwargs": kwargs,
-        }
+        # Prepare tool input — summary only, not full args.
+        # Full args caused 43MB payloads that bloated the DB to 4.7GB.
+        tool_input = _summarize_tool_input(args, kwargs)
 
         # Emit TOOL_CALL event with error handling
         try:
@@ -177,6 +175,7 @@ def wrap_tool_execution(
                 tool_input=tool_input,
                 tool_use_id=use_id,
             )
+            _prune_tool_events()
             logger.debug(f"TOOL_CALL event emitted successfully for {tool_name}")
         except ValueError as e:
             logger.error(f"Validation error during TOOL_CALL event emission: {e}")
@@ -321,3 +320,63 @@ _TW_ERRORS = (
     ValueError,
     json.JSONDecodeError,
 )
+
+
+# ─── Conveyor Belt: Summarize + Prune Tool Events ────────────────────
+
+# Keep only the last N tool call/result events. Older ones are pruned.
+_MAX_TOOL_EVENTS = 100
+
+
+def _summarize_tool_input(args: tuple, kwargs: dict) -> dict:
+    """Create a compact summary of tool args instead of storing the full payload.
+
+    Previous behavior stored full args (including entire file contents,
+    briefing outputs, query results) — causing 43MB payloads and 4.7GB DB bloat.
+    """
+    summary: dict = {}
+    for i, arg in enumerate(args):
+        s = str(arg)
+        summary[f"arg{i}"] = s[:200] + "..." if len(s) > 200 else s
+    for key, val in kwargs.items():
+        s = str(val)
+        summary[key] = s[:200] + "..." if len(s) > 200 else s
+    return summary
+
+
+def _prune_tool_events() -> None:
+    """Keep only the last _MAX_TOOL_EVENTS tool events. Drop the rest.
+
+    Runs after each TOOL_CALL emission — lightweight conveyor belt.
+    Only prunes when count exceeds threshold by 10+ to avoid
+    running a DELETE on every single call.
+    """
+    try:
+        from divineos.core.ledger import _get_connection
+
+        conn = _get_connection()
+        try:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM system_events "
+                "WHERE event_type IN ('TOOL_CALL', 'TOOL_RESULT')"
+            ).fetchone()[0]
+
+            if count <= _MAX_TOOL_EVENTS + 10:
+                return
+
+            # Delete oldest, keep the newest _MAX_TOOL_EVENTS
+            conn.execute(
+                "DELETE FROM system_events WHERE event_id IN ("
+                "  SELECT event_id FROM system_events "
+                "  WHERE event_type IN ('TOOL_CALL', 'TOOL_RESULT') "
+                "  ORDER BY timestamp ASC "
+                f"  LIMIT {count - _MAX_TOOL_EVENTS}"
+                ")"
+            )
+            conn.commit()
+            pruned = count - _MAX_TOOL_EVENTS
+            logger.debug(f"Pruned {pruned} old tool events, kept {_MAX_TOOL_EVENTS}")
+        finally:
+            conn.close()
+    except Exception:  # noqa: BLE001
+        pass  # Best-effort — never crash the tool call over pruning

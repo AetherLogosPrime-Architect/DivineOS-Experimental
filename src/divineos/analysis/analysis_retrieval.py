@@ -250,4 +250,14 @@ def save_analysis_report(result: AnalysisResult, report_text: str) -> Path:
     # Use UTF-8 encoding to handle special characters like ✓ and ✗
     report_file.write_text(report_text, encoding="utf-8")
 
+    # Conveyor belt: keep only the last N reports, prune old ones.
+    _MAX_REPORTS = 50
+    try:
+        existing = sorted(reports_dir.glob("*.txt"), key=lambda p: p.stat().st_mtime)
+        if len(existing) > _MAX_REPORTS:
+            for stale in existing[: len(existing) - _MAX_REPORTS]:
+                stale.unlink()
+    except OSError:
+        pass
+
     return report_file

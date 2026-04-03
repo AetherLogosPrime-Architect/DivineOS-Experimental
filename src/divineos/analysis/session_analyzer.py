@@ -25,7 +25,7 @@ CORRECTION_PATTERNS: tuple[str, ...] = (
     r"\binstead (?:of that|do|use)\b",
     r"\bstop (?:doing|using|adding|that)\b",
     r"\bplease don'?t\b",
-    r"\bi (?:said|asked|meant|wanted)\b",
+    r"\bi (?:said|asked|meant|wanted) (?:to |you |that you |we |for you )",
 )
 
 ENCOURAGEMENT_PATTERNS: tuple[str, ...] = (
@@ -376,9 +376,10 @@ def _extract_user_text(record: dict[str, Any]) -> str:
     if not isinstance(content, str):
         content = str(content)
 
-    # Strip system reminders
-    if "<system-reminder>" in content:
-        content = content[: content.index("<system-reminder>")]
+    # Strip system reminders and task notifications
+    for tag in ("<system-reminder>", "<task-notification>"):
+        if tag in content:
+            content = content[: content.index(tag)]
 
     return content.strip()
 
