@@ -13,15 +13,18 @@ if ! command -v divineos &>/dev/null; then
 fi
 
 # Reset checkpoint counters for new session
-STATE_FILE="$HOME/.divineos/checkpoint_state.json"
-mkdir -p "$HOME/.divineos"
+# Use Python expanduser for Windows compatibility (Git Bash $HOME = /c/Users/...)
+DIVINEOS_DIR=$(python -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos'))" 2>/dev/null || echo "$HOME/.divineos")
+mkdir -p "$DIVINEOS_DIR"
 python -c "
-import json, time
-json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open('$STATE_FILE','w'), indent=2)
+import json, time, os
+SF = os.path.join(os.path.expanduser('~'), '.divineos', 'checkpoint_state.json')
+json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open(SF,'w'), indent=2)
 " 2>/dev/null
 
 # Clear auto-session-end flag so it can fire again this session
-rm -f "$HOME/.divineos/auto_session_end_emitted" 2>/dev/null
+AUTO_EMITTED=$(python -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos', 'auto_session_end_emitted'))" 2>/dev/null || echo "$HOME/.divineos/auto_session_end_emitted")
+rm -f "$AUTO_EMITTED" 2>/dev/null
 
 briefing=$(divineos briefing 2>/dev/null)
 hud=$(divineos hud 2>/dev/null)

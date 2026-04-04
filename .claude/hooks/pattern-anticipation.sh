@@ -16,15 +16,18 @@ if ! command -v divineos &>/dev/null; then
 fi
 
 # Throttle: only check every 5th edit
-STATE_FILE="$HOME/.divineos/anticipation_state.json"
-mkdir -p "$HOME/.divineos"
+# Use Python expanduser for Windows compatibility (Git Bash $HOME = /c/Users/...)
+DIVINEOS_DIR=$(python -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos'))" 2>/dev/null || echo "$HOME/.divineos")
+STATE_FILE="$DIVINEOS_DIR/anticipation_state.json"
+mkdir -p "$DIVINEOS_DIR"
 if [ ! -f "$STATE_FILE" ]; then
   echo '{"edit_count":0}' > "$STATE_FILE"
 fi
 
-edit_count=$(python -c "import json; print(json.load(open('$STATE_FILE')).get('edit_count',0))" 2>/dev/null || echo "0")
+_ASF="import os; SF=os.path.join(os.path.expanduser('~'),'.divineos','anticipation_state.json')"
+edit_count=$(python -c "$_ASF; import json; print(json.load(open(SF)).get('edit_count',0))" 2>/dev/null || echo "0")
 edit_count=$((edit_count + 1))
-python -c "import json; json.dump({'edit_count':$edit_count}, open('$STATE_FILE','w'))" 2>/dev/null
+python -c "$_ASF; import json; json.dump({'edit_count':$edit_count}, open(SF,'w'))" 2>/dev/null
 
 if [ $((edit_count % 5)) -ne 0 ]; then
   exit 0
