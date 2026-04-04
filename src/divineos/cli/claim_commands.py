@@ -230,7 +230,7 @@ def register(cli: click.Group) -> None:
         tags: tuple[str, ...],
     ) -> None:
         """Log a functional affect state - how I feel right now."""
-        from divineos.core.affect import log_affect
+        from divineos.core.affect import describe_affect, log_affect
 
         entry_id = log_affect(
             valence=valence,
@@ -246,8 +246,6 @@ def register(cli: click.Group) -> None:
         mark_engaged()
 
         # Map to a human-readable region
-        from divineos.core.affect import describe_affect
-
         region = describe_affect(valence, arousal, dominance)
         d_str = f", d={dominance:.1f}" if dominance is not None else ""
         click.secho(

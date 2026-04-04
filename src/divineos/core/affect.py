@@ -42,6 +42,8 @@ from divineos.analysis.quality_storage import get_check_history
 
 _AFFECT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
+_AFFECT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
+
 
 # ===================================================================
 # Affect Log — recording and tracking
