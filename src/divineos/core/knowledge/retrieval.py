@@ -158,18 +158,18 @@ def generate_briefing(
     half_lives = {
         # Sutra-style directives — never decay, always surface
         "DIRECTIVE": None,
-        # New types
         "BOUNDARY": 30.0,  # Hard constraints persist
         "PRINCIPLE": 30.0,  # Distilled wisdom persists
-        "DIRECTION": None,  # User preferences never decay
+        "DIRECTION": None,  # User guidance never decays
+        "PREFERENCE": None,  # User style choices never decay
+        "INSTRUCTION": 30.0,  # Operational rules — persist but can age out
         "PROCEDURE": 14.0,  # How-to knowledge
         "FACT": 7.0,
         "OBSERVATION": 3.0,  # Unconfirmed — decay fast
         "EPISODE": 14.0,
-        # Legacy types — same decay as their successors
+        # Legacy types
         "MISTAKE": 30.0,
         "PATTERN": 14.0,
-        "PREFERENCE": None,
     }
 
     # Score each entry
@@ -329,10 +329,11 @@ def _format_knowledge_sections(
         "DIRECTIVE",
         "BOUNDARY",
         "PRINCIPLE",
+        "INSTRUCTION",
         "DIRECTION",
+        "PREFERENCE",
         "PROCEDURE",
         "MISTAKE",
-        "PREFERENCE",
         "PATTERN",
         "FACT",
         "OBSERVATION",
@@ -344,7 +345,9 @@ def _format_knowledge_sections(
         plural = {
             "DIRECTIVE": "DIRECTIVES",
             "BOUNDARY": "BOUNDARIES",
+            "INSTRUCTION": "INSTRUCTIONS",
             "DIRECTION": "DIRECTIONS",
+            "PREFERENCE": "PREFERENCES",
             "PROCEDURE": "PROCEDURES",
             "EPISODE": "EPISODES",
         }.get(kt, f"{kt}S")

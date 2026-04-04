@@ -132,6 +132,46 @@ def _distill_correction(raw_text: str) -> str:
     return text
 
 
+def _classify_user_direction(text: str) -> str:
+    """Classify a user direction as PREFERENCE, INSTRUCTION, or DIRECTION.
+
+    PREFERENCE: style/approach choices ("use X", "prefer Y", "I like Z style")
+    INSTRUCTION: operational rules ("always X", "never Y", "before doing X, do Y")
+    DIRECTION: anything else (general guidance)
+    """
+    lower = text.lower()
+    # Instruction indicators: operational/procedural language
+    instruction_starts = (
+        "always ",
+        "never ",
+        "before ",
+        "after ",
+        "when you ",
+        "make sure ",
+        "don't forget ",
+        "remember to ",
+        "run ",
+        "check ",
+        "test ",
+        "verify ",
+    )
+    if any(lower.startswith(p) for p in instruction_starts):
+        return "INSTRUCTION"
+    # Preference indicators: style/taste language
+    preference_words = (
+        "prefer",
+        "like to",
+        "rather ",
+        "style",
+        "convention",
+        "format",
+        "naming",
+    )
+    if any(p in lower for p in preference_words):
+        return "PREFERENCE"
+    return "DIRECTION"
+
+
 # Phrases that indicate encouragement rather than actionable direction.
 _ENCOURAGEMENT_PHRASES = (
     "great job",
@@ -323,19 +363,20 @@ def deep_extract_knowledge(
         )
         stored_ids.append(kid)
 
-    # --- Preferences → DIRECTION (skip pure encouragement) ---
+    # --- Preferences → PREFERENCE/INSTRUCTION/DIRECTION (skip encouragement) ---
     for pref in getattr(analysis, "preferences", []):
         distilled = _distill_preference(pref.content)
         if _is_encouragement(distilled):
             continue
+        ktype = _classify_user_direction(distilled)
         kid = store_knowledge_smart(
-            knowledge_type="DIRECTION",
+            knowledge_type=ktype,
             content=distilled,
             confidence=0.9,
             source="STATED",
             maturity="CONFIRMED",
             source_events=[session_id],
-            tags=["auto-extracted", "direction", f"session-{short_id}", *topic_tags],
+            tags=["auto-extracted", ktype.lower(), f"session-{short_id}", *topic_tags],
         )
         stored_ids.append(kid)
 

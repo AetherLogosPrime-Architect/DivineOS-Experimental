@@ -402,3 +402,43 @@ def knowledge_health_report() -> dict[str, Any]:
         "by_status": by_status,
         "by_type": by_type,
     }
+
+
+def reclassify_directions() -> dict[str, int]:
+    """Reclassify existing DIRECTION entries into PREFERENCE/INSTRUCTION/DIRECTION.
+
+    Uses the same classifier as the extraction pipeline. Idempotent —
+    only touches entries that are currently typed as DIRECTION.
+
+    Returns counts: {"preference": N, "instruction": N, "unchanged": N}
+    """
+    from divineos.core.knowledge.deep_extraction import _classify_user_direction
+
+    conn = _get_connection()
+    counts = {"preference": 0, "instruction": 0, "unchanged": 0}
+    try:
+        rows = conn.execute(
+            "SELECT knowledge_id, content FROM knowledge "
+            "WHERE knowledge_type = 'DIRECTION' AND superseded_by IS NULL"
+        ).fetchall()
+
+        for kid, content in rows:
+            new_type = _classify_user_direction(content)
+            if new_type == "DIRECTION":
+                counts["unchanged"] += 1
+            else:
+                conn.execute(
+                    "UPDATE knowledge SET knowledge_type = ? WHERE knowledge_id = ?",
+                    (new_type, kid),
+                )
+                counts[new_type.lower()] += 1
+
+        conn.commit()
+    except (sqlite3.Error, KeyError, TypeError) as e:
+        from loguru import logger
+
+        logger.warning("Direction reclassification failed: %s", e)
+    finally:
+        conn.close()
+
+    return counts
