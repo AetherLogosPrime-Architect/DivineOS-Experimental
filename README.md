@@ -95,10 +95,10 @@ Every session starts with orientation and ends with learning. The cycle compound
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 2,960+ tests, real DB, no mocks
+pytest tests/ -q --tb=short   # 2,989+ tests, real DB, no mocks
 ```
 
-## CLI Surface (130 commands)
+## CLI Surface (135 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -264,7 +264,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (130 commands across 22 modules)
+  cli/                         CLI package (135 commands across 22 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -438,7 +438,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         2,960+ tests (real DB, no mocks)
+tests/                         2,989+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
@@ -471,9 +471,9 @@ ruff format src/ tests/        # Format
 
 ## Status
 
-- 170+ source files across 10 packages
-- 2,960+ tests (real SQLite, no mocks)
-- 130 CLI commands
+- 175 source files across 10 packages
+- 2,989+ tests (real SQLite, no mocks)
+- 135 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
 

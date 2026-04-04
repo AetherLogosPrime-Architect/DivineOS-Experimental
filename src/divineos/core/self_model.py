@@ -218,7 +218,7 @@ def _get_attention_summary() -> dict[str, Any]:
             "driver_count": len(drivers),
             "suppressed_count": len(suppressed),
         }
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model attention failed: %s", e)
         return {"focus_count": 0, "top_focus": [], "driver_count": 0, "suppressed_count": 0}
 
@@ -231,7 +231,7 @@ def _get_epistemic_balance() -> dict[str, Any]:
         report = build_epistemic_report()
         summary: dict[str, Any] = report.get("summary", {})
         return summary
-    except Exception as e:
+    except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model epistemic balance failed: %s", e)
         return {}
 

@@ -15,7 +15,7 @@ from pathlib import Path
 
 # How far the docs can drift before we complain.
 TEST_DRIFT_THRESHOLD = 50  # tests get added/removed in batches
-CMD_DRIFT_THRESHOLD = 5
+CMD_DRIFT_THRESHOLD = 3
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src" / "divineos"
