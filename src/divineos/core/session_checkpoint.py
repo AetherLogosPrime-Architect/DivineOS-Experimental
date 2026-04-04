@@ -18,6 +18,7 @@ context usage, warning when the session is approaching token limits.
 """
 
 import json
+import sqlite3
 import time
 from divineos.core.hud import save_hud_snapshot
 from divineos.core.hud_handoff import save_handoff_note
@@ -27,6 +28,8 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger
+
+_CP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 # ─── Counter File ─────────────────────────────────────────────────────
@@ -101,7 +104,7 @@ def get_session_start_time() -> float | None:
                 return float(row[0])
         finally:
             conn.close()
-    except Exception:  # noqa: BLE001
+    except _CP_ERRORS:
         pass
 
     # Fallback: checkpoint state (may be stale after compaction)
@@ -305,7 +308,7 @@ def check_self_awareness_practice(tool_calls: int | None = None) -> str | None:
                 ).fetchone()
                 if affect_row and affect_row[0] == 0:
                     missing.append("affect (divineos feel)")
-            except Exception:  # noqa: BLE001
+            except _CP_ERRORS:
                 pass
 
             # Compass: any observations since session start?
@@ -316,7 +319,7 @@ def check_self_awareness_practice(tool_calls: int | None = None) -> str | None:
                 ).fetchone()
                 if compass_row and compass_row[0] == 0:
                     missing.append("compass (divineos compass-ops observe)")
-            except Exception:  # noqa: BLE001
+            except _CP_ERRORS:
                 pass
 
             # Decisions: any entries since session start?
@@ -327,11 +330,11 @@ def check_self_awareness_practice(tool_calls: int | None = None) -> str | None:
                 ).fetchone()
                 if decision_row and decision_row[0] == 0:
                     missing.append("decisions (divineos decide)")
-            except Exception:  # noqa: BLE001
+            except _CP_ERRORS:
                 pass
         finally:
             conn.close()
-    except Exception:  # noqa: BLE001
+    except _CP_ERRORS:
         return None  # Don't nudge if DB is unavailable
 
     if not missing:
@@ -459,13 +462,13 @@ def run_mini_session_save() -> dict[str, Any]:
                     tags=["session-analysis", "episode", session_tag],
                 )
                 result["episode_stored"] = True
-        except Exception as e:  # noqa: BLE001
+        except _CP_ERRORS as e:
             logger.debug("Mini-save episode failed: %s", e)
 
         # Curation pass
         try:
             result["curation"] = run_curation()
-        except Exception as e:  # noqa: BLE001
+        except _CP_ERRORS as e:
             logger.debug("Mini-save curation failed: %s", e)
 
         # Lesson extraction from quality checks (if available)
@@ -484,7 +487,7 @@ def run_mini_session_save() -> dict[str, Any]:
                 tone_shifts=getattr(analysis, "tone_shifts", None),
                 error_recovery=getattr(analysis, "error_recovery", None),
             )
-        except Exception as e:  # noqa: BLE001
+        except _CP_ERRORS as e:
             logger.debug("Mini-save lesson extraction failed: %s", e)
 
         # Handoff note with real data
@@ -520,7 +523,7 @@ def run_mini_session_save() -> dict[str, Any]:
                 session_id=analysis.session_id,
             )
             result["handoff_saved"] = True
-        except Exception as e:  # noqa: BLE001
+        except _CP_ERRORS as e:
             logger.debug("Mini-save handoff failed: %s", e)
 
         # Log event
@@ -535,10 +538,10 @@ def run_mini_session_save() -> dict[str, Any]:
                 actor="system",
                 validate=False,
             )
-        except Exception as e:  # noqa: BLE001
+        except _CP_ERRORS as e:
             logger.debug("Mini-save ledger event failed: %s", e)
 
-    except Exception as e:  # noqa: BLE001
+    except _CP_ERRORS as e:
         result["error"] = str(e)
         logger.warning("Mini session save failed: %s", e)
 
