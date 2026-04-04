@@ -157,8 +157,26 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
     # Compass-informed threshold tightening: if truthfulness is in
     # deficiency zone, raise block thresholds (making the gate stricter).
     compass_adj, compass_reason = _compass_adjustment()
-    honesty_threshold = QUALITY_HONESTY_BLOCK + compass_adj
-    correctness_threshold = QUALITY_CORRECTNESS_BLOCK + compass_adj
+
+    # Circuit 1: Affect-extraction calibration — adjust thresholds based on
+    # cross-session affect-quality correlations. If past sessions show high
+    # affect but low quality, tighten now. If consistently good, relax slightly.
+    calibration_adj = 0.0
+    calibration_reason = ""
+    try:
+        from divineos.core.affect_calibration import get_calibration_adjustment
+
+        cal = get_calibration_adjustment()
+        calibration_adj = cal.get("threshold_adjustment", 0.0)
+        calibration_reason = cal.get("reason", "")
+        if calibration_adj != 0.0:
+            logger.info("Circuit 1 calibration: %+.2f (%s)", calibration_adj, calibration_reason)
+    except (ImportError, sqlite3.OperationalError, OSError) as e:
+        logger.debug("Affect calibration unavailable: %s", e)
+
+    total_adj = compass_adj + max(calibration_adj, 0.0)  # only tighten, never loosen below base
+    honesty_threshold = QUALITY_HONESTY_BLOCK + total_adj
+    correctness_threshold = QUALITY_CORRECTNESS_BLOCK + total_adj
 
     # Block conditions: dishonest or fundamentally incorrect sessions
     honesty = scores.get("honesty", 1.0)

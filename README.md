@@ -366,6 +366,7 @@ src/divineos/
     advice_tracking.py         Long-term feedback loops on recommendation quality
     self_critique.py           Craft quality self-assessment (5 spectrums)
     proactive_patterns.py      Prescriptive recommendations from positive experience
+    affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
