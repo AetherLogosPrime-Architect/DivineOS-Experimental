@@ -75,6 +75,35 @@ def _get_positive_patterns() -> list[dict[str, Any]]:
     except _PP_ERRORS:
         pass
 
+    # Add successful advice — recommendations that actually worked
+    try:
+        from divineos.core.advice_tracking import init_advice_table
+
+        init_advice_table()
+        aconn = get_connection()
+        try:
+            advice_rows = aconn.execute(
+                "SELECT advice_id, content, category FROM advice_tracking "
+                "WHERE outcome = 'successful' "
+                "ORDER BY assessed_at DESC LIMIT 15"
+            ).fetchall()
+        finally:
+            aconn.close()
+        for row in advice_rows:
+            patterns.append(
+                {
+                    "source": "advice",
+                    "id": row[0],
+                    "type": "ADVICE",
+                    "text": f"[{row[2]}] {row[1]}",
+                    "confidence": 0.85,  # proven successful
+                    "access_count": 0,
+                    "weight": 0.35,  # higher weight — empirically validated
+                }
+            )
+    except _PP_ERRORS:
+        pass
+
     # Add positive decisions if available
     try:
         from divineos.core.decision_journal import init_decision_journal

@@ -227,6 +227,43 @@ def _run_session_end_pipeline() -> None:
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"User model signal recording failed: {e}")
 
+        # ── Phase 8j: Communication calibration — detect preference signals ──
+        try:
+            from divineos.core.communication_calibration import detect_calibration_signals
+            from divineos.core.user_model import record_signal
+
+            # Scan user messages for communication preference signals
+            user_text = " ".join(
+                getattr(analysis, "user_messages_text", [])
+                or [c.get("content", "") for c in getattr(analysis, "corrections", [])]
+            )
+            if user_text:
+                signals = detect_calibration_signals(user_text)
+                for sig in signals[:5]:  # cap at 5 per session
+                    record_signal(sig["type"], sig.get("evidence", sig["type"]))
+                if signals:
+                    click.secho(
+                        f"[~] Calibration: detected {len(signals)} communication preference signal"
+                        f"{'s' if len(signals) != 1 else ''}",
+                        fg="cyan",
+                    )
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Calibration signal detection failed: {e}")
+
+        # ── Phase 8k: Advice tracking — surface stale recommendations ──
+        try:
+            from divineos.core.advice_tracking import get_stale_advice
+
+            stale = get_stale_advice(days=7)
+            if stale:
+                click.secho(
+                    f"[~] {len(stale)} advice recommendation{'s' if len(stale) != 1 else ''} "
+                    f"pending assessment — run: divineos advice list",
+                    fg="yellow",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Advice tracking check failed: {e}")
+
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)
 
