@@ -110,6 +110,24 @@ def register(cli: click.Group) -> None:
         else:
             click.echo("No matching open curiosity found.")
 
+    @cli.command("attention")
+    def attention_cmd() -> None:
+        """Display the attention schema -- what I'm attending to and why."""
+        from divineos.core.attention_schema import build_attention_schema, format_attention_schema
+
+        schema = build_attention_schema()
+        output = format_attention_schema(schema)
+        click.echo(output.encode("ascii", errors="replace").decode("ascii"))
+
+    @cli.command("epistemic")
+    def epistemic_cmd() -> None:
+        """Show epistemic status -- how I know what I know."""
+        from divineos.core.epistemic_status import build_epistemic_report, format_epistemic_report
+
+        report = build_epistemic_report()
+        output = format_epistemic_report(report)
+        click.echo(output.encode("ascii", errors="replace").decode("ascii"))
+
     @cli.command("affect-feedback")
     def affect_feedback_cmd() -> None:
         """Show how affect states are influencing behavior."""

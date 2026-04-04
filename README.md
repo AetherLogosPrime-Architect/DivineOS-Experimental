@@ -54,7 +54,7 @@ The agent's coherent picture of itself, computed from evidence — not self-repo
 - **Self-Critique** — Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
 - **Opinion Store** — First-class opinions with evidence tracking, confidence evolution, and supersession history.
 
-Also: affect log (valence-arousal-dominance tracking), body awareness (computational interoception), value tension detection, unified self-model assembly.
+Also: affect log (valence-arousal-dominance tracking), body awareness (computational interoception), attention schema (Butlin indicators 9-10), epistemic status (Butlin indicator 14), value tension detection, unified self-model assembly.
 
 ### Interaction Intelligence
 Adapts to the user over time.
@@ -172,8 +172,10 @@ divineos claims search "query"             # Search claims
 
 ```bash
 divineos self-model              # Unified self-model from evidence
+divineos attention               # What I'm attending to, suppressing, and why
+divineos epistemic               # How I know what I know (observed/told/inferred/inherited)
 divineos compass                 # Full compass reading (10 virtue spectrums)
-divineos feel -v 0.8 -a 0.6 -d "desc"  # Log functional affect state
+divineos feel -v 0.8 -a 0.6 --dom 0.3 -d "desc"  # Log functional affect state (VAD)
 divineos affect history          # Browse affect states
 divineos affect summary          # Trends and averages
 divineos drift                   # Check behavioral drift
@@ -350,6 +352,8 @@ src/divineos/
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
     body_awareness.py          Computational interoception and cache conveyor belt
+    attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
+    epistemic_status.py        Epistemic channel analysis (Butlin 14)
     value_tensions.py          Recurring value conflict detection from decisions
     goal_cull.py               Evidence-based goal staleness detection
     ledger_compressor.py       ELMO ledger compression and archival
