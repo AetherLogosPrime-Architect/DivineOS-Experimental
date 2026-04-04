@@ -43,7 +43,10 @@ env/
 .hypothesis/
 .coverage
 htmlcov/
+coverage_html/
 pytestdebug.log
+.mutmut-cache/
+.benchmarks/
 
 # Linting / type checking
 .mypy_cache/
