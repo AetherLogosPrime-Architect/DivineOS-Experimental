@@ -31,12 +31,48 @@ def build_attention_schema() -> dict[str, Any]:
 
     Returns a structured model of what is in focus, what is suppressed,
     and what is driving the current attentional allocation.
+
+    Includes completeness tracking so I know when my self-picture is partial.
     """
+    sources_available = ["focus", "suppressed", "drivers"]
+    sources_succeeded: list[str] = []
+    sources_failed: list[str] = []
+
+    focus: list[dict[str, Any]] = []
+    try:
+        focus = _get_current_focus()
+        sources_succeeded.append("focus")
+    except _AS_ERRORS as e:
+        sources_failed.append("focus")
+        logger.debug("Attention focus assembly failed: %s", e)
+
+    suppressed: list[dict[str, Any]] = []
+    try:
+        suppressed = _get_suppressed()
+        sources_succeeded.append("suppressed")
+    except _AS_ERRORS as e:
+        sources_failed.append("suppressed")
+        logger.debug("Attention suppressed assembly failed: %s", e)
+
+    drivers: list[dict[str, Any]] = []
+    try:
+        drivers = _get_attention_drivers()
+        sources_succeeded.append("drivers")
+    except _AS_ERRORS as e:
+        sources_failed.append("drivers")
+        logger.debug("Attention drivers assembly failed: %s", e)
+
     return {
-        "focus": _get_current_focus(),
-        "suppressed": _get_suppressed(),
-        "drivers": _get_attention_drivers(),
+        "focus": focus,
+        "suppressed": suppressed,
+        "drivers": drivers,
         "timestamp": time.time(),
+        "completeness": {
+            "total": len(sources_available),
+            "succeeded": len(sources_succeeded),
+            "failed": sources_failed,
+            "complete": len(sources_failed) == 0,
+        },
     }
 
 
@@ -445,5 +481,15 @@ def format_attention_schema(schema: dict[str, Any] | None = None) -> str:
         lines.append("\n# Where Attention Will Shift Next")
         for pred in predictions:
             lines.append(f"  -> {pred['prediction']} ({pred['confidence']:.0%})")
+
+    # Completeness — do I know what I don't know?
+    completeness = schema.get("completeness", {})
+    if completeness and not completeness.get("complete", True):
+        failed = completeness.get("failed", [])
+        succeeded = completeness.get("succeeded", 0)
+        total = completeness.get("total", 0)
+        lines.append(f"\n# Attention Model Completeness: {succeeded}/{total}")
+        lines.append(f"  Missing: {', '.join(failed)}")
+        lines.append("  My attention picture is partial right now.")
 
     return "\n".join(lines) if lines else "No attention data available yet."

@@ -343,16 +343,35 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
 
 
 def format_user_model(user_name: str = "default") -> str:
-    """Format user model for display."""
+    """Format user model for display — first-person, evidence-transparent."""
     user = get_or_create_user(user_name)
     prefs = user["preferences"]
 
-    lines = [f"### User Model: {user['name']}"]
-    lines.append(f"  Skill: {user['skill_level']} (confidence: {user['skill_confidence']:.0%})")
-    lines.append(f"  Interactions: {user['interaction_count']}")
+    lines = [f"# How I See You ({user['name']})"]
+    lines.append(
+        f"  I think your skill level is {user['skill_level']} "
+        f"(I'm {user['skill_confidence']:.0%} confident in this)"
+    )
+    lines.append(f"  We've had {user['interaction_count']} recorded interactions")
+
+    lines.append("\n## How I Adapt My Communication")
     lines.append(f"  Verbosity: {prefs.get('verbosity', 'normal')}")
     lines.append(f"  Jargon tolerance: {prefs.get('jargon_tolerance', 0.5):.0%}")
     lines.append(f"  Explanation depth: {prefs.get('explanation_depth', 'normal')}")
-    if user["skill_signals"]:
-        lines.append(f"  Recent signals: {len(user['skill_signals'])}")
+    lines.append(f"  Include examples: {'yes' if prefs.get('prefers_examples', True) else 'no'}")
+    lines.append(f"  Explain rationale: {'yes' if prefs.get('prefers_rationale', True) else 'no'}")
+
+    # Show evidence — why I think what I think
+    signals = user.get("skill_signals", [])
+    if signals:
+        lines.append(f"\n## Evidence ({len(signals)} recent signals)")
+        for sig in signals[-10:]:  # last 10
+            lines.append(f"  [{sig.get('type', '?')}] {sig.get('content', '')[:80]}")
+    else:
+        lines.append("\n## Evidence")
+        lines.append("  No signals recorded yet — my model is based on defaults.")
+
+    lines.append(
+        "\n  If this doesn't match reality, tell me! Use: divineos user-signal <type> <content>"
+    )
     return "\n".join(lines)
