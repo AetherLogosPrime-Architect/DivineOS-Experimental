@@ -212,6 +212,34 @@ def _run_session_end_pipeline() -> None:
         except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
             logger.debug(f"Self-critique failed: {e}")
 
+        # ── Phase 8h2: Convergence detection (Circuit 3) ────────
+        try:
+            from divineos.core.convergence_detector import (
+                apply_convergence_to_knowledge,
+                detect_convergence,
+            )
+
+            convergence = detect_convergence()
+            if convergence.concerns:
+                names = ", ".join(
+                    f"{c.compass_spectrum}/{c.critique_spectrum}" for c in convergence.concerns
+                )
+                click.secho(f"[!] Circuit 3: convergent concerns — {names}", fg="yellow")
+                apply_convergence_to_knowledge(convergence)
+            elif convergence.strengths:
+                click.secho(
+                    f"[~] Circuit 3: {len(convergence.strengths)} convergent strength(s)",
+                    fg="cyan",
+                )
+            if convergence.divergences:
+                click.secho(
+                    f"[?] Circuit 3: {len(convergence.divergences)} divergence(s) — "
+                    f"compass and self-critique disagree",
+                    fg="bright_black",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Convergence detection failed: {e}")
+
         # ── Phase 8i: User model signals ────────────────────────
         try:
             from divineos.core.user_model import record_signal
