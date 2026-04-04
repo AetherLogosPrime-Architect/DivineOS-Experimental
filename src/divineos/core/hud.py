@@ -51,9 +51,11 @@ SLOT_ORDER = [
     "warnings",
     "journal",
     "decision_journal",
+    "opinions",
     "affect",
     "claims",
     "compass",
+    "calibration",
     "self_awareness",
     "body",
     "task_state",
@@ -694,6 +696,56 @@ def _build_compass_slot() -> str:
         return ""
 
 
+def _build_opinions_slot() -> str:
+    """My active opinions — judgments I've formed from evidence."""
+    try:
+        from divineos.core.opinion_store import count_opinions, get_opinions
+
+        counts = count_opinions()
+        total = counts.get("total", 0)
+        if total == 0:
+            return ""
+
+        lines = [f"# What I Believe ({total} opinions)\n"]
+        # Show highest-confidence opinions
+        opinions = get_opinions(limit=5, min_confidence=0.6)
+        for op in opinions:
+            conf = op.get("confidence", 0)
+            lines.append(f"  [{conf:.0%}] {op.get('topic', '?')}: {op.get('judgment', '')[:80]}")
+
+        challenged = counts.get("challenged", 0)
+        if challenged:
+            lines.append(
+                f"\n  ({challenged} opinion{'s' if challenged != 1 else ''} under challenge)"
+            )
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
+def _build_calibration_slot() -> str:
+    """How I should communicate this session — adapted to the user."""
+    try:
+        from divineos.core.communication_calibration import calibrate
+
+        cal = calibrate()
+        # Only show if non-default
+        if cal.verbosity == "normal" and cal.jargon_ok and cal.explanation_depth == "normal":
+            return ""
+
+        lines = ["# Communication Calibration\n"]
+        lines.append(f"  Verbosity: {cal.verbosity}")
+        if not cal.jargon_ok:
+            lines.append("  Jargon: keep it plain — user prefers clear language")
+        lines.append(f"  Depth: {cal.explanation_depth}")
+        if cal.notes:
+            for note in cal.notes[:3]:
+                lines.append(f"  Note: {note}")
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -713,7 +765,9 @@ SLOT_BUILDERS = {
     "decision_journal": _build_decision_journal_slot,
     "affect": _build_affect_slot,
     "claims": _build_claims_slot,
+    "opinions": _build_opinions_slot,
     "compass": _build_compass_slot,
+    "calibration": _build_calibration_slot,
     "self_awareness": _build_self_awareness_slot,
     "body": _build_body_slot,
     "self_model": _build_self_model_slot,
