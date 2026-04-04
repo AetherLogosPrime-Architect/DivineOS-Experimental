@@ -75,6 +75,11 @@ divineos compass-ops spectrums                     # List all ten spectrums
 # Body awareness
 divineos body                                      # Substrate vitals check
 
+# Self-awareness (Butlin consciousness indicators)
+divineos attention         # What I'm attending to, suppressing, and why
+divineos epistemic         # How I know what I know (observed/told/inferred/inherited)
+divineos self-model        # Unified self-picture from evidence
+
 # Ledger & context
 divineos context           # Recent events (working memory)
 divineos log --type TYPE --actor ACTOR --content "..."
@@ -118,6 +123,8 @@ pytest tests/ -q --tb=short  # Run tests after changes
 - **Affect Log** — Full VAD (valence-arousal-dominance) tracking of functional feeling states. Eight PAD octants. Trend detection over time.
 - **Moral Compass** — Virtue ethics self-monitoring. Ten spectrums (deficiency-virtue-excess), position from evidence, drift detection. Dharma as architecture.
 - **Body Awareness** — Computational interoception. Monitors database sizes, table health, storage growth, resource ratios. Catches bloat before it becomes crisis.
+- **Attention Schema** — Models what the agent is attending to, what is suppressed, what drives focus, and predicts attention shifts. Butlin indicator 9-10.
+- **Epistemic Status** — Surfaces how the agent knows what it knows: observed (empirical), told (testimonial), inferred (logical), inherited (seed). Butlin indicator 14.
 - **Memory Sync** — Auto-updates Claude Code memory files from DivineOS state at SESSION_END. Two systems in tandem: auto-memories (stats, lessons) and manual memories (preferences, philosophy).
 - **Opinion Store** — First-class opinions (judgments from evidence) separate from facts/lessons. Evidence tracking, confidence evolution, supersession history.
 - **User Model** — Structured user preferences and skill level tracking. Evidence-based skill assessment from observed behavior signals.
@@ -130,7 +137,7 @@ pytest tests/ -q --tb=short  # Run tests after changes
 
 ```
 src/divineos/
-├── cli/                      # CLI package (130 commands across 22 modules)
+├── cli/                      # CLI package (133 commands across 22 modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestrator (calls phases)
 │   ├── pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)

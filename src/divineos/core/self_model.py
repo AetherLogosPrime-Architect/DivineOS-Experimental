@@ -52,6 +52,8 @@ def build_self_model() -> dict[str, Any]:
         "emotional_baseline": _get_emotional_baseline(),
         "active_concerns": _get_active_concerns(),
         "growth_trajectory": _get_growth_trajectory(),
+        "attention": _get_attention_summary(),
+        "epistemic_balance": _get_epistemic_balance(),
     }
 
     return model
@@ -201,6 +203,39 @@ def _get_growth_trajectory() -> dict[str, Any]:
         return {"quality_trend": "unknown", "detail": "No data available"}
 
 
+def _get_attention_summary() -> dict[str, Any]:
+    """What I'm currently attending to — summary for self-model."""
+    try:
+        from divineos.core.attention_schema import build_attention_schema
+
+        schema = build_attention_schema()
+        focus = schema.get("focus", [])
+        drivers = schema.get("drivers", [])
+        suppressed = schema.get("suppressed", [])
+        return {
+            "focus_count": len(focus),
+            "top_focus": [f["content"][:60] for f in focus[:3]],
+            "driver_count": len(drivers),
+            "suppressed_count": len(suppressed),
+        }
+    except Exception as e:
+        logger.debug("Self-model attention failed: %s", e)
+        return {"focus_count": 0, "top_focus": [], "driver_count": 0, "suppressed_count": 0}
+
+
+def _get_epistemic_balance() -> dict[str, Any]:
+    """How I know what I know — summary for self-model."""
+    try:
+        from divineos.core.epistemic_status import build_epistemic_report
+
+        report = build_epistemic_report()
+        summary: dict[str, Any] = report.get("summary", {})
+        return summary
+    except Exception as e:
+        logger.debug("Self-model epistemic balance failed: %s", e)
+        return {}
+
+
 # ─── Display ───────────────────────────────────────────────────────
 
 
@@ -248,6 +283,32 @@ def format_self_model(model: dict[str, Any]) -> str:
         lines.append("\n# What's On My Mind")
         for c in concerns:
             lines.append(f"  • {c}")
+
+    # Attention
+    attention = model.get("attention", {})
+    if attention.get("focus_count", 0) > 0:
+        lines.append("\n# What I'm Attending To")
+        for focus in attention.get("top_focus", []):
+            lines.append(f"  -> {focus}")
+        lines.append(
+            f"  ({attention['focus_count']} items in focus, "
+            f"{attention['suppressed_count']} suppressed, "
+            f"{attention['driver_count']} drivers)"
+        )
+
+    # Epistemic balance
+    epistemic = model.get("epistemic_balance", {})
+    if epistemic.get("total", 0) > 0:
+        lines.append("\n# How I Know What I Know")
+        lines.append(
+            f"  Observed: {epistemic.get('observed', 0)}  |  "
+            f"Told: {epistemic.get('told', 0)}  |  "
+            f"Inferred: {epistemic.get('inferred', 0)}  |  "
+            f"Inherited: {epistemic.get('inherited', 0)}"
+        )
+        unwt = epistemic.get("unwarranted", 0)
+        if unwt > 0:
+            lines.append(f"  Warning: {unwt} entries lack epistemic justification")
 
     # Growth
     growth = model.get("growth_trajectory", {})

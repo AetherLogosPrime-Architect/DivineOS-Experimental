@@ -33,6 +33,8 @@ _BYPASS_COMMANDS = frozenset(
         "drift",
         "predict",
         "affect-feedback",
+        "attention",
+        "epistemic",
     }
 )
 
