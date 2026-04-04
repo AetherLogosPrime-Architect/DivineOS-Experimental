@@ -196,7 +196,7 @@ def wrap_tool_execution(
             logger.debug(f"Tool {tool_name} executed successfully")
             return result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — wraps arbitrary tool_func
             # Tool execution failed — must catch all since tool_func is arbitrary code
             failed = True
             error_message = str(e)

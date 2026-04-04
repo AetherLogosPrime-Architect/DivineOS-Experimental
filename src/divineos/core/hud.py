@@ -663,6 +663,19 @@ def _build_self_awareness_slot() -> str:
     except _HUD_ERRORS:
         pass
 
+    # 3. Proactive recommendations — what worked well in similar contexts
+    try:
+        from divineos.core.proactive_patterns import recommend
+
+        recs = recommend("session_start", max_recommendations=3)
+        if recs:
+            if not lines:
+                lines.append("# Self-Awareness Nudges\n")
+            for rec in recs:
+                lines.append(f"- TRY: {rec.get('recommendation', rec.get('content', ''))[:80]}")
+    except _HUD_ERRORS:
+        pass
+
     return "\n".join(lines) if lines else ""
 
 
