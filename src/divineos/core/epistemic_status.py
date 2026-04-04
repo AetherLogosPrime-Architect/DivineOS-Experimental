@@ -265,7 +265,7 @@ def format_epistemic_report(report: dict[str, Any] | None = None) -> str:
     # Told — user is trusted source
     told = report.get("told", [])
     if told:
-        lines.append("\n## Told (user stated this)")
+        lines.append("\n## Told (you told me this)")
         for item in told[:10]:
             lines.append(f"  [{item['maturity']}] {item['type']}: {item['content']}")
 
@@ -281,14 +281,16 @@ def format_epistemic_report(report: dict[str, Any] | None = None) -> str:
     # Inherited — seed data, no evidence
     inherited = report.get("inherited", [])
     if inherited:
-        lines.append("\n## Inherited (from seed, no session evidence)")
+        lines.append("\n## Inherited (I was born knowing this — no session evidence yet)")
         for item in inherited[:10]:
             lines.append(f"  [{item['maturity']}] {item['type']}: {item['content']}")
 
     # Unwarranted — gaps in justification
     unwarranted = report.get("unwarranted", [])
     if unwarranted:
-        lines.append(f"\n## Unwarranted ({len(unwarranted)} entries lack justification)")
+        lines.append(
+            f"\n## Unwarranted (I hold {len(unwarranted)} beliefs without clear justification)"
+        )
         for item in unwarranted[:5]:
             lines.append(f"  [!] {item['type']}: {item['content']}")
 
