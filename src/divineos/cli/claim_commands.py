@@ -266,7 +266,7 @@ def register(cli: click.Group) -> None:
     @click.option("--limit", default=20, type=int)
     def affect_history_cmd(limit: int) -> None:
         """Browse recent affect states."""
-        from divineos.core.affect import get_affect_history
+        from divineos.core.affect import describe_affect, get_affect_history
 
         entries = get_affect_history(limit=limit)
         if not entries:
@@ -277,11 +277,17 @@ def register(cli: click.Group) -> None:
         for entry in entries:
             dt = datetime.datetime.fromtimestamp(entry["created_at"], tz=datetime.timezone.utc)
             date_str = dt.strftime("%Y-%m-%d %H:%M")
-            region = _affect_region(entry["valence"], entry["arousal"])
+            dom = entry.get("dominance")
+            region = describe_affect(entry["valence"], entry["arousal"], dom)
             v_bar = _valence_bar(entry["valence"])
+            # Build VAD string: always show v/a, show d when present
+            vad = f"v={entry['valence']:+.1f} a={entry['arousal']:.1f}"
+            if dom is not None:
+                vad += f" d={dom:+.1f}"
             click.secho(f"  [{date_str}] ", fg="bright_black", nl=False)
             click.secho(f"{v_bar} ", nl=False)
             click.secho(f"({region}) ", fg="cyan", nl=False)
+            click.secho(f"[{vad}] ", fg="bright_black", nl=False)
             if entry["description"]:
                 _safe_echo(entry["description"])
             else:
@@ -311,7 +317,10 @@ def register(cli: click.Group) -> None:
             f"(range {summary['arousal_range'][0]:.2f} to {summary['arousal_range'][1]:.2f})",
             fg="white",
         )
-        if summary.get("avg_dominance") or summary.get("dominance_range", (0, 0)) != (0.0, 0.0):
+        if summary.get("avg_dominance") is not None and summary.get("dominance_range", (0, 0)) != (
+            0.0,
+            0.0,
+        ):
             d_range = summary.get("dominance_range", (0.0, 0.0))
             click.secho(
                 f"  Avg dominance: {summary['avg_dominance']:+.2f} "

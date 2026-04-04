@@ -336,6 +336,34 @@ class TestAffectCmd:
         result = initialized.invoke(cli, ["affect", "summary"])
         assert result.exit_code == 0
 
+    def test_feel_with_dominance(self, initialized):
+        result = initialized.invoke(
+            cli, ["feel", "-v", "0.7", "-a", "0.6", "--dom", "0.3", "-d", "Confident flow"]
+        )
+        assert result.exit_code == 0
+        assert "d=0.3" in result.output
+        assert "Confident flow" in result.output
+
+    def test_feel_zero_dominance(self, initialized):
+        """Zero dominance should still display (not be hidden by falsiness)."""
+        result = initialized.invoke(cli, ["feel", "-v", "0.5", "-a", "0.5", "--dom", "0.0"])
+        assert result.exit_code == 0
+        assert "d=0.0" in result.output
+
+    def test_affect_history_shows_dominance(self, initialized):
+        initialized.invoke(
+            cli, ["feel", "-v", "0.8", "-a", "0.6", "--dom", "0.5", "-d", "Testing VAD"]
+        )
+        result = initialized.invoke(cli, ["affect", "history"])
+        assert result.exit_code == 0
+        assert "d=" in result.output
+
+    def test_affect_summary_with_dominance(self, initialized):
+        initialized.invoke(cli, ["feel", "-v", "0.5", "-a", "0.5", "--dom", "0.3"])
+        result = initialized.invoke(cli, ["affect", "summary"])
+        assert result.exit_code == 0
+        assert "dominance" in result.output.lower()
+
 
 # ─── Decision Commands ───────────────────────────────────────────────
 

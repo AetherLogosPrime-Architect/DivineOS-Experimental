@@ -466,17 +466,29 @@ def _build_affect_slot() -> str:
 
         lines = ["# My Affect State\n"]
         summary = get_affect_summary()
-        lines.append(
-            f"**Avg:** valence {summary['avg_valence']:+.2f}, "
-            f"arousal {summary['avg_arousal']:.2f} "
-            f"({summary['trend']})"
+        avg_line = (
+            f"**Avg:** valence {summary['avg_valence']:+.2f}, arousal {summary['avg_arousal']:.2f}"
         )
+        if summary.get("avg_dominance") is not None and summary.get("dominance_range", (0, 0)) != (
+            0.0,
+            0.0,
+        ):
+            avg_line += f", dominance {summary['avg_dominance']:+.2f}"
+        avg_line += f" ({summary['trend']})"
+        lines.append(avg_line)
 
         recent = get_affect_history(limit=1)
         if recent:
             entry = recent[0]
-            desc = entry["description"][:80] if entry["description"] else "no description"
-            lines.append(f"**Latest:** {desc}")
+            from divineos.core.affect import describe_affect
+
+            dom = entry.get("dominance")
+            region = describe_affect(entry["valence"], entry["arousal"], dom)
+            vad = f"v={entry['valence']:+.1f} a={entry['arousal']:.1f}"
+            if dom is not None:
+                vad += f" d={dom:+.1f}"
+            desc = entry["description"][:60] if entry["description"] else "no description"
+            lines.append(f"**Latest:** ({region}) [{vad}] {desc}")
 
         return "\n".join(lines)
     except _HUD_ERRORS:

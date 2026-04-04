@@ -474,7 +474,11 @@ def format_affect_feedback(context: dict[str, Any]) -> str:
 
     trend = modifiers["affect_trend"]
     if trend != "no data":
-        d_str = f", d={modifiers['avg_dominance']:.2f}" if modifiers.get("avg_dominance") else ""
+        d_str = (
+            f", d={modifiers['avg_dominance']:.2f}"
+            if modifiers.get("avg_dominance") is not None
+            else ""
+        )
         lines.append(
             f"Affect trend: {trend} (v={modifiers['avg_valence']:.2f}, a={modifiers['avg_arousal']:.2f}{d_str})"
         )
