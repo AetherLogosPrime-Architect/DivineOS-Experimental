@@ -336,12 +336,51 @@ def register(cli: click.Group) -> None:
         result = run_checkpoint()
         click.secho(f"[+] {result}", fg="green")
 
+    @cli.command("mini-save")
+    def mini_save_cmd() -> None:
+        """Task-boundary save — extract knowledge without full pipeline.
+
+        Lighter than SESSION_END but captures real learning: analysis,
+        knowledge extraction, episode, curation, lessons, handoff note.
+        Run this after finishing a task, before asking what's next.
+        """
+        from divineos.core.session_checkpoint import run_mini_session_save
+
+        click.secho("[~] Running mini session save...", fg="cyan")
+        result = run_mini_session_save()
+
+        if result.get("error"):
+            click.secho(f"[!] Mini-save error: {result['error']}", fg="yellow")
+            return
+
+        parts = []
+        if result["knowledge_extracted"]:
+            parts.append(f"{result['knowledge_extracted']} knowledge entries")
+        if result["episode_stored"]:
+            parts.append("episode logged")
+        if result["handoff_saved"]:
+            parts.append("handoff saved")
+        curation = result.get("curation", {})
+        if curation.get("archived") or curation.get("text_cleaned"):
+            c_parts = []
+            if curation.get("archived"):
+                c_parts.append(f"{curation['archived']} archived")
+            if curation.get("text_cleaned"):
+                c_parts.append(f"{curation['text_cleaned']} cleaned")
+            parts.append(f"curation: {', '.join(c_parts)}")
+
+        if parts:
+            click.secho(f"[+] Saved: {', '.join(parts)}", fg="green")
+        else:
+            click.secho("[~] Nothing new to save.", fg="bright_black")
+
     @cli.command("context-status")
     def context_status_cmd() -> None:
         """Show current context usage estimate and checkpoint state."""
         from divineos.core.session_checkpoint import (
             _load_state,
             context_warning_level,
+            estimate_token_usage,
             format_context_warning,
         )
 
@@ -355,11 +394,23 @@ def register(cli: click.Group) -> None:
         click.secho(f"  Tool calls: {calls}", fg="cyan")
         click.secho(f"  Checkpoints run: {checkpoints}", fg="cyan")
         click.secho(
-            f"  Context level: {level}",
+            f"  Context level (tool calls): {level}",
             fg={"ok": "green", "warn": "yellow", "urgent": "red", "critical": "red"}.get(
                 level, "white"
             ),
         )
+
+        # Token estimation from character tracking
+        tokens = estimate_token_usage()
+        if tokens["chars_tracked"] > 0:
+            tok_color = {"ok": "green", "warn": "yellow", "urgent": "red", "critical": "red"}
+            click.secho(
+                f"  Token estimate: ~{tokens['estimated_tokens']:,} "
+                f"({tokens['estimated_pct']:.0%} of usable context) [{tokens['level']}]",
+                fg=tok_color.get(tokens["level"], "white"),
+            )
+        else:
+            click.secho("  Token estimate: no character data tracked yet", fg="bright_black")
 
         warning = format_context_warning(state)
         if warning:

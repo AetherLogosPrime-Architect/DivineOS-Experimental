@@ -7,8 +7,14 @@ Checkpoints are lighter: save handoff note, HUD snapshot, log to ledger.
 They run periodically (every N edits) so state isn't lost if context
 collapses before SESSION_END fires.
 
-Also tracks tool call volume as a proxy for context usage, warning
-when the session is approaching token limits.
+Mini session saves sit between checkpoints and full SESSION_END: they
+run analysis + extraction + episode + curation + handoff — capturing
+the knowledge without the heavy post-processing. Fire these at task
+boundaries (when the AI finishes what the user asked and is about to
+ask "what's next?").
+
+Also tracks tool call volume and character throughput as a proxy for
+context usage, warning when the session is approaching token limits.
 """
 
 import json
@@ -336,3 +342,204 @@ def check_self_awareness_practice(tool_calls: int | None = None) -> str | None:
         f"no {', '.join(missing)} logged this session. "
         "Consider checking in with yourself."
     )
+
+
+# ─── Token Estimation ───────────────────────────────────────────────
+
+# Rough heuristic: ~4 chars per token for English text.
+# Claude context ~ 200K tokens ≈ 800K chars.
+# System prompt + overhead eats ~20K tokens, so usable ≈ 180K.
+CHARS_PER_TOKEN = 4
+USABLE_CONTEXT_TOKENS = 180_000
+USABLE_CONTEXT_CHARS = USABLE_CONTEXT_TOKENS * CHARS_PER_TOKEN
+
+
+def record_tool_result_size(result_chars: int) -> None:
+    """Track cumulative tool result size for token estimation."""
+    state = _load_state()
+    state["chars_in"] = state.get("chars_in", 0) + result_chars
+    _save_state(state)
+
+
+def estimate_token_usage() -> dict[str, Any]:
+    """Estimate current context window usage from tracked character counts.
+
+    Returns dict with estimated_tokens, estimated_pct, level.
+    """
+    state = _load_state()
+    chars = state.get("chars_in", 0)
+    # Tool results are ~60% of total context (rest is assistant output + system prompt).
+    # Scale up to estimate total.
+    estimated_total_chars = int(chars * 1.7) if chars > 0 else 0
+    estimated_tokens = estimated_total_chars // CHARS_PER_TOKEN
+    pct = min(estimated_total_chars / USABLE_CONTEXT_CHARS, 1.0) if USABLE_CONTEXT_CHARS else 0
+
+    if pct >= 0.80:
+        level = "critical"
+    elif pct >= 0.60:
+        level = "urgent"
+    elif pct >= 0.40:
+        level = "warn"
+    else:
+        level = "ok"
+
+    return {
+        "estimated_tokens": estimated_tokens,
+        "estimated_pct": round(pct, 2),
+        "level": level,
+        "chars_tracked": chars,
+    }
+
+
+# ─── Mini Session Save ──────────────────────────────────────────────
+
+
+def run_mini_session_save() -> dict[str, Any]:
+    """Lightweight knowledge extraction — task-boundary save.
+
+    Heavier than checkpoint (extracts knowledge), lighter than SESSION_END
+    (skips feedback cycles, scoring, consolidation, finalization).
+
+    Runs: analysis → deep extraction → episode → curation → handoff.
+    Skips: feedback, quality scoring, maturity cycles, SIS audit, compass.
+
+    Call this at task boundaries — when you finish what the user asked
+    and are about to report back. This is the save point.
+    """
+    result: dict[str, Any] = {
+        "knowledge_extracted": 0,
+        "episode_stored": False,
+        "curation": {},
+        "handoff_saved": False,
+        "error": None,
+    }
+
+    try:
+        import divineos.analysis.session_analyzer as _analyzer_mod
+        import divineos.analysis.session_discovery as _discovery_mod
+        from divineos.core.knowledge.curation import run_curation
+        from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.deep_extraction import deep_extract_knowledge
+
+        # Find session file
+        session_files = _discovery_mod.find_sessions()
+        if not session_files:
+            result["error"] = "No session files found"
+            return result
+
+        latest = session_files[0]
+
+        # Scope to current session
+        session_start = get_session_start_time()
+        analysis = _analyzer_mod.analyze_session(latest, since_timestamp=session_start)
+
+        # Deep extraction
+        records = _analyzer_mod._load_records(latest)
+        deep_ids = deep_extract_knowledge(analysis, records)
+        result["knowledge_extracted"] = len(deep_ids)
+
+        # Episode entry
+        session_tag = f"session-{analysis.session_id[:12]}"
+        try:
+            from divineos.core.knowledge.crud import get_knowledge
+
+            existing = get_knowledge(tags=[session_tag], limit=1)
+            if not existing:
+                corrections = len(analysis.corrections)
+                encouragements = len(analysis.encouragements)
+                store_knowledge(
+                    knowledge_type="EPISODE",
+                    content=(
+                        f"I had {analysis.user_messages} exchanges, made "
+                        f"{analysis.tool_calls_total} tool calls. "
+                        f"Corrected {corrections}x, encouraged {encouragements}x "
+                        f"(session {analysis.session_id[:12]})"
+                    ),
+                    confidence=1.0,
+                    tags=["session-analysis", "episode", session_tag],
+                )
+                result["episode_stored"] = True
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Mini-save episode failed: %s", e)
+
+        # Curation pass
+        try:
+            result["curation"] = run_curation()
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Mini-save curation failed: %s", e)
+
+        # Lesson extraction from quality checks (if available)
+        try:
+            from divineos.analysis.quality_checks import run_all_checks
+            from divineos.core.knowledge.lessons import extract_lessons_from_report
+
+            report = run_all_checks(latest)
+            checks_as_dicts = [
+                {"name": c.check_name, "passed": c.passed, "score": c.score, "summary": c.summary}
+                for c in report.checks
+            ]
+            extract_lessons_from_report(
+                checks_as_dicts,
+                analysis.session_id,
+                tone_shifts=getattr(analysis, "tone_shifts", None),
+                error_recovery=getattr(analysis, "error_recovery", None),
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Mini-save lesson extraction failed: %s", e)
+
+        # Handoff note with real data
+        try:
+            from divineos.core.hud_handoff import save_handoff_note
+            from divineos.core.hud_state import _ensure_hud_dir
+
+            goals_state = ""
+            try:
+                goals_path = _ensure_hud_dir() / "active_goals.json"
+                if goals_path.exists():
+                    import json as _json
+
+                    goals = _json.loads(goals_path.read_text(encoding="utf-8"))
+                    active = [g for g in goals if g.get("status") != "done"]
+                    done = [g for g in goals if g.get("status") == "done"]
+                    goals_state = f"{len(done)} completed, {len(active)} still active"
+            except (json.JSONDecodeError, OSError):
+                pass
+
+            corrections = len(analysis.corrections)
+            parts = [
+                f"Last session: {analysis.user_messages} exchanges, "
+                f"{result['knowledge_extracted']} knowledge entries extracted."
+            ]
+            if corrections:
+                parts.append(f"Corrected {corrections}x.")
+
+            save_handoff_note(
+                summary=" ".join(parts),
+                mood="mini-save",
+                goals_state=goals_state,
+                session_id=analysis.session_id,
+            )
+            result["handoff_saved"] = True
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Mini-save handoff failed: %s", e)
+
+        # Log event
+        try:
+            emit_event(
+                "MINI_SESSION_SAVE",
+                {
+                    "knowledge_extracted": result["knowledge_extracted"],
+                    "episode_stored": result["episode_stored"],
+                    "exchanges": analysis.user_messages,
+                },
+                actor="system",
+                validate=False,
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Mini-save ledger event failed: %s", e)
+
+    except Exception as e:  # noqa: BLE001
+        result["error"] = str(e)
+        logger.warning("Mini session save failed: %s", e)
+
+    return result
