@@ -18,10 +18,15 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21.0",
     "pytest-timeout>=2.2.0",
+    "pytest-cov>=4.0",
+    "pytest-xdist>=3.0",
+    "pytest-benchmark>=4.0",
     "hypothesis>=6.0",
     "mypy>=1.0",
     "ruff>=0.1.0",
     "vulture>=2.0",
+    "bandit>=1.7",
+    "mutmut>=3.0",
 ]
 
 [project.scripts]
@@ -63,6 +68,35 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
 timeout = 30
+addopts = "--strict-markers"
+
+[tool.coverage.run]
+source = ["divineos"]
+branch = true
+omit = [
+    "src/divineos/hooks/hook_diagnostics.py",
+    "src/divineos/integration/mcp_event_capture_server.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 75
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "pass",
+    "raise NotImplementedError",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+
+[tool.mutmut]
+paths_to_mutate = "src/divineos/core/"
+tests_dir = "tests/"
+runner = "python -m pytest tests/ -q --tb=no -x"
 
 [tool.mypy]
 python_version = "3.10"
