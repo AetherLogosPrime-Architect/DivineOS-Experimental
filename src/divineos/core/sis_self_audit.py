@@ -76,7 +76,12 @@ def audit_docstrings(
             continue
 
         terms = [t["term"] for t in report.terms_found] if report.terms_found else []
-        flagged = report.esoteric_density > threshold and report.verdict != "ACCEPT"
+        # Short docstrings get inflated density from a single term match.
+        # Require enough words for density to be meaningful.
+        word_count = len(docstring.split())
+        flagged = (
+            report.esoteric_density > threshold and report.verdict != "ACCEPT" and word_count >= 20
+        )
 
         rel_path = str(py_file.relative_to(src_dir.parent))
 

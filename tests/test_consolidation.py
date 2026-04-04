@@ -319,11 +319,11 @@ class TestRecordLesson:
         assert "session-001" in lessons[0]["sessions"]
         assert "session-002" in lessons[0]["sessions"]
 
-    def test_same_session_doesnt_duplicate(self):
+    def test_same_session_doesnt_inflate(self):
         record_lesson("blind_edit", "Read files", "session-001")
         record_lesson("blind_edit", "Read files", "session-001")
         lessons = get_lessons(category="blind_edit")
-        assert lessons[0]["occurrences"] == 2  # incremented
+        assert lessons[0]["occurrences"] == 1  # same session = no inflation
         assert lessons[0]["sessions"].count("session-001") == 1  # not duplicated
 
     def test_different_categories_separate(self):

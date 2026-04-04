@@ -42,6 +42,11 @@ def _ensure_regressions_column(conn: Any) -> None:
 # How many regressions before a lesson is flagged for directive promotion.
 REGRESSION_ESCALATION_THRESHOLD = 3
 
+# Cap effective occurrences for auto-resolve math. Lessons with inflated
+# counts (e.g., 178x from early accumulation bugs) would otherwise be
+# impossible to resolve — you'd need 183 clean sessions.
+MAX_EFFECTIVE_OCCURRENCES = 10
+
 
 def record_lesson(category: str, description: str, session_id: str, agent: str = "unknown") -> str:
     """Record a lesson or update an existing one for the same category.
@@ -77,11 +82,15 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
 
         if existing:
             lesson_id = existing[0]
-            occurrences = existing[1] + 1
             sessions = json.loads(existing[2])
             old_status = existing[3] if len(existing) > 3 else "active"
+            # Only bump occurrences for genuinely new sessions — prevents
+            # re-scans and compaction re-triggers from inflating counts.
             if session_id not in sessions:
+                occurrences = existing[1] + 1
                 sessions.append(session_id)
+            else:
+                occurrences = existing[1]
 
             # Regression detection: was IMPROVING, now recurring again
             regression_bump = 0
@@ -327,8 +336,10 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
 
             # Count sessions AFTER the lesson was last recorded as a mistake.
             # The sessions list includes both mistake sessions and clean sessions.
-            # If there are enough sessions after the last occurrence, resolve it.
-            if len(sessions) >= lesson["occurrences"] + clean_session_threshold:
+            # Cap effective occurrences so inflated counts (e.g. 178x from
+            # early accumulation bugs) don't make resolution impossible.
+            effective = min(lesson["occurrences"], MAX_EFFECTIVE_OCCURRENCES)
+            if len(sessions) >= effective + clean_session_threshold:
                 conn.execute(
                     "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? "
                     "WHERE lesson_id = ?",
@@ -345,6 +356,33 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
         if resolved:
             conn.commit()
         return resolved
+    finally:
+        conn.close()
+
+
+def reset_lesson_count(category: str, new_count: int | None = None) -> bool:
+    """Reset inflated occurrence count for a lesson.
+
+    If new_count is None, resets to the number of unique sessions tracked
+    (the real count). Returns True if the lesson was found and updated.
+    """
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT lesson_id, sessions FROM lesson_tracking WHERE category = ?",
+            (category,),
+        ).fetchone()
+        if not row:
+            return False
+        sessions = json.loads(row[1]) if row[1] else []
+        count = new_count if new_count is not None else len(sessions)
+        conn.execute(
+            "UPDATE lesson_tracking SET occurrences = ? WHERE lesson_id = ?",
+            (count, row[0]),
+        )
+        conn.commit()
+        logger.info("Reset lesson '%s' occurrences to %d", category, count)
+        return True
     finally:
         conn.close()
 

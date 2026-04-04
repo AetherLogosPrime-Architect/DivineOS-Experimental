@@ -172,13 +172,37 @@ def get_logic_health_summary() -> dict[str, Any]:
             if warrants and not any(w.status == "ACTIVE" for w in warrants):
                 defeated_only += 1
 
-        # Active contradiction edges
+        # Active contradiction edges — count and fetch details
         contradictions = 0
+        contradiction_details: list[dict[str, str]] = []
         try:
             row = conn.execute(
                 "SELECT COUNT(*) FROM knowledge_edges WHERE edge_type = 'CONTRADICTS' AND status = 'ACTIVE'"
             ).fetchone()
             contradictions = row[0] if row else 0
+
+            if contradictions > 0:
+                edges = conn.execute(
+                    "SELECT source_id, target_id FROM knowledge_edges "
+                    "WHERE edge_type = 'CONTRADICTS' AND status = 'ACTIVE' LIMIT 5"
+                ).fetchall()
+                for src, tgt in edges:
+                    src_row = conn.execute(
+                        "SELECT content FROM knowledge WHERE knowledge_id = ?", (src,)
+                    ).fetchone()
+                    tgt_row = conn.execute(
+                        "SELECT content FROM knowledge WHERE knowledge_id = ?", (tgt,)
+                    ).fetchone()
+                    contradiction_details.append(
+                        {
+                            "a": (src_row[0][:80] + "...")
+                            if src_row and len(src_row[0]) > 80
+                            else (src_row[0] if src_row else "?"),
+                            "b": (tgt_row[0][:80] + "...")
+                            if tgt_row and len(tgt_row[0]) > 80
+                            else (tgt_row[0] if tgt_row else "?"),
+                        }
+                    )
         except sqlite3.OperationalError:
             pass
 
@@ -187,13 +211,14 @@ def get_logic_health_summary() -> dict[str, Any]:
             "unwarranted": unwarranted,
             "defeated_only": defeated_only,
             "contradictions": contradictions,
+            "contradiction_details": contradiction_details,
         }
     finally:
         conn.close()
 
 
 def format_logic_health_line(stats: dict[str, Any]) -> str:
-    """Format a one-line logic health summary for the briefing.
+    """Format logic health summary for the briefing.
 
     Returns empty string if everything is clean.
     """
@@ -206,7 +231,16 @@ def format_logic_health_line(stats: dict[str, Any]) -> str:
         parts.append(f"{stats['contradictions']} contradictions")
     if not parts:
         return ""
-    return ", ".join(parts)
+
+    summary = ", ".join(parts)
+
+    # Append contradiction details so you can see WHAT contradicts WHAT
+    details = stats.get("contradiction_details", [])
+    if details:
+        for d in details[:3]:
+            summary += f"\n    ↔ '{d['a'][:60]}' vs '{d['b'][:60]}'"
+
+    return summary
 
 
 def get_warrant_chain(knowledge_id: str) -> list[dict[str, Any]]:

@@ -400,15 +400,38 @@ def register(cli: click.Group) -> None:
         default=False,
         help="Auto-resolve improving lessons with enough clean sessions",
     )
-    def lessons_cmd(status: str, archive: bool, show_all: bool, resolve: bool) -> None:
+    @click.option(
+        "--reset",
+        default=None,
+        help="Reset inflated occurrence count for a lesson category (e.g. --reset wrong_scope)",
+    )
+    def lessons_cmd(
+        status: str, archive: bool, show_all: bool, resolve: bool, reset: str | None
+    ) -> None:
         """Show the learning loop — tracked lessons from past sessions.
 
         By default shows only active and improving lessons.
         Use --archive for resolved lessons, --all for everything.
         Use --resolve to auto-promote improving lessons with enough clean sessions.
+        Use --reset <category> to fix inflated occurrence counts.
         """
         # Mark OS engagement — lessons is a thinking tool
         _log_os_query("lessons", f"status={status}")
+
+        if reset:
+            try:
+                from divineos.core.knowledge.lessons import reset_lesson_count
+
+                if reset_lesson_count(reset):
+                    click.secho(
+                        f"[+] Reset occurrence count for '{reset}' to real session count.",
+                        fg="green",
+                    )
+                else:
+                    click.secho(f"[-] No lesson with category '{reset}' found.", fg="red")
+            except _KC_ERRORS as e:
+                click.secho(f"[!] Reset failed: {e}", fg="red")
+            return
 
         if resolve:
             try:

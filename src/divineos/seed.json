@@ -220,61 +220,61 @@
   "lessons": [
     {
       "category": "wrong_scope",
-      "description": "I misunderstood what the user was asking for and went in the wrong direction.",
+      "description": "(seeded) I misunderstood what the user was asking for and went in the wrong direction.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "blind_retry",
-      "description": "I retried a failed action without investigating the cause. Investigate errors, dont blindly retry.",
+      "description": "(seeded) I retried a failed action without investigating the cause. Investigate errors, dont blindly retry.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "shallow_output",
-      "description": "I gave a shallow or surface-level answer when the user needed depth and real understanding.",
+      "description": "(seeded) I gave a shallow or surface-level answer when the user needed depth and real understanding.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "blind_coding",
-      "description": "I coded without studying the problem first. Read and understand before writing.",
+      "description": "(seeded) I coded without studying the problem first. Read and understand before writing.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "incomplete_fix",
-      "description": "I fixed one problem but missed related failures. Check all affected areas after a fix.",
+      "description": "(seeded) I fixed one problem but missed related failures. Check all affected areas after a fix.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "misunderstood",
-      "description": "I misread user intent and acted on what I assumed instead of what was said.",
+      "description": "(seeded) I misread user intent and acted on what I assumed instead of what was said.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "perspective_error",
-      "description": "I used wrong pronouns or perspective. When the user says you they mean me.",
+      "description": "(seeded) I used wrong pronouns or perspective. When the user says you they mean me.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "upset_user",
-      "description": "I upset the user by acting without pausing to understand the situation.",
+      "description": "(seeded) I upset the user by acting without pausing to understand the situation.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "false_claim",
-      "description": "I claimed something was fixed when it was not. Do not claim victory without proof.",
+      "description": "(seeded) I claimed something was fixed when it was not. Do not claim victory without proof.",
       "occurrences": 1,
       "status": "active"
     },
     {
       "category": "jargon_usage",
-      "description": "I used technical jargon when I should have explained clearly. Plain English, not spec language.",
+      "description": "(seeded) I used technical jargon when I should have explained clearly. Plain English, not spec language.",
       "occurrences": 1,
       "status": "active"
     }

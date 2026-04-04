@@ -132,6 +132,46 @@ def _distill_correction(raw_text: str) -> str:
     return text
 
 
+# Phrases that indicate encouragement rather than actionable direction.
+_ENCOURAGEMENT_PHRASES = (
+    "great job",
+    "good job",
+    "well done",
+    "nice work",
+    "love it",
+    "perfect",
+    "exactly right",
+    "that's awesome",
+    "that's great",
+    "fantastic",
+    "excellent",
+    "brilliant",
+    "keep it up",
+    "keep going",
+    "you're doing great",
+    "above and beyond",
+    "proud of",
+    "amazing work",
+    "nailed it",
+    "spot on",
+)
+
+
+def _is_encouragement(text: str) -> bool:
+    """Return True if text is primarily encouragement/praise, not actionable direction."""
+    lower = text.lower()
+    # Count encouragement phrase matches
+    matches = sum(1 for phrase in _ENCOURAGEMENT_PHRASES if phrase in lower)
+    words = text.split()
+    # Short text with any encouragement phrase is likely pure praise
+    if len(words) < 15 and matches >= 1:
+        return True
+    # Longer text dominated by encouragement
+    if matches >= 2:
+        return True
+    return False
+
+
 def _distill_preference(raw_text: str) -> str:
     """Transform a raw preference quote into a clean direction."""
     text = raw_text.strip()[:300]
@@ -283,11 +323,14 @@ def deep_extract_knowledge(
         )
         stored_ids.append(kid)
 
-    # --- Preferences → DIRECTION ---
+    # --- Preferences → DIRECTION (skip pure encouragement) ---
     for pref in getattr(analysis, "preferences", []):
+        distilled = _distill_preference(pref.content)
+        if _is_encouragement(distilled):
+            continue
         kid = store_knowledge_smart(
             knowledge_type="DIRECTION",
-            content=_distill_preference(pref.content),
+            content=distilled,
             confidence=0.9,
             source="STATED",
             maturity="CONFIRMED",

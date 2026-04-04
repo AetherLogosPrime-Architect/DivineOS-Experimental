@@ -32,6 +32,12 @@ _HH_ERRORS = (
 # ─── Session Handoff Notes ───────────────────────────────────────────
 
 
+def _extract_exchange_count(summary: str) -> int:
+    """Parse exchange count from handoff summary text like '12 exchanges'."""
+    match = re.search(r"(\d+)\s+exchanges?", summary)
+    return int(match.group(1)) if match else 0
+
+
 def save_handoff_note(
     summary: str,
     open_threads: list[str] | None = None,
@@ -52,6 +58,25 @@ def save_handoff_note(
     - context_snapshot: key facts (knowledge IDs, recent decisions, grade)
     """
     path = _ensure_hud_dir() / "handoff_note.json"
+
+    # Don't overwrite a good handoff with an empty post-compaction one.
+    # If the existing note has more exchanges and was written recently
+    # (same logical session), preserve it.
+    new_exchange_count = _extract_exchange_count(summary)
+    if path.exists() and new_exchange_count == 0:
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+            existing_count = _extract_exchange_count(existing.get("summary", ""))
+            age = time.time() - existing.get("written_at", 0)
+            if existing_count > 0 and age < _HANDOFF_EXPIRY_SECONDS:
+                logger.info(
+                    "Preserving existing handoff (%d exchanges) over empty post-compaction write",
+                    existing_count,
+                )
+                return path
+        except (json.JSONDecodeError, OSError, KeyError):
+            pass  # Can't read existing — overwrite is fine
+
     note: dict[str, Any] = {
         "session_id": session_id,
         "written_at": time.time(),
