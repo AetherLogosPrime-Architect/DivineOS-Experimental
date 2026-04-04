@@ -394,14 +394,39 @@ def register(cli: click.Group) -> None:
         default=False,
         help="Show all lessons regardless of status",
     )
-    def lessons_cmd(status: str, archive: bool, show_all: bool) -> None:
+    @click.option(
+        "--resolve",
+        is_flag=True,
+        default=False,
+        help="Auto-resolve improving lessons with enough clean sessions",
+    )
+    def lessons_cmd(status: str, archive: bool, show_all: bool, resolve: bool) -> None:
         """Show the learning loop — tracked lessons from past sessions.
 
         By default shows only active and improving lessons.
         Use --archive for resolved lessons, --all for everything.
+        Use --resolve to auto-promote improving lessons with enough clean sessions.
         """
         # Mark OS engagement — lessons is a thinking tool
         _log_os_query("lessons", f"status={status}")
+
+        if resolve:
+            try:
+                from divineos.core.knowledge.lessons import auto_resolve_lessons
+
+                resolved_lessons = auto_resolve_lessons()
+                if resolved_lessons:
+                    for r in resolved_lessons:
+                        click.secho(
+                            f"[+] Resolved: {r['category']} ({r['occurrences']}x, "
+                            f"{r.get('regressions', 0)} regressions)",
+                            fg="green",
+                        )
+                else:
+                    click.secho("[~] No lessons ready for resolution.", fg="bright_black")
+            except _KC_ERRORS as e:
+                click.secho(f"[!] Resolution failed: {e}", fg="red")
+            return
 
         if archive:
             lessons = _wrapped_get_lessons(status="resolved")
@@ -498,10 +523,11 @@ def register(cli: click.Group) -> None:
         click.echo()
 
     @cli.command("sis")
-    @click.argument("text")
+    @click.argument("text", required=False, default=None)
     @click.option("--translate/--no-translate", default=True, help="Show translation")
     @click.option("--deep", is_flag=True, help="Use all tiers (norms + TF-IDF + embeddings)")
-    def sis_cmd(text: str, translate: bool, deep: bool) -> None:
+    @click.option("--audit", is_flag=True, help="Audit stored knowledge for integrity drift")
+    def sis_cmd(text: str | None, translate: bool, deep: bool, audit: bool) -> None:
         """Semantic Integrity Shield — assess and translate text.
 
         Scores text on four dimensions (esoteric, speculation, concreteness,
@@ -510,6 +536,24 @@ def register(cli: click.Group) -> None:
         Use --deep to activate Tier 2 (concreteness norms + TF-IDF) and
         Tier 3 (sentence embeddings) for maximum accuracy.
         """
+        if audit:
+            try:
+                from divineos.core.semantic_integrity import (
+                    audit_knowledge_integrity,
+                    format_audit_report,
+                )
+
+                click.secho("[~] Running SIS self-audit...", fg="cyan")
+                audit_result = audit_knowledge_integrity(limit=200)
+                _safe_echo(format_audit_report(audit_result))
+            except _KC_ERRORS as e:
+                click.secho(f"[!] SIS audit error: {e}", fg="red")
+            return
+
+        if not text:
+            click.secho("[!] Provide text to assess, or use --audit.", fg="red")
+            return
+
         try:
             from divineos.core.semantic_integrity import (
                 assess_and_translate,

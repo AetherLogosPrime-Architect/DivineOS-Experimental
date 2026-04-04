@@ -259,6 +259,27 @@ def _obs_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     }
 
 
+def _count_observation_tiers(spectrum: str, lookback: int = 20) -> dict[str, int]:
+    """Count observations per trust tier for a spectrum."""
+    init_compass()
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT source FROM compass_observation WHERE spectrum = ? "
+            "ORDER BY created_at DESC LIMIT ?",
+            (spectrum, lookback),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    counts: dict[str, int] = {}
+    for (source,) in rows:
+        tier = classify_observation_source(source)
+        tier_name = tier.value
+        counts[tier_name] = counts.get(tier_name, 0) + 1
+    return counts
+
+
 # -- Position Calculation ---------------------------------------------
 
 
@@ -449,7 +470,19 @@ def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> s
             )
             lines.append(f"    drift: {arrow} {p.drift_direction} ({p.drift:+.2f})")
 
-        lines.append(f"    ({p.observation_count} observations)")
+        # Show trust tier breakdown for this spectrum
+        tier_counts = _count_observation_tiers(p.spectrum)
+        if tier_counts:
+            tier_parts = []
+            if tier_counts.get("MEASURED", 0):
+                tier_parts.append(f"{tier_counts['MEASURED']} measured")
+            if tier_counts.get("BEHAVIORAL", 0):
+                tier_parts.append(f"{tier_counts['BEHAVIORAL']} behavioral")
+            if tier_counts.get("SELF_REPORTED", 0):
+                tier_parts.append(f"{tier_counts['SELF_REPORTED']} self-reported")
+            lines.append(f"    ({p.observation_count} observations: {', '.join(tier_parts)})")
+        else:
+            lines.append(f"    ({p.observation_count} observations)")
 
     if inactive:
         lines.append("")

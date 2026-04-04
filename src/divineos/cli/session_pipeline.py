@@ -159,7 +159,35 @@ def _run_session_end_pipeline() -> None:
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.warning(f"Knowledge curation failed: {e}")
 
-        # ── Phase 8e: Compass reflection ────────────────────────
+        # ── Phase 8e: Lesson escalation ────────────────────────
+        try:
+            from divineos.core.knowledge.lessons import auto_resolve_lessons
+
+            resolved = auto_resolve_lessons()
+            if resolved:
+                names = ", ".join(r["category"] for r in resolved)
+                click.secho(f"[+] Lessons resolved: {names}", fg="green")
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Lesson escalation failed: {e}")
+
+        # ── Phase 8f: SIS self-audit ��──────────────────────────
+        try:
+            from divineos.core.semantic_integrity import audit_knowledge_integrity
+
+            audit = audit_knowledge_integrity(limit=100)
+            if audit.get("entries_scanned", 0) > 0:
+                tr = len(audit.get("translate_needed", []))
+                qr = len(audit.get("quarantine_needed", []))
+                if tr or qr:
+                    click.secho(
+                        f"[~] SIS audit: {tr} need translation, {qr} need review "
+                        f"(avg integrity {audit['avg_integrity']:.2f})",
+                        fg="yellow" if qr else "cyan",
+                    )
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"SIS self-audit failed: {e}")
+
+        # ── Phase 8g: Compass reflection ────────────────────────
         try:
             from divineos.core.moral_compass import format_compass_brief, reflect_on_session
 

@@ -54,6 +54,7 @@ SLOT_ORDER = [
     "affect",
     "claims",
     "compass",
+    "self_awareness",
     "body",
     "task_state",
     "self_model",
@@ -623,6 +624,48 @@ def _build_body_slot() -> str:
         return ""
 
 
+def _build_self_awareness_slot() -> str:
+    """Self-awareness nudges — things I should be paying attention to.
+
+    Surfaces: escalation candidates (lessons that keep regressing),
+    SIS integrity drift, and compass concerns. Only shows when
+    there's something actionable.
+    """
+    lines: list[str] = []
+
+    # 1. Lesson escalation candidates
+    try:
+        from divineos.core.knowledge.lessons import get_escalation_candidates
+
+        candidates = get_escalation_candidates()
+        if candidates:
+            lines.append("# Self-Awareness Nudges\n")
+            for c in candidates[:3]:
+                lines.append(
+                    f"- ESCALATE '{c['category']}': regressed {c.get('regressions', 0)}x "
+                    f"— consider making this a directive"
+                )
+    except _HUD_ERRORS:
+        pass
+
+    # 2. SIS integrity check (lightweight — just avg score)
+    try:
+        from divineos.core.semantic_integrity import audit_knowledge_integrity
+
+        audit = audit_knowledge_integrity(limit=50)
+        if audit.get("entries_scanned", 0) > 0 and audit.get("avg_integrity", 1.0) < 0.6:
+            if not lines:
+                lines.append("# Self-Awareness Nudges\n")
+            lines.append(
+                f"- Knowledge integrity low ({audit['avg_integrity']:.2f}) "
+                f"— {len(audit.get('quarantine_needed', []))} entries need review"
+            )
+    except _HUD_ERRORS:
+        pass
+
+    return "\n".join(lines) if lines else ""
+
+
 def _build_compass_slot() -> str:
     """Moral compass -- where I stand on virtue spectrums."""
     try:
@@ -658,6 +701,7 @@ SLOT_BUILDERS = {
     "affect": _build_affect_slot,
     "claims": _build_claims_slot,
     "compass": _build_compass_slot,
+    "self_awareness": _build_self_awareness_slot,
     "body": _build_body_slot,
     "self_model": _build_self_model_slot,
 }

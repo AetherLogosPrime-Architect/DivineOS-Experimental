@@ -194,6 +194,27 @@
       "maturity": "RAW",
       "tags": [],
       "type": "PRINCIPLE"
+    },
+    {
+      "content": "Grok stress test (2026-03-26) found 15 fake CONFIRMED entries inflated by access count feedback loops. Access counts should never feed back into confidence or maturity promotion. Confidence comes from corroboration, not popularity.",
+      "confidence": 1.0,
+      "maturity": "CONFIRMED",
+      "tags": ["grok-bootcamp", "architecture"],
+      "type": "OBSERVATION"
+    },
+    {
+      "content": "Promote/demote oscillation happens when confidence floors for demotion do not match confidence ceilings for promotion. Demotion thresholds must mirror promotion floors (0.4/0.5/0.8) to prevent infinite cycling.",
+      "confidence": 1.0,
+      "maturity": "CONFIRMED",
+      "tags": ["grok-bootcamp", "architecture"],
+      "type": "OBSERVATION"
+    },
+    {
+      "content": "External stress testing by a different AI (Grok) is the most effective way to find inflation and feedback loop bugs. The tester brings fresh eyes and does not share the builder's blind spots.",
+      "confidence": 0.9,
+      "maturity": "TESTED",
+      "tags": ["grok-bootcamp", "testing"],
+      "type": "PRINCIPLE"
     }
   ],
   "lessons": [

@@ -301,6 +301,54 @@ def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
         conn.close()
 
 
+def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any]]:
+    """Promote 'improving' lessons to 'resolved' when enough clean sessions pass.
+
+    A lesson that's been 'improving' and hasn't regressed for N sessions
+    is considered learned — promote it to 'resolved'. Structure over willpower
+    means we trust the evidence: if the mistake hasn't recurred, the lesson
+    stuck.
+
+    Returns list of resolved lesson dicts.
+    """
+    conn = _get_connection()
+    resolved: list[dict[str, Any]] = []
+    try:
+        _ensure_regressions_column(conn)
+        rows = conn.execute(
+            "SELECT lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, regressions "
+            "FROM lesson_tracking WHERE status = 'improving'"
+        ).fetchall()
+
+        for row in rows:
+            lesson = _lesson_row_to_dict(row)
+            sessions = json.loads(row[7]) if row[7] else []
+
+            # Count sessions AFTER the lesson was last recorded as a mistake.
+            # The sessions list includes both mistake sessions and clean sessions.
+            # If there are enough sessions after the last occurrence, resolve it.
+            if len(sessions) >= lesson["occurrences"] + clean_session_threshold:
+                conn.execute(
+                    "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? "
+                    "WHERE lesson_id = ?",
+                    (time.time(), lesson["lesson_id"]),
+                )
+                lesson["status"] = "resolved"
+                resolved.append(lesson)
+                logger.info(
+                    "Lesson '%s' RESOLVED: %d clean sessions since last occurrence",
+                    lesson["category"],
+                    len(sessions) - lesson["occurrences"],
+                )
+
+        if resolved:
+            conn.commit()
+        return resolved
+    finally:
+        conn.close()
+
+
 def clear_lessons() -> int:
     """Delete ALL lessons from lesson_tracking. Returns count deleted.
 

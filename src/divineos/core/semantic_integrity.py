@@ -783,3 +783,123 @@ def format_translation(result: dict[str, Any]) -> str:
 
     lines.append(f"  -> {result.get('suggestion', '')}")
     return "\n".join(lines)
+
+
+# ─── Self-Audit ─────────────────────────────────────────────────────
+
+
+def audit_knowledge_integrity(limit: int = 200) -> dict[str, Any]:
+    """Audit stored knowledge for semantic integrity drift.
+
+    Scans active knowledge entries through SIS and reports:
+    - Entries that should be translated (esoteric but useful)
+    - Entries that should be quarantined (too abstract)
+    - Overall integrity score of the knowledge store
+    - Topics that frequently need translation
+
+    Returns an audit report dict.
+    """
+    import sqlite3
+
+    from divineos.core.knowledge._base import _get_connection
+
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT knowledge_id, content, knowledge_type, confidence "
+            "FROM knowledge WHERE superseded_by IS NULL "
+            "ORDER BY confidence DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    except sqlite3.OperationalError:
+        return {"error": "Knowledge table not found", "entries_scanned": 0}
+    finally:
+        conn.close()
+
+    if not rows:
+        return {
+            "entries_scanned": 0,
+            "avg_integrity": 1.0,
+            "translate_needed": [],
+            "quarantine_needed": [],
+            "clean": 0,
+            "topic_drift": {},
+        }
+
+    translate_needed: list[dict[str, Any]] = []
+    quarantine_needed: list[dict[str, Any]] = []
+    clean_count = 0
+    integrity_scores: list[float] = []
+    esoteric_terms_seen: dict[str, int] = {}
+
+    for kid, content, ktype, confidence in rows:
+        report = assess_integrity(content)
+        integrity_scores.append(report.integrity_score)
+
+        entry_info = {
+            "knowledge_id": kid,
+            "content": content[:120],
+            "type": ktype,
+            "confidence": confidence,
+            "integrity": report.integrity_score,
+            "verdict": report.verdict,
+        }
+
+        if report.verdict == "TRANSLATE":
+            translate_needed.append(entry_info)
+            for term in report.terms_found:
+                esoteric_terms_seen[term["term"]] = esoteric_terms_seen.get(term["term"], 0) + 1
+        elif report.verdict == "QUARANTINE":
+            quarantine_needed.append(entry_info)
+        else:
+            clean_count += 1
+
+    # Sort by most common esoteric terms
+    topic_drift = dict(sorted(esoteric_terms_seen.items(), key=lambda x: -x[1])[:10])
+
+    avg_integrity = sum(integrity_scores) / len(integrity_scores) if integrity_scores else 1.0
+
+    return {
+        "entries_scanned": len(rows),
+        "avg_integrity": round(avg_integrity, 3),
+        "translate_needed": translate_needed,
+        "quarantine_needed": quarantine_needed,
+        "clean": clean_count,
+        "topic_drift": topic_drift,
+    }
+
+
+def format_audit_report(audit: dict[str, Any]) -> str:
+    """Format a self-audit report for display."""
+    if audit.get("error"):
+        return f"Audit failed: {audit['error']}"
+
+    lines = [
+        f"SIS Self-Audit ({audit['entries_scanned']} entries scanned)",
+        f"  Avg integrity: {audit['avg_integrity']:.2f}",
+        f"  Clean: {audit['clean']} | Translate: {len(audit['translate_needed'])} | Quarantine: {len(audit['quarantine_needed'])}",
+    ]
+
+    if audit["translate_needed"]:
+        lines.append("\n  Needs translation:")
+        for entry in audit["translate_needed"][:5]:
+            lines.append(
+                f"    [{entry['type']}] {entry['content'][:80]}... "
+                f"(integrity={entry['integrity']:.2f})"
+            )
+        if len(audit["translate_needed"]) > 5:
+            lines.append(f"    ... and {len(audit['translate_needed']) - 5} more")
+
+    if audit["quarantine_needed"]:
+        lines.append("\n  Needs review (quarantine):")
+        for entry in audit["quarantine_needed"][:3]:
+            lines.append(
+                f"    [{entry['type']}] {entry['content'][:80]}... "
+                f"(integrity={entry['integrity']:.2f})"
+            )
+
+    if audit["topic_drift"]:
+        terms_str = ", ".join(f"{t}({c}x)" for t, c in audit["topic_drift"].items())
+        lines.append(f"\n  Recurring esoteric terms: {terms_str}")
+
+    return "\n".join(lines)

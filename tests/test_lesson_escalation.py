@@ -10,6 +10,7 @@ import pytest
 from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.lessons import (
     REGRESSION_ESCALATION_THRESHOLD,
+    auto_resolve_lessons,
     get_escalation_candidates,
     get_lesson_summary,
     get_lessons,
@@ -96,6 +97,70 @@ class TestEscalationCandidates:
         candidates = get_escalation_candidates()
         cats = [c["category"] for c in candidates]
         assert "test_escalate_me" in cats
+
+
+class TestAutoResolve:
+    """Auto-promote improving lessons to resolved after enough clean sessions."""
+
+    def test_no_improving_returns_empty(self):
+        resolved = auto_resolve_lessons()
+        assert resolved == []
+
+    def test_improving_not_enough_sessions_stays(self):
+        """Improving lesson without enough clean sessions stays improving."""
+        record_lesson("test_stay_improving", "desc", "s1")
+        record_lesson("test_stay_improving", "desc", "s2")
+        record_lesson("test_stay_improving", "desc", "s3")
+        mark_lesson_improving("test_stay_improving", "s4")
+
+        resolved = auto_resolve_lessons()
+        assert resolved == []
+
+        lessons = get_lessons(status="improving")
+        cats = [lesson["category"] for lesson in lessons]
+        assert "test_stay_improving" in cats
+
+    def test_improving_enough_sessions_resolves(self):
+        """Improving lesson with enough clean sessions gets resolved."""
+        import json
+
+        from divineos.core.knowledge._base import _get_connection
+
+        record_lesson("test_auto_resolve", "desc", "s1")
+        record_lesson("test_auto_resolve", "desc", "s2")
+        record_lesson("test_auto_resolve", "desc", "s3")
+        mark_lesson_improving("test_auto_resolve", "s4")
+
+        # Add enough sessions to meet threshold (3 occurrences + 5 clean = 8 total)
+        conn = _get_connection()
+        try:
+            row = conn.execute(
+                "SELECT sessions FROM lesson_tracking WHERE category = 'test_auto_resolve'"
+            ).fetchone()
+            sessions = json.loads(row[0])
+            for i in range(5, 10):
+                sessions.append(f"s{i}")
+            conn.execute(
+                "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_auto_resolve'",
+                (json.dumps(sessions),),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        resolved = auto_resolve_lessons()
+        assert len(resolved) == 1
+        assert resolved[0]["category"] == "test_auto_resolve"
+
+        db_lessons = get_lessons(status="resolved")
+        cats = [lesson["category"] for lesson in db_lessons]
+        assert "test_auto_resolve" in cats
+
+    def test_active_not_resolved(self):
+        """Active lessons are never auto-resolved."""
+        record_lesson("test_active_no_resolve", "desc", "s1")
+        resolved = auto_resolve_lessons()
+        assert resolved == []
 
 
 class TestLessonSummaryWithRegressions:

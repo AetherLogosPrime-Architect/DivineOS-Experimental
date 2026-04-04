@@ -334,31 +334,6 @@ def register(cli: click.Group) -> None:
         )
 
 
-def _affect_region(valence: float, arousal: float) -> str:
-    """Map valence+arousal to a descriptive region name."""
-    if valence > 0.3:
-        if arousal > 0.6:
-            return "engaged-resonant"
-        elif arousal > 0.3:
-            return "content-flowing"
-        else:
-            return "calm-satisfied"
-    elif valence < -0.3:
-        if arousal > 0.6:
-            return "activated-dissonant"
-        elif arousal > 0.3:
-            return "uneasy-friction"
-        else:
-            return "flat-dissonant"
-    else:
-        if arousal > 0.6:
-            return "alert-neutral"
-        elif arousal > 0.3:
-            return "processing"
-        else:
-            return "idle"
-
-
 def _valence_bar(valence: float) -> str:
     """Tiny visual bar for valence."""
     if valence > 0.3:
