@@ -14,10 +14,13 @@ Three components:
 3. DRIVERS: Why this focus? (what shifted attention — user request, lesson trigger, pattern match)
 """
 
+import sqlite3
 import time
 from typing import Any
 
 from loguru import logger
+
+_AS_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 # ─── Attention State ────────────────────────────────────────────────
@@ -60,7 +63,7 @@ def _get_current_focus() -> list[dict[str, Any]]:
                     "reason": item.get("reason", "auto-promoted"),
                 }
             )
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention focus (active memory) failed: %s", e)
 
     # Current goals — where effort is directed
@@ -83,7 +86,7 @@ def _get_current_focus() -> list[dict[str, Any]]:
                         "reason": "user-set goal",
                     }
                 )
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention focus (goals) failed: %s", e)
 
     # Recent events — what just happened shapes what I attend to next
@@ -110,7 +113,7 @@ def _get_current_focus() -> list[dict[str, Any]]:
                 )
         finally:
             conn.close()
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention focus (recent events) failed: %s", e)
 
     return focus_items
@@ -190,7 +193,7 @@ def _get_suppressed() -> list[dict[str, Any]]:
                 )
         finally:
             conn.close()
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention suppressed items failed: %s", e)
 
     return suppressed
@@ -218,7 +221,7 @@ def _get_attention_drivers() -> list[dict[str, Any]]:
                     "strength": min(lesson.get("occurrences", 1) / 10.0, 1.0),
                 }
             )
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention drivers (lessons) failed: %s", e)
 
     # Pattern warnings — anticipated problems shift attention
@@ -243,16 +246,16 @@ def _get_attention_drivers() -> list[dict[str, Any]]:
                         "strength": row[1],
                     }
                 )
-        except Exception:
+        except _AS_ERRORS:
             pass  # pattern_store may not exist yet
         finally:
             conn.close()
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention drivers (patterns) failed: %s", e)
 
     # Affect state — emotional state influences attention
     try:
-        from divineos.core.affect_feedback import get_session_affect_context
+        from divineos.core.affect import get_session_affect_context
 
         ctx = get_session_affect_context()
         modifiers = ctx.get("modifiers", {})
@@ -275,7 +278,7 @@ def _get_attention_drivers() -> list[dict[str, Any]]:
                     "strength": valence,
                 }
             )
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention drivers (affect) failed: %s", e)
 
     # Directives — permanent attention anchors
@@ -292,7 +295,7 @@ def _get_attention_drivers() -> list[dict[str, Any]]:
                     "strength": 1.0,
                 }
             )
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention drivers (directives) failed: %s", e)
 
     return drivers
@@ -336,7 +339,7 @@ def predict_attention_shift(
                         "confidence": profile["confidence"] * 0.6,
                     }
                 )
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention prediction (session profile) failed: %s", e)
 
     # From active lessons — unresolved lessons pull attention
@@ -378,7 +381,7 @@ def predict_attention_shift(
                 )
         finally:
             conn.close()
-    except Exception as e:
+    except _AS_ERRORS as e:
         logger.debug("Attention prediction (rising) failed: %s", e)
 
     predictions.sort(key=lambda p: -p["confidence"])

@@ -18,9 +18,12 @@ Four epistemic channels:
 4. INHERITED: This came from seed data (no session evidence)
 """
 
+import sqlite3
 from typing import Any
 
 from loguru import logger
+
+_ES_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
 # ─── Epistemic Report ─────────────────���────────────────────────────
@@ -46,14 +49,14 @@ def build_epistemic_report() -> dict[str, Any]:
         from divineos.core.knowledge import get_knowledge
 
         all_knowledge = get_knowledge(limit=10000)
-    except Exception as e:
+    except _ES_ERRORS as e:
         logger.debug("Epistemic report failed to get knowledge: %s", e)
         return report
 
     # Get warrants for each entry
     try:
         from divineos.core.logic.warrants import get_warrants
-    except Exception as e:
+    except _ES_ERRORS as e:
         logger.debug("Epistemic report failed to import warrants: %s", e)
         # Fall back to source field
         return _build_from_source_field(all_knowledge)
@@ -66,7 +69,7 @@ def build_epistemic_report() -> dict[str, Any]:
         warrants = []
         try:
             warrants = get_warrants(kid, status="ACTIVE")
-        except Exception:
+        except _ES_ERRORS:
             pass
 
         item = {
@@ -225,7 +228,7 @@ def assess_epistemic_confidence(knowledge_id: str) -> dict[str, Any]:
             "maturity": entry.get("maturity", "RAW"),
             "combined_confidence": entry.get("confidence", 0.5) * grounding,
         }
-    except Exception as e:
+    except _ES_ERRORS as e:
         logger.debug("Epistemic confidence assessment failed: %s", e)
         return {"error": str(e)}
 
