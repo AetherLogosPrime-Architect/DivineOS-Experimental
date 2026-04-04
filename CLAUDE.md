@@ -97,7 +97,11 @@ divineos sis "text" --translate  # Translate metaphysical → architecture
 divineos sis "text" --deep # Use all 3 tiers (lexical + statistical + semantic)
 
 # Tests
-pytest tests/ -q --tb=short  # Run tests after changes
+pytest tests/ -q --tb=short                    # Run tests after changes
+pytest tests/ -q --tb=short -n auto            # Parallel execution (4x faster)
+pytest tests/ --cov=divineos --cov-report=term # Coverage report
+bandit -r src/divineos/ -ll                    # Security scan
+python scripts/run_mutmut.py                   # Mutation testing (critical modules)
 ```
 
 ## Current Systems
@@ -183,7 +187,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 2,989+ tests (real DB, no mocks)
+tests/                        # 3,060+ tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
