@@ -398,6 +398,30 @@ def register(cli: click.Group) -> None:
             click.secho(f"\n  Migrated {len(changes)} entries.", fg="green", bold=True)
         click.echo()
 
+    @cli.command("reclassify-directions")
+    def reclassify_directions_cmd() -> None:
+        """Reclassify DIRECTION entries into PREFERENCE/INSTRUCTION/DIRECTION.
+
+        Uses content analysis to split the overloaded DIRECTION type:
+        - PREFERENCE: style/approach choices ("use X", "prefer Y")
+        - INSTRUCTION: operational rules ("always X", "never Y")
+        - DIRECTION: general guidance (everything else)
+        """
+        init_knowledge_table()
+        from divineos.core.knowledge.migration import reclassify_directions
+
+        counts = reclassify_directions()
+        total = counts["preference"] + counts["instruction"]
+        if total == 0:
+            click.secho("[~] No DIRECTION entries needed reclassification.", fg="bright_black")
+        else:
+            click.secho(f"[+] Reclassified {total} entries:", fg="green")
+            if counts["preference"]:
+                click.secho(f"    {counts['preference']} -> PREFERENCE", fg="cyan")
+            if counts["instruction"]:
+                click.secho(f"    {counts['instruction']} -> INSTRUCTION", fg="yellow")
+            click.secho(f"    {counts['unchanged']} unchanged (still DIRECTION)", fg="bright_black")
+
     @cli.command("seed-export")
     @click.option("--output", "-o", default=None, help="Output file path (default: stdout)")
     def seed_export_cmd(output: str | None) -> None:

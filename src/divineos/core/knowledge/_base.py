@@ -21,9 +21,12 @@ KNOWLEDGE_TYPES = {
     "EPISODE",
     # Sutra-style chained directives — high confidence, surface first in briefings
     "DIRECTIVE",
+    # User style/approach preferences ("use X", "prefer Y", "I like Z")
+    "PREFERENCE",
+    # User operational instructions ("always X", "never Y", "before X do Y")
+    "INSTRUCTION",
     # Legacy types (still accepted, new code should not create these)
     "PATTERN",
-    "PREFERENCE",
     "MISTAKE",
 }
 

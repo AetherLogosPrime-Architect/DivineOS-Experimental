@@ -1381,8 +1381,9 @@ class TestExpandedTypes:
             "OBSERVATION",
             "EPISODE",
             "DIRECTIVE",
-            "PATTERN",
             "PREFERENCE",
+            "INSTRUCTION",
+            "PATTERN",
             "MISTAKE",
         }
         assert KNOWLEDGE_TYPES == expected

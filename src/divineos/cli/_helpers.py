@@ -106,7 +106,9 @@ def _auto_classify(content: str) -> tuple[str, str]:
             "PROCEDURE",
             "process/how-to language",
         ),
-        (r"\b(use |prefer |default to |keep |avoid )\b", "DIRECTION", "preference language"),
+        (r"\b(prefer |default to |style |convention )\b", "PREFERENCE", "style/approach language"),
+        (r"\b(always |never |make sure |remember to )\b", "INSTRUCTION", "operational rule"),
+        (r"\b(use |keep |avoid )\b", "DIRECTION", "guidance language"),
         (
             r"\b(is located|version |database |path |file |count |total )\b",
             "FACT",

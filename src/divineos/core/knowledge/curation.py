@@ -15,6 +15,7 @@ Curation runs at SESSION_END after knowledge extraction. It:
 4. Cleans up raw text (removes Python reprs, truncates conversation dumps)
 """
 
+import json
 import re
 import sqlite3
 import time
@@ -244,13 +245,34 @@ def assign_layer(entry: dict[str, Any]) -> str:
     if ktype == "OBSERVATION" and age_days > 14 and access < 3:
         return "archive"
 
+    # Archive: encouragement scaffolding older than 7 days.
+    # The signal has been captured via corroboration on related entries.
+    tags = entry.get("tags", [])
+    if isinstance(tags, str):
+        try:
+            tags = json.loads(tags)
+        except (json.JSONDecodeError, ValueError):
+            tags = []
+    if "encouragement" in tags and age_days > 7:
+        return "archive"
+
+    # Corrections reinforced across 3+ sessions → stable (lesson is learned)
+    if (
+        source == "CORRECTED"
+        and entry.get("corroboration_count", 0) >= 3
+        and age_days > 3
+        and ktype in ("PRINCIPLE", "BOUNDARY")
+    ):
+        return "stable"
+
     # Stable: well-established knowledge
+    stable_types = ("PRINCIPLE", "BOUNDARY", "DIRECTION", "PROCEDURE", "PREFERENCE", "INSTRUCTION")
     if (
         confidence >= 0.9
         and access >= 15
         and maturity in ("CONFIRMED", "TESTED")
         and age_days > 7
-        and ktype in ("PRINCIPLE", "BOUNDARY", "DIRECTION", "PROCEDURE")
+        and ktype in stable_types
     ):
         return "stable"
 
@@ -318,7 +340,7 @@ def run_curation() -> dict[str, Any]:
         rows = conn.execute(
             "SELECT knowledge_id, created_at, updated_at, knowledge_type, content, "
             "confidence, access_count, superseded_by, source, maturity, "
-            "corroboration_count, layer "
+            "corroboration_count, layer, tags "
             "FROM knowledge WHERE superseded_by IS NULL"
         ).fetchall()
 
@@ -336,6 +358,7 @@ def run_curation() -> dict[str, Any]:
                 "maturity": row[9],
                 "corroboration_count": row[10],
                 "layer": row[11] if len(row) > 11 else "active",
+                "tags": row[12] if len(row) > 12 else "[]",
             }
 
             # Auto-archive raw transcript noise before layer assignment
