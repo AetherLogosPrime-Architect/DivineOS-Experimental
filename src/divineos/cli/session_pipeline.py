@@ -198,6 +198,35 @@ def _run_session_end_pipeline() -> None:
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"Compass reflection failed: {e}")
 
+        # ── Phase 8h: Self-critique ─────────────────────────────
+        try:
+            from divineos.core.self_critique import assess_session_craft
+
+            craft = assess_session_craft(analysis.session_id)
+            if craft and craft.scores:
+                low = [name for name, score in craft.scores.items() if score < 0.4]
+                if low:
+                    click.secho(f"[~] Self-critique: low on {', '.join(low)}", fg="yellow")
+                else:
+                    click.secho(f"[~] Self-critique: avg craft {craft.overall:.0%}", fg="cyan")
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Self-critique failed: {e}")
+
+        # ── Phase 8i: User model signals ────────────────────────
+        try:
+            from divineos.core.user_model import record_signal
+
+            corrections = len(analysis.corrections)
+            encouragements = len(analysis.encouragements)
+            if corrections > 0:
+                record_signal("correction_given", f"{corrections} corrections this session")
+            if encouragements > 0:
+                record_signal(
+                    "encouragement_given", f"{encouragements} encouragements this session"
+                )
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"User model signal recording failed: {e}")
+
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)
 

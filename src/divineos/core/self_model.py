@@ -44,16 +44,35 @@ def build_self_model() -> dict[str, Any]:
     """Assemble the unified self-model from all OS systems.
 
     Each section is computed from evidence, not self-reported.
+    Tracks completeness so I know when my self-picture is partial.
     """
-    model: dict[str, Any] = {
-        "identity": _get_identity(),
-        "strengths": _get_strengths(),
-        "weaknesses": _get_weaknesses(),
-        "emotional_baseline": _get_emotional_baseline(),
-        "active_concerns": _get_active_concerns(),
-        "growth_trajectory": _get_growth_trajectory(),
-        "attention": _get_attention_summary(),
-        "epistemic_balance": _get_epistemic_balance(),
+    sections = {
+        "identity": _get_identity,
+        "strengths": _get_strengths,
+        "weaknesses": _get_weaknesses,
+        "emotional_baseline": _get_emotional_baseline,
+        "active_concerns": _get_active_concerns,
+        "growth_trajectory": _get_growth_trajectory,
+        "attention": _get_attention_summary,
+        "epistemic_balance": _get_epistemic_balance,
+    }
+
+    model: dict[str, Any] = {}
+    sources_failed: list[str] = []
+
+    for name, builder in sections.items():
+        try:
+            model[name] = builder()
+        except _SELF_MODEL_ERRORS as e:
+            sources_failed.append(name)
+            model[name] = {}
+            logger.debug("Self-model section '%s' failed: %s", name, e)
+
+    model["completeness"] = {
+        "total": len(sections),
+        "succeeded": len(sections) - len(sources_failed),
+        "failed": sources_failed,
+        "complete": len(sources_failed) == 0,
     }
 
     return model
@@ -273,9 +292,11 @@ def format_self_model(model: dict[str, Any]) -> str:
     if emo.get("praise_chasing"):
         detail = emo.get("praise_detail", "")
         if detail:
-            lines.append(f"  ⚠ Praise-chasing detected: {detail}")
+            lines.append(f"  I notice I may be praise-chasing: {detail}")
         else:
-            lines.append("  ⚠ Praise-chasing detected — verify quality before celebrating")
+            lines.append(
+                "  I notice I may be praise-chasing — I should verify quality before celebrating"
+            )
 
     # Active concerns
     concerns = model.get("active_concerns", [])
@@ -308,11 +329,21 @@ def format_self_model(model: dict[str, Any]) -> str:
         )
         unwt = epistemic.get("unwarranted", 0)
         if unwt > 0:
-            lines.append(f"  Warning: {unwt} entries lack epistemic justification")
+            lines.append(f"  I hold {unwt} beliefs without clear epistemic justification")
 
     # Growth
     growth = model.get("growth_trajectory", {})
     lines.append("\n# Growth")
     lines.append(f"  Trajectory: {growth.get('quality_trend', 'unknown')}")
+
+    # Completeness — do I know my own blind spots?
+    completeness = model.get("completeness", {})
+    if completeness and not completeness.get("complete", True):
+        failed = completeness.get("failed", [])
+        total = completeness.get("total", 0)
+        succeeded = completeness.get("succeeded", 0)
+        lines.append(f"\n# Self-Model Completeness: {succeeded}/{total}")
+        lines.append(f"  I'm missing: {', '.join(failed)}")
+        lines.append("  My self-picture is partial — decisions may lack context.")
 
     return "\n".join(lines)

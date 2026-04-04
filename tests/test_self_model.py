@@ -143,4 +143,4 @@ class TestFormatSelfModel:
             "growth_trajectory": {"quality_trend": "stable", "detail": "OK"},
         }
         output = format_self_model(model)
-        assert "Praise-chasing" in output
+        assert "praise-chasing" in output
