@@ -144,10 +144,12 @@ def register(cli: click.Group) -> None:
             _safe_echo(entry["content"])
             if entry["tags"]:
                 click.secho(f"         tags: {', '.join(entry['tags'])}", fg="bright_black")
-            click.secho(
-                f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
-                fg="bright_black",
-            )
+            meta_parts = [f"{entry['access_count']}x accessed", f"{entry['knowledge_id'][:8]}..."]
+            if entry.get("source_entity"):
+                meta_parts.insert(0, f"from: {entry['source_entity']}")
+            if entry.get("related_to"):
+                meta_parts.append(f"related: {entry['related_to'][:20]}")
+            click.secho(f"         {' | '.join(meta_parts)}", fg="bright_black")
             click.echo()
 
     @cli.command("ask")
@@ -247,10 +249,12 @@ def register(cli: click.Group) -> None:
                 _safe_echo(content[:300] + "...")
             else:
                 _safe_echo(content)
-            click.secho(
-                f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
-                fg="bright_black",
-            )
+            meta_parts = [f"{entry['access_count']}x accessed", f"{entry['knowledge_id'][:8]}..."]
+            if entry.get("source_entity"):
+                meta_parts.insert(0, f"from: {entry['source_entity']}")
+            if entry.get("related_to"):
+                meta_parts.append(f"related: {entry['related_to'][:20]}")
+            click.secho(f"         {' | '.join(meta_parts)}", fg="bright_black")
             # Show relationships if any
             try:
                 from divineos.core.knowledge.relationships import get_relationships

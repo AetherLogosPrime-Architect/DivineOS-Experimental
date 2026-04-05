@@ -38,13 +38,15 @@ KNOWLEDGE_MATURITY = {"RAW", "HYPOTHESIS", "TESTED", "CONFIRMED", "REVISED"}
 _KNOWLEDGE_COLS = (
     "knowledge_id, created_at, updated_at, knowledge_type, content, "
     "confidence, source_events, tags, access_count, superseded_by, content_hash, "
-    "source, maturity, corroboration_count, contradiction_count"
+    "source, maturity, corroboration_count, contradiction_count, "
+    "valid_from, valid_until, layer, source_entity, related_to"
 )
 
 _KNOWLEDGE_COLS_K = (
     "k.knowledge_id, k.created_at, k.updated_at, k.knowledge_type, k.content, "
     "k.confidence, k.source_events, k.tags, k.access_count, k.superseded_by, k.content_hash, "
-    "k.source, k.maturity, k.corroboration_count, k.contradiction_count"
+    "k.source, k.maturity, k.corroboration_count, k.contradiction_count, "
+    "k.valid_from, k.valid_until, k.layer, k.source_entity, k.related_to"
 )
 
 
@@ -231,6 +233,13 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         d["maturity"] = "RAW"
         d["corroboration_count"] = 0
         d["contradiction_count"] = 0
+    # Provenance columns (source_entity at 18, related_to at 19)
+    if len(row) > 18:
+        d["source_entity"] = row[18]
+        d["related_to"] = row[19] if len(row) > 19 else None
+    else:
+        d["source_entity"] = None
+        d["related_to"] = None
     return d
 
 

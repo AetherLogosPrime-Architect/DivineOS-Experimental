@@ -296,10 +296,11 @@ def _build_active_knowledge_slot() -> str:
 
     for item in active[:8]:
         pin = " [pinned]" if item.get("pinned") else ""
+        entity = f" [{item['source_entity']}]" if item.get("source_entity") else ""
         content = item["content"].replace("\n", " ")
         if len(content) > 120:
             content = content[:117] + "..."
-        lines.append(f"- [{item['importance']:.2f}] {content}{pin}")
+        lines.append(f"- [{item['importance']:.2f}]{entity} {content}{pin}")
 
     if len(active) > 8:
         lines.append(f"  ...and {len(active) - 8} more in active memory")
