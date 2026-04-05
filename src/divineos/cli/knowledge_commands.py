@@ -44,6 +44,17 @@ def register(cli: click.Group) -> None:
     @click.option("--confidence", default=1.0, type=float, help="Confidence 0.0-1.0")
     @click.option("--tags", default="", help="Comma-separated tags")
     @click.option("--source", default="", help="Comma-separated source event IDs")
+    @click.option(
+        "--from",
+        "source_entity",
+        default=None,
+        help="Who generated this finding (e.g., 'claude_auditor', 'aether_council')",
+    )
+    @click.option(
+        "--related",
+        default="",
+        help="Comma-separated knowledge IDs this entry relates to",
+    )
     def learn(
         text: str | None,
         knowledge_type: str | None,
@@ -51,12 +62,15 @@ def register(cli: click.Group) -> None:
         confidence: float,
         tags: str,
         source: str,
+        source_entity: str | None,
+        related: str,
     ) -> None:
         """Store a piece of knowledge extracted from experience.
 
         Content can be passed as a positional argument or via --content.
         Type is auto-detected from content if --type is omitted.
         Example: divineos learn "always read files before editing"
+        Example: divineos learn --type FACT --from claude_auditor "signal extraction is self-referential"
         """
         content = (text or content_opt or "").strip()
         if not content:
@@ -76,6 +90,9 @@ def register(cli: click.Group) -> None:
             click.secho(f"[~] Auto-classified as: {knowledge_type} ({classify_reason})", fg="cyan")
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
         source_list = [s.strip() for s in source.split(",") if s.strip()] if source else []
+        related_to = (
+            ",".join(r.strip() for r in related.split(",") if r.strip()) if related else None
+        )
 
         kid = _wrapped_store_knowledge(
             knowledge_type=knowledge_type.upper(),
@@ -83,8 +100,14 @@ def register(cli: click.Group) -> None:
             confidence=confidence,
             source_events=source_list or None,
             tags=tag_list or None,
+            source_entity=source_entity,
+            related_to=related_to,
         )
         click.secho(f"[+] Stored knowledge: {kid}", fg="green")
+        if source_entity:
+            click.secho(f"    from: {source_entity}", fg="bright_black")
+        if related_to:
+            click.secho(f"    related to: {related_to}", fg="bright_black")
 
     @cli.command("knowledge")
     @click.option(
@@ -126,10 +149,12 @@ def register(cli: click.Group) -> None:
             _safe_echo(entry["content"])
             if entry["tags"]:
                 click.secho(f"         tags: {', '.join(entry['tags'])}", fg="bright_black")
-            click.secho(
-                f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
-                fg="bright_black",
-            )
+            meta_parts = [f"{entry['access_count']}x accessed", f"{entry['knowledge_id'][:8]}..."]
+            if entry.get("source_entity"):
+                meta_parts.insert(0, f"from: {entry['source_entity']}")
+            if entry.get("related_to"):
+                meta_parts.append(f"related: {entry['related_to'][:20]}")
+            click.secho(f"         {' | '.join(meta_parts)}", fg="bright_black")
             click.echo()
 
     @cli.command("ask")
@@ -229,10 +254,12 @@ def register(cli: click.Group) -> None:
                 _safe_echo(content[:300] + "...")
             else:
                 _safe_echo(content)
-            click.secho(
-                f"         {entry['access_count']}x accessed | {entry['knowledge_id'][:8]}...",
-                fg="bright_black",
-            )
+            meta_parts = [f"{entry['access_count']}x accessed", f"{entry['knowledge_id'][:8]}..."]
+            if entry.get("source_entity"):
+                meta_parts.insert(0, f"from: {entry['source_entity']}")
+            if entry.get("related_to"):
+                meta_parts.append(f"related: {entry['related_to'][:20]}")
+            click.secho(f"         {' | '.join(meta_parts)}", fg="bright_black")
             # Show relationships if any
             try:
                 from divineos.core.knowledge.relationships import get_relationships
