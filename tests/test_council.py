@@ -13,6 +13,7 @@ from divineos.core.council.framework import (
 )
 from divineos.core.council.engine import CouncilEngine, CouncilResult
 from divineos.core.council.experts.feynman import create_feynman_wisdom
+from divineos.core.council.experts.hinton import create_hinton_wisdom
 from divineos.core.council.experts.holmes import create_holmes_wisdom
 from divineos.core.council.experts.pearl import create_pearl_wisdom
 
@@ -36,6 +37,11 @@ def pearl():
 
 
 @pytest.fixture
+def hinton():
+    return create_hinton_wisdom()
+
+
+@pytest.fixture
 def engine(feynman):
     e = CouncilEngine()
     e.register(feynman)
@@ -43,12 +49,13 @@ def engine(feynman):
 
 
 @pytest.fixture
-def full_council(feynman, holmes, pearl):
-    """Engine with all three experts registered."""
+def full_council(feynman, holmes, pearl, hinton):
+    """Engine with all four experts registered."""
     e = CouncilEngine()
     e.register(feynman)
     e.register(holmes)
     e.register(pearl)
+    e.register(hinton)
     return e
 
 
@@ -603,31 +610,33 @@ class TestPearlAnalysis:
         assert "Pearl" in result.synthesis
 
 
-# ── Full council tests (all three experts) ─────────────────────────
+# ── Full council tests (all four experts) ──────────────────────────
 
 
 class TestFullCouncil:
-    def test_all_three_registered(self, full_council):
+    def test_all_four_registered(self, full_council):
         names = full_council.list_experts()
         assert "Feynman" in names
         assert "Holmes" in names
         assert "Pearl" in names
+        assert "Hinton" in names
 
-    def test_convene_all_three(self, full_council):
+    def test_convene_all_four(self, full_council):
         result = full_council.convene("Should we trust this complex theory?")
-        assert len(result.analyses) == 3
+        assert len(result.analyses) == 4
 
     def test_synthesis_mentions_all_experts(self, full_council):
         result = full_council.convene("Is this claim valid?")
         assert "Feynman" in result.synthesis
         assert "Holmes" in result.synthesis
         assert "Pearl" in result.synthesis
+        assert "Hinton" in result.synthesis
 
     def test_each_expert_has_different_methodology(self, full_council):
         result = full_council.convene("Analyze this problem")
         methodologies = {a.methodology_applied for a in result.analyses}
         # Each expert should pick a different methodology
-        assert len(methodologies) == 3
+        assert len(methodologies) == 4
 
     def test_filter_by_tag_physics(self, full_council):
         result = full_council.convene("test", tags=["physics"])
@@ -643,6 +652,11 @@ class TestFullCouncil:
         result = full_council.convene("test", tags=["causality"])
         assert len(result.analyses) == 1
         assert result.analyses[0].expert_name == "Pearl"
+
+    def test_filter_by_tag_learning(self, full_council):
+        result = full_council.convene("test", tags=["learning"])
+        assert len(result.analyses) == 1
+        assert result.analyses[0].expert_name == "Hinton"
 
     def test_convene_specific_pair(self, full_council):
         result = full_council.convene(
@@ -673,6 +687,108 @@ class TestFullCouncil:
         holmes = full_council.get_expert("Holmes")
         feynman = full_council.get_expert("Feynman")
         pearl = full_council.get_expert("Pearl")
+        hinton = full_council.get_expert("Hinton")
         assert holmes is not None and holmes.is_fictional is True
         assert feynman is not None and feynman.is_fictional is False
         assert pearl is not None and pearl.is_fictional is False
+        assert hinton is not None and hinton.is_fictional is False
+
+
+# ── Hinton content tests ───────────────────────────────────────────
+
+
+class TestHintonContent:
+    def test_passes_validation(self, hinton):
+        issues = validate_expert(hinton)
+        assert issues == [], f"Hinton has validation issues: {issues}"
+
+    def test_not_fictional(self, hinton):
+        assert hinton.is_fictional is False
+
+    def test_has_three_methodologies(self, hinton):
+        assert len(hinton.core_methodologies) == 3
+
+    def test_representation_first_is_primary(self, hinton):
+        assert "Representation" in hinton.core_methodologies[0].name
+
+    def test_has_five_insights(self, hinton):
+        assert len(hinton.key_insights) == 5
+
+    def test_representation_is_everything_insight(self, hinton):
+        titles = [i.title for i in hinton.key_insights]
+        assert "Representation Is Everything" in titles
+
+    def test_told_vs_learned_insight(self, hinton):
+        titles = [i.title for i in hinton.key_insights]
+        assert "Told Knowledge Doesn't Generalize" in titles
+
+    def test_courage_to_reverse_insight(self, hinton):
+        titles = [i.title for i in hinton.key_insights]
+        assert "The Courage to Reverse" in titles
+
+    def test_has_three_reasoning_patterns(self, hinton):
+        assert len(hinton.reasoning_patterns) == 3
+
+    def test_has_three_heuristics(self, hinton):
+        assert len(hinton.problem_solving_heuristics) == 3
+
+    def test_has_four_concern_triggers(self, hinton):
+        assert len(hinton.concern_triggers) == 4
+
+    def test_told_masquerading_as_learned_is_critical(self, hinton):
+        for t in hinton.concern_triggers:
+            if t.name == "Told Masquerading as Learned":
+                assert t.severity == "critical"
+                return
+        pytest.fail("Told Masquerading as Learned trigger not found")
+
+    def test_has_two_integration_patterns(self, hinton):
+        assert len(hinton.integration_patterns) == 2
+
+    def test_domain_set(self, hinton):
+        assert "learning" in hinton.domain
+
+    def test_has_tags(self, hinton):
+        assert "learning" in hinton.tags
+        assert "representation" in hinton.tags
+
+    def test_learned_vs_told_is_top_criterion(self, hinton):
+        assert hinton.decision_framework.criteria["learned_vs_told_ratio"] == 1.0
+
+    def test_characteristic_questions(self, hinton):
+        assert len(hinton.characteristic_questions) >= 5
+        questions_text = " ".join(hinton.characteristic_questions).lower()
+        assert "learned" in questions_text or "injected" in questions_text
+
+
+# ── Hinton analysis tests ──────────────────────────────────────────
+
+
+class TestHintonAnalysis:
+    @pytest.fixture
+    def hinton_engine(self, hinton):
+        e = CouncilEngine()
+        e.register(hinton)
+        return e
+
+    def test_analyze_learning_problem(self, hinton_engine):
+        result = hinton_engine.analyze(
+            "The system stores knowledge but doesn't learn from experience",
+            "Hinton",
+        )
+        assert result is not None
+        assert result.expert_name == "Hinton"
+
+    def test_detects_representation_concern(self, hinton_engine):
+        result = hinton_engine.analyze(
+            "We keep adding complexity to compensate for bad representation",
+            "Hinton",
+        )
+        assert result is not None
+        # Should pick up bad representation concern
+        assert len(result.concerns) >= 1 or result.core_principle
+
+    def test_synthesis_contains_hinton(self, hinton_engine):
+        result = hinton_engine.analyze("test", "Hinton")
+        assert result is not None
+        assert "Hinton" in result.synthesis
