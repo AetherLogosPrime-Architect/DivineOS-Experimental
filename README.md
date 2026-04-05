@@ -372,8 +372,22 @@ src/divineos/
     advice_tracking.py         Long-term feedback loops on recommendation quality
     self_critique.py           Craft quality self-assessment (5 spectrums)
     proactive_patterns.py      Prescriptive recommendations from positive experience
+    session_affect.py          Auto-derive session affect from analysis
     affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
+    external_validation.py     Self-grade accuracy tracking vs user feedback
+    knowledge_impact.py        Causal chain: briefing knowledge -> fewer corrections
+    dead_architecture_alarm.py Dormant module detection (zero-row tables, empty HUD slots)
+    council/                   Expert Council (MoE thinking lenses)
+      engine.py                Council convene, filter, synthesize
+      framework.py             ExpertWisdom dataclass, analysis types
+      experts/                 Six permanent experts
+        feynman.py             First principles, explanation depth
+        holmes.py              Evidence-based deduction, anomalies
+        pearl.py               Causal reasoning, counterfactuals
+        hinton.py              Architecture patterns, representation
+        yudkowsky.py           Alignment, Goodhart, self-modification risks
+        turing.py              Distinguishability, testability, substrate fairness
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -446,7 +460,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,111+ tests (real DB, no mocks)
+tests/                         3,345+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
