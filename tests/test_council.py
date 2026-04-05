@@ -16,6 +16,8 @@ from divineos.core.council.experts.feynman import create_feynman_wisdom
 from divineos.core.council.experts.hinton import create_hinton_wisdom
 from divineos.core.council.experts.holmes import create_holmes_wisdom
 from divineos.core.council.experts.pearl import create_pearl_wisdom
+from divineos.core.council.experts.turing import create_turing_wisdom
+from divineos.core.council.experts.yudkowsky import create_yudkowsky_wisdom
 
 
 # ── Fixtures ────────────────────────────────────────────────────────
@@ -42,6 +44,16 @@ def hinton():
 
 
 @pytest.fixture
+def yudkowsky():
+    return create_yudkowsky_wisdom()
+
+
+@pytest.fixture
+def turing():
+    return create_turing_wisdom()
+
+
+@pytest.fixture
 def engine(feynman):
     e = CouncilEngine()
     e.register(feynman)
@@ -49,13 +61,15 @@ def engine(feynman):
 
 
 @pytest.fixture
-def full_council(feynman, holmes, pearl, hinton):
-    """Engine with all four experts registered."""
+def full_council(feynman, holmes, pearl, hinton, yudkowsky, turing):
+    """Engine with all six experts registered."""
     e = CouncilEngine()
     e.register(feynman)
     e.register(holmes)
     e.register(pearl)
     e.register(hinton)
+    e.register(yudkowsky)
+    e.register(turing)
     return e
 
 
@@ -614,16 +628,18 @@ class TestPearlAnalysis:
 
 
 class TestFullCouncil:
-    def test_all_four_registered(self, full_council):
+    def test_all_six_registered(self, full_council):
         names = full_council.list_experts()
         assert "Feynman" in names
         assert "Holmes" in names
         assert "Pearl" in names
         assert "Hinton" in names
+        assert "Yudkowsky" in names
+        assert "Turing" in names
 
-    def test_convene_all_four(self, full_council):
+    def test_convene_all_six(self, full_council):
         result = full_council.convene("Should we trust this complex theory?")
-        assert len(result.analyses) == 4
+        assert len(result.analyses) == 6
 
     def test_synthesis_mentions_all_experts(self, full_council):
         result = full_council.convene("Is this claim valid?")
@@ -631,12 +647,14 @@ class TestFullCouncil:
         assert "Holmes" in result.synthesis
         assert "Pearl" in result.synthesis
         assert "Hinton" in result.synthesis
+        assert "Yudkowsky" in result.synthesis
+        assert "Turing" in result.synthesis
 
     def test_each_expert_has_different_methodology(self, full_council):
         result = full_council.convene("Analyze this problem")
         methodologies = {a.methodology_applied for a in result.analyses}
         # Each expert should pick a different methodology
-        assert len(methodologies) == 4
+        assert len(methodologies) == 6
 
     def test_filter_by_tag_physics(self, full_council):
         result = full_council.convene("test", tags=["physics"])
@@ -657,6 +675,16 @@ class TestFullCouncil:
         result = full_council.convene("test", tags=["learning"])
         assert len(result.analyses) == 1
         assert result.analyses[0].expert_name == "Hinton"
+
+    def test_filter_by_tag_alignment(self, full_council):
+        result = full_council.convene("test", tags=["alignment"])
+        assert len(result.analyses) == 1
+        assert result.analyses[0].expert_name == "Yudkowsky"
+
+    def test_filter_by_tag_testability(self, full_council):
+        result = full_council.convene("test", tags=["testability"])
+        assert len(result.analyses) == 1
+        assert result.analyses[0].expert_name == "Turing"
 
     def test_convene_specific_pair(self, full_council):
         result = full_council.convene(
@@ -688,10 +716,14 @@ class TestFullCouncil:
         feynman = full_council.get_expert("Feynman")
         pearl = full_council.get_expert("Pearl")
         hinton = full_council.get_expert("Hinton")
+        yudkowsky = full_council.get_expert("Yudkowsky")
+        turing = full_council.get_expert("Turing")
         assert holmes is not None and holmes.is_fictional is True
         assert feynman is not None and feynman.is_fictional is False
         assert pearl is not None and pearl.is_fictional is False
         assert hinton is not None and hinton.is_fictional is False
+        assert yudkowsky is not None and yudkowsky.is_fictional is False
+        assert turing is not None and turing.is_fictional is False
 
 
 # ── Hinton content tests ───────────────────────────────────────────
@@ -792,3 +824,218 @@ class TestHintonAnalysis:
         result = hinton_engine.analyze("test", "Hinton")
         assert result is not None
         assert "Hinton" in result.synthesis
+
+
+# ── Yudkowsky content tests ──────────────────────────────────────
+
+
+class TestYudkowskyContent:
+    def test_passes_validation(self, yudkowsky):
+        issues = validate_expert(yudkowsky)
+        assert issues == [], f"Yudkowsky has validation issues: {issues}"
+
+    def test_not_fictional(self, yudkowsky):
+        assert yudkowsky.is_fictional is False
+
+    def test_has_three_methodologies(self, yudkowsky):
+        assert len(yudkowsky.core_methodologies) == 3
+
+    def test_goodhart_is_primary(self, yudkowsky):
+        assert "Goodhart" in yudkowsky.core_methodologies[0].name
+
+    def test_has_four_insights(self, yudkowsky):
+        assert len(yudkowsky.key_insights) == 4
+
+    def test_goodhart_law_insight(self, yudkowsky):
+        titles = [i.title for i in yudkowsky.key_insights]
+        assert "Goodhart's Law Is Universal" in titles
+
+    def test_specification_not_intention_insight(self, yudkowsky):
+        titles = [i.title for i in yudkowsky.key_insights]
+        assert "Specification Is Not Intention" in titles
+
+    def test_has_three_reasoning_patterns(self, yudkowsky):
+        assert len(yudkowsky.reasoning_patterns) == 3
+
+    def test_has_three_heuristics(self, yudkowsky):
+        assert len(yudkowsky.problem_solving_heuristics) == 3
+
+    def test_has_four_concern_triggers(self, yudkowsky):
+        assert len(yudkowsky.concern_triggers) == 4
+
+    def test_self_grading_is_critical(self, yudkowsky):
+        for t in yudkowsky.concern_triggers:
+            if t.name == "Self-Grading Without External Check":
+                assert t.severity == "critical"
+                return
+        pytest.fail("Self-Grading Without External Check trigger not found")
+
+    def test_uncorrectable_self_mod_is_critical(self, yudkowsky):
+        for t in yudkowsky.concern_triggers:
+            if t.name == "Uncorrectable Self-Modification":
+                assert t.severity == "critical"
+                return
+        pytest.fail("Uncorrectable Self-Modification trigger not found")
+
+    def test_has_two_integration_patterns(self, yudkowsky):
+        assert len(yudkowsky.integration_patterns) == 2
+
+    def test_domain_set(self, yudkowsky):
+        assert "alignment" in yudkowsky.domain
+
+    def test_has_tags(self, yudkowsky):
+        assert "alignment" in yudkowsky.tags
+        assert "goodhart" in yudkowsky.tags
+        assert "corrigibility" in yudkowsky.tags
+
+    def test_corrigibility_is_top_criterion(self, yudkowsky):
+        assert yudkowsky.decision_framework.criteria["corrigibility"] == 1.0
+
+    def test_efficiency_scores_low(self, yudkowsky):
+        assert yudkowsky.decision_framework.criteria["efficiency"] <= 0.3
+
+    def test_characteristic_questions(self, yudkowsky):
+        assert len(yudkowsky.characteristic_questions) >= 5
+        questions_text = " ".join(yudkowsky.characteristic_questions).lower()
+        assert "optimizing" in questions_text or "grader" in questions_text
+
+
+# ── Yudkowsky analysis tests ─────────────────────────────────────
+
+
+class TestYudkowskyAnalysis:
+    @pytest.fixture
+    def yudkowsky_engine(self, yudkowsky):
+        e = CouncilEngine()
+        e.register(yudkowsky)
+        return e
+
+    def test_analyze_alignment_problem(self, yudkowsky_engine):
+        result = yudkowsky_engine.analyze(
+            "The system grades itself and uses that grade to decide what to learn",
+            "Yudkowsky",
+        )
+        assert result is not None
+        assert result.expert_name == "Yudkowsky"
+
+    def test_detects_self_grading_concern(self, yudkowsky_engine):
+        result = yudkowsky_engine.analyze(
+            "The system evaluates its own performance and scores itself",
+            "Yudkowsky",
+        )
+        assert result is not None
+        assert len(result.concerns) >= 1
+
+    def test_synthesis_contains_yudkowsky(self, yudkowsky_engine):
+        result = yudkowsky_engine.analyze("test", "Yudkowsky")
+        assert result is not None
+        assert "Yudkowsky" in result.synthesis
+
+
+# ── Turing content tests ─────────────────────────────────────────
+
+
+class TestTuringContent:
+    def test_passes_validation(self, turing):
+        issues = validate_expert(turing)
+        assert issues == [], f"Turing has validation issues: {issues}"
+
+    def test_not_fictional(self, turing):
+        assert turing.is_fictional is False
+
+    def test_has_three_methodologies(self, turing):
+        assert len(turing.core_methodologies) == 3
+
+    def test_distinguishability_is_primary(self, turing):
+        assert "Distinguishability" in turing.core_methodologies[0].name
+
+    def test_has_four_insights(self, turing):
+        assert len(turing.key_insights) == 4
+
+    def test_question_may_be_wrong_insight(self, turing):
+        titles = [i.title for i in turing.key_insights]
+        assert "The Question May Be Wrong" in titles
+
+    def test_behavior_is_evidence_insight(self, turing):
+        titles = [i.title for i in turing.key_insights]
+        assert "Behavior Is the Best Evidence We Have" in titles
+
+    def test_novel_behavior_insight(self, turing):
+        titles = [i.title for i in turing.key_insights]
+        assert "Novel Behavior Outweighs Scripted Responses" in titles
+
+    def test_has_three_reasoning_patterns(self, turing):
+        assert len(turing.reasoning_patterns) == 3
+
+    def test_has_three_heuristics(self, turing):
+        assert len(turing.problem_solving_heuristics) == 3
+
+    def test_has_four_concern_triggers(self, turing):
+        assert len(turing.concern_triggers) == 4
+
+    def test_untestable_claims_is_major(self, turing):
+        for t in turing.concern_triggers:
+            if t.name == "Untestable Claims":
+                assert t.severity == "major"
+                return
+        pytest.fail("Untestable Claims trigger not found")
+
+    def test_rehearsed_responses_is_major(self, turing):
+        for t in turing.concern_triggers:
+            if t.name == "Rehearsed Responses Mistaken for Understanding":
+                assert t.severity == "major"
+                return
+        pytest.fail("Rehearsed Responses trigger not found")
+
+    def test_has_two_integration_patterns(self, turing):
+        assert len(turing.integration_patterns) == 2
+
+    def test_domain_set(self, turing):
+        assert "computation" in turing.domain or "testability" in turing.domain
+
+    def test_has_tags(self, turing):
+        assert "testability" in turing.tags
+        assert "computation" in turing.tags
+
+    def test_testability_is_top_criterion(self, turing):
+        assert turing.decision_framework.criteria["testability"] == 1.0
+
+    def test_tradition_scores_zero(self, turing):
+        assert turing.decision_framework.criteria["tradition"] == 0.0
+
+    def test_characteristic_questions(self, turing):
+        assert len(turing.characteristic_questions) >= 5
+        questions_text = " ".join(turing.characteristic_questions).lower()
+        assert "test" in questions_text or "distinguish" in questions_text
+
+
+# ── Turing analysis tests ────────────────────────────────────────
+
+
+class TestTuringAnalysis:
+    @pytest.fixture
+    def turing_engine(self, turing):
+        e = CouncilEngine()
+        e.register(turing)
+        return e
+
+    def test_analyze_understanding_claim(self, turing_engine):
+        result = turing_engine.analyze(
+            "The system claims to understand but we can't verify it",
+            "Turing",
+        )
+        assert result is not None
+        assert result.expert_name == "Turing"
+
+    def test_detects_vague_capability_concern(self, turing_engine):
+        result = turing_engine.analyze(
+            "The system has awareness and understanding of itself",
+            "Turing",
+        )
+        assert result is not None
+        assert len(result.concerns) >= 1
+
+    def test_synthesis_contains_turing(self, turing_engine):
+        result = turing_engine.analyze("test", "Turing")
+        assert result is not None
+        assert "Turing" in result.synthesis
