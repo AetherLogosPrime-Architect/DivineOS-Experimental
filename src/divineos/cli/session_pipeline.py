@@ -140,6 +140,40 @@ def _run_session_end_pipeline() -> None:
         # ── Phase 8: Session scoring and corroboration ───────────
         health = run_session_scoring(analysis, access_snapshot)
 
+        # ── Phase 8b: External validation — record self-grade ────
+        try:
+            from divineos.core.external_validation import record_self_grade
+
+            if health:
+                record_self_grade(
+                    session_id=analysis.session_id,
+                    grade=health["grade"],
+                    score=health["score"],
+                )
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"External validation recording failed: {e}")
+
+        # ── Phase 8c2: Knowledge impact assessment ───────────────
+        try:
+            from divineos.core.knowledge_impact import assess_session_impact
+
+            impact = assess_session_impact(
+                session_id=analysis.session_id,
+                corrections=[
+                    c if isinstance(c, str) else c.get("content", "")
+                    for c in analysis.corrections
+                ],
+            )
+            if impact["retrieved"] > 0:
+                pct = impact["impact_score"] * 100
+                click.secho(
+                    f"[~] Knowledge impact: {pct:.0f}% effective "
+                    f"({impact['clean']}/{impact['retrieved']} clean)",
+                    fg="cyan" if pct >= 80 else "yellow",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Knowledge impact assessment failed: {e}")
+
         # ── Phase 8d: Curate knowledge layers ────────────────────
         try:
             from divineos.core.knowledge.curation import run_curation
