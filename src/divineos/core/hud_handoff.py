@@ -259,6 +259,12 @@ def mark_briefing_loaded() -> None:
     }
     (hud_dir / ".briefing_loaded").write_text(json.dumps(marker), encoding="utf-8")
 
+    # Reset session health — each session starts fresh.
+    # Without this, the HUD shows stale grade/corrections from the prior session.
+    health_path = hud_dir / "session_health.json"
+    if health_path.exists():
+        health_path.unlink()
+
 
 # After this many tool calls since last briefing load, the context is stale.
 # Was 150 — too low for productive sessions (a single audit fix pass can be
