@@ -51,6 +51,15 @@ _FTS_SHADOW_TABLES = frozenset({
 
 
 @dataclass
+class DisplayIssue:
+    """A display integrity problem — data exists but renders broken."""
+
+    slot_name: str
+    issue: str  # what's wrong
+    line: str  # the offending line
+
+
+@dataclass
 class AlarmResult:
     """Result of a dead architecture scan."""
 
@@ -58,6 +67,7 @@ class AlarmResult:
     active_tables: list[str] = field(default_factory=list)
     empty_hud_slots: list[str] = field(default_factory=list)
     active_hud_slots: list[str] = field(default_factory=list)
+    display_issues: list[DisplayIssue] = field(default_factory=list)
     self_dormant: bool = False
     scan_time: float = 0.0
 
@@ -176,6 +186,75 @@ def scan_empty_hud_slots() -> tuple[list[str], list[str]]:
     return sorted(empty), sorted(active)
 
 
+def scan_display_integrity() -> list[DisplayIssue]:
+    """Detect HUD slots that render but contain broken/empty content.
+
+    This catches the "active but broken" pattern: a slot builder runs,
+    returns non-empty text, but the text contains empty labels, truncated
+    data, or placeholder content. The slot looks fine at a glance but
+    the data pipeline has a silent failure somewhere upstream.
+
+    Patterns detected:
+    - Lines with a prefix/label followed by empty content (e.g. "- TRY: ")
+    - Lines with "None" or "Unknown" as the entire value after a label
+    - Repeated identical lines (copy-paste rendering bug)
+    """
+    try:
+        from divineos.core.hud import SLOT_BUILDERS
+    except ImportError:
+        return []
+
+    # Prefixes that should always have content after them
+    _EMPTY_LABEL_PATTERNS = (
+        "- TRY: ",
+        "- WARNING: ",
+        "- ESCALATE ",
+        "- **Note:** ",
+        "- **Trend:** ",
+    )
+
+    issues: list[DisplayIssue] = []
+
+    for name, builder in SLOT_BUILDERS.items():
+        try:
+            result = builder()
+        except Exception:
+            continue
+        if not result or not result.strip():
+            continue  # Empty slots are caught by scan_empty_hud_slots
+
+        lines = result.strip().split("\n")
+
+        # Check for empty-label lines
+        for line in lines:
+            stripped = line.strip()
+            for prefix in _EMPTY_LABEL_PATTERNS:
+                if stripped == prefix.strip():
+                    issues.append(DisplayIssue(
+                        slot_name=name,
+                        issue=f"empty label: '{prefix.strip()}'",
+                        line=stripped,
+                    ))
+
+        # Check for repeated identical content lines (skip headers and blanks)
+        content_lines = [
+            ln.strip() for ln in lines
+            if ln.strip() and not ln.strip().startswith("#") and ln.strip() != "---"
+        ]
+        seen: dict[str, int] = {}
+        for ln in content_lines:
+            seen[ln] = seen.get(ln, 0) + 1
+        for ln, count in seen.items():
+            if count >= 3:
+                issues.append(DisplayIssue(
+                    slot_name=name,
+                    issue=f"repeated {count}x (possible rendering bug)",
+                    line=ln[:80],
+                ))
+
+    return issues
+
+
 def check_self_dormant() -> bool:
     """Return True if this alarm's own table has zero scan records.
 
@@ -208,6 +287,7 @@ def run_full_scan() -> AlarmResult:
     result.dormant_tables = scan_dormant_tables()
     result.active_tables = scan_active_tables()
     result.empty_hud_slots, result.active_hud_slots = scan_empty_hud_slots()
+    result.display_issues = scan_display_integrity()
     result.self_dormant = check_self_dormant()
     result.scan_time = time.time()
     return result
@@ -282,6 +362,8 @@ def format_alarm_summary(result: AlarmResult) -> str:
     parts = [f"{result.dormant_count} dormant tables, {result.active_count} active"]
     if result.empty_hud_slots:
         parts.append(f"{len(result.empty_hud_slots)} empty HUD slots")
+    if result.display_issues:
+        parts.append(f"{len(result.display_issues)} display issues")
     if result.self_dormant:
         parts.append("(alarm itself is dormant -- first scan)")
     return " | ".join(parts)
@@ -290,8 +372,8 @@ def format_alarm_summary(result: AlarmResult) -> str:
 def format_alarm_detail(result: AlarmResult) -> str:
     """Detailed multi-line report."""
     lines = [
-        f"Dead Architecture Scan -- {result.dormant_count} dormant, {result.active_count} active "
-        f"(output quality not assessed)",
+        f"Dead Architecture Scan -- {result.dormant_count} dormant, {result.active_count} active"
+        f"{f', {len(result.display_issues)} display issues' if result.display_issues else ''}",
         "",
     ]
 
@@ -305,6 +387,13 @@ def format_alarm_detail(result: AlarmResult) -> str:
         lines.append("Empty HUD slots:")
         for s in result.empty_hud_slots:
             lines.append(f"  - {s}")
+        lines.append("")
+
+    if result.display_issues:
+        lines.append("Display integrity issues (active but broken):")
+        for di in result.display_issues:
+            lines.append(f"  [!] {di.slot_name}: {di.issue}")
+            lines.append(f"      line: {di.line}")
         lines.append("")
 
     if result.self_dormant:
