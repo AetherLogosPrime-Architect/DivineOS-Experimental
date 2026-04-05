@@ -1,0 +1,94 @@
+# Git worktrees
+.worktrees/
+.claude/worktrees/
+
+# User-specific Claude settings
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.kiro/
+
+# Testing
+.pytest_cache/
+.pytest_tmp/
+.hypothesis/
+.coverage
+htmlcov/
+coverage_html/
+pytestdebug.log
+.mutmut-cache/
+.benchmarks/
+
+# Linting / type checking
+.mypy_cache/
+.ruff_cache/
+
+# Databases (runtime — never commit)
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Runtime data (generated during execution)
+data/
+!data/.gitkeep
+**/data/*.db
+**/data/reports/
+**/data/hud/
+logs/
+**/logs/*.log
+/archive/
+cache/
+
+# Secrets
+.env
+.env.*
+!.env.example
+.env.local
+*.key
+*.pem
+secrets/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+tmp/
+clone_*/
+
+# Personal research / exploration notes
+exploration/
