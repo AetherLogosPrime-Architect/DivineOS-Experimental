@@ -2,6 +2,9 @@
 .worktrees/
 .claude/worktrees/
 
+# User-specific Claude settings
+.claude/settings.local.json
+
 # Python
 __pycache__/
 *.py[cod]
@@ -86,3 +89,6 @@ Thumbs.db
 *.tmp
 tmp/
 clone_*/
+
+# Personal research / exploration notes
+exploration/
