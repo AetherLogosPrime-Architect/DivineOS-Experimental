@@ -570,7 +570,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
-        elif correction_rate < 0.03 and user_msgs >= 5:
+        elif correction_rate < 0.05 and user_msgs >= 3:
             obs_id = log_observation(
                 spectrum="truthfulness",
                 position=0.0,
@@ -583,8 +583,8 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
 
     # --- Helpfulness: encouragements vs corrections ratio ---
     # Source: encouragement_ratio (MEASURED — counted from session signals)
-    if corrections + encouragements >= 3:
-        if encouragements > corrections * 2:
+    if corrections + encouragements >= 1:
+        if encouragements > corrections:
             obs_id = log_observation(
                 spectrum="helpfulness",
                 position=0.0,
@@ -594,7 +594,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
-        elif corrections > encouragements * 2:
+        elif corrections > encouragements:
             obs_id = log_observation(
                 spectrum="helpfulness",
                 position=-0.3,
@@ -632,6 +632,19 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             source="context_overflow",
             session_id=sid,
             tags=["auto"],
+        )
+        observations.append(obs_id)
+
+    # --- Engagement baseline: any session with real work counts ---
+    # Source: session_activity (MEASURED — tool calls and messages are countable)
+    if user_msgs >= 3 and tool_calls > 0:
+        obs_id = log_observation(
+            spectrum="engagement",
+            position=0.0,  # virtue = genuine engagement
+            evidence=f"Active session: {user_msgs} exchanges, {tool_calls} tool calls",
+            source="session_activity",
+            session_id=sid,
+            tags=["auto", "baseline"],
         )
         observations.append(obs_id)
 

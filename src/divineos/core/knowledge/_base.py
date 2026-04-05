@@ -35,17 +35,53 @@ KNOWLEDGE_SOURCES = {"STATED", "CORRECTED", "DEMONSTRATED", "SYNTHESIZED", "INHE
 KNOWLEDGE_MATURITY = {"RAW", "HYPOTHESIS", "TESTED", "CONFIRMED", "REVISED"}
 
 
-_KNOWLEDGE_COLS = (
-    "knowledge_id, created_at, updated_at, knowledge_type, content, "
-    "confidence, source_events, tags, access_count, superseded_by, content_hash, "
-    "source, maturity, corroboration_count, contradiction_count"
-)
+# Single source of truth for knowledge column names.
+# Add a column here + add the ALTER TABLE migration = done.
+# _row_to_dict, _KNOWLEDGE_COLS, and _KNOWLEDGE_COLS_K all derive from this list.
+_KNOWLEDGE_COL_NAMES: list[str] = [
+    "knowledge_id",
+    "created_at",
+    "updated_at",
+    "knowledge_type",
+    "content",
+    "confidence",
+    "source_events",
+    "tags",
+    "access_count",
+    "superseded_by",
+    "content_hash",
+    "source",
+    "maturity",
+    "corroboration_count",
+    "contradiction_count",
+    "valid_from",
+    "valid_until",
+    "layer",
+    "source_entity",
+    "related_to",
+]
 
-_KNOWLEDGE_COLS_K = (
-    "k.knowledge_id, k.created_at, k.updated_at, k.knowledge_type, k.content, "
-    "k.confidence, k.source_events, k.tags, k.access_count, k.superseded_by, k.content_hash, "
-    "k.source, k.maturity, k.corroboration_count, k.contradiction_count"
-)
+_KNOWLEDGE_COLS = ", ".join(_KNOWLEDGE_COL_NAMES)
+_KNOWLEDGE_COLS_K = ", ".join(f"k.{c}" for c in _KNOWLEDGE_COL_NAMES)
+
+# Columns that store JSON and need parsing on read
+_JSON_COLS = frozenset({"source_events", "tags"})
+
+# Columns that should be cast to int on read
+_INT_COLS = frozenset({"corroboration_count", "contradiction_count"})
+
+# Default values for columns that may be missing in old schemas
+_KNOWLEDGE_DEFAULTS: dict[str, Any] = {
+    "source": "INHERITED",
+    "maturity": "RAW",
+    "corroboration_count": 0,
+    "contradiction_count": 0,
+    "valid_from": None,
+    "valid_until": None,
+    "layer": "active",
+    "source_entity": None,
+    "related_to": None,
+}
 
 
 # ─── DB Connection ───────────────────────────────────────────────────
@@ -141,6 +177,26 @@ def init_knowledge_table() -> None:
             except sqlite3.OperationalError as e:
                 logger.debug(f"Column {col} already exists in knowledge table: {e}")
 
+        # Layer column (active/archive stratification)
+        try:
+            conn.execute(
+                "ALTER TABLE knowledge ADD COLUMN layer TEXT DEFAULT 'active'",
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug(f"Column layer already exists in knowledge table: {e}")
+
+        # Provenance columns (cross-entity attribution and manual linking)
+        for col, col_type, default in [
+            ("source_entity", "TEXT", "NULL"),
+            ("related_to", "TEXT", "NULL"),
+        ]:
+            try:
+                conn.execute(
+                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} DEFAULT {default}",
+                )
+            except sqlite3.OperationalError as e:
+                logger.debug(f"Column {col} already exists in knowledge table: {e}")
+
         # Temporal dimension columns (nullable — NULL means unbounded)
         for col, col_type, default in [
             ("valid_from", "REAL", "NULL"),
@@ -194,54 +250,65 @@ def init_knowledge_table() -> None:
 
 
 def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a knowledge table row to a dict."""
-    d = {
-        "knowledge_id": row[0],
-        "created_at": row[1],
-        "updated_at": row[2],
-        "knowledge_type": row[3],
-        "content": row[4],
-        "confidence": row[5],
-        "source_events": json.loads(row[6]) if row[6] else [],
-        "tags": json.loads(row[7]) if row[7] else [],
-        "access_count": row[8],
-        "superseded_by": row[9],
-        "content_hash": row[10],
-    }
-    # New columns (present after schema migration)
-    if len(row) > 11:
-        d["source"] = row[11]
-        d["maturity"] = row[12]
-        d["corroboration_count"] = int(row[13])
-        d["contradiction_count"] = int(row[14])
-    else:
-        d["source"] = "INHERITED"
-        d["maturity"] = "RAW"
-        d["corroboration_count"] = 0
-        d["contradiction_count"] = 0
+    """Convert a knowledge table row to a dict.
+
+    Column mapping is derived from _KNOWLEDGE_COL_NAMES — no hardcoded
+    indices. Adding a column to the list is all that's needed.
+    """
+    d: dict[str, Any] = {}
+    for i, name in enumerate(_KNOWLEDGE_COL_NAMES):
+        if i < len(row):
+            val = row[i]
+            if name in _JSON_COLS:
+                val = json.loads(val) if val else []
+            elif name in _INT_COLS and val is not None:
+                val = int(val)
+            d[name] = val
+        else:
+            # Column not present in this row (old schema) — use default
+            d[name] = _KNOWLEDGE_DEFAULTS.get(name)
     return d
 
 
+_LESSON_COL_NAMES: list[str] = [
+    "lesson_id",
+    "created_at",
+    "category",
+    "description",
+    "first_session",
+    "occurrences",
+    "last_seen",
+    "sessions",
+    "status",
+    "content_hash",
+    "agent",
+]
+
+_LESSON_JSON_COLS = frozenset({"sessions"})
+
+_LESSON_DEFAULTS: dict[str, Any] = {
+    "agent": "unknown",
+    "regressions": 0,
+}
+
+
 def _lesson_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
-    """Convert a lesson_tracking table row to a dict."""
-    d = {
-        "lesson_id": row[0],
-        "created_at": row[1],
-        "category": row[2],
-        "description": row[3],
-        "first_session": row[4],
-        "occurrences": row[5],
-        "last_seen": row[6],
-        "sessions": json.loads(row[7]),
-        "status": row[8],
-        "content_hash": row[9],
-    }
-    if len(row) > 10:
-        d["agent"] = row[10]
-    else:
-        d["agent"] = "unknown"
-    if len(row) > 11:
-        d["regressions"] = row[11]
-    else:
+    """Convert a lesson_tracking table row to a dict.
+
+    Column mapping derived from _LESSON_COL_NAMES — no hardcoded indices.
+    """
+    d: dict[str, Any] = {}
+    for i, name in enumerate(_LESSON_COL_NAMES):
+        if i < len(row):
+            val = row[i]
+            if name in _LESSON_JSON_COLS:
+                val = json.loads(val) if val else []
+            d[name] = val
+        else:
+            d[name] = _LESSON_DEFAULTS.get(name)
+    # regressions may be at the end if the column exists
+    if len(row) > len(_LESSON_COL_NAMES):
+        d["regressions"] = row[len(_LESSON_COL_NAMES)]
+    elif "regressions" not in d:
         d["regressions"] = 0
     return d
