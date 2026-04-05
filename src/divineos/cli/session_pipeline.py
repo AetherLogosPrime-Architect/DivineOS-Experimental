@@ -197,13 +197,29 @@ def _run_session_end_pipeline() -> None:
         try:
             from divineos.core.knowledge_impact import assess_session_impact
 
+            # The briefing records retrievals under get_current_session_id(),
+            # which may differ from analysis.session_id (JSONL filename).
+            # Try both so the assessment finds the data regardless.
+            correction_texts = [
+                c if isinstance(c, str) else c.get("content", "")
+                for c in analysis.corrections
+            ]
             impact = assess_session_impact(
                 session_id=analysis.session_id,
-                corrections=[
-                    c if isinstance(c, str) else c.get("content", "")
-                    for c in analysis.corrections
-                ],
+                corrections=correction_texts,
             )
+            if impact["retrieved"] == 0:
+                try:
+                    from divineos.core.session_manager import get_current_session_id
+
+                    mgr_sid = get_current_session_id()
+                    if mgr_sid != analysis.session_id:
+                        impact = assess_session_impact(
+                            session_id=mgr_sid,
+                            corrections=correction_texts,
+                        )
+                except (RuntimeError, ImportError):
+                    pass
             if impact["retrieved"] > 0:
                 pct = impact["impact_score"] * 100
                 click.secho(
