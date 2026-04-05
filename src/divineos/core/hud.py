@@ -48,6 +48,8 @@ SLOT_ORDER = [
     "os_engagement",
     "context_budget",
     "active_knowledge",
+    "knowledge_origin",
+    "dead_architecture",
     "warnings",
     "journal",
     "decision_journal",
@@ -295,10 +297,11 @@ def _build_active_knowledge_slot() -> str:
 
     for item in active[:8]:
         pin = " [pinned]" if item.get("pinned") else ""
+        entity = f" [{item['source_entity']}]" if item.get("source_entity") else ""
         content = item["content"].replace("\n", " ")
         if len(content) > 120:
             content = content[:117] + "..."
-        lines.append(f"- [{item['importance']:.2f}] {content}{pin}")
+        lines.append(f"- [{item['importance']:.2f}]{entity} {content}{pin}")
 
     if len(active) > 8:
         lines.append(f"  ...and {len(active) - 8} more in active memory")
@@ -746,6 +749,61 @@ def _build_calibration_slot() -> str:
         return ""
 
 
+def _build_knowledge_origin_slot() -> str:
+    """How much knowledge is learned vs seeded — Hinton's diagnostic."""
+    try:
+        from divineos.core.external_validation import (
+            format_origin_summary,
+            format_validation_summary,
+        )
+
+        origin = format_origin_summary()
+        validation = format_validation_summary()
+        lines = ["# Knowledge Origin & Validation", "", f"  Origin: {origin}"]
+        lines.append(f"  Validation: {validation}")
+
+        try:
+            from divineos.core.knowledge_impact import format_impact_summary
+
+            impact = format_impact_summary()
+            lines.append(f"  Impact: {impact}")
+        except _HUD_ERRORS:
+            pass
+
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
+def _build_dead_architecture_slot() -> str:
+    """Dead architecture alarm — dormant modules that exist but do nothing."""
+    try:
+        from divineos.core.dead_architecture_alarm import get_latest_scan
+
+        scan = get_latest_scan()
+        if not scan:
+            return "# Dead Architecture\n\n  [!] No scan recorded -- alarm may be dormant"
+
+        dormant = scan.get("dormant", [])
+        active_count = scan.get("active_count", 0)
+        dormant_count = scan.get("dormant_count", 0)
+
+        if dormant_count == 0:
+            return ""
+
+        lines = [
+            f"# Dead Architecture ({dormant_count} dormant, {active_count} active)",
+            "",
+        ]
+        for t in dormant[:10]:
+            lines.append(f"  - {t}")
+        if dormant_count > 10:
+            lines.append(f"  ...and {dormant_count - 10} more")
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -771,6 +829,8 @@ SLOT_BUILDERS = {
     "self_awareness": _build_self_awareness_slot,
     "body": _build_body_slot,
     "self_model": _build_self_model_slot,
+    "knowledge_origin": _build_knowledge_origin_slot,
+    "dead_architecture": _build_dead_architecture_slot,
 }
 
 

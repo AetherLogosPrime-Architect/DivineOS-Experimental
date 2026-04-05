@@ -356,18 +356,19 @@ def _format_knowledge_sections(
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
             mat = item.get("maturity", "RAW")
             mat_marker = " ++" if mat == "CONFIRMED" else " +" if mat == "TESTED" else ""
+            entity = f" [from: {item['source_entity']}]" if item.get("source_entity") else ""
             content = item["content"]
             access = f"({item['access_count']}x accessed)"
 
             if kt == "DIRECTIVE":
                 lines.append(f"- [{item['confidence']:.2f}] {content}{mat_marker}{hint_marker}")
-                lines.append(f"  {access}")
+                lines.append(f"  {access}{entity}")
             else:
                 display = content.replace("\n", " ")
                 if len(display) > 150:
                     display = display[:147] + "..."
                 lines.append(
-                    f"- [{item['confidence']:.2f}] {display} {access}{mat_marker}{hint_marker}"
+                    f"- [{item['confidence']:.2f}]{entity} {display} {access}{mat_marker}{hint_marker}"
                 )
         lines.append("")
     return lines
