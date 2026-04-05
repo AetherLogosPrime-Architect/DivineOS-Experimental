@@ -292,7 +292,17 @@ def _run_session_end_pipeline() -> None:
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"Advice tracking check failed: {e}")
 
-        # ── Phase 8l: Affect-extraction calibration (Circuit 1) ──
+        # ── Phase 8l: Auto-derive session affect ────────────────
+        try:
+            from divineos.core.session_affect import auto_log_session_affect
+
+            affect_id = auto_log_session_affect(analysis, health)
+            if affect_id:
+                click.secho("[~] Affect: session state auto-logged", fg="cyan")
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Auto affect logging failed: {e}")
+
+        # ── Phase 8m: Affect-extraction calibration (Circuit 1) ──
         try:
             from divineos.core.affect import get_session_affect_context
             from divineos.core.affect_calibration import record_extraction_correlation
