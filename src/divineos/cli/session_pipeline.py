@@ -326,6 +326,13 @@ def _run_session_end_pipeline() -> None:
                 record_signal(
                     "encouragement_given", f"{encouragements} encouragements this session"
                 )
+            # Record preferences as skill/style signals
+            for pref in getattr(analysis, "preferences", [])[:3]:
+                record_signal("preference_stated", pref.content[:200])
+            # Frustrations indicate interaction quality
+            frustrations = len(getattr(analysis, "frustrations", []))
+            if frustrations > 0:
+                record_signal("frustration_shown", f"{frustrations} frustrations this session")
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"User model signal recording failed: {e}")
 
@@ -412,6 +419,38 @@ def _run_session_end_pipeline() -> None:
             )
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"Dead architecture alarm failed: {e}")
+
+        # ── Phase 8o: Session features storage ────────────────────
+        # Run deep feature analysis (tone shifts, timeline, files,
+        # activity, error recovery) and store results. Previously
+        # only available via manual `divineos analyze` command.
+        try:
+            from pathlib import Path
+
+            from divineos.analysis.feature_storage import init_feature_tables, store_features
+            from divineos.analysis.session_features import run_all_features
+
+            init_feature_tables()
+            features = run_all_features(Path(latest))
+            store_features(analysis.session_id, features)
+            stored_features = (
+                len(features.tone_shifts)
+                + len(features.timeline)
+                + len(features.files_touched)
+                + len(features.error_recovery)
+                + (1 if features.activity else 0)
+                + (1 if features.task_tracking else 0)
+            )
+            if stored_features > 0:
+                click.secho(
+                    f"[+] Session features: {stored_features} records "
+                    f"({len(features.tone_shifts)} tone shifts, "
+                    f"{len(features.files_touched)} files, "
+                    f"{len(features.error_recovery)} recoveries)",
+                    fg="cyan",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, TypeError, ValueError) as e:
+            logger.debug(f"Session features storage failed (best-effort): {e}")
 
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)
