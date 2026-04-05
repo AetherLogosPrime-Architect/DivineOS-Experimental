@@ -130,6 +130,52 @@ class TestImpactHistory:
         assert h["clean"] == 2
 
 
+class TestBriefingRecordsRetrievals:
+    """The briefing should record impact retrievals when it loads knowledge."""
+
+    @pytest.fixture(autouse=True)
+    def _ensure_session(self):
+        """Impact recording needs an active session."""
+        from divineos.core.session_manager import initialize_session
+        initialize_session()
+
+    def test_briefing_populates_impact_table(self):
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge.crud import store_knowledge
+
+        # Store some knowledge so the briefing has something to retrieve
+        store_knowledge("FACT", "Impact tracking test entry xyzzy unique marker 12345")
+
+        # Load briefing
+        from divineos.core.knowledge.retrieval import generate_briefing
+
+        generate_briefing(max_items=5)
+
+        # Check impact table has records
+        conn = _get_connection()
+        count = conn.execute("SELECT COUNT(*) FROM knowledge_impact").fetchone()[0]
+        conn.close()
+        assert count > 0, "Briefing should record knowledge retrievals for impact tracking"
+
+    def test_briefing_records_correct_knowledge_ids(self):
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge.crud import store_knowledge
+
+        kid = store_knowledge("FACT", "Unique impact wiring test content aabbcc")
+
+        from divineos.core.knowledge.retrieval import generate_briefing
+
+        generate_briefing(max_items=20)
+
+        conn = _get_connection()
+        rows = conn.execute(
+            "SELECT knowledge_id FROM knowledge_impact WHERE knowledge_id = ?",
+            (kid,),
+        ).fetchall()
+        conn.close()
+        assert len(rows) >= 1, f"Knowledge {kid} should appear in impact table after briefing"
+
+
 class TestFormatSummary:
     def test_no_data(self):
         s = format_impact_summary()

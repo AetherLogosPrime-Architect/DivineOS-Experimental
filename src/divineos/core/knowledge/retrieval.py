@@ -209,6 +209,24 @@ def generate_briefing(
     # created a feedback loop where popular entries stayed popular
     # regardless of actual usefulness.
 
+    # Record knowledge impact retrievals — which entries were loaded
+    # this session, so SESSION_END can assess if they helped or not.
+    # This is different from access_count: it tracks causal impact,
+    # not popularity.
+    try:
+        from divineos.core.knowledge_impact import record_knowledge_retrieval
+        from divineos.core.session_manager import get_current_session_id
+
+        sid = get_current_session_id()
+        for entry in entries:
+            record_knowledge_retrieval(
+                session_id=sid,
+                knowledge_id=entry["knowledge_id"],
+                content_brief=entry.get("content", "")[:200],
+            )
+    except (*_RETRIEVAL_ERRORS, RuntimeError):
+        pass  # Impact tracking is best-effort, never blocks briefing
+
     # Get active lessons for the header section
     lessons_text = ""
     try:
