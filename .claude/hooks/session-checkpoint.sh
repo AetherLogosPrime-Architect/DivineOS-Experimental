@@ -19,8 +19,11 @@ fi
 tool_name=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
 
 # State file for tracking counts
-STATE_FILE="$HOME/.divineos/checkpoint_state.json"
-mkdir -p "$HOME/.divineos"
+# Resolve path via Python for Windows compatibility (Git Bash $HOME = /c/Users/...
+# which Python can't open; expanduser gives native C:\Users\... path)
+DIVINEOS_DIR=$(python -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos'))" 2>/dev/null || echo "$HOME/.divineos")
+STATE_FILE="$DIVINEOS_DIR/checkpoint_state.json"
+mkdir -p "$DIVINEOS_DIR"
 
 # Initialize state file if missing
 if [ ! -f "$STATE_FILE" ]; then
@@ -28,9 +31,13 @@ if [ ! -f "$STATE_FILE" ]; then
 fi
 
 # Read current counts
-edits=$(python -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('edits',0))" 2>/dev/null || echo "0")
-tool_calls=$(python -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('tool_calls',0))" 2>/dev/null || echo "0")
-checkpoints_run=$(python -c "import json; d=json.load(open('$STATE_FILE')); print(d.get('checkpoints_run',0))" 2>/dev/null || echo "0")
+# NOTE: Use os.path.expanduser('~') instead of $HOME — on Windows, Git Bash
+# sets $HOME to /c/Users/... which Python cannot open. expanduser resolves
+# to the native C:\Users\... path that Python understands.
+_SF="import os; SF=os.path.join(os.path.expanduser('~'),'.divineos','checkpoint_state.json')"
+edits=$(python -c "$_SF; import json; d=json.load(open(SF)); print(d.get('edits',0))" 2>/dev/null || echo "0")
+tool_calls=$(python -c "$_SF; import json; d=json.load(open(SF)); print(d.get('tool_calls',0))" 2>/dev/null || echo "0")
+checkpoints_run=$(python -c "$_SF; import json; d=json.load(open(SF)); print(d.get('checkpoints_run',0))" 2>/dev/null || echo "0")
 
 # Increment counters
 tool_calls=$((tool_calls + 1))
@@ -49,11 +56,12 @@ record_code_action()
 
 # Save updated state
 python -c "
-import json, time
-d = json.load(open('$STATE_FILE'))
+import json, time, os
+SF = os.path.join(os.path.expanduser('~'), '.divineos', 'checkpoint_state.json')
+d = json.load(open(SF))
 d['edits'] = $edits
 d['tool_calls'] = $tool_calls
-json.dump(d, open('$STATE_FILE', 'w'), indent=2)
+json.dump(d, open(SF, 'w'), indent=2)
 " 2>/dev/null
 
 # Check if checkpoint needed (every 15 edits)
@@ -64,11 +72,12 @@ if [ "$edits_since" -ge 15 ]; then
 
   # Update checkpoints_run
   python -c "
-import json, time
-d = json.load(open('$STATE_FILE'))
+import json, time, os
+SF = os.path.join(os.path.expanduser('~'), '.divineos', 'checkpoint_state.json')
+d = json.load(open(SF))
 d['checkpoints_run'] = d.get('checkpoints_run', 0) + 1
 d['last_checkpoint'] = time.time()
-json.dump(d, open('$STATE_FILE', 'w'), indent=2)
+json.dump(d, open(SF, 'w'), indent=2)
 " 2>/dev/null
 fi
 
@@ -90,7 +99,8 @@ fi
 warning=""
 
 # Check if we already auto-emitted (don't flood with repeated SESSION_ENDs)
-AUTO_EMITTED_FILE="$HOME/.divineos/auto_session_end_emitted"
+# Use Python to resolve the path for Windows compatibility
+AUTO_EMITTED_FILE=$(python -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos', 'auto_session_end_emitted'))" 2>/dev/null || echo "$HOME/.divineos/auto_session_end_emitted")
 
 if [ "$tool_calls" -ge 150 ]; then
   # Auto-emit SESSION_END if we haven't already — save knowledge before it's lost

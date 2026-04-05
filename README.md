@@ -95,7 +95,7 @@ Every session starts with orientation and ends with learning. The cycle compound
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 3,060+ tests, real DB, no mocks
+pytest tests/ -q --tb=short   # 3,111+ tests, real DB, no mocks
 ```
 
 ## CLI Surface (135 commands)
@@ -366,6 +366,8 @@ src/divineos/
     advice_tracking.py         Long-term feedback loops on recommendation quality
     self_critique.py           Craft quality self-assessment (5 spectrums)
     proactive_patterns.py      Prescriptive recommendations from positive experience
+    affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
+    convergence_detector.py    Circuit 3: compass-critique convergent measurement
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -438,7 +440,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,060+ tests (real DB, no mocks)
+tests/                         3,111+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
@@ -472,7 +474,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,060+ tests (real SQLite, no mocks)
+- 3,111+ tests (real SQLite, no mocks)
 - 135 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly

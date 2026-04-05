@@ -37,6 +37,44 @@ _SELF_MODEL_ERRORS = (
 )
 
 
+def _persist_completeness(completeness: dict[str, Any]) -> None:
+    """Save completeness state so attention_schema can read it.
+
+    Circuit 2: this is the write side. attention_schema._get_self_model_gaps()
+    is the read side. Together they close the loop: missing self-knowledge
+    becomes something I actively attend to.
+    """
+    import json
+    from pathlib import Path
+
+    try:
+        hud_dir = Path.home() / ".divineos" / "hud"
+        hud_dir.mkdir(parents=True, exist_ok=True)
+        (hud_dir / "self_model_completeness.json").write_text(
+            json.dumps(completeness, indent=2), encoding="utf-8"
+        )
+    except OSError as e:
+        logger.debug("Could not persist self-model completeness: %s", e)
+
+
+def get_persisted_completeness() -> dict[str, Any]:
+    """Read the last self-model completeness state.
+
+    Used by attention_schema to detect gaps without importing this module.
+    """
+    import json
+    from pathlib import Path
+
+    try:
+        path = Path.home() / ".divineos" / "hud" / "self_model_completeness.json"
+        if path.exists():
+            data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+            return data
+    except (OSError, json.JSONDecodeError) as e:
+        logger.debug("Could not read persisted completeness: %s", e)
+    return {}
+
+
 # ─── Self-Model Assembly ──────────────────────────────────────────
 
 
@@ -74,6 +112,10 @@ def build_self_model() -> dict[str, Any]:
         "failed": sources_failed,
         "complete": len(sources_failed) == 0,
     }
+
+    # Circuit 2: persist completeness so attention_schema can read gaps
+    # without importing this module (avoiding circular dependency).
+    _persist_completeness(model["completeness"])
 
     return model
 

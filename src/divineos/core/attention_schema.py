@@ -152,6 +152,23 @@ def _get_current_focus() -> list[dict[str, Any]]:
     except _AS_ERRORS as e:
         logger.debug("Attention focus (recent events) failed: %s", e)
 
+    # Self-model gaps — Circuit 2: missing sections surface as focus items.
+    # If I can't see part of myself, that gap deserves attention.
+    try:
+        gaps = _get_self_model_gaps()
+        for gap in gaps:
+            focus_items.append(
+                {
+                    "source": "self_model_gap",
+                    "content": f"Blind spot: {gap['section']} — {gap['reason']}",
+                    "importance": 0.75,
+                    "type": "SELF_MODEL",
+                    "reason": "incomplete self-knowledge",
+                }
+            )
+    except _AS_ERRORS as e:
+        logger.debug("Attention focus (self-model gaps) failed: %s", e)
+
     return focus_items
 
 
@@ -317,6 +334,22 @@ def _get_attention_drivers() -> list[dict[str, Any]]:
     except _AS_ERRORS as e:
         logger.debug("Attention drivers (affect) failed: %s", e)
 
+    # Self-model gaps — Circuit 2: incomplete sections become attention drivers.
+    # The system attends to its own blind spots.
+    try:
+        gaps = _get_self_model_gaps()
+        for gap in gaps:
+            drivers.append(
+                {
+                    "driver": "self_model_gap",
+                    "description": f"Self-model blind spot: {gap['section']} ({gap['reason']})",
+                    "effect": "heightened attention to missing self-knowledge",
+                    "strength": gap["strength"],
+                }
+            )
+    except _AS_ERRORS as e:
+        logger.debug("Attention drivers (self-model gaps) failed: %s", e)
+
     # Directives — permanent attention anchors
     try:
         from divineos.core.knowledge import get_knowledge
@@ -335,6 +368,94 @@ def _get_attention_drivers() -> list[dict[str, Any]]:
         logger.debug("Attention drivers (directives) failed: %s", e)
 
     return drivers
+
+
+# ─── Circuit 2: Self-Model Gap Detection ──────────────────────────────
+
+
+# Maps self-model sections to the data sources they depend on.
+# If a probe fails, the section is a blind spot.
+_SECTION_PROBES: dict[str, tuple[str, str]] = {
+    "identity": ("divineos.core.memory", "get_core"),
+    "strengths": ("divineos.core.skill_library", "get_strongest_skills"),
+    "weaknesses": ("divineos.core.skill_library", "get_weakest_skills"),
+    "emotional_baseline": ("divineos.core.affect", "get_session_affect_context"),
+    "active_concerns": ("divineos.core.curiosity_engine", "get_open_curiosities"),
+    "growth_trajectory": ("divineos.core.drift_detection", "detect_quality_drift"),
+    "epistemic_balance": ("divineos.core.epistemic_status", "assess_epistemic_status"),
+}
+
+
+def _get_self_model_gaps() -> list[dict[str, Any]]:
+    """Detect self-model blind spots without importing self_model.py.
+
+    Two strategies (fast path first):
+    1. Read persisted completeness from last self-model build
+    2. Probe data sources directly if no persisted state exists
+
+    Circuit 2: gaps detected here become attention items and drivers.
+    The system attends to its own blind spots.
+    """
+    # Fast path: read persisted completeness (written by self_model.build_self_model)
+    try:
+        import json
+        from pathlib import Path
+
+        path = Path.home() / ".divineos" / "hud" / "self_model_completeness.json"
+        if path.exists():
+            completeness = json.loads(path.read_text(encoding="utf-8"))
+            failed = completeness.get("failed", [])
+            if failed:
+                return [
+                    {
+                        "section": section,
+                        "reason": "failed in last self-model build",
+                        "strength": 0.7,
+                    }
+                    for section in failed
+                ]
+            if completeness.get("complete", False):
+                return []  # all sections succeeded last time
+    except (OSError, json.JSONDecodeError, KeyError):
+        pass  # fall through to slow path
+
+    # Slow path: probe data sources directly
+    gaps: list[dict[str, Any]] = []
+
+    for section, (module_path, func_name) in _SECTION_PROBES.items():
+        try:
+            import importlib
+
+            mod = importlib.import_module(module_path)
+            func = getattr(mod, func_name)
+            result = func()
+            # Empty results mean the section has no data
+            if not result:
+                gaps.append(
+                    {
+                        "section": section,
+                        "reason": "no data available",
+                        "strength": 0.5,
+                    }
+                )
+        except _AS_ERRORS:
+            gaps.append(
+                {
+                    "section": section,
+                    "reason": "data source unavailable",
+                    "strength": 0.7,
+                }
+            )
+        except (ImportError, AttributeError):
+            gaps.append(
+                {
+                    "section": section,
+                    "reason": "module not installed",
+                    "strength": 0.3,
+                }
+            )
+
+    return gaps
 
 
 # ─── Attention Prediction ──────────────────────────────────────────
