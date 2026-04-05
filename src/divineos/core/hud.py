@@ -677,7 +677,7 @@ def _build_self_awareness_slot() -> str:
             if not lines:
                 lines.append("# Self-Awareness Nudges\n")
             for rec in recs:
-                lines.append(f"- TRY: {rec.get('recommendation', rec.get('content', ''))[:80]}")
+                lines.append(f"- TRY: {rec.get('text', rec.get('recommendation', ''))[:80]}")
     except _HUD_ERRORS:
         pass
 
