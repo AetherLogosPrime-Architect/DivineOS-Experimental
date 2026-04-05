@@ -141,6 +141,18 @@ def init_knowledge_table() -> None:
             except sqlite3.OperationalError as e:
                 logger.debug(f"Column {col} already exists in knowledge table: {e}")
 
+        # Provenance columns (cross-entity attribution and manual linking)
+        for col, col_type, default in [
+            ("source_entity", "TEXT", "NULL"),
+            ("related_to", "TEXT", "NULL"),
+        ]:
+            try:
+                conn.execute(
+                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} DEFAULT {default}",
+                )
+            except sqlite3.OperationalError as e:
+                logger.debug(f"Column {col} already exists in knowledge table: {e}")
+
         # Temporal dimension columns (nullable — NULL means unbounded)
         for col, col_type, default in [
             ("valid_from", "REAL", "NULL"),
