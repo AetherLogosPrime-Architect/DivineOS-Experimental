@@ -49,6 +49,7 @@ SLOT_ORDER = [
     "context_budget",
     "active_knowledge",
     "knowledge_origin",
+    "dead_architecture",
     "warnings",
     "journal",
     "decision_journal",
@@ -774,6 +775,35 @@ def _build_knowledge_origin_slot() -> str:
         return ""
 
 
+def _build_dead_architecture_slot() -> str:
+    """Dead architecture alarm — dormant modules that exist but do nothing."""
+    try:
+        from divineos.core.dead_architecture_alarm import get_latest_scan
+
+        scan = get_latest_scan()
+        if not scan:
+            return "# Dead Architecture\n\n  [!] No scan recorded -- alarm may be dormant"
+
+        dormant = scan.get("dormant", [])
+        active_count = scan.get("active_count", 0)
+        dormant_count = scan.get("dormant_count", 0)
+
+        if dormant_count == 0:
+            return ""
+
+        lines = [
+            f"# Dead Architecture ({dormant_count} dormant, {active_count} active)",
+            "",
+        ]
+        for t in dormant[:10]:
+            lines.append(f"  - {t}")
+        if dormant_count > 10:
+            lines.append(f"  ...and {dormant_count - 10} more")
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -800,6 +830,7 @@ SLOT_BUILDERS = {
     "body": _build_body_slot,
     "self_model": _build_self_model_slot,
     "knowledge_origin": _build_knowledge_origin_slot,
+    "dead_architecture": _build_dead_architecture_slot,
 }
 
 

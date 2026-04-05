@@ -356,6 +356,23 @@ def _run_session_end_pipeline() -> None:
         except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
             logger.debug(f"Affect calibration recording failed: {e}")
 
+        # ── Phase 8n: Dead architecture alarm ───────────────────
+        try:
+            from divineos.core.dead_architecture_alarm import (
+                format_alarm_summary,
+                record_scan,
+                run_full_scan,
+            )
+
+            alarm_result = run_full_scan()
+            scan_id = record_scan(alarm_result)
+            click.secho(
+                f"[~] Dead architecture: {format_alarm_summary(alarm_result)}",
+                fg="yellow" if alarm_result.dormant_count > 0 else "cyan",
+            )
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Dead architecture alarm failed: {e}")
+
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)
 
