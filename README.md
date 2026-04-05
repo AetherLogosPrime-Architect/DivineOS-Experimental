@@ -378,6 +378,7 @@ src/divineos/
     external_validation.py     Self-grade accuracy tracking vs user feedback
     knowledge_impact.py        Causal chain: briefing knowledge -> fewer corrections
     dead_architecture_alarm.py Dormant module detection (zero-row tables, empty HUD slots)
+    session_reflection.py      Structured self-assessment before regex extraction
     council/                   Expert Council (MoE thinking lenses)
       engine.py                Council convene, filter, synthesize
       framework.py             ExpertWisdom dataclass, analysis types

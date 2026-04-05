@@ -141,6 +141,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Knowledge Impact** — Measures whether loaded knowledge actually prevents corrections. Causal chain from briefing to session outcomes.
 - **Dead Architecture Alarm** — Detects dormant modules (tables with zero rows, empty HUD slots). Recursive self-test. Wired into SESSION_END and HUD.
 - **Convergence Detection** — Tags entries with evidence chains, detects overlapping conclusions from independent reasoning paths.
+- **Session Reflection** — Structured self-assessment before regex extraction. Detects session character, recovery arcs, and session-level learnings that regex cannot capture.
 
 ## Project Structure
 

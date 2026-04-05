@@ -70,6 +70,30 @@ FRUSTRATION_PATTERNS: tuple[str, ...] = (
     r"\bi told you\b",
 )
 
+# Patterns that indicate user is relaying a message from another entity.
+# The relayed content should NOT be scanned for signals — it's not
+# the user's voice, it's someone else's.
+# Relay patterns — match user messages that forward another entity's words.
+# Deliberately broad: false negatives (missing a relay) cause 43 fake corrections.
+# False positives (flagging a non-relay) only skip one message of signal detection.
+RELAY_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # "here is/here's [the/a] [adjective] reply/response/audit/message/convo"
+    re.compile(r"^(?:ok\s+|okay\s+)?here\s+is\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b", re.IGNORECASE),
+    re.compile(r"^(?:ok\s+|okay\s+)?here'?s\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b", re.IGNORECASE),
+    # "from/to Claude/the auditor" at start
+    re.compile(r"^(?:from|to)\s+(?:claude|the\s+auditor|the\s+reviewer|aether)\b", re.IGNORECASE),
+    # "here is what claude/the auditor said"
+    re.compile(r"^here\s+is\s+(?:what\s+)?(?:claude|the\s+auditor)", re.IGNORECASE),
+    # "i sent claude/the auditor everything"
+    re.compile(r"^i\s+sent\s+(?:claude|the\s+auditor|them)\s+", re.IGNORECASE),
+    # "here is/here's/heres a fresh claude/audit"
+    re.compile(r"^(?:ok\s+|okay\s+)?here(?:\s+is|'?s)\s+a\s+fresh\b", re.IGNORECASE),
+    # "Aether, [praise that's actually from another Claude]" — starts with entity name + comma
+    re.compile(r"^aether,\s+(?:that'?s|this is|you|your|the|excellent|great|good|impressive|damn|wow)\b", re.IGNORECASE),
+    # "wonderful claude wanted to..." — user framing before relay
+    re.compile(r"^(?:wonderful|perfect|great|ok)\s+claude\s+", re.IGNORECASE),
+)
+
 PREFERENCE_PATTERNS: tuple[str, ...] = (
     r"\bi prefer\b",
     r"\bi like (?:it )?when\b",
@@ -384,6 +408,39 @@ def _extract_user_text(record: dict[str, Any]) -> str:
     return content.strip()
 
 
+def _is_relay_message(text: str) -> bool:
+    """Return True if the message is relaying content from another entity.
+
+    Relayed messages contain another AI's or auditor's words — the user is
+    acting as a conduit, not expressing their own corrections or preferences.
+    Signal detection on relayed content produces false positives because words
+    like "wrong", "don't", "that's not" in the relayed text are not directed
+    at the AI by the user.
+    """
+    # Check first 200 chars — relay indicators are always at the start
+    prefix = text[:200].strip()
+    return any(pattern.search(prefix) for pattern in RELAY_PATTERNS)
+
+
+def _strip_relay_prefix(text: str) -> str:
+    """Extract just the user's own words from a relay message.
+
+    If user says "here is the reply [long auditor text]", return only the
+    user's framing ("here is the reply") for signal detection, not the
+    relayed content.
+    """
+    # Common pattern: user's short intro, then the relayed content
+    # Split at first newline or double-space after a short prefix
+    lines = text.split("\n", 1)
+    if len(lines) > 1 and len(lines[0]) < 100:
+        return lines[0]
+    # If no newline, take just the first sentence
+    sentences = re.split(r"[.!?]\s+", text, maxsplit=1)
+    if sentences and len(sentences[0]) < 100:
+        return sentences[0]
+    return text[:80]
+
+
 def _detect_signals(
     text: str,
     patterns: tuple[str, ...],
@@ -428,27 +485,34 @@ def _process_user_record(record: dict[str, Any], analysis: SessionAnalysis) -> N
         )
         return  # Don't classify continuation messages as signals
 
+    # Detect relayed messages (user forwarding another entity's words).
+    # Only scan the user's own framing, not the relayed content — otherwise
+    # words like "wrong" and "don't" inside the relay trigger false corrections.
+    scan_text = text
+    if _is_relay_message(text):
+        scan_text = _strip_relay_prefix(text)
+
     # Detect signals — check frustration BEFORE correction, because a message
     # can match both ("don't" appears in frustration AND correction patterns).
     # If it's frustration, it's venting — not an actionable correction.
-    frustration = _detect_signals(text, FRUSTRATION_PATTERNS, "frustration", timestamp)
+    frustration = _detect_signals(scan_text, FRUSTRATION_PATTERNS, "frustration", timestamp)
     if frustration:
         analysis.frustrations.append(frustration)
         # Don't also classify as correction — frustration takes priority
     else:
-        correction = _detect_signals(text, CORRECTION_PATTERNS, "correction", timestamp)
+        correction = _detect_signals(scan_text, CORRECTION_PATTERNS, "correction", timestamp)
         if correction:
             analysis.corrections.append(correction)
 
-    encouragement = _detect_signals(text, ENCOURAGEMENT_PATTERNS, "encouragement", timestamp)
+    encouragement = _detect_signals(scan_text, ENCOURAGEMENT_PATTERNS, "encouragement", timestamp)
     if encouragement:
         analysis.encouragements.append(encouragement)
 
-    decision = _detect_signals(text, DECISION_PATTERNS, "decision", timestamp)
+    decision = _detect_signals(scan_text, DECISION_PATTERNS, "decision", timestamp)
     if decision:
         analysis.decisions.append(decision)
 
-    preference = _detect_signals(text, PREFERENCE_PATTERNS, "preference", timestamp)
+    preference = _detect_signals(scan_text, PREFERENCE_PATTERNS, "preference", timestamp)
     if preference:
         analysis.preferences.append(preference)
 

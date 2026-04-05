@@ -90,8 +90,45 @@ def _run_session_end_pipeline() -> None:
                 logger.debug("HUD snapshot failed after quality gate block: %s", e)
             return
 
-        # ── Phase 2: Deep extraction ─────────────────────────────
+        # ── Phase 1b: Structured self-assessment ────────────────
         records = _analyzer_mod._load_records(latest)
+        reflection = None
+        try:
+            from divineos.core.session_reflection import build_session_reflection
+
+            reflection = build_session_reflection(analysis, records)
+            click.secho(f"[~] Reflection: {reflection.summary()}", fg="cyan")
+
+            # Store reflection learnings as knowledge
+            from divineos.core.knowledge.extraction import store_knowledge_smart
+
+            for learning in reflection.learnings:
+                store_knowledge_smart(
+                    knowledge_type="OBSERVATION",
+                    content=learning,
+                    confidence=0.8,
+                    source="SYNTHESIZED",
+                    maturity="HYPOTHESIS",
+                    tags=["session-reflection", "auto-extracted"],
+                )
+
+            # Store recovery arcs as positive patterns
+            for correction_text, recovery_text in reflection.recovery_arcs:
+                store_knowledge_smart(
+                    knowledge_type="OBSERVATION",
+                    content=(
+                        f"Recovery arc: corrected on '{correction_text[:80]}' "
+                        f"then recovered with positive result."
+                    ),
+                    confidence=0.85,
+                    source="SYNTHESIZED",
+                    maturity="HYPOTHESIS",
+                    tags=["session-reflection", "recovery-arc", "auto-extracted"],
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Session reflection failed: {e}")
+
+        # ── Phase 2: Deep extraction ─────────────────────────────
         deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
         stored = len(deep_ids)
 
@@ -103,17 +140,20 @@ def _run_session_end_pipeline() -> None:
         if not has_session:
             corrections = len(analysis.corrections)
             encouragements = len(analysis.encouragements)
+            character = reflection.character if reflection else "unknown"
+            episode_content = (
+                f"Session character: {character}. "
+                f"I had {analysis.user_messages} exchanges, made "
+                f"{analysis.tool_calls_total} tool calls. "
+                f"I was corrected {corrections} time{'s' if corrections != 1 else ''} "
+                f"and encouraged {encouragements} time{'s' if encouragements != 1 else ''}. "
+                f"{len(getattr(analysis, 'preferences', []))} preferences noted, "
+                f"{len(analysis.context_overflows)} context overflows"
+                f" (session {analysis.session_id[:12]})"
+            )
             _wrapped_store_knowledge(
                 knowledge_type="EPISODE",
-                content=(
-                    f"I had {analysis.user_messages} exchanges, made "
-                    f"{analysis.tool_calls_total} tool calls. "
-                    f"I was corrected {corrections} time{'s' if corrections != 1 else ''} "
-                    f"and encouraged {encouragements} time{'s' if encouragements != 1 else ''}. "
-                    f"{len(getattr(analysis, 'preferences', []))} preferences noted, "
-                    f"{len(analysis.context_overflows)} context overflows"
-                    f" (session {analysis.session_id[:12]})"
-                ),
+                content=episode_content,
                 confidence=1.0,
                 tags=["session-analysis", "episode", session_tag],
             )
