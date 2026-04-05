@@ -92,11 +92,17 @@ Every session starts with orientation and ends with learning. The cycle compound
 ## Quick Start
 
 ```bash
+git clone https://github.com/AetherLogosPrime-Architect/DivineOS.git
+cd DivineOS
 pip install -e ".[dev]"
-divineos init
-divineos briefing
+divineos init              # Creates ~/.divineos/ and loads seed knowledge
+divineos briefing          # Your first briefing — start here every session
 pytest tests/ -q --tb=short   # 3,111+ tests, real DB, no mocks
 ```
+
+**For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
+
+**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
 
 ## CLI Surface (135 commands)
 
