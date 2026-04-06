@@ -126,6 +126,11 @@ def store_knowledge_smart(
     Also scans for contradictions against existing same-type entries
     and resolves them automatically.
     """
+    # Voice normalization: knowledge speaks as me, not about me
+    from divineos.core.knowledge._text import normalize_to_first_person
+
+    content = normalize_to_first_person(content)
+
     # First: try exact hash dedup (fast path)
     content_hash = compute_hash(content)
     conn = _get_connection()
