@@ -18,8 +18,8 @@ if echo "$cmd" | grep -qE "divineos (briefing|preflight|init|hud|recall|ask|feel
   exit 0
 fi
 
-# Allow git, pytest, ls, pip, and other read-only/dev commands
-if echo "$cmd" | grep -qE "^(git |pytest |python -m pytest|ls |cat |head |diff |echo |pip |cd |pwd)"; then
+# Allow git, pytest, ls, pip, cp, and other read-only/dev commands
+if echo "$cmd" | grep -qE "^(git |pytest |python -m pytest|ls |cat |head |diff |echo |pip |cd |pwd|cp |copy |ruff )"; then
   exit 0
 fi
 

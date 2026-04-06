@@ -229,10 +229,60 @@ class TestThresholdValue:
     """The threshold should be reasonable — not too tight, not too loose."""
 
     def test_threshold_is_15(self) -> None:
-        """15 code actions before re-engagement is required.
-
-        Enough room for a batch of related mechanical changes (e.g.,
-        same edit across 9 files + git commands) without interrupting
-        flow, while still catching runaway coding without thinking.
-        """
+        """15 code actions before re-engagement is required."""
         assert _ENGAGEMENT_DECAY_THRESHOLD == 15
+
+
+class TestContextAwareThreshold:
+    """Engagement threshold adapts to commit flows."""
+
+    def test_base_threshold_when_no_staged_files(self, tmp_path: Path) -> None:
+        """Without staged files, use the base threshold."""
+        from divineos.core.hud_handoff import _active_threshold
+
+        # Mock git returning 0 (no staged changes)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            assert _active_threshold() == _ENGAGEMENT_DECAY_THRESHOLD
+
+    def test_commit_threshold_when_staged_files(self, tmp_path: Path) -> None:
+        """With staged files, use the higher commit threshold."""
+        from divineos.core.hud_handoff import (
+            _ENGAGEMENT_COMMIT_THRESHOLD,
+            _active_threshold,
+        )
+
+        # Mock git returning 1 (staged changes exist)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 1
+            assert _active_threshold() == _ENGAGEMENT_COMMIT_THRESHOLD
+
+    def test_commit_threshold_is_double_base(self) -> None:
+        """Commit threshold gives twice the room for mechanical work."""
+        from divineos.core.hud_handoff import _ENGAGEMENT_COMMIT_THRESHOLD
+
+        assert _ENGAGEMENT_COMMIT_THRESHOLD == 30
+        assert _ENGAGEMENT_COMMIT_THRESHOLD == 2 * _ENGAGEMENT_DECAY_THRESHOLD
+
+    def test_is_engaged_uses_commit_threshold_during_staging(self, tmp_path: Path) -> None:
+        """During commit flow, 20 actions should still be engaged."""
+        with (
+            patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
+            patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value.returncode = 1  # staged files exist
+            mark_engaged()
+
+            # 20 actions — past base threshold (15) but under commit threshold (30)
+            for _ in range(20):
+                record_code_action()
+
+            assert is_engaged() is True  # would be False without context awareness
+
+    def test_falls_back_to_base_on_git_error(self, tmp_path: Path) -> None:
+        """If git is unavailable, use base threshold."""
+        from divineos.core.hud_handoff import _active_threshold
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            assert _active_threshold() == _ENGAGEMENT_DECAY_THRESHOLD
