@@ -52,10 +52,12 @@ def register(cli: click.Group) -> None:
         label = TIER_LABELS.get(tier, "unknown")
         click.secho(f"[+] Claim filed ({label}): {claim_id[:8]}...", fg="cyan")
 
-    @cli.group("claims")
-    def claims_group() -> None:
+    @cli.group("claims", invoke_without_command=True)
+    @click.pass_context
+    def claims_group(ctx: click.Context) -> None:
         """Investigate claims - test everything, dismiss nothing."""
-        pass
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(claims_list_cmd)
 
     @claims_group.command("list")
     @click.option("--limit", default=20, type=int)
@@ -255,10 +257,12 @@ def register(cli: click.Group) -> None:
         if description:
             click.secho(f"    {description}", fg="bright_black")
 
-    @cli.group("affect")
-    def affect_group() -> None:
+    @cli.group("affect", invoke_without_command=True)
+    @click.pass_context
+    def affect_group(ctx: click.Context) -> None:
         """My functional feeling states - tracked honestly."""
-        pass
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(affect_history_cmd)
 
     @affect_group.command("history")
     @click.option("--limit", default=20, type=int)

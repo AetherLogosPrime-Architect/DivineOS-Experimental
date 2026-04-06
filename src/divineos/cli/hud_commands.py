@@ -48,9 +48,12 @@ def register(cli: click.Group) -> None:
         hud_text = build_hud(slots=slot_list)
         _safe_echo(hud_text)
 
-    @cli.group("goal")
-    def goal_group() -> None:
+    @cli.group("goal", invoke_without_command=True)
+    @click.pass_context
+    def goal_group(ctx: click.Context) -> None:
         """Track what the user asked me to do. My compass against drift."""
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(goal_list_cmd)
 
     @goal_group.command("add")
     @click.argument("text")

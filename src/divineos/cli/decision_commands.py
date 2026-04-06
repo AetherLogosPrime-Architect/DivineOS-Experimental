@@ -82,10 +82,12 @@ def register(cli: click.Group) -> None:
                 fg="bright_black",
             )
 
-    @cli.group("decisions")
-    def decisions_group() -> None:
+    @cli.group("decisions", invoke_without_command=True)
+    @click.pass_context
+    def decisions_group(ctx: click.Context) -> None:
         """Browse and search my decision journal."""
-        pass
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(decisions_list_cmd)
 
     @decisions_group.command("list")
     @click.option("--limit", default=20, type=int, help="Max entries to show")

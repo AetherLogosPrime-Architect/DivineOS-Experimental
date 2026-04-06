@@ -42,9 +42,12 @@ def register(cli: click.Group) -> None:
         results = run_compression(knowledge_type=knowledge_type, strategies=strategies)
         click.echo(format_compression_report(results))
 
-    @cli.group("skill")
-    def skill_group() -> None:
+    @cli.group("skill", invoke_without_command=True)
+    @click.pass_context
+    def skill_group(ctx: click.Context) -> None:
         """Track agent skills and proficiency."""
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(skill_list)
 
     @skill_group.command("list")
     def skill_list() -> None:
@@ -65,9 +68,12 @@ def register(cli: click.Group) -> None:
             f"Recorded {name}: {result['proficiency']} ({result['successes']}✓ {result['failures']}✗)"
         )
 
-    @cli.group("curiosity")
-    def curiosity_group() -> None:
+    @cli.group("curiosity", invoke_without_command=True)
+    @click.pass_context
+    def curiosity_group(ctx: click.Context) -> None:
         """Track questions worth investigating."""
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(curiosity_list)
 
     @curiosity_group.command("add")
     @click.argument("question")

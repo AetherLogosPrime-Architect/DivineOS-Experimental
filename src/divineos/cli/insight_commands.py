@@ -17,9 +17,12 @@ def register(cli: click.Group) -> None:
 
     # ─── Opinion Store ───────────────────────────────────────────
 
-    @cli.group()
-    def opinion() -> None:
+    @cli.group(invoke_without_command=True)
+    @click.pass_context
+    def opinion(ctx: click.Context) -> None:
         """Manage structured opinions (judgments formed from evidence)."""
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(opinion_list)
 
     @opinion.command("add")
     @click.argument("topic")
@@ -130,9 +133,12 @@ def register(cli: click.Group) -> None:
 
     # ─── Advice Tracking ─────────────────────────────────────────
 
-    @cli.group()
-    def advice() -> None:
+    @cli.group(invoke_without_command=True)
+    @click.pass_context
+    def advice(ctx: click.Context) -> None:
         """Track advice quality over time."""
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(advice_pending)
 
     @advice.command("record")
     @click.argument("content")
