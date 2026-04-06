@@ -124,6 +124,52 @@ def get_all_curiosities() -> list[dict[str, Any]]:
     return _load_curiosities()
 
 
+# ─── Decay ────────────────────────────────────────────────────────
+
+# Questions older than this many days get auto-shelved during sleep.
+_CURIOSITY_STALE_DAYS = 14
+# Maximum open curiosities. Oldest get shelved when exceeded.
+_CURIOSITY_MAX_OPEN = 15
+
+
+def prune_stale_curiosities() -> int:
+    """Auto-shelve curiosities that have gone stale.
+
+    Called during sleep pruning phase. Two rules:
+    1. OPEN curiosities older than 14 days → DORMANT
+    2. If more than 15 open, shelve the oldest until under cap
+
+    Returns number of curiosities shelved.
+    """
+    curiosities = _load_curiosities()
+    now = time.time()
+    cutoff = now - (_CURIOSITY_STALE_DAYS * 86400)
+    shelved = 0
+
+    # Rule 1: age-based decay
+    for c in curiosities:
+        if c.get("status") == "OPEN" and c.get("created_at", now) < cutoff:
+            c["status"] = "DORMANT"
+            c["shelved_reason"] = "stale"
+            shelved += 1
+
+    # Rule 2: cap enforcement (shelve oldest first)
+    open_ones = [c for c in curiosities if c.get("status") in ("OPEN", "INVESTIGATING")]
+    if len(open_ones) > _CURIOSITY_MAX_OPEN:
+        # Sort by created_at ascending (oldest first)
+        open_ones.sort(key=lambda x: x.get("created_at", 0))
+        excess = len(open_ones) - _CURIOSITY_MAX_OPEN
+        for c in open_ones[:excess]:
+            c["status"] = "DORMANT"
+            c["shelved_reason"] = "overflow"
+            shelved += 1
+
+    if shelved:
+        _save_curiosities(curiosities)
+
+    return shelved
+
+
 # ─── Detection ─────────────────────────────────────────────────────
 
 CURIOSITY_PATTERNS = (

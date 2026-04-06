@@ -190,12 +190,22 @@ def _phase_consolidation(report: DreamReport) -> None:
 
 
 def _phase_pruning(report: DreamReport) -> None:
-    """Knowledge hygiene: health check + noise sweep + contradiction scan."""
+    """Knowledge hygiene: health check + noise sweep + contradiction scan + curiosity decay."""
     from divineos.core.knowledge.feedback import health_check
     from divineos.core.knowledge_maintenance import run_knowledge_hygiene
 
     report.health_results = health_check()
     report.hygiene_results = run_knowledge_hygiene()
+
+    # Prune stale curiosities — wonder has a shelf life
+    try:
+        from divineos.core.curiosity_engine import prune_stale_curiosities
+
+        shelved = prune_stale_curiosities()
+        if shelved:
+            report.hygiene_results["curiosities_shelved"] = shelved
+    except _SLEEP_ERRORS:
+        pass
 
 
 # ─── Phase 3: Affect Recalibration ───────────────────────────────────
