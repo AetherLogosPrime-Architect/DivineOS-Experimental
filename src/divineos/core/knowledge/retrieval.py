@@ -530,6 +530,28 @@ def _format_briefing(
         lines.append(lessons_text)
         lines.append("")
 
+    # Open curiosities — questions generated during sleep or filed manually
+    try:
+        from divineos.core.curiosity_engine import get_open_curiosities
+
+        open_q = get_open_curiosities()
+        if open_q:
+            lines.append(f"### OPEN QUESTIONS ({len(open_q)})")
+            for q in open_q[:3]:
+                status_icon = "?" if q.get("status") == "OPEN" else "->"
+                question_text = q.get("question", "")
+                if len(question_text) > 120:
+                    question_text = question_text[:117] + "..."
+                lines.append(f"  {status_icon} {question_text}")
+                cat = q.get("category", "")
+                if cat and cat != "general":
+                    lines.append(f"    [{cat}]")
+            if len(open_q) > 3:
+                lines.append(f"  ...and {len(open_q) - 3} more (run: divineos curiosity list)")
+            lines.append("")
+    except _RETRIEVAL_ERRORS:
+        pass
+
     lines.extend(_format_knowledge_sections(grouped, hint_matches))
 
     # Graph connections — show relationships between briefing entries

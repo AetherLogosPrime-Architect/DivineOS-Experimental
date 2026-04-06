@@ -110,6 +110,37 @@ def register(cli: click.Group) -> None:
         else:
             click.echo("No matching open curiosity found.")
 
+    @curiosity_group.command("wonder")
+    @click.option("--max", "max_q", default=5, type=int, help="Max questions to generate")
+    def curiosity_wonder(max_q: int) -> None:
+        """Auto-generate questions from knowledge gaps.
+
+        Scans the knowledge store for hypotheses needing evidence,
+        stuck lessons, shelved contradictions, and popular-but-unvalidated
+        entries. Files them as OPEN curiosities.
+        """
+        from divineos.core.curiosity_engine import generate_curiosities_from_gaps
+
+        generated = generate_curiosities_from_gaps(max_questions=max_q)
+        if generated:
+            click.secho(f"Generated {len(generated)} question(s):\n", fg="cyan")
+            for g in generated:
+                click.echo(f"  ? {g.get('question', '?')[:100]}")
+                click.secho(f"    [{g.get('category', '?')}]", fg="bright_black")
+        else:
+            click.echo("No gaps found — knowledge store looks complete.")
+
+    @curiosity_group.command("shelve")
+    @click.argument("question")
+    def curiosity_shelve(question: str) -> None:
+        """Put a curiosity to sleep — not abandoned, just not active."""
+        from divineos.core.curiosity_engine import shelve_curiosity
+
+        if shelve_curiosity(question):
+            click.echo("Curiosity shelved.")
+        else:
+            click.echo("No matching open curiosity found.")
+
     @cli.command("attention")
     def attention_cmd() -> None:
         """Display the attention schema -- what I'm attending to and why."""
