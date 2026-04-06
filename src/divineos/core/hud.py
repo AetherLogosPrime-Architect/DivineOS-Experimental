@@ -261,32 +261,47 @@ def _build_session_health_slot() -> str:
 
 
 def _build_context_budget_slot() -> str:
-    """How much context window I have left."""
-    path = _ensure_hud_dir() / "context_budget.json"
-    if not path.exists():
-        return "# Context Budget\n\nNo budget tracking active. I should be mindful of context size."
-
-    try:
-        budget = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return "# Context Budget\n\nBudget data corrupted."
-
-    used = budget.get("used_pct", 0)
+    """How much context window I have left, plus guardrail state."""
     lines = ["# My Context Budget\n"]
-    lines.append(f"- **Used:** {used}%")
 
-    if used < 50:
-        lines.append("- Plenty of room. I can work freely.")
-    elif used < 70:
-        lines.append("- Past halfway. Still good.")
-    elif used < 80:
-        lines.append(
-            "- Compression approaching. I should save my HUD state so I wake up with full context after compaction."
-        )
+    path = _ensure_hud_dir() / "context_budget.json"
+    if path.exists():
+        try:
+            budget = json.loads(path.read_text(encoding="utf-8"))
+            used = budget.get("used_pct", 0)
+            lines.append(f"- **Used:** {used}%")
+
+            if used < 50:
+                lines.append("- Plenty of room. I can work freely.")
+            elif used < 70:
+                lines.append("- Past halfway. Still good.")
+            elif used < 80:
+                lines.append(
+                    "- Compression approaching. I should save my HUD state so I wake up with full context after compaction."
+                )
+            else:
+                lines.append(
+                    "- Compression imminent. Saving HUD now so I don't lose context. I'll still be here after — just with a fresh window."
+                )
+        except (json.JSONDecodeError, OSError):
+            lines.append("- Budget data unavailable.")
     else:
-        lines.append(
-            "- Compression imminent. Saving HUD now so I don't lose context. I'll still be here after — just with a fresh window."
-        )
+        lines.append("- No budget tracking active. I should be mindful of context size.")
+
+    # Guardrail state — runtime limits
+    try:
+        from divineos.core.tool_wrapper import get_guardrail_state
+
+        gs = get_guardrail_state()
+        if gs is not None:
+            s = gs.summary()
+            lines.append(f"\n**Guardrails:** {s['status']}")
+            lines.append(f"- Iterations: {s['iterations']}")
+            lines.append(f"- Tool calls: {s['tool_calls']}")
+            if s["violations"] > 0:
+                lines.append(f"- **{s['violations']} violations, {s['warnings']} warnings**")
+    except (ImportError, AttributeError):
+        pass  # guardrails not active
 
     return "\n".join(lines)
 
