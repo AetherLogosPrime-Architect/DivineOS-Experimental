@@ -22,6 +22,7 @@ def register(cli: click.Group) -> None:
             DreamReport,
             _phase_affect,
             _phase_consolidation,
+            _phase_curiosity,
             _phase_maintenance,
             _phase_pruning,
             _phase_recombination,
@@ -36,6 +37,7 @@ def register(cli: click.Group) -> None:
             if not skip_maintenance:
                 click.echo("  Phase 4: Maintenance — VACUUM, log rotation, cache pruning")
             click.echo("  Phase 5: Creative Recombination — cross-knowledge similarity scan")
+            click.echo("  Phase 6: Curiosity Generation — auto-generate questions from gaps")
             click.echo("\n  No data will be modified in dry-run mode.")
             return
 
@@ -47,6 +49,7 @@ def register(cli: click.Group) -> None:
                 "affect": ("Phase 3: Affect Recalibration", _phase_affect),
                 "maintenance": ("Phase 4: Maintenance", _phase_maintenance),
                 "recombination": ("Phase 5: Creative Recombination", _phase_recombination),
+                "curiosity": ("Phase 6: Curiosity Generation", _phase_curiosity),
             }
             if phase not in phase_map:
                 click.secho(
@@ -69,6 +72,7 @@ def register(cli: click.Group) -> None:
         if not skip_maintenance:
             click.echo("  Phase 4: Maintenance...")
         click.echo("  Phase 5: Creative Recombination...")
+        click.echo("  Phase 6: Curiosity Generation...")
         click.echo("")
 
         report = run_sleep(skip_maintenance=skip_maintenance)
