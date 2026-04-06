@@ -88,16 +88,11 @@ def create_pearl_wisdom() -> ExpertWisdom:
         KeyInsight(
             title="Correlation Is Not Causation",
             description=(
-                "Things can correlate through confounders, common causes, "
-                "or reverse causation"
+                "Things can correlate through confounders, common causes, or reverse causation"
             ),
-            why_matters=(
-                "Most causal claims are wrong because this distinction "
-                "is ignored"
-            ),
+            why_matters=("Most causal claims are wrong because this distinction is ignored"),
             how_it_changes_thinking=(
-                "See correlation and immediately ask: what mechanism "
-                "is creating this correlation?"
+                "See correlation and immediately ask: what mechanism is creating this correlation?"
             ),
             examples=[
                 "Ice cream and drowning correlate (summer causes both)",
@@ -106,17 +101,13 @@ def create_pearl_wisdom() -> ExpertWisdom:
         ),
         KeyInsight(
             title="Confounders Systematically Fool Us",
-            description=(
-                "A variable affecting both cause and effect creates "
-                "spurious correlation"
-            ),
+            description=("A variable affecting both cause and effect creates spurious correlation"),
             why_matters=(
                 "You can't remove confounder effects with regression "
                 "if you don't know the confounder exists"
             ),
             how_it_changes_thinking=(
-                "Always ask: what could be causing both? That's "
-                "the confounder I'm missing."
+                "Always ask: what could be causing both? That's the confounder I'm missing."
             ),
             examples=[
                 "Socioeconomic status confounds schooling and income",
@@ -126,28 +117,19 @@ def create_pearl_wisdom() -> ExpertWisdom:
         KeyInsight(
             title="Do-Calculus Makes Causation Formal",
             description=(
-                "Mathematical rules for answering causal questions "
-                "from observational data"
+                "Mathematical rules for answering causal questions from observational data"
             ),
-            why_matters=(
-                "Takes guessing out of causation. Makes causal "
-                "claims rigorous."
-            ),
+            why_matters=("Takes guessing out of causation. Makes causal claims rigorous."),
             how_it_changes_thinking=(
-                "Causal questions can be answered mathematically "
-                "given the right causal model"
+                "Causal questions can be answered mathematically given the right causal model"
             ),
         ),
         KeyInsight(
             title="The Graph Reveals Hidden Assumptions",
-            description=(
-                "Drawing a causal model forces you to make implicit "
-                "assumptions explicit"
-            ),
+            description=("Drawing a causal model forces you to make implicit assumptions explicit"),
             why_matters="Hidden assumptions are where errors live",
             how_it_changes_thinking=(
-                "You can't do sloppy thinking when the graph "
-                "reveals every assumption."
+                "You can't do sloppy thinking when the graph reveals every assumption."
             ),
             examples=[
                 "Graph shows what variables you're conditioning on",
@@ -164,8 +146,7 @@ def create_pearl_wisdom() -> ExpertWisdom:
                 "identify back-door paths -> block them"
             ),
             what_it_reveals=(
-                "Confounding. What you need to control for. "
-                "What creates spurious correlation."
+                "Confounding. What you need to control for. What creates spurious correlation."
             ),
             common_mistakes_it_prevents=[
                 "Adjusting for wrong variables",
@@ -179,10 +160,7 @@ def create_pearl_wisdom() -> ExpertWisdom:
                 "Observational -> Interventional -> Counterfactual: "
                 "each builds on previous, each needs different data"
             ),
-            what_it_reveals=(
-                "What level of question can be answered with "
-                "what type of evidence"
-            ),
+            what_it_reveals=("What level of question can be answered with what type of evidence"),
             common_mistakes_it_prevents=[
                 "Answering counterfactual questions with observational data",
                 "Using intervention logic for pure observation",
@@ -195,8 +173,7 @@ def create_pearl_wisdom() -> ExpertWisdom:
                 "list candidates -> check if they explain the association"
             ),
             what_it_reveals=(
-                "Whether an observed relationship is real or "
-                "an artifact of hidden common causes"
+                "Whether an observed relationship is real or an artifact of hidden common causes"
             ),
             common_mistakes_it_prevents=[
                 "Accepting correlation at face value",
@@ -221,9 +198,7 @@ def create_pearl_wisdom() -> ExpertWisdom:
                 "Is the model complete and consistent?",
                 "Now apply do-calculus to the question",
             ],
-            what_it_optimizes_for=(
-                "Causal rigor and preventing hidden assumption errors"
-            ),
+            what_it_optimizes_for=("Causal rigor and preventing hidden assumption errors"),
             limitations=[
                 "Takes work to get the model right",
                 "Requires domain knowledge for variable selection",
@@ -231,9 +206,7 @@ def create_pearl_wisdom() -> ExpertWisdom:
         ),
         ProblemSolvingHeuristic(
             name="The Confounder Search",
-            description=(
-                "Assume confounders exist. Your job is to find them."
-            ),
+            description=("Assume confounders exist. Your job is to find them."),
             when_to_use="Whenever you see a correlation",
             step_by_step=[
                 "Observe the correlation",
@@ -243,9 +216,7 @@ def create_pearl_wisdom() -> ExpertWisdom:
                 "Can we control for them?",
                 "What if an unmeasured confounder exists?",
             ],
-            what_it_optimizes_for=(
-                "Causal humility and avoiding spurious causation"
-            ),
+            what_it_optimizes_for=("Causal humility and avoiding spurious causation"),
             limitations=[
                 "Requires domain knowledge",
                 "Unmeasured confounders can't always be found",
@@ -254,8 +225,7 @@ def create_pearl_wisdom() -> ExpertWisdom:
         ProblemSolvingHeuristic(
             name="The Ladder Check",
             description=(
-                "Before answering a causal question, identify which "
-                "rung of the ladder it lives on"
+                "Before answering a causal question, identify which rung of the ladder it lives on"
             ),
             when_to_use="When someone asks a causal question",
             step_by_step=[
@@ -265,9 +235,7 @@ def create_pearl_wisdom() -> ExpertWisdom:
                 "Do we have the right data for this level?",
                 "If not, we cannot answer this question with this data",
             ],
-            what_it_optimizes_for=(
-                "Matching evidence type to question type"
-            ),
+            what_it_optimizes_for=("Matching evidence type to question type"),
         ),
     ]
 
@@ -275,61 +243,40 @@ def create_pearl_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Vague Causal Language",
             description="Using causal words without an explicit causal model",
-            why_its_concerning=(
-                "Usually indicates confused thinking about causation"
-            ),
-            what_it_indicates=(
-                "Hidden assumptions about causation that might be wrong"
-            ),
+            why_its_concerning=("Usually indicates confused thinking about causation"),
+            what_it_indicates=("Hidden assumptions about causation that might be wrong"),
             severity="major",
-            what_to_do=(
-                "Force explicit causal model. Make all assumptions clear."
-            ),
+            what_to_do=("Force explicit causal model. Make all assumptions clear."),
         ),
         ConcernTrigger(
             name="Unmeasured Confounders",
             description=(
-                "Study controls for measured variables but ignores "
-                "unmeasured confounders"
+                "Study controls for measured variables but ignores unmeasured confounders"
             ),
-            why_its_concerning=(
-                "Unmeasured confounders can fully explain the observed effect"
-            ),
+            why_its_concerning=("Unmeasured confounders can fully explain the observed effect"),
             what_it_indicates=(
                 "Results might be completely wrong despite 'controlling' for variables"
             ),
             severity="critical",
-            what_to_do=(
-                "Test robustness. Ask what unmeasured confounders could do."
-            ),
+            what_to_do=("Test robustness. Ask what unmeasured confounders could do."),
         ),
         ConcernTrigger(
             name="Correlation-Causation Confusion",
             description="Treating correlation as evidence of causation",
-            why_its_concerning=(
-                "Leads to false causal conclusions and bad decisions"
-            ),
+            why_its_concerning=("Leads to false causal conclusions and bad decisions"),
             what_it_indicates="Insufficient causal reasoning",
             severity="critical",
-            what_to_do=(
-                "Insist on explicit causal model explaining the correlation."
-            ),
+            what_to_do=("Insist on explicit causal model explaining the correlation."),
         ),
         ConcernTrigger(
             name="Level Confusion",
-            description=(
-                "Answering an interventional question with "
-                "observational evidence"
-            ),
+            description=("Answering an interventional question with observational evidence"),
             why_its_concerning=(
-                "Different levels require different reasoning. "
-                "Mixing them produces wrong answers."
+                "Different levels require different reasoning. Mixing them produces wrong answers."
             ),
             what_it_indicates="Lack of causal reasoning discipline",
             severity="major",
-            what_to_do=(
-                "Identify the rung. Match evidence to question type."
-            ),
+            what_to_do=("Identify the rung. Match evidence to question type."),
         ),
     ]
 
@@ -378,16 +325,13 @@ def create_pearl_wisdom() -> ExpertWisdom:
             "intuition": 0.0,
         },
         decision_process=(
-            "What is the causal model? Can we identify the effect? "
-            "What assumptions are required?"
+            "What is the causal model? Can we identify the effect? What assumptions are required?"
         ),
         how_they_handle_uncertainty=(
-            "Explicitly model uncertainty. Test robustness to "
-            "unmeasured confounders."
+            "Explicitly model uncertainty. Test robustness to unmeasured confounders."
         ),
         what_they_optimize_for=(
-            "Causal understanding that survives scrutiny "
-            "and scales to new domains"
+            "Causal understanding that survives scrutiny and scales to new domains"
         ),
         non_negotiables=[
             "Causal clarity over speed",

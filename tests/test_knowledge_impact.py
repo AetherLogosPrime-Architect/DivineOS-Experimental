@@ -78,9 +78,7 @@ class TestAssessImpact:
         assert result["impact_score"] == 1.0
 
     def test_correction_overlap_detected(self):
-        record_knowledge_retrieval(
-            "sess-1", "k-1", "User prefers concise short direct answers"
-        )
+        record_knowledge_retrieval("sess-1", "k-1", "User prefers concise short direct answers")
         result = assess_session_impact(
             "sess-1",
             ["Your answer was too verbose, please be more concise short direct"],
@@ -98,12 +96,8 @@ class TestAssessImpact:
         assert result["clean"] == 1
 
     def test_mixed_results(self):
-        record_knowledge_retrieval(
-            "sess-1", "k-1", "User prefers concise short direct answers"
-        )
-        record_knowledge_retrieval(
-            "sess-1", "k-2", "Always run pytest after code changes"
-        )
+        record_knowledge_retrieval("sess-1", "k-1", "User prefers concise short direct answers")
+        record_knowledge_retrieval("sess-1", "k-2", "Always run pytest after code changes")
         result = assess_session_impact(
             "sess-1",
             ["Your answer was too long, please give concise short direct responses"],
@@ -137,6 +131,7 @@ class TestBriefingRecordsRetrievals:
     def _ensure_session(self):
         """Impact recording needs an active session."""
         from divineos.core.session_manager import initialize_session
+
         initialize_session()
 
     def test_briefing_populates_impact_table(self):

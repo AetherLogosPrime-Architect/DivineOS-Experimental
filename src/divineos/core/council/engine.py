@@ -8,7 +8,7 @@ through them; they don't think for you.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from divineos.core.council.framework import (
     ExpertWisdom,
@@ -189,9 +189,7 @@ class CouncilEngine:
         # Default to first methodology
         return wisdom.core_methodologies[0]
 
-    def _find_relevant_insights(
-        self, wisdom: ExpertWisdom, problem_lower: str
-    ) -> list[str]:
+    def _find_relevant_insights(self, wisdom: ExpertWisdom, problem_lower: str) -> list[str]:
         """Find insights relevant to this problem."""
         relevant: list[str] = []
         for insight in wisdom.key_insights:
@@ -221,9 +219,7 @@ class CouncilEngine:
                 severity_map[label] = trigger.severity
         return concerns, severity_map
 
-    def _apply_integration(
-        self, wisdom: ExpertWisdom, problem_lower: str
-    ) -> list[str]:
+    def _apply_integration(self, wisdom: ExpertWisdom, problem_lower: str) -> list[str]:
         """Apply integration patterns."""
         findings: list[str] = []
         for pattern in wisdom.integration_patterns:
@@ -247,9 +243,7 @@ class CouncilEngine:
     ) -> str:
         """Build a synthesis text from the analysis components."""
         parts: list[str] = []
-        parts.append(
-            f"Through {expert_name}'s lens ({methodology_name}):"
-        )
+        parts.append(f"Through {expert_name}'s lens ({methodology_name}):")
         parts.append(f"Core principle: {core_principle}")
 
         if insights:
@@ -279,17 +273,10 @@ class CouncilEngine:
     ) -> list[ExpertWisdom]:
         """Select which experts to consult."""
         if names:
-            return [
-                self._experts[n]
-                for n in names
-                if n in self._experts
-            ]
+            return [self._experts[n] for n in names if n in self._experts]
         if tags:
             tag_set = set(tags)
-            return [
-                w for w in self._experts.values()
-                if tag_set & set(w.tags)
-            ]
+            return [w for w in self._experts.values() if tag_set & set(w.tags)]
         return list(self._experts.values())
 
     # ------------------------------------------------------------------

@@ -118,8 +118,26 @@ def assess_session_impact(
 
     overlaps = 0
     stop = {
-        "the", "a", "an", "is", "are", "was", "were", "i", "to", "and",
-        "of", "in", "for", "it", "that", "this", "with", "on", "not", "be",
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "i",
+        "to",
+        "and",
+        "of",
+        "in",
+        "for",
+        "it",
+        "that",
+        "this",
+        "with",
+        "on",
+        "not",
+        "be",
     }
 
     conn = _get_connection()

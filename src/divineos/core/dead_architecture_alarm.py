@@ -14,40 +14,42 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 
-from loguru import logger
-
 import divineos.core.ledger as _ledger_mod
 
 # Tables that are expected to be empty or are infrastructure (not features)
-_INFRASTRUCTURE_TABLES = frozenset({
-    "sqlite_sequence",
-    "seed_metadata",
-    # FTS internal tables (never directly written to)
-    "knowledge_fts_data",
-    "knowledge_fts_idx",
-    "knowledge_fts_docsize",
-    "knowledge_fts_config",
-    "journal_fts_data",
-    "journal_fts_idx",
-    "journal_fts_docsize",
-    "journal_fts_config",
-    "decision_fts_data",
-    "decision_fts_idx",
-    "decision_fts_docsize",
-    "decision_fts_config",
-    "claim_fts_data",
-    "claim_fts_idx",
-    "claim_fts_docsize",
-    "claim_fts_config",
-})
+_INFRASTRUCTURE_TABLES = frozenset(
+    {
+        "sqlite_sequence",
+        "seed_metadata",
+        # FTS internal tables (never directly written to)
+        "knowledge_fts_data",
+        "knowledge_fts_idx",
+        "knowledge_fts_docsize",
+        "knowledge_fts_config",
+        "journal_fts_data",
+        "journal_fts_idx",
+        "journal_fts_docsize",
+        "journal_fts_config",
+        "decision_fts_data",
+        "decision_fts_idx",
+        "decision_fts_docsize",
+        "decision_fts_config",
+        "claim_fts_data",
+        "claim_fts_idx",
+        "claim_fts_docsize",
+        "claim_fts_config",
+    }
+)
 
 # Tables that mirror content from other tables (FTS shadow tables)
-_FTS_SHADOW_TABLES = frozenset({
-    "knowledge_fts",
-    "journal_fts",
-    "decision_fts",
-    "claim_fts",
-})
+_FTS_SHADOW_TABLES = frozenset(
+    {
+        "knowledge_fts",
+        "journal_fts",
+        "decision_fts",
+        "claim_fts",
+    }
+)
 
 
 @dataclass
@@ -230,15 +232,18 @@ def scan_display_integrity() -> list[DisplayIssue]:
             stripped = line.strip()
             for prefix in _EMPTY_LABEL_PATTERNS:
                 if stripped == prefix.strip():
-                    issues.append(DisplayIssue(
-                        slot_name=name,
-                        issue=f"empty label: '{prefix.strip()}'",
-                        line=stripped,
-                    ))
+                    issues.append(
+                        DisplayIssue(
+                            slot_name=name,
+                            issue=f"empty label: '{prefix.strip()}'",
+                            line=stripped,
+                        )
+                    )
 
         # Check for repeated identical content lines (skip headers and blanks)
         content_lines = [
-            ln.strip() for ln in lines
+            ln.strip()
+            for ln in lines
             if ln.strip() and not ln.strip().startswith("#") and ln.strip() != "---"
         ]
         seen: dict[str, int] = {}
@@ -246,11 +251,13 @@ def scan_display_integrity() -> list[DisplayIssue]:
             seen[ln] = seen.get(ln, 0) + 1
         for ln, count in seen.items():
             if count >= 3:
-                issues.append(DisplayIssue(
-                    slot_name=name,
-                    issue=f"repeated {count}x (possible rendering bug)",
-                    line=ln[:80],
-                ))
+                issues.append(
+                    DisplayIssue(
+                        slot_name=name,
+                        issue=f"repeated {count}x (possible rendering bug)",
+                        line=ln[:80],
+                    )
+                )
 
     return issues
 

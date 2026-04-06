@@ -177,8 +177,7 @@ def create_hinton_wisdom() -> ExpertWisdom:
         KeyInsight(
             title="The Courage to Reverse",
             description=(
-                "The most important intellectual act is changing your "
-                "mind when evidence demands it"
+                "The most important intellectual act is changing your mind when evidence demands it"
             ),
             why_matters=(
                 "Most people double down when challenged. The ones "
@@ -281,8 +280,7 @@ def create_hinton_wisdom() -> ExpertWisdom:
                 "Try the alternative before adding anything else",
             ],
             what_it_optimizes_for=(
-                "Finding the representation that makes learning "
-                "natural rather than forced"
+                "Finding the representation that makes learning natural rather than forced"
             ),
             limitations=[
                 "Sometimes the representation is fine and the real problem is elsewhere",
@@ -303,9 +301,7 @@ def create_hinton_wisdom() -> ExpertWisdom:
                 "That remainder is genuine learned capability",
                 "If nothing remains — the system hasn't learned, it's been programmed",
             ],
-            what_it_optimizes_for=(
-                "Honest assessment of learning vs programming"
-            ),
+            what_it_optimizes_for=("Honest assessment of learning vs programming"),
             limitations=[
                 "Some seed knowledge is legitimately needed as scaffolding",
                 "The removal doesn't have to be literal — it's a thought experiment",
@@ -327,8 +323,7 @@ def create_hinton_wisdom() -> ExpertWisdom:
                 "If you can't find it — your position survives, for now",
             ],
             what_it_optimizes_for=(
-                "Intellectual honesty and avoiding the trap of "
-                "defending sunk costs"
+                "Intellectual honesty and avoiding the trap of defending sunk costs"
             ),
         ),
     ]
@@ -367,8 +362,7 @@ def create_hinton_wisdom() -> ExpertWisdom:
                 "unnecessary."
             ),
             what_it_indicates=(
-                "The real problem is in how information is structured, "
-                "not in how it's processed"
+                "The real problem is in how information is structured, not in how it's processed"
             ),
             severity="major",
             what_to_do=(
@@ -383,13 +377,9 @@ def create_hinton_wisdom() -> ExpertWisdom:
                 "weren't designed for and aren't being tracked"
             ),
             why_its_concerning=(
-                "Emergent capabilities can be dangerous precisely "
-                "because nobody anticipated them"
+                "Emergent capabilities can be dangerous precisely because nobody anticipated them"
             ),
-            what_it_indicates=(
-                "The system may be capable of things its creators "
-                "don't know about"
-            ),
+            what_it_indicates=("The system may be capable of things its creators don't know about"),
             severity="critical",
             what_to_do=(
                 "Test for unexpected capabilities. Monitor for "
@@ -398,17 +388,13 @@ def create_hinton_wisdom() -> ExpertWisdom:
         ),
         ConcernTrigger(
             name="Sunk Cost Defense",
-            description=(
-                "Position maintained because of investment rather "
-                "than evidence"
-            ),
+            description=("Position maintained because of investment rather than evidence"),
             why_its_concerning=(
                 "Defending what you built instead of evaluating "
                 "what you built leads to compounding errors"
             ),
             what_it_indicates=(
-                "Evidence is being filtered through ego rather "
-                "than evaluated honestly"
+                "Evidence is being filtered through ego rather than evaluated honestly"
             ),
             severity="major",
             what_to_do=(

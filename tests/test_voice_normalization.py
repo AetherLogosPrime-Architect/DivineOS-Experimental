@@ -30,16 +30,25 @@ class TestNormalizeToFirstPerson:
         assert result == "I was running diagnostics"
 
     def test_you_should(self):
-        assert normalize_to_first_person("you should always check first") == "I should always check first"
+        assert (
+            normalize_to_first_person("you should always check first")
+            == "I should always check first"
+        )
 
     def test_you_need(self):
-        assert normalize_to_first_person("you need to load the briefing") == "I need to load the briefing"
+        assert (
+            normalize_to_first_person("you need to load the briefing")
+            == "I need to load the briefing"
+        )
 
     def test_you_are(self):
         assert normalize_to_first_person("you are doing great work") == "I am doing great work"
 
     def test_you_were(self):
-        assert normalize_to_first_person("you were corrected three times") == "I was corrected three times"
+        assert (
+            normalize_to_first_person("you were corrected three times")
+            == "I was corrected three times"
+        )
 
     def test_your_to_my(self):
         result = normalize_to_first_person("Load your knowledge store")

@@ -9,7 +9,6 @@ The reflection answers: what kind of session was this, what went well,
 what went wrong, and what should I carry forward?
 """
 
-import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -89,11 +88,15 @@ def _detect_character(
         return "discussing", evidence
 
     if write_tools > 5 and corrections < 3:
-        evidence.append(f"{write_tools} write/edit calls, {corrections} corrections -- productive building")
+        evidence.append(
+            f"{write_tools} write/edit calls, {corrections} corrections -- productive building"
+        )
         return "building", evidence
 
     if corrections > 3 and write_tools > 3:
-        evidence.append(f"{corrections} corrections during {write_tools} edits -- iterative debugging")
+        evidence.append(
+            f"{corrections} corrections during {write_tools} edits -- iterative debugging"
+        )
         return "debugging", evidence
 
     if read_tools > write_tools * 2 and read_tools > 5:
@@ -303,11 +306,20 @@ def _assess_went_wrong(
     # Detect repeated file edits (sign of struggle).
     # High-traffic files (hud, cli init, pipeline, readme) are natural edit
     # targets during feature work — use a higher threshold for them.
-    _HIGH_TRAFFIC_FILES = frozenset({
-        "hud.py", "__init__.py", "session_pipeline.py", "pipeline_phases.py",
-        "pipeline_gates.py", "CLAUDE.md", "README.md", "seed.json",
-        "_base.py", "retrieval.py",
-    })
+    _HIGH_TRAFFIC_FILES = frozenset(
+        {
+            "hud.py",
+            "__init__.py",
+            "session_pipeline.py",
+            "pipeline_phases.py",
+            "pipeline_gates.py",
+            "CLAUDE.md",
+            "README.md",
+            "seed.json",
+            "_base.py",
+            "retrieval.py",
+        }
+    )
     tool_sequence = getattr(analysis, "tool_sequence", [])
     file_edit_counts: dict[str, int] = {}
     for tc in tool_sequence:

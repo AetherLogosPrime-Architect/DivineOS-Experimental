@@ -103,14 +103,10 @@ class TestRecommendationNoiseFilter:
         assert _is_recommendation_noise("Well yes I am built for efficiency", "DIRECTION")
 
     def test_real_principle_not_noise(self):
-        assert not _is_recommendation_noise(
-            "Maturity must flow both directions.", "PRINCIPLE"
-        )
+        assert not _is_recommendation_noise("Maturity must flow both directions.", "PRINCIPLE")
 
     def test_real_procedure_not_noise(self):
-        assert not _is_recommendation_noise(
-            "Always run tests after code changes.", "PROCEDURE"
-        )
+        assert not _is_recommendation_noise("Always run tests after code changes.", "PROCEDURE")
 
     def test_directive_not_noise(self):
         assert not _is_recommendation_noise(

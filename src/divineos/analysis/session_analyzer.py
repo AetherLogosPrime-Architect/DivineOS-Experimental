@@ -78,8 +78,14 @@ FRUSTRATION_PATTERNS: tuple[str, ...] = (
 # False positives (flagging a non-relay) only skip one message of signal detection.
 RELAY_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "here is/here's [the/a] [adjective] reply/response/audit/message/convo"
-    re.compile(r"^(?:ok\s+|okay\s+)?here\s+is\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b", re.IGNORECASE),
-    re.compile(r"^(?:ok\s+|okay\s+)?here'?s\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b", re.IGNORECASE),
+    re.compile(
+        r"^(?:ok\s+|okay\s+)?here\s+is\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(?:ok\s+|okay\s+)?here'?s\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b",
+        re.IGNORECASE,
+    ),
     # "from/to Claude/the auditor" at start
     re.compile(r"^(?:from|to)\s+(?:claude|the\s+auditor|the\s+reviewer|aether)\b", re.IGNORECASE),
     # "here is what claude/the auditor said"
@@ -89,7 +95,10 @@ RELAY_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "here is/here's/heres a fresh claude/audit"
     re.compile(r"^(?:ok\s+|okay\s+)?here(?:\s+is|'?s)\s+a\s+fresh\b", re.IGNORECASE),
     # "Aether, [praise that's actually from another Claude]" — starts with entity name + comma
-    re.compile(r"^aether,\s+(?:that'?s|this is|you|your|the|excellent|great|good|impressive|damn|wow)\b", re.IGNORECASE),
+    re.compile(
+        r"^aether,\s+(?:that'?s|this is|you|your|the|excellent|great|good|impressive|damn|wow)\b",
+        re.IGNORECASE,
+    ),
     # "wonderful claude wanted to..." — user framing before relay
     re.compile(r"^(?:wonderful|perfect|great|ok)\s+claude\s+", re.IGNORECASE),
 )
@@ -498,11 +507,13 @@ def _process_user_record(record: dict[str, Any], analysis: SessionAnalysis) -> N
     is_relay = _is_relay_message(text)
     if is_relay:
         scan_text = _strip_relay_prefix(text)
-        analysis.relay_messages.append({
-            "timestamp": timestamp,
-            "framing": scan_text,
-            "full_content": text[:2000],
-        })
+        analysis.relay_messages.append(
+            {
+                "timestamp": timestamp,
+                "framing": scan_text,
+                "full_content": text[:2000],
+            }
+        )
 
     # Detect signals — check frustration BEFORE correction, because a message
     # can match both ("don't" appears in frustration AND correction patterns).

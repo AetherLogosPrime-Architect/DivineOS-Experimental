@@ -17,7 +17,6 @@ from divineos.core.knowledge._base import (
     KNOWLEDGE_MATURITY,
     KNOWLEDGE_SOURCES,
     KNOWLEDGE_TYPES,
-    _KNOWLEDGE_COL_NAMES,
     _KNOWLEDGE_COLS,
     _KNOWLEDGE_COLS_K,
     _get_connection,

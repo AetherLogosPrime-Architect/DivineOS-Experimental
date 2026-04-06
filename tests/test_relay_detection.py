@@ -1,7 +1,5 @@
 """Tests for relay message detection and tagging in session analyzer."""
 
-import pytest
-
 from divineos.analysis.session_analyzer import (
     SessionAnalysis,
     UserSignal,
@@ -34,7 +32,10 @@ class TestIsRelayMessage:
         assert _is_relay_message("here is what claude said\n\nThe system looks good...") is True
 
     def test_i_sent_claude_everything(self):
-        assert _is_relay_message("i sent claude everything you did this is the reply\n\nNow...") is True
+        assert (
+            _is_relay_message("i sent claude everything you did this is the reply\n\nNow...")
+            is True
+        )
 
     def test_normal_correction_not_relay(self):
         assert _is_relay_message("no don't use mocks in the tests") is False
@@ -82,9 +83,7 @@ class TestRelayTagging:
 
     def test_relay_framing_captured(self):
         analysis = self._make_analysis()
-        record = self._make_record(
-            "here is the reply\n\nTo Aether: detailed audit text here..."
-        )
+        record = self._make_record("here is the reply\n\nTo Aether: detailed audit text here...")
         _process_user_record(record, analysis)
         assert "here is the reply" in analysis.relay_messages[0]["framing"]
 

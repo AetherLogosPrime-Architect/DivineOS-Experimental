@@ -201,8 +201,7 @@ def _run_session_end_pipeline() -> None:
             # which may differ from analysis.session_id (JSONL filename).
             # Try both so the assessment finds the data regardless.
             correction_texts = [
-                c if isinstance(c, str) else c.get("content", "")
-                for c in analysis.corrections
+                c if isinstance(c, str) else c.get("content", "") for c in analysis.corrections
             ]
             impact = assess_session_impact(
                 session_id=analysis.session_id,
@@ -428,7 +427,7 @@ def _run_session_end_pipeline() -> None:
             )
 
             alarm_result = run_full_scan()
-            scan_id = record_scan(alarm_result)
+            record_scan(alarm_result)
             click.secho(
                 f"[~] Dead architecture: {format_alarm_summary(alarm_result)}",
                 fg="yellow" if alarm_result.dormant_count > 0 else "cyan",

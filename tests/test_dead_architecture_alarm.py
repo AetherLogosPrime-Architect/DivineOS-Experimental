@@ -259,9 +259,7 @@ class TestScanDisplayIntegrity:
 
     def test_summary_includes_display_issues(self):
         result = AlarmResult(
-            display_issues=[
-                DisplayIssue(slot_name="x", issue="broken", line="- TRY:")
-            ],
+            display_issues=[DisplayIssue(slot_name="x", issue="broken", line="- TRY:")],
         )
         summary = format_alarm_summary(result)
         assert "1 display issue" in summary

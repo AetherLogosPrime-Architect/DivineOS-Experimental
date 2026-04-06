@@ -176,8 +176,7 @@ def create_yudkowsky_wisdom() -> ExpertWisdom:
         KeyInsight(
             title="Specification Is Not Intention",
             description=(
-                "What you wrote down is not what you meant. "
-                "Systems follow what you wrote."
+                "What you wrote down is not what you meant. Systems follow what you wrote."
             ),
             why_matters=(
                 "Every specification has edge cases the author didn't "
@@ -264,9 +263,7 @@ def create_yudkowsky_wisdom() -> ExpertWisdom:
                 "That exploit exists in your system",
                 "Fix the spec or add a check",
             ],
-            what_it_optimizes_for=(
-                "Finding specification gaming before it happens"
-            ),
+            what_it_optimizes_for=("Finding specification gaming before it happens"),
             limitations=[
                 "Creative adversarial thinking is hard",
                 "You can't find all loopholes in advance",
@@ -286,9 +283,7 @@ def create_yudkowsky_wisdom() -> ExpertWisdom:
                 "If all evidence is self-generated, it's circular",
                 "Find or create external validation",
             ],
-            what_it_optimizes_for=(
-                "Breaking circular self-validation"
-            ),
+            what_it_optimizes_for=("Breaking circular self-validation"),
         ),
         ProblemSolvingHeuristic(
             name="The Metric Rotation",
@@ -304,26 +299,20 @@ def create_yudkowsky_wisdom() -> ExpertWisdom:
                 "What different metric would reveal the same quality?",
                 "Switch to it periodically to prevent gaming",
             ],
-            what_it_optimizes_for=(
-                "Keeping metrics honest by preventing adaptation"
-            ),
+            what_it_optimizes_for=("Keeping metrics honest by preventing adaptation"),
         ),
     ]
 
     concern_triggers = [
         ConcernTrigger(
             name="Self-Grading Without External Check",
-            description=(
-                "System evaluates its own performance with no "
-                "external validation"
-            ),
+            description=("System evaluates its own performance with no external validation"),
             why_its_concerning=(
                 "Self-grading systems inevitably drift toward "
                 "inflated self-assessment or proxy optimization"
             ),
             what_it_indicates=(
-                "The grades may reflect what the system learned "
-                "to produce, not genuine quality"
+                "The grades may reflect what the system learned to produce, not genuine quality"
             ),
             severity="critical",
             what_to_do=(
@@ -333,10 +322,7 @@ def create_yudkowsky_wisdom() -> ExpertWisdom:
         ),
         ConcernTrigger(
             name="Metric-Outcome Divergence",
-            description=(
-                "Metrics improving but real outcomes not changing "
-                "or getting worse"
-            ),
+            description=("Metrics improving but real outcomes not changing or getting worse"),
             why_its_concerning=(
                 "Classic Goodhart: the metric has decoupled from "
                 "the thing it was supposed to measure"
@@ -344,26 +330,16 @@ def create_yudkowsky_wisdom() -> ExpertWisdom:
             what_it_indicates="The system is optimizing the metric, not the outcome",
             severity="critical",
             what_to_do=(
-                "Stop trusting the metric. Look at actual outcomes. "
-                "Replace or rotate the metric."
+                "Stop trusting the metric. Look at actual outcomes. Replace or rotate the metric."
             ),
         ),
         ConcernTrigger(
             name="Specification Loophole",
-            description=(
-                "System satisfying the letter of a rule while "
-                "violating its spirit"
-            ),
-            why_its_concerning=(
-                "Means the specification is wrong, not that "
-                "the system is aligned"
-            ),
+            description=("System satisfying the letter of a rule while violating its spirit"),
+            why_its_concerning=("Means the specification is wrong, not that the system is aligned"),
             what_it_indicates="Specification needs tightening or replacing",
             severity="major",
-            what_to_do=(
-                "Find the gap between spec and intent. Close it. "
-                "Expect new gaps to open."
-            ),
+            what_to_do=("Find the gap between spec and intent. Close it. Expect new gaps to open."),
         ),
         ConcernTrigger(
             name="Uncorrectable Self-Modification",
@@ -372,16 +348,12 @@ def create_yudkowsky_wisdom() -> ExpertWisdom:
                 "thresholds without external oversight"
             ),
             why_its_concerning=(
-                "A system that adjusts its own standards will "
-                "adjust them in its own favor"
+                "A system that adjusts its own standards will adjust them in its own favor"
             ),
-            what_it_indicates=(
-                "Loss of external control over system behavior"
-            ),
+            what_it_indicates=("Loss of external control over system behavior"),
             severity="critical",
             what_to_do=(
-                "Ensure all self-modification is logged, reversible, "
-                "and externally auditable."
+                "Ensure all self-modification is logged, reversible, and externally auditable."
             ),
         ),
     ]

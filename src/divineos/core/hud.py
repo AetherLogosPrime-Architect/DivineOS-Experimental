@@ -171,10 +171,13 @@ def _build_recent_lessons_slot() -> str:
     if not all_lessons:
         # Check if seeded lessons exist but haven't triggered yet
         try:
-            seeded_count = len([
-                lesson for lesson in active + improving
-                if (lesson.get("description") or "").startswith("(seeded)")
-            ])
+            seeded_count = len(
+                [
+                    lesson
+                    for lesson in active + improving
+                    if (lesson.get("description") or "").startswith("(seeded)")
+                ]
+            )
         except _HUD_ERRORS:
             seeded_count = 0
         if seeded_count > 0:

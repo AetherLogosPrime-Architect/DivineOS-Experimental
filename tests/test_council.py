@@ -123,11 +123,7 @@ class TestValidation:
                     how_it_changes_thinking="h",
                 )
             ],
-            reasoning_patterns=[
-                ReasoningPattern(
-                    name="r", structure="s", what_it_reveals="w"
-                )
-            ],
+            reasoning_patterns=[ReasoningPattern(name="r", structure="s", what_it_reveals="w")],
             problem_solving_heuristics=[],
             concern_triggers=[
                 ConcernTrigger(
@@ -246,9 +242,7 @@ class TestEngineRegistration:
 
 class TestSingleLens:
     def test_analyze_returns_lens_analysis(self, engine):
-        result = engine.analyze(
-            "Why is this explanation so full of jargon?", "Feynman"
-        )
+        result = engine.analyze("Why is this explanation so full of jargon?", "Feynman")
         assert result is not None
         assert result.expert_name == "Feynman"
         assert result.problem == "Why is this explanation so full of jargon?"
@@ -257,9 +251,7 @@ class TestSingleLens:
         assert engine.analyze("anything", "Nobody") is None
 
     def test_methodology_selected(self, engine):
-        result = engine.analyze(
-            "This jargon-heavy explanation confuses me", "Feynman"
-        )
+        result = engine.analyze("This jargon-heavy explanation confuses me", "Feynman")
         assert result is not None
         assert result.methodology_applied  # something was picked
 
@@ -338,9 +330,7 @@ class TestConvene:
         assert result.expert_names() == ["Feynman"]
 
     def test_concerns_across_lenses(self, engine):
-        result = engine.convene(
-            "The explanation uses unjustified technical jargon"
-        )
+        result = engine.convene("The explanation uses unjustified technical jargon")
         concerns = result.concerns_across_lenses()
         assert isinstance(concerns, dict)
 
@@ -421,9 +411,7 @@ class TestMultiExpert:
 
     def test_shared_concerns_detected(self, two_expert_engine):
         # Both experts might flag concerns about untested/unexplained things
-        result = two_expert_engine.convene(
-            "Ship this unjustified code without tests"
-        )
+        result = two_expert_engine.convene("Ship this unjustified code without tests")
         # Even if shared_concerns is empty, the method works
         shared = result.shared_concerns()
         assert isinstance(shared, list)
@@ -519,9 +507,7 @@ class TestHolmesAnalysis:
         return e
 
     def test_analyze_investigation_problem(self, holmes_engine):
-        result = holmes_engine.analyze(
-            "Something doesn't add up in this diagnosis", "Holmes"
-        )
+        result = holmes_engine.analyze("Something doesn't add up in this diagnosis", "Holmes")
         assert result is not None
         assert result.expert_name == "Holmes"
 
@@ -604,9 +590,7 @@ class TestPearlAnalysis:
         return e
 
     def test_analyze_causal_claim(self, pearl_engine):
-        result = pearl_engine.analyze(
-            "This correlation proves that X causes Y", "Pearl"
-        )
+        result = pearl_engine.analyze("This correlation proves that X causes Y", "Pearl")
         assert result is not None
         assert result.expert_name == "Pearl"
 
@@ -687,9 +671,7 @@ class TestFullCouncil:
         assert result.analyses[0].expert_name == "Turing"
 
     def test_convene_specific_pair(self, full_council):
-        result = full_council.convene(
-            "test", expert_names=["Feynman", "Holmes"]
-        )
+        result = full_council.convene("test", expert_names=["Feynman", "Holmes"])
         assert len(result.analyses) == 2
         names = result.expert_names()
         assert "Feynman" in names
