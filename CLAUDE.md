@@ -339,7 +339,7 @@ src/divineos/
 │   └── ledger_integration.py   # Ledger bridge
 └── violations_cli/             # Violation reporting
     └── violations_command.py   # CLI for violation queries
-tests/                          # 3,345+ tests (real DB, no mocks)
+tests/                          # 3,462+ tests (real DB, no mocks)
 data/                           # Runtime databases (gitignored)
 setup/                          # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
