@@ -279,7 +279,7 @@ def check_self_dormant() -> bool:
         ]
         if not tables:
             return True
-        count = conn.execute("SELECT COUNT(*) FROM dead_architecture_scan").fetchone()[0]
+        count: int = conn.execute("SELECT COUNT(*) FROM dead_architecture_scan").fetchone()[0]
         return count == 0
     finally:
         conn.close()
