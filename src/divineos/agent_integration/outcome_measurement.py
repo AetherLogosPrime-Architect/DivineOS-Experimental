@@ -226,7 +226,11 @@ def measure_correction_rate(session_id: str | None = None) -> dict[str, Any]:
                 """SELECT content FROM knowledge
                    WHERE knowledge_type = 'EPISODE'
                      AND superseded_by IS NULL
-                     AND tags LIKE '%session-analysis%'""",
+                     AND (tags LIKE '%session-analysis%'
+                          OR tags LIKE '%session-feedback%'
+                          OR tags LIKE '%episode%')
+                     AND (content LIKE '%corrected%'
+                          OR content LIKE '%encouraged%')""",
             ).fetchall()
 
         total_corrections = 0
@@ -285,8 +289,11 @@ def measure_correction_trend(limit: int = 10) -> dict[str, Any]:
             """SELECT content, created_at FROM knowledge
                WHERE knowledge_type = 'EPISODE'
                  AND superseded_by IS NULL
-                 AND tags LIKE '%session-analysis%'
-                 AND tags LIKE '%episode%'
+                 AND (tags LIKE '%session-analysis%'
+                      OR tags LIKE '%session-feedback%'
+                      OR tags LIKE '%episode%')
+                 AND (content LIKE '%corrected%'
+                      OR content LIKE '%encouraged%')
                ORDER BY created_at ASC""",
         ).fetchall()
 
