@@ -98,7 +98,7 @@ divineos briefing
 pytest tests/ -q --tb=short   # 3,335+ tests, real DB, no mocks
 ```
 
-## CLI Surface (137 commands)
+## CLI Surface (138 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -264,7 +264,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (137 commands across 22 modules)
+  cli/                         CLI package (138 commands across 22 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -282,6 +282,7 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     body_commands.py           Body awareness and cache pruning
     sleep_commands.py          Offline consolidation (sleep cycle)
+    progress_commands.py       Progress dashboard (measurable metrics)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
@@ -359,6 +360,7 @@ src/divineos/
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
     body_awareness.py          Computational interoception and cache conveyor belt
     sleep.py                   Offline consolidation engine (6 phases, dream report)
+    progress_dashboard.py      Measurable progress metrics from real data
     attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
     epistemic_status.py        Epistemic channel analysis (Butlin 14)
     value_tensions.py          Recurring value conflict detection from decisions

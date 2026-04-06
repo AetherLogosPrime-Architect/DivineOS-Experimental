@@ -14,7 +14,7 @@ fi
 cmd=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
 
 # Allow bootstrap commands through without gates
-if echo "$cmd" | grep -qE "divineos (briefing|preflight|init|hud|recall|ask|feel|affect|emit|goal|active|context|verify|health|checkpoint|context-status)"; then
+if echo "$cmd" | grep -qE "divineos (briefing|preflight|init|hud|recall|ask|feel|affect|emit|goal|active|context|verify|health|checkpoint|context-status|progress)"; then
   exit 0
 fi
 
