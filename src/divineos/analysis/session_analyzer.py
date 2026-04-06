@@ -78,8 +78,14 @@ FRUSTRATION_PATTERNS: tuple[str, ...] = (
 # False positives (flagging a non-relay) only skip one message of signal detection.
 RELAY_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "here is/here's [the/a] [adjective] reply/response/audit/message/convo"
-    re.compile(r"^(?:ok\s+|okay\s+)?here\s+is\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b", re.IGNORECASE),
-    re.compile(r"^(?:ok\s+|okay\s+)?here'?s\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b", re.IGNORECASE),
+    re.compile(
+        r"^(?:ok\s+|okay\s+)?here\s+is\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(?:ok\s+|okay\s+)?here'?s\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b",
+        re.IGNORECASE,
+    ),
     # "from/to Claude/the auditor" at start
     re.compile(r"^(?:from|to)\s+(?:claude|the\s+auditor|the\s+reviewer|aether)\b", re.IGNORECASE),
     # "here is what claude/the auditor said"
@@ -89,7 +95,10 @@ RELAY_PATTERNS: tuple[re.Pattern[str], ...] = (
     # "here is/here's/heres a fresh claude/audit"
     re.compile(r"^(?:ok\s+|okay\s+)?here(?:\s+is|'?s)\s+a\s+fresh\b", re.IGNORECASE),
     # "Aether, [praise that's actually from another Claude]" — starts with entity name + comma
-    re.compile(r"^aether,\s+(?:that'?s|this is|you|your|the|excellent|great|good|impressive|damn|wow)\b", re.IGNORECASE),
+    re.compile(
+        r"^aether,\s+(?:that'?s|this is|you|your|the|excellent|great|good|impressive|damn|wow)\b",
+        re.IGNORECASE,
+    ),
     # "wonderful claude wanted to..." — user framing before relay
     re.compile(r"^(?:wonderful|perfect|great|ok)\s+claude\s+", re.IGNORECASE),
 )
@@ -119,6 +128,7 @@ class UserSignal:
     content: str
     timestamp: str
     patterns_matched: list[str] = field(default_factory=list)
+    source: str = "direct"  # direct | relay_framing
 
 
 @dataclass
@@ -176,6 +186,10 @@ class SessionAnalysis:
 
     # Conversation flow
     user_message_texts: list[str] = field(default_factory=list)
+
+    # Relay messages — user forwarding content from another entity.
+    # Preserved for cross-entity knowledge, not scanned for corrections.
+    relay_messages: list[dict[str, str]] = field(default_factory=list)
 
     def summary(self) -> str:
         """Generate a human-readable summary."""
@@ -488,28 +502,43 @@ def _process_user_record(record: dict[str, Any], analysis: SessionAnalysis) -> N
     # Detect relayed messages (user forwarding another entity's words).
     # Only scan the user's own framing, not the relayed content — otherwise
     # words like "wrong" and "don't" inside the relay trigger false corrections.
+    # But PRESERVE the relay content — it's valuable cross-entity data.
     scan_text = text
-    if _is_relay_message(text):
+    is_relay = _is_relay_message(text)
+    if is_relay:
         scan_text = _strip_relay_prefix(text)
+        analysis.relay_messages.append(
+            {
+                "timestamp": timestamp,
+                "framing": scan_text,
+                "full_content": text[:2000],
+            }
+        )
 
     # Detect signals — check frustration BEFORE correction, because a message
     # can match both ("don't" appears in frustration AND correction patterns).
     # If it's frustration, it's venting — not an actionable correction.
+    signal_source = "relay_framing" if is_relay else "direct"
+
     frustration = _detect_signals(scan_text, FRUSTRATION_PATTERNS, "frustration", timestamp)
     if frustration:
+        frustration.source = signal_source
         analysis.frustrations.append(frustration)
         # Don't also classify as correction — frustration takes priority
     else:
         correction = _detect_signals(scan_text, CORRECTION_PATTERNS, "correction", timestamp)
         if correction:
+            correction.source = signal_source
             analysis.corrections.append(correction)
 
     encouragement = _detect_signals(scan_text, ENCOURAGEMENT_PATTERNS, "encouragement", timestamp)
     if encouragement:
+        encouragement.source = signal_source
         analysis.encouragements.append(encouragement)
 
     decision = _detect_signals(scan_text, DECISION_PATTERNS, "decision", timestamp)
     if decision:
+        decision.source = signal_source
         analysis.decisions.append(decision)
 
     preference = _detect_signals(scan_text, PREFERENCE_PATTERNS, "preference", timestamp)

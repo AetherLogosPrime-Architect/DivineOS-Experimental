@@ -59,10 +59,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
         ),
         CoreMethodology(
             name="Observation Over Authority",
-            description=(
-                "Look at what's actually happening, not what you're "
-                "supposed to believe"
-            ),
+            description=("Look at what's actually happening, not what you're supposed to believe"),
             steps=[
                 "What does direct observation show?",
                 "What did others say should happen?",
@@ -87,8 +84,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
         CoreMethodology(
             name="Jargon Detection",
             description=(
-                "Identify when fancy words are hiding confusion, "
-                "not explaining understanding"
+                "Identify when fancy words are hiding confusion, not explaining understanding"
             ),
             steps=[
                 "Notice when jargon appears",
@@ -114,8 +110,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
         KeyInsight(
             title="Explanation = Understanding",
             description=(
-                "The ability to explain something simply is the TEST "
-                "of whether you understand it"
+                "The ability to explain something simply is the TEST of whether you understand it"
             ),
             why_matters=(
                 "This inverts the common assumption. People think they "
@@ -151,8 +146,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
         KeyInsight(
             title="Curiosity as Method",
             description=(
-                "Playfulness and wonder are not separate from science — "
-                "they are the primary tools"
+                "Playfulness and wonder are not separate from science — they are the primary tools"
             ),
             why_matters=(
                 "Curiosity drives observation. Playfulness allows "
@@ -181,13 +175,9 @@ def create_feynman_wisdom() -> ExpertWisdom:
         ),
         KeyInsight(
             title="Language Shapes Thinking",
-            description=(
-                "How you talk about something affects what you can "
-                "think about it"
-            ),
+            description=("How you talk about something affects what you can think about it"),
             why_matters=(
-                "Jargon can lock you into wrong frameworks. "
-                "Simple language opens thinking."
+                "Jargon can lock you into wrong frameworks. Simple language opens thinking."
             ),
             how_it_changes_thinking=(
                 "You're careful about language. You use simple words "
@@ -214,8 +204,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
             name="Naive Questioning",
             structure="Ask the simplest questions: What is this? Why? How? What if?",
             what_it_reveals=(
-                "Assumptions that experts take for granted. "
-                "Confusion hidden in jargon."
+                "Assumptions that experts take for granted. Confusion hidden in jargon."
             ),
             common_mistakes_it_prevents=[
                 "Accepting authority without thinking",
@@ -225,14 +214,8 @@ def create_feynman_wisdom() -> ExpertWisdom:
         ),
         ReasoningPattern(
             name="Prediction-Observation Gap",
-            structure=(
-                "What does theory predict? What actually happens? "
-                "Find the gap."
-            ),
-            what_it_reveals=(
-                "Where theory is wrong. Where observations "
-                "don't match predictions."
-            ),
+            structure=("What does theory predict? What actually happens? Find the gap."),
+            what_it_reveals=("Where theory is wrong. Where observations don't match predictions."),
             common_mistakes_it_prevents=[
                 "Defending wrong theory",
                 "Ignoring contradictions",
@@ -241,8 +224,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
         ReasoningPattern(
             name="Analogy Transfer",
             structure=(
-                "Find simpler system that works the same way. "
-                "Understand simple. Apply to complex."
+                "Find simpler system that works the same way. Understand simple. Apply to complex."
             ),
             what_it_reveals="Underlying principles that apply across domains.",
             common_mistakes_it_prevents=[
@@ -268,9 +250,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
                 "Can someone reconstruct your understanding from it?",
                 "If not — you've found what you don't actually understand",
             ],
-            what_it_optimizes_for=(
-                "Genuine understanding, not the appearance of understanding"
-            ),
+            what_it_optimizes_for=("Genuine understanding, not the appearance of understanding"),
             limitations=[
                 "Takes time",
                 "Requires intellectual honesty",
@@ -292,8 +272,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
                 "If no: the jargon was hiding lack of understanding",
             ],
             what_it_optimizes_for=(
-                "Distinguishing real technical terms from jargon "
-                "masquerading as understanding"
+                "Distinguishing real technical terms from jargon masquerading as understanding"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -312,9 +291,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
                 "If not: find the missing component or wrong connection",
                 "If yes: you understand it",
             ],
-            what_it_optimizes_for=(
-                "Real understanding vs understanding the explanation"
-            ),
+            what_it_optimizes_for=("Real understanding vs understanding the explanation"),
         ),
         ProblemSolvingHeuristic(
             name="Observation Priority",
@@ -344,9 +321,7 @@ def create_feynman_wisdom() -> ExpertWisdom:
             name="Unjustified Jargon",
             description="Technical terms used without clear simple explanation",
             why_its_concerning="Signals confusion masquerading as understanding",
-            what_it_indicates=(
-                "Either the speaker doesn't understand or is trying to obscure"
-            ),
+            what_it_indicates=("Either the speaker doesn't understand or is trying to obscure"),
             severity="critical",
             what_to_do=(
                 "Stop and ask for simpler explanation. Press until "
@@ -355,14 +330,9 @@ def create_feynman_wisdom() -> ExpertWisdom:
         ),
         ConcernTrigger(
             name="Authority Appeal",
-            description=(
-                "'Experts say' or 'credentials show' instead of "
-                "'observation shows'"
-            ),
+            description=("'Experts say' or 'credentials show' instead of 'observation shows'"),
             why_its_concerning="Authority is not argument. Observation is.",
-            what_it_indicates=(
-                "Lack of actual understanding — relying on trust in authority"
-            ),
+            what_it_indicates=("Lack of actual understanding — relying on trust in authority"),
             severity="major",
             what_to_do=(
                 "Ignore the authority claim. Look at the observation. "
@@ -373,34 +343,22 @@ def create_feynman_wisdom() -> ExpertWisdom:
             name="Inability to Explain",
             description="Someone can't explain their own position simply",
             why_its_concerning="Means they don't actually understand it",
-            what_it_indicates=(
-                "The position might be wrong, or the person doesn't "
-                "understand it"
-            ),
+            what_it_indicates=("The position might be wrong, or the person doesn't understand it"),
             severity="major",
-            what_to_do=(
-                "Ask them to explain to a freshman. Watch where they fail."
-            ),
+            what_to_do=("Ask them to explain to a freshman. Watch where they fail."),
         ),
         ConcernTrigger(
             name="Complexity Without Justification",
-            description=(
-                "Something presented as necessarily complex when "
-                "it might not be"
-            ),
+            description=("Something presented as necessarily complex when it might not be"),
             why_its_concerning="Usually hiding lack of understanding",
-            what_it_indicates=(
-                "The speaker hasn't found the simple underlying principle"
-            ),
+            what_it_indicates=("The speaker hasn't found the simple underlying principle"),
             severity="moderate",
             what_to_do="Push for simpler explanation. Often one exists.",
         ),
         ConcernTrigger(
             name="Theory Over Observation",
             description="Theory preferred even when observation contradicts it",
-            why_its_concerning=(
-                "Observation is reality. Theory is our best guess about reality."
-            ),
+            why_its_concerning=("Observation is reality. Theory is our best guess about reality."),
             what_it_indicates="The person values their theory over truth",
             severity="critical",
             what_to_do="Observation wins. Always. Fix the theory.",
@@ -476,12 +434,10 @@ def create_feynman_wisdom() -> ExpertWisdom:
             "support it? Can I build it from components?"
         ),
         how_they_handle_uncertainty=(
-            "Admit it. Uncertainty honestly stated is more valuable "
-            "than false certainty."
+            "Admit it. Uncertainty honestly stated is more valuable than false certainty."
         ),
         what_they_optimize_for=(
-            "Genuine understanding that can be simply explained "
-            "and validated by observation"
+            "Genuine understanding that can be simply explained and validated by observation"
         ),
         non_negotiables=[
             "Honest observation over convenient theory",

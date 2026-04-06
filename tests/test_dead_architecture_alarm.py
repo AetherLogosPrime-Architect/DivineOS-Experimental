@@ -6,6 +6,7 @@ import pytest
 
 from divineos.core.dead_architecture_alarm import (
     AlarmResult,
+    DisplayIssue,
     check_self_dormant,
     format_alarm_detail,
     format_alarm_summary,
@@ -14,6 +15,7 @@ from divineos.core.dead_architecture_alarm import (
     record_scan,
     run_full_scan,
     scan_active_tables,
+    scan_display_integrity,
     scan_dormant_tables,
     scan_empty_hud_slots,
 )
@@ -203,10 +205,21 @@ class TestFormatAlarmDetail:
         detail = format_alarm_detail(result)
         assert "system_events" in detail
 
-    def test_includes_quality_caveat(self):
-        result = AlarmResult(dormant_tables=["a"], active_tables=["b"])
+    def test_includes_display_issues(self):
+        result = AlarmResult(
+            dormant_tables=["a"],
+            active_tables=["b"],
+            display_issues=[
+                DisplayIssue(
+                    slot_name="self_awareness",
+                    issue="empty label: '- TRY:'",
+                    line="- TRY:",
+                )
+            ],
+        )
         detail = format_alarm_detail(result)
-        assert "output quality not assessed" in detail
+        assert "self_awareness" in detail
+        assert "active but broken" in detail.lower() or "Display integrity" in detail
 
     def test_includes_self_dormant_warning(self):
         result = AlarmResult(self_dormant=True)
@@ -218,3 +231,39 @@ class TestFormatAlarmDetail:
         detail = format_alarm_detail(result)
         assert "broken_slot" in detail
         assert "Empty HUD" in detail
+
+
+class TestScanDisplayIntegrity:
+    """Test the active-but-broken detection layer."""
+
+    def test_returns_list(self):
+        result = scan_display_integrity()
+        assert isinstance(result, list)
+
+    def test_no_false_positives_on_healthy_hud(self):
+        """After our TRY: fix, the HUD should have zero display issues."""
+        result = scan_display_integrity()
+        for issue in result:
+            assert isinstance(issue, DisplayIssue)
+            assert issue.slot_name
+            assert issue.issue
+
+    def test_display_issue_dataclass(self):
+        di = DisplayIssue(
+            slot_name="test_slot",
+            issue="empty label: '- TRY:'",
+            line="- TRY:",
+        )
+        assert di.slot_name == "test_slot"
+        assert "empty label" in di.issue
+
+    def test_summary_includes_display_issues(self):
+        result = AlarmResult(
+            display_issues=[DisplayIssue(slot_name="x", issue="broken", line="- TRY:")],
+        )
+        summary = format_alarm_summary(result)
+        assert "1 display issue" in summary
+
+    def test_full_scan_includes_display_integrity(self):
+        result = run_full_scan()
+        assert isinstance(result.display_issues, list)

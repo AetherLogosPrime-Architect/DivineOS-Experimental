@@ -3,8 +3,6 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-import pytest
-
 from divineos.core.session_reflection import (
     SessionReflection,
     _assess_went_well,
@@ -156,7 +154,7 @@ class TestExtractLearnings:
             encouragements=[FakeSignal()] * 3,
         )
         learnings = _extract_learnings(analysis, [], "building", [])
-        assert any("zero corrections" in l for l in learnings)
+        assert any("zero corrections" in ln for ln in learnings)
 
     def test_many_corrections_during_building(self):
         analysis = FakeAnalysis(
@@ -164,20 +162,20 @@ class TestExtractLearnings:
             encouragements=[],
         )
         learnings = _extract_learnings(analysis, [], "building", [])
-        assert any("corrections during active building" in l for l in learnings)
+        assert any("corrections during active building" in ln for ln in learnings)
 
     def test_recovery_arcs_produce_learnings(self):
         arcs = [("wrong thing", "good recovery")]
         analysis = FakeAnalysis()
         learnings = _extract_learnings(analysis, [], "mixed", arcs)
-        assert any("recovery" in l.lower() for l in learnings)
+        assert any("recovery" in ln.lower() for ln in learnings)
 
     def test_preferences_produce_learnings(self):
         analysis = FakeAnalysis(
             preferences=[FakeSignal(content="use snake_case please")],
         )
         learnings = _extract_learnings(analysis, [], "mixed", [])
-        assert any("preference" in l.lower() for l in learnings)
+        assert any("preference" in ln.lower() for ln in learnings)
 
 
 class TestAssessWentWell:

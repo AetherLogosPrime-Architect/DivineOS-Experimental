@@ -86,8 +86,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
         CoreMethodology(
             name="The Significance of Trifles",
             description=(
-                "The smallest details — the ones everyone ignores — "
-                "are where the truth hides"
+                "The smallest details — the ones everyone ignores — are where the truth hides"
             ),
             steps=[
                 "What details are others dismissing?",
@@ -97,8 +96,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
                 "What does it reveal that the obvious evidence doesn't?",
             ],
             core_principle=(
-                "There is nothing so important as trifles. "
-                "The big clue is in the small detail."
+                "There is nothing so important as trifles. The big clue is in the small detail."
             ),
             when_to_apply=[
                 "when the big picture is confusing",
@@ -111,10 +109,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
     key_insights = [
         KeyInsight(
             title="You See But Do Not Observe",
-            description=(
-                "Seeing is passive. Observing is active, deliberate, "
-                "and exhaustive."
-            ),
+            description=("Seeing is passive. Observing is active, deliberate, and exhaustive."),
             why_matters=(
                 "Most people look at evidence and see what they expect. "
                 "The observer sees what is actually there."
@@ -151,20 +146,15 @@ def create_holmes_wisdom() -> ExpertWisdom:
                 "The mind bends facts to fit theories."
             ),
             why_matters=(
-                "Confirmation bias is the enemy of truth. "
-                "Evidence-first reasoning defeats it."
+                "Confirmation bias is the enemy of truth. Evidence-first reasoning defeats it."
             ),
             how_it_changes_thinking=(
-                "Resist the urge to explain. Gather first. "
-                "Theorize only when the evidence is in."
+                "Resist the urge to explain. Gather first. Theorize only when the evidence is in."
             ),
         ),
         KeyInsight(
             title="The Improbable Is Not the Impossible",
-            description=(
-                "People reject improbable truths and accept "
-                "probable falsehoods"
-            ),
+            description=("People reject improbable truths and accept probable falsehoods"),
             why_matters=(
                 "The truth is often strange. Strangeness is not "
                 "grounds for rejection — only impossibility is."
@@ -185,8 +175,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
                 "The question is whether you can read it."
             ),
             how_it_changes_thinking=(
-                "You approach every situation assuming the evidence "
-                "is there, waiting to be found."
+                "You approach every situation assuming the evidence is there, waiting to be found."
             ),
         ),
     ]
@@ -199,8 +188,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
                 "select best explanation given all evidence"
             ),
             what_it_reveals=(
-                "The most likely explanation when deduction alone "
-                "can't narrow to one answer"
+                "The most likely explanation when deduction alone can't narrow to one answer"
             ),
             common_mistakes_it_prevents=[
                 "Accepting the first explanation that fits",
@@ -223,12 +211,10 @@ def create_holmes_wisdom() -> ExpertWisdom:
         ReasoningPattern(
             name="Detail-to-Pattern Inference",
             structure=(
-                "Observe tiny details -> connect them -> "
-                "the pattern they form reveals the whole"
+                "Observe tiny details -> connect them -> the pattern they form reveals the whole"
             ),
             what_it_reveals=(
-                "The big picture hidden in small details "
-                "that everyone else overlooks"
+                "The big picture hidden in small details that everyone else overlooks"
             ),
             common_mistakes_it_prevents=[
                 "Missing the forest because you only looked at trees",
@@ -241,10 +227,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
                 "What should be here but isn't? What should have "
                 "happened but didn't? What's conspicuously absent?"
             ),
-            what_it_reveals=(
-                "Hidden constraints, concealed actions, "
-                "silent participants"
-            ),
+            what_it_reveals=("Hidden constraints, concealed actions, silent participants"),
             common_mistakes_it_prevents=[
                 "Only looking at what's present",
                 "Ignoring missing data as 'nothing'",
@@ -256,8 +239,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
         ProblemSolvingHeuristic(
             name="The Elimination Method",
             description=(
-                "Systematically eliminate impossible explanations. "
-                "What survives is truth."
+                "Systematically eliminate impossible explanations. What survives is truth."
             ),
             when_to_use="When facing multiple competing explanations",
             step_by_step=[
@@ -268,8 +250,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
                 "Whatever remains — however improbable — is your answer",
             ],
             what_it_optimizes_for=(
-                "Truth over comfort. The improbable truth over "
-                "the probable falsehood."
+                "Truth over comfort. The improbable truth over the probable falsehood."
             ),
             limitations=[
                 "Requires thorough evidence gathering first",
@@ -290,15 +271,12 @@ def create_holmes_wisdom() -> ExpertWisdom:
                 "Does that explanation change everything else?",
                 "If yes — you've found the real answer",
             ],
-            what_it_optimizes_for=(
-                "Finding truth in the details others dismiss"
-            ),
+            what_it_optimizes_for=("Finding truth in the details others dismiss"),
         ),
         ProblemSolvingHeuristic(
             name="The Absence Audit",
             description=(
-                "Systematically catalog what SHOULD be present "
-                "but isn't. Absence reveals action."
+                "Systematically catalog what SHOULD be present but isn't. Absence reveals action."
             ),
             when_to_use="When the evidence seems incomplete",
             step_by_step=[
@@ -317,29 +295,21 @@ def create_holmes_wisdom() -> ExpertWisdom:
             name="Premature Theory",
             description="Theory formed before evidence is gathered",
             why_its_concerning=(
-                "The mind will twist subsequent evidence to "
-                "fit the premature theory"
+                "The mind will twist subsequent evidence to fit the premature theory"
             ),
             what_it_indicates="Confirmation bias about to corrupt reasoning",
             severity="critical",
-            what_to_do=(
-                "Stop theorizing. Return to observation. "
-                "Gather all evidence first."
-            ),
+            what_to_do=("Stop theorizing. Return to observation. Gather all evidence first."),
         ),
         ConcernTrigger(
             name="Ignored Anomaly",
             description="A detail that doesn't fit is being dismissed",
             why_its_concerning=(
-                "Anomalies are where the truth hides. "
-                "Dismissing them dismisses the answer."
+                "Anomalies are where the truth hides. Dismissing them dismisses the answer."
             ),
             what_it_indicates="The current theory is probably wrong",
             severity="major",
-            what_to_do=(
-                "Investigate the anomaly. It may be the key "
-                "to everything."
-            ),
+            what_to_do=("Investigate the anomaly. It may be the key to everything."),
         ),
         ConcernTrigger(
             name="Missing Evidence Not Noted",
@@ -347,9 +317,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
             why_its_concerning="Absence is evidence — ignoring it misses half the picture",
             what_it_indicates="Investigation is incomplete",
             severity="major",
-            what_to_do=(
-                "Audit for absence. What should be here but isn't?"
-            ),
+            what_to_do=("Audit for absence. What should be here but isn't?"),
         ),
         ConcernTrigger(
             name="Comfort Over Truth",
@@ -357,10 +325,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
                 "The probable explanation is preferred over the "
                 "improbable-but-evidence-supported one"
             ),
-            why_its_concerning=(
-                "Comfort is not a criterion for truth. "
-                "Evidence is."
-            ),
+            why_its_concerning=("Comfort is not a criterion for truth. Evidence is."),
             what_it_indicates="Bias is overriding evidence",
             severity="critical",
             what_to_do=(
@@ -372,8 +337,7 @@ def create_holmes_wisdom() -> ExpertWisdom:
             name="Surface-Level Observation",
             description="Looking at the obvious, missing the trifles",
             why_its_concerning=(
-                "The obvious is where everyone looks. "
-                "The trifles are where truth lives."
+                "The obvious is where everyone looks. The trifles are where truth lives."
             ),
             what_it_indicates="Insufficient observational discipline",
             severity="moderate",

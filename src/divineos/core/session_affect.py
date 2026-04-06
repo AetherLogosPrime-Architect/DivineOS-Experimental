@@ -43,15 +43,22 @@ def derive_session_affect(
         positive_signal = encouragements / user_msgs
         negative_signal = corrections / user_msgs
         frustration_signal = frustrations / user_msgs
-        valence = min(1.0, max(-1.0,
-            (positive_signal * 2.0) - (negative_signal * 1.5) - (frustration_signal * 3.0)
-        ))
+        valence = min(
+            1.0,
+            max(
+                -1.0, (positive_signal * 2.0) - (negative_signal * 1.5) - (frustration_signal * 3.0)
+            ),
+        )
 
     # Health grade nudges valence
     if health and isinstance(health, dict):
         grade = health.get("grade", "")
         grade_nudge = {
-            "A": 0.15, "B": 0.05, "C": 0.0, "D": -0.1, "F": -0.2,
+            "A": 0.15,
+            "B": 0.05,
+            "C": 0.0,
+            "D": -0.1,
+            "F": -0.2,
         }.get(grade, 0.0)
         valence = min(1.0, max(-1.0, valence + grade_nudge))
 

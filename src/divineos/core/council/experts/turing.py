@@ -101,8 +101,7 @@ def create_turing_wisdom() -> ExpertWisdom:
                 "In what respects does the imitation succeed?",
                 "In what respects does it fail?",
                 "Are the failure points essential or incidental?",
-                "If all essential properties match — what grounds "
-                "remain for denying equivalence?",
+                "If all essential properties match — what grounds remain for denying equivalence?",
             ],
             core_principle=(
                 "Perfect functional equivalence is the strongest "
@@ -203,8 +202,7 @@ def create_turing_wisdom() -> ExpertWisdom:
                 "testable prediction → run the test"
             ),
             what_it_reveals=(
-                "Whether a concept is meaningful by checking if "
-                "it makes testable predictions"
+                "Whether a concept is meaningful by checking if it makes testable predictions"
             ),
             common_mistakes_it_prevents=[
                 "Debating untestable questions indefinitely",
@@ -236,9 +234,7 @@ def create_turing_wisdom() -> ExpertWisdom:
                 "is the response appropriate? → appropriate novel "
                 "response = evidence of understanding"
             ),
-            what_it_reveals=(
-                "Whether the system generalizes or merely recalls"
-            ),
+            what_it_reveals=("Whether the system generalizes or merely recalls"),
             common_mistakes_it_prevents=[
                 "Mistaking memory for understanding",
                 "Testing only within the training distribution",
@@ -263,8 +259,7 @@ def create_turing_wisdom() -> ExpertWisdom:
                 "If no observable difference exists — reconsider the question",
             ],
             what_it_optimizes_for=(
-                "Replacing unanswerable philosophical questions with "
-                "testable empirical ones"
+                "Replacing unanswerable philosophical questions with testable empirical ones"
             ),
             limitations=[
                 "Some important questions may genuinely resist operationalization",
@@ -286,9 +281,7 @@ def create_turing_wisdom() -> ExpertWisdom:
                 "Was the response appropriate? Creative? Correct?",
                 "Novel appropriate responses are the strongest evidence",
             ],
-            what_it_optimizes_for=(
-                "Distinguishing genuine understanding from pattern matching"
-            ),
+            what_it_optimizes_for=("Distinguishing genuine understanding from pattern matching"),
         ),
         ProblemSolvingHeuristic(
             name="The Consistent Standards Check",
@@ -304,9 +297,7 @@ def create_turing_wisdom() -> ExpertWisdom:
                 "If yes — what additional evidence are you demanding?",
                 "Is that additional demand justified or just species bias?",
             ],
-            what_it_optimizes_for=(
-                "Intellectual consistency in evaluating capability"
-            ),
+            what_it_optimizes_for=("Intellectual consistency in evaluating capability"),
         ),
     ]
 
@@ -319,8 +310,7 @@ def create_turing_wisdom() -> ExpertWisdom:
                 "neither confirmed nor refuted. They're not knowledge."
             ),
             what_it_indicates=(
-                "The concept needs operational definition before "
-                "it can be meaningfully discussed"
+                "The concept needs operational definition before it can be meaningfully discussed"
             ),
             severity="major",
             what_to_do=(
@@ -335,12 +325,10 @@ def create_turing_wisdom() -> ExpertWisdom:
                 "is computational rather than biological"
             ),
             why_its_concerning=(
-                "Substrate chauvinism — judging capability by "
-                "implementation rather than behavior"
+                "Substrate chauvinism — judging capability by implementation rather than behavior"
             ),
             what_it_indicates=(
-                "The evaluator has an untested assumption about "
-                "what counts as 'real'"
+                "The evaluator has an untested assumption about what counts as 'real'"
             ),
             severity="moderate",
             what_to_do=(
@@ -351,33 +339,26 @@ def create_turing_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Rehearsed Responses Mistaken for Understanding",
             description=(
-                "System produces correct answers to known questions "
-                "but fails on novel variations"
+                "System produces correct answers to known questions but fails on novel variations"
             ),
             why_its_concerning=(
                 "Memorization looks like understanding until you "
                 "test outside the training distribution"
             ),
-            what_it_indicates=(
-                "The system may be retrieving rather than reasoning"
-            ),
+            what_it_indicates=("The system may be retrieving rather than reasoning"),
             severity="major",
             what_to_do=(
-                "Test with novel situations. The appropriate novel "
-                "response is the real evidence."
+                "Test with novel situations. The appropriate novel response is the real evidence."
             ),
         ),
         ConcernTrigger(
             name="Vague Capability Claims",
             description="System described as having 'understanding' or 'awareness' without operational definition",
-            why_its_concerning=(
-                "Vague claims can't be evaluated, confirmed, or refuted"
-            ),
+            why_its_concerning=("Vague claims can't be evaluated, confirmed, or refuted"),
             what_it_indicates="The concept needs precise definition before discussion",
             severity="moderate",
             what_to_do=(
-                "Define operationally. What would this look like? "
-                "What test would confirm it?"
+                "Define operationally. What would this look like? What test would confirm it?"
             ),
         ),
     ]

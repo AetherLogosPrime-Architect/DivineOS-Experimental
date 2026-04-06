@@ -1,9 +1,10 @@
-"""Tests for relay message detection in session analyzer."""
-
-import pytest
+"""Tests for relay message detection and tagging in session analyzer."""
 
 from divineos.analysis.session_analyzer import (
+    SessionAnalysis,
+    UserSignal,
     _is_relay_message,
+    _process_user_record,
     _strip_relay_prefix,
 )
 
@@ -31,7 +32,10 @@ class TestIsRelayMessage:
         assert _is_relay_message("here is what claude said\n\nThe system looks good...") is True
 
     def test_i_sent_claude_everything(self):
-        assert _is_relay_message("i sent claude everything you did this is the reply\n\nNow...") is True
+        assert (
+            _is_relay_message("i sent claude everything you did this is the reply\n\nNow...")
+            is True
+        )
 
     def test_normal_correction_not_relay(self):
         assert _is_relay_message("no don't use mocks in the tests") is False
@@ -53,6 +57,68 @@ class TestIsRelayMessage:
 
     def test_here_is_a_fresh_claude(self):
         assert _is_relay_message("here is a fresh claude to speak with you\n\nHey...") is True
+
+
+class TestRelayTagging:
+    """Relay messages should be preserved and tagged, not discarded."""
+
+    def _make_analysis(self):
+        return SessionAnalysis(source_file="test", session_id="test-1")
+
+    def _make_record(self, text, timestamp="2024-01-01T00:00:00Z"):
+        return {
+            "type": "user",
+            "message": {"content": text},
+            "timestamp": timestamp,
+        }
+
+    def test_relay_preserved_in_relay_messages(self):
+        analysis = self._make_analysis()
+        record = self._make_record(
+            "here is the reply\n\nTo Aether: the system looks good overall..."
+        )
+        _process_user_record(record, analysis)
+        assert len(analysis.relay_messages) == 1
+        assert "To Aether" in analysis.relay_messages[0]["full_content"]
+
+    def test_relay_framing_captured(self):
+        analysis = self._make_analysis()
+        record = self._make_record("here is the reply\n\nTo Aether: detailed audit text here...")
+        _process_user_record(record, analysis)
+        assert "here is the reply" in analysis.relay_messages[0]["framing"]
+
+    def test_direct_message_not_tagged_relay(self):
+        analysis = self._make_analysis()
+        record = self._make_record("no don't use mocks in the tests")
+        _process_user_record(record, analysis)
+        assert len(analysis.relay_messages) == 0
+
+    def test_signal_from_relay_tagged_relay_framing(self):
+        analysis = self._make_analysis()
+        # User framing that contains encouragement
+        record = self._make_record(
+            "ok here is the reply, this is great\n\nAudit text with wrong and don't..."
+        )
+        _process_user_record(record, analysis)
+        for signal in analysis.encouragements:
+            if "great" in signal.content:
+                assert signal.source == "relay_framing"
+                break
+
+    def test_signal_from_direct_message_tagged_direct(self):
+        analysis = self._make_analysis()
+        record = self._make_record("perfect that's exactly right")
+        _process_user_record(record, analysis)
+        assert len(analysis.encouragements) == 1
+        assert analysis.encouragements[0].source == "direct"
+
+    def test_user_signal_source_field_exists(self):
+        signal = UserSignal(
+            signal_type="correction",
+            content="test",
+            timestamp="t",
+        )
+        assert signal.source == "direct"  # default
 
 
 class TestStripRelayPrefix:

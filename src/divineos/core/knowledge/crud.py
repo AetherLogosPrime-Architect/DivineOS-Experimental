@@ -54,6 +54,11 @@ def store_knowledge(
     if len(content) < 5:
         raise ValueError("Knowledge content too short (minimum 5 characters after stripping)")
 
+    # Voice normalization: knowledge speaks as me, not about me
+    from divineos.core.knowledge._text import normalize_to_first_person
+
+    content = normalize_to_first_person(content)
+
     # Ensure knowledge table exists
     init_knowledge_table()
 

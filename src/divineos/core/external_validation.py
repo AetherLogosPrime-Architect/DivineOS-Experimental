@@ -11,7 +11,6 @@ between "told" and "learned" visible instead of hidden.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import time
 
@@ -145,9 +144,7 @@ def get_validation_accuracy(n: int = 20) -> dict:
     total = len(rows)
     matches = sum(1 for r in rows if r[3] == 1)
     mismatches = [
-        {"session_id": r[0][:12], "self_grade": r[1], "user_grade": r[2]}
-        for r in rows
-        if r[3] == 0
+        {"session_id": r[0][:12], "self_grade": r[1], "user_grade": r[2]} for r in rows if r[3] == 0
     ]
 
     return {
@@ -174,9 +171,7 @@ def get_knowledge_origin_ratio() -> dict:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT source, COUNT(*) FROM knowledge "
-            "WHERE superseded_by IS NULL "
-            "GROUP BY source"
+            "SELECT source, COUNT(*) FROM knowledge WHERE superseded_by IS NULL GROUP BY source"
         ).fetchall()
     except sqlite3.OperationalError:
         # source column might not exist yet

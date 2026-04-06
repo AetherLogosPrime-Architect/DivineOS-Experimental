@@ -45,11 +45,14 @@ def register(cli: click.Group) -> None:
     @click.option("--tags", default="", help="Comma-separated tags")
     @click.option("--source", default="", help="Comma-separated source event IDs")
     @click.option(
-        "--from", "source_entity", default=None,
+        "--from",
+        "source_entity",
+        default=None,
         help="Who generated this finding (e.g., 'claude_auditor', 'aether_council')",
     )
     @click.option(
-        "--related", default="",
+        "--related",
+        default="",
         help="Comma-separated knowledge IDs this entry relates to",
     )
     def learn(
@@ -87,7 +90,9 @@ def register(cli: click.Group) -> None:
             click.secho(f"[~] Auto-classified as: {knowledge_type} ({classify_reason})", fg="cyan")
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
         source_list = [s.strip() for s in source.split(",") if s.strip()] if source else []
-        related_to = ",".join(r.strip() for r in related.split(",") if r.strip()) if related else None
+        related_to = (
+            ",".join(r.strip() for r in related.split(",") if r.strip()) if related else None
+        )
 
         kid = _wrapped_store_knowledge(
             knowledge_type=knowledge_type.upper(),

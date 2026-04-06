@@ -169,6 +169,23 @@ def _build_recent_lessons_slot() -> str:
         return lines[0] + "Could not load lessons."
 
     if not all_lessons:
+        # Check if seeded lessons exist but haven't triggered yet
+        try:
+            seeded_count = len(
+                [
+                    lesson
+                    for lesson in active + improving
+                    if (lesson.get("description") or "").startswith("(seeded)")
+                ]
+            )
+        except _HUD_ERRORS:
+            seeded_count = 0
+        if seeded_count > 0:
+            return (
+                lines[0]
+                + f"{seeded_count} lessons seeded, none triggered in real sessions yet. "
+                + "That's either good or the detection isn't firing."
+            )
         return lines[0] + "No active lessons. Either I'm doing well or I haven't been tracking."
 
     # Sort by recency
@@ -677,7 +694,7 @@ def _build_self_awareness_slot() -> str:
             if not lines:
                 lines.append("# Self-Awareness Nudges\n")
             for rec in recs:
-                lines.append(f"- TRY: {rec.get('recommendation', rec.get('content', ''))[:80]}")
+                lines.append(f"- TRY: {rec.get('text', rec.get('recommendation', ''))[:80]}")
     except _HUD_ERRORS:
         pass
 
