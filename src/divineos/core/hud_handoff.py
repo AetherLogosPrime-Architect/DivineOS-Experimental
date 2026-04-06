@@ -146,6 +146,11 @@ _ENGAGEMENT_DECAY_THRESHOLD = 15
 # copies, re-staging) shouldn't burn through the budget as fast.
 _ENGAGEMENT_COMMIT_THRESHOLD = 30
 
+# Flow state: if actions are happening faster than this (seconds per action),
+# the agent is in a rapid work loop and shouldn't be interrupted.
+_FLOW_STATE_VELOCITY = 10.0  # seconds per action
+_FLOW_STATE_THRESHOLD = 50  # very high ceiling when in flow
+
 
 def mark_engaged() -> None:
     """Mark that the OS was used for thinking this session.
@@ -180,18 +185,29 @@ def record_code_action() -> None:
             # Old format — upgrade to new format
             marker = {"engaged_at": float(marker), "code_actions_since": 0}
         marker["code_actions_since"] = marker.get("code_actions_since", 0) + 1
+        marker["last_action_at"] = time.time()
         path.write_text(json.dumps(marker), encoding="utf-8")
     except (json.JSONDecodeError, OSError):
         pass
 
 
 def _active_threshold() -> int:
-    """Return the engagement threshold, raised during commit flows.
+    """Return the engagement threshold, adapting to context.
 
-    Detects commit flow by checking for staged git files. When files
-    are staged, we're in a commit-push-sync cycle — mechanical work
-    that shouldn't trigger the thinking gate as aggressively.
+    Three tiers:
+    1. Flow state (50): rapid action velocity detected — don't interrupt
+    2. Commit flow (30): staged git files — mechanical work cycle
+    3. Base (15): normal work — periodic check-in needed
+
+    Flow state is detected by measuring seconds-per-action from the
+    engagement marker. If actions are coming faster than 10s apart,
+    the agent is in a tight work loop and interruption destroys momentum.
     """
+    # Check flow state first (highest priority)
+    if _is_flow_state():
+        return _FLOW_STATE_THRESHOLD
+
+    # Check commit flow
     try:
         import subprocess
 
@@ -206,6 +222,40 @@ def _active_threshold() -> int:
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         pass
     return _ENGAGEMENT_DECAY_THRESHOLD
+
+
+def _is_flow_state() -> bool:
+    """Detect if the agent is in a high-velocity work loop.
+
+    Reads the engagement marker to check action velocity. If the agent
+    has done 5+ actions AND the average time between actions is under
+    _FLOW_STATE_VELOCITY seconds, we're in flow state.
+    """
+    path = _get_hud_dir() / ".session_engaged"
+    if not path.exists():
+        return False
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(marker, dict):
+            return False
+
+        actions = marker.get("code_actions_since", 0)
+        if actions < 5:
+            return False  # need enough actions to detect a pattern
+
+        engaged_at = marker.get("engaged_at", 0)
+        last_action = marker.get("last_action_at", 0)
+        if engaged_at <= 0 or last_action <= 0:
+            return False
+
+        elapsed = last_action - engaged_at
+        if elapsed <= 0:
+            return False
+
+        velocity = elapsed / actions  # seconds per action
+        return bool(velocity < _FLOW_STATE_VELOCITY)
+    except (json.JSONDecodeError, OSError):
+        return False
 
 
 def is_engaged() -> bool:
