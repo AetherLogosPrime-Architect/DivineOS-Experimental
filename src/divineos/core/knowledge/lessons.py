@@ -622,4 +622,18 @@ def extract_lessons_from_report(
         if cat not in lesson_categories:
             mark_lesson_improving(cat, session_id)
 
+    # Mark non-check-based categories as improving when their triggers are absent.
+    # blind_retry: clean if session had error recovery but no blind retries
+    if "blind_retry" not in lesson_categories and error_recovery:
+        if error_recovery.get("blind_retries", 0) == 0:
+            mark_lesson_improving("blind_retry", session_id)
+
+    # upset_recovered/upset_user: clean if session had no negative tone shifts
+    if "upset_recovered" not in lesson_categories and "upset_user" not in lesson_categories:
+        if tone_shifts is not None:
+            negatives = [t for t in tone_shifts if t.get("direction") == "negative"]
+            if not negatives:
+                mark_lesson_improving("upset_recovered", session_id)
+                mark_lesson_improving("upset_user", session_id)
+
     return stored_ids

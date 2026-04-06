@@ -244,15 +244,17 @@ def should_extract_knowledge(verdict: QualityVerdict) -> tuple[bool, str]:
 
 def run_quality_gate(
     session_file: Any,
-) -> tuple[Any | None, str, bool]:
+) -> tuple[Any | None, str, bool, list[dict[str, Any]]]:
     """Run quality checks and decide whether extraction is allowed (step 1e).
 
     Returns:
-        (quality_verdict, maturity_override, extract_allowed)
+        (quality_verdict, maturity_override, extract_allowed, check_results)
         If extract_allowed is False, caller should abort extraction.
+        check_results is the list of check dicts for downstream lesson detection.
     """
     quality_verdict = None
     maturity_override = ""
+    check_results: list[dict[str, Any]] = []
     try:
         from divineos.analysis.quality_checks import run_all_checks
         from divineos.analysis.quality_storage import store_report
@@ -260,7 +262,13 @@ def run_quality_gate(
         report = run_all_checks(session_file)
         store_report(report)
         check_results = [
-            {"check_name": c.check_name, "passed": c.passed, "score": c.score}
+            {
+                "check_name": c.check_name,
+                "name": c.check_name,
+                "passed": c.passed,
+                "score": c.score,
+                "summary": getattr(c, "summary", ""),
+            }
             for c in report.checks
         ]
         quality_verdict = assess_session_quality(check_results)
@@ -269,13 +277,13 @@ def run_quality_gate(
         if quality_verdict.action == "BLOCK":
             click.secho(f"[!] Quality gate BLOCKED: {quality_verdict.reason}", fg="red", bold=True)
             click.secho("[!] Skipping knowledge extraction for this session.", fg="red")
-            return quality_verdict, maturity_override, False
+            return quality_verdict, maturity_override, False, check_results
         elif quality_verdict.action == "DOWNGRADE":
             click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
     except _GATE_ERRORS as e:
         logger.warning(f"Quality gate failed (allowing extraction): {e}")
 
-    return quality_verdict, maturity_override, True
+    return quality_verdict, maturity_override, True, check_results
 
 
 def run_contradiction_scan(deep_ids: list[str]) -> int:

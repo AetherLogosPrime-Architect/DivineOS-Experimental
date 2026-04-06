@@ -290,13 +290,38 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
 
 
 def record_access(knowledge_id: str) -> None:
-    """Increment access count for a knowledge entry."""
+    """Increment access count and corroboration for a knowledge entry.
+
+    Access IS corroboration — if the system keeps surfacing an entry
+    because it's relevant, that's evidence of validity. Corroboration
+    is throttled: only increments when access_count crosses a multiple
+    of 5 (so 5 accesses = 1 corroboration, 10 = 2, etc). This prevents
+    inflation from repeated queries in a single session while rewarding
+    knowledge that proves useful over time.
+    """
     conn = _get_connection()
     try:
-        conn.execute(
-            "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
-            (time.time(), knowledge_id),
-        )
+        row = conn.execute(
+            "SELECT access_count FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        if not row:
+            return
+
+        old_access = row[0]
+        new_access = old_access + 1
+
+        # Corroborate every 5th access
+        if new_access % 5 == 0:
+            conn.execute(
+                "UPDATE knowledge SET access_count = ?, corroboration_count = corroboration_count + 1, updated_at = ? WHERE knowledge_id = ?",
+                (new_access, time.time(), knowledge_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE knowledge SET access_count = ?, updated_at = ? WHERE knowledge_id = ?",
+                (new_access, time.time(), knowledge_id),
+            )
         conn.commit()
     finally:
         conn.close()

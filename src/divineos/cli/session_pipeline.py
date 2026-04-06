@@ -88,7 +88,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         enforce_briefing_gate()
         enforce_engagement_gate()
 
-        quality_verdict, maturity_override, extract_allowed = run_quality_gate(latest)
+        quality_verdict, maturity_override, extract_allowed, check_results = run_quality_gate(
+            latest
+        )
         if not extract_allowed:
             try:
                 _wrapped_health_check()
@@ -260,16 +262,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.warning(f"Knowledge curation failed: {e}")
 
-        # ── Phase 8e: Lesson escalation ────────────────────────
-        try:
-            from divineos.core.knowledge.lessons import auto_resolve_lessons
-
-            resolved = auto_resolve_lessons()
-            if resolved:
-                names = ", ".join(r["category"] for r in resolved)
-                click.secho(f"[+] Lessons resolved: {names}", fg="green")
-        except (ImportError, sqlite3.OperationalError, OSError) as e:
-            logger.debug(f"Lesson escalation failed: {e}")
+        # ── Phase 8e: (moved to after 8p — lesson detection must happen first) ──
 
         # ── Phase 8f: SIS self-audit ��──────────────────────────
         try:
@@ -451,6 +444,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         # Run deep feature analysis (tone shifts, timeline, files,
         # activity, error recovery) and store results. Previously
         # only available via manual `divineos analyze` command.
+        features = None  # type: ignore[assignment]
         try:
             from pathlib import Path
 
@@ -478,6 +472,70 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                 )
         except (ImportError, sqlite3.OperationalError, OSError, TypeError, ValueError) as e:
             logger.debug(f"Session features storage failed (best-effort): {e}")
+
+        # ── Phase 8p: Lesson detection from quality checks + features ──
+        # This is where lessons actually get RECORDED. Without this,
+        # lessons are seeded but never re-detected from session data.
+        try:
+            from divineos.core.knowledge.lessons import extract_lessons_from_report
+
+            # Convert feature tone shifts to lesson-extraction format
+            tone_shifts_for_lessons = None
+            if features and hasattr(features, "tone_shifts") and features.tone_shifts:
+                tone_shifts_for_lessons = [
+                    {
+                        "direction": ("negative" if ts.new_tone == "negative" else "positive"),
+                        "previous_tone": ts.previous_tone,
+                        "new_tone": ts.new_tone,
+                        "trigger": ts.trigger_action,
+                        "user_response": getattr(ts, "after_message", ""),
+                        "before_message": getattr(ts, "before_message", ""),
+                        "sequence": ts.sequence,
+                    }
+                    for ts in features.tone_shifts
+                    if ts.previous_tone != ts.new_tone
+                ]
+
+            # Convert error recovery to aggregate counts
+            error_recovery_for_lessons = None
+            if features and hasattr(features, "error_recovery") and features.error_recovery:
+                blind_retries = sum(
+                    1 for e in features.error_recovery if e.recovery_action == "retry"
+                )
+                investigate_count = sum(
+                    1 for e in features.error_recovery if e.recovery_action == "investigate"
+                )
+                error_recovery_for_lessons = {
+                    "blind_retries": blind_retries,
+                    "investigate_count": investigate_count,
+                }
+
+            lesson_ids = extract_lessons_from_report(
+                check_results,
+                analysis.session_id,
+                tone_shifts_for_lessons,
+                error_recovery_for_lessons,
+            )
+            if lesson_ids:
+                click.secho(
+                    f"[+] Lesson detection: {len(lesson_ids)} entries from quality checks",
+                    fg="green",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, TypeError, ValueError) as e:
+            logger.debug(f"Lesson detection failed: {e}")
+
+        # ── Phase 8q: Lesson escalation (auto-resolve) ──────────
+        # Runs AFTER lesson detection so we don't resolve a lesson
+        # that just re-occurred this session.
+        try:
+            from divineos.core.knowledge.lessons import auto_resolve_lessons
+
+            resolved = auto_resolve_lessons()
+            if resolved:
+                names = ", ".join(r["category"] for r in resolved)
+                click.secho(f"[+] Lessons resolved: {names}", fg="green")
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Lesson escalation failed: {e}")
 
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)

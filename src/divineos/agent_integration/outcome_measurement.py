@@ -229,8 +229,8 @@ def measure_correction_rate(session_id: str | None = None) -> dict[str, Any]:
                      AND (tags LIKE '%session-analysis%'
                           OR tags LIKE '%session-feedback%'
                           OR tags LIKE '%episode%')
-                     AND (content LIKE '%corrected%'
-                          OR content LIKE '%encouraged%')""",
+                     AND (content LIKE '%correct%'
+                          OR content LIKE '%encourag%')""",
             ).fetchall()
 
         total_corrections = 0
@@ -292,8 +292,8 @@ def measure_correction_trend(limit: int = 10) -> dict[str, Any]:
                  AND (tags LIKE '%session-analysis%'
                       OR tags LIKE '%session-feedback%'
                       OR tags LIKE '%episode%')
-                 AND (content LIKE '%corrected%'
-                      OR content LIKE '%encouraged%')
+                 AND (content LIKE '%correct%'
+                      OR content LIKE '%encourag%')
                ORDER BY created_at ASC""",
         ).fetchall()
 
