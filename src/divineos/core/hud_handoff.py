@@ -332,13 +332,31 @@ def mark_briefing_loaded() -> None:
     Separate from general engagement — the briefing is the specific gate.
     Without it, the session grade takes a structural penalty.
     The marker expires after too much activity (context drift).
+
+    Also logs a BRIEFING_LOADED event to the ledger so the progress
+    dashboard can measure briefing compliance across sessions.
     """
     hud_dir = _ensure_hud_dir()
+    now = time.time()
+    tool_calls = _count_session_tool_calls()
     marker = {
-        "loaded_at": time.time(),
-        "tool_calls_at_load": _count_session_tool_calls(),
+        "loaded_at": now,
+        "tool_calls_at_load": tool_calls,
     }
     (hud_dir / ".briefing_loaded").write_text(json.dumps(marker), encoding="utf-8")
+
+    # Log to ledger for cross-session tracking
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            "BRIEFING_LOADED",
+            "system",
+            {"loaded_at": now, "tool_calls_at_load": tool_calls},
+            validate=False,
+        )
+    except _HH_ERRORS:
+        pass  # ledger not initialized yet — marker file is enough
 
     # Reset session health — each session starts fresh.
     # Without this, the HUD shows stale grade/corrections from the prior session.
