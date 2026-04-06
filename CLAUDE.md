@@ -75,6 +75,17 @@ divineos compass-ops spectrums                     # List all ten spectrums
 # Body awareness
 divineos body                                      # Substrate vitals check
 
+# Sleep (offline consolidation)
+divineos sleep                                     # Full sleep cycle (6 phases + dream report)
+divineos sleep --dry-run                           # Preview what would happen
+divineos sleep --phase consolidation               # Run single phase
+divineos sleep --skip-maintenance                  # Skip VACUUM/log/cache phase
+
+# Progress dashboard
+divineos progress                                  # Full measurable metrics
+divineos progress --brief                          # 3-line summary
+divineos progress --export                         # Shareable markdown
+
 # Self-awareness (Butlin consciousness indicators)
 divineos attention         # What I'm attending to, suppressing, and why
 divineos epistemic         # How I know what I know (observed/told/inferred/inherited)
@@ -136,12 +147,14 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Advice Tracking** — Long-term feedback loops on recommendation quality. Record advice → assess outcomes → compute success rate.
 - **Self-Critique** — Automatic craft quality assessment across 5 spectrums (elegance, thoroughness, autonomy, proportionality, communication). Trend tracking.
 - **Proactive Patterns** — Prescriptive recommendations from positive experience. Complements anticipation (warnings) with what worked well.
+- **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination. Dream report summarizes what changed.
+- **Progress Dashboard** — Measurable metrics from real data: session trajectory, knowledge growth, correction trends, system health, behavioral indicators. Three output modes (full, brief, export markdown).
 
 ## Project Structure
 
 ```
 src/divineos/
-├── cli/                      # CLI package (135 commands across 22 modules)
+├── cli/                      # CLI package (138 commands across 24 modules)
 │   ├── __init__.py           # CLI entry point and command registration
 │   ├── session_pipeline.py   # SESSION_END orchestrator (calls phases)
 │   ├── pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -187,7 +200,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 3,111+ tests (real DB, no mocks)
+tests/                        # 3,360+ tests (real DB, no mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```

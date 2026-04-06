@@ -217,7 +217,9 @@ def run_checkpoint() -> str:
     except (OSError, ValueError, KeyError) as e:
         logger.warning("Checkpoint: HUD snapshot failed: %s", e)
 
-    # 2. Save handoff note with current goals
+    # 2. Save handoff note with current goals — but never overwrite
+    #    a real SESSION_END handoff. Checkpoints are the fallback for
+    #    when SESSION_END doesn't run, not a replacement.
     try:
         goals_path = _ensure_hud_dir() / "active_goals.json"
         goals_text = ""
@@ -226,19 +228,36 @@ def run_checkpoint() -> str:
             active = [g for g in goals if g.get("status") == "active"]
             goals_text = f"{len(active)} active goals"
 
-        state = _load_state()
-        save_handoff_note(
-            summary=f"Auto-checkpoint #{state.get('checkpoints_run', 0) + 1}: "
-            f"{state.get('edits', 0)} edits, {state.get('tool_calls', 0)} tool calls",
-            goals_state=goals_text,
-            context_snapshot={
-                "type": "checkpoint",
-                "edits": state.get("edits", 0),
-                "tool_calls": state.get("tool_calls", 0),
-                "timestamp": time.time(),
-            },
-        )
-        parts.append("handoff note updated")
+        # Check if a real handoff already exists (from SESSION_END or mini-save)
+        handoff_path = _ensure_hud_dir() / "handoff_note.json"
+        skip_handoff = False
+        if handoff_path.exists():
+            try:
+                existing = json.loads(handoff_path.read_text(encoding="utf-8"))
+                existing_summary = existing.get("summary", "")
+                age = time.time() - existing.get("written_at", 0)
+                # Preserve real handoffs (contain "exchanges") that are <12h old
+                if "exchanges" in existing_summary and age < 43200:
+                    skip_handoff = True
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        if not skip_handoff:
+            state = _load_state()
+            save_handoff_note(
+                summary=f"Auto-checkpoint #{state.get('checkpoints_run', 0) + 1}: "
+                f"{state.get('edits', 0)} edits, {state.get('tool_calls', 0)} tool calls",
+                goals_state=goals_text,
+                context_snapshot={
+                    "type": "checkpoint",
+                    "edits": state.get("edits", 0),
+                    "tool_calls": state.get("tool_calls", 0),
+                    "timestamp": time.time(),
+                },
+            )
+            parts.append("handoff note updated")
+        else:
+            parts.append("handoff note preserved (SESSION_END handoff exists)")
     except (OSError, ValueError, KeyError) as e:
         logger.warning("Checkpoint: handoff note failed: %s", e)
 
@@ -436,8 +455,8 @@ def run_mini_session_save() -> dict[str, Any]:
         session_start = get_session_start_time()
         analysis = _analyzer_mod.analyze_session(latest, since_timestamp=session_start)
 
-        # Deep extraction
-        records = _analyzer_mod._load_records(latest)
+        # Deep extraction — stream-filter to current session only
+        records = _analyzer_mod._load_records(latest, since_timestamp=session_start)
         deep_ids = deep_extract_knowledge(analysis, records)
         result["knowledge_extracted"] = len(deep_ids)
 

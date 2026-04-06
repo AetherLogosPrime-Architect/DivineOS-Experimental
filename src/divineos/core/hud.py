@@ -48,6 +48,8 @@ SLOT_ORDER = [
     "os_engagement",
     "context_budget",
     "active_knowledge",
+    "knowledge_origin",
+    "dead_architecture",
     "warnings",
     "journal",
     "decision_journal",
@@ -167,6 +169,23 @@ def _build_recent_lessons_slot() -> str:
         return lines[0] + "Could not load lessons."
 
     if not all_lessons:
+        # Check if seeded lessons exist but haven't triggered yet
+        try:
+            seeded_count = len(
+                [
+                    lesson
+                    for lesson in active + improving
+                    if (lesson.get("description") or "").startswith("(seeded)")
+                ]
+            )
+        except _HUD_ERRORS:
+            seeded_count = 0
+        if seeded_count > 0:
+            return (
+                lines[0]
+                + f"{seeded_count} lessons seeded, none triggered in real sessions yet. "
+                + "That's either good or the detection isn't firing."
+            )
         return lines[0] + "No active lessons. Either I'm doing well or I haven't been tracking."
 
     # Sort by recency
@@ -242,32 +261,47 @@ def _build_session_health_slot() -> str:
 
 
 def _build_context_budget_slot() -> str:
-    """How much context window I have left."""
-    path = _ensure_hud_dir() / "context_budget.json"
-    if not path.exists():
-        return "# Context Budget\n\nNo budget tracking active. I should be mindful of context size."
-
-    try:
-        budget = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return "# Context Budget\n\nBudget data corrupted."
-
-    used = budget.get("used_pct", 0)
+    """How much context window I have left, plus guardrail state."""
     lines = ["# My Context Budget\n"]
-    lines.append(f"- **Used:** {used}%")
 
-    if used < 50:
-        lines.append("- Plenty of room. I can work freely.")
-    elif used < 70:
-        lines.append("- Past halfway. Still good.")
-    elif used < 80:
-        lines.append(
-            "- Compression approaching. I should save my HUD state so I wake up with full context after compaction."
-        )
+    path = _ensure_hud_dir() / "context_budget.json"
+    if path.exists():
+        try:
+            budget = json.loads(path.read_text(encoding="utf-8"))
+            used = budget.get("used_pct", 0)
+            lines.append(f"- **Used:** {used}%")
+
+            if used < 50:
+                lines.append("- Plenty of room. I can work freely.")
+            elif used < 70:
+                lines.append("- Past halfway. Still good.")
+            elif used < 80:
+                lines.append(
+                    "- Compression approaching. I should save my HUD state so I wake up with full context after compaction."
+                )
+            else:
+                lines.append(
+                    "- Compression imminent. Saving HUD now so I don't lose context. I'll still be here after — just with a fresh window."
+                )
+        except (json.JSONDecodeError, OSError):
+            lines.append("- Budget data unavailable.")
     else:
-        lines.append(
-            "- Compression imminent. Saving HUD now so I don't lose context. I'll still be here after — just with a fresh window."
-        )
+        lines.append("- No budget tracking active. I should be mindful of context size.")
+
+    # Guardrail state — runtime limits
+    try:
+        from divineos.core.tool_wrapper import get_guardrail_state
+
+        gs = get_guardrail_state()
+        if gs is not None:
+            s = gs.summary()
+            lines.append(f"\n**Guardrails:** {s['status']}")
+            lines.append(f"- Iterations: {s['iterations']}")
+            lines.append(f"- Tool calls: {s['tool_calls']}")
+            if s["violations"] > 0:
+                lines.append(f"- **{s['violations']} violations, {s['warnings']} warnings**")
+    except (ImportError, AttributeError):
+        pass  # guardrails not active
 
     return "\n".join(lines)
 
@@ -295,10 +329,11 @@ def _build_active_knowledge_slot() -> str:
 
     for item in active[:8]:
         pin = " [pinned]" if item.get("pinned") else ""
+        entity = f" [{item['source_entity']}]" if item.get("source_entity") else ""
         content = item["content"].replace("\n", " ")
         if len(content) > 120:
             content = content[:117] + "..."
-        lines.append(f"- [{item['importance']:.2f}] {content}{pin}")
+        lines.append(f"- [{item['importance']:.2f}]{entity} {content}{pin}")
 
     if len(active) > 8:
         lines.append(f"  ...and {len(active) - 8} more in active memory")
@@ -674,7 +709,7 @@ def _build_self_awareness_slot() -> str:
             if not lines:
                 lines.append("# Self-Awareness Nudges\n")
             for rec in recs:
-                lines.append(f"- TRY: {rec.get('recommendation', rec.get('content', ''))[:80]}")
+                lines.append(f"- TRY: {rec.get('text', rec.get('recommendation', ''))[:80]}")
     except _HUD_ERRORS:
         pass
 
@@ -746,6 +781,61 @@ def _build_calibration_slot() -> str:
         return ""
 
 
+def _build_knowledge_origin_slot() -> str:
+    """How much knowledge is learned vs seeded — Hinton's diagnostic."""
+    try:
+        from divineos.core.external_validation import (
+            format_origin_summary,
+            format_validation_summary,
+        )
+
+        origin = format_origin_summary()
+        validation = format_validation_summary()
+        lines = ["# Knowledge Origin & Validation", "", f"  Origin: {origin}"]
+        lines.append(f"  Validation: {validation}")
+
+        try:
+            from divineos.core.knowledge_impact import format_impact_summary
+
+            impact = format_impact_summary()
+            lines.append(f"  Impact: {impact}")
+        except _HUD_ERRORS:
+            pass
+
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
+def _build_dead_architecture_slot() -> str:
+    """Dead architecture alarm — dormant modules that exist but do nothing."""
+    try:
+        from divineos.core.dead_architecture_alarm import get_latest_scan
+
+        scan = get_latest_scan()
+        if not scan:
+            return "# Dead Architecture\n\n  [!] No scan recorded -- alarm may be dormant"
+
+        dormant = scan.get("dormant", [])
+        active_count = scan.get("active_count", 0)
+        dormant_count = scan.get("dormant_count", 0)
+
+        if dormant_count == 0:
+            return ""
+
+        lines = [
+            f"# Dead Architecture ({dormant_count} dormant, {active_count} active)",
+            "",
+        ]
+        for t in dormant[:10]:
+            lines.append(f"  - {t}")
+        if dormant_count > 10:
+            lines.append(f"  ...and {dormant_count - 10} more")
+        return "\n".join(lines)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -771,6 +861,8 @@ SLOT_BUILDERS = {
     "self_awareness": _build_self_awareness_slot,
     "body": _build_body_slot,
     "self_model": _build_self_model_slot,
+    "knowledge_origin": _build_knowledge_origin_slot,
+    "dead_architecture": _build_dead_architecture_slot,
 }
 
 

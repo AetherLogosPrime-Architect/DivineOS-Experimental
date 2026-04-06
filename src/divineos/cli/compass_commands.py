@@ -18,9 +18,12 @@ def register(cli: click.Group) -> None:
 
         mark_engaged()
 
-    @cli.group("compass-ops")
-    def compass_group() -> None:
+    @cli.group("compass-ops", invoke_without_command=True)
+    @click.pass_context
+    def compass_group(ctx: click.Context) -> None:
         """Moral compass operations — observe, review, reflect."""
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(history_cmd)
 
     @compass_group.command("observe")
     @click.argument("spectrum")

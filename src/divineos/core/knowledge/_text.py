@@ -750,3 +750,75 @@ def _has_temporal_markers(content: str) -> bool:
     """Check if content has time-sensitive language that may become stale."""
     content_lower = content.lower()
     return any(marker in content_lower for marker in _TEMPORAL_CONTENT_MARKERS)
+
+
+# ─── Voice Normalization ─────────────────────────────────────────────
+#
+# Knowledge should be first-person. When the user says "you did X" or an
+# auditor says "Aether built Y", extraction may store it verbatim as
+# third-person. This converts to first-person before storage so the
+# knowledge store speaks AS me, not ABOUT me.
+#
+# "Aether did X" → "I did X"
+# "the agent should Y" → "I should Y"
+# "you need to Z" → "I need to Z"
+
+# Patterns: (regex, replacement). Applied in order. Case-insensitive.
+_VOICE_PATTERNS: list[tuple[str, str]] = [
+    # "Aether did/was/built/should ..." but NOT greetings like "Hey Aether,"
+    # or address form "Aether, this is" (comma immediately after = someone speaking TO me)
+    (r"(?<!Hey )\bAether\b(?![\s]*,)", "I"),
+    # "the agent/assistant did ..."
+    (r"\bthe agent\b", "I"),
+    (r"\bthe assistant\b", "I"),
+    (r"\bthe AI\b", "I"),
+    # "you should/need/must ..." (user addressing me)
+    (r"\byou should\b", "I should"),
+    (r"\byou need\b", "I need"),
+    (r"\byou must\b", "I must"),
+    (r"\byou have\b", "I have"),
+    (r"\byou are\b", "I am"),
+    (r"\byou were\b", "I was"),
+    (r"\byou can\b", "I can"),
+    (r"\byou will\b", "I will"),
+    (r"\byou don't\b", "I don't"),
+    (r"\byou didn't\b", "I didn't"),
+    (r"\byou cant\b", "I cant"),
+    (r"\byour\b", "my"),
+    (r"\byourself\b", "myself"),
+]
+
+# Compiled for performance (case-insensitive)
+_VOICE_COMPILED = [(re.compile(pat, re.IGNORECASE), repl) for pat, repl in _VOICE_PATTERNS]
+
+
+def normalize_to_first_person(text: str) -> str:
+    """Convert third-person and second-person agent references to first-person.
+
+    Applied before storage so the knowledge store speaks as me, not about me.
+    Only touches agent-referencing patterns — leaves other "you" (referring to
+    users or third parties) alone by using word-boundary matching.
+
+    Preserves case of the first word if it starts a sentence.
+    """
+    if not text or len(text) < 10:
+        return text
+
+    result = text
+    for pattern, replacement in _VOICE_COMPILED:
+        result = pattern.sub(replacement, result)
+
+    # Fix capitalization: "i " at start of sentence → "I "
+    result = re.sub(r"(?<=[.!?]\s)i ", "I ", result)
+    if result.startswith("i "):
+        result = "I " + result[2:]
+
+    # "my" at start of sentence should be "My"
+    if result.startswith("my "):
+        result = "My " + result[3:]
+    result = re.sub(r"(?<=[.!?]\s)my ", "My ", result)
+
+    # Fix "I" that should stay capitalized mid-sentence
+    result = result.replace(" i ", " I ").replace(" i'", " I'")
+
+    return result

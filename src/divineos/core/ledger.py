@@ -54,7 +54,7 @@ _LOG_DIR = Path(__file__).parent.parent.parent / "logs"
 _LOG_DIR.mkdir(exist_ok=True)
 
 # Clean up old rotated logs on startup (loguru retention doesn't always fire on Windows)
-_MAX_LOG_FILES = 5
+_MAX_LOG_FILES = 3
 try:
     _old_logs = sorted(_LOG_DIR.glob("divineos.*.log"), key=lambda p: p.stat().st_mtime)
     if len(_old_logs) > _MAX_LOG_FILES:

@@ -209,6 +209,24 @@ def generate_briefing(
     # created a feedback loop where popular entries stayed popular
     # regardless of actual usefulness.
 
+    # Record knowledge impact retrievals — which entries were loaded
+    # this session, so SESSION_END can assess if they helped or not.
+    # This is different from access_count: it tracks causal impact,
+    # not popularity.
+    try:
+        from divineos.core.knowledge_impact import record_knowledge_retrieval
+        from divineos.core.session_manager import get_current_session_id
+
+        sid = get_current_session_id()
+        for entry in entries:
+            record_knowledge_retrieval(
+                session_id=sid,
+                knowledge_id=entry["knowledge_id"],
+                content_brief=entry.get("content", "")[:200],
+            )
+    except (*_RETRIEVAL_ERRORS, RuntimeError):
+        pass  # Impact tracking is best-effort, never blocks briefing
+
     # Get active lessons for the header section
     lessons_text = ""
     try:
@@ -356,18 +374,19 @@ def _format_knowledge_sections(
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
             mat = item.get("maturity", "RAW")
             mat_marker = " ++" if mat == "CONFIRMED" else " +" if mat == "TESTED" else ""
+            entity = f" [from: {item['source_entity']}]" if item.get("source_entity") else ""
             content = item["content"]
             access = f"({item['access_count']}x accessed)"
 
             if kt == "DIRECTIVE":
                 lines.append(f"- [{item['confidence']:.2f}] {content}{mat_marker}{hint_marker}")
-                lines.append(f"  {access}")
+                lines.append(f"  {access}{entity}")
             else:
                 display = content.replace("\n", " ")
                 if len(display) > 150:
                     display = display[:147] + "..."
                 lines.append(
-                    f"- [{item['confidence']:.2f}] {display} {access}{mat_marker}{hint_marker}"
+                    f"- [{item['confidence']:.2f}]{entity} {display} {access}{mat_marker}{hint_marker}"
                 )
         lines.append("")
     return lines
@@ -510,6 +529,28 @@ def _format_briefing(
     if lessons_text:
         lines.append(lessons_text)
         lines.append("")
+
+    # Open curiosities — questions generated during sleep or filed manually
+    try:
+        from divineos.core.curiosity_engine import get_open_curiosities
+
+        open_q = get_open_curiosities()
+        if open_q:
+            lines.append(f"### OPEN QUESTIONS ({len(open_q)})")
+            for q in open_q[:3]:
+                status_icon = "?" if q.get("status") == "OPEN" else "->"
+                question_text = q.get("question", "")
+                if len(question_text) > 120:
+                    question_text = question_text[:117] + "..."
+                lines.append(f"  {status_icon} {question_text}")
+                cat = q.get("category", "")
+                if cat and cat != "general":
+                    lines.append(f"    [{cat}]")
+            if len(open_q) > 3:
+                lines.append(f"  ...and {len(open_q) - 3} more (run: divineos curiosity list)")
+            lines.append("")
+    except _RETRIEVAL_ERRORS:
+        pass
 
     lines.extend(_format_knowledge_sections(grouped, hint_matches))
 

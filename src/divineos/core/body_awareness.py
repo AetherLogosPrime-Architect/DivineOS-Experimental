@@ -60,7 +60,15 @@ class SubstrateVitals:
     db_size_mb: float = 0.0
     knowledge_db_size_mb: float = 0.0
     reports_size_mb: float = 0.0
+    logs_size_mb: float = 0.0
     total_size_mb: float = 0.0
+
+    # DB health
+    db_free_page_ratio: float = 0.0  # fraction of DB that is wasted space
+
+    # Transcript debris
+    transcript_files: int = 0
+    transcript_size_mb: float = 0.0
 
     # Cache health
     caches: list[CacheState] = field(default_factory=list)
@@ -185,6 +193,227 @@ def prune_caches(dry_run: bool = False) -> list[str]:
     return actions
 
 
+# -- Maintenance: VACUUM + Log Retention ---------------------------------
+
+# Maximum rotated log files to keep.  At 10 MB per file, 2 files = 20 MB cap.
+_MAX_ROTATED_LOGS = 2
+
+# VACUUM when free pages exceed this fraction of total pages.
+_VACUUM_THRESHOLD = 0.30
+
+
+def vacuum_database(dry_run: bool = False) -> dict[str, float]:
+    """VACUUM the ledger DB if free page ratio exceeds threshold.
+
+    SQLite doesn't release disk space when rows are deleted — it marks
+    pages as free. VACUUM rebuilds the file and releases that space.
+    This is the fix for the 422 MB DB that had 415 MB of free pages.
+
+    Returns dict with before_mb, after_mb, freed_mb, free_ratio.
+    """
+    from divineos.core._ledger_base import get_connection
+
+    conn = get_connection()
+    try:
+        page_size: int = conn.execute("PRAGMA page_size").fetchone()[0]
+        page_count: int = conn.execute("PRAGMA page_count").fetchone()[0]
+        free_pages: int = conn.execute("PRAGMA freelist_count").fetchone()[0]
+    finally:
+        conn.close()
+
+    total_mb = (page_size * page_count) / (1024 * 1024)
+    free_mb = (page_size * free_pages) / (1024 * 1024)
+    free_ratio = free_pages / page_count if page_count > 0 else 0.0
+
+    result = {
+        "before_mb": round(total_mb, 2),
+        "after_mb": round(total_mb, 2),
+        "freed_mb": 0.0,
+        "free_ratio": round(free_ratio, 3),
+    }
+
+    if free_ratio < _VACUUM_THRESHOLD:
+        return result  # Not worth vacuuming
+
+    if dry_run:
+        result["freed_mb"] = round(free_mb, 2)
+        result["after_mb"] = round(total_mb - free_mb, 2)
+        return result
+
+    # VACUUM requires no other connections and can't run inside a transaction
+    conn = get_connection()
+    try:
+        conn.execute("VACUUM")
+    finally:
+        conn.close()
+
+    # Re-measure
+    conn = get_connection()
+    try:
+        new_page_count: int = conn.execute("PRAGMA page_count").fetchone()[0]
+        new_total_mb = (page_size * new_page_count) / (1024 * 1024)
+    finally:
+        conn.close()
+
+    result["after_mb"] = round(new_total_mb, 2)
+    result["freed_mb"] = round(total_mb - new_total_mb, 2)
+    return result
+
+
+def clean_old_logs(dry_run: bool = False) -> dict[str, int | float]:
+    """Remove old rotated log files beyond retention limit.
+
+    Returns dict with removed_count, freed_mb.
+    """
+    log_dir = Path(__file__).parent.parent.parent / "logs"
+    if not log_dir.exists():
+        return {"removed_count": 0, "freed_mb": 0.0}
+
+    # Rotated logs match pattern: divineos.YYYY-MM-DD_*.log
+    rotated = sorted(log_dir.glob("divineos.*.log"), key=lambda p: p.stat().st_mtime)
+
+    if len(rotated) <= _MAX_ROTATED_LOGS:
+        return {"removed_count": 0, "freed_mb": 0.0}
+
+    to_remove = rotated[: len(rotated) - _MAX_ROTATED_LOGS]
+    removed_count = 0
+    freed_bytes = 0
+
+    for stale in to_remove:
+        try:
+            fsize = stale.stat().st_size
+            if not dry_run:
+                stale.unlink()
+            freed_bytes += fsize
+            removed_count += 1
+        except OSError:
+            continue
+
+    return {
+        "removed_count": removed_count,
+        "freed_mb": round(freed_bytes / (1024 * 1024), 2),
+    }
+
+
+# Transcript retention: subagent/tool-result files older than this many days
+# get cleaned up. Main JSONL files are managed by Claude Code's own
+# cleanupPeriodDays setting — we only touch the subagent debris.
+_TRANSCRIPT_RETENTION_DAYS = 3
+
+
+def clean_transcript_debris(dry_run: bool = False) -> dict[str, int | float]:
+    """Clean old subagent transcripts and tool-result files.
+
+    Claude Code leaves behind subagent JSONL files and tool-result
+    caches for every Agent tool call. These accumulate fast — 349 files
+    totaling 180MB in a single session. The main JSONL is Claude Code's
+    to manage; we only clean the debris underneath.
+
+    Returns dict with removed_count, freed_mb, dirs_cleaned.
+    """
+    projects_dir = Path.home() / ".claude" / "projects"
+    if not projects_dir.exists():
+        return {"removed_count": 0, "freed_mb": 0.0, "dirs_cleaned": 0}
+
+    cutoff = time.time() - (_TRANSCRIPT_RETENTION_DAYS * 86400)
+    removed_count = 0
+    freed_bytes = 0
+    dirs_cleaned = 0
+
+    for project_dir in projects_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+
+        for session_dir in project_dir.iterdir():
+            if not session_dir.is_dir():
+                continue
+
+            # Clean subagent transcripts
+            subagents_dir = session_dir / "subagents"
+            if subagents_dir.exists():
+                for f in subagents_dir.iterdir():
+                    if not f.is_file():
+                        continue
+                    try:
+                        if f.stat().st_mtime < cutoff:
+                            fsize = f.stat().st_size
+                            if not dry_run:
+                                f.unlink()
+                            freed_bytes += fsize
+                            removed_count += 1
+                    except OSError:
+                        continue
+                # Remove empty subagents dir
+                if not dry_run:
+                    try:
+                        if subagents_dir.exists() and not any(subagents_dir.iterdir()):
+                            subagents_dir.rmdir()
+                            dirs_cleaned += 1
+                    except OSError:
+                        pass
+
+            # Clean tool-result caches
+            results_dir = session_dir / "tool-results"
+            if results_dir.exists():
+                for f in results_dir.iterdir():
+                    if not f.is_file():
+                        continue
+                    try:
+                        if f.stat().st_mtime < cutoff:
+                            fsize = f.stat().st_size
+                            if not dry_run:
+                                f.unlink()
+                            freed_bytes += fsize
+                            removed_count += 1
+                    except OSError:
+                        continue
+                if not dry_run:
+                    try:
+                        if results_dir.exists() and not any(results_dir.iterdir()):
+                            results_dir.rmdir()
+                            dirs_cleaned += 1
+                    except OSError:
+                        pass
+
+            # Remove empty session dirs
+            if not dry_run:
+                try:
+                    if session_dir.exists() and not any(session_dir.iterdir()):
+                        session_dir.rmdir()
+                        dirs_cleaned += 1
+                except OSError:
+                    pass
+
+    return {
+        "removed_count": removed_count,
+        "freed_mb": round(freed_bytes / (1024 * 1024), 2),
+        "dirs_cleaned": dirs_cleaned,
+    }
+
+
+def run_maintenance(dry_run: bool = False) -> dict[str, dict]:
+    """Run all maintenance tasks: VACUUM, log cleanup, cache prune.
+
+    Returns a dict keyed by task name with each task's results.
+    """
+    results: dict[str, dict] = {}
+
+    # 1. VACUUM
+    results["vacuum"] = vacuum_database(dry_run=dry_run)
+
+    # 2. Log retention
+    results["logs"] = clean_old_logs(dry_run=dry_run)
+
+    # 3. Cache prune (reuse existing)
+    actions = prune_caches(dry_run=dry_run)
+    results["caches"] = {"actions": actions}
+
+    # 4. Transcript debris cleanup
+    results["transcripts"] = clean_transcript_debris(dry_run=dry_run)
+
+    return results
+
+
 def _auto_prune_cache(cache_dir: Path, limit_mb: float) -> int:
     """Silently prune a single cache directory back under its limit.
 
@@ -252,7 +481,50 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
                 vitals.reports_size_mb += f.stat().st_size / (1024 * 1024)
             vitals.reports_size_mb = round(vitals.reports_size_mb, 2)
 
-    vitals.total_size_mb = round(vitals.db_size_mb + vitals.reports_size_mb, 2)
+    # Log files
+    log_dir = Path(__file__).parent.parent.parent / "logs"
+    if log_dir.exists():
+        for lf in log_dir.glob("*.log"):
+            try:
+                vitals.logs_size_mb += lf.stat().st_size / (1024 * 1024)
+            except OSError:
+                pass
+        vitals.logs_size_mb = round(vitals.logs_size_mb, 2)
+
+    vitals.total_size_mb = round(
+        vitals.db_size_mb + vitals.reports_size_mb + vitals.logs_size_mb, 2
+    )
+
+    # -- Transcript debris --
+    transcript_dir = Path.home() / ".claude" / "projects"
+    if transcript_dir.exists():
+        for subagent_file in transcript_dir.rglob("subagents/*.jsonl"):
+            try:
+                vitals.transcript_files += 1
+                vitals.transcript_size_mb += subagent_file.stat().st_size / (1024 * 1024)
+            except OSError:
+                pass
+        for result_file in transcript_dir.rglob("tool-results/*"):
+            if result_file.is_file():
+                try:
+                    vitals.transcript_files += 1
+                    vitals.transcript_size_mb += result_file.stat().st_size / (1024 * 1024)
+                except OSError:
+                    pass
+        vitals.transcript_size_mb = round(vitals.transcript_size_mb, 2)
+
+    # -- DB free page ratio (bloat detection) --
+    try:
+        conn = _get_connection()
+        try:
+            page_count: int = conn.execute("PRAGMA page_count").fetchone()[0]
+            free_pages: int = conn.execute("PRAGMA freelist_count").fetchone()[0]
+            if page_count > 0:
+                vitals.db_free_page_ratio = round(free_pages / page_count, 3)
+        finally:
+            conn.close()
+    except _BA_ERRORS:
+        pass
 
     # -- Cache sizes (with auto-remediation) --
     project_root = Path(__file__).parent.parent.parent.parent
@@ -373,6 +645,23 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
             f"Ledger growing large: {vitals.ledger_events} events -- consider compaction"
         )
 
+    if vitals.transcript_size_mb > 100:
+        vitals.warnings.append(
+            f"Transcript debris: {vitals.transcript_size_mb:.0f}MB "
+            f"({vitals.transcript_files} files) -- 'divineos sleep' will clean"
+        )
+
+    if vitals.db_free_page_ratio > _VACUUM_THRESHOLD:
+        vitals.warnings.append(
+            f"DB bloat: {vitals.db_free_page_ratio:.0%} free pages "
+            f"-- run 'divineos maintenance' to VACUUM"
+        )
+
+    if vitals.logs_size_mb > 30:
+        vitals.warnings.append(
+            f"Logs: {vitals.logs_size_mb:.0f}MB -- run 'divineos maintenance' to clean"
+        )
+
     return vitals
 
 
@@ -397,6 +686,14 @@ def format_vitals(vitals: SubstrateVitals | None = None) -> str:
         lines.append(f"    Knowledge:  {vitals.knowledge_db_size_mb:.1f} MB")
     if vitals.reports_size_mb:
         lines.append(f"    Reports:    {vitals.reports_size_mb:.1f} MB")
+    if vitals.logs_size_mb:
+        lines.append(f"    Logs:       {vitals.logs_size_mb:.1f} MB")
+    if vitals.db_free_page_ratio > 0.05:
+        lines.append(f"    DB bloat:   {vitals.db_free_page_ratio:.0%} free pages")
+    if vitals.transcript_size_mb > 0:
+        lines.append(
+            f"    Transcripts: {vitals.transcript_size_mb:.1f} MB ({vitals.transcript_files} files)"
+        )
     lines.append(f"    Total:      {vitals.total_size_mb:.1f} MB")
 
     # Caches

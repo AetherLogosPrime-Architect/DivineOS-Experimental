@@ -8,10 +8,12 @@ from divineos.cli._helpers import _resolve_knowledge_id, _safe_echo
 def register(cli: click.Group) -> None:
     """Register journal commands on the CLI group."""
 
-    @cli.group("journal")
-    def journal_group() -> None:
+    @cli.group("journal", invoke_without_command=True)
+    @click.pass_context
+    def journal_group(ctx: click.Context) -> None:
         """My personal journal — things I choose to remember."""
-        pass
+        if ctx.invoked_subcommand is None:
+            ctx.invoke(journal_list_cmd)
 
     @journal_group.command("save")
     @click.argument("text", required=False)

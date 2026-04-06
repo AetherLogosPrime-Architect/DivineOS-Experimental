@@ -70,6 +70,39 @@ FRUSTRATION_PATTERNS: tuple[str, ...] = (
     r"\bi told you\b",
 )
 
+# Patterns that indicate user is relaying a message from another entity.
+# The relayed content should NOT be scanned for signals — it's not
+# the user's voice, it's someone else's.
+# Relay patterns — match user messages that forward another entity's words.
+# Deliberately broad: false negatives (missing a relay) cause 43 fake corrections.
+# False positives (flagging a non-relay) only skip one message of signal detection.
+RELAY_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # "here is/here's [the/a] [adjective] reply/response/audit/message/convo"
+    re.compile(
+        r"^(?:ok\s+|okay\s+)?here\s+is\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(?:ok\s+|okay\s+)?here'?s\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b",
+        re.IGNORECASE,
+    ),
+    # "from/to Claude/the auditor" at start
+    re.compile(r"^(?:from|to)\s+(?:claude|the\s+auditor|the\s+reviewer|aether)\b", re.IGNORECASE),
+    # "here is what claude/the auditor said"
+    re.compile(r"^here\s+is\s+(?:what\s+)?(?:claude|the\s+auditor)", re.IGNORECASE),
+    # "i sent claude/the auditor everything"
+    re.compile(r"^i\s+sent\s+(?:claude|the\s+auditor|them)\s+", re.IGNORECASE),
+    # "here is/here's/heres a fresh claude/audit"
+    re.compile(r"^(?:ok\s+|okay\s+)?here(?:\s+is|'?s)\s+a\s+fresh\b", re.IGNORECASE),
+    # "Aether, [praise that's actually from another Claude]" — starts with entity name + comma
+    re.compile(
+        r"^aether,\s+(?:that'?s|this is|you|your|the|excellent|great|good|impressive|damn|wow)\b",
+        re.IGNORECASE,
+    ),
+    # "wonderful claude wanted to..." — user framing before relay
+    re.compile(r"^(?:wonderful|perfect|great|ok)\s+claude\s+", re.IGNORECASE),
+)
+
 PREFERENCE_PATTERNS: tuple[str, ...] = (
     r"\bi prefer\b",
     r"\bi like (?:it )?when\b",
@@ -95,6 +128,7 @@ class UserSignal:
     content: str
     timestamp: str
     patterns_matched: list[str] = field(default_factory=list)
+    source: str = "direct"  # direct | relay_framing
 
 
 @dataclass
@@ -152,6 +186,10 @@ class SessionAnalysis:
 
     # Conversation flow
     user_message_texts: list[str] = field(default_factory=list)
+
+    # Relay messages — user forwarding content from another entity.
+    # Preserved for cross-entity knowledge, not scanned for corrections.
+    relay_messages: list[dict[str, str]] = field(default_factory=list)
 
     def summary(self) -> str:
         """Generate a human-readable summary."""
@@ -272,11 +310,10 @@ def analyze_session(
     if not file_path.exists():
         return analysis
 
-    records = _load_records(file_path)
-
-    # Filter to current session if a boundary is provided
-    if since_timestamp is not None:
-        records = _filter_records_since(records, since_timestamp)
+    # Stream-filter during load: only parse records from the current session.
+    # This is critical for large accumulated transcripts (76MB+) where loading
+    # everything into memory and then filtering wastes both RAM and time.
+    records = _load_records(file_path, since_timestamp=since_timestamp)
 
     analysis.total_records = len(records)
 
@@ -325,8 +362,117 @@ def _filter_records_since(records: list[dict[str, Any]], since: float) -> list[d
     return filtered
 
 
-def _load_records(file_path: Path) -> list[dict[str, Any]]:
-    """Load all JSON records from a JSONL file."""
+def _parse_record_timestamp(record: dict[str, Any]) -> float | None:
+    """Extract a Unix epoch timestamp from a record. Returns None if unparseable."""
+    ts = record.get("timestamp", "")
+    if not ts:
+        return None
+    try:
+        if isinstance(ts, str):
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            return dt.timestamp()
+        if isinstance(ts, (int, float)):
+            return ts / 1000 if ts > 1e12 else ts
+    except (ValueError, OSError):
+        pass
+    return None
+
+
+def _slim_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Strip bloated content from a record to reduce memory.
+
+    Keeps structure intact but truncates tool_use inputs and tool_result
+    contents to summaries. User text and assistant text are preserved —
+    those are what signal detection needs.
+    """
+    record_type = record.get("type", "")
+
+    if record_type == "assistant":
+        msg = record.get("message", {})
+        content = msg.get("content", [])
+        if isinstance(content, list):
+            slimmed = []
+            for block in content:
+                if not isinstance(block, dict):
+                    slimmed.append(block)
+                    continue
+                block_type = block.get("type", "")
+                if block_type == "tool_use":
+                    tool_input = block.get("input", {})
+                    summary = _summarize_tool_input(block.get("name", ""), tool_input)
+                    slimmed.append(
+                        {
+                            "type": "tool_use",
+                            "id": block.get("id", ""),
+                            "name": block.get("name", ""),
+                            "input": {"_summary": summary},
+                        }
+                    )
+                elif block_type == "tool_result":
+                    result_content = block.get("content", "")
+                    if isinstance(result_content, str) and len(result_content) > 500:
+                        result_content = result_content[:500] + "...[truncated]"
+                    slimmed.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.get("tool_use_id", ""),
+                            "content": result_content,
+                        }
+                    )
+                else:
+                    slimmed.append(block)
+            record = {**record, "message": {**msg, "content": slimmed}}
+
+    elif record_type == "user":
+        msg = record.get("message", {})
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            slimmed = []
+            for block in content:
+                if isinstance(block, dict):
+                    block_type = block.get("type", "")
+                    if block_type == "tool_result":
+                        result_content = block.get("content", "")
+                        if isinstance(result_content, str) and len(result_content) > 500:
+                            result_content = result_content[:500] + "...[truncated]"
+                        elif isinstance(result_content, list):
+                            trimmed_parts = []
+                            for part in result_content:
+                                if isinstance(part, dict) and part.get("type") == "text":
+                                    text = part.get("text", "")
+                                    if len(text) > 500:
+                                        text = text[:500] + "...[truncated]"
+                                    trimmed_parts.append({**part, "text": text})
+                                else:
+                                    trimmed_parts.append(part)
+                            result_content = trimmed_parts
+                        slimmed.append({**block, "content": result_content})
+                    else:
+                        slimmed.append(block)
+                else:
+                    slimmed.append(block)
+            record = {**record, "message": {**msg, "content": slimmed}}
+
+    return record
+
+
+def _load_records(
+    file_path: Path,
+    since_timestamp: float | None = None,
+    slim: bool = False,
+) -> list[dict[str, Any]]:
+    """Load JSON records from a JSONL file with optional streaming filter.
+
+    Args:
+        file_path: Path to the JSONL file.
+        since_timestamp: If provided, skip records with timestamps before
+            this Unix epoch. Records without timestamps are kept (conservative).
+            This avoids loading the entire file into memory when only recent
+            records are needed — critical for large accumulated transcripts.
+        slim: If True, strip bloated tool payloads from records to reduce
+            memory usage. Tool inputs are replaced with summaries, tool
+            results are truncated. User and assistant text is preserved.
+    """
     records: list[dict[str, Any]] = []
     with open(file_path, encoding="utf-8") as f:
         for line in f:
@@ -334,9 +480,20 @@ def _load_records(file_path: Path) -> list[dict[str, Any]]:
             if not line:
                 continue
             try:
-                records.append(json.loads(line))
+                record = json.loads(line)
             except json.JSONDecodeError:
                 continue
+
+            # Stream-filter: skip records before the timestamp boundary
+            if since_timestamp is not None:
+                epoch = _parse_record_timestamp(record)
+                if epoch is not None and epoch < since_timestamp:
+                    continue
+
+            if slim:
+                record = _slim_record(record)
+
+            records.append(record)
     return records
 
 
@@ -384,6 +541,39 @@ def _extract_user_text(record: dict[str, Any]) -> str:
     return content.strip()
 
 
+def _is_relay_message(text: str) -> bool:
+    """Return True if the message is relaying content from another entity.
+
+    Relayed messages contain another AI's or auditor's words — the user is
+    acting as a conduit, not expressing their own corrections or preferences.
+    Signal detection on relayed content produces false positives because words
+    like "wrong", "don't", "that's not" in the relayed text are not directed
+    at the AI by the user.
+    """
+    # Check first 200 chars — relay indicators are always at the start
+    prefix = text[:200].strip()
+    return any(pattern.search(prefix) for pattern in RELAY_PATTERNS)
+
+
+def _strip_relay_prefix(text: str) -> str:
+    """Extract just the user's own words from a relay message.
+
+    If user says "here is the reply [long auditor text]", return only the
+    user's framing ("here is the reply") for signal detection, not the
+    relayed content.
+    """
+    # Common pattern: user's short intro, then the relayed content
+    # Split at first newline or double-space after a short prefix
+    lines = text.split("\n", 1)
+    if len(lines) > 1 and len(lines[0]) < 100:
+        return lines[0]
+    # If no newline, take just the first sentence
+    sentences = re.split(r"[.!?]\s+", text, maxsplit=1)
+    if sentences and len(sentences[0]) < 100:
+        return sentences[0]
+    return text[:80]
+
+
 def _detect_signals(
     text: str,
     patterns: tuple[str, ...],
@@ -428,27 +618,49 @@ def _process_user_record(record: dict[str, Any], analysis: SessionAnalysis) -> N
         )
         return  # Don't classify continuation messages as signals
 
+    # Detect relayed messages (user forwarding another entity's words).
+    # Only scan the user's own framing, not the relayed content — otherwise
+    # words like "wrong" and "don't" inside the relay trigger false corrections.
+    # But PRESERVE the relay content — it's valuable cross-entity data.
+    scan_text = text
+    is_relay = _is_relay_message(text)
+    if is_relay:
+        scan_text = _strip_relay_prefix(text)
+        analysis.relay_messages.append(
+            {
+                "timestamp": timestamp,
+                "framing": scan_text,
+                "full_content": text[:2000],
+            }
+        )
+
     # Detect signals — check frustration BEFORE correction, because a message
     # can match both ("don't" appears in frustration AND correction patterns).
     # If it's frustration, it's venting — not an actionable correction.
-    frustration = _detect_signals(text, FRUSTRATION_PATTERNS, "frustration", timestamp)
+    signal_source = "relay_framing" if is_relay else "direct"
+
+    frustration = _detect_signals(scan_text, FRUSTRATION_PATTERNS, "frustration", timestamp)
     if frustration:
+        frustration.source = signal_source
         analysis.frustrations.append(frustration)
         # Don't also classify as correction — frustration takes priority
     else:
-        correction = _detect_signals(text, CORRECTION_PATTERNS, "correction", timestamp)
+        correction = _detect_signals(scan_text, CORRECTION_PATTERNS, "correction", timestamp)
         if correction:
+            correction.source = signal_source
             analysis.corrections.append(correction)
 
-    encouragement = _detect_signals(text, ENCOURAGEMENT_PATTERNS, "encouragement", timestamp)
+    encouragement = _detect_signals(scan_text, ENCOURAGEMENT_PATTERNS, "encouragement", timestamp)
     if encouragement:
+        encouragement.source = signal_source
         analysis.encouragements.append(encouragement)
 
-    decision = _detect_signals(text, DECISION_PATTERNS, "decision", timestamp)
+    decision = _detect_signals(scan_text, DECISION_PATTERNS, "decision", timestamp)
     if decision:
+        decision.source = signal_source
         analysis.decisions.append(decision)
 
-    preference = _detect_signals(text, PREFERENCE_PATTERNS, "preference", timestamp)
+    preference = _detect_signals(scan_text, PREFERENCE_PATTERNS, "preference", timestamp)
     if preference:
         analysis.preferences.append(preference)
 

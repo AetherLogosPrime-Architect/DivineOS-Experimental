@@ -37,6 +37,8 @@ def store_knowledge(
     tags: list[str] | None = None,
     source: str = "STATED",
     maturity: str = "RAW",
+    source_entity: str | None = None,
+    related_to: str | None = None,
 ) -> str:
     """Store a piece of knowledge. Returns the knowledge_id.
 
@@ -51,6 +53,11 @@ def store_knowledge(
     content = content.strip()
     if len(content) < 5:
         raise ValueError("Knowledge content too short (minimum 5 characters after stripping)")
+
+    # Voice normalization: knowledge speaks as me, not about me
+    from divineos.core.knowledge._text import normalize_to_first_person
+
+    content = normalize_to_first_person(content)
 
     # Ensure knowledge table exists
     init_knowledge_table()
@@ -81,8 +88,8 @@ def store_knowledge(
             """INSERT INTO knowledge
                (knowledge_id, created_at, updated_at, knowledge_type, content,
                 confidence, source_events, tags, access_count, content_hash,
-                source, maturity, valid_from)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)""",
+                source, maturity, valid_from, source_entity, related_to)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)""",
             (
                 knowledge_id,
                 now,
@@ -96,6 +103,8 @@ def store_knowledge(
                 source,
                 maturity,
                 now,  # temporal dimension: knowledge is valid from creation
+                source_entity,
+                related_to,
             ),
         )
         conn.commit()
@@ -281,13 +290,38 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
 
 
 def record_access(knowledge_id: str) -> None:
-    """Increment access count for a knowledge entry."""
+    """Increment access count and corroboration for a knowledge entry.
+
+    Access IS corroboration — if the system keeps surfacing an entry
+    because it's relevant, that's evidence of validity. Corroboration
+    is throttled: only increments when access_count crosses a multiple
+    of 5 (so 5 accesses = 1 corroboration, 10 = 2, etc). This prevents
+    inflation from repeated queries in a single session while rewarding
+    knowledge that proves useful over time.
+    """
     conn = _get_connection()
     try:
-        conn.execute(
-            "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
-            (time.time(), knowledge_id),
-        )
+        row = conn.execute(
+            "SELECT access_count FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        if not row:
+            return
+
+        old_access = row[0]
+        new_access = old_access + 1
+
+        # Corroborate every 5th access
+        if new_access % 5 == 0:
+            conn.execute(
+                "UPDATE knowledge SET access_count = ?, corroboration_count = corroboration_count + 1, updated_at = ? WHERE knowledge_id = ?",
+                (new_access, time.time(), knowledge_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE knowledge SET access_count = ?, updated_at = ? WHERE knowledge_id = ?",
+                (new_access, time.time(), knowledge_id),
+            )
         conn.commit()
     finally:
         conn.close()

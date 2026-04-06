@@ -95,16 +95,16 @@ Every session starts with orientation and ends with learning. The cycle compound
 git clone https://github.com/AetherLogosPrime-Architect/DivineOS.git
 cd DivineOS
 pip install -e ".[dev]"
-divineos init              # Creates ~/.divineos/ and loads seed knowledge
-divineos briefing          # Your first briefing — start here every session
-pytest tests/ -q --tb=short   # 3,111+ tests, real DB, no mocks
+divineos init
+divineos briefing
+pytest tests/ -q --tb=short   # 3,360+ tests, real DB, no mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
 
-## CLI Surface (135 commands)
+## CLI Surface (140 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -270,7 +270,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (135 commands across 22 modules)
+  cli/                         CLI package (138 commands across 22 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -287,6 +287,8 @@ src/divineos/
     decision_commands.py       Decision journal commands
     compass_commands.py        Moral compass reading and observations
     body_commands.py           Body awareness and cache pruning
+    sleep_commands.py          Offline consolidation (sleep cycle)
+    progress_commands.py       Progress dashboard (measurable metrics)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
@@ -333,6 +335,11 @@ src/divineos/
     guardrails.py              Runtime limits and violation tracking
     seed_manager.py            Seed versioning, validation, merge/apply
     anticipation.py            Pattern anticipation engine
+    dead_architecture_alarm.py Detect dormant tables, empty HUD slots, display integrity
+    external_validation.py     Origin ratio, cross-entity corroboration tracking
+    knowledge_impact.py        Measure whether briefing knowledge prevents corrections
+    session_affect.py          Auto-derive VAD affect state from session signals
+    session_reflection.py      Structured self-assessment with quality metrics
     growth.py                  Growth awareness and milestone tracking
     tone_texture.py            Emotional arc and tone classification
     parser.py                  Chat export ingestion (JSONL + markdown)
@@ -358,6 +365,8 @@ src/divineos/
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
     body_awareness.py          Computational interoception and cache conveyor belt
+    sleep.py                   Offline consolidation engine (6 phases, dream report)
+    progress_dashboard.py      Measurable progress metrics from real data
     attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
     epistemic_status.py        Epistemic channel analysis (Butlin 14)
     value_tensions.py          Recurring value conflict detection from decisions
@@ -446,7 +455,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,111+ tests (real DB, no mocks)
+tests/                         3,335+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
@@ -480,8 +489,8 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,111+ tests (real SQLite, no mocks)
-- 135 CLI commands
+- 3,335+ tests (real SQLite, no mocks)
+- 136 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
 

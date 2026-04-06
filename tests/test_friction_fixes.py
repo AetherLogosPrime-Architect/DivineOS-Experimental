@@ -165,6 +165,45 @@ class TestEncouragementFilter:
         assert not _is_encouragement(text)
 
 
+class TestSelfAwarenessNudgeKeyFix:
+    """The HUD self-awareness slot must use the 'text' key from recommend()."""
+
+    def test_recommend_returns_text_key(self):
+        from divineos.core.proactive_patterns import recommend
+
+        recs = recommend("session_start", max_recommendations=3)
+        for rec in recs:
+            assert "text" in rec, f"recommend() result missing 'text' key: {list(rec.keys())}"
+
+    def test_hud_nudge_not_empty(self):
+        """TRY: lines should contain actual content, not empty strings."""
+        from divineos.core.proactive_patterns import recommend
+
+        recs = recommend("session_start", max_recommendations=3)
+        if recs:
+            for rec in recs:
+                text = rec.get("text", rec.get("recommendation", ""))
+                assert len(text) > 0, "TRY: nudge would render empty"
+
+
+class TestSessionHealthResetOnBriefing:
+    """Session health should reset when briefing loads (new session)."""
+
+    def test_health_file_cleared_on_briefing_load(self):
+        from divineos.core._hud_io import _ensure_hud_dir
+        from divineos.core.hud_handoff import mark_briefing_loaded
+        from divineos.core.hud_state import update_session_health
+
+        # Simulate stale health from prior session
+        update_session_health(corrections=5, encouragements=0, grade="D", notes="rough session")
+        health_path = _ensure_hud_dir() / "session_health.json"
+        assert health_path.exists()
+
+        # Load briefing — should clear stale health
+        mark_briefing_loaded()
+        assert not health_path.exists(), "session_health.json should be cleared on briefing load"
+
+
 class TestSISWordCountGuard:
     def test_short_docstring_not_flagged(self):
         # A short docstring with one esoteric term shouldn't get flagged
