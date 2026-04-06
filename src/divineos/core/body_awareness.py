@@ -191,8 +191,8 @@ def prune_caches(dry_run: bool = False) -> list[str]:
 
 # -- Maintenance: VACUUM + Log Retention ---------------------------------
 
-# Maximum rotated log files to keep.  At 10 MB per file, 3 files = 30 MB cap.
-_MAX_ROTATED_LOGS = 3
+# Maximum rotated log files to keep.  At 10 MB per file, 2 files = 20 MB cap.
+_MAX_ROTATED_LOGS = 2
 
 # VACUUM when free pages exceed this fraction of total pages.
 _VACUUM_THRESHOLD = 0.30

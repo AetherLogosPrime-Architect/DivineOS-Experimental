@@ -19,9 +19,33 @@ from typing import Any
 
 
 from divineos.core.knowledge import get_connection
-from divineos.core.knowledge._text import _compute_overlap
+from divineos.core.knowledge._text import _compute_overlap, _is_extraction_noise
 
 _PP_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
+
+# Conversational openers that indicate raw user quotes, not actionable knowledge.
+# These entries slipped in before the extraction noise filter existed.
+_LEGACY_NOISE_OPENERS = re.compile(
+    r"^(yes |ok |oh |well |wonderful |it still |both fixes |auto memories |"
+    r"andrew,|absolutely |here is |heres |here's )",
+    re.IGNORECASE,
+)
+
+
+def _is_recommendation_noise(content: str, knowledge_type: str) -> bool:
+    """Check if a knowledge entry is too noisy to recommend as a TRY pattern.
+
+    Uses the extraction noise filter plus additional checks for entries
+    that slipped through before the filter existed.
+    """
+    if _is_extraction_noise(content, knowledge_type):
+        return True
+
+    # Legacy entries: raw user quotes that start with conversational openers
+    if _LEGACY_NOISE_OPENERS.match(content.strip()):
+        return True
+
+    return False
 
 
 def _get_positive_patterns() -> list[dict[str, Any]]:
@@ -38,6 +62,9 @@ def _get_positive_patterns() -> list[dict[str, Any]]:
             "ORDER BY confidence DESC, access_count DESC LIMIT 30"
         ).fetchall()
         for row in knowledge_rows:
+            # Skip entries that are conversational noise (pre-filter legacy)
+            if _is_recommendation_noise(row[2], row[1]):
+                continue
             patterns.append(
                 {
                     "source": "knowledge",

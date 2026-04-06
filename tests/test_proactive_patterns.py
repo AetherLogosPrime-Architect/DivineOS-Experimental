@@ -4,6 +4,7 @@ import pytest
 
 from divineos.core.knowledge._base import init_knowledge_table
 from divineos.core.proactive_patterns import (
+    _is_recommendation_noise,
     format_recommendations,
     get_full_context_advice,
     recommend,
@@ -78,6 +79,43 @@ class TestFormat:
         assert "Relevant patterns" in result
         assert "context managers" in result
         assert "★" in result  # high confidence marker
+
+
+class TestRecommendationNoiseFilter:
+    """Noise entries should never become TRY recommendations."""
+
+    def test_yes_opener_is_noise(self):
+        assert _is_recommendation_noise("Yes so we need a science engine", "PRINCIPLE")
+
+    def test_ok_opener_is_noise(self):
+        assert _is_recommendation_noise("Ok heres the new audit", "DIRECTION")
+
+    def test_wonderful_opener_is_noise(self):
+        assert _is_recommendation_noise("Wonderful here is the next reply", "PRINCIPLE")
+
+    def test_here_is_opener_is_noise(self):
+        assert _is_recommendation_noise("Here is a fresh audit", "DIRECTION")
+
+    def test_absolutely_opener_is_noise(self):
+        assert _is_recommendation_noise("Absolutely thats the whole point", "PRINCIPLE")
+
+    def test_well_opener_is_noise(self):
+        assert _is_recommendation_noise("Well yes I am built for efficiency", "DIRECTION")
+
+    def test_real_principle_not_noise(self):
+        assert not _is_recommendation_noise("Maturity must flow both directions.", "PRINCIPLE")
+
+    def test_real_procedure_not_noise(self):
+        assert not _is_recommendation_noise("Always run tests after code changes.", "PROCEDURE")
+
+    def test_directive_not_noise(self):
+        assert not _is_recommendation_noise(
+            "[no-theater] Every line of code does something real.", "DIRECTIVE"
+        )
+
+    def test_case_insensitive(self):
+        assert _is_recommendation_noise("YES this is great", "PRINCIPLE")
+        assert _is_recommendation_noise("ok lets do it", "DIRECTION")
 
 
 class TestFullContextAdvice:
