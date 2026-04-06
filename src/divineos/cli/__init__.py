@@ -35,6 +35,7 @@ _BYPASS_COMMANDS = frozenset(
         "affect-feedback",
         "attention",
         "epistemic",
+        "sleep",
     }
 )
 
@@ -101,6 +102,7 @@ from divineos.cli import (  # noqa: E402
     ledger_commands,
     memory_commands,
     selfmodel_commands,
+    sleep_commands,
 )
 
 ledger_commands.register(cli)
@@ -119,6 +121,7 @@ event_commands.register(cli)
 knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)
 insight_commands.register(cli)
+sleep_commands.register(cli)
 
 if __name__ == "__main__":
     cli()
