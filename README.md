@@ -2,7 +2,7 @@
 
 An operating system for AI agents. Memory, continuity, accountability, and learning across sessions.
 
-[![Tests](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml)
+[![Tests](https://github.com/AetherLogosPrime-Architect/DivineOS-Experimental/actions/workflows/tests.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS-Experimental/actions/workflows/tests.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
@@ -97,14 +97,14 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init              # Creates ~/.divineos/ and loads seed knowledge
 divineos briefing          # Your first briefing — start here every session
-pytest tests/ -q --tb=short   # 3,111+ tests, real DB, no mocks
+pytest tests/ -q --tb=short   # 3,462+ tests, real DB, no mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
 
-## CLI Surface (135 commands)
+## CLI Surface (136 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -270,7 +270,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (135 commands across 22 modules)
+  cli/                         CLI package (136 commands across 22 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -461,7 +461,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,345+ tests (real DB, no mocks)
+tests/                         3,462+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
