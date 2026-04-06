@@ -123,11 +123,22 @@ def register(cli: click.Group) -> None:
                 click.secho(f"    Event ID: {event_id}", fg="cyan")
 
             elif event_type == "SESSION_END":
+                # Capture session start BEFORE emitting — once the SESSION_END
+                # event lands in the ledger, get_session_start_time() would
+                # return its timestamp (the end, not the start).
+                _pre_emit_start: float | None = None
+                try:
+                    from divineos.core.session_checkpoint import get_session_start_time
+
+                    _pre_emit_start = get_session_start_time()
+                except (ImportError, OSError):
+                    pass
+
                 event_id = emit_session_end(session_id=session_id or None)
                 click.secho("[+] Event emitted: SESSION_END", fg="green")
                 click.secho(f"    Event ID: {event_id}", fg="cyan")
 
-                _run_session_end_pipeline()
+                _run_session_end_pipeline(session_start_override=_pre_emit_start)
 
             elif event_type == "EXPLANATION":
                 if not content:

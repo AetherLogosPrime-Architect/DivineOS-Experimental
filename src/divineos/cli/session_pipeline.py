@@ -35,8 +35,16 @@ from divineos.cli.pipeline_phases import (
 )
 
 
-def _run_session_end_pipeline() -> None:
-    """Post-SESSION_END learning pipeline — analyze, extract, consolidate, refresh."""
+def _run_session_end_pipeline(session_start_override: float | None = None) -> None:
+    """Post-SESSION_END learning pipeline — analyze, extract, consolidate, refresh.
+
+    Args:
+        session_start_override: If provided, use this as the session start timestamp
+            instead of querying the ledger. This is needed because the SESSION_END
+            event is emitted BEFORE this pipeline runs — so querying the ledger for
+            the most recent SESSION_END would return the one we just wrote, not the
+            previous session boundary.
+    """
     session_files = _discovery_mod.find_sessions()
     if not session_files:
         click.secho("[~] No session files found for auto-scan.", fg="bright_black")
@@ -63,12 +71,16 @@ def _run_session_end_pipeline() -> None:
         # ── Phase 1: Analysis and enforcement gates ──────────────
         # Scope analysis to current session to avoid re-counting signals
         # from previous sessions in accumulated JSONL transcripts.
-        try:
-            from divineos.core.session_checkpoint import get_session_start_time
+        # Use the override if provided (captured BEFORE SESSION_END was emitted),
+        # otherwise fall back to querying the ledger.
+        session_start = session_start_override
+        if session_start is None:
+            try:
+                from divineos.core.session_checkpoint import get_session_start_time
 
-            session_start = get_session_start_time()
-        except (ImportError, OSError):
-            session_start = None
+                session_start = get_session_start_time()
+            except (ImportError, OSError):
+                session_start = None
         analysis = _analyzer_mod.analyze_session(latest, since_timestamp=session_start)
         _safe_echo(analysis.summary())
 

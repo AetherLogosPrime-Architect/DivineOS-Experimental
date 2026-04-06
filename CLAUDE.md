@@ -75,6 +75,12 @@ divineos compass-ops spectrums                     # List all ten spectrums
 # Body awareness
 divineos body                                      # Substrate vitals check
 
+# Sleep (offline consolidation)
+divineos sleep                                     # Full sleep cycle (6 phases + dream report)
+divineos sleep --dry-run                           # Preview what would happen
+divineos sleep --phase consolidation               # Run single phase
+divineos sleep --skip-maintenance                  # Skip VACUUM/log/cache phase
+
 # Self-awareness (Butlin consciousness indicators)
 divineos attention         # What I'm attending to, suppressing, and why
 divineos epistemic         # How I know what I know (observed/told/inferred/inherited)
@@ -136,6 +142,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Advice Tracking** — Long-term feedback loops on recommendation quality. Record advice → assess outcomes → compute success rate.
 - **Self-Critique** — Automatic craft quality assessment across 5 spectrums (elegance, thoroughness, autonomy, proportionality, communication). Trend tracking.
 - **Proactive Patterns** — Prescriptive recommendations from positive experience. Complements anticipation (warnings) with what worked well.
+- **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination. Dream report summarizes what changed.
 - **Expert Council** — Six permanent thinking lenses (Feynman, Holmes, Pearl, Hinton, Yudkowsky, Turing) for structured diagnosis. Not agents -- reasoning templates.
 - **External Validation** — Breaks self-referential grading loop. Records self-grades, accepts user feedback, tracks accuracy over time.
 - **Knowledge Impact** — Measures whether loaded knowledge actually prevents corrections. Causal chain from briefing to session outcomes.
@@ -339,7 +346,7 @@ src/divineos/
 │   └── ledger_integration.py   # Ledger bridge
 └── violations_cli/             # Violation reporting
     └── violations_command.py   # CLI for violation queries
-tests/                          # 3,462+ tests (real DB, no mocks)
+tests/                          # 3,489+ tests (real DB, no mocks)
 data/                           # Runtime databases (gitignored)
 setup/                          # Hook setup scripts (setup-hooks.sh/.ps1)
 ```

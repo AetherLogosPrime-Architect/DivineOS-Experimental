@@ -97,7 +97,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init              # Creates ~/.divineos/ and loads seed knowledge
 divineos briefing          # Your first briefing — start here every session
-pytest tests/ -q --tb=short   # 3,462+ tests, real DB, no mocks
+pytest tests/ -q --tb=short   # 3,489+ tests, real DB, no mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
@@ -287,6 +287,7 @@ src/divineos/
     decision_commands.py       Decision journal commands
     compass_commands.py        Moral compass reading and observations
     body_commands.py           Body awareness and cache pruning
+    sleep_commands.py          Offline consolidation (sleep cycle)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
@@ -358,6 +359,7 @@ src/divineos/
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
     body_awareness.py          Computational interoception and cache conveyor belt
+    sleep.py                   Offline consolidation engine (6 phases, dream report)
     attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
     epistemic_status.py        Epistemic channel analysis (Butlin 14)
     value_tensions.py          Recurring value conflict detection from decisions
@@ -461,7 +463,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,462+ tests (real DB, no mocks)
+tests/                         3,489+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
