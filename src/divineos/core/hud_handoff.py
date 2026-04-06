@@ -137,7 +137,14 @@ def clear_handoff_note() -> None:
 # Was 8 — too tight for mechanical repetitive work (same edit across
 # 9 files).  15 gives room for a batch of related changes before
 # requiring a thinking pause, while still catching runaway coding.
+# Base threshold for engagement decay. After this many code actions
+# without consulting the OS, the gate blocks.
 _ENGAGEMENT_DECAY_THRESHOLD = 15
+
+# Higher threshold during commit flows. Detected by the presence of
+# staged git files. Mechanical work (lint fixes, doc updates, file
+# copies, re-staging) shouldn't burn through the budget as fast.
+_ENGAGEMENT_COMMIT_THRESHOLD = 30
 
 
 def mark_engaged() -> None:
@@ -178,13 +185,39 @@ def record_code_action() -> None:
         pass
 
 
+def _active_threshold() -> int:
+    """Return the engagement threshold, raised during commit flows.
+
+    Detects commit flow by checking for staged git files. When files
+    are staged, we're in a commit-push-sync cycle — mechanical work
+    that shouldn't trigger the thinking gate as aggressively.
+    """
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            capture_output=True,
+            timeout=2,
+        )
+        # Exit code 1 means there ARE staged changes → commit flow
+        if result.returncode == 1:
+            return _ENGAGEMENT_COMMIT_THRESHOLD
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+    return _ENGAGEMENT_DECAY_THRESHOLD
+
+
 def is_engaged() -> bool:
     """Check if the OS has been engaged recently enough.
 
     Returns False if:
     - No engagement marker exists (never engaged)
-    - More than _ENGAGEMENT_DECAY_THRESHOLD code-changing actions have
+    - More than the active threshold code-changing actions have
       happened since the last OS query (engagement has decayed)
+
+    The threshold is context-aware: higher during commit flows
+    (staged files exist) to avoid blocking mechanical work.
     """
     path = _get_hud_dir() / ".session_engaged"
     if not path.exists():
@@ -192,49 +225,47 @@ def is_engaged() -> bool:
     try:
         marker = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(marker, dict):
-            # Old format (plain timestamp) — treat as engaged, will be
-            # overwritten on next mark_engaged() call
             return True
         code_actions = marker.get("code_actions_since", 0)
-        return bool(code_actions < _ENGAGEMENT_DECAY_THRESHOLD)
+        return bool(code_actions < _active_threshold())
     except (json.JSONDecodeError, OSError):
         return path.exists()
 
 
 def engagement_status() -> dict[str, Any]:
     """Return detailed engagement status for HUD display."""
+    threshold = _active_threshold()
     path = _get_hud_dir() / ".session_engaged"
     if not path.exists():
         return {
             "engaged": False,
             "code_actions_since": 0,
-            "threshold": _ENGAGEMENT_DECAY_THRESHOLD,
+            "threshold": threshold,
             "remaining": 0,
         }
     try:
         marker = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(marker, dict):
-            # Old format (plain timestamp) — treat as fully engaged
             return {
                 "engaged": True,
                 "code_actions_since": 0,
-                "threshold": _ENGAGEMENT_DECAY_THRESHOLD,
-                "remaining": _ENGAGEMENT_DECAY_THRESHOLD,
+                "threshold": threshold,
+                "remaining": threshold,
             }
         code_actions = marker.get("code_actions_since", 0)
-        remaining = max(0, _ENGAGEMENT_DECAY_THRESHOLD - code_actions)
+        remaining = max(0, threshold - code_actions)
         return {
-            "engaged": code_actions < _ENGAGEMENT_DECAY_THRESHOLD,
+            "engaged": code_actions < threshold,
             "code_actions_since": code_actions,
-            "threshold": _ENGAGEMENT_DECAY_THRESHOLD,
+            "threshold": threshold,
             "remaining": remaining,
         }
     except (json.JSONDecodeError, OSError):
         return {
             "engaged": True,
             "code_actions_since": 0,
-            "threshold": _ENGAGEMENT_DECAY_THRESHOLD,
-            "remaining": _ENGAGEMENT_DECAY_THRESHOLD,
+            "threshold": threshold,
+            "remaining": threshold,
         }
 
 
