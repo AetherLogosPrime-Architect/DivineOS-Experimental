@@ -95,10 +95,10 @@ Every session starts with orientation and ends with learning. The cycle compound
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 3,271+ tests, real DB, no mocks
+pytest tests/ -q --tb=short   # 3,335+ tests, real DB, no mocks
 ```
 
-## CLI Surface (136 commands)
+## CLI Surface (137 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -264,7 +264,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (136 commands across 22 modules)
+  cli/                         CLI package (137 commands across 22 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -281,6 +281,7 @@ src/divineos/
     decision_commands.py       Decision journal commands
     compass_commands.py        Moral compass reading and observations
     body_commands.py           Body awareness and cache pruning
+    sleep_commands.py          Offline consolidation (sleep cycle)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
@@ -357,6 +358,7 @@ src/divineos/
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
     body_awareness.py          Computational interoception and cache conveyor belt
+    sleep.py                   Offline consolidation engine (6 phases, dream report)
     attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
     epistemic_status.py        Epistemic channel analysis (Butlin 14)
     value_tensions.py          Recurring value conflict detection from decisions
@@ -445,7 +447,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,271+ tests (real DB, no mocks)
+tests/                         3,335+ tests (real DB, no mocks)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
@@ -479,7 +481,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,271+ tests (real SQLite, no mocks)
+- 3,335+ tests (real SQLite, no mocks)
 - 136 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
