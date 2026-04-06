@@ -134,6 +134,12 @@ class DreamReport:
             logs = self.maintenance_results.get("logs", {})
             if logs.get("removed_count", 0) > 0:
                 lines.append(f"    Removed {logs['removed_count']} old log files")
+            transcripts = self.maintenance_results.get("transcripts", {})
+            if transcripts.get("removed_count", 0) > 0:
+                lines.append(
+                    f"    Cleaned {transcripts['removed_count']} transcript debris "
+                    f"({transcripts.get('freed_mb', 0):.1f}MB freed)"
+                )
         else:
             lines.append("    Skipped")
 
