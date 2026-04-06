@@ -50,6 +50,17 @@ class TestSlotBuilders:
         result = SLOT_BUILDERS["recent_lessons"]()
         assert "Learned" in result
 
+    def test_recent_lessons_slot_seeded_only(self):
+        """When only seeded lessons exist, show a count instead of 'No active lessons'."""
+        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge.lessons import record_lesson
+
+        init_knowledge_table()
+        record_lesson("blind_coding", "(seeded) blind_coding.", session_id="seed")
+        result = SLOT_BUILDERS["recent_lessons"]()
+        assert "seeded" in result
+        assert "No active lessons" not in result
+
     def test_session_health_slot_empty(self):
         result = SLOT_BUILDERS["session_health"]()
         assert "Health" in result or "Session" in result
