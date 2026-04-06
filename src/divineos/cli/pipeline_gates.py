@@ -244,6 +244,7 @@ def should_extract_knowledge(verdict: QualityVerdict) -> tuple[bool, str]:
 
 def run_quality_gate(
     session_file: Any,
+    since_timestamp: float | None = None,
 ) -> tuple[Any | None, str, bool, list[dict[str, Any]]]:
     """Run quality checks and decide whether extraction is allowed (step 1e).
 
@@ -259,7 +260,7 @@ def run_quality_gate(
         from divineos.analysis.quality_checks import run_all_checks
         from divineos.analysis.quality_storage import store_report
 
-        report = run_all_checks(session_file)
+        report = run_all_checks(session_file, since_timestamp=since_timestamp)
         store_report(report)
         check_results = [
             {

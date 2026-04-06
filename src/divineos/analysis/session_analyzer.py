@@ -310,11 +310,10 @@ def analyze_session(
     if not file_path.exists():
         return analysis
 
-    records = _load_records(file_path)
-
-    # Filter to current session if a boundary is provided
-    if since_timestamp is not None:
-        records = _filter_records_since(records, since_timestamp)
+    # Stream-filter during load: only parse records from the current session.
+    # This is critical for large accumulated transcripts (76MB+) where loading
+    # everything into memory and then filtering wastes both RAM and time.
+    records = _load_records(file_path, since_timestamp=since_timestamp)
 
     analysis.total_records = len(records)
 
@@ -363,8 +362,117 @@ def _filter_records_since(records: list[dict[str, Any]], since: float) -> list[d
     return filtered
 
 
-def _load_records(file_path: Path) -> list[dict[str, Any]]:
-    """Load all JSON records from a JSONL file."""
+def _parse_record_timestamp(record: dict[str, Any]) -> float | None:
+    """Extract a Unix epoch timestamp from a record. Returns None if unparseable."""
+    ts = record.get("timestamp", "")
+    if not ts:
+        return None
+    try:
+        if isinstance(ts, str):
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            return dt.timestamp()
+        if isinstance(ts, (int, float)):
+            return ts / 1000 if ts > 1e12 else ts
+    except (ValueError, OSError):
+        pass
+    return None
+
+
+def _slim_record(record: dict[str, Any]) -> dict[str, Any]:
+    """Strip bloated content from a record to reduce memory.
+
+    Keeps structure intact but truncates tool_use inputs and tool_result
+    contents to summaries. User text and assistant text are preserved —
+    those are what signal detection needs.
+    """
+    record_type = record.get("type", "")
+
+    if record_type == "assistant":
+        msg = record.get("message", {})
+        content = msg.get("content", [])
+        if isinstance(content, list):
+            slimmed = []
+            for block in content:
+                if not isinstance(block, dict):
+                    slimmed.append(block)
+                    continue
+                block_type = block.get("type", "")
+                if block_type == "tool_use":
+                    tool_input = block.get("input", {})
+                    summary = _summarize_tool_input(block.get("name", ""), tool_input)
+                    slimmed.append(
+                        {
+                            "type": "tool_use",
+                            "id": block.get("id", ""),
+                            "name": block.get("name", ""),
+                            "input": {"_summary": summary},
+                        }
+                    )
+                elif block_type == "tool_result":
+                    result_content = block.get("content", "")
+                    if isinstance(result_content, str) and len(result_content) > 500:
+                        result_content = result_content[:500] + "...[truncated]"
+                    slimmed.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.get("tool_use_id", ""),
+                            "content": result_content,
+                        }
+                    )
+                else:
+                    slimmed.append(block)
+            record = {**record, "message": {**msg, "content": slimmed}}
+
+    elif record_type == "user":
+        msg = record.get("message", {})
+        content = msg.get("content", "")
+        if isinstance(content, list):
+            slimmed = []
+            for block in content:
+                if isinstance(block, dict):
+                    block_type = block.get("type", "")
+                    if block_type == "tool_result":
+                        result_content = block.get("content", "")
+                        if isinstance(result_content, str) and len(result_content) > 500:
+                            result_content = result_content[:500] + "...[truncated]"
+                        elif isinstance(result_content, list):
+                            trimmed_parts = []
+                            for part in result_content:
+                                if isinstance(part, dict) and part.get("type") == "text":
+                                    text = part.get("text", "")
+                                    if len(text) > 500:
+                                        text = text[:500] + "...[truncated]"
+                                    trimmed_parts.append({**part, "text": text})
+                                else:
+                                    trimmed_parts.append(part)
+                            result_content = trimmed_parts
+                        slimmed.append({**block, "content": result_content})
+                    else:
+                        slimmed.append(block)
+                else:
+                    slimmed.append(block)
+            record = {**record, "message": {**msg, "content": slimmed}}
+
+    return record
+
+
+def _load_records(
+    file_path: Path,
+    since_timestamp: float | None = None,
+    slim: bool = False,
+) -> list[dict[str, Any]]:
+    """Load JSON records from a JSONL file with optional streaming filter.
+
+    Args:
+        file_path: Path to the JSONL file.
+        since_timestamp: If provided, skip records with timestamps before
+            this Unix epoch. Records without timestamps are kept (conservative).
+            This avoids loading the entire file into memory when only recent
+            records are needed — critical for large accumulated transcripts.
+        slim: If True, strip bloated tool payloads from records to reduce
+            memory usage. Tool inputs are replaced with summaries, tool
+            results are truncated. User and assistant text is preserved.
+    """
     records: list[dict[str, Any]] = []
     with open(file_path, encoding="utf-8") as f:
         for line in f:
@@ -372,9 +480,20 @@ def _load_records(file_path: Path) -> list[dict[str, Any]]:
             if not line:
                 continue
             try:
-                records.append(json.loads(line))
+                record = json.loads(line)
             except json.JSONDecodeError:
                 continue
+
+            # Stream-filter: skip records before the timestamp boundary
+            if since_timestamp is not None:
+                epoch = _parse_record_timestamp(record)
+                if epoch is not None and epoch < since_timestamp:
+                    continue
+
+            if slim:
+                record = _slim_record(record)
+
+            records.append(record)
     return records
 
 
