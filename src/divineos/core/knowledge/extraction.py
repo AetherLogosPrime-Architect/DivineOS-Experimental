@@ -262,7 +262,7 @@ def store_knowledge_smart(
         # UPDATE: supersede the old entry and create a SUPERSEDES edge
         if operation == "UPDATE" and existing_id:
             supersede_knowledge(existing_id, reason=f"Updated by {kid[:12]}")
-            logger.info(f"Updated knowledge: {existing_id[:12]} → {kid[:12]}")
+            logger.info(f"Updated knowledge: {existing_id[:12]} -> {kid[:12]}")
             try:
                 from divineos.core.knowledge.edges import create_edge
 

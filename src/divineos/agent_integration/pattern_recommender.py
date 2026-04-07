@@ -74,7 +74,7 @@ class PatternRecommender:
             # Log warnings about pattern gaps
             gaps = audit.get("pattern_gaps", [])
             if gaps:
-                self.logger.warning(f"⚠️  {len(gaps)} pattern gaps identified:")
+                self.logger.warning(f"[!] {len(gaps)} pattern gaps identified:")
                 for gap in gaps:
                     gap_type = gap.get("gap_type", "unknown")
                     description = gap.get("description", "unknown")
@@ -83,7 +83,7 @@ class PatternRecommender:
             # Log warnings about risky assumptions
             risky = audit.get("risky_assumptions", [])
             if risky:
-                self.logger.warning(f"⚠️  {len(risky)} risky assumptions detected:")
+                self.logger.warning(f"[!] {len(risky)} risky assumptions detected:")
                 for assumption in risky:
                     assumption_text = assumption.get("assumption", "unknown")
                     why_risky = assumption.get("why_risky", "unknown")

@@ -99,7 +99,7 @@ def register(cli: click.Group) -> None:
             click.secho("[~] No compass observations yet.", fg="bright_black")
             return
 
-        title = f"Compass History — {spectrum}" if spectrum else "Compass History — All"
+        title = f"Compass History -- {spectrum}" if spectrum else "Compass History -- All"
         click.secho(f"\n=== {title} ===\n", fg="cyan", bold=True)
 
         for obs in observations:
@@ -116,7 +116,7 @@ def register(cli: click.Group) -> None:
                 color = "green"
 
             click.secho(
-                f"  [{obs['spectrum']}] {pos:+.2f} ({zone}) — {obs['source']}",
+                f"  [{obs['spectrum']}] {pos:+.2f} ({zone}) -- {obs['source']}",
                 fg=color,
             )
             click.secho(f"    {obs['evidence'][:100]}", fg="bright_black")

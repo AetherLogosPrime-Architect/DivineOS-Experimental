@@ -31,13 +31,13 @@ def register(cli: click.Group) -> None:
 
         if dry_run:
             click.secho("Sleep dry-run — showing what would happen:\n", fg="cyan")
-            click.echo("  Phase 1: Knowledge Consolidation — full maturity lifecycle pass")
-            click.echo("  Phase 2: Pruning — health check + hygiene + contradiction scan")
-            click.echo("  Phase 3: Affect Recalibration — decay old emotions, compute baseline")
+            click.echo("  Phase 1: Knowledge Consolidation -- full maturity lifecycle pass")
+            click.echo("  Phase 2: Pruning -- health check + hygiene + contradiction scan")
+            click.echo("  Phase 3: Affect Recalibration -- decay old emotions, compute baseline")
             if not skip_maintenance:
-                click.echo("  Phase 4: Maintenance — VACUUM, log rotation, cache pruning")
-            click.echo("  Phase 5: Creative Recombination — cross-knowledge similarity scan")
-            click.echo("  Phase 6: Curiosity Generation — auto-generate questions from gaps")
+                click.echo("  Phase 4: Maintenance -- VACUUM, log rotation, cache pruning")
+            click.echo("  Phase 5: Creative Recombination -- cross-knowledge similarity scan")
+            click.echo("  Phase 6: Curiosity Generation -- auto-generate questions from gaps")
             click.echo("\n  No data will be modified in dry-run mode.")
             return
 
