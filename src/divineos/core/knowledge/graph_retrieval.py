@@ -17,7 +17,7 @@ from divineos.core.knowledge._base import (
     _get_connection,
     _row_to_dict,
 )
-from divineos.core.knowledge.edges import get_edges
+from divineos.core.knowledge.edges import get_edges, get_edges_batch
 
 _GRAPH_ERRORS = (OSError, Exception)
 
@@ -111,25 +111,26 @@ def cluster_for_briefing(
     entry_ids = {e["knowledge_id"] for e in entries}
     entry_map = {e["knowledge_id"]: e for e in entries}
 
-    # Find edges between entries that are both in the briefing
+    # Batch-load all edges for all briefing entries in one query
+    all_edges = get_edges_batch(entry_ids, layer="semantic")
+
     clusters: list[dict[str, Any]] = []
     clustered: set[str] = set()
     cluster_count = 0
 
     for entry in entries:
-        if entry["knowledge_id"] in clustered:
+        kid = entry["knowledge_id"]
+        if kid in clustered:
             continue
 
-        edges = get_edges(entry["knowledge_id"], direction="both", layer="semantic")
+        edges = all_edges.get(kid, [])
         connected: list[dict[str, Any]] = []
 
         for edge in edges:
-            neighbor_id = (
-                edge.target_id if edge.source_id == entry["knowledge_id"] else edge.source_id
-            )
+            neighbor_id = edge.target_id if edge.source_id == kid else edge.source_id
             if neighbor_id in entry_ids and neighbor_id not in clustered:
                 neighbor = entry_map[neighbor_id]
-                direction = "outgoing" if edge.source_id == entry["knowledge_id"] else "incoming"
+                direction = "outgoing" if edge.source_id == kid else "incoming"
                 connected.append(
                     {
                         "entry": neighbor,
@@ -140,7 +141,7 @@ def cluster_for_briefing(
                 clustered.add(neighbor_id)
 
         if connected and cluster_count < max_clusters:
-            clustered.add(entry["knowledge_id"])
+            clustered.add(kid)
             clusters.append(
                 {
                     "seed": entry,
@@ -149,7 +150,7 @@ def cluster_for_briefing(
                 }
             )
             cluster_count += 1
-        elif entry["knowledge_id"] not in clustered:
+        elif kid not in clustered:
             clusters.append(
                 {
                     "seed": entry,
@@ -187,15 +188,19 @@ def get_graph_connections_for_recall(
     traverse edges to pull in connected items that add context.
     """
     active_ids = {e.get("knowledge_id", "") for e in active_entries}
+    top_ids = {e.get("knowledge_id", "") for e in active_entries[:10]} - {""}
     connections: list[dict[str, Any]] = []
     seen: set[str] = set(active_ids)
 
-    for entry in active_entries[:10]:  # Only check top-10 active items
+    # Batch-load edges for top-10 active items in one query
+    all_edges = get_edges_batch(top_ids, layer="semantic") if top_ids else {}
+
+    for entry in active_entries[:10]:
         kid = entry.get("knowledge_id", "")
         if not kid:
             continue
 
-        edges = get_edges(kid, direction="both", layer="semantic")
+        edges = all_edges.get(kid, [])
         for edge in edges[:3]:  # Max 3 connections per entry
             neighbor_id = edge.target_id if edge.source_id == kid else edge.source_id
             if neighbor_id in seen:
