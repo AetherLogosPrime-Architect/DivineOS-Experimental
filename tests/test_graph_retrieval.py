@@ -179,7 +179,7 @@ class TestFormatClusterLine:
             "direction": "outgoing",
         }
         line = format_cluster_line(connection)
-        assert "→" in line
+        assert "->" in line
         assert "supports" in line
         assert "0.80" in line
         assert "Blind edits" in line
@@ -191,7 +191,7 @@ class TestFormatClusterLine:
             "direction": "incoming",
         }
         line = format_cluster_line(connection)
-        assert "←" in line
+        assert "<-" in line
         assert "caused by" in line
 
     def test_truncates_long_content(self):

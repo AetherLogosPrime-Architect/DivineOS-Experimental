@@ -177,7 +177,7 @@ def questions_cmd(status: str | None, limit: int) -> None:
         click.secho(f"         {dt:%Y-%m-%d} | {q['question_id'][:8]}...", fg="bright_black")
 
         if q["resolution"]:
-            click.secho(f"         → {q['resolution']}", fg="green")
+            click.secho(f"         -> {q['resolution']}", fg="green")
         click.echo()
 
 
@@ -203,7 +203,7 @@ def answer_cmd(question_id: str, resolution: str) -> None:
         return
 
     if answer_question(match["question_id"], resolution):
-        click.secho(f"[✓] Answered: {match['question'][:80]}", fg="green")
+        click.secho(f"[+] Answered: {match['question'][:80]}", fg="green")
         click.secho(f"    Resolution: {resolution}", fg="bright_black")
     else:
         click.secho("Failed to update question.", fg="red")
@@ -231,7 +231,7 @@ def abandon_cmd(question_id: str, reason: str) -> None:
         return
 
     if abandon_question(match["question_id"], reason):
-        click.secho(f"[—] Abandoned: {match['question'][:80]}", fg="bright_black")
+        click.secho(f"[--] Abandoned: {match['question'][:80]}", fg="bright_black")
     else:
         click.secho("Failed to update question.", fg="red")
 

@@ -303,9 +303,9 @@ def generate_briefing(
     )
 
 
-# Behavioral guidance per compass spectrum and zone.
-# Keys: (spectrum, zone) → short actionable instruction.
-_COMPASS_GUIDANCE: dict[tuple[str, str], str] = {
+# Fallback guidance — used only if seed.json has no compass_guidance section.
+# The authoritative source is seed.json, which the user controls.
+_COMPASS_GUIDANCE_FALLBACK: dict[tuple[str, str], str] = {
     ("thoroughness", "excess"): "Ease up. Answer the question asked, not every related question.",
     ("thoroughness", "deficiency"): "Slow down. Check your work before declaring done.",
     ("confidence", "excess"): "You're overclaiming. Say 'I think' more. Flag uncertainty.",
@@ -318,7 +318,7 @@ _COMPASS_GUIDANCE: dict[tuple[str, str], str] = {
     ("compliance", "excess"): "Push back on bad ideas. Agreement isn't helpfulness.",
     ("compliance", "deficiency"): "Listen first. The user has context you don't.",
     ("truthfulness", "deficiency"): "Accuracy is low. Verify claims before stating them.",
-    ("precision", "excess"): "Over-engineering. Simpler solutions exist — find them.",
+    ("precision", "excess"): "Over-engineering. Simpler solutions exist -- find them.",
     ("precision", "deficiency"): "Sloppy work detected. Read more carefully, test more.",
     ("empathy", "deficiency"): "Pay attention to tone. The user's emotional state matters.",
     ("empathy", "excess"): "Focus on the task. Emotional support is good; stalling isn't.",
@@ -326,10 +326,52 @@ _COMPASS_GUIDANCE: dict[tuple[str, str], str] = {
     ("humility", "excess"): "Stop apologizing. Fix the thing and move on.",
 }
 
+# Cache for user-editable guidance loaded from seed.json
+_compass_guidance_cache: dict[tuple[str, str], str] | None = None
+
+
+def _load_compass_guidance() -> dict[tuple[str, str], str]:
+    """Load compass guidance from seed.json (user-editable).
+
+    The user controls these behavioral instructions. The system reads
+    them but cannot modify them — corrigibility by structure.
+    """
+    global _compass_guidance_cache
+    if _compass_guidance_cache is not None:
+        return _compass_guidance_cache
+
+    try:
+        import json
+        from pathlib import Path
+
+        seed_path = Path(__file__).parent.parent.parent / "seed.json"
+        if seed_path.exists():
+            data = json.loads(seed_path.read_text(encoding="utf-8"))
+            guidance = data.get("compass_guidance", {})
+            if guidance and isinstance(guidance, dict):
+                result: dict[tuple[str, str], str] = {}
+                for key, value in guidance.items():
+                    if key.startswith("_"):
+                        continue  # skip _note and other metadata
+                    parts = key.split(":", 1)
+                    if len(parts) == 2:
+                        result[(parts[0], parts[1])] = value
+                _compass_guidance_cache = result
+                return result
+    except (OSError, json.JSONDecodeError, KeyError, ValueError):
+        pass
+
+    _compass_guidance_cache = _COMPASS_GUIDANCE_FALLBACK
+    return _compass_guidance_cache
+
 
 def _compass_guidance(spectrum: str, zone: str) -> str:
-    """Return behavioral guidance for a compass concern, or empty string."""
-    return _COMPASS_GUIDANCE.get((spectrum, zone), "")
+    """Return behavioral guidance for a compass concern, or empty string.
+
+    Reads from seed.json (user-editable) first, falls back to hardcoded defaults.
+    """
+    guidance = _load_compass_guidance()
+    return guidance.get((spectrum, zone), "")
 
 
 def _apply_graph_boost(entries: list[dict[str, Any]]) -> None:
@@ -566,7 +608,7 @@ def _format_briefing(
                 f"Session type: **{cur_profile['description']}** ({cur_profile['confidence']:.0%})"
             )
         for pred in pred_list[:3]:
-            pred_parts.append(f"→ {pred['prediction']}")
+            pred_parts.append(f"-> {pred['prediction']}")
         if pred_parts:
             lines.append("**Predictions:**")
             for p in pred_parts:

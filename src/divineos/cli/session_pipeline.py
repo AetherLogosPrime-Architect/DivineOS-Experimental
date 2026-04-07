@@ -336,7 +336,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                 names = ", ".join(
                     f"{c.compass_spectrum}/{c.critique_spectrum}" for c in convergence.concerns
                 )
-                click.secho(f"[!] Circuit 3: convergent concerns — {names}", fg="yellow")
+                click.secho(f"[!] Circuit 3: convergent concerns -- {names}", fg="yellow")
                 apply_convergence_to_knowledge(convergence)
             elif convergence.strengths:
                 click.secho(

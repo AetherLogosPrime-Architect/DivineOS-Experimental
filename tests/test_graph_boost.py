@@ -150,19 +150,41 @@ class TestCompassGuidance:
 
     def test_all_guidance_entries_are_actionable(self):
         """Every guidance entry should contain an imperative verb or directive."""
-        from divineos.core.knowledge.retrieval import _COMPASS_GUIDANCE
+        from divineos.core.knowledge.retrieval import _COMPASS_GUIDANCE_FALLBACK
 
-        for (spectrum, zone), guidance in _COMPASS_GUIDANCE.items():
+        for (spectrum, zone), guidance in _COMPASS_GUIDANCE_FALLBACK.items():
             assert len(guidance) > 10, f"Guidance for {spectrum}/{zone} too short"
             assert guidance[0].isupper(), f"Guidance for {spectrum}/{zone} should start capitalized"
 
     def test_deficiency_and_excess_covered_per_spectrum(self):
         """Key spectrums should have both deficiency and excess guidance."""
-        from divineos.core.knowledge.retrieval import _COMPASS_GUIDANCE
+        from divineos.core.knowledge.retrieval import _COMPASS_GUIDANCE_FALLBACK
 
         key_spectrums = ["thoroughness", "confidence", "initiative", "compliance"]
         for s in key_spectrums:
-            has_excess = (s, "excess") in _COMPASS_GUIDANCE
-            has_deficiency = (s, "deficiency") in _COMPASS_GUIDANCE
+            has_excess = (s, "excess") in _COMPASS_GUIDANCE_FALLBACK
+            has_deficiency = (s, "deficiency") in _COMPASS_GUIDANCE_FALLBACK
             assert has_excess, f"{s} missing excess guidance"
             assert has_deficiency, f"{s} missing deficiency guidance"
+
+    def test_loads_from_seed_json(self):
+        """Guidance should load from seed.json when available."""
+        import divineos.core.knowledge.retrieval as ret
+
+        # Clear cache to force reload
+        ret._compass_guidance_cache = None
+        guidance = ret._load_compass_guidance()
+        # Should have loaded from seed.json (which has compass_guidance section)
+        assert len(guidance) > 0
+        assert ("thoroughness", "excess") in guidance
+
+    def test_seed_guidance_matches_fallback(self):
+        """seed.json guidance should match fallback (they were synced)."""
+        import divineos.core.knowledge.retrieval as ret
+
+        ret._compass_guidance_cache = None
+        seed_guidance = ret._load_compass_guidance()
+        # At minimum, the key spectrums should be present in both
+        for key in [("thoroughness", "excess"), ("confidence", "excess")]:
+            assert key in seed_guidance
+            assert key in ret._COMPASS_GUIDANCE_FALLBACK

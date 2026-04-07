@@ -97,6 +97,6 @@ def register(cli: click.Group) -> None:
 
         full_kid = _resolve_knowledge_id(knowledge_id)
         if journal_link(entry_id, full_kid):
-            click.secho(f"[+] Linked journal {entry_id[:8]}... → {full_kid[:8]}...", fg="green")
+            click.secho(f"[+] Linked journal {entry_id[:8]}... -> {full_kid[:8]}...", fg="green")
         else:
             click.secho(f"[-] Journal entry {entry_id} not found.", fg="red")

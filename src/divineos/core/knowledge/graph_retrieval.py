@@ -69,6 +69,9 @@ def build_knowledge_cluster(
     connections: list[dict[str, Any]] = []
     seen: set[str] = {knowledge_id}
 
+    # max_depth reserved for multi-hop BFS — currently single-hop only
+    _ = max_depth
+
     edges = get_edges(knowledge_id, direction="both", layer="semantic")
     for edge in edges[:max_neighbors]:
         neighbor_id = edge.target_id if edge.source_id == knowledge_id else edge.source_id
@@ -170,7 +173,7 @@ def format_cluster_line(connection: dict[str, Any]) -> str:
         content = content[:117] + "..."
 
     # Format direction: "← supports" (incoming) vs "→ elaborates" (outgoing)
-    arrow = "→" if direction == "outgoing" else "←"
+    arrow = "->" if direction == "outgoing" else "<-"
     return f"  {arrow} {label}: [{entry['confidence']:.2f}] {content}"
 
 
