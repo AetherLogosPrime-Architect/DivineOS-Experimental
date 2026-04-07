@@ -234,8 +234,8 @@ def _gather_session_evidence() -> dict[str, int]:
             # Look at recent events (last 2 hours as proxy for "this session")
             cutoff = time.time() - 7200
             rows = conn.execute(
-                "SELECT event_type, content FROM system_events "
-                "WHERE created_at > ? ORDER BY created_at DESC",
+                "SELECT event_type, payload FROM system_events "
+                "WHERE timestamp > ? ORDER BY timestamp DESC",
                 (cutoff,),
             ).fetchall()
 

@@ -1456,7 +1456,8 @@ class TestCorroborationCounters:
     def test_counters_in_smart_store(self):
         kid = store_knowledge_smart("FACT", "Smart counter test")
         entry = self._get_entry(kid)
-        assert entry["corroboration_count"] == 0
+        # New entries are born with corroboration=1 (observed once)
+        assert entry["corroboration_count"] == 1
         assert entry["contradiction_count"] == 0
 
 
