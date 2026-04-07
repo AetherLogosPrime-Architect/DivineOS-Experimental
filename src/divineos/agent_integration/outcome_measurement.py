@@ -159,9 +159,24 @@ def measure_knowledge_drift(lookback_days: int = 14) -> dict[str, Any]:
         lifespans: list[float] = []
         short_lived: list[dict[str, Any]] = []
 
+        # Build a map of replacement entry creation times for accurate lifespan.
+        # updated_at on the superseded entry gets touched by confidence adjustments,
+        # so it's unreliable. The replacer's created_at is the real supersession moment.
+        replacer_ids = {str(row[5]) for row in organic_superseded if row[5]}
+        replacer_times: dict[str, float] = {}
+        if replacer_ids:
+            placeholders = ",".join("?" for _ in replacer_ids)
+            replacer_rows = conn.execute(
+                f"SELECT knowledge_id, created_at FROM knowledge WHERE knowledge_id IN ({placeholders})",  # nosec B608
+                list(replacer_ids),
+            ).fetchall()
+            replacer_times = {str(r[0]): float(r[1]) for r in replacer_rows}
+
         for row in organic_superseded:
-            kid, ktype, content, created_at, updated_at, _ = row
-            lifespan_hours = (updated_at - created_at) / 3600
+            kid, ktype, content, created_at, updated_at, superseded_by = row
+            # Use the replacer's creation time if available, else fall back to updated_at
+            supersession_time = replacer_times.get(str(superseded_by), updated_at)
+            lifespan_hours = (supersession_time - created_at) / 3600
 
             lifespans.append(lifespan_hours)
 
