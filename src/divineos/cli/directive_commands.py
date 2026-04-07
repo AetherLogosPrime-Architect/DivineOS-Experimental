@@ -110,7 +110,7 @@ def register(cli: click.Group) -> None:
 
         content_lines = target.get("content", "").splitlines()
         if not content_lines:
-            click.secho(f"[-] Directive '{name}' has empty content — cannot edit.", fg="red")
+            click.secho(f"[-] Directive '{name}' has empty content -- cannot edit.", fg="red")
             return
         header = content_lines[0]
         links = [line.strip() for line in content_lines[1:] if line.strip()]

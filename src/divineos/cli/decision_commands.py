@@ -202,7 +202,7 @@ def register(cli: click.Group) -> None:
         full_kid = _resolve_knowledge_id(knowledge_id)
         if link_knowledge(decision_id, full_kid):
             click.secho(
-                f"[+] Linked decision {decision_id[:8]}... → knowledge {full_kid[:8]}...",
+                f"[+] Linked decision {decision_id[:8]}... -> knowledge {full_kid[:8]}...",
                 fg="green",
             )
         else:

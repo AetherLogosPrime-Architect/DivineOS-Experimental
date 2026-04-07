@@ -566,7 +566,7 @@ def _format_briefing(
                 f"Session type: **{cur_profile['description']}** ({cur_profile['confidence']:.0%})"
             )
         for pred in pred_list[:3]:
-            pred_parts.append(f"→ {pred['prediction']}")
+            pred_parts.append(f"-> {pred['prediction']}")
         if pred_parts:
             lines.append("**Predictions:**")
             for p in pred_parts:

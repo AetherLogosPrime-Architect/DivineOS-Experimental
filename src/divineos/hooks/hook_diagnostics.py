@@ -72,11 +72,11 @@ class HookDiagnostics:
         if report["global_issues"]:
             logger.debug("\nGlobal Issues:")
             for issue in report["global_issues"]:
-                logger.debug(f"  ⚠️  {issue}")
+                logger.debug(f"  [!] {issue}")
 
         logger.debug("\nHook Details:")
         for hook in report["hooks"]:
-            status = "✓" if hook["valid"] else "✗"
+            status = "[ok]" if hook["valid"] else "[FAIL]"
             logger.debug(f"\n  {status} {hook['name']}")
             logger.debug(f"     Event: {hook['event_type']}")
             logger.debug(f"     Action: {hook['action_type']}")
@@ -89,9 +89,9 @@ class HookDiagnostics:
         logger.debug("\n" + "=" * 60)
 
         if report["invalid_hooks"] > 0:
-            logger.debug(f"⚠️  {report['invalid_hooks']} hook(s) need attention!")
+            logger.debug(f"[!] {report['invalid_hooks']} hook(s) need attention!")
         else:
-            logger.debug("✓ All hooks are valid!")
+            logger.debug("[ok] All hooks are valid!")
 
         logger.debug("=" * 60 + "\n")
 

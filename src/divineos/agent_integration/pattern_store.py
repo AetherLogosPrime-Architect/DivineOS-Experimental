@@ -302,7 +302,7 @@ class PatternStore:
                 conn.close()
 
             self.logger.info(
-                f"Updated pattern {pattern_id} confidence: {old_confidence} → {new_confidence} "
+                f"Updated pattern {pattern_id} confidence: {old_confidence} -> {new_confidence} "
                 f"(delta: {delta:+.2f}, reason: {reason})"
             )
             return True
