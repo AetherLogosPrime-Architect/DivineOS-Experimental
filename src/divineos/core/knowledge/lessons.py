@@ -17,6 +17,7 @@ from divineos.core.knowledge.curation import clean_entry_text
 from divineos.core.knowledge.crud import (
     store_knowledge,
 )
+from divineos.core.knowledge.extraction import store_knowledge_smart
 
 _LESSONS_ERRORS = (
     ImportError,
@@ -539,16 +540,19 @@ def extract_lessons_from_report(
             # Skip vacuous checks — "passed" because nothing happened is not a lesson
             if _is_vacuous_summary(summary):
                 continue
-            # Extract PATTERN knowledge for good practices
-            content = f"I showed good {name} this session (session {short_id}). {summary}"
-            kid = store_knowledge(
+            # Record good practice as a stable pattern. Use generic content
+            # (no session ID or summary) so store_knowledge_smart can deduplicate
+            # across sessions instead of creating a new entry every time.
+            content = f"I consistently show good {name} in my sessions."
+            kid = store_knowledge_smart(
                 knowledge_type="PATTERN",
                 content=content.strip(),
                 confidence=0.9,
                 source_events=[session_id],
-                tags=["auto-extracted", f"session-{short_id}", name],
+                tags=["auto-extracted", name],
             )
-            stored_ids.append(kid)
+            if kid:
+                stored_ids.append(kid)
 
             # Mark lesson as improving if this category was previously a problem
             if category:
