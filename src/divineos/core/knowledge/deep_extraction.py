@@ -267,6 +267,7 @@ def _extract_user_text_from_record(record: dict[str, Any]) -> str:
 def deep_extract_knowledge(
     analysis: "Any",  # SessionAnalysis — avoid circular import
     records: list[dict[str, Any]],
+    affect_confidence_penalty: float = 0.0,
 ) -> list[str]:
     """Extract rich, structured knowledge from a session analysis + raw records.
 
@@ -276,11 +277,22 @@ def deep_extract_knowledge(
     - Decisions with reasoning and alternatives
     - Session topics
 
+    Args:
+        affect_confidence_penalty: If > 0, subtract from all extracted confidence
+            values. Applied when session affect was negative — the bar for truth
+            gets higher when things aren't going well. Clamped to floor of 0.3.
+
     Returns list of stored knowledge IDs.
     """
     stored_ids: list[str] = []
     session_id = analysis.session_id
     short_id = session_id[:12]
+
+    def _penalized(base_confidence: float) -> float:
+        """Apply affect penalty to confidence, floor at 0.3."""
+        if affect_confidence_penalty <= 0:
+            return base_confidence
+        return max(0.3, base_confidence - affect_confidence_penalty)
 
     # Build a map of record index → record for context lookups
     user_indices: list[int] = []
@@ -355,7 +367,7 @@ def deep_extract_knowledge(
         kid = store_knowledge_smart(
             knowledge_type=ktype,
             content=content,
-            confidence=0.85,
+            confidence=_penalized(0.85),
             source="CORRECTED",
             maturity="HYPOTHESIS",
             source_events=[session_id],
@@ -372,7 +384,7 @@ def deep_extract_knowledge(
         kid = store_knowledge_smart(
             knowledge_type=ktype,
             content=distilled,
-            confidence=0.9,
+            confidence=_penalized(0.9),
             source="STATED",
             maturity="CONFIRMED",
             source_events=[session_id],
@@ -416,7 +428,7 @@ def deep_extract_knowledge(
         kid = store_knowledge_smart(
             knowledge_type="PRINCIPLE",
             content=". ".join(parts),
-            confidence=0.9,
+            confidence=_penalized(0.9),
             source="DEMONSTRATED",
             maturity="HYPOTHESIS",
             source_events=[session_id],
@@ -450,7 +462,7 @@ def deep_extract_knowledge(
         kid = store_knowledge_smart(
             knowledge_type="PRINCIPLE",
             content=content,
-            confidence=0.9,
+            confidence=_penalized(0.9),
             source="DEMONSTRATED",
             maturity="TESTED",
             source_events=[session_id],

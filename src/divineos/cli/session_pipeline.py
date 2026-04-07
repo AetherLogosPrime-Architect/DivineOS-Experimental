@@ -143,7 +143,25 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
             logger.debug(f"Session reflection failed: {e}")
 
         # ── Phase 2: Deep extraction ─────────────────────────────
-        deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
+        # Actuator 1: affect-gated extraction confidence.
+        # If the session was rough, raise the bar for truth.
+        affect_penalty = 0.0
+        try:
+            from divineos.core.affect import compute_affect_modifiers
+
+            modifiers = compute_affect_modifiers(lookback=5)
+            affect_penalty = modifiers.get("confidence_threshold_modifier", 0.0)
+            if affect_penalty > 0:
+                click.secho(
+                    f"[~] Affect gate: extraction confidence lowered by {affect_penalty:.2f}",
+                    fg="yellow",
+                )
+        except (ImportError, sqlite3.OperationalError) as e:
+            logger.debug("Affect modifier unavailable for extraction: %s", e)
+
+        deep_ids = _wrapped_deep_extract_knowledge(
+            analysis, records, affect_confidence_penalty=affect_penalty
+        )
         stored = len(deep_ids)
 
         # ── Phase 3: Store episode + post-processing ─────────────
@@ -402,6 +420,48 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                 click.secho("[~] Affect: session state auto-logged", fg="cyan")
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"Auto affect logging failed: {e}")
+
+        # ── Phase 8l2: Verbosity link — frustration shifts communication ──
+        # Actuator 2: if frustrations detected, lower verbosity preference.
+        # A frustrated user has zero patience for filler.
+        try:
+            frustration_count = len(getattr(analysis, "frustrations", []))
+            correction_count = len(getattr(analysis, "corrections", []))
+            user_msg_count = getattr(analysis, "user_messages", 0)
+            if user_msg_count > 0 and frustration_count > 0:
+                from divineos.core.user_model import update_preferences
+
+                frustration_ratio = frustration_count / user_msg_count
+                if frustration_ratio > 0.15:
+                    # Heavy frustration — go terse
+                    update_preferences(verbosity="terse")
+                    click.secho(
+                        "[!] Calibration: frustration high — shifting to terse mode",
+                        fg="yellow",
+                    )
+                elif frustration_ratio > 0.05 or correction_count >= 3:
+                    # Moderate frustration — go concise
+                    update_preferences(verbosity="concise")
+                    click.secho(
+                        "[~] Calibration: frustration detected — shifting to concise mode",
+                        fg="yellow",
+                    )
+            elif user_msg_count > 5 and frustration_count == 0 and correction_count <= 1:
+                # Clean session — drift back toward normal if currently restricted
+                from divineos.core.user_model import get_or_create_user
+
+                user = get_or_create_user()
+                current_verbosity = user.get("preferences", {}).get("verbosity", "normal")
+                if current_verbosity in ("terse", "concise"):
+                    from divineos.core.user_model import update_preferences as _up
+
+                    _up(verbosity="normal")
+                    click.secho(
+                        "[~] Calibration: clean session — verbosity restored to normal",
+                        fg="cyan",
+                    )
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Verbosity link failed: {e}")
 
         # ── Phase 8m: Affect-extraction calibration (Circuit 1) ──
         try:
