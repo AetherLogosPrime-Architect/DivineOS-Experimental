@@ -135,7 +135,7 @@ class TestLearn:
 class TestKnowledgeCmd:
     def test_knowledge_empty(self, runner):
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["knowledge"])
+        result = runner.invoke(cli, ["inspect", "knowledge"])
         assert "No knowledge" in result.output
 
 
@@ -157,21 +157,21 @@ class TestBriefingCmd:
 class TestConsolidateStats:
     def test_stats_empty(self, runner):
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["consolidate-stats"])
+        result = runner.invoke(cli, ["admin", "consolidate-stats"])
         assert result.exit_code == 0
         assert "Total knowledge: 0" in result.output
 
 
 class TestSessionsCmd:
     def test_sessions_runs(self, runner):
-        result = runner.invoke(cli, ["sessions"])
+        result = runner.invoke(cli, ["inspect", "sessions"])
         assert result.exit_code == 0
 
 
 class TestAnalyzeCmd:
     def test_analyze_nonexistent(self, runner, tmp_path):
         # Test with a nonexistent file
-        result = runner.invoke(cli, ["analyze", "/nonexistent/file.jsonl"])
+        result = runner.invoke(cli, ["inspect", "analyze", "/nonexistent/file.jsonl"])
         # Should fail gracefully
         assert result.exit_code != 0
         assert "not found" in result.output.lower() or "error" in result.output.lower()
@@ -188,7 +188,7 @@ class TestAnalyzeCmd:
             },
         ]
         session_file.write_text("\n".join(json.dumps(r) for r in records))
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert result.exit_code == 0
         assert "Session Analysis" in result.output
 
@@ -206,7 +206,7 @@ class TestScanCmd:
             },
         ]
         session_file.write_text("\n".join(json.dumps(r) for r in records))
-        result = runner.invoke(cli, ["scan", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "scan", str(session_file)])
         assert result.exit_code == 0
         assert "--store" in result.output
 
@@ -225,7 +225,7 @@ class TestScanCmd:
             },
         ]
         session_file.write_text("\n".join(json.dumps(r) for r in records))
-        result = runner.invoke(cli, ["scan", "--store", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "scan", "--store", str(session_file)])
         assert result.exit_code == 0
         assert "Stored" in result.output
 
@@ -372,7 +372,7 @@ class TestReportCmd:
     def test_report_no_sessions(self, runner):
         """Test report command with no analyzed sessions."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["report"])
+        result = runner.invoke(cli, ["inspect", "report"])
         assert result.exit_code == 0
         assert "sessions found" in result.output or "Sessions" in result.output
 
@@ -410,7 +410,7 @@ class TestReportCmd:
         session_file.write_text("\n".join(json.dumps(r) for r in records))
 
         # Analyze the session
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert result.exit_code == 0
         assert "Session Analysis" in result.output
 
@@ -422,14 +422,14 @@ class TestReportCmd:
         session_id = match.group(1)
 
         # Now test report command with session ID
-        result = runner.invoke(cli, ["report", session_id])
+        result = runner.invoke(cli, ["inspect", "report", session_id])
         assert result.exit_code == 0
         assert "Session Analysis" in result.output or "Quality Checks" in result.output
 
     def test_report_invalid_session(self, runner):
         """Test report command with invalid session ID."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["report", "invalid_session_id"])
+        result = runner.invoke(cli, ["inspect", "report", "invalid_session_id"])
         assert result.exit_code == 0
         assert "not found" in result.output.lower() or "Session not found" in result.output
 
@@ -440,14 +440,14 @@ class TestCrossSessionCmd:
     def test_cross_session_no_sessions(self, runner):
         """Test cross-session command with no analyzed sessions."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["cross-session"])
+        result = runner.invoke(cli, ["inspect", "cross-session"])
         assert result.exit_code == 0
         # Should handle gracefully with no sessions
 
     def test_cross_session_with_limit(self, runner):
         """Test cross-session command with custom limit."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["cross-session", "--limit", "5"])
+        result = runner.invoke(cli, ["inspect", "cross-session", "--limit", "5"])
         assert result.exit_code == 0
 
     def test_cross_session_output_format(self, runner, tmp_path):
@@ -467,11 +467,11 @@ class TestCrossSessionCmd:
         ]
         session_file.write_text("\n".join(json.dumps(r) for r in records))
 
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert result.exit_code == 0
 
         # Test cross-session command
-        result = runner.invoke(cli, ["cross-session"])
+        result = runner.invoke(cli, ["inspect", "cross-session"])
         assert result.exit_code == 0
         # Output should be plain-English, not jargon
         output_lower = result.output.lower()
@@ -505,7 +505,7 @@ class TestAnalyzeIntegration:
         session_file.write_text("\n".join(json.dumps(r) for r in records))
 
         # Analyze
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert result.exit_code == 0
         assert "Report saved to:" in result.output
 
@@ -527,7 +527,7 @@ class TestAnalyzeIntegration:
         session_file.write_text("\n".join(json.dumps(r) for r in records))
 
         # Analyze
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert result.exit_code == 0
 
         # Check for plain-English output
@@ -602,7 +602,7 @@ class TestAnalyzeIntegration:
         session_file.write_text("\n".join(json.dumps(r) for r in records))
 
         # Analyze
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert result.exit_code == 0
         assert "Session Analysis" in result.output
 
@@ -615,7 +615,7 @@ class TestAnalyzeIntegration:
         session_file.write_text("")
 
         # Analyze should fail gracefully
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert (
             result.exit_code != 0
             or "error" in result.output.lower()
@@ -631,7 +631,7 @@ class TestAnalyzeIntegration:
         session_file.write_text('{"type": "user", "content": "test"\n{"invalid json')
 
         # Analyze should fail gracefully
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         # Should either fail or show error message
         assert (
             result.exit_code != 0
@@ -657,7 +657,7 @@ class TestAnalyzeIntegration:
         session_file.write_text("\n".join(json.dumps(r) for r in records))
 
         # Analyze
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert result.exit_code == 0
         assert "stored successfully" in result.output.lower() or "Analysis stored" in result.output
 
@@ -679,7 +679,7 @@ class TestAnalyzeIntegration:
         session_file.write_text("\n".join(json.dumps(r) for r in records))
 
         # Analyze
-        result = runner.invoke(cli, ["analyze", str(session_file)])
+        result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
         assert result.exit_code == 0
         # Should show evidence hash and fidelity verification
         assert "evidence hash" in result.output.lower() or "fidelity" in result.output.lower()
@@ -691,7 +691,7 @@ class TestAnalyzeErrorHandling:
     def test_analyze_nonexistent_file(self, runner):
         """Test analyze with nonexistent file."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["analyze", "/nonexistent/file.jsonl"])
+        result = runner.invoke(cli, ["inspect", "analyze", "/nonexistent/file.jsonl"])
         assert result.exit_code != 0
         assert "not found" in result.output.lower() or "error" in result.output.lower()
 
@@ -710,7 +710,7 @@ class TestAnalyzeErrorHandling:
         # Try to remove read permissions (may not work on all systems)
         try:
             os.chmod(session_file, 0o000)
-            result = runner.invoke(cli, ["analyze", str(session_file)])
+            result = runner.invoke(cli, ["inspect", "analyze", str(session_file)])
             # Should fail or handle gracefully
             assert result.exit_code != 0 or "error" in result.output.lower()
         finally:

@@ -130,16 +130,16 @@ divineos core                # View/edit core memory slots
 divineos remember "..."      # Add to active memory
 divineos refresh             # Rebuild active memory from knowledge store
 divineos learn "..."         # Store knowledge from experience
-divineos knowledge           # List stored knowledge
+divineos inspect knowledge   # List stored knowledge
 divineos forget ID           # Supersede a knowledge entry
-divineos consolidate-stats   # Knowledge statistics and effectiveness
+divineos admin consolidate-stats   # Knowledge statistics and effectiveness
 divineos health              # Run knowledge health check
-divineos outcomes            # Measure learning effectiveness
-divineos digest              # Condensed knowledge summary
-divineos distill             # Distill verbose entries
-divineos rebuild-index       # Rebuild FTS index
-divineos migrate-types       # Migrate knowledge types
-divineos backfill-warrants   # Add missing warrant backing
+divineos inspect outcomes    # Measure learning effectiveness
+divineos admin digest        # Condensed knowledge summary
+divineos admin distill       # Distill verbose entries
+divineos admin rebuild-index       # Rebuild FTS index
+divineos admin migrate-types       # Migrate knowledge types
+divineos admin backfill-warrants   # Add missing warrant backing
 ```
 </details>
 
@@ -148,7 +148,7 @@ divineos backfill-warrants   # Add missing warrant backing
 
 ```bash
 divineos lessons             # Tracked lessons from past sessions
-divineos clear-lessons       # Reset lesson tracking
+divineos admin clear-lessons # Reset lesson tracking
 divineos goal "description"  # Track a user goal
 divineos plan                # View/set session plan
 divineos directives          # List active directives
@@ -177,17 +177,17 @@ divineos claims search "query"             # Search claims
 <summary><b>Self-awareness & affect</b></summary>
 
 ```bash
-divineos self-model              # Unified self-model from evidence
-divineos attention               # What I'm attending to, suppressing, and why
-divineos epistemic               # How I know what I know (observed/told/inferred/inherited)
+divineos inspect self-model       # Unified self-model from evidence
+divineos inspect attention       # What I'm attending to, suppressing, and why
+divineos inspect epistemic       # How I know what I know (observed/told/inferred/inherited)
 divineos compass                 # Full compass reading (10 virtue spectrums)
 divineos feel -v 0.8 -a 0.6 --dom 0.3 -d "desc"  # Log functional affect state (VAD)
 divineos affect history          # Browse affect states
 divineos affect summary          # Trends and averages
-divineos drift                   # Check behavioral drift
+divineos inspect drift           # Check behavioral drift
 divineos body                    # Check substrate state (storage, caches, tables)
-divineos critique                # Craft self-assessment (5 spectrums)
-divineos craft-trends            # Craft quality trends across sessions
+divineos inspect critique        # Craft self-assessment (5 spectrums)
+divineos inspect craft-trends    # Craft quality trends across sessions
 ```
 </details>
 
@@ -200,9 +200,9 @@ divineos opinion list                      # List active opinions
 divineos opinion history TOPIC             # Opinion evolution over time
 divineos opinion strengthen ID "evidence"  # Add supporting evidence
 divineos opinion challenge ID "evidence"   # Add contradicting evidence
-divineos user-model                        # Show user model
-divineos user-signal TYPE "content"        # Record user behavior signal
-divineos calibrate                         # Communication calibration guidance
+divineos inspect user-model                 # Show user model
+divineos inspect user-signal TYPE "content" # Record user behavior signal
+divineos inspect calibrate                  # Communication calibration guidance
 divineos advice record "content"           # Record advice given
 divineos advice assess ID OUTCOME          # Assess advice outcome
 divineos advice stats                      # Advice quality statistics
@@ -214,20 +214,20 @@ divineos recommend "context"               # Get proactive recommendations
 <summary><b>Analysis & diagnostics</b></summary>
 
 ```bash
-divineos scan SESSION        # Deep-scan session, extract knowledge
-divineos analyze SESSION     # Quality report for a session
-divineos analyze-now         # Analyze current session
-divineos deep-report SESSION # Full deep analysis report
-divineos patterns            # Cross-session quality patterns
-divineos sessions            # List analyzed sessions
-divineos report              # Latest analysis report
-divineos cross-session       # Cross-session trends
-divineos growth              # Growth tracking
-divineos sis "text"          # Semantic integrity assessment
-divineos predict [events...] # Predict session needs
-divineos affect-feedback     # How affect influences behavior
-divineos knowledge-compress  # Compress redundant knowledge
-divineos knowledge-hygiene   # Audit types, sweep stale, flag orphans
+divineos inspect scan SESSION        # Deep-scan session, extract knowledge
+divineos inspect analyze SESSION     # Quality report for a session
+divineos inspect analyze-now         # Analyze current session
+divineos inspect deep-report SESSION # Full deep analysis report
+divineos inspect patterns            # Cross-session quality patterns
+divineos inspect sessions            # List analyzed sessions
+divineos inspect report              # Latest analysis report
+divineos inspect cross-session       # Cross-session trends
+divineos growth                      # Growth tracking
+divineos sis "text"                  # Semantic integrity assessment
+divineos inspect predict [events...] # Predict session needs
+divineos affect-feedback             # How affect influences behavior
+divineos admin knowledge-compress    # Compress redundant knowledge
+divineos admin knowledge-hygiene     # Audit types, sweep stale, flag orphans
 ```
 </details>
 
@@ -256,10 +256,10 @@ divineos context             # Recent events (working memory)
 divineos verify              # Check ledger integrity
 divineos search KEYWORD      # Full-text search
 divineos export              # Export ledger to markdown
-divineos compress            # Compress/archive old entries
+divineos admin compress       # Compress/archive old entries
 divineos changes             # Knowledge changes (--hours, --days)
-divineos hooks               # Hook diagnostics
-divineos verify-enforcement  # Check enforcement setup
+divineos admin hooks         # Hook diagnostics
+divineos admin verify-enforcement  # Check enforcement setup
 ```
 </details>
 
