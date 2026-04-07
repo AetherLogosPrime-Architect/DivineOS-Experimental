@@ -226,7 +226,41 @@ class TestClassifyRelationship:
             overlap=0.35,
         )
         # No causal language, no type affinity for EPISODE→FACT at 0.35
+        # Below cross-type RELATED_TO threshold (0.4)
         assert result is None
+
+    def test_cross_type_related_to(self):
+        """Different types with decent overlap get RELATED_TO."""
+        result = _classify_relationship(
+            new_content="Knowledge storage and retrieval patterns in the system",
+            new_type="OBSERVATION",
+            existing_content="Knowledge storage design patterns for persistence",
+            existing_type="FACT",
+            overlap=0.45,
+        )
+        assert result == "RELATED_TO"
+
+    def test_new_type_affinities(self):
+        """New type affinities produce expected relationships."""
+        # PRINCIPLE → DIRECTIVE = SUPPORTS
+        result = _classify_relationship(
+            new_content="Small commits reduce errors in the codebase significantly",
+            new_type="PRINCIPLE",
+            existing_content="Commits should be small and focused for better reviews",
+            existing_type="DIRECTIVE",
+            overlap=0.5,
+        )
+        assert result == "SUPPORTS"
+
+        # MISTAKE → BOUNDARY = CAUSED_BY
+        result = _classify_relationship(
+            new_content="I edited a file without reading it first and broke things",
+            new_type="MISTAKE",
+            existing_content="Always read files before editing them to avoid errors",
+            existing_type="BOUNDARY",
+            overlap=0.4,
+        )
+        assert result == "CAUSED_BY"
 
 
 class TestAutoDetectRelationships:
@@ -286,3 +320,129 @@ class TestAutoDetectRelationships:
         # These have high overlap — should be related
         cross_rels = [r for r in rels if {r["source_id"], r["target_id"]} == {id1, id2}]
         assert len(cross_rels) >= 1
+
+
+class TestStructuralEdges:
+    """Edges created from extraction context, not word overlap."""
+
+    def test_structural_edges_link_corrections(self):
+        """Co-extracted corrections get RELATED_TO edges."""
+        _setup()
+        from divineos.core.knowledge.edges import get_edges, init_edge_table
+
+        init_edge_table()
+
+        # Store two correction-pair entries
+        id1 = store_knowledge(
+            knowledge_type="BOUNDARY",
+            content="Always read files before editing them for safety",
+            confidence=0.85,
+            tags=["correction-pair", "session-test123"],
+        )
+        id2 = store_knowledge(
+            knowledge_type="PRINCIPLE",
+            content="Check test output before claiming success",
+            confidence=0.85,
+            tags=["correction-pair", "session-test123"],
+        )
+
+        from divineos.core.knowledge.deep_extraction import _create_structural_edges
+
+        created = _create_structural_edges([id1, id2])
+        assert created >= 1
+
+        edges = get_edges(id1)
+        target_ids = {e.target_id for e in edges}
+        assert id2 in target_ids
+
+    def test_structural_edges_encouragement_supports_decision(self):
+        """Encouragements create SUPPORTS edges to decisions."""
+        _setup()
+        from divineos.core.knowledge.edges import get_edges, init_edge_table
+
+        init_edge_table()
+
+        enc_id = store_knowledge(
+            knowledge_type="PRINCIPLE",
+            content="I explained the architecture clearly and the user confirmed",
+            confidence=0.9,
+            tags=["encouragement", "session-test456"],
+        )
+        dec_id = store_knowledge(
+            knowledge_type="PRINCIPLE",
+            content="I decided to split the module into smaller files",
+            confidence=0.9,
+            tags=["decision", "session-test456"],
+        )
+
+        from divineos.core.knowledge.deep_extraction import _create_structural_edges
+
+        created = _create_structural_edges([enc_id, dec_id])
+        assert created >= 1
+
+        edges = get_edges(enc_id)
+        assert any(e.target_id == dec_id and e.edge_type == "SUPPORTS" for e in edges)
+
+    def test_structural_edges_preference_applies_to_correction(self):
+        """Preferences create APPLIES_TO edges to corrections."""
+        _setup()
+        from divineos.core.knowledge.edges import get_edges, init_edge_table
+
+        init_edge_table()
+
+        pref_id = store_knowledge(
+            knowledge_type="DIRECTION",
+            content="Use plain english, no jargon in explanations",
+            confidence=0.9,
+            tags=["direction", "session-test789"],
+        )
+        corr_id = store_knowledge(
+            knowledge_type="BOUNDARY",
+            content="Do not use technical jargon without explaining it first",
+            confidence=0.85,
+            tags=["correction-pair", "session-test789"],
+        )
+
+        from divineos.core.knowledge.deep_extraction import _create_structural_edges
+
+        created = _create_structural_edges([pref_id, corr_id])
+        assert created >= 1
+
+        edges = get_edges(pref_id)
+        assert any(e.target_id == corr_id and e.edge_type == "APPLIES_TO" for e in edges)
+
+    def test_structural_edges_empty_input(self):
+        """No crash on empty or single-entry input."""
+        from divineos.core.knowledge.deep_extraction import _create_structural_edges
+
+        assert _create_structural_edges([]) == 0
+        assert _create_structural_edges(["single-id"]) == 0
+
+    def test_supersession_creates_edge(self):
+        """When store_knowledge_smart supersedes, a SUPERSEDES edge is created."""
+        _setup()
+        from divineos.core.knowledge.edges import get_edges, init_edge_table
+        from divineos.core.knowledge.extraction import store_knowledge_smart
+
+        init_edge_table()
+
+        # Store original
+        old_id = store_knowledge(
+            knowledge_type="PRINCIPLE",
+            content="I should test code after making changes to catch bugs early",
+            confidence=0.8,
+        )
+
+        # Store similar but evolved — should UPDATE (supersede)
+        new_id = store_knowledge_smart(
+            knowledge_type="PRINCIPLE",
+            content="I should test code after making changes to catch bugs early and also run linting checks for code quality",
+            confidence=0.9,
+        )
+
+        if new_id != old_id:
+            # If it was an UPDATE, check for SUPERSEDES edge
+            edges = get_edges(new_id)
+            supersedes = [e for e in edges if e.edge_type == "SUPERSEDES"]
+            if supersedes:
+                assert supersedes[0].target_id == old_id

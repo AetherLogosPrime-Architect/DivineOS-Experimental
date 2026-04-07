@@ -181,6 +181,13 @@ _TYPE_AFFINITIES: dict[tuple[str, str], str] = {
     ("EPISODE", "OBSERVATION"): "DERIVED_FROM",
     ("PROCEDURE", "PRINCIPLE"): "APPLIES_TO",
     ("PROCEDURE", "BOUNDARY"): "APPLIES_TO",
+    ("PRINCIPLE", "BOUNDARY"): "SUPPORTS",
+    ("PRINCIPLE", "DIRECTIVE"): "SUPPORTS",
+    ("BOUNDARY", "DIRECTIVE"): "ELABORATES",
+    ("DIRECTION", "PRINCIPLE"): "SUPPORTS",
+    ("MISTAKE", "PRINCIPLE"): "CAUSED_BY",
+    ("MISTAKE", "BOUNDARY"): "CAUSED_BY",
+    ("PATTERN", "PRINCIPLE"): "SUPPORTS",
 }
 
 
@@ -238,6 +245,10 @@ def _classify_relationship(
 
     # Moderate overlap between same types = RELATED_TO
     if overlap >= 0.5 and new_type == existing_type:
+        return "RELATED_TO"
+
+    # Cross-type with decent overlap — different facets of the same topic
+    if overlap >= 0.4 and new_type != existing_type:
         return "RELATED_TO"
 
     return None
