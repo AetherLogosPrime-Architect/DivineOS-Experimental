@@ -274,6 +274,7 @@ def compress_synthesize(
             confidence=result["confidence"],
             source_events=result["source_events"],
             tags=result["tags"],
+            source="SYNTHESIZED",
         )
 
         # Supersede source entries
@@ -443,6 +444,7 @@ def run_compression(
                     confidence=compressed["confidence"],
                     source_events=compressed["source_events"],
                     tags=compressed["tags"],
+                    source="SYNTHESIZED",
                 )
                 # Supersede supports into the compressed entry
                 for sid in compressed["support_ids"]:

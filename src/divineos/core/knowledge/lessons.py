@@ -528,6 +528,7 @@ def extract_lessons_from_report(
                 confidence=0.8,
                 source_events=[session_id],
                 tags=["auto-extracted", f"session-{short_id}", name],
+                source="SYNTHESIZED",
             )
             stored_ids.append(kid)
 
@@ -550,6 +551,7 @@ def extract_lessons_from_report(
                 confidence=0.9,
                 source_events=[session_id],
                 tags=["auto-extracted", name],
+                source="SYNTHESIZED",
             )
             if kid:
                 stored_ids.append(kid)
@@ -601,6 +603,7 @@ def extract_lessons_from_report(
                     confidence=0.8,
                     source_events=[session_id],
                     tags=["auto-extracted", f"session-{short_id}", "tone_recovery"],
+                    source="SYNTHESIZED",
                 )
                 stored_ids.append(kid)
                 record_lesson("upset_recovered", content, session_id)
@@ -613,6 +616,7 @@ def extract_lessons_from_report(
                     confidence=0.8,
                     source_events=[session_id],
                     tags=["auto-extracted", f"session-{short_id}", "tone_shift"],
+                    source="SYNTHESIZED",
                 )
                 stored_ids.append(kid)
                 record_lesson("upset_user", content, session_id)
