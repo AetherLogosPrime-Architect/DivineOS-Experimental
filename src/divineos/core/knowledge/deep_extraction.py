@@ -1,13 +1,25 @@
 """Deep session extraction — rich knowledge extraction from session records."""
 
 import re
+import sqlite3
 from typing import Any
+
+from loguru import logger
 
 from divineos.core.knowledge._text import (
     _is_extraction_noise,
     extract_session_topics,
 )
 from divineos.core.knowledge.extraction import store_knowledge_smart
+
+_DEEP_ERRORS = (
+    ImportError,
+    sqlite3.OperationalError,
+    OSError,
+    KeyError,
+    TypeError,
+    ValueError,
+)
 
 
 # Patterns for extracting reasoning context from messages
@@ -470,4 +482,93 @@ def deep_extract_knowledge(
         )
         stored_ids.append(kid)
 
+    # --- Structural edges: link extracted knowledge by how it was created ---
+    # These are high-confidence edges because the relationship is known from
+    # extraction context, not inferred from word overlap.
+    try:
+        _create_structural_edges(stored_ids)
+    except _DEEP_ERRORS as e:
+        logger.debug(f"Structural edge creation failed: {e}", exc_info=True)
+
     return stored_ids
+
+
+def _create_structural_edges(stored_ids: list[str]) -> int:
+    """Create edges between extracted entries based on their types and tags.
+
+    Returns number of edges created.
+    """
+    if len(stored_ids) < 2:
+        return 0
+
+    from divineos.core.knowledge import _get_connection
+    from divineos.core.knowledge.edges import create_edge
+
+    conn = _get_connection()
+    try:
+        valid_ids = [sid for sid in stored_ids if sid]
+        if not valid_ids:
+            return 0
+
+        placeholders = ",".join("?" for _ in valid_ids)
+        rows = conn.execute(
+            f"SELECT knowledge_id, knowledge_type, tags FROM knowledge "  # nosec B608
+            f"WHERE knowledge_id IN ({placeholders})",
+            valid_ids,
+        ).fetchall()
+    finally:
+        conn.close()
+
+    entries = {r[0]: {"type": r[1], "tags": r[2] or ""} for r in rows}
+    created = 0
+
+    # Group by extraction origin
+    corrections = [k for k, v in entries.items() if "correction-pair" in v["tags"]]
+    encouragements = [k for k, v in entries.items() if "encouragement" in v["tags"]]
+    decisions = [k for k, v in entries.items() if "decision" in v["tags"]]
+    preferences = [
+        k
+        for k, v in entries.items()
+        if any(t in v["tags"] for t in ("preference", "instruction", "direction"))
+    ]
+
+    # Corrections CAUSED_BY the same session context → link them
+    for i, cid_a in enumerate(corrections):
+        for cid_b in corrections[i + 1 :]:
+            try:
+                create_edge(cid_a, cid_b, "RELATED_TO", notes="auto: co-extracted corrections")
+                created += 1
+            except _DEEP_ERRORS:
+                pass
+
+    # Encouragements SUPPORTS decisions from same session
+    for eid in encouragements:
+        for did in decisions:
+            try:
+                create_edge(eid, did, "SUPPORTS", notes="auto: encouragement supports decision")
+                created += 1
+            except _DEEP_ERRORS:
+                pass
+
+    # Preferences APPLIES_TO corrections (user direction shapes future behavior)
+    for pid in preferences:
+        for cid in corrections:
+            try:
+                create_edge(pid, cid, "APPLIES_TO", notes="auto: preference applies to correction")
+                created += 1
+            except _DEEP_ERRORS:
+                pass
+
+    # Decisions DERIVED_FROM corrections (decisions often respond to problems)
+    for did in decisions:
+        for cid in corrections:
+            try:
+                create_edge(did, cid, "DERIVED_FROM", notes="auto: decision from correction")
+                created += 1
+            except _DEEP_ERRORS:
+                pass
+
+    if created:
+        logger.debug(f"Created {created} structural edges from {len(entries)} extracted entries")
+
+    return created
