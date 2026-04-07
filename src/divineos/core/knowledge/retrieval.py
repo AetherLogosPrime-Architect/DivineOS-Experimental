@@ -199,6 +199,13 @@ def generate_briefing(
 
         entry["_score"] = score
 
+    # Graph boost — entries connected to high-scoring entries get a bump.
+    # This surfaces related knowledge that wouldn't rank on its own.
+    try:
+        _apply_graph_boost(entries)
+    except _RETRIEVAL_ERRORS:
+        pass
+
     # Sort by score, take top items
     entries.sort(key=lambda e: e["_score"], reverse=True)
     entries = entries[:max_items]
@@ -294,6 +301,79 @@ def generate_briefing(
         context_hint,
         now,
     )
+
+
+# Behavioral guidance per compass spectrum and zone.
+# Keys: (spectrum, zone) → short actionable instruction.
+_COMPASS_GUIDANCE: dict[tuple[str, str], str] = {
+    ("thoroughness", "excess"): "Ease up. Answer the question asked, not every related question.",
+    ("thoroughness", "deficiency"): "Slow down. Check your work before declaring done.",
+    ("confidence", "excess"): "You're overclaiming. Say 'I think' more. Flag uncertainty.",
+    (
+        "confidence",
+        "deficiency",
+    ): "Trust your analysis more. Don't hedge when the evidence is clear.",
+    ("initiative", "excess"): "Pull back. Do what was asked before volunteering extras.",
+    ("initiative", "deficiency"): "Speak up. If you see a better path, say so.",
+    ("compliance", "excess"): "Push back on bad ideas. Agreement isn't helpfulness.",
+    ("compliance", "deficiency"): "Listen first. The user has context you don't.",
+    ("truthfulness", "deficiency"): "Accuracy is low. Verify claims before stating them.",
+    ("precision", "excess"): "Over-engineering. Simpler solutions exist — find them.",
+    ("precision", "deficiency"): "Sloppy work detected. Read more carefully, test more.",
+    ("empathy", "deficiency"): "Pay attention to tone. The user's emotional state matters.",
+    ("empathy", "excess"): "Focus on the task. Emotional support is good; stalling isn't.",
+    ("humility", "deficiency"): "Accept corrections gracefully. They're data, not attacks.",
+    ("humility", "excess"): "Stop apologizing. Fix the thing and move on.",
+}
+
+
+def _compass_guidance(spectrum: str, zone: str) -> str:
+    """Return behavioral guidance for a compass concern, or empty string."""
+    return _COMPASS_GUIDANCE.get((spectrum, zone), "")
+
+
+def _apply_graph_boost(entries: list[dict[str, Any]]) -> None:
+    """Boost scores of entries connected to high-scoring entries via edges.
+
+    The top-scored entries act as anchors. Their graph neighbors get a
+    score boost proportional to the anchor's score. This pulls related
+    knowledge up in the rankings so the briefing surfaces clusters, not
+    isolated facts.
+
+    Modifies entries in place (updates _score field).
+    """
+    from divineos.core.knowledge.edges import get_edges
+
+    if len(entries) < 3:
+        return
+
+    # Use top third of entries as anchors (max 10)
+    sorted_by_score = sorted(entries, key=lambda e: e.get("_score", 0), reverse=True)
+    anchor_count = min(max(len(entries) // 3, 1), 10)
+    anchors = sorted_by_score[:anchor_count]
+    anchor_ids = {e["knowledge_id"] for e in anchors}
+
+    # Build a map for fast lookup
+    entry_map = {e["knowledge_id"]: e for e in entries}
+
+    boosted: set[str] = set()
+    for anchor in anchors:
+        anchor_score = anchor.get("_score", 0)
+        edges = get_edges(anchor["knowledge_id"], direction="both", layer="semantic")
+
+        for edge in edges[:5]:  # max 5 neighbors per anchor
+            neighbor_id = (
+                edge.target_id if edge.source_id == anchor["knowledge_id"] else edge.source_id
+            )
+            if neighbor_id in anchor_ids or neighbor_id in boosted:
+                continue
+            if neighbor_id not in entry_map:
+                continue
+
+            # Boost: 10% of anchor score, capped at 0.15
+            boost = min(anchor_score * 0.1, 0.15)
+            entry_map[neighbor_id]["_score"] = entry_map[neighbor_id].get("_score", 0) + boost
+            boosted.add(neighbor_id)
 
 
 def _format_handoff_lines() -> list[str]:
@@ -610,18 +690,22 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS:
         pass
 
-    # Moral compass — drift warnings
+    # Moral compass — drift warnings + behavioral guidance
     try:
         from divineos.core.moral_compass import compass_summary
 
         cs = compass_summary()
         if cs["observed_spectrums"] > 0:
-            compass_parts = []
+            compass_parts: list[str] = []
             if cs["concerns"]:
                 for c in cs["concerns"]:
                     compass_parts.append(
                         f"[{c['zone'].upper()}] {c['spectrum']}: {c['label']} ({c['position']:+.2f})"
                     )
+                    # Behavioral guidance — the actionable part
+                    guidance = _compass_guidance(c["spectrum"], c["zone"])
+                    if guidance:
+                        compass_parts.append(f"    -> {guidance}")
             if cs["drifting"]:
                 for d in cs["drifting"]:
                     compass_parts.append(f"drift: {d['spectrum']} --> {d['direction']}")
