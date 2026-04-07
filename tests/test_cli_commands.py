@@ -238,7 +238,7 @@ class TestKnowledgeHealthCmd:
         assert result.exit_code == 0
 
     def test_rebuild_index(self, initialized):
-        result = initialized.invoke(cli, ["rebuild-index"])
+        result = initialized.invoke(cli, ["admin", "rebuild-index"])
         assert result.exit_code == 0
 
 

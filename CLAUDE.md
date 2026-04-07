@@ -87,20 +87,30 @@ divineos progress --brief                          # 3-line summary
 divineos progress --export                         # Shareable markdown
 
 # Self-awareness (Butlin consciousness indicators)
-divineos attention         # What I'm attending to, suppressing, and why
-divineos epistemic         # How I know what I know (observed/told/inferred/inherited)
-divineos self-model        # Unified self-picture from evidence
+divineos inspect attention         # What I'm attending to, suppressing, and why
+divineos inspect epistemic         # How I know what I know (observed/told/inferred/inherited)
+divineos inspect self-model        # Unified self-picture from evidence
 
 # Ledger & context
 divineos context           # Recent events (working memory)
 divineos log --type TYPE --actor ACTOR --content "..."
 divineos verify            # Check ledger integrity
 
-# Analysis & health
-divineos consolidate-stats # Knowledge statistics
-divineos outcomes          # Measure learning effectiveness
-divineos health            # Run knowledge health check
-divineos seed-export -o f  # Export current state as seed file
+# Analysis & inspection (divineos inspect <cmd>)
+divineos inspect analyze FILE      # Analyze a session
+divineos inspect report [ID]       # View analysis report
+divineos inspect cross-session     # Compare across sessions
+divineos inspect knowledge         # List stored knowledge
+divineos inspect outcomes          # Measure learning effectiveness
+divineos inspect self-model        # Unified self-picture from evidence
+divineos inspect drift             # Check behavioral drift
+
+# Admin & maintenance (divineos admin <cmd>)
+divineos admin consolidate-stats   # Knowledge statistics
+divineos admin seed-export -o f    # Export current state as seed file
+divineos admin rebuild-index       # Rebuild FTS index
+divineos admin maintenance         # VACUUM, log cleanup
+divineos health                    # Run knowledge health check (top-level)
 
 # Semantic Integrity Shield
 divineos sis "text"        # Assess text for esoteric language

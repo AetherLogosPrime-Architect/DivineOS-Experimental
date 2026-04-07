@@ -14,6 +14,8 @@ from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 # Commands that work without briefing loaded — the minimum to bootstrap.
 _BYPASS_COMMANDS = frozenset(
     {
+        "admin",
+        "inspect",
         "briefing",
         "init",
         "preflight",
@@ -125,6 +127,91 @@ selfmodel_commands.register(cli)
 insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
+
+
+# ── Command Grouping ──────────────────────────────────────────────
+# Move rarely-used commands into subgroups to reduce top-level noise.
+# Core workflow commands stay top-level. Admin/analysis commands
+# are accessible via `divineos admin <cmd>` and `divineos inspect <cmd>`.
+#
+# Before: 105 top-level commands
+# After:  ~50 top-level + admin group + inspect group
+
+
+@cli.group("admin", invoke_without_command=True)
+@click.pass_context
+def admin_group(ctx: click.Context) -> None:
+    """Maintenance, migration, and administrative commands."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@cli.group("inspect", invoke_without_command=True)
+@click.pass_context
+def inspect_group(ctx: click.Context) -> None:
+    """Deep analysis, investigation, and introspection commands."""
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+# Commands to move into 'admin' group
+_ADMIN_COMMANDS = [
+    "backfill-warrants",
+    "clean",
+    "clear-lessons",
+    "compress",
+    "consolidate",
+    "consolidate-stats",
+    "digest",
+    "diff",
+    "distill",
+    "hooks",
+    "ingest",
+    "knowledge-compress",
+    "knowledge-hygiene",
+    "maintenance",
+    "migrate-types",
+    "rebuild-index",
+    "reclassify-directions",
+    "seed-export",
+    "verify-enforcement",
+]
+
+# Commands to move into 'inspect' group
+_INSPECT_COMMANDS = [
+    "analyze",
+    "analyze-now",
+    "attention",
+    "calibrate",
+    "clarity",
+    "craft-trends",
+    "critique",
+    "cross-session",
+    "deep-report",
+    "drift",
+    "epistemic",
+    "knowledge",
+    "outcomes",
+    "patterns",
+    "predict",
+    "report",
+    "scan",
+    "self-model",
+    "sessions",
+    "user-model",
+    "user-signal",
+]
+
+for name in _ADMIN_COMMANDS:
+    cmd = cli.commands.pop(name, None)
+    if cmd:
+        admin_group.add_command(cmd, name)
+
+for name in _INSPECT_COMMANDS:
+    cmd = cli.commands.pop(name, None)
+    if cmd:
+        inspect_group.add_command(cmd, name)
+
 
 if __name__ == "__main__":
     cli()
