@@ -134,7 +134,7 @@ def register(cli: click.Group) -> None:
                 click.echo(f"  ? {g.get('question', '?')[:100]}")
                 click.secho(f"    [{g.get('category', '?')}]", fg="bright_black")
         else:
-            click.echo("No gaps found — knowledge store looks complete.")
+            click.echo("No gaps found -- knowledge store looks complete.")
 
     @curiosity_group.command("shelve")
     @click.argument("question")

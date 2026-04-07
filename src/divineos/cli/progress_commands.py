@@ -81,8 +81,8 @@ def register(cli: click.Group) -> None:
                     session = "unknown"
 
             record_rating(session, rating, comment)
-            stars = "★" * rating + "☆" * (10 - rating)
-            click.secho(f"[+] Rated {rating}/10 {stars}", fg="green")
+            stars = "*" * rating + "." * (10 - rating)
+            click.secho(f"[+] Rated {rating}/10 [{stars}]", fg="green")
             if comment:
                 click.secho(f"    {comment}", fg="bright_black")
         except _PC_ERRORS as e:
@@ -145,10 +145,10 @@ def register(cli: click.Group) -> None:
                 import time as _time
 
                 ts = _time.strftime("%Y-%m-%d", _time.localtime(r["created_at"]))
-                stars = "★" * r["rating"] + "☆" * (10 - r["rating"])
-                line = f"  {ts}  {r['session_id'][:12]}  {stars} {r['rating']}/10"
+                stars = "*" * r["rating"] + "." * (10 - r["rating"])
+                line = f"  {ts}  {r['session_id'][:12]}  [{stars}] {r['rating']}/10"
                 if r["comment"]:
-                    line += f"  — {r['comment']}"
+                    line += f"  -- {r['comment']}"
                 click.echo(line)
         except _PC_ERRORS as e:
             click.secho(f"[!] Failed to load ratings: {e}", fg="red")
