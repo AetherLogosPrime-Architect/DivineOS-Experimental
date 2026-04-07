@@ -267,6 +267,7 @@ def generate_briefing(
     # Find what changed recently (last 24h) for the "what's new" section
     recent_cutoff = now - 86400
     recent_changes: list[dict[str, Any]] = []
+    promotion_count = 0
     # Check ALL non-superseded entries, not just top-N briefing items
     for entry in [_row_to_dict(row) for row in rows]:
         if entry["updated_at"] < recent_cutoff:
@@ -283,13 +284,17 @@ def generate_briefing(
                 }
             )
         elif was_promoted:
-            recent_changes.append(
-                {
-                    "label": f"PROMOTED {mat}",
-                    "type": entry["knowledge_type"],
-                    "content": entry["content"].replace("\n", " ")[:100],
-                }
-            )
+            # Count promotions but don't list each one — the maturity
+            # pyramid already shows the aggregate counts
+            promotion_count += 1
+    if promotion_count > 0:
+        recent_changes.append(
+            {
+                "label": "PROMOTIONS",
+                "type": "",
+                "content": f"{promotion_count} entries promoted to higher maturity",
+            }
+        )
 
     return _format_briefing(
         entries,
@@ -629,7 +634,8 @@ def _format_briefing(
     if recent_changes:
         lines.append(f"### RECENT CHANGES ({len(recent_changes)})")
         for rc in recent_changes[:5]:
-            lines.append(f"- [{rc['label']}] {rc['type']}: {rc['content']}")
+            type_prefix = f"{rc['type']}: " if rc["type"] else ""
+            lines.append(f"- [{rc['label']}] {type_prefix}{rc['content']}")
         if len(recent_changes) > 5:
             lines.append(f"  ...and {len(recent_changes) - 5} more")
         lines.append("")

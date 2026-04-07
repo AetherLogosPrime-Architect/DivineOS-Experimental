@@ -559,13 +559,13 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         for kid, current_access in current_rows:
             start_access = access_snapshot.get(kid, 0)
             delta = current_access - start_access
-            if delta >= 2:
+            if delta >= 1:
                 increment_corroboration(kid)
                 promote_maturity(kid)
                 corroborated += 1
         if corroborated:
             click.secho(
-                f"[~] Corroborated {corroborated} knowledge entries (accessed 2+ times).",
+                f"[~] Corroborated {corroborated} knowledge entries (accessed this session).",
                 fg="cyan",
             )
     except _PHASE_ERRORS as e:

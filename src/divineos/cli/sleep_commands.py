@@ -5,6 +5,120 @@ import sqlite3
 import click
 
 
+def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
+    """Preview what each sleep phase would find without modifying data."""
+    # Phase 1: Consolidation preview
+    click.echo("  Phase 1: Knowledge Consolidation")
+    try:
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.constants import (
+            MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
+            MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
+            MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+        )
+
+        conn = _get_connection()
+        rows = conn.execute(
+            "SELECT maturity, corroboration_count, confidence FROM knowledge "
+            "WHERE superseded_by IS NULL"
+        ).fetchall()
+        conn.close()
+
+        promotable = {"HYPOTHESIS->TESTED": 0, "TESTED->CONFIRMED": 0}
+        for mat, corrob, conf in rows:
+            if mat == "HYPOTHESIS" and corrob >= MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION:
+                promotable["HYPOTHESIS->TESTED"] += 1
+            elif (
+                mat == "TESTED"
+                and corrob >= MATURITY_TESTED_TO_CONFIRMED_CORROBORATION
+                and conf >= MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE
+            ):
+                promotable["TESTED->CONFIRMED"] += 1
+
+        total_promotable = sum(promotable.values())
+        if total_promotable:
+            for transition, count in promotable.items():
+                if count:
+                    click.echo(f"    Would promote {count} entries: {transition}")
+        else:
+            click.echo(f"    {len(rows)} entries scanned, no promotions ready")
+            # Show why
+            hyp = [r for r in rows if r[0] == "HYPOTHESIS"]
+            tested = [r for r in rows if r[0] == "TESTED"]
+            if hyp:
+                max_corrob = max(r[1] for r in hyp)
+                click.echo(
+                    f"    HYPOTHESIS: {len(hyp)} entries, max corroboration={max_corrob} (need {MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION})"
+                )
+            if tested:
+                max_corrob = max(r[1] for r in tested)
+                click.echo(
+                    f"    TESTED: {len(tested)} entries, max corroboration={max_corrob} (need {MATURITY_TESTED_TO_CONFIRMED_CORROBORATION} + conf>={MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE})"
+                )
+    except (sqlite3.OperationalError, ImportError, OSError) as e:
+        click.echo(f"    [error: {e}]")
+
+    # Phase 2: Pruning preview
+    click.echo("  Phase 2: Pruning")
+    try:
+        conn = _get_connection()
+        orphans = conn.execute(
+            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND access_count = 0 "
+            "AND created_at < (strftime('%s','now') - 86400)"
+        ).fetchone()[0]
+        stale = conn.execute(
+            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND confidence < 0.3"
+        ).fetchone()[0]
+        conn.close()
+        click.echo(f"    Orphan entries (never accessed, >24h old): {orphans}")
+        click.echo(f"    Low-confidence entries (<0.3): {stale}")
+    except (sqlite3.OperationalError, ImportError, OSError) as e:
+        click.echo(f"    [error: {e}]")
+
+    # Phase 3: Affect preview
+    click.echo("  Phase 3: Affect Recalibration")
+    try:
+        from divineos.core.ledger import _get_db_path
+
+        conn = sqlite3.connect(_get_db_path())
+        total_affect = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE event_type = 'AFFECT_STATE'"
+        ).fetchone()[0]
+        old_affect = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE event_type = 'AFFECT_STATE' "
+            "AND created_at < (strftime('%s','now') - 172800)"
+        ).fetchone()[0]
+        conn.close()
+        click.echo(f"    Total affect entries: {total_affect}, eligible for decay: {old_affect}")
+    except (sqlite3.OperationalError, ImportError, OSError) as e:
+        click.echo(f"    [error: {e}]")
+
+    # Phase 4
+    if not skip_maintenance:
+        click.echo("  Phase 4: Maintenance -- VACUUM, log cleanup")
+
+    # Phase 5: Recombination preview
+    click.echo("  Phase 5: Creative Recombination")
+    try:
+        conn = _get_connection()
+        active_count = conn.execute(
+            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL"
+        ).fetchone()[0]
+        existing_edges = conn.execute(
+            "SELECT COUNT(*) FROM knowledge_edges WHERE status = 'ACTIVE'"
+        ).fetchone()[0]
+        conn.close()
+        click.echo(f"    Active entries to scan: {active_count}")
+        click.echo(f"    Existing edges: {existing_edges}")
+    except (sqlite3.OperationalError, ImportError, OSError) as e:
+        click.echo(f"    [error: {e}]")
+
+    # Phase 6
+    click.echo("  Phase 6: Curiosity Generation")
+    click.echo("")
+    click.echo("  No data will be modified in dry-run mode.")
+
+
 def register(cli: click.Group) -> None:
     """Register sleep commands."""
 
@@ -30,15 +144,8 @@ def register(cli: click.Group) -> None:
         )
 
         if dry_run:
-            click.secho("Sleep dry-run — showing what would happen:\n", fg="cyan")
-            click.echo("  Phase 1: Knowledge Consolidation -- full maturity lifecycle pass")
-            click.echo("  Phase 2: Pruning -- health check + hygiene + contradiction scan")
-            click.echo("  Phase 3: Affect Recalibration -- decay old emotions, compute baseline")
-            if not skip_maintenance:
-                click.echo("  Phase 4: Maintenance -- VACUUM, log rotation, cache pruning")
-            click.echo("  Phase 5: Creative Recombination -- cross-knowledge similarity scan")
-            click.echo("  Phase 6: Curiosity Generation -- auto-generate questions from gaps")
-            click.echo("\n  No data will be modified in dry-run mode.")
+            click.secho("Sleep dry-run -- previewing what each phase would find:\n", fg="cyan")
+            _preview_sleep_phases(skip_maintenance)
             return
 
         # Single phase mode
