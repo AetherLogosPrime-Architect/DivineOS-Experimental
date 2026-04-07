@@ -215,6 +215,7 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 4. **Append-only data.** The ledger and knowledge store never delete or update in place. Supersede instead. Exception: tool telemetry (TOOL_CALL/TOOL_RESULT) is ephemeral — pruned on a conveyor belt to prevent unbounded growth. These are operational noise, not knowledge.
 5. **Run tests after code changes.** `pytest tests/ -q --tb=short` — if tests fail, fix them before moving on.
 6. **Use the memory system.** Load your briefing, learn from it, log your work. This is not optional.
+7. **Preflight before committing.** Run `bash scripts/precommit.sh` BEFORE `git commit`. It auto-formats, runs all checks, and re-stages. Then commit succeeds first try. Never commit blind — the pre-commit hook has 6 gates and failing them serially wastes massive time.
 
 ### Anti-Vibe-Code Patterns
 
