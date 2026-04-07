@@ -128,17 +128,34 @@ def _score_recent_sessions(report: ProgressReport, sessions: list[dict]) -> None
     import json
 
     scores: list[float] = []
-    for session in sessions[-10:]:
-        payload = session.get("payload", {})
-        if isinstance(payload, str):
-            try:
-                payload = json.loads(payload)
-            except (json.JSONDecodeError, TypeError):
-                payload = {}
-        # SESSION_END payloads sometimes include a health score
-        score = payload.get("health_score")
-        if score is not None:
-            scores.append(float(score))
+
+    # Read grades from session_validation table (where record_self_grade stores them)
+    try:
+        from divineos.core.knowledge._base import _get_connection as _kconn
+
+        conn = _kconn()
+        try:
+            rows = conn.execute(
+                "SELECT self_score FROM session_validation ORDER BY created_at DESC LIMIT 10"
+            ).fetchall()
+            scores = [float(r[0]) for r in rows if r[0] is not None]
+        finally:
+            conn.close()
+    except (ImportError, sqlite3.OperationalError):
+        pass
+
+    # Fallback: check SESSION_END payloads
+    if not scores:
+        for session in sessions[-10:]:
+            payload = session.get("payload", {})
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except (json.JSONDecodeError, TypeError):
+                    payload = {}
+            score = payload.get("health_score")
+            if score is not None:
+                scores.append(float(score))
 
     if scores:
         report.avg_health_score = sum(scores) / len(scores)
@@ -294,22 +311,10 @@ def _gather_behavioral_indicators(report: ProgressReport) -> None:
         if session_count > 0:
             report.briefing_compliance = min(1.0, briefing_count / session_count)
 
-        # Count distinct OS tool usage from TOOL_CALL events
-        tool_events = get_events(event_type="TOOL_CALL", limit=500)
-        os_tools = set()
-        for evt in tool_events:
-            payload = evt.get("payload", {})
-            if isinstance(payload, str):
-                import json
-
-                try:
-                    payload = json.loads(payload)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-            tool_name = payload.get("tool_name", "")
-            if tool_name.startswith("divineos"):
-                os_tools.add(tool_name)
-        report.os_tools_used = len(os_tools)
+        # Count distinct OS tool usage from OS_QUERY events (logged when
+        # the user runs divineos ask, recall, context, decide, etc.)
+        os_query_events = get_events(event_type="OS_QUERY", limit=500)
+        report.os_tools_used = len(os_query_events)
 
     except (ImportError, OSError, KeyError, sqlite3.OperationalError) as exc:
         logger.debug(f"Behavioral indicators gather failed: {exc}")
