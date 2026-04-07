@@ -54,6 +54,12 @@ class ProgressReport:
     avg_engagement_actions: int = 0
     os_tools_used: int = 0  # distinct OS tool types used
 
+    # User ratings (external ground truth)
+    user_rating_avg: float = 0.0
+    user_rating_count: int = 0
+    user_rating_trend: str = "no_data"
+    goodhart_correlation: str = "no_data"  # strong/moderate/weak/no_data
+
     # Metadata
     generated_at: float = field(default_factory=time.time)
     lookback_days: int = 30
@@ -101,6 +107,7 @@ def gather_progress(lookback_days: int = 30) -> ProgressReport:
     _gather_learning_evidence(report, lookback_days)
     _gather_system_health(report, lookback_days)
     _gather_behavioral_indicators(report)
+    _gather_user_ratings(report)
 
     return report
 
@@ -320,6 +327,23 @@ def _gather_behavioral_indicators(report: ProgressReport) -> None:
         logger.debug(f"Behavioral indicators gather failed: {exc}")
 
 
+def _gather_user_ratings(report: ProgressReport) -> None:
+    """User satisfaction — the external ground truth metric."""
+    try:
+        from divineos.core.user_ratings import correlate_with_internal, get_rating_stats
+
+        stats = get_rating_stats()
+        report.user_rating_avg = stats["avg"]
+        report.user_rating_count = stats["count"]
+        report.user_rating_trend = stats["trend"]
+
+        if stats["count"] >= 3:
+            correlation = correlate_with_internal()
+            report.goodhart_correlation = correlation.get("correlation", "no_data")
+    except (ImportError, OSError, KeyError, sqlite3.OperationalError) as exc:
+        logger.debug(f"User ratings gather failed: {exc}")
+
+
 def format_progress_text(report: ProgressReport) -> str:
     """Format the progress report as human-readable text."""
     lines: list[str] = []
@@ -382,6 +406,16 @@ def format_progress_text(report: ProgressReport) -> str:
     lines.append(f"  Briefing compliance: {report.briefing_compliance:.0%}")
     lines.append(f"  OS tools used:       {report.os_tools_used} distinct tools")
     lines.append("")
+
+    # Section 6: User Satisfaction (external ground truth)
+    if report.user_rating_count > 0:
+        lines.append("-- User Satisfaction (Ground Truth) --")
+        lines.append(f"  Average rating:     {report.user_rating_avg}/10")
+        lines.append(f"  Sessions rated:     {report.user_rating_count}")
+        lines.append(f"  Trend:              {_format_trend(report.user_rating_trend)}")
+        if report.goodhart_correlation != "no_data":
+            lines.append(f"  Goodhart check:     {report.goodhart_correlation}")
+        lines.append("")
 
     return "\n".join(lines)
 
