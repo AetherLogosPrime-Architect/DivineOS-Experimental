@@ -376,10 +376,13 @@ def _build_os_engagement_slot() -> str:
     # Get recent events (newest first) and find session boundary
     all_events = get_recent_context(n=200, meaningful_only=False)
 
-    # Events are newest-first. Walk forward until SESSION_END = session boundary
+    # Events are newest-first. Walk forward until BRIEFING_LOADED = session start.
+    # Using BRIEFING_LOADED instead of SESSION_END because SESSION_END marks the
+    # end of a prior session — everything between the last BRIEFING_LOADED and now
+    # is the current working session.
     session_events = []
     for event in all_events:
-        if event["event_type"] == "SESSION_END":
+        if event["event_type"] == "BRIEFING_LOADED":
             break
         session_events.append(event)
 
