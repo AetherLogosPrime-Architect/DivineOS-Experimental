@@ -615,9 +615,12 @@ class FullSessionAnalysis:
     evidence_hash: str = ""
 
 
-def run_all_features(file_path: Path) -> FullSessionAnalysis:
+def run_all_features(
+    file_path: Path,
+    since_timestamp: float | None = None,
+) -> FullSessionAnalysis:
     """Run features 3, 5, 6, 8, 9, 10 on a session file."""
-    records = _load_records(file_path)
+    records = _load_records(file_path, since_timestamp=since_timestamp)
     result_map = _build_tool_result_map(records)
 
     # Count user messages for tone report

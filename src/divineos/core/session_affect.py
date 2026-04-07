@@ -145,6 +145,6 @@ def auto_log_session_affect(
             session_id=getattr(analysis, "session_id", "")[:12],
         )
         return entry_id
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, KeyError, OSError) as e:
         logger.warning("Failed to auto-log session affect: %s", e)
         return None

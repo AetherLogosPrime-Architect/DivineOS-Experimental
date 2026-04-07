@@ -460,9 +460,12 @@ def check_honesty(
 # --- Orchestrator ---
 
 
-def run_all_checks(file_path: Path) -> SessionReport:
+def run_all_checks(
+    file_path: Path,
+    since_timestamp: float | None = None,
+) -> SessionReport:
     """Run all 7 quality checks on a session file. Returns a complete report."""
-    records = _load_records(file_path)
+    records = _load_records(file_path, since_timestamp=since_timestamp)
     result_map = _build_tool_result_map(records)
 
     checks = [

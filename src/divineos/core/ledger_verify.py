@@ -111,14 +111,30 @@ def verify_all_events(skip_types: list[str] | None = None) -> dict[str, Any]:
     Also validates that payloads contain valid data (not corrupted).
 
     Args:
-        skip_types: Event types to exclude from verification.
+        skip_types: Event types to exclude from verification. Defaults to
+            ephemeral types that are pruned by the tool event conveyor belt
+            and ledger compressor — their deletion is intentional, not corruption.
 
     Requirements:
         - Requirement 7.3: Verify stored hash matches payload
         - Requirement 7.4: Flag event as corrupted if hash mismatch
         - Requirement 7.6: Validate payload content for data validity
     """
-    skip_set = set(skip_types) if skip_types else set()
+    # Ephemeral types pruned by tool_wrapper and ledger_compressor.
+    # Verifying these is meaningless — they're deleted by design.
+    if skip_types is None:
+        skip_types = [
+            "TOOL_CALL",
+            "TOOL_RESULT",
+            "AGENT_PATTERN",
+            "AGENT_PATTERN_UPDATE",
+            "AGENT_WORK",
+            "AGENT_WORK_OUTCOME",
+            "AGENT_LEARNING_AUDIT",
+            "AGENT_CONTEXT_COMPRESSION",
+            "LEDGER_COMPACTION",
+        ]
+    skip_set = set(skip_types)
 
     conn = get_connection()
     try:

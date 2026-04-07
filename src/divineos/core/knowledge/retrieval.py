@@ -530,6 +530,56 @@ def _format_briefing(
         lines.append(lessons_text)
         lines.append("")
 
+    # Last session emotional arc — so I know how yesterday ended
+    try:
+        from divineos.core.tone_texture import get_tone_history
+
+        tone_history = get_tone_history(limit=1)
+        if tone_history:
+            last = tone_history[0]
+            arc = last.get("arc_type", "unknown")
+            tone = last.get("overall_tone", "unknown")
+            peak = last.get("peak_intensity", 0.0)
+            narrative = last.get("narrative", "")
+            upset_n = last.get("upset_count", 0)
+            recovery_n = last.get("recovery_count", 0)
+
+            lines.append("### LAST SESSION EMOTIONAL ARC")
+            lines.append(f"  Arc: {arc} | Tone: {tone} | Peak intensity: {peak:.2f}")
+            if upset_n > 0:
+                recovery_pct = f"{recovery_n / upset_n:.0%}" if upset_n else "N/A"
+                lines.append(f"  Upsets: {upset_n} | Recoveries: {recovery_n} ({recovery_pct})")
+            if narrative:
+                display_narrative = narrative.replace("\n", " ")
+                if len(display_narrative) > 150:
+                    display_narrative = display_narrative[:147] + "..."
+                lines.append(f"  Story: {display_narrative}")
+            lines.append("")
+    except _RETRIEVAL_ERRORS:
+        pass
+
+    # Open curiosities — questions generated during sleep or filed manually
+    try:
+        from divineos.core.curiosity_engine import get_open_curiosities
+
+        open_q = get_open_curiosities()
+        if open_q:
+            lines.append(f"### OPEN QUESTIONS ({len(open_q)})")
+            for q in open_q[:3]:
+                status_icon = "?" if q.get("status") == "OPEN" else "->"
+                question_text = q.get("question", "")
+                if len(question_text) > 120:
+                    question_text = question_text[:117] + "..."
+                lines.append(f"  {status_icon} {question_text}")
+                cat = q.get("category", "")
+                if cat and cat != "general":
+                    lines.append(f"    [{cat}]")
+            if len(open_q) > 3:
+                lines.append(f"  ...and {len(open_q) - 3} more (run: divineos curiosity list)")
+            lines.append("")
+    except _RETRIEVAL_ERRORS:
+        pass
+
     lines.extend(_format_knowledge_sections(grouped, hint_matches))
 
     # Graph connections — show relationships between briefing entries

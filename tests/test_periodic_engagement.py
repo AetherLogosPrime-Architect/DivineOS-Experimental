@@ -41,6 +41,7 @@ class TestPeriodicEngagement:
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
         ):
             mark_engaged()
             assert is_engaged() is True
@@ -101,6 +102,7 @@ class TestPeriodicEngagement:
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
         ):
             mark_engaged()
             for _ in range(_ENGAGEMENT_DECAY_THRESHOLD + 2):
@@ -214,6 +216,7 @@ class TestPreflight:
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._count_session_tool_calls", return_value=5),
+            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
         ):
             mark_engaged()
             for _ in range(_ENGAGEMENT_DECAY_THRESHOLD + 1):
@@ -240,8 +243,11 @@ class TestContextAwareThreshold:
         """Without staged files, use the base threshold."""
         from divineos.core.hud_handoff import _active_threshold
 
-        # Mock git returning 0 (no staged changes)
-        with patch("subprocess.run") as mock_run:
+        # Mock git returning 0 (no staged changes) and no flow state
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
+        ):
             mock_run.return_value.returncode = 0
             assert _active_threshold() == _ENGAGEMENT_DECAY_THRESHOLD
 
@@ -252,8 +258,11 @@ class TestContextAwareThreshold:
             _active_threshold,
         )
 
-        # Mock git returning 1 (staged changes exist)
-        with patch("subprocess.run") as mock_run:
+        # Mock git returning 1 (staged changes exist) and no flow state
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
+        ):
             mock_run.return_value.returncode = 1
             assert _active_threshold() == _ENGAGEMENT_COMMIT_THRESHOLD
 
@@ -284,5 +293,97 @@ class TestContextAwareThreshold:
         """If git is unavailable, use base threshold."""
         from divineos.core.hud_handoff import _active_threshold
 
-        with patch("subprocess.run", side_effect=FileNotFoundError):
+        with (
+            patch("subprocess.run", side_effect=FileNotFoundError),
+            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
+        ):
             assert _active_threshold() == _ENGAGEMENT_DECAY_THRESHOLD
+
+
+class TestFlowState:
+    """Flow state detection — high velocity work loops get higher threshold."""
+
+    def test_flow_state_detected_at_high_velocity(self, tmp_path: Path) -> None:
+        """Rapid actions (< 10s apart on average) trigger flow state."""
+        from divineos.core.hud_handoff import _is_flow_state
+
+        with patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path):
+            # Simulate: engaged 30 seconds ago, 10 actions since → 3s per action
+            marker = {
+                "engaged_at": 1000.0,
+                "code_actions_since": 10,
+                "last_action_at": 1030.0,
+            }
+            (tmp_path / ".session_engaged").write_text(json.dumps(marker))
+            assert _is_flow_state() is True
+
+    def test_no_flow_state_at_low_velocity(self, tmp_path: Path) -> None:
+        """Slow actions (> 10s apart) are not flow state."""
+        from divineos.core.hud_handoff import _is_flow_state
+
+        with patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path):
+            # Simulate: engaged 300 seconds ago, 10 actions since → 30s per action
+            marker = {
+                "engaged_at": 1000.0,
+                "code_actions_since": 10,
+                "last_action_at": 1300.0,
+            }
+            (tmp_path / ".session_engaged").write_text(json.dumps(marker))
+            assert _is_flow_state() is False
+
+    def test_no_flow_state_with_few_actions(self, tmp_path: Path) -> None:
+        """Need at least 5 actions to detect flow pattern."""
+        from divineos.core.hud_handoff import _is_flow_state
+
+        with patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path):
+            marker = {
+                "engaged_at": 1000.0,
+                "code_actions_since": 3,
+                "last_action_at": 1005.0,
+            }
+            (tmp_path / ".session_engaged").write_text(json.dumps(marker))
+            assert _is_flow_state() is False
+
+    def test_flow_state_raises_threshold(self, tmp_path: Path) -> None:
+        """Flow state pushes threshold to 50."""
+        from divineos.core.hud_handoff import _FLOW_STATE_THRESHOLD, _active_threshold
+
+        with (
+            patch("divineos.core.hud_handoff._is_flow_state", return_value=True),
+        ):
+            assert _active_threshold() == _FLOW_STATE_THRESHOLD
+
+    def test_flow_state_threshold_value(self) -> None:
+        """Flow state threshold is 50."""
+        from divineos.core.hud_handoff import _FLOW_STATE_THRESHOLD
+
+        assert _FLOW_STATE_THRESHOLD == 50
+
+    def test_no_flow_state_without_marker(self, tmp_path: Path) -> None:
+        """No engagement marker = no flow state."""
+        from divineos.core.hud_handoff import _is_flow_state
+
+        with patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path):
+            assert _is_flow_state() is False
+
+    def test_flow_state_keeps_agent_engaged(self, tmp_path: Path) -> None:
+        """In flow state, 20 actions should still be engaged."""
+        import time as _time
+
+        with (
+            patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
+            patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+        ):
+            mark_engaged()
+
+            # Simulate rapid-fire actions by writing the marker directly
+            marker = {
+                "engaged_at": _time.time() - 20,  # started 20s ago
+                "code_actions_since": 20,
+                "last_action_at": _time.time(),  # last action now
+            }
+            (tmp_path / ".session_engaged").write_text(json.dumps(marker))
+
+            # 20 actions in 20 seconds = 1s per action → flow state
+            # Should be engaged despite exceeding base threshold (15)
+            assert is_engaged() is True

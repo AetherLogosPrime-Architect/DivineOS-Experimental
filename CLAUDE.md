@@ -81,6 +81,11 @@ divineos sleep --dry-run                           # Preview what would happen
 divineos sleep --phase consolidation               # Run single phase
 divineos sleep --skip-maintenance                  # Skip VACUUM/log/cache phase
 
+# Progress dashboard
+divineos progress                                  # Full measurable metrics
+divineos progress --brief                          # 3-line summary
+divineos progress --export                         # Shareable markdown
+
 # Self-awareness (Butlin consciousness indicators)
 divineos attention         # What I'm attending to, suppressing, and why
 divineos epistemic         # How I know what I know (observed/told/inferred/inherited)
@@ -143,212 +148,61 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Self-Critique** — Automatic craft quality assessment across 5 spectrums (elegance, thoroughness, autonomy, proportionality, communication). Trend tracking.
 - **Proactive Patterns** — Prescriptive recommendations from positive experience. Complements anticipation (warnings) with what worked well.
 - **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination. Dream report summarizes what changed.
-- **Expert Council** — Six permanent thinking lenses (Feynman, Holmes, Pearl, Hinton, Yudkowsky, Turing) for structured diagnosis. Not agents -- reasoning templates.
-- **External Validation** — Breaks self-referential grading loop. Records self-grades, accepts user feedback, tracks accuracy over time.
-- **Knowledge Impact** — Measures whether loaded knowledge actually prevents corrections. Causal chain from briefing to session outcomes.
-- **Dead Architecture Alarm** — Detects dormant modules (tables with zero rows, empty HUD slots). Recursive self-test. Wired into SESSION_END and HUD.
-- **Convergence Detection** — Tags entries with evidence chains, detects overlapping conclusions from independent reasoning paths.
-- **Session Reflection** — Structured self-assessment before regex extraction. Detects session character, recovery arcs, and session-level learnings that regex cannot capture.
+- **Progress Dashboard** — Measurable metrics from real data: session trajectory, knowledge growth, correction trends, system health, behavioral indicators. Three output modes (full, brief, export markdown).
 
 ## Project Structure
 
 ```
 src/divineos/
-├── cli/                        # CLI package (commands grouped by domain)
-│   ├── __init__.py             # CLI entry point and command registration
-│   ├── _helpers.py             # Shared CLI utilities (safe_echo, formatting)
-│   ├── _wrappers.py            # Wrapped imports for core modules
-│   ├── session_pipeline.py     # SESSION_END orchestrator (calls phases)
-│   ├── pipeline_gates.py       # Enforcement gates (quality, briefing, engagement)
-│   ├── pipeline_phases.py      # Heavy-lifting phases (feedback, scoring, finalization)
-│   ├── knowledge_commands.py   # learn, ask, briefing, forget, lessons
-│   ├── knowledge_health_commands.py  # health, distill, migrate
-│   ├── analysis_commands.py    # analyze, report, trends
-│   ├── hud_commands.py         # hud, goal, plan commands
-│   ├── journal_commands.py     # journal save/list/search/link
-│   ├── directive_commands.py   # directive management
-│   ├── entity_commands.py      # questions, relationships, knowledge entities
-│   ├── decision_commands.py    # decide, decisions list/search/shifts
-│   ├── claim_commands.py       # claim, claims list/evidence/assess/search
-│   ├── compass_commands.py     # compass, compass-ops observe/history/summary
-│   ├── body_commands.py        # body awareness / substrate vitals
-│   ├── selfmodel_commands.py   # attention, epistemic, self-model
-│   ├── insight_commands.py     # feel, affect, sis, anticipation
-│   ├── memory_commands.py      # recall, active, refresh, core memory ops
-│   ├── event_commands.py       # emit, log, context, verify
-│   └── ledger_commands.py      # ledger-level commands
-├── seed.json                   # Initial knowledge seed (versioned)
+├── cli/                      # CLI package (138 commands across 24 modules)
+│   ├── __init__.py           # CLI entry point and command registration
+│   ├── session_pipeline.py   # SESSION_END orchestrator (calls phases)
+│   ├── pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
+│   ├── pipeline_phases.py    # Heavy-lifting phases (feedback, scoring, finalization)
+│   ├── knowledge_commands.py # learn, ask, briefing, forget, lessons
+│   ├── analysis_commands.py  # analyze, report, trends
+│   ├── hud_commands.py       # hud, goal, plan commands
+│   ├── journal_commands.py   # journal save/list/search/link
+│   ├── directive_commands.py # directive management
+│   ├── entity_commands.py    # questions, relationships, knowledge entities
+│   └── knowledge_health_commands.py  # health, distill, migrate
+├── seed.json                 # Initial knowledge seed (versioned)
 ├── core/
-│   ├── ledger.py               # Append-only event ledger (public API)
-│   ├── _ledger_base.py         # DB connection, path resolution, hashing
-│   ├── memory.py               # Core memory slots, active memory, importance scoring
-│   ├── active_memory.py        # Active memory ranking and refresh
-│   ├── core_memory_refresh.py  # Core memory slot updates
-│   ├── memory_journal.py       # Personal journal (save/list/search/link)
-│   ├── memory_sync.py          # Auto-sync DivineOS state to Claude Code memory files
-│   ├── hud.py                  # HUD slot builders and assembly
-│   ├── hud_state.py            # Goal/plan/health state management
-│   ├── hud_handoff.py          # Session handoff, engagement, goal extraction
-│   ├── _hud_io.py              # HUD directory and file I/O
-│   ├── knowledge/              # Knowledge engine sub-package
-│   │   ├── _base.py            # DB connection, schema, row helpers
-│   │   ├── _text.py            # Text analysis (FTS, overlap, noise filtering)
-│   │   ├── crud.py             # Store, get, update, supersede knowledge
-│   │   ├── extraction.py       # Knowledge extraction from sessions
-│   │   ├── deep_extraction.py  # Deep multi-pass extraction
-│   │   ├── retrieval.py        # Briefing, search, ranked retrieval
-│   │   ├── curation.py         # Dedup, pruning, archive stratification
-│   │   ├── compression.py      # Knowledge compression and summarization
-│   │   ├── edges.py            # Knowledge graph edges
-│   │   ├── graph_retrieval.py  # Graph-based knowledge retrieval
-│   │   ├── feedback.py         # Session feedback application
-│   │   ├── lessons.py          # Lesson tracking across sessions
-│   │   ├── migration.py        # Knowledge type migration
-│   │   ├── relationships.py    # Entity relationships
-│   │   └── temporal.py         # Time-bounded knowledge queries
-│   ├── council/                # Expert Council (MoE thinking lenses)
-│   │   ├── engine.py           # Council convene, filter, synthesize
-│   │   ├── framework.py        # ExpertWisdom dataclass, analysis types
-│   │   └── experts/            # Six permanent experts
-│   │       ├── feynman.py      # First principles, explanation depth
-│   │       ├── holmes.py       # Evidence-based deduction, anomalies
-│   │       ├── pearl.py        # Causal reasoning, counterfactuals
-│   │       ├── hinton.py       # Architecture patterns, representation
-│   │       ├── yudkowsky.py    # Alignment, Goodhart, self-modification
-│   │       └── turing.py       # Distinguishability, testability
-│   ├── logic/                  # Formal reasoning and warrant validation
-│   │   ├── logic_reasoning.py  # Logical inference engine
-│   │   ├── logic_session.py    # Session-scoped reasoning context
-│   │   ├── logic_validation.py # Argument validation
-│   │   └── warrants.py         # Warrant storage and retrieval
-│   ├── affect.py               # VAD affect log (valence-arousal-dominance)
-│   ├── affect_calibration.py   # Affect-extraction correlation tracking
-│   ├── session_affect.py       # Auto-derive session affect from analysis
-│   ├── moral_compass.py        # Virtue ethics spectrums and drift detection
-│   ├── attention_schema.py     # Attention modeling (Butlin 9-10)
-│   ├── epistemic_status.py     # How I know what I know (Butlin 14)
-│   ├── self_model.py           # Unified self-picture from evidence
-│   ├── self_critique.py        # Craft quality assessment (5 spectrums)
-│   ├── body_awareness.py       # Computational interoception (DB health)
-│   ├── tone_texture.py         # Rich emotional classification
-│   ├── growth.py               # Session-over-session improvement tracking
-│   ├── decision_journal.py     # Decision capture with reasoning
-│   ├── claim_store.py          # Claims engine (5 evidence tiers)
-│   ├── opinion_store.py        # First-class opinions separate from facts
-│   ├── user_model.py           # User preferences and skill tracking
-│   ├── communication_calibration.py  # Output density adaptation
-│   ├── advice_tracking.py      # Long-term recommendation feedback loops
-│   ├── anticipation.py         # Pattern-based proactive warnings
-│   ├── proactive_patterns.py   # Prescriptive recommendations from experience
-│   ├── convergence_detector.py # Cross-entity evidence chain overlap
-│   ├── external_validation.py  # Self-grade accuracy vs user feedback
-│   ├── knowledge_impact.py     # Causal chain: briefing -> fewer corrections
-│   ├── dead_architecture_alarm.py  # Dormant module detection
-│   ├── semantic_integrity.py   # SIS core assessment
-│   ├── sis_tiers.py            # Three-tier lexical/statistical/semantic
-│   ├── sis_self_audit.py       # SIS pipeline self-audit
-│   ├── guardrails.py           # Runtime limits (iterations, tool calls, tokens)
-│   ├── quality_gate.py         # Block/downgrade knowledge from bad sessions
-│   ├── knowledge_maintenance.py # Staleness, contradiction, maturity lifecycle
-│   ├── seed_manager.py         # Versioned seed with merge mode
-│   ├── enforcement.py          # Rule enforcement framework
-│   ├── enforcement_verifier.py # Verify enforcement is active
-│   ├── planning_commitments.py # Commitment tracking from plans
-│   ├── session_checkpoint.py   # Mid-session auto-checkpoints
-│   ├── session_manager.py      # Session state management
-│   ├── predictive_session.py   # Session outcome prediction
-│   ├── tool_capture.py         # Tool call telemetry capture
-│   ├── tool_wrapper.py         # Tool execution wrapping (guardrails)
-│   ├── questions.py            # Open question tracking
-│   ├── goal_cull.py            # Stale goal cleanup
-│   ├── drift_detection.py      # Configuration/behavior drift
-│   ├── loop_prevention.py      # Infinite loop detection
-│   ├── error_handling.py       # Centralized error handling
-│   ├── event_verifier.py       # Event integrity verification
-│   ├── ledger_compressor.py    # Ledger pruning (tool telemetry)
-│   ├── ledger_verify.py        # Ledger hash chain verification
-│   ├── fidelity.py             # Fidelity scoring
-│   ├── trust_tiers.py          # Trust level management
-│   ├── skill_library.py        # Learned skill patterns
-│   ├── curiosity_engine.py     # Curiosity-driven exploration
-│   ├── value_tensions.py       # Value conflict detection
-│   ├── constants.py            # Shared constants
-│   └── parser.py               # Content parsing utilities
+│   ├── ledger.py             # Append-only event ledger (core read/write/search)
+│   ├── memory.py             # Core memory slots, active memory, importance scoring
+│   ├── memory_journal.py     # Personal journal (save/list/search/link)
+│   ├── hud.py                # HUD slot builders and assembly
+│   ├── hud_state.py          # Goal/plan/health state management
+│   ├── hud_handoff.py        # Session handoff, engagement, goal extraction
+│   ├── knowledge/            # Knowledge engine sub-package
+│   │   ├── _base.py          # DB connection, public get_connection() API
+│   │   ├── extraction.py     # Knowledge extraction from sessions
+│   │   ├── deep_extraction.py # Deep multi-pass extraction
+│   │   ├── feedback.py       # Session feedback application
+│   │   ├── migration.py      # Knowledge type migration
+│   │   └── _text.py          # Text analysis utilities (FTS, overlap, noise)
+│   └── ...                   # consolidation, quality gate, maturity, etc.
 ├── analysis/
-│   ├── analysis.py             # Core session analysis pipeline
-│   ├── analysis_types.py       # Analysis result types
-│   ├── _session_types.py       # Internal session type definitions
-│   ├── analysis_storage.py     # Report storage, cross-session trends
-│   ├── analysis_retrieval.py   # Report retrieval and formatting
-│   ├── quality_checks.py       # 7 measurable quality checks
-│   ├── quality_storage.py      # Quality report DB storage
-│   ├── quality_trends.py       # Session quality trending
-│   ├── record_extraction.py    # JSONL record parsing helpers
-│   ├── session_analyzer.py     # Signal detection (corrections, encouragements)
-│   ├── session_discovery.py    # Session file discovery
-│   ├── session_features.py     # Timeline, files, activity, error recovery
-│   ├── feature_storage.py      # Feature result DB storage
-│   └── tone_tracking.py        # Tone shift detection and classification
-├── agent_integration/          # Agent framework integration
-│   ├── base.py                 # Base agent integration types
-│   ├── types.py                # Shared types
-│   ├── outcome_measurement.py  # Rework detection, knowledge stability
-│   ├── memory_monitor.py       # Memory health monitoring
-│   ├── memory_actions.py       # Memory modification actions
-│   ├── learning_cycle.py       # Learning cycle orchestration
-│   ├── learning_loop.py        # Continuous learning loop
-│   ├── learning_audit_store.py # Learning audit trail
-│   ├── feedback_system.py      # Feedback collection and application
-│   ├── decision_store.py       # Decision storage for agents
-│   ├── pattern_store.py        # Pattern storage
-│   ├── pattern_recommender.py  # Pattern-based recommendations
-│   └── pattern_validation.py   # Pattern validation
-├── clarity_enforcement/        # Clarity enforcement hooks
-│   ├── config.py               # Enforcement configuration
-│   ├── enforcer.py             # Core enforcement engine
-│   ├── hooks.py                # Hook integration
-│   ├── semantic_analyzer.py    # Semantic analysis for clarity
-│   ├── violation_detector.py   # Violation detection
-│   └── violation_logger.py     # Violation logging
-├── clarity_system/             # Clarity rules and session integration
-│   ├── base.py                 # Base types
-│   ├── types.py                # Clarity system types
-│   ├── clarity_generator.py    # Generate clarity assessments
-│   ├── deviation_analyzer.py   # Detect deviations from plan
-│   ├── execution_analyzer.py   # Analyze execution quality
-│   ├── plan_analyzer.py        # Plan quality analysis
-│   ├── summary_generator.py    # Generate clarity summaries
-│   ├── event_integration.py    # Event system integration
-│   ├── session_bridge.py       # Session context bridge
-│   ├── session_integration.py  # Session lifecycle integration
-│   ├── hook_integration.py     # Hook system integration
-│   ├── ledger_integration.py   # Ledger integration
-│   └── learning_extractor.py   # Extract learnings from clarity data
-├── event/                      # Event types and dispatch
-│   ├── _event_context.py       # Event context management
-│   ├── event_capture.py        # Event capture from tool calls
-│   ├── event_dispatch.py       # Event routing and dispatch
-│   ├── event_emission.py       # Event emission API
-│   └── event_validation.py     # Event schema validation
-├── hooks/                      # Git and tool hook integration
-│   ├── clarity_enforcement.py  # Clarity hooks for git
-│   ├── hook_diagnostics.py     # Hook health diagnostics
-│   └── hook_validator.py       # Hook configuration validation
-├── integration/                # External system integration
-│   ├── mcp_event_capture_server.py  # MCP server for event capture
-│   └── system_monitor.py       # System resource monitoring
-├── supersession/               # Contradiction detection and resolution
-│   ├── contradiction_detector.py # Detect contradictory knowledge
-│   ├── resolution_engine.py    # Resolve contradictions
-│   ├── query_interface.py      # Query supersession chains
-│   ├── clarity_integration.py  # Clarity system bridge
-│   ├── event_integration.py    # Event system bridge
-│   └── ledger_integration.py   # Ledger bridge
-└── violations_cli/             # Violation reporting
-    └── violations_command.py   # CLI for violation queries
-tests/                          # 3,489+ tests (real DB, no mocks)
-data/                           # Runtime databases (gitignored)
-setup/                          # Hook setup scripts (setup-hooks.sh/.ps1)
+│   ├── analysis.py           # Core session analysis pipeline
+│   ├── analysis_storage.py   # Report storage, formatting, cross-session trends
+│   ├── quality_checks.py     # 7 measurable quality checks
+│   ├── record_extraction.py  # JSONL record parsing helpers
+│   ├── quality_storage.py    # Quality report DB storage
+│   ├── session_features.py   # Timeline, files, activity, error recovery features
+│   ├── tone_tracking.py      # Tone shift detection and classification
+│   ├── feature_storage.py    # Feature result DB storage
+│   └── session_analyzer.py   # Signal detection (corrections, encouragements)
+├── agent_integration/        # Outcome measurement, memory monitor, learning cycles
+├── clarity_enforcement/      # Clarity system
+├── clarity_system/           # Clarity rules and violation tracking
+├── event/                    # Event types and dispatch
+├── hooks/                    # Git hook integration
+├── integration/              # IDE and MCP integration
+├── supersession/             # Contradiction detection and resolution
+└── violations_cli/           # Violation reporting CLI
+tests/                        # 3,389+ tests (real DB, no mocks)
+data/                         # Runtime databases (gitignored)
+setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
 
 ## Rules for AI Assistants

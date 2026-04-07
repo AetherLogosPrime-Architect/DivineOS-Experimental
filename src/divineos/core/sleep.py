@@ -62,6 +62,10 @@ class DreamReport:
     connections_found: int = 0
     connection_details: list[dict[str, str]] = field(default_factory=list)
 
+    # Phase 6: Curiosity Generation
+    curiosities_generated: int = 0
+    curiosity_categories: list[str] = field(default_factory=list)
+
     # Errors (non-fatal — sleep continues through failures)
     phase_errors: dict[str, str] = field(default_factory=dict)
 
@@ -130,6 +134,12 @@ class DreamReport:
             logs = self.maintenance_results.get("logs", {})
             if logs.get("removed_count", 0) > 0:
                 lines.append(f"    Removed {logs['removed_count']} old log files")
+            transcripts = self.maintenance_results.get("transcripts", {})
+            if transcripts.get("removed_count", 0) > 0:
+                lines.append(
+                    f"    Cleaned {transcripts['removed_count']} transcript debris "
+                    f"({transcripts.get('freed_mb', 0):.1f}MB freed)"
+                )
         else:
             lines.append("    Skipped")
 
@@ -141,6 +151,15 @@ class DreamReport:
                 lines.append(f"    ~ {conn.get('summary', '?')}")
         else:
             lines.append("    No new connections found")
+
+        # Curiosity
+        lines.append("\n  Phase 6 — Curiosity Generation")
+        if self.curiosities_generated > 0:
+            lines.append(f"    Generated {self.curiosities_generated} question(s)")
+            for cat in self.curiosity_categories:
+                lines.append(f"    ? {cat}")
+        else:
+            lines.append("    No new questions generated")
 
         # Errors
         if self.phase_errors:
@@ -177,12 +196,22 @@ def _phase_consolidation(report: DreamReport) -> None:
 
 
 def _phase_pruning(report: DreamReport) -> None:
-    """Knowledge hygiene: health check + noise sweep + contradiction scan."""
+    """Knowledge hygiene: health check + noise sweep + contradiction scan + curiosity decay."""
     from divineos.core.knowledge.feedback import health_check
     from divineos.core.knowledge_maintenance import run_knowledge_hygiene
 
     report.health_results = health_check()
     report.hygiene_results = run_knowledge_hygiene()
+
+    # Prune stale curiosities — wonder has a shelf life
+    try:
+        from divineos.core.curiosity_engine import prune_stale_curiosities
+
+        shelved = prune_stale_curiosities()
+        if shelved:
+            report.hygiene_results["curiosities_shelved"] = shelved
+    except _SLEEP_ERRORS:
+        pass
 
 
 # ─── Phase 3: Affect Recalibration ───────────────────────────────────
@@ -346,6 +375,23 @@ def _phase_recombination(report: DreamReport) -> None:
     report.connection_details = connections
 
 
+# ─── Phase 6: Curiosity Generation ──────────────────────────────────
+
+
+def _phase_curiosity(report: DreamReport) -> None:
+    """Scan knowledge gaps and generate questions for the next session.
+
+    This is the proactive horizon — the OS doesn't wait for the Architect
+    to ask. It looks at its own incomplete knowledge, stuck lessons, and
+    unresolved contradictions, and generates genuine questions.
+    """
+    from divineos.core.curiosity_engine import generate_curiosities_from_gaps
+
+    generated = generate_curiosities_from_gaps(max_questions=5)
+    report.curiosities_generated = len(generated)
+    report.curiosity_categories = [g.get("question", "?")[:80] for g in generated]
+
+
 # ─── Orchestrator ─────────────────────────────────────────────────────
 
 
@@ -355,6 +401,7 @@ _PHASES: list[tuple[str, Any]] = [
     ("affect", _phase_affect),
     ("maintenance", _phase_maintenance),
     ("recombination", _phase_recombination),
+    ("curiosity", _phase_curiosity),
 ]
 
 

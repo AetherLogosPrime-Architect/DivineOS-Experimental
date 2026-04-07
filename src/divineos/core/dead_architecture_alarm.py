@@ -182,7 +182,7 @@ def scan_empty_hud_slots() -> tuple[list[str], list[str]]:
                 active.append(name)
             else:
                 empty.append(name)
-        except Exception:
+        except Exception:  # noqa: BLE001 — HUD builders can fail in unpredictable ways
             empty.append(name)
 
     return sorted(empty), sorted(active)
@@ -220,7 +220,7 @@ def scan_display_integrity() -> list[DisplayIssue]:
     for name, builder in SLOT_BUILDERS.items():
         try:
             result = builder()
-        except Exception:
+        except Exception:  # noqa: BLE001 — HUD builders can fail in unpredictable ways
             continue
         if not result or not result.strip():
             continue  # Empty slots are caught by scan_empty_hud_slots

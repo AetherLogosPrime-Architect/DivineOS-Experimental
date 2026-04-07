@@ -5,6 +5,8 @@ import time
 
 from divineos.analysis.session_analyzer import (
     _filter_records_since,
+    _load_records,
+    _slim_record,
     analyze_session,
 )
 from divineos.core.session_checkpoint import get_session_start_time, reset_state
@@ -130,6 +132,125 @@ class TestAnalyzeSessionWithTimestamp:
 
         analysis = analyze_session(jsonl, since_timestamp=None)
         assert analysis.total_records == 2
+
+
+class TestLoadRecordsStreaming:
+    """Test that _load_records with since_timestamp skips old records during parse."""
+
+    def test_stream_filter_skips_old_records(self, tmp_path):
+        now = time.time()
+        old = now - 7200
+        records = [
+            {"type": "user", "timestamp": old, "message": {"content": "old msg"}},
+            {"type": "user", "timestamp": old + 10, "message": {"content": "also old"}},
+            {"type": "user", "timestamp": now, "message": {"content": "current"}},
+        ]
+        path = tmp_path / "session.jsonl"
+        path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
+
+        loaded = _load_records(path, since_timestamp=now - 60)
+        assert len(loaded) == 1
+        assert loaded[0]["message"]["content"] == "current"
+
+    def test_stream_filter_none_loads_all(self, tmp_path):
+        records = [
+            {"type": "user", "timestamp": 1000.0, "message": {"content": "a"}},
+            {"type": "user", "timestamp": 2000.0, "message": {"content": "b"}},
+        ]
+        path = tmp_path / "session.jsonl"
+        path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
+
+        loaded = _load_records(path, since_timestamp=None)
+        assert len(loaded) == 2
+
+    def test_stream_filter_keeps_no_timestamp_records(self, tmp_path):
+        now = time.time()
+        records = [
+            {"type": "system", "message": {"content": "no ts"}},
+            {"type": "user", "timestamp": now, "message": {"content": "has ts"}},
+        ]
+        path = tmp_path / "session.jsonl"
+        path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
+
+        loaded = _load_records(path, since_timestamp=now - 60)
+        assert len(loaded) == 2  # both kept
+
+    def test_slim_truncates_tool_use_inputs(self):
+        record = {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "I'll read the file"},
+                    {
+                        "type": "tool_use",
+                        "id": "abc",
+                        "name": "Read",
+                        "input": {"file_path": "/some/path.py", "extra_data": "x" * 10000},
+                    },
+                ],
+            },
+        }
+        slimmed = _slim_record(record)
+        blocks = slimmed["message"]["content"]
+        assert blocks[0]["text"] == "I'll read the file"  # text preserved
+        assert blocks[1]["name"] == "Read"  # tool name preserved
+        assert "_summary" in blocks[1]["input"]  # input replaced with summary
+        assert "extra_data" not in blocks[1]["input"]  # bloat removed
+
+    def test_slim_truncates_user_tool_results(self):
+        big_content = "x" * 5000
+        record = {
+            "type": "user",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "here's my question"},
+                    {"type": "tool_result", "content": big_content},
+                ],
+            },
+        }
+        slimmed = _slim_record(record)
+        blocks = slimmed["message"]["content"]
+        assert blocks[0]["text"] == "here's my question"  # text preserved
+        assert len(blocks[1]["content"]) < 600  # truncated
+
+    def test_slim_preserves_small_content(self):
+        record = {
+            "type": "user",
+            "message": {
+                "content": [
+                    {"type": "tool_result", "content": "short result"},
+                ],
+            },
+        }
+        slimmed = _slim_record(record)
+        assert slimmed["message"]["content"][0]["content"] == "short result"
+
+    def test_slim_with_stream_filter(self, tmp_path):
+        now = time.time()
+        records = [
+            {
+                "type": "assistant",
+                "timestamp": now,
+                "message": {
+                    "content": [
+                        {
+                            "type": "tool_use",
+                            "id": "t1",
+                            "name": "Bash",
+                            "input": {"command": "ls", "output": "x" * 10000},
+                        },
+                    ],
+                },
+            },
+        ]
+        path = tmp_path / "session.jsonl"
+        path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
+
+        loaded = _load_records(path, since_timestamp=now - 60, slim=True)
+        assert len(loaded) == 1
+        block = loaded[0]["message"]["content"][0]
+        assert block["name"] == "Bash"
+        assert "_summary" in block["input"]
 
 
 class TestGetSessionStartTime:

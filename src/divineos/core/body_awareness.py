@@ -66,6 +66,10 @@ class SubstrateVitals:
     # DB health
     db_free_page_ratio: float = 0.0  # fraction of DB that is wasted space
 
+    # Transcript debris
+    transcript_files: int = 0
+    transcript_size_mb: float = 0.0
+
     # Cache health
     caches: list[CacheState] = field(default_factory=list)
     cache_total_mb: float = 0.0
@@ -291,6 +295,102 @@ def clean_old_logs(dry_run: bool = False) -> dict[str, int | float]:
     }
 
 
+# Transcript retention: subagent/tool-result files older than this many days
+# get cleaned up. Main JSONL files are managed by Claude Code's own
+# cleanupPeriodDays setting — we only touch the subagent debris.
+_TRANSCRIPT_RETENTION_DAYS = 3
+
+
+def clean_transcript_debris(dry_run: bool = False) -> dict[str, int | float]:
+    """Clean old subagent transcripts and tool-result files.
+
+    Claude Code leaves behind subagent JSONL files and tool-result
+    caches for every Agent tool call. These accumulate fast — 349 files
+    totaling 180MB in a single session. The main JSONL is Claude Code's
+    to manage; we only clean the debris underneath.
+
+    Returns dict with removed_count, freed_mb, dirs_cleaned.
+    """
+    projects_dir = Path.home() / ".claude" / "projects"
+    if not projects_dir.exists():
+        return {"removed_count": 0, "freed_mb": 0.0, "dirs_cleaned": 0}
+
+    cutoff = time.time() - (_TRANSCRIPT_RETENTION_DAYS * 86400)
+    removed_count = 0
+    freed_bytes = 0
+    dirs_cleaned = 0
+
+    for project_dir in projects_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+
+        for session_dir in project_dir.iterdir():
+            if not session_dir.is_dir():
+                continue
+
+            # Clean subagent transcripts
+            subagents_dir = session_dir / "subagents"
+            if subagents_dir.exists():
+                for f in subagents_dir.iterdir():
+                    if not f.is_file():
+                        continue
+                    try:
+                        if f.stat().st_mtime < cutoff:
+                            fsize = f.stat().st_size
+                            if not dry_run:
+                                f.unlink()
+                            freed_bytes += fsize
+                            removed_count += 1
+                    except OSError:
+                        continue
+                # Remove empty subagents dir
+                if not dry_run:
+                    try:
+                        if subagents_dir.exists() and not any(subagents_dir.iterdir()):
+                            subagents_dir.rmdir()
+                            dirs_cleaned += 1
+                    except OSError:
+                        pass
+
+            # Clean tool-result caches
+            results_dir = session_dir / "tool-results"
+            if results_dir.exists():
+                for f in results_dir.iterdir():
+                    if not f.is_file():
+                        continue
+                    try:
+                        if f.stat().st_mtime < cutoff:
+                            fsize = f.stat().st_size
+                            if not dry_run:
+                                f.unlink()
+                            freed_bytes += fsize
+                            removed_count += 1
+                    except OSError:
+                        continue
+                if not dry_run:
+                    try:
+                        if results_dir.exists() and not any(results_dir.iterdir()):
+                            results_dir.rmdir()
+                            dirs_cleaned += 1
+                    except OSError:
+                        pass
+
+            # Remove empty session dirs
+            if not dry_run:
+                try:
+                    if session_dir.exists() and not any(session_dir.iterdir()):
+                        session_dir.rmdir()
+                        dirs_cleaned += 1
+                except OSError:
+                    pass
+
+    return {
+        "removed_count": removed_count,
+        "freed_mb": round(freed_bytes / (1024 * 1024), 2),
+        "dirs_cleaned": dirs_cleaned,
+    }
+
+
 def run_maintenance(dry_run: bool = False) -> dict[str, dict]:
     """Run all maintenance tasks: VACUUM, log cleanup, cache prune.
 
@@ -307,6 +407,9 @@ def run_maintenance(dry_run: bool = False) -> dict[str, dict]:
     # 3. Cache prune (reuse existing)
     actions = prune_caches(dry_run=dry_run)
     results["caches"] = {"actions": actions}
+
+    # 4. Transcript debris cleanup
+    results["transcripts"] = clean_transcript_debris(dry_run=dry_run)
 
     return results
 
@@ -391,6 +494,24 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
     vitals.total_size_mb = round(
         vitals.db_size_mb + vitals.reports_size_mb + vitals.logs_size_mb, 2
     )
+
+    # -- Transcript debris --
+    transcript_dir = Path.home() / ".claude" / "projects"
+    if transcript_dir.exists():
+        for subagent_file in transcript_dir.rglob("subagents/*.jsonl"):
+            try:
+                vitals.transcript_files += 1
+                vitals.transcript_size_mb += subagent_file.stat().st_size / (1024 * 1024)
+            except OSError:
+                pass
+        for result_file in transcript_dir.rglob("tool-results/*"):
+            if result_file.is_file():
+                try:
+                    vitals.transcript_files += 1
+                    vitals.transcript_size_mb += result_file.stat().st_size / (1024 * 1024)
+                except OSError:
+                    pass
+        vitals.transcript_size_mb = round(vitals.transcript_size_mb, 2)
 
     # -- DB free page ratio (bloat detection) --
     try:
@@ -524,6 +645,12 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
             f"Ledger growing large: {vitals.ledger_events} events -- consider compaction"
         )
 
+    if vitals.transcript_size_mb > 100:
+        vitals.warnings.append(
+            f"Transcript debris: {vitals.transcript_size_mb:.0f}MB "
+            f"({vitals.transcript_files} files) -- 'divineos sleep' will clean"
+        )
+
     if vitals.db_free_page_ratio > _VACUUM_THRESHOLD:
         vitals.warnings.append(
             f"DB bloat: {vitals.db_free_page_ratio:.0%} free pages "
@@ -563,6 +690,10 @@ def format_vitals(vitals: SubstrateVitals | None = None) -> str:
         lines.append(f"    Logs:       {vitals.logs_size_mb:.1f} MB")
     if vitals.db_free_page_ratio > 0.05:
         lines.append(f"    DB bloat:   {vitals.db_free_page_ratio:.0%} free pages")
+    if vitals.transcript_size_mb > 0:
+        lines.append(
+            f"    Transcripts: {vitals.transcript_size_mb:.1f} MB ({vitals.transcript_files} files)"
+        )
     lines.append(f"    Total:      {vitals.total_size_mb:.1f} MB")
 
     # Caches
