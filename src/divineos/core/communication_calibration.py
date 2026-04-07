@@ -100,6 +100,27 @@ def calibrate(user_name: str = "default") -> CalibrationGuidance:
     if skill_conf < 0.4:
         notes.append("Skill assessment uncertain — err toward more context.")
 
+    # Affect-aware context injection — if last session was rough, shift to
+    # action-first communication. The nervous system detected the frustration;
+    # this actuator changes behavior in response.
+    try:
+        from divineos.core.affect import compute_affect_modifiers
+
+        modifiers = compute_affect_modifiers(lookback=5)
+        avg_valence = modifiers.get("avg_valence", 0.0)
+        verification = modifiers.get("verification_level", "normal")
+
+        if avg_valence < -0.3:
+            # Rough session — solve first, speak less
+            notes.append("Last session was rough. Solve first, speak less. Lead with action.")
+            verbosity = "concise"
+            max_paragraphs = min(max_paragraphs, 3)
+        elif avg_valence < 0.0 and verification == "careful":
+            # Mildly negative — be precise, skip fluff
+            notes.append("Recent frustration detected. Be precise, skip pleasantries.")
+    except _CC_ERRORS:
+        pass
+
     return CalibrationGuidance(
         verbosity=verbosity,
         jargon_ok=jargon_ok,
