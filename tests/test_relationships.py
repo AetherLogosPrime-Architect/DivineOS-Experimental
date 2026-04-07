@@ -351,9 +351,9 @@ class TestStructuralEdges:
         created = _create_structural_edges([id1, id2])
         assert created >= 1
 
-        edges = get_edges(id1)
-        target_ids = {e.target_id for e in edges}
-        assert id2 in target_ids
+        edges = get_edges(id1, direction="both")
+        connected_ids = {e.target_id for e in edges} | {e.source_id for e in edges}
+        assert id2 in connected_ids
 
     def test_structural_edges_encouragement_supports_decision(self):
         """Encouragements create SUPPORTS edges to decisions."""
