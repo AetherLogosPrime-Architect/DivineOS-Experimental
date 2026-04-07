@@ -330,6 +330,52 @@ def get_edges(
         conn.close()
 
 
+def get_edges_batch(
+    knowledge_ids: set[str],
+    layer: str | None = None,
+) -> dict[str, list[KnowledgeEdge]]:
+    """Get all active edges for multiple knowledge entries in one query.
+
+    Returns a dict mapping each knowledge_id to its list of edges.
+    Much faster than calling get_edges() in a loop.
+    """
+    if not knowledge_ids:
+        return {}
+
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" for _ in knowledge_ids)
+        id_list = list(knowledge_ids)
+
+        conditions = [
+            f"(source_id IN ({placeholders}) OR target_id IN ({placeholders}))",
+            "status = 'ACTIVE'",
+        ]
+        params: list[Any] = id_list + id_list
+
+        if layer:
+            conditions.append("layer = ?")
+            params.append(layer)
+
+        where = " AND ".join(conditions)
+        rows = conn.execute(
+            f"SELECT * FROM {_TABLE} WHERE {where}",  # nosec B608
+            params,
+        ).fetchall()
+
+        result: dict[str, list[KnowledgeEdge]] = {kid: [] for kid in knowledge_ids}
+        for row in rows:
+            edge = _row_to_edge(row)
+            if edge.source_id in knowledge_ids:
+                result[edge.source_id].append(edge)
+            if edge.target_id in knowledge_ids and edge.target_id != edge.source_id:
+                result[edge.target_id].append(edge)
+
+        return result
+    finally:
+        conn.close()
+
+
 def deactivate_edge(edge_id: str) -> bool:
     """Soft-delete an edge by setting status to INACTIVE."""
     conn = get_connection()
