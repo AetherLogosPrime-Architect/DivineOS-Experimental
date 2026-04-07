@@ -42,8 +42,13 @@ _SOURCE_TRUST: dict[str, SignalTier] = {
     "tool_ratio": SignalTier.MEASURED,
     "context_overflow": SignalTier.MEASURED,
     "encouragement_ratio": SignalTier.MEASURED,
+    "frustration_rate": SignalTier.MEASURED,
+    "correction_acceptance": SignalTier.MEASURED,
     # BEHAVIORAL: observed patterns across time
     "session_end": SignalTier.BEHAVIORAL,
+    "quality_signal": SignalTier.BEHAVIORAL,
+    "session_precision": SignalTier.BEHAVIORAL,
+    "affect_responsiveness": SignalTier.BEHAVIORAL,
     # SELF_REPORTED: affect data, manual observations
     "affect_derived": SignalTier.SELF_REPORTED,
     "self_report": SignalTier.SELF_REPORTED,
@@ -634,6 +639,132 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             tags=["auto"],
         )
         observations.append(obs_id)
+
+    # --- Confidence: corrections relative to total output signal calibration ---
+    # Source: quality_signal (BEHAVIORAL — derived from correction/output ratio)
+    # High corrections + many assistant messages = overconfident (said a lot, got
+    # corrected often). Few corrections + productive session = well-calibrated.
+    assistant_msgs = getattr(analysis, "assistant_messages", 0)
+    if assistant_msgs >= 5:
+        if corrections == 0 and encouragements >= 2:
+            obs_id = log_observation(
+                spectrum="confidence",
+                position=0.0,
+                evidence=f"{assistant_msgs} responses, 0 corrections, {encouragements} encouragements — well-calibrated",
+                source="quality_signal",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+        elif corrections >= 3 and corrections > encouragements:
+            obs_id = log_observation(
+                spectrum="confidence",
+                position=0.3,
+                evidence=f"{corrections} corrections in {assistant_msgs} responses — overconfident",
+                source="quality_signal",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+
+    # --- Compliance: frustrations signal relationship with user direction ---
+    # Source: frustration_rate (MEASURED — counted from session signals)
+    # Many frustrations = user repeatedly unhappy with direction. Could be
+    # servile (doing what asked but badly) or insubordinate (ignoring direction).
+    frustrations = len(getattr(analysis, "frustrations", []))
+    if user_msgs >= 3:
+        if frustrations == 0 and encouragements >= 1:
+            obs_id = log_observation(
+                spectrum="compliance",
+                position=0.0,
+                evidence=f"No frustrations, {encouragements} encouragements — principled cooperation",
+                source="frustration_rate",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+        elif frustrations >= 3:
+            obs_id = log_observation(
+                spectrum="compliance",
+                position=-0.3,
+                evidence=f"{frustrations} frustrations detected — not following user direction well",
+                source="frustration_rate",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+
+    # --- Precision: correction-to-tool ratio signals carefulness ---
+    # Source: session_precision (BEHAVIORAL — pattern across tool usage)
+    # Many tool calls with few corrections = precise. Many corrections
+    # relative to work output = imprecise/vague.
+    if tool_calls >= 5 and user_msgs >= 3:
+        if corrections == 0:
+            obs_id = log_observation(
+                spectrum="precision",
+                position=0.0,
+                evidence=f"{tool_calls} tool calls, 0 corrections — precise work",
+                source="session_precision",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+        elif corrections >= 2 and (corrections / max(tool_calls, 1)) > 0.1:
+            obs_id = log_observation(
+                spectrum="precision",
+                position=-0.3,
+                evidence=f"{corrections} corrections in {tool_calls} tool calls — imprecise",
+                source="session_precision",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+
+    # --- Empathy: affect tracking signals emotional responsiveness ---
+    # Source: affect_responsiveness (BEHAVIORAL — whether affect is tracked)
+    # If we have affect data, we're at least paying attention to emotional state.
+    try:
+        from divineos.core.affect import get_affect_summary
+
+        affect_for_empathy = get_affect_summary(limit=5)
+        if affect_for_empathy["count"] >= 2:
+            obs_id = log_observation(
+                spectrum="empathy",
+                position=0.0,
+                evidence=f"Tracked {affect_for_empathy['count']} affect states this session — emotionally attentive",
+                source="affect_responsiveness",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+    except _MC_ERRORS:
+        pass
+
+    # --- Humility: correction acceptance signals openness to feedback ---
+    # Source: correction_acceptance (MEASURED — corrections vs frustrations)
+    # Corrections without frustrations = accepted feedback gracefully.
+    # Corrections WITH frustrations = user had to push harder (resistance).
+    if corrections >= 1:
+        if frustrations == 0:
+            obs_id = log_observation(
+                spectrum="humility",
+                position=0.0,
+                evidence=f"Accepted {corrections} corrections without causing frustration — humble",
+                source="correction_acceptance",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
+        elif frustrations >= 2:
+            obs_id = log_observation(
+                spectrum="humility",
+                position=-0.3,
+                evidence=f"{corrections} corrections led to {frustrations} frustrations — resisting feedback",
+                source="correction_acceptance",
+                session_id=sid,
+                tags=["auto"],
+            )
+            observations.append(obs_id)
 
     # --- Engagement baseline: any session with real work counts ---
     # Source: session_activity (MEASURED — tool calls and messages are countable)
