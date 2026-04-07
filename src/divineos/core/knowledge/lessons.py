@@ -318,12 +318,38 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
     means we trust the evidence: if the mistake hasn't recurred, the lesson
     stuck.
 
+    Also resolves seeded placeholders that have never been triggered by real
+    behavior — they're noise in the lesson list, not real lessons.
+
     Returns list of resolved lesson dicts.
     """
     conn = _get_connection()
     resolved: list[dict[str, Any]] = []
     try:
         _ensure_regressions_column(conn)
+
+        # Phase 1: Resolve seeded placeholders that never fired.
+        # A seeded lesson at occ=1 with "(seeded)" description has never been
+        # triggered — it's a placeholder, not a real lesson.
+        seeded_rows = conn.execute(
+            "SELECT lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, regressions "
+            "FROM lesson_tracking WHERE status = 'active' AND occurrences <= 1 "
+            "AND description LIKE '(seeded)%'"
+        ).fetchall()
+        for row in seeded_rows:
+            lesson = _lesson_row_to_dict(row)
+            conn.execute(
+                "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? WHERE lesson_id = ?",
+                (time.time(), lesson["lesson_id"]),
+            )
+            lesson["status"] = "resolved"
+            resolved.append(lesson)
+            logger.info(
+                "Lesson '%s' RESOLVED: seeded placeholder never triggered", lesson["category"]
+            )
+
+        # Phase 2: Resolve improving lessons with enough clean sessions.
         rows = conn.execute(
             "SELECT lesson_id, created_at, category, description, first_session, "
             "occurrences, last_seen, sessions, status, content_hash, agent, regressions "

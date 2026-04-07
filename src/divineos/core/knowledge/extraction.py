@@ -230,9 +230,10 @@ def store_knowledge_smart(
             conn.commit()
             return str(hash_match[0])
 
-        # Insert new entry
+        # Insert new entry — born with corroboration=1 (it was observed once,
+        # which is enough to qualify for RAW→HYPOTHESIS promotion)
         conn.execute(
-            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, source, maturity, corroboration_count, contradiction_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 0, 0)",
+            "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, source, maturity, corroboration_count, contradiction_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1, 0)",
             (
                 kid,
                 now,
@@ -248,6 +249,15 @@ def store_knowledge_smart(
             ),
         )
         conn.commit()
+
+        # Attempt initial maturity promotion (RAW→HYPOTHESIS).
+        # promote_maturity is already imported at module level from
+        # knowledge_maintenance — safe to call here since the module
+        # is fully initialized by the time store_knowledge_smart runs.
+        try:
+            promote_maturity(kid)
+        except _EXTRACTION_ERRORS as e:
+            logger.debug(f"Initial maturity promotion failed: {e}", exc_info=True)
 
         # UPDATE: supersede the old entry
         if operation == "UPDATE" and existing_id:
