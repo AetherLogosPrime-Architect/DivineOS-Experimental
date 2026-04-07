@@ -363,6 +363,139 @@ class TestReflectOnSession:
                 assert o["source"] == "affect_derived"
 
 
+class TestNewSpectrumAutoObservations:
+    """The 5 previously manual-only spectrums now auto-observe."""
+
+    def _make_analysis(self, **kwargs):
+        from types import SimpleNamespace
+
+        defaults = {
+            "session_id": "test-new-spectrums-1234",
+            "user_messages": 10,
+            "assistant_messages": 20,
+            "corrections": [],
+            "encouragements": [],
+            "frustrations": [],
+            "tool_calls_total": 50,
+            "context_overflows": [],
+        }
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def test_confidence_well_calibrated(self):
+        """No corrections + encouragements = calibrated confidence."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content=f"nice {i}") for i in range(3)]
+        analysis = self._make_analysis(
+            assistant_messages=10, corrections=[], encouragements=encouragements
+        )
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="confidence", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+        assert obs[0]["source"] == "quality_signal"
+
+    def test_confidence_overconfident(self):
+        """Many corrections = overconfident."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        corrections = [SimpleNamespace(content=f"fix {i}") for i in range(4)]
+        analysis = self._make_analysis(assistant_messages=10, corrections=corrections)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="confidence", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] > 0  # Excess (overconfidence)
+
+    def test_compliance_good(self):
+        """No frustrations + encouragements = principled cooperation."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="good")]
+        analysis = self._make_analysis(frustrations=[], encouragements=encouragements)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="compliance", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+        assert obs[0]["source"] == "frustration_rate"
+
+    def test_compliance_failing(self):
+        """Many frustrations = not following direction."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        frustrations = [SimpleNamespace(content=f"ugh {i}") for i in range(4)]
+        analysis = self._make_analysis(frustrations=frustrations)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="compliance", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] < 0  # Deficiency
+
+    def test_precision_clean(self):
+        """Many tool calls, no corrections = precise."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(tool_calls_total=30, corrections=[])
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="precision", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+        assert obs[0]["source"] == "session_precision"
+
+    def test_precision_sloppy(self):
+        """High correction-to-tool ratio = imprecise."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        corrections = [SimpleNamespace(content=f"fix {i}") for i in range(5)]
+        analysis = self._make_analysis(tool_calls_total=20, corrections=corrections)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="precision", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] < 0  # Imprecise
+
+    def test_humility_accepts_corrections(self):
+        """Corrections without frustration = humble."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        corrections = [SimpleNamespace(content="fix this")]
+        analysis = self._make_analysis(corrections=corrections, frustrations=[])
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="humility", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+        assert obs[0]["source"] == "correction_acceptance"
+
+    def test_humility_resists_feedback(self):
+        """Corrections with frustrations = resisting feedback."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        corrections = [SimpleNamespace(content=f"fix {i}") for i in range(2)]
+        frustrations = [SimpleNamespace(content=f"ugh {i}") for i in range(3)]
+        analysis = self._make_analysis(corrections=corrections, frustrations=frustrations)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="humility", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] < 0  # Deficiency
+
+    def test_new_sources_in_trust_map(self):
+        """All new sources are registered in the trust tier map."""
+        new_sources = [
+            "frustration_rate",
+            "correction_acceptance",
+            "quality_signal",
+            "session_precision",
+            "affect_responsiveness",
+        ]
+        for source in new_sources:
+            assert source in _SOURCE_TRUST, f"{source} missing from _SOURCE_TRUST"
+
+
 class TestTrustTierWeighting:
     """Trust tiers weight compass observations by reliability.
 
