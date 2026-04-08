@@ -47,7 +47,6 @@ class TestAssessStaleness:
         assert result["age_days"] >= _STALENESS_THRESHOLD_DAYS
 
     def test_old_goal_with_evidence(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.decision_journal import record_decision
 
         record_decision(content="Fixed the widget system", reasoning="needed fixing")

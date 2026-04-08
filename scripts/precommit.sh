@@ -44,8 +44,10 @@ if [ -n "$STAGED_SRC" ]; then
     fi
 fi
 
-# 4. Doc drift
+# 4. Doc drift (auto-fix test counts, then re-stage and verify)
 echo "=== Doc Drift ==="
+python scripts/check_doc_counts.py --fix 2>/dev/null || true
+git add CLAUDE.md README.md src/divineos/seed.json 2>/dev/null || true
 if ! python scripts/check_doc_counts.py 2>/dev/null; then
     ERRORS=$((ERRORS + 1))
 fi
