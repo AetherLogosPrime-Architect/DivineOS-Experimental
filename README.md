@@ -459,6 +459,8 @@ src/divineos/
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
 tests/                         3,641+ tests (real DB, minimal mocks)
+docs/                          Project documentation and strategic plans
+bootcamp/                      Training exercises (debugging, analysis)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded

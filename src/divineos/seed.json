@@ -28,7 +28,7 @@
       "type": "BOUNDARY"
     },
     {
-      "content": "No mocks in tests — use real databases. Mocked tests pass but real behavior can diverge.",
+      "content": "Minimal mocks in tests — use real databases wherever possible. Mocked tests pass but real behavior can diverge. Mock only at integration boundaries (subprocesses, external APIs).",
       "confidence": 1.0,
       "maturity": "CONFIRMED",
       "tags": [],
