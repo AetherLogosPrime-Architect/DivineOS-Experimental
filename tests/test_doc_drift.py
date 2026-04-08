@@ -10,8 +10,10 @@ if _project_root not in sys.path:
 
 from scripts.check_doc_counts import (  # noqa: E402
     _extract_tree_paths,
+    _format_count,
     _get_actual_py_files,
     check_architecture_tree,
+    fix_test_counts,
 )
 
 
@@ -138,3 +140,42 @@ class TestCheckArchitectureTree:
     def test_missing_readme_no_errors(self, tmp_path):
         errors = check_architecture_tree(tmp_path / "nope.md")
         assert errors == []
+
+
+class TestAutoFix:
+    """Test the --fix auto-update functionality."""
+
+    def test_format_count(self):
+        assert _format_count(3646) == "3,646+"
+        assert _format_count(100) == "100+"
+        assert _format_count(0) == "0+"
+
+    def test_fix_updates_drifted_file(self, tmp_path, monkeypatch):
+        """fix_test_counts should update stale test counts in doc files."""
+        # Create a fake doc file with old count
+        fake_doc = tmp_path / "CLAUDE.md"
+        fake_doc.write_text("tests/  # 2,000+ tests (real DB)")
+
+        # Monkeypatch ROOT so fix_test_counts finds our fake file
+        import scripts.check_doc_counts as mod
+
+        monkeypatch.setattr(mod, "ROOT", tmp_path)
+
+        changed = fix_test_counts(3646)
+        assert "CLAUDE.md" in changed
+
+        updated = fake_doc.read_text()
+        assert "3,646+ tests" in updated
+        assert "2,000" not in updated
+
+    def test_fix_no_change_when_current(self, tmp_path, monkeypatch):
+        """If counts are already correct, no files should be changed."""
+        fake_doc = tmp_path / "CLAUDE.md"
+        fake_doc.write_text("tests/  # 500+ tests (real DB)")
+
+        import scripts.check_doc_counts as mod
+
+        monkeypatch.setattr(mod, "ROOT", tmp_path)
+
+        changed = fix_test_counts(500)
+        assert changed == []
