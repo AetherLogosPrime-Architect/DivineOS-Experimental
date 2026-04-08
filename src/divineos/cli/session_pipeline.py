@@ -102,6 +102,28 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                 save_hud_snapshot()
             except (ImportError, OSError) as e:
                 logger.debug("HUD snapshot failed after quality gate block: %s", e)
+
+            # Bookkeeping must happen even when extraction is blocked —
+            # the handoff note and goal cleanup are about session continuity,
+            # not knowledge quality.
+            try:
+                from divineos.cli.pipeline_gates import write_handoff_note
+
+                write_handoff_note(analysis, stored=0, health=None)
+            except (ImportError, OSError, sqlite3.OperationalError) as e:
+                logger.warning("Handoff note failed after quality gate block: %s", e)
+            try:
+                from divineos.core.hud_state import auto_clean_goals
+
+                goal_result = auto_clean_goals()
+                if any(goal_result.values()):
+                    _safe_echo(
+                        f"[~] Goals cleaned: {goal_result.get('stale_archived', 0)} stale, "
+                        f"{goal_result.get('deduped', 0)} deduped, "
+                        f"{goal_result.get('completed_cleared', 0)} cleared"
+                    )
+            except (ImportError, OSError) as e:
+                logger.warning("Goal cleanup failed after quality gate block: %s", e)
             return
 
         # ── Phase 1b: Structured self-assessment ────────────────
