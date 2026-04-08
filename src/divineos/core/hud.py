@@ -607,6 +607,19 @@ def _build_handoff_slot() -> str:
         for thread in note["open_threads"]:
             lines.append(f"  - {thread}")
         lines.append("")
+    if note.get("intent"):
+        lines.append(f"**Intent:** {note['intent']}")
+        lines.append("")
+    if note.get("next_steps"):
+        lines.append("**Next steps:**")
+        for step in note["next_steps"]:
+            lines.append(f"  - {step}")
+        lines.append("")
+    if note.get("blockers"):
+        lines.append("**Blockers:**")
+        for blocker in note["blockers"]:
+            lines.append(f"  - {blocker}")
+        lines.append("")
     if note.get("mood"):
         lines.append(f"*Session ended: {note['mood']}*")
     if note.get("goals_state"):

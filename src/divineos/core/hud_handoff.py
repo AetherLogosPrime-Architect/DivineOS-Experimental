@@ -15,6 +15,7 @@ import sqlite3
 from loguru import logger
 
 from divineos.core._hud_io import _ensure_hud_dir, _get_hud_dir
+from divineos.core.constants import TIME_HANDOFF_EXPIRY_HOURS
 from divineos.core.hud_state import has_session_fresh_goal
 from divineos.core.ledger import count_events
 
@@ -98,13 +99,13 @@ def save_handoff_note(
     return path
 
 
-_HANDOFF_EXPIRY_SECONDS = 43200  # 12 hours — older handoffs are from a different context
+_HANDOFF_EXPIRY_SECONDS = TIME_HANDOFF_EXPIRY_HOURS * 3600
 
 
 def load_handoff_note() -> dict[str, Any] | None:
     """Load the handoff note from the previous session, if any.
 
-    Returns None and auto-clears if the note is older than 48 hours.
+    Returns None and auto-clears if the note is older than 12 hours.
     """
     path = _get_hud_dir() / "handoff_note.json"
     if not path.exists():
@@ -114,7 +115,7 @@ def load_handoff_note() -> dict[str, Any] | None:
         # Auto-expire stale handoff notes
         written_at = result.get("written_at", 0)
         if written_at and (time.time() - written_at) > _HANDOFF_EXPIRY_SECONDS:
-            logger.debug("Handoff note expired (>48h old), clearing")
+            logger.debug("Handoff note expired (>12h old), clearing")
             path.unlink(missing_ok=True)
             return None
         return result

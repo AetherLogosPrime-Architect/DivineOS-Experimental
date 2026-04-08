@@ -130,7 +130,6 @@ SECONDS_PER_DAY = 86400
 
 TIME_GOAL_FRESH_HOURS = 2  # Goals younger than this are "fresh"
 TIME_HANDOFF_EXPIRY_HOURS = 12  # Handoff notes older than this are stale
-TIME_NOTE_AUTO_CLEAR_HOURS = 48  # Auto-clear old notes
 
 TIME_LEDGER_RETENTION_DAYS = 7  # Default ledger compression retention
 TIME_LEDGER_EMERGENCY_RETENTION_DAYS = 3  # Emergency compression retention
