@@ -414,6 +414,60 @@ def _compute_overlap(text_a: str, text_b: str) -> float:
     return len(intersection) / smaller
 
 
+# ─── Semantic Similarity (embedding-based) ────────────────────────────
+#
+# Uses sentence-transformers when available to compute real semantic
+# similarity between texts. Falls back to word overlap when unavailable.
+# This catches conceptual connections that share no vocabulary —
+# e.g., "tests should run after edits" and "verify changes before commit"
+# have high semantic similarity but low word overlap.
+
+_embedding_model = None
+_embeddings_available: bool | None = None  # None = not yet checked
+
+
+def _ensure_embedding_model() -> bool:
+    """Lazy-load sentence-transformers model. Returns True if available."""
+    global _embedding_model, _embeddings_available
+    if _embeddings_available is not None:
+        return _embeddings_available
+    try:
+        from sentence_transformers import SentenceTransformer
+
+        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        _embeddings_available = True
+        return True
+    except (ImportError, RuntimeError, OSError):
+        _embeddings_available = False
+        return False
+
+
+def compute_semantic_similarity(text_a: str, text_b: str) -> float | None:
+    """Compute cosine similarity between two texts using embeddings.
+
+    Returns 0.0-1.0, or None if embeddings unavailable.
+    """
+    if not _ensure_embedding_model() or _embedding_model is None:
+        return None
+    try:
+        embeddings = _embedding_model.encode([text_a, text_b], convert_to_numpy=True)
+        from numpy import dot
+        from numpy.linalg import norm
+
+        sim = float(dot(embeddings[0], embeddings[1]) / (norm(embeddings[0]) * norm(embeddings[1])))
+        return max(0.0, min(1.0, sim))
+    except (RuntimeError, ValueError, TypeError, ImportError):
+        return None
+
+
+def compute_similarity(text_a: str, text_b: str) -> float:
+    """Best-available similarity: semantic if possible, word overlap as fallback."""
+    semantic = compute_semantic_similarity(text_a, text_b)
+    if semantic is not None:
+        return semantic
+    return _compute_overlap(text_a, text_b)
+
+
 def extract_session_topics(user_texts: list[str], top_n: int = 8) -> list[str]:
     """Extract top topics from user messages using word frequency analysis."""
     word_counts: Counter[str] = Counter()

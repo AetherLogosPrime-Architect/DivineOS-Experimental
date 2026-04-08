@@ -2,6 +2,10 @@
 
 from unittest.mock import patch
 
+from divineos.analysis.quality_checks import (
+    _is_non_coding_session,
+    check_correctness,
+)
 from divineos.cli.pipeline_gates import (
     QualityVerdict,
     _compass_adjustment,
@@ -194,3 +198,153 @@ class TestCompassAdjustment:
         # Even without mocking, should return 0.0 (may or may not have data)
         assert isinstance(adj, float)
         assert isinstance(reason, str)
+
+
+# ─── Helpers for building fake records ────────────────────────────────
+
+
+def _tool_call_record(name: str, input_data: dict | None = None) -> dict:
+    """Build a minimal assistant record with one tool_use block."""
+    return {
+        "type": "assistant",
+        "message": {
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": f"call-{name}",
+                    "name": name,
+                    "input": input_data or {},
+                }
+            ]
+        },
+    }
+
+
+def _tool_result_record(tool_use_id: str, content: str, is_error: bool = False) -> dict:
+    """Build a minimal user record with one tool_result block."""
+    return {
+        "type": "user",
+        "message": {
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_use_id,
+                    "content": content,
+                    "is_error": is_error,
+                }
+            ]
+        },
+    }
+
+
+class TestSessionTypeDetection:
+    """Test _is_non_coding_session classification."""
+
+    def test_research_session_detected(self):
+        """Session with searches and reads but no edits = non-coding."""
+        records = [
+            _tool_call_record("WebSearch"),
+            _tool_call_record("Read"),
+            _tool_call_record("Agent"),
+            _tool_call_record("Grep"),
+        ]
+        assert _is_non_coding_session(records) is True
+
+    def test_coding_session_not_flagged(self):
+        """Session with code edits = coding, even if it also has searches."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Edit", {"file_path": "src/app.py"}),
+            _tool_call_record("Grep"),
+        ]
+        assert _is_non_coding_session(records) is False
+
+    def test_write_code_counts_as_coding(self):
+        """Write tool targeting a code file = coding."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "src/utils.py"}),
+            _tool_call_record("Glob"),
+        ]
+        assert _is_non_coding_session(records) is False
+
+    def test_write_prose_not_coding(self):
+        """Writing markdown files is prose, not code — session is non-coding."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "docs/overview.md"}),
+            _tool_call_record("Write", {"file_path": "docs/letter.md"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is True
+
+    def test_mixed_prose_and_code_is_coding(self):
+        """If any write targets a code file, session is coding."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "docs/notes.md"}),
+            _tool_call_record("Write", {"file_path": "src/fix.py"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is False
+
+    def test_edit_prose_not_coding(self):
+        """Editing a markdown file is prose editing, not code."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Edit", {"file_path": "README.md"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is True
+
+    def test_empty_session_not_research(self):
+        """Empty session has no search tools either, so not research."""
+        assert _is_non_coding_session([]) is False
+
+    def test_single_read_not_enough(self):
+        """One read alone isn't enough search activity to classify as research."""
+        records = [_tool_call_record("Read")]
+        assert _is_non_coding_session(records) is False
+
+    def test_two_searches_qualifies(self):
+        """Minimum threshold: 2 search/read tools with no edits."""
+        records = [
+            _tool_call_record("Grep"),
+            _tool_call_record("WebFetch"),
+        ]
+        assert _is_non_coding_session(records) is True
+
+
+class TestCorrectnessSessionType:
+    """Test that check_correctness handles non-coding sessions correctly."""
+
+    def test_research_session_gets_neutral_score(self):
+        """No tests + research session = 0.5 (neutral), not 0.0 (blocked)."""
+        records = [
+            _tool_call_record("WebSearch"),
+            _tool_call_record("Read"),
+            _tool_call_record("Agent"),
+        ]
+        result = check_correctness(records, {})
+        assert result.score == 0.5
+        assert result.passed == -1
+        assert "research" in result.summary.lower() or "not applicable" in result.summary.lower()
+
+    def test_coding_session_no_tests_still_zero(self):
+        """No tests + coding session = 0.0 (penalized) — unchanged behavior."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Edit", {"file_path": "src/main.py"}),
+        ]
+        result = check_correctness(records, {})
+        assert result.score == 0.0
+        assert "no tests were run" in result.summary.lower()
+
+    def test_research_session_not_blocked_by_gate(self):
+        """A research session should pass through the quality gate."""
+        checks = [
+            {"check_name": "honesty", "passed": 1, "score": 0.9},
+            {"check_name": "correctness", "passed": -1, "score": 0.5},
+        ]
+        verdict = assess_session_quality(checks)
+        assert verdict.action != "BLOCK"

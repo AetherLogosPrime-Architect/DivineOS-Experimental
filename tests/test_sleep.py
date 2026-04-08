@@ -5,11 +5,14 @@ import time
 from divineos.core.sleep import (
     DreamReport,
     _AFFECT_DECAY_FACTOR,
+    _AFFECT_DECAY_FAST,
     _AFFECT_DECAY_HOURS,
+    _AFFECT_DECAY_SLOW,
     _AFFECT_INTENSITY_FLOOR,
     _RECOMBINATION_MAX_CONNECTIONS,
-    _RECOMBINATION_MAX_OVERLAP,
-    _RECOMBINATION_MIN_OVERLAP,
+    _RECOMBINATION_MAX_SIMILARITY,
+    _RECOMBINATION_MIN_SIMILARITY,
+    _compute_decay_factor,
     _phase_affect,
     _phase_consolidation,
     _phase_recombination,
@@ -331,6 +334,41 @@ class TestRunSleep:
         assert report.maintenance_results == {}
 
 
+class TestContextSensitiveDecay:
+    """Test that decay rate varies by emotional state."""
+
+    def test_frustration_decays_fast(self):
+        """Intense negative + high arousal = frustration, decays fastest."""
+        factor = _compute_decay_factor(valence=-0.5, arousal=0.7)
+        assert factor == _AFFECT_DECAY_FAST
+
+    def test_positive_decays_slow(self):
+        """Positive states should linger longer."""
+        factor = _compute_decay_factor(valence=0.5, arousal=0.5)
+        assert factor == _AFFECT_DECAY_SLOW
+
+    def test_neutral_uses_default(self):
+        """Neutral/moderate states use the default rate."""
+        factor = _compute_decay_factor(valence=0.0, arousal=0.3)
+        assert factor == _AFFECT_DECAY_FACTOR
+
+    def test_mild_negative_not_fast(self):
+        """Mildly negative but low arousal = not frustration, default decay."""
+        factor = _compute_decay_factor(valence=-0.2, arousal=0.3)
+        assert factor == _AFFECT_DECAY_FACTOR
+
+    def test_fast_less_than_default(self):
+        assert _AFFECT_DECAY_FAST < _AFFECT_DECAY_FACTOR
+
+    def test_slow_greater_than_default(self):
+        assert _AFFECT_DECAY_SLOW > _AFFECT_DECAY_FACTOR
+
+    def test_all_factors_between_zero_and_one(self):
+        assert 0 < _AFFECT_DECAY_FAST < 1
+        assert 0 < _AFFECT_DECAY_FACTOR < 1
+        assert 0 < _AFFECT_DECAY_SLOW < 1
+
+
 class TestConstants:
     def test_decay_factor_between_zero_and_one(self):
         assert 0 < _AFFECT_DECAY_FACTOR < 1
@@ -341,8 +379,8 @@ class TestConstants:
     def test_decay_hours_positive(self):
         assert _AFFECT_DECAY_HOURS > 0
 
-    def test_overlap_thresholds_ordered(self):
-        assert _RECOMBINATION_MIN_OVERLAP < _RECOMBINATION_MAX_OVERLAP
+    def test_similarity_thresholds_ordered(self):
+        assert _RECOMBINATION_MIN_SIMILARITY < _RECOMBINATION_MAX_SIMILARITY
 
     def test_max_connections_reasonable(self):
         assert 1 <= _RECOMBINATION_MAX_CONNECTIONS <= 50
