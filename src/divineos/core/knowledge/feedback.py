@@ -9,10 +9,8 @@ from divineos.core.constants import (
     CONFIDENCE_LOW,
     DECAY_AGGRESSIVE,
     DECAY_FLOOR,
-    DECAY_GENTLE,
     DECAY_HEAVY,
     DECAY_MILD,
-    DECAY_STANDARD,
     MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
     MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE,
     MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
@@ -151,16 +149,21 @@ def compute_effectiveness(entry: dict[str, Any]) -> dict[str, Any]:
 def health_check() -> dict[str, Any]:
     """Review the knowledge store and adjust confidence scores.
 
-    Knowledge does NOT decay just because time passed. A lesson that's
-    true on day 1 is still true on day 100. Confidence only changes when:
+    Nothing decays without being seen. A lesson true on day 1 is true
+    on day 100. Confidence only changes when there is EVIDENCE:
 
     1. Confirmed: knowledge keeps coming up across sessions → trust more
     2. Recurring: a lesson happened 3+ times → it's clearly a real problem
     3. Resolved: an improving lesson hasn't come back in 30+ days → probably fixed
-    4. Contradicted: a superseded entry already gets marked by update_knowledge
+    4. Temporal: "currently broken" language becomes stale after 14 days
+    5. Contradicted: entries contradicted 3+ times lose confidence
+    6. Noise: extraction noise that slipped past old filters gets penalized
+
+    Unseen entries (zero access, 30+ days old) are flagged for review,
+    NOT decayed. The briefing surfaces them so someone can decide.
     """
     now = time.time()
-    result = {
+    result: dict[str, Any] = {
         "confirmed_boosted": 0,
         "recurring_escalated": 0,
         "resolved_lessons": 0,
@@ -220,27 +223,28 @@ def health_check() -> dict[str, Any]:
                     _adjust_confidence(mistake["knowledge_id"], -DECAY_MILD, floor=0.5)
                     break
 
-    # 4. Stale knowledge — unused entries lose confidence over time
+    # 4. Temporal markers only — "currently broken" language becomes stale
+    # NOTE: We do NOT decay knowledge just because it hasn't been accessed.
+    # Knowledge that's true on day 1 is true on day 100. Nothing decays
+    # without being seen first. Only time-sensitive language loses confidence,
+    # because the passage of time IS the counter-evidence.
     stale_count = 0
     temporal_decay_count = 0
+    needs_review: list[str] = []
     for entry in all_entries:
-        # DIRECTIVE is permanent by design — immune to staleness
         if entry["knowledge_type"] == "DIRECTIVE":
             continue
 
         age_days = (now - entry["created_at"]) / SECONDS_PER_DAY
 
-        # Zero-access entries: decay based on age
-        # 14+ days: gentle decay. 30+ days: faster decay.
-        # These entries were extracted but never surfaced in a briefing.
-        if entry["access_count"] == 0 and age_days > TIME_TEMPORAL_DECAY_DAYS:
-            decay = -DECAY_AGGRESSIVE if age_days > TIME_STALE_KNOWLEDGE_DAYS else -DECAY_STANDARD
-            new_conf = _adjust_confidence(entry["knowledge_id"], decay, floor=0.15)
-            if new_conf is not None:
-                stale_count += 1
+        # Flag zero-access entries for review (but do NOT decay them)
+        if entry["access_count"] == 0 and age_days > TIME_STALE_KNOWLEDGE_DAYS:
+            needs_review.append(entry["knowledge_id"])
+            stale_count += 1
 
-        # Time-sensitive language older than 14 days decays faster
-        elif age_days > TIME_TEMPORAL_DECAY_DAYS and _has_temporal_markers(entry["content"]):
+        # Time-sensitive language older than 14 days decays —
+        # "currently broken" after 2 weeks is probably stale
+        if age_days > TIME_TEMPORAL_DECAY_DAYS and _has_temporal_markers(entry["content"]):
             new_conf = _adjust_confidence(entry["knowledge_id"], -DECAY_MILD, floor=DECAY_FLOOR)
             if new_conf is not None:
                 temporal_decay_count += 1
@@ -252,22 +256,14 @@ def health_check() -> dict[str, Any]:
             _adjust_confidence(entry["knowledge_id"], -DECAY_AGGRESSIVE, floor=DECAY_FLOOR)
             contradiction_flagged += 1
 
-    # 6. Abandoned knowledge — accessed but then left untouched for 14+ days
+    # 6. Abandoned knowledge — previously decayed, now just tracked.
+    # Knowledge that was accessed but idle does NOT decay. Being unused
+    # is not evidence of being wrong. Nothing fades without being seen.
     abandoned_count = 0
-    for entry in all_entries:
-        if entry["knowledge_type"] == "DIRECTIVE":
-            continue
-        # Must have been accessed at least once (distinguishes from "never used")
-        if entry["access_count"] < 1:
-            continue
-        # Check time since last update (proxy for last meaningful interaction)
-        days_since_update = (now - entry["updated_at"]) / SECONDS_PER_DAY
-        if days_since_update > TIME_TEMPORAL_DECAY_DAYS and entry["confidence"] > DECAY_FLOOR:
-            new_conf = _adjust_confidence(entry["knowledge_id"], -DECAY_GENTLE, floor=DECAY_FLOOR)
-            if new_conf is not None:
-                abandoned_count += 1
 
-    result["stale_decayed"] = stale_count
+    result["stale_decayed"] = 0  # No longer decays — flagged for review instead
+    result["needs_review"] = needs_review
+    result["needs_review_count"] = stale_count
     result["temporal_decayed"] = temporal_decay_count
     result["contradiction_flagged"] = contradiction_flagged
     result["abandoned_decayed"] = abandoned_count

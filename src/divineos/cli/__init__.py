@@ -174,6 +174,7 @@ _ADMIN_COMMANDS = [
     "rebuild-index",
     "reclassify-directions",
     "seed-export",
+    "test-audit",
     "verify-enforcement",
 ]
 

@@ -568,6 +568,27 @@ def preflight_check() -> dict[str, Any]:
         }
     )
 
+    # 6. Compass integrity — moral foundations haven't been tampered with
+    try:
+        from divineos.core.moral_compass import verify_compass_integrity
+
+        verify_compass_integrity()
+        compass_ok = True
+        compass_detail = "Moral compass spectrums intact"
+    except RuntimeError as exc:
+        compass_ok = False
+        compass_detail = str(exc)
+    except (ImportError, OSError) as exc:
+        compass_ok = True  # don't block if module unavailable
+        compass_detail = f"Compass check skipped: {exc}"
+    checks.append(
+        {
+            "name": "compass_integrity",
+            "passed": compass_ok,
+            "detail": compass_detail,
+        }
+    )
+
     # Ready = briefing loaded (the hard requirement)
     ready = briefing_ok
     return {

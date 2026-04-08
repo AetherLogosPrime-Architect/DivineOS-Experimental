@@ -39,8 +39,7 @@ def detect_lesson_regressions(lookback: int = 5) -> list[dict[str, Any]]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            """SELECT lesson_id, category, description, occurrences, status,
-                      last_session_id
+            """SELECT lesson_id, category, description, occurrences, status
                FROM lesson_tracking
                WHERE status = 'improving'
                ORDER BY occurrences DESC

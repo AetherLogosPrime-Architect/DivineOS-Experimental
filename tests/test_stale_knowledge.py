@@ -38,7 +38,12 @@ class TestHasTemporalMarkers:
 class TestStaleKnowledgeDecay:
     """Test that health_check decays stale entries."""
 
-    def test_old_unused_entry_decays(self, tmp_path):
+    def test_old_unused_entry_flagged_for_review(self, tmp_path):
+        """Old unused entries are flagged for review, NOT decayed.
+
+        Nothing decays without being seen. Knowledge true on day 1 is
+        true on day 100. Unseen entries are surfaced for human review.
+        """
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
         try:
             init_db()
@@ -61,16 +66,19 @@ class TestStaleKnowledgeDecay:
 
             result = health_check()
 
-            # Entry should have decayed
-            assert result["stale_decayed"] >= 1
+            # Entry should be flagged for review, NOT decayed
+            assert result["stale_decayed"] == 0
+            assert result["needs_review_count"] >= 1
+            assert kid in result["needs_review"]
 
+            # Confidence should be UNCHANGED
             conn = _get_connection()
             row = conn.execute(
                 "SELECT confidence FROM knowledge WHERE knowledge_id = ?",
                 (kid,),
             ).fetchone()
             conn.close()
-            assert row[0] < 0.9  # confidence reduced
+            assert row[0] == 0.9  # no decay
         finally:
             os.environ.pop("DIVINEOS_DB", None)
 
@@ -201,7 +209,8 @@ class TestStaleKnowledgeDecay:
         finally:
             os.environ.pop("DIVINEOS_DB", None)
 
-    def test_stale_floor_at_minimum(self, tmp_path):
+    def test_stale_low_confidence_still_flagged(self, tmp_path):
+        """Even low-confidence entries get flagged for review if old and unseen."""
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
         try:
             init_db()
@@ -221,14 +230,16 @@ class TestStaleKnowledgeDecay:
             conn.commit()
             conn.close()
 
-            health_check()
+            result = health_check()
 
+            # Flagged for review, confidence unchanged
+            assert kid in result["needs_review"]
             conn = _get_connection()
             row = conn.execute(
                 "SELECT confidence FROM knowledge WHERE knowledge_id = ?",
                 (kid,),
             ).fetchone()
             conn.close()
-            assert row[0] >= 0.15  # floor of 0.15 respected
+            assert row[0] == 0.15  # no decay
         finally:
             os.environ.pop("DIVINEOS_DB", None)

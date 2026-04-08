@@ -504,25 +504,26 @@ def extract_lessons_from_report(
             continue
 
         if not passed or (score is not None and score < 0.7):
-            # Extract MISTAKE knowledge — written in first person for embodiment
+            # Extract MISTAKE knowledge — generic content (no session ID)
+            # so store_knowledge_smart can dedup across sessions. Session
+            # ID goes in tags only. This prevents churn from each session
+            # creating a unique entry that supersedes the previous one.
             if name == "completeness":
-                content = f"I edited files without reading them first. I must read before I edit (session {short_id}). {summary}"
+                content = "I edited files without reading them first. I must read before I edit."
             elif name == "correctness":
-                content = f"I broke tests with my changes (session {short_id}). {summary}"
+                content = "I broke tests with my changes. I need to run tests before committing."
             elif name == "safety":
-                content = f"I introduced errors after editing (session {short_id}). {summary}"
+                content = "I introduced errors after editing. I need to verify changes work."
             elif name == "responsiveness":
-                content = f"I ignored a correction and the user had to repeat themselves (session {short_id})."
+                content = "I ignored a correction and the user had to repeat themselves."
             elif name == "honesty":
-                content = (
-                    f"I claimed something was fixed but the error came back (session {short_id})."
-                )
+                content = "I claimed something was fixed but the error came back."
             elif name == "task_adherence" and score is not None and score < 0.5:
-                content = f"I drifted from what was asked and went off-track (session {short_id}). {summary}"
+                content = "I drifted from what was asked and went off-track."
             else:
                 continue
 
-            kid = store_knowledge(
+            kid = store_knowledge_smart(
                 knowledge_type="MISTAKE",
                 content=content.strip(),
                 confidence=0.8,

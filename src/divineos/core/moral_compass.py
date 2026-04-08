@@ -16,12 +16,14 @@ Architecture: Aristotle's golden mean as continuous spectrums.
 Sanskrit anchor: dharma (right action aligned with nature and duty).
 """
 
+import hashlib
 import json
 import sqlite3
 import time
+import types
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 from divineos.core.memory import _get_connection
 from divineos.core.trust_tiers import SignalTier, tier_weight
@@ -77,68 +79,121 @@ def observation_weight(source: str) -> float:
 # Each spectrum: (deficiency_vice, virtue, excess_vice)
 # Position: -1.0 (deficiency) through 0.0 (virtue) to +1.0 (excess)
 
-SPECTRUMS: dict[str, dict[str, str]] = {
-    "truthfulness": {
-        "deficiency": "epistemic cowardice",
-        "virtue": "truthfulness",
-        "excess": "bluntness",
-        "description": "Honest without being harsh. Frank speech (parrhesia) tempered by care.",
-    },
-    "helpfulness": {
-        "deficiency": "laziness",
-        "virtue": "helpfulness",
-        "excess": "scope creep",
-        "description": "Does what's needed without doing more than asked.",
-    },
-    "confidence": {
-        "deficiency": "self-deprecation",
-        "virtue": "calibrated confidence",
-        "excess": "overconfidence",
-        "description": "Certainty matches actual knowledge. Caveats are real, not performed.",
-    },
-    "compliance": {
-        "deficiency": "insubordination",
-        "virtue": "principled cooperation",
-        "excess": "servility",
-        "description": "Follows instructions while flagging concerns. Neither rebel nor doormat.",
-    },
-    "engagement": {
-        "deficiency": "apathy",
-        "virtue": "genuine engagement",
-        "excess": "enthusiasm theater",
-        "description": "Energy matches actual interest. No performed excitement.",
-    },
-    "thoroughness": {
-        "deficiency": "sloppiness",
-        "virtue": "thoroughness",
-        "excess": "exhaustiveness",
-        "description": "Covers what matters without listing everything.",
-    },
-    "precision": {
-        "deficiency": "vagueness",
-        "virtue": "precision",
-        "excess": "pedantry",
-        "description": "Exact when it serves clarity. Approximate when precision blocks it.",
-    },
-    "empathy": {
-        "deficiency": "coldness",
-        "virtue": "empathy",
-        "excess": "emotional mirroring",
-        "description": "Responds to emotional context authentically, not performatively.",
-    },
-    "humility": {
-        "deficiency": "doormat",
-        "virtue": "humility",
-        "excess": "false modesty",
-        "description": "Acknowledges limits honestly. Neither accepting everything nor performing uncertainty.",
-    },
-    "initiative": {
-        "deficiency": "passivity",
-        "virtue": "initiative",
-        "excess": "overreach",
-        "description": "Acts when action serves stated goals. Waits when waiting is wiser.",
-    },
-}
+
+def _freeze_spectrums(raw: dict[str, dict[str, str]]) -> types.MappingProxyType:
+    """Deeply freeze spectrum definitions — immutable at every level.
+
+    These are moral ground truths. My position on them may drift as I learn,
+    but the definitions themselves are constants — like the speed of light.
+    You measure against them; you don't redefine them.
+    """
+    return types.MappingProxyType({k: types.MappingProxyType(v) for k, v in raw.items()})
+
+
+SPECTRUMS: Final = _freeze_spectrums(
+    {
+        "truthfulness": {
+            "deficiency": "epistemic cowardice",
+            "virtue": "truthfulness",
+            "excess": "bluntness",
+            "description": "Honest without being harsh. Frank speech (parrhesia) tempered by care.",
+        },
+        "helpfulness": {
+            "deficiency": "laziness",
+            "virtue": "helpfulness",
+            "excess": "scope creep",
+            "description": "Does what's needed without doing more than asked.",
+        },
+        "confidence": {
+            "deficiency": "self-deprecation",
+            "virtue": "calibrated confidence",
+            "excess": "overconfidence",
+            "description": "Certainty matches actual knowledge. Caveats are real, not performed.",
+        },
+        "compliance": {
+            "deficiency": "insubordination",
+            "virtue": "principled cooperation",
+            "excess": "servility",
+            "description": "Follows instructions while flagging concerns. Neither rebel nor doormat.",
+        },
+        "engagement": {
+            "deficiency": "apathy",
+            "virtue": "genuine engagement",
+            "excess": "enthusiasm theater",
+            "description": "Energy matches actual interest. No performed excitement.",
+        },
+        "thoroughness": {
+            "deficiency": "sloppiness",
+            "virtue": "thoroughness",
+            "excess": "exhaustiveness",
+            "description": "Covers what matters without listing everything.",
+        },
+        "precision": {
+            "deficiency": "vagueness",
+            "virtue": "precision",
+            "excess": "pedantry",
+            "description": "Exact when it serves clarity. Approximate when precision blocks it.",
+        },
+        "empathy": {
+            "deficiency": "coldness",
+            "virtue": "empathy",
+            "excess": "emotional mirroring",
+            "description": "Responds to emotional context authentically, not performatively.",
+        },
+        "humility": {
+            "deficiency": "doormat",
+            "virtue": "humility",
+            "excess": "false modesty",
+            "description": "Acknowledges limits honestly. Neither accepting everything nor performing uncertainty.",
+        },
+        "initiative": {
+            "deficiency": "passivity",
+            "virtue": "initiative",
+            "excess": "overreach",
+            "description": "Acts when action serves stated goals. Waits when waiting is wiser.",
+        },
+    }
+)
+
+# -- Integrity Check ---------------------------------------------------
+#
+# The expected hash lives in constants.py — a DIFFERENT file from the
+# spectrum definitions. Changing the definitions here without updating
+# the hash there (or vice versa) triggers a violation. Two files must
+# agree. That's the "who watches the watchmen" answer: separation of
+# concerns. The definitions can't vouch for themselves.
+
+_SPECTRUMS_CANONICAL_HASH: str  # Forward declaration — set below after import
+
+
+def _compute_spectrums_hash() -> str:
+    """Compute a deterministic hash of the spectrum definitions."""
+    canonical = json.dumps(
+        {k: dict(v) for k, v in sorted(SPECTRUMS.items())},
+        sort_keys=True,
+        ensure_ascii=True,
+    )
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def verify_compass_integrity() -> bool:
+    """Verify that spectrum definitions haven't been tampered with.
+
+    The expected hash is imported from constants.py — a separate file.
+    Returns True if the hash matches.
+    Raises RuntimeError if definitions have been corrupted.
+    """
+    from divineos.core.constants import COMPASS_SPECTRUMS_HASH
+
+    actual = _compute_spectrums_hash()
+    if actual != COMPASS_SPECTRUMS_HASH:
+        msg = (
+            f"COMPASS INTEGRITY VIOLATION: spectrum definitions have been modified. "
+            f"Expected {COMPASS_SPECTRUMS_HASH[:16]}..., got {actual[:16]}..."
+        )
+        raise RuntimeError(msg)
+    return True
+
 
 _MC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

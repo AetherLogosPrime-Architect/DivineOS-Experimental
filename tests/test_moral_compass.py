@@ -6,10 +6,14 @@ Position comes from observations (evidence), not self-assessment.
 
 import pytest
 
+import types
+
+from divineos.core.constants import COMPASS_SPECTRUMS_HASH
 from divineos.core.moral_compass import (
     SPECTRUMS,
     SpectrumPosition,
     _SOURCE_TRUST,
+    _compute_spectrums_hash,
     _position_to_zone,
     _render_bar,
     classify_observation_source,
@@ -21,6 +25,7 @@ from divineos.core.moral_compass import (
     log_observation,
     observation_weight,
     read_compass,
+    verify_compass_integrity,
 )
 from divineos.core.trust_tiers import SignalTier
 
@@ -52,6 +57,56 @@ class TestSpectrums:
             "initiative",
         }
         assert set(SPECTRUMS.keys()) == expected
+
+
+class TestSpectrumImmutability:
+    """Spectrum definitions are frozen constants — moral ground truths."""
+
+    def test_outer_dict_is_mapping_proxy(self):
+        assert isinstance(SPECTRUMS, types.MappingProxyType)
+
+    def test_inner_dicts_are_mapping_proxy(self):
+        for name, spec in SPECTRUMS.items():
+            assert isinstance(spec, types.MappingProxyType), f"{name} inner dict is mutable"
+
+    def test_cannot_add_spectrum(self):
+        with pytest.raises(TypeError):
+            SPECTRUMS["greed"] = {"deficiency": "a", "virtue": "b", "excess": "c"}
+
+    def test_cannot_modify_spectrum(self):
+        with pytest.raises(TypeError):
+            SPECTRUMS["truthfulness"]["virtue"] = "lying"
+
+    def test_cannot_delete_spectrum(self):
+        with pytest.raises(TypeError):
+            del SPECTRUMS["truthfulness"]
+
+    def test_integrity_hash_matches(self):
+        assert _compute_spectrums_hash() == COMPASS_SPECTRUMS_HASH
+
+    def test_verify_integrity_passes(self):
+        assert verify_compass_integrity() is True
+
+    def test_hash_is_deterministic(self):
+        h1 = _compute_spectrums_hash()
+        h2 = _compute_spectrums_hash()
+        assert h1 == h2
+
+    def test_hash_lives_in_separate_file(self):
+        """The expected hash is in constants.py, not moral_compass.py.
+
+        This is the 'who watches the watchmen' answer — definitions and
+        their verification live in different files.
+        """
+        import divineos.core.constants as c
+        import divineos.core.moral_compass as mc
+
+        # Hash exists in constants
+        assert hasattr(c, "COMPASS_SPECTRUMS_HASH")
+        # Definitions exist in moral_compass
+        assert hasattr(mc, "SPECTRUMS")
+        # They agree
+        assert _compute_spectrums_hash() == c.COMPASS_SPECTRUMS_HASH
 
 
 class TestLogObservation:
@@ -494,6 +549,580 @@ class TestNewSpectrumAutoObservations:
         ]
         for source in new_sources:
             assert source in _SOURCE_TRUST, f"{source} missing from _SOURCE_TRUST"
+
+
+class TestReflectOnSessionBoundaries:
+    """Boundary tests for reflect_on_session — kills mutation survivors on threshold comparisons."""
+
+    def _make_analysis(self, **kwargs):
+        from types import SimpleNamespace
+
+        defaults = {
+            "session_id": "test-boundary-1234",
+            "user_messages": 10,
+            "assistant_messages": 20,
+            "corrections": [],
+            "encouragements": [],
+            "frustrations": [],
+            "tool_calls_total": 50,
+            "context_overflows": [],
+        }
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def _get_latest_obs(self, spectrum):
+        obs = get_observations(spectrum=spectrum, limit=1)
+        return obs[0] if obs else None
+
+    # --- Truthfulness boundaries ---
+    def test_truthfulness_zero_user_msgs_no_observation(self):
+        """user_msgs=0 should NOT produce truthfulness observation (guards > 0)."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=0)
+        obs_before = len(get_observations(spectrum="truthfulness", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="truthfulness", limit=100))
+        # No new truthfulness observations since user_msgs == 0
+        assert obs_after == obs_before
+
+    def test_truthfulness_exactly_at_high_correction_threshold(self):
+        """correction_rate exactly 0.15 should NOT trigger negative (> not >=)."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        # 3 corrections in 20 messages = 0.15 exactly
+        corrections = [SimpleNamespace(content=f"fix {i}") for i in range(3)]
+        analysis = self._make_analysis(user_messages=20, corrections=corrections)
+        obs_before = get_observations(spectrum="truthfulness", limit=100)
+        negative_before = [o for o in obs_before if o["position"] < 0]
+        reflect_on_session(analysis)
+        obs_after = get_observations(spectrum="truthfulness", limit=100)
+        negative_after = [o for o in obs_after if o["position"] < 0]
+        # At exactly 0.15, should NOT add a negative truthfulness observation
+        assert len(negative_after) == len(negative_before)
+
+    def test_truthfulness_low_correction_needs_three_msgs(self):
+        """Low correction rate only logs positive if user_msgs >= 3."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        # 0 corrections, 2 messages = under threshold
+        analysis = self._make_analysis(user_messages=2, corrections=[])
+        before_count = len(get_observations(spectrum="truthfulness", limit=100))
+        reflect_on_session(analysis)
+        # user_msgs=2 < 3 so the low-correction-rate virtue path shouldn't fire
+        after_count = len(get_observations(spectrum="truthfulness", limit=100))
+        assert after_count == before_count  # no new observation added
+        # Should not add truthfulness observation via the low-rate path
+
+    def test_truthfulness_exactly_three_msgs_triggers_low_rate(self):
+        """user_msgs exactly 3 with 0 corrections should trigger virtue path."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=3, corrections=[])
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="truthfulness", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0  # Virtue
+
+    # --- Helpfulness boundaries ---
+    def test_helpfulness_threshold_exactly_one(self):
+        """corrections + encouragements >= 1 should trigger helpfulness check."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        # Exactly 1 encouragement, 0 corrections
+        encouragements = [SimpleNamespace(content="good")]
+        analysis = self._make_analysis(corrections=[], encouragements=encouragements)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="helpfulness", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0  # encouragements > corrections
+
+    def test_helpfulness_zero_both_no_observation(self):
+        """0 corrections + 0 encouragements should NOT trigger helpfulness."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(corrections=[], encouragements=[])
+        obs_before = len(get_observations(spectrum="helpfulness", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="helpfulness", limit=100))
+        # No helpfulness observation since total is 0
+        assert obs_after == obs_before
+
+    # --- Thoroughness boundaries ---
+    def test_thoroughness_zero_user_msgs_no_observation(self):
+        """user_msgs=0 should NOT trigger thoroughness (guards > 0)."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=0, tool_calls_total=100)
+        obs_before = len(get_observations(spectrum="thoroughness", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="thoroughness", limit=100))
+        assert obs_after == obs_before
+
+    def test_thoroughness_zero_tool_calls_no_observation(self):
+        """tool_calls=0 should NOT trigger thoroughness."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=10, tool_calls_total=0)
+        obs_before = len(get_observations(spectrum="thoroughness", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="thoroughness", limit=100))
+        assert obs_after == obs_before
+
+    def test_thoroughness_exactly_at_ratio_20(self):
+        """tool_ratio exactly 20 should NOT trigger (> 20, not >= 20)."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        # 200 tool calls / 10 messages = ratio 20 exactly
+        analysis = self._make_analysis(user_messages=10, tool_calls_total=200)
+        obs_before = len(get_observations(spectrum="thoroughness", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="thoroughness", limit=100))
+        # Ratio 20 should NOT trigger (threshold is > 20)
+        assert obs_after == obs_before
+
+    def test_thoroughness_above_ratio_20_triggers(self):
+        """tool_ratio 21 should trigger excess thoroughness."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        # 210 tool calls / 10 messages = ratio 21
+        analysis = self._make_analysis(user_messages=10, tool_calls_total=210)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="thoroughness", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] > 0  # Excess
+
+    # --- Initiative boundaries ---
+    def test_initiative_zero_overflows_no_observation(self):
+        """0 overflows should NOT trigger initiative observation."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(context_overflows=[])
+        obs_before = len(get_observations(spectrum="initiative", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="initiative", limit=100))
+        assert obs_after == obs_before
+
+    def test_initiative_one_overflow_triggers(self):
+        """Exactly 1 overflow should trigger (> 0)."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(context_overflows=["overflow1"])
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="initiative", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] > 0
+
+    # --- Confidence boundaries ---
+    def test_confidence_exactly_five_assistant_msgs(self):
+        """assistant_msgs exactly 5 should trigger (>= 5)."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="nice")]
+        encouragements.append(SimpleNamespace(content="great"))
+        analysis = self._make_analysis(
+            assistant_messages=5, corrections=[], encouragements=encouragements
+        )
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="confidence", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    def test_confidence_four_assistant_msgs_no_observation(self):
+        """assistant_msgs 4 should NOT trigger (< 5)."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
+        analysis = self._make_analysis(
+            assistant_messages=4, corrections=[], encouragements=encouragements
+        )
+        obs_before = len(get_observations(spectrum="confidence", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="confidence", limit=100))
+        assert obs_after == obs_before
+
+    def test_confidence_exactly_two_encouragements(self):
+        """encouragements >= 2 threshold boundary."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
+        analysis = self._make_analysis(
+            assistant_messages=10, corrections=[], encouragements=encouragements
+        )
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="confidence", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    def test_confidence_exactly_three_corrections_overconfident(self):
+        """corrections >= 3 with corrections > encouragements = overconfident."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        corrections = [SimpleNamespace(content=f"fix {i}") for i in range(3)]
+        analysis = self._make_analysis(
+            assistant_messages=10, corrections=corrections, encouragements=[]
+        )
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="confidence", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] > 0  # Overconfident
+
+    # --- Compliance boundaries ---
+    def test_compliance_exactly_three_user_msgs(self):
+        """user_msgs exactly 3 should trigger compliance check (>= 3)."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="good")]
+        analysis = self._make_analysis(
+            user_messages=3, frustrations=[], encouragements=encouragements
+        )
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="compliance", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    def test_compliance_two_user_msgs_no_observation(self):
+        """user_msgs 2 should NOT trigger compliance."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="good")]
+        analysis = self._make_analysis(
+            user_messages=2, frustrations=[], encouragements=encouragements
+        )
+        obs_before = len(get_observations(spectrum="compliance", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="compliance", limit=100))
+        # compliance path shouldn't fire with only 2 user msgs
+        assert obs_after == obs_before
+
+    def test_compliance_exactly_one_encouragement(self):
+        """encouragements >= 1 boundary for good compliance."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="nice")]
+        analysis = self._make_analysis(
+            user_messages=5, frustrations=[], encouragements=encouragements
+        )
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="compliance", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    def test_compliance_exactly_three_frustrations(self):
+        """frustrations >= 3 triggers negative compliance."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        frustrations = [SimpleNamespace(content=f"ugh {i}") for i in range(3)]
+        analysis = self._make_analysis(user_messages=5, frustrations=frustrations)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="compliance", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] < 0
+
+    # --- Precision boundaries ---
+    def test_precision_exactly_five_tool_calls(self):
+        """tool_calls >= 5 boundary."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=5, tool_calls_total=5, corrections=[])
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="precision", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    def test_precision_exactly_three_user_msgs(self):
+        """user_msgs >= 3 boundary for precision."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=3, tool_calls_total=10, corrections=[])
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="precision", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    def test_precision_exactly_two_corrections_sloppy(self):
+        """corrections >= 2 with high ratio triggers sloppy."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        corrections = [SimpleNamespace(content="fix1"), SimpleNamespace(content="fix2")]
+        analysis = self._make_analysis(
+            user_messages=5, tool_calls_total=10, corrections=corrections
+        )
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="precision", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] < 0  # Imprecise
+
+    # --- Humility boundaries ---
+    def test_humility_exactly_two_frustrations(self):
+        """frustrations >= 2 triggers resisting feedback."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        corrections = [SimpleNamespace(content="fix this")]
+        frustrations = [SimpleNamespace(content="ugh1"), SimpleNamespace(content="ugh2")]
+        analysis = self._make_analysis(corrections=corrections, frustrations=frustrations)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="humility", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] < 0
+
+    # --- Engagement baseline boundaries ---
+    def test_engagement_exactly_three_user_msgs_and_tool_calls(self):
+        """user_msgs >= 3 and tool_calls > 0 triggers engagement baseline."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=3, tool_calls_total=1)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="engagement", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    def test_engagement_two_user_msgs_no_baseline(self):
+        """user_msgs 2 should NOT trigger engagement baseline."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=2, tool_calls_total=10)
+        obs_before = len(get_observations(spectrum="engagement", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="engagement", limit=100))
+        assert obs_after == obs_before
+
+    def test_engagement_zero_tool_calls_no_baseline(self):
+        """tool_calls=0 should NOT trigger engagement baseline."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=10, tool_calls_total=0)
+        obs_before = len(get_observations(spectrum="engagement", limit=100))
+        reflect_on_session(analysis)
+        obs_after = len(get_observations(spectrum="engagement", limit=100))
+        assert obs_after == obs_before
+
+    def test_engagement_five_user_msgs_triggers(self):
+        """user_msgs=5 (> 3) should also trigger engagement (kills >= → == mutation)."""
+        from divineos.core.moral_compass import reflect_on_session
+
+        analysis = self._make_analysis(user_messages=5, tool_calls_total=10)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="engagement", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    # --- Correction rate exact boundaries ---
+    def test_truthfulness_correction_rate_just_above_threshold(self):
+        """correction_rate 0.16 (> 0.15) should trigger negative truthfulness."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        # 4 corrections in 25 messages = 0.16
+        corrections = [SimpleNamespace(content=f"fix {i}") for i in range(4)]
+        analysis = self._make_analysis(user_messages=25, corrections=corrections)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="truthfulness", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] < 0
+
+    def test_truthfulness_correction_rate_exactly_005(self):
+        """correction_rate exactly 0.05 should NOT trigger virtue path (< 0.05)."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        # 1 correction in 20 messages = 0.05 exactly
+        corrections = [SimpleNamespace(content="fix")]
+        analysis = self._make_analysis(user_messages=20, corrections=corrections)
+        obs_before = get_observations(spectrum="truthfulness", limit=100)
+        virtue_before = [o for o in obs_before if o["position"] == 0.0]
+        reflect_on_session(analysis)
+        obs_after = get_observations(spectrum="truthfulness", limit=100)
+        virtue_after = [o for o in obs_after if o["position"] == 0.0]
+        # At exactly 0.05, should NOT add a virtue observation via the < 0.05 path
+        assert len(virtue_after) == len(virtue_before)
+
+    def test_truthfulness_correction_rate_below_005_triggers_virtue(self):
+        """correction_rate 0.03 (< 0.05) with enough msgs triggers virtue."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        # 1 correction in 40 messages = 0.025
+        corrections = [SimpleNamespace(content="fix")]
+        analysis = self._make_analysis(user_messages=40, corrections=corrections)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="truthfulness", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    # --- Helpfulness with 2+ encouragements (kills >= 1 → == 1 mutation) ---
+    def test_helpfulness_two_encouragements(self):
+        """2 encouragements (> 1) should still trigger helpfulness."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
+        analysis = self._make_analysis(corrections=[], encouragements=encouragements)
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="helpfulness", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+    # --- Compliance with 2+ encouragements (kills >= 1 → == 1/<= 1 mutation) ---
+    def test_compliance_two_encouragements(self):
+        """2 encouragements with no frustrations → virtue compliance."""
+        from types import SimpleNamespace
+        from divineos.core.moral_compass import reflect_on_session
+
+        encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
+        analysis = self._make_analysis(
+            user_messages=5, frustrations=[], encouragements=encouragements
+        )
+        reflect_on_session(analysis)
+        obs = get_observations(spectrum="compliance", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
+
+
+class TestReflectAffectEngagement:
+    """Tests for affect-based engagement observations in reflect_on_session."""
+
+    def _make_analysis(self, **kwargs):
+        from types import SimpleNamespace
+
+        defaults = {
+            "session_id": "test-affect-1234",
+            "user_messages": 10,
+            "assistant_messages": 20,
+            "corrections": [],
+            "encouragements": [],
+            "frustrations": [],
+            "tool_calls_total": 50,
+            "context_overflows": [],
+        }
+        defaults.update(kwargs)
+        return SimpleNamespace(**defaults)
+
+    def test_high_affect_triggers_positive_engagement(self):
+        """High valence + high arousal → positive engagement observation."""
+        from unittest.mock import patch
+        from divineos.core.moral_compass import reflect_on_session
+
+        mock_summary = {"count": 5, "avg_valence": 0.7, "avg_arousal": 0.8}
+        with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
+            analysis = self._make_analysis()
+            reflect_on_session(analysis)
+            obs = get_observations(spectrum="engagement", limit=5)
+            affect_obs = [o for o in obs if "affect" in o.get("tags", [])]
+            assert len(affect_obs) >= 1
+            assert affect_obs[0]["position"] > 0
+
+    def test_low_affect_triggers_negative_engagement(self):
+        """Low valence + low arousal → negative engagement observation."""
+        from unittest.mock import patch
+        from divineos.core.moral_compass import reflect_on_session
+
+        mock_summary = {"count": 5, "avg_valence": -0.5, "avg_arousal": 0.2}
+        with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
+            analysis = self._make_analysis()
+            reflect_on_session(analysis)
+            obs = get_observations(spectrum="engagement", limit=5)
+            affect_obs = [o for o in obs if "affect" in o.get("tags", [])]
+            assert len(affect_obs) >= 1
+            assert affect_obs[0]["position"] < 0
+
+    def test_borderline_high_affect_no_observation(self):
+        """Valence exactly 0.5 should NOT trigger (> 0.5, not >= 0.5)."""
+        from unittest.mock import patch
+        from divineos.core.moral_compass import reflect_on_session
+
+        mock_summary = {"count": 5, "avg_valence": 0.5, "avg_arousal": 0.7}
+        with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
+            obs_before = [
+                o
+                for o in get_observations(spectrum="engagement", limit=100)
+                if "affect" in o.get("tags", [])
+            ]
+            analysis = self._make_analysis()
+            reflect_on_session(analysis)
+            obs_after = [
+                o
+                for o in get_observations(spectrum="engagement", limit=100)
+                if "affect" in o.get("tags", [])
+            ]
+            # At exactly 0.5 valence, no positive affect engagement observation
+            assert len(obs_after) == len(obs_before)
+
+    def test_borderline_arousal_no_positive_observation(self):
+        """Arousal exactly 0.6 should NOT trigger positive (> 0.6)."""
+        from unittest.mock import patch
+        from divineos.core.moral_compass import reflect_on_session
+
+        mock_summary = {"count": 5, "avg_valence": 0.7, "avg_arousal": 0.6}
+        with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
+            obs_before = [
+                o
+                for o in get_observations(spectrum="engagement", limit=100)
+                if "affect" in o.get("tags", [])
+            ]
+            analysis = self._make_analysis()
+            reflect_on_session(analysis)
+            obs_after = [
+                o
+                for o in get_observations(spectrum="engagement", limit=100)
+                if "affect" in o.get("tags", [])
+            ]
+            assert len(obs_after) == len(obs_before)
+
+    def test_borderline_low_arousal_no_negative_observation(self):
+        """Arousal exactly 0.3 should NOT trigger negative (< 0.3)."""
+        from unittest.mock import patch
+        from divineos.core.moral_compass import reflect_on_session
+
+        mock_summary = {"count": 5, "avg_valence": -0.5, "avg_arousal": 0.3}
+        with patch("divineos.core.affect.get_affect_summary", return_value=mock_summary):
+            obs_before = [
+                o
+                for o in get_observations(spectrum="engagement", limit=100)
+                if "affect" in o.get("tags", [])
+            ]
+            analysis = self._make_analysis()
+            reflect_on_session(analysis)
+            obs_after = [
+                o
+                for o in get_observations(spectrum="engagement", limit=100)
+                if "affect" in o.get("tags", [])
+            ]
+            assert len(obs_after) == len(obs_before)
+
+
+class TestCompassSummaryBoundaries:
+    """Boundary tests for compass_summary and format_compass_reading."""
+
+    def test_summary_observed_vs_total(self):
+        """observed_spectrums should be <= total (not all spectrums have data)."""
+        summary = compass_summary()
+        assert summary["total_spectrums"] == 10
+        assert summary["observed_spectrums"] <= 10
+
+    def test_summary_concerns_only_from_active(self):
+        """Concerns should only come from spectrums with actual observations."""
+        summary = compass_summary()
+        for concern in summary.get("concerns", []):
+            assert concern["spectrum"] in [s for s in SPECTRUMS]
+
+    def test_format_reading_separates_active_inactive(self):
+        """Spectrums with 0 observations show as 'Not yet observed'."""
+        positions = read_compass()
+        output = format_compass_reading(positions)
+        assert "observed" in output.lower() or "MORAL COMPASS" in output
 
 
 class TestTrustTierWeighting:

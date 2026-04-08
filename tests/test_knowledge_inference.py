@@ -188,22 +188,7 @@ class TestSynthesizeLessonInsights:
         from divineos.core.knowledge._base import _get_connection, compute_hash
 
         conn = _get_connection()
-        # Use the real schema from init_knowledge_table
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS lesson_tracking (
-                lesson_id     TEXT PRIMARY KEY,
-                created_at    REAL NOT NULL,
-                category      TEXT NOT NULL,
-                description   TEXT NOT NULL,
-                first_session TEXT NOT NULL,
-                occurrences   INTEGER NOT NULL DEFAULT 1,
-                last_seen     REAL NOT NULL,
-                sessions      TEXT NOT NULL DEFAULT '[]',
-                status        TEXT NOT NULL DEFAULT 'active',
-                content_hash  TEXT NOT NULL,
-                agent         TEXT NOT NULL DEFAULT 'unknown'
-            )"""
-        )
+        # lesson_tracking created by init_knowledge_table() in _setup()
         now = time.time()
         for i in range(3):
             desc = f"Retried without investigating error {i}"

@@ -89,7 +89,6 @@ class DreamReport:
         pruning_found = False
         if self.health_results:
             for key in (
-                "stale_decayed",
                 "temporal_decayed",
                 "noise_swept",
                 "maturity_demoted",
@@ -100,6 +99,10 @@ class DreamReport:
                     label = key.replace("_", " ").capitalize()
                     lines.append(f"    {label}: {val}")
                     pruning_found = True
+            review_count = self.health_results.get("needs_review_count", 0)
+            if review_count:
+                lines.append(f"    Needs review (unseen 30d+): {review_count}")
+                pruning_found = True
         if self.hygiene_results:
             for key in ("noise_demoted", "noise_superseded", "stale_decayed", "orphans_flagged"):
                 val = self.hygiene_results.get(key, 0)
