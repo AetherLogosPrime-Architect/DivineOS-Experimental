@@ -131,23 +131,30 @@ _PROSE_EXTENSIONS = frozenset((".md", ".txt", ".rst", ".html", ".css", ".json"))
 def _is_non_coding_session(records: list[dict[str, Any]]) -> bool:
     """Detect whether this session is research/discussion rather than coding.
 
-    A non-coding session has no code edits and relies on search, web,
-    or agent tools. Writing prose files (.md, .txt, .rst) doesn't count
-    as code editing — you don't need to run pytest after writing a blog post.
+    A non-coding session has no production code edits and relies on search,
+    web, or agent tools. These don't count as production code editing:
+    - Prose files (.md, .txt, .rst, etc.) — no pytest needed for a blog post
+    - Test files (paths containing /tests/ or \\tests\\) — writing tests IS
+      the correctness work, penalizing for not running them is circular
     """
-    code_edit_count = 0
+    production_edit_count = 0
     search_count = 0
     for record in records:
         for call in _extract_tool_calls(record):
             name = call.get("name", "").lower()
             if name in ("edit", "write", "notebookedit"):
-                # Check if the target file is prose or code
                 file_path = call.get("input", {}).get("file_path", "")
+                # Check if the target file is prose
                 ext = ""
                 if "." in file_path:
                     ext = "." + file_path.rsplit(".", 1)[-1].lower()
-                if ext not in _PROSE_EXTENSIONS:
-                    code_edit_count += 1
+                if ext in _PROSE_EXTENSIONS:
+                    continue
+                # Check if the target file is a test file
+                normalized = file_path.replace("\\", "/")
+                if "/tests/" in normalized or normalized.startswith("tests/"):
+                    continue
+                production_edit_count += 1
             elif name in (
                 "grep",
                 "glob",
@@ -157,7 +164,7 @@ def _is_non_coding_session(records: list[dict[str, Any]]) -> bool:
                 "read",
             ):
                 search_count += 1
-    return code_edit_count == 0 and search_count >= 2
+    return production_edit_count == 0 and search_count >= 2
 
 
 def check_correctness(

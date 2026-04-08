@@ -314,6 +314,45 @@ class TestSessionTypeDetection:
         ]
         assert _is_non_coding_session(records) is True
 
+    def test_test_file_edits_not_production_code(self):
+        """Writing test files is not production coding — don't penalize."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "tests/test_pipeline.py"}),
+            _tool_call_record("Edit", {"file_path": "tests/test_quality.py"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is True
+
+    def test_test_file_with_backslash_paths(self):
+        """Windows-style paths with backslashes should also be detected."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "C:\\project\\tests\\test_foo.py"}),
+            _tool_call_record("Grep"),
+        ]
+        assert _is_non_coding_session(records) is True
+
+    def test_mixed_test_and_production_is_coding(self):
+        """If any edit targets production code, session is coding."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "tests/test_new.py"}),
+            _tool_call_record("Edit", {"file_path": "src/divineos/core/sleep.py"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is False
+
+    def test_test_and_prose_together_not_coding(self):
+        """Session editing only tests and docs is not production coding."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "tests/test_session.py"}),
+            _tool_call_record("Write", {"file_path": "docs/testing-roadmap.md"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is True
+
 
 class TestCorrectnessSessionType:
     """Test that check_correctness handles non-coding sessions correctly."""
@@ -339,6 +378,18 @@ class TestCorrectnessSessionType:
         result = check_correctness(records, {})
         assert result.score == 0.0
         assert "no tests were run" in result.summary.lower()
+
+    def test_test_writing_session_gets_neutral_score(self):
+        """Writing tests but not running them = neutral, not blocked."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "tests/test_pipeline.py"}),
+            _tool_call_record("Edit", {"file_path": "tests/test_pipeline.py"}),
+            _tool_call_record("Read"),
+        ]
+        result = check_correctness(records, {})
+        assert result.score == 0.5
+        assert result.passed == -1
 
     def test_research_session_not_blocked_by_gate(self):
         """A research session should pass through the quality gate."""
