@@ -377,13 +377,18 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
 
             from divineos.core.hud import _ensure_hud_dir
 
+            from divineos.core.hud_state import get_lifetime_goals_completed
+
             goals_path = _ensure_hud_dir() / "active_goals.json"
             if goals_path.exists():
                 goals = _json.loads(goals_path.read_text(encoding="utf-8"))
                 active = [g for g in goals if g.get("status") != "done"]
                 done = [g for g in goals if g.get("status") == "done"]
-                goals_state = f"{len(done)} completed, {len(active)} still active"
-        except (json.JSONDecodeError, OSError):
+                lifetime = get_lifetime_goals_completed()
+                goals_state = (
+                    f"{len(done)} completed ({lifetime} lifetime), {len(active)} still active"
+                )
+        except (json.JSONDecodeError, OSError, ImportError):
             pass
 
         # Structured continuation fields
