@@ -174,6 +174,9 @@ class TestComputeTrustProfile:
         profile = compute_trust_profile([])
         assert profile["total"] == 0
         assert profile["trust_score"] == 0.0
+        assert profile["measured_pct"] == 0
+        assert profile["behavioral_pct"] == 0
+        assert profile["self_reported_pct"] == 0
 
     def test_all_measured(self) -> None:
         entries = [{"source": "CORRECTED"} for _ in range(10)]

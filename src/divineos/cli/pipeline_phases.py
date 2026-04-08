@@ -281,8 +281,8 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
             hc_parts.append(f"{hc['recurring_escalated']} escalated")
         if hc["resolved_lessons"]:
             hc_parts.append(f"{hc['resolved_lessons']} resolved")
-        if hc.get("stale_decayed"):
-            hc_parts.append(f"{hc['stale_decayed']} stale decayed")
+        if hc.get("needs_review_count"):
+            hc_parts.append(f"{hc['needs_review_count']} needs review")
         if hc.get("temporal_decayed"):
             hc_parts.append(f"{hc['temporal_decayed']} temporal decayed")
         if hc.get("contradiction_flagged"):
@@ -421,8 +421,8 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
             hygiene_parts.append(f"{hygiene['noise_demoted']} demoted")
         if hygiene["noise_superseded"]:
             hygiene_parts.append(f"{hygiene['noise_superseded']} superseded")
-        if hygiene["stale_decayed"]:
-            hygiene_parts.append(f"{hygiene['stale_decayed']} stale decayed")
+        if hygiene.get("stale_decayed"):
+            hygiene_parts.append(f"{hygiene['stale_decayed']} temporal decayed")
         if hygiene["orphans_flagged"]:
             hygiene_parts.append(f"{hygiene['orphans_flagged']} orphans flagged")
         if hygiene_parts:

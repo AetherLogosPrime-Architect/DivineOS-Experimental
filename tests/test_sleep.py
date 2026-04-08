@@ -103,23 +103,10 @@ class TestPhaseAffect:
         monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.memory import _get_connection
 
+        from divineos.core.affect import init_affect_log
+
+        init_affect_log()
         conn = _get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS affect_log (
-                entry_id TEXT PRIMARY KEY,
-                created_at REAL NOT NULL,
-                valence REAL NOT NULL,
-                arousal REAL NOT NULL,
-                dominance REAL DEFAULT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                trigger TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                linked_claim_id TEXT DEFAULT NULL,
-                linked_decision_id TEXT DEFAULT NULL,
-                linked_knowledge_id TEXT DEFAULT NULL,
-                session_id TEXT NOT NULL DEFAULT ''
-            )
-        """)
         # Insert an old entry (24 hours ago) with strong emotion
         old_time = time.time() - 86400
         conn.execute(
@@ -157,23 +144,10 @@ class TestPhaseAffect:
         monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.memory import _get_connection
 
+        from divineos.core.affect import init_affect_log
+
+        init_affect_log()
         conn = _get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS affect_log (
-                entry_id TEXT PRIMARY KEY,
-                created_at REAL NOT NULL,
-                valence REAL NOT NULL,
-                arousal REAL NOT NULL,
-                dominance REAL DEFAULT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                trigger TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                linked_claim_id TEXT DEFAULT NULL,
-                linked_decision_id TEXT DEFAULT NULL,
-                linked_knowledge_id TEXT DEFAULT NULL,
-                session_id TEXT NOT NULL DEFAULT ''
-            )
-        """)
         recent_time = time.time() - 60  # 1 minute ago
         conn.execute(
             "INSERT INTO affect_log (entry_id, created_at, valence, arousal, session_id) "
@@ -199,23 +173,10 @@ class TestPhaseAffect:
         monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.memory import _get_connection
 
+        from divineos.core.affect import init_affect_log
+
+        init_affect_log()
         conn = _get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS affect_log (
-                entry_id TEXT PRIMARY KEY,
-                created_at REAL NOT NULL,
-                valence REAL NOT NULL,
-                arousal REAL NOT NULL,
-                dominance REAL DEFAULT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                trigger TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                linked_claim_id TEXT DEFAULT NULL,
-                linked_decision_id TEXT DEFAULT NULL,
-                linked_knowledge_id TEXT DEFAULT NULL,
-                session_id TEXT NOT NULL DEFAULT ''
-            )
-        """)
         conn.commit()
         conn.close()
 
@@ -229,23 +190,10 @@ class TestPhaseAffect:
         monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.memory import _get_connection
 
+        from divineos.core.affect import init_affect_log
+
+        init_affect_log()
         conn = _get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS affect_log (
-                entry_id TEXT PRIMARY KEY,
-                created_at REAL NOT NULL,
-                valence REAL NOT NULL,
-                arousal REAL NOT NULL,
-                dominance REAL DEFAULT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                trigger TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                linked_claim_id TEXT DEFAULT NULL,
-                linked_decision_id TEXT DEFAULT NULL,
-                linked_knowledge_id TEXT DEFAULT NULL,
-                session_id TEXT NOT NULL DEFAULT ''
-            )
-        """)
         now = time.time()
         # Two recent entries
         conn.execute(

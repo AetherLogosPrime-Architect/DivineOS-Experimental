@@ -201,3 +201,12 @@ SIS_WEIGHT_CONCRETENESS = 0.30
 SIS_WEIGHT_ACTIONABILITY = 0.30
 SIS_WEIGHT_SPECULATION = 0.25  # Inverse (lower speculation = better)
 SIS_WEIGHT_ESOTERIC = 0.15  # Inverse (lower esoteric = better)
+
+# ─── Compass Integrity ────────────────────────────────────────────
+# SHA-256 of the canonical JSON representation of the ten virtue spectrums.
+# This hash lives HERE, separate from the spectrum definitions in
+# moral_compass.py, so that changing the definitions without updating the
+# hash (or vice versa) triggers an integrity violation. Two files must
+# agree — that's the point.
+
+COMPASS_SPECTRUMS_HASH = "2921dfc05fa4a532c641a647aa3d7567f6de643f7e52142317bda05da271bd7a"

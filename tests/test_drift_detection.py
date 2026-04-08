@@ -16,22 +16,30 @@ class TestLessonRegressions:
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
 
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+        from divineos.core.ledger import init_db
 
+        init_db()
+        init_knowledge_table()
         conn = _get_connection()
         conn.execute(
-            """CREATE TABLE IF NOT EXISTS lesson_tracking (
-                lesson_id TEXT PRIMARY KEY,
-                category TEXT,
-                description TEXT,
-                occurrences INTEGER DEFAULT 0,
-                status TEXT DEFAULT 'active',
-                last_session_id TEXT
-            )"""
-        )
-        conn.execute(
-            "INSERT INTO lesson_tracking VALUES (?, ?, ?, ?, ?, ?)",
-            ("l1", "code_quality", "Read before you write", 8, "improving", "s1"),
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "l1",
+                1000.0,
+                "code_quality",
+                "Read before you write",
+                "s1",
+                8,
+                1000.0,
+                '["s1"]',
+                "improving",
+                "abc123",
+                "test",
+            ),
         )
         conn.commit()
         conn.close()
@@ -45,19 +53,30 @@ class TestLessonRegressions:
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
 
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+        from divineos.core.ledger import init_db
 
+        init_db()
+        init_knowledge_table()
         conn = _get_connection()
         conn.execute(
-            """CREATE TABLE IF NOT EXISTS lesson_tracking (
-                lesson_id TEXT PRIMARY KEY, category TEXT,
-                description TEXT, occurrences INTEGER DEFAULT 0,
-                status TEXT DEFAULT 'active', last_session_id TEXT
-            )"""
-        )
-        conn.execute(
-            "INSERT INTO lesson_tracking VALUES (?, ?, ?, ?, ?, ?)",
-            ("l1", "code_quality", "Stop guessing", 12, "improving", "s1"),
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "l1",
+                1000.0,
+                "code_quality",
+                "Stop guessing",
+                "s1",
+                12,
+                1000.0,
+                '["s1"]',
+                "improving",
+                "abc123",
+                "test",
+            ),
         )
         conn.commit()
         conn.close()
@@ -70,19 +89,30 @@ class TestLessonRegressions:
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
 
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+        from divineos.core.ledger import init_db
 
+        init_db()
+        init_knowledge_table()
         conn = _get_connection()
         conn.execute(
-            """CREATE TABLE IF NOT EXISTS lesson_tracking (
-                lesson_id TEXT PRIMARY KEY, category TEXT,
-                description TEXT, occurrences INTEGER DEFAULT 0,
-                status TEXT DEFAULT 'active', last_session_id TEXT
-            )"""
-        )
-        conn.execute(
-            "INSERT INTO lesson_tracking VALUES (?, ?, ?, ?, ?, ?)",
-            ("l1", "code_quality", "New lesson", 2, "improving", "s1"),
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "l1",
+                1000.0,
+                "code_quality",
+                "New lesson",
+                "s1",
+                2,
+                1000.0,
+                '["s1"]',
+                "improving",
+                "abc123",
+                "test",
+            ),
         )
         conn.commit()
         conn.close()

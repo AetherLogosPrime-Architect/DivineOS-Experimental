@@ -184,21 +184,19 @@ def register(cli: click.Group) -> None:
         noise_count = result.get("noise_penalized", 0)
         if noise_count:
             click.secho(f"  Noise penalized:        {noise_count}", fg="yellow")
-        stale = result.get("stale_decayed", 0)
         temporal = result.get("temporal_decayed", 0)
-        abandoned = result.get("abandoned_decayed", 0)
         contradiction = result.get("contradiction_flagged", 0)
-        decay_total = stale + temporal + abandoned + contradiction
+        needs_review = result.get("needs_review_count", 0)
+        decay_total = temporal + contradiction
         if decay_total:
             click.secho(f"  Decayed:                {decay_total}", fg="yellow")
-            if stale:
-                click.secho(f"    stale (unused 30d+):   {stale}", fg="bright_black")
             if temporal:
                 click.secho(f"    temporal markers:      {temporal}", fg="bright_black")
-            if abandoned:
-                click.secho(f"    abandoned (14d+):      {abandoned}", fg="bright_black")
             if contradiction:
                 click.secho(f"    contradicted (3x+):    {contradiction}", fg="bright_black")
+        if needs_review:
+            click.secho(f"  Needs review:           {needs_review}", fg="yellow")
+            click.secho("    (unseen 30d+ — flagged, not decayed)", fg="bright_black")
 
         report = _wrapped_knowledge_health_report()
         if report["total"] > 0:
@@ -604,6 +602,31 @@ def register(cli: click.Group) -> None:
                 f"  DB size: {vresult['size_before_mb']} MB -> {vresult['size_after_mb']} MB"
             )
             click.secho(f"  Saved:   {vresult['saved_mb']} MB", fg="green")
+
+    @cli.command("test-audit")
+    def test_audit_cmd() -> None:
+        """Audit test quality — classify tests by what they actually verify.
+
+        Scans all test files and classifies each test by:
+        - Data source: real DB vs synthetic/mock vs no data
+        - Assertion type: behavior vs structure vs mixed
+        - Coverage: failure mode vs edge case vs happy path
+        Also detects inline CREATE TABLE statements (schema divergence risk).
+        """
+        from divineos.analysis.test_audit import (
+            audit_test_directory,
+            format_audit_report,
+        )
+
+        test_dir = Path(__file__).parent.parent.parent.parent / "tests"
+        if not test_dir.is_dir():
+            click.secho(f"Test directory not found: {test_dir}", fg="red")
+            return
+
+        click.secho("\n=== Test Quality Audit ===\n", fg="cyan", bold=True)
+        summary = audit_test_directory(test_dir)
+        click.echo(format_audit_report(summary))
+        click.echo()
 
 
 def _extract_python_sections(lines: list[str]) -> list[dict[str, Any]]:

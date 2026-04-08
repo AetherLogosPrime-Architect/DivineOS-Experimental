@@ -113,6 +113,36 @@ class TestGetKnowledge:
         assert len(results) == 1
         assert results[0]["content"] == "new fact"
 
+    def test_zero_min_confidence_returns_all(self):
+        """min_confidence=0.0 (default) should NOT filter anything."""
+        store_knowledge("FACT", "low conf entry", confidence=0.1)
+        store_knowledge("FACT", "high conf entry", confidence=0.9)
+        results = get_knowledge(min_confidence=0.0)
+        assert len(results) == 2
+
+    def test_record_access_corroborates_on_fifth(self):
+        """Every 5th access should increment corroboration_count."""
+        kid = store_knowledge("FACT", "corroboration test entry")
+        # Access 4 times — no corroboration yet
+        for _ in range(4):
+            record_access(kid)
+        entry = [e for e in get_knowledge() if e["knowledge_id"] == kid][0]
+        assert entry["corroboration_count"] == 0
+        assert entry["access_count"] == 4
+
+        # 5th access — corroboration increments
+        record_access(kid)
+        entry = [e for e in get_knowledge() if e["knowledge_id"] == kid][0]
+        assert entry["access_count"] == 5
+        assert entry["corroboration_count"] == 1
+
+    def test_record_access_no_corroboration_before_fifth(self):
+        """Accesses 1-4 should NOT increment corroboration."""
+        kid = store_knowledge("FACT", "no early corroboration")
+        record_access(kid)
+        entry = [e for e in get_knowledge() if e["knowledge_id"] == kid][0]
+        assert entry["corroboration_count"] == 0
+
 
 class TestSearchKnowledge:
     def test_finds_matching(self):

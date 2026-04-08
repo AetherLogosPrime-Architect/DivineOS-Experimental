@@ -152,6 +152,16 @@ class TestSummary:
         assert s["status"] == "ERROR"
         assert s["violations"] == 1
 
+    def test_summary_warning_only(self):
+        """WARNING-only violations produce WARNING status, not OK."""
+        state = GuardrailState(GuardrailConfig(max_iterations=10))
+        state.iteration_count = 8  # 80% = WARNING threshold
+        state.check_iteration()  # triggers WARNING
+        s = state.summary()
+        assert s["status"] == "WARNING"
+        assert s["warnings"] == 1
+        assert s["violations"] == 0  # warnings aren't errors
+
     def test_summary_critical_overrides(self):
         state = GuardrailState(GuardrailConfig(max_iterations=10))
         state.iteration_count = 20
