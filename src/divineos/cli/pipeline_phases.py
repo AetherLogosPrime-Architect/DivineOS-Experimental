@@ -10,6 +10,7 @@ from typing import Any
 import click
 from loguru import logger
 
+from divineos.core.constants import CONFIDENCE_ACTIVE_MEMORY_FLOOR, CONFIDENCE_RELIABLE
 from divineos.cli._helpers import _safe_echo
 from divineos.cli._wrappers import (
     _wrapped_consolidate_related,
@@ -210,13 +211,13 @@ def run_feedback_cycle(
                         f"planned {dev.planned:.0f}, actual {dev.actual:.0f} "
                         f"({dev.percentage:.0f}% off, session {analysis.session_id[:12]})."
                     ),
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     tags=["clarity-pipeline", "deviation", session_tag],
                 )
                 extra_stored += 1
 
         for lesson in lessons:
-            if lesson.confidence >= 0.8 and not has_session:
+            if lesson.confidence >= CONFIDENCE_RELIABLE and not has_session:
                 _wrapped_store_knowledge(
                     knowledge_type="OBSERVATION",
                     content=(
@@ -553,7 +554,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         conn = _get_conn()
         current_rows = conn.execute(
             "SELECT knowledge_id, access_count FROM knowledge "
-            "WHERE superseded_by IS NULL AND confidence >= 0.3"
+            f"WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_ACTIVE_MEMORY_FLOOR}"
         ).fetchall()
         conn.close()
         for kid, current_access in current_rows:

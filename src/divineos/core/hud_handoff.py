@@ -75,8 +75,8 @@ def save_handoff_note(
                     existing_count,
                 )
                 return path
-        except (json.JSONDecodeError, OSError, KeyError):
-            pass  # Can't read existing — overwrite is fine
+        except (json.JSONDecodeError, OSError, KeyError) as e:
+            logger.debug("Could not read existing handoff note, overwriting: %s", e)
 
     note: dict[str, Any] = {
         "session_id": session_id,
@@ -188,8 +188,8 @@ def record_code_action() -> None:
         marker["code_actions_since"] = marker.get("code_actions_since", 0) + 1
         marker["last_action_at"] = time.time()
         path.write_text(json.dumps(marker), encoding="utf-8")
-    except (json.JSONDecodeError, OSError):
-        pass
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Engagement marker update failed: %s", e)
 
 
 def _active_threshold() -> int:
@@ -381,7 +381,7 @@ def was_briefing_loaded() -> bool:
 
     Returns False if:
     - Briefing was never loaded
-    - More than 2 hours have passed since loading (time-based TTL)
+    - More than 4 hours have passed since loading (time-based TTL)
     - More than 150 tool calls have happened since loading (activity drift)
 
     The time check prevents false blocks after context compaction,
