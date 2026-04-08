@@ -210,7 +210,7 @@ src/divineos/
 ├── integration/              # IDE and MCP integration
 ├── supersession/             # Contradiction detection and resolution
 └── violations_cli/           # Violation reporting CLI
-tests/                        # 3,559+ tests (real DB, minimal mocks)
+tests/                        # 3,641+ tests (real DB, minimal mocks)
 data/                         # Runtime databases (gitignored)
 setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 ```
