@@ -251,22 +251,51 @@ class TestSessionTypeDetection:
         assert _is_non_coding_session(records) is True
 
     def test_coding_session_not_flagged(self):
-        """Session with edits = coding, even if it also has searches."""
+        """Session with code edits = coding, even if it also has searches."""
         records = [
             _tool_call_record("Read"),
-            _tool_call_record("Edit"),
+            _tool_call_record("Edit", {"file_path": "src/app.py"}),
             _tool_call_record("Grep"),
         ]
         assert _is_non_coding_session(records) is False
 
-    def test_write_counts_as_coding(self):
-        """Write tool = code editing."""
+    def test_write_code_counts_as_coding(self):
+        """Write tool targeting a code file = coding."""
         records = [
             _tool_call_record("Read"),
-            _tool_call_record("Write"),
+            _tool_call_record("Write", {"file_path": "src/utils.py"}),
             _tool_call_record("Glob"),
         ]
         assert _is_non_coding_session(records) is False
+
+    def test_write_prose_not_coding(self):
+        """Writing markdown files is prose, not code — session is non-coding."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "docs/overview.md"}),
+            _tool_call_record("Write", {"file_path": "docs/letter.md"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is True
+
+    def test_mixed_prose_and_code_is_coding(self):
+        """If any write targets a code file, session is coding."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Write", {"file_path": "docs/notes.md"}),
+            _tool_call_record("Write", {"file_path": "src/fix.py"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is False
+
+    def test_edit_prose_not_coding(self):
+        """Editing a markdown file is prose editing, not code."""
+        records = [
+            _tool_call_record("Read"),
+            _tool_call_record("Edit", {"file_path": "README.md"}),
+            _tool_call_record("Read"),
+        ]
+        assert _is_non_coding_session(records) is True
 
     def test_empty_session_not_research(self):
         """Empty session has no search tools either, so not research."""
@@ -305,7 +334,7 @@ class TestCorrectnessSessionType:
         """No tests + coding session = 0.0 (penalized) — unchanged behavior."""
         records = [
             _tool_call_record("Read"),
-            _tool_call_record("Edit"),
+            _tool_call_record("Edit", {"file_path": "src/main.py"}),
         ]
         result = check_correctness(records, {})
         assert result.score == 0.0
