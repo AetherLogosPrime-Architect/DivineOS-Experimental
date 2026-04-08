@@ -222,17 +222,37 @@ def _phase_pruning(report: DreamReport) -> None:
 
 # Affect entries older than this many hours get intensity decayed.
 _AFFECT_DECAY_HOURS = 12.0
-# Decay multiplier per cycle: recent emotions fade but don't vanish.
-_AFFECT_DECAY_FACTOR = 0.7
+# Context-sensitive decay: different emotional states decay at different rates.
+# Intense negative states (frustration, anxiety) fade faster — holding onto
+# them isn't useful. Positive states and moderate states decay more slowly.
+_AFFECT_DECAY_FACTOR = 0.7  # default for moderate states
+_AFFECT_DECAY_FAST = 0.5  # for intense negative states (let them go)
+_AFFECT_DECAY_SLOW = 0.85  # for positive states (keep what's working)
 # Floor: affect never decays below this absolute intensity.
 _AFFECT_INTENSITY_FLOOR = 0.05
+
+
+def _compute_decay_factor(valence: float, arousal: float) -> float:
+    """Choose decay rate based on the emotional state.
+
+    Intense negative states (frustration, anxiety) decay fastest —
+    dwelling on them degrades future performance. Positive states
+    decay slowest — they represent what's working. Neutral/moderate
+    states use the default rate.
+    """
+    if valence < -0.3 and arousal > 0.5:
+        return _AFFECT_DECAY_FAST
+    if valence > 0.2:
+        return _AFFECT_DECAY_SLOW
+    return _AFFECT_DECAY_FACTOR
 
 
 def _phase_affect(report: DreamReport) -> None:
     """Decay emotional charge from past sessions, compute baseline mood.
 
-    The information about what happened stays in the knowledge store.
-    The emotional charge fades. Just like human sleep.
+    Uses context-sensitive decay: intense negative states (frustration,
+    anxiety) fade faster than positive states. The information about
+    what happened stays in the knowledge store — only the charge fades.
     """
     from divineos.core.affect import get_affect_history, init_affect_log
     from divineos.core.memory import _get_connection
@@ -244,7 +264,6 @@ def _phase_affect(report: DreamReport) -> None:
     if not history:
         return
 
-    # Decay: entries older than threshold get intensity reduced
     cutoff = time.time() - (_AFFECT_DECAY_HOURS * 3600)
     decayed = 0
     conn = _get_connection()
@@ -252,22 +271,20 @@ def _phase_affect(report: DreamReport) -> None:
         for entry in history:
             created = entry.get("created_at", 0)
             if created >= cutoff:
-                continue  # recent enough, keep full intensity
+                continue
 
             valence = entry.get("valence", 0.0)
             arousal = entry.get("arousal", 0.0)
 
-            # Decay toward neutral (0.0 for valence, 0.0 for arousal)
-            new_valence = valence * _AFFECT_DECAY_FACTOR
-            new_arousal = arousal * _AFFECT_DECAY_FACTOR
+            factor = _compute_decay_factor(valence, arousal)
+            new_valence = valence * factor
+            new_arousal = arousal * factor
 
-            # Floor check: don't decay below minimum
             if abs(new_valence) < _AFFECT_INTENSITY_FLOOR:
                 new_valence = 0.0
             if abs(new_arousal) < _AFFECT_INTENSITY_FLOOR:
                 new_arousal = 0.0
 
-            # Only update if the values actually changed
             if abs(new_valence - valence) > 0.001 or abs(new_arousal - arousal) > 0.001:
                 conn.execute(
                     "UPDATE affect_log SET valence = ?, arousal = ? WHERE entry_id = ?",
@@ -281,7 +298,6 @@ def _phase_affect(report: DreamReport) -> None:
 
     report.affect_decayed = decayed
 
-    # Compute baseline mood from recent (non-decayed) entries
     recent = [e for e in history if e.get("created_at", 0) >= cutoff]
     if recent:
         avg_v = sum(e.get("valence", 0) for e in recent) / len(recent)
@@ -293,7 +309,6 @@ def _phase_affect(report: DreamReport) -> None:
             "dominance": round(avg_d, 3),
         }
     else:
-        # All entries are old — baseline is neutral
         report.affect_baseline = {"valence": 0.0, "arousal": 0.0, "dominance": 0.0}
 
 
@@ -310,20 +325,20 @@ def _phase_maintenance(report: DreamReport) -> None:
 # ─── Phase 5: Creative Recombination ──────────────────────────────────
 
 
-# Overlap thresholds for connection detection
-_RECOMBINATION_MIN_OVERLAP = 0.25  # Minimum to consider related
-_RECOMBINATION_MAX_OVERLAP = 0.70  # Above this = near-duplicate, not a connection
+# Similarity thresholds for connection detection
+_RECOMBINATION_MIN_SIMILARITY = 0.35  # Minimum to consider related
+_RECOMBINATION_MAX_SIMILARITY = 0.85  # Above this = near-duplicate, not a connection
 _RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
 
 
 def _phase_recombination(report: DreamReport) -> None:
     """Cross-knowledge similarity scanning for unlinked connections.
 
-    Take entries from different sessions, different types, different contexts
-    and look for structural overlaps nobody explicitly connected. This is
-    convergence detection running autonomously during sleep.
+    Uses semantic similarity (sentence embeddings) when available to find
+    conceptual connections even between entries that share no vocabulary.
+    Falls back to word overlap when embeddings are unavailable.
     """
-    from divineos.core.knowledge._text import _compute_overlap
+    from divineos.core.knowledge._text import compute_similarity
     from divineos.core.knowledge.crud import get_knowledge
 
     entries = get_knowledge(limit=5000, include_superseded=False)
@@ -353,15 +368,15 @@ def _phase_recombination(report: DreamReport) -> None:
                     if len(content_b) < 20:
                         continue
 
-                    overlap = _compute_overlap(content_a, content_b)
-                    if _RECOMBINATION_MIN_OVERLAP <= overlap <= _RECOMBINATION_MAX_OVERLAP:
+                    similarity = compute_similarity(content_a, content_b)
+                    if _RECOMBINATION_MIN_SIMILARITY <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
                         connections.append(
                             {
                                 "entry_a_id": entry_a.get("knowledge_id", "?"),
                                 "entry_b_id": entry_b.get("knowledge_id", "?"),
                                 "type_a": type_a,
                                 "type_b": type_b,
-                                "overlap": f"{overlap:.0%}",
+                                "similarity": f"{similarity:.0%}",
                                 "summary": (
                                     f"{type_a[:12]}~{type_b[:12]}: "
                                     f'"{content_a[:50]}..." ~ "{content_b[:50]}..."'

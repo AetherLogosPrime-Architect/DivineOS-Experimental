@@ -1,23 +1,20 @@
 """Predictive Session Model — anticipate user needs from session history.
 
-The existing anticipation system matches current context against past
-mistakes. This module goes further: it analyzes session history to
-predict what the user will likely need next.
+Three prediction sources, from most to least reliable:
 
-Three prediction sources:
+1. TRAJECTORY LEARNING: What actually happened in past sessions?
+   Track real action sequences (edit → test → fail → edit) and surface
+   patterns. "Last 3 times you edited tests/, you ran pytest right after"
+   is useful. "You typed 'fix' so try 'test'" is not.
 
-1. SEQUENCE PATTERNS: What typically follows the current activity?
-   If the last 3 sessions were "build → test → fix bugs", predict
-   the next step in the cycle.
+2. SESSION PROFILE: What kind of session is this? Classified from
+   actual tool usage patterns, not just keyword matching.
 
-2. SESSION PROFILE: What kind of session is this shaping up to be?
-   Fast corrections? Deep refactoring? Exploratory research?
-   Match against historical session profiles.
-
-3. RECURRING NEEDS: What does the user consistently need at this
-   point in a project? (e.g., always asks for tests after new features)
+3. RECURRING NEEDS: What does the user consistently do at this
+   stage of a project?
 """
 
+import re
 import sqlite3
 from typing import Any
 
@@ -61,10 +58,7 @@ SESSION_PROFILES = {
 
 
 def detect_session_profile(events: list[str]) -> dict[str, Any]:
-    """Classify the current session into a profile based on events.
-
-    Returns the best matching profile with confidence score.
-    """
+    """Classify the current session into a profile based on events."""
     if not events:
         return {"profile": "unknown", "confidence": 0.0, "description": "No events yet"}
 
@@ -78,7 +72,7 @@ def detect_session_profile(events: list[str]) -> dict[str, Any]:
         for signal in profile["signals"]:
             count = combined.count(signal)
             if count > 0:
-                score += min(count * 0.15, 0.5)  # cap per-signal contribution
+                score += min(count * 0.15, 0.5)
 
         if score > best_score:
             best_score = score
@@ -96,7 +90,139 @@ def detect_session_profile(events: list[str]) -> dict[str, Any]:
     }
 
 
-# ─── Session History Analysis ──────────────────────────────────────
+# ─── Trajectory Learning ─────────────────────────────────────────
+
+# Action types extracted from tool events
+_ACTION_PATTERNS = {
+    "read": re.compile(r"read", re.IGNORECASE),
+    "edit": re.compile(r"edit|write", re.IGNORECASE),
+    "test": re.compile(r"pytest|test", re.IGNORECASE),
+    "commit": re.compile(r"git commit|git push", re.IGNORECASE),
+    "search": re.compile(r"grep|glob|search|find", re.IGNORECASE),
+    "run": re.compile(r"bash|command|run", re.IGNORECASE),
+}
+
+
+def _extract_action_sequence(limit: int = 10) -> list[list[str]]:
+    """Extract action sequences from recent sessions.
+
+    Returns a list of sessions, each being a list of action types
+    in chronological order.
+    """
+    conn = _get_connection()
+    try:
+        # Get session boundaries
+        sessions_rows = conn.execute(
+            """SELECT created_at FROM events
+               WHERE event_type = 'SESSION_END'
+               ORDER BY created_at DESC LIMIT ?""",
+            (limit + 1,),
+        ).fetchall()
+
+        if len(sessions_rows) < 2:
+            return []
+
+        session_sequences: list[list[str]] = []
+        timestamps = [r[0] for r in sessions_rows]
+
+        for i in range(len(timestamps) - 1):
+            end_time = timestamps[i]
+            start_time = timestamps[i + 1]
+
+            rows = conn.execute(
+                """SELECT event_type, payload FROM system_events
+                   WHERE timestamp > ? AND timestamp <= ?
+                   ORDER BY timestamp ASC""",
+                (start_time, end_time),
+            ).fetchall()
+
+            actions: list[str] = []
+            for event_type, content in rows:
+                if event_type != "TOOL_CALL":
+                    continue
+                content_str = (content or "").lower()
+                for action_name, pattern in _ACTION_PATTERNS.items():
+                    if pattern.search(content_str):
+                        # Deduplicate consecutive same actions
+                        if not actions or actions[-1] != action_name:
+                            actions.append(action_name)
+                        break
+
+            if len(actions) >= 2:
+                session_sequences.append(actions)
+
+        return session_sequences
+    except (sqlite3.OperationalError, OSError):
+        return []
+    finally:
+        conn.close()
+
+
+def detect_trajectory_patterns(
+    sequences: list[list[str]], min_occurrences: int = 2
+) -> list[dict[str, Any]]:
+    """Find recurring action pairs/triples across session sequences.
+
+    Looks for patterns like "edit → test" or "edit → test → fail → edit"
+    that appear consistently across sessions.
+    """
+    # Count 2-grams and 3-grams across sessions
+    pair_counts: dict[tuple[str, ...], int] = {}
+    triple_counts: dict[tuple[str, ...], int] = {}
+
+    for seq in sequences:
+        seen_pairs: set[tuple[str, ...]] = set()
+        seen_triples: set[tuple[str, ...]] = set()
+
+        for i in range(len(seq) - 1):
+            pair = (seq[i], seq[i + 1])
+            if pair not in seen_pairs:
+                pair_counts[pair] = pair_counts.get(pair, 0) + 1
+                seen_pairs.add(pair)
+
+            if i < len(seq) - 2:
+                triple = (seq[i], seq[i + 1], seq[i + 2])
+                if triple not in seen_triples:
+                    triple_counts[triple] = triple_counts.get(triple, 0) + 1
+                    seen_triples.add(triple)
+
+    patterns: list[dict[str, Any]] = []
+    total = len(sequences)
+
+    # Surface triples first (more specific), then pairs
+    for ngram, count in sorted(triple_counts.items(), key=lambda x: -x[1]):
+        if count >= min_occurrences:
+            patterns.append(
+                {
+                    "sequence": list(ngram),
+                    "frequency": count,
+                    "out_of": total,
+                    "confidence": count / total,
+                    "description": " → ".join(ngram),
+                }
+            )
+
+    for ngram, count in sorted(pair_counts.items(), key=lambda x: -x[1]):
+        if count >= min_occurrences:
+            # Skip pairs already covered by triples
+            already_covered = any(
+                ngram[0] in p["sequence"] and ngram[1] in p["sequence"] for p in patterns
+            )
+            if not already_covered:
+                patterns.append(
+                    {
+                        "sequence": list(ngram),
+                        "frequency": count,
+                        "out_of": total,
+                        "confidence": count / total,
+                        "description": " → ".join(ngram),
+                    }
+                )
+
+    return patterns[:10]
+
+
+# ─── Session History ──────────────────────────────────────────────
 
 
 def get_session_history(limit: int = 10) -> list[dict[str, Any]]:
@@ -122,14 +248,10 @@ def get_session_history(limit: int = 10) -> list[dict[str, Any]]:
 
 
 def detect_recurring_patterns(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Find recurring patterns in session history.
-
-    Looks for activities that appear in 3+ recent sessions.
-    """
+    """Find recurring activity types in session history."""
     if len(history) < 3:
         return []
 
-    # Count activity keywords across sessions
     activity_counts: dict[str, int] = {}
     for session in history:
         content = session.get("content", "").lower()
@@ -144,7 +266,6 @@ def detect_recurring_patterns(history: list[dict[str, Any]]) -> list[dict[str, A
                     seen_this_session.add(profile_name)
                     break
 
-    # Patterns appearing in 3+ sessions
     patterns: list[dict[str, Any]] = []
     for activity, count in sorted(activity_counts.items(), key=lambda x: -x[1]):
         if count >= 3:
@@ -169,10 +290,7 @@ def predict_session_needs(
     current_events: list[str] | None = None,
     history_limit: int = 10,
 ) -> dict[str, Any]:
-    """Generate predictions for what the user will need.
-
-    Combines current session profile with historical patterns.
-    """
+    """Generate predictions from trajectory learning + profile + recurring patterns."""
     events = current_events or []
 
     # Current session profile
@@ -182,8 +300,24 @@ def predict_session_needs(
     history = get_session_history(history_limit)
     recurring = detect_recurring_patterns(history)
 
+    # Trajectory learning — what action sequences actually repeat?
+    sequences = _extract_action_sequence(history_limit)
+    trajectory_patterns = detect_trajectory_patterns(sequences)
+
     # Build predictions
     predictions: list[dict[str, Any]] = []
+
+    # From trajectory learning — highest confidence, based on real behavior
+    for pattern in trajectory_patterns[:3]:
+        seq = pattern["sequence"]
+        predictions.append(
+            {
+                "prediction": f"Recurring workflow: {pattern['description']} ({pattern['frequency']}/{pattern['out_of']} sessions)",
+                "source": "trajectory",
+                "confidence": pattern["confidence"],
+                "action": seq[-1],  # the final action in the sequence
+            }
+        )
 
     # From current profile — what typically comes next
     if profile["profile"] != "unknown" and profile.get("typical_next"):
@@ -198,10 +332,10 @@ def predict_session_needs(
                 }
             )
 
-    # From recurring patterns — what keeps happening
+    # From recurring patterns
     for pattern in recurring[:3]:
         ratio = pattern["frequency"] / max(pattern["out_of"], 1)
-        if ratio >= 0.5:  # appears in 50%+ of sessions
+        if ratio >= 0.5:
             predictions.append(
                 {
                     "prediction": f"{pattern['description']} appears in {pattern['frequency']}/{pattern['out_of']} recent sessions",
@@ -211,13 +345,13 @@ def predict_session_needs(
                 }
             )
 
-    # Sort by confidence
     predictions.sort(key=lambda p: -p["confidence"])
 
     return {
         "current_profile": profile,
         "recurring_patterns": recurring,
-        "predictions": predictions[:5],  # top 5
+        "trajectory_patterns": trajectory_patterns,
+        "predictions": predictions[:5],
         "session_count": len(history),
     }
 
