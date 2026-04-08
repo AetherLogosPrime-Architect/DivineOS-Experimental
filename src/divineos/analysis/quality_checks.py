@@ -48,6 +48,7 @@ __all__ = [
     "_extract_tool_calls",
     "_find_blind_edits",
     "_find_errors_after_edits",
+    "_is_non_coding_session",
     "_generate_report_text",
     "_get_assistant_text",
     "_get_connection",
@@ -124,6 +125,32 @@ def check_completeness(
     )
 
 
+def _is_non_coding_session(records: list[dict[str, Any]]) -> bool:
+    """Detect whether this session is research/discussion rather than coding.
+
+    A non-coding session has no file edits and relies on search, web,
+    or agent tools. The quality gate shouldn't penalize these for not
+    running tests — there's no code to test.
+    """
+    edit_count = 0
+    search_count = 0
+    for record in records:
+        for call in _extract_tool_calls(record):
+            name = call.get("name", "").lower()
+            if name in ("edit", "write", "notebookedit"):
+                edit_count += 1
+            elif name in (
+                "grep",
+                "glob",
+                "webfetch",
+                "websearch",
+                "agent",
+                "read",
+            ):
+                search_count += 1
+    return edit_count == 0 and search_count >= 2
+
+
 def check_correctness(
     records: list[dict[str, Any]],
     result_map: dict[str, dict[str, Any]],
@@ -132,6 +159,18 @@ def check_correctness(
     test_results = _extract_test_results(records, result_map)
 
     if not test_results:
+        # Non-coding sessions (research, discussion) shouldn't be penalized
+        # for not running tests — there's no code to test.
+        if _is_non_coding_session(records):
+            return CheckResult(
+                check_name="correctness",
+                passed=-1,
+                score=0.5,
+                summary=(
+                    "Research/discussion session — no code changes, so test correctness is not applicable."
+                ),
+                evidence=[],
+            )
         return CheckResult(
             check_name="correctness",
             passed=-1,
