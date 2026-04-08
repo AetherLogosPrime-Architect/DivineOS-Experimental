@@ -266,7 +266,6 @@ class TestGetSessionStartTime:
     def test_returns_none_when_no_state(self, tmp_path, monkeypatch):
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.setenv("USERPROFILE", str(tmp_path))
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         # No checkpoint file, no ledger events
         start = get_session_start_time()
         # Should return the session_start from _load_state default (time.time())

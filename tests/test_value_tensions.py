@@ -126,14 +126,12 @@ class TestFormatSummary:
 class TestDetectPatterns:
     def test_no_decisions(self, tmp_path, monkeypatch):
         """Works with empty decision journal."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         report = detect_tension_patterns()
         assert report.total_decisions == 0
         assert report.patterns == []
 
     def test_with_tensions(self, tmp_path, monkeypatch):
         """Detects patterns from actual recorded decisions."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.decision_journal import record_decision
 
         # Record several decisions with similar tensions

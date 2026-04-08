@@ -85,11 +85,6 @@ class TestDreamReport:
 class TestPhaseConsolidation:
     def test_scans_entries(self, tmp_path, monkeypatch):
         """Consolidation phase populates entries_scanned."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
-        from divineos.core.knowledge import _base
-
-        _base._connection = None  # reset cached connection
-
         from divineos.core.knowledge._base import init_knowledge_table
 
         init_knowledge_table()
@@ -103,7 +98,6 @@ class TestPhaseConsolidation:
 class TestPhaseAffect:
     def test_decays_old_entries(self, tmp_path, monkeypatch):
         """Old affect entries should have their intensity reduced."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.memory import _get_connection
 
         from divineos.core.affect import init_affect_log
@@ -144,7 +138,6 @@ class TestPhaseAffect:
 
     def test_recent_entries_untouched(self, tmp_path, monkeypatch):
         """Recent affect entries should not be decayed."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.memory import _get_connection
 
         from divineos.core.affect import init_affect_log
@@ -173,7 +166,6 @@ class TestPhaseAffect:
 
     def test_empty_affect_log(self, tmp_path, monkeypatch):
         """No affect history should not crash."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.memory import _get_connection
 
         from divineos.core.affect import init_affect_log
@@ -190,7 +182,6 @@ class TestPhaseAffect:
 
     def test_baseline_computed_from_recent(self, tmp_path, monkeypatch):
         """Baseline should average only recent (non-decayed) entries."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.memory import _get_connection
 
         from divineos.core.affect import init_affect_log
@@ -223,12 +214,9 @@ class TestPhaseAffect:
 class TestPhaseRecombination:
     def test_finds_cross_type_connections(self, tmp_path, monkeypatch):
         """Should find connections between entries of different types."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         # Entries must satisfy: 0.35 <= similarity <= 0.85
@@ -253,11 +241,8 @@ class TestPhaseRecombination:
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):
         """Empty knowledge store should produce no connections."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         report = DreamReport()
@@ -266,12 +251,9 @@ class TestPhaseRecombination:
 
     def test_respects_max_connections_limit(self, tmp_path, monkeypatch):
         """Should not exceed the max connections limit."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         # Store many similar entries across two types
@@ -295,11 +277,8 @@ class TestPhaseRecombination:
 class TestRunSleep:
     def test_returns_dream_report(self, tmp_path, monkeypatch):
         """Full sleep cycle should return a DreamReport."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         report = run_sleep(skip_maintenance=True)
@@ -310,11 +289,8 @@ class TestRunSleep:
 
     def test_continues_through_phase_errors(self, tmp_path, monkeypatch):
         """If a phase fails, subsequent phases should still run."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         # Even with potential issues, sleep should complete
@@ -325,11 +301,8 @@ class TestRunSleep:
 
     def test_skip_maintenance_flag(self, tmp_path, monkeypatch):
         """Skip maintenance should leave maintenance_results empty."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         report = run_sleep(skip_maintenance=True)
