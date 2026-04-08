@@ -3,7 +3,7 @@
 
 class TestCounterfactualFields:
     def test_record_with_tension_and_almost(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+
         from divineos.core.decision_journal import get_decision, record_decision
 
         did = record_decision(
@@ -18,7 +18,7 @@ class TestCounterfactualFields:
         assert entry["almost"] == "approach B — more thorough but too slow"
 
     def test_fields_default_empty(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+
         from divineos.core.decision_journal import get_decision, record_decision
 
         did = record_decision(content="basic decision")
@@ -28,7 +28,7 @@ class TestCounterfactualFields:
         assert entry["almost"] == ""
 
     def test_list_includes_new_fields(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+
         from divineos.core.decision_journal import list_decisions, record_decision
 
         record_decision(
@@ -42,7 +42,7 @@ class TestCounterfactualFields:
         assert entries[0]["almost"] == "nearly did c"
 
     def test_search_returns_new_fields(self, tmp_path, monkeypatch):
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+
         from divineos.core.decision_journal import record_decision, search_decisions
 
         record_decision(

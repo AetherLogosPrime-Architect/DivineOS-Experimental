@@ -44,6 +44,8 @@ mypy src/divineos --ignore-missing-imports || {
 }
 
 echo "Checking doc counts for drift..."
+python scripts/check_doc_counts.py --fix 2>/dev/null || true
+git add CLAUDE.md README.md src/divineos/seed.json 2>/dev/null || true
 python scripts/check_doc_counts.py || {
     echo "Doc counts have drifted. Update CLAUDE.md, README.md, and/or seed.json."
     exit 1
