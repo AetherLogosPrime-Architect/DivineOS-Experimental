@@ -12,9 +12,11 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
     try:
         from divineos.core.knowledge._base import _get_connection
         from divineos.core.constants import (
+            CONFIDENCE_ACTIVE_MEMORY_FLOOR,
             MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
             MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
             MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+            SECONDS_PER_DAY,
         )
 
         conn = _get_connection()
@@ -64,14 +66,14 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
         conn = _get_connection()
         orphans = conn.execute(
             "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND access_count = 0 "
-            "AND created_at < (strftime('%s','now') - 86400)"
+            f"AND created_at < (strftime('%s','now') - {SECONDS_PER_DAY})"
         ).fetchone()[0]
         stale = conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND confidence < 0.3"
+            f"SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND confidence < {CONFIDENCE_ACTIVE_MEMORY_FLOOR}"
         ).fetchone()[0]
         conn.close()
         click.echo(f"    Orphan entries (never accessed, >24h old): {orphans}")
-        click.echo(f"    Low-confidence entries (<0.3): {stale}")
+        click.echo(f"    Low-confidence entries (<{CONFIDENCE_ACTIVE_MEMORY_FLOOR}): {stale}")
     except (sqlite3.OperationalError, ImportError, OSError) as e:
         click.echo(f"    [error: {e}]")
 
@@ -86,7 +88,7 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
         ).fetchone()[0]
         old_affect = conn.execute(
             "SELECT COUNT(*) FROM events WHERE event_type = 'AFFECT_STATE' "
-            "AND created_at < (strftime('%s','now') - 172800)"
+            f"AND created_at < (strftime('%s','now') - {SECONDS_PER_DAY * 2})"
         ).fetchone()[0]
         conn.close()
         click.echo(f"    Total affect entries: {total_affect}, eligible for decay: {old_affect}")
