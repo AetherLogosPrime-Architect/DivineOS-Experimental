@@ -231,16 +231,18 @@ class TestPhaseRecombination:
         _base._connection = None
         init_knowledge_table()
 
-        # Store entries with moderate overlap (same domain, different types)
+        # Entries must satisfy: 0.35 <= similarity <= 0.85
+        # Related enough to connect but different enough to not be duplicates.
+        # Word overlap ~0.45, semantic similarity ~0.6-0.7.
         store_knowledge(
             "PRINCIPLE",
             "The maturity lifecycle promotes knowledge from RAW to CONFIRMED "
-            "based on corroboration count and confidence score thresholds",
+            "when the corroboration count reaches the threshold across sessions",
         )
         store_knowledge(
             "BOUNDARY",
-            "The maturity lifecycle has never organically promoted an entry "
-            "because corroboration counts remain too low across sessions",
+            "The knowledge maturity lifecycle must require real corroboration "
+            "evidence from multiple sessions before promoting any entry",
         )
 
         report = DreamReport()
