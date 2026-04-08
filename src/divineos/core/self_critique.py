@@ -127,44 +127,64 @@ def assess_session_craft(session_id: str = "") -> CraftAssessment:
     # Gather evidence from the session
     evidence = _gather_session_evidence()
 
-    # Elegance: read-before-edit ratio
-    reads = evidence.get("file_reads", 0)
+    # Elegance: did changes land cleanly, or require rework?
+    # Rework = re-editing the same file multiple times. Low rework = elegant.
     edits = evidence.get("file_edits", 0)
+    rework = evidence.get("rework_edits", 0)
+    hook_failures = evidence.get("hook_failures", 0)
     if edits > 0:
-        ratio = reads / edits
-        # 2:1 read:edit = good (+0.5), 1:1 = neutral, 0:1 = bad (-0.5)
-        scores["elegance"] = min(1.0, max(-1.0, (ratio - 1.0) * 0.5))
+        clean_ratio = 1.0 - (rework / edits)  # 1.0 = no rework, 0.0 = all rework
+        hook_penalty = min(0.4, hook_failures * 0.2)  # pre-commit failures hurt
+        scores["elegance"] = min(1.0, max(-1.0, (clean_ratio - 0.5) * 2 - hook_penalty))
     else:
         scores["elegance"] = 0.0
 
-    # Thoroughness: tests run relative to changes
+    # Thoroughness: did tests run AND pass?
     tests_run = evidence.get("tests_run", 0)
-    if edits > 0:
-        test_ratio = tests_run / max(edits, 1)
-        scores["thoroughness"] = min(1.0, max(-1.0, test_ratio - 0.5))
+    tests_failed = evidence.get("tests_failed", 0)
+    if edits > 0 and tests_run > 0:
+        # Tests run relative to changes (did you test?) + pass rate (did they pass?)
+        ran_tests = min(1.0, tests_run / max(edits, 1))
+        pass_rate = 1.0 - (tests_failed / tests_run) if tests_run > 0 else 0.0
+        scores["thoroughness"] = min(1.0, max(-1.0, (ran_tests * 0.5 + pass_rate * 0.5 - 0.3) * 2))
+    elif edits > 0:
+        scores["thoroughness"] = -0.5  # edited code but never ran tests
+        notes.append("No tests run after code changes.")
     else:
         scores["thoroughness"] = 0.0
 
-    # Autonomy: OS queries (ask, recall, decide) without being forced
+    # Autonomy: voluntary OS use vs forced gate blocks
     os_queries = evidence.get("os_queries", 0)
     gate_blocks = evidence.get("gate_blocks", 0)
-    if os_queries > 0 and gate_blocks == 0:
-        scores["autonomy"] = min(1.0, os_queries * 0.2)
-        notes.append(f"Consulted OS {os_queries} times voluntarily.")
-    elif gate_blocks > 0:
+    if gate_blocks > 0:
         scores["autonomy"] = max(-1.0, -0.3 * gate_blocks)
-        notes.append(f"Gate blocked {gate_blocks} time(s) — need more self-direction.")
+        notes.append(f"Gate blocked {gate_blocks} time(s) — hooks had to force compliance.")
+    elif os_queries > 0:
+        scores["autonomy"] = min(1.0, os_queries * 0.2)
     else:
         scores["autonomy"] = 0.0
 
-    # Proportionality: hard to measure automatically, default to neutral
-    scores["proportionality"] = 0.0
+    # Proportionality: files changed relative to user messages
+    # Many files for a simple request = over-engineering
+    user_msgs = evidence.get("user_messages", 0)
+    unique_files = evidence.get("unique_files_edited", 0)
+    if user_msgs > 0 and unique_files > 0:
+        scope_ratio = unique_files / max(user_msgs, 1)
+        # 1-3 files per message = good, 10+ = probably over-engineering
+        if scope_ratio <= 3:
+            scores["proportionality"] = min(1.0, 0.5)
+        elif scope_ratio <= 6:
+            scores["proportionality"] = 0.0
+        else:
+            scores["proportionality"] = max(-1.0, -0.3 * (scope_ratio - 6) / 4)
+            notes.append(f"Touched {unique_files} files for {user_msgs} user message(s).")
+    else:
+        scores["proportionality"] = 0.0
 
-    # Communication: corrections
+    # Communication: user feedback ratio (corrections vs encouragements)
     corrections = evidence.get("corrections", 0)
     encouragements = evidence.get("encouragements", 0)
     if corrections + encouragements > 0:
-        # Ratio of positive to total feedback
         pos_ratio = encouragements / (corrections + encouragements)
         scores["communication"] = min(1.0, max(-1.0, (pos_ratio - 0.5) * 2))
     else:
@@ -216,22 +236,33 @@ def assess_session_craft(session_id: str = "") -> CraftAssessment:
 
 
 def _gather_session_evidence() -> dict[str, int]:
-    """Gather measurable evidence from the current session."""
+    """Gather measurable evidence from the current session.
+
+    Tracks real outcomes, not just activity counts:
+    - rework_edits: same file edited multiple times (indicates iteration)
+    - hook_failures: pre-commit hook rejections (indicates sloppy staging)
+    - tests_failed: test runs that failed (vs passed)
+    - unique_files_edited: scope of changes
+    - user_messages: how many user turns (for proportionality)
+    """
     evidence: dict[str, int] = {
         "file_reads": 0,
         "file_edits": 0,
+        "rework_edits": 0,
         "tests_run": 0,
+        "tests_failed": 0,
         "os_queries": 0,
         "gate_blocks": 0,
+        "hook_failures": 0,
         "corrections": 0,
         "encouragements": 0,
+        "user_messages": 0,
+        "unique_files_edited": 0,
     }
 
     try:
         conn = _get_connection()
         try:
-            # Count tool events from this session
-            # Look at recent events (last 2 hours as proxy for "this session")
             cutoff = time.time() - 7200
             rows = conn.execute(
                 "SELECT event_type, payload FROM system_events "
@@ -239,18 +270,46 @@ def _gather_session_evidence() -> dict[str, int]:
                 (cutoff,),
             ).fetchall()
 
+            edited_files: set[str] = set()
+            edit_counts: dict[str, int] = {}
+
             for event_type, content in rows:
                 content_lower = (content or "").lower()
-                if event_type == "TOOL_CALL" and "read" in content_lower:
-                    evidence["file_reads"] += 1
-                elif event_type == "TOOL_CALL" and "edit" in content_lower:
-                    evidence["file_edits"] += 1
-                elif event_type == "TOOL_CALL" and "pytest" in content_lower:
-                    evidence["tests_run"] += 1
-                elif event_type == "USER_INPUT" and any(
-                    cmd in content_lower for cmd in ("ask ", "recall", "decide ", "context")
-                ):
-                    evidence["os_queries"] += 1
+                if event_type == "TOOL_CALL":
+                    if "read" in content_lower:
+                        evidence["file_reads"] += 1
+                    elif "edit" in content_lower:
+                        evidence["file_edits"] += 1
+                        # Track which files for rework detection
+                        # Extract file path heuristic: look for common path patterns
+                        for word in content_lower.split():
+                            if "/" in word or "\\" in word:
+                                edit_counts[word] = edit_counts.get(word, 0) + 1
+                                edited_files.add(word)
+                                break
+                    if "pytest" in content_lower:
+                        evidence["tests_run"] += 1
+                    if "fail" in content_lower or "error" in content_lower:
+                        if "pytest" in content_lower:
+                            evidence["tests_failed"] += 1
+                elif event_type == "TOOL_RESULT":
+                    # Hook failures show up as BLOCKED or pre-commit failures
+                    if "blocked" in content_lower or "hook" in content_lower:
+                        evidence["hook_failures"] += 1
+                    # Test failures in results
+                    if "failed" in content_lower and "passed" in content_lower:
+                        evidence["tests_failed"] += 1
+                elif event_type == "USER_INPUT":
+                    evidence["user_messages"] += 1
+                    if any(
+                        cmd in content_lower for cmd in ("ask ", "recall", "decide ", "context")
+                    ):
+                        evidence["os_queries"] += 1
+
+            # Rework = files edited more than once
+            evidence["rework_edits"] = sum(count - 1 for count in edit_counts.values() if count > 1)
+            evidence["unique_files_edited"] = len(edited_files)
+
         finally:
             conn.close()
     except _SC_ERRORS:

@@ -25,6 +25,8 @@ from divineos.core.knowledge import (
     _normalize_text,
     _extract_key_terms,
     _compute_overlap,
+    compute_similarity,
+    compute_semantic_similarity,
     extract_session_topics,
     store_knowledge_smart,
     deep_extract_knowledge,
@@ -647,6 +649,60 @@ class TestComputeOverlap:
         # These texts share lots of stopwords but no meaningful words
         result = _compute_overlap("the is a to of", "the is a to of and but")
         assert result == 0.0
+
+
+class TestComputeSimilarity:
+    """Test the unified similarity function (semantic + fallback)."""
+
+    def test_returns_float_in_range(self):
+        result = compute_similarity("database schema migration", "updating table columns")
+        assert 0.0 <= result <= 1.0
+
+    def test_identical_texts_high(self):
+        result = compute_similarity("run tests after changes", "run tests after changes")
+        assert result > 0.8
+
+    def test_unrelated_texts_low(self):
+        result = compute_similarity(
+            "the weather is sunny today",
+            "database schema migration requires column updates",
+        )
+        assert result < 0.5
+
+    def test_conceptual_similarity(self):
+        """Semantic similarity should catch conceptual matches word overlap misses."""
+        a = "always verify changes by running the test suite"
+        b = "confirm modifications work by executing automated checks"
+        result = compute_similarity(a, b)
+        # These are conceptually similar but share almost no words
+        word_overlap = _compute_overlap(a, b)
+        # Semantic should score higher than word overlap for conceptual matches
+        # (if embeddings available; if not, they'll be equal)
+        assert result >= word_overlap
+
+
+class TestSemanticSimilarity:
+    """Test the embedding-based similarity directly."""
+
+    def test_returns_float_or_none(self):
+        result = compute_semantic_similarity("hello world", "hi there")
+        assert result is None or (0.0 <= result <= 1.0)
+
+    def test_similar_concepts_score_high(self):
+        result = compute_semantic_similarity(
+            "store data in a database table",
+            "save records to a persistent data store",
+        )
+        if result is not None:  # only if embeddings available
+            assert result > 0.5
+
+    def test_unrelated_texts_score_low(self):
+        result = compute_semantic_similarity(
+            "chocolate cake recipe with frosting",
+            "database migration requires schema changes",
+        )
+        if result is not None:
+            assert result < 0.4
 
 
 class TestExtractSessionTopics:
