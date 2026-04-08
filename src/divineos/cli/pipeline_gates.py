@@ -277,10 +277,17 @@ def run_quality_gate(
 
         if quality_verdict.action == "BLOCK":
             click.secho(f"[!] Quality gate BLOCKED: {quality_verdict.reason}", fg="red", bold=True)
+            # Show which checks failed so the user understands why
+            for cr in check_results:
+                if cr.get("passed") == 0 and cr.get("summary"):
+                    click.secho(f"    {cr['check_name']}: {cr['summary']}", fg="red")
             click.secho("[!] Skipping knowledge extraction for this session.", fg="red")
             return quality_verdict, maturity_override, False, check_results
         elif quality_verdict.action == "DOWNGRADE":
             click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
+            for cr in check_results:
+                if cr.get("passed") == 0 and cr.get("summary"):
+                    click.secho(f"    {cr['check_name']}: {cr['summary']}", fg="yellow")
     except _GATE_ERRORS as e:
         logger.warning(f"Quality gate failed (allowing extraction): {e}")
 
