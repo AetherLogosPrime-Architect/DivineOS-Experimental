@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
+from divineos.core.constants import CONFIDENCE_RELIABLE, CONFIDENCE_VERY_HIGH
 import divineos.analysis.session_discovery as _discovery_mod
 from divineos.cli._helpers import _display_and_store_analysis, _safe_echo
 from divineos.cli._wrappers import (
@@ -83,7 +84,7 @@ def register(cli: click.Group) -> None:
                 _wrapped_store_knowledge(
                     knowledge_type="BOUNDARY" if is_boundary else "PRINCIPLE",
                     content=c.content[:300],
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     source="CORRECTED",
                     maturity="HYPOTHESIS",
                     tags=["session-analysis", "correction"],
@@ -94,7 +95,7 @@ def register(cli: click.Group) -> None:
                 _wrapped_store_knowledge(
                     knowledge_type="PRINCIPLE",
                     content=f"This approach works well: {e.content[:280]}",
-                    confidence=0.9,
+                    confidence=CONFIDENCE_VERY_HIGH,
                     source="DEMONSTRATED",
                     maturity="TESTED",
                     tags=["session-analysis", "encouragement"],
@@ -105,7 +106,7 @@ def register(cli: click.Group) -> None:
                 _wrapped_store_knowledge(
                     knowledge_type="DIRECTION",
                     content=d.content[:300],
-                    confidence=0.9,
+                    confidence=CONFIDENCE_VERY_HIGH,
                     source="STATED",
                     maturity="CONFIRMED",
                     tags=["session-analysis", "decision"],
