@@ -8,6 +8,11 @@ import sqlite3
 
 from loguru import logger
 
+from divineos.core.constants import (
+    CONFIDENCE_ACTIVE_MEMORY_FLOOR,
+    CONFIDENCE_RELIABLE,
+    CONFIDENCE_VERY_HIGH,
+)
 from divineos.core.knowledge._base import (
     _get_connection,
     _lesson_row_to_dict,
@@ -136,7 +141,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
                 cat_words = category.replace("_", " ")
                 linked = conn.execute(
                     "SELECT knowledge_id FROM knowledge "
-                    "WHERE superseded_by IS NULL AND confidence >= 0.3 "
+                    f"WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_ACTIVE_MEMORY_FLOOR} "
                     "AND (LOWER(content) LIKE ? OR LOWER(content) LIKE ?)",
                     (f"%{cat_words}%", f"%{category}%"),
                 ).fetchall()
@@ -526,7 +531,7 @@ def extract_lessons_from_report(
             kid = store_knowledge_smart(
                 knowledge_type="MISTAKE",
                 content=content.strip(),
-                confidence=0.8,
+                confidence=CONFIDENCE_RELIABLE,
                 source_events=[session_id],
                 tags=["auto-extracted", f"session-{short_id}", name],
                 source="SYNTHESIZED",
@@ -549,7 +554,7 @@ def extract_lessons_from_report(
             kid = store_knowledge_smart(
                 knowledge_type="PATTERN",
                 content=content.strip(),
-                confidence=0.9,
+                confidence=CONFIDENCE_VERY_HIGH,
                 source_events=[session_id],
                 tags=["auto-extracted", name],
                 source="SYNTHESIZED",
@@ -601,7 +606,7 @@ def extract_lessons_from_report(
                 kid = store_knowledge(
                     knowledge_type="PATTERN",
                     content=content,
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     source_events=[session_id],
                     tags=["auto-extracted", f"session-{short_id}", "tone_recovery"],
                     source="SYNTHESIZED",
@@ -614,7 +619,7 @@ def extract_lessons_from_report(
                 kid = store_knowledge(
                     knowledge_type="MISTAKE",
                     content=content,
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     source_events=[session_id],
                     tags=["auto-extracted", f"session-{short_id}", "tone_shift"],
                     source="SYNTHESIZED",
@@ -633,7 +638,7 @@ def extract_lessons_from_report(
             kid = store_knowledge(
                 knowledge_type="MISTAKE",
                 content=content,
-                confidence=0.8,
+                confidence=CONFIDENCE_RELIABLE,
                 source_events=[session_id],
                 tags=["auto-extracted", f"session-{short_id}", "error_recovery"],
             )
@@ -646,7 +651,7 @@ def extract_lessons_from_report(
             kid = store_knowledge(
                 knowledge_type="PATTERN",
                 content=content,
-                confidence=0.9,
+                confidence=CONFIDENCE_VERY_HIGH,
                 source_events=[session_id],
                 tags=["auto-extracted", f"session-{short_id}", "error_recovery"],
             )

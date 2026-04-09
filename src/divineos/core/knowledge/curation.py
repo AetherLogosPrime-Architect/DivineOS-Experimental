@@ -23,6 +23,11 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.constants import (
+    CONFIDENCE_ACTIVE_MEMORY_FLOOR,
+    CONFIDENCE_VERY_HIGH,
+    SECONDS_PER_DAY,
+)
 from divineos.core.knowledge._base import _get_connection
 
 # ─── Layer Constants ──────────────────────────────────────────────────
@@ -215,12 +220,12 @@ def assign_layer(entry: dict[str, Any]) -> str:
 
     Rules:
     - urgent: Recent corrections (< 24h, source=CORRECTED), active lessons with 3+ occurrences
-    - stable: High confidence (>=0.9), high access (>=15), maturity CONFIRMED/TESTED, age > 7 days
-    - archive: Very old episodes (>30 days), confidence < 0.3, very stale entries
+    - stable: High confidence (>=CONFIDENCE_VERY_HIGH), high access (>=15), maturity CONFIRMED/TESTED, age > 7 days
+    - archive: Very old episodes (>30 days), confidence < CONFIDENCE_ACTIVE_MEMORY_FLOOR, very stale entries
     - active: Everything else
     """
     now = time.time()
-    age_days = (now - entry.get("created_at", now)) / 86400
+    age_days = (now - entry.get("created_at", now)) / SECONDS_PER_DAY
     confidence = entry.get("confidence", 1.0)
     access = entry.get("access_count", 0)
     maturity = entry.get("maturity", "RAW")
@@ -238,7 +243,7 @@ def assign_layer(entry: dict[str, Any]) -> str:
         return "urgent"
 
     # Archive: stale, low-value, or old episodes
-    if confidence < 0.3:
+    if confidence < CONFIDENCE_ACTIVE_MEMORY_FLOOR:
         return "archive"
     if ktype == "EPISODE" and age_days > 30:
         return "archive"
@@ -268,7 +273,7 @@ def assign_layer(entry: dict[str, Any]) -> str:
     # Stable: well-established knowledge
     stable_types = ("PRINCIPLE", "BOUNDARY", "DIRECTION", "PROCEDURE", "PREFERENCE", "INSTRUCTION")
     if (
-        confidence >= 0.9
+        confidence >= CONFIDENCE_VERY_HIGH
         and access >= 15
         and maturity in ("CONFIRMED", "TESTED")
         and age_days > 7
