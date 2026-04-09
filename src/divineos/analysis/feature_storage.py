@@ -56,6 +56,9 @@ def init_feature_tables() -> None:
             CREATE INDEX IF NOT EXISTS idx_tone_shift_session
             ON tone_shift(session_id)
         """)
+        # WRITE-ONLY: session_timeline stores per-action sequence data for
+        # future cross-session timeline visualization and replay. Not yet
+        # read by any query — awaiting a timeline UI or analysis consumer.
         conn.execute("""
             CREATE TABLE IF NOT EXISTS session_timeline (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,6 +89,9 @@ def init_feature_tables() -> None:
             CREATE INDEX IF NOT EXISTS idx_file_touched_session
             ON file_touched(session_id)
         """)
+        # WRITE-ONLY: activity_breakdown stores per-session volume metrics for
+        # future productivity analysis and session comparison. Not yet read
+        # by any query — awaiting a progress/trends consumer.
         conn.execute("""
             CREATE TABLE IF NOT EXISTS activity_breakdown (
                 session_id          TEXT PRIMARY KEY,
