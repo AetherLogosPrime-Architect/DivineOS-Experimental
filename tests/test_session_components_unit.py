@@ -69,11 +69,8 @@ class TestClarityEnforcementInSession:
         context = ["I need to read the test file to understand its structure"]
 
         # Enforce clarity - should not raise
-        self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
-
-        # Verify no violation or violation is acceptable
-        self.detector.detect_violation(tool_name, tool_input, context, self.session_id)
-        # May or may not detect depending on semantic analysis
+        result = self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+        assert result is None
 
     def test_clarity_enforcement_with_blocking_mode(self):
         """Test clarity enforcement in blocking mode."""
@@ -112,7 +109,8 @@ class TestClarityEnforcementInSession:
         context = ["random context"]
 
         # Should not raise in permissive mode
-        enforcer_permissive.enforce(tool_name, tool_input, context, self.session_id)
+        result = enforcer_permissive.enforce(tool_name, tool_input, context, self.session_id)
+        assert result is None
 
     def test_clarity_enforcement_tracks_violations_per_session(self):
         """Test that violations are tracked per session."""
@@ -120,15 +118,14 @@ class TestClarityEnforcementInSession:
         session_2 = "session_2"
 
         # Make calls in session 1
-        self.enforcer.enforce("readFile", {"path": "test1.txt"}, ["random"], session_1)
+        result1 = self.enforcer.enforce("readFile", {"path": "test1.txt"}, ["random"], session_1)
+        assert result1 is None
 
         # Make calls in session 2
-        self.enforcer.enforce(
+        result2 = self.enforcer.enforce(
             "fsWrite", {"path": "test2.txt", "text": "data"}, ["random"], session_2
         )
-
-        # Both should be tracked separately
-        # (Verification depends on implementation details)
+        assert result2 is None
 
     def test_clarity_enforcement_with_multiple_context_items(self):
         """Test clarity enforcement with multiple context items."""
@@ -141,7 +138,8 @@ class TestClarityEnforcementInSession:
         ]
 
         # Should find explanation in one of the context items
-        self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+        result = self.enforcer.enforce(tool_name, tool_input, context, self.session_id)
+        assert result is None
 
     def test_clarity_enforcement_with_empty_context(self):
         """Test clarity enforcement with empty context."""
@@ -541,15 +539,17 @@ class TestSessionComponentsIntegration:
         """Test that clarity enforcement and memory monitor work together."""
         # Make multiple tool calls
         for i in range(5):
-            self.enforcer.enforce(
+            result = self.enforcer.enforce(
                 "readFile",
                 {"path": f"test_{i}.txt"},
                 ["I need to read the file"],
                 self.session_id,
             )
+            assert result is None
 
             # Update memory after each call
-            self.monitor.update_token_usage(10000)
+            status = self.monitor.update_token_usage(10000)
+            assert status is not None
 
     def test_learning_and_memory_integration(self):
         """Test that learning loop and memory monitor work together."""
