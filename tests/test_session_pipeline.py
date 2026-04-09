@@ -131,9 +131,11 @@ class TestQualityGateBlock:
         # The save_hud_snapshot function should not crash even with minimal setup
         from divineos.core.hud import save_hud_snapshot
 
-        # Should not raise — it's best-effort
+        # Best-effort: may fail in test env without full DB, but shouldn't raise
+        # unexpected exceptions
         try:
-            save_hud_snapshot()
+            result = save_hud_snapshot()
+            assert result is not None  # Returns snapshot path on success
         except (ImportError, sqlite3.OperationalError, OSError):
             pass  # Expected in test environment without full DB
 
@@ -244,15 +246,16 @@ class TestGoalExtraction:
         )
         from divineos.cli.pipeline_gates import run_goal_extraction
 
-        # Should not crash — it's best-effort
-        run_goal_extraction(analysis)
+        result = run_goal_extraction(analysis)
+        assert result is None or isinstance(result, (int, list))
 
     def test_empty_messages_no_crash(self, hud_dir):
         """Empty messages shouldn't crash goal extraction."""
         analysis = _make_analysis(user_message_texts=[])
         from divineos.cli.pipeline_gates import run_goal_extraction
 
-        run_goal_extraction(analysis)
+        result = run_goal_extraction(analysis)
+        assert result is None or isinstance(result, (int, list))
 
 
 class TestContradictionScan:
@@ -394,7 +397,7 @@ class TestFeedbackCycle:
         )
         result = run_feedback_cycle(analysis, has_session=False, session_tag="session-test")
         feedback_parts, _, _, _ = result
-        # Should not crash, feedback_parts may or may not have content
+        assert isinstance(feedback_parts, list)
 
 
 class TestConsolidationAndRefresh:
@@ -426,10 +429,9 @@ class TestConsolidationAndRefresh:
         from divineos.cli.pipeline_phases import run_consolidation_and_refresh
 
         analysis = _make_analysis()
-        run_consolidation_and_refresh(analysis)
-
-        # Stale goal should have been cleaned by auto_clean_goals
-        # (called inside run_consolidation_and_refresh with default 1-day max_age)
+        promoted, demoted = run_consolidation_and_refresh(analysis)
+        assert isinstance(promoted, int)
+        assert isinstance(demoted, int)
 
 
 class TestSessionScoring:
@@ -505,7 +507,7 @@ class TestPrintSessionSummary:
         """Summary should print without errors for minimal input."""
         from divineos.cli.pipeline_phases import print_session_summary
 
-        print_session_summary(
+        result = print_session_summary(
             stored=5,
             feedback_parts=["3 recurrences"],
             promoted=2,
@@ -514,12 +516,13 @@ class TestPrintSessionSummary:
             clarity_summary=None,
             session_feedback=None,
         )
+        assert result is None
 
     def test_prints_with_no_health(self):
         """Summary should handle None health gracefully."""
         from divineos.cli.pipeline_phases import print_session_summary
 
-        print_session_summary(
+        result = print_session_summary(
             stored=0,
             feedback_parts=[],
             promoted=0,
@@ -528,13 +531,14 @@ class TestPrintSessionSummary:
             clarity_summary=None,
             session_feedback=None,
         )
+        assert result is None
 
     def test_prints_all_grades(self):
         """All grade letters should produce output without error."""
         from divineos.cli.pipeline_phases import print_session_summary
 
         for grade in ("A", "B", "C", "D", "F"):
-            print_session_summary(
+            result = print_session_summary(
                 stored=1,
                 feedback_parts=[],
                 promoted=0,
@@ -543,6 +547,7 @@ class TestPrintSessionSummary:
                 clarity_summary=None,
                 session_feedback=None,
             )
+            assert result is None
 
 
 # ── Handoff Note Tests ──────────────────────────────────────────────
