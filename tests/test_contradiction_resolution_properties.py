@@ -14,12 +14,11 @@ validate the same correctness properties.
 """
 
 from divineos.supersession import (
-    ResolutionEngine,
-    ResolutionStrategy,
     ContradictionDetector,
     ContradictionSeverity,
+    ResolutionEngine,
+    ResolutionStrategy,
 )
-
 
 # ============================================================================
 # Property 2: Contradictions Detected and Resolved

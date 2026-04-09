@@ -1,32 +1,32 @@
 """Smart knowledge storage and consolidation."""
 
 import json
+import sqlite3
 import time
 import uuid
 from typing import Any, cast
-import sqlite3
 
 from loguru import logger
 
-from divineos.core.knowledge._base import (
-    KNOWLEDGE_TYPES,
-    _KNOWLEDGE_COLS_K,
-    _get_connection,
-    _row_to_dict,
-    compute_hash,
-)
 from divineos.core.constants import (
     OVERLAP_DUPLICATE,
     OVERLAP_QUASI_IDENTICAL,
     OVERLAP_STRONG,
 )
+from divineos.core.knowledge._base import (
+    _KNOWLEDGE_COLS_K,
+    KNOWLEDGE_TYPES,
+    _get_connection,
+    _row_to_dict,
+    compute_hash,
+)
 from divineos.core.knowledge._text import (
+    _MIN_CONTENT_WORDS,
+    _STOPWORDS,
     _compute_overlap,
     _extract_key_terms,
     _is_extraction_noise,
     _normalize_text,
-    _STOPWORDS,
-    _MIN_CONTENT_WORDS,
 )
 from divineos.core.knowledge.crud import (
     get_knowledge,

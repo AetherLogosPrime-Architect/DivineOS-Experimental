@@ -10,8 +10,8 @@ the semantic-layer API and auto-detection heuristics.
 """
 
 import re
-from typing import Any
 import sqlite3
+from typing import Any
 
 from loguru import logger
 

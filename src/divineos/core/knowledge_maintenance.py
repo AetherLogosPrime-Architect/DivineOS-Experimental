@@ -24,22 +24,6 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge._base import (
-    _KNOWLEDGE_COLS,
-    _get_connection,
-    _row_to_dict,
-)
-from divineos.core.knowledge._text import (
-    _compute_stemmed_overlap,
-    _has_prescriptive_signal,
-    _has_temporal_markers,
-    _is_extraction_noise,
-    _stemmed_word_set,
-)
-from divineos.core.knowledge import get_connection
-from divineos.core.knowledge.crud import supersede_knowledge
-from divineos.core.logic.logic_validation import can_promote
-
 from divineos.core.constants import (
     CONFIDENCE_DEMOTE_CAP,
     CONFIDENCE_ORPHAN_DEMOTE,
@@ -61,7 +45,21 @@ from divineos.core.constants import (
     OVERLAP_STRONG,
     SECONDS_PER_DAY,
 )
-
+from divineos.core.knowledge._base import (
+    _KNOWLEDGE_COLS,
+    _get_connection,
+    _row_to_dict,
+    get_connection,
+)
+from divineos.core.knowledge._text import (
+    _compute_stemmed_overlap,
+    _has_prescriptive_signal,
+    _has_temporal_markers,
+    _is_extraction_noise,
+    _stemmed_word_set,
+)
+from divineos.core.knowledge.crud import supersede_knowledge
+from divineos.core.logic.logic_validation import can_promote
 
 # ─── Contradiction Detection ────────────────────────────────────────────────
 
@@ -423,7 +421,7 @@ def _sweep_stale(
     return result
 
 
-def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str, Any]:
+def _flag_orphans(entries: list[dict[str, Any]], _min_sessions: int) -> dict[str, Any]:
     """Flag entries that were never accessed and are old enough to judge."""
     result: dict[str, Any] = {"flagged": 0, "details": []}
     conn = _get_connection()

@@ -5,10 +5,10 @@ Tests that monitoring works with actual integration points, not mocks.
 
 from unittest.mock import MagicMock
 
-from divineos.supersession.resolution_engine import ResolutionEngine
 from divineos.agent_integration.learning_cycle import LearningCycle
 from divineos.core.ledger import Ledger
 from divineos.integration.system_monitor import SystemMonitor, get_system_monitor, reset_monitor
+from divineos.supersession.resolution_engine import ResolutionEngine
 
 
 class TestErrorHandlingRealIntegration:

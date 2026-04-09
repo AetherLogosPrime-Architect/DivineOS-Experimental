@@ -5,16 +5,16 @@ retrieving stored reports, and computing trends across sessions.
 """
 
 import json
-from dataclasses import asdict
 import sqlite3
+from dataclasses import asdict
 
 from loguru import logger
 
 from divineos.analysis.analysis_types import AnalysisResult
-from divineos.core.ledger import get_connection_fk as get_qc_connection
 from divineos.core import fidelity
-from divineos.event.event_emission import emit_event
 from divineos.core.knowledge import get_knowledge
+from divineos.core.ledger import get_connection_fk as get_qc_connection
+from divineos.event.event_emission import emit_event
 
 
 def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
@@ -352,10 +352,18 @@ def format_analysis_report(result: AnalysisResult) -> str:
 
 
 from divineos.analysis.analysis_retrieval import (  # noqa: E402
-    get_stored_report as get_stored_report,
-    list_recent_sessions as list_recent_sessions,
     compute_cross_session_trends as compute_cross_session_trends,
+)
+from divineos.analysis.analysis_retrieval import (  # noqa: E402
     format_cross_session_report as format_cross_session_report,
+)
+from divineos.analysis.analysis_retrieval import (  # noqa: E402
+    get_stored_report as get_stored_report,
+)
+from divineos.analysis.analysis_retrieval import (  # noqa: E402
+    list_recent_sessions as list_recent_sessions,
+)
+from divineos.analysis.analysis_retrieval import (  # noqa: E402
     save_analysis_report as save_analysis_report,
 )
 

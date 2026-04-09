@@ -477,8 +477,8 @@ def predict_attention_shift(
     # From session profile — what activity typically follows current focus
     try:
         from divineos.core.predictive_session import (
-            detect_session_profile,
             SESSION_PROFILES,
+            detect_session_profile,
         )
 
         # Build events from current focus

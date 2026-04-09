@@ -1,16 +1,23 @@
 """Tool wrappers and DB initialization for the CLI."""
 
-from pathlib import Path
-import sqlite3
 import json
+import sqlite3
+from pathlib import Path
 
 import click
 
-from divineos.analysis.record_extraction import init_quality_tables
 from divineos.analysis.feature_storage import init_feature_tables, store_features
+from divineos.analysis.record_extraction import init_quality_tables
 from divineos.analysis.session_features import (
     get_cross_session_summary,
     run_all_features,
+)
+from divineos.core.active_memory import (
+    format_recall,
+    get_active_memory,
+    promote_to_active,
+    recall,
+    refresh_active_memory,
 )
 from divineos.core.knowledge import (
     apply_session_feedback,
@@ -40,13 +47,6 @@ from divineos.core.ledger import (
     logger,
     search_events,
     verify_all_events,
-)
-from divineos.core.active_memory import (
-    format_recall,
-    get_active_memory,
-    promote_to_active,
-    recall,
-    refresh_active_memory,
 )
 from divineos.core.memory import (
     clear_core,

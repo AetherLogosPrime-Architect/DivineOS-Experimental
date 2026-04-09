@@ -3,49 +3,50 @@
 import time
 
 import pytest
-from divineos.core.ledger import init_db, log_event
+
 from divineos.core.knowledge import (
-    init_knowledge_table,
-    store_knowledge,
-    get_knowledge,
-    search_knowledge,
-    update_knowledge,
-    get_unconsolidated_events,
+    KNOWLEDGE_MATURITY,
+    KNOWLEDGE_SOURCES,
+    KNOWLEDGE_TYPES,
+    _adjust_confidence,
+    _categorize_correction,
+    _compute_overlap,
+    _extract_key_terms,
+    _is_noise_correction,
+    _normalize_text,
+    _search_knowledge_legacy,
+    apply_session_feedback,
+    check_recurring_lessons,
+    clear_lessons,
+    compute_effectiveness,
+    compute_semantic_similarity,
+    compute_similarity,
+    consolidate_related,
+    deep_extract_knowledge,
+    extract_lessons_from_report,
+    extract_session_topics,
     find_similar,
     generate_briefing,
-    knowledge_stats,
-    rebuild_fts_index,
-    record_lesson,
-    get_lessons,
-    mark_lesson_improving,
+    get_knowledge,
     get_lesson_summary,
-    check_recurring_lessons,
-    extract_lessons_from_report,
-    _search_knowledge_legacy,
-    _normalize_text,
-    _extract_key_terms,
-    _compute_overlap,
-    compute_similarity,
-    compute_semantic_similarity,
-    extract_session_topics,
-    store_knowledge_smart,
-    deep_extract_knowledge,
-    supersede_knowledge,
-    consolidate_related,
-    record_access,
-    _adjust_confidence,
-    compute_effectiveness,
+    get_lessons,
+    get_unconsolidated_events,
     health_check,
-    apply_session_feedback,
-    _is_noise_correction,
-    _categorize_correction,
-    clear_lessons,
+    init_knowledge_table,
     knowledge_health_report,
+    knowledge_stats,
+    mark_lesson_improving,
     migrate_knowledge_types,
-    KNOWLEDGE_TYPES,
-    KNOWLEDGE_SOURCES,
-    KNOWLEDGE_MATURITY,
+    rebuild_fts_index,
+    record_access,
+    record_lesson,
+    search_knowledge,
+    store_knowledge,
+    store_knowledge_smart,
+    supersede_knowledge,
+    update_knowledge,
 )
+from divineos.core.ledger import init_db, log_event
 
 
 @pytest.fixture(autouse=True)
@@ -1086,8 +1087,9 @@ class TestHealthCheck:
         # Give it access so it's not considered stale
         record_access(kid)
         # Backdate created_at but keep updated_at recent (entry is still in use)
-        import divineos.core.ledger as lm
         import sqlite3
+
+        import divineos.core.ledger as lm
 
         db_path = lm._get_db_path()
         conn = sqlite3.connect(str(db_path))

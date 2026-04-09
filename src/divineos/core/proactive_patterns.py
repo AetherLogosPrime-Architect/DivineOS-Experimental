@@ -17,7 +17,6 @@ import re
 import sqlite3
 from typing import Any
 
-
 from divineos.core.knowledge import get_connection
 from divineos.core.knowledge._text import _compute_overlap, _is_extraction_noise
 

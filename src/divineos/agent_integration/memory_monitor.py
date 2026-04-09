@@ -13,14 +13,14 @@ This is NOT an IDE hook - it's part of the OS itself.
 """
 
 import sqlite3
-from datetime import timezone, datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from loguru import logger
 
-from divineos.core.ledger import log_event, get_events, get_recent_context
 from divineos.agent_integration.learning_cycle import LearningCycle
 from divineos.agent_integration.pattern_recommender import PatternRecommender
+from divineos.core.ledger import get_events, get_recent_context, log_event
 
 _MM_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

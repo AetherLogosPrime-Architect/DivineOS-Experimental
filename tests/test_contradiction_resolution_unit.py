@@ -6,9 +6,9 @@ but without using hypothesis to avoid hanging issues.
 """
 
 from divineos.supersession import (
+    ContradictionDetector,
     ResolutionEngine,
     ResolutionStrategy,
-    ContradictionDetector,
 )
 
 

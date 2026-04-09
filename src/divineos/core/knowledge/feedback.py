@@ -34,7 +34,6 @@ from divineos.core.knowledge.lessons import (
     get_lessons,
 )
 
-
 # ─── Confidence Adjustment ───────────────────────────────────────────
 
 

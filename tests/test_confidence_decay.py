@@ -3,6 +3,7 @@
 import os
 import time
 
+from divineos.core.active_memory import compute_importance
 from divineos.core.knowledge import (
     _get_connection,
     health_check,
@@ -10,7 +11,6 @@ from divineos.core.knowledge import (
     store_knowledge,
 )
 from divineos.core.ledger import init_db
-from divineos.core.active_memory import compute_importance
 
 
 class TestAbandonedKnowledgeDecay:

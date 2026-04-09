@@ -5,11 +5,11 @@ to produce actionable insights about AI performance.
 """
 
 import json
+import sqlite3
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
-import sqlite3
 
 from loguru import logger
 
@@ -18,10 +18,10 @@ from divineos.analysis.quality_checks import run_all_checks
 from divineos.analysis.quality_storage import store_report
 from divineos.analysis.session_features import run_all_features
 from divineos.core.knowledge import extract_lessons_from_report
+from divineos.core.ledger import get_connection as _get_connection
 from divineos.core.ledger import get_verified_events
 from divineos.core.parser import parse_jsonl
 from divineos.core.session_manager import get_session_tracker
-from divineos.core.ledger import get_connection as _get_connection
 
 
 def analyze_session(file_path: Path) -> AnalysisResult:

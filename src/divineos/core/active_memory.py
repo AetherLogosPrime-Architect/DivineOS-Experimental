@@ -9,9 +9,9 @@ import re
 import sqlite3
 import time
 import uuid
+from typing import Any, cast
 
 from loguru import logger
-from typing import Any, cast
 
 from divineos.core.constants import (
     ACTIVE_MEMORY_CAP,

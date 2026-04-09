@@ -7,10 +7,10 @@ of goals from user messages.
 
 import json
 import re
+import sqlite3
 import time
 from pathlib import Path
 from typing import Any
-import sqlite3
 
 from loguru import logger
 

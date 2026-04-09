@@ -383,7 +383,6 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
             import json as _json
 
             from divineos.core.hud import _ensure_hud_dir
-
             from divineos.core.hud_state import get_lifetime_goals_completed
 
             goals_path = _ensure_hud_dir() / "active_goals.json"

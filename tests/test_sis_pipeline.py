@@ -2,9 +2,9 @@
 
 import json
 
+from divineos.cli.pipeline_phases import run_knowledge_post_processing
 from divineos.core.knowledge import _get_connection, init_knowledge_table, store_knowledge
 from divineos.core.ledger import init_db
-from divineos.cli.pipeline_phases import run_knowledge_post_processing
 
 
 def _setup(tmp_path, monkeypatch):

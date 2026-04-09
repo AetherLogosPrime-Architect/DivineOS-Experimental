@@ -6,8 +6,8 @@ import time
 import click
 
 from divineos.cli._helpers import _resolve_knowledge_id, _safe_echo
-from divineos.core.constants import SECONDS_PER_DAY
 from divineos.cli._wrappers import _ensure_db
+from divineos.core.constants import SECONDS_PER_DAY
 from divineos.core.knowledge.temporal import (
     format_changes_summary,
     get_changes_since,
@@ -20,7 +20,6 @@ from divineos.core.planning_commitments import (
     get_pending_commitments,
     review_commitments,
 )
-
 
 # ---------------------------------------------------------------------------
 # Temporal commands

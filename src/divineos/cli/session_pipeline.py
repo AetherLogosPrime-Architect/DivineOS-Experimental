@@ -9,7 +9,6 @@ import sqlite3
 import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
-from divineos.core.constants import CONFIDENCE_RELIABLE
 import divineos.analysis.session_discovery as _discovery_mod
 from divineos.cli._helpers import _safe_echo
 from divineos.cli._wrappers import (
@@ -34,6 +33,7 @@ from divineos.cli.pipeline_phases import (
     run_session_finalization,
     run_session_scoring,
 )
+from divineos.core.constants import CONFIDENCE_RELIABLE
 
 
 def _run_session_end_pipeline(session_start_override: float | None = None) -> None:

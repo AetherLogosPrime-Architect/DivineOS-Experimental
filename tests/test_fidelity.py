@@ -1,13 +1,13 @@
 """Tests for the fidelity system."""
 
 from divineos.core.fidelity import (
+    FidelityManifest,
+    FidelityReceipt,
     compute_content_hash,
     create_manifest,
     create_receipt,
     reconcile,
     verify_single_event,
-    FidelityManifest,
-    FidelityReceipt,
 )
 
 

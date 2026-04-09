@@ -7,17 +7,18 @@ Uses the clarity_generator and plan_analyzer modules (previously orphaned)
 as the canonical path for creating ClarityStatements and PlanData.
 """
 
+import sqlite3
 from uuid import uuid4
 
 from loguru import logger
+
+from divineos.core.hud_state import get_session_plan
 
 from .types import (
     ExecutionData,
     ExecutionMetrics,
     ToolCall,
 )
-import sqlite3
-from divineos.core.hud_state import get_session_plan
 
 _SB_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

@@ -1,10 +1,10 @@
 """Lesson tracking — record, query, summarize, extract from reports."""
 
 import json
+import sqlite3
 import time
 import uuid
 from typing import Any, cast
-import sqlite3
 
 from loguru import logger
 
@@ -18,10 +18,10 @@ from divineos.core.knowledge._base import (
     _lesson_row_to_dict,
     compute_hash,
 )
-from divineos.core.knowledge.curation import clean_entry_text
 from divineos.core.knowledge.crud import (
     store_knowledge,
 )
+from divineos.core.knowledge.curation import clean_entry_text
 from divineos.core.knowledge.extraction import store_knowledge_smart
 
 _LESSONS_ERRORS = (
@@ -141,9 +141,9 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
                 cat_words = category.replace("_", " ")
                 linked = conn.execute(
                     "SELECT knowledge_id FROM knowledge "
-                    f"WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_ACTIVE_MEMORY_FLOOR} "
+                    "WHERE superseded_by IS NULL AND confidence >= ? "
                     "AND (LOWER(content) LIKE ? OR LOWER(content) LIKE ?)",
-                    (f"%{cat_words}%", f"%{category}%"),
+                    (CONFIDENCE_ACTIVE_MEMORY_FLOOR, f"%{cat_words}%", f"%{category}%"),
                 ).fetchall()
                 for (kid,) in linked:
                     increment_corroboration(kid)

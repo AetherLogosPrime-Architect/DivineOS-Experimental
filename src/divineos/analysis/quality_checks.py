@@ -7,6 +7,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+from divineos.analysis.quality_storage import (
+    get_check_history,
+    get_report,
+    store_report,
+)
 from divineos.analysis.record_extraction import (
     CheckResult,
     SessionReport,
@@ -20,11 +25,6 @@ from divineos.analysis.record_extraction import (
     _get_assistant_text,
     _get_connection,
     init_quality_tables,
-)
-from divineos.analysis.quality_storage import (
-    get_check_history,
-    get_report,
-    store_report,
 )
 from divineos.analysis.session_analyzer import (
     CORRECTION_PATTERNS,

@@ -3,11 +3,12 @@
 Extracts lessons and generates recommendations from deviations and execution data.
 """
 
+import sqlite3
+
 from loguru import logger
 
 from .base import LearningExtractor
 from .types import Deviation, ExecutionData, Lesson, Recommendation
-import sqlite3
 
 _LE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

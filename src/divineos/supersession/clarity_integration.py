@@ -5,11 +5,12 @@ allowing contradictions to be treated as clarity violations.
 """
 
 from typing import Any
+
 from loguru import logger
 
 from divineos.clarity_enforcement.config import ClarityEnforcementMode, get_clarity_config
-from divineos.clarity_enforcement.violation_detector import ClarityViolation, ViolationSeverity
 from divineos.clarity_enforcement.enforcer import ClarityViolationException
+from divineos.clarity_enforcement.violation_detector import ClarityViolation, ViolationSeverity
 
 
 def create_contradiction_violation(

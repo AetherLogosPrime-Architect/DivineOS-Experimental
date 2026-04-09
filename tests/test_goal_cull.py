@@ -3,8 +3,8 @@
 import time
 
 from divineos.core.goal_cull import (
-    _extract_goal_keywords,
     _STALENESS_THRESHOLD_DAYS,
+    _extract_goal_keywords,
     assess_goal_staleness,
 )
 

@@ -12,17 +12,18 @@ Tests validate:
 - Enforcement mode is included in logs
 """
 
-import pytest
 from unittest.mock import patch
 
+import pytest
+
+from divineos.clarity_enforcement.config import (
+    ClarityConfig,
+    ClarityEnforcementMode,
+)
 from divineos.clarity_enforcement.enforcer import (
     ClarityEnforcer,
     ClarityViolationException,
     enforce_clarity,
-)
-from divineos.clarity_enforcement.config import (
-    ClarityConfig,
-    ClarityEnforcementMode,
 )
 from divineos.clarity_enforcement.violation_detector import (
     ClarityViolation,
