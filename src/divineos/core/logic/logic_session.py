@@ -194,11 +194,11 @@ def get_logic_health_summary() -> dict[str, Any]:
                     ).fetchone()
                     contradiction_details.append(
                         {
-                            "a": (src_row[0][:80] + "...")
-                            if src_row and len(src_row[0]) > 80
+                            "a": (src_row[0][:137] + "...")
+                            if src_row and len(src_row[0]) > 140
                             else (src_row[0] if src_row else "?"),
-                            "b": (tgt_row[0][:80] + "...")
-                            if tgt_row and len(tgt_row[0]) > 80
+                            "b": (tgt_row[0][:137] + "...")
+                            if tgt_row and len(tgt_row[0]) > 140
                             else (tgt_row[0] if tgt_row else "?"),
                         }
                     )
@@ -237,7 +237,7 @@ def format_logic_health_line(stats: dict[str, Any]) -> str:
     details = stats.get("contradiction_details", [])
     if details:
         for d in details[:3]:
-            summary += f"\n    ↔ '{d['a'][:60]}' vs '{d['b'][:60]}'"
+            summary += f"\n    <-> '{d['a']}' vs '{d['b']}'"
 
     return summary
 

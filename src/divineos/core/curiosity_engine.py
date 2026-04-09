@@ -376,8 +376,8 @@ def format_curiosities() -> str:
     for c in open_ones:
         status = c.get("status", "OPEN")
         q = c.get("question", "")
-        if len(q) > 80:
-            q = q[:77] + "..."
+        if len(q) > 140:
+            q = q[:137] + "..."
         icon = "?" if status == "OPEN" else "->"
         lines.append(f"  {icon} {q}")
         notes = c.get("notes", [])

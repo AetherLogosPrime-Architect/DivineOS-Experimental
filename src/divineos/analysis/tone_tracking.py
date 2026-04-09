@@ -69,6 +69,10 @@ def classify_all_user_tones(records: list[dict[str, Any]]) -> list[dict[str, Any
         text = _extract_user_text(r)
         if not text or len(text) < 3:
             continue
+        # Skip context continuation headers — these are system boilerplate,
+        # not user sentiment. Classifying them as negative creates false upsets.
+        if "continued from a previous conversation" in text.lower():
+            continue
         seq += 1
         if use_rich:
             rich = classify_tone_rich(text)
@@ -115,6 +119,8 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
             continue
         text = _extract_user_text(r)
         if not text or len(text) < 3:
+            continue
+        if "continued from a previous conversation" in text.lower():
             continue
         if use_rich:
             rich = classify_tone_rich(text)
@@ -209,14 +215,14 @@ def tone_report(shifts: list[ToneShift], total_messages: int) -> str:
         worst = negative_shifts[0]
         parts.append(
             f"For example, after message {worst.sequence}: "
-            f"the user was {worst.previous_tone}, then I did [{worst.trigger_action[:80]}], "
+            f"the user was {worst.previous_tone}, then I did [{worst.trigger_action[:140]}], "
             f"and the user got {worst.new_tone}.",
         )
 
     if positive_shifts:
         parts.append(
             f"{len(positive_shifts)} time{'s' if len(positive_shifts) != 1 else ''} "
-            f"things got better — the user went from neutral/upset to happy.",
+            f"things got better - the user went from neutral/upset to happy.",
         )
 
     parts.append("(Tone tracking is a guess based on the user's words, not a certainty.)")
