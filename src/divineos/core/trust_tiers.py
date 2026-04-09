@@ -50,7 +50,7 @@ def tier_weight(tier: SignalTier) -> float:
 
 # ─── Classification ─────────────────────────────────────────────────
 
-# Knowledge sources → tiers
+# Knowledge sources -> tiers
 _SOURCE_TIERS: dict[str, SignalTier] = {
     # CORRECTED: the user explicitly corrected me. That correction is measured
     # behavior from the user — objective evidence I was wrong.
@@ -65,7 +65,7 @@ _SOURCE_TIERS: dict[str, SignalTier] = {
     "INHERITED": SignalTier.BEHAVIORAL,
 }
 
-# Signal origins → tiers (for quality checks, affect, etc.)
+# Signal origins -> tiers (for quality checks, affect, etc.)
 _SIGNAL_TIERS: dict[str, SignalTier] = {
     # Quality check signals — measured from actual session data
     "test_result": SignalTier.MEASURED,

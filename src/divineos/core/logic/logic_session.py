@@ -264,6 +264,6 @@ def format_warrant_chain(warrants: list[dict[str, Any]]) -> str:
         return ""
     parts = []
     for w in warrants:
-        status_icon = "\u2713" if w["status"] == "ACTIVE" else "\u2717"
+        status_icon = "+" if w["status"] == "ACTIVE" else "x"
         parts.append(f"{w['warrant_type']} {status_icon}")
     return "         warrants: " + " | ".join(parts)

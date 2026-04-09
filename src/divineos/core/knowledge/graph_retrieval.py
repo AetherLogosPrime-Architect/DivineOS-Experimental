@@ -173,7 +173,7 @@ def format_cluster_line(connection: dict[str, Any]) -> str:
     if len(content) > 120:
         content = content[:117] + "..."
 
-    # Format direction: "← supports" (incoming) vs "→ elaborates" (outgoing)
+    # Format direction: "<- supports" (incoming) vs "-> elaborates" (outgoing)
     arrow = "->" if direction == "outgoing" else "<-"
     return f"  {arrow} {label}: [{entry['confidence']:.2f}] {content}"
 

@@ -166,7 +166,7 @@ def compute_emotional_arc(
     # Peak intensity
     peak = max(intensities) if intensities else 0.0
 
-    # Find upset→recovery pairs and measure velocity
+    # Find upset->recovery pairs and measure velocity
     upset_triggers: list[str] = []
     recovery_actions: list[str] = []
     velocities: list[int] = []

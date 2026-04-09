@@ -405,7 +405,7 @@ def measure_session_health(
 
     # Correction penalty (0.0 = many corrections, 1.0 = none)
     # Diminishing returns: first corrections hurt most, later ones less.
-    # Old formula: 1.0 - (corrections * 0.15) → 7 corrections = floor.
+    # Old formula: 1.0 - (corrections * 0.15) -> 7 corrections = floor.
     # New: logarithmic decay so 20 corrections ≈ 0.25, not 0.0.
     if corrections == 0:
         correction_factor = 1.0

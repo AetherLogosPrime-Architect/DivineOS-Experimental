@@ -330,15 +330,15 @@ def format_analysis_report(result: AnalysisResult) -> str:
                 for entry in knowledge_entries:
                     if entry.get("id") == lesson_id or entry.get("knowledge_id") == lesson_id:
                         content = entry.get("content", lesson_id)
-                        lines.append(f"• {content}")
+                        lines.append(f"* {content}")
                         break
                 else:
                     # If not found, just show the ID
-                    lines.append(f"• Lesson {lesson_id[:8]}...")
+                    lines.append(f"* Lesson {lesson_id[:8]}...")
             except _AS_ERRORS:
                 # Fallback: just show the ID
                 lesson_id_str = str(lesson)[:8] if isinstance(lesson, dict) else str(lesson)[:8]
-                lines.append(f"• Lesson {lesson_id_str}...")
+                lines.append(f"* Lesson {lesson_id_str}...")
 
         lines.append("")
 

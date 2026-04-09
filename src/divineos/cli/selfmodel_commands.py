@@ -65,7 +65,7 @@ def register(cli: click.Group) -> None:
 
         result = record_skill_use(name, success=success)
         click.echo(
-            f"Recorded {name}: {result['proficiency']} ({result['successes']}✓ {result['failures']}✗)"
+            f"Recorded {name}: {result['proficiency']} ({result['successes']}+ {result['failures']}x)"
         )
 
     @cli.group("curiosity", invoke_without_command=True)
@@ -154,7 +154,7 @@ def register(cli: click.Group) -> None:
 
         schema = build_attention_schema()
         output = format_attention_schema(schema)
-        click.echo(output.encode("ascii", errors="replace").decode("ascii"))
+        click.echo(output)
 
     @cli.command("epistemic")
     def epistemic_cmd() -> None:
@@ -163,7 +163,7 @@ def register(cli: click.Group) -> None:
 
         report = build_epistemic_report()
         output = format_epistemic_report(report)
-        click.echo(output.encode("ascii", errors="replace").decode("ascii"))
+        click.echo(output)
 
     @cli.command("affect-feedback")
     def affect_feedback_cmd() -> None:

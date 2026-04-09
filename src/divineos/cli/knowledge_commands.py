@@ -269,12 +269,12 @@ def register(cli: click.Group) -> None:
                 for rel in rels[:3]:
                     if rel["direction"] == "outgoing":
                         click.secho(
-                            f"         → {rel['relationship']} → {rel['target_id'][:8]}...",
+                            f"         -> {rel['relationship']} -> {rel['target_id'][:8]}...",
                             fg="bright_black",
                         )
                     else:
                         click.secho(
-                            f"         ← {rel['relationship']} ← {rel['source_id'][:8]}...",
+                            f"         <- {rel['relationship']} <- {rel['source_id'][:8]}...",
                             fg="bright_black",
                         )
                 if len(rels) > 3:

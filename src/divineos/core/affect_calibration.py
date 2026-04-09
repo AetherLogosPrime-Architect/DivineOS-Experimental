@@ -6,9 +6,9 @@ extraction quality. Before this, affect influenced extraction thresholds
 calibration, creating a self-regulating circuit.
 
 The loop:
-  1. Affect state → threshold modifiers → extraction
-  2. Extraction outcomes → quality signals → stored correlation
-  3. Future sessions → query correlation history → calibrate thresholds
+  1. Affect state -> threshold modifiers -> extraction
+  2. Extraction outcomes -> quality signals -> stored correlation
+  3. Future sessions -> query correlation history -> calibrate thresholds
 
 An open loop is a sensor. A closed loop is a self-regulating system.
 
@@ -173,7 +173,7 @@ def get_calibration_adjustment(lookback: int = 10) -> dict[str, Any]:
         if praise_detected:
             praise_chasing_sessions += 1
 
-    # Pattern: repeatedly high affect but low quality → tighten
+    # Pattern: repeatedly high affect but low quality -> tighten
     if high_valence_low_quality >= 2:
         ratio = high_valence_low_quality / total
         adjustment = min(ratio * 0.2, 0.2)
@@ -187,7 +187,7 @@ def get_calibration_adjustment(lookback: int = 10) -> dict[str, Any]:
             "evidence_sessions": total,
         }
 
-    # Pattern: praise-chasing recurring → elevate verification
+    # Pattern: praise-chasing recurring -> elevate verification
     if praise_chasing_sessions >= 2:
         return {
             "threshold_adjustment": 0.1,
@@ -199,7 +199,7 @@ def get_calibration_adjustment(lookback: int = 10) -> dict[str, Any]:
             "evidence_sessions": total,
         }
 
-    # Pattern: consistently good quality → can relax slightly
+    # Pattern: consistently good quality -> can relax slightly
     avg_quality = sum(r[2] for r in rows) / total
     if avg_quality >= 0.8 and praise_chasing_sessions == 0:
         return {

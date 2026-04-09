@@ -293,9 +293,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
             if curation["archived"]:
                 curation_parts.append(f"{curation['archived']} archived")
             if curation["promoted_stable"]:
-                curation_parts.append(f"{curation['promoted_stable']} → stable")
+                curation_parts.append(f"{curation['promoted_stable']} -> stable")
             if curation["promoted_urgent"]:
-                curation_parts.append(f"{curation['promoted_urgent']} → urgent")
+                curation_parts.append(f"{curation['promoted_urgent']} -> urgent")
             if curation["text_cleaned"]:
                 curation_parts.append(f"{curation['text_cleaned']} text cleaned")
             if curation_parts:

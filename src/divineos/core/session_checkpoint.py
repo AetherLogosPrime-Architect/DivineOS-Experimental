@@ -422,7 +422,7 @@ def run_mini_session_save() -> dict[str, Any]:
     Heavier than checkpoint (extracts knowledge), lighter than SESSION_END
     (skips feedback cycles, scoring, consolidation, finalization).
 
-    Runs: analysis → deep extraction → episode → curation → handoff.
+    Runs: analysis -> deep extraction -> episode -> curation -> handoff.
     Skips: feedback, quality scoring, maturity cycles, SIS audit, compass.
 
     Call this at task boundaries — when you finish what the user asked

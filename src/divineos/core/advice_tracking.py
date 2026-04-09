@@ -5,7 +5,7 @@ actually worked. Did the pattern I suggested lead to fewer corrections?
 Did the refactoring approach reduce rework? Was the architecture choice
 validated by subsequent sessions?
 
-This closes the loop: advice → outcome → learning. Without it, I can
+This closes the loop: advice -> outcome -> learning. Without it, I can
 give the same bad advice forever and never know.
 
 Sanskrit anchor: phala-jnana (fruit-knowledge, knowing the result of actions).
