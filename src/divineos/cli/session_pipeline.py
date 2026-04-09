@@ -638,3 +638,14 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
     ) as e:
         click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
         logger.warning(f"Auto-scan failed: {e}")
+    finally:
+        # Reset checkpoint so the next session gets a fresh start time.
+        # Without this, get_session_start_time() would return the OLD
+        # session's start, causing the next SESSION_END to analyze the
+        # combined records of both sessions.
+        try:
+            from divineos.core.session_checkpoint import reset_state
+
+            reset_state()
+        except (ImportError, OSError):
+            pass

@@ -270,3 +270,58 @@ class TestGetSessionStartTime:
         start = get_session_start_time()
         # Should return the session_start from _load_state default (time.time())
         assert start is not None
+
+    def test_checkpoint_state_takes_priority_over_ledger(self, tmp_path, monkeypatch):
+        """Checkpoint state must win over ledger SESSION_END — the bug fix.
+
+        When a session continues after context compaction, the ledger's
+        most recent SESSION_END marks the *previous* session's end.
+        The checkpoint file has the *current* session's true start time.
+        """
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+        # Set up checkpoint with a known start time (1 hour ago)
+        (tmp_path / ".divineos").mkdir()
+        checkpoint_start = time.time() - 3600
+        import json as _json
+
+        (tmp_path / ".divineos" / "checkpoint_state.json").write_text(
+            _json.dumps({"session_start": checkpoint_start, "edits": 0}),
+            encoding="utf-8",
+        )
+
+        # get_session_start_time should return checkpoint value (primary),
+        # never falling through to the ledger query
+        result = get_session_start_time()
+        assert result is not None
+        assert abs(result - checkpoint_start) < 1, (
+            f"Expected checkpoint start ({checkpoint_start}), got {result}"
+        )
+
+    def test_ledger_fallback_when_no_checkpoint(self, tmp_path, monkeypatch):
+        """Falls back to ledger SESSION_END when checkpoint has no start time."""
+        from unittest.mock import MagicMock, patch
+
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+        # Checkpoint with no session_start key
+        (tmp_path / ".divineos").mkdir()
+        import json as _json
+
+        (tmp_path / ".divineos" / "checkpoint_state.json").write_text(
+            _json.dumps({"edits": 5}),
+            encoding="utf-8",
+        )
+
+        # Mock the ledger query to return a known timestamp
+        ledger_time = time.time() - 600
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchone.return_value = (ledger_time,)
+
+        with patch("divineos.core.memory._get_connection", return_value=mock_conn):
+            result = get_session_start_time()
+
+        assert result is not None
+        assert abs(result - ledger_time) < 1
