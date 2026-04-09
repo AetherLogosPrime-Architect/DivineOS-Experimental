@@ -5,9 +5,9 @@ import time
 
 from divineos.analysis.session_analyzer import (
     _filter_records_since,
-    load_records,
     _slim_record,
     analyze_session,
+    load_records,
 )
 from divineos.core.session_checkpoint import get_session_start_time, reset_state
 

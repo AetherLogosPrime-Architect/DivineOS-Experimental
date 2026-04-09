@@ -14,9 +14,9 @@ from divineos.analysis.session_analyzer import (
     _detect_signals,
     _extract_timestamps,
     _extract_user_text,
-    load_records,
     _summarize_tool_input,
     analyze_session,
+    load_records,
 )
 from divineos.analysis.session_discovery import (
     aggregate_analyses,

@@ -89,7 +89,8 @@ class TestViolationHook:
         )
 
         # Should not raise, just log error
-        hook.trigger(violation)
+        result = hook.trigger(violation)
+        assert result is None
 
 
 class TestViolationHookRegistry:
@@ -391,5 +392,5 @@ class TestRegisterDefaultHooks:
         )
 
         with patch("divineos.clarity_enforcement.hooks.logger"):
-            # Should not raise
-            registry.trigger(ViolationEventType.DETECTED, violation)
+            result = registry.trigger(ViolationEventType.DETECTED, violation)
+            assert result is None
