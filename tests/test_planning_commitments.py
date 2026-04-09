@@ -238,7 +238,7 @@ class TestFormatCommitmentReview:
         output = format_commitment_review(review)
         assert "1/1 fulfilled" in output
         assert "FULFILLED" in output
-        assert "✓" in output
+        assert "+" in output
 
     def test_format_dropped(self):
         review = {
@@ -258,7 +258,7 @@ class TestFormatCommitmentReview:
         output = format_commitment_review(review)
         assert "0/1 fulfilled" in output
         assert "DROPPED" in output
-        assert "✗" in output
+        assert "x" in output
         assert "not fulfilled" in output
 
     def test_format_truncates_long_text(self):

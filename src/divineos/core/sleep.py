@@ -76,7 +76,7 @@ class DreamReport:
         lines.append(f"  Slept for {self.duration_seconds:.1f}s\n")
 
         # Consolidation
-        lines.append("  Phase 1 — Knowledge Consolidation")
+        lines.append("  Phase 1 - Knowledge Consolidation")
         lines.append(f"    Scanned {self.entries_scanned} entries")
         if self.total_promoted > 0:
             for level, count in self.promotions.items():
@@ -85,7 +85,7 @@ class DreamReport:
             lines.append("    No promotions needed")
 
         # Pruning
-        lines.append("\n  Phase 2 — Pruning")
+        lines.append("\n  Phase 2 - Pruning")
         pruning_found = False
         if self.health_results:
             for key in (
@@ -114,7 +114,7 @@ class DreamReport:
             lines.append("    Knowledge store is clean")
 
         # Affect
-        lines.append("\n  Phase 3 — Affect Recalibration")
+        lines.append("\n  Phase 3 - Affect Recalibration")
         if self.affect_entries_processed > 0:
             lines.append(f"    Processed {self.affect_entries_processed} affect entries")
             lines.append(f"    Decayed {self.affect_decayed} entries")
@@ -127,7 +127,7 @@ class DreamReport:
             lines.append("    No affect history to process")
 
         # Maintenance
-        lines.append("\n  Phase 4 — Maintenance")
+        lines.append("\n  Phase 4 - Maintenance")
         if self.maintenance_results:
             freed = self.maintenance_results.get("vacuum", {}).get("freed_mb", 0)
             if freed > 0:
@@ -147,7 +147,7 @@ class DreamReport:
             lines.append("    Skipped")
 
         # Recombination
-        lines.append("\n  Phase 5 — Creative Recombination")
+        lines.append("\n  Phase 5 - Creative Recombination")
         if self.connections_found > 0:
             lines.append(f"    Found {self.connections_found} new connection(s)")
             for conn in self.connection_details[:5]:
@@ -156,13 +156,12 @@ class DreamReport:
             lines.append("    No new connections found")
 
         # Curiosity
-        lines.append("\n  Phase 6 — Curiosity Generation")
-        if self.curiosities_generated > 0:
-            lines.append(f"    Generated {self.curiosities_generated} question(s)")
+        lines.append("\n  Phase 6 - Curiosity Maintenance")
+        if self.curiosity_categories:
             for cat in self.curiosity_categories:
-                lines.append(f"    ? {cat}")
+                lines.append(f"    {cat}")
         else:
-            lines.append("    No new questions generated")
+            lines.append("    Nothing to prune")
 
         # Errors
         if self.phase_errors:
@@ -326,19 +325,24 @@ def _phase_maintenance(report: DreamReport) -> None:
 
 
 # Similarity thresholds for connection detection
-_RECOMBINATION_MIN_SIMILARITY = 0.35  # Minimum to consider related
-_RECOMBINATION_MAX_SIMILARITY = 0.85  # Above this = near-duplicate, not a connection
+_RECOMBINATION_MIN_SIMILARITY = 0.45  # Minimum to consider related (raised from 0.35)
+_RECOMBINATION_MAX_SIMILARITY = 0.80  # Above this = near-duplicate, not a connection
 _RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
+_RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
 
 
 def _phase_recombination(report: DreamReport) -> None:
     """Cross-knowledge similarity scanning for unlinked connections.
 
-    Uses semantic similarity (sentence embeddings) when available to find
-    conceptual connections even between entries that share no vocabulary.
-    Falls back to word overlap when embeddings are unavailable.
+    Finds genuinely surprising connections between entries that are
+    semantically related but topically distinct. Filters out obvious
+    same-topic pairs (e.g. MISTAKE about tests + DIRECTION about tests)
+    by checking word overlap in key terms.
     """
-    from divineos.core.knowledge._text import compute_similarity
+    from divineos.core.knowledge._text import (
+        _compute_overlap,
+        compute_similarity,
+    )
     from divineos.core.knowledge.crud import get_knowledge
 
     entries = get_knowledge(limit=5000, include_superseded=False)
@@ -359,17 +363,32 @@ def _phase_recombination(report: DreamReport) -> None:
         for type_b in types[i + 1 :]:
             for entry_a in by_type[type_a]:
                 content_a = entry_a.get("content", "")
-                if len(content_a) < 20:
+                if len(content_a) < 30:
                     continue
                 for entry_b in by_type[type_b]:
                     if len(connections) >= _RECOMBINATION_MAX_CONNECTIONS:
                         break
                     content_b = entry_b.get("content", "")
-                    if len(content_b) < 20:
+                    if len(content_b) < 30:
+                        continue
+
+                    # Skip pairs that share too many key words -- these are
+                    # the same topic wearing different type labels, not
+                    # creative connections.
+                    word_overlap = _compute_overlap(content_a, content_b)
+                    if word_overlap > _RECOMBINATION_MAX_WORD_OVERLAP:
                         continue
 
                     similarity = compute_similarity(content_a, content_b)
                     if _RECOMBINATION_MIN_SIMILARITY <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
+                        # Show first sentence of each, not arbitrary truncation
+                        def _first_sentence(text: str, cap: int = 140) -> str:
+                            for delim in (". ", "! ", "? "):
+                                idx = text.find(delim)
+                                if 0 < idx < cap:
+                                    return text[: idx + 1]
+                            return text[:cap] + "..." if len(text) > cap else text
+
                         connections.append(
                             {
                                 "entry_a_id": entry_a.get("knowledge_id", "?"),
@@ -378,8 +397,9 @@ def _phase_recombination(report: DreamReport) -> None:
                                 "type_b": type_b,
                                 "similarity": f"{similarity:.0%}",
                                 "summary": (
-                                    f"{type_a[:12]}~{type_b[:12]}: "
-                                    f'"{content_a[:50]}..." ~ "{content_b[:50]}..."'
+                                    f"({similarity:.0%}) {type_a}+{type_b}: "
+                                    f"{_first_sentence(content_a)} <> "
+                                    f"{_first_sentence(content_b)}"
                                 ),
                             }
                         )
@@ -393,21 +413,24 @@ def _phase_recombination(report: DreamReport) -> None:
     report.connection_details = connections
 
 
-# ─── Phase 6: Curiosity Generation ──────────────────────────────────
+# ─── Phase 6: Curiosity Maintenance ─────────────────────────────────
 
 
 def _phase_curiosity(report: DreamReport) -> None:
-    """Scan knowledge gaps and generate questions for the next session.
+    """Prune stale curiosities. No longer auto-generates questions.
 
-    This is the proactive horizon — the OS doesn't wait for the Architect
-    to ask. It looks at its own incomplete knowledge, stuck lessons, and
-    unresolved contradictions, and generates genuine questions.
+    Auto-generated questions ("What evidence would confirm or refute: X?")
+    were formulaic templates stamped onto existing knowledge, not genuine
+    curiosity. Real questions come from manual filing via `divineos curiosity add`
+    or the `curiosity wonder` command (explicit opt-in).
     """
-    from divineos.core.curiosity_engine import generate_curiosities_from_gaps
+    from divineos.core.curiosity_engine import prune_stale_curiosities
 
-    generated = generate_curiosities_from_gaps(max_questions=5)
-    report.curiosities_generated = len(generated)
-    report.curiosity_categories = [g.get("question", "?")[:80] for g in generated]
+    pruned = prune_stale_curiosities()
+    report.curiosities_generated = 0
+    report.curiosity_categories = []
+    if pruned:
+        report.curiosity_categories.append(f"pruned {pruned} stale")
 
 
 # ─── Orchestrator ─────────────────────────────────────────────────────

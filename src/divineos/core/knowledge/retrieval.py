@@ -435,7 +435,7 @@ def _format_handoff_lines() -> list[str]:
         if handoff.get("summary"):
             lines.append(handoff["summary"])
         if handoff.get("open_threads"):
-            lines.append("\n**Open threads:**")
+            lines.append("\n**Recent decisions:**")
             for thread in handoff["open_threads"]:
                 lines.append(f"  - {thread}")
         if handoff.get("intent"):
@@ -448,12 +448,17 @@ def _format_handoff_lines() -> list[str]:
             lines.append("\n**Next steps:**")
             for step in handoff["next_steps"]:
                 lines.append(f"  - {step}")
+        snapshot = handoff.get("context_snapshot", {})
+        modified_files = snapshot.get("modified_files", [])
+        if modified_files:
+            lines.append("\n**Files in progress:**")
+            for f in modified_files[:8]:
+                lines.append(f"  - {f}")
         meta_parts = []
         if handoff.get("mood"):
             meta_parts.append(handoff["mood"])
         if handoff.get("goals_state"):
             meta_parts.append(f"goals: {handoff['goals_state']}")
-        snapshot = handoff.get("context_snapshot", {})
         if snapshot.get("session_grade"):
             meta_parts.append(f"grade: {snapshot['session_grade']}")
         if meta_parts:
@@ -466,11 +471,25 @@ def _format_handoff_lines() -> list[str]:
         return []
 
 
+def _is_stable(item: dict[str, Any]) -> bool:
+    """Check if a knowledge entry is settled (high confidence, mature)."""
+    return item.get("confidence", 0) >= 0.95 and item.get("maturity", "RAW") in (
+        "TESTED",
+        "CONFIRMED",
+    )
+
+
 def _format_knowledge_sections(
     grouped: dict[str, list[dict[str, Any]]],
     hint_matches: set[str],
+    skip_types: set[str] | None = None,
 ) -> list[str]:
-    """Format knowledge entries grouped by type."""
+    """Format knowledge entries grouped by type.
+
+    Stable sections (all entries high-confidence + mature) are collapsed
+    to a one-line summary. Only sections with new, evolving, or low-confidence
+    entries are expanded in full.
+    """
     lines: list[str] = []
     for kt in [
         "DIRECTIVE",
@@ -486,6 +505,8 @@ def _format_knowledge_sections(
         "OBSERVATION",
         "EPISODE",
     ]:
+        if skip_types and kt in skip_types:
+            continue
         items = grouped.get(kt, [])
         if not items:
             continue
@@ -498,6 +519,33 @@ def _format_knowledge_sections(
             "PROCEDURE": "PROCEDURES",
             "EPISODE": "EPISODES",
         }.get(kt, f"{kt}S")
+
+        # Compact stable sections — show one-line summaries instead of full content
+        all_stable = all(_is_stable(i) for i in items)
+        any_hinted = any(i["knowledge_id"] in hint_matches for i in items)
+        if all_stable and not any_hinted and len(items) >= 2:
+            lines.append(f"### {plural} ({len(items)})")
+            for item in items:
+                content = item["content"].replace("\n", " ")
+                # Directives: extract the bracketed name
+                if kt == "DIRECTIVE" and content.startswith("["):
+                    name_end = content.find("]")
+                    if name_end > 0:
+                        content = content[: name_end + 1]
+                else:
+                    # First sentence, capped at 80 chars
+                    for delim in (". ", "! ", "? "):
+                        idx = content.find(delim)
+                        if 0 < idx < 80:
+                            content = content[: idx + 1]
+                            break
+                    else:
+                        if len(content) > 80:
+                            content = content[:77] + "..."
+                lines.append(f"- {content}")
+            lines.append("")
+            continue
+
         lines.append(f"### {plural} ({len(items)})")
         for item in items:
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
@@ -505,17 +553,17 @@ def _format_knowledge_sections(
             mat_marker = " ++" if mat == "CONFIRMED" else " +" if mat == "TESTED" else ""
             entity = f" [from: {item['source_entity']}]" if item.get("source_entity") else ""
             content = item["content"]
-            access = f"({item['access_count']}x accessed)"
 
             if kt == "DIRECTIVE":
                 lines.append(f"- [{item['confidence']:.2f}] {content}{mat_marker}{hint_marker}")
-                lines.append(f"  {access}{entity}")
+                if entity:
+                    lines.append(f"  {entity}")
             else:
                 display = content.replace("\n", " ")
-                if len(display) > 150:
-                    display = display[:147] + "..."
+                if len(display) > 300:
+                    display = display[:297] + "..."
                 lines.append(
-                    f"- [{item['confidence']:.2f}]{entity} {display} {access}{mat_marker}{hint_marker}"
+                    f"- [{item['confidence']:.2f}]{entity} {display}{mat_marker}{hint_marker}"
                 )
         lines.append("")
     return lines
@@ -538,7 +586,9 @@ def _format_briefing(
 
     # Growth trajectory
     try:
-        from divineos.core.growth import compute_growth_map  # late: growth → knowledge → retrieval
+        from divineos.core.growth import (
+            compute_growth_map,
+        )  # late: growth -> knowledge -> retrieval
 
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
@@ -591,7 +641,7 @@ def _format_briefing(
             from divineos.core.anticipation import (
                 anticipate,
                 format_anticipation,
-            )  # late: anticipation → knowledge → retrieval
+            )  # late: anticipation -> knowledge -> retrieval
 
             warnings = anticipate(context_hint, max_warnings=3)
             if warnings:
@@ -604,7 +654,7 @@ def _format_briefing(
     try:
         from divineos.core.predictive_session import (
             predict_session_needs,
-        )  # late: predictive_session → knowledge → retrieval
+        )  # late: predictive_session -> knowledge -> retrieval
 
         pred_result = predict_session_needs()
         cur_profile = pred_result.get("current_profile", {})
@@ -647,7 +697,7 @@ def _format_briefing(
         from divineos.core.logic.logic_session import (
             format_logic_health_line,
             get_logic_health_summary,
-        )  # late: logic_session → knowledge → retrieval
+        )  # late: logic_session -> knowledge -> retrieval
 
         logic_stats = get_logic_health_summary()
         logic_line = format_logic_health_line(logic_stats)
@@ -681,8 +731,8 @@ def _format_briefing(
                 lines.append(f"  Upsets: {upset_n} | Recoveries: {recovery_n} ({recovery_pct})")
             if narrative:
                 display_narrative = narrative.replace("\n", " ")
-                if len(display_narrative) > 150:
-                    display_narrative = display_narrative[:147] + "..."
+                if len(display_narrative) > 200:
+                    display_narrative = display_narrative[:197] + "..."
                 lines.append(f"  Story: {display_narrative}")
             lines.append("")
     except _RETRIEVAL_ERRORS:
@@ -693,13 +743,17 @@ def _format_briefing(
         from divineos.core.curiosity_engine import get_open_curiosities
 
         open_q = get_open_curiosities()
+        # Only show manually-filed curiosities (category "general").
+        # Auto-generated questions (validation, stale_raw, recurring_lesson,
+        # correction) are formulaic templates, not genuine curiosity.
+        open_q = [q for q in open_q if q.get("category", "general") == "general"]
         if open_q:
             lines.append(f"### OPEN QUESTIONS ({len(open_q)})")
             for q in open_q[:3]:
                 status_icon = "?" if q.get("status") == "OPEN" else "->"
                 question_text = q.get("question", "")
-                if len(question_text) > 120:
-                    question_text = question_text[:117] + "..."
+                if len(question_text) > 160:
+                    question_text = question_text[:157] + "..."
                 lines.append(f"  {status_icon} {question_text}")
                 cat = q.get("category", "")
                 if cat and cat != "general":
@@ -710,7 +764,10 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS:
         pass
 
-    lines.extend(_format_knowledge_sections(grouped, hint_matches))
+    # Skip MISTAKE section when active lessons already cover them —
+    # otherwise the same lesson appears in Watch Out, Active Lessons, AND Mistakes.
+    skip_types = {"MISTAKE"} if lessons_text else set()
+    lines.extend(_format_knowledge_sections(grouped, hint_matches, skip_types))
 
     # Graph connections — show relationships between briefing entries
     try:
@@ -780,8 +837,8 @@ def _format_briefing(
 
                 dt = datetime.datetime.fromtimestamp(j["created_at"])
                 display = j["content"].replace("\n", " ")
-                if len(display) > 120:
-                    display = display[:117] + "..."
+                if len(display) > 160:
+                    display = display[:157] + "..."
                 lines.append(f"- [{dt:%Y-%m-%d}] {display}")
             lines.append("")
     except _RETRIEVAL_ERRORS as e:
@@ -791,7 +848,7 @@ def _format_briefing(
     try:
         from divineos.core.questions import (
             get_open_questions_summary,
-        )  # late: questions → knowledge → retrieval
+        )  # late: questions -> knowledge -> retrieval
 
         questions_text = get_open_questions_summary(max_items=5)
         if questions_text:

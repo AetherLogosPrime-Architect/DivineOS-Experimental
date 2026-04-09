@@ -41,7 +41,7 @@ _MIGRATION_ERRORS = (
 # How old types map to new types
 _MIGRATION_RULES: dict[str, dict[str, Any]] = {
     "MISTAKE": {
-        # Keywords that indicate a hard constraint → BOUNDARY
+        # Keywords that indicate a hard constraint -> BOUNDARY
         "boundary_keywords": re.compile(
             r"\b(never|always|must|don't|do not|cannot|forbidden|prohibited)\b",
             re.IGNORECASE,
@@ -58,7 +58,7 @@ _MIGRATION_RULES: dict[str, dict[str, Any]] = {
         "maturity": "CONFIRMED",
     },
     "PATTERN": {
-        # Keywords indicating how-to → PROCEDURE
+        # Keywords indicating how-to -> PROCEDURE
         "procedure_keywords": re.compile(
             r"\b(step|how to|process|workflow|first.*then|procedure)\b",
             re.IGNORECASE,

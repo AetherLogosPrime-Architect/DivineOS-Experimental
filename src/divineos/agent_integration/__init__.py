@@ -5,7 +5,7 @@ and feeds learning back into future behavior via confidence-weighted
 pattern recommendations.
 
 Status: STABLE. Core data flow works end-to-end:
-  Tool execution → event capture → learning loop → pattern store → recommendations.
+  Tool execution -> event capture -> learning loop -> pattern store -> recommendations.
 
 Module map (14 files):
   base.py              Abstract contracts: ToolInterceptor, LearningLoopSystem, etc.
