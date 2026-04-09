@@ -26,7 +26,7 @@ from divineos.analysis.record_extraction import (
 )
 from divineos.analysis.session_analyzer import (
     _extract_user_text,
-    _load_records,
+    load_records,
 )
 from divineos.analysis.tone_tracking import (
     ToneShift,
@@ -618,7 +618,7 @@ def run_all_features(
     since_timestamp: float | None = None,
 ) -> FullSessionAnalysis:
     """Run features 3, 5, 6, 8, 9, 10 on a session file."""
-    records = _load_records(file_path, since_timestamp=since_timestamp)
+    records = load_records(file_path, since_timestamp=since_timestamp)
     result_map = _build_tool_result_map(records)
 
     # Count user messages for tone report

@@ -5,7 +5,7 @@ import time
 
 from divineos.analysis.session_analyzer import (
     _filter_records_since,
-    _load_records,
+    load_records,
     _slim_record,
     analyze_session,
 )
@@ -135,7 +135,7 @@ class TestAnalyzeSessionWithTimestamp:
 
 
 class TestLoadRecordsStreaming:
-    """Test that _load_records with since_timestamp skips old records during parse."""
+    """Test that load_records with since_timestamp skips old records during parse."""
 
     def test_stream_filter_skips_old_records(self, tmp_path):
         now = time.time()
@@ -148,7 +148,7 @@ class TestLoadRecordsStreaming:
         path = tmp_path / "session.jsonl"
         path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
 
-        loaded = _load_records(path, since_timestamp=now - 60)
+        loaded = load_records(path, since_timestamp=now - 60)
         assert len(loaded) == 1
         assert loaded[0]["message"]["content"] == "current"
 
@@ -160,7 +160,7 @@ class TestLoadRecordsStreaming:
         path = tmp_path / "session.jsonl"
         path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
 
-        loaded = _load_records(path, since_timestamp=None)
+        loaded = load_records(path, since_timestamp=None)
         assert len(loaded) == 2
 
     def test_stream_filter_keeps_no_timestamp_records(self, tmp_path):
@@ -172,7 +172,7 @@ class TestLoadRecordsStreaming:
         path = tmp_path / "session.jsonl"
         path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
 
-        loaded = _load_records(path, since_timestamp=now - 60)
+        loaded = load_records(path, since_timestamp=now - 60)
         assert len(loaded) == 2  # both kept
 
     def test_slim_truncates_tool_use_inputs(self):
@@ -246,7 +246,7 @@ class TestLoadRecordsStreaming:
         path = tmp_path / "session.jsonl"
         path.write_text("\n".join(json.dumps(r) for r in records), encoding="utf-8")
 
-        loaded = _load_records(path, since_timestamp=now - 60, slim=True)
+        loaded = load_records(path, since_timestamp=now - 60, slim=True)
         assert len(loaded) == 1
         block = loaded[0]["message"]["content"][0]
         assert block["name"] == "Bash"

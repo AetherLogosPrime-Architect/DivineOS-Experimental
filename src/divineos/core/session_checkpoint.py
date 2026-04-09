@@ -457,7 +457,7 @@ def run_mini_session_save() -> dict[str, Any]:
         analysis = _analyzer_mod.analyze_session(latest, since_timestamp=session_start)
 
         # Deep extraction — stream-filter to current session only
-        records = _analyzer_mod._load_records(latest, since_timestamp=session_start)
+        records = _analyzer_mod.load_records(latest, since_timestamp=session_start)
         deep_ids = deep_extract_knowledge(analysis, records)
         result["knowledge_extracted"] = len(deep_ids)
 

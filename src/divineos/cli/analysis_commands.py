@@ -71,7 +71,7 @@ def register(cli: click.Group) -> None:
         stored = 0
 
         if deep:
-            records = _analyzer_mod._load_records(path)
+            records = _analyzer_mod.load_records(path)
             deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
             stored += len(deep_ids)
             click.secho(f"[+] Deep extraction: {len(deep_ids)} knowledge entries", fg="cyan")
