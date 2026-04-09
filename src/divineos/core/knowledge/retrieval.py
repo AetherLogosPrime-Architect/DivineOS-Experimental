@@ -267,7 +267,7 @@ def generate_briefing(
         mat_conn.close()
 
     # Find what changed recently (last 24h) for the "what's new" section
-    recent_cutoff = now - 86400
+    recent_cutoff = now - SECONDS_PER_DAY
     recent_changes: list[dict[str, Any]] = []
     promotion_count = 0
     # Check ALL non-superseded entries, not just top-N briefing items
