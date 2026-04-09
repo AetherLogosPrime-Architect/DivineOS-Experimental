@@ -3,13 +3,11 @@
 import os
 
 from divineos.core.knowledge import (
+    _decide_operation,
     _get_connection,
     init_knowledge_table,
     store_knowledge,
     store_knowledge_smart,
-)
-from divineos.core.knowledge import (
-    _decide_operation,
 )
 from divineos.core.ledger import init_db
 

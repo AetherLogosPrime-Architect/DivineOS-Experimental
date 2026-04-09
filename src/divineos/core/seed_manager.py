@@ -11,6 +11,7 @@ import time
 from typing import Any
 
 from loguru import logger
+
 from divineos.core.knowledge import (
     _get_connection,
     get_knowledge,

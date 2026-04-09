@@ -1,8 +1,9 @@
 """Tests for the event dispatcher and event capture system."""
 
 import pytest
-from divineos.event.event_emission import emit_event, register_listener
+
 from divineos.core.ledger import get_events, verify_all_events
+from divineos.event.event_emission import emit_event, register_listener
 
 
 @pytest.fixture(autouse=True)

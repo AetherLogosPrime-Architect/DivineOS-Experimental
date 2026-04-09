@@ -2,8 +2,8 @@
 
 from divineos.supersession import (
     ContradictionDetector,
-    ResolutionEngine,
     QueryInterface,
+    ResolutionEngine,
     ResolutionStrategy,
 )
 

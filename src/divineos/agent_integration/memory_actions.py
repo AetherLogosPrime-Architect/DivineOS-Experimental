@@ -5,8 +5,8 @@ that delegate to the global monitor instance.
 """
 
 import threading
-from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
 
+from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
 
 # Global monitor instance (typed loosely to avoid circular import at module level)
 _monitor = None

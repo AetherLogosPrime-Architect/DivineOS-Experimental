@@ -3,6 +3,7 @@
 Generates comprehensive post-work summaries with analysis and recommendations.
 """
 
+import sqlite3
 from typing import Any
 
 from loguru import logger
@@ -18,7 +19,6 @@ from .types import (
     PostWorkSummary,
     Recommendation,
 )
-import sqlite3
 
 _SG_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

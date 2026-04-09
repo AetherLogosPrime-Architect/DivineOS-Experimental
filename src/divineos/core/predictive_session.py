@@ -20,7 +20,6 @@ from typing import Any
 
 from divineos.core.knowledge._base import _get_connection
 
-
 # ─── Session Profile Detection ─────────────────────────────────────
 
 SESSION_PROFILES = {

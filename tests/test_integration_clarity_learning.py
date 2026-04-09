@@ -10,10 +10,10 @@ Property 1: Clarity violations captured by learning loop
 
 import pytest
 
-from divineos.clarity_enforcement.enforcer import ClarityEnforcer, ClarityViolationException
-from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
 from divineos.agent_integration.learning_loop import analyze_session_for_lessons
 from divineos.agent_integration.pattern_store import PatternStore
+from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+from divineos.clarity_enforcement.enforcer import ClarityEnforcer, ClarityViolationException
 from divineos.core.ledger import get_ledger
 
 

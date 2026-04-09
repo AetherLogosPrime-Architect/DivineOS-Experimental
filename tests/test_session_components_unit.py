@@ -9,22 +9,23 @@ Tests individual components of the session system:
 Validates: Requirements 1.4
 """
 
-import pytest
 from datetime import datetime, timezone
 
-from divineos.clarity_enforcement.enforcer import ClarityEnforcer, ClarityViolationException
-from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
-from divineos.clarity_enforcement.violation_detector import ViolationDetector, ViolationSeverity
+import pytest
+
 from divineos.agent_integration.learning_loop import (
     analyze_session_for_lessons,
     extract_corrections,
-    extract_encouragements,
     extract_decisions,
-    extract_tool_patterns,
-    extract_timing_patterns,
+    extract_encouragements,
     extract_error_patterns,
+    extract_timing_patterns,
+    extract_tool_patterns,
 )
 from divineos.agent_integration.memory_actions import get_memory_monitor
+from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+from divineos.clarity_enforcement.enforcer import ClarityEnforcer, ClarityViolationException
+from divineos.clarity_enforcement.violation_detector import ViolationDetector, ViolationSeverity
 from divineos.core.ledger import get_ledger, log_event
 
 

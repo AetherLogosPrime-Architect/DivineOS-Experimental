@@ -5,11 +5,12 @@ Identifies tool performance issues, correction patterns, and generates
 recommendations for the next session.
 """
 
+import sqlite3
+
 from loguru import logger
 
 from divineos.agent_integration.types import SessionFeedback
 from divineos.core.knowledge import store_knowledge
-import sqlite3
 
 _FS_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

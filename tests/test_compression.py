@@ -2,6 +2,9 @@
 
 from divineos.core.knowledge._base import init_knowledge_table
 from divineos.core.knowledge.compression import (
+    _extract_unique_terms,
+    _maturity_score,
+    _pick_best_entry,
     compress_dedup,
     compress_graph_cluster,
     find_dedup_candidates,
@@ -9,9 +12,6 @@ from divineos.core.knowledge.compression import (
     format_compression_report,
     run_compression,
     synthesize_cluster,
-    _extract_unique_terms,
-    _maturity_score,
-    _pick_best_entry,
 )
 from divineos.core.knowledge.crud import store_knowledge
 

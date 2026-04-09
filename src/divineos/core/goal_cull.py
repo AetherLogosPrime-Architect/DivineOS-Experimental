@@ -6,8 +6,11 @@ store and decision journal to find evidence that the work was done,
 and flags old goals that have no recent activity.
 """
 
+import sqlite3
 import time
 from typing import Any
+
+from loguru import logger
 
 from divineos.core.constants import SECONDS_PER_DAY
 
@@ -85,8 +88,8 @@ def _search_knowledge_for_goal(keywords: list[str]) -> list[str]:
                     evidence.append(f"Knowledge [{row[0]}]: {snippet}")
         finally:
             conn.close()
-    except Exception:  # noqa: BLE001
-        pass
+    except (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError) as e:
+        logger.debug("Goal knowledge search failed: %s", e)
 
     # Deduplicate
     return list(dict.fromkeys(evidence))[:3]
@@ -106,8 +109,8 @@ def _search_decisions_for_goal(keywords: list[str]) -> list[str]:
             for r in results:
                 snippet = r["content"][:80]
                 evidence.append(f"Decision: {snippet}")
-    except Exception:  # noqa: BLE001
-        pass
+    except (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError) as e:
+        logger.debug("Goal decision search failed: %s", e)
 
     return list(dict.fromkeys(evidence))[:3]
 

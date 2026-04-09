@@ -8,9 +8,9 @@ from typing import Any
 
 from divineos.core.constants import CONFIDENCE_RETRIEVAL_FLOOR
 from divineos.core.knowledge._base import (
-    KNOWLEDGE_TYPES,
     _KNOWLEDGE_COLS,
     _KNOWLEDGE_COLS_K,
+    KNOWLEDGE_TYPES,
     _get_connection,
     _row_to_dict,
     compute_hash,

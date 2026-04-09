@@ -3,11 +3,13 @@
 Enforces clarity requirements based on configuration (BLOCKING, LOGGING, PERMISSIVE).
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
 from loguru import logger
+
 from .config import ClarityConfig, ClarityEnforcementMode, get_clarity_config
 from .violation_detector import ClarityViolation, detect_clarity_violation
-from .violation_logger import log_clarity_violation, emit_clarity_violation_event
+from .violation_logger import emit_clarity_violation_event, log_clarity_violation
 
 
 class ClarityViolationException(Exception):

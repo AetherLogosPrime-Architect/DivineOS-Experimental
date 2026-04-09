@@ -3,7 +3,6 @@
 import time
 
 from divineos.core.sleep import (
-    DreamReport,
     _AFFECT_DECAY_FACTOR,
     _AFFECT_DECAY_FAST,
     _AFFECT_DECAY_HOURS,
@@ -12,6 +11,7 @@ from divineos.core.sleep import (
     _RECOMBINATION_MAX_CONNECTIONS,
     _RECOMBINATION_MAX_SIMILARITY,
     _RECOMBINATION_MIN_SIMILARITY,
+    DreamReport,
     _compute_decay_factor,
     _phase_affect,
     _phase_consolidation,
@@ -98,9 +98,8 @@ class TestPhaseConsolidation:
 class TestPhaseAffect:
     def test_decays_old_entries(self, tmp_path, monkeypatch):
         """Old affect entries should have their intensity reduced."""
-        from divineos.core.memory import _get_connection
-
         from divineos.core.affect import init_affect_log
+        from divineos.core.memory import _get_connection
 
         init_affect_log()
         conn = _get_connection()
@@ -138,9 +137,8 @@ class TestPhaseAffect:
 
     def test_recent_entries_untouched(self, tmp_path, monkeypatch):
         """Recent affect entries should not be decayed."""
-        from divineos.core.memory import _get_connection
-
         from divineos.core.affect import init_affect_log
+        from divineos.core.memory import _get_connection
 
         init_affect_log()
         conn = _get_connection()
@@ -166,9 +164,8 @@ class TestPhaseAffect:
 
     def test_empty_affect_log(self, tmp_path, monkeypatch):
         """No affect history should not crash."""
-        from divineos.core.memory import _get_connection
-
         from divineos.core.affect import init_affect_log
+        from divineos.core.memory import _get_connection
 
         init_affect_log()
         conn = _get_connection()
@@ -182,9 +179,8 @@ class TestPhaseAffect:
 
     def test_baseline_computed_from_recent(self, tmp_path, monkeypatch):
         """Baseline should average only recent (non-decayed) entries."""
-        from divineos.core.memory import _get_connection
-
         from divineos.core.affect import init_affect_log
+        from divineos.core.memory import _get_connection
 
         init_affect_log()
         conn = _get_connection()

@@ -9,9 +9,10 @@ Validates that violations capture all required context:
 """
 
 from datetime import datetime, timezone
+
 from divineos.clarity_enforcement.violation_detector import (
-    ViolationDetector,
     ClarityViolation,
+    ViolationDetector,
     ViolationSeverity,
     detect_clarity_violation,
 )

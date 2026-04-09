@@ -3,13 +3,13 @@
 Generates pre-work clarity statements that describe planned work to the user.
 """
 
+import sqlite3
 from typing import Any
 
 from loguru import logger
 
 from .base import ClarityStatementGenerator
 from .types import ClarityStatement, ScopeEstimate
-import sqlite3
 
 _CG_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

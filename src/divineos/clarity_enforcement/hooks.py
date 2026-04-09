@@ -1,9 +1,9 @@
 """Hooks for violation events and custom handlers."""
 
-from typing import Callable, Optional, List, Dict
-from enum import Enum
 import logging
 import sqlite3
+from enum import Enum
+from typing import Callable, Dict, List, Optional
 
 from divineos.clarity_enforcement.violation_detector import ClarityViolation
 

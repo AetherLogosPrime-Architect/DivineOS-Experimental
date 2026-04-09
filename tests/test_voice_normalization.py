@@ -1,8 +1,8 @@
 """Tests for first-person voice normalization in knowledge extraction."""
 
+from divineos.core.knowledge._base import _get_connection, init_knowledge_table
 from divineos.core.knowledge._text import normalize_to_first_person
 from divineos.core.knowledge.crud import store_knowledge
-from divineos.core.knowledge._base import _get_connection, init_knowledge_table
 
 
 class TestNormalizeToFirstPerson:

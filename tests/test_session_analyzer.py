@@ -1,27 +1,27 @@
 """Tests for session_analyzer module."""
 
 import json
-import pytest
 from pathlib import Path
 
+import pytest
+
 from divineos.analysis.session_analyzer import (
-    analyze_session,
     CORRECTION_PATTERNS,
-    ENCOURAGEMENT_PATTERNS,
     DECISION_PATTERNS,
+    ENCOURAGEMENT_PATTERNS,
     FRUSTRATION_PATTERNS,
     PREFERENCE_PATTERNS,
     _detect_signals,
-    _extract_user_text,
-    _summarize_tool_input,
     _extract_timestamps,
+    _extract_user_text,
     _load_records,
+    _summarize_tool_input,
+    analyze_session,
 )
 from divineos.analysis.session_discovery import (
-    find_sessions,
     aggregate_analyses,
+    find_sessions,
 )
-
 
 # --- Fixtures ---
 

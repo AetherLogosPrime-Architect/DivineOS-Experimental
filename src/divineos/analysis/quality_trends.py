@@ -8,6 +8,7 @@ so the agent knows its trajectory at a glance.
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 from divineos.core.knowledge import get_knowledge
 
 

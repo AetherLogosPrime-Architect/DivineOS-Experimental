@@ -4,9 +4,9 @@ Mutable slot files that let the dashboard reflect real-time state changes.
 """
 
 import json
+import sqlite3
 import time
 from typing import Any
-import sqlite3
 
 from loguru import logger
 

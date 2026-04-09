@@ -16,12 +16,12 @@ Recursive Event Capture Prevention:
 """
 
 import json
-from typing import Any
 import sqlite3
+from typing import Any
 
 from loguru import logger
 
-from divineos.core.ledger import log_event, get_events
+from divineos.core.ledger import get_events, log_event
 from divineos.core.session_manager import (
     get_or_create_session_id,
     get_session_duration,
@@ -461,9 +461,15 @@ def _truncate_payload(data: dict[str, Any], max_bytes: int = _MAX_PAYLOAD_BYTES)
 # Re-export dispatcher components for backward compatibility
 from divineos.event.event_dispatch import (  # noqa: E402
     EventDispatcher as EventDispatcher,
-    register_listener as register_listener,
-    get_dispatcher as get_dispatcher,
+)
+from divineos.event.event_dispatch import (  # noqa: E402
     emit_event as emit_event,
+)
+from divineos.event.event_dispatch import (  # noqa: E402
+    get_dispatcher as get_dispatcher,
+)
+from divineos.event.event_dispatch import (  # noqa: E402
+    register_listener as register_listener,
 )
 
 _EE_ERRORS = (

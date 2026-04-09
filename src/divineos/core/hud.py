@@ -6,8 +6,11 @@ from pathlib import Path
 
 from loguru import logger
 
+from divineos.analysis.quality_trends import format_trend_summary, get_session_trend
 from divineos.core._hud_io import (  # noqa: F401 — re-exported for backward compat
     _ensure_hud_dir as _ensure_hud_dir,
+)
+from divineos.core._hud_io import (
     _get_hud_dir as _get_hud_dir,
 )
 from divineos.core.affect import (
@@ -30,7 +33,6 @@ from divineos.core.memory import get_core
 from divineos.core.memory_journal import journal_count, journal_list
 from divineos.core.planning_commitments import get_pending_commitments
 from divineos.core.self_model import build_self_model, format_self_model
-from divineos.analysis.quality_trends import format_trend_summary, get_session_trend
 
 _HUD_ERRORS = (sqlite3.OperationalError, json.JSONDecodeError, OSError)
 

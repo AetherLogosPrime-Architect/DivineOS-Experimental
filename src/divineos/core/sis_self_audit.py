@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 
 @dataclass
 class DocstringAuditResult:
@@ -72,7 +74,8 @@ def audit_docstrings(
 
         try:
             report = assess_integrity(docstring)
-        except Exception:  # noqa: BLE001
+        except (ImportError, OSError, ValueError, TypeError) as e:
+            logger.debug("SIS audit skipped %s: %s", py_file.name, e)
             continue
 
         terms = [t["term"] for t in report.terms_found] if report.terms_found else []

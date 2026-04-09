@@ -1,9 +1,9 @@
 """Knowledge health commands — consolidate-stats, rebuild-index, digest,
 health, distill, migrate-types, hooks."""
 
+import sqlite3
 from pathlib import Path
 from typing import Any
-import sqlite3
 
 import click
 

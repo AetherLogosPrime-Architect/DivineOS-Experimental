@@ -1,16 +1,14 @@
 """Tests for event integrity verification system."""
 
 import pytest
+from hypothesis_compat import HAS_HYPOTHESIS, given, settings, st
 
-from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings
-
-
+from divineos.core.event_verifier import EventVerifier, VerificationReport
 from divineos.core.ledger import (
+    _get_connection,
     init_db,
     log_event,
-    _get_connection,
 )
-from divineos.core.event_verifier import EventVerifier, VerificationReport
 
 # Skip all tests in this module if hypothesis is not installed
 pytestmark = pytest.mark.skipif(not HAS_HYPOTHESIS, reason="hypothesis not installed")

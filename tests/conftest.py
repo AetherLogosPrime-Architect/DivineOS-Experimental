@@ -3,10 +3,10 @@ Pytest configuration and fixtures for DivineOS tests.
 """
 
 import os
-import sys
-from pathlib import Path
-import tempfile
 import shutil
+import sys
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +18,8 @@ def pytest_configure(config: pytest.Config) -> None:
     """Set basetemp to a project-local directory to avoid Windows permissions issues."""
     if config.option.basetemp is None:
         local_tmp = Path(__file__).parent.parent / "tmp" / "pytest"
+        # Use a unique subdir per run to avoid stale file collisions after crashes
+        local_tmp = local_tmp / f"run-{os.getpid()}"
         local_tmp.mkdir(parents=True, exist_ok=True)
         config.option.basetemp = str(local_tmp)
 

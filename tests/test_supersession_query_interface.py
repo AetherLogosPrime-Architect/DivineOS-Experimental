@@ -1,10 +1,10 @@
 """Tests for the QueryInterface component."""
 
 from divineos.supersession import (
-    QueryInterface,
-    ResolutionEngine,
     ContradictionDetector,
     FactWithHistory,
+    QueryInterface,
+    ResolutionEngine,
 )
 
 
