@@ -236,7 +236,7 @@ def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
         failed = payload.get("failed", False)
         result = str(payload.get("result", ""))[:120]
         status = "FAILED" if failed else "ok"
-        return f"{name} → {status} ({dur:.0f}ms) {result}"
+        return f"{name} -> {status} ({dur:.0f}ms) {result}"
 
     if etype == "USER_INPUT":
         return str(payload.get("text", payload.get("content", "")))
@@ -248,7 +248,7 @@ def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
     if etype == "AGENT_DECISION":
         task = payload.get("task", "?")
         pattern = payload.get("chosen_pattern", "?")
-        return f"Decision: {task[:80]} → pattern {pattern[:40]}"
+        return f"Decision: {task[:80]} -> pattern {pattern[:40]}"
 
     if etype == "AGENT_LEARNING_AUDIT":
         drift = payload.get("drift_detected", False)

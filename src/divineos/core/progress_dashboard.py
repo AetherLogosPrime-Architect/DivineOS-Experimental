@@ -388,7 +388,7 @@ def format_progress_text(report: ProgressReport) -> str:
     lines.append(f"  Overall corr. rate: {report.correction_rate_overall:.1%}")
     if report.correction_trend == "improving":
         pct = _trend_percentage(report.correction_rate_overall, report.correction_rate_recent)
-        lines.append(f"  Improvement:        ↓{pct}% from overall baseline")
+        lines.append(f"  Improvement:        v{pct}% from overall baseline")
     lines.append(f"  Rework items:       {report.rework_items}")
     lines.append(f"  Lessons:            {report.lessons_resolved}/{report.lessons_total} resolved")
     lines.append("")

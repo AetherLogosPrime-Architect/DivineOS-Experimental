@@ -151,9 +151,9 @@ def health_check() -> dict[str, Any]:
     Nothing decays without being seen. A lesson true on day 1 is true
     on day 100. Confidence only changes when there is EVIDENCE:
 
-    1. Confirmed: knowledge keeps coming up across sessions → trust more
-    2. Recurring: a lesson happened 3+ times → it's clearly a real problem
-    3. Resolved: an improving lesson hasn't come back in 30+ days → probably fixed
+    1. Confirmed: knowledge keeps coming up across sessions -> trust more
+    2. Recurring: a lesson happened 3+ times -> it's clearly a real problem
+    3. Resolved: an improving lesson hasn't come back in 30+ days -> probably fixed
     4. Temporal: "currently broken" language becomes stale after 14 days
     5. Contradicted: entries contradicted 3+ times lose confidence
     6. Noise: extraction noise that slipped past old filters gets penalized

@@ -3,7 +3,7 @@
 Three prediction sources, from most to least reliable:
 
 1. TRAJECTORY LEARNING: What actually happened in past sessions?
-   Track real action sequences (edit → test → fail → edit) and surface
+   Track real action sequences (edit -> test -> fail -> edit) and surface
    patterns. "Last 3 times you edited tests/, you ran pytest right after"
    is useful. "You typed 'fix' so try 'test'" is not.
 
@@ -162,7 +162,7 @@ def detect_trajectory_patterns(
 ) -> list[dict[str, Any]]:
     """Find recurring action pairs/triples across session sequences.
 
-    Looks for patterns like "edit → test" or "edit → test → fail → edit"
+    Looks for patterns like "edit -> test" or "edit -> test -> fail -> edit"
     that appear consistently across sessions.
     """
     # Count 2-grams and 3-grams across sessions
@@ -197,7 +197,7 @@ def detect_trajectory_patterns(
                     "frequency": count,
                     "out_of": total,
                     "confidence": count / total,
-                    "description": " → ".join(ngram),
+                    "description": " -> ".join(ngram),
                 }
             )
 
@@ -214,7 +214,7 @@ def detect_trajectory_patterns(
                         "frequency": count,
                         "out_of": total,
                         "confidence": count / total,
-                        "description": " → ".join(ngram),
+                        "description": " -> ".join(ngram),
                     }
                 )
 
@@ -369,12 +369,12 @@ def format_predictions(result: dict[str, Any]) -> str:
         lines.append("\nPredictions:")
         for pred in result["predictions"]:
             conf = pred["confidence"]
-            lines.append(f"  → {pred['prediction']} ({conf:.0%})")
+            lines.append(f"  -> {pred['prediction']} ({conf:.0%})")
 
     if result["recurring_patterns"]:
         lines.append("\nRecurring patterns:")
         for pat in result["recurring_patterns"]:
-            lines.append(f"  • {pat['description']}: {pat['frequency']}/{pat['out_of']} sessions")
+            lines.append(f"  * {pat['description']}: {pat['frequency']}/{pat['out_of']} sessions")
 
     if not lines:
         return "Not enough session history for predictions yet."

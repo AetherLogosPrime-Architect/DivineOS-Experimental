@@ -84,8 +84,8 @@ class TestFormatWarrantChain:
             {"warrant_type": "TESTIMONIAL", "grounds": "user", "status": "ACTIVE"},
         ]
         result = format_warrant_chain(warrants)
-        assert "EMPIRICAL ✓" in result
-        assert "TESTIMONIAL ✓" in result
+        assert "EMPIRICAL +" in result
+        assert "TESTIMONIAL +" in result
         assert "warrants:" in result
 
     def test_formats_defeated_warrants(self):
@@ -93,7 +93,7 @@ class TestFormatWarrantChain:
             {"warrant_type": "EMPIRICAL", "grounds": "test", "status": "DEFEATED"},
         ]
         result = format_warrant_chain(warrants)
-        assert "EMPIRICAL ✗" in result
+        assert "EMPIRICAL x" in result
 
 
 class TestLogicHealthSummary:

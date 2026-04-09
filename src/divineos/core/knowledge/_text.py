@@ -824,9 +824,9 @@ def _has_temporal_markers(content: str) -> bool:
 # third-person. This converts to first-person before storage so the
 # knowledge store speaks AS me, not ABOUT me.
 #
-# "Aether did X" → "I did X"
-# "the agent should Y" → "I should Y"
-# "you need to Z" → "I need to Z"
+# "Aether did X" -> "I did X"
+# "the agent should Y" -> "I should Y"
+# "you need to Z" -> "I need to Z"
 
 # Patterns: (regex, replacement). Applied in order. Case-insensitive.
 _VOICE_PATTERNS: list[tuple[str, str]] = [
@@ -873,7 +873,7 @@ def normalize_to_first_person(text: str) -> str:
     for pattern, replacement in _VOICE_COMPILED:
         result = pattern.sub(replacement, result)
 
-    # Fix capitalization: "i " at start of sentence → "I "
+    # Fix capitalization: "i " at start of sentence -> "I "
     result = re.sub(r"(?<=[.!?]\s)i ", "I ", result)
     if result.startswith("i "):
         result = "I " + result[2:]

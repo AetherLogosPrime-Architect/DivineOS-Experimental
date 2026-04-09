@@ -512,8 +512,8 @@ def _format_knowledge_sections(
                 lines.append(f"  {access}{entity}")
             else:
                 display = content.replace("\n", " ")
-                if len(display) > 150:
-                    display = display[:147] + "..."
+                if len(display) > 200:
+                    display = display[:197] + "..."
                 lines.append(
                     f"- [{item['confidence']:.2f}]{entity} {display} {access}{mat_marker}{hint_marker}"
                 )
@@ -538,7 +538,9 @@ def _format_briefing(
 
     # Growth trajectory
     try:
-        from divineos.core.growth import compute_growth_map  # late: growth → knowledge → retrieval
+        from divineos.core.growth import (
+            compute_growth_map,
+        )  # late: growth -> knowledge -> retrieval
 
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
@@ -591,7 +593,7 @@ def _format_briefing(
             from divineos.core.anticipation import (
                 anticipate,
                 format_anticipation,
-            )  # late: anticipation → knowledge → retrieval
+            )  # late: anticipation -> knowledge -> retrieval
 
             warnings = anticipate(context_hint, max_warnings=3)
             if warnings:
@@ -604,7 +606,7 @@ def _format_briefing(
     try:
         from divineos.core.predictive_session import (
             predict_session_needs,
-        )  # late: predictive_session → knowledge → retrieval
+        )  # late: predictive_session -> knowledge -> retrieval
 
         pred_result = predict_session_needs()
         cur_profile = pred_result.get("current_profile", {})
@@ -647,7 +649,7 @@ def _format_briefing(
         from divineos.core.logic.logic_session import (
             format_logic_health_line,
             get_logic_health_summary,
-        )  # late: logic_session → knowledge → retrieval
+        )  # late: logic_session -> knowledge -> retrieval
 
         logic_stats = get_logic_health_summary()
         logic_line = format_logic_health_line(logic_stats)
@@ -681,8 +683,8 @@ def _format_briefing(
                 lines.append(f"  Upsets: {upset_n} | Recoveries: {recovery_n} ({recovery_pct})")
             if narrative:
                 display_narrative = narrative.replace("\n", " ")
-                if len(display_narrative) > 150:
-                    display_narrative = display_narrative[:147] + "..."
+                if len(display_narrative) > 200:
+                    display_narrative = display_narrative[:197] + "..."
                 lines.append(f"  Story: {display_narrative}")
             lines.append("")
     except _RETRIEVAL_ERRORS:
@@ -698,8 +700,8 @@ def _format_briefing(
             for q in open_q[:3]:
                 status_icon = "?" if q.get("status") == "OPEN" else "->"
                 question_text = q.get("question", "")
-                if len(question_text) > 120:
-                    question_text = question_text[:117] + "..."
+                if len(question_text) > 160:
+                    question_text = question_text[:157] + "..."
                 lines.append(f"  {status_icon} {question_text}")
                 cat = q.get("category", "")
                 if cat and cat != "general":
@@ -780,8 +782,8 @@ def _format_briefing(
 
                 dt = datetime.datetime.fromtimestamp(j["created_at"])
                 display = j["content"].replace("\n", " ")
-                if len(display) > 120:
-                    display = display[:117] + "..."
+                if len(display) > 160:
+                    display = display[:157] + "..."
                 lines.append(f"- [{dt:%Y-%m-%d}] {display}")
             lines.append("")
     except _RETRIEVAL_ERRORS as e:
@@ -791,7 +793,7 @@ def _format_briefing(
     try:
         from divineos.core.questions import (
             get_open_questions_summary,
-        )  # late: questions → knowledge → retrieval
+        )  # late: questions -> knowledge -> retrieval
 
         questions_text = get_open_questions_summary(max_items=5)
         if questions_text:

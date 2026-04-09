@@ -345,7 +345,7 @@ def format_self_model(model: dict[str, Any]) -> str:
     if concerns:
         lines.append("\n# What's On My Mind")
         for c in concerns:
-            lines.append(f"  • {c}")
+            lines.append(f"  * {c}")
 
     # Attention
     attention = model.get("attention", {})

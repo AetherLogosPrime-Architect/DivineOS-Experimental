@@ -5,11 +5,11 @@ input (told) or session events (observed), this module looks at what we
 already know and draws conclusions.
 
 Three inference types:
-1. Repeated mistakes → boundary: if the same category of mistake recurs 3+
+1. Repeated mistakes -> boundary: if the same category of mistake recurs 3+
    times, infer that we need a boundary/principle to prevent it.
-2. Corroborated patterns → principle: if a pattern is CONFIRMED (5+ sessions),
+2. Corroborated patterns -> principle: if a pattern is CONFIRMED (5+ sessions),
    promote it to a principle about how things work.
-3. Lesson clusters → insight: if 3+ lessons share the same category, synthesize
+3. Lesson clusters -> insight: if 3+ lessons share the same category, synthesize
    a higher-level insight about what's going wrong.
 """
 
@@ -232,7 +232,7 @@ def synthesize_lesson_insights() -> list[str]:
 def run_inference_cycle() -> dict[str, list[str]]:
     """Run all inference steps. Called during SESSION_END pipeline.
 
-    Returns dict of inference type → list of new knowledge IDs.
+    Returns dict of inference type -> list of new knowledge IDs.
     """
     results: dict[str, list[str]] = {}
 

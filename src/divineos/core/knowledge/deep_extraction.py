@@ -118,7 +118,7 @@ def _distill_correction(raw_text: str) -> str:
             break
 
     # Strip casual markers that clutter knowledge
-    text = re.sub(r"\.\.+", ".", text)  # ".." → "."
+    text = re.sub(r"\.\.+", ".", text)  # ".." -> "."
     text = re.sub(r"\s*:\)+", "", text)  # :) noise
     text = re.sub(r"\s*lol\b", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\bidk\b", "I don't know", text, flags=re.IGNORECASE)
@@ -284,7 +284,7 @@ def deep_extract_knowledge(
     """Extract rich, structured knowledge from a session analysis + raw records.
 
     Goes beyond simple signal detection to extract:
-    - Correction pairs (what AI did wrong → what user wanted)
+    - Correction pairs (what AI did wrong -> what user wanted)
     - User preferences with context
     - Decisions with reasoning and alternatives
     - Session topics
@@ -306,7 +306,7 @@ def deep_extract_knowledge(
             return base_confidence
         return max(0.3, base_confidence - affect_confidence_penalty)
 
-    # Build a map of record index → record for context lookups
+    # Build a map of record index -> record for context lookups
     user_indices: list[int] = []
     for i, rec in enumerate(records):
         if rec.get("type") == "user":
@@ -317,7 +317,7 @@ def deep_extract_knowledge(
     topics = extract_session_topics(analysis.user_message_texts)
     topic_tags = [f"topic-{t}" for t in topics[:5]]
 
-    # --- Correction pairs → PRINCIPLE or BOUNDARY with insight content ---
+    # --- Correction pairs -> PRINCIPLE or BOUNDARY with insight content ---
     for correction in analysis.corrections:
         correction_text = correction.content
 
@@ -361,7 +361,7 @@ def deep_extract_knowledge(
                         break
                 break
 
-        # Classify: hard constraint words → BOUNDARY, otherwise → PRINCIPLE
+        # Classify: hard constraint words -> BOUNDARY, otherwise -> PRINCIPLE
         lower = correction_text.lower()
         is_boundary = any(
             w in lower for w in ("never", "always", "must", "don't", "do not", "cannot")
@@ -387,7 +387,7 @@ def deep_extract_knowledge(
         )
         stored_ids.append(kid)
 
-    # --- Preferences → PREFERENCE/INSTRUCTION/DIRECTION (skip encouragement) ---
+    # --- Preferences -> PREFERENCE/INSTRUCTION/DIRECTION (skip encouragement) ---
     for pref in getattr(analysis, "preferences", []):
         distilled = _distill_preference(pref.content)
         if _is_encouragement(distilled):
@@ -532,7 +532,7 @@ def _create_structural_edges(stored_ids: list[str]) -> int:
         if any(t in v["tags"] for t in ("preference", "instruction", "direction"))
     ]
 
-    # Corrections CAUSED_BY the same session context → link them
+    # Corrections CAUSED_BY the same session context -> link them
     for i, cid_a in enumerate(corrections):
         for cid_b in corrections[i + 1 :]:
             try:
