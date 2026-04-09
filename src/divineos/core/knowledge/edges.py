@@ -76,7 +76,7 @@ def _migrate_old_tables(conn: Any) -> None:
     Only runs once — checks if old tables exist and have data not yet migrated.
     Idempotent: uses INSERT OR IGNORE to avoid duplicates.
     """
-    # Migrate knowledge_relationships → semantic layer
+    # Migrate knowledge_relationships -> semantic layer
     try:
         old_rows = conn.execute(
             "SELECT relationship_id, source_id, target_id, relationship, created_at, notes "
@@ -96,7 +96,7 @@ def _migrate_old_tables(conn: Any) -> None:
     except sqlite3.OperationalError:
         pass  # Table doesn't exist yet — nothing to migrate
 
-    # Migrate logical_relations → logical layer
+    # Migrate logical_relations -> logical layer
     try:
         old_rows = conn.execute(
             "SELECT relation_id, source_id, target_id, relation_type, confidence, "
@@ -440,9 +440,9 @@ def get_edge_summary(knowledge_id: str, layer: str | None = None) -> str:
     lines = []
     for edge in edges:
         if edge.source_id == knowledge_id:
-            lines.append(f"  → {edge.edge_type} → {edge.target_id[:8]}...")
+            lines.append(f"  -> {edge.edge_type} -> {edge.target_id[:8]}...")
         else:
-            lines.append(f"  ← {edge.edge_type} ← {edge.source_id[:8]}...")
+            lines.append(f"  <- {edge.edge_type} <- {edge.source_id[:8]}...")
         if edge.notes:
             lines.append(f"    ({edge.notes})")
     return "\n".join(lines)

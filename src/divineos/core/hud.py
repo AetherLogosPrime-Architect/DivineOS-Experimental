@@ -333,8 +333,8 @@ def _build_active_knowledge_slot() -> str:
         pin = " [pinned]" if item.get("pinned") else ""
         entity = f" [{item['source_entity']}]" if item.get("source_entity") else ""
         content = item["content"].replace("\n", " ")
-        if len(content) > 120:
-            content = content[:117] + "..."
+        if len(content) > 200:
+            content = content[:197] + "..."
         lines.append(f"- [{item['importance']:.2f}]{entity} {content}{pin}")
 
     if len(active) > 8:
@@ -637,8 +637,8 @@ def _build_growth_awareness_slot() -> str:
     try:
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
-            icons = {"improving": "↑", "declining": "↓", "stable": "→"}
-            icon = icons.get(growth["trend"], "→")
+            icons = {"improving": "^", "declining": "v", "stable": "->"}
+            icon = icons.get(growth["trend"], "->")
             lines.append("# My Growth\n")
             lines.append(
                 f"**Trend:** {icon} {growth['trend']} over {growth['sessions']} sessions "

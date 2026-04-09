@@ -217,7 +217,7 @@ def _active_threshold() -> int:
             capture_output=True,
             timeout=2,
         )
-        # Exit code 1 means there ARE staged changes → commit flow
+        # Exit code 1 means there ARE staged changes -> commit flow
         if result.returncode == 1:
             return _ENGAGEMENT_COMMIT_THRESHOLD
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):

@@ -61,7 +61,7 @@ class CraftAssessment:
 
     assessment_id: str
     session_id: str
-    scores: dict[str, float]  # spectrum_name → score (-1.0 to 1.0)
+    scores: dict[str, float]  # spectrum_name -> score (-1.0 to 1.0)
     overall: float  # weighted average
     notes: list[str]  # self-observations
     assessed_at: float
@@ -433,9 +433,9 @@ def format_craft_trends(trends: list[CraftTrend] | None = None) -> str:
 
     lines = ["### Craft Trends"]
     for trend in trends:
-        arrow = {"improving": "↑", "declining": "↓", "stable": "→"}
+        arrow = {"improving": "^", "declining": "v", "stable": "->"}
         lines.append(
-            f"  {trend.spectrum}: {trend.average:+.2f} {arrow.get(trend.direction, '→')} "
+            f"  {trend.spectrum}: {trend.average:+.2f} {arrow.get(trend.direction, '->')} "
             f"({trend.direction})"
         )
         if trend.concern:

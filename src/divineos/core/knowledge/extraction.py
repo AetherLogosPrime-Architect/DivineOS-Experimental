@@ -35,8 +35,8 @@ from divineos.core.knowledge.crud import (
 )
 
 # Late import: knowledge_maintenance creates a circular import if loaded at
-# module level (extraction → knowledge_maintenance → _base → __init__ →
-# deep_extraction → extraction).  Imported lazily inside functions instead.
+# module level (extraction -> knowledge_maintenance -> _base -> __init__ ->
+# deep_extraction -> extraction).  Imported lazily inside functions instead.
 from divineos.core.logic.warrants import create_warrant
 
 _EXTRACTION_ERRORS = (
@@ -103,7 +103,7 @@ def _decide_operation(
         new_words = meaningful_words - existing_words
         new_ratio = len(new_words) / max(1, len(meaningful_words))
         if new_ratio > 0.2:
-            # 20%+ genuinely new words → supersede old with new
+            # 20%+ genuinely new words -> supersede old with new
             return ("UPDATE", best_match["knowledge_id"])
         return ("NOOP", best_match["knowledge_id"])
 
@@ -236,7 +236,7 @@ def store_knowledge_smart(
             return str(hash_match[0])
 
         # Insert new entry — born with corroboration=1 (it was observed once,
-        # which is enough to qualify for RAW→HYPOTHESIS promotion)
+        # which is enough to qualify for RAW->HYPOTHESIS promotion)
         conn.execute(
             "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, source, maturity, corroboration_count, contradiction_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1, 0)",
             (
@@ -255,7 +255,7 @@ def store_knowledge_smart(
         )
         conn.commit()
 
-        # Attempt initial maturity promotion (RAW→HYPOTHESIS).
+        # Attempt initial maturity promotion (RAW->HYPOTHESIS).
         try:
             _get_maintenance().promote_maturity(kid)
         except _EXTRACTION_ERRORS as e:

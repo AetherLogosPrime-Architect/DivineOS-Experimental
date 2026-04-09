@@ -57,12 +57,12 @@ def clean_entry_text(content: str) -> str:
     """Clean up raw conversational text into something readable.
 
     Handles:
-    - Python repr strings like UserSignal(signal_type=...) → strips them
-    - Casual text markers (.., :), contractions) → cleans up
-    - "I should: X" → just "X" (type already says DIRECTION)
-    - "I decided: X" → just "X" (type already says PRINCIPLE)
-    - "I was corrected: X" → just "X"
-    - "User correction: X" / "User affirmed: X" → just "X"
+    - Python repr strings like UserSignal(signal_type=...) -> strips them
+    - Casual text markers (.., :), contractions) -> cleans up
+    - "I should: X" -> just "X" (type already says DIRECTION)
+    - "I decided: X" -> just "X" (type already says PRINCIPLE)
+    - "I was corrected: X" -> just "X"
+    - "User correction: X" / "User affirmed: X" -> just "X"
     """
     cleaned = content
 
@@ -74,7 +74,7 @@ def clean_entry_text(content: str) -> str:
     )
     cleaned = re.sub(r"['\"]?,\s*timestamp=['\"]?[\dT:.-]+['\"]?\)", "", cleaned)
 
-    # Normalize dashes: em dash (—), en dash (–) → double hyphen (--)
+    # Normalize dashes: em dash (—), en dash (–) -> double hyphen (--)
     cleaned = cleaned.replace("\u2014", "--").replace("\u2013", "--")
 
     # Strip stale prefixes — the knowledge TYPE already says what it is
@@ -92,7 +92,7 @@ def clean_entry_text(content: str) -> str:
                 cleaned = rest
                 break
 
-    # Clean up "I was X, but got corrected -- Y" → just the Y part
+    # Clean up "I was X, but got corrected -- Y" -> just the Y part
     match = re.match(
         r"I was .{5,80}?,\s*but (?:got corrected|the correct approach is:?)\s*[-—]*\s*(.+)",
         cleaned,
@@ -104,7 +104,7 @@ def clean_entry_text(content: str) -> str:
             cleaned = correction
 
     # Clean casual text markers
-    cleaned = re.sub(r"\.\.+", ".", cleaned)  # ".." → "."
+    cleaned = re.sub(r"\.\.+", ".", cleaned)  # ".." -> "."
     cleaned = re.sub(r"\s*:\)+", "", cleaned)  # :)
     cleaned = re.sub(r"\s*lol\b", "", cleaned, flags=re.IGNORECASE)
 
@@ -261,7 +261,7 @@ def assign_layer(entry: dict[str, Any]) -> str:
     if "encouragement" in tags and age_days > 7:
         return "archive"
 
-    # Corrections reinforced across 3+ sessions → stable (lesson is learned)
+    # Corrections reinforced across 3+ sessions -> stable (lesson is learned)
     if (
         source == "CORRECTED"
         and entry.get("corroboration_count", 0) >= 3
@@ -295,7 +295,7 @@ def assign_lesson_layers() -> dict[str, int]:
     conn = _get_connection()
     counts = {"archived": 0, "urgent": 0}
     try:
-        # Resolved lessons → archive their linked knowledge
+        # Resolved lessons -> archive their linked knowledge
         resolved = conn.execute(
             "SELECT lesson_id, description FROM lesson_tracking WHERE status = 'resolved'"
         ).fetchall()

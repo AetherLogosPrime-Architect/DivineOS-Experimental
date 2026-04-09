@@ -300,12 +300,12 @@ def related_cmd(knowledge_id: str, depth: int) -> None:
     for rel in rels:
         if rel["direction"] == "outgoing":
             click.secho(
-                f"  → {rel['relationship']} → {rel['target_id'][:8]}...",
+                f"  -> {rel['relationship']} -> {rel['target_id'][:8]}...",
                 fg="white",
             )
         else:
             click.secho(
-                f"  ← {rel['relationship']} ← {rel['source_id'][:8]}...",
+                f"  <- {rel['relationship']} <- {rel['source_id'][:8]}...",
                 fg="white",
             )
         if rel["notes"]:

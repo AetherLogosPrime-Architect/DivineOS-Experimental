@@ -170,10 +170,10 @@ def format_cluster_line(connection: dict[str, Any]) -> str:
 
     label = _EDGE_LABELS.get(edge_type, edge_type.lower())
     content = entry["content"].replace("\n", " ")
-    if len(content) > 120:
-        content = content[:117] + "..."
+    if len(content) > 160:
+        content = content[:157] + "..."
 
-    # Format direction: "← supports" (incoming) vs "→ elaborates" (outgoing)
+    # Format direction: "<- supports" (incoming) vs "-> elaborates" (outgoing)
     arrow = "->" if direction == "outgoing" else "<-"
     return f"  {arrow} {label}: [{entry['confidence']:.2f}] {content}"
 

@@ -247,7 +247,7 @@ def save_analysis_report(result: AnalysisResult, report_text: str) -> Path:
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     report_file = reports_dir / f"{result.session_id}.txt"
-    # Use UTF-8 encoding to handle special characters like ✓ and ✗
+    # Use UTF-8 encoding to handle special characters like + and x
     report_file.write_text(report_text, encoding="utf-8")
 
     # Conveyor belt: keep only the last N reports, prune old ones.

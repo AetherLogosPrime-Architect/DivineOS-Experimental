@@ -5,10 +5,10 @@ successful completions, corrections avoided, positive feedback received.
 Each skill has a proficiency level that moves based on outcomes.
 
 Proficiency levels:
-  NOVICE    → First encounter, no track record
-  DEVELOPING → Some successes but still making mistakes
-  COMPETENT  → Reliable, corrections are rare
-  EXPERT     → Consistently strong, user trusts this area
+  NOVICE    -> First encounter, no track record
+  DEVELOPING -> Some successes but still making mistakes
+  COMPETENT  -> Reliable, corrections are rare
+  EXPERT     -> Consistently strong, user trusts this area
 """
 
 import json
@@ -213,7 +213,7 @@ def format_skill_summary() -> str:
         s = data.get("successes", 0)
         f = data.get("failures", 0)
         desc = data.get("description", "")
-        label = f"{name}: {prof} ({s}✓ {f}✗)"
+        label = f"{name}: {prof} ({s}+ {f}x)"
         if desc:
             label += f" — {desc}"
         lines.append(f"  {label}")

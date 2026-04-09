@@ -209,30 +209,31 @@ class TestPhaseAffect:
 
 class TestPhaseRecombination:
     def test_finds_cross_type_connections(self, tmp_path, monkeypatch):
-        """Should find connections between entries of different types."""
+        """Should find connections between semantically related but topically distinct entries."""
         from divineos.core.knowledge._base import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
 
         init_knowledge_table()
 
-        # Entries must satisfy: 0.35 <= similarity <= 0.85
-        # Related enough to connect but different enough to not be duplicates.
-        # Word overlap ~0.45, semantic similarity ~0.6-0.7.
+        # Entries must be semantically related (similarity 0.45-0.80)
+        # but NOT share too many key words (word overlap <= 0.50).
+        # These discuss the same concept (don't blindly retry) using
+        # completely different vocabulary.
         store_knowledge(
             "PRINCIPLE",
-            "The maturity lifecycle promotes knowledge from RAW to CONFIRMED "
-            "when the corroboration count reaches the threshold across sessions",
+            "When I retry failed actions without investigating the error, "
+            "I waste time. Stop and read the traceback first.",
         )
         store_knowledge(
             "BOUNDARY",
-            "The knowledge maturity lifecycle must require real corroboration "
-            "evidence from multiple sessions before promoting any entry",
+            "Blind repetition of broken commands is inefficient. Diagnose "
+            "the failure before attempting another run.",
         )
 
         report = DreamReport()
         _phase_recombination(report)
-        # These two entries share "maturity lifecycle" and "corroboration"
-        # so they should show up as a connection
+        # These share the theme of trust/confidence through verification
+        # but use different vocabulary, so they pass the overlap filter
         assert report.connections_found >= 1
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):

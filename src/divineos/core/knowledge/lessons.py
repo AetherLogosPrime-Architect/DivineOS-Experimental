@@ -132,7 +132,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             # the pattern was observed again. Find knowledge entries whose
             # content references this lesson category and boost them.
             try:
-                # Late import: lessons → knowledge_maintenance → logic_validation cycle
+                # Late import: lessons -> knowledge_maintenance -> logic_validation cycle
                 from divineos.core.knowledge_maintenance import (
                     increment_corroboration,
                     promote_maturity,
@@ -566,7 +566,7 @@ def extract_lessons_from_report(
             if category:
                 clean_categories.append(category)
 
-    # Tone shift extraction — capture full arcs (upset → recovery), not just negatives
+    # Tone shift extraction — capture full arcs (upset -> recovery), not just negatives
     if tone_shifts:
         # Index positive shifts by sequence for pairing with preceding negatives
         positive_by_seq: dict[int, dict[str, Any]] = {
