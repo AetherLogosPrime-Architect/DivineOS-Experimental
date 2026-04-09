@@ -9,6 +9,7 @@ import sqlite3
 import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
+from divineos.core.constants import CONFIDENCE_RELIABLE
 import divineos.analysis.session_discovery as _discovery_mod
 from divineos.cli._helpers import _safe_echo
 from divineos.cli._wrappers import (
@@ -142,7 +143,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                 store_knowledge_smart(
                     knowledge_type="OBSERVATION",
                     content=learning,
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     source="SYNTHESIZED",
                     maturity="HYPOTHESIS",
                     tags=["session-reflection", "auto-extracted"],

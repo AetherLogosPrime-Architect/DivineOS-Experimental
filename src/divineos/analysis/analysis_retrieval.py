@@ -73,7 +73,7 @@ def get_stored_report(session_id: str) -> str | None:
 
         return None
     except _AR_ERRORS as e:
-        logger.error(f"Failed to retrieve report: {e}")
+        logger.error(f"Failed to retrieve report for session {session_id}: {e}")
         return None
 
 
