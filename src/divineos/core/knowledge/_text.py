@@ -432,9 +432,20 @@ def _ensure_embedding_model() -> bool:
     if _embeddings_available is not None:
         return _embeddings_available
     try:
-        from sentence_transformers import SentenceTransformer
+        import logging
+        import os
+        import warnings
 
-        _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
+        # Suppress TensorFlow/Keras noise during model load
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+        logging.getLogger("tensorflow").setLevel(logging.ERROR)
+        logging.getLogger("tf_keras").setLevel(logging.ERROR)
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", category=FutureWarning)
+            warnings.filterwarnings("ignore", category=DeprecationWarning)
+            from sentence_transformers import SentenceTransformer
+
+            _embedding_model = SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
         _embeddings_available = True
         return True
     except (ImportError, RuntimeError, OSError):

@@ -76,7 +76,7 @@ class DreamReport:
         lines.append(f"  Slept for {self.duration_seconds:.1f}s\n")
 
         # Consolidation
-        lines.append("  Phase 1 — Knowledge Consolidation")
+        lines.append("  Phase 1 - Knowledge Consolidation")
         lines.append(f"    Scanned {self.entries_scanned} entries")
         if self.total_promoted > 0:
             for level, count in self.promotions.items():
@@ -85,7 +85,7 @@ class DreamReport:
             lines.append("    No promotions needed")
 
         # Pruning
-        lines.append("\n  Phase 2 — Pruning")
+        lines.append("\n  Phase 2 - Pruning")
         pruning_found = False
         if self.health_results:
             for key in (
@@ -114,7 +114,7 @@ class DreamReport:
             lines.append("    Knowledge store is clean")
 
         # Affect
-        lines.append("\n  Phase 3 — Affect Recalibration")
+        lines.append("\n  Phase 3 - Affect Recalibration")
         if self.affect_entries_processed > 0:
             lines.append(f"    Processed {self.affect_entries_processed} affect entries")
             lines.append(f"    Decayed {self.affect_decayed} entries")
@@ -127,7 +127,7 @@ class DreamReport:
             lines.append("    No affect history to process")
 
         # Maintenance
-        lines.append("\n  Phase 4 — Maintenance")
+        lines.append("\n  Phase 4 - Maintenance")
         if self.maintenance_results:
             freed = self.maintenance_results.get("vacuum", {}).get("freed_mb", 0)
             if freed > 0:
@@ -147,7 +147,7 @@ class DreamReport:
             lines.append("    Skipped")
 
         # Recombination
-        lines.append("\n  Phase 5 — Creative Recombination")
+        lines.append("\n  Phase 5 - Creative Recombination")
         if self.connections_found > 0:
             lines.append(f"    Found {self.connections_found} new connection(s)")
             for conn in self.connection_details[:5]:
@@ -156,7 +156,7 @@ class DreamReport:
             lines.append("    No new connections found")
 
         # Curiosity
-        lines.append("\n  Phase 6 — Curiosity Generation")
+        lines.append("\n  Phase 6 - Curiosity Generation")
         if self.curiosities_generated > 0:
             lines.append(f"    Generated {self.curiosities_generated} question(s)")
             for cat in self.curiosity_categories:
