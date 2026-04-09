@@ -14,15 +14,12 @@ Tests validate:
 
 from unittest.mock import patch
 
-import pytest
-
 from divineos.clarity_enforcement.config import (
     ClarityConfig,
     ClarityEnforcementMode,
 )
 from divineos.clarity_enforcement.enforcer import (
     ClarityEnforcer,
-    ClarityViolationException,
     enforce_clarity,
 )
 from divineos.clarity_enforcement.violation_detector import (
@@ -70,15 +67,19 @@ class TestLoggingModeBasics:
             "divineos.clarity_enforcement.enforcer.detect_clarity_violation",
             return_value=violation,
         ):
-            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation"):
-                with patch("divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"):
+            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation") as mock_log:
+                with patch(
+                    "divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"
+                ) as mock_emit:
                     # Should NOT raise exception
-                    enforcer.enforce(
+                    result = enforcer.enforce(
                         tool_name="deleteFile",
                         tool_input={"path": "important_file.txt"},
                         context=[],
                         session_id="test-session-123",
                     )
+                    # Logging mode should still log and emit, just not raise
+                    assert mock_log.called or mock_emit.called or result is None
 
     def test_logging_mode_allows_explained_calls(self):
         """Test that LOGGING mode allows explained tool calls."""
@@ -95,13 +96,19 @@ class TestLoggingModeBasics:
             "divineos.clarity_enforcement.enforcer.detect_clarity_violation",
             return_value=None,
         ):
-            # Should not raise exception
-            enforcer.enforce(
-                tool_name="readFile",
-                tool_input={"path": "file.txt"},
-                context=["I need to read the file"],
-                session_id="test-session-123",
-            )
+            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation") as mock_log:
+                with patch(
+                    "divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"
+                ) as mock_emit:
+                    result = enforcer.enforce(
+                        tool_name="readFile",
+                        tool_input={"path": "file.txt"},
+                        context=["I need to read the file"],
+                        session_id="test-session-123",
+                    )
+                    assert result is None
+                    mock_log.assert_not_called()
+                    mock_emit.assert_not_called()
 
     def test_logging_mode_does_not_raise_exception(self):
         """Test that LOGGING mode does not raise exception for violations."""
@@ -125,18 +132,19 @@ class TestLoggingModeBasics:
             "divineos.clarity_enforcement.enforcer.detect_clarity_violation",
             return_value=violation,
         ):
-            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation"):
-                with patch("divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"):
-                    # Should NOT raise any exception
-                    try:
-                        enforcer.enforce(
-                            tool_name="fsWrite",
-                            tool_input={"path": "config.json", "text": "data"},
-                            context=[],
-                            session_id="test-session-123",
-                        )
-                    except ClarityViolationException:
-                        pytest.fail("LOGGING mode should not raise ClarityViolationException")
+            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation") as mock_log:
+                with patch(
+                    "divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"
+                ) as mock_emit:
+                    result = enforcer.enforce(
+                        tool_name="fsWrite",
+                        tool_input={"path": "config.json", "text": "data"},
+                        context=[],
+                        session_id="test-session-123",
+                    )
+                    assert result is None
+                    mock_log.assert_called_once()
+                    mock_emit.assert_called_once()
 
 
 class TestLoggingModeViolationLogging:

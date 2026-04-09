@@ -90,13 +90,19 @@ class TestBlockingModeBasics:
             "divineos.clarity_enforcement.enforcer.detect_clarity_violation",
             return_value=None,
         ):
-            # Should not raise exception
-            enforcer.enforce(
-                tool_name="readFile",
-                tool_input={"path": "file.txt"},
-                context=["I need to read the file"],
-                session_id="test-session-123",
-            )
+            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation") as mock_log:
+                with patch(
+                    "divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"
+                ) as mock_emit:
+                    result = enforcer.enforce(
+                        tool_name="readFile",
+                        tool_input={"path": "file.txt"},
+                        context=["I need to read the file"],
+                        session_id="test-session-123",
+                    )
+                    assert result is None
+                    mock_log.assert_not_called()
+                    mock_emit.assert_not_called()
 
 
 class TestClarityViolationException:

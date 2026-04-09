@@ -12,15 +12,12 @@ Tests validate:
 
 from unittest.mock import Mock, patch
 
-import pytest
-
 from divineos.clarity_enforcement.config import (
     ClarityConfig,
     ClarityEnforcementMode,
 )
 from divineos.clarity_enforcement.enforcer import (
     ClarityEnforcer,
-    ClarityViolationException,
     enforce_clarity,
 )
 from divineos.clarity_enforcement.violation_detector import (
@@ -68,13 +65,19 @@ class TestPermissiveModeBasics:
             "divineos.clarity_enforcement.enforcer.detect_clarity_violation",
             return_value=violation,
         ):
-            # Should NOT raise exception
-            enforcer.enforce(
-                tool_name="deleteFile",
-                tool_input={"path": "important_file.txt"},
-                context=[],
-                session_id="test-session-123",
-            )
+            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation") as mock_log:
+                with patch(
+                    "divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"
+                ) as mock_emit:
+                    result = enforcer.enforce(
+                        tool_name="deleteFile",
+                        tool_input={"path": "important_file.txt"},
+                        context=[],
+                        session_id="test-session-123",
+                    )
+                    assert result is None
+                    mock_log.assert_not_called()
+                    mock_emit.assert_not_called()
 
     def test_permissive_mode_allows_explained_calls(self):
         """Test that PERMISSIVE mode allows explained tool calls."""
@@ -91,13 +94,19 @@ class TestPermissiveModeBasics:
             "divineos.clarity_enforcement.enforcer.detect_clarity_violation",
             return_value=None,
         ):
-            # Should not raise exception
-            enforcer.enforce(
-                tool_name="readFile",
-                tool_input={"path": "file.txt"},
-                context=["I need to read the file"],
-                session_id="test-session-123",
-            )
+            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation") as mock_log:
+                with patch(
+                    "divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"
+                ) as mock_emit:
+                    result = enforcer.enforce(
+                        tool_name="readFile",
+                        tool_input={"path": "file.txt"},
+                        context=["I need to read the file"],
+                        session_id="test-session-123",
+                    )
+                    assert result is None
+                    mock_log.assert_not_called()
+                    mock_emit.assert_not_called()
 
     def test_permissive_mode_does_not_raise_exception(self):
         """Test that PERMISSIVE mode does not raise exception for violations."""
@@ -121,16 +130,19 @@ class TestPermissiveModeBasics:
             "divineos.clarity_enforcement.enforcer.detect_clarity_violation",
             return_value=violation,
         ):
-            # Should NOT raise any exception
-            try:
-                enforcer.enforce(
-                    tool_name="fsWrite",
-                    tool_input={"path": "config.json", "text": "data"},
-                    context=[],
-                    session_id="test-session-123",
-                )
-            except ClarityViolationException:
-                pytest.fail("PERMISSIVE mode should not raise ClarityViolationException")
+            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation") as mock_log:
+                with patch(
+                    "divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"
+                ) as mock_emit:
+                    result = enforcer.enforce(
+                        tool_name="fsWrite",
+                        tool_input={"path": "config.json", "text": "data"},
+                        context=[],
+                        session_id="test-session-123",
+                    )
+                    assert result is None
+                    mock_log.assert_not_called()
+                    mock_emit.assert_not_called()
 
 
 class TestPermissiveModeNoViolationLogging:
@@ -482,16 +494,19 @@ class TestPermissiveModeBackwardCompatibility:
             "divineos.clarity_enforcement.enforcer.detect_clarity_violation",
             return_value=violation,
         ):
-            # Should not raise exception - existing code expects this to work
-            try:
-                enforcer.enforce(
-                    tool_name="fsWrite",
-                    tool_input={"path": "file.txt", "text": "content"},
-                    context=[],
-                    session_id="test-session-123",
-                )
-            except Exception as e:
-                pytest.fail(f"Existing code should not raise exception: {e}")
+            with patch("divineos.clarity_enforcement.enforcer.log_clarity_violation") as mock_log:
+                with patch(
+                    "divineos.clarity_enforcement.enforcer.emit_clarity_violation_event"
+                ) as mock_emit:
+                    result = enforcer.enforce(
+                        tool_name="fsWrite",
+                        tool_input={"path": "file.txt", "text": "content"},
+                        context=[],
+                        session_id="test-session-123",
+                    )
+                    assert result is None
+                    mock_log.assert_not_called()
+                    mock_emit.assert_not_called()
 
     def test_permissive_mode_with_log_violations_disabled(self):
         """Test PERMISSIVE mode with log_violations disabled."""
