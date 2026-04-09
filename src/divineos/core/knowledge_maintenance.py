@@ -421,8 +421,9 @@ def _sweep_stale(
     return result
 
 
-def _flag_orphans(entries: list[dict[str, Any]], _min_sessions: int) -> dict[str, Any]:
+def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str, Any]:
     """Flag entries that were never accessed and are old enough to judge."""
+    _ = min_sessions  # Reserved for future session-count threshold
     result: dict[str, Any] = {"flagged": 0, "details": []}
     conn = _get_connection()
 

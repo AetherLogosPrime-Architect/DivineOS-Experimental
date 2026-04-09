@@ -33,12 +33,11 @@ from divineos.core.knowledge.crud import (
     store_knowledge,
     supersede_knowledge,
 )
-from divineos.core.knowledge_maintenance import (
-    increment_corroboration,
-    promote_maturity,
-    resolve_contradiction,
-    scan_for_contradictions,
-)
+
+# Late import: knowledge_maintenance creates a circular import if loaded at
+# module level (extraction → knowledge_maintenance → _base → __init__ →
+# deep_extraction → extraction).  Imported lazily inside functions instead.
+
 from divineos.core.logic.warrants import create_warrant
 
 _EXTRACTION_ERRORS = (
@@ -49,6 +48,13 @@ _EXTRACTION_ERRORS = (
     ValueError,
     json.JSONDecodeError,
 )
+
+
+def _get_maintenance():
+    """Lazy import of knowledge_maintenance to break circular import."""
+    from divineos.core import knowledge_maintenance
+
+    return knowledge_maintenance
 
 
 # Maps knowledge source to warrant type for auto-warrant creation
@@ -156,8 +162,8 @@ def store_knowledge_smart(
             conn.commit()
             # Exact match = corroboration
             try:
-                increment_corroboration(str(kid))
-                promote_maturity(str(kid))
+                _get_maintenance().increment_corroboration(str(kid))
+                _get_maintenance().promote_maturity(str(kid))
             except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
             return str(kid)
@@ -205,8 +211,8 @@ def store_knowledge_smart(
             conn.commit()
             # Corroboration: re-encountering knowledge strengthens trust
             try:
-                increment_corroboration(cast("str", existing_id))
-                promote_maturity(cast("str", existing_id))
+                _get_maintenance().increment_corroboration(cast("str", existing_id))
+                _get_maintenance().promote_maturity(cast("str", existing_id))
             except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
             return cast("str", existing_id)
@@ -251,11 +257,8 @@ def store_knowledge_smart(
         conn.commit()
 
         # Attempt initial maturity promotion (RAW→HYPOTHESIS).
-        # promote_maturity is already imported at module level from
-        # knowledge_maintenance — safe to call here since the module
-        # is fully initialized by the time store_knowledge_smart runs.
         try:
-            promote_maturity(kid)
+            _get_maintenance().promote_maturity(kid)
         except _EXTRACTION_ERRORS as e:
             logger.debug(f"Initial maturity promotion failed: {e}", exc_info=True)
 
@@ -292,9 +295,11 @@ def store_knowledge_smart(
             same_type = get_knowledge(knowledge_type=knowledge_type, limit=100)
             # Exclude the entry we just created
             same_type = [e for e in same_type if e["knowledge_id"] != kid]
-            contradictions = scan_for_contradictions(content, knowledge_type, same_type)
+            contradictions = _get_maintenance().scan_for_contradictions(
+                content, knowledge_type, same_type
+            )
             for match in contradictions:
-                resolve_contradiction(kid, match)
+                _get_maintenance().resolve_contradiction(kid, match)
         except _EXTRACTION_ERRORS as e:
             logger.debug(f"Contradiction scan failed: {e}", exc_info=True)
 
