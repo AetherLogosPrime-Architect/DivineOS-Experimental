@@ -17,7 +17,6 @@ from typing import Any, cast
 from divineos.core.affect import _affect_row_to_dict, get_recent_affect
 from divineos.core.memory import _get_connection
 
-
 # Weight thresholds for emotional significance
 WEIGHT_ROUTINE = 1  # everyday technical choice
 WEIGHT_SIGNIFICANT = 2  # architectural decision, trade-off

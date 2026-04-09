@@ -5,14 +5,16 @@ to automatically resolve contradictions using various strategies and create
 SUPERSESSION events to track the resolution.
 """
 
+import hashlib
+import sqlite3
+import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
-from datetime import datetime, timezone
-import hashlib
-import uuid
-import sqlite3
+
 from loguru import logger
+
 from divineos.integration.system_monitor import get_system_monitor
 
 _RE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)

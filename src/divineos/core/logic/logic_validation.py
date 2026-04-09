@@ -18,7 +18,6 @@ from loguru import logger
 from divineos.core.knowledge import get_connection
 from divineos.core.logic.warrants import get_warrants
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Section 1: Consistency Checking
 # ═══════════════════════════════════════════════════════════════════════

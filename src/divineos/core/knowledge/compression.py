@@ -20,14 +20,13 @@ Three compression strategies:
 import sqlite3
 from typing import Any
 
-from divineos.core.knowledge._base import _get_connection, _row_to_dict, _KNOWLEDGE_COLS
+from divineos.core.knowledge._base import _KNOWLEDGE_COLS, _get_connection, _row_to_dict
 from divineos.core.knowledge._text import _compute_overlap, _normalize_text
 from divineos.core.knowledge.crud import (
     get_knowledge,
     store_knowledge,
     supersede_knowledge,
 )
-
 
 # ─── Maturity Ranking ──────────────────────────────────────────────
 

@@ -1,8 +1,8 @@
 """Tests for the ContradictionDetector component."""
 
 from divineos.supersession import (
-    ContradictionDetector,
     Contradiction,
+    ContradictionDetector,
     ContradictionSeverity,
 )
 

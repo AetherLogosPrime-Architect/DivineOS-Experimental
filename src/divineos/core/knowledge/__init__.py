@@ -14,11 +14,11 @@ Modules:
 
 # _base
 from divineos.core.knowledge._base import (
+    _KNOWLEDGE_COLS,
+    _KNOWLEDGE_COLS_K,
     KNOWLEDGE_MATURITY,
     KNOWLEDGE_SOURCES,
     KNOWLEDGE_TYPES,
-    _KNOWLEDGE_COLS,
-    _KNOWLEDGE_COLS_K,
     _get_connection,
     _lesson_row_to_dict,
     _row_to_dict,
@@ -37,12 +37,12 @@ from divineos.core.knowledge._text import (
     _TEMPORAL_CONTENT_MARKERS,
     _build_fts_query,
     _compute_overlap,
-    compute_semantic_similarity,
-    compute_similarity,
     _extract_key_terms,
     _has_temporal_markers,
     _is_extraction_noise,
     _normalize_text,
+    compute_semantic_similarity,
+    compute_similarity,
     extract_session_topics,
 )
 
@@ -59,6 +59,34 @@ from divineos.core.knowledge.crud import (
     update_knowledge,
 )
 
+# deep_extraction
+from divineos.core.knowledge.deep_extraction import (
+    _ALTERNATIVE_PATTERNS,
+    _REASON_PATTERNS,
+    _distill_correction,
+    _distill_preference,
+    _extract_assistant_summary,
+    _extract_user_text_from_record,
+    _find_alternative_in_text,
+    _find_reason_in_text,
+    deep_extract_knowledge,
+)
+
+# extraction
+from divineos.core.knowledge.extraction import (
+    _decide_operation,
+    consolidate_related,
+    store_knowledge_smart,
+)
+
+# feedback
+from divineos.core.knowledge.feedback import (
+    _adjust_confidence,
+    _resolve_lesson,
+    compute_effectiveness,
+    health_check,
+)
+
 # lessons
 from divineos.core.knowledge.lessons import (
     _CHECK_TO_CATEGORY,
@@ -73,41 +101,6 @@ from divineos.core.knowledge.lessons import (
     record_lesson,
 )
 
-# retrieval
-from divineos.core.knowledge.retrieval import (
-    generate_briefing,
-    get_unconsolidated_events,
-    knowledge_stats,
-)
-
-# extraction
-from divineos.core.knowledge.extraction import (
-    _decide_operation,
-    consolidate_related,
-    store_knowledge_smart,
-)
-
-# deep_extraction
-from divineos.core.knowledge.deep_extraction import (
-    _ALTERNATIVE_PATTERNS,
-    _REASON_PATTERNS,
-    _distill_correction,
-    _distill_preference,
-    _extract_assistant_summary,
-    _extract_user_text_from_record,
-    _find_alternative_in_text,
-    _find_reason_in_text,
-    deep_extract_knowledge,
-)
-
-# feedback
-from divineos.core.knowledge.feedback import (
-    _adjust_confidence,
-    _resolve_lesson,
-    compute_effectiveness,
-    health_check,
-)
-
 # migration
 from divineos.core.knowledge.migration import (
     _LESSON_CATEGORIES,
@@ -117,6 +110,13 @@ from divineos.core.knowledge.migration import (
     apply_session_feedback,
     knowledge_health_report,
     migrate_knowledge_types,
+)
+
+# retrieval
+from divineos.core.knowledge.retrieval import (
+    generate_briefing,
+    get_unconsolidated_events,
+    knowledge_stats,
 )
 
 __all__ = [

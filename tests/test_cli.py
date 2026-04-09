@@ -2,6 +2,7 @@
 
 import pytest
 from click.testing import CliRunner
+
 from divineos.cli import cli
 
 
@@ -697,8 +698,8 @@ class TestAnalyzeErrorHandling:
 
     def test_analyze_permission_denied(self, runner, tmp_path):
         """Test analyze with permission denied."""
-        import os
         import json
+        import os
 
         runner.invoke(cli, ["init"])
 

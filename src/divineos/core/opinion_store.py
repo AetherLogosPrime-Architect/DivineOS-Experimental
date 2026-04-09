@@ -20,7 +20,6 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-
 from divineos.core.knowledge._base import _get_connection, compute_hash
 
 _OP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)

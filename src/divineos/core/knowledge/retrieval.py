@@ -1,9 +1,9 @@
 """Knowledge retrieval — briefing generation, stats, unconsolidated events."""
 
 import json
+import sqlite3
 import time
 from typing import Any
-import sqlite3
 
 from loguru import logger
 
@@ -14,17 +14,17 @@ from divineos.core.constants import (
     RETRIEVAL_WEIGHT_RECENCY,
     SECONDS_PER_DAY,
 )
+from divineos.core.hud_handoff import clear_handoff_note, load_handoff_note
+from divineos.core.hud_state import _ensure_hud_dir
 from divineos.core.knowledge._base import (
     _KNOWLEDGE_COLS,
     _get_connection,
     _row_to_dict,
 )
 from divineos.core.knowledge.crud import search_knowledge
-from divineos.core.knowledge.lessons import get_lesson_summary
-from divineos.core.hud_handoff import clear_handoff_note, load_handoff_note
-from divineos.core.hud_state import _ensure_hud_dir
 from divineos.core.knowledge.curation import ensure_layer_column
 from divineos.core.knowledge.graph_retrieval import cluster_for_briefing, format_cluster_line
+from divineos.core.knowledge.lessons import get_lesson_summary
 from divineos.core.memory_journal import journal_list
 
 _RETRIEVAL_ERRORS = (

@@ -3,13 +3,13 @@
 Parses and normalizes clarity statements into structured plan data.
 """
 
+import sqlite3
 from typing import Any
 
 from loguru import logger
 
 from .base import PlanAnalyzer
 from .types import ClarityStatement, PlanData, PlanMetrics
-import sqlite3
 
 _PA_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

@@ -10,9 +10,9 @@ Tests cover:
 
 import threading
 
-from divineos.core.session_manager import initialize_session, end_session
-from divineos.hooks.clarity_enforcement import ClarityChecker
+from divineos.core.session_manager import end_session, initialize_session
 from divineos.core.tool_wrapper import get_unified_capture
+from divineos.hooks.clarity_enforcement import ClarityChecker
 
 
 class TestConcurrencyEdgeCases:

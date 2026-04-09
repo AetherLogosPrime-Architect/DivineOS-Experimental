@@ -1,8 +1,8 @@
 """CLI commands for querying and managing contradictions and violations."""
 
-from typing import Optional, List, Dict, Any
-from enum import Enum
 import json
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from divineos.supersession import (
     get_ledger_integration,

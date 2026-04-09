@@ -17,7 +17,6 @@ from loguru import logger
 from divineos.core.knowledge import get_connection
 from divineos.core.knowledge._text import _compute_overlap
 
-
 QUESTION_STATUSES = {"OPEN", "ANSWERED", "ABANDONED"}
 
 

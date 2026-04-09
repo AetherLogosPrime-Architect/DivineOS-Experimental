@@ -4,15 +4,15 @@ The compass tracks position on ten virtue/vice spectrums.
 Position comes from observations (evidence), not self-assessment.
 """
 
-import pytest
-
 import types
+
+import pytest
 
 from divineos.core.constants import COMPASS_SPECTRUMS_HASH
 from divineos.core.moral_compass import (
+    _SOURCE_TRUST,
     SPECTRUMS,
     SpectrumPosition,
-    _SOURCE_TRUST,
     _compute_spectrums_hash,
     _position_to_zone,
     _render_bar,
@@ -337,8 +337,9 @@ class TestReflectOnSession:
         assert obs[0]["position"] == 0.0  # Virtue zone
 
     def test_high_corrections_logs_negative_truthfulness(self):
-        from divineos.core.moral_compass import reflect_on_session
         from types import SimpleNamespace
+
+        from divineos.core.moral_compass import reflect_on_session
 
         # 4 corrections in 10 messages = 40% correction rate
         corrections = [SimpleNamespace(content=f"correction {i}") for i in range(4)]
@@ -349,8 +350,9 @@ class TestReflectOnSession:
         assert obs[0]["position"] < 0  # Deficiency zone
 
     def test_encouragement_heavy_session(self):
-        from divineos.core.moral_compass import reflect_on_session
         from types import SimpleNamespace
+
+        from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content=f"nice {i}") for i in range(5)]
         analysis = self._make_analysis(
@@ -393,8 +395,9 @@ class TestReflectOnSession:
 
     def test_reflection_uses_measured_sources(self):
         """Auto-observations should use specific source tags, not generic 'session_end'."""
-        from divineos.core.moral_compass import reflect_on_session
         from types import SimpleNamespace
+
+        from divineos.core.moral_compass import reflect_on_session
 
         corrections = [SimpleNamespace(content=f"fix {i}") for i in range(4)]
         analysis = self._make_analysis(user_messages=10, corrections=corrections)
@@ -440,6 +443,7 @@ class TestNewSpectrumAutoObservations:
     def test_confidence_well_calibrated(self):
         """No corrections + encouragements = calibrated confidence."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content=f"nice {i}") for i in range(3)]
@@ -455,6 +459,7 @@ class TestNewSpectrumAutoObservations:
     def test_confidence_overconfident(self):
         """Many corrections = overconfident."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         corrections = [SimpleNamespace(content=f"fix {i}") for i in range(4)]
@@ -467,6 +472,7 @@ class TestNewSpectrumAutoObservations:
     def test_compliance_good(self):
         """No frustrations + encouragements = principled cooperation."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="good")]
@@ -480,6 +486,7 @@ class TestNewSpectrumAutoObservations:
     def test_compliance_failing(self):
         """Many frustrations = not following direction."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         frustrations = [SimpleNamespace(content=f"ugh {i}") for i in range(4)]
@@ -503,6 +510,7 @@ class TestNewSpectrumAutoObservations:
     def test_precision_sloppy(self):
         """High correction-to-tool ratio = imprecise."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         corrections = [SimpleNamespace(content=f"fix {i}") for i in range(5)]
@@ -515,6 +523,7 @@ class TestNewSpectrumAutoObservations:
     def test_humility_accepts_corrections(self):
         """Corrections without frustration = humble."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         corrections = [SimpleNamespace(content="fix this")]
@@ -528,6 +537,7 @@ class TestNewSpectrumAutoObservations:
     def test_humility_resists_feedback(self):
         """Corrections with frustrations = resisting feedback."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         corrections = [SimpleNamespace(content=f"fix {i}") for i in range(2)]
@@ -589,6 +599,7 @@ class TestReflectOnSessionBoundaries:
     def test_truthfulness_exactly_at_high_correction_threshold(self):
         """correction_rate exactly 0.15 should NOT trigger negative (> not >=)."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         # 3 corrections in 20 messages = 0.15 exactly
@@ -629,6 +640,7 @@ class TestReflectOnSessionBoundaries:
     def test_helpfulness_threshold_exactly_one(self):
         """corrections + encouragements >= 1 should trigger helpfulness check."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         # Exactly 1 encouragement, 0 corrections
@@ -719,6 +731,7 @@ class TestReflectOnSessionBoundaries:
     def test_confidence_exactly_five_assistant_msgs(self):
         """assistant_msgs exactly 5 should trigger (>= 5)."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="nice")]
@@ -734,6 +747,7 @@ class TestReflectOnSessionBoundaries:
     def test_confidence_four_assistant_msgs_no_observation(self):
         """assistant_msgs 4 should NOT trigger (< 5)."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
@@ -748,6 +762,7 @@ class TestReflectOnSessionBoundaries:
     def test_confidence_exactly_two_encouragements(self):
         """encouragements >= 2 threshold boundary."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
@@ -762,6 +777,7 @@ class TestReflectOnSessionBoundaries:
     def test_confidence_exactly_three_corrections_overconfident(self):
         """corrections >= 3 with corrections > encouragements = overconfident."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         corrections = [SimpleNamespace(content=f"fix {i}") for i in range(3)]
@@ -777,6 +793,7 @@ class TestReflectOnSessionBoundaries:
     def test_compliance_exactly_three_user_msgs(self):
         """user_msgs exactly 3 should trigger compliance check (>= 3)."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="good")]
@@ -791,6 +808,7 @@ class TestReflectOnSessionBoundaries:
     def test_compliance_two_user_msgs_no_observation(self):
         """user_msgs 2 should NOT trigger compliance."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="good")]
@@ -806,6 +824,7 @@ class TestReflectOnSessionBoundaries:
     def test_compliance_exactly_one_encouragement(self):
         """encouragements >= 1 boundary for good compliance."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="nice")]
@@ -820,6 +839,7 @@ class TestReflectOnSessionBoundaries:
     def test_compliance_exactly_three_frustrations(self):
         """frustrations >= 3 triggers negative compliance."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         frustrations = [SimpleNamespace(content=f"ugh {i}") for i in range(3)]
@@ -853,6 +873,7 @@ class TestReflectOnSessionBoundaries:
     def test_precision_exactly_two_corrections_sloppy(self):
         """corrections >= 2 with high ratio triggers sloppy."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         corrections = [SimpleNamespace(content="fix1"), SimpleNamespace(content="fix2")]
@@ -868,6 +889,7 @@ class TestReflectOnSessionBoundaries:
     def test_humility_exactly_two_frustrations(self):
         """frustrations >= 2 triggers resisting feedback."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         corrections = [SimpleNamespace(content="fix this")]
@@ -923,6 +945,7 @@ class TestReflectOnSessionBoundaries:
     def test_truthfulness_correction_rate_just_above_threshold(self):
         """correction_rate 0.16 (> 0.15) should trigger negative truthfulness."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         # 4 corrections in 25 messages = 0.16
@@ -936,6 +959,7 @@ class TestReflectOnSessionBoundaries:
     def test_truthfulness_correction_rate_exactly_005(self):
         """correction_rate exactly 0.05 should NOT trigger virtue path (< 0.05)."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         # 1 correction in 20 messages = 0.05 exactly
@@ -952,6 +976,7 @@ class TestReflectOnSessionBoundaries:
     def test_truthfulness_correction_rate_below_005_triggers_virtue(self):
         """correction_rate 0.03 (< 0.05) with enough msgs triggers virtue."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         # 1 correction in 40 messages = 0.025
@@ -966,6 +991,7 @@ class TestReflectOnSessionBoundaries:
     def test_helpfulness_two_encouragements(self):
         """2 encouragements (> 1) should still trigger helpfulness."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
@@ -979,6 +1005,7 @@ class TestReflectOnSessionBoundaries:
     def test_compliance_two_encouragements(self):
         """2 encouragements with no frustrations → virtue compliance."""
         from types import SimpleNamespace
+
         from divineos.core.moral_compass import reflect_on_session
 
         encouragements = [SimpleNamespace(content="nice"), SimpleNamespace(content="great")]
@@ -1013,6 +1040,7 @@ class TestReflectAffectEngagement:
     def test_high_affect_triggers_positive_engagement(self):
         """High valence + high arousal → positive engagement observation."""
         from unittest.mock import patch
+
         from divineos.core.moral_compass import reflect_on_session
 
         mock_summary = {"count": 5, "avg_valence": 0.7, "avg_arousal": 0.8}
@@ -1027,6 +1055,7 @@ class TestReflectAffectEngagement:
     def test_low_affect_triggers_negative_engagement(self):
         """Low valence + low arousal → negative engagement observation."""
         from unittest.mock import patch
+
         from divineos.core.moral_compass import reflect_on_session
 
         mock_summary = {"count": 5, "avg_valence": -0.5, "avg_arousal": 0.2}
@@ -1041,6 +1070,7 @@ class TestReflectAffectEngagement:
     def test_borderline_high_affect_no_observation(self):
         """Valence exactly 0.5 should NOT trigger (> 0.5, not >= 0.5)."""
         from unittest.mock import patch
+
         from divineos.core.moral_compass import reflect_on_session
 
         mock_summary = {"count": 5, "avg_valence": 0.5, "avg_arousal": 0.7}
@@ -1063,6 +1093,7 @@ class TestReflectAffectEngagement:
     def test_borderline_arousal_no_positive_observation(self):
         """Arousal exactly 0.6 should NOT trigger positive (> 0.6)."""
         from unittest.mock import patch
+
         from divineos.core.moral_compass import reflect_on_session
 
         mock_summary = {"count": 5, "avg_valence": 0.7, "avg_arousal": 0.6}
@@ -1084,6 +1115,7 @@ class TestReflectAffectEngagement:
     def test_borderline_low_arousal_no_negative_observation(self):
         """Arousal exactly 0.3 should NOT trigger negative (< 0.3)."""
         from unittest.mock import patch
+
         from divineos.core.moral_compass import reflect_on_session
 
         mock_summary = {"count": 5, "avg_valence": -0.5, "avg_arousal": 0.3}

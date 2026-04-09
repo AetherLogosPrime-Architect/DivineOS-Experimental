@@ -4,9 +4,9 @@ Extracts lessons from agent operations and stores them as knowledge entries
 for self-improvement and behavior analysis.
 """
 
+import sqlite3
 from collections import defaultdict
 from typing import Any
-import sqlite3
 
 from loguru import logger
 

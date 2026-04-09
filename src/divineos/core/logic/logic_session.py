@@ -9,21 +9,20 @@ Sections:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import sqlite3
+from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
 
 from divineos.core.knowledge import get_connection
-from divineos.core.logic.warrants import get_warrants
+from divineos.core.logic.logic_reasoning import propagate_from
 from divineos.core.logic.logic_validation import (
     check_consistency,
     register_contradiction,
     scan_defeated_only_entries,
 )
-from divineos.core.logic.logic_reasoning import propagate_from
-
+from divineos.core.logic.warrants import get_warrants
 
 _SL_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

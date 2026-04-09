@@ -1,8 +1,8 @@
 """Knowledge migration, lesson categorization, session feedback, health report."""
 
 import re
-from typing import Any
 import sqlite3
+from typing import Any
 
 from divineos.core.knowledge._base import (
     _get_connection,

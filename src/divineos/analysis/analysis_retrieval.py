@@ -3,9 +3,9 @@
 Functions split from analysis_storage.py to keep modules focused.
 """
 
+import sqlite3
 from pathlib import Path
 from typing import Any, cast
-import sqlite3
 
 from loguru import logger
 

@@ -4,12 +4,14 @@ This module integrates the supersession system with the DivineOS event system,
 allowing SUPERSESSION events to be emitted and tracked in the ledger.
 """
 
-from typing import Dict, Any, Optional
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import sqlite3
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
 from loguru import logger
+
 from divineos.event.event_emission import register_listener
 
 _EI_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)

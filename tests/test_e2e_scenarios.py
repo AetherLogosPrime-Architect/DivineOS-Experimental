@@ -13,17 +13,16 @@ Property 9: End-to-end scenario correctness
 - System maintains consistency
 """
 
-import pytest
 from datetime import datetime, timezone
 
-from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
+import pytest
+from hypothesis_compat import HAS_HYPOTHESIS, HealthCheck, given, settings, st
 
-
+from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
 from divineos.clarity_enforcement.enforcer import ClarityEnforcer
 from divineos.core.ledger import Ledger
-from divineos.core.session_manager import initialize_session, end_session
-from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
+from divineos.core.session_manager import end_session, initialize_session
 from divineos.supersession.contradiction_detector import ContradictionDetector
 
 # Skip all tests in this module if hypothesis is not installed

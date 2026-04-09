@@ -26,7 +26,6 @@ from divineos.analysis.quality_checks import (
     store_report,
 )
 
-
 # --- Fixtures ---
 
 

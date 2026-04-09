@@ -11,6 +11,7 @@ Tests verify that:
 
 import pytest
 from loguru import logger
+
 from divineos.core.error_handling import (
     DivineOSError,
     EventCaptureError,

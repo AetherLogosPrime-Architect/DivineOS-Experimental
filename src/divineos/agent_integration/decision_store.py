@@ -5,14 +5,14 @@ and retrieving them. All decisions are stored as AGENT_DECISION events in the Di
 ledger with SHA256 hashing for integrity.
 """
 
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
-import sqlite3
 
 from loguru import logger
 
-from divineos.core.ledger import log_event, get_events
+from divineos.core.ledger import get_events, log_event
 
 _DS_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

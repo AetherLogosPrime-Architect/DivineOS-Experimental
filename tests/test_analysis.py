@@ -1,12 +1,14 @@
 """Tests for the analysis module."""
 
-import pytest
 from pathlib import Path
+
+import pytest
+
 from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
-from divineos.core.ledger import init_db
-from divineos.core.knowledge import init_knowledge_table
-from divineos.analysis.record_extraction import init_quality_tables
 from divineos.analysis.feature_storage import init_feature_tables
+from divineos.analysis.record_extraction import init_quality_tables
+from divineos.core.knowledge import init_knowledge_table
+from divineos.core.ledger import init_db
 
 
 @pytest.fixture(autouse=True)

@@ -1,16 +1,17 @@
 """Tests for the event ledger."""
 
 import pytest
+
 from divineos.core.ledger import (
+    compute_hash,
+    count_events,
+    export_to_markdown,
+    get_events,
+    get_recent_context,
     init_db,
     log_event,
-    get_events,
     search_events,
-    get_recent_context,
-    count_events,
     verify_all_events,
-    compute_hash,
-    export_to_markdown,
 )
 
 
@@ -175,8 +176,9 @@ class TestVerifyEventHash:
 
     def test_valid_hash(self):
         """Test that valid hash is verified correctly."""
-        from divineos.core.ledger import verify_event_hash
         import json
+
+        from divineos.core.ledger import verify_event_hash
 
         payload = {"content": "hello"}
         # Compute hash from entire payload (excluding content_hash)
@@ -201,8 +203,9 @@ class TestVerifyEventHash:
 
     def test_dict_content(self):
         """Test hash verification with dict content."""
-        from divineos.core.ledger import verify_event_hash
         import json
+
+        from divineos.core.ledger import verify_event_hash
 
         content = {"key": "value"}
         payload = {"content": content}
@@ -230,9 +233,10 @@ class TestGetVerifiedEvents:
 
     def test_skip_corrupted_events(self):
         """Test that corrupted events are excluded when skip_corrupted=True."""
-        from divineos.core.ledger import get_verified_events
-        import sqlite3
         import os
+        import sqlite3
+
+        from divineos.core.ledger import get_verified_events
 
         # Create valid events
         log_event("TEST", "user", {"content": "hello"}, validate=False)
@@ -263,9 +267,10 @@ class TestGetVerifiedEvents:
 
     def test_include_corrupted_events(self):
         """Test that corrupted events are included when skip_corrupted=False."""
-        from divineos.core.ledger import get_verified_events
-        import sqlite3
         import os
+        import sqlite3
+
+        from divineos.core.ledger import get_verified_events
 
         # Create valid events
         log_event("TEST", "user", {"content": "hello"}, validate=False)
@@ -325,8 +330,8 @@ class TestVerifyAllEventsEnhanced:
 
     def test_detects_corrupted_events(self):
         """Test that verify_all_events detects corrupted events."""
-        import sqlite3
         import os
+        import sqlite3
 
         log_event("TEST", "user", {"content": "hello"}, validate=False)
         log_event("TEST", "user", {"content": "world"}, validate=False)
@@ -354,8 +359,8 @@ class TestVerifyAllEventsEnhanced:
 
     def test_reports_failure_reason(self):
         """Test that verify_all_events reports the reason for failure."""
-        import sqlite3
         import os
+        import sqlite3
 
         log_event("TEST", "user", {"content": "hello"}, validate=False)
 
@@ -386,12 +391,13 @@ class TestExportCurrentSessionWithVerification:
 
     def test_excludes_corrupted_events(self):
         """Test that corrupted events are excluded from export."""
+        import json
+        import os
+        import sqlite3
+        from pathlib import Path
+
         from divineos.analysis.analysis import export_current_session_to_jsonl
         from divineos.event.event_capture import get_session_tracker
-        from pathlib import Path
-        import sqlite3
-        import os
-        import json
 
         # Get current session ID
         session_id = get_session_tracker().get_current_session_id()
@@ -441,10 +447,11 @@ class TestExportCurrentSessionWithVerification:
 
     def test_exports_all_valid_events(self):
         """Test that all valid events are exported."""
+        import json
+        from pathlib import Path
+
         from divineos.analysis.analysis import export_current_session_to_jsonl
         from divineos.event.event_capture import get_session_tracker
-        from pathlib import Path
-        import json
 
         # Get current session ID
         session_id = get_session_tracker().get_current_session_id()

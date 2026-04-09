@@ -16,14 +16,14 @@ Requirements:
 import atexit
 import os
 import signal
+import sqlite3
 import sys
 from typing import Any
-import sqlite3
 
 from loguru import logger
 
 from divineos.core.loop_prevention import mark_internal_operation
-from divineos.core.session_manager import initialize_session, is_session_active, clear_session
+from divineos.core.session_manager import clear_session, initialize_session, is_session_active
 from divineos.event.event_emission import emit_user_input
 
 _ENFORCEMENT_ERRORS = (

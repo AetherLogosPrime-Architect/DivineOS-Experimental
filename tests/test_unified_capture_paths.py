@@ -7,11 +7,9 @@ IDE IDE and MCP server scenarios.
 
 from divineos.core.tool_wrapper import (
     UnifiedToolCapture,
-    get_unified_capture,
     capture_tool_execution,
-)
-from divineos.core.tool_wrapper import (
     get_ide_tool_executor,
+    get_unified_capture,
 )
 
 

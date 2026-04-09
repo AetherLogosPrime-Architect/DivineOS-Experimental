@@ -20,14 +20,15 @@ context usage, warning when the session is approaching token limits.
 import json
 import sqlite3
 import time
-from divineos.core.hud import save_hud_snapshot
-from divineos.core.hud_handoff import save_handoff_note
-from divineos.core.hud_state import _ensure_hud_dir
-from divineos.event.event_emission import emit_event
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
+
+from divineos.core.hud import save_hud_snapshot
+from divineos.core.hud_handoff import save_handoff_note
+from divineos.core.hud_state import _ensure_hud_dir
+from divineos.event.event_emission import emit_event
 
 _CP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -439,8 +440,8 @@ def run_mini_session_save() -> dict[str, Any]:
     try:
         import divineos.analysis.session_analyzer as _analyzer_mod
         import divineos.analysis.session_discovery as _discovery_mod
-        from divineos.core.knowledge.curation import run_curation
         from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.curation import run_curation
         from divineos.core.knowledge.deep_extraction import deep_extract_knowledge
 
         # Find session file
