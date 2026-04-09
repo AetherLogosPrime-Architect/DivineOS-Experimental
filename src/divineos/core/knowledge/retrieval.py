@@ -520,11 +520,29 @@ def _format_knowledge_sections(
             "EPISODE": "EPISODES",
         }.get(kt, f"{kt}S")
 
-        # Collapse stable sections — all entries settled, none evolving
+        # Compact stable sections — show one-line summaries instead of full content
         all_stable = all(_is_stable(i) for i in items)
         any_hinted = any(i["knowledge_id"] in hint_matches for i in items)
         if all_stable and not any_hinted and len(items) >= 2:
-            lines.append(f"### {plural} ({len(items)}) -- all stable")
+            lines.append(f"### {plural} ({len(items)})")
+            for item in items:
+                content = item["content"].replace("\n", " ")
+                # Directives: extract the bracketed name
+                if kt == "DIRECTIVE" and content.startswith("["):
+                    name_end = content.find("]")
+                    if name_end > 0:
+                        content = content[: name_end + 1]
+                else:
+                    # First sentence, capped at 80 chars
+                    for delim in (". ", "! ", "? "):
+                        idx = content.find(delim)
+                        if 0 < idx < 80:
+                            content = content[: idx + 1]
+                            break
+                    else:
+                        if len(content) > 80:
+                            content = content[:77] + "..."
+                lines.append(f"- {content}")
             lines.append("")
             continue
 
