@@ -469,6 +469,7 @@ def _format_handoff_lines() -> list[str]:
 def _format_knowledge_sections(
     grouped: dict[str, list[dict[str, Any]]],
     hint_matches: set[str],
+    skip_types: set[str] | None = None,
 ) -> list[str]:
     """Format knowledge entries grouped by type."""
     lines: list[str] = []
@@ -486,6 +487,8 @@ def _format_knowledge_sections(
         "OBSERVATION",
         "EPISODE",
     ]:
+        if skip_types and kt in skip_types:
+            continue
         items = grouped.get(kt, [])
         if not items:
             continue
@@ -512,8 +515,8 @@ def _format_knowledge_sections(
                 lines.append(f"  {access}{entity}")
             else:
                 display = content.replace("\n", " ")
-                if len(display) > 200:
-                    display = display[:197] + "..."
+                if len(display) > 300:
+                    display = display[:297] + "..."
                 lines.append(
                     f"- [{item['confidence']:.2f}]{entity} {display} {access}{mat_marker}{hint_marker}"
                 )
@@ -695,6 +698,10 @@ def _format_briefing(
         from divineos.core.curiosity_engine import get_open_curiosities
 
         open_q = get_open_curiosities()
+        # Only show manually-filed curiosities (category "general").
+        # Auto-generated questions (validation, stale_raw, recurring_lesson,
+        # correction) are formulaic templates, not genuine curiosity.
+        open_q = [q for q in open_q if q.get("category", "general") == "general"]
         if open_q:
             lines.append(f"### OPEN QUESTIONS ({len(open_q)})")
             for q in open_q[:3]:
@@ -712,7 +719,10 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS:
         pass
 
-    lines.extend(_format_knowledge_sections(grouped, hint_matches))
+    # Skip MISTAKE section when active lessons already cover them —
+    # otherwise the same lesson appears in Watch Out, Active Lessons, AND Mistakes.
+    skip_types = {"MISTAKE"} if lessons_text else set()
+    lines.extend(_format_knowledge_sections(grouped, hint_matches, skip_types))
 
     # Graph connections — show relationships between briefing entries
     try:

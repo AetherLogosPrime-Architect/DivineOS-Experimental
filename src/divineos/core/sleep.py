@@ -383,7 +383,7 @@ def _phase_recombination(report: DreamReport) -> None:
                     similarity = compute_similarity(content_a, content_b)
                     if _RECOMBINATION_MIN_SIMILARITY <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
                         # Show first sentence of each, not arbitrary truncation
-                        def _first_sentence(text: str, cap: int = 80) -> str:
+                        def _first_sentence(text: str, cap: int = 140) -> str:
                             for delim in (". ", "! ", "? "):
                                 idx = text.find(delim)
                                 if 0 < idx < cap:

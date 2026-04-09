@@ -362,8 +362,8 @@ def format_commitment_review(review: dict[str, Any]) -> str:
         status = detail["status"].upper()
         icon = "+" if status == "FULFILLED" else "x"
         text = detail["text"]
-        if len(text) > 80:
-            text = text[:77] + "..."
+        if len(text) > 140:
+            text = text[:137] + "..."
         lines.append(f"  {icon} [{status}] {text}")
 
     if review["dropped"] > 0:

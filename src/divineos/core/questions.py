@@ -167,8 +167,8 @@ def get_open_questions_summary(max_items: int = 5) -> str:
     lines = [f"### OPEN QUESTIONS ({len(open_qs)})"]
     for q in open_qs[:max_items]:
         display = q["question"].replace("\n", " ")
-        if len(display) > 120:
-            display = display[:117] + "..."
+        if len(display) > 160:
+            display = display[:157] + "..."
         lines.append(f"- {display}")
     if len(open_qs) > max_items:
         lines.append("  ...and more")

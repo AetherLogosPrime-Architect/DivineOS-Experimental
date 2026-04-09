@@ -147,7 +147,7 @@ def _resolve_knowledge_id(partial: str) -> str:
     if len(rows) > 1:
         click.secho(f"Ambiguous ID '{partial}' matches {len(rows)} entries:\n", fg="yellow")
         for kid, ktype, content in rows:
-            preview = (content[:60] + "...") if len(content) > 60 else content
+            preview = (content[:117] + "...") if len(content) > 120 else content
             preview = preview.replace("\n", " ")
             click.echo(f"  {kid[:12]}  [{ktype}]  {preview}")
         raise click.ClickException("Use more characters to narrow it down")
