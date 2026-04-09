@@ -97,7 +97,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 3,649+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 3,651+ tests, real DB, minimal mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
@@ -458,7 +458,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,649+ tests (real DB, minimal mocks)
+tests/                         3,651+ tests (real DB, minimal mocks)
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
 setup/                         Hook setup scripts (bash + powershell)
@@ -494,8 +494,8 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,649+ tests (real SQLite, minimal mocks)
-- 136 CLI commands
+- 3,651+ tests (real SQLite, minimal mocks)
+- 143 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
 
