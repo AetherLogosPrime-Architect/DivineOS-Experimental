@@ -31,7 +31,7 @@ from divineos.analysis.session_analyzer import (
     _detect_signals,
     _extract_timestamps,
     _extract_user_text,
-    _load_records,
+    load_records,
 )
 from divineos.core.fidelity import compute_content_hash
 from divineos.core.ledger import count_events
@@ -520,7 +520,7 @@ def run_all_checks(
     since_timestamp: float | None = None,
 ) -> SessionReport:
     """Run all 7 quality checks on a session file. Returns a complete report."""
-    records = _load_records(file_path, since_timestamp=since_timestamp)
+    records = load_records(file_path, since_timestamp=since_timestamp)
     result_map = _build_tool_result_map(records)
 
     checks = [

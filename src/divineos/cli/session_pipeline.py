@@ -128,7 +128,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
             return
 
         # ── Phase 1b: Structured self-assessment ────────────────
-        records = _analyzer_mod._load_records(latest, since_timestamp=session_start, slim=True)
+        records = _analyzer_mod.load_records(latest, since_timestamp=session_start, slim=True)
         reflection = None
         try:
             from divineos.core.session_reflection import build_session_reflection

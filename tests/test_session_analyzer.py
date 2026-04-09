@@ -14,7 +14,7 @@ from divineos.analysis.session_analyzer import (
     _detect_signals,
     _extract_timestamps,
     _extract_user_text,
-    _load_records,
+    load_records,
     _summarize_tool_input,
     analyze_session,
 )
@@ -452,17 +452,17 @@ class TestLoadRecords:
     def test_valid_jsonl(self, tmp_path):
         f = tmp_path / "test.jsonl"
         f.write_text('{"a": 1}\n{"b": 2}\n')
-        records = _load_records(f)
+        records = load_records(f)
         assert len(records) == 2
 
     def test_skips_bad_lines(self, tmp_path):
         f = tmp_path / "test.jsonl"
         f.write_text('{"a": 1}\nnot json\n{"b": 2}\n')
-        records = _load_records(f)
+        records = load_records(f)
         assert len(records) == 2
 
     def test_skips_empty_lines(self, tmp_path):
         f = tmp_path / "test.jsonl"
         f.write_text('{"a": 1}\n\n{"b": 2}\n')
-        records = _load_records(f)
+        records = load_records(f)
         assert len(records) == 2
