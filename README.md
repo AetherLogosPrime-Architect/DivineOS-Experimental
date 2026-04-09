@@ -97,14 +97,14 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 3,646+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 3,649+ tests, real DB, minimal mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
 
-## CLI Surface (142 commands)
+## CLI Surface (143 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -270,7 +270,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (142 commands across 24 modules)
+  cli/                         CLI package (143 commands across 24 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -458,7 +458,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,646+ tests (real DB, minimal mocks)
+tests/                         3,649+ tests (real DB, minimal mocks)
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
 setup/                         Hook setup scripts (bash + powershell)
@@ -494,7 +494,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,646+ tests (real SQLite, minimal mocks)
+- 3,649+ tests (real SQLite, minimal mocks)
 - 136 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
