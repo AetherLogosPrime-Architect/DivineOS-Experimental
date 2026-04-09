@@ -227,7 +227,7 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
         return True
 
     except _AS_ERRORS as e:
-        logger.error(f"Failed to store analysis: {e}")
+        logger.error(f"Failed to store analysis for session {result.session_id}: {e}")
         raise
 
 

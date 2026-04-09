@@ -146,7 +146,9 @@ def generate_briefing(
             hint_matches = {m["knowledge_id"] for m in matched}
         except _RETRIEVAL_ERRORS as e:
             logger.warning(
-                f"Failed to search knowledge for context hint: {e}",
+                "Failed to search knowledge for context hint %r: %s",
+                context_hint,
+                e,
                 exc_info=True,
             )
 
