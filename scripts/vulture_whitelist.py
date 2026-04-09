@@ -10,3 +10,5 @@ Usage:  vulture src/divineos/ scripts/vulture_whitelist.py --min-confidence 70
 # Add false positives here as they arise, e.g.:
 # from divineos.some_module import some_function  # noqa: used by CLI
 # some_function  # mark as used
+
+# Add false positives here as needed
