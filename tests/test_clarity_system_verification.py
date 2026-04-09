@@ -272,7 +272,7 @@ class TestHookIntegration:
         HookIntegrationInterface.clear_hooks()
 
         def test_hook(**kwargs):
-            pass
+            return None
 
         result = HookIntegrationInterface.register_pre_work_hook(test_hook)
 
