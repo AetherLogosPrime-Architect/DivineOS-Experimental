@@ -15,7 +15,7 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge import get_connection
+from divineos.core.knowledge._base import get_connection
 from divineos.core.knowledge._text import _compute_overlap, _extract_key_terms
 from divineos.core.knowledge.crud import search_knowledge
 from divineos.core.knowledge.edges import (

@@ -3,6 +3,10 @@
 Validates event hashes and detects corrupted events in the ledger.
 Provides comprehensive verification reporting.
 
+# AGENT_RUNTIME — Not called from CLI pipeline directly. Used by agents
+# and operators who need to audit ledger integrity programmatically.
+# Tested via test_event_verifier.py.
+
 Requirements:
 - Requirement 9: Verify Event Integrity
 - Requirement 9.1: Compute SHA256 hash of event payload

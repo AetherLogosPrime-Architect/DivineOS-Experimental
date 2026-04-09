@@ -19,7 +19,7 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge import get_connection
+from divineos.core.knowledge._base import get_connection
 
 # ─── Schema ──────────────────────────────────────────────────────────
 

@@ -501,7 +501,7 @@ def _create_structural_edges(stored_ids: list[str]) -> int:
     if len(stored_ids) < 2:
         return 0
 
-    from divineos.core.knowledge import _get_connection
+    from divineos.core.knowledge._base import _get_connection
     from divineos.core.knowledge.edges import create_edge
 
     conn = _get_connection()
