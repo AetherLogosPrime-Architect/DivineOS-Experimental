@@ -103,7 +103,8 @@ class TestEnforcementErrorHandling:
         error = RuntimeError("Test error")
 
         # Should not raise
-        handle_cli_error(error)
+        result = handle_cli_error(error)
+        assert result is None
 
 
 class TestSessionManagerErrorHandling:
@@ -249,8 +250,8 @@ class TestSessionManagerErrorHandling:
             mock_clear.side_effect = OSError("File clear failed")
 
             with patch("os.environ", {"DIVINEOS_SESSION_ID": "test-id"}):
-                # Should not raise
-                clear_session()
+                result = clear_session()
+                assert result is None
 
 
 class TestToolWrapperErrorHandling:

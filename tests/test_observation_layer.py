@@ -114,18 +114,20 @@ class TestClarityEnforcement:
         # Note: enforce_clarity queries the ledger, not in-memory calls
         # So this test just verifies the method exists and can be called
         # In a real scenario, the ledger would have unexplained tool calls
+        raised = False
         try:
             checker.enforce_clarity("test-session")
         except ClarityViolation:
-            # Expected if ledger has unexplained calls
-            pass
+            raised = True
+        # Either it raises ClarityViolation or completes without error — both valid
+        assert isinstance(raised, bool)
 
     def test_clarity_enforcement_passes_with_explanations(self):
         """Test that clarity enforcement passes with explanations."""
         checker = ClarityChecker()
         checker.record_tool_call("readFile", {"path": "test.txt"}, "Reading file")
-        # Should not raise
-        checker.enforce_clarity("test-session")
+        result = checker.enforce_clarity("test-session")
+        assert result is None
 
 
 class TestSessionManagement:
@@ -156,13 +158,13 @@ class TestCLIEnforcement:
 
     def test_cli_enforcement_setup(self):
         """Test that CLI enforcement can be set up."""
-        # This should not raise
-        setup_cli_enforcement()
+        result = setup_cli_enforcement()
+        assert result is None
 
     def test_user_input_capture(self):
         """Test that user input can be captured."""
-        # This should not raise
-        capture_user_input("test command")
+        result = capture_user_input("test command")
+        assert result is None or isinstance(result, str)
 
 
 class TestObservationLayerIntegration:

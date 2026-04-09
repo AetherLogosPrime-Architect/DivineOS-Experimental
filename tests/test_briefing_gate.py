@@ -12,23 +12,26 @@ class TestBriefingGate:
             with patch("sys.argv", ["divineos", cmd]):
                 with patch("sys.modules", {"pytest": None}):
                     # Should not raise — but we're in pytest so it returns early
-                    _enforce_briefing_gate()
+                    result = _enforce_briefing_gate()
+                    assert result is None
 
     def test_skips_in_test_environment(self):
         """Gate should be a no-op during pytest runs."""
         with patch("sys.argv", ["divineos", "learn", "something"]):
-            # Should not raise because pytest is in sys.modules
-            _enforce_briefing_gate()
+            result = _enforce_briefing_gate()
+            assert result is None
 
     def test_skips_empty_args(self):
         """Just `divineos` with no subcommand should show help, not block."""
         with patch("sys.argv", ["divineos"]):
-            _enforce_briefing_gate()
+            result = _enforce_briefing_gate()
+            assert result is None
 
     def test_skips_flags(self):
         """Flags like --help should not be blocked."""
         with patch("sys.argv", ["divineos", "--help"]):
-            _enforce_briefing_gate()
+            result = _enforce_briefing_gate()
+            assert result is None
 
     def test_bypass_set_contains_essentials(self):
         """The bypass set must include briefing, init, preflight, emit, and checkpoint."""

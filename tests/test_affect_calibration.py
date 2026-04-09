@@ -56,7 +56,8 @@ def test_init_calibration_table_creates_table():
 def test_init_calibration_table_idempotent():
     """Calling init twice doesn't error."""
     init_calibration_table()
-    init_calibration_table()
+    result = init_calibration_table()
+    assert result is None
 
 
 # ── Record ──────────────────────────────────────────────────────
