@@ -326,19 +326,24 @@ def _phase_maintenance(report: DreamReport) -> None:
 
 
 # Similarity thresholds for connection detection
-_RECOMBINATION_MIN_SIMILARITY = 0.35  # Minimum to consider related
-_RECOMBINATION_MAX_SIMILARITY = 0.85  # Above this = near-duplicate, not a connection
+_RECOMBINATION_MIN_SIMILARITY = 0.45  # Minimum to consider related (raised from 0.35)
+_RECOMBINATION_MAX_SIMILARITY = 0.80  # Above this = near-duplicate, not a connection
 _RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
+_RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
 
 
 def _phase_recombination(report: DreamReport) -> None:
     """Cross-knowledge similarity scanning for unlinked connections.
 
-    Uses semantic similarity (sentence embeddings) when available to find
-    conceptual connections even between entries that share no vocabulary.
-    Falls back to word overlap when embeddings are unavailable.
+    Finds genuinely surprising connections between entries that are
+    semantically related but topically distinct. Filters out obvious
+    same-topic pairs (e.g. MISTAKE about tests + DIRECTION about tests)
+    by checking word overlap in key terms.
     """
-    from divineos.core.knowledge._text import compute_similarity
+    from divineos.core.knowledge._text import (
+        _compute_overlap,
+        compute_similarity,
+    )
     from divineos.core.knowledge.crud import get_knowledge
 
     entries = get_knowledge(limit=5000, include_superseded=False)
@@ -359,17 +364,32 @@ def _phase_recombination(report: DreamReport) -> None:
         for type_b in types[i + 1 :]:
             for entry_a in by_type[type_a]:
                 content_a = entry_a.get("content", "")
-                if len(content_a) < 20:
+                if len(content_a) < 30:
                     continue
                 for entry_b in by_type[type_b]:
                     if len(connections) >= _RECOMBINATION_MAX_CONNECTIONS:
                         break
                     content_b = entry_b.get("content", "")
-                    if len(content_b) < 20:
+                    if len(content_b) < 30:
+                        continue
+
+                    # Skip pairs that share too many key words -- these are
+                    # the same topic wearing different type labels, not
+                    # creative connections.
+                    word_overlap = _compute_overlap(content_a, content_b)
+                    if word_overlap > _RECOMBINATION_MAX_WORD_OVERLAP:
                         continue
 
                     similarity = compute_similarity(content_a, content_b)
                     if _RECOMBINATION_MIN_SIMILARITY <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
+                        # Show first sentence of each, not arbitrary truncation
+                        def _first_sentence(text: str, cap: int = 80) -> str:
+                            for delim in (". ", "! ", "? "):
+                                idx = text.find(delim)
+                                if 0 < idx < cap:
+                                    return text[: idx + 1]
+                            return text[:cap] + "..." if len(text) > cap else text
+
                         connections.append(
                             {
                                 "entry_a_id": entry_a.get("knowledge_id", "?"),
@@ -378,8 +398,9 @@ def _phase_recombination(report: DreamReport) -> None:
                                 "type_b": type_b,
                                 "similarity": f"{similarity:.0%}",
                                 "summary": (
-                                    f"{type_a[:12]}~{type_b[:12]}: "
-                                    f'"{content_a[:50]}..." ~ "{content_b[:50]}..."'
+                                    f"({similarity:.0%}) {type_a}+{type_b}: "
+                                    f"{_first_sentence(content_a)} <> "
+                                    f"{_first_sentence(content_b)}"
                                 ),
                             }
                         )
