@@ -82,15 +82,20 @@ def reset_state() -> None:
 def get_session_start_time() -> float | None:
     """Get the Unix timestamp when the current session started.
 
-    Uses the most recent SESSION_END in the ledger as the boundary
-    (anything after it is the current session). Falls back to
-    checkpoint state, then None.
-
-    Prefers ledger over checkpoint state because compaction resets
-    the conversation without resetting checkpoint_state.json —
-    the ledger is always the source of truth for session boundaries.
+    Prefers checkpoint state (set once at session start, survives
+    context compaction) over ledger queries.  The ledger's most
+    recent SESSION_END marks where the *previous* session ended,
+    which is wrong for continued sessions that span multiple
+    context windows — the checkpoint file is the true session
+    boundary because it persists across compaction resets.
     """
-    # Primary: last SESSION_END in ledger = end of previous session = start of current
+    # Primary: checkpoint state — set at session start, survives compaction
+    state = _load_state()
+    start = state.get("session_start")
+    if start and isinstance(start, (int, float)):
+        return float(start)
+
+    # Fallback: last SESSION_END in ledger = end of previous session
     try:
         from divineos.core.memory import _get_connection
 
@@ -107,12 +112,6 @@ def get_session_start_time() -> float | None:
             conn.close()
     except _CP_ERRORS:
         pass
-
-    # Fallback: checkpoint state (may be stale after compaction)
-    state = _load_state()
-    start = state.get("session_start")
-    if start and isinstance(start, (int, float)):
-        return float(start)
 
     return None
 
