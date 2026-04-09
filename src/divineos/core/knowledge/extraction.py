@@ -37,7 +37,6 @@ from divineos.core.knowledge.crud import (
 # Late import: knowledge_maintenance creates a circular import if loaded at
 # module level (extraction → knowledge_maintenance → _base → __init__ →
 # deep_extraction → extraction).  Imported lazily inside functions instead.
-
 from divineos.core.logic.warrants import create_warrant
 
 _EXTRACTION_ERRORS = (
