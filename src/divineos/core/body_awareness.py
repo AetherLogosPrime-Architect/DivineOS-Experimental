@@ -23,6 +23,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from divineos.core.constants import SECONDS_PER_DAY
 from divineos.core.memory import _get_connection
 
 _BA_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
@@ -315,7 +316,7 @@ def clean_transcript_debris(dry_run: bool = False) -> dict[str, int | float]:
     if not projects_dir.exists():
         return {"removed_count": 0, "freed_mb": 0.0, "dirs_cleaned": 0}
 
-    cutoff = time.time() - (_TRANSCRIPT_RETENTION_DAYS * 86400)
+    cutoff = time.time() - (_TRANSCRIPT_RETENTION_DAYS * SECONDS_PER_DAY)
     removed_count = 0
     freed_bytes = 0
     dirs_cleaned = 0

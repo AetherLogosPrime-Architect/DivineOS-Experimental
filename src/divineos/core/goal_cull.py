@@ -9,9 +9,11 @@ and flags old goals that have no recent activity.
 import time
 from typing import Any
 
+from divineos.core.constants import SECONDS_PER_DAY
+
 # Goals older than this (in seconds) are candidates for culling
 _STALENESS_THRESHOLD_DAYS = 3
-_STALENESS_THRESHOLD = _STALENESS_THRESHOLD_DAYS * 86400
+_STALENESS_THRESHOLD = _STALENESS_THRESHOLD_DAYS * SECONDS_PER_DAY
 
 
 def _extract_goal_keywords(text: str) -> list[str]:
@@ -126,7 +128,7 @@ def assess_goal_staleness(goal: dict[str, Any], now: float | None = None) -> dic
 
     added_at = goal.get("added_at", now)
     age_seconds = now - added_at
-    age_days = int(age_seconds / 86400)
+    age_days = int(age_seconds / SECONDS_PER_DAY)
 
     text = goal.get("text", "")
     keywords = _extract_goal_keywords(text)

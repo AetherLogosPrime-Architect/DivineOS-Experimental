@@ -17,6 +17,7 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.constants import SECONDS_PER_DAY
 from divineos.core.knowledge import (
     _get_connection,
     get_lessons,
@@ -40,7 +41,7 @@ def measure_rework(lookback_days: int = 30) -> list[dict[str, Any]]:
     lessons = get_lessons(status="active")
     rework: list[dict[str, Any]] = []
 
-    cutoff = time.time() - (lookback_days * 86400)
+    cutoff = time.time() - (lookback_days * SECONDS_PER_DAY)
 
     for lesson in lessons:
         if lesson["occurrences"] < 3:
@@ -95,7 +96,7 @@ def measure_knowledge_drift(lookback_days: int = 14) -> dict[str, Any]:
     """
     conn = _get_connection()
     try:
-        cutoff = time.time() - (lookback_days * 86400)
+        cutoff = time.time() - (lookback_days * SECONDS_PER_DAY)
 
         # Entries that were superseded recently
         superseded = conn.execute(

@@ -19,6 +19,7 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.constants import SECONDS_PER_DAY
 from divineos.core.knowledge._base import _get_connection
 
 _AT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
@@ -208,7 +209,7 @@ def get_advice_stats() -> dict[str, Any]:
 def get_stale_advice(days: int = 7) -> list[dict[str, Any]]:
     """Get pending advice older than N days — needs assessment."""
     init_advice_table()
-    cutoff = time.time() - (days * 86400)
+    cutoff = time.time() - (days * SECONDS_PER_DAY)
     conn = _get_connection()
     try:
         rows = conn.execute(
