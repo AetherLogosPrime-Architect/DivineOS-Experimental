@@ -6,6 +6,7 @@ import time
 import click
 
 from divineos.cli._helpers import _resolve_knowledge_id, _safe_echo
+from divineos.core.constants import SECONDS_PER_DAY
 from divineos.cli._wrappers import _ensure_db
 from divineos.core.knowledge.temporal import (
     format_changes_summary,
@@ -43,7 +44,7 @@ def changes(hours: float, days: float) -> None:
     Useful for session continuity: "what's different since I was last here?"
     """
     if days > 0:
-        since = time.time() - (days * 86400)
+        since = time.time() - (days * SECONDS_PER_DAY)
         label = f"{days:.0f} day{'s' if days != 1 else ''}"
     else:
         since = time.time() - (hours * 3600)

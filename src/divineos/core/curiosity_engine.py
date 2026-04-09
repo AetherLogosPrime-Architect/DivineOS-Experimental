@@ -14,6 +14,7 @@ import time
 from typing import Any
 
 from divineos.core._hud_io import _ensure_hud_dir
+from divineos.core.constants import SECONDS_PER_DAY
 
 _CE_ERRORS = (ImportError, OSError, json.JSONDecodeError, KeyError, TypeError, ValueError)
 
@@ -143,7 +144,7 @@ def prune_stale_curiosities() -> int:
     """
     curiosities = _load_curiosities()
     now = time.time()
-    cutoff = now - (_CURIOSITY_STALE_DAYS * 86400)
+    cutoff = now - (_CURIOSITY_STALE_DAYS * SECONDS_PER_DAY)
     shelved = 0
 
     # Rule 1: age-based decay
