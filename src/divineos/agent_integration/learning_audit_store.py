@@ -5,14 +5,14 @@ to the ledger and retrieving them. All audits are stored as AGENT_LEARNING_AUDIT
 events in the DivineOS ledger with SHA256 hashing for integrity.
 """
 
+import sqlite3
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional
-import sqlite3
 
 from loguru import logger
 
-from divineos.core.ledger import log_event, get_events
+from divineos.core.ledger import get_events, log_event
 
 _LAS_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

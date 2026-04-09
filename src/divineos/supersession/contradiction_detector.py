@@ -6,9 +6,9 @@ contradiction, and capture full context for resolution.
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
-from datetime import datetime, timezone
 
 
 class ContradictionSeverity(Enum):

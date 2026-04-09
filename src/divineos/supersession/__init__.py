@@ -28,37 +28,37 @@ Usage:
     current_fact = query.query_current_truth("mathematical_operation", "17_times_23")
 """
 
+from .clarity_integration import (
+    create_contradiction_violation,
+    handle_unresolved_contradiction,
+)
 from .contradiction_detector import (
-    ContradictionDetector,
     Contradiction,
+    ContradictionDetector,
     ContradictionSeverity,
 )
-from .resolution_engine import (
-    ResolutionEngine,
-    SupersessionEvent,
-    ResolutionStrategy,
-)
-from .query_interface import (
-    QueryInterface,
-    FactWithHistory,
-)
 from .event_integration import (
+    SupersessionEventData,
     create_supersession_event,
     emit_supersession_event,
     register_supersession_listener,
-    SupersessionEventData,
-)
-from .clarity_integration import (
-    handle_unresolved_contradiction,
-    create_contradiction_violation,
 )
 from .ledger_integration import (
     LedgerIntegration,
     get_ledger_integration,
-    store_fact,
-    store_supersession_event,
     query_facts,
     query_supersession_events,
+    store_fact,
+    store_supersession_event,
+)
+from .query_interface import (
+    FactWithHistory,
+    QueryInterface,
+)
+from .resolution_engine import (
+    ResolutionEngine,
+    ResolutionStrategy,
+    SupersessionEvent,
 )
 
 # Ensure all components are available

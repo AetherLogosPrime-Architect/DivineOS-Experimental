@@ -1,9 +1,9 @@
 """Ledger commands — init, ingest, verify, clean, export, diff, log, list, search, stats, context."""
 
 import json
+import sqlite3
 from pathlib import Path
 from typing import Any
-import sqlite3
 
 import click
 

@@ -1,12 +1,12 @@
 """Tests for the unified knowledge edge system."""
 
-import pytest
 import time
 import uuid
 
-from divineos.core.ledger import init_db
-from divineos.core.knowledge._base import init_knowledge_table, compute_hash
+import pytest
+
 from divineos.core.knowledge import get_connection
+from divineos.core.knowledge._base import compute_hash, init_knowledge_table
 from divineos.core.knowledge.edges import (
     ALL_EDGE_TYPES,
     INVERSE_EDGES,
@@ -20,6 +20,7 @@ from divineos.core.knowledge.edges import (
     init_edge_table,
     remove_edge,
 )
+from divineos.core.ledger import init_db
 
 
 @pytest.fixture(autouse=True)

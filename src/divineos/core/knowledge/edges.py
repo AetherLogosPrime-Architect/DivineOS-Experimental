@@ -21,7 +21,6 @@ from loguru import logger
 
 from divineos.core.knowledge import get_connection
 
-
 # ─── Schema ──────────────────────────────────────────────────────────
 
 _TABLE = "knowledge_edges"

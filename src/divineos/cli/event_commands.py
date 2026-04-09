@@ -1,8 +1,8 @@
 """Event commands — emit, verify-enforcement."""
 
-import sys
-import sqlite3
 import json
+import sqlite3
+import sys
 
 import click
 

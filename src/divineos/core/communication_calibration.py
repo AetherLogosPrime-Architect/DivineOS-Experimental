@@ -16,7 +16,6 @@ Sanskrit anchor: samvada (dialogue, attuned conversation).
 import sqlite3
 from dataclasses import dataclass
 
-
 _CC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError, ImportError)
 
 

@@ -9,11 +9,12 @@ This module provides decorators and utilities to enforce the clarity principle:
 Also integrates with IDE tool execution to emit TOOL_CALL and TOOL_RESULT events.
 """
 
+import sqlite3
 import threading
 from typing import Any
-import sqlite3
 
 from loguru import logger
+
 from divineos.core.ledger import get_events
 
 _CE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)

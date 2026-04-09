@@ -22,7 +22,6 @@ from typing import Any
 
 from divineos.core.sis_tiers import score_all_tiers
 
-
 # ─── Metaphysical → Architecture Translation Map ────────────────────
 
 # Each entry: metaphysical term → (architectural concept, explanation)

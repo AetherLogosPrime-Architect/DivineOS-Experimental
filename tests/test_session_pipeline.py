@@ -16,7 +16,6 @@ import pytest
 
 from divineos.analysis.session_analyzer import SessionAnalysis, UserSignal
 
-
 # ── Fixtures ────────────────────────────────────────────────────────
 
 

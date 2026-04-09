@@ -6,9 +6,9 @@ import time
 import pytest
 
 import divineos.core.ledger as ledger_mod
+from divineos.core.active_memory import compute_importance
 from divineos.core.knowledge import init_knowledge_table, store_knowledge
 from divineos.core.ledger import init_db
-from divineos.core.active_memory import compute_importance
 from divineos.core.memory import (
     get_core,
     init_memory_tables,

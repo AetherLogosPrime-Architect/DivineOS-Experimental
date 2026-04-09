@@ -1,11 +1,12 @@
 """Tests for the logical relations system."""
 
-import pytest
 import time
 import uuid
 
+import pytest
+
+from divineos.core.knowledge._base import _get_connection, compute_hash, init_knowledge_table
 from divineos.core.ledger import init_db
-from divineos.core.knowledge._base import init_knowledge_table, _get_connection, compute_hash
 from divineos.core.logic.logic_reasoning import (
     INVERSE_RELATIONS,
     RELATION_TYPES,

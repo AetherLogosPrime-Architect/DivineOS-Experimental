@@ -2,6 +2,9 @@
 
 import os
 
+from divineos.core.knowledge import init_knowledge_table
+from divineos.core.ledger import init_db
+from divineos.core.memory import init_memory_tables
 from divineos.core.seed_manager import (
     apply_seed,
     get_applied_seed_version,
@@ -9,9 +12,6 @@ from divineos.core.seed_manager import (
     should_reseed,
     validate_seed,
 )
-from divineos.core.knowledge import init_knowledge_table
-from divineos.core.ledger import init_db
-from divineos.core.memory import init_memory_tables
 
 
 class TestValidateSeed:

@@ -16,14 +16,15 @@ It runs during SESSION_END to keep cross-session context accurate.
 
 import os
 import sqlite3
-from divineos.core.claim_store import count_claims
-from divineos.core.decision_journal import count_decisions, get_paradigm_shifts
-from divineos.core.growth import compute_growth_map
-from divineos.core.knowledge import get_connection, get_lessons
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
+
+from divineos.core.claim_store import count_claims
+from divineos.core.decision_journal import count_decisions, get_paradigm_shifts
+from divineos.core.growth import compute_growth_map
+from divineos.core.knowledge import get_connection, get_lessons
 
 
 def get_memory_dir() -> Path | None:

@@ -12,8 +12,8 @@ This server uses the unified tool capture system for consistency.
 """
 
 import json
-from typing import Any
 import sqlite3
+from typing import Any
 
 from divineos.core.error_handling import (
     EventCaptureError,

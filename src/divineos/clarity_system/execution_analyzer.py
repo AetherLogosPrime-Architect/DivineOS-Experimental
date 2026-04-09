@@ -3,6 +3,7 @@
 Queries ledger and extracts actual execution data for comparison.
 """
 
+import sqlite3
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -12,7 +13,6 @@ from loguru import logger
 from .base import ExecutionAnalyzer
 from .ledger_integration import LedgerQueryInterface
 from .types import ExecutionData, ExecutionMetrics, ToolCall
-import sqlite3
 
 _EA_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

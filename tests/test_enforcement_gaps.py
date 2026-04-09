@@ -10,10 +10,9 @@ Tests cover:
 
 import threading
 
-from divineos.core.tool_wrapper import wrap_tool_execution
-from divineos.core.session_manager import initialize_session, end_session
+from divineos.core.session_manager import end_session, initialize_session
+from divineos.core.tool_wrapper import get_unified_capture, wrap_tool_execution
 from divineos.hooks.clarity_enforcement import ClarityChecker
-from divineos.core.tool_wrapper import get_unified_capture
 
 
 class TestMergedIDEMCPFailureModes:

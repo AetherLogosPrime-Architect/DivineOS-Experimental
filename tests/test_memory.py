@@ -1,8 +1,8 @@
 """Tests for the personal memory system."""
 
 import pytest
-from divineos.core.ledger import init_db
-from divineos.core.knowledge import init_knowledge_table, store_knowledge
+
+import divineos.core.ledger as ledger_mod
 from divineos.core.active_memory import (
     compute_importance,
     demote_from_active,
@@ -12,6 +12,8 @@ from divineos.core.active_memory import (
     recall,
     refresh_active_memory,
 )
+from divineos.core.knowledge import init_knowledge_table, store_knowledge
+from divineos.core.ledger import init_db
 from divineos.core.memory import (
     CORE_SLOTS,
     clear_core,
@@ -20,7 +22,6 @@ from divineos.core.memory import (
     init_memory_tables,
     set_core,
 )
-import divineos.core.ledger as ledger_mod
 
 
 @pytest.fixture(autouse=True)

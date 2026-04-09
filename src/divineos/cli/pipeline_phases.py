@@ -10,7 +10,6 @@ from typing import Any
 import click
 from loguru import logger
 
-from divineos.core.constants import CONFIDENCE_ACTIVE_MEMORY_FLOOR, CONFIDENCE_RELIABLE
 from divineos.cli._helpers import _safe_echo
 from divineos.cli._wrappers import (
     _wrapped_consolidate_related,
@@ -19,6 +18,7 @@ from divineos.cli._wrappers import (
     _wrapped_refresh_active_memory,
     _wrapped_store_knowledge,
 )
+from divineos.core.constants import CONFIDENCE_ACTIVE_MEMORY_FLOOR, CONFIDENCE_RELIABLE
 from divineos.core.memory import init_memory_tables
 
 # Pipeline phases catch at integration boundaries — these are the real failure modes.
@@ -78,8 +78,8 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
 
     # 3e. SIS — assess and translate esoteric language in new entries
     try:
-        from divineos.core.semantic_integrity import assess_and_translate
         from divineos.core.knowledge import _get_connection
+        from divineos.core.semantic_integrity import assess_and_translate
 
         valid_ids = [did for did in deep_ids if did]
         if valid_ids:
@@ -554,7 +554,8 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         conn = _get_conn()
         current_rows = conn.execute(
             "SELECT knowledge_id, access_count FROM knowledge "
-            f"WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_ACTIVE_MEMORY_FLOOR}"
+            "WHERE superseded_by IS NULL AND confidence >= ?",
+            (CONFIDENCE_ACTIVE_MEMORY_FLOOR,),
         ).fetchall()
         conn.close()
         for kid, current_access in current_rows:

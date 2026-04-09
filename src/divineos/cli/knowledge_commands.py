@@ -1,6 +1,8 @@
 """Knowledge commands — learn, knowledge, ask, briefing, forget, lessons,
 clear-lessons, consolidate."""
 
+import sqlite3
+
 import click
 
 from divineos.cli._helpers import (
@@ -22,7 +24,6 @@ from divineos.cli._wrappers import (
 )
 from divineos.core.knowledge import KNOWLEDGE_TYPES, search_knowledge
 from divineos.core.memory import init_memory_tables
-import sqlite3
 
 _KC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

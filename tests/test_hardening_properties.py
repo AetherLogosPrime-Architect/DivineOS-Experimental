@@ -11,23 +11,22 @@ Tests formal correctness properties of the hardened system:
 7. Tool execution duration property
 """
 
-import pytest
 import uuid
 
-from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
-
+import pytest
+from hypothesis_compat import HAS_HYPOTHESIS, HealthCheck, given, settings, st
 
 from divineos.core.ledger import get_events, verify_event_hash
 from divineos.core.session_manager import (
-    initialize_session,
-    get_current_session_id,
-    end_session,
     clear_session,
+    end_session,
+    get_current_session_id,
+    initialize_session,
 )
 from divineos.event.event_emission import (
-    emit_user_input,
     emit_tool_call,
     emit_tool_result,
+    emit_user_input,
 )
 
 # Skip all tests in this module if hypothesis is not installed

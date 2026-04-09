@@ -7,8 +7,8 @@ from pathlib import Path
 import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
-from divineos.core.constants import CONFIDENCE_RELIABLE, CONFIDENCE_VERY_HIGH
 import divineos.analysis.session_discovery as _discovery_mod
+from divineos.analysis.analysis import analyze_session
 from divineos.cli._helpers import _display_and_store_analysis, _safe_echo
 from divineos.cli._wrappers import (
     _wrapped_apply_session_feedback,
@@ -21,7 +21,7 @@ from divineos.cli._wrappers import (
     init_quality_tables,
     logger,
 )
-from divineos.analysis.analysis import analyze_session
+from divineos.core.constants import CONFIDENCE_RELIABLE, CONFIDENCE_VERY_HIGH
 from divineos.core.knowledge import init_knowledge_table
 from divineos.core.ledger import init_db
 
@@ -315,8 +315,9 @@ def register(cli: click.Group) -> None:
     @click.argument("session_id", required=False)
     def report_cmd(session_id: str) -> None:
         """Display a stored analysis report."""
-        from divineos.analysis.analysis import get_stored_report, list_recent_sessions
         from datetime import datetime, timezone
+
+        from divineos.analysis.analysis import get_stored_report, list_recent_sessions
 
         try:
             if not session_id:

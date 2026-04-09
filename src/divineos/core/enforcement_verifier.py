@@ -13,8 +13,8 @@ Requirements:
 - Requirement 9.1-9.7: Verify enforcement is working
 """
 
-from typing import Any
 import sqlite3
+from typing import Any
 
 from loguru import logger
 

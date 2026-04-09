@@ -1,8 +1,8 @@
 """Tests for system monitoring and observability."""
 
 from divineos.integration.system_monitor import (
-    SystemMonitor,
     IntegrationPointMetrics,
+    SystemMonitor,
     get_system_monitor,
     reset_monitor,
 )

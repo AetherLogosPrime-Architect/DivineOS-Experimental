@@ -28,6 +28,7 @@ import time
 import uuid
 from typing import Any, cast
 
+from divineos.analysis.quality_storage import get_check_history
 from divineos.core.constants import (
     AFFECT_DECLINING_BOOST,
     AFFECT_FRUSTRATION_AROUSAL,
@@ -38,7 +39,6 @@ from divineos.core.constants import (
     AFFECT_PRAISE_VALENCE_THRESHOLD,
 )
 from divineos.core.memory import _get_connection
-from divineos.analysis.quality_storage import get_check_history
 
 _AFFECT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

@@ -17,9 +17,17 @@ from loguru import logger
 
 from divineos.core._ledger_base import (
     DB_PATH as DB_PATH,
+)
+from divineos.core._ledger_base import (
     _get_db_path as _get_db_path,
+)
+from divineos.core._ledger_base import (
     compute_hash as compute_hash,
+)
+from divineos.core._ledger_base import (
     get_connection as get_connection,
+)
+from divineos.core._ledger_base import (
     get_connection_fk as get_connection_fk,
 )
 from divineos.event.event_validation import EventValidator
@@ -395,9 +403,17 @@ def get_ledger() -> Ledger:
 
 # Backward-compat re-exports: verification/cleanup/export now live in ledger_verify.py
 from divineos.core.ledger_verify import (  # noqa: E402
-    verify_event_hash as verify_event_hash,
-    get_verified_events as get_verified_events,
-    verify_all_events as verify_all_events,
     clean_corrupted_events as clean_corrupted_events,
+)
+from divineos.core.ledger_verify import (  # noqa: E402
     export_to_markdown as export_to_markdown,
+)
+from divineos.core.ledger_verify import (  # noqa: E402
+    get_verified_events as get_verified_events,
+)
+from divineos.core.ledger_verify import (  # noqa: E402
+    verify_all_events as verify_all_events,
+)
+from divineos.core.ledger_verify import (  # noqa: E402
+    verify_event_hash as verify_event_hash,
 )

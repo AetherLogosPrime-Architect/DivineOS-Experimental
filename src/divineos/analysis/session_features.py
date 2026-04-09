@@ -35,7 +35,6 @@ from divineos.analysis.tone_tracking import (
 )
 from divineos.core.fidelity import compute_content_hash
 
-
 # --- Dataclasses ---
 
 
@@ -77,7 +76,6 @@ from divineos.analysis._session_types import (  # noqa: E402
 )
 from divineos.analysis.feature_storage import _get_connection  # noqa: E402
 from divineos.analysis.tone_tracking import _classify_tone  # noqa: E402
-
 
 # ============================================================
 # Feature 5: Session Timeline

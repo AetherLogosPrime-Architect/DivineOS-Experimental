@@ -5,20 +5,21 @@ Tests the full workflow of clarity statement generation, plan analysis,
 execution analysis, deviation detection, and summary generation.
 """
 
-import pytest
-from uuid import uuid4
 from datetime import datetime, timezone
+from uuid import uuid4
+
+import pytest
 
 from divineos.clarity_system import (
+    ClarityStatement,
     DefaultClarityStatementGenerator,
-    DefaultPlanAnalyzer,
     DefaultDeviationAnalyzer,
     DefaultLearningExtractor,
+    DefaultPlanAnalyzer,
     DefaultSummaryGenerator,
-    ClarityStatement,
-    ScopeEstimate,
     ExecutionData,
     ExecutionMetrics,
+    ScopeEstimate,
     ToolCall,
 )
 

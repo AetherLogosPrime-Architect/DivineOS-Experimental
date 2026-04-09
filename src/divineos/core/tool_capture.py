@@ -9,11 +9,11 @@ Extracted from tool_wrapper.py to keep modules under 500 lines.
 """
 
 import os
+import sqlite3
 import threading
 import time
 import uuid
 from typing import Any
-import sqlite3
 
 from loguru import logger
 

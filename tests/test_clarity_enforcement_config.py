@@ -1,7 +1,7 @@
 """Tests for clarity enforcement configuration system."""
 
-import os
 import json
+import os
 import tempfile
 from pathlib import Path
 

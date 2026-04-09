@@ -5,6 +5,12 @@ import os
 import pytest
 from click.testing import CliRunner
 
+from divineos.core.affect import (
+    count_affect_entries,
+    get_affect_history,
+    get_affect_summary,
+    log_affect,
+)
 from divineos.core.claim_store import (
     STATUS_INVESTIGATING,
     STATUS_OPEN,
@@ -21,12 +27,6 @@ from divineos.core.claim_store import (
     list_claims,
     search_claims,
     update_claim,
-)
-from divineos.core.affect import (
-    count_affect_entries,
-    get_affect_history,
-    get_affect_summary,
-    log_affect,
 )
 
 

@@ -16,11 +16,11 @@ A warrant can be ACTIVE, DEFEATED (contradicted), or WITHDRAWN (manually).
 from __future__ import annotations
 
 import json
+import sqlite3
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
-import sqlite3
 
 from loguru import logger
 
