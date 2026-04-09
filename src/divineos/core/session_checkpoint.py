@@ -200,6 +200,40 @@ def format_context_warning(state: dict[str, Any]) -> str | None:
     return None
 
 
+def _get_modified_files() -> list[str]:
+    """Get files modified in the working tree (unstaged + staged)."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+    return []
+
+
+def _get_recent_decisions(limit: int = 3) -> list[str]:
+    """Get recent decision summaries from the decision journal."""
+    try:
+        from divineos.core.knowledge._base import get_connection
+
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT what, why FROM decision_journal ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        conn.close()
+        return [f"{what}: {why[:100]}" for what, why in rows if what]
+    except (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError):
+        return []
+
+
 # ─── Run Checkpoint ───────────────────────────────────────────────────
 
 
@@ -244,14 +278,25 @@ def run_checkpoint() -> str:
 
         if not skip_handoff:
             state = _load_state()
+            # Capture what's actually in progress for richer handoff
+            modified_files = _get_modified_files()
+            recent_decisions = _get_recent_decisions(limit=2)
+            file_context = ""
+            if modified_files:
+                file_context = f" | files: {', '.join(modified_files[:5])}"
+            summary = (
+                f"Auto-checkpoint #{state.get('checkpoints_run', 0) + 1}: "
+                f"{state.get('edits', 0)} edits{file_context}"
+            )
             save_handoff_note(
-                summary=f"Auto-checkpoint #{state.get('checkpoints_run', 0) + 1}: "
-                f"{state.get('edits', 0)} edits, {state.get('tool_calls', 0)} tool calls",
+                summary=summary,
+                open_threads=recent_decisions,
                 goals_state=goals_text,
                 context_snapshot={
                     "type": "checkpoint",
                     "edits": state.get("edits", 0),
                     "tool_calls": state.get("tool_calls", 0),
+                    "modified_files": modified_files[:10],
                     "timestamp": time.time(),
                 },
             )

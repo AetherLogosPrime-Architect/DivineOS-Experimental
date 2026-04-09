@@ -435,7 +435,7 @@ def _format_handoff_lines() -> list[str]:
         if handoff.get("summary"):
             lines.append(handoff["summary"])
         if handoff.get("open_threads"):
-            lines.append("\n**Open threads:**")
+            lines.append("\n**Recent decisions:**")
             for thread in handoff["open_threads"]:
                 lines.append(f"  - {thread}")
         if handoff.get("intent"):
@@ -448,12 +448,17 @@ def _format_handoff_lines() -> list[str]:
             lines.append("\n**Next steps:**")
             for step in handoff["next_steps"]:
                 lines.append(f"  - {step}")
+        snapshot = handoff.get("context_snapshot", {})
+        modified_files = snapshot.get("modified_files", [])
+        if modified_files:
+            lines.append("\n**Files in progress:**")
+            for f in modified_files[:8]:
+                lines.append(f"  - {f}")
         meta_parts = []
         if handoff.get("mood"):
             meta_parts.append(handoff["mood"])
         if handoff.get("goals_state"):
             meta_parts.append(f"goals: {handoff['goals_state']}")
-        snapshot = handoff.get("context_snapshot", {})
         if snapshot.get("session_grade"):
             meta_parts.append(f"grade: {snapshot['session_grade']}")
         if meta_parts:
@@ -466,12 +471,25 @@ def _format_handoff_lines() -> list[str]:
         return []
 
 
+def _is_stable(item: dict[str, Any]) -> bool:
+    """Check if a knowledge entry is settled (high confidence, mature)."""
+    return item.get("confidence", 0) >= 0.95 and item.get("maturity", "RAW") in (
+        "TESTED",
+        "CONFIRMED",
+    )
+
+
 def _format_knowledge_sections(
     grouped: dict[str, list[dict[str, Any]]],
     hint_matches: set[str],
     skip_types: set[str] | None = None,
 ) -> list[str]:
-    """Format knowledge entries grouped by type."""
+    """Format knowledge entries grouped by type.
+
+    Stable sections (all entries high-confidence + mature) are collapsed
+    to a one-line summary. Only sections with new, evolving, or low-confidence
+    entries are expanded in full.
+    """
     lines: list[str] = []
     for kt in [
         "DIRECTIVE",
@@ -501,6 +519,15 @@ def _format_knowledge_sections(
             "PROCEDURE": "PROCEDURES",
             "EPISODE": "EPISODES",
         }.get(kt, f"{kt}S")
+
+        # Collapse stable sections — all entries settled, none evolving
+        all_stable = all(_is_stable(i) for i in items)
+        any_hinted = any(i["knowledge_id"] in hint_matches for i in items)
+        if all_stable and not any_hinted and len(items) >= 2:
+            lines.append(f"### {plural} ({len(items)}) -- all stable")
+            lines.append("")
+            continue
+
         lines.append(f"### {plural} ({len(items)})")
         for item in items:
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
@@ -508,17 +535,17 @@ def _format_knowledge_sections(
             mat_marker = " ++" if mat == "CONFIRMED" else " +" if mat == "TESTED" else ""
             entity = f" [from: {item['source_entity']}]" if item.get("source_entity") else ""
             content = item["content"]
-            access = f"({item['access_count']}x accessed)"
 
             if kt == "DIRECTIVE":
                 lines.append(f"- [{item['confidence']:.2f}] {content}{mat_marker}{hint_marker}")
-                lines.append(f"  {access}{entity}")
+                if entity:
+                    lines.append(f"  {entity}")
             else:
                 display = content.replace("\n", " ")
                 if len(display) > 300:
                     display = display[:297] + "..."
                 lines.append(
-                    f"- [{item['confidence']:.2f}]{entity} {display} {access}{mat_marker}{hint_marker}"
+                    f"- [{item['confidence']:.2f}]{entity} {display}{mat_marker}{hint_marker}"
                 )
         lines.append("")
     return lines

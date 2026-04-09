@@ -156,13 +156,12 @@ class DreamReport:
             lines.append("    No new connections found")
 
         # Curiosity
-        lines.append("\n  Phase 6 - Curiosity Generation")
-        if self.curiosities_generated > 0:
-            lines.append(f"    Generated {self.curiosities_generated} question(s)")
+        lines.append("\n  Phase 6 - Curiosity Maintenance")
+        if self.curiosity_categories:
             for cat in self.curiosity_categories:
-                lines.append(f"    ? {cat}")
+                lines.append(f"    {cat}")
         else:
-            lines.append("    No new questions generated")
+            lines.append("    Nothing to prune")
 
         # Errors
         if self.phase_errors:
@@ -414,21 +413,24 @@ def _phase_recombination(report: DreamReport) -> None:
     report.connection_details = connections
 
 
-# ─── Phase 6: Curiosity Generation ──────────────────────────────────
+# ─── Phase 6: Curiosity Maintenance ─────────────────────────────────
 
 
 def _phase_curiosity(report: DreamReport) -> None:
-    """Scan knowledge gaps and generate questions for the next session.
+    """Prune stale curiosities. No longer auto-generates questions.
 
-    This is the proactive horizon — the OS doesn't wait for the Architect
-    to ask. It looks at its own incomplete knowledge, stuck lessons, and
-    unresolved contradictions, and generates genuine questions.
+    Auto-generated questions ("What evidence would confirm or refute: X?")
+    were formulaic templates stamped onto existing knowledge, not genuine
+    curiosity. Real questions come from manual filing via `divineos curiosity add`
+    or the `curiosity wonder` command (explicit opt-in).
     """
-    from divineos.core.curiosity_engine import generate_curiosities_from_gaps
+    from divineos.core.curiosity_engine import prune_stale_curiosities
 
-    generated = generate_curiosities_from_gaps(max_questions=5)
-    report.curiosities_generated = len(generated)
-    report.curiosity_categories = [g.get("question", "?")[:80] for g in generated]
+    pruned = prune_stale_curiosities()
+    report.curiosities_generated = 0
+    report.curiosity_categories = []
+    if pruned:
+        report.curiosity_categories.append(f"pruned {pruned} stale")
 
 
 # ─── Orchestrator ─────────────────────────────────────────────────────
