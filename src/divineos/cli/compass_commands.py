@@ -13,10 +13,9 @@ def register(cli: click.Group) -> None:
 
         click.echo(format_compass_reading())
 
-        # Mark OS engagement
-        from divineos.core.hud_handoff import mark_engaged
+        from divineos.cli._helpers import _log_os_query
 
-        mark_engaged()
+        _log_os_query("compass", "reading")
 
     @cli.group("compass-ops", invoke_without_command=True)
     @click.pass_context
@@ -79,9 +78,9 @@ def register(cli: click.Group) -> None:
         )
         click.secho(f"    {evidence}", fg="bright_black")
 
-        from divineos.core.hud_handoff import mark_engaged
+        from divineos.cli._helpers import _log_os_query
 
-        mark_engaged()
+        _log_os_query("compass", f"observe {spectrum}")
 
     @compass_group.command("history")
     @click.option("--spectrum", "-s", default=None, help="Filter by spectrum name")
