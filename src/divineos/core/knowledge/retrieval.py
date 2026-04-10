@@ -726,9 +726,19 @@ def _format_briefing(
 
             lines.append("### LAST SESSION EMOTIONAL ARC")
             lines.append(f"  Arc: {arc} | Tone: {tone} | Peak intensity: {peak:.2f}")
+            # Recovery velocity — how fast did I bounce back from upsets?
+            velocity = last.get("recovery_velocity", 0.0)
             if upset_n > 0:
                 recovery_pct = f"{recovery_n / upset_n:.0%}" if upset_n else "N/A"
-                lines.append(f"  Upsets: {upset_n} | Recoveries: {recovery_n} ({recovery_pct})")
+                velocity_label = (
+                    ("fast" if velocity <= 1.5 else "moderate" if velocity <= 3.0 else "slow")
+                    if velocity > 0
+                    else "no recovery"
+                )
+                lines.append(
+                    f"  Upsets: {upset_n} | Recoveries: {recovery_n} ({recovery_pct})"
+                    f" | Recovery speed: {velocity_label} ({velocity:.1f} msg gap)"
+                )
             if narrative:
                 display_narrative = narrative.replace("\n", " ")
                 if len(display_narrative) > 200:

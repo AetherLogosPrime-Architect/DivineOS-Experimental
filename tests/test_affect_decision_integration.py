@@ -97,8 +97,9 @@ class TestGetAffectAtDecision:
     def test_returns_none_for_missing_decision(self):
         assert get_affect_at_decision("nonexistent-id") is None
 
-    def test_returns_none_when_no_affect_table(self, tmp_path, monkeypatch):
-        # Use a fresh DB without affect_log table
+    def test_auto_logs_affect_when_none_recent(self, tmp_path, monkeypatch):
+        # record_decision now auto-logs affect when no recent affect exists.
+        # This verifies the event-triggered affect capture works.
         fresh_db = tmp_path / "fresh.db"
         monkeypatch.setattr(ledger_mod, "DB_PATH", fresh_db)
         monkeypatch.setattr(ledger_mod, "_get_db_path", lambda: fresh_db)
@@ -106,4 +107,7 @@ class TestGetAffectAtDecision:
         init_memory_tables()
         init_decision_journal()
         decision_id = record_decision("Test", reasoning="test")
-        assert get_affect_at_decision(decision_id) is None
+        affect = get_affect_at_decision(decision_id)
+        assert affect is not None
+        assert affect["trigger"] == "decision_recorded"
+        assert affect["valence"] == 0.3  # WEIGHT_ROUTINE default

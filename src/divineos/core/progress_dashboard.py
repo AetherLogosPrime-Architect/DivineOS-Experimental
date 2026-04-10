@@ -181,9 +181,9 @@ def _score_recent_sessions(report: ProgressReport, sessions: list[dict]) -> None
             report.recent_health_grade = "F"
 
         # Trend: compare first half to second half
-        if len(scores) >= 4:
-            first_half = scores[: len(scores) // 2]
-            second_half = scores[len(scores) // 2 :]
+        if len(scores) >= 2:
+            first_half = scores[: len(scores) // 2] or scores[:1]
+            second_half = scores[len(scores) // 2 :] or scores[-1:]
             first_avg = sum(first_half) / len(first_half)
             second_avg = sum(second_half) / len(second_half)
             if second_avg > first_avg + 0.05:
