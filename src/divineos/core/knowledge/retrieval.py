@@ -76,7 +76,7 @@ def get_unconsolidated_events(limit: int = 100) -> list[dict[str, Any]]:
 
 
 def generate_briefing(
-    max_items: int = 20,
+    max_items: int = 50,
     include_types: list[str] | None = None,
     context_hint: str = "",
     deep: bool = False,

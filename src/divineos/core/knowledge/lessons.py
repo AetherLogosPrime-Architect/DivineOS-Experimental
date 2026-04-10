@@ -287,7 +287,7 @@ def get_escalation_candidates() -> list[dict[str, Any]]:
         _ensure_regressions_column(conn)
         rows = conn.execute(
             "SELECT lesson_id, created_at, category, description, first_session, "
-            "occurrences, last_seen, sessions, status, content_hash, agent "
+            "occurrences, last_seen, sessions, status, content_hash, agent, regressions "
             "FROM lesson_tracking WHERE regressions >= ?",
             (REGRESSION_ESCALATION_THRESHOLD,),
         ).fetchall()

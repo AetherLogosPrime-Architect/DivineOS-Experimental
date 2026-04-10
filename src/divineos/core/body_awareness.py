@@ -626,9 +626,9 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
         vitals.tool_event_ratio = round(vitals.tool_events / vitals.ledger_events, 3)
 
     # -- Warning thresholds --
-    if vitals.total_size_mb > 100:
+    if vitals.total_size_mb > 500:
         vitals.warnings.append(f"Storage critical: {vitals.total_size_mb:.0f}MB")
-    elif vitals.total_size_mb > 50:
+    elif vitals.total_size_mb > 250:
         vitals.warnings.append(f"Storage high: {vitals.total_size_mb:.0f}MB")
 
     if vitals.tool_event_ratio > 0.8:
@@ -636,12 +636,12 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
             f"Tool events dominate ledger: {vitals.tool_event_ratio:.0%} -- pruning may be needed"
         )
 
-    if vitals.supersession_ratio > 0.5:
+    if vitals.supersession_ratio > 0.8:
         vitals.warnings.append(
             f"High supersession ratio: {vitals.supersession_ratio:.0%} -- lots of replaced knowledge"
         )
 
-    if vitals.ledger_events > 10000:
+    if vitals.ledger_events > 50000:
         vitals.warnings.append(
             f"Ledger growing large: {vitals.ledger_events} events -- consider compaction"
         )

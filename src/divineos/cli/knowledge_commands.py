@@ -42,7 +42,7 @@ def register(cli: click.Group) -> None:
         help="Knowledge type (auto-detected if omitted)",
     )
     @click.option("--content", "content_opt", default=None, help="The knowledge to store")
-    @click.option("--confidence", default=1.0, type=float, help="Confidence 0.0-1.0")
+    @click.option("--confidence", default=0.5, type=float, help="Confidence 0.0-1.0")
     @click.option("--tags", default="", help="Comma-separated tags")
     @click.option("--source", default="", help="Comma-separated source event IDs")
     @click.option(
@@ -337,7 +337,7 @@ def register(cli: click.Group) -> None:
             pass  # anticipation is best-effort
 
     @cli.command("briefing")
-    @click.option("--max", "max_items", default=20, type=int, help="Max items in briefing")
+    @click.option("--max", "max_items", default=50, type=int, help="Max items in briefing")
     @click.option("--types", default="", help="Comma-separated knowledge types to include")
     @click.option(
         "--topic",

@@ -52,7 +52,6 @@ SLOT_ORDER = [
     "active_knowledge",
     "knowledge_origin",
     "dead_architecture",
-    "warnings",
     "journal",
     "decision_journal",
     "opinions",
@@ -209,7 +208,7 @@ def _build_session_health_slot() -> str:
     """How this session is going. Corrections, encouragements, trajectory."""
     path = _ensure_hud_dir() / "session_health.json"
     if not path.exists():
-        return "# Session Health\n\nSession just started. No data yet."
+        return ""
 
     try:
         health = json.loads(path.read_text(encoding="utf-8"))
@@ -288,7 +287,7 @@ def _build_context_budget_slot() -> str:
         except (json.JSONDecodeError, OSError):
             lines.append("- Budget data unavailable.")
     else:
-        lines.append("- No budget tracking active. I should be mindful of context size.")
+        pass  # No budget data — skip the empty placeholder
 
     # Guardrail state — runtime limits
     try:
@@ -461,7 +460,7 @@ def _build_task_state_slot() -> str:
     """What I'm doing right now, what's next, what's done."""
     path = _ensure_hud_dir() / "task_state.json"
     if not path.exists():
-        return "# My Current Task\n\nNo task state saved. I should track what I'm working on."
+        return ""
 
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
