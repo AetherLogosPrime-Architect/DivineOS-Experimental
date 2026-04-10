@@ -1,6 +1,7 @@
 """Lesson tracking — record, query, summarize, extract from reports."""
 
 import json
+import re
 import sqlite3
 import time
 import uuid
@@ -334,10 +335,15 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
         return 0
 
     # Build search terms from the category (e.g. "blind_retry" -> ["blind", "retry"])
-    keywords = [w.lower() for w in category.replace("_", " ").split() if len(w) >= 3]
+    # Skip keywords shorter than 4 chars to avoid false positives from common
+    # substrings (e.g. "test" matching "latest", "or" matching "error").
+    keywords = [w.lower() for w in category.replace("_", " ").split() if len(w) >= 4]
     if not keywords:
         # Category too short to keyword-match — fall back to the time gate only
         return len(session_ids)
+
+    # Pre-compile word boundary patterns for each keyword
+    keyword_patterns = [re.compile(r"\b" + re.escape(kw) + r"\b", re.IGNORECASE) for kw in keywords]
 
     count = 0
     # system_events and decision_journal live in the ledger DB
@@ -348,15 +354,17 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
         for sid in session_ids:
             # Search ledger events for this session that mention the category.
             # system_events stores data in 'payload' (JSON text), not 'content'.
+            # Use SQL LIKE for initial candidate selection, then word-boundary
+            # regex in Python to eliminate substring false positives.
             like_clauses = " OR ".join(["LOWER(payload) LIKE ?" for _ in keywords])
             like_params = [f"%{kw}%" for kw in keywords]
 
             try:
-                hit = conn.execute(
-                    f"SELECT 1 FROM system_events WHERE event_id LIKE ? AND ({like_clauses}) LIMIT 1",
+                candidates = conn.execute(
+                    f"SELECT payload FROM system_events WHERE event_id LIKE ? AND ({like_clauses})",
                     [f"%{sid[:12]}%", *like_params],
-                ).fetchone()
-                if hit:
+                ).fetchall()
+                if _any_word_boundary_match(candidates, keyword_patterns, col_index=0):
                     count += 1
                     continue
             except sqlite3.OperationalError:
@@ -371,17 +379,33 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
                 for kw in keywords:
                     like_params_dj.extend([f"%{kw}%", f"%{kw}%"])
 
-                hit = conn.execute(
-                    f"SELECT 1 FROM decision_journal WHERE session_id = ? AND ({like_clauses_dj}) LIMIT 1",
+                candidates = conn.execute(
+                    f"SELECT content || ' ' || reasoning FROM decision_journal WHERE session_id = ? AND ({like_clauses_dj})",
                     [sid, *like_params_dj],
-                ).fetchone()
-                if hit:
+                ).fetchall()
+                if _any_word_boundary_match(candidates, keyword_patterns, col_index=0):
                     count += 1
             except sqlite3.OperationalError:
                 pass  # decision_journal table may not exist
     finally:
         conn.close()
     return count
+
+
+def _any_word_boundary_match(
+    rows: list[Any], patterns: list[re.Pattern[str]], col_index: int = 0
+) -> bool:
+    """Return True if any row's text matches at least one keyword with word boundaries.
+
+    This eliminates substring false positives: "test" won't match "latest"
+    but will match "test suite" or "ran the test".
+    """
+    for row in rows:
+        text = row[col_index] or ""
+        for pattern in patterns:
+            if pattern.search(text):
+                return True
+    return False
 
 
 def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any]]:

@@ -125,6 +125,7 @@ QUALITY_MIN_FAILED_CHECKS_DOWNGRADE = 2  # This many failures: DOWNGRADE
 # Compass-informed gate tightening: when truthfulness is in deficiency zone,
 # raise the block threshold by this much (making the gate stricter).
 QUALITY_COMPASS_TIGHTEN = 0.1  # Added to block thresholds when compass is concerned
+QUALITY_VALIDATION_TIGHTEN = 0.1  # Added when user grades consistently lower than self-grades
 
 # Quality check scoring thresholds
 QUALITY_CHECK_PASS = 0.7  # Score needed to pass a quality check
@@ -233,3 +234,10 @@ COMPASS_SPECTRUMS_HASH = "2921dfc05fa4a532c641a647aa3d7567f6de643f7e52142317bda0
 
 LESSON_MIN_RESOLUTION_DAYS = 7.0  # Minimum days in 'improving' before resolution
 LESSON_MIN_STIMULUS_SESSIONS = 2  # Min clean sessions with category-relevant events
+
+# ─── Briefing Budget ─────────────────────────────────────────────
+# Total line cap for the briefing. Subsystems compete by priority —
+# higher-priority sections get more lines when budget is tight.
+
+BRIEFING_MAX_LINES = 80  # Total line budget for the briefing
+BRIEFING_SECTION_MIN_LINES = 3  # Minimum lines any section gets

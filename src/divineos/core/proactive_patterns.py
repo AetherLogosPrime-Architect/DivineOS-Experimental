@@ -15,8 +15,18 @@ Sanskrit anchor: prajna (wisdom, practical insight applied to action).
 
 import re
 import sqlite3
+import time
+import uuid
 from typing import Any
 
+from loguru import logger
+
+from divineos.core.constants import (
+    PATTERN_ARCHIVE_THRESHOLD,
+    PATTERN_FAILURE_DELTA,
+    PATTERN_SUCCESS_DELTA,
+    PATTERN_TACTICAL_FAILURE_MAX,
+)
 from divineos.core.knowledge import get_connection
 from divineos.core.knowledge._text import _compute_overlap, _is_extraction_noise
 
@@ -253,3 +263,209 @@ def get_full_context_advice(context: str) -> str:
     if not parts:
         return ""
     return "\n\n".join(parts)
+
+
+# ─── Pattern Outcome Tracking ──────────────────────────────────────
+
+
+def _init_pattern_outcomes_table() -> None:
+    """Create the pattern outcome tracking table."""
+    conn = get_connection()
+    try:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS pattern_outcomes (
+                outcome_id TEXT PRIMARY KEY,
+                pattern_id TEXT NOT NULL,
+                pattern_source TEXT NOT NULL,
+                outcome TEXT NOT NULL CHECK(outcome IN ('success', 'failure')),
+                context TEXT NOT NULL DEFAULT '',
+                created_at REAL NOT NULL
+            )
+        """)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def record_pattern_outcome(
+    pattern_id: str,
+    pattern_source: str,
+    outcome: str,
+    context: str = "",
+) -> dict[str, Any]:
+    """Record outcome after following a proactive recommendation.
+
+    When a recommendation leads to a bad outcome, the underlying pattern's
+    confidence is weakened. Good outcomes strengthen it. This closes the
+    feedback loop — patterns that consistently mislead get archived.
+
+    Args:
+        pattern_id: The ID of the pattern (knowledge_id, opinion_id, etc.)
+        pattern_source: Where the pattern came from ('knowledge', 'opinion', 'advice', 'decision')
+        outcome: 'success' or 'failure'
+        context: Optional description of what happened
+
+    Returns dict with: adjusted_confidence, archived, failures_total
+    """
+    _init_pattern_outcomes_table()
+
+    # Record the outcome
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO pattern_outcomes (outcome_id, pattern_id, pattern_source, outcome, context, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (str(uuid.uuid4()), pattern_id, pattern_source, outcome, context, time.time()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Apply confidence adjustment to the source
+    delta = PATTERN_SUCCESS_DELTA if outcome == "success" else PATTERN_FAILURE_DELTA
+    result: dict[str, Any] = {"archived": False, "failures_total": 0}
+
+    if pattern_source == "knowledge":
+        result = _adjust_knowledge_confidence(pattern_id, delta)
+    elif pattern_source == "opinion":
+        result = _adjust_opinion_confidence(pattern_id, delta)
+    # advice and decision sources don't have adjustable confidence — just track
+
+    # Check tactical failure count for archiving
+    conn = get_connection()
+    try:
+        failure_count = conn.execute(
+            "SELECT COUNT(*) FROM pattern_outcomes WHERE pattern_id = ? AND outcome = 'failure'",
+            (pattern_id,),
+        ).fetchone()[0]
+        result["failures_total"] = failure_count
+
+        if failure_count >= PATTERN_TACTICAL_FAILURE_MAX and not result.get("archived"):
+            _archive_pattern(pattern_id, pattern_source)
+            result["archived"] = True
+            logger.info(
+                "Pattern %s archived: %d tactical failures exceeded threshold %d",
+                pattern_id[:12],
+                failure_count,
+                PATTERN_TACTICAL_FAILURE_MAX,
+            )
+    finally:
+        conn.close()
+
+    logger.debug(
+        "Pattern outcome recorded: %s %s → confidence %s%.2f%s",
+        pattern_id[:12],
+        outcome,
+        "+" if delta > 0 else "",
+        delta,
+        " [ARCHIVED]" if result.get("archived") else "",
+    )
+
+    return result
+
+
+def _adjust_knowledge_confidence(knowledge_id: str, delta: float) -> dict[str, Any]:
+    """Adjust a knowledge entry's confidence by delta. Archive if below threshold."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT confidence, superseded_by FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        if not row or row[1] is not None:
+            return {"adjusted_confidence": 0.0, "archived": False}
+
+        new_conf = max(row[0] + delta, -1.0)  # Allow negative for archiving signal
+        conn.execute(
+            "UPDATE knowledge SET confidence = ? WHERE knowledge_id = ?",
+            (new_conf, knowledge_id),
+        )
+        conn.commit()
+
+        archived = new_conf <= PATTERN_ARCHIVE_THRESHOLD
+        if archived:
+            logger.info(
+                "Knowledge %s confidence dropped to %.2f (below %.2f) — archiving",
+                knowledge_id[:12],
+                new_conf,
+                PATTERN_ARCHIVE_THRESHOLD,
+            )
+        return {"adjusted_confidence": new_conf, "archived": archived}
+    finally:
+        conn.close()
+
+
+def _adjust_opinion_confidence(opinion_id: str, delta: float) -> dict[str, Any]:
+    """Adjust an opinion's confidence by delta."""
+    try:
+        from divineos.core.opinion_store import init_opinion_table
+
+        init_opinion_table()
+        conn = get_connection()
+        try:
+            row = conn.execute(
+                "SELECT confidence FROM opinions WHERE opinion_id = ?",
+                (opinion_id,),
+            ).fetchone()
+            if not row:
+                return {"adjusted_confidence": 0.0, "archived": False}
+
+            new_conf = max(row[0] + delta, 0.0)
+            conn.execute(
+                "UPDATE opinions SET confidence = ? WHERE opinion_id = ?",
+                (new_conf, opinion_id),
+            )
+            conn.commit()
+            return {
+                "adjusted_confidence": new_conf,
+                "archived": new_conf <= PATTERN_ARCHIVE_THRESHOLD,
+            }
+        finally:
+            conn.close()
+    except _PP_ERRORS:
+        return {"adjusted_confidence": 0.0, "archived": False}
+
+
+def _archive_pattern(pattern_id: str, source: str) -> None:
+    """Mark a pattern as archived — too many failures to recommend."""
+    if source == "knowledge":
+        conn = get_connection()
+        try:
+            # Set confidence to archive threshold so it drops out of recommendations
+            conn.execute(
+                "UPDATE knowledge SET confidence = ? WHERE knowledge_id = ?",
+                (PATTERN_ARCHIVE_THRESHOLD, pattern_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def get_pattern_outcome_stats(pattern_id: str) -> dict[str, Any]:
+    """Get success/failure stats for a pattern."""
+    try:
+        _init_pattern_outcomes_table()
+        conn = get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT outcome, COUNT(*) FROM pattern_outcomes WHERE pattern_id = ? GROUP BY outcome",
+                (pattern_id,),
+            ).fetchall()
+            successes = 0
+            failures = 0
+            for outcome, count in rows:
+                if outcome == "success":
+                    successes = count
+                else:
+                    failures = count
+            total = successes + failures
+            return {
+                "successes": successes,
+                "failures": failures,
+                "total": total,
+                "success_rate": successes / total if total > 0 else 0.0,
+            }
+        finally:
+            conn.close()
+    except _PP_ERRORS:
+        return {"successes": 0, "failures": 0, "total": 0, "success_rate": 0.0}

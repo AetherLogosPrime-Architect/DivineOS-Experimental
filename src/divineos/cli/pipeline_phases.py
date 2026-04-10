@@ -515,16 +515,38 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
 
     # 8. Session health score
     try:
-        from divineos.agent_integration.outcome_measurement import measure_session_health
+        from divineos.agent_integration.outcome_measurement import (
+            match_corrections_to_resolutions,
+            measure_session_health,
+        )
         from divineos.core.hud_handoff import was_briefing_loaded
 
+        # Position-based correction-resolution matching:
+        # Sort all signals by timestamp to get interleaved sequence numbers,
+        # then match encouragements to nearest preceding corrections.
+        all_signals = [("c", s.timestamp) for s in analysis.corrections] + [
+            ("e", s.timestamp) for s in analysis.encouragements
+        ]
+        all_signals.sort(key=lambda x: x[1])
+        corr_seq = []
+        enc_seq = []
+        for seq, (kind, _) in enumerate(all_signals):
+            if kind == "c":
+                corr_seq.append(seq)
+            else:
+                enc_seq.append(seq)
+
+        matched, unresolved = match_corrections_to_resolutions(corr_seq, enc_seq)
+        resolved_count = sum(1 for m in matched if m.encouragement_index is not None)
+
         health = measure_session_health(
-            corrections=len(analysis.corrections),
+            corrections=len(unresolved),
             encouragements=len(analysis.encouragements),
             context_overflows=len(analysis.context_overflows),
             tool_calls=analysis.tool_calls_total,
             user_messages=analysis.user_messages,
             briefing_loaded=was_briefing_loaded(),
+            resolved_corrections=resolved_count,
         )
         try:
             from divineos.core.hud_state import update_session_health

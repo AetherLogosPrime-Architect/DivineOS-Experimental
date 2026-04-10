@@ -8,6 +8,8 @@ from typing import Any
 from loguru import logger
 
 from divineos.core.constants import (
+    BRIEFING_MAX_LINES,
+    BRIEFING_SECTION_MIN_LINES,
     CONFIDENCE_RETRIEVAL_FLOOR,
     RETRIEVAL_WEIGHT_ACCESS,
     RETRIEVAL_WEIGHT_CONFIDENCE,
@@ -882,7 +884,55 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS:
         pass
 
-    return "\n".join(lines)
+    return _apply_briefing_budget(lines)
+
+
+def _apply_briefing_budget(lines: list[str]) -> str:
+    """Enforce briefing line budget — trim from the bottom when over budget.
+
+    Minsky's insight: with a fixed line budget, subsystems must compete
+    by urgency. The briefing is assembled top-down by priority (handoff,
+    growth, warnings, lessons, knowledge, connections, compass, journal).
+    When over budget, we trim from the bottom (lowest priority sections).
+
+    Sections are delimited by markdown headers (### or **Bold:**).
+    Each section keeps at least BRIEFING_SECTION_MIN_LINES lines.
+    """
+    if len(lines) <= BRIEFING_MAX_LINES:
+        return "\n".join(lines)
+
+    # Identify section boundaries (headers start new sections)
+    sections: list[list[str]] = [[]]
+    for line in lines:
+        if (line.startswith("###") or line.startswith("**")) and sections[-1]:
+            sections.append([])
+        sections[-1].append(line)
+
+    # Remove empty sections
+    sections = [s for s in sections if s]
+
+    # Trim from the last section backwards until within budget
+    total = sum(len(s) for s in sections)
+    i = len(sections) - 1
+    while total > BRIEFING_MAX_LINES and i >= 0:
+        section = sections[i]
+        # Trim this section down to minimum, preserving the header
+        if len(section) > BRIEFING_SECTION_MIN_LINES:
+            excess = min(len(section) - BRIEFING_SECTION_MIN_LINES, total - BRIEFING_MAX_LINES)
+            sections[i] = section[: len(section) - excess]
+            total -= excess
+        i -= 1
+
+    # If still over budget after trimming all sections to minimum,
+    # drop entire bottom sections
+    while total > BRIEFING_MAX_LINES and len(sections) > 1:
+        dropped = sections.pop()
+        total -= len(dropped)
+
+    result_lines: list[str] = []
+    for section in sections:
+        result_lines.extend(section)
+    return "\n".join(result_lines)
 
 
 def knowledge_stats() -> dict[str, Any]:

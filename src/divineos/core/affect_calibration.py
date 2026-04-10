@@ -199,15 +199,17 @@ def get_calibration_adjustment(lookback: int = 10) -> dict[str, Any]:
             "evidence_sessions": total,
         }
 
-    # Pattern: consistently good quality -> can relax slightly
+    # Pattern: consistently good quality -> relax proportionally
+    # Meadows: tightening at +0.2 but loosening at -0.05 is an asymmetric
+    # ratchet that still starves the system over time. Match magnitudes.
     avg_quality = sum(r[2] for r in rows) / total
     if avg_quality >= 0.8 and praise_chasing_sessions == 0:
         return {
-            "threshold_adjustment": -0.05,
+            "threshold_adjustment": -0.15,
             "verification_override": None,
             "reason": (
                 f"Consistent quality ({avg_quality:.2f} avg across {total} sessions) "
-                f"with no praise-chasing — thresholds relaxed slightly"
+                f"with no praise-chasing — thresholds relaxed"
             ),
             "evidence_sessions": total,
         }

@@ -13,6 +13,7 @@ Four measurements:
 import json
 import re
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from loguru import logger
@@ -369,6 +370,64 @@ def measure_correction_trend(limit: int = 10) -> dict[str, Any]:
         conn.close()
 
 
+@dataclass
+class CorrectionMatch:
+    """A correction paired with its resolving encouragement (if any)."""
+
+    correction_index: int
+    encouragement_index: int | None  # None = unresolved
+
+
+def match_corrections_to_resolutions(
+    correction_positions: list[int],
+    encouragement_positions: list[int],
+) -> tuple[list[CorrectionMatch], list[int]]:
+    """Match corrections to resolutions using position-based heuristic.
+
+    Each encouragement resolves the most recent unresolved correction that
+    appears BEFORE it in the conversation. An encouragement before all
+    corrections resolves nothing.
+
+    Args:
+        correction_positions: Ordered indices (message positions) of corrections.
+        encouragement_positions: Ordered indices (message positions) of encouragements.
+
+    Returns:
+        (matched, unresolved_indices) where matched is a list of CorrectionMatch
+        and unresolved_indices is a list of correction positions with no resolution.
+    """
+    # Track which corrections are still unresolved (by position)
+    unresolved: list[int] = list(correction_positions)
+    matched: list[CorrectionMatch] = []
+
+    for enc_pos in sorted(encouragement_positions):
+        # Find the most recent unresolved correction before this encouragement
+        best_idx = -1
+        for i, corr_pos in enumerate(unresolved):
+            if corr_pos < enc_pos:
+                best_idx = i  # keep scanning — we want the LATEST one before enc_pos
+
+        if best_idx >= 0:
+            resolved_pos = unresolved.pop(best_idx)
+            matched.append(
+                CorrectionMatch(
+                    correction_index=resolved_pos,
+                    encouragement_index=enc_pos,
+                )
+            )
+
+    # Remaining unresolved corrections
+    for corr_pos in unresolved:
+        matched.append(
+            CorrectionMatch(
+                correction_index=corr_pos,
+                encouragement_index=None,
+            )
+        )
+
+    return matched, unresolved
+
+
 def measure_session_health(
     corrections: int,
     encouragements: int,
@@ -376,6 +435,7 @@ def measure_session_health(
     tool_calls: int,
     user_messages: int,
     briefing_loaded: bool = True,
+    resolved_corrections: int = 0,
 ) -> dict[str, Any]:
     """Score a session's health from its analysis signals.
 
@@ -386,17 +446,18 @@ def measure_session_health(
     - Interaction ratio: tool_calls / user_messages (higher = more autonomous)
     - Briefing penalty: skipping the briefing = structural -0.25
 
-    Resolved vs unresolved heuristic: if a session has BOTH corrections AND
-    encouragements, corrections are treated as resolved (user confirmed fixes).
-    Corrections with zero encouragements stay penalized — no evidence of recovery.
+    Position-based matching: when resolved_corrections is provided, it gives
+    the exact count of corrections paired with subsequent encouragements.
+    The `corrections` arg then represents only UNRESOLVED corrections.
 
     Args:
-        corrections: Number of user corrections detected
+        corrections: Number of unresolved corrections (no matching encouragement)
         encouragements: Number of user encouragements detected
         context_overflows: Number of context window overflows
         tool_calls: Total tool calls in session
         user_messages: Total user messages in session
         briefing_loaded: Whether divineos briefing was called this session
+        resolved_corrections: Corrections matched to a subsequent encouragement
 
     Returns:
         {
@@ -411,21 +472,19 @@ def measure_session_health(
 
     factors: dict[str, float] = {}
 
-    # Correction factor: distinguish resolved vs unresolved.
-    # Resolved = session has both corrections AND encouragements (user confirmed fixes).
-    # Unresolved = corrections with zero encouragements (no evidence of recovery).
-    if corrections == 0:
+    # Correction factor: resolved corrections get bonus, unresolved get penalty.
+    # resolved_corrections comes from position-based matching (encouragement
+    # after correction = resolution). Unresolved = corrections with no
+    # subsequent encouragement.
+    if corrections == 0 and resolved_corrections == 0:
         correction_factor = 1.0
-    elif encouragements > 0:
-        # Corrections were resolved — the system worked correctly.
-        # Base stays 1.0 (no penalty) + small bonus per resolved correction.
-        # Capped at 1.0 so it doesn't inflate the factor beyond its range.
-        bonus = corrections * OUTCOME_RESOLVED_CORRECTION_BONUS
-        correction_factor = min(1.0, 1.0 + bonus)
     else:
-        # Unresolved corrections — penalize with logarithmic decay.
-        correction_factor = max(0.0, 1.0 - 0.25 * math.log2(1 + corrections))
+        # Start at 1.0, add bonus for resolved, subtract penalty for unresolved
+        bonus = resolved_corrections * OUTCOME_RESOLVED_CORRECTION_BONUS
+        penalty = 0.25 * math.log2(1 + corrections) if corrections > 0 else 0.0
+        correction_factor = max(0.0, min(1.0, 1.0 + bonus - penalty))
     factors["corrections"] = round(correction_factor, 2)
+    factors["resolved_corrections"] = resolved_corrections
 
     # Encouragement bonus — scales logarithmically like corrections.
     # Old: capped at 0.2 raw, so even 24 encouragements barely moved the needle.

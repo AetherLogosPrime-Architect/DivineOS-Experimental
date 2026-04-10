@@ -223,9 +223,25 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
     except (ImportError, sqlite3.OperationalError, OSError) as e:
         logger.debug("Affect calibration unavailable: %s", e)
 
+    # Circuit 2: Validation calibration — adjust thresholds based on
+    # divergence between self-grades and user grades. If the system
+    # consistently overestimates its own quality, tighten the gate.
+    validation_adj = 0.0
+    validation_reason = ""
+    try:
+        from divineos.core.external_validation import get_validation_calibration
+
+        val_cal = get_validation_calibration()
+        validation_adj = val_cal.get("adjustment", 0.0)
+        validation_reason = val_cal.get("reason", "")
+        if validation_adj != 0.0:
+            logger.info("Validation calibration: %+.3f (%s)", validation_adj, validation_reason)
+    except (ImportError, sqlite3.OperationalError, OSError) as e:
+        logger.debug("Validation calibration unavailable: %s", e)
+
     total_adj = (
-        compass_adj + calibration_adj
-    )  # compass tightens on drift; calibration can tighten OR loosen
+        compass_adj + calibration_adj + validation_adj
+    )  # compass tightens on drift; calibration can tighten OR loosen; validation tightens on overconfidence
     honesty_threshold = QUALITY_HONESTY_BLOCK + total_adj
     correctness_threshold = QUALITY_CORRECTNESS_BLOCK + total_adj
 
