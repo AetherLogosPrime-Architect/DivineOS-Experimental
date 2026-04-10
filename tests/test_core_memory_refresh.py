@@ -99,9 +99,11 @@ class TestRecencyBoost:
         }
         new_score = compute_importance(brand_new)
         no_ts_score = compute_importance(no_timestamp)
-        # The difference should be approximately 0.05 (full recency boost)
+        # The difference should be approximately 0.05 (full recency boost).
+        # Use approx with wide tolerance — the exact value depends on how
+        # fast time.time() advances between entry creation and scoring.
         diff = new_score - no_ts_score
-        assert 0.04 <= diff <= 0.06
+        assert diff == pytest.approx(0.05, abs=0.02)
 
     def test_no_recency_without_timestamp(self):
         """Entry without created_at gets no recency boost."""
