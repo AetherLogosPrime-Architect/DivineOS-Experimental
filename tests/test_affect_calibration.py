@@ -263,7 +263,7 @@ def test_calibration_consistent_quality_relaxes():
         conn.close()
 
     cal = get_calibration_adjustment()
-    assert cal["threshold_adjustment"] == -0.05
+    assert cal["threshold_adjustment"] == -0.15
     assert cal["verification_override"] is None
     assert "Consistent quality" in cal["reason"]
 

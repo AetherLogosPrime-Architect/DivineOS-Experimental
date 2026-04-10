@@ -297,6 +297,53 @@ def get_validation_divergence(n: int = 20) -> dict:
     }
 
 
+def get_validation_calibration(n: int = 20) -> dict:
+    """Compute a quality gate adjustment from validation divergence.
+
+    This closes the feedback loop: user grades -> divergence detection ->
+    threshold tightening. If I consistently self-rate higher than the user
+    rates me (overconfident), the quality gate gets stricter. If divergence
+    data is insufficient, returns neutral.
+
+    Returns:
+        adjustment: float (0.0 = neutral, positive = tighten gate)
+        reason: str explaining the adjustment
+    """
+    from divineos.core.constants import QUALITY_VALIDATION_TIGHTEN
+
+    div = get_validation_divergence(n)
+
+    if div["calibration"] == "insufficient_data":
+        return {"adjustment": 0.0, "reason": "Insufficient validation data"}
+
+    if div["calibration"] == "overconfident":
+        # Overconfident: self-grades higher than user grades.
+        # Scale adjustment by how dominant the overestimation is.
+        ratio = div["overestimates"] / div["total"] if div["total"] > 0 else 0.0
+        adjustment = QUALITY_VALIDATION_TIGHTEN * ratio
+        return {
+            "adjustment": round(adjustment, 3),
+            "reason": (
+                f"Overconfident: {div['overestimates']}/{div['total']} sessions "
+                f"self-rated higher than user — tightening by +{adjustment:.3f}"
+            ),
+        }
+
+    if div["calibration"] == "underconfident":
+        # Underconfident: being too harsh on myself. No gate tightening needed,
+        # but surface the signal so it's visible.
+        return {
+            "adjustment": 0.0,
+            "reason": (
+                f"Underconfident: {div['underestimates']}/{div['total']} sessions "
+                f"self-rated lower than user — no gate adjustment needed"
+            ),
+        }
+
+    # Calibrated
+    return {"adjustment": 0.0, "reason": "Self-assessment calibrated with user feedback"}
+
+
 def format_validation_summary() -> str:
     """One-line summary of validation accuracy for HUD display."""
     acc = get_validation_accuracy()
