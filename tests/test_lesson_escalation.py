@@ -121,10 +121,18 @@ class TestAutoResolve:
         assert "test_stay_improving" in cats
 
     def test_improving_enough_sessions_resolves(self):
-        """Improving lesson with enough clean sessions gets resolved."""
-        import json
+        """Improving lesson with enough clean sessions gets resolved.
 
+        Stimulus-presence gates must also be satisfied:
+        - Time gate: lesson must be in 'improving' for >= LESSON_MIN_RESOLUTION_DAYS
+        - Stimulus gate: clean sessions must contain category-relevant events
+        """
+        import json
+        import time
+
+        from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS, SECONDS_PER_DAY
         from divineos.core.knowledge._base import _get_connection
+        from divineos.core.ledger import get_connection as get_ledger_connection
 
         record_lesson("test_auto_resolve", "desc", "s1")
         record_lesson("test_auto_resolve", "desc", "s2")
@@ -144,9 +152,38 @@ class TestAutoResolve:
                 "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_auto_resolve'",
                 (json.dumps(sessions),),
             )
+            # Backdate last_seen to satisfy the time gate
+            old_enough = time.time() - (LESSON_MIN_RESOLUTION_DAYS + 1) * SECONDS_PER_DAY
+            conn.execute(
+                "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'test_auto_resolve'",
+                (old_enough,),
+            )
             conn.commit()
         finally:
             conn.close()
+
+        # Add decision journal entries with category keyword so stimulus gate passes.
+        # "test_auto_resolve" has keywords ["test", "auto", "resolve"].
+        ledger_conn = get_ledger_connection()
+        try:
+            ledger_conn.execute(
+                """CREATE TABLE IF NOT EXISTS decision_journal (
+                    decision_id TEXT PRIMARY KEY, created_at REAL, content TEXT,
+                    reasoning TEXT DEFAULT '', alternatives TEXT DEFAULT '[]',
+                    context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
+                    tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
+                    session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
+                    almost TEXT DEFAULT '')"""
+            )
+            for sid in ["s5", "s6"]:
+                ledger_conn.execute(
+                    "INSERT INTO decision_journal (decision_id, created_at, content, session_id) "
+                    "VALUES (?, ?, ?, ?)",
+                    (f"dj-{sid}", time.time(), "Decided to auto resolve the test issue", sid),
+                )
+            ledger_conn.commit()
+        finally:
+            ledger_conn.close()
 
         resolved = auto_resolve_lessons()
         assert len(resolved) == 1
@@ -161,6 +198,84 @@ class TestAutoResolve:
         record_lesson("test_active_no_resolve", "desc", "s1")
         resolved = auto_resolve_lessons()
         assert resolved == []
+
+    def test_time_gate_blocks_premature_resolution(self):
+        """Lesson can't resolve before LESSON_MIN_RESOLUTION_DAYS even with enough sessions."""
+        import json
+
+        from divineos.core.knowledge._base import _get_connection
+
+        record_lesson("test_time_gate", "desc", "s1")
+        record_lesson("test_time_gate", "desc", "s2")
+        record_lesson("test_time_gate", "desc", "s3")
+        mark_lesson_improving("test_time_gate", "s4")
+
+        # Add enough sessions but DON'T backdate — last_seen is ~now
+        conn = _get_connection()
+        try:
+            row = conn.execute(
+                "SELECT sessions FROM lesson_tracking WHERE category = 'test_time_gate'"
+            ).fetchone()
+            sessions = json.loads(row[0])
+            for i in range(5, 10):
+                sessions.append(f"s{i}")
+            conn.execute(
+                "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_time_gate'",
+                (json.dumps(sessions),),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Should NOT resolve — time gate blocks it (lesson just entered improving)
+        resolved = auto_resolve_lessons()
+        cats = [r["category"] for r in resolved]
+        assert "test_time_gate" not in cats
+
+        # Lesson should still be improving
+        lessons = get_lessons(status="improving")
+        cats = [lesson["category"] for lesson in lessons]
+        assert "test_time_gate" in cats
+
+    def test_stimulus_gate_blocks_without_relevant_events(self):
+        """Lesson can't resolve without stimulus-relevant events in clean sessions."""
+        import json
+        import time
+
+        from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS, SECONDS_PER_DAY
+        from divineos.core.knowledge._base import _get_connection
+
+        record_lesson("test_stimulus_gate", "desc", "s1")
+        record_lesson("test_stimulus_gate", "desc", "s2")
+        record_lesson("test_stimulus_gate", "desc", "s3")
+        mark_lesson_improving("test_stimulus_gate", "s4")
+
+        conn = _get_connection()
+        try:
+            row = conn.execute(
+                "SELECT sessions FROM lesson_tracking WHERE category = 'test_stimulus_gate'"
+            ).fetchone()
+            sessions = json.loads(row[0])
+            for i in range(5, 10):
+                sessions.append(f"s{i}")
+            conn.execute(
+                "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_stimulus_gate'",
+                (json.dumps(sessions),),
+            )
+            # Backdate to pass time gate
+            old_enough = time.time() - (LESSON_MIN_RESOLUTION_DAYS + 1) * SECONDS_PER_DAY
+            conn.execute(
+                "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'test_stimulus_gate'",
+                (old_enough,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Should NOT resolve — no events matching "stimulus" or "gate" in any session
+        resolved = auto_resolve_lessons()
+        cats = [r["category"] for r in resolved]
+        assert "test_stimulus_gate" not in cats
 
 
 class TestLessonSummaryWithRegressions:
