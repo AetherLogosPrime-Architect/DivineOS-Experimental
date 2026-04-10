@@ -220,9 +220,11 @@ def _get_active_concerns() -> list[str]:
     """What the agent is currently focused on or worried about."""
     concerns: list[str] = []
 
-    # From open curiosities
+    # From open curiosities (only manually-filed, not auto-generated)
     try:
-        curiosities = get_open_curiosities()
+        curiosities = [
+            c for c in get_open_curiosities() if c.get("category", "general") == "general"
+        ]
         for c in curiosities[:3]:
             concerns.append(f"Curious: {c.get('question', '')[:60]}")
     except _SELF_MODEL_ERRORS as e:
