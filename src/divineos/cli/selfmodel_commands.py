@@ -8,11 +8,12 @@ def register(cli: click.Group) -> None:
 
     @cli.command("self-model")
     def self_model_cmd() -> None:
-        """Display the unified self-model — who I am, from evidence."""
+        """Display the unified self-model -- who I am, from evidence."""
+        from divineos.cli._helpers import _safe_echo
         from divineos.core.self_model import build_self_model, format_self_model
 
         model = build_self_model()
-        click.echo(format_self_model(model))
+        _safe_echo(format_self_model(model))
 
     @cli.command("drift")
     def drift_cmd() -> None:
@@ -150,20 +151,22 @@ def register(cli: click.Group) -> None:
     @cli.command("attention")
     def attention_cmd() -> None:
         """Display the attention schema -- what I'm attending to and why."""
+        from divineos.cli._helpers import _safe_echo
         from divineos.core.attention_schema import build_attention_schema, format_attention_schema
 
         schema = build_attention_schema()
         output = format_attention_schema(schema)
-        click.echo(output)
+        _safe_echo(output)
 
     @cli.command("epistemic")
     def epistemic_cmd() -> None:
         """Show epistemic status -- how I know what I know."""
+        from divineos.cli._helpers import _safe_echo
         from divineos.core.epistemic_status import build_epistemic_report, format_epistemic_report
 
         report = build_epistemic_report()
         output = format_epistemic_report(report)
-        click.echo(output)
+        _safe_echo(output)
 
     @cli.command("affect-feedback")
     def affect_feedback_cmd() -> None:

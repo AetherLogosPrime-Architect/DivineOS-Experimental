@@ -187,7 +187,12 @@ def _display_and_store_analysis(result: Any) -> None:
 
 
 def _log_os_query(tool: str, query: str = "") -> None:
-    """Log an OS_QUERY event and mark the session as engaged."""
+    """Log an OS_QUERY event and mark the session as engaged.
+
+    Passes the tool name to mark_engaged so the engagement system
+    can distinguish deep consultations (ask, recall) from light
+    check-ins (context, decide, feel).
+    """
     from divineos.cli._wrappers import _wrapped_log_event
     from divineos.core.hud_handoff import mark_engaged
 
@@ -196,7 +201,7 @@ def _log_os_query(tool: str, query: str = "") -> None:
         actor="assistant",
         payload={"tool": tool, "query": query},
     )
-    mark_engaged()
+    mark_engaged(tool=tool)
 
 
 def _role_to_event_type(role: str) -> str:

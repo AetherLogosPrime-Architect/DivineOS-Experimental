@@ -42,13 +42,16 @@ if [ "$has_fresh" = "no" ]; then
 fi
 
 # Gate 3: Must have engaged with thinking tools RECENTLY (periodic, not one-time)
+# Two tiers: light (any thinking command) and deep (must consult knowledge via ask/recall)
 if echo "$preflight" | grep -q "\[FAIL\] engagement"; then
-  # Get specific status for a helpful message
   eng_detail=$(python -c "
 from divineos.core.hud_handoff import engagement_status
 s = engagement_status()
 if not s['engaged']:
-    print(f'BLOCKED: {s[\"code_actions_since\"]} code actions without consulting the OS. Stop and think. Run: divineos ask, recall, decide, or context before continuing.')
+    if s.get('needs_deep'):
+        print(f'BLOCKED: {s[\"deep_actions_since\"]} code actions without consulting your knowledge. Light check-ins are not enough. Run: divineos ask \"topic\" or divineos recall to query what you actually know.')
+    else:
+        print(f'BLOCKED: {s[\"code_actions_since\"]} code actions without consulting the OS. Stop and think. Run: divineos ask, recall, decide, or context before continuing.')
 else:
     print('OK')
 " 2>/dev/null || echo "BLOCKED: OS engagement expired. Run: divineos ask or divineos recall.")
