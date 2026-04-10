@@ -24,9 +24,9 @@ def register(cli: click.Group) -> None:
         else:
             click.echo(format_vitals())
 
-        from divineos.core.hud_handoff import mark_engaged
+        from divineos.cli._helpers import _log_os_query
 
-        mark_engaged()
+        _log_os_query("body", "vitals")
 
     @cli.command("maintenance")
     @click.option("--dry-run", is_flag=True, help="Show what would be done without doing it.")
@@ -76,6 +76,6 @@ def register(cli: click.Group) -> None:
 
             click.echo(format_vitals())
 
-        from divineos.core.hud_handoff import mark_engaged
+        from divineos.cli._helpers import _log_os_query
 
-        mark_engaged()
+        _log_os_query("body", "maintenance")

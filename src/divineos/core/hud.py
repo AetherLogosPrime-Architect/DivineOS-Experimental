@@ -342,31 +342,6 @@ def _build_active_knowledge_slot() -> str:
     return "\n".join(lines)
 
 
-def _build_warnings_slot() -> str:
-    """Patterns I've been corrected for. Pre-action awareness."""
-    lines = ["# Warnings -- Patterns I Repeat\n"]
-
-    try:
-        active = get_lessons(status="active")
-    except _HUD_ERRORS:
-        return lines[0] + "Could not load lesson data."
-
-    # Only show lessons with 2+ occurrences — those are real patterns
-    recurring = [lesson for lesson in active if lesson.get("occurrences", 1) >= 2]
-
-    if not recurring:
-        return lines[0] + "No recurring patterns detected. Stay vigilant anyway."
-
-    for lesson in recurring:
-        count = lesson.get("occurrences", 1)
-        lines.append(f"- WARNING ({count}x): {lesson['description']}")
-
-    lines.append("")
-    lines.append("Before acting, I ask myself: am I about to repeat one of these?")
-
-    return "\n".join(lines)
-
-
 def _build_os_engagement_slot() -> str:
     """Am I using the OS to think, or just to record?
 
@@ -387,7 +362,17 @@ def _build_os_engagement_slot() -> str:
             break
         session_events.append(event)
 
-    thinking_tools = {"ask", "recall", "context", "directives", "briefing"}
+    thinking_tools = {
+        "ask",
+        "recall",
+        "context",
+        "directives",
+        "briefing",
+        "decide",
+        "feel",
+        "body",
+        "compass",
+    }
     recording_tools = {"log", "learn", "goal"}
 
     thinking_count = 0
@@ -717,19 +702,6 @@ def _build_self_awareness_slot() -> str:
     except _HUD_ERRORS:
         pass
 
-    # 3. Proactive recommendations — what worked well in similar contexts
-    try:
-        from divineos.core.proactive_patterns import recommend
-
-        recs = recommend("session_start", max_recommendations=3)
-        if recs:
-            if not lines:
-                lines.append("# Self-Awareness Nudges\n")
-            for rec in recs:
-                lines.append(f"- TRY: {rec.get('text', rec.get('recommendation', ''))[:80]}")
-    except _HUD_ERRORS:
-        pass
-
     return "\n".join(lines) if lines else ""
 
 
@@ -763,7 +735,7 @@ def _build_opinions_slot() -> str:
         opinions = get_opinions(limit=5, min_confidence=0.6)
         for op in opinions:
             conf = op.get("confidence", 0)
-            lines.append(f"  [{conf:.0%}] {op.get('topic', '?')}: {op.get('judgment', '')[:80]}")
+            lines.append(f"  [{conf:.0%}] {op.get('topic', '?')}: {op.get('position', '')[:80]}")
 
         challenged = counts.get("challenged", 0)
         if challenged:
@@ -831,7 +803,7 @@ def _build_dead_architecture_slot() -> str:
 
         scan = get_latest_scan()
         if not scan:
-            return "# Dead Architecture\n\n  [!] No scan recorded -- alarm may be dormant"
+            return ""
 
         dormant = scan.get("dormant", [])
         active_count = scan.get("active_count", 0)
@@ -866,7 +838,6 @@ SLOT_BUILDERS = {
     "os_engagement": _build_os_engagement_slot,
     "context_budget": _build_context_budget_slot,
     "active_knowledge": _build_active_knowledge_slot,
-    "warnings": _build_warnings_slot,
     "task_state": _build_task_state_slot,
     "journal": _build_journal_slot,
     "decision_journal": _build_decision_journal_slot,
