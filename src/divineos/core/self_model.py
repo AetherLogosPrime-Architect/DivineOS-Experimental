@@ -277,7 +277,7 @@ def _get_attention_summary() -> dict[str, Any]:
         suppressed = schema.get("suppressed", [])
         return {
             "focus_count": len(focus),
-            "top_focus": [f["content"][:60] for f in focus[:3]],
+            "top_focus": [f["content"][:100] for f in focus[:3]],
             "driver_count": len(drivers),
             "suppressed_count": len(suppressed),
         }

@@ -737,11 +737,6 @@ def _build_opinions_slot() -> str:
             conf = op.get("confidence", 0)
             lines.append(f"  [{conf:.0%}] {op.get('topic', '?')}: {op.get('position', '')[:80]}")
 
-        challenged = counts.get("challenged", 0)
-        if challenged:
-            lines.append(
-                f"\n  ({challenged} opinion{'s' if challenged != 1 else ''} under challenge)"
-            )
         return "\n".join(lines)
     except _HUD_ERRORS:
         return ""
