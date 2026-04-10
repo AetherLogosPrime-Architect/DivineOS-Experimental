@@ -735,7 +735,7 @@ def _build_opinions_slot() -> str:
         opinions = get_opinions(limit=5, min_confidence=0.6)
         for op in opinions:
             conf = op.get("confidence", 0)
-            lines.append(f"  [{conf:.0%}] {op.get('topic', '?')}: {op.get('judgment', '')[:80]}")
+            lines.append(f"  [{conf:.0%}] {op.get('topic', '?')}: {op.get('position', '')[:80]}")
 
         challenged = counts.get("challenged", 0)
         if challenged:
@@ -803,7 +803,7 @@ def _build_dead_architecture_slot() -> str:
 
         scan = get_latest_scan()
         if not scan:
-            return "# Dead Architecture\n\n  [!] No scan recorded -- alarm may be dormant"
+            return ""
 
         dormant = scan.get("dormant", [])
         active_count = scan.get("active_count", 0)
