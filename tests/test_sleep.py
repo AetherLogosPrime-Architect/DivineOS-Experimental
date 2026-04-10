@@ -215,25 +215,31 @@ class TestPhaseRecombination:
 
         init_knowledge_table()
 
-        # Entries must be semantically related (similarity 0.45-0.80)
-        # but NOT share too many key words (word overlap <= 0.50).
-        # These discuss the same concept (don't blindly retry) using
-        # completely different vocabulary.
         store_knowledge(
             "PRINCIPLE",
-            "When I retry failed actions without investigating the error, "
-            "I waste time. Stop and read the traceback first.",
+            "When an action fails, investigate the root cause of the error "
+            "before retrying. Blind repetition wastes valuable debugging "
+            "time and delays the actual fix.",
         )
         store_knowledge(
             "BOUNDARY",
-            "Blind repetition of broken commands is inefficient. Diagnose "
-            "the failure before attempting another run.",
+            "Never retry an action that fails without finding the root cause "
+            "first. To investigate each error before retrying saves effort "
+            "and reveals what actually went wrong.",
+        )
+
+        # Pin similarity to word-overlap fallback so the test is deterministic
+        # regardless of whether sentence-transformers is installed.
+        # Embedding similarity and word overlap can disagree on whether entries
+        # are "too similar" (>0.80 semantic vs <=0.50 word overlap), making
+        # the test flaky when the backend varies between environments.
+        monkeypatch.setattr(
+            "divineos.core.knowledge._text._embeddings_available",
+            False,
         )
 
         report = DreamReport()
         _phase_recombination(report)
-        # These share the theme of trust/confidence through verification
-        # but use different vocabulary, so they pass the overlap filter
         assert report.connections_found >= 1
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):
