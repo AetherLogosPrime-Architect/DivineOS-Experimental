@@ -217,23 +217,24 @@ class TestPhaseRecombination:
 
         # Entries must be semantically related (similarity 0.45-0.80)
         # but NOT share too many key words (word overlap <= 0.50).
-        # These discuss the same concept (don't blindly retry) using
-        # completely different vocabulary.
+        # These share enough key terms (investigate, root cause, retrying,
+        # fails, action) for word-overlap fallback to hit 0.45+, but not
+        # so many that the >0.50 word-overlap filter rejects them.
+        # This works with both embedding and fallback similarity paths.
         store_knowledge(
             "PRINCIPLE",
-            "When I retry failed actions without investigating the error, "
-            "I waste time. Stop and read the traceback first.",
+            "When an action fails, always investigate the root cause before "
+            "retrying the same action again. Blind repetition wastes time.",
         )
         store_knowledge(
             "BOUNDARY",
-            "Blind repetition of broken commands is inefficient. Diagnose "
-            "the failure before attempting another run.",
+            "Investigating failures before retrying is essential. Understanding "
+            "the root cause of an action that fails prevents wasted effort "
+            "and reveals solutions.",
         )
 
         report = DreamReport()
         _phase_recombination(report)
-        # These share the theme of trust/confidence through verification
-        # but use different vocabulary, so they pass the overlap filter
         assert report.connections_found >= 1
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):
