@@ -215,22 +215,27 @@ class TestPhaseRecombination:
 
         init_knowledge_table()
 
-        # Entries must be semantically related (similarity 0.45-0.80)
-        # but NOT share too many key words (word overlap <= 0.50).
-        # These share enough key terms (investigate, root cause, retrying,
-        # fails, action) for word-overlap fallback to hit 0.45+, but not
-        # so many that the >0.50 word-overlap filter rejects them.
-        # This works with both embedding and fallback similarity paths.
         store_knowledge(
             "PRINCIPLE",
-            "When an action fails, always investigate the root cause before "
-            "retrying the same action again. Blind repetition wastes time.",
+            "When an action fails, investigate the root cause of the error "
+            "before retrying. Blind repetition wastes valuable debugging "
+            "time and delays the actual fix.",
         )
         store_knowledge(
             "BOUNDARY",
-            "Investigating failures before retrying is essential. Understanding "
-            "the root cause of an action that fails prevents wasted effort "
-            "and reveals solutions.",
+            "Never retry an action that fails without finding the root cause "
+            "first. To investigate each error before retrying saves effort "
+            "and reveals what actually went wrong.",
+        )
+
+        # Pin similarity to word-overlap fallback so the test is deterministic
+        # regardless of whether sentence-transformers is installed.
+        # Embedding similarity and word overlap can disagree on whether entries
+        # are "too similar" (>0.80 semantic vs <=0.50 word overlap), making
+        # the test flaky when the backend varies between environments.
+        monkeypatch.setattr(
+            "divineos.core.knowledge._text._embeddings_available",
+            False,
         )
 
         report = DreamReport()
