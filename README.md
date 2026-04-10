@@ -346,6 +346,7 @@ src/divineos/
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
     session_checkpoint.py      Periodic saves and context monitoring
+    lifecycle.py               Self-enforcement — OS manages its own session lifecycle
     enforcement.py             CLI-level event capture and signal handling
     enforcement_verifier.py    Enforcement setup verification
     tool_wrapper.py            Tool execution interception

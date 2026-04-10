@@ -85,6 +85,12 @@ def cli() -> None:
     _enforce_briefing_gate()
     if "pytest" not in sys.modules:
         capture_user_input(sys.argv[1:])
+        # Self-enforcement: the OS manages its own lifecycle.
+        # Every command is a lifecycle checkpoint — no hooks needed.
+        from divineos.core.lifecycle import enforce
+
+        cmd = sys.argv[1] if len(sys.argv) > 1 else ""
+        enforce(command=cmd)
 
 
 # Register all command modules
