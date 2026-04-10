@@ -52,6 +52,47 @@ _INFRASTRUCTURE_TABLES = frozenset(
         "opinion_shifts",
         "open_questions",
         "advice_tracking",
+        # Pipeline-populated tables — filled during SESSION_END or by
+        # specific OS commands. Empty in fresh/low-activity DBs is normal.
+        "affect_log",
+        "compass_observation",
+        "decision_journal",
+        "knowledge_edges",
+        "opinions",
+        "session_history",
+        "session_timeline",
+        "session_validation",
+        "task_tracking",
+        "tone_texture",
+        "user_ratings",
+        "user_signals",
+        "warrants",
+        "activity_breakdown",
+        "dead_architecture_scan",
+    }
+)
+
+# HUD slots that return empty by design when there's nothing to report.
+# These are conditionally shown — empty is correct behavior, not dead architecture.
+_CONDITIONAL_HUD_SLOTS = frozenset(
+    {
+        "affect",
+        "body",
+        "claims",
+        "commitments",
+        "compass",
+        "dead_architecture",
+        "decision_journal",
+        "growth_awareness",
+        "journal",
+        "opinions",
+        "self_awareness",
+        "self_model",
+        "session_health",
+        "task_state",
+        "calibration",
+        "knowledge_origin",
+        "handoff",
     }
 )
 
@@ -181,7 +222,12 @@ def scan_active_tables() -> list[str]:
 
 
 def scan_empty_hud_slots() -> tuple[list[str], list[str]]:
-    """Return (empty_slots, active_slots) by running each HUD builder."""
+    """Return (empty_slots, active_slots) by running each HUD builder.
+
+    Conditional slots (those designed to return empty when there's nothing
+    to report) are excluded from the empty list — their emptiness is
+    correct behavior, not dead architecture.
+    """
     try:
         from divineos.core.hud import SLOT_BUILDERS
     except ImportError:
@@ -194,10 +240,11 @@ def scan_empty_hud_slots() -> tuple[list[str], list[str]]:
             result = builder()
             if result and result.strip():
                 active.append(name)
-            else:
+            elif name not in _CONDITIONAL_HUD_SLOTS:
                 empty.append(name)
         except Exception:  # noqa: BLE001 — HUD builders can fail in unpredictable ways
-            empty.append(name)
+            if name not in _CONDITIONAL_HUD_SLOTS:
+                empty.append(name)
 
     return sorted(empty), sorted(active)
 
