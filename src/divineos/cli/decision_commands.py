@@ -54,10 +54,10 @@ def register(cli: click.Group) -> None:
             tension=tension,
             almost=almost,
         )
-        # Mark OS engagement — decide is a thinking tool
-        from divineos.core.hud_handoff import mark_engaged
+        # Log as a thinking query so OS engagement tracking picks it up
+        from divineos.cli._helpers import _log_os_query
 
-        mark_engaged()
+        _log_os_query("decide", what)
 
         label = _WEIGHT_LABELS.get(weight, "routine")
         color = _WEIGHT_COLORS.get(weight, "white")

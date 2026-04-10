@@ -387,7 +387,17 @@ def _build_os_engagement_slot() -> str:
             break
         session_events.append(event)
 
-    thinking_tools = {"ask", "recall", "context", "directives", "briefing"}
+    thinking_tools = {
+        "ask",
+        "recall",
+        "context",
+        "directives",
+        "briefing",
+        "decide",
+        "feel",
+        "body",
+        "compass",
+    }
     recording_tools = {"log", "learn", "goal"}
 
     thinking_count = 0
@@ -714,19 +724,6 @@ def _build_self_awareness_slot() -> str:
                 f"- Knowledge integrity low ({audit['avg_integrity']:.2f}) "
                 f"— {len(audit.get('quarantine_needed', []))} entries need review"
             )
-    except _HUD_ERRORS:
-        pass
-
-    # 3. Proactive recommendations — what worked well in similar contexts
-    try:
-        from divineos.core.proactive_patterns import recommend
-
-        recs = recommend("session_start", max_recommendations=3)
-        if recs:
-            if not lines:
-                lines.append("# Self-Awareness Nudges\n")
-            for rec in recs:
-                lines.append(f"- TRY: {rec.get('text', rec.get('recommendation', ''))[:80]}")
     except _HUD_ERRORS:
         pass
 

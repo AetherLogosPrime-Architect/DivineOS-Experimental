@@ -38,6 +38,20 @@ _INFRASTRUCTURE_TABLES = frozenset(
         "claim_fts_idx",
         "claim_fts_docsize",
         "claim_fts_config",
+        # Session analysis tables — populated during SESSION_END pipeline,
+        # which runs after this scan. Empty at scan time is expected.
+        "tone_shift",
+        "file_touched",
+        "error_recovery",
+        "feature_result",
+        # On-demand tables — populated when the user uses the feature.
+        # Empty means unused, not dead architecture.
+        "claims",
+        "claim_evidence",
+        "personal_journal",
+        "opinion_shifts",
+        "open_questions",
+        "advice_tracking",
     }
 )
 

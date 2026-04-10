@@ -242,10 +242,10 @@ def register(cli: click.Group) -> None:
             trigger=trigger,
             tags=list(tags) if tags else None,
         )
-        # Mark OS engagement — feel is a thinking tool
-        from divineos.core.hud_handoff import mark_engaged
+        # Log as thinking query so engagement tracking picks it up
+        from divineos.cli._helpers import _log_os_query
 
-        mark_engaged()
+        _log_os_query("feel", f"v={valence:.1f} a={arousal:.1f}")
 
         # Map to a human-readable region
         region = describe_affect(valence, arousal, dominance)
