@@ -21,6 +21,7 @@ def _get_active_warnings() -> list[dict[str, Any]]:
         lessons = conn.execute(
             "SELECT lesson_id, category, description, occurrences, status "
             "FROM lesson_tracking WHERE occurrences >= 2 "
+            "AND status IN ('active', 'improving') "
             "ORDER BY occurrences DESC LIMIT 20"
         ).fetchall()
 
