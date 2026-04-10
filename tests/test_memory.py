@@ -140,8 +140,9 @@ class TestImportanceScoring:
             "source": "CORRECTED",
         }
         diff = compute_importance(corrected) - compute_importance(base)
-        # CORRECTED=0.10 vs default=0.02 → 0.08 difference
-        assert abs(diff - 0.08) < 0.01
+        # Trust tier: CORRECTED=0.10 vs default=0.02 → 0.08
+        # Epistemic: CORRECTED gets +0.10 boost (told) → total 0.18
+        assert abs(diff - 0.18) < 0.02
 
     def test_lesson_connection_adds_20_percent(self):
         entry = {"knowledge_type": "FACT", "confidence": 0.0, "access_count": 0}

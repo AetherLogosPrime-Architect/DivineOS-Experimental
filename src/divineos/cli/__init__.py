@@ -39,6 +39,7 @@ _BYPASS_COMMANDS = frozenset(
         "epistemic",
         "sleep",
         "progress",
+        "validate",
     }
 )
 

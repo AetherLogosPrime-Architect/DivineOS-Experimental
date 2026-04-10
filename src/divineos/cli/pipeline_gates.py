@@ -223,7 +223,9 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
     except (ImportError, sqlite3.OperationalError, OSError) as e:
         logger.debug("Affect calibration unavailable: %s", e)
 
-    total_adj = compass_adj + max(calibration_adj, 0.0)  # only tighten, never loosen below base
+    total_adj = (
+        compass_adj + calibration_adj
+    )  # compass tightens on drift; calibration can tighten OR loosen
     honesty_threshold = QUALITY_HONESTY_BLOCK + total_adj
     correctness_threshold = QUALITY_CORRECTNESS_BLOCK + total_adj
 

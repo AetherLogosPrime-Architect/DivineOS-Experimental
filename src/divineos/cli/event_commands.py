@@ -186,3 +186,97 @@ def register(cli: click.Group) -> None:
             click.secho(f"[-] Error verifying enforcement: {e}", fg="red")
             logger.exception("Enforcement verification failed")
             sys.exit(1)
+
+    @cli.command("validate")
+    @click.option(
+        "--grade",
+        type=click.Choice(["good", "fair", "poor"], case_sensitive=False),
+        required=False,
+        help="Your assessment of the last session (good/fair/poor).",
+    )
+    @click.option("--notes", default="", help="Optional notes on why.")
+    @click.option("--divergence", is_flag=True, help="Show calibration divergence report.")
+    def validate_cmd(grade: str | None, divergence: bool, notes: str) -> None:
+        """Provide external validation of session quality.
+
+        The system grades itself at SESSION_END. This command lets the user
+        provide an independent signal — breaking the self-assessment circularity.
+
+        Examples:
+            divineos validate --grade good
+            divineos validate --grade poor --notes "missed the point"
+            divineos validate --divergence
+        """
+        from divineos.core.external_validation import (
+            get_validation_divergence,
+            record_user_feedback,
+        )
+
+        if divergence:
+            div = get_validation_divergence()
+            if div["total"] == 0:
+                click.secho(
+                    "[~] No validated sessions yet. Use --grade to rate a session.",
+                    fg="bright_black",
+                )
+                return
+
+            click.secho(
+                f"\n=== Calibration Divergence ({div['total']} sessions) ===\n",
+                fg="cyan",
+                bold=True,
+            )
+            click.secho(f"  Accurate:       {div['accurate']}", fg="green")
+            click.secho(
+                f"  Overestimates:  {div['overestimates']}",
+                fg="yellow" if div["overestimates"] else "white",
+            )
+            click.secho(
+                f"  Underestimates: {div['underestimates']}",
+                fg="yellow" if div["underestimates"] else "white",
+            )
+            click.secho(f"  Avg self-score: {div['avg_self_score']:.2f}", fg="white")
+            click.secho(
+                f"  Calibration:    {div['calibration']}",
+                fg="green" if div["calibration"] == "calibrated" else "yellow",
+            )
+            return
+
+        if not grade:
+            # Show current validation status
+            from divineos.core.external_validation import format_validation_summary
+
+            click.echo(format_validation_summary())
+            click.secho("\nUse --grade good/fair/poor to rate the last session.", fg="bright_black")
+            return
+
+        # Map good/fair/poor to letter grades for comparison
+        grade_map = {"good": "A", "fair": "C", "poor": "F"}
+        letter = grade_map[grade.lower()]
+
+        # Find the most recent session
+        try:
+            from divineos.core.knowledge._base import _get_connection
+
+            conn = _get_connection()
+            row = conn.execute(
+                "SELECT session_id FROM session_validation ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+            conn.close()
+        except _EC_ERRORS:
+            row = None
+
+        if not row:
+            click.secho("[!] No session self-grade found. Run a SESSION_END first.", fg="red")
+            return
+
+        session_id = row[0]
+        ok = record_user_feedback(session_id, letter, notes=notes)
+        if ok:
+            click.secho(
+                f"[+] Validated session {session_id[:12]}... as {grade} ({letter})", fg="green"
+            )
+            if notes:
+                click.secho(f"    Notes: {notes}", fg="bright_black")
+        else:
+            click.secho("[!] Failed to record validation.", fg="red")

@@ -59,13 +59,14 @@ _KNOWLEDGE_COL_NAMES: list[str] = [
     "layer",
     "source_entity",
     "related_to",
+    "corroboration_sources",
 ]
 
 _KNOWLEDGE_COLS = ", ".join(_KNOWLEDGE_COL_NAMES)
 _KNOWLEDGE_COLS_K = ", ".join(f"k.{c}" for c in _KNOWLEDGE_COL_NAMES)
 
 # Columns that store JSON and need parsing on read
-_JSON_COLS = frozenset({"source_events", "tags"})
+_JSON_COLS = frozenset({"source_events", "tags", "corroboration_sources"})
 
 # Columns that should be cast to int on read
 _INT_COLS = frozenset({"corroboration_count", "contradiction_count"})
@@ -81,6 +82,7 @@ _KNOWLEDGE_DEFAULTS: dict[str, Any] = {
     "layer": "active",
     "source_entity": None,
     "related_to": None,
+    "corroboration_sources": [],
 }
 
 
@@ -176,6 +178,14 @@ def init_knowledge_table() -> None:
                 )
             except sqlite3.OperationalError as e:
                 logger.debug(f"Column {col} already exists in knowledge table: {e}")
+
+        # Corroboration source diversity tracking (JSON list of source signatures)
+        try:
+            conn.execute(
+                "ALTER TABLE knowledge ADD COLUMN corroboration_sources TEXT DEFAULT '[]'",
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug(f"Column corroboration_sources already exists in knowledge table: {e}")
 
         # Layer column (active/archive stratification)
         try:

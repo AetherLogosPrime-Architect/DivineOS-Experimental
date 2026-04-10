@@ -80,6 +80,12 @@ ACTIVE_MEMORY_CAP = 30  # Max entries in active memory
 MATURITY_BOOST_CONFIRMED = 0.05  # Bonus for CONFIRMED entries
 MATURITY_PENALTY_HYPOTHESIS = 0.05  # Penalty for HYPOTHESIS entries
 
+# Epistemic source modifiers for importance scoring
+# Observed/demonstrated knowledge is more trustworthy; inherited is less grounded
+EPISTEMIC_BOOST_OBSERVED = 0.20  # Meaningful boost for empirically observed knowledge
+EPISTEMIC_BOOST_TOLD = 0.10  # Moderate boost for user-corrected/stated knowledge
+EPISTEMIC_PENALTY_INHERITED = -0.15  # Meaningful penalty for seed/inherited knowledge
+
 # ─── Knowledge Retrieval Scoring ────────────────────────────────────
 # How knowledge is ranked when building briefings.
 
@@ -162,6 +168,7 @@ AFFECT_FRUSTRATION_VALENCE = 0.0  # Below this + high arousal = frustration
 AFFECT_NEGATIVE_THRESHOLD_BOOST = 0.3  # Confidence threshold raise for negative sessions
 AFFECT_MILD_NEGATIVE_BOOST = 0.15  # Confidence threshold raise for mildly negative
 AFFECT_DECLINING_BOOST = 0.1  # Confidence threshold raise for declining trend
+AFFECT_PRAISE_CHASING_BOOST = 0.2  # Confidence threshold raise when praise-chasing detected
 
 # ─── Pattern Learning ──────────────────────────────────────────────
 # How the agent learns from success and failure patterns.
@@ -183,7 +190,8 @@ PATTERN_TACTICAL_FAILURE_MAX = 3  # Archive after this many tactical failures
 # ─── Outcome Measurement ───────────────────────────────────────────
 # Session health scoring weights.
 
-OUTCOME_CORRECTION_PENALTY = 0.15  # Each correction reduces score by this
+OUTCOME_CORRECTION_PENALTY = 0.15  # Each unresolved correction reduces score by this
+OUTCOME_RESOLVED_CORRECTION_BONUS = 0.05  # Resolved corrections ADD to health
 OUTCOME_ENCOURAGEMENT_BONUS = 0.04  # Each encouragement adds this (capped)
 OUTCOME_ENCOURAGEMENT_CAP = 0.20  # Max encouragement bonus
 OUTCOME_OVERFLOW_PENALTY = 0.25  # Each context overflow reduces by this
@@ -201,6 +209,14 @@ SIS_WEIGHT_ACTIONABILITY = 0.30
 SIS_WEIGHT_SPECULATION = 0.25  # Inverse (lower speculation = better)
 SIS_WEIGHT_ESOTERIC = 0.15  # Inverse (lower esoteric = better)
 
+# ─── Compass Stagnation Detection ─────────────────────────────────
+# Absence of data is not virtue. A spectrum with zero observations
+# should not report "in virtue zone" — it should report "unobserved".
+# Three council experts flagged this: Gödel, Schneier, Yudkowsky.
+
+COMPASS_MIN_OBSERVATIONS_ACTIVE = 3  # Below this, spectrum is "unobserved"
+COMPASS_STAGNATION_SESSIONS = 10  # Window for observation counting
+
 # ─── Compass Integrity ────────────────────────────────────────────
 # SHA-256 of the canonical JSON representation of the ten virtue spectrums.
 # This hash lives HERE, separate from the spectrum definitions in
@@ -209,3 +225,11 @@ SIS_WEIGHT_ESOTERIC = 0.15  # Inverse (lower esoteric = better)
 # agree — that's the point.
 
 COMPASS_SPECTRUMS_HASH = "2921dfc05fa4a532c641a647aa3d7567f6de643f7e52142317bda05da271bd7a"
+
+# ─── Lesson Resolution ────────────────────────────────────────────
+# Stimulus-presence check: absence of the stimulus is not evidence of learning.
+# A lesson can't resolve just because the mistake didn't recur — the triggering
+# situation must have actually arisen and been handled correctly.
+
+LESSON_MIN_RESOLUTION_DAYS = 7.0  # Minimum days in 'improving' before resolution
+LESSON_MIN_STIMULUS_SESSIONS = 2  # Min clean sessions with category-relevant events

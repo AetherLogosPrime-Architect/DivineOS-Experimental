@@ -19,6 +19,7 @@ from divineos.core.moral_compass import (
     classify_observation_source,
     compass_summary,
     compute_position,
+    detect_stagnation,
     format_compass_brief,
     format_compass_reading,
     get_observations,
@@ -260,10 +261,51 @@ class TestCompassSummary:
         assert summary["total_spectrums"] == 10
 
     def test_concerns_populated(self):
-        log_observation(spectrum="precision", position=-0.7, evidence="vague answer")
+        # Need >= COMPASS_MIN_OBSERVATIONS_ACTIVE (3) for spectrum to be "active"
+        for i in range(3):
+            log_observation(spectrum="precision", position=-0.7, evidence=f"vague answer {i}")
         summary = compass_summary()
         concern_spectrums = [c["spectrum"] for c in summary["concerns"]]
         assert "precision" in concern_spectrums
+
+    def test_stagnant_spectrums_detected(self):
+        """Spectrums with too few observations should appear as stagnant, not active."""
+        log_observation(spectrum="precision", position=-0.7, evidence="single vague answer")
+        summary = compass_summary()
+        # With only 1 observation, precision should be stagnant, not in concerns
+        concern_spectrums = [c["spectrum"] for c in summary["concerns"]]
+        stagnant_spectrums = [s["spectrum"] for s in summary.get("stagnant", [])]
+        assert "precision" not in concern_spectrums
+        assert "precision" in stagnant_spectrums
+
+
+class TestDetectStagnation:
+    """detect_stagnation() flags spectrums with too few observations."""
+
+    def test_all_stagnant_when_empty(self):
+        stagnant = detect_stagnation()
+        assert len(stagnant) == 10  # all spectrums have 0 observations
+
+    def test_spectrum_not_stagnant_with_enough_observations(self):
+        for i in range(3):
+            log_observation(spectrum="truthfulness", position=0.0, evidence=f"obs {i}")
+        stagnant = detect_stagnation()
+        stagnant_names = [s["spectrum"] for s in stagnant]
+        assert "truthfulness" not in stagnant_names
+
+    def test_spectrum_stagnant_with_few_observations(self):
+        log_observation(spectrum="empathy", position=0.0, evidence="single obs")
+        stagnant = detect_stagnation()
+        stagnant_names = [s["spectrum"] for s in stagnant]
+        assert "empathy" in stagnant_names
+
+    def test_returns_observation_count(self):
+        log_observation(spectrum="humility", position=0.0, evidence="obs 1")
+        log_observation(spectrum="humility", position=0.0, evidence="obs 2")
+        stagnant = detect_stagnation()
+        humility = next(s for s in stagnant if s["spectrum"] == "humility")
+        assert humility["observation_count"] == 2
+        assert humility["min_required"] == 3
 
 
 class TestRenderBar:
@@ -292,10 +334,19 @@ class TestFormatting:
         assert "No observations" in output or "MORAL COMPASS" in output
 
     def test_format_reading_with_data(self):
-        log_observation(spectrum="truthfulness", position=0.1, evidence="format test")
+        # Need >= COMPASS_MIN_OBSERVATIONS_ACTIVE for active display (uppercase)
+        for i in range(3):
+            log_observation(spectrum="truthfulness", position=0.1, evidence=f"format test {i}")
         positions = read_compass()
         output = format_compass_reading(positions)
         assert "TRUTHFULNESS" in output
+
+    def test_format_reading_stagnant_spectrum(self):
+        """A spectrum with too few observations shows as stagnant, not active."""
+        log_observation(spectrum="truthfulness", position=0.1, evidence="single observation")
+        output = format_compass_reading()
+        assert "STAGNANT" in output
+        assert "truthfulness" in output
 
     def test_format_brief_no_data(self):
         output = format_compass_brief()
