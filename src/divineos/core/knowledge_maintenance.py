@@ -527,11 +527,26 @@ _PROMOTION_RULES: list[tuple[str, int, float, str]] = [
 def check_promotion(entry: dict[str, Any]) -> str | None:
     """Check if an entry qualifies for maturity promotion.
 
+    Uses diverse corroboration count (unique sources) when available,
+    falling back to raw corroboration_count for legacy entries.
+    This prevents promotion through repetition from a single source.
+
     Returns the new maturity level, or None if no promotion is warranted.
     """
     current = entry.get("maturity", "RAW")
-    corroboration = entry.get("corroboration_count", 0)
     confidence = entry.get("confidence", 0.5)
+
+    # Prefer diverse source count over raw repetition count
+    sources = entry.get("corroboration_sources", [])
+    if isinstance(sources, str):
+        try:
+            sources = json.loads(sources)
+        except (json.JSONDecodeError, TypeError):
+            sources = []
+    diverse_count = len(set(sources)) if sources else 0
+    raw_count = entry.get("corroboration_count", 0)
+    # Use diverse count when available, fall back to raw for old entries
+    corroboration = max(diverse_count, raw_count) if diverse_count > 0 else raw_count
 
     for from_level, min_corrob, min_conf, to_level in _PROMOTION_RULES:
         if current == from_level and corroboration >= min_corrob and confidence >= min_conf:
