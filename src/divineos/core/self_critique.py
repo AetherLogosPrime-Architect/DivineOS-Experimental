@@ -280,9 +280,10 @@ def _gather_session_evidence() -> dict[str, int]:
                     elif "edit" in content_lower:
                         evidence["file_edits"] += 1
                         # Track which files for rework detection
-                        # Extract file path heuristic: look for common path patterns
+                        # Extract file path: look for words with path separators
+                        # and at least one file extension to avoid matching math/URLs
                         for word in content_lower.split():
-                            if "/" in word or "\\" in word:
+                            if ("/" in word or "\\" in word) and "." in word.split("/")[-1]:
                                 edit_counts[word] = edit_counts.get(word, 0) + 1
                                 edited_files.add(word)
                                 break
@@ -292,18 +293,19 @@ def _gather_session_evidence() -> dict[str, int]:
                         if "pytest" in content_lower:
                             evidence["tests_failed"] += 1
                 elif event_type == "TOOL_RESULT":
-                    # Hook failures show up as BLOCKED or pre-commit failures
-                    if "blocked" in content_lower or "hook" in content_lower:
+                    # Hook failures: pre-commit hook rejections (specific patterns)
+                    if "pre-commit" in content_lower and (
+                        "failed" in content_lower or "blocked" in content_lower
+                    ):
                         evidence["hook_failures"] += 1
                     # Test failures in results
                     if "failed" in content_lower and "passed" in content_lower:
                         evidence["tests_failed"] += 1
+                elif event_type == "OS_QUERY":
+                    # OS queries are logged as OS_QUERY events by _log_os_query
+                    evidence["os_queries"] += 1
                 elif event_type == "USER_INPUT":
                     evidence["user_messages"] += 1
-                    if any(
-                        cmd in content_lower for cmd in ("ask ", "recall", "decide ", "context")
-                    ):
-                        evidence["os_queries"] += 1
 
             # Rework = files edited more than once
             evidence["rework_edits"] = sum(count - 1 for count in edit_counts.values() if count > 1)
