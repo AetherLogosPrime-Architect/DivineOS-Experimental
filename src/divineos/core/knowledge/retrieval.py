@@ -650,6 +650,21 @@ def _format_briefing(
         except _RETRIEVAL_ERRORS:
             pass
 
+    # Proactive pattern recommendations
+    if context_hint:
+        try:
+            from divineos.core.proactive_patterns import (
+                format_recommendations,
+                recommend,
+            )  # late: proactive_patterns -> knowledge -> retrieval
+
+            recs = recommend(context_hint, max_recommendations=3)
+            if recs:
+                lines.append(format_recommendations(recs))
+                lines.append("")
+        except _RETRIEVAL_ERRORS:
+            pass
+
     # Session predictions — what will I likely need?
     try:
         from divineos.core.predictive_session import (

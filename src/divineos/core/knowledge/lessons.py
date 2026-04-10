@@ -12,6 +12,9 @@ from divineos.core.constants import (
     CONFIDENCE_ACTIVE_MEMORY_FLOOR,
     CONFIDENCE_RELIABLE,
     CONFIDENCE_VERY_HIGH,
+    LESSON_MIN_RESOLUTION_DAYS,
+    LESSON_MIN_STIMULUS_SESSIONS,
+    SECONDS_PER_DAY,
 )
 from divineos.core.knowledge._base import (
     _get_connection,
@@ -146,7 +149,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
                     (CONFIDENCE_ACTIVE_MEMORY_FLOOR, f"%{cat_words}%", f"%{category}%"),
                 ).fetchall()
                 for (kid,) in linked:
-                    increment_corroboration(kid)
+                    increment_corroboration(kid, source_context=f"lesson:{category}")
                     promote_maturity(kid)
             except _LESSONS_ERRORS as e:
                 logger.debug(
@@ -316,6 +319,71 @@ def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
         conn.close()
 
 
+def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
+    """Count how many of the given sessions had events related to the lesson category.
+
+    A lesson about "testing" should only resolve if recent sessions actually
+    involved test-related work. Absence of the stimulus is not evidence of
+    learning — five sessions with no testing at all don't prove you learned
+    to test properly.
+
+    Checks the event ledger (system_events) and decision journal for category
+    keyword matches. These tables live in the ledger DB, not the knowledge DB.
+    """
+    if not session_ids:
+        return 0
+
+    # Build search terms from the category (e.g. "blind_retry" -> ["blind", "retry"])
+    keywords = [w.lower() for w in category.replace("_", " ").split() if len(w) >= 3]
+    if not keywords:
+        # Category too short to keyword-match — fall back to the time gate only
+        return len(session_ids)
+
+    count = 0
+    # system_events and decision_journal live in the ledger DB
+    from divineos.core.ledger import get_connection as get_ledger_connection
+
+    conn = get_ledger_connection()
+    try:
+        for sid in session_ids:
+            # Search ledger events for this session that mention the category.
+            # system_events stores data in 'payload' (JSON text), not 'content'.
+            like_clauses = " OR ".join(["LOWER(payload) LIKE ?" for _ in keywords])
+            like_params = [f"%{kw}%" for kw in keywords]
+
+            try:
+                hit = conn.execute(
+                    f"SELECT 1 FROM system_events WHERE event_id LIKE ? AND ({like_clauses}) LIMIT 1",
+                    [f"%{sid[:12]}%", *like_params],
+                ).fetchone()
+                if hit:
+                    count += 1
+                    continue
+            except sqlite3.OperationalError:
+                pass  # system_events table may not exist in test DBs
+
+            # Also check decision journal if the table exists
+            try:
+                like_clauses_dj = " OR ".join(
+                    ["(LOWER(content) LIKE ? OR LOWER(reasoning) LIKE ?)" for _ in keywords]
+                )
+                like_params_dj = []
+                for kw in keywords:
+                    like_params_dj.extend([f"%{kw}%", f"%{kw}%"])
+
+                hit = conn.execute(
+                    f"SELECT 1 FROM decision_journal WHERE session_id = ? AND ({like_clauses_dj}) LIMIT 1",
+                    [sid, *like_params_dj],
+                ).fetchone()
+                if hit:
+                    count += 1
+            except sqlite3.OperationalError:
+                pass  # decision_journal table may not exist
+    finally:
+        conn.close()
+    return count
+
+
 def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any]]:
     """Promote 'improving' lessons to 'resolved' when enough clean sessions pass.
 
@@ -323,6 +391,13 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
     is considered learned — promote it to 'resolved'. Structure over willpower
     means we trust the evidence: if the mistake hasn't recurred, the lesson
     stuck.
+
+    Stimulus-presence check: a lesson can't resolve just because the mistake
+    didn't recur. The triggering situation must have actually arisen and been
+    handled correctly. We verify this two ways:
+    1. Time gate: lesson must be in 'improving' for LESSON_MIN_RESOLUTION_DAYS
+    2. Stimulus gate: at least LESSON_MIN_STIMULUS_SESSIONS of the clean sessions
+       must contain events related to the lesson's category keyword
 
     Also resolves seeded placeholders that have never been triggered by real
     behavior — they're noise in the lesson list, not real lessons.
@@ -371,19 +446,50 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
             # Cap effective occurrences so inflated counts (e.g. 178x from
             # early accumulation bugs) don't make resolution impossible.
             effective = min(lesson["occurrences"], MAX_EFFECTIVE_OCCURRENCES)
-            if len(sessions) >= effective + clean_session_threshold:
-                conn.execute(
-                    "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? "
-                    "WHERE lesson_id = ?",
-                    (time.time(), lesson["lesson_id"]),
-                )
-                lesson["status"] = "resolved"
-                resolved.append(lesson)
-                logger.info(
-                    "Lesson '%s' RESOLVED: %d clean sessions since last occurrence",
+            if len(sessions) < effective + clean_session_threshold:
+                continue
+
+            # Stimulus-presence gate: absence of the stimulus is not evidence
+            # of learning. Check that the lesson has been in 'improving' long
+            # enough AND that clean sessions actually involved the relevant topic.
+            now = time.time()
+            days_improving = (now - lesson["last_seen"]) / SECONDS_PER_DAY
+            if days_improving < LESSON_MIN_RESOLUTION_DAYS:
+                logger.debug(
+                    "Lesson '%s' has enough clean sessions but only %.1f days improving "
+                    "(need %.1f) — stimulus gate holds",
                     lesson["category"],
-                    len(sessions) - lesson["occurrences"],
+                    days_improving,
+                    LESSON_MIN_RESOLUTION_DAYS,
                 )
+                continue
+
+            # Check that at least some clean sessions involved the stimulus topic
+            clean_session_ids = sessions[effective:]
+            stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
+            if stimulus_count < LESSON_MIN_STIMULUS_SESSIONS:
+                logger.debug(
+                    "Lesson '%s' has %d stimulus sessions (need %d) — stimulus gate holds",
+                    lesson["category"],
+                    stimulus_count,
+                    LESSON_MIN_STIMULUS_SESSIONS,
+                )
+                continue
+
+            conn.execute(
+                "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? WHERE lesson_id = ?",
+                (now, lesson["lesson_id"]),
+            )
+            lesson["status"] = "resolved"
+            resolved.append(lesson)
+            logger.info(
+                "Lesson '%s' RESOLVED: %d clean sessions (%d with stimulus) "
+                "over %.1f days since last occurrence",
+                lesson["category"],
+                len(sessions) - lesson["occurrences"],
+                stimulus_count,
+                days_improving,
+            )
 
         if resolved:
             conn.commit()

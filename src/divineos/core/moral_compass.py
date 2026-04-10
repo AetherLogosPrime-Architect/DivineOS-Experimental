@@ -446,10 +446,43 @@ def read_compass(lookback: int = 20) -> list[SpectrumPosition]:
     return [compute_position(s, lookback) for s in SPECTRUMS]
 
 
+def detect_stagnation() -> list[dict[str, Any]]:
+    """Detect spectrums with too few observations to be meaningful.
+
+    A spectrum with zero or very few observations reports "in virtue zone"
+    by default — absence of data masquerading as virtue. This function
+    flags those spectrums so the compass can show them as UNOBSERVED
+    instead of falsely virtuous.
+
+    Returns a list of dicts with spectrum name, observation count, and
+    the minimum threshold they failed to meet.
+    """
+    from divineos.core.constants import COMPASS_MIN_OBSERVATIONS_ACTIVE
+
+    stagnant: list[dict[str, Any]] = []
+    for spectrum_name in SPECTRUMS:
+        pos = compute_position(spectrum_name)
+        if pos.observation_count < COMPASS_MIN_OBSERVATIONS_ACTIVE:
+            stagnant.append(
+                {
+                    "spectrum": spectrum_name,
+                    "observation_count": pos.observation_count,
+                    "min_required": COMPASS_MIN_OBSERVATIONS_ACTIVE,
+                }
+            )
+    return stagnant
+
+
 def compass_summary() -> dict[str, Any]:
     """Summary statistics for briefing and HUD integration."""
+    from divineos.core.constants import COMPASS_MIN_OBSERVATIONS_ACTIVE
+
     positions = read_compass()
-    active = [p for p in positions if p.observation_count > 0]
+    # A spectrum is only "active" if it has enough observations.
+    # Below the threshold, it's stagnant — absence of data, not virtue.
+    active = [p for p in positions if p.observation_count >= COMPASS_MIN_OBSERVATIONS_ACTIVE]
+    stagnant = [p for p in positions if 0 < p.observation_count < COMPASS_MIN_OBSERVATIONS_ACTIVE]
+    unobserved = [p for p in positions if p.observation_count == 0]
 
     if not active:
         return {
@@ -458,6 +491,14 @@ def compass_summary() -> dict[str, Any]:
             "in_virtue_zone": 0,
             "drifting": [],
             "concerns": [],
+            "stagnant": [
+                {
+                    "spectrum": p.spectrum,
+                    "observation_count": p.observation_count,
+                }
+                for p in stagnant
+            ],
+            "unobserved_count": len(unobserved) + len(stagnant),
         }
 
     in_virtue = [p for p in active if p.zone == "virtue"]
@@ -485,6 +526,14 @@ def compass_summary() -> dict[str, Any]:
             }
             for p in concerns
         ],
+        "stagnant": [
+            {
+                "spectrum": p.spectrum,
+                "observation_count": p.observation_count,
+            }
+            for p in stagnant
+        ],
+        "unobserved_count": len(unobserved) + len(stagnant),
     }
 
 
@@ -493,6 +542,8 @@ def compass_summary() -> dict[str, Any]:
 
 def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> str:
     """Format compass reading for display."""
+    from divineos.core.constants import COMPASS_MIN_OBSERVATIONS_ACTIVE
+
     if positions is None:
         positions = read_compass()
 
@@ -501,10 +552,11 @@ def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> s
     lines.append("MORAL COMPASS -- Where I Stand")
     lines.append("=" * 60)
 
-    active = [p for p in positions if p.observation_count > 0]
+    active = [p for p in positions if p.observation_count >= COMPASS_MIN_OBSERVATIONS_ACTIVE]
+    stagnant = [p for p in positions if 0 < p.observation_count < COMPASS_MIN_OBSERVATIONS_ACTIVE]
     inactive = [p for p in positions if p.observation_count == 0]
 
-    if not active:
+    if not active and not stagnant:
         lines.append("")
         lines.append("No observations yet. The compass needs evidence to read.")
         lines.append("")
@@ -544,6 +596,17 @@ def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> s
         else:
             lines.append(f"    ({p.observation_count} observations)")
 
+    # Stagnant spectrums — too few observations to trust
+    if stagnant:
+        lines.append("")
+        lines.append("  STAGNANT (too few observations to determine position):")
+        for p in stagnant:
+            lines.append(
+                f"    {p.spectrum}: UNOBSERVED "
+                f"({p.observation_count} observation{'s' if p.observation_count != 1 else ''} "
+                f"< {COMPASS_MIN_OBSERVATIONS_ACTIVE} minimum)"
+            )
+
     if inactive:
         lines.append("")
         names = ", ".join(p.spectrum for p in inactive)
@@ -571,10 +634,14 @@ def _render_bar(position: float, width: int = 21) -> str:
 
 
 def format_compass_brief() -> str:
-    """Short compass summary for briefing/HUD — just concerns and drift."""
+    """Short compass summary for briefing/HUD — just concerns, drift, and stagnation."""
     summary = compass_summary()
 
     if summary["observed_spectrums"] == 0:
+        stagnant = summary.get("stagnant", [])
+        if stagnant:
+            names = ", ".join(s["spectrum"] for s in stagnant)
+            return f"Compass: no sufficiently observed spectrums (stagnant: {names})"
         return "Compass: no observations yet"
 
     parts: list[str] = []
@@ -591,6 +658,15 @@ def format_compass_brief() -> str:
         parts.append(
             f"  drift: {drift['spectrum']} --> {drift['direction']} ({drift['drift']:+.2f})"
         )
+
+    # Surface stagnation — absence of data is not virtue
+    stagnant = summary.get("stagnant", [])
+    if stagnant:
+        for s in stagnant:
+            parts.append(
+                f"  [STAGNANT] {s['spectrum']}: UNOBSERVED "
+                f"({s['observation_count']} obs) -- are you being tested?"
+            )
 
     return "\n".join(parts)
 

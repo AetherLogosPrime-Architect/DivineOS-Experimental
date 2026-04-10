@@ -41,9 +41,17 @@ class TestLessonInflationFix:
         assert MAX_EFFECTIVE_OCCURRENCES == 10
 
     def test_auto_resolve_uses_capped_occurrences(self):
-        """Even with inflated counts, auto_resolve uses capped occurrences."""
+        """Even with inflated counts, auto_resolve uses capped occurrences.
+
+        Also satisfies stimulus-presence gates: time gate (backdate last_seen)
+        and stimulus gate (add decision journal entries with category keywords).
+        """
+        import time
+
+        from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS, SECONDS_PER_DAY
         from divineos.core.knowledge._base import _get_connection
         from divineos.core.knowledge.lessons import mark_lesson_improving
+        from divineos.core.ledger import get_connection as get_ledger_connection
 
         # Create a lesson with inflated count
         record_lesson("test_capped", "desc", "s1")
@@ -68,9 +76,39 @@ class TestLessonInflationFix:
                 "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_capped'",
                 (json.dumps(sessions),),
             )
+            # Backdate last_seen to satisfy the time gate
+            old_enough = time.time() - (LESSON_MIN_RESOLUTION_DAYS + 1) * SECONDS_PER_DAY
+            conn.execute(
+                "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'test_capped'",
+                (old_enough,),
+            )
             conn.commit()
         finally:
             conn.close()
+
+        # Add decision journal entries with category keyword so stimulus gate passes.
+        # "test_capped" has keywords ["test", "capped"].
+        # Clean sessions start at index effective=10, so s14..s19 are the clean ones.
+        ledger_conn = get_ledger_connection()
+        try:
+            ledger_conn.execute(
+                """CREATE TABLE IF NOT EXISTS decision_journal (
+                    decision_id TEXT PRIMARY KEY, created_at REAL, content TEXT,
+                    reasoning TEXT DEFAULT '', alternatives TEXT DEFAULT '[]',
+                    context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
+                    tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
+                    session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
+                    almost TEXT DEFAULT '')"""
+            )
+            for sid in ["s15", "s16"]:
+                ledger_conn.execute(
+                    "INSERT OR IGNORE INTO decision_journal (decision_id, created_at, content, session_id) "
+                    "VALUES (?, ?, ?, ?)",
+                    (f"dj-capped-{sid}", time.time(), "Ran the test suite and capped output", sid),
+                )
+            ledger_conn.commit()
+        finally:
+            ledger_conn.close()
 
         resolved = auto_resolve_lessons()
         cats = [r["category"] for r in resolved]

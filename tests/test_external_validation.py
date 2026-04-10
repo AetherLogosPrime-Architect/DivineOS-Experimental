@@ -9,6 +9,7 @@ from divineos.core.external_validation import (
     format_validation_summary,
     get_knowledge_origin_ratio,
     get_validation_accuracy,
+    get_validation_divergence,
     init_validation_table,
     record_self_grade,
     record_user_feedback,
@@ -117,6 +118,53 @@ class TestValidationAccuracy:
             record_user_feedback(f"sess-{i}", "F")
         acc = get_validation_accuracy()
         assert len(acc["recent_mismatches"]) <= 5
+
+
+class TestValidationDivergence:
+    def test_empty_returns_insufficient(self):
+        div = get_validation_divergence()
+        assert div["total"] == 0
+        assert div["calibration"] == "insufficient_data"
+
+    def test_accurate_when_grades_match(self):
+        for i in range(5):
+            record_self_grade(f"sess-{i}", "B", 0.75)
+            record_user_feedback(f"sess-{i}", "B")
+        div = get_validation_divergence()
+        assert div["accurate"] == 5
+        assert div["overestimates"] == 0
+        assert div["calibration"] == "calibrated"
+
+    def test_overconfident_when_self_higher(self):
+        for i in range(5):
+            record_self_grade(f"sess-{i}", "A", 0.9)
+            record_user_feedback(f"sess-{i}", "D")
+        div = get_validation_divergence()
+        assert div["overestimates"] == 5
+        assert div["calibration"] == "overconfident"
+
+    def test_underconfident_when_self_lower(self):
+        for i in range(5):
+            record_self_grade(f"sess-{i}", "D", 0.4)
+            record_user_feedback(f"sess-{i}", "A")
+        div = get_validation_divergence()
+        assert div["underestimates"] == 5
+        assert div["calibration"] == "underconfident"
+
+    def test_insufficient_with_few_sessions(self):
+        record_self_grade("sess-1", "A", 0.9)
+        record_user_feedback("sess-1", "F")
+        div = get_validation_divergence()
+        assert div["total"] == 1
+        assert div["calibration"] == "insufficient_data"
+
+    def test_avg_self_score(self):
+        record_self_grade("sess-1", "A", 0.9)
+        record_user_feedback("sess-1", "A")
+        record_self_grade("sess-2", "C", 0.5)
+        record_user_feedback("sess-2", "C")
+        div = get_validation_divergence()
+        assert div["avg_self_score"] == pytest.approx(0.7)
 
 
 class TestKnowledgeOriginRatio:

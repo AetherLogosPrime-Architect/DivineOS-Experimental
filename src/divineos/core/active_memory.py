@@ -47,6 +47,7 @@ from divineos.core.knowledge import (
     record_access,
     search_knowledge,
 )
+from divineos.core.epistemic_status import epistemic_source_modifier
 from divineos.core.knowledge_maintenance import promote_maturity
 from divineos.core.trust_tiers import weighted_source_bonus
 
@@ -146,6 +147,9 @@ def compute_importance(
         score += MATURITY_BOOST_CONFIRMED
     elif maturity == "HYPOTHESIS":
         score -= MATURITY_PENALTY_HYPOTHESIS
+
+    # Epistemic grounding — observed knowledge is more trustworthy than inherited
+    score += epistemic_source_modifier(entry.get("source", ""))
 
     # Context relevance — boost entries that match current goals/priorities.
     # This is a multiplier on the base score, not additive, so it amplifies

@@ -562,7 +562,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
             start_access = access_snapshot.get(kid, 0)
             delta = current_access - start_access
             if delta >= 1:
-                increment_corroboration(kid)
+                increment_corroboration(kid, source_context="session:end_sweep")
                 promote_maturity(kid)
                 corroborated += 1
         if corroborated:
