@@ -417,20 +417,43 @@ def _phase_recombination(report: DreamReport) -> None:
 
 
 def _phase_curiosity(report: DreamReport) -> None:
-    """Prune stale curiosities. No longer auto-generates questions.
+    """Prune stale curiosities and generate new ones from recombination connections.
 
-    Auto-generated questions ("What evidence would confirm or refute: X?")
-    were formulaic templates stamped onto existing knowledge, not genuine
-    curiosity. Real questions come from manual filing via `divineos curiosity add`
-    or the `curiosity wonder` command (explicit opt-in).
+    Old auto-generated questions ("What evidence would confirm or refute: X?")
+    were formulaic templates. New approach: generate curiosities from Phase 5's
+    cross-topic connections — these are genuine "huh, interesting" moments where
+    two unrelated knowledge areas overlap unexpectedly.
     """
-    from divineos.core.curiosity_engine import prune_stale_curiosities
+    from divineos.core.curiosity_engine import add_curiosity, prune_stale_curiosities
 
     pruned = prune_stale_curiosities()
     report.curiosities_generated = 0
     report.curiosity_categories = []
     if pruned:
         report.curiosity_categories.append(f"pruned {pruned} stale")
+
+    # Generate curiosities from Phase 5 connections
+    if report.connection_details:
+        generated = 0
+        for conn in report.connection_details[:3]:  # Cap at 3 per sleep
+            type_a = conn.get("type_a", "?")
+            type_b = conn.get("type_b", "?")
+            summary = conn.get("summary", "")
+            if not summary:
+                continue
+            question = f"How does this {type_a} connect to this {type_b}? {summary}"
+            try:
+                add_curiosity(
+                    question=question,
+                    context=f"Sleep recombination ({conn.get('similarity', '?')} similarity)",
+                    category="recombination",
+                )
+                generated += 1
+            except _SLEEP_ERRORS:
+                continue
+        if generated:
+            report.curiosities_generated = generated
+            report.curiosity_categories.append(f"generated {generated} from connections")
 
 
 # ─── Orchestrator ─────────────────────────────────────────────────────
