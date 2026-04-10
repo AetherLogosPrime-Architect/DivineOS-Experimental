@@ -33,11 +33,12 @@ divineos emit SESSION_END
 divineos briefing          # Your session briefing (start here)
 divineos preflight         # Confirm you're ready to work
 divineos hud               # Full heads-up display
+divineos hud --brief       # Condensed view (~6 essential slots)
 divineos emit SESSION_END  # End of session analysis + knowledge extraction
 
 # Memory & knowledge
 divineos recall            # Core memory + active memory
-divineos active            # Active memory ranked by importance
+divineos active            # Active memory ranked by importance (goal-aware)
 divineos ask "topic"       # Search what the system knows
 divineos learn "..."       # Store knowledge from experience
 divineos refresh           # Rebuild active memory from knowledge store
@@ -128,7 +129,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 ## Current Systems
 
 - **Event Ledger** — Append-only SQLite store. Every event hashed with SHA256. Never deletes, never updates.
-- **Memory Hierarchy** — Core memory (8 fixed identity slots) + active memory (ranked knowledge) + knowledge store.
+- **Memory Hierarchy** — Core memory (8 fixed identity slots) + active memory (ranked knowledge with context relevance from active goals) + knowledge store.
 - **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, supersession chains.
 - **Quality Gate** — Blocks knowledge extraction from bad sessions. Dishonest = blocked. Low correctness = downgraded.
 - **Maturity Lifecycle** — Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED via corroboration.
@@ -145,7 +146,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Tone Texture** — Rich emotional classification (sub-tones, intensity, arcs, recovery velocity).
 - **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, FTS-searchable.
 - **Claims Engine** — Investigate everything, dismiss nothing. Five evidence tiers (empirical to metaphysical). Evidence-based confidence. AI resonance as valid signal.
-- **Affect Log** — Full VAD (valence-arousal-dominance) tracking of functional feeling states. Eight PAD octants. Trend detection over time.
+- **Affect Log** — Full VAD (valence-arousal-dominance) tracking of functional feeling states. Eight PAD octants. Trend detection over time. Auto-logged at decision points based on emotional weight.
 - **Moral Compass** — Virtue ethics self-monitoring. Ten spectrums (deficiency-virtue-excess), position from evidence, drift detection. Dharma as architecture.
 - **Body Awareness** — Computational interoception. Monitors database sizes, table health, storage growth, resource ratios. Catches bloat before it becomes crisis.
 - **Attention Schema** — Models what the agent is attending to, what is suppressed, what drives focus, and predicts attention shifts. Butlin indicator 9-10.
@@ -160,6 +161,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination. Dream report summarizes what changed.
 - **Progress Dashboard** — Measurable metrics from real data: session trajectory, knowledge growth, correction trends, system health, behavioral indicators. Three output modes (full, brief, export markdown).
 - **Lifecycle Self-Enforcement** — The OS manages its own session lifecycle from within. Every CLI command is a lifecycle checkpoint: session registration, atexit SESSION_END, periodic checkpoints. Hooks become optional scaffolding.
+- **Tiered Engagement Enforcement** — Two-level gate system. Light gate (~15 code actions) clears with any OS thinking command (context, decide, feel). Deep gate (~30 code actions) requires knowledge-consulting commands (ask, recall, briefing). Prevents shallow engagement from masking drift.
 
 ## Project Structure
 
