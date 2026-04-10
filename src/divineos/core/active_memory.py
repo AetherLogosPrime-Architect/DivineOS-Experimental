@@ -84,11 +84,19 @@ def _is_session_specific(content: str) -> bool:
     return False
 
 
-def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -> float:
+def compute_importance(
+    entry: dict[str, Any],
+    has_active_lesson: bool = False,
+    context_words: set[str] | None = None,
+) -> float:
     """Score a knowledge entry for active memory. 0.0 to 1.0.
 
     Principles and directives are timeless. Session-specific trivia
     (tool counts, exchange stats) gets penalized to stay out of active memory.
+
+    context_words: if provided, entries whose content overlaps with current
+    goals/priorities get a relevance multiplier. This differentiates
+    "important right now" from "important in general."
     """
     score = 0.0
 
@@ -138,6 +146,18 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
         score += MATURITY_BOOST_CONFIRMED
     elif maturity == "HYPOTHESIS":
         score -= MATURITY_PENALTY_HYPOTHESIS
+
+    # Context relevance — boost entries that match current goals/priorities.
+    # This is a multiplier on the base score, not additive, so it amplifies
+    # differences instead of clustering everything higher.
+    if context_words:
+        content_words = set((entry.get("content") or "").lower().split())
+        if content_words and context_words:
+            overlap = len(content_words & context_words)
+            # Normalize by the smaller set so short goals can still match
+            relevance = overlap / max(min(len(content_words), len(context_words)), 1)
+            # Up to 30% boost for highly relevant entries
+            score *= 1.0 + relevance * 0.30
 
     # Low confidence penalty — entries below active memory floor are suspect
     confidence = entry.get("confidence", CONFIDENCE_MODERATE)
@@ -265,6 +285,145 @@ def get_active_memory() -> list[dict[str, Any]]:
         conn.close()
 
 
+def _gather_context_words() -> set[str]:
+    """Build a set of words from current goals and priorities.
+
+    This is the context signal that makes active memory relevance-aware.
+    Goals and priorities change session to session, so entries relevant
+    to current work surface above generic directives.
+    """
+    words: set[str] = set()
+    # Common stop words to exclude from matching
+    stop = {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "need",
+        "must",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "out",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "and",
+        "but",
+        "or",
+        "nor",
+        "not",
+        "no",
+        "so",
+        "if",
+        "than",
+        "too",
+        "very",
+        "just",
+        "don",
+        "that",
+        "this",
+        "these",
+        "those",
+        "it",
+        "its",
+        "i",
+        "my",
+        "me",
+        "we",
+        "our",
+        "you",
+        "your",
+        "all",
+        "each",
+        "every",
+        "both",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "only",
+        "own",
+        "same",
+        "when",
+        "where",
+        "how",
+        "what",
+        "which",
+        "who",
+        "whom",
+        "why",
+        "up",
+    }
+    try:
+        from divineos.core.hud_state import _ensure_hud_dir
+
+        goals_path = _ensure_hud_dir() / "active_goals.json"
+        if goals_path.exists():
+            import json as _json
+
+            goals = _json.loads(goals_path.read_text(encoding="utf-8"))
+            for goal in goals:
+                if goal.get("status") != "done":
+                    text = (goal.get("text") or "").lower()
+                    words.update(w for w in text.split() if len(w) > 2 and w not in stop)
+    except (ImportError, OSError, ValueError):
+        pass
+
+    try:
+        from divineos.core.memory import get_core
+
+        core = get_core()
+        priorities = core.get("priorities", "")
+        if isinstance(priorities, str):
+            words.update(w for w in priorities.lower().split() if len(w) > 2 and w not in stop)
+    except (ImportError, OSError):
+        pass
+
+    return words
+
+
 def refresh_active_memory(
     importance_threshold: float = CONFIDENCE_ACTIVE_MEMORY_FLOOR,
     max_active: int = ACTIVE_MEMORY_CAP,
@@ -278,6 +437,7 @@ def refresh_active_memory(
     all_entries = get_knowledge(limit=10000)
     active_lessons = get_lessons(status="active")
     improving_lessons = get_lessons(status="improving")
+    context_words = _gather_context_words()
 
     # Build set of knowledge content that has active/improving lessons
     lesson_descriptions = set()
@@ -331,7 +491,9 @@ def refresh_active_memory(
                         has_lesson = True
                         break
 
-            importance = compute_importance(entry, has_active_lesson=has_lesson)
+            importance = compute_importance(
+                entry, has_active_lesson=has_lesson, context_words=context_words
+            )
             candidates[entry["knowledge_id"]] = (importance, has_lesson)
 
         # Determine what should be in active memory:

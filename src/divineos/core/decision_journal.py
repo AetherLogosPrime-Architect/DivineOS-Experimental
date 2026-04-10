@@ -14,7 +14,7 @@ import time
 import uuid
 from typing import Any, cast
 
-from divineos.core.affect import _affect_row_to_dict, get_recent_affect
+from divineos.core.affect import _affect_row_to_dict, get_recent_affect, log_affect
 from divineos.core.memory import _get_connection
 
 # Weight thresholds for emotional significance
@@ -136,19 +136,39 @@ def record_decision(
     finally:
         conn.close()
 
-    # Auto-link the most recent affect state if one exists within 5 minutes
+    # Auto-log affect at this decision point, then link it.
+    # Decisions are genuine moments of variation — the emotional weight
+    # gives us a real signal, not a retrospective guess.
     try:
         recent = get_recent_affect(within_seconds=300.0)
         if recent and not recent.get("linked_decision_id"):
-            conn = _get_connection()
+            # Link existing recent affect to this decision
+            conn2 = _get_connection()
             try:
-                conn.execute(
+                conn2.execute(
                     "UPDATE affect_log SET linked_decision_id = ? WHERE entry_id = ?",
                     (decision_id, recent["entry_id"]),
                 )
-                conn.commit()
+                conn2.commit()
             finally:
-                conn.close()
+                conn2.close()
+        elif not recent:
+            # No recent affect — derive one from the decision's weight
+            _weight_to_affect = {
+                WEIGHT_ROUTINE: (0.3, 0.2, 0.3),
+                WEIGHT_SIGNIFICANT: (0.5, 0.4, 0.4),
+                WEIGHT_PARADIGM: (0.7, 0.7, 0.6),
+            }
+            v, a, d = _weight_to_affect.get(weight, (0.3, 0.2, 0.3))
+            log_affect(
+                valence=v,
+                arousal=a,
+                dominance=d,
+                description=f"Decision moment: {content[:80]}",
+                trigger="decision_recorded",
+                tags=["auto", "decision"],
+                linked_decision_id=decision_id,
+            )
     except (ImportError, sqlite3.OperationalError):
         pass  # affect_log table may not exist yet
 

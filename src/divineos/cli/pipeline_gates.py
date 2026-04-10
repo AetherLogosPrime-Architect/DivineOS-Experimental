@@ -66,32 +66,67 @@ def enforce_briefing_gate() -> None:
 
 
 def enforce_engagement_gate() -> None:
-    """Force-load thinking context if no queries happened this session (step 1d)."""
+    """Force a thinking pause if too many code actions without consulting the OS.
+
+    Instead of just loading context and saying "Engaged", this gate surfaces
+    a specific, actionable prompt based on current goals and active lessons.
+    The point is to make the interruption useful, not just a speed bump.
+    """
     try:
         from divineos.core.hud_handoff import is_engaged, mark_engaged
 
         if not is_engaged():
-            click.secho(
-                "[!] No thinking queries this session. Loading context now.",
-                fg="yellow",
-                bold=True,
-            )
+            import json as _json
+
+            from divineos.core.hud_state import _ensure_hud_dir
             from divineos.core.knowledge import get_lessons
-            from divineos.core.memory import get_core
 
             lessons = get_lessons(status="active")
             improving = get_lessons(status="improving")
+
+            # Read goals from file (hud_state stores them as JSON)
+            goals: list[dict] = []
+            try:
+                goals_path = _ensure_hud_dir() / "active_goals.json"
+                if goals_path.exists():
+                    goals = _json.loads(goals_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                pass
+
+            # Build a prescriptive prompt — not just "consider checking in"
             click.secho(
-                f"    Loaded {len(lessons)} active + {len(improving)} improving lessons.",
-                fg="green",
+                "[!] Pause — too many code actions without thinking.",
+                fg="yellow",
+                bold=True,
             )
-            core = get_core()
+
+            # Surface the most relevant context for RIGHT NOW
+            if lessons:
+                click.secho("    Active lessons (watch for these):", fg="yellow")
+                for lesson in lessons[:2]:
+                    desc = (lesson.get("description") or "")[:100]
+                    click.secho(f"      - {desc}", fg="yellow")
+
+            if improving:
+                click.secho("    Improving (keep it up):", fg="green")
+                for lesson in improving[:2]:
+                    desc = (lesson.get("description") or "")[:100]
+                    click.secho(f"      - {desc}", fg="green")
+
+            if goals:
+                active_goals = [g for g in goals if g.get("status") != "done"]
+                if active_goals:
+                    goal_text = (active_goals[0].get("text") or "")[:100]
+                    click.secho(f"    Current goal: {goal_text}", fg="cyan")
+
+            # Prescriptive action — tell me what to DO, not just to "check in"
             click.secho(
-                f"    Loaded {len(core)} core memory slots.",
-                fg="green",
+                "\n    Run: divineos ask, recall, decide, or context before continuing.",
+                fg="yellow",
+                bold=True,
             )
+
             mark_engaged()
-            click.secho("    Engaged. Proceeding.\n", fg="green")
     except _GATE_ERRORS as e:
         logger.warning(f"Engagement gate failed: {e}")
 
