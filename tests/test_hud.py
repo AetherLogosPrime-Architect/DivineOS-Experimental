@@ -116,17 +116,24 @@ class TestSlotUpdates:
         assert "B" in result
         assert "2" in result
 
-    def test_update_context_budget(self):
+    def test_update_context_budget_low_usage_no_percentage(self):
+        # Under 70% usage, the slot doesn't show the percentage — it's noise
         update_context_budget(used_pct=45)
         result = SLOT_BUILDERS["context_budget"]()
-        assert "45%" in result
-        assert "Plenty" in result or "freely" in result
+        assert "45%" not in result
+        assert "Guardrails" in result
 
     def test_context_budget_compression_imminent(self):
         update_context_budget(used_pct=85)
         result = SLOT_BUILDERS["context_budget"]()
         assert "85%" in result
-        assert "imminent" in result
+        assert "IMMINENT" in result
+
+    def test_context_budget_approaching(self):
+        update_context_budget(used_pct=75)
+        result = SLOT_BUILDERS["context_budget"]()
+        assert "75%" in result
+        assert "approaching" in result
 
     def test_update_task_state(self):
         update_task_state(current="Building HUD", next_task="Run tests")

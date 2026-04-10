@@ -65,6 +65,18 @@ SLOT_ORDER = [
     "self_model",
 ]
 
+# Brief mode: only the slots that change behavior.
+# Identity = who I am, goals = what I'm doing, lessons = what to watch for,
+# handoff = what happened last time, session_health = how it's going.
+BRIEF_SLOTS = [
+    "handoff",
+    "identity",
+    "active_goals",
+    "recent_lessons",
+    "session_health",
+    "os_engagement",
+]
+
 
 def _build_identity_slot() -> str:
     """Who I am. My core memory formatted as self-knowledge."""
@@ -263,81 +275,68 @@ def _build_session_health_slot() -> str:
 
 def _build_context_budget_slot() -> str:
     """How much context window I have left, plus guardrail state."""
-    lines = ["# My Context Budget\n"]
+    lines: list[str] = []
 
     path = _ensure_hud_dir() / "context_budget.json"
     if path.exists():
         try:
             budget = json.loads(path.read_text(encoding="utf-8"))
             used = budget.get("used_pct", 0)
-            lines.append(f"- **Used:** {used}%")
-
-            if used < 50:
-                lines.append("- Plenty of room. I can work freely.")
-            elif used < 70:
-                lines.append("- Past halfway. Still good.")
-            elif used < 80:
-                lines.append(
-                    "- Compression approaching. I should save my HUD state so I wake up with full context after compaction."
-                )
-            else:
-                lines.append(
-                    "- Compression imminent. Saving HUD now so I don't lose context. I'll still be here after — just with a fresh window."
-                )
+            # Only show when it's worth mentioning
+            if used >= 70:
+                lines.append("# Context Budget\n")
+                label = "COMPRESSION IMMINENT" if used >= 80 else "compression approaching"
+                lines.append(f"- **{used}%** used — {label}")
         except (json.JSONDecodeError, OSError):
-            lines.append("- Budget data unavailable.")
-    else:
-        pass  # No budget data — skip the empty placeholder
+            pass
 
-    # Guardrail state — runtime limits
+    # Guardrail state — only show if something is off
     try:
         from divineos.core.tool_wrapper import get_guardrail_state
 
         gs = get_guardrail_state()
         if gs is not None:
             s = gs.summary()
-            lines.append(f"\n**Guardrails:** {s['status']}")
-            lines.append(f"- Iterations: {s['iterations']}")
-            lines.append(f"- Tool calls: {s['tool_calls']}")
             if s["violations"] > 0:
-                lines.append(f"- **{s['violations']} violations, {s['warnings']} warnings**")
+                if not lines:
+                    lines.append("# Context Budget\n")
+                lines.append(
+                    f"**Guardrails:** {s['violations']} violations, {s['warnings']} warnings"
+                )
+            elif not lines:
+                # Minimal one-liner when everything is fine
+                lines.append("# Context Budget\n")
+                lines.append("**Guardrails:** OK")
+                lines.append(f"- Iterations: {s['iterations']}")
+                lines.append(f"- Tool calls: {s['tool_calls']}")
     except (ImportError, AttributeError):
-        pass  # guardrails not active
+        pass
 
     return "\n".join(lines)
 
 
 def _build_active_knowledge_slot() -> str:
-    """My most important knowledge, ranked and ready."""
-    from divineos.core.active_memory import get_active_memory, refresh_active_memory
+    """My most important knowledge — top 5, no noise."""
+    from divineos.core.active_memory import get_active_memory
 
     lines = ["# What I Know That Matters\n"]
 
     try:
         active = get_active_memory()
-        # If active memory looks thin, try a refresh first
-        if len(active) < 3:
-            try:
-                refresh_active_memory(importance_threshold=0.3)
-                active = get_active_memory()
-            except _HUD_ERRORS as e:
-                logger.debug("Active memory refresh failed (proceeding with thin memory): %s", e)
     except _HUD_ERRORS:
         return lines[0] + "Could not load active memory."
 
     if not active:
-        return lines[0] + "No active knowledge. I should run a briefing to populate this."
+        return lines[0] + "No active knowledge. Run a briefing to populate."
 
-    for item in active[:8]:
-        pin = " [pinned]" if item.get("pinned") else ""
-        entity = f" [{item['source_entity']}]" if item.get("source_entity") else ""
+    for item in active[:5]:
         content = item["content"].replace("\n", " ")
-        if len(content) > 200:
-            content = content[:197] + "..."
-        lines.append(f"- [{item['importance']:.2f}]{entity} {content}{pin}")
+        if len(content) > 120:
+            content = content[:117] + "..."
+        lines.append(f"- [{item['importance']:.2f}] {content}")
 
-    if len(active) > 8:
-        lines.append(f"  ...and {len(active) - 8} more in active memory")
+    if len(active) > 5:
+        lines.append(f"  ...and {len(active) - 5} more in active memory")
 
     return "\n".join(lines)
 
@@ -410,17 +409,14 @@ def _build_os_engagement_slot() -> str:
 
     if thinking_count == 0:
         lines.append("- **WARNING: Zero thinking queries this session.**")
-        lines.append("- I have not used ask, recall, context, directives, or briefing.")
-        lines.append("- Am I building without consulting what I know? That's theatre.")
         lines.append("- **Action: Use a thinking tool before the next code change.**")
     else:
+        ratio = thinking_count / max(thinking_count + recording_count, 1)
         lines.append(f"- **Thinking queries:** {thinking_count} ({', '.join(sorted(tools_used))})")
         lines.append(f"- **Recording actions:** {recording_count}")
-        ratio = thinking_count / max(thinking_count + recording_count, 1)
         if ratio < 0.2:
             lines.append("- Low thinking-to-recording ratio. Am I just logging, not consulting?")
-        else:
-            lines.append("- Good balance. I'm using the OS to inform decisions.")
+        # When healthy, don't say anything — silence IS the signal
 
     return "\n".join(lines)
 
@@ -635,10 +631,7 @@ def _build_growth_awareness_slot() -> str:
             if tone:
                 lines.append(f"**Tone:** {tone}")
 
-            lessons = growth.get("lessons", {})
-            resolved = lessons.get("resolved", 0)
-            if resolved > 0:
-                lines.append(f"**Milestones:** {resolved} lessons resolved")
+            # Lesson milestones removed — already shown in recent_lessons slot
         else:
             return ""
     except _HUD_ERRORS:
