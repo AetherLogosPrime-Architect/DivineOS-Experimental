@@ -17,6 +17,7 @@ This module consolidates three knowledge lifecycle operations:
 
 from __future__ import annotations
 
+import json
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -597,10 +598,14 @@ def promote_maturity(knowledge_id: str) -> str | None:
         conn.close()
 
 
-def increment_corroboration(knowledge_id: str) -> int:
+def increment_corroboration(knowledge_id: str, source_context: str = "") -> int:
     """Increment corroboration count for a knowledge entry.
 
     Called when knowledge is re-encountered in a new session.
+    Tracks source diversity: source_context is a short string identifying
+    the independent source (e.g. "session:abc123", "extraction:DEMONSTRATED",
+    "lesson:category_name"). Diverse sources matter more than raw frequency.
+
     Returns the new corroboration count.
     """
     conn = get_connection()
@@ -609,6 +614,28 @@ def increment_corroboration(knowledge_id: str) -> int:
             "UPDATE knowledge SET corroboration_count = corroboration_count + 1, updated_at = ? WHERE knowledge_id = ?",
             (time.time(), knowledge_id),
         )
+
+        # Track source diversity
+        if source_context:
+            try:
+                row = conn.execute(
+                    "SELECT corroboration_sources FROM knowledge WHERE knowledge_id = ?",
+                    (knowledge_id,),
+                ).fetchone()
+                if row and row[0]:
+                    sources = json.loads(row[0])
+                else:
+                    sources = []
+                if source_context not in sources:
+                    sources.append(source_context)
+                    conn.execute(
+                        "UPDATE knowledge SET corroboration_sources = ? WHERE knowledge_id = ?",
+                        (json.dumps(sources), knowledge_id),
+                    )
+            except (sqlite3.OperationalError, json.JSONDecodeError, TypeError, KeyError) as e:
+                # Best-effort: don't let source tracking break corroboration
+                logger.debug(f"Source diversity tracking failed for {knowledge_id[:12]}: {e}")
+
         conn.commit()
         row = conn.execute(
             "SELECT corroboration_count FROM knowledge WHERE knowledge_id = ?",
@@ -617,6 +644,27 @@ def increment_corroboration(knowledge_id: str) -> int:
         count = row[0] if row else 0
         logger.debug(f"Corroboration for {knowledge_id[:12]}: {count}")
         return count
+    finally:
+        conn.close()
+
+
+def get_diverse_corroboration_count(knowledge_id: str) -> int:
+    """Count unique corroboration sources (independent verification count).
+
+    Returns the number of distinct sources that corroborated this knowledge.
+    This is the REAL validation count — eight encounters from one session type
+    count as 1, while eight encounters from eight diverse contexts count as 8.
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT corroboration_sources FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        if not row or not row[0]:
+            return 0
+        sources = json.loads(row[0])
+        return len(set(sources))
     finally:
         conn.close()
 

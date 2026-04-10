@@ -380,11 +380,15 @@ def measure_session_health(
     """Score a session's health from its analysis signals.
 
     Produces a 0.0-1.0 composite score:
-    - Correction penalty: more corrections = lower score
+    - Correction factor: resolved corrections REWARD, unresolved PENALIZE
     - Encouragement bonus: user approval signal
     - Overflow penalty: hitting context limits means inefficiency
     - Interaction ratio: tool_calls / user_messages (higher = more autonomous)
     - Briefing penalty: skipping the briefing = structural -0.25
+
+    Resolved vs unresolved heuristic: if a session has BOTH corrections AND
+    encouragements, corrections are treated as resolved (user confirmed fixes).
+    Corrections with zero encouragements stay penalized — no evidence of recovery.
 
     Args:
         corrections: Number of user corrections detected
@@ -401,17 +405,25 @@ def measure_session_health(
             "factors": dict,  # breakdown of each factor
         }
     """
+    import math
+
+    from divineos.core.constants import OUTCOME_RESOLVED_CORRECTION_BONUS
+
     factors: dict[str, float] = {}
 
-    # Correction penalty (0.0 = many corrections, 1.0 = none)
-    # Diminishing returns: first corrections hurt most, later ones less.
-    # Old formula: 1.0 - (corrections * 0.15) -> 7 corrections = floor.
-    # New: logarithmic decay so 20 corrections ≈ 0.25, not 0.0.
+    # Correction factor: distinguish resolved vs unresolved.
+    # Resolved = session has both corrections AND encouragements (user confirmed fixes).
+    # Unresolved = corrections with zero encouragements (no evidence of recovery).
     if corrections == 0:
         correction_factor = 1.0
+    elif encouragements > 0:
+        # Corrections were resolved — the system worked correctly.
+        # Base stays 1.0 (no penalty) + small bonus per resolved correction.
+        # Capped at 1.0 so it doesn't inflate the factor beyond its range.
+        bonus = corrections * OUTCOME_RESOLVED_CORRECTION_BONUS
+        correction_factor = min(1.0, 1.0 + bonus)
     else:
-        import math
-
+        # Unresolved corrections — penalize with logarithmic decay.
         correction_factor = max(0.0, 1.0 - 0.25 * math.log2(1 + corrections))
     factors["corrections"] = round(correction_factor, 2)
 
@@ -420,8 +432,6 @@ def measure_session_health(
     if encouragements == 0:
         encouragement_factor = 0.0
     else:
-        import math
-
         encouragement_factor = min(1.0, 0.25 * math.log2(1 + encouragements))
     factors["encouragements"] = round(encouragement_factor, 2)
 

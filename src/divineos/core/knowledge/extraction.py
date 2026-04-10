@@ -161,7 +161,9 @@ def store_knowledge_smart(
             conn.commit()
             # Exact match = corroboration
             try:
-                _get_maintenance().increment_corroboration(str(kid))
+                _get_maintenance().increment_corroboration(
+                    str(kid), source_context=f"extraction:{source}"
+                )
                 _get_maintenance().promote_maturity(str(kid))
             except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
@@ -210,7 +212,9 @@ def store_knowledge_smart(
             conn.commit()
             # Corroboration: re-encountering knowledge strengthens trust
             try:
-                _get_maintenance().increment_corroboration(cast("str", existing_id))
+                _get_maintenance().increment_corroboration(
+                    cast("str", existing_id), source_context=f"extraction:{source}"
+                )
                 _get_maintenance().promote_maturity(cast("str", existing_id))
             except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
