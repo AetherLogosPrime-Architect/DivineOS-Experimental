@@ -159,6 +159,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Proactive Patterns** — Prescriptive recommendations from positive experience. Complements anticipation (warnings) with what worked well.
 - **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination. Dream report summarizes what changed.
 - **Progress Dashboard** — Measurable metrics from real data: session trajectory, knowledge growth, correction trends, system health, behavioral indicators. Three output modes (full, brief, export markdown).
+- **Lifecycle Self-Enforcement** — The OS manages its own session lifecycle from within. Every CLI command is a lifecycle checkpoint: session registration, atexit SESSION_END, periodic checkpoints. Hooks become optional scaffolding.
 
 ## Project Structure
 
