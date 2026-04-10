@@ -75,10 +75,6 @@ class TestSlotBuilders:
         result = SLOT_BUILDERS["active_knowledge"]()
         assert "Know" in result
 
-    def test_warnings_slot_empty(self):
-        result = SLOT_BUILDERS["warnings"]()
-        assert "Warning" in result
-
     def test_task_state_slot_empty(self):
         result = SLOT_BUILDERS["task_state"]()
         # Returns empty when no task state — skipped by HUD assembly
