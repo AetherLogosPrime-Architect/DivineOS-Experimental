@@ -119,12 +119,26 @@ def enforce_engagement_gate() -> None:
                     goal_text = (active_goals[0].get("text") or "")[:100]
                     click.secho(f"    Current goal: {goal_text}", fg="cyan")
 
-            # Prescriptive action — tell me what to DO, not just to "check in"
-            click.secho(
-                "\n    Run: divineos ask, recall, decide, or context before continuing.",
-                fg="yellow",
-                bold=True,
-            )
+            # Check if this is a deep gate block (needs knowledge consultation)
+            from divineos.core.hud_handoff import engagement_status
+
+            status = engagement_status()
+            if status.get("needs_deep"):
+                click.secho(
+                    '\n    Deep check-in required. Run: divineos ask "topic" or divineos recall',
+                    fg="red",
+                    bold=True,
+                )
+                click.secho(
+                    "    (context/decide/feel won't clear this — consult your knowledge.)",
+                    fg="red",
+                )
+            else:
+                click.secho(
+                    "\n    Run: divineos ask, recall, decide, or context before continuing.",
+                    fg="yellow",
+                    bold=True,
+                )
 
             mark_engaged()
     except _GATE_ERRORS as e:

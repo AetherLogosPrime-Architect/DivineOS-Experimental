@@ -153,18 +153,44 @@ _FLOW_STATE_VELOCITY = 10.0  # seconds per action
 _FLOW_STATE_THRESHOLD = 50  # very high ceiling when in flow
 
 
-def mark_engaged() -> None:
+# Tools that consult stored knowledge (deep engagement)
+_DEEP_TOOLS = {"ask", "recall", "briefing", "lessons", "active"}
+# Tools that think but don't query knowledge (light engagement)
+_LIGHT_TOOLS = {"context", "decide", "feel", "directives", "body", "compass"}
+
+# After this many actions since last DEEP check-in, require deep engagement
+_DEEP_ENGAGEMENT_THRESHOLD = 30
+
+
+def mark_engaged(tool: str = "") -> None:
     """Mark that the OS was used for thinking this session.
 
-    Called when a thinking tool (ask, recall, directives, context, briefing,
-    decide, feel) is used. Resets the code-action counter so the engagement
-    gate reopens. This means engagement is PERIODIC — you must keep
-    consulting the OS throughout your work, not just once at the start.
+    Called when a thinking tool is used. Resets the code-action counter.
+    Tracks engagement DEPTH — light tools (context, decide, feel) satisfy
+    the basic gate, but deep tools (ask, recall) are required periodically
+    to ensure the agent actually consults stored knowledge, not just
+    runs the minimum command to clear the gate.
     """
     path = _ensure_hud_dir() / ".session_engaged"
+
+    # Preserve deep_actions_since across light engagements
+    existing: dict[str, Any] = {}
+    if path.exists():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(existing, dict):
+                existing = {}
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+
+    is_deep = tool.lower() in _DEEP_TOOLS if tool else False
+
     marker = {
         "engaged_at": time.time(),
         "code_actions_since": 0,
+        "engagement_depth": "deep" if is_deep else "light",
+        "last_tool": tool,
+        "deep_actions_since": 0 if is_deep else existing.get("deep_actions_since", 0),
     }
     path.write_text(json.dumps(marker), encoding="utf-8")
 
@@ -172,10 +198,13 @@ def mark_engaged() -> None:
 def record_code_action() -> None:
     """Record that a code-changing action (Edit/Write/Bash) occurred.
 
-    Increments the counter that tracks how many code actions have happened
-    since the last OS query. When this counter exceeds _ENGAGEMENT_DECAY_THRESHOLD,
-    is_engaged() returns False and the PreToolUse gate blocks until the AI
-    consults the OS again.
+    Increments both counters:
+    - code_actions_since: actions since last ANY thinking command (light gate)
+    - deep_actions_since: actions since last DEEP thinking command (deep gate)
+
+    When code_actions_since exceeds the light threshold, any thinking command
+    clears it. When deep_actions_since exceeds _DEEP_ENGAGEMENT_THRESHOLD,
+    only ask/recall/briefing will clear it — context/decide/feel won't be enough.
     """
     path = _ensure_hud_dir() / ".session_engaged"
     if not path.exists():
@@ -183,9 +212,9 @@ def record_code_action() -> None:
     try:
         marker = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(marker, dict):
-            # Old format — upgrade to new format
             marker = {"engaged_at": float(marker), "code_actions_since": 0}
         marker["code_actions_since"] = marker.get("code_actions_since", 0) + 1
+        marker["deep_actions_since"] = marker.get("deep_actions_since", 0) + 1
         marker["last_action_at"] = time.time()
         path.write_text(json.dumps(marker), encoding="utf-8")
     except (json.JSONDecodeError, OSError) as e:
@@ -262,13 +291,12 @@ def _is_flow_state() -> bool:
 def is_engaged() -> bool:
     """Check if the OS has been engaged recently enough.
 
-    Returns False if:
-    - No engagement marker exists (never engaged)
-    - More than the active threshold code-changing actions have
-      happened since the last OS query (engagement has decayed)
+    Two tiers:
+    1. Light gate: any thinking command clears it (threshold ~15 actions)
+    2. Deep gate: only ask/recall/briefing clear it (threshold ~30 actions)
 
-    The threshold is context-aware: higher during commit flows
-    (staged files exist) to avoid blocking mechanical work.
+    The deep gate ensures the agent actually consults stored knowledge
+    periodically, not just runs context/decide to clear the light gate.
     """
     path = _get_hud_dir() / ".session_engaged"
     if not path.exists():
@@ -278,7 +306,17 @@ def is_engaged() -> bool:
         if not isinstance(marker, dict):
             return True
         code_actions = marker.get("code_actions_since", 0)
-        return bool(code_actions < _active_threshold())
+        deep_actions = marker.get("deep_actions_since", 0)
+
+        # Light gate — any thinking command clears
+        if code_actions >= _active_threshold():
+            return False
+
+        # Deep gate — only ask/recall/briefing clear
+        if deep_actions >= _DEEP_ENGAGEMENT_THRESHOLD:
+            return False
+
+        return True
     except (json.JSONDecodeError, OSError):
         return path.exists()
 
@@ -302,14 +340,23 @@ def engagement_status() -> dict[str, Any]:
                 "code_actions_since": 0,
                 "threshold": threshold,
                 "remaining": threshold,
+                "deep_actions_since": 0,
+                "deep_threshold": _DEEP_ENGAGEMENT_THRESHOLD,
+                "needs_deep": False,
             }
         code_actions = marker.get("code_actions_since", 0)
+        deep_actions = marker.get("deep_actions_since", 0)
         remaining = max(0, threshold - code_actions)
+        needs_deep = deep_actions >= _DEEP_ENGAGEMENT_THRESHOLD
+        engaged = code_actions < threshold and not needs_deep
         return {
-            "engaged": code_actions < threshold,
+            "engaged": engaged,
             "code_actions_since": code_actions,
             "threshold": threshold,
             "remaining": remaining,
+            "deep_actions_since": deep_actions,
+            "deep_threshold": _DEEP_ENGAGEMENT_THRESHOLD,
+            "needs_deep": needs_deep,
         }
     except (json.JSONDecodeError, OSError):
         return {
@@ -317,6 +364,9 @@ def engagement_status() -> dict[str, Any]:
             "code_actions_since": 0,
             "threshold": threshold,
             "remaining": threshold,
+            "deep_actions_since": 0,
+            "deep_threshold": _DEEP_ENGAGEMENT_THRESHOLD,
+            "needs_deep": False,
         }
 
 
