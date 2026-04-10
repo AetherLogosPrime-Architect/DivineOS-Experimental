@@ -23,7 +23,7 @@ AI agents lose everything between sessions. Every conversation starts from zero 
 Persistent, layered, evidence-ranked.
 
 - **Event Ledger** — Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
-- **Memory Hierarchy** — Core memory (8 identity slots) + active memory (ranked by importance) + knowledge store (full archive).
+- **Memory Hierarchy** — Core memory (8 identity slots) + active memory (ranked by importance with context relevance from active goals) + knowledge store (full archive).
 - **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
 
 Also: temporal knowledge (valid-from/valid-until), graph-enhanced retrieval (BFS traversal of knowledge edges), knowledge compression (dedup/synthesis/graph-aware).
@@ -54,7 +54,7 @@ The agent's coherent picture of itself, computed from evidence — not self-repo
 - **Self-Critique** — Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
 - **Opinion Store** — First-class opinions with evidence tracking, confidence evolution, and supersession history.
 
-Also: affect log (valence-arousal-dominance tracking), body awareness (computational interoception), attention schema (Butlin indicators 9-10), epistemic status (Butlin indicator 14), value tension detection, unified self-model assembly.
+Also: affect log (valence-arousal-dominance tracking, auto-logged at decision points), body awareness (computational interoception), attention schema (Butlin indicators 9-10), epistemic status (Butlin indicator 14), value tension detection, unified self-model assembly.
 
 ### Interaction Intelligence
 Adapts to the user over time.
@@ -63,7 +63,7 @@ Adapts to the user over time.
 - **Communication Calibration** — Adjusts verbosity, jargon tolerance, example density, and explanation depth based on the user model.
 - **Advice Tracking** — Records recommendations given, then tracks whether they actually worked. Computes success rate by category.
 
-Also: HUD (heads-up display), memory sync to Claude Code, session checkpoints, seed versioning.
+Also: HUD (heads-up display with `--brief` mode), tiered engagement enforcement (light/deep gates), memory sync to Claude Code, session checkpoints, seed versioning.
 
 ## How It Works
 
@@ -113,6 +113,7 @@ pytest tests/ -q --tb=short   # 3,651+ tests, real DB, minimal mocks
 divineos briefing            # Start here — context, lessons, memory (--deep, --layer)
 divineos preflight           # Confirm you're ready to work
 divineos hud                 # Full heads-up display
+divineos hud --brief         # Condensed view (~6 essential slots)
 divineos emit SESSION_END    # End-of-session analysis and knowledge extraction
 divineos checkpoint          # Lightweight mid-session save
 divineos context-status      # Edit count, tool calls, context level
