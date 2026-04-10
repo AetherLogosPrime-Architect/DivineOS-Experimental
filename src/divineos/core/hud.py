@@ -287,7 +287,7 @@ def _build_context_budget_slot() -> str:
         except (json.JSONDecodeError, OSError):
             lines.append("- Budget data unavailable.")
     else:
-        lines.append("- No budget tracking active. I should be mindful of context size.")
+        pass  # No budget data — skip the empty placeholder
 
     # Guardrail state — runtime limits
     try:
