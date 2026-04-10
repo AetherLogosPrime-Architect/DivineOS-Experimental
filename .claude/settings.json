@@ -2,22 +2,11 @@
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
         "hooks": [
           {
             "type": "command",
             "command": "bash .claude/hooks/load-briefing.sh",
-            "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/resume-session.sh",
-            "timeout": 15
+            "timeout": 30
           }
         ]
       }
