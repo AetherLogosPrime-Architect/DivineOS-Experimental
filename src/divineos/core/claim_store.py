@@ -13,6 +13,8 @@ Side discoveries during investigation feed back into the knowledge store.
 """
 
 import json
+
+from loguru import logger
 import time
 import uuid
 from typing import Any
@@ -169,6 +171,13 @@ def add_evidence(
     strength: float = 0.5,
 ) -> str:
     """Add evidence to a claim. Direction: SUPPORTS, CONTRADICTS, or NEUTRAL."""
+    _VALID_DIRECTIONS = {"SUPPORTS", "CONTRADICTS", "NEUTRAL"}
+    direction = direction.upper().strip()
+    if direction not in _VALID_DIRECTIONS:
+        raise ValueError(
+            f"Invalid evidence direction '{direction}'. Must be one of: {_VALID_DIRECTIONS}"
+        )
+
     init_claim_tables()
     evidence_id = str(uuid.uuid4())
     strength = max(0.0, min(1.0, strength))
@@ -365,6 +374,10 @@ def _recalculate_confidence(conn: Any, claim_id: str) -> None:
             support_weight += strength
         elif direction == "CONTRADICTS":
             contra_weight += strength
+        elif direction == "NEUTRAL":
+            pass  # Neutral evidence doesn't shift confidence
+        else:
+            logger.warning(f"Unexpected evidence direction '{direction}' for claim {claim_id}")
 
     total = support_weight + contra_weight
     if total == 0:

@@ -202,7 +202,10 @@ class TestActiveMemory:
         active = get_active_memory()
         assert len(active) == 1
         assert active[0]["reason"] == "updated reason"
-        assert active[0]["importance"] == 0.9
+        # get_active_memory() now recomputes importance on-the-fly from
+        # knowledge state rather than returning cached values, so we check
+        # that a valid score was computed (not the exact cached 0.9)
+        assert 0.0 < active[0]["importance"] <= 1.0
 
     def test_demote(self):
         kid = self._store_fact()

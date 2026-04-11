@@ -43,12 +43,14 @@ def route_finding(finding: Finding) -> dict[str, Any]:
 
     result: dict[str, Any]
 
-    # Critical/High findings with behavioral/integrity implications -> Claims
-    if finding.severity in (Severity.CRITICAL, Severity.HIGH) and finding.category in (
+    # Behavioral/integrity/identity findings -> Claims.
+    # MEDIUM severity included — recurring moderate patterns are more
+    # concerning than isolated high-severity ones.
+    if finding.category in (
         FindingCategory.BEHAVIOR,
         FindingCategory.INTEGRITY,
         FindingCategory.IDENTITY,
-    ):
+    ) and finding.severity in (Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM):
         result = _route_to_claim(finding)
 
     # Knowledge findings -> Knowledge store
