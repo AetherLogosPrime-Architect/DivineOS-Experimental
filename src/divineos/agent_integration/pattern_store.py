@@ -169,7 +169,11 @@ class PatternStore:
             occurrences = existing.get("occurrences", 0) + 1
             violation_count = existing.get("violation_count", 0) + 1
             old_confidence = existing.get("confidence", 0.5)
-            new_confidence = self.decrease_confidence_for_violation(old_confidence)
+            new_confidence = self.decrease_confidence_for_violation(
+                old_confidence,
+                violation_count=violation_count,
+                total_occurrences=occurrences,
+            )
 
             self.logger.info(
                 f"Updating violation pattern {pattern_id}: "
@@ -193,7 +197,11 @@ class PatternStore:
         else:
             occurrences = 1
             violation_count = 1
-            new_confidence = self.decrease_confidence_for_violation(confidence)
+            new_confidence = self.decrease_confidence_for_violation(
+                confidence,
+                violation_count=violation_count,
+                total_occurrences=occurrences,
+            )
             self.logger.info(f"Creating new violation pattern {pattern_id} for {tool_name}")
 
             return self.store_pattern(
@@ -212,8 +220,21 @@ class PatternStore:
                 violation_count=violation_count,
             )
 
-    def decrease_confidence_for_violation(self, current_confidence: float) -> float:
-        new_confidence = max(0.0, current_confidence - 0.10)
+    def decrease_confidence_for_violation(
+        self,
+        current_confidence: float,
+        violation_count: int = 1,
+        total_occurrences: int = 1,
+    ) -> float:
+        """Decrease confidence proportional to violation ratio.
+
+        A pattern that fails 1 in 100 times gets a small penalty (0.01).
+        A pattern that fails 5 in 10 times gets a large penalty (0.25).
+        Floor at 0.05 so patterns can always recover with enough successes.
+        """
+        ratio = violation_count / max(total_occurrences, 1)
+        penalty = max(0.05, min(0.25, ratio * 0.50))
+        new_confidence = max(0.05, current_confidence - penalty)
         return min(1.0, new_confidence)
 
     def get_pattern(self, pattern_id: str) -> Optional[dict[str, Any]]:

@@ -183,7 +183,10 @@ def generate_briefing(
 
         half_life = half_lives.get(entry["knowledge_type"], 7.0)
         if half_life is None:
-            recency = 1.0  # PREFERENCE: never decays
+            # "Timeless" types still get a very slow decay so outdated
+            # directives/preferences can eventually lose rank if never
+            # reaffirmed. 365-day half-life = 0.93 after 6 months.
+            recency = max(0.7, 2 ** (-age_days / 365.0))
         else:
             recency = 2 ** (-age_days / half_life)
 
