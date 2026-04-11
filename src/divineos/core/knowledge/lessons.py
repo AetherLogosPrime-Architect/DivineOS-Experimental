@@ -1,6 +1,7 @@
 """Lesson tracking — record, query, summarize, extract from reports."""
 
 import json
+import math
 import re
 import sqlite3
 import time
@@ -52,10 +53,12 @@ def _ensure_regressions_column(conn: Any) -> None:
 # How many regressions before a lesson is flagged for directive promotion.
 REGRESSION_ESCALATION_THRESHOLD = 3
 
-# Cap effective occurrences for auto-resolve math. Lessons with inflated
-# counts (e.g., 178x from early accumulation bugs) would otherwise be
-# impossible to resolve — you'd need 183 clean sessions.
-MAX_EFFECTIVE_OCCURRENCES = 10
+# Scale effective occurrences logarithmically for auto-resolve math.
+# A lesson with 178 occurrences shouldn't need 183 clean sessions,
+# but it shouldn't be capped at 10 either — that hides chronic failure.
+# log2(178) ≈ 7.5 → needs ~13 sessions. log2(10) ≈ 3.3 → needs ~8.
+# Minimum effective is 5 (the base threshold never drops below that).
+LESSON_EFFECTIVE_MIN = 5
 
 
 def record_lesson(category: str, description: str, session_id: str, agent: str = "unknown") -> str:
@@ -300,6 +303,71 @@ def get_escalation_candidates() -> list[dict[str, Any]]:
         conn.close()
 
 
+def escalate_chronic_lessons() -> list[str]:
+    """Auto-promote lessons with 3+ regressions to DIRECTIVE knowledge entries.
+
+    A lesson that keeps cycling between IMPROVING and ACTIVE isn't being
+    solved by awareness alone — it needs structural enforcement. Instead
+    of just appending "[ESCALATE]" text to the summary, this creates an
+    actual DIRECTIVE entry in the knowledge store that will surface in
+    briefings with high priority.
+
+    Returns list of created knowledge IDs.
+    """
+    candidates = get_escalation_candidates()
+    if not candidates:
+        return []
+
+    created_ids: list[str] = []
+    for lesson in candidates:
+        category = lesson["category"]
+        description = lesson["description"]
+        regressions = lesson.get("regressions", 0)
+        occurrences = lesson["occurrences"]
+
+        # Check if a directive already exists for this category
+        conn = _get_connection()
+        try:
+            existing = conn.execute(
+                "SELECT knowledge_id FROM knowledge "
+                "WHERE knowledge_type = 'DIRECTIVE' AND superseded_by IS NULL "
+                "AND LOWER(content) LIKE ?",
+                (f"%{category.lower()}%",),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        if existing:
+            # Directive already exists — don't create duplicates
+            continue
+
+        content = (
+            f"STRUCTURAL ENFORCEMENT: {description} "
+            f"This lesson regressed {regressions}x across {occurrences} occurrences. "
+            f"Awareness alone is insufficient — enforce structurally. "
+            f"Category: {category}."
+        )
+
+        kid = store_knowledge_smart(
+            knowledge_type="DIRECTIVE",
+            content=content,
+            confidence=CONFIDENCE_RELIABLE,
+            source_events=[],
+            tags=["auto-escalated", f"lesson-{category}", "regression-enforcement"],
+            source="SYNTHESIZED",
+        )
+        if kid:
+            created_ids.append(kid)
+            logger.info(
+                "Escalated lesson '%s' to DIRECTIVE (knowledge_id=%s): %dx regressions",
+                category,
+                kid,
+                regressions,
+            )
+
+    return created_ids
+
+
 def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
     """Check if any of the given categories have recurring lessons.
 
@@ -466,10 +534,11 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
             sessions = json.loads(row[7]) if row[7] else []
 
             # Count sessions AFTER the lesson was last recorded as a mistake.
-            # The sessions list includes both mistake sessions and clean sessions.
-            # Cap effective occurrences so inflated counts (e.g. 178x from
-            # early accumulation bugs) don't make resolution impossible.
-            effective = min(lesson["occurrences"], MAX_EFFECTIVE_OCCURRENCES)
+            # Log-scale effective occurrences: a lesson that occurred 178 times
+            # needs more evidence than one that occurred 5 times, but not 178x
+            # more. log2 scaling: 5→5, 10→5, 50→8, 178→12.
+            raw_occ = lesson["occurrences"]
+            effective = max(LESSON_EFFECTIVE_MIN, int(math.log2(max(raw_occ, 1)) + 2))
             if len(sessions) < effective + clean_session_threshold:
                 continue
 
@@ -805,5 +874,16 @@ def extract_lessons_from_report(
             if not negatives:
                 mark_lesson_improving("upset_recovered", session_id)
                 mark_lesson_improving("upset_user", session_id)
+
+    # Auto-escalate chronic lessons to DIRECTIVE entries.
+    # This runs after all lesson recording/improving so the regression
+    # counts are up-to-date for this session.
+    try:
+        escalated = escalate_chronic_lessons()
+        if escalated:
+            stored_ids.extend(escalated)
+            logger.info("Auto-escalated %d chronic lessons to directives", len(escalated))
+    except _LESSONS_ERRORS as e:
+        logger.debug("Lesson escalation failed (non-fatal): %s", e)
 
     return stored_ids

@@ -164,6 +164,8 @@ class PatternStore:
         existing = self.get_pattern(pattern_id)
 
         if existing:
+            # UPDATE in place — don't create a duplicate row.
+            # Creating new rows dilutes the penalty across duplicates.
             occurrences = existing.get("occurrences", 0) + 1
             violation_count = existing.get("violation_count", 0) + 1
             old_confidence = existing.get("confidence", 0.5)
@@ -173,27 +175,42 @@ class PatternStore:
                 f"Updating violation pattern {pattern_id}: "
                 f"occurrences={occurrences}, violation_count={violation_count}, confidence={new_confidence}"
             )
+
+            conn = _get_connection()
+            try:
+                now = datetime.now(timezone.utc).isoformat()
+                conn.execute(
+                    """UPDATE patterns
+                       SET occurrences = ?, violation_count = ?, confidence = ?,
+                           updated_at = ?
+                       WHERE pattern_id = ?""",
+                    (occurrences, violation_count, new_confidence, now, pattern_id),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            return pattern_id
         else:
             occurrences = 1
             violation_count = 1
             new_confidence = self.decrease_confidence_for_violation(confidence)
             self.logger.info(f"Creating new violation pattern {pattern_id} for {tool_name}")
 
-        return self.store_pattern(
-            pattern_type="tactical",
-            name=f"Violation: {tool_name} ({context_type})",
-            description=f"{violation_type} violation detected for {tool_name} with {context_type} context",
-            preconditions={
-                "tool_name": tool_name,
-                "context_type": context_type,
-                "violation_type": violation_type,
-            },
-            occurrences=occurrences,
-            successes=0,
-            confidence=new_confidence,
-            source_events=[],
-            violation_count=violation_count,
-        )
+            return self.store_pattern(
+                pattern_type="tactical",
+                name=f"Violation: {tool_name} ({context_type})",
+                description=f"{violation_type} violation detected for {tool_name} with {context_type} context",
+                preconditions={
+                    "tool_name": tool_name,
+                    "context_type": context_type,
+                    "violation_type": violation_type,
+                },
+                occurrences=occurrences,
+                successes=0,
+                confidence=new_confidence,
+                source_events=[],
+                violation_count=violation_count,
+            )
 
     def decrease_confidence_for_violation(self, current_confidence: float) -> float:
         new_confidence = max(0.0, current_confidence - 0.10)
