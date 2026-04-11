@@ -341,8 +341,13 @@ def store_knowledge_smart(
                         overlap = _compute_overlap(content, entry["content"])
                         if overlap > OVERLAP_QUASI_IDENTICAL:
                             conn.execute(
-                                "UPDATE knowledge SET superseded_by = ?, updated_at = ? WHERE knowledge_id = ?",
-                                (entry["knowledge_id"], time.time(), kid),
+                                "UPDATE knowledge SET superseded_by = ?, updated_at = ?, supersession_reason = ? WHERE knowledge_id = ?",
+                                (
+                                    entry["knowledge_id"],
+                                    time.time(),
+                                    "duplicate: quasi-identical content",
+                                    kid,
+                                ),
                             )
                             conn.execute(
                                 "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
@@ -437,8 +442,8 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict[str, Any]]:
                 for entry in cluster:
                     if entry["knowledge_id"] != new_id:
                         conn.execute(
-                            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
-                            (new_id, entry["knowledge_id"]),
+                            "UPDATE knowledge SET superseded_by = ?, supersession_reason = ? WHERE knowledge_id = ?",
+                            (new_id, "consolidation: merged into cluster", entry["knowledge_id"]),
                         )
                 conn.commit()
             finally:

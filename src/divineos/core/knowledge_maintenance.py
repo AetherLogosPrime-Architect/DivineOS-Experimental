@@ -726,6 +726,13 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
         # Skip already superseded
         if entry.get("superseded_by"):
             continue
+        # Skip entries that can't be promoted — saves CPU on large knowledge bases.
+        # CONFIRMED has nowhere to go; RAW with low corroboration can't promote yet.
+        maturity = entry.get("maturity", "RAW")
+        if maturity == "CONFIRMED":
+            continue
+        if maturity == "RAW" and entry.get("corroboration_count", 0) < 1:
+            continue
 
         new_maturity = check_promotion(entry)
         if not new_maturity:

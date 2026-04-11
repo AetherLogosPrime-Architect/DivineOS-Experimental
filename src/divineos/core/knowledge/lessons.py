@@ -437,7 +437,9 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
                     count += 1
                     continue
             except sqlite3.OperationalError:
-                pass  # system_events table may not exist in test DBs
+                logger.debug(
+                    "system_events table absent — stimulus check skipped for session %s", sid[:12]
+                )
 
             # Also check decision journal if the table exists
             try:
@@ -455,7 +457,10 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
                 if _any_word_boundary_match(candidates, keyword_patterns, col_index=0):
                     count += 1
             except sqlite3.OperationalError:
-                pass  # decision_journal table may not exist
+                logger.debug(
+                    "decision_journal table absent — stimulus check skipped for session %s",
+                    sid[:12],
+                )
     finally:
         conn.close()
     return count
