@@ -89,9 +89,9 @@ EPISTEMIC_PENALTY_INHERITED = -0.15  # Meaningful penalty for seed/inherited kno
 # ─── Knowledge Retrieval Scoring ────────────────────────────────────
 # How knowledge is ranked when building briefings.
 
-RETRIEVAL_WEIGHT_CONFIDENCE = 0.4  # 40%
-RETRIEVAL_WEIGHT_ACCESS = 0.3  # 30%
-RETRIEVAL_WEIGHT_RECENCY = 0.3  # 30%
+RETRIEVAL_WEIGHT_CONFIDENCE = 0.55  # 55% — confidence is the primary signal
+RETRIEVAL_WEIGHT_ACCESS = 0.10  # 10% — access count is weak signal, easily inflated
+RETRIEVAL_WEIGHT_RECENCY = 0.35  # 35% — recent knowledge more likely relevant
 
 # ─── Maturity Promotion Gates ──────────────────────────────────────
 # Requirements for knowledge to advance through trust levels.

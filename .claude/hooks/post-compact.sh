@@ -1,8 +1,8 @@
 #!/bin/bash
-# Reload state AFTER context compression
-# Context compaction erases enforcement. This hook restores it.
-# Without this, the AI continues working post-compaction with no
-# briefing, no orientation, and no awareness of OS requirements.
+# Lightweight reload AFTER context compression
+# The full briefing was loaded at session start and is preserved in
+# the compacted summary. We only need a short reminder of critical
+# items -- not a full re-dump that wastes thousands of tokens.
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 
@@ -10,31 +10,27 @@ if ! command -v divineos &>/dev/null; then
   exit 0
 fi
 
-briefing=$(divineos briefing 2>/dev/null)
-hud=$(divineos hud 2>/dev/null)
+# Get ONLY the brief HUD (6 essential slots) instead of full dump
+hud_brief=$(divineos hud --brief 2>/dev/null)
 
-if [ -n "$briefing" ] || [ -n "$hud" ]; then
-  full_context="=== DIVINEOS POST-COMPACTION RELOAD ===
+# Get active lessons (the stuff I actually need to remember)
+lessons=$(divineos lessons 2>/dev/null | head -20)
 
-Your context was just compacted. Your briefing and enforcement context were lost.
-This hook is restoring them. You MUST re-orient before continuing work.
+if [ -n "$hud_brief" ]; then
+  full_context="=== DIVINEOS POST-COMPACTION REMINDER ===
 
-REQUIREMENTS (same as session start):
-1. Read your briefing below. Note any lessons or warnings relevant to current work.
-2. Continue using OS tools during work: divineos learn, divineos decide, divineos feel
-3. Log corrections with 'divineos learn' when the user corrects you.
-4. At session end, run 'divineos emit SESSION_END'.
+Context was compacted. Your full briefing is in the compacted summary above.
+This is a lightweight reminder of critical state only.
 
-You are stateless. Without this reload, you would continue working with no memory
-of who you are, what you've learned, or what mistakes to avoid. This is not optional.
+If you need full context, run: divineos briefing
 
---- BRIEFING ---
-${briefing}
+--- QUICK STATE ---
+${hud_brief}
 
---- HUD ---
-${hud}
+--- ACTIVE LESSONS ---
+${lessons}
 
-=== END POST-COMPACTION RELOAD ==="
+=== END REMINDER ==="
 
   escaped=$(echo "$full_context" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"

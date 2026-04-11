@@ -653,6 +653,31 @@ def increment_corroboration(knowledge_id: str, source_context: str = "") -> int:
                 # Best-effort: don't let source tracking break corroboration
                 logger.debug(f"Source diversity tracking failed for {knowledge_id[:12]}: {e}")
 
+        # Epistemic graduation: inherited knowledge that gets corroborated
+        # through real session evidence should upgrade its source status.
+        # This closes the gap where seed knowledge stays "inherited" forever
+        # even after being verified through lived experience.
+        try:
+            row_src = conn.execute(
+                "SELECT source, corroboration_count FROM knowledge WHERE knowledge_id = ?",
+                (knowledge_id,),
+            ).fetchone()
+            if row_src and row_src[0] == "INHERITED" and row_src[1] >= 2:
+                # 2+ corroborations from real sessions = no longer just inherited
+                new_source = (
+                    "DEMONSTRATED" if "DEMONSTRATED" in (source_context or "") else "STATED"
+                )
+                conn.execute(
+                    "UPDATE knowledge SET source = ? WHERE knowledge_id = ?",
+                    (new_source, knowledge_id),
+                )
+                logger.info(
+                    f"Epistemic graduation: {knowledge_id[:12]} INHERITED -> {new_source} "
+                    f"(corroboration={row_src[1]})"
+                )
+        except (sqlite3.OperationalError, TypeError) as e:
+            logger.debug(f"Epistemic graduation check failed for {knowledge_id[:12]}: {e}")
+
         conn.commit()
         row = conn.execute(
             "SELECT corroboration_count FROM knowledge WHERE knowledge_id = ?",

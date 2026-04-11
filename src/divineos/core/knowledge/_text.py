@@ -711,6 +711,31 @@ def _is_raw_quote_noise(stripped: str, stripped_lower: str) -> bool:
     if re.search(r"\b(opt out|allow .* to use my data|make sure you opt)\b", stripped_lower):
         return True
 
+    # Council/external AI feedback pasted as knowledge — praise, not wisdom
+    if re.match(
+        r"(aether|andrew|hey aether|hey claude|hi aether)[,:]?\s",
+        stripped_lower,
+    ):
+        return True
+
+    # User praise/encouragement stored verbatim — warm but not knowledge
+    if re.match(
+        r"(perfect|wonderful|beautiful|excellent|amazing|fantastic|great job|well done|"
+        r"im proud|i.m proud|proud of you|good work|nice work|that.s (great|perfect|wonderful))",
+        stripped_lower,
+    ):
+        return True
+
+    # External audit/review paste-through — bulk content, not distilled
+    if re.search(
+        r"(here is (the|my|a) (audit|review|reply|report|analysis|assessment)|"
+        r"here.s (the|my|a) (audit|review|reply|report)|"
+        r"fresh (audit|review|clone)|"
+        r"round \d+ audit)",
+        stripped_lower,
+    ):
+        return True
+
     return False
 
 
@@ -740,10 +765,26 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         return True
 
     # Questions directed at the AI — prompts, not knowledge
-    if stripped_lower.endswith("?") and knowledge_type in ("DIRECTION", "PRINCIPLE"):
+    if stripped_lower.endswith("?"):
         is_tag_question = stripped_lower.rstrip().endswith(("ok?", "right?", "yes?", "no?"))
-        if not is_tag_question and len(stripped_lower.split()) < 15:
+        if not is_tag_question and len(stripped_lower.split()) < 20:
             return True
+
+    # Council/external praise — encouragement, not distilled knowledge
+    if re.match(
+        r"(aether|andrew|hey aether)[,:]?\s",
+        stripped_lower,
+    ):
+        return True
+
+    # User praise stored as knowledge — warm but not actionable
+    if re.match(
+        r"(perfect|wonderful|beautiful|excellent|amazing|fantastic|"
+        r"great job|well done|im proud|i.m proud|proud of you|"
+        r"good work|nice work|that.s (great|perfect|wonderful))",
+        stripped_lower,
+    ):
+        return True
 
     if knowledge_type in ("DIRECTION", "PRINCIPLE", "BOUNDARY"):
         if _is_raw_quote_noise(stripped, stripped_lower):
