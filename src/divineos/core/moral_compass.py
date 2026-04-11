@@ -369,12 +369,15 @@ def compute_position(spectrum: str, lookback: int = 20) -> SpectrumPosition:
     spec = SPECTRUMS[spectrum]
 
     if not observations:
+        # No observations → we don't know where we stand. Returning
+        # zone="virtue" here would claim virtue through ignorance —
+        # absence of evidence is not evidence of virtue.
         return SpectrumPosition(
             spectrum=spectrum,
             position=0.0,
             observation_count=0,
-            label=spec["virtue"],
-            zone="virtue",
+            label="unobserved",
+            zone="unobserved",
             drift=0.0,
             drift_direction="stable",
         )
