@@ -109,14 +109,15 @@ class TestSmartOpsIntegration:
             # Store initial knowledge
             old_id = store_knowledge(
                 knowledge_type="FACT",
-                content="The project has 1000 tests passing in the test suite",
+                content="The project tests pass reliably in the continuous integration suite",
                 confidence=0.9,
             )
 
-            # Store updated version with enough new words
+            # Store updated version — shares enough FTS5 terms for discovery,
+            # plus enough new words (>20%) to trigger UPDATE instead of NOOP.
             new_id = store_knowledge_smart(
                 "FACT",
-                "The project has 1676 tests passing in the test suite including integration and unit tests",
+                "The project tests pass reliably in the continuous integration suite with coverage and mutation testing",
             )
 
             # New entry should be different from old

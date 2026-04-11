@@ -325,8 +325,8 @@ def _phase_maintenance(report: DreamReport) -> None:
 
 
 # Similarity thresholds for connection detection
-_RECOMBINATION_MIN_SIMILARITY = 0.45  # Minimum to consider related (raised from 0.35)
-_RECOMBINATION_MAX_SIMILARITY = 0.80  # Above this = near-duplicate, not a connection
+_RECOMBINATION_MIN_SIMILARITY = 0.30  # Minimum to consider related (lowered for Dice)
+_RECOMBINATION_MAX_SIMILARITY = 0.65  # Above this = near-duplicate, not a connection
 _RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
 _RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
 

@@ -109,11 +109,11 @@ MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE = 0.7
 # ─── Overlap & Similarity Thresholds ───────────────────────────────
 # How similar two pieces of knowledge need to be for various operations.
 
-OVERLAP_RELATIONSHIP = 0.3  # Meaningful overlap for auto-linking
-OVERLAP_DUPLICATE = 0.4  # Close enough to be a duplicate candidate
-OVERLAP_STRONG = 0.5  # Strong overlap for merging/relationships
-OVERLAP_QUASI_IDENTICAL = 0.6  # Very high overlap
-OVERLAP_NEAR_IDENTICAL = 0.8  # Near-identical (merge threshold)
+OVERLAP_RELATIONSHIP = 0.25  # Meaningful overlap for auto-linking
+OVERLAP_DUPLICATE = 0.30  # Close enough to be a duplicate candidate
+OVERLAP_STRONG = 0.40  # Strong overlap for merging/relationships
+OVERLAP_QUASI_IDENTICAL = 0.50  # Very high overlap
+OVERLAP_NEAR_IDENTICAL = 0.65  # Near-identical (merge threshold)
 
 # ─── Quality Gate Thresholds ────────────────────────────────────────
 # Session quality requirements for knowledge extraction.

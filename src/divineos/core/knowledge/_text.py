@@ -380,12 +380,14 @@ def _stemmed_word_set(text: str) -> set[str]:
 
 
 def _compute_stemmed_overlap(words_a: set[str], words_b: set[str]) -> float:
-    """Word set overlap ratio from pre-stemmed sets. Returns 0.0-1.0."""
+    """Word set overlap using Sørensen-Dice on pre-stemmed sets. Returns 0.0-1.0.
+
+    Matches _compute_overlap() formula — symmetric, length-fair.
+    """
     if not words_a or not words_b:
         return 0.0
     intersection = words_a & words_b
-    smaller = min(len(words_a), len(words_b))
-    return len(intersection) / smaller
+    return 2 * len(intersection) / (len(words_a) + len(words_b))
 
 
 def _extract_key_terms(text: str) -> str:
