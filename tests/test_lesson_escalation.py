@@ -139,14 +139,16 @@ class TestAutoResolve:
         record_lesson("test_auto_resolve", "desc", "s3")
         mark_lesson_improving("test_auto_resolve", "s4")
 
-        # Add enough sessions to meet threshold (3 occurrences + 5 clean = 8 total)
+        # Add enough sessions to meet threshold.
+        # With log-scaling, effective = max(5, int(log2(3)+2)) = 5,
+        # so we need 5 + 5 (clean_session_threshold) = 10 total sessions.
         conn = _get_connection()
         try:
             row = conn.execute(
                 "SELECT sessions FROM lesson_tracking WHERE category = 'test_auto_resolve'"
             ).fetchone()
             sessions = json.loads(row[0])
-            for i in range(5, 10):
+            for i in range(5, 12):
                 sessions.append(f"s{i}")
             conn.execute(
                 "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_auto_resolve'",
@@ -175,7 +177,7 @@ class TestAutoResolve:
                     session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
                     almost TEXT DEFAULT '')"""
             )
-            for sid in ["s5", "s6"]:
+            for sid in ["s5", "s6", "s7"]:
                 ledger_conn.execute(
                     "INSERT INTO decision_journal (decision_id, created_at, content, session_id) "
                     "VALUES (?, ?, ?, ?)",

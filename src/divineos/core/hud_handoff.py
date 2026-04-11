@@ -260,6 +260,11 @@ def _is_flow_state() -> bool:
     Reads the engagement marker to check action velocity. If the agent
     has done 5+ actions AND the average time between actions is under
     _FLOW_STATE_VELOCITY seconds, we're in flow state.
+
+    Flow state and drift are mutually inhibiting: if drift signals are
+    elevated (lesson regressions, low recent grades), flow state does NOT
+    trigger regardless of velocity. Safety signal gets priority over
+    convenience signal. (Council round 4 — Dekker/Beer convergence.)
     """
     path = _get_hud_dir() / ".session_engaged"
     if not path.exists():
@@ -283,9 +288,45 @@ def _is_flow_state() -> bool:
             return False
 
         velocity = elapsed / actions  # seconds per action
-        return bool(velocity < _FLOW_STATE_VELOCITY)
+        if velocity >= _FLOW_STATE_VELOCITY:
+            return False
+
+        # Drift inhibits flow: check if recent session health is poor
+        # or lesson regressions are active. If so, don't loosen the gate.
+        if _drift_signals_elevated():
+            return False
+
+        return True
     except (json.JSONDecodeError, OSError):
         return False
+
+
+def _drift_signals_elevated() -> bool:
+    """Check if drift indicators suggest the gate should stay tight.
+
+    Returns True if any of:
+    - Last session grade was D or F
+    - Active lessons have regressed 2+ times
+    """
+    try:
+        # Check last session grade from handoff
+        handoff_path = _get_hud_dir() / "handoff_note.json"
+        if handoff_path.exists():
+            ho = json.loads(handoff_path.read_text(encoding="utf-8"))
+            grade = (ho.get("context_snapshot") or {}).get("session_grade", "")
+            if grade in ("D", "F"):
+                return True
+
+        # Check for regressing lessons
+        from divineos.core.knowledge import get_lessons
+
+        active = get_lessons(status="active")
+        regressed = sum(1 for lesson in active if lesson.get("regressions", 0) >= 2)
+        if regressed >= 2:
+            return True
+    except (ImportError, OSError, json.JSONDecodeError, sqlite3.OperationalError):
+        pass  # If we can't check, don't block flow — fail open here
+    return False
 
 
 def is_engaged() -> bool:

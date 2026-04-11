@@ -212,14 +212,18 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
     # affect but low quality, tighten now. If consistently good, relax slightly.
     calibration_adj = 0.0
     calibration_reason = ""
+    verification_override: str | None = None
     try:
         from divineos.core.affect_calibration import get_calibration_adjustment
 
         cal = get_calibration_adjustment()
         calibration_adj = cal.get("threshold_adjustment", 0.0)
         calibration_reason = cal.get("reason", "")
+        verification_override = cal.get("verification_override")
         if calibration_adj != 0.0:
             logger.info("Circuit 1 calibration: %+.2f (%s)", calibration_adj, calibration_reason)
+        if verification_override:
+            logger.info("Circuit 1 verification override: %s", verification_override)
     except (ImportError, sqlite3.OperationalError, OSError) as e:
         logger.debug("Affect calibration unavailable: %s", e)
 
@@ -283,6 +287,23 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
             score=avg_score,
             failed_checks=failed,
             reason=f"{len(failed)} checks failed ({', '.join(failed)}). Knowledge enters as HYPOTHESIS.",
+        )
+
+    # Verification override from affect calibration: when cross-session
+    # patterns show high affect with low quality (ratio > 0.4), the
+    # calibration system flags "careful". This forces a DOWNGRADE even
+    # when individual checks pass — the pattern across sessions is
+    # more informative than any single session's checks.
+    if verification_override == "careful" and failed:
+        avg_score = sum(scores.values()) / len(scores) if scores else 0.5
+        return QualityVerdict(
+            action="DOWNGRADE",
+            score=avg_score,
+            failed_checks=failed,
+            reason=(
+                f"Affect calibration override: {calibration_reason}. "
+                f"Knowledge enters as HYPOTHESIS for extra scrutiny."
+            ),
         )
 
     # Allow: session is trustworthy
