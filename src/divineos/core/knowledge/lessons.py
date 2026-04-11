@@ -14,6 +14,7 @@ from divineos.core.constants import (
     CONFIDENCE_ACTIVE_MEMORY_FLOOR,
     CONFIDENCE_RELIABLE,
     CONFIDENCE_VERY_HIGH,
+    LESSON_ABSENCE_DAYS,
     LESSON_MIN_RESOLUTION_DAYS,
     LESSON_MIN_STIMULUS_SESSIONS,
     SECONDS_PER_DAY,
@@ -557,15 +558,31 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
                 )
                 continue
 
-            # Check that at least some clean sessions involved the stimulus topic
+            # Check that at least some clean sessions involved the stimulus topic.
+            # Absence-as-success fallback: for low-frequency mistake categories,
+            # the triggering situation may genuinely not arise. After LESSON_ABSENCE_DAYS
+            # with zero regressions, sustained absence IS evidence of learning.
             clean_session_ids = sessions[effective:]
             stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
-            if stimulus_count < LESSON_MIN_STIMULUS_SESSIONS:
+            regressions = lesson.get("regressions", 0)
+            stimulus_required = LESSON_MIN_STIMULUS_SESSIONS
+
+            if regressions == 0 and days_improving >= LESSON_ABSENCE_DAYS:
+                # Long enough with zero backsliding — drop stimulus requirement
+                stimulus_required = 0
+                logger.debug(
+                    "Lesson '%s' absence-as-success: %.1f days, 0 regressions — "
+                    "stimulus requirement dropped",
+                    lesson["category"],
+                    days_improving,
+                )
+
+            if stimulus_count < stimulus_required:
                 logger.debug(
                     "Lesson '%s' has %d stimulus sessions (need %d) — stimulus gate holds",
                     lesson["category"],
                     stimulus_count,
-                    LESSON_MIN_STIMULUS_SESSIONS,
+                    stimulus_required,
                 )
                 continue
 

@@ -576,7 +576,8 @@ def promote_maturity(knowledge_id: str) -> str | None:
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT maturity, corroboration_count, confidence FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",
+            "SELECT maturity, corroboration_count, confidence, corroboration_sources "
+            "FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",
             (knowledge_id,),
         ).fetchone()
         if not row:
@@ -586,6 +587,7 @@ def promote_maturity(knowledge_id: str) -> str | None:
             "maturity": row[0],
             "corroboration_count": row[1],
             "confidence": row[2],
+            "corroboration_sources": row[3] if row[3] else "[]",
         }
 
         new_maturity = check_promotion(entry)
@@ -690,6 +692,32 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
     Both corroboration AND validity gates must pass.
     Returns counts of promotions by type.
     """
+    # Backfill: entries born before corroboration=1 was the default (seed-era,
+    # older extraction paths) have corroboration_count=0 and can never promote.
+    # Every entry was observed at least once when it was created — give them
+    # the minimum corroboration they're owed so the pipeline can evaluate them.
+    backfilled = 0
+    conn = get_connection()
+    try:
+        updated = conn.execute(
+            "UPDATE knowledge SET corroboration_count = 1 "
+            "WHERE corroboration_count = 0 AND superseded_by IS NULL",
+        ).rowcount
+        if updated:
+            conn.commit()
+            backfilled = updated
+            logger.info(f"Backfilled corroboration_count=1 for {updated} entries born at 0")
+    except _KM_ERRORS as e:
+        logger.debug(f"Corroboration backfill skipped: {e}")
+    finally:
+        conn.close()
+
+    # Refresh entries if we backfilled (their corroboration_count changed)
+    if backfilled:
+        for entry in entries:
+            if entry.get("corroboration_count", 0) == 0 and not entry.get("superseded_by"):
+                entry["corroboration_count"] = 1
+
     promotions: dict[str, int] = {}
     for entry in entries:
         kid = entry.get("knowledge_id", "")

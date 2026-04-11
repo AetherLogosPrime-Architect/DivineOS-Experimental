@@ -15,6 +15,7 @@ from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 _BYPASS_COMMANDS = frozenset(
     {
         "admin",
+        "audit",
         "inspect",
         "briefing",
         "init",
@@ -97,6 +98,7 @@ def cli() -> None:
 # Register all command modules
 from divineos.cli import (  # noqa: E402
     analysis_commands,
+    audit_commands,
     body_commands,
     claim_commands,
     compass_commands,
@@ -121,6 +123,7 @@ knowledge_commands.register(cli)
 journal_commands.register(cli)
 decision_commands.register(cli)
 claim_commands.register(cli)
+audit_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
 directive_commands.register(cli)
