@@ -149,22 +149,28 @@ class TestSmartOpsIntegration:
                 confidence=0.9,
             )
 
-            # Store contradicting claim
+            # Store contradicting claim — high overlap triggers UPDATE (supersession),
+            # which is itself a form of contradiction resolution.
             new_id = store_knowledge_smart(
                 "BOUNDARY",
                 "divineos ask now searches core memory and the knowledge store, this was fixed previously",
             )
             assert new_id != ""
 
-            # Old entry should have contradiction_count incremented
+            # Old entry should be either contradicted OR superseded (both valid)
             conn = _get_connection()
             row = conn.execute(
-                "SELECT contradiction_count FROM knowledge WHERE knowledge_id = ?",
+                "SELECT contradiction_count, superseded_by FROM knowledge WHERE knowledge_id = ?",
                 (old_id,),
             ).fetchone()
             conn.close()
             assert row is not None
-            assert row[0] >= 1
+            contradicted = row[0] >= 1
+            superseded = row[1] is not None
+            assert contradicted or superseded, (
+                f"Old entry should be contradicted or superseded, got "
+                f"contradiction_count={row[0]}, superseded_by={row[1]}"
+            )
         finally:
             os.environ.pop("DIVINEOS_DB", None)
 

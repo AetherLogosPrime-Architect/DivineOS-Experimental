@@ -23,6 +23,7 @@ from divineos.core.knowledge._base import (
 from divineos.core.knowledge._text import (
     _MIN_CONTENT_WORDS,
     _STOPWORDS,
+    _build_fts_query,
     _compute_overlap,
     _extract_key_terms,
     _is_extraction_noise,
@@ -181,9 +182,10 @@ def store_knowledge_smart(
                        ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
                        LIMIT 10"""
         key_terms = _extract_key_terms(content)
-        if key_terms:
+        fts_match = _build_fts_query(content)  # OR-joined for recall
+        if key_terms and fts_match:
             try:
-                rows = conn.execute(fts_query, (key_terms,)).fetchall()
+                rows = conn.execute(fts_query, (fts_match,)).fetchall()
                 for row in rows:
                     entry = _row_to_dict(row)
                     if entry["knowledge_type"] == knowledge_type:
@@ -308,9 +310,9 @@ def store_knowledge_smart(
 
         # Post-insert dedup guard: check if FTS finds a pre-existing near-match
         # that we missed (handles race conditions with concurrent inserts)
-        if key_terms and operation == "ADD":
+        if key_terms and fts_match and operation == "ADD":
             try:
-                rows = conn.execute(fts_query, (key_terms,)).fetchall()
+                rows = conn.execute(fts_query, (fts_match,)).fetchall()
                 for row in rows:
                     entry = _row_to_dict(row)
                     if entry["knowledge_id"] == kid:

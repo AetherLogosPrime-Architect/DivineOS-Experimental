@@ -4,6 +4,7 @@ import re
 import sqlite3
 from typing import Any
 
+from divineos.core.constants import OVERLAP_DUPLICATE
 from divineos.core.knowledge._base import (
     _get_connection,
 )
@@ -338,7 +339,7 @@ def apply_session_feedback(
 
         for entry in existing_corrections:
             overlap = _compute_overlap(correction.content, entry["content"])
-            if overlap > 0.4:
+            if overlap > OVERLAP_DUPLICATE:
                 _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
                 result["recurrences_found"] += 1
                 # Record in lesson tracking with semantic category
@@ -354,7 +355,7 @@ def apply_session_feedback(
     for enc in encouragements:
         for entry in existing_positives:
             overlap = _compute_overlap(enc.content, entry["content"])
-            if overlap > 0.4:
+            if overlap > OVERLAP_DUPLICATE:
                 _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
                 record_access(entry["knowledge_id"])
                 result["patterns_reinforced"] += 1
@@ -368,7 +369,7 @@ def apply_session_feedback(
             if _is_noise_correction(correction.content):
                 continue
             overlap = _compute_overlap(correction.content, lesson["description"])
-            if overlap > 0.4:
+            if overlap > OVERLAP_DUPLICATE:
                 recurred = True
                 break
         if not recurred:

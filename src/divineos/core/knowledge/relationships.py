@@ -15,6 +15,12 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.constants import (
+    OVERLAP_DUPLICATE,
+    OVERLAP_QUASI_IDENTICAL,
+    OVERLAP_RELATIONSHIP,
+    OVERLAP_STRONG,
+)
 from divineos.core.knowledge._base import get_connection
 from divineos.core.knowledge._text import _compute_overlap, _extract_key_terms
 from divineos.core.knowledge.crud import search_knowledge
@@ -213,20 +219,20 @@ def _classify_relationship(
     """Determine the relationship type between two knowledge entries.
 
     Returns a relationship type string or None if no relationship detected.
-    Only fires when there's meaningful overlap (>0.3).
+    Only fires when there's meaningful overlap (above OVERLAP_RELATIONSHIP).
     """
-    if overlap < 0.3:
+    if overlap < OVERLAP_RELATIONSHIP:
         return None
 
     # High overlap + negation difference = CONTRADICTS
-    if overlap >= 0.5:
+    if overlap >= OVERLAP_QUASI_IDENTICAL:
         new_neg = _has_negation_marker(new_content)
         existing_neg = _has_negation_marker(existing_content)
         if new_neg != existing_neg:
             return "CONTRADICTS"
 
     # Very high overlap + new is longer = ELABORATES
-    if overlap >= 0.6:
+    if overlap >= OVERLAP_QUASI_IDENTICAL:
         new_words = len(new_content.split())
         existing_words = len(existing_content.split())
         if new_words > existing_words * 1.5:
@@ -235,20 +241,20 @@ def _classify_relationship(
             return "ELABORATES"
 
     # Causal language in the new entry pointing at the existing topic
-    if overlap >= 0.35 and _has_causal_language(new_content):
+    if overlap >= OVERLAP_DUPLICATE and _has_causal_language(new_content):
         return "CAUSED_BY"
 
     # Type-based affinities
     pair = (new_type, existing_type)
-    if pair in _TYPE_AFFINITIES and overlap >= 0.35:
+    if pair in _TYPE_AFFINITIES and overlap >= OVERLAP_DUPLICATE:
         return _TYPE_AFFINITIES[pair]
 
     # Moderate overlap between same types = RELATED_TO
-    if overlap >= 0.5 and new_type == existing_type:
+    if overlap >= OVERLAP_STRONG and new_type == existing_type:
         return "RELATED_TO"
 
     # Cross-type with decent overlap — different facets of the same topic
-    if overlap >= 0.4 and new_type != existing_type:
+    if overlap >= OVERLAP_DUPLICATE and new_type != existing_type:
         return "RELATED_TO"
 
     return None
