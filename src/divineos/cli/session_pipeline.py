@@ -30,6 +30,7 @@ from divineos.cli.pipeline_phases import (
     run_feedback_cycle,
     run_knowledge_post_processing,
     run_knowledge_quality_cycle,
+    run_lesson_detection,
     run_session_finalization,
     run_session_scoring,
 )
@@ -232,6 +233,41 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         # ── Phase 6-7: Consolidation and memory refresh ──────────
         promoted, demoted = run_consolidation_and_refresh(analysis)
 
+        # ── Phase 7b: Session features (needed by lesson detection) ──
+        features = None  # type: ignore[assignment]
+        try:
+            from pathlib import Path
+
+            from divineos.analysis.feature_storage import init_feature_tables, store_features
+            from divineos.analysis.session_features import run_all_features
+
+            init_feature_tables()
+            features = run_all_features(Path(latest), since_timestamp=session_start)
+            store_features(analysis.session_id, features)
+            stored_features = (
+                len(features.tone_shifts)
+                + len(features.timeline)
+                + len(features.files_touched)
+                + len(features.error_recovery)
+                + (1 if features.activity else 0)
+                + (1 if features.task_tracking else 0)
+            )
+            if stored_features > 0:
+                click.secho(
+                    f"[+] Session features: {stored_features} records "
+                    f"({len(features.tone_shifts)} tone shifts, "
+                    f"{len(features.files_touched)} files, "
+                    f"{len(features.error_recovery)} recoveries)",
+                    fg="cyan",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, TypeError, ValueError) as e:
+            logger.debug(f"Session features storage failed (best-effort): {e}")
+
+        # ── Phase 7c: Lesson detection BEFORE corroboration ──────
+        # Lessons must be recorded first so the corroboration sweep's
+        # maturity promotions reflect actual learning patterns.
+        run_lesson_detection(check_results, analysis.session_id, features)
+
         # ── Phase 8: Session scoring and corroboration ───────────
         health = run_session_scoring(analysis, access_snapshot)
 
@@ -302,8 +338,6 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                 click.secho(f"[~] Curation: {', '.join(curation_parts)}", fg="cyan")
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.warning(f"Knowledge curation failed: {e}")
-
-        # ── Phase 8e: (moved to after 8p — lesson detection must happen first) ──
 
         # ── Phase 8f: SIS self-audit ��──────────────────────────
         try:
@@ -523,102 +557,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"Dead architecture alarm failed: {e}")
 
-        # ── Phase 8o: Session features storage ────────────────────
-        # Run deep feature analysis (tone shifts, timeline, files,
-        # activity, error recovery) and store results. Previously
-        # only available via manual `divineos analyze` command.
-        features = None  # type: ignore[assignment]
-        try:
-            from pathlib import Path
-
-            from divineos.analysis.feature_storage import init_feature_tables, store_features
-            from divineos.analysis.session_features import run_all_features
-
-            init_feature_tables()
-            features = run_all_features(Path(latest), since_timestamp=session_start)
-            store_features(analysis.session_id, features)
-            stored_features = (
-                len(features.tone_shifts)
-                + len(features.timeline)
-                + len(features.files_touched)
-                + len(features.error_recovery)
-                + (1 if features.activity else 0)
-                + (1 if features.task_tracking else 0)
-            )
-            if stored_features > 0:
-                click.secho(
-                    f"[+] Session features: {stored_features} records "
-                    f"({len(features.tone_shifts)} tone shifts, "
-                    f"{len(features.files_touched)} files, "
-                    f"{len(features.error_recovery)} recoveries)",
-                    fg="cyan",
-                )
-        except (ImportError, sqlite3.OperationalError, OSError, TypeError, ValueError) as e:
-            logger.debug(f"Session features storage failed (best-effort): {e}")
-
-        # ── Phase 8p: Lesson detection from quality checks + features ──
-        # This is where lessons actually get RECORDED. Without this,
-        # lessons are seeded but never re-detected from session data.
-        try:
-            from divineos.core.knowledge.lessons import extract_lessons_from_report
-
-            # Convert feature tone shifts to lesson-extraction format
-            tone_shifts_for_lessons = None
-            if features and hasattr(features, "tone_shifts") and features.tone_shifts:
-                tone_shifts_for_lessons = [
-                    {
-                        "direction": ("negative" if ts.new_tone == "negative" else "positive"),
-                        "previous_tone": ts.previous_tone,
-                        "new_tone": ts.new_tone,
-                        "trigger": ts.trigger_action,
-                        "user_response": getattr(ts, "after_message", ""),
-                        "before_message": getattr(ts, "before_message", ""),
-                        "sequence": ts.sequence,
-                    }
-                    for ts in features.tone_shifts
-                    if ts.previous_tone != ts.new_tone
-                ]
-
-            # Convert error recovery to aggregate counts
-            error_recovery_for_lessons = None
-            if features and hasattr(features, "error_recovery") and features.error_recovery:
-                blind_retries = sum(
-                    1 for e in features.error_recovery if e.recovery_action == "retry"
-                )
-                investigate_count = sum(
-                    1 for e in features.error_recovery if e.recovery_action == "investigate"
-                )
-                error_recovery_for_lessons = {
-                    "blind_retries": blind_retries,
-                    "investigate_count": investigate_count,
-                }
-
-            lesson_ids = extract_lessons_from_report(
-                check_results,
-                analysis.session_id,
-                tone_shifts_for_lessons,
-                error_recovery_for_lessons,
-            )
-            if lesson_ids:
-                click.secho(
-                    f"[+] Lesson detection: {len(lesson_ids)} entries from quality checks",
-                    fg="green",
-                )
-        except (ImportError, sqlite3.OperationalError, OSError, TypeError, ValueError) as e:
-            logger.debug(f"Lesson detection failed: {e}")
-
-        # ── Phase 8q: Lesson escalation (auto-resolve) ──────────
-        # Runs AFTER lesson detection so we don't resolve a lesson
-        # that just re-occurred this session.
-        try:
-            from divineos.core.knowledge.lessons import auto_resolve_lessons
-
-            resolved = auto_resolve_lessons()
-            if resolved:
-                names = ", ".join(r["category"] for r in resolved)
-                click.secho(f"[+] Lessons resolved: {names}", fg="green")
-        except (ImportError, sqlite3.OperationalError, OSError) as e:
-            logger.debug(f"Lesson escalation failed: {e}")
+        # ── Phase 8o-q: (moved to Phase 7b-7c — features + lessons ──
+        #    now run BEFORE corroboration sweep so maturity
+        #    promotions reflect actual learning patterns)
 
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)

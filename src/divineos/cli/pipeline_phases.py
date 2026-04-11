@@ -293,6 +293,17 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Health check failed: {e}")
 
+    # 5b-pre. Backfill warrants BEFORE maturity cycle — newly warranted
+    # entries may meet promotion criteria that the maturity cycle checks.
+    try:
+        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
+
+        wresult = backfill_inherited_warrants()
+        if wresult["backfilled"]:
+            click.secho(f"[~] Backfilled {wresult['backfilled']} warrants.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Warrant backfill failed: {e}")
+
     # 5b. Maturity cycle
     promoted_ids: list[str] = []
     try:
@@ -386,15 +397,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Auto-distill failed: {e}")
 
-    # 5f. Backfill warrants for new entries
-    try:
-        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
-
-        wresult = backfill_inherited_warrants()
-        if wresult["backfilled"]:
-            click.secho(f"[~] Backfilled {wresult['backfilled']} warrants.", fg="cyan")
-    except _PHASE_ERRORS as e:
-        logger.warning(f"Warrant backfill failed: {e}")
+    # 5f. (Moved to 5b-pre — warrant backfill now runs before maturity cycle)
 
     # 5g. Drift detection — catch behavioral backsliding
     try:
@@ -503,6 +506,89 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
     return promoted, demoted
 
 
+# ─── Phase 8p-q: Lesson detection and escalation ────────────────────
+#
+# MUST run before corroboration sweep (Phase 8c) — lessons must be
+# recorded first so maturity promotions reflect actual learning.
+
+
+def run_lesson_detection(
+    check_results: list,
+    session_id: str,
+    features: Any,
+) -> list[str]:
+    """Detect and record lessons from quality checks + session features.
+
+    Also runs auto-resolve (escalation) after detection so we don't
+    resolve a lesson that just re-occurred this session.
+
+    Returns list of lesson IDs detected.
+    """
+    lesson_ids: list[str] = []
+
+    # 8p. Lesson detection from quality checks + features
+    try:
+        from divineos.core.knowledge.lessons import extract_lessons_from_report
+
+        # Convert feature tone shifts to lesson-extraction format
+        tone_shifts_for_lessons = None
+        if features and hasattr(features, "tone_shifts") and features.tone_shifts:
+            tone_shifts_for_lessons = [
+                {
+                    "direction": ("negative" if ts.new_tone == "negative" else "positive"),
+                    "previous_tone": ts.previous_tone,
+                    "new_tone": ts.new_tone,
+                    "trigger": ts.trigger_action,
+                    "user_response": getattr(ts, "after_message", ""),
+                    "before_message": getattr(ts, "before_message", ""),
+                    "sequence": ts.sequence,
+                }
+                for ts in features.tone_shifts
+                if ts.previous_tone != ts.new_tone
+            ]
+
+        # Convert error recovery to aggregate counts
+        error_recovery_for_lessons = None
+        if features and hasattr(features, "error_recovery") and features.error_recovery:
+            blind_retries = sum(1 for e in features.error_recovery if e.recovery_action == "retry")
+            investigate_count = sum(
+                1 for e in features.error_recovery if e.recovery_action == "investigate"
+            )
+            error_recovery_for_lessons = {
+                "blind_retries": blind_retries,
+                "investigate_count": investigate_count,
+            }
+
+        lesson_ids = extract_lessons_from_report(
+            check_results,
+            session_id,
+            tone_shifts_for_lessons,
+            error_recovery_for_lessons,
+        )
+        if lesson_ids:
+            click.secho(
+                f"[+] Lesson detection: {len(lesson_ids)} entries from quality checks",
+                fg="green",
+            )
+    except (*_PHASE_ERRORS, ValueError) as e:
+        logger.debug(f"Lesson detection failed: {e}")
+
+    # 8q. Lesson escalation (auto-resolve)
+    # Runs AFTER lesson detection so we don't resolve a lesson
+    # that just re-occurred this session.
+    try:
+        from divineos.core.knowledge.lessons import auto_resolve_lessons
+
+        resolved = auto_resolve_lessons()
+        if resolved:
+            names = ", ".join(r["category"] for r in resolved)
+            click.secho(f"[+] Lessons resolved: {names}", fg="green")
+    except _PHASE_ERRORS as e:
+        logger.debug(f"Lesson escalation failed: {e}")
+
+    return lesson_ids
+
+
 # ─── Phase 8-9: Session scoring and finalization ─────────────────────
 
 
@@ -573,6 +659,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         from divineos.core.knowledge_maintenance import increment_corroboration, promote_maturity
 
         corroborated = 0
+        corroborated_ids: list[str] = []
         conn = _get_conn()
         current_rows = conn.execute(
             "SELECT knowledge_id, access_count FROM knowledge "
@@ -587,11 +674,28 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
                 increment_corroboration(kid, source_context="session:end_sweep")
                 promote_maturity(kid)
                 corroborated += 1
+                corroborated_ids.append(kid)
         if corroborated:
             click.secho(
                 f"[~] Corroborated {corroborated} knowledge entries (accessed this session).",
                 fg="cyan",
             )
+            # Log to ledger — corroboration must be auditable
+            try:
+                from divineos.core.ledger import log_event
+
+                log_event(
+                    "KNOWLEDGE_CORROBORATED",
+                    "session:end",
+                    {
+                        "count": corroborated,
+                        "knowledge_ids": corroborated_ids[:20],  # cap payload size
+                        "source": "session:end_sweep",
+                    },
+                    validate=False,
+                )
+            except (ImportError, sqlite3.OperationalError, OSError):
+                pass  # Ledger logging is best-effort
     except _PHASE_ERRORS as e:
         logger.warning(f"Session-end corroboration sweep failed: {e}")
 
