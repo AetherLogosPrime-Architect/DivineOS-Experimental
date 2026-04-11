@@ -133,9 +133,29 @@ def store_knowledge_smart(
     and resolves them automatically.
     """
     # Voice normalization: knowledge speaks as me, not about me
-    from divineos.core.knowledge._text import normalize_to_first_person
+    from divineos.core.knowledge._text import normalize_to_first_person, segment_large_text
 
     content = normalize_to_first_person(content)
+
+    # Segment large text blocks into atomic chunks before dedup.
+    # Without this, a 2000-word paste becomes one monolithic entry.
+    segments = segment_large_text(content)
+    if len(segments) > 1:
+        logger.debug(f"Segmented large text ({len(content)} chars) into {len(segments)} chunks")
+        stored_ids: list[str] = []
+        for segment in segments:
+            kid = store_knowledge_smart(
+                knowledge_type=knowledge_type,
+                content=segment,
+                confidence=confidence,
+                source_events=source_events,
+                tags=tags,
+                source=source,
+                maturity=maturity,
+            )
+            if kid:
+                stored_ids.append(kid)
+        return stored_ids[0] if stored_ids else ""
 
     # First: try exact hash dedup (fast path)
     content_hash = compute_hash(content)
