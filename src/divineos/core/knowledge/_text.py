@@ -404,14 +404,21 @@ def _extract_key_terms(text: str) -> str:
 
 
 def _compute_overlap(text_a: str, text_b: str) -> float:
-    """Compute word set overlap between two texts. Returns 0.0-1.0."""
+    """Compute word set overlap between two texts using Sørensen-Dice.
+
+    Returns 0.0-1.0. Symmetric — order doesn't matter, and length
+    mismatches are naturally penalized. A 5-word text matching 3 words
+    of a 50-word text scores ~11% (appropriate), not 60% (the old
+    min-denominator result that let short texts game the threshold).
+
+    Sørensen-Dice: 2 * |intersection| / (|A| + |B|)
+    """
     words_a = set(_normalize_text(text_a).split()) - _STOPWORDS
     words_b = set(_normalize_text(text_b).split()) - _STOPWORDS
     if not words_a or not words_b:
         return 0.0
     intersection = words_a & words_b
-    smaller = min(len(words_a), len(words_b))
-    return len(intersection) / smaller
+    return 2 * len(intersection) / (len(words_a) + len(words_b))
 
 
 # ─── Semantic Similarity (embedding-based) ────────────────────────────

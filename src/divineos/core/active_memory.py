@@ -40,6 +40,7 @@ from divineos.core.constants import (
     USAGE_LOG_SCALE,
 )
 from divineos.core.knowledge import (
+    _compute_overlap,
     _is_extraction_noise,
     get_connection,
     get_knowledge,
@@ -150,14 +151,19 @@ def compute_importance(
     score += epistemic_source_modifier(entry.get("source", ""))
 
     # Context relevance — boost entries that match current goals/priorities.
-    # This is a multiplier on the base score, not additive, so it amplifies
-    # differences instead of clustering everything higher.
+    # Uses stemmed words so "testing"/"tests"/"tested" all match.
+    # Sørensen-Dice coefficient for symmetric, length-fair scoring.
     if context_words:
-        content_words = set((entry.get("content") or "").lower().split())
-        if content_words and context_words:
-            overlap = len(content_words & context_words)
-            # Normalize by the smaller set so short goals can still match
-            relevance = overlap / max(min(len(content_words), len(context_words)), 1)
+        from divineos.core.knowledge._text import _stem
+
+        content_stemmed = {
+            _stem(w) for w in (entry.get("content") or "").lower().split() if len(w) > 2
+        }
+        context_stemmed = {_stem(w) for w in context_words if len(w) > 2}
+        if content_stemmed and context_stemmed:
+            overlap = len(content_stemmed & context_stemmed)
+            total = len(content_stemmed) + len(context_stemmed)
+            relevance = (2 * overlap / total) if total else 0.0
             # Up to 30% boost for highly relevant entries
             score *= 1.0 + relevance * 0.30
 
@@ -480,18 +486,15 @@ def refresh_active_memory(
         for entry in all_entries:
             if entry["knowledge_id"] in archived_ids:
                 continue
-            # Check if any active lesson matches this entry
+            # Check if any active lesson matches this entry.
+            # Uses the same _compute_overlap as the rest of the system
+            # (Sørensen-Dice, symmetric) so matching is consistent.
             has_lesson = False
-            content_lower = (entry.get("content") or "").lower()
+            entry_content = entry.get("content") or ""
             for desc in lesson_descriptions:
-                # Simple word overlap check
-                entry_words = set(content_lower.split())
-                desc_words = set(desc.split())
-                if entry_words and desc_words:
-                    overlap = len(entry_words & desc_words) / max(len(entry_words), len(desc_words))
-                    if overlap > OVERLAP_RELATIONSHIP:
-                        has_lesson = True
-                        break
+                if _compute_overlap(entry_content, desc) > OVERLAP_RELATIONSHIP:
+                    has_lesson = True
+                    break
 
             importance = compute_importance(
                 entry, has_active_lesson=has_lesson, context_words=context_words
