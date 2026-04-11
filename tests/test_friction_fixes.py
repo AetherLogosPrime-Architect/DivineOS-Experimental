@@ -7,7 +7,7 @@ import pytest
 
 from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.lessons import (
-    MAX_EFFECTIVE_OCCURRENCES,
+    LESSON_EFFECTIVE_MIN,
     auto_resolve_lessons,
     get_lessons,
     record_lesson,
@@ -37,8 +37,9 @@ class TestLessonInflationFix:
         lessons = get_lessons(category="test_real_count")
         assert lessons[0]["occurrences"] == 3
 
-    def test_max_effective_occurrences_defined(self):
-        assert MAX_EFFECTIVE_OCCURRENCES == 10
+    def test_lesson_effective_min_defined(self):
+        """Log-scaled effective occurrences floor is 5 (replaces old cap of 10)."""
+        assert LESSON_EFFECTIVE_MIN == 5
 
     def test_auto_resolve_uses_capped_occurrences(self):
         """Even with inflated counts, auto_resolve uses capped occurrences.
@@ -65,7 +66,8 @@ class TestLessonInflationFix:
             conn.execute(
                 "UPDATE lesson_tracking SET occurrences = 178 WHERE category = 'test_capped'"
             )
-            # Add enough sessions: cap(178, 10) + 5 threshold = 15 needed
+            # With log-scaling: effective = max(5, int(log2(178)+2)) = 9
+            # Need 9 + 5 (threshold) = 14 total sessions to resolve.
             row = conn.execute(
                 "SELECT sessions FROM lesson_tracking WHERE category = 'test_capped'"
             ).fetchone()
@@ -88,7 +90,7 @@ class TestLessonInflationFix:
 
         # Add decision journal entries with category keyword so stimulus gate passes.
         # "test_capped" has keywords ["test", "capped"].
-        # Clean sessions start at index effective=10, so s14..s19 are the clean ones.
+        # Clean sessions start at index effective=9, so s13..s19 are the clean ones.
         ledger_conn = get_ledger_connection()
         try:
             ledger_conn.execute(
@@ -100,7 +102,7 @@ class TestLessonInflationFix:
                     session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
                     almost TEXT DEFAULT '')"""
             )
-            for sid in ["s15", "s16"]:
+            for sid in ["s13", "s14", "s15"]:
                 ledger_conn.execute(
                     "INSERT OR IGNORE INTO decision_journal (decision_id, created_at, content, session_id) "
                     "VALUES (?, ?, ?, ?)",
