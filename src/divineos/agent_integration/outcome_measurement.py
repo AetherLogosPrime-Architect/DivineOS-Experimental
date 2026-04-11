@@ -515,12 +515,13 @@ def measure_session_health(
         grade = "F"
     else:
         # Composite: weighted average (only meaningful if briefing was loaded)
-        # Balanced so no single noisy signal dominates.
+        # Corrections (the real work signal) weighted highest.
+        # Encouragements capped lower — most gameable signal (council P4).
         score = (
-            correction_factor * 0.25
-            + encouragement_factor * 0.30
+            correction_factor * 0.35
+            + encouragement_factor * 0.15
             + overflow_factor * 0.25
-            + autonomy * 0.20
+            + autonomy * 0.25
         )
         score = max(0.0, min(1.0, score))
 

@@ -192,7 +192,9 @@ PATTERN_TACTICAL_FAILURE_MAX = 3  # Archive after this many tactical failures
 # Session health scoring weights.
 
 OUTCOME_CORRECTION_PENALTY = 0.15  # Each unresolved correction reduces score by this
-OUTCOME_RESOLVED_CORRECTION_BONUS = 0.05  # Resolved corrections ADD to health
+OUTCOME_RESOLVED_CORRECTION_BONUS = (
+    0.10  # Resolved corrections ADD to health (error-correction cycles are healthy)
+)
 OUTCOME_ENCOURAGEMENT_BONUS = 0.04  # Each encouragement adds this (capped)
 OUTCOME_ENCOURAGEMENT_CAP = 0.20  # Max encouragement bonus
 OUTCOME_OVERFLOW_PENALTY = 0.25  # Each context overflow reduces by this
