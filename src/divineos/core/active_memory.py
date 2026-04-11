@@ -44,11 +44,9 @@ from divineos.core.knowledge import (
     get_connection,
     get_knowledge,
     get_lessons,
-    record_access,
     search_knowledge,
 )
 from divineos.core.epistemic_status import epistemic_source_modifier
-from divineos.core.knowledge_maintenance import promote_maturity
 from divineos.core.trust_tiers import weighted_source_bonus
 
 _get_connection = get_connection
@@ -613,13 +611,12 @@ def recall(context_hint: str = "") -> dict[str, Any]:
     finally:
         conn.close()
 
-    # Record access and check maturity promotion for surfaced knowledge
-    for item in active:
-        record_access(item["knowledge_id"])
-        promote_maturity(item["knowledge_id"])
-    for item in relevant:
-        record_access(item["knowledge_id"])
-        promote_maturity(item["knowledge_id"])
+    # NOTE: We deliberately do NOT call record_access() or promote_maturity()
+    # here. Passive surfacing during recall should not inflate access counts
+    # or trigger maturity promotion — that creates a rich-get-richer loop
+    # where recalled items rank higher, get recalled more, rank even higher.
+    # Access and promotion should only happen on intentional queries
+    # (divineos ask, explicit search).
 
     return {
         "core": core_text,

@@ -207,8 +207,8 @@ def generate_briefing(
     # This surfaces related knowledge that wouldn't rank on its own.
     try:
         _apply_graph_boost(entries)
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        logger.debug("Graph boost unavailable: %s", e)
 
     # Sort by score, take top items
     entries.sort(key=lambda e: e["_score"], reverse=True)
@@ -235,8 +235,8 @@ def generate_briefing(
                 knowledge_id=entry["knowledge_id"],
                 content_brief=entry.get("content", "")[:200],
             )
-    except (*_RETRIEVAL_ERRORS, RuntimeError):
-        pass  # Impact tracking is best-effort, never blocks briefing
+    except (*_RETRIEVAL_ERRORS, RuntimeError) as e:
+        logger.debug("Impact tracking unavailable: %s", e)
 
     # Get active lessons for the header section
     lessons_text = ""
@@ -367,8 +367,8 @@ def _load_compass_guidance() -> dict[tuple[str, str], str]:
                         result[(parts[0], parts[1])] = value
                 _compass_guidance_cache = result
                 return result
-    except (OSError, json.JSONDecodeError, KeyError, ValueError):
-        pass
+    except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
+        logger.debug("Compass guidance load failed, using fallback: %s", e)
 
     _compass_guidance_cache = _COMPASS_GUIDANCE_FALLBACK
     return _compass_guidance_cache
@@ -582,6 +582,7 @@ def _format_briefing(
     now: float,
 ) -> str:
     """Assemble all briefing sections into final output."""
+    subsystem_failures: list[str] = []
     lines = _format_handoff_lines()
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
@@ -605,8 +606,8 @@ def _format_briefing(
             if tone:
                 lines.append(f"**Tone:** {tone}")
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"growth: {e}")
 
     # Auto-derive context hint from handoff + goals if not provided
     if not context_hint:
@@ -620,8 +621,8 @@ def _format_briefing(
                     hint_parts.append(thread[:100])
                 for step in (ho.get("next_steps") or [])[:3]:
                     hint_parts.append(step[:100])
-        except _RETRIEVAL_ERRORS:
-            pass
+        except _RETRIEVAL_ERRORS as e:
+            subsystem_failures.append(f"handoff-hint: {e}")
         try:
             import json as _json
 
@@ -632,8 +633,8 @@ def _format_briefing(
                     text = g.get("text", g.get("goal", ""))
                     if text and g.get("status") != "done":
                         hint_parts.append(text[:100])
-        except _RETRIEVAL_ERRORS:
-            pass
+        except _RETRIEVAL_ERRORS as e:
+            subsystem_failures.append(f"goals-hint: {e}")
         if hint_parts:
             context_hint = " ".join(hint_parts)
 
@@ -649,8 +650,8 @@ def _format_briefing(
             if warnings:
                 lines.append(format_anticipation(warnings))
                 lines.append("")
-        except _RETRIEVAL_ERRORS:
-            pass
+        except _RETRIEVAL_ERRORS as e:
+            subsystem_failures.append(f"anticipation: {e}")
 
     # Proactive pattern recommendations
     if context_hint:
@@ -664,8 +665,8 @@ def _format_briefing(
             if recs:
                 lines.append(format_recommendations(recs))
                 lines.append("")
-        except _RETRIEVAL_ERRORS:
-            pass
+        except _RETRIEVAL_ERRORS as e:
+            subsystem_failures.append(f"proactive-patterns: {e}")
 
     # Session predictions — what will I likely need?
     try:
@@ -688,8 +689,8 @@ def _format_briefing(
             for p in pred_parts:
                 lines.append(f"  {p}")
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"predictions: {e}")
 
     # Maturity pyramid
     mat_parts = []
@@ -720,8 +721,8 @@ def _format_briefing(
         logic_line = format_logic_health_line(logic_stats)
         if logic_line:
             lines.append(f"**Logic health:** {logic_line}\n")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"logic-health: {e}")
 
     if lessons_text:
         lines.append(lessons_text)
@@ -762,8 +763,8 @@ def _format_briefing(
                     display_narrative = display_narrative[:197] + "..."
                 lines.append(f"  Story: {display_narrative}")
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"tone-texture: {e}")
 
     # Open curiosities — questions generated during sleep or filed manually
     try:
@@ -788,8 +789,8 @@ def _format_briefing(
             if len(open_q) > 3:
                 lines.append(f"  ...and {len(open_q) - 3} more (run: divineos curiosity list)")
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"curiosities: {e}")
 
     # Skip MISTAKE section when active lessons already cover them —
     # otherwise the same lesson appears in Watch Out, Active Lessons, AND Mistakes.
@@ -809,8 +810,8 @@ def _format_briefing(
                 for conn in cluster["connected_entries"]:
                     lines.append(format_cluster_line(conn))
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"graph-clusters: {e}")
 
     # Recurring value tensions from the decision journal
     try:
@@ -821,8 +822,8 @@ def _format_briefing(
         if tension_text:
             lines.append(tension_text)
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"value-tensions: {e}")
 
     # Moral compass — drift warnings + behavioral guidance
     try:
@@ -850,8 +851,8 @@ def _format_briefing(
                 for cp in compass_parts:
                     lines.append(f"  {cp}")
                 lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"compass: {e}")
 
     # Recent journal entries (last 48h)
     try:
@@ -881,8 +882,20 @@ def _format_briefing(
         if questions_text:
             lines.append(questions_text)
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"open-questions: {e}")
+
+    # Surface subsystem failures — silent degradation is worse than visible errors
+    if subsystem_failures:
+        logger.warning(
+            "Briefing generated with %d subsystem failures: %s",
+            len(subsystem_failures),
+            ", ".join(subsystem_failures),
+        )
+        lines.append(f"**[!] Briefing incomplete: {len(subsystem_failures)} subsystem(s) failed**")
+        for fail in subsystem_failures[:5]:
+            lines.append(f"  - {fail}")
+        lines.append("")
 
     return _apply_briefing_budget(lines)
 

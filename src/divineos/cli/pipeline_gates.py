@@ -356,7 +356,13 @@ def run_quality_gate(
                 if cr.get("passed") == 0 and cr.get("summary"):
                     click.secho(f"    {cr['check_name']}: {cr['summary']}", fg="yellow")
     except _GATE_ERRORS as e:
-        logger.warning(f"Quality gate failed (allowing extraction): {e}")
+        logger.warning(f"Quality gate failed — BLOCKING extraction (fail-closed): {e}")
+        click.secho(
+            f"[!] Quality gate error — blocking extraction (fail-closed): {e}",
+            fg="red",
+            bold=True,
+        )
+        return quality_verdict, maturity_override, False, check_results
 
     return quality_verdict, maturity_override, True, check_results
 
