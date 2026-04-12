@@ -422,8 +422,9 @@ def _sweep_stale(
     return result
 
 
-def _flag_orphans(entries: list[dict[str, Any]], _min_sessions: int) -> dict[str, Any]:
+def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str, Any]:
     """Flag entries that were never accessed and are old enough to judge."""
+    logger.debug("Orphan scan: min_sessions=%d, entries=%d", min_sessions, len(entries))
     result: dict[str, Any] = {"flagged": 0, "details": []}
     conn = _get_connection()
 
@@ -599,10 +600,11 @@ def promote_maturity(knowledge_id: str) -> str | None:
         conn.close()
 
 
-def increment_corroboration(knowledge_id: str) -> int:
+def increment_corroboration(knowledge_id: str, source_context: str = "") -> int:
     """Increment corroboration count for a knowledge entry.
 
     Called when knowledge is re-encountered in a new session.
+    source_context: optional label for what triggered the corroboration.
     Returns the new corroboration count.
     """
     conn = get_connection()
@@ -617,7 +619,8 @@ def increment_corroboration(knowledge_id: str) -> int:
             (knowledge_id,),
         ).fetchone()
         count = row[0] if row else 0
-        logger.debug(f"Corroboration for {knowledge_id[:12]}: {count}")
+        ctx = f" (from {source_context})" if source_context else ""
+        logger.debug(f"Corroboration for {knowledge_id[:12]}: {count}{ctx}")
         return count
     finally:
         conn.close()

@@ -76,6 +76,13 @@ class TestSlotBuilders:
         # Returns empty when no goal-relevant complementary knowledge
         assert result == "" or "Relevant" in result
 
+    def test_loadout_slot(self):
+        result = SLOT_BUILDERS["loadout"]()
+        assert "My Loadout" in result
+        assert "recall" in result
+        assert "The Circle" in result
+        assert "THE COUNCIL" in result
+
     def test_task_state_slot_empty(self):
         result = SLOT_BUILDERS["task_state"]()
         # Returns empty when no task state — skipped by HUD assembly
