@@ -625,7 +625,7 @@ def register(cli: click.Group) -> None:
 
         click.secho("\n=== Test Quality Audit ===\n", fg="cyan", bold=True)
         summary = audit_test_directory(test_dir)
-        click.echo(format_audit_report(summary))
+        _safe_echo(format_audit_report(summary))
         click.echo()
 
 

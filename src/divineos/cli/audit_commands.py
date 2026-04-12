@@ -7,6 +7,7 @@ This is the second layer of self-trigger prevention.
 
 import click
 
+from divineos.cli._helpers import _safe_echo
 
 _SEVERITY_COLORS = {
     "CRITICAL": "red",
@@ -172,7 +173,7 @@ def register(cli: click.Group) -> None:
         click.echo("  Severity: " + click.style(finding.severity.value, fg=sev_color))
         click.echo(f"  Category: {finding.category.value}")
         click.echo(f"  Status:   {finding.status.value}")
-        click.echo(f"\n  {finding.description}")
+        _safe_echo(f"\n  {finding.description}")
         if finding.recommendation:
             click.secho(f"\n  Recommendation: {finding.recommendation}", fg="green")
         if finding.routed_to:

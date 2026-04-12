@@ -245,8 +245,8 @@ COMPASS_SPECTRUMS_HASH = "2921dfc05fa4a532c641a647aa3d7567f6de643f7e52142317bda0
 # no backsliding IS evidence of learning for infrequent triggers.
 
 LESSON_MIN_RESOLUTION_DAYS = 7.0  # Minimum days in 'improving' before resolution
-LESSON_MIN_STIMULUS_SESSIONS = 2  # Min clean sessions with category-relevant events
-LESSON_ABSENCE_DAYS = 14.0  # After this many days with 0 regressions, drop stimulus requirement
+LESSON_MIN_STIMULUS_SESSIONS = 1  # Min clean sessions with category-relevant events
+LESSON_ABSENCE_DAYS = 7.0  # After this many days with 0 regressions, drop stimulus requirement
 
 # ─── Briefing Budget ─────────────────────────────────────────────
 # Total line cap for the briefing. Subsystems compete by priority —

@@ -69,6 +69,10 @@ _INFRASTRUCTURE_TABLES = frozenset(
         "warrants",
         "activity_breakdown",
         "dead_architecture_scan",
+        # Legacy tables superseded by knowledge_edges (migration in edges.py).
+        # Kept for rollback safety but intentionally empty.
+        "knowledge_relationships",
+        "logical_relations",
     }
 )
 
