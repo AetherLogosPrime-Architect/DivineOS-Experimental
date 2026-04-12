@@ -17,13 +17,27 @@ This module consolidates three knowledge lifecycle operations:
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import time
 from dataclasses import dataclass
 from typing import Any
 
 from loguru import logger
+
+from divineos.core.knowledge._base import (
+    _KNOWLEDGE_COLS,
+    _get_connection,
+    _row_to_dict,
+)
+from divineos.core.knowledge._text import (
+    _compute_stemmed_overlap,
+    _has_prescriptive_signal,
+    _has_temporal_markers,
+    _is_extraction_noise,
+    _stemmed_word_set,
+)
+from divineos.core.knowledge import get_connection
+from divineos.core.knowledge.crud import supersede_knowledge
 
 from divineos.core.constants import (
     CONFIDENCE_DEMOTE_CAP,
@@ -46,21 +60,7 @@ from divineos.core.constants import (
     OVERLAP_STRONG,
     SECONDS_PER_DAY,
 )
-from divineos.core.knowledge._base import (
-    _KNOWLEDGE_COLS,
-    _get_connection,
-    _row_to_dict,
-    get_connection,
-)
-from divineos.core.knowledge._text import (
-    _compute_stemmed_overlap,
-    _has_prescriptive_signal,
-    _has_temporal_markers,
-    _is_extraction_noise,
-    _stemmed_word_set,
-)
-from divineos.core.knowledge.crud import supersede_knowledge
-from divineos.core.logic.logic_validation import can_promote
+
 
 # ─── Contradiction Detection ────────────────────────────────────────────────
 
@@ -422,9 +422,8 @@ def _sweep_stale(
     return result
 
 
-def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str, Any]:
+def _flag_orphans(entries: list[dict[str, Any]], _min_sessions: int) -> dict[str, Any]:
     """Flag entries that were never accessed and are old enough to judge."""
-    _ = min_sessions  # Reserved for future session-count threshold
     result: dict[str, Any] = {"flagged": 0, "details": []}
     conn = _get_connection()
 
@@ -527,26 +526,11 @@ _PROMOTION_RULES: list[tuple[str, int, float, str]] = [
 def check_promotion(entry: dict[str, Any]) -> str | None:
     """Check if an entry qualifies for maturity promotion.
 
-    Uses diverse corroboration count (unique sources) when available,
-    falling back to raw corroboration_count for legacy entries.
-    This prevents promotion through repetition from a single source.
-
     Returns the new maturity level, or None if no promotion is warranted.
     """
     current = entry.get("maturity", "RAW")
+    corroboration = entry.get("corroboration_count", 0)
     confidence = entry.get("confidence", 0.5)
-
-    # Prefer diverse source count over raw repetition count
-    sources = entry.get("corroboration_sources", [])
-    if isinstance(sources, str):
-        try:
-            sources = json.loads(sources)
-        except (json.JSONDecodeError, TypeError):
-            sources = []
-    diverse_count = len(set(sources)) if sources else 0
-    raw_count = entry.get("corroboration_count", 0)
-    # Use diverse count when available, fall back to raw for old entries
-    corroboration = max(diverse_count, raw_count) if diverse_count > 0 else raw_count
 
     for from_level, min_corrob, min_conf, to_level in _PROMOTION_RULES:
         if current == from_level and corroboration >= min_corrob and confidence >= min_conf:
@@ -561,6 +545,8 @@ def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
     Fails gracefully if logic tables aren't initialized yet.
     """
     try:
+        from divineos.core.logic.logic_validation import can_promote
+
         return can_promote(knowledge_id, current, target)
     except _KM_ERRORS:
         # Logic tables may not exist yet — allow promotion (backward compat)
@@ -576,8 +562,7 @@ def promote_maturity(knowledge_id: str) -> str | None:
     conn = get_connection()
     try:
         row = conn.execute(
-            "SELECT maturity, corroboration_count, confidence, corroboration_sources "
-            "FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",
+            "SELECT maturity, corroboration_count, confidence FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",
             (knowledge_id,),
         ).fetchone()
         if not row:
@@ -587,7 +572,6 @@ def promote_maturity(knowledge_id: str) -> str | None:
             "maturity": row[0],
             "corroboration_count": row[1],
             "confidence": row[2],
-            "corroboration_sources": row[3] if row[3] else "[]",
         }
 
         new_maturity = check_promotion(entry)
@@ -615,14 +599,10 @@ def promote_maturity(knowledge_id: str) -> str | None:
         conn.close()
 
 
-def increment_corroboration(knowledge_id: str, source_context: str = "") -> int:
+def increment_corroboration(knowledge_id: str) -> int:
     """Increment corroboration count for a knowledge entry.
 
     Called when knowledge is re-encountered in a new session.
-    Tracks source diversity: source_context is a short string identifying
-    the independent source (e.g. "session:abc123", "extraction:DEMONSTRATED",
-    "lesson:category_name"). Diverse sources matter more than raw frequency.
-
     Returns the new corroboration count.
     """
     conn = get_connection()
@@ -631,53 +611,6 @@ def increment_corroboration(knowledge_id: str, source_context: str = "") -> int:
             "UPDATE knowledge SET corroboration_count = corroboration_count + 1, updated_at = ? WHERE knowledge_id = ?",
             (time.time(), knowledge_id),
         )
-
-        # Track source diversity
-        if source_context:
-            try:
-                row = conn.execute(
-                    "SELECT corroboration_sources FROM knowledge WHERE knowledge_id = ?",
-                    (knowledge_id,),
-                ).fetchone()
-                if row and row[0]:
-                    sources = json.loads(row[0])
-                else:
-                    sources = []
-                if source_context not in sources:
-                    sources.append(source_context)
-                    conn.execute(
-                        "UPDATE knowledge SET corroboration_sources = ? WHERE knowledge_id = ?",
-                        (json.dumps(sources), knowledge_id),
-                    )
-            except (sqlite3.OperationalError, json.JSONDecodeError, TypeError, KeyError) as e:
-                # Best-effort: don't let source tracking break corroboration
-                logger.debug(f"Source diversity tracking failed for {knowledge_id[:12]}: {e}")
-
-        # Epistemic graduation: inherited knowledge that gets corroborated
-        # through real session evidence should upgrade its source status.
-        # This closes the gap where seed knowledge stays "inherited" forever
-        # even after being verified through lived experience.
-        try:
-            row_src = conn.execute(
-                "SELECT source, corroboration_count FROM knowledge WHERE knowledge_id = ?",
-                (knowledge_id,),
-            ).fetchone()
-            if row_src and row_src[0] == "INHERITED" and row_src[1] >= 2:
-                # 2+ corroborations from real sessions = no longer just inherited
-                new_source = (
-                    "DEMONSTRATED" if "DEMONSTRATED" in (source_context or "") else "STATED"
-                )
-                conn.execute(
-                    "UPDATE knowledge SET source = ? WHERE knowledge_id = ?",
-                    (new_source, knowledge_id),
-                )
-                logger.info(
-                    f"Epistemic graduation: {knowledge_id[:12]} INHERITED -> {new_source} "
-                    f"(corroboration={row_src[1]})"
-                )
-        except (sqlite3.OperationalError, TypeError) as e:
-            logger.debug(f"Epistemic graduation check failed for {knowledge_id[:12]}: {e}")
-
         conn.commit()
         row = conn.execute(
             "SELECT corroboration_count FROM knowledge WHERE knowledge_id = ?",
@@ -690,59 +623,12 @@ def increment_corroboration(knowledge_id: str, source_context: str = "") -> int:
         conn.close()
 
 
-def get_diverse_corroboration_count(knowledge_id: str) -> int:
-    """Count unique corroboration sources (independent verification count).
-
-    Returns the number of distinct sources that corroborated this knowledge.
-    This is the REAL validation count — eight encounters from one session type
-    count as 1, while eight encounters from eight diverse contexts count as 8.
-    """
-    conn = get_connection()
-    try:
-        row = conn.execute(
-            "SELECT corroboration_sources FROM knowledge WHERE knowledge_id = ?",
-            (knowledge_id,),
-        ).fetchone()
-        if not row or not row[0]:
-            return 0
-        sources = json.loads(row[0])
-        return len(set(sources))
-    finally:
-        conn.close()
-
-
 def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
     """Batch check for maturity promotions across entries.
 
     Both corroboration AND validity gates must pass.
     Returns counts of promotions by type.
     """
-    # Backfill: entries born before corroboration=1 was the default (seed-era,
-    # older extraction paths) have corroboration_count=0 and can never promote.
-    # Every entry was observed at least once when it was created — give them
-    # the minimum corroboration they're owed so the pipeline can evaluate them.
-    backfilled = 0
-    conn = get_connection()
-    try:
-        updated = conn.execute(
-            "UPDATE knowledge SET corroboration_count = 1 "
-            "WHERE corroboration_count = 0 AND superseded_by IS NULL",
-        ).rowcount
-        if updated:
-            conn.commit()
-            backfilled = updated
-            logger.info(f"Backfilled corroboration_count=1 for {updated} entries born at 0")
-    except _KM_ERRORS as e:
-        logger.debug(f"Corroboration backfill skipped: {e}")
-    finally:
-        conn.close()
-
-    # Refresh entries if we backfilled (their corroboration_count changed)
-    if backfilled:
-        for entry in entries:
-            if entry.get("corroboration_count", 0) == 0 and not entry.get("superseded_by"):
-                entry["corroboration_count"] = 1
-
     promotions: dict[str, int] = {}
     for entry in entries:
         kid = entry.get("knowledge_id", "")
@@ -750,13 +636,6 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
             continue
         # Skip already superseded
         if entry.get("superseded_by"):
-            continue
-        # Skip entries that can't be promoted — saves CPU on large knowledge bases.
-        # CONFIRMED has nowhere to go; RAW with low corroboration can't promote yet.
-        maturity = entry.get("maturity", "RAW")
-        if maturity == "CONFIRMED":
-            continue
-        if maturity == "RAW" and entry.get("corroboration_count", 0) < 1:
             continue
 
         new_maturity = check_promotion(entry)
