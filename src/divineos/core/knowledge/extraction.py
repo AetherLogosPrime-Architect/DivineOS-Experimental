@@ -259,10 +259,21 @@ def store_knowledge_smart(
         except _EXTRACTION_ERRORS as e:
             logger.debug(f"Initial maturity promotion failed: {e}", exc_info=True)
 
-        # UPDATE: supersede the old entry
+        # UPDATE: supersede the old entry and create a SUPERSEDES edge
         if operation == "UPDATE" and existing_id:
             supersede_knowledge(existing_id, reason=f"Updated by {kid[:12]}")
             logger.info(f"Updated knowledge: {existing_id[:12]} → {kid[:12]}")
+            try:
+                from divineos.core.knowledge.edges import create_edge
+
+                create_edge(
+                    source_id=kid,
+                    target_id=existing_id,
+                    edge_type="SUPERSEDES",
+                    notes="auto: superseded during smart store",
+                )
+            except _EXTRACTION_ERRORS:
+                pass
 
         # Auto-create warrant — every new knowledge entry is born with justification
         try:

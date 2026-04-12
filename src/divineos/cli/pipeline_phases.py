@@ -126,6 +126,24 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
     except _PHASE_ERRORS as e:
         logger.warning(f"SIS assessment failed: {e}")
 
+    # 3f. Inference cycle — derive new knowledge from existing knowledge
+    try:
+        from divineos.core.knowledge.inference import run_inference_cycle
+
+        inference = run_inference_cycle()
+        total_inferred = sum(len(v) for v in inference.values())
+        if total_inferred:
+            parts = []
+            if inference.get("boundaries"):
+                parts.append(f"{len(inference['boundaries'])} boundaries")
+            if inference.get("principles"):
+                parts.append(f"{len(inference['principles'])} principles")
+            if inference.get("insights"):
+                parts.append(f"{len(inference['insights'])} insights")
+            click.secho(f"[~] Inferred: {', '.join(parts)}", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Inference cycle failed: {e}")
+
     return 0, auto_rels
 
 

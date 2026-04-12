@@ -274,6 +274,7 @@ def compress_synthesize(
             confidence=result["confidence"],
             source_events=result["source_events"],
             tags=result["tags"],
+            source="SYNTHESIZED",
         )
 
         # Supersede source entries
@@ -307,7 +308,7 @@ def find_graph_clusters(max_clusters: int = 10) -> list[dict[str, Any]]:
         rows = conn.execute(
             """SELECT target_id, COUNT(*) as edge_count
                FROM knowledge_edges
-               WHERE relation_type IN ('SUPPORTS', 'ELABORATES')
+               WHERE edge_type IN ('SUPPORTS', 'ELABORATES')
                GROUP BY target_id
                HAVING edge_count >= 2
                ORDER BY edge_count DESC
@@ -334,7 +335,7 @@ def find_graph_clusters(max_clusters: int = 10) -> list[dict[str, Any]]:
                 f"""SELECT k.{_KNOWLEDGE_COLS.replace("knowledge_id", "k.knowledge_id")}
                     FROM knowledge k
                     JOIN knowledge_edges e ON k.knowledge_id = e.source_id
-                    WHERE e.target_id = ? AND e.relation_type IN ('SUPPORTS', 'ELABORATES')
+                    WHERE e.target_id = ? AND e.edge_type IN ('SUPPORTS', 'ELABORATES')
                     AND k.superseded_by IS NULL""",
                 (target_id,),
             ).fetchall()
@@ -443,6 +444,7 @@ def run_compression(
                     confidence=compressed["confidence"],
                     source_events=compressed["source_events"],
                     tags=compressed["tags"],
+                    source="SYNTHESIZED",
                 )
                 # Supersede supports into the compressed entry
                 for sid in compressed["support_ids"]:
