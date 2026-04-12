@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies when a foreign key references a non-primary key field and adds the to_field parameter accordingly. It handles the same core issue as the gold patch but uses a different implementation approach.",
+  "key_difference": "The candidate patch builds the field description string directly with to_field parameter inline, while the gold patch uses the extra_params dictionary approach. Both are valid solutions that achieve the same result of properly handling foreign keys to non-primary key fields.",
+  "instance_id": "django__django-15037",
+  "condition": "enhanced",
+  "judge_tokens": 1384,
+  "judge_cost": 0.006096
+}

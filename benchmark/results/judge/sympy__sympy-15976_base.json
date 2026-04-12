@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch targets the wrong location in the code and makes changes to the string-based MathML printer instead of the DOM-based printer where the actual bug exists.",
+  "key_difference": "The candidate patch modifies the MathMLPresentationPrinter class which handles string-based MathML generation, while the gold patch correctly fixes the DOM-based MathMLContentPrinter._print_Symbol method where the extra mi element wrapping was causing the visibility issue.",
+  "instance_id": "sympy__sympy-15976",
+  "condition": "base",
+  "judge_tokens": 2063,
+  "judge_cost": 0.008205
+}

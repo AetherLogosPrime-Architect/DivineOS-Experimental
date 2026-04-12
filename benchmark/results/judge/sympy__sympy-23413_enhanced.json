@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch modifies the wrong file (sympy/matrices/matrices.py instead of sympy/polys/matrices/normalforms.py) and targets an unrelated area of code, making it unable to fix the HNF row removal bug.",
+  "key_difference": "The candidate patch is in a completely different file and function than the gold patch. The gold patch fixes the core HNF algorithm logic in normalforms.py by removing the artificial row limit and adding proper termination conditions, while the candidate patch makes an unrelated change to matrix code that doesn't address the root cause of rows being incorrectly removed.",
+  "instance_id": "sympy__sympy-23413",
+  "condition": "enhanced",
+  "judge_tokens": 1289,
+  "judge_cost": 0.006243
+}

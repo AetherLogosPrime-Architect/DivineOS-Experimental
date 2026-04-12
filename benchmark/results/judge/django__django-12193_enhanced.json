@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the CheckboxInput.get_context() method as the source of the bug, but fails to fix it because it still modifies the original attrs dict when check_test is False, preserving the mutation issue.",
+  "key_difference": "The candidate adds an unnecessary attrs initialization and doesn't prevent mutation of the original attrs dict in all cases, unlike the gold patch which uses dict unpacking to always create a new dict when check_test is True.",
+  "instance_id": "django__django-12193",
+  "condition": "enhanced",
+  "judge_tokens": 1055,
+  "judge_cost": 0.0051210000000000006
+}

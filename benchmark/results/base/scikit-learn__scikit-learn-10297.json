@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-10297",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, I need to add the `store_cv_values` parameter to `RidgeClassifierCV` class. Based on the error message and the documentation reference, it seems this parameter exists in the documentation but is missing from the actual implementation.\n\nLet me examine what needs to be done:\n\n1. Add `store_cv_values` parameter to `RidgeClassifierCV.__init__`\n2. Pass it to the parent class or handle it appropriately\n3. Add a test to verify the functionality\n\nLooking at the scikit-learn codebase structure, `RidgeClassifierCV` likely inherits from `RidgeCV` or a similar class that already supports `store_cv_values`. I need to find the file and add the missing parameter.\n\n--- a/sklearn/linear_model/ridge.py\n+++ b/sklearn/linear_model/ridge.py\n@@ -1413,7 +1413,8 @@ class RidgeClassifierCV(LinearClassifierMixin, _BaseRidgeCV):\n \n     def __init__(self, alphas=(0.1, 1.0, 10.0), fit_intercept=True,\n                  normalize=False, scoring=None, cv=None, class_weight=None,\n-                 store_cv_values=False):\n+                 store_cv_values=False):\n         super(RidgeClassifierCV, self).__init__(\n             alphas=alphas, fit_intercept=fit_intercept, normalize=normalize,\n             scoring=scoring, cv=cv, store_cv_values=store_cv_values)\n\n--- a/sklearn/linear_model/tests/test_ridge.py\n+++ b/sklearn/linear_model/tests/test_ridge.py\n@@ -464,6 +464,17 @@ def test_ridge_classifier_cv():\n     assert_array_almost_equal(ridge.coef_, ridge2.coef_, decimal=5)\n \n \n+def test_ridge_classifier_cv_store_cv_values():\n+    # Test store_cv_values parameter\n+    X, y = make_classification(n_samples=100, n_features=20, random_state=0)\n+    \n+    ridge = RidgeClassifierCV(store_cv_values=True, cv=3)\n+    ridge.fit(X, y)\n+    \n+    # Check that cv_values_ attribute exists and has correct shape\n+    assert hasattr(ridge, 'cv_values_')\n+    assert ridge.cv_values_.shape[0] == X.shape[0]\n+\n def test_ridge_precompute():\n     rng = np.random.RandomState(0)\n     n_samples, n_features = 5, 10",
+  "thinking": null,
+  "input_tokens": 803,
+  "output_tokens": 657,
+  "elapsed_seconds": 10.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.012263999999999999
+}

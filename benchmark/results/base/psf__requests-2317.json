@@ -1,0 +1,12 @@
+{
+  "instance_id": "psf__requests-2317",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/requests/sessions.py\n+++ b/requests/sessions.py\n@@ -10,7 +10,7 @@ import time\n from collections import Mapping\n from datetime import datetime\n \n-from .auth import _basic_auth_str\n+from .auth import _basic_auth_str \n from .cookies import (\n     cookiejar_from_dict, extract_cookies_to_jar, RequestsCookieJar, merge_cookies)\n from .models import Request, Response, PreparedRequest\n@@ -18,7 +18,7 @@ from .hooks import default_hooks, dispatch_hook\n from .utils import to_key_val_list, default_headers, to_native_string\n from .exceptions import (\n     TooManyRedirects, InvalidSchema, ChunkedEncodingError, ContentDecodingError)\n-from .structures import CaseInsensitiveDict\n+from .structures import CaseInsensitiveDict \n \n # formerly defined here, reexposed here for backward compatibility\n from .status_codes import codes\n@@ -355,7 +355,7 @@ class Session(SessionRedirectMixin):\n         \"\"\"\n         # Create the Request.\n         req = Request(\n-            method = builtin_str(method),\n+            method = to_native_string(method),\n             url = url,\n             headers = headers,\n             files = files,",
+  "thinking": null,
+  "input_tokens": 463,
+  "output_tokens": 345,
+  "elapsed_seconds": 6.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006564
+}

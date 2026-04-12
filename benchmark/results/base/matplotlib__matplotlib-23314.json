@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-23314",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/lib/mpl_toolkits/mplot3d/axes3d.py\n+++ b/lib/mpl_toolkits/mplot3d/axes3d.py\n@@ -522,6 +522,8 @@ class Axes3D(Axes):\n         \"\"\"\n         Draw the Axes.\n         \"\"\"\n+        if not self.get_visible():\n+            return\n         if self._mouseover_set is _not_set:\n             self._mouseover_set = self._mouseover\n ",
+  "thinking": null,
+  "input_tokens": 645,
+  "output_tokens": 131,
+  "elapsed_seconds": 3.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0039000000000000003
+}

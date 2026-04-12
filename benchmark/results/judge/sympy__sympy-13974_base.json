@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch adds a tensor_product_simp_Pow function to handle powers of TensorProducts by applying the exponent to each argument, and updates tensor_product_simp to use it for Pow expressions.",
+  "key_difference": "This is a simpler, more direct approach than the gold patch - it only adds the Pow handler function and calls it from the main function, while the gold patch also modifies tensor_product_simp_Mul to handle Pow objects within multiplications. Both approaches are valid for fixing the core issue.",
+  "instance_id": "sympy__sympy-13974",
+  "condition": "base",
+  "judge_tokens": 2034,
+  "judge_cost": 0.008298
+}

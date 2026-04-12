@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch targets the database operations files instead of the timezone utility where the root cause lies. The issue is that _get_timezone_name() changed behavior in Django 3.2 to return zone names instead of offsets, but the candidate tries to fix this by removing timezone conversion logic in database operations, which would break other functionality.",
+  "key_difference": "The gold patch fixes the root cause in timezone._get_timezone_name() to return proper offset strings, while the candidate removes timezone conversion logic from database operations files, addressing symptoms rather than the cause.",
+  "instance_id": "django__django-14792",
+  "label": "v1_old",
+  "judge_cost": 0.006372
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-14711",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the error, the issue is that when using `sum()` on a list containing vectors, Python's built-in `sum()` function starts with an initial value of `0` (integer), and when it tries to add the first vector to this integer `0`, the `Vector.__add__` method fails because it expects another `Vector` object.\n\nThe fix is to modify the `Vector.__add__` method to handle the case where `other` is `0` (the typical initial value for summation operations).\n\n--- a/sympy/physics/vector/vector.py\n+++ b/sympy/physics/vector/vector.py\n@@ -57,7 +57,8 @@ class Vector(object):\n \n     def __add__(self, other):\n         \"\"\"The add operator for Vector. \"\"\"\n-        #if other == 0: return self\n+        if other == 0:\n+            return self\n         other = _check_vector(other)\n         return Vector(self.args + other.args)\n ",
+  "thinking": null,
+  "input_tokens": 509,
+  "output_tokens": 238,
+  "elapsed_seconds": 4.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.005097
+}

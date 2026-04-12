@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the issue and adds dtype preservation to the pandas output functionality by modifying _wrap_in_pandas_container to accept and apply original dtypes. However, the diff is malformed with syntax errors at the end.",
+  "key_difference": "Unlike the gold patch which modifies the validation layer in base.py, this patch directly addresses the pandas output wrapper in _set_output.py. This is a more targeted approach that specifically handles dtype preservation during pandas output generation, but the diff has syntax errors that make it invalid.",
+  "instance_id": "scikit-learn__scikit-learn-25102",
+  "condition": "enhanced",
+  "judge_tokens": 2428,
+  "judge_cost": 0.00942
+}

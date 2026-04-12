@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch has multiple issues: it defines add_field twice in the same class (invalid Python), attempts a complex workaround that wouldn't work for OneToOneFields (which have foreign key constraints), and doesn't address the root cause. The gold patch correctly identifies that unique fields need table recreation in SQLite.",
+  "key_difference": "The candidate tries to add unique fields by first adding without constraints then adding constraints separately, while the gold patch properly forces table recreation for unique fields by modifying the condition that determines when to use _remake_table.",
+  "instance_id": "django__django-15278",
+  "label": "v1_old",
+  "judge_cost": 0.006231
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds a __hash__ method to ModelChoiceIteratorValue class that returns hash(self.value), making instances hashable and allowing them to be used as dictionary keys.",
+  "key_difference": "The patch is functionally identical to the gold patch - both add the same __hash__ method implementation. The only difference is the line numbers in the diff context, which doesn't affect functionality.",
+  "instance_id": "django__django-14915",
+  "condition": "base",
+  "judge_tokens": 1111,
+  "judge_cost": 0.005133
+}

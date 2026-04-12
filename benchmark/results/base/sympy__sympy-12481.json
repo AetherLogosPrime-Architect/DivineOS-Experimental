@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-12481",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sympy/combinatorics/permutations.py\n+++ b/sympy/combinatorics/permutations.py\n@@ -916,11 +916,6 @@ class Permutation(Basic):\n                 if has_dups(temp):\n                     if cyclic:\n                         raise ValueError('there were repeated elements; to resolve '\n-                        'cycles use Cycle%s.' % ''.join([str(tuple(c)) for c in args]))\n-                    else:\n-                        raise ValueError('there were repeated elements in the list.')\n-                else:\n-                    if cyclic:\n-                        # it's also apparent that we are dealing with a cyclic\n+                        'cycles use Cycle%s.' % ''.join([str(tuple(c)) for c in args])) \n+                    # Apply cycles from left to right for non-disjoint cycles\n+                    if cyclic:\n                         # form so change it to array form\n                         newargs = list(range(max_elem + 1))\n                         for c in args:\n@@ -928,6 +923,10 @@ class Permutation(Basic):\n                                 pass\n                             else:\n                                 for i in range(len(c)):\n                                     newargs[c[i - 1]] = c[i]\n+                    else:\n+                        raise ValueError('there were repeated elements in the list.')\n+                else:\n+                    if cyclic:\n+                        # it's also apparent that we are dealing with a cyclic\n                         args = newargs",
+  "thinking": null,
+  "input_tokens": 294,
+  "output_tokens": 382,
+  "elapsed_seconds": 8.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006612
+}

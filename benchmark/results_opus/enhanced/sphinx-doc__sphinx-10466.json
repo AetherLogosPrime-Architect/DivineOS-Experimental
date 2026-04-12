@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-10466",
+  "condition": "enhanced",
+  "model": "claude-opus-4-6",
+  "patch": "--- a/sphinx/builders/gettext.py\n+++ b/sphinx/builders/gettext.py\n@@ -34,7 +34,7 @@ class Message:\n     def __init__(self, text: str, locations: List[Tuple[str, int]], uuids: List[str]):\n         self.text = text\n-        self.locations = locations\n+        self.locations = list(dict.fromkeys(locations))\n         self.uuids = uuids",
+  "thinking": "The bug is about duplicate locations in gettext output. The fix should deduplicate locations in the `Message` class in `sphinx/builders/gettext.py`.\n\nLet me look at what needs to change. The `Message.__init__` method receives locations that may contain duplicates. The simple fix is to deduplicate them.\n\nLooking at the code in `sphinx/builders/gettext.py`, the `Message` class and the `Catalog` class need to be examined.\n\nThe `Message` class `__init__` stores locations directly. We need to deduplicate them.\n\nAlso, looking at the `Catalog.__iter__` method, positions are computed and may produce duplicates there too.\n\n\nI should deduplicate the locations while preserving their order\u2014using `dict.fromkeys()` works well since the location tuples are hashable. But I need to check both the `Message.__init__` method and the `Catalog.__iter__` method, since the contributor's hint suggests duplicates can come from either place.\n\nLooking at the code flow, `Catalog.__iter__` creates `Message` objects, so deduplicating in `Message.__init__` should catch the issue at the source. I'm modifying the constructor to filter out duplicate location tuples...\n\nModifying Message constructor...",
+  "input_tokens": 5531,
+  "output_tokens": 778,
+  "elapsed_seconds": 14.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.141315
+}

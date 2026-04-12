@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13112",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/fields/related.py\n+++ b/django/db/models/fields/related.py\n@@ -579,7 +579,8 @@ class ForeignObject(RelatedField):\n         if self.remote_field.parent_link:\n             kwargs['parent_link'] = self.remote_field.parent_link\n         if isinstance(self.remote_field.model, str):\n-            kwargs['to'] = self.remote_field.model.lower()\n+            app_label, model_name = self.remote_field.model.split('.', 1)\n+            kwargs['to'] = '%s.%s' % (app_label, model_name.lower())\n         else:\n             kwargs['to'] = self.remote_field.model._meta.label_lower\n         # If swappable is True, then see if we're actually pointing to the target",
+  "thinking": null,
+  "input_tokens": 1267,
+  "output_tokens": 216,
+  "elapsed_seconds": 3.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007041
+}

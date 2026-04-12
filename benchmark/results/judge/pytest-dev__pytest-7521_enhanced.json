@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies encoding/decoding logic in the wrong classes and doesn't address the core issue of carriage return being converted to newline during file operations.",
+  "key_difference": "The gold patch correctly identifies that the issue is in FDCapture's file creation where newline='''' parameter is needed to preserve all line endings, while the candidate patch incorrectly targets encoding methods in unrelated classes that don't affect the \r to \n conversion problem.",
+  "instance_id": "pytest-dev__pytest-7521",
+  "condition": "enhanced",
+  "judge_tokens": 1961,
+  "judge_cost": 0.007839
+}

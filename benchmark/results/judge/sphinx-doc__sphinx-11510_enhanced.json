@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to fix the issue by creating a custom StateMachine subclass to emit source-read events, but it's incomplete (truncated diff) and has several implementation problems including incorrect event emission and lack of proper integration.",
+  "key_difference": "Unlike the gold patch which modifies the Include directive to properly handle source-read events with correct docname resolution and text processing, this patch tries to override the StateMachine class but fails to properly integrate it and has implementation errors like using the file path instead of docname for the event.",
+  "instance_id": "sphinx-doc__sphinx-11510",
+  "condition": "enhanced",
+  "judge_tokens": 2802,
+  "judge_cost": 0.010542000000000001
+}

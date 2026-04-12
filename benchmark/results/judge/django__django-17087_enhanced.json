@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the issue by changing `klass.__name__` to `klass.__qualname__` in the function serializer, which properly handles nested class names for migration serialization.",
+  "key_difference": "The candidate patch is identical to the gold patch in terms of the actual code change. The only difference is that the candidate includes additional context showing the class name `FunctionTypeSerializer` in the diff header, but this doesn't affect the functionality of the fix.",
+  "instance_id": "django__django-17087",
+  "condition": "enhanced",
+  "judge_tokens": 1249,
+  "judge_cost": 0.005739
+}

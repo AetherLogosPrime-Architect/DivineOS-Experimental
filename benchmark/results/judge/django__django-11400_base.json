@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to address the ordering issue but has syntax errors, duplicated code, and incomplete implementation that would break the code.",
+  "key_difference": "Unlike the gold patch which cleanly refactors ordering logic into a separate method and properly handles both filter classes, this patch duplicates code, has syntax errors, and doesn't properly implement the fix for RelatedOnlyFieldListFilter.",
+  "instance_id": "django__django-11400",
+  "condition": "base",
+  "judge_tokens": 2053,
+  "judge_cost": 0.007923
+}

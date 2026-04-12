@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly replaces builtin_str with to_native_str to properly handle binary strings in Python 3, fixing the issue where binary method names were being converted to literal strings.",
+  "key_difference": "The candidate uses 'to_native_str' while the gold patch uses 'to_native_string'. Both functions likely serve the same purpose of properly converting binary strings to native strings, and the candidate doesn't remove the builtin_str import, but the core fix is equivalent and valid.",
+  "instance_id": "psf__requests-2317",
+  "condition": "enhanced",
+  "judge_tokens": 1226,
+  "judge_cost": 0.0057540000000000004
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16429",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/utils/timesince.py\n+++ b/django/utils/timesince.py\n@@ -97,7 +97,7 @@ def timesince(d, now=None, reversed=False, time_strings=None, depth=1):\n             # e.g. d is 2 months, 3 weeks, 5 days, 4 hours, 2 minutes in the past\n             # the pivot is 2 months in the past.\n             pivot = datetime.datetime(\n-                now.year, now.month, now.day, 0, 0, 0, 0\n+                now.year, now.month, now.day, 0, 0, 0, 0, d.tzinfo\n             ) - datetime.timedelta(seconds=delta_seconds)\n             pivot_delta = abs_timedelta(now, pivot)\n             remaining_time = (now - pivot).total_seconds()",
+  "thinking": null,
+  "input_tokens": 867,
+  "output_tokens": 229,
+  "elapsed_seconds": 4.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006036
+}

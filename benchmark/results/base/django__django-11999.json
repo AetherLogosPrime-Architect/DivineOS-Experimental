@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11999",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/fields/__init__.py\n+++ b/django/db/models/fields/__init__.py\n@@ -835,7 +835,8 @@ class Field(RegisterLookupMixin):\n         if self.choices is not None:\n             # Don't override a get_FOO_display() method defined explicitly on\n             # this class, but don't check methods derived from inheritance.\n-            setattr(cls, 'get_%s_display' % self.name,\n+            if not hasattr(cls, 'get_%s_display' % self.name):\n+                setattr(cls, 'get_%s_display' % self.name,\n                     partialmethod(cls._get_FIELD_display, field=self))\n \n     def get_filter_kwargs_for_object(self, obj):",
+  "thinking": null,
+  "input_tokens": 1720,
+  "output_tokens": 205,
+  "elapsed_seconds": 4.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008235
+}

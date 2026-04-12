@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch attempts to optimize AlterFooTogether operations in the migration optimizer, but this is the wrong approach - the optimization should happen through the reduce() method in the operations themselves, not in the optimizer.",
+  "key_difference": "The gold patch correctly implements optimization through the reduce() method and can_reduce_through() in the operation classes, while the candidate patch tries to handle this in the optimizer which is not the standard Django pattern and won't work with the existing reduction system.",
+  "instance_id": "django__django-15268",
+  "condition": "enhanced",
+  "judge_tokens": 1937,
+  "judge_cost": 0.007803
+}

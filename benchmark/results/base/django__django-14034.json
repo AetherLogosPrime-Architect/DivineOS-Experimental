@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14034",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, the issue is that when a `MultiValueField` has `required=True`, all sub-widgets get the `required` HTML attribute regardless of whether their individual fields have `required=False`. This happens in the `build_widget_attrs` method in `boundfield.py`.\n\nThe fix needs to respect the individual field's `required` attribute when `require_all_fields=False` on a MultiValueField.\n\n--- a/django/forms/boundfield.py\n+++ b/django/forms/boundfield.py\n@@ -218,7 +218,12 @@ class BoundField:\n         widget = widget or self.field.widget\n         attrs = dict(attrs)  # Copy attrs to avoid modifying the argument.\n         if widget.use_required_attribute(self.initial) and self.field.required and self.form.use_required_attribute:\n-            attrs['required'] = True\n+            # For MultiValueField with require_all_fields=False, respect individual field requirements\n+            if (hasattr(self.field, 'require_all_fields') and \n+                not self.field.require_all_fields and \n+                hasattr(widget, 'is_required') and not widget.is_required):\n+                pass  # Don't add required attribute for optional subfields\n+            else:\n+                attrs['required'] = True\n         if self.field.disabled:\n             attrs['disabled'] = True\n         return attrs",
+  "thinking": null,
+  "input_tokens": 2795,
+  "output_tokens": 343,
+  "elapsed_seconds": 5.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.01353
+}

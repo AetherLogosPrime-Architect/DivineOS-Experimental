@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13406",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -210,6 +210,10 @@ class QuerySet:\n \n     @query.setter\n     def query(self, value):\n+        if value.values_select:\n+            if value.values_select is True:\n+                self._iterable_class = ValuesIterable\n+            else:\n+                self._iterable_class = ValuesListIterable\n         self._query = value\n \n     @classmethod",
+  "thinking": null,
+  "input_tokens": 1944,
+  "output_tokens": 135,
+  "elapsed_seconds": 2.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007857
+}

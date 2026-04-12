@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "This patch modifies the wrong method (_print_Float instead of _print_Symbol) and targets a completely different area of code than where the symbol rendering bug occurs.",
+  "key_difference": "The candidate patch fixes a different issue in _print_Float method around line 1019, while the gold patch correctly identifies and fixes the _print_Symbol method around line 743 where symbols with subscripts/superscripts are handled. The candidate patch doesn't address the core issue of symbol visibility with numbers.",
+  "instance_id": "sympy__sympy-15976",
+  "condition": "enhanced",
+  "judge_tokens": 1791,
+  "judge_cost": 0.007424999999999999
+}

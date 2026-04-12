@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch adds specific _print_Max and _print_Min methods to handle Max/Min functions correctly, formatting them with square brackets instead of parentheses for valid Mathematica syntax.",
+  "key_difference": "The candidate uses dedicated _print_Max/_print_Min methods instead of the gold patch's approach of adding Max/Min to known_functions and using _print_MinMaxBase. Both approaches are valid - the candidate is more explicit while the gold is more generic, but both produce the correct Mathematica syntax Max[x,2].",
+  "instance_id": "sympy__sympy-15345",
+  "condition": "base",
+  "judge_tokens": 1298,
+  "judge_cost": 0.006078
+}

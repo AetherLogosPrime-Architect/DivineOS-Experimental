@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11477",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/urls/resolvers.py\n+++ b/django/urls/resolvers.py\n@@ -632,7 +632,7 @@ class URLResolver:\n                         raise NoReverseMatch(msg % args)\n                     else:\n                         text_args = [force_text(v) for v in args]\n-                        text_kwargs = {k: force_text(v) for (k, v) in kwargs.items()}\n+                        text_kwargs = {k: force_text(v) for (k, v) in kwargs.items() if v is not None}\n \n                     converter_dict = {p.name: p.converter for p in pattern.converters.values()}\n                     if args:",
+  "thinking": null,
+  "input_tokens": 652,
+  "output_tokens": 179,
+  "elapsed_seconds": 4.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004640999999999999
+}

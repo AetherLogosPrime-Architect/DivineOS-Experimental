@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly replaces the temporary .pgpass file approach with setting PGPASSWORD environment variable and uses subprocess.run instead of subprocess.call, which simplifies the code as intended.",
+  "key_difference": "The candidate patch modifies the runshell method instead of runshell_db, and uses subprocess.run without check=True, but both approaches are valid implementations of the same improvement - using PGPASSWORD environment variable with subprocess.run.",
+  "instance_id": "django__django-10973",
+  "condition": "enhanced",
+  "judge_tokens": 1745,
+  "judge_cost": 0.007179
+}

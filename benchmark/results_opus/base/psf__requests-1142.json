@@ -1,0 +1,12 @@
+{
+  "instance_id": "psf__requests-1142",
+  "condition": "base",
+  "model": "claude-opus-4-6",
+  "patch": "\n\nLooking at this issue, the problem is that `Content-Length` is being set to `0` even for requests that have no body (like GET and HEAD requests). The fix should only set `Content-Length` when there's actually a body to send.\n\nLet me trace through the code to find where Content-Length is being set unconditionally.\n\nIn `requests/models.py`, the `prepare_body` method sets Content-Length for all requests. The fix should avoid setting `Content-Length: 0` when the body is None/empty and the method doesn't typically have a body.\n\n```diff\n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -379,9 +379,12 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n         if hasattr(data, 'read'):\n             self.body = data\n \n-        if hasattr(self.body, 'seek') and hasattr(self.body, 'tell'):\n-            self.body.seek(0, 2)\n-            self.headers['Content-Length'] = str(self.body.tell())\n-            self.body.seek(0, 0)\n-        elif self.body is not None:\n-            self.headers['Content-Length'] = str(len(self.body))\n+        if self.body is not None:\n+            if hasattr(self.body, 'seek') and hasattr(self.body, 'tell'):\n+                self.body.seek(0, 2)\n+                self.headers['Content-Length'] = str(self.body.tell())\n+                self.body.seek(0, 0)\n+            else:\n+                self.headers['Content-Length'] = str(len(self.body))\n+        elif self.method not in ('GET', 'HEAD'):\n+            self.headers['Content-Length'] = '0'\n```\n\nThis patch changes the logic so that:\n\n1. If `self.body` is not None, Content-Length is set based on the body size (file-like or string/bytes).\n2. If `self.body` is None and the method is NOT GET or HEAD, Content-Length is set to '0' (for methods like POST/PUT/PATCH that conventionally have a body).\n3. If `self.body` is None and the method IS GET or HEAD, no Content-Length header is added.",
+  "thinking": null,
+  "input_tokens": 1887,
+  "output_tokens": 572,
+  "elapsed_seconds": 10.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.071205
+}

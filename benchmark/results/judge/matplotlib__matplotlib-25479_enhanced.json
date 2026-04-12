@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to fix the issue by modifying pyplot.set_cmap() to track registered colormap names, but this approach is flawed and the diff format is invalid with duplicate sections.",
+  "key_difference": "The candidate patch tries to work around the issue in pyplot by tracking registered names, while the gold patch correctly fixes the root cause by ensuring registered colormaps have their names updated to match the registration name and removing the problematic name comparison in colormap equality.",
+  "instance_id": "matplotlib__matplotlib-25479",
+  "condition": "enhanced",
+  "judge_tokens": 2443,
+  "judge_cost": 0.009297
+}

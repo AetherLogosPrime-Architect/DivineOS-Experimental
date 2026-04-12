@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds a hasattr() check before setting the get_FOO_display method, preventing Django from overriding user-defined methods. This fixes the issue where custom get_FOO_display methods were being replaced.",
+  "key_difference": "The candidate patch is functionally identical to the gold patch but applies to a different line number (835 vs 763) and uses slightly different formatting. Both patches implement the same fix by checking if the method already exists before setting it.",
+  "instance_id": "django__django-11999",
+  "condition": "base",
+  "judge_tokens": 1239,
+  "judge_cost": 0.005733
+}

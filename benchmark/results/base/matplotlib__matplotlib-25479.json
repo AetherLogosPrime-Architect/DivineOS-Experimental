@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-25479",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem statement and hints, the issue is in the `set_cmap` function in `pyplot.py`. When a colormap is registered with a different name than its internal name, `set_cmap` stores the wrong name in the rcParams, causing later lookups to fail.\n\nThe problem is that `set_cmap` sets `rcParams['image.cmap']` to `cmap.name` (the internal colormap name) instead of the registered name that was used to look up the colormap.\n\nHere's the fix:\n\n--- a/lib/matplotlib/pyplot.py\n+++ b/lib/matplotlib/pyplot.py\n@@ -2075,7 +2075,7 @@ def set_cmap(cmap):\n     cmap : `~matplotlib.colors.Colormap` or str\n         A colormap instance or the name of a registered colormap.\n     \"\"\"\n-    rc('image', cmap=cm.get_cmap(cmap).name)\n+    rc('image', cmap=cmap if isinstance(cmap, str) else cmap.name)\n \n \n def imread(fname, format=None):",
+  "thinking": null,
+  "input_tokens": 2909,
+  "output_tokens": 270,
+  "elapsed_seconds": 5.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.012777
+}

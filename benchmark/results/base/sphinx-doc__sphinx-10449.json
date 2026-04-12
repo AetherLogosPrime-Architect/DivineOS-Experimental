@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-10449",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sphinx/ext/autodoc/typehints.py\n+++ b/sphinx/ext/autodoc/typehints.py\n@@ -41,7 +41,8 @@ def record_typehints(app: Sphinx, objtype: str, name: str, obj: Any,\n \n     try:\n         if callable(obj):\n-            annotations = app.env.temp_data.setdefault('annotations', {})\n+            # Skip recording annotations for classes when using autodoc_typehints = \"description\"\n+            if objtype == 'class' and app.config.autodoc_typehints == 'description':\n+                return\n             annotations[name] = get_type_hints(obj)\n     except (AttributeError, TypeError):\n         # AttributeError: __annotations__ attribute not found",
+  "thinking": null,
+  "input_tokens": 1377,
+  "output_tokens": 199,
+  "elapsed_seconds": 4.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007116
+}

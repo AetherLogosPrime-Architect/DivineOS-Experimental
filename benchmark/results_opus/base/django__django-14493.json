@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14493",
+  "condition": "base",
+  "model": "claude-opus-4-6",
+  "patch": "```diff\n--- a/django/contrib/staticfiles/storage.py\n+++ b/django/contrib/staticfiles/storage.py\n@@ -243,6 +243,7 @@ class HashedFilesMixin:\n         paths = {path: paths[path] for path in adjustable_paths}\n \n         substitutions = False\n+\n         for i in range(self.max_post_process_passes):\n             substitutions = False\n             for name, hashed_name, processed, subst in self._post_process(paths, adjustable_paths, hashed_files):\n```",
+  "thinking": null,
+  "input_tokens": 728,
+  "output_tokens": 143,
+  "elapsed_seconds": 4.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.021644999999999998
+}

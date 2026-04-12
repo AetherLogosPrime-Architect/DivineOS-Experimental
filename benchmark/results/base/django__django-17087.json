@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-17087",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/migrations/serializer.py\n+++ b/django/db/migrations/serializer.py\n@@ -168,7 +168,7 @@ class FunctionTypeSerializer(BaseSerializer):\n         ):\n             klass = self.value.__self__\n             module = klass.__module__\n-            return \"%s.%s.%s\" % (module, klass.__name__, self.value.__name__), {\n+            return \"%s.%s.%s\" % (module, klass.__qualname__, self.value.__name__), {\n                 \"import %s\" % module\n             }\n         # Further error checking",
+  "thinking": null,
+  "input_tokens": 1155,
+  "output_tokens": 158,
+  "elapsed_seconds": 2.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.005835
+}

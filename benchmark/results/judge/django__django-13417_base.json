@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the need to check for GROUP BY queries when determining if a QuerySet is ordered, but it appears to be modifying an incorrect version of the ordered property that doesn't match the actual Django codebase structure.",
+  "key_difference": "The candidate patch modifies a simplified version of the ordered property that only checks order_by and default_ordering, while the gold patch modifies the complete implementation that also checks for force_ordering and extra_order_by. The candidate's logic is sound but targets the wrong code structure.",
+  "instance_id": "django__django-13417",
+  "condition": "base",
+  "judge_tokens": 1468,
+  "judge_cost": 0.006540000000000001
+}

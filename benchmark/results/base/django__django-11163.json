@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11163",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/forms/models.py\n+++ b/django/forms/models.py\n@@ -95,7 +95,7 @@ def model_to_dict(instance, fields=None, exclude=None):\n     for f in opts.concrete_fields + opts.private_fields + opts.many_to_many:\n         if not getattr(f, 'editable', False):\n             continue\n-        if fields and f.name not in fields:\n+        if fields is not None and f.name not in fields:\n             continue\n         if exclude and f.name in exclude:\n             continue",
+  "thinking": null,
+  "input_tokens": 400,
+  "output_tokens": 147,
+  "elapsed_seconds": 3.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.003405
+}

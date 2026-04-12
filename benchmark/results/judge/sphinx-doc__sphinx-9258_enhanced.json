@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds support for pipe (|) syntax in union types by modifying the type parsing logic in PyTypedField, but includes unnecessary changes like duplicate import and irrelevant comments.",
+  "key_difference": "The candidate patch modifies PyTypedField.make_xrefs() method using regex splitting, while the gold patch modifies the make_xrefs() method's delimiter regex. Both approaches correctly handle pipe syntax for union types, but the candidate includes unnecessary changes like duplicate 'import re' and unrelated comment modifications that make it less minimal.",
+  "instance_id": "sphinx-doc__sphinx-9258",
+  "condition": "enhanced",
+  "judge_tokens": 1434,
+  "judge_cost": 0.006522
+}

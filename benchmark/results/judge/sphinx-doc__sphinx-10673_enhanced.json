@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the wrong files and creates a recursive call in found_docs property, making it completely broken. It also doesn't properly integrate with Sphinx's domain system for generated documents.",
+  "key_difference": "The candidate patch attempts to hardcode special page names in the environment's found_docs property (causing recursion) and collector, while the gold patch properly integrates with Sphinx's domain system by using the 'std' domain's initial_data labels to identify generated documents dynamically.",
+  "instance_id": "sphinx-doc__sphinx-10673",
+  "condition": "enhanced",
+  "judge_tokens": 1979,
+  "judge_cost": 0.007977000000000001
+}

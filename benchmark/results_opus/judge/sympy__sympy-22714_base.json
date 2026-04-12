@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate correctly identifies the problem is in sympy/geometry/point.py and relates to the imaginary coordinate check with evaluate(False). However, the proposed fix is malformed and doesn't match the effective solution from the gold patch. The diff shows no actual changes and contains some garbled syntax.",
+  "key_difference": "The gold patch fixes the condition to check 'im(a).is_zero is False' instead of just 'im(a)', while the candidate patch attempts a more complex condition but the diff is invalid and doesn't actually implement the fix.",
+  "instance_id": "sympy__sympy-22714",
+  "condition": "base",
+  "judge_cost": 0.008282999999999999
+}
