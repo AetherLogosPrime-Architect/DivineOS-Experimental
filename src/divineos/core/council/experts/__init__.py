@@ -17,12 +17,15 @@ from divineos.core.council.experts.hofstadter import create_hofstadter_wisdom
 from divineos.core.council.experts.holmes import create_holmes_wisdom
 from divineos.core.council.experts.jacobs import create_jacobs_wisdom
 from divineos.core.council.experts.kahneman import create_kahneman_wisdom
+from divineos.core.council.experts.knuth import create_knuth_wisdom
 from divineos.core.council.experts.lovelace import create_lovelace_wisdom
 from divineos.core.council.experts.meadows import create_meadows_wisdom
 from divineos.core.council.experts.minsky import create_minsky_wisdom
 from divineos.core.council.experts.norman import create_norman_wisdom
 from divineos.core.council.experts.pearl import create_pearl_wisdom
 from divineos.core.council.experts.peirce import create_peirce_wisdom
+from divineos.core.council.experts.polya import create_polya_wisdom
+from divineos.core.council.experts.popper import create_popper_wisdom
 from divineos.core.council.experts.schneier import create_schneier_wisdom
 from divineos.core.council.experts.shannon import create_shannon_wisdom
 from divineos.core.council.experts.taleb import create_taleb_wisdom
@@ -44,12 +47,15 @@ __all__ = [
     "create_holmes_wisdom",
     "create_jacobs_wisdom",
     "create_kahneman_wisdom",
+    "create_knuth_wisdom",
     "create_lovelace_wisdom",
     "create_meadows_wisdom",
     "create_minsky_wisdom",
     "create_norman_wisdom",
     "create_pearl_wisdom",
     "create_peirce_wisdom",
+    "create_polya_wisdom",
+    "create_popper_wisdom",
     "create_schneier_wisdom",
     "create_shannon_wisdom",
     "create_taleb_wisdom",
