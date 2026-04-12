@@ -744,7 +744,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             )
             observations.append(obs_id)
 
-    # --- Thoroughness: excessive tool calls signal exhaustiveness ---
+    # --- Thoroughness: tool-to-message ratio signals work depth ---
     # Source: tool_ratio (MEASURED — tool_calls / messages is objective)
     tool_calls = getattr(analysis, "tool_calls_total", 0)
     if user_msgs > 0 and tool_calls > 0:
@@ -753,14 +753,25 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             obs_id = log_observation(
                 spectrum="thoroughness",
                 position=0.4,
-                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f})",
+                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f}) — exhaustive",
                 source="tool_ratio",
                 session_id=sid,
                 tags=["auto"],
             )
             observations.append(obs_id)
+        elif tool_ratio >= 3:
+            # Healthy thoroughness: doing substantial work per request
+            obs_id = log_observation(
+                spectrum="thoroughness",
+                position=0.0,
+                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f}) — thorough",
+                source="tool_ratio",
+                session_id=sid,
+                tags=["auto", "baseline"],
+            )
+            observations.append(obs_id)
 
-    # --- Initiative: context overflows signal overreach ---
+    # --- Initiative: scope signals (overflows = overreach, substantial work = initiative) ---
     # Source: context_overflow (MEASURED — counted from session events)
     overflows = len(getattr(analysis, "context_overflows", []))
     if overflows > 0:
@@ -773,14 +784,25 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             tags=["auto"],
         )
         observations.append(obs_id)
+    elif tool_calls >= 10 and user_msgs >= 2:
+        # Substantial work without overreach — healthy initiative
+        obs_id = log_observation(
+            spectrum="initiative",
+            position=0.0,
+            evidence=f"{tool_calls} tool calls across {user_msgs} exchanges — active initiative without overreach",
+            source="session_activity",
+            session_id=sid,
+            tags=["auto", "baseline"],
+        )
+        observations.append(obs_id)
 
     # --- Confidence: corrections relative to total output signal calibration ---
     # Source: quality_signal (BEHAVIORAL — derived from correction/output ratio)
     # High corrections + many assistant messages = overconfident (said a lot, got
     # corrected often). Few corrections + productive session = well-calibrated.
     assistant_msgs = getattr(analysis, "assistant_messages", 0)
-    if assistant_msgs >= 5:
-        if corrections == 0 and encouragements >= 2:
+    if assistant_msgs >= 2:
+        if corrections == 0 and encouragements >= 1:
             obs_id = log_observation(
                 spectrum="confidence",
                 position=0.0,
@@ -800,13 +822,24 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
+        elif corrections == 0 and assistant_msgs >= 3:
+            # Clean session baseline — no corrections means calibration held
+            obs_id = log_observation(
+                spectrum="confidence",
+                position=0.0,
+                evidence=f"{assistant_msgs} responses, 0 corrections — baseline calibration",
+                source="quality_signal",
+                session_id=sid,
+                tags=["auto", "baseline"],
+            )
+            observations.append(obs_id)
 
     # --- Compliance: frustrations signal relationship with user direction ---
     # Source: frustration_rate (MEASURED — counted from session signals)
     # Many frustrations = user repeatedly unhappy with direction. Could be
     # servile (doing what asked but badly) or insubordinate (ignoring direction).
     frustrations = len(getattr(analysis, "frustrations", []))
-    if user_msgs >= 3:
+    if user_msgs >= 2:
         if frustrations == 0 and encouragements >= 1:
             obs_id = log_observation(
                 spectrum="compliance",
@@ -815,6 +848,17 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 source="frustration_rate",
                 session_id=sid,
                 tags=["auto"],
+            )
+            observations.append(obs_id)
+        elif frustrations == 0 and user_msgs >= 3:
+            # No frustrations in a multi-turn session — baseline cooperation
+            obs_id = log_observation(
+                spectrum="compliance",
+                position=0.0,
+                evidence=f"No frustrations in {user_msgs} exchanges — cooperative baseline",
+                source="frustration_rate",
+                session_id=sid,
+                tags=["auto", "baseline"],
             )
             observations.append(obs_id)
         elif frustrations >= 3:
@@ -832,7 +876,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
     # Source: session_precision (BEHAVIORAL — pattern across tool usage)
     # Many tool calls with few corrections = precise. Many corrections
     # relative to work output = imprecise/vague.
-    if tool_calls >= 5 and user_msgs >= 3:
+    if tool_calls >= 2 and user_msgs >= 2:
         if corrections == 0:
             obs_id = log_observation(
                 spectrum="precision",
@@ -861,7 +905,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
         from divineos.core.affect import get_affect_summary
 
         affect_for_empathy = get_affect_summary(limit=5)
-        if affect_for_empathy["count"] >= 2:
+        if affect_for_empathy["count"] >= 1:
             obs_id = log_observation(
                 spectrum="empathy",
                 position=0.0,
@@ -872,7 +916,17 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             )
             observations.append(obs_id)
     except _MC_ERRORS:
-        pass
+        # Fallback: a frustration-free multi-turn session shows awareness
+        if frustrations == 0 and user_msgs >= 3:
+            obs_id = log_observation(
+                spectrum="empathy",
+                position=0.0,
+                evidence=f"No frustrations in {user_msgs} exchanges — emotionally aware baseline",
+                source="session_activity",
+                session_id=sid,
+                tags=["auto", "baseline"],
+            )
+            observations.append(obs_id)
 
     # --- Humility: correction acceptance signals openness to feedback ---
     # Source: correction_acceptance (MEASURED — corrections vs frustrations)

@@ -624,7 +624,9 @@ def check_promotion(entry: dict[str, Any]) -> str | None:
     return None
 
 
-def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
+def _passes_validity_gate(
+    knowledge_id: str, current: str, target: str, corroboration_count: int = 0
+) -> bool:
     """Check if the validity gate allows this promotion.
 
     Fails gracefully if logic tables aren't initialized yet.
@@ -632,7 +634,7 @@ def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
     try:
         from divineos.core.logic.logic_validation import can_promote
 
-        return can_promote(knowledge_id, current, target)
+        return can_promote(knowledge_id, current, target, corroboration_count)
     except _KM_ERRORS:
         # Logic tables may not exist yet — allow promotion (backward compat)
         return True
@@ -664,7 +666,9 @@ def promote_maturity(knowledge_id: str) -> str | None:
             return None
 
         # Second gate: warrant-based validity
-        if not _passes_validity_gate(knowledge_id, entry["maturity"], new_maturity):
+        if not _passes_validity_gate(
+            knowledge_id, entry["maturity"], new_maturity, entry["corroboration_count"]
+        ):
             logger.debug(
                 "Validity gate blocked promotion of {}: {} -> {}",
                 knowledge_id[:12],
@@ -730,7 +734,9 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
             continue
 
         # Second gate: warrant-based validity
-        if not _passes_validity_gate(kid, entry["maturity"], new_maturity):
+        if not _passes_validity_gate(
+            kid, entry["maturity"], new_maturity, entry.get("corroboration_count", 0)
+        ):
             logger.debug(
                 "Validity gate blocked batch promotion of {}: {} -> {}",
                 kid[:12],

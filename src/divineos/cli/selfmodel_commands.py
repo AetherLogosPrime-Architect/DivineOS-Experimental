@@ -2,6 +2,8 @@
 
 import click
 
+from divineos.cli._helpers import _safe_echo
+
 
 def register(cli: click.Group) -> None:
     """Register self-model and related commands."""
@@ -9,7 +11,6 @@ def register(cli: click.Group) -> None:
     @cli.command("self-model")
     def self_model_cmd() -> None:
         """Display the unified self-model -- who I am, from evidence."""
-        from divineos.cli._helpers import _safe_echo
         from divineos.core.self_model import build_self_model, format_self_model
 
         model = build_self_model()
@@ -21,7 +22,7 @@ def register(cli: click.Group) -> None:
         from divineos.core.drift_detection import format_drift_report, run_drift_detection
 
         report = run_drift_detection()
-        click.echo(format_drift_report(report))
+        _safe_echo(format_drift_report(report))
 
     @cli.command("predict")
     @click.argument("events", nargs=-1)
@@ -30,7 +31,7 @@ def register(cli: click.Group) -> None:
         from divineos.core.predictive_session import format_predictions, predict_session_needs
 
         result = predict_session_needs(current_events=list(events) if events else None)
-        click.echo(format_predictions(result))
+        _safe_echo(format_predictions(result))
 
     @cli.command("knowledge-compress")
     @click.option("--strategy", "-s", multiple=True, help="Strategies: dedup, synthesize, graph")
@@ -41,7 +42,7 @@ def register(cli: click.Group) -> None:
 
         strategies = list(strategy) if strategy else None
         results = run_compression(knowledge_type=knowledge_type, strategies=strategies)
-        click.echo(format_compression_report(results))
+        _safe_echo(format_compression_report(results))
 
     @cli.group("skill", invoke_without_command=True)
     @click.pass_context
@@ -55,7 +56,7 @@ def register(cli: click.Group) -> None:
         """Show all tracked skills."""
         from divineos.core.skill_library import format_skill_summary
 
-        click.echo(format_skill_summary())
+        _safe_echo(format_skill_summary())
 
     @skill_group.command("record")
     @click.argument("name")
@@ -65,7 +66,7 @@ def register(cli: click.Group) -> None:
         from divineos.core.skill_library import record_skill_use
 
         result = record_skill_use(name, success=success)
-        click.echo(
+        _safe_echo(
             f"Recorded {name}: {result['proficiency']} ({result['successes']}+ {result['failures']}x)"
         )
 
@@ -84,14 +85,14 @@ def register(cli: click.Group) -> None:
         from divineos.core.curiosity_engine import add_curiosity
 
         result = add_curiosity(question, category=category)
-        click.echo(f"Curiosity filed: {result['question']}")
+        _safe_echo(f"Curiosity filed: {result['question']}")
 
     @curiosity_group.command("list")
     def curiosity_list() -> None:
         """Show open curiosities."""
         from divineos.core.curiosity_engine import format_curiosities
 
-        click.echo(format_curiosities())
+        _safe_echo(format_curiosities())
 
     @curiosity_group.command("answer")
     @click.argument("question")
@@ -101,9 +102,9 @@ def register(cli: click.Group) -> None:
         from divineos.core.curiosity_engine import answer_curiosity
 
         if answer_curiosity(question, answer):
-            click.echo("Curiosity answered.")
+            _safe_echo("Curiosity answered.")
         else:
-            click.echo("No matching open curiosity found.")
+            _safe_echo("No matching open curiosity found.")
 
     @curiosity_group.command("note")
     @click.argument("question")
@@ -113,9 +114,9 @@ def register(cli: click.Group) -> None:
         from divineos.core.curiosity_engine import add_note
 
         if add_note(question, note):
-            click.echo("Note added.")
+            _safe_echo("Note added.")
         else:
-            click.echo("No matching open curiosity found.")
+            _safe_echo("No matching open curiosity found.")
 
     @curiosity_group.command("wonder")
     @click.option("--max", "max_q", default=5, type=int, help="Max questions to generate")
@@ -132,10 +133,10 @@ def register(cli: click.Group) -> None:
         if generated:
             click.secho(f"Generated {len(generated)} question(s):\n", fg="cyan")
             for g in generated:
-                click.echo(f"  ? {g.get('question', '?')[:100]}")
+                _safe_echo(f"  ? {g.get('question', '?')[:100]}")
                 click.secho(f"    [{g.get('category', '?')}]", fg="bright_black")
         else:
-            click.echo("No gaps found -- knowledge store looks complete.")
+            _safe_echo("No gaps found -- knowledge store looks complete.")
 
     @curiosity_group.command("shelve")
     @click.argument("question")
@@ -144,9 +145,9 @@ def register(cli: click.Group) -> None:
         from divineos.core.curiosity_engine import shelve_curiosity
 
         if shelve_curiosity(question):
-            click.echo("Curiosity shelved.")
+            _safe_echo("Curiosity shelved.")
         else:
-            click.echo("No matching open curiosity found.")
+            _safe_echo("No matching open curiosity found.")
 
     @cli.command("attention")
     def attention_cmd() -> None:
@@ -174,7 +175,7 @@ def register(cli: click.Group) -> None:
         from divineos.core.affect import format_affect_feedback, get_session_affect_context
 
         context = get_session_affect_context()
-        click.echo(format_affect_feedback(context))
+        _safe_echo(format_affect_feedback(context))
 
     @cli.command("knowledge-hygiene")
     @click.option("--no-demote", is_flag=True, help="Skip noise demotion")
@@ -189,4 +190,4 @@ def register(cli: click.Group) -> None:
             decay_stale=not no_decay,
             flag_orphans=not no_orphans,
         )
-        click.echo(format_hygiene_report(report))
+        _safe_echo(format_hygiene_report(report))
