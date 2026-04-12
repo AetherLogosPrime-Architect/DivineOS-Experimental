@@ -38,7 +38,6 @@ from divineos.core.knowledge._text import (
 )
 from divineos.core.knowledge import get_connection
 from divineos.core.knowledge.crud import supersede_knowledge
-from divineos.core.logic.logic_validation import can_promote
 
 from divineos.core.constants import (
     CONFIDENCE_DEMOTE_CAP,
@@ -546,6 +545,8 @@ def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
     Fails gracefully if logic tables aren't initialized yet.
     """
     try:
+        from divineos.core.logic.logic_validation import can_promote
+
         return can_promote(knowledge_id, current, target)
     except _KM_ERRORS:
         # Logic tables may not exist yet — allow promotion (backward compat)
