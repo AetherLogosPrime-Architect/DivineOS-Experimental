@@ -7,14 +7,15 @@ of goals from user messages.
 
 import json
 import re
+import sqlite3
 import time
 from pathlib import Path
 from typing import Any
-import sqlite3
 
 from loguru import logger
 
 from divineos.core._hud_io import _ensure_hud_dir, _get_hud_dir
+from divineos.core.constants import TIME_HANDOFF_EXPIRY_HOURS
 from divineos.core.hud_state import has_session_fresh_goal
 from divineos.core.ledger import count_events
 
@@ -74,8 +75,8 @@ def save_handoff_note(
                     existing_count,
                 )
                 return path
-        except (json.JSONDecodeError, OSError, KeyError):
-            pass  # Can't read existing — overwrite is fine
+        except (json.JSONDecodeError, OSError, KeyError) as e:
+            logger.debug("Could not read existing handoff note, overwriting: %s", e)
 
     note: dict[str, Any] = {
         "session_id": session_id,
@@ -98,13 +99,13 @@ def save_handoff_note(
     return path
 
 
-_HANDOFF_EXPIRY_SECONDS = 43200  # 12 hours — older handoffs are from a different context
+_HANDOFF_EXPIRY_SECONDS = TIME_HANDOFF_EXPIRY_HOURS * 3600
 
 
 def load_handoff_note() -> dict[str, Any] | None:
     """Load the handoff note from the previous session, if any.
 
-    Returns None and auto-clears if the note is older than 48 hours.
+    Returns None and auto-clears if the note is older than 12 hours.
     """
     path = _get_hud_dir() / "handoff_note.json"
     if not path.exists():
@@ -114,7 +115,7 @@ def load_handoff_note() -> dict[str, Any] | None:
         # Auto-expire stale handoff notes
         written_at = result.get("written_at", 0)
         if written_at and (time.time() - written_at) > _HANDOFF_EXPIRY_SECONDS:
-            logger.debug("Handoff note expired (>48h old), clearing")
+            logger.debug("Handoff note expired (>12h old), clearing")
             path.unlink(missing_ok=True)
             return None
         return result
@@ -152,18 +153,44 @@ _FLOW_STATE_VELOCITY = 10.0  # seconds per action
 _FLOW_STATE_THRESHOLD = 50  # very high ceiling when in flow
 
 
-def mark_engaged() -> None:
+# Tools that consult stored knowledge (deep engagement)
+_DEEP_TOOLS = {"ask", "recall", "briefing", "lessons", "active"}
+# Tools that think but don't query knowledge (light engagement)
+_LIGHT_TOOLS = {"context", "decide", "feel", "directives", "body", "compass"}
+
+# After this many actions since last DEEP check-in, require deep engagement
+_DEEP_ENGAGEMENT_THRESHOLD = 30
+
+
+def mark_engaged(tool: str = "") -> None:
     """Mark that the OS was used for thinking this session.
 
-    Called when a thinking tool (ask, recall, directives, context, briefing,
-    decide, feel) is used. Resets the code-action counter so the engagement
-    gate reopens. This means engagement is PERIODIC — you must keep
-    consulting the OS throughout your work, not just once at the start.
+    Called when a thinking tool is used. Resets the code-action counter.
+    Tracks engagement DEPTH — light tools (context, decide, feel) satisfy
+    the basic gate, but deep tools (ask, recall) are required periodically
+    to ensure the agent actually consults stored knowledge, not just
+    runs the minimum command to clear the gate.
     """
     path = _ensure_hud_dir() / ".session_engaged"
+
+    # Preserve deep_actions_since across light engagements
+    existing: dict[str, Any] = {}
+    if path.exists():
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(existing, dict):
+                existing = {}
+        except (json.JSONDecodeError, OSError):
+            existing = {}
+
+    is_deep = tool.lower() in _DEEP_TOOLS if tool else False
+
     marker = {
         "engaged_at": time.time(),
         "code_actions_since": 0,
+        "engagement_depth": "deep" if is_deep else "light",
+        "last_tool": tool,
+        "deep_actions_since": 0 if is_deep else existing.get("deep_actions_since", 0),
     }
     path.write_text(json.dumps(marker), encoding="utf-8")
 
@@ -171,10 +198,13 @@ def mark_engaged() -> None:
 def record_code_action() -> None:
     """Record that a code-changing action (Edit/Write/Bash) occurred.
 
-    Increments the counter that tracks how many code actions have happened
-    since the last OS query. When this counter exceeds _ENGAGEMENT_DECAY_THRESHOLD,
-    is_engaged() returns False and the PreToolUse gate blocks until the AI
-    consults the OS again.
+    Increments both counters:
+    - code_actions_since: actions since last ANY thinking command (light gate)
+    - deep_actions_since: actions since last DEEP thinking command (deep gate)
+
+    When code_actions_since exceeds the light threshold, any thinking command
+    clears it. When deep_actions_since exceeds _DEEP_ENGAGEMENT_THRESHOLD,
+    only ask/recall/briefing will clear it — context/decide/feel won't be enough.
     """
     path = _ensure_hud_dir() / ".session_engaged"
     if not path.exists():
@@ -182,13 +212,13 @@ def record_code_action() -> None:
     try:
         marker = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(marker, dict):
-            # Old format — upgrade to new format
             marker = {"engaged_at": float(marker), "code_actions_since": 0}
         marker["code_actions_since"] = marker.get("code_actions_since", 0) + 1
+        marker["deep_actions_since"] = marker.get("deep_actions_since", 0) + 1
         marker["last_action_at"] = time.time()
         path.write_text(json.dumps(marker), encoding="utf-8")
-    except (json.JSONDecodeError, OSError):
-        pass
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Engagement marker update failed: %s", e)
 
 
 def _active_threshold() -> int:
@@ -216,7 +246,7 @@ def _active_threshold() -> int:
             capture_output=True,
             timeout=2,
         )
-        # Exit code 1 means there ARE staged changes → commit flow
+        # Exit code 1 means there ARE staged changes -> commit flow
         if result.returncode == 1:
             return _ENGAGEMENT_COMMIT_THRESHOLD
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
@@ -230,6 +260,11 @@ def _is_flow_state() -> bool:
     Reads the engagement marker to check action velocity. If the agent
     has done 5+ actions AND the average time between actions is under
     _FLOW_STATE_VELOCITY seconds, we're in flow state.
+
+    Flow state and drift are mutually inhibiting: if drift signals are
+    elevated (lesson regressions, low recent grades), flow state does NOT
+    trigger regardless of velocity. Safety signal gets priority over
+    convenience signal. (Council round 4 — Dekker/Beer convergence.)
     """
     path = _get_hud_dir() / ".session_engaged"
     if not path.exists():
@@ -253,21 +288,56 @@ def _is_flow_state() -> bool:
             return False
 
         velocity = elapsed / actions  # seconds per action
-        return bool(velocity < _FLOW_STATE_VELOCITY)
+        if velocity >= _FLOW_STATE_VELOCITY:
+            return False
+
+        # Drift inhibits flow: check if recent session health is poor
+        # or lesson regressions are active. If so, don't loosen the gate.
+        if _drift_signals_elevated():
+            return False
+
+        return True
     except (json.JSONDecodeError, OSError):
         return False
+
+
+def _drift_signals_elevated() -> bool:
+    """Check if drift indicators suggest the gate should stay tight.
+
+    Returns True if any of:
+    - Last session grade was D or F
+    - Active lessons have regressed 2+ times
+    """
+    try:
+        # Check last session grade from handoff
+        handoff_path = _get_hud_dir() / "handoff_note.json"
+        if handoff_path.exists():
+            ho = json.loads(handoff_path.read_text(encoding="utf-8"))
+            grade = (ho.get("context_snapshot") or {}).get("session_grade", "")
+            if grade in ("D", "F"):
+                return True
+
+        # Check for regressing lessons
+        from divineos.core.knowledge import get_lessons
+
+        active = get_lessons(status="active")
+        regressed = sum(1 for lesson in active if lesson.get("regressions", 0) >= 2)
+        if regressed >= 2:
+            return True
+    except (ImportError, OSError, json.JSONDecodeError, sqlite3.OperationalError):
+        pass  # If we can't check, don't block flow — fail open here
+    return False
 
 
 def is_engaged() -> bool:
     """Check if the OS has been engaged recently enough.
 
-    Returns False if:
-    - No engagement marker exists (never engaged)
-    - More than the active threshold code-changing actions have
-      happened since the last OS query (engagement has decayed)
+    Two tiers:
+    1. Light gate: any thinking command clears it (threshold ~15 actions)
+    2. Deep gate: only ask/recall/briefing clear it (threshold ~30 actions)
 
-    The threshold is context-aware: higher during commit flows
-    (staged files exist) to avoid blocking mechanical work.
+    The deep gate ensures the agent actually consults stored knowledge
+    periodically, not just runs context/decide to clear the light gate.
     """
     path = _get_hud_dir() / ".session_engaged"
     if not path.exists():
@@ -277,7 +347,17 @@ def is_engaged() -> bool:
         if not isinstance(marker, dict):
             return True
         code_actions = marker.get("code_actions_since", 0)
-        return bool(code_actions < _active_threshold())
+        deep_actions = marker.get("deep_actions_since", 0)
+
+        # Light gate — any thinking command clears
+        if code_actions >= _active_threshold():
+            return False
+
+        # Deep gate — only ask/recall/briefing clear
+        if deep_actions >= _DEEP_ENGAGEMENT_THRESHOLD:
+            return False
+
+        return True
     except (json.JSONDecodeError, OSError):
         return path.exists()
 
@@ -301,14 +381,23 @@ def engagement_status() -> dict[str, Any]:
                 "code_actions_since": 0,
                 "threshold": threshold,
                 "remaining": threshold,
+                "deep_actions_since": 0,
+                "deep_threshold": _DEEP_ENGAGEMENT_THRESHOLD,
+                "needs_deep": False,
             }
         code_actions = marker.get("code_actions_since", 0)
+        deep_actions = marker.get("deep_actions_since", 0)
         remaining = max(0, threshold - code_actions)
+        needs_deep = deep_actions >= _DEEP_ENGAGEMENT_THRESHOLD
+        engaged = code_actions < threshold and not needs_deep
         return {
-            "engaged": code_actions < threshold,
+            "engaged": engaged,
             "code_actions_since": code_actions,
             "threshold": threshold,
             "remaining": remaining,
+            "deep_actions_since": deep_actions,
+            "deep_threshold": _DEEP_ENGAGEMENT_THRESHOLD,
+            "needs_deep": needs_deep,
         }
     except (json.JSONDecodeError, OSError):
         return {
@@ -316,6 +405,9 @@ def engagement_status() -> dict[str, Any]:
             "code_actions_since": 0,
             "threshold": threshold,
             "remaining": threshold,
+            "deep_actions_since": 0,
+            "deep_threshold": _DEEP_ENGAGEMENT_THRESHOLD,
+            "needs_deep": False,
         }
 
 
@@ -380,7 +472,7 @@ def was_briefing_loaded() -> bool:
 
     Returns False if:
     - Briefing was never loaded
-    - More than 2 hours have passed since loading (time-based TTL)
+    - More than 4 hours have passed since loading (time-based TTL)
     - More than 150 tool calls have happened since loading (activity drift)
 
     The time check prevents false blocks after context compaction,
@@ -565,6 +657,27 @@ def preflight_check() -> dict[str, Any]:
             "detail": "Goal set for this session"
             if fresh_goal
             else 'No goal for THIS session — run: divineos goal add "..."',
+        }
+    )
+
+    # 6. Compass integrity — moral foundations haven't been tampered with
+    try:
+        from divineos.core.moral_compass import verify_compass_integrity
+
+        verify_compass_integrity()
+        compass_ok = True
+        compass_detail = "Moral compass spectrums intact"
+    except RuntimeError as exc:
+        compass_ok = False
+        compass_detail = str(exc)
+    except (ImportError, OSError) as exc:
+        compass_ok = True  # don't block if module unavailable
+        compass_detail = f"Compass check skipped: {exc}"
+    checks.append(
+        {
+            "name": "compass_integrity",
+            "passed": compass_ok,
+            "detail": compass_detail,
         }
     )
 

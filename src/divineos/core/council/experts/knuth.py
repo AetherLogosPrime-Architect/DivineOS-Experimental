@@ -177,8 +177,7 @@ def create_knuth_wisdom() -> ExpertWisdom:
                 "If any case is unhandled, the code is incomplete."
             ),
             what_it_reveals=(
-                "Gaps in handling. The case you didn't think of is the "
-                "case that causes the bug."
+                "Gaps in handling. The case you didn't think of is the case that causes the bug."
             ),
             common_mistakes_it_prevents=[
                 "Missing edge cases",
@@ -255,9 +254,7 @@ def create_knuth_wisdom() -> ExpertWisdom:
                 "Test with values at the maximum allowed size",
                 "Check what happens when content exceeds the limit",
             ],
-            what_it_optimizes_for=(
-                "Ensuring fixes produce spec-compliant output"
-            ),
+            what_it_optimizes_for=("Ensuring fixes produce spec-compliant output"),
         ),
     ]
 
@@ -265,8 +262,7 @@ def create_knuth_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Untested Boundaries",
             description=(
-                "A fix has been validated with typical inputs but not "
-                "with boundary values"
+                "A fix has been validated with typical inputs but not with boundary values"
             ),
             why_its_concerning=(
                 "Most bugs live at boundaries. A fix tested only with "
@@ -274,15 +270,12 @@ def create_knuth_wisdom() -> ExpertWisdom:
             ),
             what_it_indicates="Incomplete validation",
             severity="critical",
-            what_to_do=(
-                "Enumerate boundary values and test each one explicitly."
-            ),
+            what_to_do=("Enumerate boundary values and test each one explicitly."),
         ),
         ConcernTrigger(
             name="Format Assumption",
             description=(
-                "A fix assumes output format is correct without checking "
-                "the specification"
+                "A fix assumes output format is correct without checking the specification"
             ),
             why_its_concerning=(
                 "What looks right to humans may violate the format spec. "
@@ -295,8 +288,7 @@ def create_knuth_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Off-By-One Smell",
             description=(
-                "Code uses <, <=, >, >= near a boundary, or has "
-                "hand-computed index arithmetic"
+                "Code uses <, <=, >, >= near a boundary, or has hand-computed index arithmetic"
             ),
             why_its_concerning=(
                 "Inclusive vs exclusive is the #1 source of boundary "
@@ -348,8 +340,7 @@ def create_knuth_wisdom() -> ExpertWisdom:
             "about a spec, read it. Never assume — verify."
         ),
         what_they_optimize_for=(
-            "Provably correct code that handles every case, "
-            "especially the edge cases"
+            "Provably correct code that handles every case, especially the edge cases"
         ),
         non_negotiables=[
             "Every boundary must be checked",

@@ -3,9 +3,9 @@
 Integrates with the existing DivineOS session manager for session tracking.
 """
 
+import sqlite3
 from typing import Any
 from uuid import UUID
-import sqlite3
 
 from loguru import logger
 

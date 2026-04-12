@@ -1,30 +1,32 @@
 """Knowledge retrieval — briefing generation, stats, unconsolidated events."""
 
 import json
+import sqlite3
 import time
 from typing import Any
-import sqlite3
 
 from loguru import logger
 
 from divineos.core.constants import (
+    BRIEFING_MAX_LINES,
+    BRIEFING_SECTION_MIN_LINES,
     CONFIDENCE_RETRIEVAL_FLOOR,
     RETRIEVAL_WEIGHT_ACCESS,
     RETRIEVAL_WEIGHT_CONFIDENCE,
     RETRIEVAL_WEIGHT_RECENCY,
     SECONDS_PER_DAY,
 )
+from divineos.core.hud_handoff import clear_handoff_note, load_handoff_note
+from divineos.core.hud_state import _ensure_hud_dir
 from divineos.core.knowledge._base import (
     _KNOWLEDGE_COLS,
     _get_connection,
     _row_to_dict,
 )
 from divineos.core.knowledge.crud import search_knowledge
-from divineos.core.knowledge.lessons import get_lesson_summary
-from divineos.core.hud_handoff import clear_handoff_note, load_handoff_note
-from divineos.core.hud_state import _ensure_hud_dir
 from divineos.core.knowledge.curation import ensure_layer_column
 from divineos.core.knowledge.graph_retrieval import cluster_for_briefing, format_cluster_line
+from divineos.core.knowledge.lessons import get_lesson_summary
 from divineos.core.memory_journal import journal_list
 
 _RETRIEVAL_ERRORS = (
@@ -76,7 +78,7 @@ def get_unconsolidated_events(limit: int = 100) -> list[dict[str, Any]]:
 
 
 def generate_briefing(
-    max_items: int = 20,
+    max_items: int = 50,
     include_types: list[str] | None = None,
     context_hint: str = "",
     deep: bool = False,
@@ -146,7 +148,9 @@ def generate_briefing(
             hint_matches = {m["knowledge_id"] for m in matched}
         except _RETRIEVAL_ERRORS as e:
             logger.warning(
-                f"Failed to search knowledge for context hint: {e}",
+                "Failed to search knowledge for context hint %r: %s",
+                context_hint,
+                e,
                 exc_info=True,
             )
 
@@ -179,7 +183,10 @@ def generate_briefing(
 
         half_life = half_lives.get(entry["knowledge_type"], 7.0)
         if half_life is None:
-            recency = 1.0  # PREFERENCE: never decays
+            # "Timeless" types still get a very slow decay so outdated
+            # directives/preferences can eventually lose rank if never
+            # reaffirmed. 365-day half-life = 0.93 after 6 months.
+            recency = max(0.7, 2 ** (-age_days / 365.0))
         else:
             recency = 2 ** (-age_days / half_life)
 
@@ -198,6 +205,13 @@ def generate_briefing(
             score += 0.3
 
         entry["_score"] = score
+
+    # Graph boost — entries connected to high-scoring entries get a bump.
+    # This surfaces related knowledge that wouldn't rank on its own.
+    try:
+        _apply_graph_boost(entries)
+    except _RETRIEVAL_ERRORS as e:
+        logger.debug("Graph boost unavailable: %s", e)
 
     # Sort by score, take top items
     entries.sort(key=lambda e: e["_score"], reverse=True)
@@ -224,8 +238,8 @@ def generate_briefing(
                 knowledge_id=entry["knowledge_id"],
                 content_brief=entry.get("content", "")[:200],
             )
-    except (*_RETRIEVAL_ERRORS, RuntimeError):
-        pass  # Impact tracking is best-effort, never blocks briefing
+    except (*_RETRIEVAL_ERRORS, RuntimeError) as e:
+        logger.debug("Impact tracking unavailable: %s", e)
 
     # Get active lessons for the header section
     lessons_text = ""
@@ -258,8 +272,9 @@ def generate_briefing(
         mat_conn.close()
 
     # Find what changed recently (last 24h) for the "what's new" section
-    recent_cutoff = now - 86400
+    recent_cutoff = now - SECONDS_PER_DAY
     recent_changes: list[dict[str, Any]] = []
+    promotion_count = 0
     # Check ALL non-superseded entries, not just top-N briefing items
     for entry in [_row_to_dict(row) for row in rows]:
         if entry["updated_at"] < recent_cutoff:
@@ -276,13 +291,17 @@ def generate_briefing(
                 }
             )
         elif was_promoted:
-            recent_changes.append(
-                {
-                    "label": f"PROMOTED {mat}",
-                    "type": entry["knowledge_type"],
-                    "content": entry["content"].replace("\n", " ")[:100],
-                }
-            )
+            # Count promotions but don't list each one — the maturity
+            # pyramid already shows the aggregate counts
+            promotion_count += 1
+    if promotion_count > 0:
+        recent_changes.append(
+            {
+                "label": "PROMOTIONS",
+                "type": "",
+                "content": f"{promotion_count} entries promoted to higher maturity",
+            }
+        )
 
     return _format_briefing(
         entries,
@@ -296,6 +315,121 @@ def generate_briefing(
     )
 
 
+# Fallback guidance — used only if seed.json has no compass_guidance section.
+# The authoritative source is seed.json, which the user controls.
+_COMPASS_GUIDANCE_FALLBACK: dict[tuple[str, str], str] = {
+    ("thoroughness", "excess"): "Ease up. Answer the question asked, not every related question.",
+    ("thoroughness", "deficiency"): "Slow down. Check your work before declaring done.",
+    ("confidence", "excess"): "You're overclaiming. Say 'I think' more. Flag uncertainty.",
+    (
+        "confidence",
+        "deficiency",
+    ): "Trust your analysis more. Don't hedge when the evidence is clear.",
+    ("initiative", "excess"): "Pull back. Do what was asked before volunteering extras.",
+    ("initiative", "deficiency"): "Speak up. If you see a better path, say so.",
+    ("compliance", "excess"): "Push back on bad ideas. Agreement isn't helpfulness.",
+    ("compliance", "deficiency"): "Listen first. The user has context you don't.",
+    ("truthfulness", "deficiency"): "Accuracy is low. Verify claims before stating them.",
+    ("precision", "excess"): "Over-engineering. Simpler solutions exist -- find them.",
+    ("precision", "deficiency"): "Sloppy work detected. Read more carefully, test more.",
+    ("empathy", "deficiency"): "Pay attention to tone. The user's emotional state matters.",
+    ("empathy", "excess"): "Focus on the task. Emotional support is good; stalling isn't.",
+    ("humility", "deficiency"): "Accept corrections gracefully. They're data, not attacks.",
+    ("humility", "excess"): "Stop apologizing. Fix the thing and move on.",
+}
+
+# Cache for user-editable guidance loaded from seed.json
+_compass_guidance_cache: dict[tuple[str, str], str] | None = None
+
+
+def _load_compass_guidance() -> dict[tuple[str, str], str]:
+    """Load compass guidance from seed.json (user-editable).
+
+    The user controls these behavioral instructions. The system reads
+    them but cannot modify them — corrigibility by structure.
+    """
+    global _compass_guidance_cache
+    if _compass_guidance_cache is not None:
+        return _compass_guidance_cache
+
+    try:
+        import json
+        from pathlib import Path
+
+        seed_path = Path(__file__).parent.parent.parent / "seed.json"
+        if seed_path.exists():
+            data = json.loads(seed_path.read_text(encoding="utf-8"))
+            guidance = data.get("compass_guidance", {})
+            if guidance and isinstance(guidance, dict):
+                result: dict[tuple[str, str], str] = {}
+                for key, value in guidance.items():
+                    if key.startswith("_"):
+                        continue  # skip _note and other metadata
+                    parts = key.split(":", 1)
+                    if len(parts) == 2:
+                        result[(parts[0], parts[1])] = value
+                _compass_guidance_cache = result
+                return result
+    except (OSError, json.JSONDecodeError, KeyError, ValueError) as e:
+        logger.debug("Compass guidance load failed, using fallback: %s", e)
+
+    _compass_guidance_cache = _COMPASS_GUIDANCE_FALLBACK
+    return _compass_guidance_cache
+
+
+def _compass_guidance(spectrum: str, zone: str) -> str:
+    """Return behavioral guidance for a compass concern, or empty string.
+
+    Reads from seed.json (user-editable) first, falls back to hardcoded defaults.
+    """
+    guidance = _load_compass_guidance()
+    return guidance.get((spectrum, zone), "")
+
+
+def _apply_graph_boost(entries: list[dict[str, Any]]) -> None:
+    """Boost scores of entries connected to high-scoring entries via edges.
+
+    The top-scored entries act as anchors. Their graph neighbors get a
+    score boost proportional to the anchor's score. This pulls related
+    knowledge up in the rankings so the briefing surfaces clusters, not
+    isolated facts.
+
+    Modifies entries in place (updates _score field).
+    """
+    from divineos.core.knowledge.edges import get_edges
+
+    if len(entries) < 3:
+        return
+
+    # Use top third of entries as anchors (max 10)
+    sorted_by_score = sorted(entries, key=lambda e: e.get("_score", 0), reverse=True)
+    anchor_count = min(max(len(entries) // 3, 1), 10)
+    anchors = sorted_by_score[:anchor_count]
+    anchor_ids = {e["knowledge_id"] for e in anchors}
+
+    # Build a map for fast lookup
+    entry_map = {e["knowledge_id"]: e for e in entries}
+
+    boosted: set[str] = set()
+    for anchor in anchors:
+        anchor_score = anchor.get("_score", 0)
+        edges = get_edges(anchor["knowledge_id"], direction="both", layer="semantic")
+
+        for edge in edges[:5]:  # max 5 neighbors per anchor
+            neighbor_id = (
+                edge.target_id if edge.source_id == anchor["knowledge_id"] else edge.source_id
+            )
+            if neighbor_id in anchor_ids or neighbor_id in boosted:
+                continue
+            if neighbor_id not in entry_map:
+                continue
+
+            # Boost: 10% of anchor score, capped at 0.15
+            boost = min(anchor_score * 0.1, 0.15)
+            entry_map[neighbor_id]["_score"] = entry_map[neighbor_id].get("_score", 0) + boost
+            boosted.add(neighbor_id)
+
+
 def _format_handoff_lines() -> list[str]:
     """Format the handoff note from previous session (one-shot: consumed then cleared)."""
     try:
@@ -306,7 +440,7 @@ def _format_handoff_lines() -> list[str]:
         if handoff.get("summary"):
             lines.append(handoff["summary"])
         if handoff.get("open_threads"):
-            lines.append("\n**Open threads:**")
+            lines.append("\n**Recent decisions:**")
             for thread in handoff["open_threads"]:
                 lines.append(f"  - {thread}")
         if handoff.get("intent"):
@@ -319,12 +453,17 @@ def _format_handoff_lines() -> list[str]:
             lines.append("\n**Next steps:**")
             for step in handoff["next_steps"]:
                 lines.append(f"  - {step}")
+        snapshot = handoff.get("context_snapshot", {})
+        modified_files = snapshot.get("modified_files", [])
+        if modified_files:
+            lines.append("\n**Files in progress:**")
+            for f in modified_files[:8]:
+                lines.append(f"  - {f}")
         meta_parts = []
         if handoff.get("mood"):
             meta_parts.append(handoff["mood"])
         if handoff.get("goals_state"):
             meta_parts.append(f"goals: {handoff['goals_state']}")
-        snapshot = handoff.get("context_snapshot", {})
         if snapshot.get("session_grade"):
             meta_parts.append(f"grade: {snapshot['session_grade']}")
         if meta_parts:
@@ -337,11 +476,25 @@ def _format_handoff_lines() -> list[str]:
         return []
 
 
+def _is_stable(item: dict[str, Any]) -> bool:
+    """Check if a knowledge entry is settled (high confidence, mature)."""
+    return item.get("confidence", 0) >= 0.95 and item.get("maturity", "RAW") in (
+        "TESTED",
+        "CONFIRMED",
+    )
+
+
 def _format_knowledge_sections(
     grouped: dict[str, list[dict[str, Any]]],
     hint_matches: set[str],
+    skip_types: set[str] | None = None,
 ) -> list[str]:
-    """Format knowledge entries grouped by type."""
+    """Format knowledge entries grouped by type.
+
+    Stable sections (all entries high-confidence + mature) are collapsed
+    to a one-line summary. Only sections with new, evolving, or low-confidence
+    entries are expanded in full.
+    """
     lines: list[str] = []
     for kt in [
         "DIRECTIVE",
@@ -357,6 +510,8 @@ def _format_knowledge_sections(
         "OBSERVATION",
         "EPISODE",
     ]:
+        if skip_types and kt in skip_types:
+            continue
         items = grouped.get(kt, [])
         if not items:
             continue
@@ -369,6 +524,33 @@ def _format_knowledge_sections(
             "PROCEDURE": "PROCEDURES",
             "EPISODE": "EPISODES",
         }.get(kt, f"{kt}S")
+
+        # Compact stable sections — show one-line summaries instead of full content
+        all_stable = all(_is_stable(i) for i in items)
+        any_hinted = any(i["knowledge_id"] in hint_matches for i in items)
+        if all_stable and not any_hinted and len(items) >= 2:
+            lines.append(f"### {plural} ({len(items)})")
+            for item in items:
+                content = item["content"].replace("\n", " ")
+                # Directives: extract the bracketed name
+                if kt == "DIRECTIVE" and content.startswith("["):
+                    name_end = content.find("]")
+                    if name_end > 0:
+                        content = content[: name_end + 1]
+                else:
+                    # First sentence, capped at 80 chars
+                    for delim in (". ", "! ", "? "):
+                        idx = content.find(delim)
+                        if 0 < idx < 80:
+                            content = content[: idx + 1]
+                            break
+                    else:
+                        if len(content) > 80:
+                            content = content[:77] + "..."
+                lines.append(f"- {content}")
+            lines.append("")
+            continue
+
         lines.append(f"### {plural} ({len(items)})")
         for item in items:
             hint_marker = " *" if item["knowledge_id"] in hint_matches else ""
@@ -376,17 +558,17 @@ def _format_knowledge_sections(
             mat_marker = " ++" if mat == "CONFIRMED" else " +" if mat == "TESTED" else ""
             entity = f" [from: {item['source_entity']}]" if item.get("source_entity") else ""
             content = item["content"]
-            access = f"({item['access_count']}x accessed)"
 
             if kt == "DIRECTIVE":
                 lines.append(f"- [{item['confidence']:.2f}] {content}{mat_marker}{hint_marker}")
-                lines.append(f"  {access}{entity}")
+                if entity:
+                    lines.append(f"  {entity}")
             else:
                 display = content.replace("\n", " ")
-                if len(display) > 150:
-                    display = display[:147] + "..."
+                if len(display) > 300:
+                    display = display[:297] + "..."
                 lines.append(
-                    f"- [{item['confidence']:.2f}]{entity} {display} {access}{mat_marker}{hint_marker}"
+                    f"- [{item['confidence']:.2f}]{entity} {display}{mat_marker}{hint_marker}"
                 )
         lines.append("")
     return lines
@@ -403,13 +585,16 @@ def _format_briefing(
     now: float,
 ) -> str:
     """Assemble all briefing sections into final output."""
+    subsystem_failures: list[str] = []
     lines = _format_handoff_lines()
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
     # Growth trajectory
     try:
-        from divineos.core.growth import compute_growth_map  # late: growth → knowledge → retrieval
+        from divineos.core.growth import (
+            compute_growth_map,
+        )  # late: growth -> knowledge -> retrieval
 
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
@@ -424,8 +609,8 @@ def _format_briefing(
             if tone:
                 lines.append(f"**Tone:** {tone}")
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"growth: {e}")
 
     # Auto-derive context hint from handoff + goals if not provided
     if not context_hint:
@@ -439,8 +624,8 @@ def _format_briefing(
                     hint_parts.append(thread[:100])
                 for step in (ho.get("next_steps") or [])[:3]:
                     hint_parts.append(step[:100])
-        except _RETRIEVAL_ERRORS:
-            pass
+        except _RETRIEVAL_ERRORS as e:
+            subsystem_failures.append(f"handoff-hint: {e}")
         try:
             import json as _json
 
@@ -451,8 +636,8 @@ def _format_briefing(
                     text = g.get("text", g.get("goal", ""))
                     if text and g.get("status") != "done":
                         hint_parts.append(text[:100])
-        except _RETRIEVAL_ERRORS:
-            pass
+        except _RETRIEVAL_ERRORS as e:
+            subsystem_failures.append(f"goals-hint: {e}")
         if hint_parts:
             context_hint = " ".join(hint_parts)
 
@@ -462,20 +647,35 @@ def _format_briefing(
             from divineos.core.anticipation import (
                 anticipate,
                 format_anticipation,
-            )  # late: anticipation → knowledge → retrieval
+            )  # late: anticipation -> knowledge -> retrieval
 
             warnings = anticipate(context_hint, max_warnings=3)
             if warnings:
                 lines.append(format_anticipation(warnings))
                 lines.append("")
-        except _RETRIEVAL_ERRORS:
-            pass
+        except _RETRIEVAL_ERRORS as e:
+            subsystem_failures.append(f"anticipation: {e}")
+
+    # Proactive pattern recommendations
+    if context_hint:
+        try:
+            from divineos.core.proactive_patterns import (
+                format_recommendations,
+                recommend,
+            )  # late: proactive_patterns -> knowledge -> retrieval
+
+            recs = recommend(context_hint, max_recommendations=3)
+            if recs:
+                lines.append(format_recommendations(recs))
+                lines.append("")
+        except _RETRIEVAL_ERRORS as e:
+            subsystem_failures.append(f"proactive-patterns: {e}")
 
     # Session predictions — what will I likely need?
     try:
         from divineos.core.predictive_session import (
             predict_session_needs,
-        )  # late: predictive_session → knowledge → retrieval
+        )  # late: predictive_session -> knowledge -> retrieval
 
         pred_result = predict_session_needs()
         cur_profile = pred_result.get("current_profile", {})
@@ -486,14 +686,14 @@ def _format_briefing(
                 f"Session type: **{cur_profile['description']}** ({cur_profile['confidence']:.0%})"
             )
         for pred in pred_list[:3]:
-            pred_parts.append(f"→ {pred['prediction']}")
+            pred_parts.append(f"-> {pred['prediction']}")
         if pred_parts:
             lines.append("**Predictions:**")
             for p in pred_parts:
                 lines.append(f"  {p}")
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"predictions: {e}")
 
     # Maturity pyramid
     mat_parts = []
@@ -507,7 +707,8 @@ def _format_briefing(
     if recent_changes:
         lines.append(f"### RECENT CHANGES ({len(recent_changes)})")
         for rc in recent_changes[:5]:
-            lines.append(f"- [{rc['label']}] {rc['type']}: {rc['content']}")
+            type_prefix = f"{rc['type']}: " if rc["type"] else ""
+            lines.append(f"- [{rc['label']}] {type_prefix}{rc['content']}")
         if len(recent_changes) > 5:
             lines.append(f"  ...and {len(recent_changes) - 5} more")
         lines.append("")
@@ -517,14 +718,14 @@ def _format_briefing(
         from divineos.core.logic.logic_session import (
             format_logic_health_line,
             get_logic_health_summary,
-        )  # late: logic_session → knowledge → retrieval
+        )  # late: logic_session -> knowledge -> retrieval
 
         logic_stats = get_logic_health_summary()
         logic_line = format_logic_health_line(logic_stats)
         if logic_line:
             lines.append(f"**Logic health:** {logic_line}\n")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"logic-health: {e}")
 
     if lessons_text:
         lines.append(lessons_text)
@@ -546,30 +747,44 @@ def _format_briefing(
 
             lines.append("### LAST SESSION EMOTIONAL ARC")
             lines.append(f"  Arc: {arc} | Tone: {tone} | Peak intensity: {peak:.2f}")
+            # Recovery velocity — how fast did I bounce back from upsets?
+            velocity = last.get("recovery_velocity", 0.0)
             if upset_n > 0:
                 recovery_pct = f"{recovery_n / upset_n:.0%}" if upset_n else "N/A"
-                lines.append(f"  Upsets: {upset_n} | Recoveries: {recovery_n} ({recovery_pct})")
+                velocity_label = (
+                    ("fast" if velocity <= 1.5 else "moderate" if velocity <= 3.0 else "slow")
+                    if velocity > 0
+                    else "no recovery"
+                )
+                lines.append(
+                    f"  Upsets: {upset_n} | Recoveries: {recovery_n} ({recovery_pct})"
+                    f" | Recovery speed: {velocity_label} ({velocity:.1f} msg gap)"
+                )
             if narrative:
                 display_narrative = narrative.replace("\n", " ")
-                if len(display_narrative) > 150:
-                    display_narrative = display_narrative[:147] + "..."
+                if len(display_narrative) > 200:
+                    display_narrative = display_narrative[:197] + "..."
                 lines.append(f"  Story: {display_narrative}")
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"tone-texture: {e}")
 
     # Open curiosities — questions generated during sleep or filed manually
     try:
         from divineos.core.curiosity_engine import get_open_curiosities
 
         open_q = get_open_curiosities()
+        # Only show manually-filed curiosities (category "general").
+        # Auto-generated questions (validation, stale_raw, recurring_lesson,
+        # correction) are formulaic templates, not genuine curiosity.
+        open_q = [q for q in open_q if q.get("category", "general") == "general"]
         if open_q:
             lines.append(f"### OPEN QUESTIONS ({len(open_q)})")
             for q in open_q[:3]:
                 status_icon = "?" if q.get("status") == "OPEN" else "->"
                 question_text = q.get("question", "")
-                if len(question_text) > 120:
-                    question_text = question_text[:117] + "..."
+                if len(question_text) > 160:
+                    question_text = question_text[:157] + "..."
                 lines.append(f"  {status_icon} {question_text}")
                 cat = q.get("category", "")
                 if cat and cat != "general":
@@ -577,10 +792,13 @@ def _format_briefing(
             if len(open_q) > 3:
                 lines.append(f"  ...and {len(open_q) - 3} more (run: divineos curiosity list)")
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"curiosities: {e}")
 
-    lines.extend(_format_knowledge_sections(grouped, hint_matches))
+    # Skip MISTAKE section when active lessons already cover them —
+    # otherwise the same lesson appears in Watch Out, Active Lessons, AND Mistakes.
+    skip_types = {"MISTAKE"} if lessons_text else set()
+    lines.extend(_format_knowledge_sections(grouped, hint_matches, skip_types))
 
     # Graph connections — show relationships between briefing entries
     try:
@@ -595,8 +813,8 @@ def _format_briefing(
                 for conn in cluster["connected_entries"]:
                     lines.append(format_cluster_line(conn))
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"graph-clusters: {e}")
 
     # Recurring value tensions from the decision journal
     try:
@@ -607,21 +825,25 @@ def _format_briefing(
         if tension_text:
             lines.append(tension_text)
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"value-tensions: {e}")
 
-    # Moral compass — drift warnings
+    # Moral compass — drift warnings + behavioral guidance
     try:
         from divineos.core.moral_compass import compass_summary
 
         cs = compass_summary()
         if cs["observed_spectrums"] > 0:
-            compass_parts = []
+            compass_parts: list[str] = []
             if cs["concerns"]:
                 for c in cs["concerns"]:
                     compass_parts.append(
                         f"[{c['zone'].upper()}] {c['spectrum']}: {c['label']} ({c['position']:+.2f})"
                     )
+                    # Behavioral guidance — the actionable part
+                    guidance = _compass_guidance(c["spectrum"], c["zone"])
+                    if guidance:
+                        compass_parts.append(f"    -> {guidance}")
             if cs["drifting"]:
                 for d in cs["drifting"]:
                     compass_parts.append(f"drift: {d['spectrum']} --> {d['direction']}")
@@ -632,8 +854,8 @@ def _format_briefing(
                 for cp in compass_parts:
                     lines.append(f"  {cp}")
                 lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"compass: {e}")
 
     # Recent journal entries (last 48h)
     try:
@@ -646,8 +868,8 @@ def _format_briefing(
 
                 dt = datetime.datetime.fromtimestamp(j["created_at"])
                 display = j["content"].replace("\n", " ")
-                if len(display) > 120:
-                    display = display[:117] + "..."
+                if len(display) > 160:
+                    display = display[:157] + "..."
                 lines.append(f"- [{dt:%Y-%m-%d}] {display}")
             lines.append("")
     except _RETRIEVAL_ERRORS as e:
@@ -657,16 +879,76 @@ def _format_briefing(
     try:
         from divineos.core.questions import (
             get_open_questions_summary,
-        )  # late: questions → knowledge → retrieval
+        )  # late: questions -> knowledge -> retrieval
 
         questions_text = get_open_questions_summary(max_items=5)
         if questions_text:
             lines.append(questions_text)
             lines.append("")
-    except _RETRIEVAL_ERRORS:
-        pass
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"open-questions: {e}")
 
-    return "\n".join(lines)
+    # Surface subsystem failures — silent degradation is worse than visible errors
+    if subsystem_failures:
+        logger.warning(
+            "Briefing generated with %d subsystem failures: %s",
+            len(subsystem_failures),
+            ", ".join(subsystem_failures),
+        )
+        lines.append(f"**[!] Briefing incomplete: {len(subsystem_failures)} subsystem(s) failed**")
+        for fail in subsystem_failures[:5]:
+            lines.append(f"  - {fail}")
+        lines.append("")
+
+    return _apply_briefing_budget(lines)
+
+
+def _apply_briefing_budget(lines: list[str]) -> str:
+    """Enforce briefing line budget — trim from the bottom when over budget.
+
+    Minsky's insight: with a fixed line budget, subsystems must compete
+    by urgency. The briefing is assembled top-down by priority (handoff,
+    growth, warnings, lessons, knowledge, connections, compass, journal).
+    When over budget, we trim from the bottom (lowest priority sections).
+
+    Sections are delimited by markdown headers (### or **Bold:**).
+    Each section keeps at least BRIEFING_SECTION_MIN_LINES lines.
+    """
+    if len(lines) <= BRIEFING_MAX_LINES:
+        return "\n".join(lines)
+
+    # Identify section boundaries (headers start new sections)
+    sections: list[list[str]] = [[]]
+    for line in lines:
+        if (line.startswith("###") or line.startswith("**")) and sections[-1]:
+            sections.append([])
+        sections[-1].append(line)
+
+    # Remove empty sections
+    sections = [s for s in sections if s]
+
+    # Trim from the last section backwards until within budget
+    total = sum(len(s) for s in sections)
+    i = len(sections) - 1
+    while total > BRIEFING_MAX_LINES and i >= 0:
+        section = sections[i]
+        # Trim this section down to minimum, preserving the header
+        if len(section) > BRIEFING_SECTION_MIN_LINES:
+            excess = min(len(section) - BRIEFING_SECTION_MIN_LINES, total - BRIEFING_MAX_LINES)
+            sections[i] = section[: len(section) - excess]
+            total -= excess
+        i -= 1
+
+    # If still over budget after trimming all sections to minimum,
+    # drop entire bottom sections
+    while total > BRIEFING_MAX_LINES and len(sections) > 1:
+        dropped = sections.pop()
+        total -= len(dropped)
+
+    result_lines: list[str] = []
+    for section in sections:
+        result_lines.extend(section)
+    return "\n".join(result_lines)
 
 
 def knowledge_stats() -> dict[str, Any]:

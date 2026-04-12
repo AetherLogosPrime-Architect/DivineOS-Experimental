@@ -4,8 +4,8 @@ Analyzes the relationship between tool names and context to determine
 if a tool call is semantically explained by the surrounding context.
 """
 
-from typing import Dict, List, Tuple, Any
 from enum import Enum
+from typing import Any, Dict, List, Tuple
 
 
 class ConfidenceLevel(Enum):

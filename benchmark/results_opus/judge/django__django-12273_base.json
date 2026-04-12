@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch is empty and contains no actual code changes. It only shows analysis and commentary but no actual diff to apply to the codebase. This provides no fix whatsoever for the described bug.",
+  "key_difference": "The candidate patch contains no diff at all, while the gold patch provides a proper 3-line fix that sets parent link target fields when the pk is set.",
+  "instance_id": "django__django-12273",
+  "condition": "base",
+  "judge_cost": 0.007044
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the tzinfo parameter issue by replacing get_current_timezone_name() with get_tzname() in both TruncDate and TruncTime classes, which allows the passed timezone to be used instead of being ignored.",
+  "key_difference": "The candidate patch includes additional refactoring that changes variable names (lhs to sql, lhs_params to params) and reorders return statement parameters, which is unnecessary for fixing the bug. The gold patch only makes the minimal required change to fix the timezone issue.",
+  "instance_id": "django__django-13363",
+  "condition": "enhanced",
+  "judge_tokens": 1718,
+  "judge_cost": 0.00729
+}

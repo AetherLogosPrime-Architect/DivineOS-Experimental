@@ -8,6 +8,7 @@ import click
 
 import divineos.analysis.session_analyzer as _analyzer_mod
 import divineos.analysis.session_discovery as _discovery_mod
+from divineos.analysis.analysis import analyze_session
 from divineos.cli._helpers import _display_and_store_analysis, _safe_echo
 from divineos.cli._wrappers import (
     _wrapped_apply_session_feedback,
@@ -20,7 +21,7 @@ from divineos.cli._wrappers import (
     init_quality_tables,
     logger,
 )
-from divineos.analysis.analysis import analyze_session
+from divineos.core.constants import CONFIDENCE_RELIABLE, CONFIDENCE_VERY_HIGH
 from divineos.core.knowledge import init_knowledge_table
 from divineos.core.ledger import init_db
 
@@ -70,7 +71,7 @@ def register(cli: click.Group) -> None:
         stored = 0
 
         if deep:
-            records = _analyzer_mod._load_records(path)
+            records = _analyzer_mod.load_records(path)
             deep_ids = _wrapped_deep_extract_knowledge(analysis, records)
             stored += len(deep_ids)
             click.secho(f"[+] Deep extraction: {len(deep_ids)} knowledge entries", fg="cyan")
@@ -83,7 +84,7 @@ def register(cli: click.Group) -> None:
                 _wrapped_store_knowledge(
                     knowledge_type="BOUNDARY" if is_boundary else "PRINCIPLE",
                     content=c.content[:300],
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     source="CORRECTED",
                     maturity="HYPOTHESIS",
                     tags=["session-analysis", "correction"],
@@ -94,7 +95,7 @@ def register(cli: click.Group) -> None:
                 _wrapped_store_knowledge(
                     knowledge_type="PRINCIPLE",
                     content=f"This approach works well: {e.content[:280]}",
-                    confidence=0.9,
+                    confidence=CONFIDENCE_VERY_HIGH,
                     source="DEMONSTRATED",
                     maturity="TESTED",
                     tags=["session-analysis", "encouragement"],
@@ -105,7 +106,7 @@ def register(cli: click.Group) -> None:
                 _wrapped_store_knowledge(
                     knowledge_type="DIRECTION",
                     content=d.content[:300],
-                    confidence=0.9,
+                    confidence=CONFIDENCE_VERY_HIGH,
                     source="STATED",
                     maturity="CONFIRMED",
                     tags=["session-analysis", "decision"],
@@ -314,8 +315,9 @@ def register(cli: click.Group) -> None:
     @click.argument("session_id", required=False)
     def report_cmd(session_id: str) -> None:
         """Display a stored analysis report."""
-        from divineos.analysis.analysis import get_stored_report, list_recent_sessions
         from datetime import datetime, timezone
+
+        from divineos.analysis.analysis import get_stored_report, list_recent_sessions
 
         try:
             if not session_id:

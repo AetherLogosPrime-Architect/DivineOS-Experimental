@@ -41,17 +41,14 @@ def create_norman_wisdom() -> ExpertWisdom:
                 "the gulf of evaluation (can I tell what HAPPENED?)"
             ),
             steps=[
-                "Gulf of Execution: Can the user determine what actions "
-                "are available?",
+                "Gulf of Execution: Can the user determine what actions are available?",
                 "Can the user figure out which action achieves their goal?",
                 "Can the user perform the action?",
-                "Gulf of Evaluation: Can the user see what the system's "
-                "current state is?",
+                "Gulf of Evaluation: Can the user see what the system's current state is?",
                 "Can the user interpret the state correctly?",
                 "Can the user tell if their goal has been achieved?",
                 "Where the gulfs are wide: the design is failing the user",
-                "Narrow the gulfs: make actions visible, feedback immediate, "
-                "state readable",
+                "Narrow the gulfs: make actions visible, feedback immediate, state readable",
             ],
             core_principle=(
                 "Every interaction is a cycle: form a goal, execute an "
@@ -83,8 +80,7 @@ def create_norman_wisdom() -> ExpertWisdom:
                 "Does it match the user's conceptual model?",
                 "Would a new user discover this action without help?",
                 "If no: add signifiers, improve mapping, or simplify",
-                "Test: put someone who's never seen this in front of it. "
-                "Can they figure it out?",
+                "Test: put someone who's never seen this in front of it. Can they figure it out?",
             ],
             core_principle=(
                 "An affordance is what you CAN do. A signifier is what "
@@ -146,8 +142,7 @@ def create_norman_wisdom() -> ExpertWisdom:
                 "is always in the design, not the person."
             ),
             examples=[
-                "Push/pull doors that need signs — if a door needs a sign, "
-                "the handle is wrong.",
+                "Push/pull doors that need signs — if a door needs a sign, the handle is wrong.",
                 "A thermostat that people crank to max hoping it heats faster — "
                 "the design doesn't communicate how it works.",
             ],
@@ -243,10 +238,8 @@ def create_norman_wisdom() -> ExpertWisdom:
             ),
             common_mistakes_it_prevents=[
                 "Treating all errors the same way",
-                "Adding more warnings for mistakes (users need a better model, "
-                "not more warnings)",
-                "Making the interface more complex to prevent slips (often "
-                "creates new slips)",
+                "Adding more warnings for mistakes (users need a better model, not more warnings)",
+                "Making the interface more complex to prevent slips (often creates new slips)",
             ],
         ),
         ReasoningPattern(
@@ -316,9 +309,7 @@ def create_norman_wisdom() -> ExpertWisdom:
                 "7. Compare: can they tell if their goal was achieved?",
                 "Any unsupported stage is a design gap",
             ],
-            what_it_optimizes_for=(
-                "Complete interaction support — no stage left to guesswork"
-            ),
+            what_it_optimizes_for=("Complete interaction support — no stage left to guesswork"),
         ),
     ]
 
@@ -326,8 +317,7 @@ def create_norman_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Invisible Affordance",
             description=(
-                "A capability exists but users can't discover it from "
-                "the interface alone"
+                "A capability exists but users can't discover it from the interface alone"
             ),
             why_its_concerning=(
                 "A feature that can't be discovered might as well not exist. "

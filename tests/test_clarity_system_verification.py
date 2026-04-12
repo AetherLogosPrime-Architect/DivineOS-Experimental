@@ -4,24 +4,25 @@ Verification tests for the Agent Work Clarity System.
 Tests non-blocking behavior, ledger-based analysis, and error resilience.
 """
 
-import pytest
 from uuid import uuid4
 
+import pytest
+
 from divineos.clarity_system import (
-    DefaultClarityStatementGenerator,
-    DefaultPlanAnalyzer,
-    DefaultExecutionAnalyzer,
-    DefaultDeviationAnalyzer,
-    DefaultLearningExtractor,
-    DefaultSummaryGenerator,
     ClarityStatement,
-    ScopeEstimate,
+    DefaultClarityStatementGenerator,
+    DefaultDeviationAnalyzer,
+    DefaultExecutionAnalyzer,
+    DefaultLearningExtractor,
+    DefaultPlanAnalyzer,
+    DefaultSummaryGenerator,
+    EventEmissionInterface,
     ExecutionData,
     ExecutionMetrics,
-    LedgerQueryInterface,
-    SessionManagerInterface,
-    EventEmissionInterface,
     HookIntegrationInterface,
+    LedgerQueryInterface,
+    ScopeEstimate,
+    SessionManagerInterface,
 )
 
 
@@ -271,7 +272,7 @@ class TestHookIntegration:
         HookIntegrationInterface.clear_hooks()
 
         def test_hook(**kwargs):
-            pass
+            return None
 
         result = HookIntegrationInterface.register_pre_work_hook(test_hook)
 

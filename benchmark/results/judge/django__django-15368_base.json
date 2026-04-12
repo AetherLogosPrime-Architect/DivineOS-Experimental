@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the issue and fixes it by changing the type check from isinstance(attr, Expression) to hasattr(attr, 'resolve_expression'), which properly handles F() expressions.",
+  "key_difference": "The candidate patch is functionally identical to the gold patch but has invalid diff syntax with nested diff markers and incorrect context lines, making it syntactically invalid despite being the correct fix.",
+  "instance_id": "django__django-15368",
+  "condition": "base",
+  "judge_tokens": 1511,
+  "judge_cost": 0.006321
+}

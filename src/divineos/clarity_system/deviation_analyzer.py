@@ -3,11 +3,12 @@
 Compares planned vs actual execution and identifies deviations.
 """
 
+import sqlite3
+
 from loguru import logger
 
 from .base import DeviationAnalyzer
 from .types import Deviation, ExecutionData, PlanData
-import sqlite3
 
 _DA_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

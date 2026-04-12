@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch attempts to modify the EncodedFile class but is completely malformed - it has invalid syntax, incomplete changes, and targets the wrong location. The gold patch correctly identifies that the issue is with TextIOWrapper needing newline='' to preserve carriage returns.",
+  "key_difference": "The candidate patch incorrectly tries to manipulate byte-level encoding/decoding with complex byte replacements in EncodedFile, while the gold patch correctly fixes the root cause by setting newline='' in TextIOWrapper constructor to preserve all line ending characters as-is.",
+  "instance_id": "pytest-dev__pytest-7521",
+  "condition": "base",
+  "judge_tokens": 2313,
+  "judge_cost": 0.009183
+}

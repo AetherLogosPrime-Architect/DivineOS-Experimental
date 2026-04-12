@@ -1,5 +1,9 @@
 """Clarity Enforcement Module.
 
+# AGENT_RUNTIME — Not wired into CLI pipeline. Provides the clarity
+# enforcement engine for agents using DivineOS hooks. Tested via
+# test_enforcement_*.py and test_observation_layer.py.
+
 Ensures that every tool call is accompanied by an explanation.
 This module provides decorators and utilities to enforce the clarity principle:
 - Every tool call must be explained before execution
@@ -9,11 +13,12 @@ This module provides decorators and utilities to enforce the clarity principle:
 Also integrates with IDE tool execution to emit TOOL_CALL and TOOL_RESULT events.
 """
 
+import sqlite3
 import threading
 from typing import Any
-import sqlite3
 
 from loguru import logger
+
 from divineos.core.ledger import get_events
 
 _CE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the core issue and fixes it by making has_select_fields an instance attribute and changing add_fields to set_values, but includes unnecessary changes to the clone method and removes unrelated methods.",
+  "key_difference": "The candidate patch includes additional changes like modifying the clone method and removing the get_select_fields method that aren't necessary for the fix, making it less minimal than the gold patch which only makes the essential changes.",
+  "instance_id": "django__django-16032",
+  "condition": "base",
+  "judge_tokens": 2149,
+  "judge_cost": 0.008367
+}

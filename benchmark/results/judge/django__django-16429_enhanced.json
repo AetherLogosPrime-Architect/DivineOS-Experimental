@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds tzinfo=d.tzinfo to the datetime constructor to ensure the pivot datetime has the same timezone as the input datetime, fixing the TypeError when subtracting offset-naive and offset-aware datetimes.",
+  "key_difference": "The candidate patch uses positional arguments (0, 0, 0, 0, d.tzinfo) while the gold patch uses named arguments for hour, minute, second, and tzinfo. Both approaches are functionally equivalent and correctly set the tzinfo to match the input datetime.",
+  "instance_id": "django__django-16429",
+  "condition": "enhanced",
+  "judge_tokens": 1246,
+  "judge_cost": 0.005886
+}

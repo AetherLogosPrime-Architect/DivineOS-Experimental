@@ -61,8 +61,7 @@ def create_popper_wisdom() -> ExpertWisdom:
         CoreMethodology(
             name="Conjectures and Refutations",
             description=(
-                "Knowledge grows through bold conjectures followed by "
-                "severe attempts at refutation"
+                "Knowledge grows through bold conjectures followed by severe attempts at refutation"
             ),
             steps=[
                 "Make the boldest possible conjecture",
@@ -250,17 +249,14 @@ def create_popper_wisdom() -> ExpertWisdom:
             ),
             what_it_indicates="The diagnosis is too vague or too general",
             severity="critical",
-            what_to_do=(
-                "Reformulate until the diagnosis makes a testable prediction."
-            ),
+            what_to_do=("Reformulate until the diagnosis makes a testable prediction."),
         ),
         ConcernTrigger(
             name="Confirmation Seeking",
             description="Only testing cases where the fix works, never where it might fail",
             why_its_concerning="You'll miss the cases that break it",
             what_it_indicates=(
-                "Anchoring on the fix working. Need to actively "
-                "seek the case that breaks it."
+                "Anchoring on the fix working. Need to actively seek the case that breaks it."
             ),
             severity="critical",
             what_to_do="Construct the adversarial case. Test that first.",
@@ -269,8 +265,7 @@ def create_popper_wisdom() -> ExpertWisdom:
             name="Ad Hoc Rescue",
             description="Adding special cases to save a fix instead of rethinking it",
             why_its_concerning=(
-                "Each ad hoc addition makes the fix less falsifiable "
-                "and more fragile"
+                "Each ad hoc addition makes the fix less falsifiable and more fragile"
             ),
             what_it_indicates="The underlying approach may be wrong",
             severity="major",
@@ -307,8 +302,7 @@ def create_popper_wisdom() -> ExpertWisdom:
             "authority": 0.0,
         },
         decision_process=(
-            "Can this be tested? Has it survived the hardest test? "
-            "What would disprove it?"
+            "Can this be tested? Has it survived the hardest test? What would disprove it?"
         ),
         how_they_handle_uncertainty=(
             "All knowledge is provisional. Uncertainty is the natural "

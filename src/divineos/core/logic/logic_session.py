@@ -9,21 +9,20 @@ Sections:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import sqlite3
+from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
 
 from divineos.core.knowledge import get_connection
-from divineos.core.logic.warrants import get_warrants
+from divineos.core.logic.logic_reasoning import propagate_from
 from divineos.core.logic.logic_validation import (
     check_consistency,
     register_contradiction,
     scan_defeated_only_entries,
 )
-from divineos.core.logic.logic_reasoning import propagate_from
-
+from divineos.core.logic.warrants import get_warrants
 
 _SL_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -195,11 +194,11 @@ def get_logic_health_summary() -> dict[str, Any]:
                     ).fetchone()
                     contradiction_details.append(
                         {
-                            "a": (src_row[0][:80] + "...")
-                            if src_row and len(src_row[0]) > 80
+                            "a": (src_row[0][:137] + "...")
+                            if src_row and len(src_row[0]) > 140
                             else (src_row[0] if src_row else "?"),
-                            "b": (tgt_row[0][:80] + "...")
-                            if tgt_row and len(tgt_row[0]) > 80
+                            "b": (tgt_row[0][:137] + "...")
+                            if tgt_row and len(tgt_row[0]) > 140
                             else (tgt_row[0] if tgt_row else "?"),
                         }
                     )
@@ -238,7 +237,7 @@ def format_logic_health_line(stats: dict[str, Any]) -> str:
     details = stats.get("contradiction_details", [])
     if details:
         for d in details[:3]:
-            summary += f"\n    ↔ '{d['a'][:60]}' vs '{d['b'][:60]}'"
+            summary += f"\n    <-> '{d['a']}' vs '{d['b']}'"
 
     return summary
 
@@ -265,6 +264,6 @@ def format_warrant_chain(warrants: list[dict[str, Any]]) -> str:
         return ""
     parts = []
     for w in warrants:
-        status_icon = "\u2713" if w["status"] == "ACTIVE" else "\u2717"
+        status_icon = "+" if w["status"] == "ACTIVE" else "x"
         parts.append(f"{w['warrant_type']} {status_icon}")
     return "         warrants: " + " | ".join(parts)

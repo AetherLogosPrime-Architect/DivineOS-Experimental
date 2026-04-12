@@ -1,13 +1,13 @@
 """Pattern recommendation engine for the agent learning loop."""
 
-from typing import Any
 import sqlite3
+from typing import Any
 
 from loguru import logger
 
-from divineos.agent_integration.pattern_store import PatternStore
-from divineos.agent_integration.learning_audit_store import LearningAuditStore
 from divineos.agent_integration.decision_store import DecisionStore
+from divineos.agent_integration.learning_audit_store import LearningAuditStore
+from divineos.agent_integration.pattern_store import PatternStore
 
 _PR_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -74,7 +74,7 @@ class PatternRecommender:
             # Log warnings about pattern gaps
             gaps = audit.get("pattern_gaps", [])
             if gaps:
-                self.logger.warning(f"⚠️  {len(gaps)} pattern gaps identified:")
+                self.logger.warning(f"[!] {len(gaps)} pattern gaps identified:")
                 for gap in gaps:
                     gap_type = gap.get("gap_type", "unknown")
                     description = gap.get("description", "unknown")
@@ -83,7 +83,7 @@ class PatternRecommender:
             # Log warnings about risky assumptions
             risky = audit.get("risky_assumptions", [])
             if risky:
-                self.logger.warning(f"⚠️  {len(risky)} risky assumptions detected:")
+                self.logger.warning(f"[!] {len(risky)} risky assumptions detected:")
                 for assumption in risky:
                     assumption_text = assumption.get("assumption", "unknown")
                     why_risky = assumption.get("why_risky", "unknown")

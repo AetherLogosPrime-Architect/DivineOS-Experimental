@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch fixes the bug by moving the random state initialization outside the class loop and only when shuffle=True, ensuring consistent shuffling behavior across all classes while avoiding repeated initialization that could cause inconsistent results.",
+  "key_difference": "This patch focuses only on the shuffling implementation fix without updating the documentation, while the gold patch includes both the documentation fix and a simpler random state handling approach outside the _make_test_folds method.",
+  "instance_id": "scikit-learn__scikit-learn-13124",
+  "condition": "enhanced",
+  "judge_tokens": 2127,
+  "judge_cost": 0.008253
+}

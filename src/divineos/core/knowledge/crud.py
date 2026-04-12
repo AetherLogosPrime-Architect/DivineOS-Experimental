@@ -8,9 +8,9 @@ from typing import Any
 
 from divineos.core.constants import CONFIDENCE_RETRIEVAL_FLOOR
 from divineos.core.knowledge._base import (
-    KNOWLEDGE_TYPES,
     _KNOWLEDGE_COLS,
     _KNOWLEDGE_COLS_K,
+    KNOWLEDGE_TYPES,
     _get_connection,
     _row_to_dict,
     compute_hash,
@@ -270,8 +270,8 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
             raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
 
         conn.execute(
-            "UPDATE knowledge SET superseded_by = ?, valid_until = ? WHERE knowledge_id = ?",
-            (f"FORGET:{reason[:200]}", time.time(), knowledge_id),
+            "UPDATE knowledge SET superseded_by = ?, valid_until = ?, supersession_reason = ? WHERE knowledge_id = ?",
+            (f"FORGET:{reason[:200]}", time.time(), f"forget: {reason[:200]}", knowledge_id),
         )
         conn.commit()
     finally:
@@ -279,7 +279,7 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
 
     # Deactivate any logical relations pointing to/from the superseded entry
     try:
-        # Late import: crud → logic_reasoning → knowledge → crud cycle
+        # Late import: crud -> logic_reasoning -> knowledge -> crud cycle
         from divineos.core.logic.logic_reasoning import deactivate_relation, get_relations
 
         relations = get_relations(knowledge_id, direction="both")

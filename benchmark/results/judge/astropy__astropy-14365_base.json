@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the case sensitivity issue and adds re.IGNORECASE to one regex match, but it's incomplete - it only fixes command recognition while missing the compiled regex pattern and NO value handling.",
+  "key_difference": "This patch only addresses case sensitivity in the direct re.match() call but misses the compiled regex pattern used elsewhere in the function and doesn't handle the 'NO' value case sensitivity issue that the gold patch addresses.",
+  "instance_id": "astropy__astropy-14365",
+  "condition": "base",
+  "judge_tokens": 1736,
+  "judge_cost": 0.007116
+}

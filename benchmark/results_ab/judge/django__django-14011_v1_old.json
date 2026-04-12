@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate correctly identifies the root cause and fixes the core issue by closing database connections after each request in ThreadedWSGIServer. However, it lacks the additional infrastructure (connections_override parameter, process_request_thread method) that the gold patch provides for proper thread-safe database connection handling.",
+  "key_difference": "The candidate implements only the basic connection cleanup in close_request(), while the gold patch adds comprehensive thread-safe database connection management with connections_override parameter and process_request_thread method overrides.",
+  "instance_id": "django__django-14011",
+  "label": "v1_old",
+  "judge_cost": 0.007403999999999999
+}

@@ -8,8 +8,8 @@ Tests cover:
 """
 
 from divineos.clarity_enforcement.semantic_analyzer import (
-    SemanticAnalyzer,
     ConfidenceLevel,
+    SemanticAnalyzer,
 )
 
 

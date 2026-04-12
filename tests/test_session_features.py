@@ -4,30 +4,30 @@ import json
 from pathlib import Path
 
 from divineos.analysis.feature_storage import init_feature_tables, store_features
+from divineos.analysis.session_features import (
+    ActivityBreakdown,
+    ErrorRecoveryEntry,
+    FileTouched,
+    FullSessionAnalysis,
+    TaskTracking,
+    TimelineEntry,
+    analyze_activity,
+    analyze_error_recovery,
+    analyze_files_touched,
+    analyze_request_delivery,
+    build_timeline,
+    error_recovery_report,
+    files_report,
+    run_all_features,
+    timeline_report,
+)
 from divineos.analysis.tone_tracking import (
     ToneShift,
     _classify_tone,
     analyze_tone_shifts,
+    classify_all_user_tones,
     tone_report,
 )
-from divineos.analysis.session_features import (
-    TimelineEntry,
-    FileTouched,
-    ActivityBreakdown,
-    TaskTracking,
-    ErrorRecoveryEntry,
-    FullSessionAnalysis,
-    build_timeline,
-    timeline_report,
-    analyze_files_touched,
-    files_report,
-    analyze_activity,
-    analyze_request_delivery,
-    analyze_error_recovery,
-    error_recovery_report,
-    run_all_features,
-)
-
 
 # --- Fixtures ---
 
@@ -137,6 +137,35 @@ class TestToneShifts:
         ]
         shifts = analyze_tone_shifts(records)
         assert len(shifts) == 0  # both neutral
+
+    def test_continuation_header_excluded_from_shifts(self):
+        """Context continuation headers must not create false tone shifts."""
+        records = [
+            _make_user_record("great work!", timestamp="2025-01-01T00:00:00Z"),
+            _make_assistant_record(text="Thanks!", timestamp="2025-01-01T00:00:01Z"),
+            _make_user_record(
+                "This session is being continued from a previous conversation that ran out of context.",
+                timestamp="2025-01-01T00:00:02Z",
+            ),
+            _make_assistant_record(text="Continuing.", timestamp="2025-01-01T00:00:03Z"),
+            _make_user_record("sounds good", timestamp="2025-01-01T00:00:04Z"),
+        ]
+        shifts = analyze_tone_shifts(records)
+        # The continuation header should be invisible — no shift from it
+        assert all("continued" not in s.after_message.lower() for s in shifts)
+
+    def test_continuation_header_excluded_from_classify_all(self):
+        """classify_all_user_tones should skip continuation messages."""
+        records = [
+            _make_user_record("hello"),
+            _make_user_record(
+                "This session is being continued from a previous conversation that ran out of context."
+            ),
+            _make_user_record("ok let's go"),
+        ]
+        tones = classify_all_user_tones(records)
+        assert len(tones) == 2  # continuation message excluded
+        assert all("continued" not in t["text"].lower() for t in tones)
 
     def test_tone_report_no_shifts(self):
         report = tone_report([], 10)

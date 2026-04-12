@@ -77,8 +77,7 @@ def create_beer_wisdom() -> ExpertWisdom:
                 "If it doesn't, it cannot regulate — it can only approximate."
             ),
             steps=[
-                "Measure the variety (number of possible states) of the "
-                "system being controlled",
+                "Measure the variety (number of possible states) of the system being controlled",
                 "Measure the variety of the controller",
                 "If controller variety < system variety, the controller WILL fail",
                 "Two options: amplify controller variety or attenuate system variety",
@@ -111,8 +110,7 @@ def create_beer_wisdom() -> ExpertWisdom:
                 "Identify the system at the level you're analyzing",
                 "Zoom in: does each operational unit (S1) contain its own S1-S5?",
                 "Zoom out: is this system itself an S1 within a larger VSM?",
-                "Check: are messages and variety attenuated appropriately "
-                "between levels?",
+                "Check: are messages and variety attenuated appropriately between levels?",
                 "Check: does each level have enough autonomy to handle its "
                 "own variety without escalating everything upward?",
             ],
@@ -268,9 +266,7 @@ def create_beer_wisdom() -> ExpertWisdom:
                 "For any system that needs to be self-regulating, check "
                 "that all five VSM systems exist and function."
             ),
-            when_to_use=(
-                "When designing or diagnosing any autonomous system"
-            ),
+            when_to_use=("When designing or diagnosing any autonomous system"),
             step_by_step=[
                 "List all System 1 operational units (what does the work?)",
                 "For each pair of S1 units: how do they coordinate? (S2)",
@@ -283,8 +279,7 @@ def create_beer_wisdom() -> ExpertWisdom:
             what_it_optimizes_for="Structural completeness for viability",
             limitations=[
                 "Identifies structural gaps but not implementation details",
-                "Requires honest assessment of what actually functions vs "
-                "what nominally exists",
+                "Requires honest assessment of what actually functions vs what nominally exists",
             ],
         ),
         ProblemSolvingHeuristic(
@@ -295,8 +290,7 @@ def create_beer_wisdom() -> ExpertWisdom:
                 "This is the emergency nerve."
             ),
             when_to_use=(
-                "When normal reporting channels are too slow or too filtered "
-                "for urgent signals"
+                "When normal reporting channels are too slow or too filtered for urgent signals"
             ),
             step_by_step=[
                 "Identify what 'pain' looks like at the operational level",
@@ -360,9 +354,7 @@ def create_beer_wisdom() -> ExpertWisdom:
         ),
         ConcernTrigger(
             name="Variety Deficit",
-            description=(
-                "A control mechanism has less variety than what it controls"
-            ),
+            description=("A control mechanism has less variety than what it controls"),
             why_its_concerning=(
                 "Ashby's Law guarantees failure. The controller will be "
                 "surprised by states it cannot represent. This isn't risk — "

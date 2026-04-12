@@ -179,7 +179,7 @@ class TestFormatClusterLine:
             "direction": "outgoing",
         }
         line = format_cluster_line(connection)
-        assert "→" in line
+        assert "->" in line
         assert "supports" in line
         assert "0.80" in line
         assert "Blind edits" in line
@@ -191,7 +191,7 @@ class TestFormatClusterLine:
             "direction": "incoming",
         }
         line = format_cluster_line(connection)
-        assert "←" in line
+        assert "<-" in line
         assert "caused by" in line
 
     def test_truncates_long_content(self):
@@ -274,5 +274,49 @@ class TestGraphConnectionsForRecall:
         try:
             connections = get_graph_connections_for_recall([])
             assert connections == []
+        finally:
+            _cleanup()
+
+
+class TestEdgesBatch:
+    """Batch edge loading for performance."""
+
+    def test_batch_returns_all_edges(self, tmp_path):
+        from divineos.core.knowledge.edges import get_edges_batch
+
+        _setup_db(tmp_path)
+        try:
+            k1 = store_knowledge("PRINCIPLE", "Principle one", 0.9)
+            k2 = store_knowledge("OBSERVATION", "Observation two", 0.8)
+            k3 = store_knowledge("FACT", "Fact three", 0.7)
+            create_edge(k1, k2, "SUPPORTS")
+            create_edge(k2, k3, "ELABORATES")
+
+            result = get_edges_batch({k1, k2, k3}, layer="semantic")
+            assert k1 in result
+            assert k2 in result
+            assert len(result[k1]) >= 1  # k1->k2
+            assert len(result[k2]) >= 1  # k2 connected to both
+        finally:
+            _cleanup()
+
+    def test_batch_empty_input(self, tmp_path):
+        from divineos.core.knowledge.edges import get_edges_batch
+
+        _setup_db(tmp_path)
+        try:
+            result = get_edges_batch(set())
+            assert result == {}
+        finally:
+            _cleanup()
+
+    def test_batch_no_edges(self, tmp_path):
+        from divineos.core.knowledge.edges import get_edges_batch
+
+        _setup_db(tmp_path)
+        try:
+            k1 = store_knowledge("FACT", "Isolated fact", 0.7)
+            result = get_edges_batch({k1})
+            assert result[k1] == []
         finally:
             _cleanup()

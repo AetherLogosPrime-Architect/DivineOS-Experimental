@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "This patch adds .strip() calls to ensure the returned polynomial representation is properly stripped of leading zeros, which should fix the issue where clear_denoms() returns a polynomial that prints as zero but behaves inconsistently.",
+  "key_difference": "The gold patch fixes the root cause by correcting the boolean evaluation in the expression domain to use .is_zero instead of != 0, while the candidate patch applies a workaround by stripping the result. Both are valid solutions - the candidate addresses the symptom at the caller level while gold fixes the underlying comparison issue.",
+  "instance_id": "sympy__sympy-20428",
+  "condition": "enhanced",
+  "judge_tokens": 2089,
+  "judge_cost": 0.008475
+}

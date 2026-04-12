@@ -3,13 +3,16 @@
 import time
 
 from divineos.core.sleep import (
-    DreamReport,
     _AFFECT_DECAY_FACTOR,
+    _AFFECT_DECAY_FAST,
     _AFFECT_DECAY_HOURS,
+    _AFFECT_DECAY_SLOW,
     _AFFECT_INTENSITY_FLOOR,
     _RECOMBINATION_MAX_CONNECTIONS,
-    _RECOMBINATION_MAX_OVERLAP,
-    _RECOMBINATION_MIN_OVERLAP,
+    _RECOMBINATION_MAX_SIMILARITY,
+    _RECOMBINATION_MIN_SIMILARITY,
+    DreamReport,
+    _compute_decay_factor,
     _phase_affect,
     _phase_consolidation,
     _phase_recombination,
@@ -82,11 +85,6 @@ class TestDreamReport:
 class TestPhaseConsolidation:
     def test_scans_entries(self, tmp_path, monkeypatch):
         """Consolidation phase populates entries_scanned."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
-        from divineos.core.knowledge import _base
-
-        _base._connection = None  # reset cached connection
-
         from divineos.core.knowledge._base import init_knowledge_table
 
         init_knowledge_table()
@@ -100,26 +98,11 @@ class TestPhaseConsolidation:
 class TestPhaseAffect:
     def test_decays_old_entries(self, tmp_path, monkeypatch):
         """Old affect entries should have their intensity reduced."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+        from divineos.core.affect import init_affect_log
         from divineos.core.memory import _get_connection
 
+        init_affect_log()
         conn = _get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS affect_log (
-                entry_id TEXT PRIMARY KEY,
-                created_at REAL NOT NULL,
-                valence REAL NOT NULL,
-                arousal REAL NOT NULL,
-                dominance REAL DEFAULT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                trigger TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                linked_claim_id TEXT DEFAULT NULL,
-                linked_decision_id TEXT DEFAULT NULL,
-                linked_knowledge_id TEXT DEFAULT NULL,
-                session_id TEXT NOT NULL DEFAULT ''
-            )
-        """)
         # Insert an old entry (24 hours ago) with strong emotion
         old_time = time.time() - 86400
         conn.execute(
@@ -154,26 +137,11 @@ class TestPhaseAffect:
 
     def test_recent_entries_untouched(self, tmp_path, monkeypatch):
         """Recent affect entries should not be decayed."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+        from divineos.core.affect import init_affect_log
         from divineos.core.memory import _get_connection
 
+        init_affect_log()
         conn = _get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS affect_log (
-                entry_id TEXT PRIMARY KEY,
-                created_at REAL NOT NULL,
-                valence REAL NOT NULL,
-                arousal REAL NOT NULL,
-                dominance REAL DEFAULT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                trigger TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                linked_claim_id TEXT DEFAULT NULL,
-                linked_decision_id TEXT DEFAULT NULL,
-                linked_knowledge_id TEXT DEFAULT NULL,
-                session_id TEXT NOT NULL DEFAULT ''
-            )
-        """)
         recent_time = time.time() - 60  # 1 minute ago
         conn.execute(
             "INSERT INTO affect_log (entry_id, created_at, valence, arousal, session_id) "
@@ -196,26 +164,11 @@ class TestPhaseAffect:
 
     def test_empty_affect_log(self, tmp_path, monkeypatch):
         """No affect history should not crash."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+        from divineos.core.affect import init_affect_log
         from divineos.core.memory import _get_connection
 
+        init_affect_log()
         conn = _get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS affect_log (
-                entry_id TEXT PRIMARY KEY,
-                created_at REAL NOT NULL,
-                valence REAL NOT NULL,
-                arousal REAL NOT NULL,
-                dominance REAL DEFAULT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                trigger TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                linked_claim_id TEXT DEFAULT NULL,
-                linked_decision_id TEXT DEFAULT NULL,
-                linked_knowledge_id TEXT DEFAULT NULL,
-                session_id TEXT NOT NULL DEFAULT ''
-            )
-        """)
         conn.commit()
         conn.close()
 
@@ -226,26 +179,11 @@ class TestPhaseAffect:
 
     def test_baseline_computed_from_recent(self, tmp_path, monkeypatch):
         """Baseline should average only recent (non-decayed) entries."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+        from divineos.core.affect import init_affect_log
         from divineos.core.memory import _get_connection
 
+        init_affect_log()
         conn = _get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS affect_log (
-                entry_id TEXT PRIMARY KEY,
-                created_at REAL NOT NULL,
-                valence REAL NOT NULL,
-                arousal REAL NOT NULL,
-                dominance REAL DEFAULT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                trigger TEXT NOT NULL DEFAULT '',
-                tags TEXT NOT NULL DEFAULT '[]',
-                linked_claim_id TEXT DEFAULT NULL,
-                linked_decision_id TEXT DEFAULT NULL,
-                linked_knowledge_id TEXT DEFAULT NULL,
-                session_id TEXT NOT NULL DEFAULT ''
-            )
-        """)
         now = time.time()
         # Two recent entries
         conn.execute(
@@ -271,40 +209,43 @@ class TestPhaseAffect:
 
 class TestPhaseRecombination:
     def test_finds_cross_type_connections(self, tmp_path, monkeypatch):
-        """Should find connections between entries of different types."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
+        """Should find connections between semantically related but topically distinct entries."""
         from divineos.core.knowledge._base import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
-        # Store entries with moderate overlap (same domain, different types)
         store_knowledge(
             "PRINCIPLE",
-            "The maturity lifecycle promotes knowledge from RAW to CONFIRMED "
-            "based on corroboration count and confidence score thresholds",
+            "When an action fails, investigate the root cause of the error "
+            "before retrying. Blind repetition wastes valuable debugging "
+            "time and delays the actual fix.",
         )
         store_knowledge(
             "BOUNDARY",
-            "The maturity lifecycle has never organically promoted an entry "
-            "because corroboration counts remain too low across sessions",
+            "Never retry an action that fails without finding the root cause "
+            "first. To investigate each error before retrying saves effort "
+            "and reveals what actually went wrong.",
+        )
+
+        # Pin similarity to word-overlap fallback so the test is deterministic
+        # regardless of whether sentence-transformers is installed.
+        # Embedding similarity and word overlap can disagree on whether entries
+        # are "too similar" (>0.80 semantic vs <=0.50 word overlap), making
+        # the test flaky when the backend varies between environments.
+        monkeypatch.setattr(
+            "divineos.core.knowledge._text._embeddings_available",
+            False,
         )
 
         report = DreamReport()
         _phase_recombination(report)
-        # These two entries share "maturity lifecycle" and "corroboration"
-        # so they should show up as a connection
         assert report.connections_found >= 1
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):
         """Empty knowledge store should produce no connections."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         report = DreamReport()
@@ -313,12 +254,9 @@ class TestPhaseRecombination:
 
     def test_respects_max_connections_limit(self, tmp_path, monkeypatch):
         """Should not exceed the max connections limit."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         # Store many similar entries across two types
@@ -342,11 +280,8 @@ class TestPhaseRecombination:
 class TestRunSleep:
     def test_returns_dream_report(self, tmp_path, monkeypatch):
         """Full sleep cycle should return a DreamReport."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         report = run_sleep(skip_maintenance=True)
@@ -357,11 +292,8 @@ class TestRunSleep:
 
     def test_continues_through_phase_errors(self, tmp_path, monkeypatch):
         """If a phase fails, subsequent phases should still run."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         # Even with potential issues, sleep should complete
@@ -372,15 +304,47 @@ class TestRunSleep:
 
     def test_skip_maintenance_flag(self, tmp_path, monkeypatch):
         """Skip maintenance should leave maintenance_results empty."""
-        monkeypatch.setenv("DIVINEOS_DB_PATH", str(tmp_path / "test.db"))
         from divineos.core.knowledge._base import init_knowledge_table
-        from divineos.core.knowledge import _base
 
-        _base._connection = None
         init_knowledge_table()
 
         report = run_sleep(skip_maintenance=True)
         assert report.maintenance_results == {}
+
+
+class TestContextSensitiveDecay:
+    """Test that decay rate varies by emotional state."""
+
+    def test_frustration_decays_fast(self):
+        """Intense negative + high arousal = frustration, decays fastest."""
+        factor = _compute_decay_factor(valence=-0.5, arousal=0.7)
+        assert factor == _AFFECT_DECAY_FAST
+
+    def test_positive_decays_slow(self):
+        """Positive states should linger longer."""
+        factor = _compute_decay_factor(valence=0.5, arousal=0.5)
+        assert factor == _AFFECT_DECAY_SLOW
+
+    def test_neutral_uses_default(self):
+        """Neutral/moderate states use the default rate."""
+        factor = _compute_decay_factor(valence=0.0, arousal=0.3)
+        assert factor == _AFFECT_DECAY_FACTOR
+
+    def test_mild_negative_not_fast(self):
+        """Mildly negative but low arousal = not frustration, default decay."""
+        factor = _compute_decay_factor(valence=-0.2, arousal=0.3)
+        assert factor == _AFFECT_DECAY_FACTOR
+
+    def test_fast_less_than_default(self):
+        assert _AFFECT_DECAY_FAST < _AFFECT_DECAY_FACTOR
+
+    def test_slow_greater_than_default(self):
+        assert _AFFECT_DECAY_SLOW > _AFFECT_DECAY_FACTOR
+
+    def test_all_factors_between_zero_and_one(self):
+        assert 0 < _AFFECT_DECAY_FAST < 1
+        assert 0 < _AFFECT_DECAY_FACTOR < 1
+        assert 0 < _AFFECT_DECAY_SLOW < 1
 
 
 class TestConstants:
@@ -393,8 +357,8 @@ class TestConstants:
     def test_decay_hours_positive(self):
         assert _AFFECT_DECAY_HOURS > 0
 
-    def test_overlap_thresholds_ordered(self):
-        assert _RECOMBINATION_MIN_OVERLAP < _RECOMBINATION_MAX_OVERLAP
+    def test_similarity_thresholds_ordered(self):
+        assert _RECOMBINATION_MIN_SIMILARITY < _RECOMBINATION_MAX_SIMILARITY
 
     def test_max_connections_reasonable(self):
         assert 1 <= _RECOMBINATION_MAX_CONNECTIONS <= 50

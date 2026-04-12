@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the sign error in the m12 element of the rotation matrix by changing `+ 2*q0*q1` to `- 2*q0*q1`, which would resolve the incorrect sine sign in the rotation matrix output.",
+  "key_difference": "The candidate patch modifies a different part of the code than the gold patch - it fixes the issue in the simpler quaternion variable naming section (q0, q1, q2, q3) rather than the later section with different variable names (q.a, q.b, q.c, q.d), but both target the same mathematical error in the m12 matrix element.",
+  "instance_id": "sympy__sympy-15349",
+  "condition": "enhanced",
+  "judge_tokens": 1362,
+  "judge_cost": 0.006606
+}

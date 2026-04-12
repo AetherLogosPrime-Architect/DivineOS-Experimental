@@ -3,13 +3,13 @@
 import time
 
 from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+from divineos.core.knowledge.crud import store_knowledge
 from divineos.core.knowledge.curation import (
     assign_layer,
     clean_entry_text,
     ensure_layer_column,
     run_curation,
 )
-from divineos.core.knowledge.crud import store_knowledge
 
 
 def _store(

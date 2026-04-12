@@ -3,9 +3,9 @@
 Functions split from analysis_storage.py to keep modules focused.
 """
 
+import sqlite3
 from pathlib import Path
 from typing import Any, cast
-import sqlite3
 
 from loguru import logger
 
@@ -73,7 +73,7 @@ def get_stored_report(session_id: str) -> str | None:
 
         return None
     except _AR_ERRORS as e:
-        logger.error(f"Failed to retrieve report: {e}")
+        logger.error(f"Failed to retrieve report for session {session_id}: {e}")
         return None
 
 
@@ -247,7 +247,7 @@ def save_analysis_report(result: AnalysisResult, report_text: str) -> Path:
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     report_file = reports_dir / f"{result.session_id}.txt"
-    # Use UTF-8 encoding to handle special characters like ✓ and ✗
+    # Use UTF-8 encoding to handle special characters like + and x
     report_file.write_text(report_text, encoding="utf-8")
 
     # Conveyor belt: keep only the last N reports, prune old ones.

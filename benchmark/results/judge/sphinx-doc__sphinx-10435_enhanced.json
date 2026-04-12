@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch strips whitespace from the highlighted code but targets the wrong location - it modifies the general highlight handling rather than the specific inline code processing where the whitespace issue occurs.",
+  "key_difference": "The candidate patch applies a general strip() to all highlighted content in the wrong method, while the gold patch specifically addresses the inline literal formatting by adding proper LaTeX comment characters (%) to prevent unwanted whitespace in the specific visit_literal method where inline code is processed.",
+  "instance_id": "sphinx-doc__sphinx-10435",
+  "condition": "enhanced",
+  "judge_tokens": 1923,
+  "judge_cost": 0.007725
+}

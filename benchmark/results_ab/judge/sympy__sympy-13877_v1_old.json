@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch targets the wrong method and location. It modifies a `_find_pivot` method that doesn't exist in the original codebase context, while the gold patch correctly addresses the issue in the `_eval_det_bareiss` method by using `_find_reasonable_pivot` with proper zero checking.",
+  "key_difference": "The candidate patch attempts to fix a non-existent `_find_pivot` method while the gold patch properly replaces the problematic pivot finding logic with `_find_reasonable_pivot` and introduces proper zero checking via `_is_zero_after_expand_mul`.",
+  "instance_id": "sympy__sympy-13877",
+  "label": "v1_old",
+  "judge_cost": 0.010098
+}

@@ -59,13 +59,14 @@ _KNOWLEDGE_COL_NAMES: list[str] = [
     "layer",
     "source_entity",
     "related_to",
+    "corroboration_sources",
 ]
 
 _KNOWLEDGE_COLS = ", ".join(_KNOWLEDGE_COL_NAMES)
 _KNOWLEDGE_COLS_K = ", ".join(f"k.{c}" for c in _KNOWLEDGE_COL_NAMES)
 
 # Columns that store JSON and need parsing on read
-_JSON_COLS = frozenset({"source_events", "tags"})
+_JSON_COLS = frozenset({"source_events", "tags", "corroboration_sources"})
 
 # Columns that should be cast to int on read
 _INT_COLS = frozenset({"corroboration_count", "contradiction_count"})
@@ -81,6 +82,7 @@ _KNOWLEDGE_DEFAULTS: dict[str, Any] = {
     "layer": "active",
     "source_entity": None,
     "related_to": None,
+    "corroboration_sources": [],
 }
 
 
@@ -154,6 +156,13 @@ def init_knowledge_table() -> None:
             END
         """)
         conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS knowledge_fts_delete
+            AFTER DELETE ON knowledge BEGIN
+                INSERT INTO knowledge_fts(knowledge_fts, rowid, content, tags, knowledge_type)
+                VALUES ('delete', old.rowid, old.content, old.tags, old.knowledge_type);
+            END
+        """)
+        conn.execute("""
             CREATE TRIGGER IF NOT EXISTS knowledge_fts_update
             AFTER UPDATE ON knowledge BEGIN
                 INSERT INTO knowledge_fts(knowledge_fts, rowid, content, tags, knowledge_type)
@@ -177,6 +186,14 @@ def init_knowledge_table() -> None:
             except sqlite3.OperationalError as e:
                 logger.debug(f"Column {col} already exists in knowledge table: {e}")
 
+        # Corroboration source diversity tracking (JSON list of source signatures)
+        try:
+            conn.execute(
+                "ALTER TABLE knowledge ADD COLUMN corroboration_sources TEXT DEFAULT '[]'",
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug(f"Column corroboration_sources already exists in knowledge table: {e}")
+
         # Layer column (active/archive stratification)
         try:
             conn.execute(
@@ -196,6 +213,14 @@ def init_knowledge_table() -> None:
                 )
             except sqlite3.OperationalError as e:
                 logger.debug(f"Column {col} already exists in knowledge table: {e}")
+
+        # Supersession reason — why an entry was replaced (duplicate, contradiction, update, forget)
+        try:
+            conn.execute(
+                "ALTER TABLE knowledge ADD COLUMN supersession_reason TEXT DEFAULT NULL",
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug(f"Column supersession_reason already exists: {e}")
 
         # Temporal dimension columns (nullable — NULL means unbounded)
         for col, col_type, default in [

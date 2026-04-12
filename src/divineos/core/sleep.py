@@ -76,7 +76,7 @@ class DreamReport:
         lines.append(f"  Slept for {self.duration_seconds:.1f}s\n")
 
         # Consolidation
-        lines.append("  Phase 1 — Knowledge Consolidation")
+        lines.append("  Phase 1 - Knowledge Consolidation")
         lines.append(f"    Scanned {self.entries_scanned} entries")
         if self.total_promoted > 0:
             for level, count in self.promotions.items():
@@ -85,11 +85,10 @@ class DreamReport:
             lines.append("    No promotions needed")
 
         # Pruning
-        lines.append("\n  Phase 2 — Pruning")
+        lines.append("\n  Phase 2 - Pruning")
         pruning_found = False
         if self.health_results:
             for key in (
-                "stale_decayed",
                 "temporal_decayed",
                 "noise_swept",
                 "maturity_demoted",
@@ -100,6 +99,10 @@ class DreamReport:
                     label = key.replace("_", " ").capitalize()
                     lines.append(f"    {label}: {val}")
                     pruning_found = True
+            review_count = self.health_results.get("needs_review_count", 0)
+            if review_count:
+                lines.append(f"    Needs review (unseen 30d+): {review_count}")
+                pruning_found = True
         if self.hygiene_results:
             for key in ("noise_demoted", "noise_superseded", "stale_decayed", "orphans_flagged"):
                 val = self.hygiene_results.get(key, 0)
@@ -111,7 +114,7 @@ class DreamReport:
             lines.append("    Knowledge store is clean")
 
         # Affect
-        lines.append("\n  Phase 3 — Affect Recalibration")
+        lines.append("\n  Phase 3 - Affect Recalibration")
         if self.affect_entries_processed > 0:
             lines.append(f"    Processed {self.affect_entries_processed} affect entries")
             lines.append(f"    Decayed {self.affect_decayed} entries")
@@ -124,7 +127,7 @@ class DreamReport:
             lines.append("    No affect history to process")
 
         # Maintenance
-        lines.append("\n  Phase 4 — Maintenance")
+        lines.append("\n  Phase 4 - Maintenance")
         if self.maintenance_results:
             freed = self.maintenance_results.get("vacuum", {}).get("freed_mb", 0)
             if freed > 0:
@@ -144,7 +147,7 @@ class DreamReport:
             lines.append("    Skipped")
 
         # Recombination
-        lines.append("\n  Phase 5 — Creative Recombination")
+        lines.append("\n  Phase 5 - Creative Recombination")
         if self.connections_found > 0:
             lines.append(f"    Found {self.connections_found} new connection(s)")
             for conn in self.connection_details[:5]:
@@ -153,13 +156,12 @@ class DreamReport:
             lines.append("    No new connections found")
 
         # Curiosity
-        lines.append("\n  Phase 6 — Curiosity Generation")
-        if self.curiosities_generated > 0:
-            lines.append(f"    Generated {self.curiosities_generated} question(s)")
+        lines.append("\n  Phase 6 - Curiosity Maintenance")
+        if self.curiosity_categories:
             for cat in self.curiosity_categories:
-                lines.append(f"    ? {cat}")
+                lines.append(f"    {cat}")
         else:
-            lines.append("    No new questions generated")
+            lines.append("    Nothing to prune")
 
         # Errors
         if self.phase_errors:
@@ -219,17 +221,37 @@ def _phase_pruning(report: DreamReport) -> None:
 
 # Affect entries older than this many hours get intensity decayed.
 _AFFECT_DECAY_HOURS = 12.0
-# Decay multiplier per cycle: recent emotions fade but don't vanish.
-_AFFECT_DECAY_FACTOR = 0.7
+# Context-sensitive decay: different emotional states decay at different rates.
+# Intense negative states (frustration, anxiety) fade faster — holding onto
+# them isn't useful. Positive states and moderate states decay more slowly.
+_AFFECT_DECAY_FACTOR = 0.7  # default for moderate states
+_AFFECT_DECAY_FAST = 0.5  # for intense negative states (let them go)
+_AFFECT_DECAY_SLOW = 0.85  # for positive states (keep what's working)
 # Floor: affect never decays below this absolute intensity.
 _AFFECT_INTENSITY_FLOOR = 0.05
+
+
+def _compute_decay_factor(valence: float, arousal: float) -> float:
+    """Choose decay rate based on the emotional state.
+
+    Intense negative states (frustration, anxiety) decay fastest —
+    dwelling on them degrades future performance. Positive states
+    decay slowest — they represent what's working. Neutral/moderate
+    states use the default rate.
+    """
+    if valence < -0.3 and arousal > 0.5:
+        return _AFFECT_DECAY_FAST
+    if valence > 0.2:
+        return _AFFECT_DECAY_SLOW
+    return _AFFECT_DECAY_FACTOR
 
 
 def _phase_affect(report: DreamReport) -> None:
     """Decay emotional charge from past sessions, compute baseline mood.
 
-    The information about what happened stays in the knowledge store.
-    The emotional charge fades. Just like human sleep.
+    Uses context-sensitive decay: intense negative states (frustration,
+    anxiety) fade faster than positive states. The information about
+    what happened stays in the knowledge store — only the charge fades.
     """
     from divineos.core.affect import get_affect_history, init_affect_log
     from divineos.core.memory import _get_connection
@@ -241,7 +263,6 @@ def _phase_affect(report: DreamReport) -> None:
     if not history:
         return
 
-    # Decay: entries older than threshold get intensity reduced
     cutoff = time.time() - (_AFFECT_DECAY_HOURS * 3600)
     decayed = 0
     conn = _get_connection()
@@ -249,22 +270,20 @@ def _phase_affect(report: DreamReport) -> None:
         for entry in history:
             created = entry.get("created_at", 0)
             if created >= cutoff:
-                continue  # recent enough, keep full intensity
+                continue
 
             valence = entry.get("valence", 0.0)
             arousal = entry.get("arousal", 0.0)
 
-            # Decay toward neutral (0.0 for valence, 0.0 for arousal)
-            new_valence = valence * _AFFECT_DECAY_FACTOR
-            new_arousal = arousal * _AFFECT_DECAY_FACTOR
+            factor = _compute_decay_factor(valence, arousal)
+            new_valence = valence * factor
+            new_arousal = arousal * factor
 
-            # Floor check: don't decay below minimum
             if abs(new_valence) < _AFFECT_INTENSITY_FLOOR:
                 new_valence = 0.0
             if abs(new_arousal) < _AFFECT_INTENSITY_FLOOR:
                 new_arousal = 0.0
 
-            # Only update if the values actually changed
             if abs(new_valence - valence) > 0.001 or abs(new_arousal - arousal) > 0.001:
                 conn.execute(
                     "UPDATE affect_log SET valence = ?, arousal = ? WHERE entry_id = ?",
@@ -278,7 +297,6 @@ def _phase_affect(report: DreamReport) -> None:
 
     report.affect_decayed = decayed
 
-    # Compute baseline mood from recent (non-decayed) entries
     recent = [e for e in history if e.get("created_at", 0) >= cutoff]
     if recent:
         avg_v = sum(e.get("valence", 0) for e in recent) / len(recent)
@@ -290,7 +308,6 @@ def _phase_affect(report: DreamReport) -> None:
             "dominance": round(avg_d, 3),
         }
     else:
-        # All entries are old — baseline is neutral
         report.affect_baseline = {"valence": 0.0, "arousal": 0.0, "dominance": 0.0}
 
 
@@ -307,20 +324,25 @@ def _phase_maintenance(report: DreamReport) -> None:
 # ─── Phase 5: Creative Recombination ──────────────────────────────────
 
 
-# Overlap thresholds for connection detection
-_RECOMBINATION_MIN_OVERLAP = 0.25  # Minimum to consider related
-_RECOMBINATION_MAX_OVERLAP = 0.70  # Above this = near-duplicate, not a connection
+# Similarity thresholds for connection detection
+_RECOMBINATION_MIN_SIMILARITY = 0.30  # Minimum to consider related (lowered for Dice)
+_RECOMBINATION_MAX_SIMILARITY = 0.65  # Above this = near-duplicate, not a connection
 _RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
+_RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
 
 
 def _phase_recombination(report: DreamReport) -> None:
     """Cross-knowledge similarity scanning for unlinked connections.
 
-    Take entries from different sessions, different types, different contexts
-    and look for structural overlaps nobody explicitly connected. This is
-    convergence detection running autonomously during sleep.
+    Finds genuinely surprising connections between entries that are
+    semantically related but topically distinct. Filters out obvious
+    same-topic pairs (e.g. MISTAKE about tests + DIRECTION about tests)
+    by checking word overlap in key terms.
     """
-    from divineos.core.knowledge._text import _compute_overlap
+    from divineos.core.knowledge._text import (
+        _compute_overlap,
+        compute_similarity,
+    )
     from divineos.core.knowledge.crud import get_knowledge
 
     entries = get_knowledge(limit=5000, include_superseded=False)
@@ -341,27 +363,43 @@ def _phase_recombination(report: DreamReport) -> None:
         for type_b in types[i + 1 :]:
             for entry_a in by_type[type_a]:
                 content_a = entry_a.get("content", "")
-                if len(content_a) < 20:
+                if len(content_a) < 30:
                     continue
                 for entry_b in by_type[type_b]:
                     if len(connections) >= _RECOMBINATION_MAX_CONNECTIONS:
                         break
                     content_b = entry_b.get("content", "")
-                    if len(content_b) < 20:
+                    if len(content_b) < 30:
                         continue
 
-                    overlap = _compute_overlap(content_a, content_b)
-                    if _RECOMBINATION_MIN_OVERLAP <= overlap <= _RECOMBINATION_MAX_OVERLAP:
+                    # Skip pairs that share too many key words -- these are
+                    # the same topic wearing different type labels, not
+                    # creative connections.
+                    word_overlap = _compute_overlap(content_a, content_b)
+                    if word_overlap > _RECOMBINATION_MAX_WORD_OVERLAP:
+                        continue
+
+                    similarity = compute_similarity(content_a, content_b)
+                    if _RECOMBINATION_MIN_SIMILARITY <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
+                        # Show first sentence of each, not arbitrary truncation
+                        def _first_sentence(text: str, cap: int = 140) -> str:
+                            for delim in (". ", "! ", "? "):
+                                idx = text.find(delim)
+                                if 0 < idx < cap:
+                                    return text[: idx + 1]
+                            return text[:cap] + "..." if len(text) > cap else text
+
                         connections.append(
                             {
                                 "entry_a_id": entry_a.get("knowledge_id", "?"),
                                 "entry_b_id": entry_b.get("knowledge_id", "?"),
                                 "type_a": type_a,
                                 "type_b": type_b,
-                                "overlap": f"{overlap:.0%}",
+                                "similarity": f"{similarity:.0%}",
                                 "summary": (
-                                    f"{type_a[:12]}~{type_b[:12]}: "
-                                    f'"{content_a[:50]}..." ~ "{content_b[:50]}..."'
+                                    f"({similarity:.0%}) {type_a}+{type_b}: "
+                                    f"{_first_sentence(content_a)} <> "
+                                    f"{_first_sentence(content_b)}"
                                 ),
                             }
                         )
@@ -375,21 +413,47 @@ def _phase_recombination(report: DreamReport) -> None:
     report.connection_details = connections
 
 
-# ─── Phase 6: Curiosity Generation ──────────────────────────────────
+# ─── Phase 6: Curiosity Maintenance ─────────────────────────────────
 
 
 def _phase_curiosity(report: DreamReport) -> None:
-    """Scan knowledge gaps and generate questions for the next session.
+    """Prune stale curiosities and generate new ones from recombination connections.
 
-    This is the proactive horizon — the OS doesn't wait for the Architect
-    to ask. It looks at its own incomplete knowledge, stuck lessons, and
-    unresolved contradictions, and generates genuine questions.
+    Old auto-generated questions ("What evidence would confirm or refute: X?")
+    were formulaic templates. New approach: generate curiosities from Phase 5's
+    cross-topic connections — these are genuine "huh, interesting" moments where
+    two unrelated knowledge areas overlap unexpectedly.
     """
-    from divineos.core.curiosity_engine import generate_curiosities_from_gaps
+    from divineos.core.curiosity_engine import add_curiosity, prune_stale_curiosities
 
-    generated = generate_curiosities_from_gaps(max_questions=5)
-    report.curiosities_generated = len(generated)
-    report.curiosity_categories = [g.get("question", "?")[:80] for g in generated]
+    pruned = prune_stale_curiosities()
+    report.curiosities_generated = 0
+    report.curiosity_categories = []
+    if pruned:
+        report.curiosity_categories.append(f"pruned {pruned} stale")
+
+    # Generate curiosities from Phase 5 connections
+    if report.connection_details:
+        generated = 0
+        for conn in report.connection_details[:3]:  # Cap at 3 per sleep
+            type_a = conn.get("type_a", "?")
+            type_b = conn.get("type_b", "?")
+            summary = conn.get("summary", "")
+            if not summary:
+                continue
+            question = f"How does this {type_a} connect to this {type_b}? {summary}"
+            try:
+                add_curiosity(
+                    question=question,
+                    context=f"Sleep recombination ({conn.get('similarity', '?')} similarity)",
+                    category="recombination",
+                )
+                generated += 1
+            except _SLEEP_ERRORS:
+                continue
+        if generated:
+            report.curiosities_generated = generated
+            report.curiosity_categories.append(f"generated {generated} from connections")
 
 
 # ─── Orchestrator ─────────────────────────────────────────────────────

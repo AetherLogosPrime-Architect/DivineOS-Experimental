@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16116",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/core/management/commands/makemigrations.py\n+++ b/django/core/management/commands/makemigrations.py\n@@ -172,6 +172,8 @@ class Command(BaseCommand):\n                 )\n             else:\n                 self.log('No changes detected')\n+        elif check_changes:\n+            return\n \n         self.write_migration_files(changes)\n ",
+  "thinking": null,
+  "input_tokens": 396,
+  "output_tokens": 107,
+  "elapsed_seconds": 2.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0027930000000000003
+}

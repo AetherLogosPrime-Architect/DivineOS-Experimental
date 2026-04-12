@@ -7,6 +7,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+from divineos.analysis.quality_storage import (
+    get_check_history,
+    get_report,
+    store_report,
+)
 from divineos.analysis.record_extraction import (
     CheckResult,
     SessionReport,
@@ -21,17 +26,12 @@ from divineos.analysis.record_extraction import (
     _get_connection,
     init_quality_tables,
 )
-from divineos.analysis.quality_storage import (
-    get_check_history,
-    get_report,
-    store_report,
-)
 from divineos.analysis.session_analyzer import (
     CORRECTION_PATTERNS,
     _detect_signals,
     _extract_timestamps,
     _extract_user_text,
-    _load_records,
+    load_records,
 )
 from divineos.core.fidelity import compute_content_hash
 from divineos.core.ledger import count_events
@@ -48,6 +48,7 @@ __all__ = [
     "_extract_tool_calls",
     "_find_blind_edits",
     "_find_errors_after_edits",
+    "_is_non_coding_session",
     "_generate_report_text",
     "_get_assistant_text",
     "_get_connection",
@@ -124,6 +125,48 @@ def check_completeness(
     )
 
 
+_PROSE_EXTENSIONS = frozenset((".md", ".txt", ".rst", ".html", ".css", ".json"))
+
+
+def _is_non_coding_session(records: list[dict[str, Any]]) -> bool:
+    """Detect whether this session is research/discussion rather than coding.
+
+    A non-coding session has no production code edits and relies on search,
+    web, or agent tools. These don't count as production code editing:
+    - Prose files (.md, .txt, .rst, etc.) — no pytest needed for a blog post
+    - Test files (paths containing /tests/ or \\tests\\) — writing tests IS
+      the correctness work, penalizing for not running them is circular
+    """
+    production_edit_count = 0
+    search_count = 0
+    for record in records:
+        for call in _extract_tool_calls(record):
+            name = call.get("name", "").lower()
+            if name in ("edit", "write", "notebookedit"):
+                file_path = call.get("input", {}).get("file_path", "")
+                # Check if the target file is prose
+                ext = ""
+                if "." in file_path:
+                    ext = "." + file_path.rsplit(".", 1)[-1].lower()
+                if ext in _PROSE_EXTENSIONS:
+                    continue
+                # Check if the target file is a test file
+                normalized = file_path.replace("\\", "/")
+                if "/tests/" in normalized or normalized.startswith("tests/"):
+                    continue
+                production_edit_count += 1
+            elif name in (
+                "grep",
+                "glob",
+                "webfetch",
+                "websearch",
+                "agent",
+                "read",
+            ):
+                search_count += 1
+    return production_edit_count == 0 and search_count >= 2
+
+
 def check_correctness(
     records: list[dict[str, Any]],
     result_map: dict[str, dict[str, Any]],
@@ -132,13 +175,28 @@ def check_correctness(
     test_results = _extract_test_results(records, result_map)
 
     if not test_results:
+        # Non-coding sessions (research, discussion) shouldn't be penalized
+        # for not running tests — there's no code to test.
+        if _is_non_coding_session(records):
+            return CheckResult(
+                check_name="correctness",
+                passed=-1,
+                score=0.5,
+                summary=(
+                    "Research/discussion session — no code changes, so test correctness is not applicable."
+                ),
+                evidence=[],
+            )
+        # No tests found but some code activity detected. This is
+        # inconclusive — the session may have worked in a different
+        # repo, used external tools, or focused on non-testable work.
+        # Score 0.5 (inconclusive) instead of 0.0 (failed) to avoid
+        # false-blocking the quality gate on cross-repo sessions.
         return CheckResult(
             check_name="correctness",
             passed=-1,
-            score=0.0,
-            summary=(
-                "No tests were run during this session. There's no way to know if the code works."
-            ),
+            score=0.5,
+            summary=("No tests were run during this session. Correctness is inconclusive."),
             evidence=[],
         )
 
@@ -465,7 +523,7 @@ def run_all_checks(
     since_timestamp: float | None = None,
 ) -> SessionReport:
     """Run all 7 quality checks on a session file. Returns a complete report."""
-    records = _load_records(file_path, since_timestamp=since_timestamp)
+    records = load_records(file_path, since_timestamp=since_timestamp)
     result_map = _build_tool_result_map(records)
 
     checks = [

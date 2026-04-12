@@ -3,6 +3,7 @@
 Generates comprehensive post-work summaries with analysis and recommendations.
 """
 
+import sqlite3
 from typing import Any
 
 from loguru import logger
@@ -18,7 +19,6 @@ from .types import (
     PostWorkSummary,
     Recommendation,
 )
-import sqlite3
 
 _SG_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -335,7 +335,9 @@ class DefaultSummaryGenerator(SummaryGenerator):
 
         if summary.lessons_learned:
             for lesson in summary.lessons_learned[:3]:  # Show top 3
-                lines.append(f"    - {lesson.type}: {lesson.description[:50]}...")
+                desc = lesson.description
+                desc_display = (desc[:137] + "...") if len(desc) > 140 else desc
+                lines.append(f"    - {lesson.type}: {desc_display}")
 
         lines.extend(
             [
@@ -347,7 +349,9 @@ class DefaultSummaryGenerator(SummaryGenerator):
 
         if summary.recommendations:
             for rec in summary.recommendations[:3]:  # Show top 3
-                lines.append(f"    - [{rec.priority}] {rec.recommendation_text[:50]}...")
+                rec_text = rec.recommendation_text
+                rec_display = (rec_text[:137] + "...") if len(rec_text) > 140 else rec_text
+                lines.append(f"    - [{rec.priority}] {rec_display}")
 
         lines.append("=" * 60)
         return "\n".join(lines)

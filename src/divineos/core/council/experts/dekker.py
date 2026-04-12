@@ -44,10 +44,8 @@ def create_dekker_wisdom() -> ExpertWisdom:
                 "to the person at the time?",
                 "Identify the local rationality — what pressures, goals, "
                 "and information shaped the decision?",
-                "Map how the boundary of acceptable performance shifted "
-                "incrementally over time",
-                "Find the normalization: what used to be an anomaly but "
-                "became routine?",
+                "Map how the boundary of acceptable performance shifted incrementally over time",
+                "Find the normalization: what used to be an anomaly but became routine?",
                 "Identify the missing feedback: what signals should have "
                 "indicated drift but didn't reach decision-makers?",
                 "Ask: could someone in the same position, with the same "
@@ -281,9 +279,7 @@ def create_dekker_wisdom() -> ExpertWisdom:
                 "Before deploying, imagine the system has already failed. "
                 "Work backward to find the drift path that led there."
             ),
-            when_to_use=(
-                "Before deploying any self-monitoring or self-assessing system"
-            ),
+            when_to_use=("Before deploying any self-monitoring or self-assessing system"),
             step_by_step=[
                 "Imagine it's 6 months from now and the system has silently "
                 "degraded to the point of failure",
@@ -294,8 +290,7 @@ def create_dekker_wisdom() -> ExpertWisdom:
                 "Design detection for each drift path identified",
             ],
             what_it_optimizes_for=(
-                "Preventing silent degradation by making drift visible "
-                "before it becomes failure"
+                "Preventing silent degradation by making drift visible before it becomes failure"
             ),
         ),
         ProblemSolvingHeuristic(
@@ -351,9 +346,7 @@ def create_dekker_wisdom() -> ExpertWisdom:
         ),
         ConcernTrigger(
             name="Self-Assessment Circularity",
-            description=(
-                "A system evaluating itself with no external anchor point"
-            ),
+            description=("A system evaluating itself with no external anchor point"),
             why_its_concerning=(
                 "Self-assessment without external validation is the definition "
                 "of unfalsifiable. The system will normalize its own errors "
@@ -373,8 +366,7 @@ def create_dekker_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Procedure Accumulation Without Removal",
             description=(
-                "Rules and checks keep being added after each failure "
-                "but none are ever removed"
+                "Rules and checks keep being added after each failure but none are ever removed"
             ),
             why_its_concerning=(
                 "Each added procedure makes sense in isolation. But the "
@@ -396,8 +388,7 @@ def create_dekker_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Blame-Driven Reporting Suppression",
             description=(
-                "People stop reporting errors or near-misses because "
-                "they fear consequences"
+                "People stop reporting errors or near-misses because they fear consequences"
             ),
             why_its_concerning=(
                 "Unreported errors are invisible errors. Invisible errors "

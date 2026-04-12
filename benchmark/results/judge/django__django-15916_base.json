@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that modelform_factory should use the formfield_callback from the Meta class when none is explicitly provided, fixing the bug where the callback was being ignored.",
+  "key_difference": "The candidate uses a simpler approach by checking for formfield_callback in the Meta class within modelform_factory, while the gold patch restructures the entire metaclass system to handle formfield_callback through the ModelFormOptions class. Both approaches are valid but the candidate is more targeted to the specific issue.",
+  "instance_id": "django__django-15916",
+  "condition": "base",
+  "judge_tokens": 1745,
+  "judge_cost": 0.007287
+}

@@ -3,10 +3,10 @@
 Integrates clarity system with the existing hook infrastructure.
 """
 
+import sqlite3
 from collections.abc import Callable
 from typing import Any
 from uuid import UUID
-import sqlite3
 
 from loguru import logger
 

@@ -22,11 +22,12 @@ from divineos.core.knowledge.edges import (
     deactivate_edge,
     find_edge,
     get_edges,
-    get_neighbors as _get_neighbors,
     init_edge_table,
 )
+from divineos.core.knowledge.edges import (
+    get_neighbors as _get_neighbors,
+)
 from divineos.core.logic.warrants import create_warrant, get_warrants
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # Section 1: Typed Logical Relations

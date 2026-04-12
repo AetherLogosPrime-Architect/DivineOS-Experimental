@@ -1,21 +1,22 @@
 """Tests for event emission module."""
 
-import pytest
 import os
 import tempfile
 from datetime import datetime
 
-from divineos.event.event_emission import (
-    emit_user_input,
-    emit_tool_call,
-    emit_tool_result,
-    emit_session_end,
-)
+import pytest
+
+from divineos.core.ledger import get_events, init_db
 from divineos.event.event_capture import (
     EventValidationError,
     get_session_tracker,
 )
-from divineos.core.ledger import get_events, init_db
+from divineos.event.event_emission import (
+    emit_session_end,
+    emit_tool_call,
+    emit_tool_result,
+    emit_user_input,
+)
 
 
 @pytest.fixture

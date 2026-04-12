@@ -28,6 +28,7 @@ import time
 import uuid
 from typing import Any, cast
 
+from divineos.analysis.quality_storage import get_check_history
 from divineos.core.constants import (
     AFFECT_DECLINING_BOOST,
     AFFECT_FRUSTRATION_AROUSAL,
@@ -35,10 +36,10 @@ from divineos.core.constants import (
     AFFECT_MILD_NEGATIVE_BOOST,
     AFFECT_MIN_ENTRIES,
     AFFECT_NEGATIVE_THRESHOLD_BOOST,
+    AFFECT_PRAISE_CHASING_BOOST,
     AFFECT_PRAISE_VALENCE_THRESHOLD,
 )
 from divineos.core.memory import _get_connection
-from divineos.analysis.quality_storage import get_check_history
 
 _AFFECT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -351,11 +352,19 @@ def compute_affect_modifiers(
         verification = "careful"
 
     # 3. Praise-chasing: consistently positive affect is suspicious
-    # (quality check correlation happens in detect_praise_chasing)
+    # If quality data confirms the pattern, apply a confidence penalty.
     praise_flag = False
     if avg_valence > AFFECT_PRAISE_VALENCE_THRESHOLD and summary["count"] >= AFFECT_MIN_ENTRIES + 1:
-        # Suspiciously happy -- needs quality check comparison
         praise_flag = True
+        try:
+            history = get_check_history("correctness", limit=5)
+            if history:
+                scores = [h.get("overall_score", 0.7) for h in history]
+                praise_result = detect_praise_chasing(avg_valence, scores)
+                if praise_result["detected"]:
+                    confidence_modifier = max(confidence_modifier, AFFECT_PRAISE_CHASING_BOOST)
+        except _AFFECT_ERRORS:
+            pass
 
     avg_dominance = summary.get("avg_dominance", 0.0)
 

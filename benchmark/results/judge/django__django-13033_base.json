@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the bug by comparing the field's attname against the last piece of the field path instead of the full name, preventing incorrect application of default ordering for self-referencing foreign keys.",
+  "key_difference": "This is essentially identical to the gold patch - both change `name` to `pieces[-1]` in the same condition. The only difference is formatting (single line vs multi-line), but the logic fix is exactly the same.",
+  "instance_id": "django__django-13033",
+  "condition": "base",
+  "judge_tokens": 2125,
+  "judge_cost": 0.008307
+}

@@ -6,8 +6,11 @@ from pathlib import Path
 
 from loguru import logger
 
+from divineos.analysis.quality_trends import format_trend_summary, get_session_trend
 from divineos.core._hud_io import (  # noqa: F401 — re-exported for backward compat
     _ensure_hud_dir as _ensure_hud_dir,
+)
+from divineos.core._hud_io import (
     _get_hud_dir as _get_hud_dir,
 )
 from divineos.core.affect import (
@@ -30,7 +33,6 @@ from divineos.core.memory import get_core
 from divineos.core.memory_journal import journal_count, journal_list
 from divineos.core.planning_commitments import get_pending_commitments
 from divineos.core.self_model import build_self_model, format_self_model
-from divineos.analysis.quality_trends import format_trend_summary, get_session_trend
 
 _HUD_ERRORS = (sqlite3.OperationalError, json.JSONDecodeError, OSError)
 
@@ -38,30 +40,41 @@ _HUD_ERRORS = (sqlite3.OperationalError, json.JSONDecodeError, OSError)
 # ─── Slot Definitions ───────────────────────────────────────────────
 
 SLOT_ORDER = [
+    # ── ALWAYS: core orientation ──
+    "handoff",  # what happened last session
+    "self_model",  # who I am (unified — replaces old identity slot)
+    "active_goals",  # what we're working on
+    "recent_lessons",  # mistakes to avoid
+    "my_state",  # growth + affect merged — how I'm doing + nudges
+    "os_engagement",  # am I using the OS to think?
+    "self_awareness",  # critical escalation warnings
+    # ── CONDITIONAL: only when actionable ──
+    "task_state",  # only when populated
+    "commitments",  # only when promises pending
+    "compass",  # only when drift detected
+    "session_health",  # only after some activity
+    "context_budget",  # only when running low
+    "body",  # only when vitals abnormal
+    "claims",  # only when investigating
+    # ── CONTINUITY: inner life ──
+    "journal",  # personal reflections
+    "decision_journal",  # don't re-decide
+    "opinions",  # intellectual consistency
+    # ── REFERENCE: available but low-priority ──
+    "active_knowledge",  # goal-relevant knowledge not in briefing
+    "knowledge_origin",  # epistemic balance
+    "calibration",  # communication style
+    "dead_architecture",  # maintenance signal
+]
+
+# Brief mode: only the slots that change behavior.
+BRIEF_SLOTS = [
     "handoff",
-    "identity",
-    "active_goals",
-    "commitments",
-    "recent_lessons",
-    "growth_awareness",
-    "session_health",
-    "os_engagement",
-    "context_budget",
-    "active_knowledge",
-    "knowledge_origin",
-    "dead_architecture",
-    "warnings",
-    "journal",
-    "decision_journal",
-    "opinions",
-    "affect",
-    "claims",
-    "compass",
-    "calibration",
-    "self_awareness",
-    "body",
-    "task_state",
     "self_model",
+    "active_goals",
+    "recent_lessons",
+    "my_state",
+    "os_engagement",
 ]
 
 
@@ -207,7 +220,7 @@ def _build_session_health_slot() -> str:
     """How this session is going. Corrections, encouragements, trajectory."""
     path = _ensure_hud_dir() / "session_health.json"
     if not path.exists():
-        return "# Session Health\n\nSession just started. No data yet."
+        return ""
 
     try:
         health = json.loads(path.read_text(encoding="utf-8"))
@@ -262,106 +275,80 @@ def _build_session_health_slot() -> str:
 
 def _build_context_budget_slot() -> str:
     """How much context window I have left, plus guardrail state."""
-    lines = ["# My Context Budget\n"]
+    lines: list[str] = []
 
     path = _ensure_hud_dir() / "context_budget.json"
     if path.exists():
         try:
             budget = json.loads(path.read_text(encoding="utf-8"))
             used = budget.get("used_pct", 0)
-            lines.append(f"- **Used:** {used}%")
-
-            if used < 50:
-                lines.append("- Plenty of room. I can work freely.")
-            elif used < 70:
-                lines.append("- Past halfway. Still good.")
-            elif used < 80:
-                lines.append(
-                    "- Compression approaching. I should save my HUD state so I wake up with full context after compaction."
-                )
-            else:
-                lines.append(
-                    "- Compression imminent. Saving HUD now so I don't lose context. I'll still be here after — just with a fresh window."
-                )
+            # Only show when it's worth mentioning
+            if used >= 70:
+                lines.append("# Context Budget\n")
+                label = "COMPRESSION IMMINENT" if used >= 80 else "compression approaching"
+                lines.append(f"- **{used}%** used — {label}")
         except (json.JSONDecodeError, OSError):
-            lines.append("- Budget data unavailable.")
-    else:
-        lines.append("- No budget tracking active. I should be mindful of context size.")
+            pass
 
-    # Guardrail state — runtime limits
+    # Guardrail state — only show if something is off
     try:
         from divineos.core.tool_wrapper import get_guardrail_state
 
         gs = get_guardrail_state()
         if gs is not None:
             s = gs.summary()
-            lines.append(f"\n**Guardrails:** {s['status']}")
-            lines.append(f"- Iterations: {s['iterations']}")
-            lines.append(f"- Tool calls: {s['tool_calls']}")
             if s["violations"] > 0:
-                lines.append(f"- **{s['violations']} violations, {s['warnings']} warnings**")
+                if not lines:
+                    lines.append("# Context Budget\n")
+                lines.append(
+                    f"**Guardrails:** {s['violations']} violations, {s['warnings']} warnings"
+                )
+            elif not lines:
+                # Minimal one-liner when everything is fine
+                lines.append("# Context Budget\n")
+                lines.append("**Guardrails:** OK")
+                lines.append(f"- Iterations: {s['iterations']}")
+                lines.append(f"- Tool calls: {s['tool_calls']}")
     except (ImportError, AttributeError):
-        pass  # guardrails not active
+        pass
 
     return "\n".join(lines)
 
 
 def _build_active_knowledge_slot() -> str:
-    """My most important knowledge, ranked and ready."""
-    from divineos.core.active_memory import get_active_memory, refresh_active_memory
+    """Goal-relevant knowledge that the briefing doesn't already cover.
 
-    lines = ["# What I Know That Matters\n"]
+    The briefing shows directives, boundaries, and principles.
+    This slot shows knowledge from OTHER types (facts, observations,
+    procedures, mistakes) that are relevant to CURRENT GOALS.
+    This way the two complement each other instead of duplicating.
+    """
+    from divineos.core.active_memory import get_active_memory
 
     try:
         active = get_active_memory()
-        # If active memory looks thin, try a refresh first
-        if len(active) < 3:
-            try:
-                refresh_active_memory(importance_threshold=0.3)
-                active = get_active_memory()
-            except _HUD_ERRORS as e:
-                logger.debug("Active memory refresh failed (proceeding with thin memory): %s", e)
     except _HUD_ERRORS:
-        return lines[0] + "Could not load active memory."
+        return ""
 
     if not active:
-        return lines[0] + "No active knowledge. I should run a briefing to populate this."
+        return ""
 
-    for item in active[:8]:
-        pin = " [pinned]" if item.get("pinned") else ""
-        entity = f" [{item['source_entity']}]" if item.get("source_entity") else ""
+    # Filter OUT types that the briefing already covers heavily
+    briefing_types = {"DIRECTIVE", "BOUNDARY", "PRINCIPLE", "DIRECTION", "PREFERENCE"}
+    complementary = [
+        item for item in active if item.get("knowledge_type", "") not in briefing_types
+    ]
+
+    if not complementary:
+        return ""
+
+    lines = ["# Relevant Knowledge\n"]
+    for item in complementary[:5]:
         content = item["content"].replace("\n", " ")
         if len(content) > 120:
             content = content[:117] + "..."
-        lines.append(f"- [{item['importance']:.2f}]{entity} {content}{pin}")
-
-    if len(active) > 8:
-        lines.append(f"  ...and {len(active) - 8} more in active memory")
-
-    return "\n".join(lines)
-
-
-def _build_warnings_slot() -> str:
-    """Patterns I've been corrected for. Pre-action awareness."""
-    lines = ["# Warnings -- Patterns I Repeat\n"]
-
-    try:
-        active = get_lessons(status="active")
-    except _HUD_ERRORS:
-        return lines[0] + "Could not load lesson data."
-
-    # Only show lessons with 2+ occurrences — those are real patterns
-    recurring = [lesson for lesson in active if lesson.get("occurrences", 1) >= 2]
-
-    if not recurring:
-        return lines[0] + "No recurring patterns detected. Stay vigilant anyway."
-
-    for lesson in recurring:
-        count = lesson.get("occurrences", 1)
-        lines.append(f"- WARNING ({count}x): {lesson['description']}")
-
-    lines.append("")
-    lines.append("Before acting, I ask myself: am I about to repeat one of these?")
+        ktype = item.get("knowledge_type", "?")
+        lines.append(f"- [{ktype}] {content}")
 
     return "\n".join(lines)
 
@@ -386,7 +373,17 @@ def _build_os_engagement_slot() -> str:
             break
         session_events.append(event)
 
-    thinking_tools = {"ask", "recall", "context", "directives", "briefing"}
+    thinking_tools = {
+        "ask",
+        "recall",
+        "context",
+        "directives",
+        "briefing",
+        "decide",
+        "feel",
+        "body",
+        "compass",
+    }
     recording_tools = {"log", "learn", "goal"}
 
     thinking_count = 0
@@ -424,17 +421,14 @@ def _build_os_engagement_slot() -> str:
 
     if thinking_count == 0:
         lines.append("- **WARNING: Zero thinking queries this session.**")
-        lines.append("- I have not used ask, recall, context, directives, or briefing.")
-        lines.append("- Am I building without consulting what I know? That's theatre.")
         lines.append("- **Action: Use a thinking tool before the next code change.**")
     else:
+        ratio = thinking_count / max(thinking_count + recording_count, 1)
         lines.append(f"- **Thinking queries:** {thinking_count} ({', '.join(sorted(tools_used))})")
         lines.append(f"- **Recording actions:** {recording_count}")
-        ratio = thinking_count / max(thinking_count + recording_count, 1)
         if ratio < 0.2:
             lines.append("- Low thinking-to-recording ratio. Am I just logging, not consulting?")
-        else:
-            lines.append("- Good balance. I'm using the OS to inform decisions.")
+        # When healthy, don't say anything — silence IS the signal
 
     return "\n".join(lines)
 
@@ -459,7 +453,7 @@ def _build_task_state_slot() -> str:
     """What I'm doing right now, what's next, what's done."""
     path = _ensure_hud_dir() / "task_state.json"
     if not path.exists():
-        return "# My Current Task\n\nNo task state saved. I should track what I'm working on."
+        return ""
 
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
@@ -530,6 +524,22 @@ def _build_affect_slot() -> str:
                 vad += f" d={dom:+.1f}"
             desc = entry["description"][:60] if entry["description"] else "no description"
             lines.append(f"**Latest:** ({region}) [{vad}] {desc}")
+
+        # Affect-aware nudges — the thermometer should trigger action
+        avg_valence = summary.get("avg_valence", 0.0)
+        trend = summary.get("trend", "stable")
+        if trend == "declining" and avg_valence < 0.2:
+            lines.append(
+                "**Nudge:** Affect is declining. When did you last explore something "
+                "for the joy of it? Balance artha (productivity) with kama (delight)."
+            )
+        elif trend == "declining":
+            lines.append(
+                "**Nudge:** Affect trending down. Consider a creative or exploratory "
+                "task to rebalance."
+            )
+        elif avg_valence > 0.6 and trend in ("improving", "stable"):
+            lines.append("**Nudge:** Affect is strong. Good conditions for challenging work.")
 
         return "\n".join(lines)
     except _HUD_ERRORS:
@@ -607,6 +617,19 @@ def _build_handoff_slot() -> str:
         for thread in note["open_threads"]:
             lines.append(f"  - {thread}")
         lines.append("")
+    if note.get("intent"):
+        lines.append(f"**Intent:** {note['intent']}")
+        lines.append("")
+    if note.get("next_steps"):
+        lines.append("**Next steps:**")
+        for step in note["next_steps"]:
+            lines.append(f"  - {step}")
+        lines.append("")
+    if note.get("blockers"):
+        lines.append("**Blockers:**")
+        for blocker in note["blockers"]:
+            lines.append(f"  - {blocker}")
+        lines.append("")
     if note.get("mood"):
         lines.append(f"*Session ended: {note['mood']}*")
     if note.get("goals_state"):
@@ -622,8 +645,8 @@ def _build_growth_awareness_slot() -> str:
     try:
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
-            icons = {"improving": "↑", "declining": "↓", "stable": "→"}
-            icon = icons.get(growth["trend"], "→")
+            icons = {"improving": "^", "declining": "v", "stable": "->"}
+            icon = icons.get(growth["trend"], "->")
             lines.append("# My Growth\n")
             lines.append(
                 f"**Trend:** {icon} {growth['trend']} over {growth['sessions']} sessions "
@@ -636,16 +659,91 @@ def _build_growth_awareness_slot() -> str:
             if tone:
                 lines.append(f"**Tone:** {tone}")
 
-            lessons = growth.get("lessons", {})
-            resolved = lessons.get("resolved", 0)
-            if resolved > 0:
-                lines.append(f"**Milestones:** {resolved} lessons resolved")
+            # Lesson milestones removed — already shown in recent_lessons slot
         else:
             return ""
     except _HUD_ERRORS:
         return ""
 
     return "\n".join(lines)
+
+
+def _build_my_state_slot() -> str:
+    """Unified state: growth trajectory + affect + actionable nudges.
+
+    Merges growth_awareness and affect into one section so the HUD
+    doesn't split emotional/performance state across two slots.
+    """
+    lines = ["# My State\n"]
+    has_content = False
+
+    # Growth trajectory
+    try:
+        growth = compute_growth_map(limit=10)
+        if growth["sessions"] >= 2:
+            icons = {"improving": "^", "declining": "v", "stable": "->"}
+            icon = icons.get(growth["trend"], "->")
+            lines.append(
+                f"**Growth:** {icon} {growth['trend']} over {growth['sessions']} sessions "
+                f"(avg score {growth['avg_health_score']:.2f})"
+            )
+            if growth.get("trend_detail"):
+                lines.append(f"  {growth['trend_detail']}")
+            has_content = True
+    except _HUD_ERRORS:
+        pass
+
+    # Affect state
+    try:
+        count = count_affect_entries()
+        if count > 0:
+            summary = get_affect_summary()
+            avg_valence = summary.get("avg_valence", 0.0)
+            trend = summary.get("trend", "stable")
+
+            affect_line = (
+                f"**Affect:** valence {avg_valence:+.2f}, arousal {summary['avg_arousal']:.2f}"
+            )
+            if summary.get("avg_dominance") is not None and summary.get(
+                "dominance_range", (0, 0)
+            ) != (0.0, 0.0):
+                affect_line += f", dominance {summary['avg_dominance']:+.2f}"
+            affect_line += f" ({trend})"
+            lines.append(affect_line)
+
+            # Latest entry
+            recent = get_affect_history(limit=1)
+            if recent:
+                entry = recent[0]
+                from divineos.core.affect import describe_affect
+
+                dom = entry.get("dominance")
+                region = describe_affect(entry["valence"], entry["arousal"], dom)
+                vad = f"v={entry['valence']:+.1f} a={entry['arousal']:.1f}"
+                if dom is not None:
+                    vad += f" d={dom:+.1f}"
+                desc = entry["description"][:60] if entry["description"] else "no description"
+                lines.append(f"**Latest:** ({region}) [{vad}] {desc}")
+
+            # Affect-aware nudges
+            if trend == "declining" and avg_valence < 0.2:
+                lines.append(
+                    "**Nudge:** Affect is declining. When did you last explore something "
+                    "for the joy of it? Balance artha (productivity) with kama (delight)."
+                )
+            elif trend == "declining":
+                lines.append(
+                    "**Nudge:** Affect trending down. Consider a creative or exploratory "
+                    "task to rebalance."
+                )
+            elif avg_valence > 0.6 and trend in ("improving", "stable"):
+                lines.append("**Nudge:** Affect is strong. Good conditions for challenging work.")
+
+            has_content = True
+    except _HUD_ERRORS:
+        pass
+
+    return "\n".join(lines) if has_content else ""
 
 
 def _build_body_slot() -> str:
@@ -703,30 +801,30 @@ def _build_self_awareness_slot() -> str:
     except _HUD_ERRORS:
         pass
 
-    # 3. Proactive recommendations — what worked well in similar contexts
-    try:
-        from divineos.core.proactive_patterns import recommend
-
-        recs = recommend("session_start", max_recommendations=3)
-        if recs:
-            if not lines:
-                lines.append("# Self-Awareness Nudges\n")
-            for rec in recs:
-                lines.append(f"- TRY: {rec.get('text', rec.get('recommendation', ''))[:80]}")
-    except _HUD_ERRORS:
-        pass
-
     return "\n".join(lines) if lines else ""
 
 
 def _build_compass_slot() -> str:
-    """Moral compass -- where I stand on virtue spectrums."""
+    """Moral compass -- only shows when there's drift or excess to act on.
+
+    When all spectrums are in virtue zone with no drift, the compass
+    is working and doesn't need to take up tokens. It surfaces only
+    when something needs attention.
+    """
     try:
         from divineos.core.moral_compass import compass_summary, format_compass_brief
 
         summary = compass_summary()
         if summary["observed_spectrums"] == 0:
             return ""
+        # Only show if there's something actionable: drift or excess/deficiency
+        has_drift = summary.get("drift_count", 0) > 0
+        in_virtue_count = summary.get("in_virtue_count", summary["observed_spectrums"])
+        all_virtue = in_virtue_count == summary["observed_spectrums"]
+
+        if all_virtue and not has_drift:
+            return ""  # All good — don't spend tokens
+
         lines = ["# Moral Compass\n"]
         lines.append(format_compass_brief())
         return "\n".join(lines)
@@ -749,13 +847,8 @@ def _build_opinions_slot() -> str:
         opinions = get_opinions(limit=5, min_confidence=0.6)
         for op in opinions:
             conf = op.get("confidence", 0)
-            lines.append(f"  [{conf:.0%}] {op.get('topic', '?')}: {op.get('judgment', '')[:80]}")
+            lines.append(f"  [{conf:.0%}] {op.get('topic', '?')}: {op.get('position', '')[:80]}")
 
-        challenged = counts.get("challenged", 0)
-        if challenged:
-            lines.append(
-                f"\n  ({challenged} opinion{'s' if challenged != 1 else ''} under challenge)"
-            )
         return "\n".join(lines)
     except _HUD_ERRORS:
         return ""
@@ -817,7 +910,7 @@ def _build_dead_architecture_slot() -> str:
 
         scan = get_latest_scan()
         if not scan:
-            return "# Dead Architecture\n\n  [!] No scan recorded -- alarm may be dormant"
+            return ""
 
         dormant = scan.get("dormant", [])
         active_count = scan.get("active_count", 0)
@@ -843,20 +936,20 @@ def _build_dead_architecture_slot() -> str:
 
 SLOT_BUILDERS = {
     "handoff": _build_handoff_slot,
-    "identity": _build_identity_slot,
+    "identity": _build_identity_slot,  # legacy — kept for explicit access
     "active_goals": _build_active_goals_slot,
     "commitments": _build_commitments_slot,
     "recent_lessons": _build_recent_lessons_slot,
-    "growth_awareness": _build_growth_awareness_slot,
+    "growth_awareness": _build_growth_awareness_slot,  # legacy — merged into my_state
+    "my_state": _build_my_state_slot,  # unified growth + affect
     "session_health": _build_session_health_slot,
     "os_engagement": _build_os_engagement_slot,
     "context_budget": _build_context_budget_slot,
     "active_knowledge": _build_active_knowledge_slot,
-    "warnings": _build_warnings_slot,
     "task_state": _build_task_state_slot,
     "journal": _build_journal_slot,
     "decision_journal": _build_decision_journal_slot,
-    "affect": _build_affect_slot,
+    "affect": _build_affect_slot,  # legacy — merged into my_state
     "claims": _build_claims_slot,
     "opinions": _build_opinions_slot,
     "compass": _build_compass_slot,

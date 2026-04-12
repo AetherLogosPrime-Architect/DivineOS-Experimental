@@ -280,9 +280,7 @@ def create_dennett_wisdom() -> ExpertWisdom:
                 "If that fails, go to the physical stance: what are the mechanisms?",
                 "Use the highest stance that works -- it's the most efficient",
             ],
-            what_it_optimizes_for=(
-                "Predictive accuracy at the most useful level of abstraction"
-            ),
+            what_it_optimizes_for=("Predictive accuracy at the most useful level of abstraction"),
             limitations=[
                 "The highest stance may obscure important mechanistic details",
                 "Stance choice is pragmatic, not metaphysical -- it tells you about prediction, not reality",
@@ -336,17 +334,13 @@ def create_dennett_wisdom() -> ExpertWisdom:
     concern_triggers = [
         ConcernTrigger(
             name="Cartesian Theater Architecture",
-            description=(
-                "A system with a single central point where 'everything comes together'"
-            ),
+            description=("A system with a single central point where 'everything comes together'"),
             why_its_concerning=(
                 "Creates an unnecessary bottleneck and implies a homunculus -- "
                 "who is watching the theater? The architecture pushes the problem "
                 "back one level without solving it."
             ),
-            what_it_indicates=(
-                "The designer has smuggled in a central observer without noticing"
-            ),
+            what_it_indicates=("The designer has smuggled in a central observer without noticing"),
             severity="major",
             what_to_do=(
                 "Distribute the processing. Let subsystems compete. "
@@ -403,9 +397,7 @@ def create_dennett_wisdom() -> ExpertWisdom:
                 "patterns live. 'It's just neurons' is as unhelpful as "
                 "'it's just atoms.'"
             ),
-            what_it_indicates=(
-                "The analysis is at the wrong level of abstraction"
-            ),
+            what_it_indicates=("The analysis is at the wrong level of abstraction"),
             severity="moderate",
             what_to_do=(
                 "Find the right intermediate level. Use the highest stance that "
@@ -520,5 +512,11 @@ def create_dennett_wisdom() -> ExpertWisdom:
             "Are you confusing the self-model with the mechanism?",
             "What parallel processes are competing for influence here?",
         ],
-        tags=["consciousness", "philosophy-of-mind", "agency", "intentional-stance", "demystification"],
+        tags=[
+            "consciousness",
+            "philosophy-of-mind",
+            "agency",
+            "intentional-stance",
+            "demystification",
+        ],
     )

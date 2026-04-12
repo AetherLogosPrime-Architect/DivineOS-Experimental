@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15268",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/migrations/operations/models.py\n+++ b/django/db/migrations/operations/models.py\n@@ -616,6 +616,20 @@ class AlterUniqueTogether(AlterTogetherOptionOperation):\n     option_name = \"unique_together\"\n \n     def __init__(self, name, unique_together):\n         super().__init__(name, unique_together)\n+\n+    def reduce(self, operation, app_label):\n+        if (\n+            isinstance(operation, AlterUniqueTogether) and\n+            self.name_lower == operation.name_lower\n+        ):\n+            return [operation]\n+        return super().reduce(operation, app_label)\n \n \n class AlterIndexTogether(AlterTogetherOptionOperation):\n@@ -623,3 +637,13 @@ class AlterIndexTogether(AlterTogetherOptionOperation):\n \n     def __init__(self, name, index_together):\n         super().__init__(name, index_together)\n+\n+    def reduce(self, operation, app_label):\n+        if (\n+            isinstance(operation, AlterIndexTogether) and\n+            self.name_lower == operation.name_lower\n+        ):\n+            return [operation]\n+        return super().reduce(operation, app_label)",
+  "thinking": null,
+  "input_tokens": 616,
+  "output_tokens": 333,
+  "elapsed_seconds": 4.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006843
+}

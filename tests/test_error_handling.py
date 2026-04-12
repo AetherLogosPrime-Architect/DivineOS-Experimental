@@ -11,24 +11,25 @@ Tests cover:
 - Cleanup on exit errors
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from divineos.core.enforcement import (
-    setup_cli_enforcement,
     capture_user_input,
     handle_cli_error,
+    setup_cli_enforcement,
 )
+from divineos.core.loop_prevention import mark_internal_operation
 from divineos.core.session_manager import (
-    initialize_session,
-    end_session,
-    clear_session,
+    _clear_session_file,
     _read_session_file,
     _write_session_file,
-    _clear_session_file,
+    clear_session,
+    end_session,
+    initialize_session,
 )
 from divineos.core.tool_wrapper import wrap_tool_execution
-from divineos.core.loop_prevention import mark_internal_operation
 
 
 class TestEnforcementErrorHandling:
@@ -102,7 +103,8 @@ class TestEnforcementErrorHandling:
         error = RuntimeError("Test error")
 
         # Should not raise
-        handle_cli_error(error)
+        result = handle_cli_error(error)
+        assert result is None
 
 
 class TestSessionManagerErrorHandling:
@@ -248,8 +250,8 @@ class TestSessionManagerErrorHandling:
             mock_clear.side_effect = OSError("File clear failed")
 
             with patch("os.environ", {"DIVINEOS_SESSION_ID": "test-id"}):
-                # Should not raise
-                clear_session()
+                result = clear_session()
+                assert result is None
 
 
 class TestToolWrapperErrorHandling:

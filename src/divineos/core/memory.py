@@ -15,7 +15,7 @@ The knowledge store is the archive. Personal memory is what matters.
 import sqlite3
 import time
 
-from divineos.core.ledger import get_connection, compute_hash
+from divineos.core.ledger import compute_hash, get_connection
 
 # ─── Core Memory Slots ───────────────────────────────────────────────
 

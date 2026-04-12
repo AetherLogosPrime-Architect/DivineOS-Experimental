@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14493",
+  "condition": "enhanced",
+  "model": "claude-opus-4-6",
+  "patch": "--- a/django/contrib/staticfiles/storage.py\n+++ b/django/contrib/staticfiles/storage.py\n@@ -243,6 +243,7 @@ class HashedFilesMixin:\n         # ...thenass a second pass.\n         hashed_files = {}\n         adjustable_paths = [path for path in paths if matches_patterns(path, self._patterns)]\n+        substitutions = False\n         for i in range(self.max_post_process_passes):\n             substitutions = False\n             for name, hashed_name, processed, subst in self._post_process(paths, adjustable_paths, hashed_files):",
+  "thinking": "The bug is clear: in `django/contrib/staticfiles/storage.py`, the variable `substitutions` is referenced after a `for` loop that might not execute (when `max_post_process_passes = 0`), causing an `UnboundLocalError`.\n\nThe fix is to initialize `substitutions` before the loop.\n\nLet me look at the relevant code around line 246-257:\n\n```python\nfor i in range(self.max_post_process_passes):\n    substitutions = False\n    for name, hashed_name, processed, subst in self._post_process(paths, adjustable_paths, hashed_files):\n\n\n```\n\nI can see the issue now\u2014`substitutions` gets set to `False` inside the outer loop, then updated based on the inner loop's results. After both loops finish, the code checks `if substitutions:` to determine whether to yield an error or break. If `max_post_process_passes` is 0, the outer loop never runs, so `substitutions` is never defined. The solution is to initialize `substitutions = False` before the outer loop starts, so it's always available for the final check.",
+  "input_tokens": 2189,
+  "output_tokens": 399,
+  "elapsed_seconds": 9.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.06276000000000001
+}

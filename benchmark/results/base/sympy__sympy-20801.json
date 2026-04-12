@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-20801",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the issue, the problem is that `S(0.0) == S.false` returns `True` while `S.false == S(0.0)` returns `False`, indicating an asymmetric equality comparison. Based on the expected behavior with `S(0)` (which returns `False` in both directions), the correct behavior should be that `S(0.0) == S.false` returns `False`.\n\nThe issue is likely in the `__eq__` method of the `Float` class, where it's treating `0.0` as falsy and comparing it to `S.false` incorrectly.\n\n--- a/sympy/core/numbers.py\n+++ b/sympy/core/numbers.py\n@@ -1377,6 +1377,8 @@ class Float(Number):\n         if other is S.NaN:\n             return False\n         if other.is_NumberSymbol:\n+            if other is S.false:\n+                return False\n             if other is S.Infinity or other is S.NegativeInfinity:\n                 return False\n         if other.is_number and other.is_real:",
+  "thinking": null,
+  "input_tokens": 367,
+  "output_tokens": 270,
+  "elapsed_seconds": 5.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.005150999999999999
+}

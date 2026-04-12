@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16100",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/contrib/admin/views/main.py\n+++ b/django/contrib/admin/views/main.py\n@@ -7,6 +7,7 @@ from django.contrib.admin import helpers\n from django.contrib.admin.utils import get_deleted_objects, model_ngettext\n from django.core.exceptions import FieldDoesNotExist, SuspiciousOperation\n from django.core.paginator import InvalidPage\n+from django.db import transaction\n from django.forms.formsets import all_valid\n from django.http import HttpResponseRedirect\n from django.template.response import SimpleTemplateResponse\n@@ -228,6 +229,7 @@ class ChangeList:\n         if self.list_editable and self.result_count:\n             return True\n \n+    @transaction.atomic\n     def get_edited_object_pks(self):\n         \"\"\"Return a list of the primary keys of the edited objects.\"\"\"\n         return [",
+  "thinking": null,
+  "input_tokens": 311,
+  "output_tokens": 239,
+  "elapsed_seconds": 4.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004518
+}

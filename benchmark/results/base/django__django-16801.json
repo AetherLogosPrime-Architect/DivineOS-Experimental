@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16801",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/fields/files.py\n+++ b/django/db/models/fields/files.py\n@@ -374,7 +374,8 @@ class ImageField(FileField):\n \n     def contribute_to_class(self, cls, name, **kwargs):\n         super().contribute_to_class(cls, name, **kwargs)\n-        signals.post_init.connect(self.update_dimension_fields, sender=cls)\n+        if self.width_field or self.height_field:\n+            signals.post_init.connect(self.update_dimension_fields, sender=cls)\n \n     def update_dimension_fields(self, instance, force=False, *args, **kwargs):\n         \"\"\"",
+  "thinking": null,
+  "input_tokens": 357,
+  "output_tokens": 182,
+  "elapsed_seconds": 3.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0038009999999999997
+}

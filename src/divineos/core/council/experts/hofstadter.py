@@ -265,9 +265,7 @@ def create_hofstadter_wisdom() -> ExpertWisdom:
                 "Does the new analogy illuminate what the old one obscured?",
                 "Iterate: every analogy breaks somewhere, keep refining",
             ],
-            what_it_optimizes_for=(
-                "Deep understanding through structural mapping between domains"
-            ),
+            what_it_optimizes_for=("Deep understanding through structural mapping between domains"),
             limitations=[
                 "No analogy is perfect -- all break somewhere",
                 "Easy to mistake surface similarity for deep structural similarity",
@@ -308,9 +306,7 @@ def create_hofstadter_wisdom() -> ExpertWisdom:
                 "Is this loop a strange loop (level-crossing) or simple feedback?",
                 "What does the loop create that would not exist without it?",
             ],
-            what_it_optimizes_for=(
-                "Understanding emergence as a structural phenomenon, not magic"
-            ),
+            what_it_optimizes_for=("Understanding emergence as a structural phenomenon, not magic"),
         ),
     ]
 

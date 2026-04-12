@@ -1,0 +1,12 @@
+{
+  "instance_id": "psf__requests-2931",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/requests/models.py\n+++ b/requests/models.py\n@@ -450,7 +450,10 @@ class PreparedRequest(RequestEncodingMixin):\n             body = body.read()\n \n         if isinstance(body, basestring):\n-            body = to_native_string(body, 'utf8')\n+            if isinstance(body, bytes):\n+                # Don't convert bytes to string\n+                pass\n+            else:\n+                body = to_native_string(body, 'utf8')\n \n         self.body = body",
+  "thinking": null,
+  "input_tokens": 279,
+  "output_tokens": 142,
+  "elapsed_seconds": 3.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.002967
+}

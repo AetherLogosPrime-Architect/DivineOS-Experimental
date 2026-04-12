@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch targets the correct issue and attempts to accumulate row counts from update() calls. However, it appears to be based on a different version of the codebase with significant structural differences, making it incompatible with the expected code structure. The patch also doesn't handle the early return case when objs is empty.",
+  "key_difference": "The candidate patch appears to be based on a different version of Django with a completely different code structure for bulk_update(), lacking the proper batching logic, transaction handling, and the early return case for empty objects that the gold patch addresses.",
+  "instance_id": "django__django-14559",
+  "label": "v1_old",
+  "judge_cost": 0.006087
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-23476",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/lib/matplotlib/figure.py\n+++ b/lib/matplotlib/figure.py\n@@ -2908,6 +2908,8 @@ class Figure(FigureBase):\n         # re-initialise some of the unstored state information\n         FigureCanvasBase(self)  # Set self.canvas.\n \n+        # Store original dpi before creating manager (which may modify it)\n+        original_dpi = self.dpi\n         mgr = plt._backend_mod.new_figure_manager_given_figure(num, self)\n         if mgr is not None:\n             self.canvas.manager = mgr\n@@ -2915,6 +2917,8 @@ class Figure(FigureBase):\n         else:\n             self.canvas.manager = None\n \n+        # Restore original dpi in case it was modified by the backend\n+        self.dpi = original_dpi\n         if restore_to_pylab:\n             plt.figure(self.number)\n ",
+  "thinking": null,
+  "input_tokens": 1511,
+  "output_tokens": 248,
+  "elapsed_seconds": 5.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008253
+}

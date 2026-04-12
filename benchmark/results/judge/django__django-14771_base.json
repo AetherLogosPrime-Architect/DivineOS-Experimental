@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds -X options to the child process arguments in the autoreloader, which will preserve Python -X flags like -X utf8 when Django restarts the server.",
+  "key_difference": "The candidate uses hasattr() check and string formatting while the gold patch uses implementation name check and f-strings, but both approaches correctly handle -X options and achieve the same result.",
+  "instance_id": "django__django-14771",
+  "condition": "base",
+  "judge_tokens": 1376,
+  "judge_cost": 0.005892
+}

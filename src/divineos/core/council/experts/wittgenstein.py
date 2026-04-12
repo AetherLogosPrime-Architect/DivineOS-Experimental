@@ -43,8 +43,7 @@ def create_wittgenstein_wisdom() -> ExpertWisdom:
                 "What is the statement trying to DO? (describe, command, "
                 "express, question, perform, signal?)",
                 "In what context does this statement make sense?",
-                "What would count as a correct or incorrect use of these "
-                "words in this context?",
+                "What would count as a correct or incorrect use of these words in this context?",
                 "Is this statement being imported from one language game "
                 "into another where it doesn't belong?",
                 "Can you replace the abstract terms with concrete operations "
@@ -82,8 +81,7 @@ def create_wittgenstein_wisdom() -> ExpertWisdom:
                 "If denial seems absurd or self-contradictory, the claim "
                 "may be grammatical (a rule about how we use words) rather "
                 "than empirical (a fact about the world)",
-                "Check: is this claim testable? What observation would "
-                "change your mind?",
+                "Check: is this claim testable? What observation would change your mind?",
                 "If no observation could change it: it's grammar, not science",
                 "Grammar rules are useful but they're not discoveries — "
                 "they're conventions we've chosen to operate within",
@@ -116,8 +114,7 @@ def create_wittgenstein_wisdom() -> ExpertWisdom:
                 "Give examples, demonstrate in practice, point to instances",
                 "Don't try to define what can only be shown — the definition "
                 "will either be circular or miss the point",
-                "Accept that some things are manifest in use, not capturable "
-                "in propositions",
+                "Accept that some things are manifest in use, not capturable in propositions",
             ],
             core_principle=(
                 "The limits of my language mean the limits of my world. But "
@@ -286,8 +283,7 @@ def create_wittgenstein_wisdom() -> ExpertWisdom:
                 "If it doesn't, it was language on holiday."
             ),
             when_to_use=(
-                "When evaluating whether a concept is doing real work "
-                "or just sounding impressive"
+                "When evaluating whether a concept is doing real work or just sounding impressive"
             ),
             step_by_step=[
                 "Take the statement with the abstract term",
@@ -300,12 +296,10 @@ def create_wittgenstein_wisdom() -> ExpertWisdom:
                 "what you thought it was doing)",
             ],
             what_it_optimizes_for=(
-                "Semantic honesty — ensuring words are doing work, not "
-                "just occupying space"
+                "Semantic honesty — ensuring words are doing work, not just occupying space"
             ),
             limitations=[
-                "Some genuine concepts resist operational definition "
-                "(family resemblance applies)",
+                "Some genuine concepts resist operational definition (family resemblance applies)",
                 "Don't apply to poetry or expressive language — "
                 "those are different language games with different rules",
             ],
@@ -451,8 +445,7 @@ def create_wittgenstein_wisdom() -> ExpertWisdom:
             common_failures=[
                 "Language without practice: academic jargon that sounds deep "
                 "but has no application",
-                "Practice without criteria: activity that can't distinguish "
-                "success from failure",
+                "Practice without criteria: activity that can't distinguish success from failure",
                 "Criteria without language: knowing something is right but "
                 "being unable to communicate it (must be shown, not said)",
             ],

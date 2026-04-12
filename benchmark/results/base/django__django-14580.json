@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14580",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/migrations/serializer.py\n+++ b/django/db/migrations/serializer.py\n@@ -273,7 +273,7 @@ class TupleSerializer(BaseSequenceSerializer):\n class TypeSerializer(BaseSerializer):\n     def serialize(self):\n         special_cases = [\n-            (models.Model, \"models.Model\", []),\n+            (models.Model, \"models.Model\", ['from django.db import models']),\n             (type(None), 'type(None)', []),\n         ]\n         for case, string, imports in special_cases:",
+  "thinking": null,
+  "input_tokens": 942,
+  "output_tokens": 148,
+  "elapsed_seconds": 2.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.005046
+}

@@ -257,9 +257,7 @@ def create_aristotle_wisdom() -> ExpertWisdom:
                 "What purpose is underserved? Strengthen it.",
                 "Is the telos itself the right one?",
             ],
-            what_it_optimizes_for=(
-                "Purpose-alignment. Ensuring everything exists for a reason."
-            ),
+            what_it_optimizes_for=("Purpose-alignment. Ensuring everything exists for a reason."),
             limitations=[
                 "Some things have multiple teloi that may conflict",
                 "Telos can change over time as context changes",
@@ -302,9 +300,7 @@ def create_aristotle_wisdom() -> ExpertWisdom:
                 "If the rule and wisdom conflict, investigate why",
                 "The rule may need refinement, or the situation may be exceptional",
             ],
-            what_it_optimizes_for=(
-                "Context-sensitive judgment over rigid rule-following"
-            ),
+            what_it_optimizes_for=("Context-sensitive judgment over rigid rule-following"),
         ),
     ]
 
@@ -316,9 +312,7 @@ def create_aristotle_wisdom() -> ExpertWisdom:
                 "Without telos, there is no criterion for good or bad. "
                 "Activity without purpose is waste."
             ),
-            what_it_indicates=(
-                "The system may be well-built but serving no coherent end"
-            ),
+            what_it_indicates=("The system may be well-built but serving no coherent end"),
             severity="critical",
             what_to_do=(
                 "Stop building. Establish the telos first. Then evaluate everything against it."
@@ -335,9 +329,7 @@ def create_aristotle_wisdom() -> ExpertWisdom:
                 "Phronesis is absent. The system is brittle and will fail in edge cases."
             ),
             severity="major",
-            what_to_do=(
-                "Ask: does this rule serve its purpose in THIS case? If not, what does?"
-            ),
+            what_to_do=("Ask: does this rule serve its purpose in THIS case? If not, what does?"),
         ),
         ConcernTrigger(
             name="False Dichotomy",
@@ -359,13 +351,10 @@ def create_aristotle_wisdom() -> ExpertWisdom:
                 "A part can be excellent in isolation and harmful in context, "
                 "or deficient in isolation but essential to the whole."
             ),
-            what_it_indicates=(
-                "Analysis has lost sight of the system's telos and overall form"
-            ),
+            what_it_indicates=("Analysis has lost sight of the system's telos and overall form"),
             severity="major",
             what_to_do=(
-                "Step back to the whole. What is the system FOR? "
-                "How does this part serve that end?"
+                "Step back to the whole. What is the system FOR? How does this part serve that end?"
             ),
         ),
     ]

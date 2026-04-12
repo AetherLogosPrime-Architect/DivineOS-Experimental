@@ -6,14 +6,14 @@ from divineos.clarity_enforcement.hooks import (
     ViolationEventType,
     ViolationHook,
     ViolationHookRegistry,
-    get_hook_registry,
-    register_violation_hook,
-    unregister_violation_hook,
-    trigger_violation_hook,
-    auto_explain_high_severity,
     alert_critical_severity,
+    auto_explain_high_severity,
+    get_hook_registry,
     log_violation_context,
     register_default_hooks,
+    register_violation_hook,
+    trigger_violation_hook,
+    unregister_violation_hook,
 )
 from divineos.clarity_enforcement.violation_detector import (
     ClarityViolation,
@@ -89,7 +89,8 @@ class TestViolationHook:
         )
 
         # Should not raise, just log error
-        hook.trigger(violation)
+        result = hook.trigger(violation)
+        assert result is None
 
 
 class TestViolationHookRegistry:
@@ -391,5 +392,5 @@ class TestRegisterDefaultHooks:
         )
 
         with patch("divineos.clarity_enforcement.hooks.logger"):
-            # Should not raise
-            registry.trigger(ViolationEventType.DETECTED, violation)
+            result = registry.trigger(ViolationEventType.DETECTED, violation)
+            assert result is None

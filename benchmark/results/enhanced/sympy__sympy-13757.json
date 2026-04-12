@@ -1,0 +1,6 @@
+{
+  "instance_id": "sympy__sympy-13757",
+  "condition": "enhanced",
+  "error": "Error code: 429 - {'type': 'error', 'error': {'type': 'rate_limit_error', 'message': \"This request would exceed your organization's rate limit of 30,000 input tokens per minute (org: 8683dfb5-4c00-4329-9fda-a90508a31c9c, model: claude-sonnet-4-20250514). For details, refer to: https://docs.claude.com/en/api/rate-limits. You can see the response headers for current usage. Please reduce the prompt length or the maximum tokens requested, or try again later. You may also contact sales at https://claude.com/contact-sales to discuss your options for a rate limit increase.\"}, 'request_id': 'req_011CZyjWBn7EQhQ7R6gxSVnN'}",
+  "elapsed_seconds": 6.0
+}

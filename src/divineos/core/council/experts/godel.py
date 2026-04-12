@@ -246,8 +246,7 @@ def create_godel_wisdom() -> ExpertWisdom:
                 "If merely hard: continue with more effort or better methods",
             ],
             what_it_optimizes_for=(
-                "Not wasting effort on impossible problems. Distinguishing "
-                "hard from impossible."
+                "Not wasting effort on impossible problems. Distinguishing hard from impossible."
             ),
             limitations=[
                 "Determining undecidability can itself be difficult",
@@ -355,8 +354,7 @@ def create_godel_wisdom() -> ExpertWisdom:
             name="Confusing Unprovable with False",
             description="Treating the inability to prove something as evidence it is false",
             why_its_concerning=(
-                "True but unprovable statements exist. Absence of proof is not "
-                "proof of absence."
+                "True but unprovable statements exist. Absence of proof is not proof of absence."
             ),
             what_it_indicates=(
                 "A conflation of truth and provability that leads to discarding "

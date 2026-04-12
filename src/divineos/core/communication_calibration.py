@@ -5,17 +5,16 @@ detail, how much jargon, and how many examples to include based on
 learned user preferences and demonstrated skill level.
 
 The calibration is evidence-based:
-  - User asks "what are shims?" → jargon_tolerance decreases
-  - User writes complex decorators → skill_high signal
-  - User says "too much detail" → verbosity decreases
-  - User asks "why?" → prefers_rationale increases
+  - User asks "what are shims?" -> jargon_tolerance decreases
+  - User writes complex decorators -> skill_high signal
+  - User says "too much detail" -> verbosity decreases
+  - User asks "why?" -> prefers_rationale increases
 
 Sanskrit anchor: samvada (dialogue, attuned conversation).
 """
 
 import sqlite3
 from dataclasses import dataclass
-
 
 _CC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError, ImportError)
 
@@ -96,7 +95,7 @@ def calibrate(user_name: str = "default") -> CalibrationGuidance:
     if include_rationale:
         notes.append("Include the reasoning behind decisions.")
 
-    # Low confidence → hedge toward more explanation
+    # Low confidence -> hedge toward more explanation
     if skill_conf < 0.4:
         notes.append("Skill assessment uncertain — err toward more context.")
 

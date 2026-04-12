@@ -209,12 +209,17 @@ def compute_growth_map(limit: int = 20) -> dict[str, Any]:
         score_delta = newer_score - older_score
         corr_delta = newer_corr - older_corr
 
-        if score_delta > 0.05 or corr_delta < -0.5:
+        # Improving requires at least one metric improving AND neither declining
+        score_up = score_delta > 0.05
+        corr_down = corr_delta < -0.5
+        score_down = score_delta < -0.05
+        corr_up = corr_delta > 0.5
+        if (score_up or corr_down) and not (score_down or corr_up):
             trend_direction = "improving"
             trend_detail = (
-                f"Health score up {score_delta:+.2f}, corrections {corr_delta:+.1f} per session."
+                f"Health score {score_delta:+.2f}, corrections {corr_delta:+.1f} per session."
             )
-        elif score_delta < -0.05 or corr_delta > 0.5:
+        elif (score_down or corr_up) and not (score_up or corr_down):
             trend_direction = "declining"
             trend_detail = (
                 f"Health score {score_delta:+.2f}, corrections {corr_delta:+.1f} per session."

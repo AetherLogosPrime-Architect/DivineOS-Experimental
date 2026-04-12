@@ -13,10 +13,9 @@ def register(cli: click.Group) -> None:
 
         click.echo(format_compass_reading())
 
-        # Mark OS engagement
-        from divineos.core.hud_handoff import mark_engaged
+        from divineos.cli._helpers import _log_os_query
 
-        mark_engaged()
+        _log_os_query("compass", "reading")
 
     @cli.group("compass-ops", invoke_without_command=True)
     @click.pass_context
@@ -79,9 +78,9 @@ def register(cli: click.Group) -> None:
         )
         click.secho(f"    {evidence}", fg="bright_black")
 
-        from divineos.core.hud_handoff import mark_engaged
+        from divineos.cli._helpers import _log_os_query
 
-        mark_engaged()
+        _log_os_query("compass", f"observe {spectrum}")
 
     @compass_group.command("history")
     @click.option("--spectrum", "-s", default=None, help="Filter by spectrum name")
@@ -99,7 +98,7 @@ def register(cli: click.Group) -> None:
             click.secho("[~] No compass observations yet.", fg="bright_black")
             return
 
-        title = f"Compass History — {spectrum}" if spectrum else "Compass History — All"
+        title = f"Compass History -- {spectrum}" if spectrum else "Compass History -- All"
         click.secho(f"\n=== {title} ===\n", fg="cyan", bold=True)
 
         for obs in observations:
@@ -116,7 +115,7 @@ def register(cli: click.Group) -> None:
                 color = "green"
 
             click.secho(
-                f"  [{obs['spectrum']}] {pos:+.2f} ({zone}) — {obs['source']}",
+                f"  [{obs['spectrum']}] {pos:+.2f} ({zone}) -- {obs['source']}",
                 fg=color,
             )
             click.secho(f"    {obs['evidence'][:100]}", fg="bright_black")

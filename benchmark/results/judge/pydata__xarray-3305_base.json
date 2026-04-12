@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly modifies the Variable.quantile method to handle keep_attrs parameter by changing the default from False to None, using _get_keep_attrs for default behavior, and properly copying attributes when keep_attrs is True.",
+  "key_difference": "The candidate patch only modifies the Variable class while the gold patch also updates the Dataset.quantile method to pass keep_attrs to Variable.quantile. The candidate also adds unnecessary imports/functionality with _get_keep_attrs and includes incomplete docstring changes, making it less minimal than the gold patch.",
+  "instance_id": "pydata__xarray-3305",
+  "condition": "base",
+  "judge_tokens": 2283,
+  "judge_cost": 0.009045000000000001
+}

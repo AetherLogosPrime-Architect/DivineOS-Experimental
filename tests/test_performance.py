@@ -14,16 +14,18 @@ Property 10: Performance latency
 """
 
 import os
-import pytest
 import time
 from datetime import datetime, timezone
 
-from hypothesis_compat import HAS_HYPOTHESIS, given, st, settings, HealthCheck
+import pytest
+from hypothesis_compat import HAS_HYPOTHESIS, HealthCheck, given, settings, st
+
+from divineos.agent_integration.memory_actions import get_memory_monitor
 from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
 from divineos.clarity_enforcement.enforcer import ClarityEnforcer
 from divineos.core.ledger import Ledger
-from divineos.core.session_manager import initialize_session, end_session as end_session_manager
-from divineos.agent_integration.memory_actions import get_memory_monitor
+from divineos.core.session_manager import end_session as end_session_manager
+from divineos.core.session_manager import initialize_session
 from divineos.supersession.contradiction_detector import ContradictionDetector
 
 # CI environments and loaded machines need slack on timing assertions.

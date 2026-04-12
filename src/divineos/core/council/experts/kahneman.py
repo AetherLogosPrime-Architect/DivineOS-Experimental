@@ -307,9 +307,7 @@ def create_kahneman_wisdom() -> ExpertWisdom:
                 "Update the plan to address the most likely failure modes",
                 "This is not pessimism — it's rigorous risk assessment",
             ],
-            what_it_optimizes_for=(
-                "Surfacing risks that optimism and groupthink would suppress"
-            ),
+            what_it_optimizes_for=("Surfacing risks that optimism and groupthink would suppress"),
             limitations=[
                 "Can be depressing if not framed as constructive",
                 "Doesn't help if the team ignores the results",
@@ -349,8 +347,7 @@ def create_kahneman_wisdom() -> ExpertWisdom:
             ),
             severity="major",
             what_to_do=(
-                "Find the base rate. Start there. Adjust only for "
-                "genuinely diagnostic evidence."
+                "Find the base rate. Start there. Adjust only for genuinely diagnostic evidence."
             ),
         ),
         ConcernTrigger(

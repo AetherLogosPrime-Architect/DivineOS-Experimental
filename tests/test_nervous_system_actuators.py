@@ -15,11 +15,11 @@ class TestThresholdHardwire:
 
     def test_penalized_reduces_confidence(self):
         """Penalty subtracts from base confidence."""
-        from divineos.core.knowledge.deep_extraction import deep_extract_knowledge
-
         # The _penalized helper is internal, but we can test via the parameter
         # existing on the function signature
         import inspect
+
+        from divineos.core.knowledge.deep_extraction import deep_extract_knowledge
 
         sig = inspect.signature(deep_extract_knowledge)
         assert "affect_confidence_penalty" in sig.parameters

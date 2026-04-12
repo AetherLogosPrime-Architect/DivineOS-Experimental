@@ -1,0 +1,12 @@
+{
+  "instance_id": "pydata__xarray-7229",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, the issue is in the `xr.where` function where the `keep_attrs` lambda was changed from `lambda attrs, context: attrs[1]` to `lambda attrs, context: getattr(x, \"attrs\", {})`. This change causes coordinate attributes to be overwritten by variable attributes.\n\nThe problem is that the new implementation always returns the attributes of `x` (the second parameter), but it should return `attrs[1]` which corresponds to the attributes at index 1 in the attrs list passed to the function.\n\nLet me find the relevant code and fix it:\n\n--- a/xarray/core/computation.py\n+++ b/xarray/core/computation.py\n@@ -1892,7 +1892,7 @@ def where(cond, x, y, keep_attrs=None):\n     if keep_attrs is True:\n         # keep the attributes of x, the second parameter, by default to\n         # be consistent with the `where` method of `DataArray` and `Dataset`\n-        keep_attrs = lambda attrs, context: getattr(x, \"attrs\", {})\n+        keep_attrs = lambda attrs, context: attrs[1]\n \n     if keep_attrs is False:\n         keep_attrs = lambda attrs, context: {}",
+  "thinking": null,
+  "input_tokens": 1654,
+  "output_tokens": 298,
+  "elapsed_seconds": 5.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.009432
+}

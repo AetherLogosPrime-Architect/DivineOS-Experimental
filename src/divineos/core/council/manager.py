@@ -26,6 +26,7 @@ from divineos.core.council.framework import ExpertWisdom
 # Problem categories — derived from SWE-bench failure analysis
 # ------------------------------------------------------------------
 
+
 @dataclass
 class ProblemCategory:
     """A category of problem with associated signal words and expert affinities."""
@@ -45,9 +46,17 @@ PROBLEM_CATEGORIES = [
         name="causal_chain",
         description="Bug where the root cause is distant from the symptom",
         signals=[
-            "wrong result", "incorrect output", "unexpected behavior",
-            "regression", "used to work", "broke after", "side effect",
-            "downstream", "cascading", "propagat", "chain",
+            "wrong result",
+            "incorrect output",
+            "unexpected behavior",
+            "regression",
+            "used to work",
+            "broke after",
+            "side effect",
+            "downstream",
+            "cascading",
+            "propagat",
+            "chain",
         ],
         core_experts=["Pearl", "Feynman"],
         affinity_tags=["causality", "first-principles", "systems-thinking"],
@@ -56,10 +65,23 @@ PROBLEM_CATEGORIES = [
         name="logic_error",
         description="Incorrect condition, wrong operator, flipped logic",
         signals=[
-            "wrong condition", "logic error", "should be", "instead of",
-            "off-by-one", "boundary", "edge case", "corner case",
-            "negative", "zero", "empty", "overflow", "underflow",
-            "inclusive", "exclusive", "less than", "greater than",
+            "wrong condition",
+            "logic error",
+            "should be",
+            "instead of",
+            "off-by-one",
+            "boundary",
+            "edge case",
+            "corner case",
+            "negative",
+            "zero",
+            "empty",
+            "overflow",
+            "underflow",
+            "inclusive",
+            "exclusive",
+            "less than",
+            "greater than",
         ],
         core_experts=["Knuth", "Dijkstra"],
         affinity_tags=["correctness", "boundaries", "formal-methods", "edge-cases"],
@@ -68,10 +90,22 @@ PROBLEM_CATEGORIES = [
         name="type_error",
         description="Wrong type, missing conversion, type mismatch",
         signals=[
-            "typeerror", "attributeerror", "type error", "cast",
-            "conversion", "isinstance", "type mismatch", "expected str",
-            "expected int", "none", "nonetype", "unicode", "encoding",
-            "bytes", "decode", "encode",
+            "typeerror",
+            "attributeerror",
+            "type error",
+            "cast",
+            "conversion",
+            "isinstance",
+            "type mismatch",
+            "expected str",
+            "expected int",
+            "none",
+            "nonetype",
+            "unicode",
+            "encoding",
+            "bytes",
+            "decode",
+            "encode",
         ],
         core_experts=["Dijkstra", "Knuth"],
         affinity_tags=["correctness", "specification", "formal-methods"],
@@ -80,10 +114,22 @@ PROBLEM_CATEGORIES = [
         name="api_misuse",
         description="Wrong function called, wrong arguments, wrong method",
         signals=[
-            "wrong function", "wrong method", "api", "signature",
-            "argument", "parameter", "deprecated", "override",
-            "inheritance", "subclass", "super", "mro", "dispatch",
-            "abstract", "interface", "protocol",
+            "wrong function",
+            "wrong method",
+            "api",
+            "signature",
+            "argument",
+            "parameter",
+            "deprecated",
+            "override",
+            "inheritance",
+            "subclass",
+            "super",
+            "mro",
+            "dispatch",
+            "abstract",
+            "interface",
+            "protocol",
         ],
         core_experts=["Holmes", "Polya"],
         affinity_tags=["investigation", "verification", "deduction"],
@@ -92,10 +138,24 @@ PROBLEM_CATEGORIES = [
         name="state_management",
         description="Stale state, missing cleanup, initialization order",
         signals=[
-            "state", "cleanup", "reset", "initialize", "init",
-            "restore", "persist", "stale", "leak", "cache",
-            "singleton", "global", "shared", "mutable", "fixture",
-            "setup", "teardown", "context manager",
+            "state",
+            "cleanup",
+            "reset",
+            "initialize",
+            "init",
+            "restore",
+            "persist",
+            "stale",
+            "leak",
+            "cache",
+            "singleton",
+            "global",
+            "shared",
+            "mutable",
+            "fixture",
+            "setup",
+            "teardown",
+            "context manager",
         ],
         core_experts=["Meadows", "Beer"],
         affinity_tags=["systems-thinking", "feedback-loops", "cybernetics"],
@@ -104,10 +164,26 @@ PROBLEM_CATEGORIES = [
         name="format_spec",
         description="Output format violation, field width, spec noncompliance",
         signals=[
-            "format", "width", "field", "column", "align", "pad",
-            "truncat", "spec", "rfc", "standard", "fits", "csv",
-            "json", "xml", "html", "render", "display", "print",
-            "output format", "string format",
+            "format",
+            "width",
+            "field",
+            "column",
+            "align",
+            "pad",
+            "truncat",
+            "spec",
+            "rfc",
+            "standard",
+            "fits",
+            "csv",
+            "json",
+            "xml",
+            "html",
+            "render",
+            "display",
+            "print",
+            "output format",
+            "string format",
         ],
         core_experts=["Knuth", "Polya"],
         affinity_tags=["specification", "correctness", "verification"],
@@ -116,9 +192,18 @@ PROBLEM_CATEGORIES = [
         name="concurrency",
         description="Race condition, deadlock, thread safety",
         signals=[
-            "thread", "race", "deadlock", "lock", "mutex",
-            "concurrent", "parallel", "async", "await", "coroutine",
-            "atomic", "synchron",
+            "thread",
+            "race",
+            "deadlock",
+            "lock",
+            "mutex",
+            "concurrent",
+            "parallel",
+            "async",
+            "await",
+            "coroutine",
+            "atomic",
+            "synchron",
         ],
         core_experts=["Dijkstra", "Schneier"],
         affinity_tags=["formal-methods", "correctness"],
@@ -127,9 +212,19 @@ PROBLEM_CATEGORIES = [
         name="security",
         description="Vulnerability, injection, auth bypass",
         signals=[
-            "security", "vulnerab", "inject", "xss", "csrf",
-            "auth", "permission", "privilege", "escap", "saniti",
-            "trust", "untrusted", "malicious",
+            "security",
+            "vulnerab",
+            "inject",
+            "xss",
+            "csrf",
+            "auth",
+            "permission",
+            "privilege",
+            "escap",
+            "saniti",
+            "trust",
+            "untrusted",
+            "malicious",
         ],
         core_experts=["Schneier", "Yudkowsky"],
         affinity_tags=["security", "adversarial-thinking", "threat-modeling"],
@@ -138,9 +233,18 @@ PROBLEM_CATEGORIES = [
         name="performance",
         description="Slow, memory, scaling issues",
         signals=[
-            "slow", "performance", "memory", "scaling",
-            "quadratic", "exponential", "timeout", "oom",
-            "optimize", "efficient", "bottleneck", "profile",
+            "slow",
+            "performance",
+            "memory",
+            "scaling",
+            "quadratic",
+            "exponential",
+            "timeout",
+            "oom",
+            "optimize",
+            "efficient",
+            "bottleneck",
+            "profile",
         ],
         core_experts=["Knuth", "Shannon"],
         affinity_tags=["information-theory", "correctness"],
@@ -149,29 +253,53 @@ PROBLEM_CATEGORIES = [
         name="design_flaw",
         description="Architectural issue, wrong abstraction, coupling",
         signals=[
-            "refactor", "architecture", "design", "coupling",
-            "cohesion", "abstraction", "pattern", "separation",
-            "responsibility", "interface", "module", "dependency",
-            "circular", "god class", "god object",
+            "refactor",
+            "architecture",
+            "design",
+            "coupling",
+            "cohesion",
+            "abstraction",
+            "pattern",
+            "separation",
+            "responsibility",
+            "interface",
+            "module",
+            "dependency",
+            "circular",
+            "god class",
+            "god object",
         ],
         core_experts=["Dijkstra", "Beer"],
         affinity_tags=[
-            "structured-programming", "viable-system-model",
-            "systems-thinking", "simplicity",
+            "structured-programming",
+            "viable-system-model",
+            "systems-thinking",
+            "simplicity",
         ],
     ),
     ProblemCategory(
         name="incomplete_fix",
         description="Patch that addresses part of the problem but not all",
         signals=[
-            "partial", "incomplete", "still fails", "another case",
-            "also broken", "missed", "forgot", "didn't handle",
-            "some cases", "sometimes", "intermittent",
+            "partial",
+            "incomplete",
+            "still fails",
+            "another case",
+            "also broken",
+            "missed",
+            "forgot",
+            "didn't handle",
+            "some cases",
+            "sometimes",
+            "intermittent",
         ],
         core_experts=["Polya", "Popper"],
         affinity_tags=[
-            "verification", "solution-check", "falsification",
-            "completeness", "adversarial",
+            "verification",
+            "solution-check",
+            "falsification",
+            "completeness",
+            "adversarial",
         ],
     ),
 ]
@@ -194,6 +322,7 @@ MAX_EXPERTS = 8
 # ------------------------------------------------------------------
 # Expert scoring
 # ------------------------------------------------------------------
+
 
 @dataclass
 class ExpertScore:
@@ -347,6 +476,7 @@ def select_experts(
 # Managed convene — the main API
 # ------------------------------------------------------------------
 
+
 @dataclass
 class ManagedCouncilResult:
     """Result of a managed council session.
@@ -375,14 +505,12 @@ class ManagedCouncilResult:
         """Human-readable summary of why these experts were chosen."""
         parts: list[str] = []
         parts.append(
-            f"Selected {len(self.selected_experts)} of "
-            f"{self.total_experts_available} experts"
+            f"Selected {len(self.selected_experts)} of {self.total_experts_available} experts"
         )
 
         if self.categories_detected:
             cats = ", ".join(
-                f"{name} ({score:.1f})"
-                for name, score in self.categories_detected[:3]
+                f"{name} ({score:.1f})" for name, score in self.categories_detected[:3]
             )
             parts.append(f"Problem categories: {cats}")
 
@@ -441,11 +569,13 @@ class CouncilManager:
         if force_experts:
             for name in force_experts:
                 if name not in selected_names and name in experts:
-                    selected.append(ExpertScore(
-                        expert_name=name,
-                        score=0.0,
-                        reasons=["forced"],
-                    ))
+                    selected.append(
+                        ExpertScore(
+                            expert_name=name,
+                            score=0.0,
+                            reasons=["forced"],
+                        )
+                    )
                     selected_names.append(name)
 
         # Classify for metadata
@@ -494,9 +624,7 @@ class CouncilManager:
         for es in scored[:15]:  # top 15
             marker = " *" if es.expert_name in selected_names else ""
             reasons = ", ".join(es.reasons) if es.reasons else "—"
-            parts.append(
-                f"  {es.score:5.1f}  {es.expert_name:<15}{marker}  ({reasons})"
-            )
+            parts.append(f"  {es.score:5.1f}  {es.expert_name:<15}{marker}  ({reasons})")
 
         parts.append("")
         parts.append(f"Selected ({len(selected)}):")

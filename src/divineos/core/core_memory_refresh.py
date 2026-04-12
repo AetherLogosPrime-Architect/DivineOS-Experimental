@@ -13,7 +13,6 @@ from typing import Any
 from loguru import logger
 
 from divineos.core._hud_io import _ensure_hud_dir
-from divineos.core.anticipation import _get_active_warnings
 from divineos.core.decision_journal import get_paradigm_shifts
 from divineos.core.growth import compute_growth_map
 from divineos.core.knowledge import get_connection, get_knowledge, get_lessons
@@ -156,13 +155,9 @@ def _refresh_weaknesses(analysis: Any | None = None) -> bool:
         if corrections > 0:
             parts.append(f"Last session: {corrections} correction(s) to learn from.")
 
-    # Anticipation warnings (recurring issues)
-    try:
-        warnings = _get_active_warnings()
-        if warnings:
-            parts.append(f"{len(warnings)} active pattern warning(s) to watch for.")
-    except (sqlite3.OperationalError, json.JSONDecodeError):
-        pass
+    # Anticipation warnings — only add if they contain content not already in lessons
+    # (The briefing Watch Out section handles detailed warnings; core memory
+    # doesn't need to duplicate the count.)
 
     if not parts:
         return False

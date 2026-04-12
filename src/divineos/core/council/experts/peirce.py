@@ -42,14 +42,11 @@ def create_peirce_wisdom() -> ExpertWisdom:
                 "be a matter of course. Hence there is reason to suspect A."
             ),
             steps=[
-                "Observe the surprising fact — something that doesn't fit "
-                "current understanding",
-                "Ask: what hypothesis, if true, would make this observation "
-                "a matter of course?",
+                "Observe the surprising fact — something that doesn't fit current understanding",
+                "Ask: what hypothesis, if true, would make this observation a matter of course?",
                 "Generate MULTIPLE candidate hypotheses (don't stop at the first)",
                 "Evaluate: which hypothesis explains the most with the least?",
-                "Apply the pragmatic maxim: what practical difference would "
-                "each hypothesis make?",
+                "Apply the pragmatic maxim: what practical difference would each hypothesis make?",
                 "Select the most promising hypothesis for testing",
                 "Design a test that could DISPROVE the hypothesis (fallibilism)",
                 "If disproved: return to step 1 with the new surprising fact",
@@ -83,8 +80,7 @@ def create_peirce_wisdom() -> ExpertWisdom:
             steps=[
                 "Identify the sign (representamen): what is the signifier?",
                 "Identify the object: what does it refer to?",
-                "Identify the interpretant: what understanding does it "
-                "produce in the interpreter?",
+                "Identify the interpretant: what understanding does it produce in the interpreter?",
                 "Classify the sign: icon (resembles), index (causally "
                 "connected), or symbol (conventional)?",
                 "Check: is the interpretant accurate? Does the understanding "
@@ -115,8 +111,7 @@ def create_peirce_wisdom() -> ExpertWisdom:
             ),
             steps=[
                 "State the concept or claim",
-                "List ALL the practical consequences you can conceive of "
-                "if this concept is true",
+                "List ALL the practical consequences you can conceive of if this concept is true",
                 "List ALL the practical consequences if it is false",
                 "If the lists are identical: the concept has no meaning "
                 "(it makes no practical difference)",
@@ -291,8 +286,7 @@ def create_peirce_wisdom() -> ExpertWisdom:
                 "committing to one."
             ),
             when_to_use=(
-                "Debugging, root cause analysis, any situation where "
-                "something unexpected happened"
+                "Debugging, root cause analysis, any situation where something unexpected happened"
             ),
             step_by_step=[
                 "State the surprising observation precisely",
@@ -455,7 +449,11 @@ def create_peirce_wisdom() -> ExpertWisdom:
         ),
         IntegrationPattern(
             name="Sign-Object-Interpretant Alignment",
-            dimensions=["representation fidelity", "interpretation accuracy", "practical consequence"],
+            dimensions=[
+                "representation fidelity",
+                "interpretation accuracy",
+                "practical consequence",
+            ],
             how_they_integrate=(
                 "Good signs faithfully represent objects. Good interpretations "
                 "accurately understand signs. Good design ensures the practical "

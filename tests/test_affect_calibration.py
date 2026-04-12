@@ -56,7 +56,8 @@ def test_init_calibration_table_creates_table():
 def test_init_calibration_table_idempotent():
     """Calling init twice doesn't error."""
     init_calibration_table()
-    init_calibration_table()
+    result = init_calibration_table()
+    assert result is None
 
 
 # ── Record ──────────────────────────────────────────────────────
@@ -262,7 +263,7 @@ def test_calibration_consistent_quality_relaxes():
         conn.close()
 
     cal = get_calibration_adjustment()
-    assert cal["threshold_adjustment"] == -0.05
+    assert cal["threshold_adjustment"] == -0.15
     assert cal["verification_override"] is None
     assert "Consistent quality" in cal["reason"]
 

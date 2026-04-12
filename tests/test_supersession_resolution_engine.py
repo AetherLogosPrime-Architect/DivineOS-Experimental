@@ -1,9 +1,9 @@
 """Tests for the ResolutionEngine component."""
 
 from divineos.supersession import (
+    ContradictionDetector,
     ResolutionEngine,
     ResolutionStrategy,
-    ContradictionDetector,
 )
 
 

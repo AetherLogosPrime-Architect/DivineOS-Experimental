@@ -4,8 +4,8 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.agent_integration.pattern_store import PatternStore
 from divineos.agent_integration.decision_store import DecisionStore
+from divineos.agent_integration.pattern_store import PatternStore
 
 
 def detect_invalidation(

@@ -1,0 +1,12 @@
+{
+  "instance_id": "pytest-dev__pytest-5262",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/src/_pytest/capture.py\n+++ b/src/_pytest/capture.py\n@@ -447,7 +447,7 @@ class EncodedFile(object):\n \n     @property\n     def mode(self):\n-        return self.buffer.mode\n+        return self.buffer.mode.replace('b', '')\n \n     @property\n     def name(self):",
+  "thinking": null,
+  "input_tokens": 2154,
+  "output_tokens": 98,
+  "elapsed_seconds": 2.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007932
+}

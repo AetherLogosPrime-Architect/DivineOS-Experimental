@@ -1,11 +1,13 @@
 """Tests for the chat parser."""
 
 import json
+
 import pytest
+
 from divineos.core.parser import (
+    ParsedMessage,
     parse_jsonl,
     parse_markdown_chat,
-    ParsedMessage,
 )
 
 

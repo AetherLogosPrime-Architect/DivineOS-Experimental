@@ -66,32 +66,81 @@ def enforce_briefing_gate() -> None:
 
 
 def enforce_engagement_gate() -> None:
-    """Force-load thinking context if no queries happened this session (step 1d)."""
+    """Force a thinking pause if too many code actions without consulting the OS.
+
+    Instead of just loading context and saying "Engaged", this gate surfaces
+    a specific, actionable prompt based on current goals and active lessons.
+    The point is to make the interruption useful, not just a speed bump.
+    """
     try:
         from divineos.core.hud_handoff import is_engaged, mark_engaged
 
         if not is_engaged():
-            click.secho(
-                "[!] No thinking queries this session. Loading context now.",
-                fg="yellow",
-                bold=True,
-            )
+            import json as _json
+
+            from divineos.core.hud_state import _ensure_hud_dir
             from divineos.core.knowledge import get_lessons
-            from divineos.core.memory import get_core
 
             lessons = get_lessons(status="active")
             improving = get_lessons(status="improving")
+
+            # Read goals from file (hud_state stores them as JSON)
+            goals: list[dict] = []
+            try:
+                goals_path = _ensure_hud_dir() / "active_goals.json"
+                if goals_path.exists():
+                    goals = _json.loads(goals_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                pass
+
+            # Build a prescriptive prompt — not just "consider checking in"
             click.secho(
-                f"    Loaded {len(lessons)} active + {len(improving)} improving lessons.",
-                fg="green",
+                "[!] Pause — too many code actions without thinking.",
+                fg="yellow",
+                bold=True,
             )
-            core = get_core()
-            click.secho(
-                f"    Loaded {len(core)} core memory slots.",
-                fg="green",
-            )
+
+            # Surface the most relevant context for RIGHT NOW
+            if lessons:
+                click.secho("    Active lessons (watch for these):", fg="yellow")
+                for lesson in lessons[:2]:
+                    desc = (lesson.get("description") or "")[:100]
+                    click.secho(f"      - {desc}", fg="yellow")
+
+            if improving:
+                click.secho("    Improving (keep it up):", fg="green")
+                for lesson in improving[:2]:
+                    desc = (lesson.get("description") or "")[:100]
+                    click.secho(f"      - {desc}", fg="green")
+
+            if goals:
+                active_goals = [g for g in goals if g.get("status") != "done"]
+                if active_goals:
+                    goal_text = (active_goals[0].get("text") or "")[:100]
+                    click.secho(f"    Current goal: {goal_text}", fg="cyan")
+
+            # Check if this is a deep gate block (needs knowledge consultation)
+            from divineos.core.hud_handoff import engagement_status
+
+            status = engagement_status()
+            if status.get("needs_deep"):
+                click.secho(
+                    '\n    Deep check-in required. Run: divineos ask "topic" or divineos recall',
+                    fg="red",
+                    bold=True,
+                )
+                click.secho(
+                    "    (context/decide/feel won't clear this — consult your knowledge.)",
+                    fg="red",
+                )
+            else:
+                click.secho(
+                    "\n    Run: divineos ask, recall, decide, or context before continuing.",
+                    fg="yellow",
+                    bold=True,
+                )
+
             mark_engaged()
-            click.secho("    Engaged. Proceeding.\n", fg="green")
     except _GATE_ERRORS as e:
         logger.warning(f"Engagement gate failed: {e}")
 
@@ -163,18 +212,40 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
     # affect but low quality, tighten now. If consistently good, relax slightly.
     calibration_adj = 0.0
     calibration_reason = ""
+    verification_override: str | None = None
     try:
         from divineos.core.affect_calibration import get_calibration_adjustment
 
         cal = get_calibration_adjustment()
         calibration_adj = cal.get("threshold_adjustment", 0.0)
         calibration_reason = cal.get("reason", "")
+        verification_override = cal.get("verification_override")
         if calibration_adj != 0.0:
             logger.info("Circuit 1 calibration: %+.2f (%s)", calibration_adj, calibration_reason)
+        if verification_override:
+            logger.info("Circuit 1 verification override: %s", verification_override)
     except (ImportError, sqlite3.OperationalError, OSError) as e:
         logger.debug("Affect calibration unavailable: %s", e)
 
-    total_adj = compass_adj + max(calibration_adj, 0.0)  # only tighten, never loosen below base
+    # Circuit 2: Validation calibration — adjust thresholds based on
+    # divergence between self-grades and user grades. If the system
+    # consistently overestimates its own quality, tighten the gate.
+    validation_adj = 0.0
+    validation_reason = ""
+    try:
+        from divineos.core.external_validation import get_validation_calibration
+
+        val_cal = get_validation_calibration()
+        validation_adj = val_cal.get("adjustment", 0.0)
+        validation_reason = val_cal.get("reason", "")
+        if validation_adj != 0.0:
+            logger.info("Validation calibration: %+.3f (%s)", validation_adj, validation_reason)
+    except (ImportError, sqlite3.OperationalError, OSError) as e:
+        logger.debug("Validation calibration unavailable: %s", e)
+
+    total_adj = (
+        compass_adj + calibration_adj + validation_adj
+    )  # compass tightens on drift; calibration can tighten OR loosen; validation tightens on overconfidence
     honesty_threshold = QUALITY_HONESTY_BLOCK + total_adj
     correctness_threshold = QUALITY_CORRECTNESS_BLOCK + total_adj
 
@@ -216,6 +287,23 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
             score=avg_score,
             failed_checks=failed,
             reason=f"{len(failed)} checks failed ({', '.join(failed)}). Knowledge enters as HYPOTHESIS.",
+        )
+
+    # Verification override from affect calibration: when cross-session
+    # patterns show high affect with low quality (ratio > 0.4), the
+    # calibration system flags "careful". This forces a DOWNGRADE even
+    # when individual checks pass — the pattern across sessions is
+    # more informative than any single session's checks.
+    if verification_override == "careful" and failed:
+        avg_score = sum(scores.values()) / len(scores) if scores else 0.5
+        return QualityVerdict(
+            action="DOWNGRADE",
+            score=avg_score,
+            failed_checks=failed,
+            reason=(
+                f"Affect calibration override: {calibration_reason}. "
+                f"Knowledge enters as HYPOTHESIS for extra scrutiny."
+            ),
         )
 
     # Allow: session is trustworthy
@@ -277,12 +365,25 @@ def run_quality_gate(
 
         if quality_verdict.action == "BLOCK":
             click.secho(f"[!] Quality gate BLOCKED: {quality_verdict.reason}", fg="red", bold=True)
+            # Show which checks failed so the user understands why
+            for cr in check_results:
+                if cr.get("passed") == 0 and cr.get("summary"):
+                    click.secho(f"    {cr['check_name']}: {cr['summary']}", fg="red")
             click.secho("[!] Skipping knowledge extraction for this session.", fg="red")
             return quality_verdict, maturity_override, False, check_results
         elif quality_verdict.action == "DOWNGRADE":
             click.secho(f"[!] Quality gate DOWNGRADE: {quality_verdict.reason}", fg="yellow")
+            for cr in check_results:
+                if cr.get("passed") == 0 and cr.get("summary"):
+                    click.secho(f"    {cr['check_name']}: {cr['summary']}", fg="yellow")
     except _GATE_ERRORS as e:
-        logger.warning(f"Quality gate failed (allowing extraction): {e}")
+        logger.warning(f"Quality gate failed — BLOCKING extraction (fail-closed): {e}")
+        click.secho(
+            f"[!] Quality gate error — blocking extraction (fail-closed): {e}",
+            fg="red",
+            bold=True,
+        )
+        return quality_verdict, maturity_override, False, check_results
 
     return quality_verdict, maturity_override, True, check_results
 
@@ -376,14 +477,18 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
             import json as _json
 
             from divineos.core.hud import _ensure_hud_dir
+            from divineos.core.hud_state import get_lifetime_goals_completed
 
             goals_path = _ensure_hud_dir() / "active_goals.json"
             if goals_path.exists():
                 goals = _json.loads(goals_path.read_text(encoding="utf-8"))
                 active = [g for g in goals if g.get("status") != "done"]
                 done = [g for g in goals if g.get("status") == "done"]
-                goals_state = f"{len(done)} completed, {len(active)} still active"
-        except (json.JSONDecodeError, OSError):
+                lifetime = get_lifetime_goals_completed()
+                goals_state = (
+                    f"{len(done)} completed ({lifetime} lifetime), {len(active)} still active"
+                )
+        except (json.JSONDecodeError, OSError, ImportError):
             pass
 
         # Structured continuation fields

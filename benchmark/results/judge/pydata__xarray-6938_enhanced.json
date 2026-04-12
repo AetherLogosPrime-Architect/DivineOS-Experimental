@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch adds a copy() call in the set_coords method, but the bug is actually in the swap_dims method where variables are being modified in-place rather than creating new copies.",
+  "key_difference": "The candidate patch targets the wrong method (set_coords) while the gold patch correctly fixes swap_dims by using self._dims instead of dims when creating new variables, preventing modification of the original variable's dims attribute.",
+  "instance_id": "pydata__xarray-6938",
+  "condition": "enhanced",
+  "judge_tokens": 2436,
+  "judge_cost": 0.009167999999999999
+}

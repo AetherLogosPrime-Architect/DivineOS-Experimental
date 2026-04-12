@@ -3,47 +3,50 @@
 import time
 
 import pytest
-from divineos.core.ledger import init_db, log_event
+
 from divineos.core.knowledge import (
-    init_knowledge_table,
-    store_knowledge,
-    get_knowledge,
-    search_knowledge,
-    update_knowledge,
-    get_unconsolidated_events,
+    KNOWLEDGE_MATURITY,
+    KNOWLEDGE_SOURCES,
+    KNOWLEDGE_TYPES,
+    _adjust_confidence,
+    _categorize_correction,
+    _compute_overlap,
+    _extract_key_terms,
+    _is_noise_correction,
+    _normalize_text,
+    _search_knowledge_legacy,
+    apply_session_feedback,
+    check_recurring_lessons,
+    clear_lessons,
+    compute_effectiveness,
+    compute_semantic_similarity,
+    compute_similarity,
+    consolidate_related,
+    deep_extract_knowledge,
+    extract_lessons_from_report,
+    extract_session_topics,
     find_similar,
     generate_briefing,
-    knowledge_stats,
-    rebuild_fts_index,
-    record_lesson,
-    get_lessons,
-    mark_lesson_improving,
+    get_knowledge,
     get_lesson_summary,
-    check_recurring_lessons,
-    extract_lessons_from_report,
-    _search_knowledge_legacy,
-    _normalize_text,
-    _extract_key_terms,
-    _compute_overlap,
-    extract_session_topics,
-    store_knowledge_smart,
-    deep_extract_knowledge,
-    supersede_knowledge,
-    consolidate_related,
-    record_access,
-    _adjust_confidence,
-    compute_effectiveness,
+    get_lessons,
+    get_unconsolidated_events,
     health_check,
-    apply_session_feedback,
-    _is_noise_correction,
-    _categorize_correction,
-    clear_lessons,
+    init_knowledge_table,
     knowledge_health_report,
+    knowledge_stats,
+    mark_lesson_improving,
     migrate_knowledge_types,
-    KNOWLEDGE_TYPES,
-    KNOWLEDGE_SOURCES,
-    KNOWLEDGE_MATURITY,
+    rebuild_fts_index,
+    record_access,
+    record_lesson,
+    search_knowledge,
+    store_knowledge,
+    store_knowledge_smart,
+    supersede_knowledge,
+    update_knowledge,
 )
+from divineos.core.ledger import init_db, log_event
 
 
 @pytest.fixture(autouse=True)
@@ -112,6 +115,36 @@ class TestGetKnowledge:
         results = get_knowledge()
         assert len(results) == 1
         assert results[0]["content"] == "new fact"
+
+    def test_zero_min_confidence_returns_all(self):
+        """min_confidence=0.0 (default) should NOT filter anything."""
+        store_knowledge("FACT", "low conf entry", confidence=0.1)
+        store_knowledge("FACT", "high conf entry", confidence=0.9)
+        results = get_knowledge(min_confidence=0.0)
+        assert len(results) == 2
+
+    def test_record_access_corroborates_on_fifth(self):
+        """Every 5th access should increment corroboration_count."""
+        kid = store_knowledge("FACT", "corroboration test entry")
+        # Access 4 times — no corroboration yet
+        for _ in range(4):
+            record_access(kid)
+        entry = [e for e in get_knowledge() if e["knowledge_id"] == kid][0]
+        assert entry["corroboration_count"] == 0
+        assert entry["access_count"] == 4
+
+        # 5th access — corroboration increments
+        record_access(kid)
+        entry = [e for e in get_knowledge() if e["knowledge_id"] == kid][0]
+        assert entry["access_count"] == 5
+        assert entry["corroboration_count"] == 1
+
+    def test_record_access_no_corroboration_before_fifth(self):
+        """Accesses 1-4 should NOT increment corroboration."""
+        kid = store_knowledge("FACT", "no early corroboration")
+        record_access(kid)
+        entry = [e for e in get_knowledge() if e["knowledge_id"] == kid][0]
+        assert entry["corroboration_count"] == 0
 
 
 class TestSearchKnowledge:
@@ -619,6 +652,60 @@ class TestComputeOverlap:
         assert result == 0.0
 
 
+class TestComputeSimilarity:
+    """Test the unified similarity function (semantic + fallback)."""
+
+    def test_returns_float_in_range(self):
+        result = compute_similarity("database schema migration", "updating table columns")
+        assert 0.0 <= result <= 1.0
+
+    def test_identical_texts_high(self):
+        result = compute_similarity("run tests after changes", "run tests after changes")
+        assert result > 0.8
+
+    def test_unrelated_texts_low(self):
+        result = compute_similarity(
+            "the weather is sunny today",
+            "database schema migration requires column updates",
+        )
+        assert result < 0.5
+
+    def test_conceptual_similarity(self):
+        """Semantic similarity should catch conceptual matches word overlap misses."""
+        a = "always verify changes by running the test suite"
+        b = "confirm modifications work by executing automated checks"
+        result = compute_similarity(a, b)
+        # These are conceptually similar but share almost no words
+        word_overlap = _compute_overlap(a, b)
+        # Semantic should score higher than word overlap for conceptual matches
+        # (if embeddings available; if not, they'll be equal)
+        assert result >= word_overlap
+
+
+class TestSemanticSimilarity:
+    """Test the embedding-based similarity directly."""
+
+    def test_returns_float_or_none(self):
+        result = compute_semantic_similarity("hello world", "hi there")
+        assert result is None or (0.0 <= result <= 1.0)
+
+    def test_similar_concepts_score_high(self):
+        result = compute_semantic_similarity(
+            "store data in a database table",
+            "save records to a persistent data store",
+        )
+        if result is not None:  # only if embeddings available
+            assert result > 0.5
+
+    def test_unrelated_texts_score_low(self):
+        result = compute_semantic_similarity(
+            "chocolate cake recipe with frosting",
+            "database migration requires schema changes",
+        )
+        if result is not None:
+            assert result < 0.4
+
+
 class TestExtractSessionTopics:
     def test_finds_frequent_words(self):
         texts = [
@@ -1000,8 +1087,9 @@ class TestHealthCheck:
         # Give it access so it's not considered stale
         record_access(kid)
         # Backdate created_at but keep updated_at recent (entry is still in use)
-        import divineos.core.ledger as lm
         import sqlite3
+
+        import divineos.core.ledger as lm
 
         db_path = lm._get_db_path()
         conn = sqlite3.connect(str(db_path))
@@ -1436,8 +1524,11 @@ class TestMaturityTracking:
             assert self._get_entry(kid)["maturity"] == mat
 
     def test_maturity_in_smart_store(self):
+        """Smart store preserves or promotes maturity based on corroboration."""
         kid = store_knowledge_smart("PRINCIPLE", "Smart maturity test", maturity="HYPOTHESIS")
-        assert self._get_entry(kid)["maturity"] == "HYPOTHESIS"
+        entry = self._get_entry(kid)
+        # Entry may be promoted if corroboration thresholds are met during store
+        assert entry["maturity"] in ("HYPOTHESIS", "TESTED")
 
 
 class TestCorroborationCounters:

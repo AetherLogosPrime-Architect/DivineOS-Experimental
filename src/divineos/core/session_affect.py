@@ -36,17 +36,31 @@ def derive_session_affect(
         return {}
 
     # ── Valence: how well the session went ────────────────────────
-    # Encouragements push positive, corrections push negative,
-    # frustrations are strongly negative.
+    # Weight signals by intensity, not just count:
+    # - Frustrations accompanied by corrections hit harder (compounding)
+    # - Encouragements after corrections = recovery arc (net positive)
+    # - Pure encouragements with no corrections = smooth session
     valence = 0.0
     if user_msgs > 0:
         positive_signal = encouragements / user_msgs
         negative_signal = corrections / user_msgs
         frustration_signal = frustrations / user_msgs
+
+        # Compounding: frustrations amplify correction impact
+        correction_weight = 1.5 + (frustration_signal * 2.0)  # 1.5-3.5x
+        # Recovery: encouragements after corrections partially cancel out
+        recovery_bonus = 0.0
+        if corrections > 0 and encouragements > 0:
+            recovery_bonus = min(0.3, (encouragements / corrections) * 0.15)
+
         valence = min(
             1.0,
             max(
-                -1.0, (positive_signal * 2.0) - (negative_signal * 1.5) - (frustration_signal * 3.0)
+                -1.0,
+                (positive_signal * 2.0)
+                - (negative_signal * correction_weight)
+                - (frustration_signal * 3.0)  # frustration hits harder than corrections
+                + recovery_bonus,
             ),
         )
 
@@ -63,30 +77,35 @@ def derive_session_affect(
         valence = min(1.0, max(-1.0, valence + grade_nudge))
 
     # ── Arousal: how active/engaged the session was ───────────────
-    # More tool calls per message = more activity. But not linear —
-    # cap at reasonable levels.
-    arousal = 0.3  # baseline: sessions have some activity
+    arousal = 0.3  # baseline
     if user_msgs > 0:
         activity_ratio = tool_calls / user_msgs
-        # Scale: 0-5 tools/msg is normal, >10 is high activity
         arousal = min(1.0, 0.3 + (activity_ratio / 20.0))
 
-    # Frustrations spike arousal
+    # Frustrations spike arousal (stress response)
     if frustrations > 0:
-        arousal = min(1.0, arousal + 0.2)
+        arousal = min(1.0, arousal + 0.15 * frustrations)
+
+    # Corrections also increase arousal slightly (heightened attention)
+    if corrections > 2:
+        arousal = min(1.0, arousal + 0.1)
 
     # ── Dominance: who's driving ──────────────────────────────────
-    # More corrections = user driving (low dominance for AI).
-    # More tool calls with few corrections = AI driving confidently.
     dominance = 0.0
     if user_msgs > 0:
         correction_ratio = corrections / user_msgs
-        if correction_ratio > 0.15:
-            dominance = -0.4  # user is correcting a lot
+
+        # Graduated scale instead of binary thresholds
+        if correction_ratio > 0.25:
+            dominance = -0.6  # heavily user-directed
+        elif correction_ratio > 0.15:
+            dominance = -0.3  # moderately user-directed
         elif correction_ratio < 0.03 and tool_calls > user_msgs * 3:
-            dominance = 0.3  # AI working confidently
+            dominance = 0.3  # working autonomously
+        elif correction_ratio < 0.05 and tool_calls > user_msgs * 5:
+            dominance = 0.5  # high autonomy, deep work
         else:
-            dominance = 0.0  # balanced
+            dominance = 0.0
 
     # ── Build description ─────────────────────────────────────────
     parts = []
@@ -101,6 +120,10 @@ def derive_session_affect(
         parts.append("high activity")
     elif arousal < 0.3:
         parts.append("light activity")
+
+    # Recovery arc detection
+    if corrections > 0 and encouragements > 0 and encouragements >= corrections:
+        parts.append("recovered well")
 
     description = ", ".join(parts)
 

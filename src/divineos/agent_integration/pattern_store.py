@@ -164,39 +164,77 @@ class PatternStore:
         existing = self.get_pattern(pattern_id)
 
         if existing:
+            # UPDATE in place — don't create a duplicate row.
+            # Creating new rows dilutes the penalty across duplicates.
             occurrences = existing.get("occurrences", 0) + 1
             violation_count = existing.get("violation_count", 0) + 1
             old_confidence = existing.get("confidence", 0.5)
-            new_confidence = self.decrease_confidence_for_violation(old_confidence)
+            new_confidence = self.decrease_confidence_for_violation(
+                old_confidence,
+                violation_count=violation_count,
+                total_occurrences=occurrences,
+            )
 
             self.logger.info(
                 f"Updating violation pattern {pattern_id}: "
                 f"occurrences={occurrences}, violation_count={violation_count}, confidence={new_confidence}"
             )
+
+            conn = _get_connection()
+            try:
+                now = datetime.now(timezone.utc).isoformat()
+                conn.execute(
+                    """UPDATE patterns
+                       SET occurrences = ?, violation_count = ?, confidence = ?,
+                           updated_at = ?
+                       WHERE pattern_id = ?""",
+                    (occurrences, violation_count, new_confidence, now, pattern_id),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            return pattern_id
         else:
             occurrences = 1
             violation_count = 1
-            new_confidence = self.decrease_confidence_for_violation(confidence)
+            new_confidence = self.decrease_confidence_for_violation(
+                confidence,
+                violation_count=violation_count,
+                total_occurrences=occurrences,
+            )
             self.logger.info(f"Creating new violation pattern {pattern_id} for {tool_name}")
 
-        return self.store_pattern(
-            pattern_type="tactical",
-            name=f"Violation: {tool_name} ({context_type})",
-            description=f"{violation_type} violation detected for {tool_name} with {context_type} context",
-            preconditions={
-                "tool_name": tool_name,
-                "context_type": context_type,
-                "violation_type": violation_type,
-            },
-            occurrences=occurrences,
-            successes=0,
-            confidence=new_confidence,
-            source_events=[],
-            violation_count=violation_count,
-        )
+            return self.store_pattern(
+                pattern_type="tactical",
+                name=f"Violation: {tool_name} ({context_type})",
+                description=f"{violation_type} violation detected for {tool_name} with {context_type} context",
+                preconditions={
+                    "tool_name": tool_name,
+                    "context_type": context_type,
+                    "violation_type": violation_type,
+                },
+                occurrences=occurrences,
+                successes=0,
+                confidence=new_confidence,
+                source_events=[],
+                violation_count=violation_count,
+            )
 
-    def decrease_confidence_for_violation(self, current_confidence: float) -> float:
-        new_confidence = max(0.0, current_confidence - 0.10)
+    def decrease_confidence_for_violation(
+        self,
+        current_confidence: float,
+        violation_count: int = 1,
+        total_occurrences: int = 1,
+    ) -> float:
+        """Decrease confidence proportional to violation ratio.
+
+        A pattern that fails 1 in 100 times gets a small penalty (0.01).
+        A pattern that fails 5 in 10 times gets a large penalty (0.25).
+        Floor at 0.05 so patterns can always recover with enough successes.
+        """
+        ratio = violation_count / max(total_occurrences, 1)
+        penalty = max(0.05, min(0.25, ratio * 0.50))
+        new_confidence = max(0.05, current_confidence - penalty)
         return min(1.0, new_confidence)
 
     def get_pattern(self, pattern_id: str) -> Optional[dict[str, Any]]:
@@ -302,7 +340,7 @@ class PatternStore:
                 conn.close()
 
             self.logger.info(
-                f"Updated pattern {pattern_id} confidence: {old_confidence} → {new_confidence} "
+                f"Updated pattern {pattern_id} confidence: {old_confidence} -> {new_confidence} "
                 f"(delta: {delta:+.2f}, reason: {reason})"
             )
             return True

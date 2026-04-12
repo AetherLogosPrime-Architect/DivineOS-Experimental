@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "This patch modifies the wrong function (dup_factor_list_include) and makes a nonsensical change (factors = factors is a no-op). The gold patch shows the bug is in dmp_ext_factor where variable 'f' should be 'F'.",
+  "key_difference": "The candidate targets the wrong function entirely and makes an ineffective change, while the gold patch correctly identifies that in dmp_ext_factor, the sqf_norm call should use the original polynomial F instead of the square-free part f.",
+  "instance_id": "sympy__sympy-19040",
+  "condition": "enhanced",
+  "judge_tokens": 1426,
+  "judge_cost": 0.006474000000000001
+}

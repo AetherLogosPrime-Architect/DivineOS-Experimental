@@ -20,14 +20,15 @@ context usage, warning when the session is approaching token limits.
 import json
 import sqlite3
 import time
-from divineos.core.hud import save_hud_snapshot
-from divineos.core.hud_handoff import save_handoff_note
-from divineos.core.hud_state import _ensure_hud_dir
-from divineos.event.event_emission import emit_event
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
+
+from divineos.core.hud import save_hud_snapshot
+from divineos.core.hud_handoff import save_handoff_note
+from divineos.core.hud_state import _ensure_hud_dir
+from divineos.event.event_emission import emit_event
 
 _CP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -81,15 +82,20 @@ def reset_state() -> None:
 def get_session_start_time() -> float | None:
     """Get the Unix timestamp when the current session started.
 
-    Uses the most recent SESSION_END in the ledger as the boundary
-    (anything after it is the current session). Falls back to
-    checkpoint state, then None.
-
-    Prefers ledger over checkpoint state because compaction resets
-    the conversation without resetting checkpoint_state.json —
-    the ledger is always the source of truth for session boundaries.
+    Prefers checkpoint state (set once at session start, survives
+    context compaction) over ledger queries.  The ledger's most
+    recent SESSION_END marks where the *previous* session ended,
+    which is wrong for continued sessions that span multiple
+    context windows — the checkpoint file is the true session
+    boundary because it persists across compaction resets.
     """
-    # Primary: last SESSION_END in ledger = end of previous session = start of current
+    # Primary: checkpoint state — set at session start, survives compaction
+    state = _load_state()
+    start = state.get("session_start")
+    if start and isinstance(start, (int, float)):
+        return float(start)
+
+    # Fallback: last SESSION_END in ledger = end of previous session
     try:
         from divineos.core.memory import _get_connection
 
@@ -106,12 +112,6 @@ def get_session_start_time() -> float | None:
             conn.close()
     except _CP_ERRORS:
         pass
-
-    # Fallback: checkpoint state (may be stale after compaction)
-    state = _load_state()
-    start = state.get("session_start")
-    if start and isinstance(start, (int, float)):
-        return float(start)
 
     return None
 
@@ -200,6 +200,40 @@ def format_context_warning(state: dict[str, Any]) -> str | None:
     return None
 
 
+def _get_modified_files() -> list[str]:
+    """Get files modified in the working tree (unstaged + staged)."""
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return [f.strip() for f in result.stdout.strip().split("\n") if f.strip()]
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+    return []
+
+
+def _get_recent_decisions(limit: int = 3) -> list[str]:
+    """Get recent decision summaries from the decision journal."""
+    try:
+        from divineos.core.knowledge._base import get_connection
+
+        conn = get_connection()
+        rows = conn.execute(
+            "SELECT what, why FROM decision_journal ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        conn.close()
+        return [f"{what}: {why[:100]}" for what, why in rows if what]
+    except (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError):
+        return []
+
+
 # ─── Run Checkpoint ───────────────────────────────────────────────────
 
 
@@ -244,14 +278,25 @@ def run_checkpoint() -> str:
 
         if not skip_handoff:
             state = _load_state()
+            # Capture what's actually in progress for richer handoff
+            modified_files = _get_modified_files()
+            recent_decisions = _get_recent_decisions(limit=2)
+            file_context = ""
+            if modified_files:
+                file_context = f" | files: {', '.join(modified_files[:5])}"
+            summary = (
+                f"Auto-checkpoint #{state.get('checkpoints_run', 0) + 1}: "
+                f"{state.get('edits', 0)} edits{file_context}"
+            )
             save_handoff_note(
-                summary=f"Auto-checkpoint #{state.get('checkpoints_run', 0) + 1}: "
-                f"{state.get('edits', 0)} edits, {state.get('tool_calls', 0)} tool calls",
+                summary=summary,
+                open_threads=recent_decisions,
                 goals_state=goals_text,
                 context_snapshot={
                     "type": "checkpoint",
                     "edits": state.get("edits", 0),
                     "tool_calls": state.get("tool_calls", 0),
+                    "modified_files": modified_files[:10],
                     "timestamp": time.time(),
                 },
             )
@@ -422,7 +467,7 @@ def run_mini_session_save() -> dict[str, Any]:
     Heavier than checkpoint (extracts knowledge), lighter than SESSION_END
     (skips feedback cycles, scoring, consolidation, finalization).
 
-    Runs: analysis → deep extraction → episode → curation → handoff.
+    Runs: analysis -> deep extraction -> episode -> curation -> handoff.
     Skips: feedback, quality scoring, maturity cycles, SIS audit, compass.
 
     Call this at task boundaries — when you finish what the user asked
@@ -439,8 +484,8 @@ def run_mini_session_save() -> dict[str, Any]:
     try:
         import divineos.analysis.session_analyzer as _analyzer_mod
         import divineos.analysis.session_discovery as _discovery_mod
-        from divineos.core.knowledge.curation import run_curation
         from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.curation import run_curation
         from divineos.core.knowledge.deep_extraction import deep_extract_knowledge
 
         # Find session file
@@ -456,7 +501,7 @@ def run_mini_session_save() -> dict[str, Any]:
         analysis = _analyzer_mod.analyze_session(latest, since_timestamp=session_start)
 
         # Deep extraction — stream-filter to current session only
-        records = _analyzer_mod._load_records(latest, since_timestamp=session_start)
+        records = _analyzer_mod.load_records(latest, since_timestamp=session_start)
         deep_ids = deep_extract_knowledge(analysis, records)
         result["knowledge_extracted"] = len(deep_ids)
 
@@ -516,6 +561,8 @@ def run_mini_session_save() -> dict[str, Any]:
 
             goals_state = ""
             try:
+                from divineos.core.hud_state import get_lifetime_goals_completed
+
                 goals_path = _ensure_hud_dir() / "active_goals.json"
                 if goals_path.exists():
                     import json as _json
@@ -523,8 +570,11 @@ def run_mini_session_save() -> dict[str, Any]:
                     goals = _json.loads(goals_path.read_text(encoding="utf-8"))
                     active = [g for g in goals if g.get("status") != "done"]
                     done = [g for g in goals if g.get("status") == "done"]
-                    goals_state = f"{len(done)} completed, {len(active)} still active"
-            except (json.JSONDecodeError, OSError):
+                    lifetime = get_lifetime_goals_completed()
+                    goals_state = (
+                        f"{len(done)} completed ({lifetime} lifetime), {len(active)} still active"
+                    )
+            except (json.JSONDecodeError, OSError, ImportError):
                 pass
 
             corrections = len(analysis.corrections)

@@ -9,8 +9,8 @@ Recursive Event Capture Prevention:
 - When emit_event() is called while already emitting, the recursive call is skipped
 """
 
-from typing import Any
 import sqlite3
+from typing import Any
 
 from loguru import logger
 

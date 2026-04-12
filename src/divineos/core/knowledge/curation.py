@@ -23,6 +23,11 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.constants import (
+    CONFIDENCE_ACTIVE_MEMORY_FLOOR,
+    CONFIDENCE_VERY_HIGH,
+    SECONDS_PER_DAY,
+)
 from divineos.core.knowledge._base import _get_connection
 
 # ─── Layer Constants ──────────────────────────────────────────────────
@@ -52,12 +57,12 @@ def clean_entry_text(content: str) -> str:
     """Clean up raw conversational text into something readable.
 
     Handles:
-    - Python repr strings like UserSignal(signal_type=...) → strips them
-    - Casual text markers (.., :), contractions) → cleans up
-    - "I should: X" → just "X" (type already says DIRECTION)
-    - "I decided: X" → just "X" (type already says PRINCIPLE)
-    - "I was corrected: X" → just "X"
-    - "User correction: X" / "User affirmed: X" → just "X"
+    - Python repr strings like UserSignal(signal_type=...) -> strips them
+    - Casual text markers (.., :), contractions) -> cleans up
+    - "I should: X" -> just "X" (type already says DIRECTION)
+    - "I decided: X" -> just "X" (type already says PRINCIPLE)
+    - "I was corrected: X" -> just "X"
+    - "User correction: X" / "User affirmed: X" -> just "X"
     """
     cleaned = content
 
@@ -69,7 +74,7 @@ def clean_entry_text(content: str) -> str:
     )
     cleaned = re.sub(r"['\"]?,\s*timestamp=['\"]?[\dT:.-]+['\"]?\)", "", cleaned)
 
-    # Normalize dashes: em dash (—), en dash (–) → double hyphen (--)
+    # Normalize dashes: em dash (—), en dash (–) -> double hyphen (--)
     cleaned = cleaned.replace("\u2014", "--").replace("\u2013", "--")
 
     # Strip stale prefixes — the knowledge TYPE already says what it is
@@ -87,7 +92,7 @@ def clean_entry_text(content: str) -> str:
                 cleaned = rest
                 break
 
-    # Clean up "I was X, but got corrected -- Y" → just the Y part
+    # Clean up "I was X, but got corrected -- Y" -> just the Y part
     match = re.match(
         r"I was .{5,80}?,\s*but (?:got corrected|the correct approach is:?)\s*[-—]*\s*(.+)",
         cleaned,
@@ -99,7 +104,7 @@ def clean_entry_text(content: str) -> str:
             cleaned = correction
 
     # Clean casual text markers
-    cleaned = re.sub(r"\.\.+", ".", cleaned)  # ".." → "."
+    cleaned = re.sub(r"\.\.+", ".", cleaned)  # ".." -> "."
     cleaned = re.sub(r"\s*:\)+", "", cleaned)  # :)
     cleaned = re.sub(r"\s*lol\b", "", cleaned, flags=re.IGNORECASE)
 
@@ -215,12 +220,12 @@ def assign_layer(entry: dict[str, Any]) -> str:
 
     Rules:
     - urgent: Recent corrections (< 24h, source=CORRECTED), active lessons with 3+ occurrences
-    - stable: High confidence (>=0.9), high access (>=15), maturity CONFIRMED/TESTED, age > 7 days
-    - archive: Very old episodes (>30 days), confidence < 0.3, very stale entries
+    - stable: High confidence (>=CONFIDENCE_VERY_HIGH), high access (>=15), maturity CONFIRMED/TESTED, age > 7 days
+    - archive: Very old episodes (>30 days), confidence < CONFIDENCE_ACTIVE_MEMORY_FLOOR, very stale entries
     - active: Everything else
     """
     now = time.time()
-    age_days = (now - entry.get("created_at", now)) / 86400
+    age_days = (now - entry.get("created_at", now)) / SECONDS_PER_DAY
     confidence = entry.get("confidence", 1.0)
     access = entry.get("access_count", 0)
     maturity = entry.get("maturity", "RAW")
@@ -238,7 +243,7 @@ def assign_layer(entry: dict[str, Any]) -> str:
         return "urgent"
 
     # Archive: stale, low-value, or old episodes
-    if confidence < 0.3:
+    if confidence < CONFIDENCE_ACTIVE_MEMORY_FLOOR:
         return "archive"
     if ktype == "EPISODE" and age_days > 30:
         return "archive"
@@ -256,7 +261,7 @@ def assign_layer(entry: dict[str, Any]) -> str:
     if "encouragement" in tags and age_days > 7:
         return "archive"
 
-    # Corrections reinforced across 3+ sessions → stable (lesson is learned)
+    # Corrections reinforced across 3+ sessions -> stable (lesson is learned)
     if (
         source == "CORRECTED"
         and entry.get("corroboration_count", 0) >= 3
@@ -268,7 +273,7 @@ def assign_layer(entry: dict[str, Any]) -> str:
     # Stable: well-established knowledge
     stable_types = ("PRINCIPLE", "BOUNDARY", "DIRECTION", "PROCEDURE", "PREFERENCE", "INSTRUCTION")
     if (
-        confidence >= 0.9
+        confidence >= CONFIDENCE_VERY_HIGH
         and access >= 15
         and maturity in ("CONFIRMED", "TESTED")
         and age_days > 7
@@ -290,7 +295,7 @@ def assign_lesson_layers() -> dict[str, int]:
     conn = _get_connection()
     counts = {"archived": 0, "urgent": 0}
     try:
-        # Resolved lessons → archive their linked knowledge
+        # Resolved lessons -> archive their linked knowledge
         resolved = conn.execute(
             "SELECT lesson_id, description FROM lesson_tracking WHERE status = 'resolved'"
         ).fetchall()

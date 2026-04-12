@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from divineos.core.knowledge._base import _get_connection
 from divineos.core.self_critique import (
     CRAFT_SPECTRUMS,
     CraftAssessment,
@@ -14,7 +15,6 @@ from divineos.core.self_critique import (
     get_recent_assessments,
     init_critique_table,
 )
-from divineos.core.knowledge._base import _get_connection
 
 
 @pytest.fixture(autouse=True)

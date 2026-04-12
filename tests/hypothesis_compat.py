@@ -5,7 +5,8 @@ so tests can be collected and skipped gracefully when hypothesis is missing.
 """
 
 try:
-    from hypothesis import given, strategies as st, settings, HealthCheck
+    from hypothesis import HealthCheck, given, settings
+    from hypothesis import strategies as st
 
     HAS_HYPOTHESIS = True
 except ImportError:

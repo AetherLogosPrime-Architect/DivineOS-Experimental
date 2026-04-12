@@ -357,17 +357,14 @@ def create_taleb_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Naive Forecasting",
             description=(
-                "Using prediction models in fat-tailed domains where "
-                "rare events dominate outcomes"
+                "Using prediction models in fat-tailed domains where rare events dominate outcomes"
             ),
             why_its_concerning=(
                 "Thin-tailed statistical tools in fat-tailed domains "
                 "systematically underestimate risk. The model looks "
                 "accurate right up until the catastrophe."
             ),
-            what_it_indicates=(
-                "Fundamental misunderstanding of the domain's risk profile"
-            ),
+            what_it_indicates=("Fundamental misunderstanding of the domain's risk profile"),
             severity="critical",
             what_to_do=(
                 "Stop predicting. Start preparing. Focus on payoff "
@@ -377,8 +374,7 @@ def create_taleb_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="No Skin in the Game",
             description=(
-                "Decision makers or advisors who don't bear the downside "
-                "of their recommendations"
+                "Decision makers or advisors who don't bear the downside of their recommendations"
             ),
             why_its_concerning=(
                 "Without skin in the game, incentives diverge. The advisor "

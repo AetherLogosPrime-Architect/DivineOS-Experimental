@@ -9,17 +9,17 @@ Tests the full DivineOS system with all 5 integration points working together:
 5. Query Interface → Current Fact Resolution
 """
 
-from divineos.supersession import (
-    ResolutionEngine,
-    ResolutionStrategy,
-    ContradictionDetector,
-)
-from divineos.clarity_enforcement.enforcer import ClarityEnforcer
-from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
-from divineos.clarity_enforcement.violation_detector import ViolationDetector
 from divineos.agent_integration.learning_cycle import LearningCycle
 from divineos.agent_integration.memory_actions import get_memory_monitor
+from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+from divineos.clarity_enforcement.enforcer import ClarityEnforcer
+from divineos.clarity_enforcement.violation_detector import ViolationDetector
 from divineos.core.ledger import log_event
+from divineos.supersession import (
+    ContradictionDetector,
+    ResolutionEngine,
+    ResolutionStrategy,
+)
 
 
 class TestCompleteSystemIntegration:

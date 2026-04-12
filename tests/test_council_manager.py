@@ -40,9 +40,7 @@ def manager(full_engine):
 
 class TestClassifyProblem:
     def test_causal_chain_detected(self):
-        cats = classify_problem(
-            "The query returns wrong results due to a regression"
-        )
+        cats = classify_problem("The query returns wrong results due to a regression")
         names = [c.name for c, _ in cats]
         assert "causal_chain" in names
 
@@ -52,23 +50,17 @@ class TestClassifyProblem:
         assert "logic_error" in names
 
     def test_security_detected(self):
-        cats = classify_problem(
-            "SQL injection vulnerability in auth middleware"
-        )
+        cats = classify_problem("SQL injection vulnerability in auth middleware")
         names = [c.name for c, _ in cats]
         assert "security" in names
 
     def test_format_spec_detected(self):
-        cats = classify_problem(
-            "FITS header field exceeds width limit per the spec"
-        )
+        cats = classify_problem("FITS header field exceeds width limit per the spec")
         names = [c.name for c, _ in cats]
         assert "format_spec" in names
 
     def test_multiple_categories(self):
-        cats = classify_problem(
-            "Wrong result at the boundary edge case in the format output"
-        )
+        cats = classify_problem("Wrong result at the boundary edge case in the format output")
         names = [c.name for c, _ in cats]
         assert len(names) >= 2
 
@@ -78,8 +70,7 @@ class TestClassifyProblem:
 
     def test_sorted_by_score(self):
         cats = classify_problem(
-            "security vulnerability injection auth permission "
-            "untrusted malicious input"
+            "security vulnerability injection auth permission untrusted malicious input"
         )
         if len(cats) >= 2:
             scores = [s for _, s in cats]
@@ -135,9 +126,7 @@ class TestSelectExperts:
             assert name in names
 
     def test_respects_min(self, full_engine):
-        selected = select_experts(
-            "some problem", full_engine.experts, min_experts=5
-        )
+        selected = select_experts("some problem", full_engine.experts, min_experts=5)
         assert len(selected) >= 5
 
     def test_respects_max(self, full_engine):
@@ -151,9 +140,7 @@ class TestSelectExperts:
 
     def test_focused_problem_gets_fewer_experts(self, full_engine):
         # A very focused problem should select closer to min
-        focused = select_experts(
-            "FITS header field width", full_engine.experts
-        )
+        focused = select_experts("FITS header field width", full_engine.experts)
         # A broad problem should select closer to max
         broad = select_experts(
             "security vulnerability with wrong results at boundary "
@@ -176,9 +163,7 @@ class TestCouncilManager:
 
     def test_convene_includes_categories(self, manager):
         result = manager.convene("security injection vulnerability")
-        assert any(
-            name == "security" for name, _ in result.categories_detected
-        )
+        assert any(name == "security" for name, _ in result.categories_detected)
 
     def test_force_experts(self, manager):
         result = manager.convene(
@@ -196,9 +181,7 @@ class TestCouncilManager:
         assert "of 28 experts" in summary
 
     def test_explain_selection(self, manager):
-        explanation = manager.explain_selection(
-            "SQL injection in auth middleware"
-        )
+        explanation = manager.explain_selection("SQL injection in auth middleware")
         assert "Schneier" in explanation
         assert "security" in explanation.lower()
         assert "Selected" in explanation

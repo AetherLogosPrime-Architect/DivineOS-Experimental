@@ -375,8 +375,7 @@ def create_jacobs_wisdom() -> ExpertWisdom:
                 "is resilience."
             ),
             what_it_indicates=(
-                "The system has been optimized for one scenario and "
-                "is vulnerable to any other"
+                "The system has been optimized for one scenario and is vulnerable to any other"
             ),
             severity="major",
             what_to_do=(
@@ -420,8 +419,7 @@ def create_jacobs_wisdom() -> ExpertWisdom:
                 "abandoned it. Dead zones decay and become liabilities."
             ),
             what_it_indicates=(
-                "Either the component isn't needed, or the conditions "
-                "for engagement are missing"
+                "Either the component isn't needed, or the conditions for engagement are missing"
             ),
             severity="moderate",
             what_to_do=(

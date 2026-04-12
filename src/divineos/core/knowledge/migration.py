@@ -1,9 +1,10 @@
 """Knowledge migration, lesson categorization, session feedback, health report."""
 
 import re
-from typing import Any
 import sqlite3
+from typing import Any
 
+from divineos.core.constants import OVERLAP_DUPLICATE
 from divineos.core.knowledge._base import (
     _get_connection,
 )
@@ -41,7 +42,7 @@ _MIGRATION_ERRORS = (
 # How old types map to new types
 _MIGRATION_RULES: dict[str, dict[str, Any]] = {
     "MISTAKE": {
-        # Keywords that indicate a hard constraint → BOUNDARY
+        # Keywords that indicate a hard constraint -> BOUNDARY
         "boundary_keywords": re.compile(
             r"\b(never|always|must|don't|do not|cannot|forbidden|prohibited)\b",
             re.IGNORECASE,
@@ -58,7 +59,7 @@ _MIGRATION_RULES: dict[str, dict[str, Any]] = {
         "maturity": "CONFIRMED",
     },
     "PATTERN": {
-        # Keywords indicating how-to → PROCEDURE
+        # Keywords indicating how-to -> PROCEDURE
         "procedure_keywords": re.compile(
             r"\b(step|how to|process|workflow|first.*then|procedure)\b",
             re.IGNORECASE,
@@ -190,8 +191,8 @@ _LESSON_CATEGORIES = (
     (
         "blind_coding",
         re.compile(
-            r"\bblind|without reading|without checking|without looking|study.+first|"
-            r"understand.+before|research.+first|don.t just|not blindly",
+            r"\bblind(?:ly)?\b|without\s+reading|without\s+checking|without\s+looking|"
+            r"study.+first|understand.+before|research.+first|don.t\s+just|not\s+blindly\b",
             re.IGNORECASE,
         ),
     ),
@@ -338,7 +339,7 @@ def apply_session_feedback(
 
         for entry in existing_corrections:
             overlap = _compute_overlap(correction.content, entry["content"])
-            if overlap > 0.4:
+            if overlap > OVERLAP_DUPLICATE:
                 _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
                 result["recurrences_found"] += 1
                 # Record in lesson tracking with semantic category
@@ -354,7 +355,7 @@ def apply_session_feedback(
     for enc in encouragements:
         for entry in existing_positives:
             overlap = _compute_overlap(enc.content, entry["content"])
-            if overlap > 0.4:
+            if overlap > OVERLAP_DUPLICATE:
                 _adjust_confidence(entry["knowledge_id"], 0.05, cap=1.0)
                 record_access(entry["knowledge_id"])
                 result["patterns_reinforced"] += 1
@@ -368,7 +369,7 @@ def apply_session_feedback(
             if _is_noise_correction(correction.content):
                 continue
             overlap = _compute_overlap(correction.content, lesson["description"])
-            if overlap > 0.4:
+            if overlap > OVERLAP_DUPLICATE:
                 recurred = True
                 break
         if not recurred:

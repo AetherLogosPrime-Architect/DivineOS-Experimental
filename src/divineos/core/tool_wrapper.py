@@ -23,12 +23,12 @@ Requirements:
 """
 
 import json
+import sqlite3
 import time
 import uuid
 from collections.abc import Callable
 from functools import wraps
 from typing import Any
-import sqlite3
 
 from loguru import logger
 
@@ -303,11 +303,23 @@ def create_tool_wrapper_decorator(
 # re-exported here so existing imports keep working.
 from divineos.core.tool_capture import (  # noqa: E402
     IDEToolExecutor as IDEToolExecutor,
+)
+from divineos.core.tool_capture import (  # noqa: E402
     UnifiedToolCapture as UnifiedToolCapture,
+)
+from divineos.core.tool_capture import (  # noqa: E402
     capture_tool_execution as capture_tool_execution,
+)
+from divineos.core.tool_capture import (  # noqa: E402
     emit_tool_call_for_ide as emit_tool_call_for_ide,
+)
+from divineos.core.tool_capture import (  # noqa: E402
     emit_tool_result_for_ide as emit_tool_result_for_ide,
+)
+from divineos.core.tool_capture import (  # noqa: E402
     get_ide_tool_executor as get_ide_tool_executor,
+)
+from divineos.core.tool_capture import (  # noqa: E402
     get_unified_capture as get_unified_capture,
 )
 
@@ -378,5 +390,5 @@ def _prune_tool_events() -> None:
             logger.debug(f"Pruned {pruned} old tool events, kept {_MAX_TOOL_EVENTS}")
         finally:
             conn.close()
-    except Exception:  # noqa: BLE001
-        pass  # Best-effort — never crash the tool call over pruning
+    except Exception as e:  # noqa: BLE001 — never crash a tool call over pruning
+        logger.debug("Tool event pruning failed: %s", e)

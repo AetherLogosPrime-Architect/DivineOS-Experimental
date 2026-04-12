@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the issue with mixed-case app names in ForeignKey relationships but fails to handle cases where the model string doesn't contain a dot (app label), which would cause a ValueError when splitting.",
+  "key_difference": "The candidate patch always assumes the model string contains a dot and splits it, while the gold patch checks if a dot exists first. The candidate would crash on model strings without app labels (just model names), whereas the gold patch handles both cases safely.",
+  "instance_id": "django__django-13112",
+  "condition": "base",
+  "judge_tokens": 1718,
+  "judge_cost": 0.007134
+}

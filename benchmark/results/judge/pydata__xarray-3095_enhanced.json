@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies Variable.copy() to use numpy's copy() instead of deepcopy(), but the gold patch shows the actual issue is in PandasIndexAdapter.__array__() where dtype handling for IndexVariable objects is incorrect.",
+  "key_difference": "The candidate targets the wrong location (Variable.copy) while the gold patch correctly fixes PandasIndexAdapter's dtype preservation mechanism. The candidate's approach would not fix unicode index casting issues since the problem occurs during array conversion, not during the initial copy operation.",
+  "instance_id": "pydata__xarray-3095",
+  "condition": "enhanced",
+  "judge_tokens": 2201,
+  "judge_cost": 0.008690999999999999
+}
