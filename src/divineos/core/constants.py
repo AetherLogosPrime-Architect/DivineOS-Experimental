@@ -35,6 +35,11 @@ CONFIDENCE_VERY_HIGH = 0.9  # Very high — curation threshold
 CONFIDENCE_DEMOTE_CAP = 0.6  # Demoted entries capped at this
 CONFIDENCE_ORPHAN_DEMOTE = 0.5  # Orphan entries demoted to this
 
+# Reaper threshold — entries at or below this that are also noise or temporal
+# get superseded (not just decayed). This breaks the infinite loop where
+# entries hit the decay floor and stay in limbo forever.
+CONFIDENCE_SUPERSEDE_FLOOR = 0.15  # Below this + flagged = supersede
+
 # ─── Decay Rates ────────────────────────────────────────────────────
 # How fast knowledge depreciates when stale, unused, or contradicted.
 

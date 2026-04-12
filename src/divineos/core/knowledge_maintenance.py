@@ -42,7 +42,7 @@ from divineos.core.knowledge.crud import supersede_knowledge
 from divineos.core.constants import (
     CONFIDENCE_DEMOTE_CAP,
     CONFIDENCE_ORPHAN_DEMOTE,
-    CONFIDENCE_RETRIEVAL_FLOOR,
+    CONFIDENCE_SUPERSEDE_FLOOR,
     DECAY_FLOOR,
     DECAY_MODERATE,
     DECAY_STANDARD,
@@ -277,18 +277,22 @@ def run_knowledge_hygiene(
         "noise_demoted": 0,
         "noise_superseded": 0,
         "stale_decayed": 0,
+        "stale_superseded": 0,
         "orphans_flagged": 0,
+        "reaped": 0,
         "entries_scanned": 0,
         "details": [],
     }
 
     conn = _get_connection()
     try:
+        # Include ALL non-superseded entries so the reaper can see dead ones.
+        # Previous code used CONFIDENCE_RETRIEVAL_FLOOR (0.2) which hid the
+        # very entries that need to be reaped.
         rows = conn.execute(
             f"SELECT {_KNOWLEDGE_COLS} FROM knowledge "
-            "WHERE superseded_by IS NULL AND confidence >= ? "
+            "WHERE superseded_by IS NULL "
             "ORDER BY updated_at DESC",
-            (CONFIDENCE_RETRIEVAL_FLOOR,),
         ).fetchall()
         entries = [_row_to_dict(row) for row in rows]
         report["entries_scanned"] = len(entries)
@@ -307,6 +311,7 @@ def run_knowledge_hygiene(
     if decay_stale:
         stale_report = _sweep_stale(entries, now, stale_age_days)
         report["stale_decayed"] = stale_report["decayed"]
+        report["stale_superseded"] = stale_report.get("superseded", 0)
         report["details"].extend(stale_report["details"])
 
     if flag_orphans:
@@ -314,14 +319,22 @@ def run_knowledge_hygiene(
         report["orphans_flagged"] = orphan_report["flagged"]
         report["details"].extend(orphan_report["details"])
 
+    # Final reaper — supersede entries stuck below the confidence floor.
+    # Runs after all other operations so entries that just got decayed
+    # this cycle get one more chance before being reaped next cycle.
+    reaper_report = _reap_dead_entries(entries)
+    report["reaped"] = reaper_report["reaped"]
+    report["details"].extend(reaper_report["details"])
+
     return report
 
 
 def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]:
-    """Re-run noise filter on existing PRINCIPLE/BOUNDARY entries.
+    """Re-run noise filter on existing entries.
 
-    Entries that would be rejected by today's filter get demoted to
-    OBSERVATION (if they have some value) or superseded (if pure noise).
+    Entries that would be rejected by today's filter get superseded
+    (if pure noise) or demoted to OBSERVATION (if they have some value
+    but claimed too high a type).
     """
     result: dict[str, Any] = {"demoted": 0, "superseded": 0, "details": []}
     conn = _get_connection()
@@ -333,8 +346,8 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
             content = entry.get("content", "")
             created = entry.get("created_at", 0)
 
-            # Only audit PRINCIPLE and BOUNDARY types — others are fine
-            if ktype not in ("PRINCIPLE", "BOUNDARY"):
+            # Directives are permanent by design
+            if ktype == "DIRECTIVE":
                 continue
             # Don't touch recent entries — give them time to prove value
             if created > cutoff:
@@ -358,17 +371,18 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
                 result["details"].append(f"Superseded {ktype}: {content[:60]}...")
                 continue
 
-            # Has no prescriptive signal — demote to OBSERVATION
-            content_lower = content.lower()
-            if not _has_prescriptive_signal(content_lower):
-                conn.execute(
-                    "UPDATE knowledge SET knowledge_type = 'OBSERVATION', "
-                    "confidence = CASE WHEN confidence > ? THEN ? ELSE confidence END "
-                    "WHERE knowledge_id = ?",
-                    (CONFIDENCE_DEMOTE_CAP, CONFIDENCE_DEMOTE_CAP, kid),
-                )
-                result["demoted"] += 1
-                result["details"].append(f"Demoted to OBSERVATION: {content[:60]}...")
+            # PRINCIPLE/BOUNDARY without prescriptive signal — demote
+            if ktype in ("PRINCIPLE", "BOUNDARY"):
+                content_lower = content.lower()
+                if not _has_prescriptive_signal(content_lower):
+                    conn.execute(
+                        "UPDATE knowledge SET knowledge_type = 'OBSERVATION', "
+                        "confidence = CASE WHEN confidence > ? THEN ? ELSE confidence END "
+                        "WHERE knowledge_id = ?",
+                        (CONFIDENCE_DEMOTE_CAP, CONFIDENCE_DEMOTE_CAP, kid),
+                    )
+                    result["demoted"] += 1
+                    result["details"].append(f"Demoted to OBSERVATION: {content[:60]}...")
 
         conn.commit()
     finally:
@@ -380,8 +394,13 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
 def _sweep_stale(
     entries: list[dict[str, Any]], now: float, stale_age_days: float
 ) -> dict[str, Any]:
-    """Decay confidence on entries with temporal markers that are old."""
-    result: dict[str, Any] = {"decayed": 0, "details": []}
+    """Decay confidence on entries with temporal markers that are old.
+
+    Entries that have already decayed to the floor get superseded —
+    they've had their chance and the temporal language is now stale.
+    This prevents infinite limbo where entries sit at the floor forever.
+    """
+    result: dict[str, Any] = {"decayed": 0, "superseded": 0, "details": []}
     conn = _get_connection()
     stale_cutoff = now - (stale_age_days * SECONDS_PER_DAY)
 
@@ -396,13 +415,27 @@ def _sweep_stale(
             # Directives are permanent by design
             if ktype == "DIRECTIVE":
                 continue
-            # Only decay old entries with temporal markers
+            # Only touch old entries with temporal markers
             if updated > stale_cutoff:
                 continue
             if not _has_temporal_markers(content):
                 continue
-            # Don't decay below floor
+            # Don't touch pinned or corroborated entries
+            if entry.get("pinned") or entry.get("corroboration_count", 0) >= 2:
+                continue
+
+            # Already at or below floor — this entry has been decayed before
+            # and is now stale. Supersede it instead of leaving it in limbo.
             if confidence <= DECAY_FLOOR:
+                conn.execute(
+                    "UPDATE knowledge SET superseded_by = 'temporal-stale', "
+                    "confidence = 0.1 WHERE knowledge_id = ?",
+                    (kid,),
+                )
+                result["superseded"] += 1
+                result["details"].append(
+                    f"Superseded temporal ({confidence:.1f}): {content[:60]}..."
+                )
                 continue
 
             new_confidence = max(confidence - DECAY_STANDARD, DECAY_FLOOR)
@@ -461,6 +494,51 @@ def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str,
     return result
 
 
+def _reap_dead_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Supersede entries stuck below the supersede floor.
+
+    This is the final safety net: entries that have been penalized by noise
+    filters, temporal decay, or orphan demotion — and ended up below
+    CONFIDENCE_SUPERSEDE_FLOOR — are dead weight. They're invisible to
+    briefings (below retrieval floor) but still consume space and get
+    re-scanned every sleep cycle without resolution.
+
+    Superseding them breaks the infinite loop.
+    """
+    result: dict[str, Any] = {"reaped": 0, "details": []}
+    conn = _get_connection()
+
+    try:
+        for entry in entries:
+            kid = entry["knowledge_id"]
+            ktype = entry.get("knowledge_type", "")
+            content = entry.get("content", "")
+            confidence = entry.get("confidence", 0.5)
+
+            # Directives and pinned entries are sacred
+            if ktype == "DIRECTIVE" or entry.get("pinned"):
+                continue
+            # Already superseded — skip
+            if entry.get("superseded_by"):
+                continue
+            # Only reap entries below the supersede floor
+            if confidence > CONFIDENCE_SUPERSEDE_FLOOR:
+                continue
+
+            conn.execute(
+                "UPDATE knowledge SET superseded_by = 'hygiene-reaper' WHERE knowledge_id = ?",
+                (kid,),
+            )
+            result["reaped"] += 1
+            result["details"].append(f"Reaped ({confidence:.2f}): {content[:60]}...")
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return result
+
+
 def format_hygiene_report(report: dict[str, Any]) -> str:
     """Format hygiene report for display."""
     lines = [f"Knowledge Hygiene Report ({report['entries_scanned']} entries scanned):"]
@@ -469,16 +547,22 @@ def format_hygiene_report(report: dict[str, Any]) -> str:
         lines.append(f"  Demoted {report['noise_demoted']} noisy entries to OBSERVATION")
     if report["noise_superseded"]:
         lines.append(f"  Superseded {report['noise_superseded']} pure noise entries")
-    if report["stale_decayed"]:
+    if report.get("stale_decayed"):
         lines.append(f"  Decayed {report['stale_decayed']} stale entries with temporal markers")
+    if report.get("stale_superseded"):
+        lines.append(f"  Superseded {report['stale_superseded']} stale temporal entries (at floor)")
     if report["orphans_flagged"]:
         lines.append(f"  Flagged {report['orphans_flagged']} orphan entries (never accessed)")
+    if report.get("reaped"):
+        lines.append(f"  Reaped {report['reaped']} dead entries (below confidence floor)")
 
     total = (
         report["noise_demoted"]
         + report["noise_superseded"]
-        + report["stale_decayed"]
+        + report.get("stale_decayed", 0)
+        + report.get("stale_superseded", 0)
         + report["orphans_flagged"]
+        + report.get("reaped", 0)
     )
     if total == 0:
         lines.append("  Knowledge store is clean. No action needed.")
