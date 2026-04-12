@@ -5,9 +5,10 @@ and event counts to enable performance analysis and debugging.
 """
 
 import time
-from typing import Any, Dict, Optional
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import Any, Dict, Optional
+
 from loguru import logger
 
 

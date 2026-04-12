@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the file and area where non-form errors are created, but only adds the 'nonform' CSS class in one location while missing the initialization of _non_form_errors in the full_clean method.",
+  "key_difference": "The candidate patch only modifies one of the two locations where _non_form_errors is created (missing the initialization in full_clean method), making it an incomplete fix compared to the gold patch which handles both cases.",
+  "instance_id": "django__django-14608",
+  "condition": "base",
+  "judge_tokens": 1343,
+  "judge_cost": 0.0060090000000000005
+}

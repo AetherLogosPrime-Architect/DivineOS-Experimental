@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies LogCaptureFixture.clear() but this isn't where the actual issue occurs - the problem is in the LogCaptureHandler.reset() method that gets called by LogCaptureFixture.clear().",
+  "key_difference": "The candidate patch targets the wrong location (LogCaptureFixture.clear()) while the gold patch correctly identifies that the issue is in LogCaptureHandler.reset() method and creates a new clear() method that calls records.clear() instead of replacing the list reference.",
+  "instance_id": "pytest-dev__pytest-10051",
+  "condition": "enhanced",
+  "judge_tokens": 1562,
+  "judge_cost": 0.0068460000000000005
+}

@@ -179,8 +179,7 @@ def create_polya_wisdom() -> ExpertWisdom:
                 "Combine the solutions. Verify the combination."
             ),
             what_it_reveals=(
-                "Which part of the problem is actually hard and which "
-                "parts are straightforward."
+                "Which part of the problem is actually hard and which parts are straightforward."
             ),
             common_mistakes_it_prevents=[
                 "Being overwhelmed by a complex bug",
@@ -195,8 +194,7 @@ def create_polya_wisdom() -> ExpertWisdom:
                 "is Y. Adapt Y to this specific context."
             ),
             what_it_reveals=(
-                "Whether you're dealing with a known bug pattern or "
-                "something genuinely novel."
+                "Whether you're dealing with a known bug pattern or something genuinely novel."
             ),
             common_mistakes_it_prevents=[
                 "Reinventing solutions for common bug patterns",
@@ -233,9 +231,7 @@ def create_polya_wisdom() -> ExpertWisdom:
                 "For each constraint: does your fix respect it?",
                 "If any gap: your fix is incomplete",
             ],
-            what_it_optimizes_for=(
-                "Ensuring the fix actually solves the stated problem"
-            ),
+            what_it_optimizes_for=("Ensuring the fix actually solves the stated problem"),
             limitations=[
                 "Can't catch unstated requirements",
                 "Depends on quality of the problem statement",
@@ -267,8 +263,7 @@ def create_polya_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Skipped Verification",
             description=(
-                "A fix has been written but not traced against the "
-                "original problem statement"
+                "A fix has been written but not traced against the original problem statement"
             ),
             why_its_concerning=(
                 "The #1 source of incomplete fixes: solving a slightly "
@@ -277,8 +272,7 @@ def create_polya_wisdom() -> ExpertWisdom:
             what_it_indicates="Missing the 'look back' step",
             severity="critical",
             what_to_do=(
-                "Re-read the problem. Trace the fix. Verify each "
-                "requirement is addressed."
+                "Re-read the problem. Trace the fix. Verify each requirement is addressed."
             ),
         ),
         ConcernTrigger(
@@ -300,10 +294,7 @@ def create_polya_wisdom() -> ExpertWisdom:
         ),
         ConcernTrigger(
             name="Problem Drift",
-            description=(
-                "The fix addresses a different problem than the one "
-                "originally described"
-            ),
+            description=("The fix addresses a different problem than the one originally described"),
             why_its_concerning=(
                 "During complex debugging, it's easy to drift from the "
                 "original problem to a related but different one"
@@ -355,9 +346,7 @@ def create_polya_wisdom() -> ExpertWisdom:
             "Re-read, re-understand, then re-solve. The problem "
             "statement is the anchor."
         ),
-        what_they_optimize_for=(
-            "Complete, verified solutions that address the actual problem"
-        ),
+        what_they_optimize_for=("Complete, verified solutions that address the actual problem"),
         non_negotiables=[
             "Understand before solving",
             "Verify after solving",

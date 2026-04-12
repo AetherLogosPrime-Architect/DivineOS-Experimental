@@ -1,0 +1,12 @@
+{
+  "instance_id": "pytest-dev__pytest-7571",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, the caplog fixture isn't restoring log levels after tests in pytest 6.0. Based on the hint about commit fcbaab8b0b89abc622dbfb7982cf9bd8c91ef301, I need to examine the caplog implementation.\n\nLet me analyze the issue: the caplog fixture should restore the log level automatically at the end of each test, but it's not doing so in pytest 6.0.\n\nThe issue is likely in the `_pytest/logging.py` file where the caplog fixture is implemented. The fixture needs to save the original log level and restore it after the test completes.\n\n--- a/src/_pytest/logging.py\n+++ b/src/_pytest/logging.py\n@@ -344,6 +344,7 @@ class LogCaptureFixture:\n     def __init__(self, item: nodes.Item) -> None:\n         \"\"\"Creates a new funcarg.\"\"\"\n         self._item = item  # type: nodes.Item\n+        self._initial_handler_level = None  # type: Optional[int]\n \n     def _finalize(self) -> None:\n         \"\"\"\n@@ -352,6 +353,9 @@ class LogCaptureFixture:\n         \"\"\"\n         # Restore log level\n         logging.getLogger().setLevel(self._item.stash[caplog_records_key].orig_level)\n+        # Restore handler level\n+        if self._initial_handler_level is not None:\n+            self.handler.setLevel(self._initial_handler_level)\n \n     @property\n     def handler(self) -> LoggingHandler:\n@@ -360,6 +364,8 @@ class LogCaptureFixture:\n         \"\"\"\n         handler = self._item.stash.get(caplog_handler_key, None)\n         if handler is None:\n+            # Store initial handler level before any modifications\n+            self._initial_handler_level = logging.getLogger().level\n             handler = LoggingHandler()\n             self._item.stash[caplog_handler_key] = handler\n             # Adding the same handler twice would result in a stack overflow",
+  "thinking": null,
+  "input_tokens": 368,
+  "output_tokens": 513,
+  "elapsed_seconds": 8.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008799
+}

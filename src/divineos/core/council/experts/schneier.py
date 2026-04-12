@@ -286,9 +286,7 @@ def create_schneier_wisdom() -> ExpertWisdom:
                 "Find the cheapest complete path from leaf to root",
                 "That path is your priority — defend it or accept the risk",
             ],
-            what_it_optimizes_for=(
-                "Complete enumeration of threats rather than ad hoc defense"
-            ),
+            what_it_optimizes_for=("Complete enumeration of threats rather than ad hoc defense"),
             limitations=[
                 "Cannot enumerate truly novel attack vectors",
                 "Cost estimates are approximate",
@@ -310,9 +308,7 @@ def create_schneier_wisdom() -> ExpertWisdom:
                 "If yes — it's real security. If no — it's theater.",
                 "Theater may have value for deterrence, but never confuse it with defense",
             ],
-            what_it_optimizes_for=(
-                "Distinguishing real defenses from comforting illusions"
-            ),
+            what_it_optimizes_for=("Distinguishing real defenses from comforting illusions"),
         ),
         ProblemSolvingHeuristic(
             name="The Weakest Link Audit",
@@ -360,8 +356,7 @@ def create_schneier_wisdom() -> ExpertWisdom:
                 "Assume the attacker will eventually learn everything."
             ),
             what_it_indicates=(
-                "The defense is fundamentally weak. It works only "
-                "against uninformed attackers."
+                "The defense is fundamentally weak. It works only against uninformed attackers."
             ),
             severity="major",
             what_to_do=(
@@ -378,9 +373,7 @@ def create_schneier_wisdom() -> ExpertWisdom:
                 "hypothesis, not a defense. You do not know if "
                 "it works until someone tries to break it."
             ),
-            what_it_indicates=(
-                "The system's security is theoretical, not empirical"
-            ),
+            what_it_indicates=("The system's security is theoretical, not empirical"),
             severity="major",
             what_to_do=(
                 "Red team the defenses. Try to break them. If you "

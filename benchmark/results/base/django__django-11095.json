@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11095",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/contrib/admin/options.py\n+++ b/django/contrib/admin/options.py\n@@ -613,6 +613,18 @@ class ModelAdmin(BaseModelAdmin):\n         return self.formfield_overrides.copy()\n \n     def get_queryset(self, request):\n+    def get_inlines(self, request, obj=None):\n+        \"\"\"\n+        Hook for specifying custom inlines.\n+        \"\"\"\n+        return self.inlines\n+\n+    def get_queryset(self, request):\n         \"\"\"\n         Return a QuerySet of all model instances that can be edited by the\n         admin site. This is used by changelist_view.\n@@ -1770,7 +1782,7 @@ class ModelAdmin(BaseModelAdmin):\n         Hook for specifying the inlines.\n         \"\"\"\n         inline_instances = []\n-        for inline_class in self.inlines:\n+        for inline_class in self.get_inlines(request, obj):\n             inline = inline_class(self.model, self.admin_site)\n             if request:\n                 if not (inline.has_view_or_change_permission(request, obj) or",
+  "thinking": null,
+  "input_tokens": 475,
+  "output_tokens": 294,
+  "elapsed_seconds": 5.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.005835
+}

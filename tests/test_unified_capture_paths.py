@@ -7,11 +7,9 @@ IDE IDE and MCP server scenarios.
 
 from divineos.core.tool_wrapper import (
     UnifiedToolCapture,
-    get_unified_capture,
     capture_tool_execution,
-)
-from divineos.core.tool_wrapper import (
     get_ide_tool_executor,
+    get_unified_capture,
 )
 
 
@@ -36,15 +34,13 @@ class TestUnifiedCaptureHappyPath:
         capture = UnifiedToolCapture()
         input_data = {"path": "test.txt", "mode": "read"}
 
-        capture.capture_tool_execution(
+        result = capture.capture_tool_execution(
             tool_name="readFile",
             tool_input=input_data,
             result="contents",
             duration_ms=100,
         )
-
-        # Verify events were created (would be in ledger)
-        # This is a basic check that capture didn't lose data
+        assert result is not None
 
 
 class TestUnifiedCaptureFailurePath:

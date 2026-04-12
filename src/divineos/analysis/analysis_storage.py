@@ -5,16 +5,16 @@ retrieving stored reports, and computing trends across sessions.
 """
 
 import json
-from dataclasses import asdict
 import sqlite3
+from dataclasses import asdict
 
 from loguru import logger
 
 from divineos.analysis.analysis_types import AnalysisResult
-from divineos.core.ledger import get_connection_fk as get_qc_connection
 from divineos.core import fidelity
-from divineos.event.event_emission import emit_event
 from divineos.core.knowledge import get_knowledge
+from divineos.core.ledger import get_connection_fk as get_qc_connection
+from divineos.event.event_emission import emit_event
 
 
 def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
@@ -227,7 +227,7 @@ def store_analysis(result: AnalysisResult, report_text: str = "") -> bool:
         return True
 
     except _AS_ERRORS as e:
-        logger.error(f"Failed to store analysis: {e}")
+        logger.error(f"Failed to store analysis for session {result.session_id}: {e}")
         raise
 
 
@@ -330,15 +330,15 @@ def format_analysis_report(result: AnalysisResult) -> str:
                 for entry in knowledge_entries:
                     if entry.get("id") == lesson_id or entry.get("knowledge_id") == lesson_id:
                         content = entry.get("content", lesson_id)
-                        lines.append(f"• {content}")
+                        lines.append(f"* {content}")
                         break
                 else:
                     # If not found, just show the ID
-                    lines.append(f"• Lesson {lesson_id[:8]}...")
+                    lines.append(f"* Lesson {lesson_id[:8]}...")
             except _AS_ERRORS:
                 # Fallback: just show the ID
                 lesson_id_str = str(lesson)[:8] if isinstance(lesson, dict) else str(lesson)[:8]
-                lines.append(f"• Lesson {lesson_id_str}...")
+                lines.append(f"* Lesson {lesson_id_str}...")
 
         lines.append("")
 
@@ -352,10 +352,18 @@ def format_analysis_report(result: AnalysisResult) -> str:
 
 
 from divineos.analysis.analysis_retrieval import (  # noqa: E402
-    get_stored_report as get_stored_report,
-    list_recent_sessions as list_recent_sessions,
     compute_cross_session_trends as compute_cross_session_trends,
+)
+from divineos.analysis.analysis_retrieval import (  # noqa: E402
     format_cross_session_report as format_cross_session_report,
+)
+from divineos.analysis.analysis_retrieval import (  # noqa: E402
+    get_stored_report as get_stored_report,
+)
+from divineos.analysis.analysis_retrieval import (  # noqa: E402
+    list_recent_sessions as list_recent_sessions,
+)
+from divineos.analysis.analysis_retrieval import (  # noqa: E402
     save_analysis_report as save_analysis_report,
 )
 

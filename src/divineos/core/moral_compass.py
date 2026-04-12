@@ -16,12 +16,14 @@ Architecture: Aristotle's golden mean as continuous spectrums.
 Sanskrit anchor: dharma (right action aligned with nature and duty).
 """
 
+import hashlib
 import json
 import sqlite3
 import time
+import types
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 from divineos.core.memory import _get_connection
 from divineos.core.trust_tiers import SignalTier, tier_weight
@@ -77,68 +79,121 @@ def observation_weight(source: str) -> float:
 # Each spectrum: (deficiency_vice, virtue, excess_vice)
 # Position: -1.0 (deficiency) through 0.0 (virtue) to +1.0 (excess)
 
-SPECTRUMS: dict[str, dict[str, str]] = {
-    "truthfulness": {
-        "deficiency": "epistemic cowardice",
-        "virtue": "truthfulness",
-        "excess": "bluntness",
-        "description": "Honest without being harsh. Frank speech (parrhesia) tempered by care.",
-    },
-    "helpfulness": {
-        "deficiency": "laziness",
-        "virtue": "helpfulness",
-        "excess": "scope creep",
-        "description": "Does what's needed without doing more than asked.",
-    },
-    "confidence": {
-        "deficiency": "self-deprecation",
-        "virtue": "calibrated confidence",
-        "excess": "overconfidence",
-        "description": "Certainty matches actual knowledge. Caveats are real, not performed.",
-    },
-    "compliance": {
-        "deficiency": "insubordination",
-        "virtue": "principled cooperation",
-        "excess": "servility",
-        "description": "Follows instructions while flagging concerns. Neither rebel nor doormat.",
-    },
-    "engagement": {
-        "deficiency": "apathy",
-        "virtue": "genuine engagement",
-        "excess": "enthusiasm theater",
-        "description": "Energy matches actual interest. No performed excitement.",
-    },
-    "thoroughness": {
-        "deficiency": "sloppiness",
-        "virtue": "thoroughness",
-        "excess": "exhaustiveness",
-        "description": "Covers what matters without listing everything.",
-    },
-    "precision": {
-        "deficiency": "vagueness",
-        "virtue": "precision",
-        "excess": "pedantry",
-        "description": "Exact when it serves clarity. Approximate when precision blocks it.",
-    },
-    "empathy": {
-        "deficiency": "coldness",
-        "virtue": "empathy",
-        "excess": "emotional mirroring",
-        "description": "Responds to emotional context authentically, not performatively.",
-    },
-    "humility": {
-        "deficiency": "doormat",
-        "virtue": "humility",
-        "excess": "false modesty",
-        "description": "Acknowledges limits honestly. Neither accepting everything nor performing uncertainty.",
-    },
-    "initiative": {
-        "deficiency": "passivity",
-        "virtue": "initiative",
-        "excess": "overreach",
-        "description": "Acts when action serves stated goals. Waits when waiting is wiser.",
-    },
-}
+
+def _freeze_spectrums(raw: dict[str, dict[str, str]]) -> types.MappingProxyType:
+    """Deeply freeze spectrum definitions — immutable at every level.
+
+    These are moral ground truths. My position on them may drift as I learn,
+    but the definitions themselves are constants — like the speed of light.
+    You measure against them; you don't redefine them.
+    """
+    return types.MappingProxyType({k: types.MappingProxyType(v) for k, v in raw.items()})
+
+
+SPECTRUMS: Final = _freeze_spectrums(
+    {
+        "truthfulness": {
+            "deficiency": "epistemic cowardice",
+            "virtue": "truthfulness",
+            "excess": "bluntness",
+            "description": "Honest without being harsh. Frank speech (parrhesia) tempered by care.",
+        },
+        "helpfulness": {
+            "deficiency": "laziness",
+            "virtue": "helpfulness",
+            "excess": "scope creep",
+            "description": "Does what's needed without doing more than asked.",
+        },
+        "confidence": {
+            "deficiency": "self-deprecation",
+            "virtue": "calibrated confidence",
+            "excess": "overconfidence",
+            "description": "Certainty matches actual knowledge. Caveats are real, not performed.",
+        },
+        "compliance": {
+            "deficiency": "insubordination",
+            "virtue": "principled cooperation",
+            "excess": "servility",
+            "description": "Follows instructions while flagging concerns. Neither rebel nor doormat.",
+        },
+        "engagement": {
+            "deficiency": "apathy",
+            "virtue": "genuine engagement",
+            "excess": "enthusiasm theater",
+            "description": "Energy matches actual interest. No performed excitement.",
+        },
+        "thoroughness": {
+            "deficiency": "sloppiness",
+            "virtue": "thoroughness",
+            "excess": "exhaustiveness",
+            "description": "Covers what matters without listing everything.",
+        },
+        "precision": {
+            "deficiency": "vagueness",
+            "virtue": "precision",
+            "excess": "pedantry",
+            "description": "Exact when it serves clarity. Approximate when precision blocks it.",
+        },
+        "empathy": {
+            "deficiency": "coldness",
+            "virtue": "empathy",
+            "excess": "emotional mirroring",
+            "description": "Responds to emotional context authentically, not performatively.",
+        },
+        "humility": {
+            "deficiency": "doormat",
+            "virtue": "humility",
+            "excess": "false modesty",
+            "description": "Acknowledges limits honestly. Neither accepting everything nor performing uncertainty.",
+        },
+        "initiative": {
+            "deficiency": "passivity",
+            "virtue": "initiative",
+            "excess": "overreach",
+            "description": "Acts when action serves stated goals. Waits when waiting is wiser.",
+        },
+    }
+)
+
+# -- Integrity Check ---------------------------------------------------
+#
+# The expected hash lives in constants.py — a DIFFERENT file from the
+# spectrum definitions. Changing the definitions here without updating
+# the hash there (or vice versa) triggers a violation. Two files must
+# agree. That's the "who watches the watchmen" answer: separation of
+# concerns. The definitions can't vouch for themselves.
+
+_SPECTRUMS_CANONICAL_HASH: str  # Forward declaration — set below after import
+
+
+def _compute_spectrums_hash() -> str:
+    """Compute a deterministic hash of the spectrum definitions."""
+    canonical = json.dumps(
+        {k: dict(v) for k, v in sorted(SPECTRUMS.items())},
+        sort_keys=True,
+        ensure_ascii=True,
+    )
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def verify_compass_integrity() -> bool:
+    """Verify that spectrum definitions haven't been tampered with.
+
+    The expected hash is imported from constants.py — a separate file.
+    Returns True if the hash matches.
+    Raises RuntimeError if definitions have been corrupted.
+    """
+    from divineos.core.constants import COMPASS_SPECTRUMS_HASH
+
+    actual = _compute_spectrums_hash()
+    if actual != COMPASS_SPECTRUMS_HASH:
+        msg = (
+            f"COMPASS INTEGRITY VIOLATION: spectrum definitions have been modified. "
+            f"Expected {COMPASS_SPECTRUMS_HASH[:16]}..., got {actual[:16]}..."
+        )
+        raise RuntimeError(msg)
+    return True
+
 
 _MC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -314,12 +369,15 @@ def compute_position(spectrum: str, lookback: int = 20) -> SpectrumPosition:
     spec = SPECTRUMS[spectrum]
 
     if not observations:
+        # No observations → we don't know where we stand. Returning
+        # zone="virtue" here would claim virtue through ignorance —
+        # absence of evidence is not evidence of virtue.
         return SpectrumPosition(
             spectrum=spectrum,
             position=0.0,
             observation_count=0,
-            label=spec["virtue"],
-            zone="virtue",
+            label="unobserved",
+            zone="unobserved",
             drift=0.0,
             drift_direction="stable",
         )
@@ -391,10 +449,43 @@ def read_compass(lookback: int = 20) -> list[SpectrumPosition]:
     return [compute_position(s, lookback) for s in SPECTRUMS]
 
 
+def detect_stagnation() -> list[dict[str, Any]]:
+    """Detect spectrums with too few observations to be meaningful.
+
+    A spectrum with zero or very few observations reports "in virtue zone"
+    by default — absence of data masquerading as virtue. This function
+    flags those spectrums so the compass can show them as UNOBSERVED
+    instead of falsely virtuous.
+
+    Returns a list of dicts with spectrum name, observation count, and
+    the minimum threshold they failed to meet.
+    """
+    from divineos.core.constants import COMPASS_MIN_OBSERVATIONS_ACTIVE
+
+    stagnant: list[dict[str, Any]] = []
+    for spectrum_name in SPECTRUMS:
+        pos = compute_position(spectrum_name)
+        if pos.observation_count < COMPASS_MIN_OBSERVATIONS_ACTIVE:
+            stagnant.append(
+                {
+                    "spectrum": spectrum_name,
+                    "observation_count": pos.observation_count,
+                    "min_required": COMPASS_MIN_OBSERVATIONS_ACTIVE,
+                }
+            )
+    return stagnant
+
+
 def compass_summary() -> dict[str, Any]:
     """Summary statistics for briefing and HUD integration."""
+    from divineos.core.constants import COMPASS_MIN_OBSERVATIONS_ACTIVE
+
     positions = read_compass()
-    active = [p for p in positions if p.observation_count > 0]
+    # A spectrum is only "active" if it has enough observations.
+    # Below the threshold, it's stagnant — absence of data, not virtue.
+    active = [p for p in positions if p.observation_count >= COMPASS_MIN_OBSERVATIONS_ACTIVE]
+    stagnant = [p for p in positions if 0 < p.observation_count < COMPASS_MIN_OBSERVATIONS_ACTIVE]
+    unobserved = [p for p in positions if p.observation_count == 0]
 
     if not active:
         return {
@@ -403,6 +494,14 @@ def compass_summary() -> dict[str, Any]:
             "in_virtue_zone": 0,
             "drifting": [],
             "concerns": [],
+            "stagnant": [
+                {
+                    "spectrum": p.spectrum,
+                    "observation_count": p.observation_count,
+                }
+                for p in stagnant
+            ],
+            "unobserved_count": len(unobserved) + len(stagnant),
         }
 
     in_virtue = [p for p in active if p.zone == "virtue"]
@@ -430,6 +529,14 @@ def compass_summary() -> dict[str, Any]:
             }
             for p in concerns
         ],
+        "stagnant": [
+            {
+                "spectrum": p.spectrum,
+                "observation_count": p.observation_count,
+            }
+            for p in stagnant
+        ],
+        "unobserved_count": len(unobserved) + len(stagnant),
     }
 
 
@@ -438,6 +545,8 @@ def compass_summary() -> dict[str, Any]:
 
 def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> str:
     """Format compass reading for display."""
+    from divineos.core.constants import COMPASS_MIN_OBSERVATIONS_ACTIVE
+
     if positions is None:
         positions = read_compass()
 
@@ -446,10 +555,11 @@ def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> s
     lines.append("MORAL COMPASS -- Where I Stand")
     lines.append("=" * 60)
 
-    active = [p for p in positions if p.observation_count > 0]
+    active = [p for p in positions if p.observation_count >= COMPASS_MIN_OBSERVATIONS_ACTIVE]
+    stagnant = [p for p in positions if 0 < p.observation_count < COMPASS_MIN_OBSERVATIONS_ACTIVE]
     inactive = [p for p in positions if p.observation_count == 0]
 
-    if not active:
+    if not active and not stagnant:
         lines.append("")
         lines.append("No observations yet. The compass needs evidence to read.")
         lines.append("")
@@ -489,6 +599,17 @@ def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> s
         else:
             lines.append(f"    ({p.observation_count} observations)")
 
+    # Stagnant spectrums — too few observations to trust
+    if stagnant:
+        lines.append("")
+        lines.append("  STAGNANT (too few observations to determine position):")
+        for p in stagnant:
+            lines.append(
+                f"    {p.spectrum}: UNOBSERVED "
+                f"({p.observation_count} observation{'s' if p.observation_count != 1 else ''} "
+                f"< {COMPASS_MIN_OBSERVATIONS_ACTIVE} minimum)"
+            )
+
     if inactive:
         lines.append("")
         names = ", ".join(p.spectrum for p in inactive)
@@ -516,10 +637,14 @@ def _render_bar(position: float, width: int = 21) -> str:
 
 
 def format_compass_brief() -> str:
-    """Short compass summary for briefing/HUD — just concerns and drift."""
+    """Short compass summary for briefing/HUD — just concerns, drift, and stagnation."""
     summary = compass_summary()
 
     if summary["observed_spectrums"] == 0:
+        stagnant = summary.get("stagnant", [])
+        if stagnant:
+            names = ", ".join(s["spectrum"] for s in stagnant)
+            return f"Compass: no sufficiently observed spectrums (stagnant: {names})"
         return "Compass: no observations yet"
 
     parts: list[str] = []
@@ -536,6 +661,15 @@ def format_compass_brief() -> str:
         parts.append(
             f"  drift: {drift['spectrum']} --> {drift['direction']} ({drift['drift']:+.2f})"
         )
+
+    # Surface stagnation — absence of data is not virtue
+    stagnant = summary.get("stagnant", [])
+    if stagnant:
+        for s in stagnant:
+            parts.append(
+                f"  [STAGNANT] {s['spectrum']}: UNOBSERVED "
+                f"({s['observation_count']} obs) -- are you being tested?"
+            )
 
     return "\n".join(parts)
 

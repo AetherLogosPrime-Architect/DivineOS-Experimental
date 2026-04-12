@@ -2,11 +2,15 @@
 
 Provides get_memory_monitor() singleton access and end_session()
 that delegate to the global monitor instance.
+
+# AGENT_RUNTIME — Not wired into CLI pipeline. Used by agent integration
+# layer and tested directly. Appears dead to static analysis but is the
+# public API surface for agents embedding DivineOS as a library.
 """
 
 import threading
-from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
 
+from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
 
 # Global monitor instance (typed loosely to avoid circular import at module level)
 _monitor = None

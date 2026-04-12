@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-12973",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sklearn/linear_model/least_angle.py\n+++ b/sklearn/linear_model/least_angle.py\n@@ -1543,7 +1543,7 @@ class LassoLarsIC(LassoLars):\n         self.noise_variance = noise_variance\n         self.normalize = normalize\n \n-    def fit(self, X, y, copy_X=True):\n+    def fit(self, X, y, copy_X=None):\n         \"\"\"Fit the model using X, y as training data.\n \n         Parameters\n@@ -1559,7 +1559,7 @@ class LassoLarsIC(LassoLars):\n \n         copy_X : boolean, optional, default True\n             If ``True``, X will be copied; else, it may be overwritten.\n-\n+            If ``None``, the value set during initialization will be used.\n         Returns\n         -------\n         self : object\n@@ -1583,6 +1583,9 @@ class LassoLarsIC(LassoLars):\n         else:\n             noise_variance = self.noise_variance\n \n+        if copy_X is None:\n+            copy_X = self.copy_X\n+\n         X, y = check_X_y(X, y, y_numeric=True)\n \n         # Normalize X and y, storing the means and standard deviations",
+  "thinking": null,
+  "input_tokens": 632,
+  "output_tokens": 349,
+  "elapsed_seconds": 6.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007131
+}

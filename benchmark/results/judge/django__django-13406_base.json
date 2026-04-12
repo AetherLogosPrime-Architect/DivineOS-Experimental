@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that when a pickled query with values_select is restored, the _iterable_class needs to be set appropriately. It handles both values() and values_list() cases by checking if values_select is True or contains field names.",
+  "key_difference": "The candidate patch is more comprehensive than the gold patch - it handles both ValuesIterable (for values()) and ValuesListIterable (for values_list()) cases, while the gold patch only handles the ValuesIterable case. This makes the candidate patch more complete but less minimal.",
+  "instance_id": "django__django-13406",
+  "condition": "base",
+  "judge_tokens": 1841,
+  "judge_cost": 0.007755
+}

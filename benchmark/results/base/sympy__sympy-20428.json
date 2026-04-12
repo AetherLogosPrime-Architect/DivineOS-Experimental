@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-20428",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, the issue is that `clear_denoms()` returns a polynomial with an unstripped DMP representation `DMP([EX(0)], EX, None)` instead of the proper zero polynomial representation `DMP([], EX, None)`. This causes inconsistent behavior where the polynomial prints as zero but `is_zero` returns `False`.\n\nThe fix needs to ensure that when `clear_denoms()` produces a zero polynomial, it's properly stripped to have the canonical zero representation.\n\nLet me examine the `clear_denoms()` method implementation and create a patch:\n\n--- a/sympy/polys/polytools.py\n+++ b/sympy/polys/polytools.py\n@@ -1764,7 +1764,7 @@ class Poly(Basic):\n         coeff, result = f.rep.clear_denoms()\n \n         coeff, result = f.dom.from_sympy(coeff), f.per(result)\n-        return coeff, result\n+        return coeff, result.strip()\n \n     def rat_clear_denoms(f, g):\n         \"\"\"",
+  "thinking": null,
+  "input_tokens": 1650,
+  "output_tokens": 268,
+  "elapsed_seconds": 5.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.00897
+}

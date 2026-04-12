@@ -2,9 +2,9 @@
 
 import os
 import re
+import sqlite3
 from datetime import datetime, timezone
 from typing import Any
-import sqlite3
 
 import click
 
@@ -147,7 +147,7 @@ def _resolve_knowledge_id(partial: str) -> str:
     if len(rows) > 1:
         click.secho(f"Ambiguous ID '{partial}' matches {len(rows)} entries:\n", fg="yellow")
         for kid, ktype, content in rows:
-            preview = (content[:60] + "...") if len(content) > 60 else content
+            preview = (content[:117] + "...") if len(content) > 120 else content
             preview = preview.replace("\n", " ")
             click.echo(f"  {kid[:12]}  [{ktype}]  {preview}")
         raise click.ClickException("Use more characters to narrow it down")
@@ -187,17 +187,21 @@ def _display_and_store_analysis(result: Any) -> None:
 
 
 def _log_os_query(tool: str, query: str = "") -> None:
-    """Log an OS_QUERY event and mark the session as engaged."""
-    from divineos.core.hud_handoff import mark_engaged
+    """Log an OS_QUERY event and mark the session as engaged.
 
+    Passes the tool name to mark_engaged so the engagement system
+    can distinguish deep consultations (ask, recall) from light
+    check-ins (context, decide, feel).
+    """
     from divineos.cli._wrappers import _wrapped_log_event
+    from divineos.core.hud_handoff import mark_engaged
 
     _wrapped_log_event(
         event_type="OS_QUERY",
         actor="assistant",
         payload={"tool": tool, "query": query},
     )
-    mark_engaged()
+    mark_engaged(tool=tool)
 
 
 def _role_to_event_type(role: str) -> str:
@@ -237,7 +241,7 @@ def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
         failed = payload.get("failed", False)
         result = str(payload.get("result", ""))[:120]
         status = "FAILED" if failed else "ok"
-        return f"{name} → {status} ({dur:.0f}ms) {result}"
+        return f"{name} -> {status} ({dur:.0f}ms) {result}"
 
     if etype == "USER_INPUT":
         return str(payload.get("text", payload.get("content", "")))
@@ -249,7 +253,7 @@ def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
     if etype == "AGENT_DECISION":
         task = payload.get("task", "?")
         pattern = payload.get("chosen_pattern", "?")
-        return f"Decision: {task[:80]} → pattern {pattern[:40]}"
+        return f"Decision: {task[:80]} -> pattern {pattern[:40]}"
 
     if etype == "AGENT_LEARNING_AUDIT":
         drift = payload.get("drift_detected", False)

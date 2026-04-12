@@ -1,5 +1,7 @@
 """Memory commands — core, recall, active, remember, refresh."""
 
+import sqlite3
+
 import click
 
 from divineos.cli._helpers import _log_os_query, _resolve_knowledge_id, _safe_echo
@@ -14,7 +16,6 @@ from divineos.cli._wrappers import (
     _wrapped_set_core,
 )
 from divineos.core.memory import CORE_SLOTS, init_memory_tables
-import sqlite3
 
 _MC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

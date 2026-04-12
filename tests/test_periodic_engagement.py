@@ -41,7 +41,10 @@ class TestPeriodicEngagement:
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
-            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
+            patch(
+                "divineos.core.hud_handoff._active_threshold",
+                return_value=_ENGAGEMENT_DECAY_THRESHOLD,
+            ),
         ):
             mark_engaged()
             assert is_engaged() is True
@@ -58,6 +61,10 @@ class TestPeriodicEngagement:
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+            patch(
+                "divineos.core.hud_handoff._active_threshold",
+                return_value=_ENGAGEMENT_DECAY_THRESHOLD,
+            ),
         ):
             mark_engaged()
 
@@ -80,6 +87,10 @@ class TestPeriodicEngagement:
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+            patch(
+                "divineos.core.hud_handoff._active_threshold",
+                return_value=_ENGAGEMENT_DECAY_THRESHOLD,
+            ),
         ):
             mark_engaged()
 
@@ -102,7 +113,10 @@ class TestPeriodicEngagement:
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
-            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
+            patch(
+                "divineos.core.hud_handoff._active_threshold",
+                return_value=_ENGAGEMENT_DECAY_THRESHOLD,
+            ),
         ):
             mark_engaged()
             for _ in range(_ENGAGEMENT_DECAY_THRESHOLD + 2):
@@ -146,7 +160,13 @@ class TestOldFormatCompatibility:
 
     def test_old_format_status_shows_engaged(self, tmp_path: Path) -> None:
         """Old-format markers show full engagement in status."""
-        with patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path):
+        with (
+            patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
+            patch(
+                "divineos.core.hud_handoff._active_threshold",
+                return_value=_ENGAGEMENT_DECAY_THRESHOLD,
+            ),
+        ):
             (tmp_path / ".session_engaged").write_text("1711800000.0")
             status = engagement_status()
             assert status["engaged"] is True
@@ -216,7 +236,10 @@ class TestPreflight:
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._count_session_tool_calls", return_value=5),
-            patch("divineos.core.hud_handoff._is_flow_state", return_value=False),
+            patch(
+                "divineos.core.hud_handoff._active_threshold",
+                return_value=_ENGAGEMENT_DECAY_THRESHOLD,
+            ),
         ):
             mark_engaged()
             for _ in range(_ENGAGEMENT_DECAY_THRESHOLD + 1):
@@ -226,6 +249,32 @@ class TestPreflight:
             engagement = next(c for c in result["checks"] if c["name"] == "engagement")
             assert engagement["passed"] is False
             assert "code actions without OS consultation" in engagement["detail"]
+
+
+class TestPreflightCompassIntegrity:
+    """Preflight checks compass integrity automatically."""
+
+    def test_preflight_includes_compass_check(self, tmp_path: Path) -> None:
+        """Compass integrity appears as a preflight check."""
+        from divineos.core.hud_handoff import preflight_check
+
+        marker = {"loaded_at": 1000.0, "tool_calls_at_load": 0}
+        (tmp_path / ".briefing_loaded").write_text(json.dumps(marker))
+
+        with (
+            patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
+            patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+            patch("divineos.core.hud_handoff._count_session_tool_calls", return_value=0),
+        ):
+            mark_engaged()
+            result = preflight_check()
+            compass_check = next(
+                (c for c in result["checks"] if c["name"] == "compass_integrity"),
+                None,
+            )
+            assert compass_check is not None
+            assert compass_check["passed"] is True
+            assert "intact" in compass_check["detail"]
 
 
 class TestThresholdValue:

@@ -7,27 +7,26 @@ provenance through graph edges.
 
 Three compression strategies:
 
-1. DEDUP COMPRESSION: Near-identical entries (>70% overlap) → keep the
+1. DEDUP COMPRESSION: Near-identical entries (>70% overlap) -> keep the
    most mature/confident one, supersede the rest.
 
-2. CLUSTER SYNTHESIS: Related entries (40-70% overlap) → extract unique
+2. CLUSTER SYNTHESIS: Related entries (40-70% overlap) -> extract unique
    contributions from each, build a composite entry.
 
 3. GRAPH-AWARE COMPRESSION: Entries connected by SUPPORTS/ELABORATES
-   edges → compress into a principle + evidence summary.
+   edges -> compress into a principle + evidence summary.
 """
 
 import sqlite3
 from typing import Any
 
-from divineos.core.knowledge._base import _get_connection, _row_to_dict, _KNOWLEDGE_COLS
+from divineos.core.knowledge._base import _KNOWLEDGE_COLS, _get_connection, _row_to_dict
 from divineos.core.knowledge._text import _compute_overlap, _normalize_text
 from divineos.core.knowledge.crud import (
     get_knowledge,
     store_knowledge,
     supersede_knowledge,
 )
-
 
 # ─── Maturity Ranking ──────────────────────────────────────────────
 
@@ -478,17 +477,17 @@ def format_compression_report(results: dict[str, Any]) -> str:
     if results["dedup"]:
         lines.append(f"  Dedup: {len(results['dedup'])} cluster(s)")
         for action in results["dedup"]:
-            lines.append(f"    → Kept: {action['kept_content']}")
+            lines.append(f"    -> Kept: {action['kept_content']}")
             lines.append(f"      Superseded {action['count']} duplicate(s)")
 
     if results["synthesize"]:
         lines.append(f"  Synthesized: {len(results['synthesize'])} cluster(s)")
         for action in results["synthesize"]:
-            lines.append(f"    → {action['source_count']} entries → {action['content_preview']}")
+            lines.append(f"    -> {action['source_count']} entries -> {action['content_preview']}")
 
     if results["graph"]:
         lines.append(f"  Graph-compressed: {len(results['graph'])} cluster(s)")
         for action in results["graph"]:
-            lines.append(f"    → {action['support_count']} supports merged into principle")
+            lines.append(f"    -> {action['support_count']} supports merged into principle")
 
     return "\n".join(lines)

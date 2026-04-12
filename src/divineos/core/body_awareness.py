@@ -23,6 +23,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from divineos.core.constants import SECONDS_PER_DAY
 from divineos.core.memory import _get_connection
 
 _BA_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
@@ -315,7 +316,7 @@ def clean_transcript_debris(dry_run: bool = False) -> dict[str, int | float]:
     if not projects_dir.exists():
         return {"removed_count": 0, "freed_mb": 0.0, "dirs_cleaned": 0}
 
-    cutoff = time.time() - (_TRANSCRIPT_RETENTION_DAYS * 86400)
+    cutoff = time.time() - (_TRANSCRIPT_RETENTION_DAYS * SECONDS_PER_DAY)
     removed_count = 0
     freed_bytes = 0
     dirs_cleaned = 0
@@ -625,9 +626,9 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
         vitals.tool_event_ratio = round(vitals.tool_events / vitals.ledger_events, 3)
 
     # -- Warning thresholds --
-    if vitals.total_size_mb > 100:
+    if vitals.total_size_mb > 500:
         vitals.warnings.append(f"Storage critical: {vitals.total_size_mb:.0f}MB")
-    elif vitals.total_size_mb > 50:
+    elif vitals.total_size_mb > 250:
         vitals.warnings.append(f"Storage high: {vitals.total_size_mb:.0f}MB")
 
     if vitals.tool_event_ratio > 0.8:
@@ -635,12 +636,12 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
             f"Tool events dominate ledger: {vitals.tool_event_ratio:.0%} -- pruning may be needed"
         )
 
-    if vitals.supersession_ratio > 0.5:
+    if vitals.supersession_ratio > 0.8:
         vitals.warnings.append(
             f"High supersession ratio: {vitals.supersession_ratio:.0%} -- lots of replaced knowledge"
         )
 
-    if vitals.ledger_events > 10000:
+    if vitals.ledger_events > 50000:
         vitals.warnings.append(
             f"Ledger growing large: {vitals.ledger_events} events -- consider compaction"
         )

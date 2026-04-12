@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that the bug is in the VLA handling code and adds 'Q' format support alongside existing 'P' format support in the condition that handles variable-length arrays.",
+  "key_difference": "The candidate patch is functionally identical to the gold patch - both add the same condition '\"Q\" in col.format' to handle Q-format VLAs. The only difference is minor whitespace/context in the diff header, but the actual code change is exactly the same.",
+  "instance_id": "astropy__astropy-14539",
+  "condition": "base",
+  "judge_tokens": 1414,
+  "judge_cost": 0.006294
+}

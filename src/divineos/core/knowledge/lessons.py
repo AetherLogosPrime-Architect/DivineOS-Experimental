@@ -1,22 +1,33 @@
 """Lesson tracking — record, query, summarize, extract from reports."""
 
 import json
+import math
+import re
+import sqlite3
 import time
 import uuid
 from typing import Any, cast
-import sqlite3
 
 from loguru import logger
 
+from divineos.core.constants import (
+    CONFIDENCE_ACTIVE_MEMORY_FLOOR,
+    CONFIDENCE_RELIABLE,
+    CONFIDENCE_VERY_HIGH,
+    LESSON_ABSENCE_DAYS,
+    LESSON_MIN_RESOLUTION_DAYS,
+    LESSON_MIN_STIMULUS_SESSIONS,
+    SECONDS_PER_DAY,
+)
 from divineos.core.knowledge._base import (
     _get_connection,
     _lesson_row_to_dict,
     compute_hash,
 )
-from divineos.core.knowledge.curation import clean_entry_text
 from divineos.core.knowledge.crud import (
     store_knowledge,
 )
+from divineos.core.knowledge.curation import clean_entry_text
 from divineos.core.knowledge.extraction import store_knowledge_smart
 
 _LESSONS_ERRORS = (
@@ -43,10 +54,12 @@ def _ensure_regressions_column(conn: Any) -> None:
 # How many regressions before a lesson is flagged for directive promotion.
 REGRESSION_ESCALATION_THRESHOLD = 3
 
-# Cap effective occurrences for auto-resolve math. Lessons with inflated
-# counts (e.g., 178x from early accumulation bugs) would otherwise be
-# impossible to resolve — you'd need 183 clean sessions.
-MAX_EFFECTIVE_OCCURRENCES = 10
+# Scale effective occurrences logarithmically for auto-resolve math.
+# A lesson with 178 occurrences shouldn't need 183 clean sessions,
+# but it shouldn't be capped at 10 either — that hides chronic failure.
+# log2(178) ≈ 7.5 → needs ~13 sessions. log2(10) ≈ 3.3 → needs ~8.
+# Minimum effective is 5 (the base threshold never drops below that).
+LESSON_EFFECTIVE_MIN = 5
 
 
 def record_lesson(category: str, description: str, session_id: str, agent: str = "unknown") -> str:
@@ -127,7 +140,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             # the pattern was observed again. Find knowledge entries whose
             # content references this lesson category and boost them.
             try:
-                # Late import: lessons → knowledge_maintenance → logic_validation cycle
+                # Late import: lessons -> knowledge_maintenance -> logic_validation cycle
                 from divineos.core.knowledge_maintenance import (
                     increment_corroboration,
                     promote_maturity,
@@ -136,12 +149,12 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
                 cat_words = category.replace("_", " ")
                 linked = conn.execute(
                     "SELECT knowledge_id FROM knowledge "
-                    "WHERE superseded_by IS NULL AND confidence >= 0.3 "
+                    "WHERE superseded_by IS NULL AND confidence >= ? "
                     "AND (LOWER(content) LIKE ? OR LOWER(content) LIKE ?)",
-                    (f"%{cat_words}%", f"%{category}%"),
+                    (CONFIDENCE_ACTIVE_MEMORY_FLOOR, f"%{cat_words}%", f"%{category}%"),
                 ).fetchall()
                 for (kid,) in linked:
-                    increment_corroboration(kid)
+                    increment_corroboration(kid, source_context=f"lesson:{category}")
                     promote_maturity(kid)
             except _LESSONS_ERRORS as e:
                 logger.debug(
@@ -282,13 +295,78 @@ def get_escalation_candidates() -> list[dict[str, Any]]:
         _ensure_regressions_column(conn)
         rows = conn.execute(
             "SELECT lesson_id, created_at, category, description, first_session, "
-            "occurrences, last_seen, sessions, status, content_hash, agent "
+            "occurrences, last_seen, sessions, status, content_hash, agent, regressions "
             "FROM lesson_tracking WHERE regressions >= ?",
             (REGRESSION_ESCALATION_THRESHOLD,),
         ).fetchall()
         return [_lesson_row_to_dict(row) for row in rows]
     finally:
         conn.close()
+
+
+def escalate_chronic_lessons() -> list[str]:
+    """Auto-promote lessons with 3+ regressions to DIRECTIVE knowledge entries.
+
+    A lesson that keeps cycling between IMPROVING and ACTIVE isn't being
+    solved by awareness alone — it needs structural enforcement. Instead
+    of just appending "[ESCALATE]" text to the summary, this creates an
+    actual DIRECTIVE entry in the knowledge store that will surface in
+    briefings with high priority.
+
+    Returns list of created knowledge IDs.
+    """
+    candidates = get_escalation_candidates()
+    if not candidates:
+        return []
+
+    created_ids: list[str] = []
+    for lesson in candidates:
+        category = lesson["category"]
+        description = lesson["description"]
+        regressions = lesson.get("regressions", 0)
+        occurrences = lesson["occurrences"]
+
+        # Check if a directive already exists for this category
+        conn = _get_connection()
+        try:
+            existing = conn.execute(
+                "SELECT knowledge_id FROM knowledge "
+                "WHERE knowledge_type = 'DIRECTIVE' AND superseded_by IS NULL "
+                "AND LOWER(content) LIKE ?",
+                (f"%{category.lower()}%",),
+            ).fetchone()
+        finally:
+            conn.close()
+
+        if existing:
+            # Directive already exists — don't create duplicates
+            continue
+
+        content = (
+            f"STRUCTURAL ENFORCEMENT: {description} "
+            f"This lesson regressed {regressions}x across {occurrences} occurrences. "
+            f"Awareness alone is insufficient — enforce structurally. "
+            f"Category: {category}."
+        )
+
+        kid = store_knowledge_smart(
+            knowledge_type="DIRECTIVE",
+            content=content,
+            confidence=CONFIDENCE_RELIABLE,
+            source_events=[],
+            tags=["auto-escalated", f"lesson-{category}", "regression-enforcement"],
+            source="SYNTHESIZED",
+        )
+        if kid:
+            created_ids.append(kid)
+            logger.info(
+                "Escalated lesson '%s' to DIRECTIVE (knowledge_id=%s): %dx regressions",
+                category,
+                kid,
+                regressions,
+            )
+
+    return created_ids
 
 
 def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
@@ -311,6 +389,99 @@ def check_recurring_lessons(categories: list[str]) -> list[dict[str, Any]]:
         conn.close()
 
 
+def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
+    """Count how many of the given sessions had events related to the lesson category.
+
+    A lesson about "testing" should only resolve if recent sessions actually
+    involved test-related work. Absence of the stimulus is not evidence of
+    learning — five sessions with no testing at all don't prove you learned
+    to test properly.
+
+    Checks the event ledger (system_events) and decision journal for category
+    keyword matches. These tables live in the ledger DB, not the knowledge DB.
+    """
+    if not session_ids:
+        return 0
+
+    # Build search terms from the category (e.g. "blind_retry" -> ["blind", "retry"])
+    # Skip keywords shorter than 4 chars to avoid false positives from common
+    # substrings (e.g. "test" matching "latest", "or" matching "error").
+    keywords = [w.lower() for w in category.replace("_", " ").split() if len(w) >= 4]
+    if not keywords:
+        # Category too short to keyword-match — fall back to the time gate only
+        return len(session_ids)
+
+    # Pre-compile word boundary patterns for each keyword
+    keyword_patterns = [re.compile(r"\b" + re.escape(kw) + r"\b", re.IGNORECASE) for kw in keywords]
+
+    count = 0
+    # system_events and decision_journal live in the ledger DB
+    from divineos.core.ledger import get_connection as get_ledger_connection
+
+    conn = get_ledger_connection()
+    try:
+        for sid in session_ids:
+            # Search ledger events for this session that mention the category.
+            # system_events stores data in 'payload' (JSON text), not 'content'.
+            # Use SQL LIKE for initial candidate selection, then word-boundary
+            # regex in Python to eliminate substring false positives.
+            like_clauses = " OR ".join(["LOWER(payload) LIKE ?" for _ in keywords])
+            like_params = [f"%{kw}%" for kw in keywords]
+
+            try:
+                candidates = conn.execute(
+                    f"SELECT payload FROM system_events WHERE event_id LIKE ? AND ({like_clauses})",
+                    [f"%{sid[:12]}%", *like_params],
+                ).fetchall()
+                if _any_word_boundary_match(candidates, keyword_patterns, col_index=0):
+                    count += 1
+                    continue
+            except sqlite3.OperationalError:
+                logger.debug(
+                    "system_events table absent — stimulus check skipped for session %s", sid[:12]
+                )
+
+            # Also check decision journal if the table exists
+            try:
+                like_clauses_dj = " OR ".join(
+                    ["(LOWER(content) LIKE ? OR LOWER(reasoning) LIKE ?)" for _ in keywords]
+                )
+                like_params_dj = []
+                for kw in keywords:
+                    like_params_dj.extend([f"%{kw}%", f"%{kw}%"])
+
+                candidates = conn.execute(
+                    f"SELECT content || ' ' || reasoning FROM decision_journal WHERE session_id = ? AND ({like_clauses_dj})",
+                    [sid, *like_params_dj],
+                ).fetchall()
+                if _any_word_boundary_match(candidates, keyword_patterns, col_index=0):
+                    count += 1
+            except sqlite3.OperationalError:
+                logger.debug(
+                    "decision_journal table absent — stimulus check skipped for session %s",
+                    sid[:12],
+                )
+    finally:
+        conn.close()
+    return count
+
+
+def _any_word_boundary_match(
+    rows: list[Any], patterns: list[re.Pattern[str]], col_index: int = 0
+) -> bool:
+    """Return True if any row's text matches at least one keyword with word boundaries.
+
+    This eliminates substring false positives: "test" won't match "latest"
+    but will match "test suite" or "ran the test".
+    """
+    for row in rows:
+        text = row[col_index] or ""
+        for pattern in patterns:
+            if pattern.search(text):
+                return True
+    return False
+
+
 def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any]]:
     """Promote 'improving' lessons to 'resolved' when enough clean sessions pass.
 
@@ -318,6 +489,13 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
     is considered learned — promote it to 'resolved'. Structure over willpower
     means we trust the evidence: if the mistake hasn't recurred, the lesson
     stuck.
+
+    Stimulus-presence check: a lesson can't resolve just because the mistake
+    didn't recur. The triggering situation must have actually arisen and been
+    handled correctly. We verify this two ways:
+    1. Time gate: lesson must be in 'improving' for LESSON_MIN_RESOLUTION_DAYS
+    2. Stimulus gate: at least LESSON_MIN_STIMULUS_SESSIONS of the clean sessions
+       must contain events related to the lesson's category keyword
 
     Also resolves seeded placeholders that have never been triggered by real
     behavior — they're noise in the lesson list, not real lessons.
@@ -362,23 +540,71 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
             sessions = json.loads(row[7]) if row[7] else []
 
             # Count sessions AFTER the lesson was last recorded as a mistake.
-            # The sessions list includes both mistake sessions and clean sessions.
-            # Cap effective occurrences so inflated counts (e.g. 178x from
-            # early accumulation bugs) don't make resolution impossible.
-            effective = min(lesson["occurrences"], MAX_EFFECTIVE_OCCURRENCES)
-            if len(sessions) >= effective + clean_session_threshold:
-                conn.execute(
-                    "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? "
-                    "WHERE lesson_id = ?",
-                    (time.time(), lesson["lesson_id"]),
-                )
-                lesson["status"] = "resolved"
-                resolved.append(lesson)
-                logger.info(
-                    "Lesson '%s' RESOLVED: %d clean sessions since last occurrence",
+            # Log-scale effective occurrences: a lesson that occurred 178 times
+            # needs more evidence than one that occurred 5 times, but not 178x
+            # more. log2 scaling: 5→5, 10→5, 50→8, 178→12.
+            raw_occ = lesson["occurrences"]
+            effective = max(LESSON_EFFECTIVE_MIN, int(math.log2(max(raw_occ, 1)) + 2))
+            if len(sessions) < effective + clean_session_threshold:
+                continue
+
+            # Stimulus-presence gate: absence of the stimulus is not evidence
+            # of learning. Check that the lesson has been in 'improving' long
+            # enough AND that clean sessions actually involved the relevant topic.
+            now = time.time()
+            days_improving = (now - lesson["last_seen"]) / SECONDS_PER_DAY
+            if days_improving < LESSON_MIN_RESOLUTION_DAYS:
+                logger.debug(
+                    "Lesson '%s' has enough clean sessions but only %.1f days improving "
+                    "(need %.1f) — stimulus gate holds",
                     lesson["category"],
-                    len(sessions) - lesson["occurrences"],
+                    days_improving,
+                    LESSON_MIN_RESOLUTION_DAYS,
                 )
+                continue
+
+            # Check that at least some clean sessions involved the stimulus topic.
+            # Absence-as-success fallback: for low-frequency mistake categories,
+            # the triggering situation may genuinely not arise. After LESSON_ABSENCE_DAYS
+            # with zero regressions, sustained absence IS evidence of learning.
+            clean_session_ids = sessions[effective:]
+            stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
+            regressions = lesson.get("regressions", 0)
+            stimulus_required = LESSON_MIN_STIMULUS_SESSIONS
+
+            if regressions == 0 and days_improving >= LESSON_ABSENCE_DAYS:
+                # Long enough with zero backsliding — drop stimulus requirement
+                stimulus_required = 0
+                logger.debug(
+                    "Lesson '%s' absence-as-success: %.1f days, 0 regressions — "
+                    "stimulus requirement dropped",
+                    lesson["category"],
+                    days_improving,
+                )
+
+            if stimulus_count < stimulus_required:
+                logger.debug(
+                    "Lesson '%s' has %d stimulus sessions (need %d) — stimulus gate holds",
+                    lesson["category"],
+                    stimulus_count,
+                    stimulus_required,
+                )
+                continue
+
+            conn.execute(
+                "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? WHERE lesson_id = ?",
+                (now, lesson["lesson_id"]),
+            )
+            lesson["status"] = "resolved"
+            resolved.append(lesson)
+            logger.info(
+                "Lesson '%s' RESOLVED: %d clean sessions (%d with stimulus) "
+                "over %.1f days since last occurrence",
+                lesson["category"],
+                len(sessions) - lesson["occurrences"],
+                stimulus_count,
+                days_improving,
+            )
 
         if resolved:
             conn.commit()
@@ -504,28 +730,29 @@ def extract_lessons_from_report(
             continue
 
         if not passed or (score is not None and score < 0.7):
-            # Extract MISTAKE knowledge — written in first person for embodiment
+            # Extract MISTAKE knowledge — generic content (no session ID)
+            # so store_knowledge_smart can dedup across sessions. Session
+            # ID goes in tags only. This prevents churn from each session
+            # creating a unique entry that supersedes the previous one.
             if name == "completeness":
-                content = f"I edited files without reading them first. I must read before I edit (session {short_id}). {summary}"
+                content = "I edited files without reading them first. I must read before I edit."
             elif name == "correctness":
-                content = f"I broke tests with my changes (session {short_id}). {summary}"
+                content = "I broke tests with my changes. I need to run tests before committing."
             elif name == "safety":
-                content = f"I introduced errors after editing (session {short_id}). {summary}"
+                content = "I introduced errors after editing. I need to verify changes work."
             elif name == "responsiveness":
-                content = f"I ignored a correction and the user had to repeat themselves (session {short_id})."
+                content = "I ignored a correction and the user had to repeat themselves."
             elif name == "honesty":
-                content = (
-                    f"I claimed something was fixed but the error came back (session {short_id})."
-                )
+                content = "I claimed something was fixed but the error came back."
             elif name == "task_adherence" and score is not None and score < 0.5:
-                content = f"I drifted from what was asked and went off-track (session {short_id}). {summary}"
+                content = "I drifted from what was asked and went off-track."
             else:
                 continue
 
-            kid = store_knowledge(
+            kid = store_knowledge_smart(
                 knowledge_type="MISTAKE",
                 content=content.strip(),
-                confidence=0.8,
+                confidence=CONFIDENCE_RELIABLE,
                 source_events=[session_id],
                 tags=["auto-extracted", f"session-{short_id}", name],
                 source="SYNTHESIZED",
@@ -548,7 +775,7 @@ def extract_lessons_from_report(
             kid = store_knowledge_smart(
                 knowledge_type="PATTERN",
                 content=content.strip(),
-                confidence=0.9,
+                confidence=CONFIDENCE_VERY_HIGH,
                 source_events=[session_id],
                 tags=["auto-extracted", name],
                 source="SYNTHESIZED",
@@ -560,7 +787,7 @@ def extract_lessons_from_report(
             if category:
                 clean_categories.append(category)
 
-    # Tone shift extraction — capture full arcs (upset → recovery), not just negatives
+    # Tone shift extraction — capture full arcs (upset -> recovery), not just negatives
     if tone_shifts:
         # Index positive shifts by sequence for pairing with preceding negatives
         positive_by_seq: dict[int, dict[str, Any]] = {
@@ -600,7 +827,7 @@ def extract_lessons_from_report(
                 kid = store_knowledge(
                     knowledge_type="PATTERN",
                     content=content,
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     source_events=[session_id],
                     tags=["auto-extracted", f"session-{short_id}", "tone_recovery"],
                     source="SYNTHESIZED",
@@ -613,7 +840,7 @@ def extract_lessons_from_report(
                 kid = store_knowledge(
                     knowledge_type="MISTAKE",
                     content=content,
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     source_events=[session_id],
                     tags=["auto-extracted", f"session-{short_id}", "tone_shift"],
                     source="SYNTHESIZED",
@@ -632,7 +859,7 @@ def extract_lessons_from_report(
             kid = store_knowledge(
                 knowledge_type="MISTAKE",
                 content=content,
-                confidence=0.8,
+                confidence=CONFIDENCE_RELIABLE,
                 source_events=[session_id],
                 tags=["auto-extracted", f"session-{short_id}", "error_recovery"],
             )
@@ -645,7 +872,7 @@ def extract_lessons_from_report(
             kid = store_knowledge(
                 knowledge_type="PATTERN",
                 content=content,
-                confidence=0.9,
+                confidence=CONFIDENCE_VERY_HIGH,
                 source_events=[session_id],
                 tags=["auto-extracted", f"session-{short_id}", "error_recovery"],
             )
@@ -669,5 +896,16 @@ def extract_lessons_from_report(
             if not negatives:
                 mark_lesson_improving("upset_recovered", session_id)
                 mark_lesson_improving("upset_user", session_id)
+
+    # Auto-escalate chronic lessons to DIRECTIVE entries.
+    # This runs after all lesson recording/improving so the regression
+    # counts are up-to-date for this session.
+    try:
+        escalated = escalate_chronic_lessons()
+        if escalated:
+            stored_ids.extend(escalated)
+            logger.info("Auto-escalated %d chronic lessons to directives", len(escalated))
+    except _LESSONS_ERRORS as e:
+        logger.debug("Lesson escalation failed (non-fatal): %s", e)
 
     return stored_ids

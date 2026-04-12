@@ -432,6 +432,202 @@ class TestPrescriptiveSignal:
         )
 
 
+class TestRawQuoteNoiseBoundaries:
+    """Boundary tests for _is_raw_quote_noise — kill mutation survivors."""
+
+    def test_exactly_three_double_dots(self):
+        """3 '..' occurrences is the threshold — should be noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "something.. happened.. and then.. it broke"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_two_double_dots_without_casual_not_noise(self):
+        """2 '..' without casual markers is NOT enough to be noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "something.. happened.. in the system"
+        assert _is_raw_quote_noise(text, text.lower()) is False
+
+    def test_exactly_two_double_dots_with_casual_marker(self):
+        """2 '..' + casual marker = noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "something.. happened.. lol what"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_exactly_two_casual_markers(self):
+        """2 casual markers is the threshold — should be noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "this is lol so funny haha right"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_one_casual_marker_not_noise(self):
+        """1 casual marker alone is NOT enough to be noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "this is a lol moment in the system architecture design"
+        assert _is_raw_quote_noise(text, text.lower()) is False
+
+    def test_oops_triggers_noise(self):
+        """'oops' keyword triggers noise detection."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "oops I made a mistake clicking there"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_third_person_quote_triggers(self):
+        """'this is what he said' pattern triggers noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "this is what he said about the approach"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_here_is_reply_triggers(self):
+        """'here is the reply' pattern triggers noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "here is the reply from the reviewer"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_trailing_double_dot_short_triggers(self):
+        """Short text ending with '..' is noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "not sure about this.."
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_you_prefix_without_weight_triggers(self):
+        """'you ...' without strong words is noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "you should look into that thing later"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_you_prefix_with_weight_not_noise(self):
+        """'you must ...' has weight and passes through."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "you must always verify the output before shipping"
+        assert _is_raw_quote_noise(text, text.lower()) is False
+
+    def test_short_question_triggers(self):
+        """Short question (< 20 words, ends with ?) is noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "what do you think about this approach?"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_tag_question_not_noise(self):
+        """Tag questions like 'ok?' are not caught by question filter."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "the design looks solid ok?"
+        assert _is_raw_quote_noise(text, text.lower()) is False
+
+    def test_feel_free_triggers(self):
+        """'feel free to' pattern triggers noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "feel free to change anything that needs updating"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_lets_commit_triggers(self):
+        """'lets commit' pattern triggers noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "lets commit this and move on"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_i_just_triggers(self):
+        """'i just' pattern triggers noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "i just wanted to see if it works"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_opt_out_triggers(self):
+        """'opt out' pattern triggers noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "make sure you opt out of data sharing"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+
+class TestExtractionNoiseQuestionFilter:
+    """Test question-as-direction filtering in _is_extraction_noise."""
+
+    def test_short_question_as_direction(self):
+        """Short questions that aren't tag-questions get filtered for DIRECTION."""
+        assert _is_extraction_noise(
+            "I should: what should we do about this?",
+            "DIRECTION",
+        )
+
+    def test_tag_question_passes_as_principle(self):
+        """Tag questions (ok?, right?) pass through."""
+        assert not _is_extraction_noise(
+            "I should: always validate input, right?",
+            "PRINCIPLE",
+        )
+
+
+class TestConversationalNoisePatterns:
+    """Direct tests for _CONVERSATIONAL_NOISE regex patterns via _is_extraction_noise."""
+
+    def test_sounds_good_noise(self):
+        """'sounds good' matched by conversational noise pattern."""
+        assert _is_extraction_noise("sounds good.", "FACT")
+
+    def test_that_works_noise(self):
+        assert _is_extraction_noise("that works.", "FACT")
+
+    def test_i_agreed_noise(self):
+        assert _is_extraction_noise("i agreed.", "FACT")
+
+    def test_how_does_it_look_noise(self):
+        assert _is_extraction_noise("how does it look?", "FACT")
+
+    def test_any_suggestions_noise(self):
+        assert _is_extraction_noise("any suggestions?", "FACT")
+
+
+class TestRawQuoteNoiseBoundariesHighCounts:
+    """Boundary tests with counts > threshold to kill >= → == mutations."""
+
+    def test_four_double_dots_noise(self):
+        """4 '..' is above the >= 3 threshold — still noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "what.. is.. going.. on.. here"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_three_double_dots_with_casual_also_noise(self):
+        """3 '..' with casual markers — both branches could catch this."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "ok.. so.. lol.. this is funny"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_three_double_dots_with_casual_triggers_double_dot_casual_branch(self):
+        """3 '..' + casual marker should be caught by the double_dot >= 2 + casual branch too."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        # This has 3 '..' AND contains 'lol' — triggers both the >= 3 path
+        # and the >= 2 + casual path. We need to verify the >= 2 path works
+        # with values > 2 (kills >= → == mutation on L564).
+        text = "hmm.. well.. lol.. what now"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+    def test_three_casual_markers(self):
+        """3 casual markers is above >= 2 threshold — still noise."""
+        from divineos.core.knowledge._text import _is_raw_quote_noise
+
+        text = "lol haha :) this is so wild"
+        assert _is_raw_quote_noise(text, text.lower()) is True
+
+
 class TestAuditReviewNoise:
     """Audit/review pastes from the user should not become knowledge entries."""
 

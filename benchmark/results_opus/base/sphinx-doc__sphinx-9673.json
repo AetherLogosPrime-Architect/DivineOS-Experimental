@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-9673",
+  "condition": "base",
+  "model": "claude-opus-4-6",
+  "patch": "\n\nLooking at the problem, the issue is that when `autodoc_typehints_description_target = \"documented\"`, the code checks for return type fields but doesn't recognize the `:returns:` variant (only `:return:`). Napoleon generates `:returns:` fields, so the return type is never added.\n\nLet me trace through the code to find where this check happens.\n\nIn `sphinx/ext/autodoc/typehints.py`, the `modify_field_list()` function checks for existing fields to determine if return is documented. The issue is that it only checks for `'return'` but not `'returns'`.\n\n--- a/sphinx/ext/autodoc/typehints.py\n+++ b/sphinx/ext/autodoc/typehints.py\n@@ -136,7 +136,7 @@ def modify_field_list(node: nodes.field_list, annotations: Dict[str, str],\n         if parts[0] == 'param':\n             arguments['param'].add(parts[1])\n             field_lists.append(field)\n-        elif parts[0] == 'type':\n+        elif parts[0] in ('type',):\n             arguments['type'].add(parts[1])\n             field_lists.append(field)\n         elif parts[0] == 'rtype':\n@@ -144,7 +144,7 @@ def modify_field_list(node: nodes.field_list, annotations: Dict[str, str],\n             field_lists.append(field)\n         elif parts[0] == 'return' or parts[0] == 'returns':\n             arguments['return'] = True\n             field_lists.append(field)\n \n     if 'return' in annotations and 'return' not in arguments:\n         field = nodes.field()\n\nWait, let me re-read the actual code more carefully.\n\n--- a/sphinx/ext/autodoc/typehints.py\n+++ b/sphinx/ext/autodoc/typehints.py\n@@ -140,7 +140,7 @@ def modify_field_list(node: nodes.field_list, annotations: Dict[str, str],\n             arguments['type'].add(parts[1])\n             field_lists.append(field)\n         elif parts[0] == 'rtype':\n             arguments['rtype'] = True\n             field_lists.append(field)\n-        elif parts[0] == 'return':\n+        elif parts[0] in ('return', 'returns'):\n             arguments['return'] = True\n             field_lists.append(field)\n ",
+  "thinking": null,
+  "input_tokens": 695,
+  "output_tokens": 613,
+  "elapsed_seconds": 10.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.056400000000000006
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch is malformed with redundant and contradictory changes, including an overly complex filter that doesn't address the core issue and ultimately reverts to the original problematic code.",
+  "key_difference": "The candidate patch attempts a convoluted filtering approach but ends up reverting the change, while the gold patch correctly uses apps.get_app_config(app_label).get_models() instead of apps.get_models(app_label) to ensure models belong to the correct app.",
+  "instance_id": "django__django-7530",
+  "condition": "base",
+  "judge_tokens": 1492,
+  "judge_cost": 0.006528000000000001
+}

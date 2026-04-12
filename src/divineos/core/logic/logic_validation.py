@@ -18,7 +18,6 @@ from loguru import logger
 from divineos.core.knowledge import get_connection
 from divineos.core.logic.warrants import get_warrants
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Section 1: Consistency Checking
 # ═══════════════════════════════════════════════════════════════════════
@@ -42,7 +41,7 @@ class Inconsistency:
 
 def check_local_consistency(knowledge_id: str) -> list[Inconsistency]:
     """Check for direct CONTRADICTS relations on this entry."""
-    # Late import: logic_validation → logic_reasoning → knowledge → extraction → knowledge_maintenance → logic_validation cycle
+    # Late import: logic_validation -> logic_reasoning -> knowledge -> extraction -> knowledge_maintenance -> logic_validation cycle
     from divineos.core.logic.logic_reasoning import get_relations
 
     contradictions = get_relations(knowledge_id, direction="both", relation_type="CONTRADICTS")
@@ -361,7 +360,7 @@ def record_defeat_lesson(
         f"Defeated {defeat_count}x on: {topic_hint}"
     )
 
-    # Late import: logic_validation → lessons → knowledge_maintenance → logic_validation cycle
+    # Late import: logic_validation -> lessons -> knowledge_maintenance -> logic_validation cycle
     from divineos.core.knowledge.lessons import record_lesson
 
     lesson_id = record_lesson(

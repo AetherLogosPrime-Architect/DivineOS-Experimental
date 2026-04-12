@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-26323",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem statement, the issue is that `ColumnTransformer.set_output` doesn't propagate the output setting to the `remainder` transformer when it's an estimator. This causes problems when gathering results because the remainder transformer doesn't have the same output configuration.\n\nLet me examine the code and create a patch:\n\n--- a/sklearn/compose/_column_transformer.py\n+++ b/sklearn/compose/_column_transformer.py\n@@ -300,6 +300,11 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):\n         super().set_output(transform=transform)\n         for _, transformer, _ in self.transformers:\n             _safe_set_output(transformer, transform=transform)\n+        \n+        # Also set output for remainder if it's an estimator\n+        if hasattr(self, 'remainder') and hasattr(self.remainder, 'set_output'):\n+            _safe_set_output(self.remainder, transform=transform)\n+            \n         return self\n \n     def _validate_transformers(self):",
+  "thinking": null,
+  "input_tokens": 1172,
+  "output_tokens": 256,
+  "elapsed_seconds": 5.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007356
+}

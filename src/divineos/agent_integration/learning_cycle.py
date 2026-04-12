@@ -12,22 +12,26 @@ The learning cycle runs at the end of each session to enable the agent to learn
 from its own work and improve future decisions.
 """
 
-import time
-from datetime import timezone, datetime
-from typing import Any
 import sqlite3
+import time
+from datetime import datetime, timezone
+from typing import Any
 
 from loguru import logger
 
-from divineos.core.ledger import get_events
-from divineos.agent_integration.pattern_store import PatternStore
-from divineos.agent_integration.learning_audit_store import LearningAuditStore
 from divineos.agent_integration.decision_store import DecisionStore
+from divineos.agent_integration.learning_audit_store import LearningAuditStore
+from divineos.agent_integration.pattern_store import PatternStore
+from divineos.agent_integration.pattern_validation import (
+    detect_conflicts as _detect_conflicts,
+)
 from divineos.agent_integration.pattern_validation import (
     detect_invalidation as _detect_invalidation,
-    detect_conflicts as _detect_conflicts,
+)
+from divineos.agent_integration.pattern_validation import (
     generate_humility_audit as _generate_humility_audit,
 )
+from divineos.core.ledger import get_events
 from divineos.integration.system_monitor import get_system_monitor
 
 _LC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)

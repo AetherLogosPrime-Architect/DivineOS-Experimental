@@ -360,13 +360,13 @@ def format_commitment_review(review: dict[str, Any]) -> str:
 
     for detail in review["details"]:
         status = detail["status"].upper()
-        icon = "✓" if status == "FULFILLED" else "✗"
+        icon = "+" if status == "FULFILLED" else "x"
         text = detail["text"]
-        if len(text) > 80:
-            text = text[:77] + "..."
+        if len(text) > 140:
+            text = text[:137] + "..."
         lines.append(f"  {icon} [{status}] {text}")
 
     if review["dropped"] > 0:
-        lines.append(f"  → {review['dropped']} commitment(s) not fulfilled this session")
+        lines.append(f"  -> {review['dropped']} commitment(s) not fulfilled this session")
 
     return "\n".join(lines)

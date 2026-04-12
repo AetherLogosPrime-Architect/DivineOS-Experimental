@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies and fixes the tuple rendering issue by adding special handling for single-element tuples to include the trailing comma, and includes the requested test case.",
+  "key_difference": "The candidate patch modifies a different method (_UnparseVisitor.visit_Tuple) than the gold patch and also adds the test case, while the gold patch only fixes the core issue in the main visit_Tuple method. Both approaches are valid but the candidate is less minimal due to including the test.",
+  "instance_id": "sphinx-doc__sphinx-9367",
+  "condition": "enhanced",
+  "judge_tokens": 1416,
+  "judge_cost": 0.006288
+}

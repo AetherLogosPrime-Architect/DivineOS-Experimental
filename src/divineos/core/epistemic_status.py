@@ -164,6 +164,32 @@ def _source_to_channel(source: str) -> str:
 # ���── Epistemic Confidence ─────��────────────────────────────────────
 
 
+def epistemic_source_modifier(source: str) -> float:
+    """Return a small score modifier based on the epistemic channel of a source.
+
+    This is the lightweight version used in active memory importance scoring.
+    No DB calls -- just maps the source field to a modifier.
+
+    Observed (DEMONSTRATED) gets a small boost because empirical evidence
+    is most trustworthy. Inherited (seed) gets a small penalty because it
+    has no session evidence behind it. Everything else is neutral or
+    slightly positive.
+    """
+    from divineos.core.constants import (
+        EPISTEMIC_BOOST_OBSERVED,
+        EPISTEMIC_BOOST_TOLD,
+        EPISTEMIC_PENALTY_INHERITED,
+    )
+
+    return {
+        "DEMONSTRATED": EPISTEMIC_BOOST_OBSERVED,
+        "CORRECTED": EPISTEMIC_BOOST_TOLD,
+        "STATED": EPISTEMIC_BOOST_TOLD,
+        "SYNTHESIZED": 0.0,
+        "INHERITED": EPISTEMIC_PENALTY_INHERITED,
+    }.get(source, 0.0)
+
+
 def assess_epistemic_confidence(knowledge_id: str) -> dict[str, Any]:
     """For a single knowledge entry, assess how well-grounded it is.
 

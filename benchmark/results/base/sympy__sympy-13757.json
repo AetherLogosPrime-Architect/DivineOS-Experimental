@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-13757",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, when a non-Poly expression is on the left side of multiplication with a Poly, the multiplication doesn't evaluate properly. The problem is that the `__rmul__` method in the Poly class likely isn't handling all cases correctly.\n\nLet me examine the Poly class implementation and fix the `__rmul__` method:\n\n```diff\n--- a/sympy/polys/polytools.py\n+++ b/sympy/polys/polytools.py\n@@ -1089,7 +1089,7 @@ class Poly(Basic):\n         return f.mul(g)\n \n     def __rmul__(f, g):\n-        if not g.is_Poly:\n+        if not hasattr(g, 'is_Poly') or not g.is_Poly:\n             try:\n                 g = f.__class__(g, *f.gens, domain=f.domain)\n             except (GeneratorsNeeded, PolynomialError):\n```\n\nWait, let me look more carefully at the issue. The problem is that `__rmul__` should handle cases where `g` is a symbolic expression that can be converted to a polynomial or at least multiplied with the polynomial. Let me check the actual implementation:\n\n```diff\n--- a/sympy/polys/polytools.py\n+++ b/sympy/polys/polytools.py\n@@ -1089,10 +1089,12 @@ class Poly(Basic):\n         return f.mul(g)\n \n     def __rmul__(f, g):\n-        if not g.is_Poly:\n+        if not hasattr(g, 'is_Poly') or not g.is_Poly:\n             try:\n                 g = f.__class__(g, *f.gens, domain=f.domain)\n             except (GeneratorsNeeded, PolynomialError):\n+                # Try to multiply as coefficient if conversion fails\n+                return f.mul_ground(g)\n                 return g*f.rep\n         \n         return g.mul(f)\n```\n\nActually, let me look at this more systematically. The issue is in the `__rmul__` method. When it fails to convert `g` to a Poly, it should still attempt multiplication:\n\n```diff\n--- a/sympy/polys/polytools.py\n+++ b/sympy/polys/polytools.py\n@@ -1093,7 +1093,7 @@ class Poly(Basic):\n             try:\n                 g = f.__class__(g, *f.gens, domain=f.domain)\n             except (GeneratorsNeeded, PolynomialError):\n-                return g*f.rep\n+                return f.mul_ground(g)\n         \n         return g.mul(f)\n```",
+  "thinking": null,
+  "input_tokens": 376,
+  "output_tokens": 678,
+  "elapsed_seconds": 12.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.011298
+}

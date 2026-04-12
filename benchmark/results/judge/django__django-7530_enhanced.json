@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the wrong file (autodetector.py instead of makemigrations.py) and addresses a different part of the codebase than where the bug actually exists.",
+  "key_difference": "The gold patch fixes the consistency check in makemigrations.py by ensuring each app only checks its own models, while this candidate patch modifies migration autodetection logic in a different file entirely, making it irrelevant to the reported bug.",
+  "instance_id": "django__django-7530",
+  "condition": "enhanced",
+  "judge_tokens": 1095,
+  "judge_cost": 0.005228999999999999
+}

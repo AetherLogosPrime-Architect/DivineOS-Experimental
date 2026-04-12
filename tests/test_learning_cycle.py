@@ -8,10 +8,10 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from divineos.agent_integration.learning_cycle import LearningCycle
-from divineos.agent_integration.pattern_store import PatternStore
 from divineos.agent_integration.decision_store import DecisionStore
 from divineos.agent_integration.learning_audit_store import LearningAuditStore
+from divineos.agent_integration.learning_cycle import LearningCycle
+from divineos.agent_integration.pattern_store import PatternStore
 from divineos.core.ledger import log_event
 
 

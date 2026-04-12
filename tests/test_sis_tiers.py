@@ -1,5 +1,7 @@
 """Tests for SIS Tier 2 (statistical) and Tier 3 (semantic) scoring."""
 
+from unittest.mock import patch
+
 import pytest
 
 from divineos.core.sis_tiers import (
@@ -15,6 +17,16 @@ except ImportError:
     _has_sklearn = False
 
 needs_sklearn = pytest.mark.skipif(not _has_sklearn, reason="sklearn not installed")
+
+_has_sentence_transformers = True
+try:
+    import sentence_transformers  # noqa: F401
+except ImportError:
+    _has_sentence_transformers = False
+
+needs_sentence_transformers = pytest.mark.skipif(
+    not _has_sentence_transformers, reason="sentence-transformers not installed"
+)
 
 
 class TestConcretenessNorms:
@@ -95,25 +107,29 @@ class TestTfidfGrounding:
 class TestAllTiers:
     """Test the combined multi-tier scoring."""
 
-    def test_returns_tiers_used(self):
+    @patch("divineos.core.sis_tiers._ensure_embeddings", return_value=False)
+    def test_returns_tiers_used(self, _mock_emb):
         result = score_all_tiers("Store data in a database table")
         assert "lexical" in result["tiers_used"]
         # Statistical tier needs norms to match — may not on short text
         assert len(result["tiers_used"]) >= 1
 
-    def test_combined_grounding_present(self):
+    @patch("divineos.core.sis_tiers._ensure_embeddings", return_value=False)
+    def test_combined_grounding_present(self, _mock_emb):
         result = score_all_tiers("The pipeline stores knowledge in SQLite with hash verification")
         # combined_grounding may be None if no optional deps and norms don't match
         if result["combined_grounding"] is not None:
             assert 0.0 <= result["combined_grounding"] <= 1.0
 
     @needs_sklearn
+    @needs_sentence_transformers
     def test_grounded_text_scores_high(self):
         result = score_all_tiers("Run pytest to verify all test cases pass after code changes")
         assert result["combined_grounding"] is not None
         assert result["combined_grounding"] > 0.5
 
-    def test_esoteric_text_scores_low(self):
+    @patch("divineos.core.sis_tiers._ensure_embeddings", return_value=False)
+    def test_esoteric_text_scores_low(self, _mock_emb):
         result = score_all_tiers(
             "The eternal soul transcends the sacred void through cosmic meditation"
         )
@@ -125,7 +141,8 @@ class TestAllTiers:
 class TestDeepAssessment:
     """Test deep mode integration with main SIS module."""
 
-    def test_deep_assessment_works(self):
+    @patch("divineos.core.sis_tiers._ensure_embeddings", return_value=False)
+    def test_deep_assessment_works(self, _mock_emb):
         from divineos.core.semantic_integrity import assess_integrity
 
         report = assess_integrity("Store session events in an append-only database", deep=True)
@@ -133,7 +150,8 @@ class TestDeepAssessment:
         # Should have tier info in flags
         assert any("tiers:" in f for f in report.flags)
 
-    def test_deep_translation_works(self):
+    @patch("divineos.core.sis_tiers._ensure_embeddings", return_value=False)
+    def test_deep_translation_works(self, _mock_emb):
         from divineos.core.semantic_integrity import assess_and_translate
 
         result = assess_and_translate(
@@ -143,7 +161,8 @@ class TestDeepAssessment:
         assert result["verdict"] == "TRANSLATE"
         assert result["changed"]
 
-    def test_deep_mode_more_accurate_on_paraphrase(self):
+    @patch("divineos.core.sis_tiers._ensure_embeddings", return_value=False)
+    def test_deep_mode_more_accurate_on_paraphrase(self, _mock_emb):
         """Deep mode should catch esoteric content even without exact keywords."""
         from divineos.core.semantic_integrity import assess_integrity
 

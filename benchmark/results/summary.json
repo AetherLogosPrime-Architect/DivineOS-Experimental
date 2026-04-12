@@ -1,0 +1,3993 @@
+{
+  "model": "claude-sonnet-4-20250514",
+  "n_tasks": 150,
+  "total_cost": 5.84,
+  "scores": {
+    "base": [
+      {
+        "exact_match": false,
+        "file_overlap": 0.25,
+        "change_overlap": 0.129,
+        "files_correct": false,
+        "gen_files": [
+          "astropy/coordinates/builtin_frames/itrs.py"
+        ],
+        "gold_files": [
+          "astropy/coordinates/builtin_frames/__init__.py",
+          "astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py",
+          "astropy/coordinates/builtin_frames/itrs.py",
+          "astropy/coordinates/builtin_frames/itrs_observed_transforms.py"
+        ],
+        "instance_id": "astropy__astropy-13398"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.13,
+        "files_correct": true,
+        "gen_files": [
+          "astropy/io/fits/card.py"
+        ],
+        "gold_files": [
+          "astropy/io/fits/card.py"
+        ],
+        "instance_id": "astropy__astropy-14508"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "astropy/io/fits/diff.py"
+        ],
+        "gold_files": [
+          "astropy/io/fits/diff.py"
+        ],
+        "instance_id": "astropy__astropy-14539"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.5,
+        "files_correct": true,
+        "gen_files": [
+          "astropy/nddata/mixins/ndarithmetic.py"
+        ],
+        "gold_files": [
+          "astropy/nddata/mixins/ndarithmetic.py"
+        ],
+        "instance_id": "astropy__astropy-14995"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "astropy/utils/decorators.py"
+        ],
+        "gold_files": [
+          "astropy/utils/misc.py"
+        ],
+        "instance_id": "astropy__astropy-7166"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.273,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/base.py"
+        ],
+        "gold_files": [
+          "django/core/management/base.py"
+        ],
+        "instance_id": "django__django-11292"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.333,
+        "change_overlap": 0.143,
+        "files_correct": false,
+        "gen_files": [
+          "django/contrib/admin/filters.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/filters.py",
+          "django/db/models/fields/__init__.py",
+          "django/db/models/fields/reverse_related.py"
+        ],
+        "instance_id": "django__django-11400"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.5,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/auth/backends.py"
+        ],
+        "gold_files": [
+          "django/contrib/auth/backends.py"
+        ],
+        "instance_id": "django__django-11451"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.2,
+        "change_overlap": 0.111,
+        "files_correct": false,
+        "gen_files": [
+          "django/core/mail/utils.py"
+        ],
+        "gold_files": [
+          "django/core/mail/message.py",
+          "django/core/mail/utils.py",
+          "django/core/validators.py",
+          "django/utils/encoding.py",
+          "django/utils/html.py"
+        ],
+        "instance_id": "django__django-11532"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.333,
+        "change_overlap": 0.1,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/expressions.py",
+          "django/db/models/sql/compiler.py",
+          "django/db/models/sql/query.py",
+          "django/db/models/sql/subqueries.py",
+          "django/db/models/sql/where.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/__init__.py",
+          "django/db/models/fields/related_lookups.py",
+          "django/db/models/sql/query.py"
+        ],
+        "instance_id": "django__django-11734"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "instance_id": "django__django-12125"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/enums.py"
+        ],
+        "gold_files": [
+          "django/db/models/enums.py"
+        ],
+        "instance_id": "django__django-12304"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.125,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/base.py"
+        ],
+        "gold_files": [
+          "django/db/models/base.py",
+          "django/db/models/options.py"
+        ],
+        "instance_id": "django__django-12325"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/sql/query.py"
+        ],
+        "instance_id": "django__django-13158"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/functions/datetime.py"
+        ],
+        "gold_files": [
+          "django/db/models/functions/datetime.py"
+        ],
+        "instance_id": "django__django-13363"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.261,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/__init__.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/__init__.py"
+        ],
+        "instance_id": "django__django-13401"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/query.py"
+        ],
+        "instance_id": "django__django-13406"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/query.py"
+        ],
+        "instance_id": "django__django-13417"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.1,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/auth/tokens.py"
+        ],
+        "gold_files": [
+          "django/contrib/auth/tokens.py"
+        ],
+        "instance_id": "django__django-13551"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.077,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/auth/forms.py"
+        ],
+        "gold_files": [
+          "django/contrib/auth/forms.py"
+        ],
+        "instance_id": "django__django-13741"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.231,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/boundfield.py"
+        ],
+        "gold_files": [
+          "django/forms/boundfield.py"
+        ],
+        "instance_id": "django__django-14034"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/datastructures.py"
+        ],
+        "gold_files": [
+          "django/utils/datastructures.py"
+        ],
+        "instance_id": "django__django-14089"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/models.py"
+        ],
+        "gold_files": [
+          "django/forms/models.py"
+        ],
+        "instance_id": "django__django-14915"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/contrib/admin/views/main.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-15022"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.1,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/operations/models.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/operations/models.py"
+        ],
+        "instance_id": "django__django-15268"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.045,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/json.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/json.py"
+        ],
+        "instance_id": "django__django-15503"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.727,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/related_lookups.py",
+          "django/db/models/sql/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/related_lookups.py",
+          "django/db/models/sql/query.py"
+        ],
+        "instance_id": "django__django-16032"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/contrib/admin/views/main.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-16100"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.6,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "instance_id": "django__django-16493"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/legend.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/legend.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-20859"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "lib/matplotlib/pyplot.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/cm.py",
+          "lib/matplotlib/colors.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-25479"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.133,
+        "files_correct": false,
+        "gen_files": [
+          "seaborn/_core/plot.py",
+          "seaborn/_core/scales.py"
+        ],
+        "gold_files": [
+          "seaborn/_core/plot.py"
+        ],
+        "instance_id": "mwaskom__seaborn-3069"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.1,
+        "files_correct": false,
+        "gen_files": [
+          "xarray/core/variable.py"
+        ],
+        "gold_files": [
+          "xarray/core/dataset.py",
+          "xarray/core/variable.py"
+        ],
+        "instance_id": "pydata__xarray-3305"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "xarray/core/merge.py"
+        ],
+        "gold_files": [
+          "xarray/core/dataset.py"
+        ],
+        "instance_id": "pydata__xarray-3677"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "xarray/core/computation.py"
+        ],
+        "gold_files": [
+          "xarray/core/computation.py"
+        ],
+        "instance_id": "pydata__xarray-4687"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "pylint/lint/pylinter.py"
+        ],
+        "gold_files": [
+          "pylint/lint/expand_modules.py"
+        ],
+        "instance_id": "pylint-dev__pylint-7080"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.059,
+        "files_correct": false,
+        "gen_files": [
+          "src/_pytest/mark/structures.py",
+          "src/_pytest/python.py"
+        ],
+        "gold_files": [
+          "src/_pytest/mark/structures.py"
+        ],
+        "instance_id": "pytest-dev__pytest-10356"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.75,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/logging.py"
+        ],
+        "gold_files": [
+          "src/_pytest/logging.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7571"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/model_selection/_split.py"
+        ],
+        "gold_files": [
+          "sklearn/model_selection/_split.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-13124"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.2,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/mixture/base.py"
+        ],
+        "gold_files": [
+          "sklearn/mixture/base.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-13142"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/utils/_show_versions.py"
+        ],
+        "gold_files": [
+          "sklearn/utils/_show_versions.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-14141"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.167,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/feature_selection/_sequential.py"
+        ],
+        "gold_files": [
+          "sklearn/feature_selection/_sequential.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-25973"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.667,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/compose/_column_transformer.py"
+        ],
+        "gold_files": [
+          "sklearn/compose/_column_transformer.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-26323"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.097,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/parsers/rst/__init__.py"
+        ],
+        "gold_files": [
+          "sphinx/directives/other.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-11510"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.143,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/domains/python.py",
+          "sphinx/ext/autodoc/typehints.py",
+          "sphinx/util/typing.py"
+        ],
+        "gold_files": [
+          "sphinx/domains/python.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-7454"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.067,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/ext/autodoc/__init__.py"
+        ],
+        "gold_files": [
+          "sphinx/ext/autodoc/__init__.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-9229"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/domains/python.py"
+        ],
+        "gold_files": [
+          "sphinx/domains/python.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-9258"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/physics/vector/vector.py"
+        ],
+        "gold_files": [
+          "sympy/physics/vector/vector.py"
+        ],
+        "instance_id": "sympy__sympy-14711"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.6,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/printing/pycode.py"
+        ],
+        "gold_files": [
+          "sympy/printing/pycode.py"
+        ],
+        "instance_id": "sympy__sympy-16766"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sympy/matrices/matrices.py",
+          "sympy/matrices/normalforms.py"
+        ],
+        "gold_files": [
+          "sympy/polys/matrices/normalforms.py"
+        ],
+        "instance_id": "sympy__sympy-23413"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "astropy/io/ascii/qdp.py"
+        ],
+        "gold_files": [
+          "astropy/io/ascii/qdp.py"
+        ],
+        "instance_id": "astropy__astropy-14365"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/aggregates.py"
+        ],
+        "gold_files": [
+          "django/db/models/aggregates.py"
+        ],
+        "instance_id": "django__django-10880"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.029,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/backends/postgresql/client.py"
+        ],
+        "gold_files": [
+          "django/db/backends/postgresql/client.py"
+        ],
+        "instance_id": "django__django-10973"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.667,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-11095"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.75,
+        "change_overlap": 0.017,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/backends/mysql/operations.py",
+          "django/db/backends/oracle/operations.py",
+          "django/db/backends/sqlite3/operations.py"
+        ],
+        "gold_files": [
+          "django/db/backends/mysql/operations.py",
+          "django/db/backends/oracle/operations.py",
+          "django/db/backends/sqlite3/base.py",
+          "django/db/backends/sqlite3/operations.py"
+        ],
+        "instance_id": "django__django-11138"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.083,
+        "files_correct": false,
+        "gen_files": [
+          "django/contrib/admin/helpers.py",
+          "django/contrib/admin/options.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-11149"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/models.py"
+        ],
+        "gold_files": [
+          "django/forms/models.py"
+        ],
+        "instance_id": "django__django-11163"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.167,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/backends/postgresql/client.py"
+        ],
+        "gold_files": [
+          "django/db/backends/postgresql/client.py"
+        ],
+        "instance_id": "django__django-11239"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/backends/base/schema.py",
+          "django/db/models/constraints.py",
+          "django/db/models/expressions.py",
+          "django/db/models/lookups.py",
+          "django/db/models/sql/where.py"
+        ],
+        "gold_files": [
+          "django/db/models/sql/query.py"
+        ],
+        "instance_id": "django__django-11299"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/models.py"
+        ],
+        "gold_files": [
+          "django/forms/models.py"
+        ],
+        "instance_id": "django__django-11433"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/urls/resolvers.py"
+        ],
+        "gold_files": [
+          "django/urls/resolvers.py"
+        ],
+        "instance_id": "django__django-11477"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/autodetector.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/autodetector.py"
+        ],
+        "instance_id": "django__django-11740"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/__init__.py"
+        ],
+        "gold_files": [
+          "django/core/management/__init__.py"
+        ],
+        "instance_id": "django__django-11749"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/core/checks/model_checks.py"
+        ],
+        "gold_files": [
+          "django/db/models/base.py"
+        ],
+        "instance_id": "django__django-11820"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/fields.py"
+        ],
+        "gold_files": [
+          "django/forms/fields.py"
+        ],
+        "instance_id": "django__django-11880"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/__init__.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/__init__.py"
+        ],
+        "instance_id": "django__django-11999"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/widgets.py"
+        ],
+        "gold_files": [
+          "django/forms/widgets.py"
+        ],
+        "instance_id": "django__django-12193"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/base.py"
+        ],
+        "gold_files": [
+          "django/db/models/base.py"
+        ],
+        "instance_id": "django__django-12209"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/template/library.py"
+        ],
+        "gold_files": [
+          "django/template/library.py"
+        ],
+        "instance_id": "django__django-12262"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-12713"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/deletion.py",
+          "django/db/models/sql/subqueries.py"
+        ],
+        "gold_files": [
+          "django/db/models/sql/compiler.py"
+        ],
+        "instance_id": "django__django-12965"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.143,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/sql/compiler.py"
+        ],
+        "gold_files": [
+          "django/db/models/sql/compiler.py"
+        ],
+        "instance_id": "django__django-13033"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/related.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/related.py"
+        ],
+        "instance_id": "django__django-13109"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.4,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/related.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/related.py"
+        ],
+        "instance_id": "django__django-13112"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.222,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/sessions/backends/base.py"
+        ],
+        "gold_files": [
+          "django/contrib/sessions/backends/base.py"
+        ],
+        "instance_id": "django__django-13279"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "instance_id": "django__django-13343"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/json.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/json.py"
+        ],
+        "instance_id": "django__django-13346"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/html.py"
+        ],
+        "gold_files": [
+          "django/utils/html.py"
+        ],
+        "instance_id": "django__django-14539"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "instance_id": "django__django-14580"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.143,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/formsets.py"
+        ],
+        "gold_files": [
+          "django/forms/formsets.py"
+        ],
+        "instance_id": "django__django-14608"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/autoreload.py"
+        ],
+        "gold_files": [
+          "django/utils/autoreload.py"
+        ],
+        "instance_id": "django__django-14771"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/commands/inspectdb.py"
+        ],
+        "gold_files": [
+          "django/core/management/commands/inspectdb.py"
+        ],
+        "instance_id": "django__django-15037"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/translation/trans_real.py"
+        ],
+        "gold_files": [
+          "django/utils/translation/trans_real.py"
+        ],
+        "instance_id": "django__django-15098"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.5,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/query.py"
+        ],
+        "instance_id": "django__django-15368"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.75,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/serializers/base.py"
+        ],
+        "gold_files": [
+          "django/core/serializers/base.py"
+        ],
+        "instance_id": "django__django-15525"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/models.py"
+        ],
+        "gold_files": [
+          "django/forms/models.py"
+        ],
+        "instance_id": "django__django-15916"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.032,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/query.py",
+          "django/db/models/sql/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/related_descriptors.py"
+        ],
+        "instance_id": "django__django-15957"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/expressions.py"
+        ],
+        "gold_files": [
+          "django/db/models/expressions.py"
+        ],
+        "instance_id": "django__django-16082"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/commands/makemigrations.py"
+        ],
+        "gold_files": [
+          "django/core/management/commands/makemigrations.py"
+        ],
+        "instance_id": "django__django-16116"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "django/views/generic/base.py"
+        ],
+        "gold_files": [
+          "django/views/generic/base.py"
+        ],
+        "instance_id": "django__django-16136"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.111,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/commands/runserver.py"
+        ],
+        "gold_files": [
+          "django/core/management/commands/runserver.py"
+        ],
+        "instance_id": "django__django-16145"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/timesince.py"
+        ],
+        "gold_files": [
+          "django/utils/timesince.py"
+        ],
+        "instance_id": "django__django-16429"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.24,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/servers/basehttp.py"
+        ],
+        "gold_files": [
+          "django/core/servers/basehttp.py"
+        ],
+        "instance_id": "django__django-16502"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "instance_id": "django__django-16801"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "instance_id": "django__django-17087"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.5,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/commands/makemigrations.py"
+        ],
+        "gold_files": [
+          "django/core/management/commands/makemigrations.py"
+        ],
+        "instance_id": "django__django-7530"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/axes/_axes.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/axes/_axes.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-13989"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/dates.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/dates.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-22871"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/mpl_toolkits/mplot3d/axes3d.py"
+        ],
+        "gold_files": [
+          "lib/mpl_toolkits/mplot3d/axes3d.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-23314"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/figure.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/figure.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-23476"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/offsetbox.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/offsetbox.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-24637"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/mpl_toolkits/axes_grid1/inset_locator.py"
+        ],
+        "gold_files": [
+          "lib/mpl_toolkits/axes_grid1/inset_locator.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-26291"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.056,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/text.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/text.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-26466"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "requests/models.py",
+          "requests/sessions.py"
+        ],
+        "gold_files": [
+          "requests/sessions.py"
+        ],
+        "instance_id": "psf__requests-1724"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "requests/sessions.py"
+        ],
+        "gold_files": [
+          "requests/sessions.py"
+        ],
+        "instance_id": "psf__requests-2317"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "requests/models.py"
+        ],
+        "gold_files": [
+          "requests/models.py"
+        ],
+        "instance_id": "psf__requests-2931"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "xarray/core/variable.py"
+        ],
+        "gold_files": [
+          "xarray/core/indexing.py",
+          "xarray/core/variable.py"
+        ],
+        "instance_id": "pydata__xarray-3095"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "xarray/core/weighted.py"
+        ],
+        "gold_files": [
+          "xarray/core/weighted.py"
+        ],
+        "instance_id": "pydata__xarray-4075"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "xarray/core/dataset.py"
+        ],
+        "gold_files": [
+          "xarray/core/dataset.py",
+          "xarray/core/variable.py"
+        ],
+        "instance_id": "pydata__xarray-6938"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.042,
+        "files_correct": true,
+        "gen_files": [
+          "xarray/core/computation.py"
+        ],
+        "gold_files": [
+          "xarray/core/computation.py"
+        ],
+        "instance_id": "pydata__xarray-7229"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.167,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/logging.py"
+        ],
+        "gold_files": [
+          "src/_pytest/logging.py"
+        ],
+        "instance_id": "pytest-dev__pytest-10051"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/unittest.py"
+        ],
+        "gold_files": [
+          "src/_pytest/unittest.py"
+        ],
+        "instance_id": "pytest-dev__pytest-10081"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/capture.py"
+        ],
+        "gold_files": [
+          "src/_pytest/capture.py"
+        ],
+        "instance_id": "pytest-dev__pytest-5262"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.167,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/pastebin.py"
+        ],
+        "gold_files": [
+          "src/_pytest/pastebin.py"
+        ],
+        "instance_id": "pytest-dev__pytest-5809"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.333,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/python.py"
+        ],
+        "gold_files": [
+          "src/_pytest/python.py"
+        ],
+        "instance_id": "pytest-dev__pytest-6202"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.222,
+        "files_correct": false,
+        "gen_files": [
+          "src/_pytest/compat.py",
+          "src/_pytest/mark/expression.py"
+        ],
+        "gold_files": [
+          "src/_pytest/mark/expression.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7324"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.333,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/skipping.py"
+        ],
+        "gold_files": [
+          "src/_pytest/skipping.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7432"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/capture.py"
+        ],
+        "gold_files": [
+          "src/_pytest/capture.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7521"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/pathlib.py"
+        ],
+        "gold_files": [
+          "src/_pytest/pathlib.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7982"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.065,
+        "files_correct": false,
+        "gen_files": [
+          "sklearn/linear_model/ridge.py",
+          "sklearn/linear_model/tests/test_ridge.py"
+        ],
+        "gold_files": [
+          "sklearn/linear_model/ridge.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-10297"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.4,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/linear_model/least_angle.py"
+        ],
+        "gold_files": [
+          "sklearn/linear_model/least_angle.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-12973"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/preprocessing/_discretization.py"
+        ],
+        "gold_files": [
+          "sklearn/preprocessing/_discretization.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-13135"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.375,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/feature_extraction/text.py"
+        ],
+        "gold_files": [
+          "sklearn/feature_extraction/text.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-15100"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.038,
+        "files_correct": false,
+        "gen_files": [
+          "sklearn/utils/_set_output.py"
+        ],
+        "gold_files": [
+          "sklearn/base.py",
+          "sklearn/feature_selection/_base.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-25102"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/utils/_set_output.py"
+        ],
+        "gold_files": [
+          "sklearn/utils/_set_output.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-25747"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.333,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/writers/latex.py"
+        ],
+        "gold_files": [
+          "sphinx/writers/latex.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-10435"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.091,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/ext/autodoc/typehints.py"
+        ],
+        "gold_files": [
+          "sphinx/ext/autodoc/typehints.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-10449"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.333,
+        "change_overlap": 0.04,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/environment/adapters/toctree.py",
+          "sphinx/parsers/rst/directives/other.py"
+        ],
+        "gold_files": [
+          "sphinx/directives/other.py",
+          "sphinx/environment/adapters/toctree.py",
+          "sphinx/environment/collectors/toctree.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-10673"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/util/rst.py"
+        ],
+        "gold_files": [
+          "sphinx/util/rst.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-11445"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.333,
+        "change_overlap": 0.036,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/domains/cpp.py"
+        ],
+        "gold_files": [
+          "sphinx/domains/c.py",
+          "sphinx/domains/cpp.py",
+          "sphinx/util/cfamily.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-7590"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.125,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/domains/python.py",
+          "sphinx/util/inspect.py"
+        ],
+        "gold_files": [
+          "sphinx/pycode/ast.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-8265"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/builders/linkcheck.py"
+        ],
+        "gold_files": [
+          "sphinx/builders/linkcheck.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-8269"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/ext/autodoc/typehints.py",
+          "sphinx/util/inspect.py",
+          "sphinx/util/typing.py"
+        ],
+        "gold_files": [
+          "sphinx/ext/autodoc/typehints.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-8459"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.167,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/pycode/ast.py",
+          "tests/test_pycode_ast.py"
+        ],
+        "gold_files": [
+          "sphinx/pycode/ast.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-9367"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.286,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/combinatorics/permutations.py"
+        ],
+        "gold_files": [
+          "sympy/combinatorics/permutations.py"
+        ],
+        "instance_id": "sympy__sympy-12481"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/functions/elementary/hyperbolic.py"
+        ],
+        "gold_files": [
+          "sympy/functions/elementary/hyperbolic.py"
+        ],
+        "instance_id": "sympy__sympy-13480"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/polys/polytools.py"
+        ],
+        "gold_files": [
+          "sympy/polys/polytools.py"
+        ],
+        "instance_id": "sympy__sympy-13757"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.121,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/physics/quantum/tensorproduct.py"
+        ],
+        "gold_files": [
+          "sympy/physics/quantum/tensorproduct.py"
+        ],
+        "instance_id": "sympy__sympy-13974"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sympy/tensor/array/ndim_array.py"
+        ],
+        "gold_files": [
+          "sympy/tensor/array/dense_ndim_array.py"
+        ],
+        "instance_id": "sympy__sympy-15017"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/printing/mathematica.py"
+        ],
+        "gold_files": [
+          "sympy/printing/mathematica.py"
+        ],
+        "instance_id": "sympy__sympy-15345"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/algebras/quaternion.py"
+        ],
+        "gold_files": [
+          "sympy/algebras/quaternion.py"
+        ],
+        "instance_id": "sympy__sympy-15349"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/functions/elementary/miscellaneous.py"
+        ],
+        "gold_files": [
+          "sympy/functions/elementary/miscellaneous.py"
+        ],
+        "instance_id": "sympy__sympy-15809"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/printing/mathml.py"
+        ],
+        "gold_files": [
+          "sympy/printing/mathml.py"
+        ],
+        "instance_id": "sympy__sympy-15976"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/geometry/point.py"
+        ],
+        "gold_files": [
+          "sympy/geometry/point.py"
+        ],
+        "instance_id": "sympy__sympy-17655"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/solvers/diophantine.py"
+        ],
+        "gold_files": [
+          "sympy/solvers/diophantine.py"
+        ],
+        "instance_id": "sympy__sympy-18189"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/polys/factortools.py"
+        ],
+        "gold_files": [
+          "sympy/polys/factortools.py"
+        ],
+        "instance_id": "sympy__sympy-19040"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.133,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/sets/conditionset.py"
+        ],
+        "gold_files": [
+          "sympy/sets/conditionset.py"
+        ],
+        "instance_id": "sympy__sympy-19495"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sympy/polys/polytools.py"
+        ],
+        "gold_files": [
+          "sympy/polys/domains/expressiondomain.py"
+        ],
+        "instance_id": "sympy__sympy-20428"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/core/numbers.py"
+        ],
+        "gold_files": [
+          "sympy/core/numbers.py"
+        ],
+        "instance_id": "sympy__sympy-20801"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/printing/pycode.py"
+        ],
+        "gold_files": [
+          "sympy/printing/pycode.py"
+        ],
+        "instance_id": "sympy__sympy-22914"
+      }
+    ],
+    "enhanced": [
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.165,
+        "files_correct": false,
+        "gen_files": [
+          "astropy/coordinates/builtin_frames/itrs.py",
+          "astropy/coordinates/builtin_frames/itrs_observed_transforms.py"
+        ],
+        "gold_files": [
+          "astropy/coordinates/builtin_frames/__init__.py",
+          "astropy/coordinates/builtin_frames/intermediate_rotation_transforms.py",
+          "astropy/coordinates/builtin_frames/itrs.py",
+          "astropy/coordinates/builtin_frames/itrs_observed_transforms.py"
+        ],
+        "instance_id": "astropy__astropy-13398"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.043,
+        "files_correct": true,
+        "gen_files": [
+          "astropy/io/fits/card.py"
+        ],
+        "gold_files": [
+          "astropy/io/fits/card.py"
+        ],
+        "instance_id": "astropy__astropy-14508"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "astropy/io/fits/diff.py"
+        ],
+        "gold_files": [
+          "astropy/io/fits/diff.py"
+        ],
+        "instance_id": "astropy__astropy-14539"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "astropy/nddata/mixins/ndarithmetic.py"
+        ],
+        "gold_files": [
+          "astropy/nddata/mixins/ndarithmetic.py"
+        ],
+        "instance_id": "astropy__astropy-14995"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "astropy/utils/docstrings.py"
+        ],
+        "gold_files": [
+          "astropy/utils/misc.py"
+        ],
+        "instance_id": "astropy__astropy-7166"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.364,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/base.py"
+        ],
+        "gold_files": [
+          "django/core/management/base.py"
+        ],
+        "instance_id": "django__django-11292"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.333,
+        "change_overlap": 0.048,
+        "files_correct": false,
+        "gen_files": [
+          "django/contrib/admin/filters.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/filters.py",
+          "django/db/models/fields/__init__.py",
+          "django/db/models/fields/reverse_related.py"
+        ],
+        "instance_id": "django__django-11400"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/auth/backends.py"
+        ],
+        "gold_files": [
+          "django/contrib/auth/backends.py"
+        ],
+        "instance_id": "django__django-11451"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.2,
+        "change_overlap": 0.111,
+        "files_correct": false,
+        "gen_files": [
+          "django/core/mail/utils.py"
+        ],
+        "gold_files": [
+          "django/core/mail/message.py",
+          "django/core/mail/utils.py",
+          "django/core/validators.py",
+          "django/utils/encoding.py",
+          "django/utils/html.py"
+        ],
+        "instance_id": "django__django-11532"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/expressions.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/__init__.py",
+          "django/db/models/fields/related_lookups.py",
+          "django/db/models/sql/query.py"
+        ],
+        "instance_id": "django__django-11734"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "instance_id": "django__django-12125"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/enums.py"
+        ],
+        "gold_files": [
+          "django/db/models/enums.py"
+        ],
+        "instance_id": "django__django-12304"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.125,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/base.py"
+        ],
+        "gold_files": [
+          "django/db/models/base.py",
+          "django/db/models/options.py"
+        ],
+        "instance_id": "django__django-12325"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/sql/query.py"
+        ],
+        "instance_id": "django__django-13158"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.5,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/functions/datetime.py"
+        ],
+        "gold_files": [
+          "django/db/models/functions/datetime.py"
+        ],
+        "instance_id": "django__django-13363"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.217,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/__init__.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/__init__.py"
+        ],
+        "instance_id": "django__django-13401"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/query.py"
+        ],
+        "instance_id": "django__django-13406"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/query.py"
+        ],
+        "instance_id": "django__django-13417"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.1,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/auth/tokens.py"
+        ],
+        "gold_files": [
+          "django/contrib/auth/tokens.py"
+        ],
+        "instance_id": "django__django-13551"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.154,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/auth/forms.py"
+        ],
+        "gold_files": [
+          "django/contrib/auth/forms.py"
+        ],
+        "instance_id": "django__django-13741"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.154,
+        "files_correct": false,
+        "gen_files": [
+          "django/forms/boundfield.py",
+          "django/forms/fields.py",
+          "django/forms/widgets.py"
+        ],
+        "gold_files": [
+          "django/forms/boundfield.py"
+        ],
+        "instance_id": "django__django-14034"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/datastructures.py"
+        ],
+        "gold_files": [
+          "django/utils/datastructures.py"
+        ],
+        "instance_id": "django__django-14089"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/models.py"
+        ],
+        "gold_files": [
+          "django/forms/models.py"
+        ],
+        "instance_id": "django__django-14915"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/contrib/admin/views/main.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-15022"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.2,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/migrations/optimizer.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/operations/models.py"
+        ],
+        "instance_id": "django__django-15268"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.045,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/backends/base/operations.py",
+          "django/db/backends/mysql/operations.py",
+          "django/db/backends/oracle/operations.py",
+          "django/db/backends/sqlite3/operations.py",
+          "django/db/models/fields/json.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/json.py"
+        ],
+        "instance_id": "django__django-15503"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.909,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/related_lookups.py",
+          "django/db/models/sql/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/related_lookups.py",
+          "django/db/models/sql/query.py"
+        ],
+        "instance_id": "django__django-16032"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-16100"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.2,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "instance_id": "django__django-16493"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.625,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/legend.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/legend.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-20859"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "lib/matplotlib/pyplot.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/cm.py",
+          "lib/matplotlib/colors.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-25479"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.267,
+        "files_correct": false,
+        "gen_files": [
+          "seaborn/_core/plotter.py"
+        ],
+        "gold_files": [
+          "seaborn/_core/plot.py"
+        ],
+        "instance_id": "mwaskom__seaborn-3069"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.1,
+        "files_correct": false,
+        "gen_files": [
+          "xarray/core/variable.py"
+        ],
+        "gold_files": [
+          "xarray/core/dataset.py",
+          "xarray/core/variable.py"
+        ],
+        "instance_id": "pydata__xarray-3305"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "xarray/core/merge.py"
+        ],
+        "gold_files": [
+          "xarray/core/dataset.py"
+        ],
+        "instance_id": "pydata__xarray-3677"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "xarray/core/computation.py"
+        ],
+        "gold_files": [
+          "xarray/core/computation.py"
+        ],
+        "instance_id": "pydata__xarray-4687"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "pylint/lint/pylinter.py"
+        ],
+        "gold_files": [
+          "pylint/lint/expand_modules.py"
+        ],
+        "instance_id": "pylint-dev__pylint-7080"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.059,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/mark/structures.py"
+        ],
+        "gold_files": [
+          "src/_pytest/mark/structures.py"
+        ],
+        "instance_id": "pytest-dev__pytest-10356"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/logging.py"
+        ],
+        "gold_files": [
+          "src/_pytest/logging.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7571"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.2,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/model_selection/_split.py"
+        ],
+        "gold_files": [
+          "sklearn/model_selection/_split.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-13124"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.4,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/mixture/base.py"
+        ],
+        "gold_files": [
+          "sklearn/mixture/base.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-13142"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/utils/_show_versions.py"
+        ],
+        "gold_files": [
+          "sklearn/utils/_show_versions.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-14141"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.333,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/feature_selection/_sequential.py"
+        ],
+        "gold_files": [
+          "sklearn/feature_selection/_sequential.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-25973"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.333,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/compose/_column_transformer.py"
+        ],
+        "gold_files": [
+          "sklearn/compose/_column_transformer.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-26323"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.129,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/parsers/rst.py"
+        ],
+        "gold_files": [
+          "sphinx/directives/other.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-11510"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/ext/autodoc/__init__.py"
+        ],
+        "gold_files": [
+          "sphinx/domains/python.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-7454"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.2,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/ext/autodoc/__init__.py"
+        ],
+        "gold_files": [
+          "sphinx/ext/autodoc/__init__.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-9229"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/domains/python.py"
+        ],
+        "gold_files": [
+          "sphinx/domains/python.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-9258"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/physics/vector/vector.py"
+        ],
+        "gold_files": [
+          "sympy/physics/vector/vector.py"
+        ],
+        "instance_id": "sympy__sympy-14711"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.4,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/printing/pycode.py"
+        ],
+        "gold_files": [
+          "sympy/printing/pycode.py"
+        ],
+        "instance_id": "sympy__sympy-16766"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sympy/matrices/matrices.py"
+        ],
+        "gold_files": [
+          "sympy/polys/matrices/normalforms.py"
+        ],
+        "instance_id": "sympy__sympy-23413"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "astropy/io/ascii/qdp.py"
+        ],
+        "gold_files": [
+          "astropy/io/ascii/qdp.py"
+        ],
+        "instance_id": "astropy__astropy-14365"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/aggregates.py"
+        ],
+        "gold_files": [
+          "django/db/models/aggregates.py"
+        ],
+        "instance_id": "django__django-10880"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.088,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/backends/postgresql/client.py"
+        ],
+        "gold_files": [
+          "django/db/backends/postgresql/client.py"
+        ],
+        "instance_id": "django__django-10973"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.667,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-11095"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.75,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/backends/mysql/operations.py",
+          "django/db/backends/oracle/operations.py",
+          "django/db/backends/sqlite3/operations.py"
+        ],
+        "gold_files": [
+          "django/db/backends/mysql/operations.py",
+          "django/db/backends/oracle/operations.py",
+          "django/db/backends/sqlite3/base.py",
+          "django/db/backends/sqlite3/operations.py"
+        ],
+        "instance_id": "django__django-11138"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.028,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-11149"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/models.py"
+        ],
+        "gold_files": [
+          "django/forms/models.py"
+        ],
+        "instance_id": "django__django-11163"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/backends/postgresql/client.py"
+        ],
+        "gold_files": [
+          "django/db/backends/postgresql/client.py"
+        ],
+        "instance_id": "django__django-11239"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/constraints.py"
+        ],
+        "gold_files": [
+          "django/db/models/sql/query.py"
+        ],
+        "instance_id": "django__django-11299"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/models.py"
+        ],
+        "gold_files": [
+          "django/forms/models.py"
+        ],
+        "instance_id": "django__django-11433"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/urls/resolvers.py"
+        ],
+        "gold_files": [
+          "django/urls/resolvers.py"
+        ],
+        "instance_id": "django__django-11477"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.2,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/autodetector.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/autodetector.py"
+        ],
+        "instance_id": "django__django-11740"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/__init__.py"
+        ],
+        "gold_files": [
+          "django/core/management/__init__.py"
+        ],
+        "instance_id": "django__django-11749"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/core/checks/model_checks.py"
+        ],
+        "gold_files": [
+          "django/db/models/base.py"
+        ],
+        "instance_id": "django__django-11820"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/fields.py"
+        ],
+        "gold_files": [
+          "django/forms/fields.py"
+        ],
+        "instance_id": "django__django-11880"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.125,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/__init__.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/__init__.py"
+        ],
+        "instance_id": "django__django-11999"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.5,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/widgets.py"
+        ],
+        "gold_files": [
+          "django/forms/widgets.py"
+        ],
+        "instance_id": "django__django-12193"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/base.py"
+        ],
+        "gold_files": [
+          "django/db/models/base.py"
+        ],
+        "instance_id": "django__django-12209"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/template/library.py"
+        ],
+        "gold_files": [
+          "django/template/library.py"
+        ],
+        "instance_id": "django__django-12262"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.294,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "gold_files": [
+          "django/contrib/admin/options.py"
+        ],
+        "instance_id": "django__django-12713"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/sql/subqueries.py"
+        ],
+        "gold_files": [
+          "django/db/models/sql/compiler.py"
+        ],
+        "instance_id": "django__django-12965"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.143,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/sql/compiler.py"
+        ],
+        "gold_files": [
+          "django/db/models/sql/compiler.py"
+        ],
+        "instance_id": "django__django-13033"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/related.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/related.py"
+        ],
+        "instance_id": "django__django-13109"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.6,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/related.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/related.py"
+        ],
+        "instance_id": "django__django-13112"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.222,
+        "files_correct": true,
+        "gen_files": [
+          "django/contrib/sessions/backends/base.py"
+        ],
+        "gold_files": [
+          "django/contrib/sessions/backends/base.py"
+        ],
+        "instance_id": "django__django-13279"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "instance_id": "django__django-13343"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.125,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/json.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/json.py"
+        ],
+        "instance_id": "django__django-13346"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/html.py"
+        ],
+        "gold_files": [
+          "django/utils/html.py"
+        ],
+        "instance_id": "django__django-14539"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "instance_id": "django__django-14580"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.143,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/formsets.py"
+        ],
+        "gold_files": [
+          "django/forms/formsets.py"
+        ],
+        "instance_id": "django__django-14608"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/autoreload.py"
+        ],
+        "gold_files": [
+          "django/utils/autoreload.py"
+        ],
+        "instance_id": "django__django-14771"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/commands/inspectdb.py"
+        ],
+        "gold_files": [
+          "django/core/management/commands/inspectdb.py"
+        ],
+        "instance_id": "django__django-15037"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/translation/trans_real.py"
+        ],
+        "gold_files": [
+          "django/utils/translation/trans_real.py"
+        ],
+        "instance_id": "django__django-15098"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.5,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/query.py"
+        ],
+        "instance_id": "django__django-15368"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/serializers/base.py"
+        ],
+        "gold_files": [
+          "django/core/serializers/base.py"
+        ],
+        "instance_id": "django__django-15525"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.083,
+        "files_correct": true,
+        "gen_files": [
+          "django/forms/models.py"
+        ],
+        "gold_files": [
+          "django/forms/models.py"
+        ],
+        "instance_id": "django__django-15916"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.032,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/models/query.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/related_descriptors.py"
+        ],
+        "instance_id": "django__django-15957"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/expressions.py"
+        ],
+        "gold_files": [
+          "django/db/models/expressions.py"
+        ],
+        "instance_id": "django__django-16082"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.143,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/commands/makemigrations.py"
+        ],
+        "gold_files": [
+          "django/core/management/commands/makemigrations.py"
+        ],
+        "instance_id": "django__django-16116"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.5,
+        "files_correct": true,
+        "gen_files": [
+          "django/views/generic/base.py"
+        ],
+        "gold_files": [
+          "django/views/generic/base.py"
+        ],
+        "instance_id": "django__django-16136"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/core/management/commands/runserver.py"
+        ],
+        "gold_files": [
+          "django/core/management/commands/runserver.py"
+        ],
+        "instance_id": "django__django-16145"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/utils/timesince.py"
+        ],
+        "gold_files": [
+          "django/utils/timesince.py"
+        ],
+        "instance_id": "django__django-16429"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.04,
+        "files_correct": false,
+        "gen_files": [
+          "django/middleware/http.py"
+        ],
+        "gold_files": [
+          "django/core/servers/basehttp.py"
+        ],
+        "instance_id": "django__django-16502"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "gold_files": [
+          "django/db/models/fields/files.py"
+        ],
+        "instance_id": "django__django-16801"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "gold_files": [
+          "django/db/migrations/serializer.py"
+        ],
+        "instance_id": "django__django-17087"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "django/db/migrations/autodetector.py"
+        ],
+        "gold_files": [
+          "django/core/management/commands/makemigrations.py"
+        ],
+        "instance_id": "django__django-7530"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/axes/_axes.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/axes/_axes.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-13989"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/dates.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/dates.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-22871"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/mpl_toolkits/mplot3d/axes3d.py"
+        ],
+        "gold_files": [
+          "lib/mpl_toolkits/mplot3d/axes3d.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-23314"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.333,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/figure.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/figure.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-23476"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/offsetbox.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/offsetbox.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-24637"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "lib/mpl_toolkits/axes_grid1/inset_locator.py"
+        ],
+        "gold_files": [
+          "lib/mpl_toolkits/axes_grid1/inset_locator.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-26291"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.056,
+        "files_correct": true,
+        "gen_files": [
+          "lib/matplotlib/text.py"
+        ],
+        "gold_files": [
+          "lib/matplotlib/text.py"
+        ],
+        "instance_id": "matplotlib__matplotlib-26466"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "requests/sessions.py"
+        ],
+        "gold_files": [
+          "requests/sessions.py"
+        ],
+        "instance_id": "psf__requests-1724"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "requests/sessions.py"
+        ],
+        "gold_files": [
+          "requests/sessions.py"
+        ],
+        "instance_id": "psf__requests-2317"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "requests/models.py"
+        ],
+        "gold_files": [
+          "requests/models.py"
+        ],
+        "instance_id": "psf__requests-2931"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "xarray/core/variable.py"
+        ],
+        "gold_files": [
+          "xarray/core/indexing.py",
+          "xarray/core/variable.py"
+        ],
+        "instance_id": "pydata__xarray-3095"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "xarray/core/weighted.py"
+        ],
+        "gold_files": [
+          "xarray/core/weighted.py"
+        ],
+        "instance_id": "pydata__xarray-4075"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.5,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "xarray/core/dataset.py"
+        ],
+        "gold_files": [
+          "xarray/core/dataset.py",
+          "xarray/core/variable.py"
+        ],
+        "instance_id": "pydata__xarray-6938"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.042,
+        "files_correct": true,
+        "gen_files": [
+          "xarray/core/computation.py"
+        ],
+        "gold_files": [
+          "xarray/core/computation.py"
+        ],
+        "instance_id": "pydata__xarray-7229"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.167,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/logging.py"
+        ],
+        "gold_files": [
+          "src/_pytest/logging.py"
+        ],
+        "instance_id": "pytest-dev__pytest-10051"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/unittest.py"
+        ],
+        "gold_files": [
+          "src/_pytest/unittest.py"
+        ],
+        "instance_id": "pytest-dev__pytest-10081"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/capture.py"
+        ],
+        "gold_files": [
+          "src/_pytest/capture.py"
+        ],
+        "instance_id": "pytest-dev__pytest-5262"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/pastebin.py"
+        ],
+        "gold_files": [
+          "src/_pytest/pastebin.py"
+        ],
+        "instance_id": "pytest-dev__pytest-5809"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.333,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/python.py"
+        ],
+        "gold_files": [
+          "src/_pytest/python.py"
+        ],
+        "instance_id": "pytest-dev__pytest-6202"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.222,
+        "files_correct": false,
+        "gen_files": [
+          "src/_pytest/compat.py",
+          "src/_pytest/mark/expression.py"
+        ],
+        "gold_files": [
+          "src/_pytest/mark/expression.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7324"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/skipping.py"
+        ],
+        "gold_files": [
+          "src/_pytest/skipping.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7432"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "src/_pytest/capture.py"
+        ],
+        "gold_files": [
+          "src/_pytest/capture.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7521"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "src/_pytest/collection.py"
+        ],
+        "gold_files": [
+          "src/_pytest/pathlib.py"
+        ],
+        "instance_id": "pytest-dev__pytest-7982"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sklearn/linear_model/_ridge.py"
+        ],
+        "gold_files": [
+          "sklearn/linear_model/ridge.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-10297"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.4,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/linear_model/least_angle.py"
+        ],
+        "gold_files": [
+          "sklearn/linear_model/least_angle.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-12973"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/preprocessing/_discretization.py"
+        ],
+        "gold_files": [
+          "sklearn/preprocessing/_discretization.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-13135"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.375,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/feature_extraction/text.py"
+        ],
+        "gold_files": [
+          "sklearn/feature_extraction/text.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-15100"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sklearn/utils/_set_output.py"
+        ],
+        "gold_files": [
+          "sklearn/base.py",
+          "sklearn/feature_selection/_base.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-25102"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "sklearn/utils/_set_output.py"
+        ],
+        "gold_files": [
+          "sklearn/utils/_set_output.py"
+        ],
+        "instance_id": "scikit-learn__scikit-learn-25747"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/writers/latex.py"
+        ],
+        "gold_files": [
+          "sphinx/writers/latex.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-10435"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.182,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/ext/autodoc/typehints.py"
+        ],
+        "gold_files": [
+          "sphinx/ext/autodoc/typehints.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-10449"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.333,
+        "change_overlap": 0.04,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/environment/__init__.py",
+          "sphinx/environment/collectors/toctree.py"
+        ],
+        "gold_files": [
+          "sphinx/directives/other.py",
+          "sphinx/environment/adapters/toctree.py",
+          "sphinx/environment/collectors/toctree.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-10673"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/util/rst.py"
+        ],
+        "gold_files": [
+          "sphinx/util/rst.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-11445"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.333,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/domains/cpp.py"
+        ],
+        "gold_files": [
+          "sphinx/domains/c.py",
+          "sphinx/domains/cpp.py",
+          "sphinx/util/cfamily.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-7590"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/domains/python.py"
+        ],
+        "gold_files": [
+          "sphinx/pycode/ast.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-8265"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/builders/linkcheck.py"
+        ],
+        "gold_files": [
+          "sphinx/builders/linkcheck.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-8269"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sphinx/ext/autodoc/typehints.py"
+        ],
+        "gold_files": [
+          "sphinx/ext/autodoc/typehints.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-8459"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.167,
+        "files_correct": false,
+        "gen_files": [
+          "sphinx/pycode/ast.py",
+          "tests/test_pycode_ast.py"
+        ],
+        "gold_files": [
+          "sphinx/pycode/ast.py"
+        ],
+        "instance_id": "sphinx-doc__sphinx-9367"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.286,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/combinatorics/permutations.py"
+        ],
+        "gold_files": [
+          "sympy/combinatorics/permutations.py"
+        ],
+        "instance_id": "sympy__sympy-12481"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/functions/elementary/hyperbolic.py"
+        ],
+        "gold_files": [
+          "sympy/functions/elementary/hyperbolic.py"
+        ],
+        "instance_id": "sympy__sympy-13480"
+      },
+      {
+        "instance_id": "sympy__sympy-13757",
+        "error": true
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.061,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/physics/quantum/tensorproduct.py"
+        ],
+        "gold_files": [
+          "sympy/physics/quantum/tensorproduct.py"
+        ],
+        "instance_id": "sympy__sympy-13974"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sympy/tensor/array/ndim_array.py"
+        ],
+        "gold_files": [
+          "sympy/tensor/array/dense_ndim_array.py"
+        ],
+        "instance_id": "sympy__sympy-15017"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/printing/mathematica.py"
+        ],
+        "gold_files": [
+          "sympy/printing/mathematica.py"
+        ],
+        "instance_id": "sympy__sympy-15345"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/algebras/quaternion.py"
+        ],
+        "gold_files": [
+          "sympy/algebras/quaternion.py"
+        ],
+        "instance_id": "sympy__sympy-15349"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/functions/elementary/miscellaneous.py"
+        ],
+        "gold_files": [
+          "sympy/functions/elementary/miscellaneous.py"
+        ],
+        "instance_id": "sympy__sympy-15809"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/printing/mathml.py"
+        ],
+        "gold_files": [
+          "sympy/printing/mathml.py"
+        ],
+        "instance_id": "sympy__sympy-15976"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.25,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/geometry/point.py"
+        ],
+        "gold_files": [
+          "sympy/geometry/point.py"
+        ],
+        "instance_id": "sympy__sympy-17655"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 1.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/solvers/diophantine.py"
+        ],
+        "gold_files": [
+          "sympy/solvers/diophantine.py"
+        ],
+        "instance_id": "sympy__sympy-18189"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/polys/factortools.py"
+        ],
+        "gold_files": [
+          "sympy/polys/factortools.py"
+        ],
+        "instance_id": "sympy__sympy-19040"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/sets/conditionset.py"
+        ],
+        "gold_files": [
+          "sympy/sets/conditionset.py"
+        ],
+        "instance_id": "sympy__sympy-19495"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 0.0,
+        "change_overlap": 0.0,
+        "files_correct": false,
+        "gen_files": [
+          "sympy/polys/polytools.py"
+        ],
+        "gold_files": [
+          "sympy/polys/domains/expressiondomain.py"
+        ],
+        "instance_id": "sympy__sympy-20428"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/core/numbers.py"
+        ],
+        "gold_files": [
+          "sympy/core/numbers.py"
+        ],
+        "instance_id": "sympy__sympy-20801"
+      },
+      {
+        "exact_match": false,
+        "file_overlap": 1.0,
+        "change_overlap": 0.0,
+        "files_correct": true,
+        "gen_files": [
+          "sympy/printing/pycode.py"
+        ],
+        "gold_files": [
+          "sympy/printing/pycode.py"
+        ],
+        "instance_id": "sympy__sympy-22914"
+      }
+    ]
+  },
+  "timestamp": "2026-04-12 03:46:02"
+}

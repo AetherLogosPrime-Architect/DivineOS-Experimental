@@ -58,6 +58,7 @@ def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
 
 # ── Architecture tree verification ─────────────────────────────────────
 
+
 def _extract_tree_paths(readme_path: Path) -> list[str]:
     """Extract .py file paths from the README architecture code block.
 
@@ -150,7 +151,8 @@ def check_architecture_tree(readme_path: Path) -> list[str]:
     # Exclude __pycache__, __init__.py (every package has one), and generated files
     missing = actual_files - tree_set
     missing = {
-        m for m in missing
+        m
+        for m in missing
         if not any(part == "__pycache__" for part in m.split("/"))
         and not m.endswith("__init__.py")  # every package has one, not worth listing
     }
@@ -161,9 +163,43 @@ def check_architecture_tree(readme_path: Path) -> list[str]:
     return errors
 
 
+# ── Auto-fix ──────────────────────────────────────────────────────────
+
+
+def _format_count(n: int) -> str:
+    """Format a number with thousands separator and trailing +."""
+    return f"{n:,}+"
+
+
+def fix_test_counts(actual_tests: int) -> list[str]:
+    """Update test counts in all doc files. Returns list of files changed."""
+    doc_files = [
+        ROOT / "CLAUDE.md",
+        ROOT / "README.md",
+        ROOT / "src" / "divineos" / "seed.json",
+    ]
+    changed: list[str] = []
+    new_count = _format_count(actual_tests)
+
+    for doc_file in doc_files:
+        if not doc_file.exists():
+            continue
+        text = doc_file.read_text(errors="replace")
+        # Replace patterns like "3,641+ tests" or "3641+ tests"
+        updated = re.sub(r"[\d,]+\+?\s+tests", f"{new_count} tests", text)
+        if updated != text:
+            doc_file.write_text(updated, encoding="utf-8")
+            changed.append(doc_file.name)
+
+    return changed
+
+
 # ── Main ───────────────────────────────────────────────────────────────
 
+
 def main() -> int:
+    fix_mode = "--fix" in sys.argv
+
     actual_tests = count_test_functions()
     actual_cmds = count_cli_commands()
 
@@ -174,6 +210,7 @@ def main() -> int:
     ]
 
     errors: list[str] = []
+    test_drift_found = False
 
     for doc_file in doc_files:
         if not doc_file.exists():
@@ -188,10 +225,19 @@ def main() -> int:
 
             drift = abs(actual - documented)
             if drift > threshold:
+                if label == "tests":
+                    test_drift_found = True
                 errors.append(
-                    f"  {context}\n"
-                    f"    documented: {documented}, actual: {actual}, drift: {drift}"
+                    f"  {context}\n    documented: {documented}, actual: {actual}, drift: {drift}"
                 )
+
+    # Auto-fix test counts if requested
+    if fix_mode and test_drift_found:
+        changed = fix_test_counts(actual_tests)
+        if changed:
+            print(f"Auto-fixed test counts in: {', '.join(changed)}")
+            # Re-check after fix — only non-test errors remain
+            errors = [e for e in errors if "tests" not in e.split("\n")[0]]
 
     # Architecture tree check
     readme = ROOT / "README.md"
@@ -203,7 +249,9 @@ def main() -> int:
     if errors:
         print(f"Doc drift detected (tests={actual_tests}, commands={actual_cmds}):")
         print("\n".join(errors))
-        print("\nUpdate documentation to match reality.")
+        if not fix_mode:
+            print("\nUpdate documentation to match reality.")
+            print("Or run: python scripts/check_doc_counts.py --fix")
         return 1
 
     print(f"Doc checks OK (tests={actual_tests}, commands={actual_cmds}, tree=synced)")

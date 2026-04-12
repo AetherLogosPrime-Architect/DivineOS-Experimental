@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-10880",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem statement, there's a missing space between `DISTINCT` and `CASE` in the generated SQL when using `Count` with both `distinct=True` and a `Case` condition.\n\nThe issue was introduced in commit bc05547cd8c1dd511c6b6a6c873a1bc63417b111 which added DISTINCT handling to the Aggregate class.\n\nLet me examine the code and create a fix:\n\n```diff\n--- a/django/db/models/aggregates.py\n+++ b/django/db/models/aggregates.py\n@@ -86,7 +86,7 @@ class Aggregate(Func):\n             template = '%(function)s(%(distinct)s%(expressions)s)'\n             params = {\n                 'function': self.function,\n-                'distinct': 'DISTINCT' if self.distinct else '',\n+                'distinct': 'DISTINCT ' if self.distinct else '',\n                 'expressions': ', '.join(sql_expressions),\n             }\n         return template % params, params_list\n```",
+  "thinking": null,
+  "input_tokens": 308,
+  "output_tokens": 252,
+  "elapsed_seconds": 4.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004704
+}

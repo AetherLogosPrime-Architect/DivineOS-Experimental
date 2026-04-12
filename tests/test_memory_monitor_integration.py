@@ -11,12 +11,11 @@ Tests cover Task 4 subtasks:
 import uuid
 from datetime import datetime, timezone
 
-
-from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
-from divineos.agent_integration.pattern_store import PatternStore
 from divineos.agent_integration.decision_store import DecisionStore
 from divineos.agent_integration.learning_audit_store import LearningAuditStore
-from divineos.core.ledger import log_event, get_events
+from divineos.agent_integration.memory_monitor import AgentMemoryMonitor
+from divineos.agent_integration.pattern_store import PatternStore
+from divineos.core.ledger import get_events, log_event
 
 
 class TestRunLearningCycle:

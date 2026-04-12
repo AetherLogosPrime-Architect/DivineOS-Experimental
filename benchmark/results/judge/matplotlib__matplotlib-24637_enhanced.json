@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the AnnotationBbox.draw() method as the location needing gid support, but uses an incorrect API for the renderer group methods, passing only gid instead of the required class name parameter.",
+  "key_difference": "The candidate patch calls renderer.open_group(self.get_gid()) and renderer.close_group(self.get_gid()), while the gold patch correctly uses renderer.open_group(self.__class__.__name__, gid=self.get_gid()) and renderer.close_group(self.__class__.__name__). The renderer group methods require a group name as the first parameter, with gid as a keyword argument.",
+  "instance_id": "matplotlib__matplotlib-24637",
+  "condition": "enhanced",
+  "judge_tokens": 1794,
+  "judge_cost": 0.007962
+}

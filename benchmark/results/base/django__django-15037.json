@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-15037",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/core/management/commands/inspectdb.py\n+++ b/django/core/management/commands/inspectdb.py\n@@ -211,7 +211,11 @@ class Command(BaseCommand):\n                     # If the column to use in the relation is different than the\n                     # primary key on the target model, set the to_field attribute.\n                     if column != ref_pk_column:\n-                        rel_to = '%s.%s' % (ref_db_table, column)\n+                        # Check if the referenced column is the primary key\n+                        if ref_pk_column != ref_db_column:\n+                            rel_to = '%s.%s' % (ref_db_table, ref_db_column)\n+                        else:\n+                            rel_to = '%s.%s' % (ref_db_table, column)\n                     else:\n                         rel_to = ref_db_table\n ",
+  "thinking": null,
+  "input_tokens": 365,
+  "output_tokens": 236,
+  "elapsed_seconds": 4.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004635
+}

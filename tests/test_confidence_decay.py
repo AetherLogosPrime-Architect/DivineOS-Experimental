@@ -3,6 +3,7 @@
 import os
 import time
 
+from divineos.core.active_memory import compute_importance
 from divineos.core.knowledge import (
     _get_connection,
     health_check,
@@ -10,13 +11,17 @@ from divineos.core.knowledge import (
     store_knowledge,
 )
 from divineos.core.ledger import init_db
-from divineos.core.active_memory import compute_importance
 
 
 class TestAbandonedKnowledgeDecay:
     """Test that accessed-then-abandoned knowledge decays."""
 
-    def test_abandoned_entry_decays(self, tmp_path):
+    def test_abandoned_entry_does_not_decay(self, tmp_path):
+        """Accessed-then-abandoned entries do NOT decay.
+
+        Nothing decays without being seen. Being unused is not evidence
+        of being wrong.
+        """
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
         try:
             init_db()
@@ -38,7 +43,7 @@ class TestAbandonedKnowledgeDecay:
             conn.close()
 
             result = health_check()
-            assert result["abandoned_decayed"] >= 1
+            assert result["abandoned_decayed"] == 0
 
             conn = _get_connection()
             row = conn.execute(
@@ -46,7 +51,7 @@ class TestAbandonedKnowledgeDecay:
                 (kid,),
             ).fetchone()
             conn.close()
-            assert row[0] < 0.8
+            assert row[0] == 0.8  # no decay — nothing fades without being seen
         finally:
             os.environ.pop("DIVINEOS_DB", None)
 

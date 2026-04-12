@@ -1,6 +1,8 @@
 """Knowledge commands — learn, knowledge, ask, briefing, forget, lessons,
 clear-lessons, consolidate."""
 
+import sqlite3
+
 import click
 
 from divineos.cli._helpers import (
@@ -22,7 +24,6 @@ from divineos.cli._wrappers import (
 )
 from divineos.core.knowledge import KNOWLEDGE_TYPES, search_knowledge
 from divineos.core.memory import init_memory_tables
-import sqlite3
 
 _KC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -41,7 +42,7 @@ def register(cli: click.Group) -> None:
         help="Knowledge type (auto-detected if omitted)",
     )
     @click.option("--content", "content_opt", default=None, help="The knowledge to store")
-    @click.option("--confidence", default=1.0, type=float, help="Confidence 0.0-1.0")
+    @click.option("--confidence", default=0.5, type=float, help="Confidence 0.0-1.0")
     @click.option("--tags", default="", help="Comma-separated tags")
     @click.option("--source", default="", help="Comma-separated source event IDs")
     @click.option(
@@ -268,12 +269,12 @@ def register(cli: click.Group) -> None:
                 for rel in rels[:3]:
                     if rel["direction"] == "outgoing":
                         click.secho(
-                            f"         → {rel['relationship']} → {rel['target_id'][:8]}...",
+                            f"         -> {rel['relationship']} -> {rel['target_id'][:8]}...",
                             fg="bright_black",
                         )
                     else:
                         click.secho(
-                            f"         ← {rel['relationship']} ← {rel['source_id'][:8]}...",
+                            f"         <- {rel['relationship']} <- {rel['source_id'][:8]}...",
                             fg="bright_black",
                         )
                 if len(rels) > 3:
@@ -336,7 +337,7 @@ def register(cli: click.Group) -> None:
             pass  # anticipation is best-effort
 
     @cli.command("briefing")
-    @click.option("--max", "max_items", default=20, type=int, help="Max items in briefing")
+    @click.option("--max", "max_items", default=50, type=int, help="Max items in briefing")
     @click.option("--types", default="", help="Comma-separated knowledge types to include")
     @click.option(
         "--topic",

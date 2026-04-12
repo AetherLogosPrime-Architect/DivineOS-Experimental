@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds a visibility check at the beginning of the draw() method in the 3D axes class, which will prevent drawing when set_visible(False) is called.",
+  "key_difference": "The candidate patch has identical logic to the gold patch but differs in line numbers (470 vs 387) and includes extra whitespace formatting. The core fix is functionally equivalent and correct.",
+  "instance_id": "matplotlib__matplotlib-23314",
+  "condition": "enhanced",
+  "judge_tokens": 1131,
+  "judge_cost": 0.005169
+}

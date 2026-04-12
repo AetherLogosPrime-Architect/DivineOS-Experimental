@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12155",
+  "condition": "enhanced",
+  "model": "claude-opus-4-6",
+  "patch": "--- a/django/contrib/admindocs/utils.py\n+++ b/django/contrib/admindocs/utils.py\n@@ -21,7 +21,7 @@ def trim_docstring(docstring):\n     # as per PEP 257.\n     lines = docstring.expandtabs().splitlines()\n     # Determine minimum indentation (first line is special):\n-    indent = min(len(line) - len(line.lstrip()) for line in lines if line.lstrip())\n+    indent = min((len(line) - len(line.lstrip()) for line in lines[1:] if line.lstrip()), default=0)\n     # Trim off indentation.\n     trimmed = [lines[0].lstrip()] + [line[indent:] for line in lines[1:]]\n     # Strip off trailing and leading blank lines:",
+  "thinking": "The issue is in `trim_docstring` function where the indentation calculation includes the first line, which typically has 0 indentation when the docstring starts on the first line. The fix is to skip the first line when calculating the minimum indentation, and handle the case where `lines[1:]` might be empty.\n\nLet me find the relevant code in Django's codebase. The `trim_docstring` function is likely in `django/contrib/admindocs/utils.py`.",
+  "input_tokens": 2126,
+  "output_tokens": 327,
+  "elapsed_seconds": 6.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.05641500000000001
+}

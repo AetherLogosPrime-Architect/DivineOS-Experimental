@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies and fixes the unnecessary joins problem by collecting all search conditions first and then applying them in a single filter() call instead of chaining multiple filter() calls.",
+  "key_difference": "The candidate patch targets a different file (views/main.py vs options.py) and uses a different approach (reduce with operator.and_) compared to the gold patch (models.Q with *args), but both achieve the same goal of avoiding multiple filter() calls that cause unnecessary JOINs.",
+  "instance_id": "django__django-15022",
+  "condition": "enhanced",
+  "judge_tokens": 1598,
+  "judge_cost": 0.006846
+}

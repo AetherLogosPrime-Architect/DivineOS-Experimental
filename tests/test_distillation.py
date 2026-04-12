@@ -81,18 +81,7 @@ class TestLessonDistillation:
         """record_lesson should clean the description text."""
         from divineos.core.knowledge._base import _get_connection, init_knowledge_table
 
-        init_knowledge_table()
-        # Ensure lesson_tracking table exists
-        conn = _get_connection()
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS lesson_tracking (
-                lesson_id TEXT PRIMARY KEY, created_at REAL, category TEXT,
-                description TEXT, first_session TEXT, occurrences INTEGER,
-                last_seen REAL, sessions TEXT, status TEXT, content_hash TEXT,
-                agent TEXT)"""
-        )
-        conn.commit()
-        conn.close()
+        init_knowledge_table()  # Also creates lesson_tracking
 
         lid = record_lesson(
             "test_cat",

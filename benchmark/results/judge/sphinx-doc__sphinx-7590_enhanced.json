@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies regular expressions in the wrong location (around line 4767) and uses a different approach than the gold patch, but fails to integrate with the proper parser structure that handles literal parsing.",
+  "key_difference": "The candidate patch modifies regex patterns directly in what appears to be a different part of the codebase, while the gold patch properly integrates UDL support into the literal parsing logic by importing and using dedicated suffix regex patterns and modifying the _parse_literal method structure.",
+  "instance_id": "sphinx-doc__sphinx-7590",
+  "condition": "enhanced",
+  "judge_tokens": 1967,
+  "judge_cost": 0.007941
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch attempts to handle negated queries by skipping intermediate subquery contexts, but this approach is fundamentally flawed as it tries to fix the issue at the wrong level and makes incorrect assumptions about query structure.",
+  "key_difference": "The candidate patch modifies OuterRef resolution logic in expressions.py, while the gold patch fixes the root cause by preventing premature value preparation in related lookups and properly handling OuterRef in query exclusions. The candidate's approach of checking for 'negated' attributes and skipping subqueries is conceptually incorrect.",
+  "instance_id": "django__django-11734",
+  "condition": "enhanced",
+  "judge_tokens": 1762,
+  "judge_cost": 0.007482
+}

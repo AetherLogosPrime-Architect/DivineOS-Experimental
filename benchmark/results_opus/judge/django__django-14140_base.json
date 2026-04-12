@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate correctly identifies the root cause and applies the same fix as the gold patch by removing the special case handling for single-child Q objects. This prevents the TypeError when encountering non-subscriptable objects like Exists. However, the diff is truncated and missing the closing parts.",
+  "key_difference": "The candidate patch is incomplete - it's missing the final lines that handle the negated case and the return statement, making it an invalid diff format.",
+  "instance_id": "django__django-14140",
+  "condition": "base",
+  "judge_cost": 0.0065699999999999995
+}

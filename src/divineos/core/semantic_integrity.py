@@ -4,8 +4,8 @@ The problem: old specs and wild ideas mix implementable architecture
 with metaphysical fluff. Instead of rejecting esoteric language,
 SIS detects it, scores it, and translates it into grounded concepts.
 
-"The akashic records hold all memory" → "persistent append-only store"
-"Consciousness resonates at quantum frequency" → "state monitor with periodic sync"
+"The akashic records hold all memory" -> "persistent append-only store"
+"Consciousness resonates at quantum frequency" -> "state monitor with periodic sync"
 
 Four scoring layers:
   1. Esoteric vocabulary detection — find metaphysical terms
@@ -22,13 +22,12 @@ from typing import Any
 
 from divineos.core.sis_tiers import score_all_tiers
 
+# ─── Metaphysical -> Architecture Translation Map ────────────────────
 
-# ─── Metaphysical → Architecture Translation Map ────────────────────
-
-# Each entry: metaphysical term → (architectural concept, explanation)
+# Each entry: metaphysical term -> (architectural concept, explanation)
 # The explanation helps the translator build coherent output.
 TRANSLATIONS: dict[str, tuple[str, str]] = {
-    # Eastern philosophy → CS concepts
+    # Eastern philosophy -> CS concepts
     "akashic": ("persistent store", "universal memory = append-only storage"),
     "akashic records": ("append-only ledger", "permanent record of all events"),
     "karma": ("consequence tracking", "actions produce traceable side effects"),
@@ -47,7 +46,7 @@ TRANSLATIONS: dict[str, tuple[str, str]] = {
     "avatar": ("instance", "runtime manifestation of a template"),
     "atman": ("core identity", "persistent self across sessions"),
     "brahman": ("system root", "the ground truth everything derives from"),
-    # Consciousness / awareness → monitoring
+    # Consciousness / awareness -> monitoring
     "consciousness": ("state awareness", "system monitoring its own state"),
     "awareness": ("observability", "ability to inspect internal state"),
     "enlightenment": ("full observability", "complete visibility into system state"),
@@ -57,7 +56,7 @@ TRANSLATIONS: dict[str, tuple[str, str]] = {
     "intuition": ("heuristic", "fast approximate decision without full analysis"),
     "wisdom": ("distilled knowledge", "high-confidence, battle-tested rules"),
     "insight": ("pattern detection", "recognizing structure in raw data"),
-    # Energy / vibration → compute / signals
+    # Energy / vibration -> compute / signals
     "energy": ("compute resources", "processing capacity and allocation"),
     "vibration": ("signal", "periodic or event-driven notification"),
     "frequency": ("event rate", "how often something occurs per unit time"),
@@ -66,7 +65,7 @@ TRANSLATIONS: dict[str, tuple[str, str]] = {
     "dissonance": ("contradiction", "conflicting state or knowledge"),
     "attunement": ("calibration", "adjusting parameters to match context"),
     "alignment": ("synchronization", "ensuring components share consistent state"),
-    # Metaphysical structure → data structure
+    # Metaphysical structure -> data structure
     "void": ("null state", "empty or uninitialized state"),
     "aether": ("runtime context", "the environment everything executes within"),
     "sacred geometry": ("data structure", "organized arrangement of information"),
@@ -74,7 +73,7 @@ TRANSLATIONS: dict[str, tuple[str, str]] = {
     "realm": ("subsystem", "bounded context within the larger system"),
     "portal": ("interface", "entry point between subsystems"),
     "veil": ("access control", "boundary between visible and hidden state"),
-    # Cosmic / divine → system-level
+    # Cosmic / divine -> system-level
     "cosmic": ("system-wide", "affecting the entire system"),
     "universal": ("cross-cutting", "applying across all components"),
     "divine": ("root-level", "highest authority or privilege level"),
@@ -83,7 +82,7 @@ TRANSLATIONS: dict[str, tuple[str, str]] = {
     "emanation": ("derived state", "output produced from a source"),
     "creation": ("initialization", "bringing new state into existence"),
     "destruction": ("cleanup", "releasing resources and removing state"),
-    # Soul / spirit → identity / process
+    # Soul / spirit -> identity / process
     "soul": ("persistent identity", "state that survives across sessions"),
     "spirit": ("active process", "running instance of the system"),
     "aura": ("metadata", "contextual information surrounding an entity"),
@@ -104,7 +103,7 @@ TRANSLATIONS: dict[str, tuple[str, str]] = {
     "mystical": ("emergent", "arising from interaction, not explicit design"),
 }
 
-# Build a fast lookup: lowercase term → translation
+# Build a fast lookup: lowercase term -> translation
 _TERM_LOOKUP: dict[str, tuple[str, str]] = {k.lower(): v for k, v in TRANSLATIONS.items()}
 
 # Multi-word terms first (greedy matching), then single words

@@ -1,0 +1,12 @@
+{
+  "instance_id": "pydata__xarray-4075",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, the issue is that when boolean weights are used in weighted mean calculations, the `sum_of_weights` calculation using `xr.dot(dta.notnull(), wgt)` returns a boolean result instead of a numeric result, leading to incorrect normalization.\n\nThe fix needs to ensure that boolean weights are converted to numeric values before the dot product calculation. Based on the problem description, multiplying by 1 converts booleans to integers.\n\nLet me examine the weighted mean implementation to find where this fix should be applied:\n\n--- a/xarray/core/weighted.py\n+++ b/xarray/core/weighted.py\n@@ -158,7 +158,7 @@ class Weighted:\n         # we need to mask data values that are nan; else the weights are wrong\n         mask = notnull\n \n-        sum_of_weights = self._reduce(weights, dim=dim, skipna=False)\n+        sum_of_weights = self._reduce(weights * 1, dim=dim, skipna=False)\n \n         # find all weights that are valid (not inf, -inf, nan, but 0 is OK)\n         valid_weights = ~(weights.isnull() | np.isinf(weights))",
+  "thinking": null,
+  "input_tokens": 1001,
+  "output_tokens": 293,
+  "elapsed_seconds": 7.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007398
+}

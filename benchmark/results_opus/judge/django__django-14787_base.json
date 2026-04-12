@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch incorrectly targets the wrong part of the code and applies update_wrapper to the wrong object. The gold patch correctly wraps the partial object with wraps(method) at creation time, while the candidate tries to update wrapper attributes after the partial is created, which doesn't address the core issue.",
+  "key_difference": "The gold patch wraps the partial object creation with wraps(method) directly, while the candidate patch tries to use update_wrapper on an already-created partial object, targeting different code locations and using different approaches.",
+  "instance_id": "django__django-14787",
+  "condition": "base",
+  "judge_cost": 0.007164
+}

@@ -3,7 +3,7 @@
 The council identified that DivineOS has no way to tell whether knowledge
 retrieval actually helps. This module tracks the causal chain:
 
-    briefing loads knowledge → agent acts → corrections (or not) → measurable impact
+    briefing loads knowledge -> agent acts -> corrections (or not) -> measurable impact
 
 If knowledge about "prefer concise answers" was loaded but the agent got
 corrected for verbosity in the same session, that's a measurable failure.
@@ -18,7 +18,6 @@ import time
 from loguru import logger
 
 from divineos.core.knowledge._base import _get_connection
-
 
 # ─── Schema ─────────────────────────────────────────────────────────
 

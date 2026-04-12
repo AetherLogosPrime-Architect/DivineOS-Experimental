@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-15809",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sympy/functions/elementary/miscellaneous.py\n+++ b/sympy/functions/elementary/miscellaneous.py\n@@ -240,8 +240,8 @@ class Min(MinMaxBase, Application):\n     @classmethod\n     def _new(cls, *args, **options):\n         if len(args) == 0:\n-            raise ValueError(\n-                \"The Min function must have an argument.\")\n+            from sympy import oo\n+            return -oo\n \n         args = (sympify(arg) for arg in args)\n \n@@ -470,8 +470,8 @@ class Max(MinMaxBase, Application):\n     @classmethod\n     def _new(cls, *args, **options):\n         if len(args) == 0:\n-            raise ValueError(\n-                \"The Max function must have an argument.\")\n+            from sympy import oo\n+            return oo\n \n         args = (sympify(arg) for arg in args)\n ",
+  "thinking": null,
+  "input_tokens": 294,
+  "output_tokens": 248,
+  "elapsed_seconds": 4.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004602
+}

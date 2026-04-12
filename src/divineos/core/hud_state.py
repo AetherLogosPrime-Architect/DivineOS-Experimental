@@ -4,13 +4,14 @@ Mutable slot files that let the dashboard reflect real-time state changes.
 """
 
 import json
+import sqlite3
 import time
 from typing import Any
-import sqlite3
 
 from loguru import logger
 
 from divineos.core._hud_io import _ensure_hud_dir
+from divineos.core.constants import SECONDS_PER_DAY
 
 _HS_ERRORS = (
     ImportError,
@@ -118,6 +119,34 @@ def add_goal(text: str, original_words: str = "") -> None:
     path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
 
 
+def _increment_lifetime_goals(count: int = 1) -> None:
+    """Increment the lifetime goals completed counter."""
+    path = _ensure_hud_dir() / "goals_lifetime.json"
+    current = 0
+    if path.exists():
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            current = data.get("lifetime_completed", 0)
+        except (json.JSONDecodeError, OSError):
+            pass
+    path.write_text(
+        json.dumps({"lifetime_completed": current + count}, indent=2),
+        encoding="utf-8",
+    )
+
+
+def get_lifetime_goals_completed() -> int:
+    """Read the lifetime goals completed counter."""
+    path = _ensure_hud_dir() / "goals_lifetime.json"
+    if not path.exists():
+        return 0
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return int(data.get("lifetime_completed", 0))
+    except (json.JSONDecodeError, OSError):
+        return 0
+
+
 def complete_goal(text: str) -> bool:
     """Mark a goal as done by matching text. Returns True if found."""
     if not text.strip():
@@ -140,6 +169,7 @@ def complete_goal(text: str) -> bool:
 
     if found:
         path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
+        _increment_lifetime_goals(1)
     return found
 
 
@@ -166,7 +196,7 @@ def auto_clean_goals(max_age_days: float = 1.0) -> dict[str, int]:
     completed_cleared = sum(1 for g in goals if g.get("status") == "done")
     goals = [g for g in goals if g.get("status") != "done"]
 
-    cutoff = time.time() - (max_age_days * 86400)
+    cutoff = time.time() - (max_age_days * SECONDS_PER_DAY)
     stale_archived = 0
     deduped = 0
 
@@ -207,11 +237,13 @@ def auto_clean_goals(max_age_days: float = 1.0) -> dict[str, int]:
     for idx in to_dedup:
         active[idx]["status"] = "done"
 
-    changed = completed_cleared > 0 or stale_archived > 0 or deduped > 0
+    total_cleared = completed_cleared + stale_archived + deduped
+    changed = total_cleared > 0
     if changed:
         # Remove any newly-marked-done goals too
         goals = [g for g in goals if g.get("status") != "done"]
         path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
+        _increment_lifetime_goals(total_cleared)
 
     return {
         "stale_archived": stale_archived,

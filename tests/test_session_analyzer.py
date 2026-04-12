@@ -1,27 +1,27 @@
 """Tests for session_analyzer module."""
 
 import json
-import pytest
 from pathlib import Path
 
+import pytest
+
 from divineos.analysis.session_analyzer import (
-    analyze_session,
     CORRECTION_PATTERNS,
-    ENCOURAGEMENT_PATTERNS,
     DECISION_PATTERNS,
+    ENCOURAGEMENT_PATTERNS,
     FRUSTRATION_PATTERNS,
     PREFERENCE_PATTERNS,
     _detect_signals,
+    _extract_timestamps,
     _extract_user_text,
     _summarize_tool_input,
-    _extract_timestamps,
-    _load_records,
+    analyze_session,
+    load_records,
 )
 from divineos.analysis.session_discovery import (
-    find_sessions,
     aggregate_analyses,
+    find_sessions,
 )
-
 
 # --- Fixtures ---
 
@@ -452,17 +452,17 @@ class TestLoadRecords:
     def test_valid_jsonl(self, tmp_path):
         f = tmp_path / "test.jsonl"
         f.write_text('{"a": 1}\n{"b": 2}\n')
-        records = _load_records(f)
+        records = load_records(f)
         assert len(records) == 2
 
     def test_skips_bad_lines(self, tmp_path):
         f = tmp_path / "test.jsonl"
         f.write_text('{"a": 1}\nnot json\n{"b": 2}\n')
-        records = _load_records(f)
+        records = load_records(f)
         assert len(records) == 2
 
     def test_skips_empty_lines(self, tmp_path):
         f = tmp_path / "test.jsonl"
         f.write_text('{"a": 1}\n\n{"b": 2}\n')
-        records = _load_records(f)
+        records = load_records(f)
         assert len(records) == 2

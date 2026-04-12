@@ -1,8 +1,9 @@
 """Integration tests for IDE hook event capture."""
 
 import pytest
-from divineos.core.ledger import init_db, get_events, count_events
+
 from divineos.core.knowledge import init_knowledge_table
+from divineos.core.ledger import count_events, get_events, init_db
 from divineos.event.event_emission import emit_event
 
 

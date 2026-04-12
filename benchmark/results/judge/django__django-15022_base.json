@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch targets the wrong file (views/main.py instead of options.py) and appears to be incomplete, cutting off mid-implementation without showing the actual fix logic.",
+  "key_difference": "The candidate patch modifies django/contrib/admin/views/main.py while the gold patch correctly targets django/contrib/admin/options.py where the get_search_results method actually handles search functionality. The candidate is also syntactically incomplete.",
+  "instance_id": "django__django-15022",
+  "condition": "base",
+  "judge_tokens": 1829,
+  "judge_cost": 0.007419
+}

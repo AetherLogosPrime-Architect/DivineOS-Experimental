@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12209",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/base.py\n+++ b/django/db/models/base.py\n@@ -746,7 +746,7 @@ class Model(metaclass=ModelBase):\n         # and add to the updated fields.\n         if not pk_set and self._state.adding and (\n             (self._meta.pk.default and self._meta.pk.default is not NOT_PROVIDED) or\n-            (self._meta.pk.has_default() and self._meta.pk.default is not NOT_PROVIDED)\n+            (not raw and self._meta.pk.has_default() and self._meta.pk.default is not NOT_PROVIDED)\n         ):\n             force_insert = True\n         # If possible, try an UPDATE. If that doesn't update anything, do an INSERT.",
+  "thinking": null,
+  "input_tokens": 1096,
+  "output_tokens": 193,
+  "elapsed_seconds": 3.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006183
+}

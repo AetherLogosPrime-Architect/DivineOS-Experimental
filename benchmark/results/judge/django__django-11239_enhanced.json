@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds support for sslcert and sslkey parameters to the PostgreSQL dbshell client by appending them as --set arguments to psql, following the same pattern as existing ssl parameters.",
+  "key_difference": "The candidate uses --set command line arguments while the gold patch uses environment variables. Both approaches are valid ways to pass SSL parameters to psql, with --set being more explicit and environment variables being more traditional.",
+  "instance_id": "django__django-11239",
+  "condition": "enhanced",
+  "judge_tokens": 1589,
+  "judge_cost": 0.0066630000000000005
+}

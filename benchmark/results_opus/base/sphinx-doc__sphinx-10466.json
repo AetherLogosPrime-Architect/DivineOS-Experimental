@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-10466",
+  "condition": "base",
+  "model": "claude-opus-4-6",
+  "patch": "\n\nLooking at the problem, the `Message` class in `sphinx/builders/gettext.py` stores locations that can contain duplicates. The fix is to deduplicate the locations in the `Message.__init__` method.\n\nLet me trace through the code:\n\n1. In `sphinx/builders/gettext.py`, the `Message` class stores locations\n2. The `Catalog.__iter__` method yields `Message` objects with positions that can contain duplicates\n3. The positions list is built from `self.metadata[message]` which can have duplicate `(source, line)` pairs\n\nThe simplest and most correct fix is to deduplicate locations both in the `Message` class and where positions are constructed in the `Catalog.__iter__` method, using an order-preserving deduplication approach.\n\n--- a/sphinx/builders/gettext.py\n+++ b/sphinx/builders/gettext.py\n@@ -34,7 +34,7 @@ class Message:\n     def __init__(self, text: str, locations: List[Tuple[str, int]], uuids: List[str]):\n         self.text = text\n-        self.locations = locations\n+        self.locations = list(dict.fromkeys(locations))\n         self.uuids = uuids\n ",
+  "thinking": null,
+  "input_tokens": 4070,
+  "output_tokens": 300,
+  "elapsed_seconds": 7.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.08355
+}

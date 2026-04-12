@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-18189",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sympy/solvers/diophantine.py\n+++ b/sympy/solvers/diophantine.py\n@@ -182,7 +182,7 @@ def diophantine(eq, param=symbols(\"t\", integer=True), syms=None,\n             if syms != var:\n                 dict_sym_index = dict(zip(syms, range(len(syms))))\n                 return {tuple([t[dict_sym_index[i]] for i in var])\n-                            for t in diophantine(eq, param)}\n+                            for t in diophantine(eq, param, permute=permute)}\n         n, d = eq.as_numer_denom()\n         if n.is_number:\n             return set()",
+  "thinking": null,
+  "input_tokens": 1259,
+  "output_tokens": 189,
+  "elapsed_seconds": 2.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006612
+}

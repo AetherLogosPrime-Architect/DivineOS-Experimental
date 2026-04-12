@@ -261,9 +261,7 @@ def create_meadows_wisdom() -> ExpertWisdom:
                 "Can you change the rules or goals?",
                 "The highest-leverage intervention you can actually implement wins",
             ],
-            what_it_optimizes_for=(
-                "Maximum systemic change from minimum intervention effort"
-            ),
+            what_it_optimizes_for=("Maximum systemic change from minimum intervention effort"),
             limitations=[
                 "Higher leverage points are harder to change",
                 "Paradigm shifts can't be forced",
@@ -284,9 +282,7 @@ def create_meadows_wisdom() -> ExpertWisdom:
                 "Could the balancing response overwhelm the intended effect?",
                 "If yes: redesign the intervention or choose a different point",
             ],
-            what_it_optimizes_for=(
-                "Avoiding policy resistance and unintended consequences"
-            ),
+            what_it_optimizes_for=("Avoiding policy resistance and unintended consequences"),
         ),
         ProblemSolvingHeuristic(
             name="Dancing With the System",
@@ -303,9 +299,7 @@ def create_meadows_wisdom() -> ExpertWisdom:
                 "Design interventions that amplify its natural strengths",
                 "Work with the grain of the system, not against it",
             ],
-            what_it_optimizes_for=(
-                "Sustainable change that the system maintains on its own"
-            ),
+            what_it_optimizes_for=("Sustainable change that the system maintains on its own"),
             limitations=[
                 "Requires patience and extended observation",
                 "Not appropriate for urgent crises",
@@ -373,8 +367,7 @@ def create_meadows_wisdom() -> ExpertWisdom:
                 "The best system is not a collection of best subsystems."
             ),
             what_it_indicates=(
-                "System boundaries are drawn too narrow. Important "
-                "interactions are being ignored."
+                "System boundaries are drawn too narrow. Important interactions are being ignored."
             ),
             severity="moderate",
             what_to_do=(

@@ -6,10 +6,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 from divineos.core.body_awareness import (
+    _VACUUM_THRESHOLD,
     CACHE_LIMITS,
     CacheState,
     SubstrateVitals,
-    _VACUUM_THRESHOLD,
     _auto_prune_cache,
     _measure_cache,
     clean_old_logs,

@@ -322,9 +322,7 @@ def create_lovelace_wisdom() -> ExpertWisdom:
                 "Where it breaks — the abstraction has hidden domain assumptions",
                 "Refine the abstractions to increase generality",
             ],
-            what_it_optimizes_for=(
-                "Revealing and expanding the true generality of abstractions"
-            ),
+            what_it_optimizes_for=("Revealing and expanding the true generality of abstractions"),
         ),
         ProblemSolvingHeuristic(
             name="The Articulation Before Implementation Check",

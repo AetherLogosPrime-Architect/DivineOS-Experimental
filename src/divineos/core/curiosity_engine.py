@@ -14,6 +14,7 @@ import time
 from typing import Any
 
 from divineos.core._hud_io import _ensure_hud_dir
+from divineos.core.constants import SECONDS_PER_DAY
 
 _CE_ERRORS = (ImportError, OSError, json.JSONDecodeError, KeyError, TypeError, ValueError)
 
@@ -136,14 +137,14 @@ def prune_stale_curiosities() -> int:
     """Auto-shelve curiosities that have gone stale.
 
     Called during sleep pruning phase. Two rules:
-    1. OPEN curiosities older than 14 days → DORMANT
+    1. OPEN curiosities older than 14 days -> DORMANT
     2. If more than 15 open, shelve the oldest until under cap
 
     Returns number of curiosities shelved.
     """
     curiosities = _load_curiosities()
     now = time.time()
-    cutoff = now - (_CURIOSITY_STALE_DAYS * 86400)
+    cutoff = now - (_CURIOSITY_STALE_DAYS * SECONDS_PER_DAY)
     shelved = 0
 
     # Rule 1: age-based decay
@@ -375,9 +376,9 @@ def format_curiosities() -> str:
     for c in open_ones:
         status = c.get("status", "OPEN")
         q = c.get("question", "")
-        if len(q) > 80:
-            q = q[:77] + "..."
-        icon = "?" if status == "OPEN" else "→"
+        if len(q) > 140:
+            q = q[:137] + "..."
+        icon = "?" if status == "OPEN" else "->"
         lines.append(f"  {icon} {q}")
         notes = c.get("notes", [])
         if notes:

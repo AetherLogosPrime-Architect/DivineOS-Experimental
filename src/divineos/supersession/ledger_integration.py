@@ -8,6 +8,7 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
+
 from divineos.core.ledger import get_events, log_event
 
 

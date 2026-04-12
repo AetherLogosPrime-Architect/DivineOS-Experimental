@@ -7,6 +7,7 @@ import click
 
 from divineos.cli._helpers import _resolve_knowledge_id, _safe_echo
 from divineos.cli._wrappers import _ensure_db
+from divineos.core.constants import SECONDS_PER_DAY
 from divineos.core.knowledge.temporal import (
     format_changes_summary,
     get_changes_since,
@@ -19,7 +20,6 @@ from divineos.core.planning_commitments import (
     get_pending_commitments,
     review_commitments,
 )
-
 
 # ---------------------------------------------------------------------------
 # Temporal commands
@@ -43,7 +43,7 @@ def changes(hours: float, days: float) -> None:
     Useful for session continuity: "what's different since I was last here?"
     """
     if days > 0:
-        since = time.time() - (days * 86400)
+        since = time.time() - (days * SECONDS_PER_DAY)
         label = f"{days:.0f} day{'s' if days != 1 else ''}"
     else:
         since = time.time() - (hours * 3600)
@@ -177,7 +177,7 @@ def questions_cmd(status: str | None, limit: int) -> None:
         click.secho(f"         {dt:%Y-%m-%d} | {q['question_id'][:8]}...", fg="bright_black")
 
         if q["resolution"]:
-            click.secho(f"         → {q['resolution']}", fg="green")
+            click.secho(f"         -> {q['resolution']}", fg="green")
         click.echo()
 
 
@@ -203,7 +203,7 @@ def answer_cmd(question_id: str, resolution: str) -> None:
         return
 
     if answer_question(match["question_id"], resolution):
-        click.secho(f"[✓] Answered: {match['question'][:80]}", fg="green")
+        click.secho(f"[+] Answered: {match['question'][:80]}", fg="green")
         click.secho(f"    Resolution: {resolution}", fg="bright_black")
     else:
         click.secho("Failed to update question.", fg="red")
@@ -231,7 +231,7 @@ def abandon_cmd(question_id: str, reason: str) -> None:
         return
 
     if abandon_question(match["question_id"], reason):
-        click.secho(f"[—] Abandoned: {match['question'][:80]}", fg="bright_black")
+        click.secho(f"[--] Abandoned: {match['question'][:80]}", fg="bright_black")
     else:
         click.secho("Failed to update question.", fg="red")
 
@@ -300,12 +300,12 @@ def related_cmd(knowledge_id: str, depth: int) -> None:
     for rel in rels:
         if rel["direction"] == "outgoing":
             click.secho(
-                f"  → {rel['relationship']} → {rel['target_id'][:8]}...",
+                f"  -> {rel['relationship']} -> {rel['target_id'][:8]}...",
                 fg="white",
             )
         else:
             click.secho(
-                f"  ← {rel['relationship']} ← {rel['source_id'][:8]}...",
+                f"  <- {rel['relationship']} <- {rel['source_id'][:8]}...",
                 fg="white",
             )
         if rel["notes"]:

@@ -24,12 +24,18 @@ def register(cli: click.Group) -> None:
     @cli.command("hud")
     @click.option("--save", is_flag=True, help="Save a HUD snapshot to disk")
     @click.option("--load", is_flag=True, help="Load the last saved HUD snapshot")
+    @click.option("--brief", is_flag=True, help="Condensed view: just what I need right now")
     @click.option(
         "--slots", default="", help="Comma-separated slot names to display (default: all)"
     )
-    def hud_cmd(save: bool, load: bool, slots: str) -> None:
+    def hud_cmd(save: bool, load: bool, brief: bool, slots: str) -> None:
         """Display my heads-up display — everything I need to know at once."""
-        from divineos.core.hud import build_hud, load_hud_snapshot, save_hud_snapshot
+        from divineos.core.hud import (
+            BRIEF_SLOTS,
+            build_hud,
+            load_hud_snapshot,
+            save_hud_snapshot,
+        )
 
         if save:
             path = save_hud_snapshot()
@@ -44,7 +50,12 @@ def register(cli: click.Group) -> None:
                 click.secho("[~] No saved HUD snapshot found.", fg="yellow")
             return
 
-        slot_list = [s.strip() for s in slots.split(",") if s.strip()] if slots else None
+        if brief:
+            slot_list = BRIEF_SLOTS
+        elif slots:
+            slot_list = [s.strip() for s in slots.split(",") if s.strip()]
+        else:
+            slot_list = None
         hud_text = build_hud(slots=slot_list)
         _safe_echo(hud_text)
 

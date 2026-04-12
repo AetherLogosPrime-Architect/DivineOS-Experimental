@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13417",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, I need to understand what's happening:\n\n1. When a QuerySet has `Meta.ordering` defined on the model, the `ordered` property returns `True`\n2. However, when using `annotate()` which creates a `GROUP BY` query, Django actually ignores the default ordering (this was changed in a previous commit)\n3. The `ordered` property should reflect whether the final SQL will actually have an `ORDER BY` clause\n\nLet me examine the relevant code to understand how `QuerySet.ordered` works and where the fix should go.\n\nThe issue is that `QuerySet.ordered` needs to check if the query has grouping (GROUP BY) and if so, it should not consider default ordering as making the queryset ordered.\n\nBased on the Django codebase structure, the `ordered` property is likely in `django/db/models/query.py` and needs to be modified to account for GROUP BY queries.\n\n```diff\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -714,7 +714,10 @@ class QuerySet:\n     @property\n     def ordered(self):\n         \"\"\"Return True if the QuerySet is ordered -- i.e. has an order_by().\"\"\"\n-        return bool(self.query.order_by) or bool(self.query.default_ordering)\n+        if self.query.group_by:\n+            # GROUP BY queries ignore default ordering\n+            return bool(self.query.order_by)\n+        return bool(self.query.order_by) or bool(self.query.default_ordering)\n \n     @property\n     def db(self):\n```",
+  "thinking": null,
+  "input_tokens": 724,
+  "output_tokens": 393,
+  "elapsed_seconds": 7.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008067
+}

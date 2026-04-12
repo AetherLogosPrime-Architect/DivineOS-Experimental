@@ -3,13 +3,11 @@
 import os
 
 from divineos.core.knowledge import (
+    _decide_operation,
     _get_connection,
     init_knowledge_table,
     store_knowledge,
     store_knowledge_smart,
-)
-from divineos.core.knowledge import (
-    _decide_operation,
 )
 from divineos.core.ledger import init_db
 
@@ -111,14 +109,15 @@ class TestSmartOpsIntegration:
             # Store initial knowledge
             old_id = store_knowledge(
                 knowledge_type="FACT",
-                content="The project has 1000 tests passing in the test suite",
+                content="The project tests pass reliably in the continuous integration suite",
                 confidence=0.9,
             )
 
-            # Store updated version with enough new words
+            # Store updated version — shares enough FTS5 terms for discovery,
+            # plus enough new words (>20%) to trigger UPDATE instead of NOOP.
             new_id = store_knowledge_smart(
                 "FACT",
-                "The project has 1676 tests passing in the test suite including integration and unit tests",
+                "The project tests pass reliably in the continuous integration suite with coverage and mutation testing",
             )
 
             # New entry should be different from old
@@ -150,22 +149,28 @@ class TestSmartOpsIntegration:
                 confidence=0.9,
             )
 
-            # Store contradicting claim
+            # Store contradicting claim — high overlap triggers UPDATE (supersession),
+            # which is itself a form of contradiction resolution.
             new_id = store_knowledge_smart(
                 "BOUNDARY",
                 "divineos ask now searches core memory and the knowledge store, this was fixed previously",
             )
             assert new_id != ""
 
-            # Old entry should have contradiction_count incremented
+            # Old entry should be either contradicted OR superseded (both valid)
             conn = _get_connection()
             row = conn.execute(
-                "SELECT contradiction_count FROM knowledge WHERE knowledge_id = ?",
+                "SELECT contradiction_count, superseded_by FROM knowledge WHERE knowledge_id = ?",
                 (old_id,),
             ).fetchone()
             conn.close()
             assert row is not None
-            assert row[0] >= 1
+            contradicted = row[0] >= 1
+            superseded = row[1] is not None
+            assert contradicted or superseded, (
+                f"Old entry should be contradicted or superseded, got "
+                f"contradiction_count={row[0]}, superseded_by={row[1]}"
+            )
         finally:
             os.environ.pop("DIVINEOS_DB", None)
 

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly addresses the case sensitivity issue by adding re.IGNORECASE flag and converting commands to uppercase for comparison, but includes redundant changes since command is already converted to uppercase.",
+  "key_difference": "The candidate patch uses a more verbose approach with redundant .upper() calls on already-uppercase strings and modifies individual command checks, while the gold patch more elegantly uses re.IGNORECASE on the main regex and only handles the 'NO' value case separately.",
+  "instance_id": "astropy__astropy-14365",
+  "condition": "enhanced",
+  "judge_tokens": 2003,
+  "judge_cost": 0.008013
+}

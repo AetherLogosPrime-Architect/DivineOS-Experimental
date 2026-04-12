@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "This patch correctly identifies when a field is being changed from a non-relation to a relation field and adds the necessary FK dependencies to the migration operation.",
+  "key_difference": "The candidate patch modifies a different section of the code (around line 1066) compared to the gold patch (around line 912), but both target the same issue of missing dependencies when changing UUID fields to FK fields. The candidate's approach is valid as it also checks for the transition from non-relation to relation field and adds dependencies accordingly.",
+  "instance_id": "django__django-11740",
+  "condition": "enhanced",
+  "judge_tokens": 1912,
+  "judge_cost": 0.007812
+}

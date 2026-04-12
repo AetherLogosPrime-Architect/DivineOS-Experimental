@@ -313,7 +313,7 @@ def analyze_session(
     # Stream-filter during load: only parse records from the current session.
     # This is critical for large accumulated transcripts (76MB+) where loading
     # everything into memory and then filtering wastes both RAM and time.
-    records = _load_records(file_path, since_timestamp=since_timestamp)
+    records = load_records(file_path, since_timestamp=since_timestamp)
 
     analysis.total_records = len(records)
 
@@ -456,7 +456,7 @@ def _slim_record(record: dict[str, Any]) -> dict[str, Any]:
     return record
 
 
-def _load_records(
+def load_records(
     file_path: Path,
     since_timestamp: float | None = None,
     slim: bool = False,

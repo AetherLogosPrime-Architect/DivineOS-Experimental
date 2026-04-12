@@ -1,6 +1,8 @@
 """Tests for the auto-memory sync system."""
 
+import subprocess
 import time
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,6 +22,23 @@ def clean_db(tmp_path, monkeypatch):
     init_knowledge_table()
     init_memory_tables()
     yield
+
+
+@pytest.fixture(autouse=True)
+def skip_pytest_collect(monkeypatch):
+    """Mock subprocess.run to avoid spawning pytest --collect-only (6s per test)."""
+    original_run = subprocess.run
+
+    def _mock_run(cmd, **kwargs):
+        if isinstance(cmd, list) and "pytest" in str(cmd) and "--collect-only" in cmd:
+            mock_result = MagicMock()
+            mock_result.stdout = "3559 tests selected\n"
+            mock_result.stderr = ""
+            mock_result.returncode = 0
+            return mock_result
+        return original_run(cmd, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", _mock_run)
 
 
 @pytest.fixture

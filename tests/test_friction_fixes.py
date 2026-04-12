@@ -7,7 +7,7 @@ import pytest
 
 from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.lessons import (
-    MAX_EFFECTIVE_OCCURRENCES,
+    LESSON_EFFECTIVE_MIN,
     auto_resolve_lessons,
     get_lessons,
     record_lesson,
@@ -37,13 +37,22 @@ class TestLessonInflationFix:
         lessons = get_lessons(category="test_real_count")
         assert lessons[0]["occurrences"] == 3
 
-    def test_max_effective_occurrences_defined(self):
-        assert MAX_EFFECTIVE_OCCURRENCES == 10
+    def test_lesson_effective_min_defined(self):
+        """Log-scaled effective occurrences floor is 5 (replaces old cap of 10)."""
+        assert LESSON_EFFECTIVE_MIN == 5
 
     def test_auto_resolve_uses_capped_occurrences(self):
-        """Even with inflated counts, auto_resolve uses capped occurrences."""
+        """Even with inflated counts, auto_resolve uses capped occurrences.
+
+        Also satisfies stimulus-presence gates: time gate (backdate last_seen)
+        and stimulus gate (add decision journal entries with category keywords).
+        """
+        import time
+
+        from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS, SECONDS_PER_DAY
         from divineos.core.knowledge._base import _get_connection
         from divineos.core.knowledge.lessons import mark_lesson_improving
+        from divineos.core.ledger import get_connection as get_ledger_connection
 
         # Create a lesson with inflated count
         record_lesson("test_capped", "desc", "s1")
@@ -57,7 +66,8 @@ class TestLessonInflationFix:
             conn.execute(
                 "UPDATE lesson_tracking SET occurrences = 178 WHERE category = 'test_capped'"
             )
-            # Add enough sessions: cap(178, 10) + 5 threshold = 15 needed
+            # With log-scaling: effective = max(5, int(log2(178)+2)) = 9
+            # Need 9 + 5 (threshold) = 14 total sessions to resolve.
             row = conn.execute(
                 "SELECT sessions FROM lesson_tracking WHERE category = 'test_capped'"
             ).fetchone()
@@ -68,9 +78,39 @@ class TestLessonInflationFix:
                 "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_capped'",
                 (json.dumps(sessions),),
             )
+            # Backdate last_seen to satisfy the time gate
+            old_enough = time.time() - (LESSON_MIN_RESOLUTION_DAYS + 1) * SECONDS_PER_DAY
+            conn.execute(
+                "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'test_capped'",
+                (old_enough,),
+            )
             conn.commit()
         finally:
             conn.close()
+
+        # Add decision journal entries with category keyword so stimulus gate passes.
+        # "test_capped" has keywords ["test", "capped"].
+        # Clean sessions start at index effective=9, so s13..s19 are the clean ones.
+        ledger_conn = get_ledger_connection()
+        try:
+            ledger_conn.execute(
+                """CREATE TABLE IF NOT EXISTS decision_journal (
+                    decision_id TEXT PRIMARY KEY, created_at REAL, content TEXT,
+                    reasoning TEXT DEFAULT '', alternatives TEXT DEFAULT '[]',
+                    context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
+                    tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
+                    session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
+                    almost TEXT DEFAULT '')"""
+            )
+            for sid in ["s13", "s14", "s15"]:
+                ledger_conn.execute(
+                    "INSERT OR IGNORE INTO decision_journal (decision_id, created_at, content, session_id) "
+                    "VALUES (?, ?, ?, ?)",
+                    (f"dj-capped-{sid}", time.time(), "Ran the test suite and capped output", sid),
+                )
+            ledger_conn.commit()
+        finally:
+            ledger_conn.close()
 
         resolved = auto_resolve_lessons()
         cats = [r["category"] for r in resolved]

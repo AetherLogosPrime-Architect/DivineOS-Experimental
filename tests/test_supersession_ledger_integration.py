@@ -3,10 +3,10 @@
 from divineos.supersession.ledger_integration import (
     LedgerIntegration,
     get_ledger_integration,
-    store_fact,
-    store_supersession_event,
     query_facts,
     query_supersession_events,
+    store_fact,
+    store_supersession_event,
 )
 
 

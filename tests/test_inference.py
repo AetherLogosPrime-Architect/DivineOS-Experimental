@@ -1,20 +1,21 @@
 """Tests for the forward-chaining inference engine."""
 
-import pytest
 import time
 import uuid
 
+import pytest
+
+from divineos.core.knowledge._base import _get_connection, compute_hash, init_knowledge_table
 from divineos.core.ledger import init_db
-from divineos.core.knowledge._base import init_knowledge_table, _get_connection, compute_hash
-from divineos.core.logic.warrants import init_warrant_table, get_warrants
 from divineos.core.logic.logic_reasoning import (
-    init_relation_table,
-    create_relation,
     Derivation,
     create_inference_warrants,
+    create_relation,
     forward_chain,
+    init_relation_table,
     propagate_from,
 )
+from divineos.core.logic.warrants import get_warrants, init_warrant_table
 
 
 @pytest.fixture(autouse=True)

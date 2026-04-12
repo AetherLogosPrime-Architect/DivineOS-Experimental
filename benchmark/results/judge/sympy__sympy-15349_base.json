@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch is incomplete and appears to be cut off mid-analysis. It doesn't actually make any meaningful changes to fix the sign error in the quaternion rotation matrix.",
+  "key_difference": "The gold patch correctly identifies and fixes the sign error in m12 by changing the plus to minus in '2*s*(q.c*q.d - q.b*q.a)', while the candidate patch is incomplete and doesn't implement any actual fix.",
+  "instance_id": "sympy__sympy-15349",
+  "condition": "base",
+  "judge_tokens": 2004,
+  "judge_cost": 0.007968
+}

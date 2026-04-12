@@ -13,10 +13,12 @@ Four measurements:
 import json
 import re
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from loguru import logger
 
+from divineos.core.constants import SECONDS_PER_DAY
 from divineos.core.knowledge import (
     _get_connection,
     get_lessons,
@@ -40,7 +42,7 @@ def measure_rework(lookback_days: int = 30) -> list[dict[str, Any]]:
     lessons = get_lessons(status="active")
     rework: list[dict[str, Any]] = []
 
-    cutoff = time.time() - (lookback_days * 86400)
+    cutoff = time.time() - (lookback_days * SECONDS_PER_DAY)
 
     for lesson in lessons:
         if lesson["occurrences"] < 3:
@@ -95,7 +97,7 @@ def measure_knowledge_drift(lookback_days: int = 14) -> dict[str, Any]:
     """
     conn = _get_connection()
     try:
-        cutoff = time.time() - (lookback_days * 86400)
+        cutoff = time.time() - (lookback_days * SECONDS_PER_DAY)
 
         # Entries that were superseded recently
         superseded = conn.execute(
@@ -368,6 +370,64 @@ def measure_correction_trend(limit: int = 10) -> dict[str, Any]:
         conn.close()
 
 
+@dataclass
+class CorrectionMatch:
+    """A correction paired with its resolving encouragement (if any)."""
+
+    correction_index: int
+    encouragement_index: int | None  # None = unresolved
+
+
+def match_corrections_to_resolutions(
+    correction_positions: list[int],
+    encouragement_positions: list[int],
+) -> tuple[list[CorrectionMatch], list[int]]:
+    """Match corrections to resolutions using position-based heuristic.
+
+    Each encouragement resolves the most recent unresolved correction that
+    appears BEFORE it in the conversation. An encouragement before all
+    corrections resolves nothing.
+
+    Args:
+        correction_positions: Ordered indices (message positions) of corrections.
+        encouragement_positions: Ordered indices (message positions) of encouragements.
+
+    Returns:
+        (matched, unresolved_indices) where matched is a list of CorrectionMatch
+        and unresolved_indices is a list of correction positions with no resolution.
+    """
+    # Track which corrections are still unresolved (by position)
+    unresolved: list[int] = list(correction_positions)
+    matched: list[CorrectionMatch] = []
+
+    for enc_pos in sorted(encouragement_positions):
+        # Find the most recent unresolved correction before this encouragement
+        best_idx = -1
+        for i, corr_pos in enumerate(unresolved):
+            if corr_pos < enc_pos:
+                best_idx = i  # keep scanning — we want the LATEST one before enc_pos
+
+        if best_idx >= 0:
+            resolved_pos = unresolved.pop(best_idx)
+            matched.append(
+                CorrectionMatch(
+                    correction_index=resolved_pos,
+                    encouragement_index=enc_pos,
+                )
+            )
+
+    # Remaining unresolved corrections
+    for corr_pos in unresolved:
+        matched.append(
+            CorrectionMatch(
+                correction_index=corr_pos,
+                encouragement_index=None,
+            )
+        )
+
+    return matched, unresolved
+
+
 def measure_session_health(
     corrections: int,
     encouragements: int,
@@ -375,23 +435,29 @@ def measure_session_health(
     tool_calls: int,
     user_messages: int,
     briefing_loaded: bool = True,
+    resolved_corrections: int = 0,
 ) -> dict[str, Any]:
     """Score a session's health from its analysis signals.
 
     Produces a 0.0-1.0 composite score:
-    - Correction penalty: more corrections = lower score
+    - Correction factor: resolved corrections REWARD, unresolved PENALIZE
     - Encouragement bonus: user approval signal
     - Overflow penalty: hitting context limits means inefficiency
     - Interaction ratio: tool_calls / user_messages (higher = more autonomous)
     - Briefing penalty: skipping the briefing = structural -0.25
 
+    Position-based matching: when resolved_corrections is provided, it gives
+    the exact count of corrections paired with subsequent encouragements.
+    The `corrections` arg then represents only UNRESOLVED corrections.
+
     Args:
-        corrections: Number of user corrections detected
+        corrections: Number of unresolved corrections (no matching encouragement)
         encouragements: Number of user encouragements detected
         context_overflows: Number of context window overflows
         tool_calls: Total tool calls in session
         user_messages: Total user messages in session
         briefing_loaded: Whether divineos briefing was called this session
+        resolved_corrections: Corrections matched to a subsequent encouragement
 
     Returns:
         {
@@ -400,27 +466,31 @@ def measure_session_health(
             "factors": dict,  # breakdown of each factor
         }
     """
+    import math
+
+    from divineos.core.constants import OUTCOME_RESOLVED_CORRECTION_BONUS
+
     factors: dict[str, float] = {}
 
-    # Correction penalty (0.0 = many corrections, 1.0 = none)
-    # Diminishing returns: first corrections hurt most, later ones less.
-    # Old formula: 1.0 - (corrections * 0.15) → 7 corrections = floor.
-    # New: logarithmic decay so 20 corrections ≈ 0.25, not 0.0.
-    if corrections == 0:
+    # Correction factor: resolved corrections get bonus, unresolved get penalty.
+    # resolved_corrections comes from position-based matching (encouragement
+    # after correction = resolution). Unresolved = corrections with no
+    # subsequent encouragement.
+    if corrections == 0 and resolved_corrections == 0:
         correction_factor = 1.0
     else:
-        import math
-
-        correction_factor = max(0.0, 1.0 - 0.25 * math.log2(1 + corrections))
+        # Start at 1.0, add bonus for resolved, subtract penalty for unresolved
+        bonus = resolved_corrections * OUTCOME_RESOLVED_CORRECTION_BONUS
+        penalty = 0.25 * math.log2(1 + corrections) if corrections > 0 else 0.0
+        correction_factor = max(0.0, min(1.0, 1.0 + bonus - penalty))
     factors["corrections"] = round(correction_factor, 2)
+    factors["resolved_corrections"] = resolved_corrections
 
     # Encouragement bonus — scales logarithmically like corrections.
     # Old: capped at 0.2 raw, so even 24 encouragements barely moved the needle.
     if encouragements == 0:
         encouragement_factor = 0.0
     else:
-        import math
-
         encouragement_factor = min(1.0, 0.25 * math.log2(1 + encouragements))
     factors["encouragements"] = round(encouragement_factor, 2)
 
@@ -445,12 +515,13 @@ def measure_session_health(
         grade = "F"
     else:
         # Composite: weighted average (only meaningful if briefing was loaded)
-        # Balanced so no single noisy signal dominates.
+        # Corrections (the real work signal) weighted highest.
+        # Encouragements capped lower — most gameable signal (council P4).
         score = (
-            correction_factor * 0.25
-            + encouragement_factor * 0.30
+            correction_factor * 0.35
+            + encouragement_factor * 0.15
             + overflow_factor * 0.25
-            + autonomy * 0.20
+            + autonomy * 0.25
         )
         score = max(0.0, min(1.0, score))
 

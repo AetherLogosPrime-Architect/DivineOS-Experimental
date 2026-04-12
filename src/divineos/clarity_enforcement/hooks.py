@@ -1,9 +1,14 @@
-"""Hooks for violation events and custom handlers."""
+"""Hooks for violation events and custom handlers.
 
-from typing import Callable, Optional, List, Dict
-from enum import Enum
+# AGENT_RUNTIME — Not wired into CLI pipeline. Provides violation event
+# hooks for agents that want programmatic callbacks on clarity violations.
+# Tested via test_violation_hooks.py.
+"""
+
 import logging
 import sqlite3
+from enum import Enum
+from typing import Callable, Dict, List, Optional
 
 from divineos.clarity_enforcement.violation_detector import ClarityViolation
 

@@ -295,9 +295,7 @@ def create_minsky_wisdom() -> ExpertWisdom:
                 "Does a solution appear in a different frame?",
                 "Import that solution back to the original domain",
             ],
-            what_it_optimizes_for=(
-                "Escaping fixation on a single problem representation"
-            ),
+            what_it_optimizes_for=("Escaping fixation on a single problem representation"),
         ),
         ProblemSolvingHeuristic(
             name="The Disagreement Heuristic",

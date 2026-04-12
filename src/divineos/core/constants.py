@@ -57,11 +57,11 @@ DECAY_FLOOR = 0.3  # Confidence never decays below this (except supersession)
 TYPE_WEIGHT_DIRECTIVE = 0.30  # Sutra-style directives — always max priority
 TYPE_WEIGHT_BOUNDARY = 0.30  # Hard constraints — highest priority
 TYPE_WEIGHT_PRINCIPLE = 0.28  # Distilled wisdom from experience
-TYPE_WEIGHT_MISTAKE = 0.30  # → BOUNDARY/PRINCIPLE (legacy)
+TYPE_WEIGHT_MISTAKE = 0.30  # -> BOUNDARY/PRINCIPLE (legacy)
 TYPE_WEIGHT_DIRECTION = 0.25  # How the user wants things done
-TYPE_WEIGHT_PREFERENCE = 0.25  # → DIRECTION (legacy)
+TYPE_WEIGHT_PREFERENCE = 0.25  # -> DIRECTION (legacy)
 TYPE_WEIGHT_PROCEDURE = 0.20  # How to do something
-TYPE_WEIGHT_PATTERN = 0.20  # → PRINCIPLE/PROCEDURE (legacy)
+TYPE_WEIGHT_PATTERN = 0.20  # -> PRINCIPLE/PROCEDURE (legacy)
 TYPE_WEIGHT_FACT = 0.10  # Something true about the world
 TYPE_WEIGHT_OBSERVATION = 0.08  # Noticed but unconfirmed
 TYPE_WEIGHT_EPISODE = 0.05  # A specific event
@@ -80,34 +80,40 @@ ACTIVE_MEMORY_CAP = 30  # Max entries in active memory
 MATURITY_BOOST_CONFIRMED = 0.05  # Bonus for CONFIRMED entries
 MATURITY_PENALTY_HYPOTHESIS = 0.05  # Penalty for HYPOTHESIS entries
 
+# Epistemic source modifiers for importance scoring
+# Observed/demonstrated knowledge is more trustworthy; inherited is less grounded
+EPISTEMIC_BOOST_OBSERVED = 0.20  # Meaningful boost for empirically observed knowledge
+EPISTEMIC_BOOST_TOLD = 0.10  # Moderate boost for user-corrected/stated knowledge
+EPISTEMIC_PENALTY_INHERITED = -0.15  # Meaningful penalty for seed/inherited knowledge
+
 # ─── Knowledge Retrieval Scoring ────────────────────────────────────
 # How knowledge is ranked when building briefings.
 
-RETRIEVAL_WEIGHT_CONFIDENCE = 0.4  # 40%
-RETRIEVAL_WEIGHT_ACCESS = 0.3  # 30%
-RETRIEVAL_WEIGHT_RECENCY = 0.3  # 30%
+RETRIEVAL_WEIGHT_CONFIDENCE = 0.55  # 55% — confidence is the primary signal
+RETRIEVAL_WEIGHT_ACCESS = 0.10  # 10% — access count is weak signal, easily inflated
+RETRIEVAL_WEIGHT_RECENCY = 0.35  # 35% — recent knowledge more likely relevant
 
 # ─── Maturity Promotion Gates ──────────────────────────────────────
 # Requirements for knowledge to advance through trust levels.
 # Higher values = slower promotion, more evidence required.
 
 MATURITY_RAW_TO_HYPOTHESIS_CORROBORATION = 1
-MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE = 0.4
+MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE = 0.3
 
-MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION = 2
-MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE = 0.5
+MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION = 1
+MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE = 0.4
 
-MATURITY_TESTED_TO_CONFIRMED_CORROBORATION = 5
-MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE = 0.8
+MATURITY_TESTED_TO_CONFIRMED_CORROBORATION = 3
+MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE = 0.7
 
 # ─── Overlap & Similarity Thresholds ───────────────────────────────
 # How similar two pieces of knowledge need to be for various operations.
 
-OVERLAP_RELATIONSHIP = 0.3  # Meaningful overlap for auto-linking
-OVERLAP_DUPLICATE = 0.4  # Close enough to be a duplicate candidate
-OVERLAP_STRONG = 0.5  # Strong overlap for merging/relationships
-OVERLAP_QUASI_IDENTICAL = 0.6  # Very high overlap
-OVERLAP_NEAR_IDENTICAL = 0.8  # Near-identical (merge threshold)
+OVERLAP_RELATIONSHIP = 0.25  # Meaningful overlap for auto-linking
+OVERLAP_DUPLICATE = 0.30  # Close enough to be a duplicate candidate
+OVERLAP_STRONG = 0.40  # Strong overlap for merging/relationships
+OVERLAP_QUASI_IDENTICAL = 0.50  # Very high overlap
+OVERLAP_NEAR_IDENTICAL = 0.65  # Near-identical (merge threshold)
 
 # ─── Quality Gate Thresholds ────────────────────────────────────────
 # Session quality requirements for knowledge extraction.
@@ -119,6 +125,7 @@ QUALITY_MIN_FAILED_CHECKS_DOWNGRADE = 2  # This many failures: DOWNGRADE
 # Compass-informed gate tightening: when truthfulness is in deficiency zone,
 # raise the block threshold by this much (making the gate stricter).
 QUALITY_COMPASS_TIGHTEN = 0.1  # Added to block thresholds when compass is concerned
+QUALITY_VALIDATION_TIGHTEN = 0.1  # Added when user grades consistently lower than self-grades
 
 # Quality check scoring thresholds
 QUALITY_CHECK_PASS = 0.7  # Score needed to pass a quality check
@@ -130,7 +137,6 @@ SECONDS_PER_DAY = 86400
 
 TIME_GOAL_FRESH_HOURS = 2  # Goals younger than this are "fresh"
 TIME_HANDOFF_EXPIRY_HOURS = 12  # Handoff notes older than this are stale
-TIME_NOTE_AUTO_CLEAR_HOURS = 48  # Auto-clear old notes
 
 TIME_LEDGER_RETENTION_DAYS = 7  # Default ledger compression retention
 TIME_LEDGER_EMERGENCY_RETENTION_DAYS = 3  # Emergency compression retention
@@ -163,6 +169,7 @@ AFFECT_FRUSTRATION_VALENCE = 0.0  # Below this + high arousal = frustration
 AFFECT_NEGATIVE_THRESHOLD_BOOST = 0.3  # Confidence threshold raise for negative sessions
 AFFECT_MILD_NEGATIVE_BOOST = 0.15  # Confidence threshold raise for mildly negative
 AFFECT_DECLINING_BOOST = 0.1  # Confidence threshold raise for declining trend
+AFFECT_PRAISE_CHASING_BOOST = 0.2  # Confidence threshold raise when praise-chasing detected
 
 # ─── Pattern Learning ──────────────────────────────────────────────
 # How the agent learns from success and failure patterns.
@@ -184,7 +191,10 @@ PATTERN_TACTICAL_FAILURE_MAX = 3  # Archive after this many tactical failures
 # ─── Outcome Measurement ───────────────────────────────────────────
 # Session health scoring weights.
 
-OUTCOME_CORRECTION_PENALTY = 0.15  # Each correction reduces score by this
+OUTCOME_CORRECTION_PENALTY = 0.15  # Each unresolved correction reduces score by this
+OUTCOME_RESOLVED_CORRECTION_BONUS = (
+    0.10  # Resolved corrections ADD to health (error-correction cycles are healthy)
+)
 OUTCOME_ENCOURAGEMENT_BONUS = 0.04  # Each encouragement adds this (capped)
 OUTCOME_ENCOURAGEMENT_CAP = 0.20  # Max encouragement bonus
 OUTCOME_OVERFLOW_PENALTY = 0.25  # Each context overflow reduces by this
@@ -201,3 +211,41 @@ SIS_WEIGHT_CONCRETENESS = 0.30
 SIS_WEIGHT_ACTIONABILITY = 0.30
 SIS_WEIGHT_SPECULATION = 0.25  # Inverse (lower speculation = better)
 SIS_WEIGHT_ESOTERIC = 0.15  # Inverse (lower esoteric = better)
+
+# ─── Compass Stagnation Detection ─────────────────────────────────
+# Absence of data is not virtue. A spectrum with zero observations
+# should not report "in virtue zone" — it should report "unobserved".
+# Three council experts flagged this: Gödel, Schneier, Yudkowsky.
+
+COMPASS_MIN_OBSERVATIONS_ACTIVE = 3  # Below this, spectrum is "unobserved"
+COMPASS_STAGNATION_SESSIONS = 10  # Window for observation counting
+
+# ─── Compass Integrity ────────────────────────────────────────────
+# SHA-256 of the canonical JSON representation of the ten virtue spectrums.
+# This hash lives HERE, separate from the spectrum definitions in
+# moral_compass.py, so that changing the definitions without updating the
+# hash (or vice versa) triggers an integrity violation. Two files must
+# agree — that's the point.
+
+COMPASS_SPECTRUMS_HASH = "2921dfc05fa4a532c641a647aa3d7567f6de643f7e52142317bda05da271bd7a"
+
+# ─── Lesson Resolution ────────────────────────────────────────────
+# Stimulus-presence check: absence of the stimulus is not evidence of learning.
+# A lesson can't resolve just because the mistake didn't recur — the triggering
+# situation must have actually arisen and been handled correctly.
+#
+# Absence-as-success fallback: for low-frequency mistake categories, the stimulus
+# may genuinely not arise for many sessions. After LESSON_ABSENCE_DAYS with zero
+# regressions, the stimulus requirement drops to zero — sustained absence with
+# no backsliding IS evidence of learning for infrequent triggers.
+
+LESSON_MIN_RESOLUTION_DAYS = 7.0  # Minimum days in 'improving' before resolution
+LESSON_MIN_STIMULUS_SESSIONS = 2  # Min clean sessions with category-relevant events
+LESSON_ABSENCE_DAYS = 14.0  # After this many days with 0 regressions, drop stimulus requirement
+
+# ─── Briefing Budget ─────────────────────────────────────────────
+# Total line cap for the briefing. Subsystems compete by priority —
+# higher-priority sections get more lines when budget is tight.
+
+BRIEFING_MAX_LINES = 80  # Total line budget for the briefing
+BRIEFING_SECTION_MIN_LINES = 3  # Minimum lines any section gets

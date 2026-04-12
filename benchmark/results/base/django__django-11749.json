@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11749",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/core/management/__init__.py\n+++ b/django/core/management/__init__.py\n@@ -87,6 +87,16 @@ def call_command(command_name, *args, **options):\n     # Any required arguments which are passed in via '**options' must be passed\n     # to parse_args().\n     parse_args += [\n         '{}={}'.format(min(opt.option_strings), arg_options[opt.dest])\n         for opt in parser._actions if opt.required and opt.dest in options\n     ]\n+    # Handle required mutually exclusive groups\n+    for group in parser._mutually_exclusive_groups:\n+        if group.required:\n+            for action in group._group_actions:\n+                if action.dest in options:\n+                    parse_args.append('{}={}'.format(min(action.option_strings), arg_options[action.dest]))\n+                    # Only need one argument from the group\n+                    break\n     \n     defaults = parser.parse_args(args=parse_args)\n     defaults = dict(defaults._get_kwargs(), **arg_options)",
+  "thinking": null,
+  "input_tokens": 578,
+  "output_tokens": 275,
+  "elapsed_seconds": 4.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0058590000000000005
+}

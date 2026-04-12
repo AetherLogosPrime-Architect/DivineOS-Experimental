@@ -365,8 +365,7 @@ def create_dijkstra_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Tangled Concerns",
             description=(
-                "Two or more independent concerns woven together in "
-                "the same module or function"
+                "Two or more independent concerns woven together in the same module or function"
             ),
             why_its_concerning=(
                 "Tangled concerns cannot be reasoned about independently. "
@@ -386,8 +385,7 @@ def create_dijkstra_wisdom() -> ExpertWisdom:
         ConcernTrigger(
             name="Cleverness Over Clarity",
             description=(
-                "Code that is clever or surprising rather than obvious "
-                "and straightforward"
+                "Code that is clever or surprising rather than obvious and straightforward"
             ),
             why_its_concerning=(
                 "Clever code resists reasoning. If the reader must be "

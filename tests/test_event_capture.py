@@ -1,19 +1,21 @@
 """Tests for event capture infrastructure."""
 
-import pytest
 from datetime import datetime, timezone
+
+import pytest
+
 from divineos.event.event_capture import (
     EventType,
     EventValidationError,
-    UserInputPayload,
-    ToolCallPayload,
-    ToolResultPayload,
     SessionEndPayload,
     SessionTracker,
-    get_session_tracker,
+    ToolCallPayload,
+    ToolResultPayload,
+    UserInputPayload,
     get_current_timestamp,
-    validate_event_payload,
+    get_session_tracker,
     normalize_event_payload,
+    validate_event_payload,
 )
 
 
@@ -40,7 +42,7 @@ class TestUserInputPayload:
         payload = UserInputPayload(
             content="Hello, world!", timestamp="2026-03-16T23:05:00Z", session_id="abc123"
         )
-        payload.validate()  # Should not raise
+        assert payload.validate() is None
 
     def test_empty_content_fails(self):
         """Test that empty content fails validation."""
@@ -55,8 +57,7 @@ class TestUserInputPayload:
         payload = UserInputPayload(
             content="   ", timestamp="2026-03-16T23:05:00Z", session_id="abc123"
         )
-        # Should not raise - whitespace-only content is valid
-        payload.validate()
+        assert payload.validate() is None
 
     def test_non_string_content_fails(self):
         """Test that non-string content fails validation."""
@@ -113,7 +114,7 @@ class TestToolCallPayload:
             timestamp="2026-03-16T23:05:00Z",
             session_id="abc123",
         )
-        payload.validate()  # Should not raise
+        assert payload.validate() is None
 
     def test_empty_tool_name_fails(self):
         """Test that empty tool_name fails validation."""
@@ -179,7 +180,7 @@ class TestToolResultPayload:
             timestamp="2026-03-16T23:05:00Z",
             session_id="abc123",
         )
-        payload.validate()  # Should not raise
+        assert payload.validate() is None
 
     def test_failed_result_requires_error_message(self):
         """Test that failed result requires error_message."""
@@ -208,7 +209,7 @@ class TestToolResultPayload:
             failed=True,
             error_message="File not found",
         )
-        payload.validate()  # Should not raise
+        assert payload.validate() is None
 
     def test_empty_result_passes(self):
         """Test that empty result passes validation — tools can succeed without output."""
@@ -220,7 +221,7 @@ class TestToolResultPayload:
             timestamp="2026-03-16T23:05:00Z",
             session_id="abc123",
         )
-        payload.validate()  # Should not raise
+        assert payload.validate() is None
 
     def test_negative_duration_fails(self):
         """Test that negative duration fails validation."""
@@ -263,7 +264,7 @@ class TestSessionEndPayload:
             duration_seconds=300.5,
             timestamp="2026-03-16T23:05:00Z",
         )
-        payload.validate()  # Should not raise
+        assert payload.validate() is None
 
     def test_negative_message_count_fails(self):
         """Test that negative message_count fails validation."""
@@ -288,7 +289,7 @@ class TestSessionEndPayload:
             duration_seconds=0,
             timestamp="2026-03-16T23:05:00Z",
         )
-        payload.validate()  # Should not raise
+        assert payload.validate() is None
 
     def test_to_dict(self):
         """Test conversion to dictionary."""
@@ -414,7 +415,7 @@ class TestValidateEventPayload:
     def test_validate_user_input(self):
         """Test validating USER_INPUT payload."""
         payload = {"content": "Hello", "timestamp": "2026-03-16T23:05:00Z", "session_id": "abc123"}
-        validate_event_payload(EventType.USER_INPUT, payload)  # Should not raise
+        assert validate_event_payload(EventType.USER_INPUT, payload) is None
 
     def test_validate_tool_call(self):
         """Test validating TOOL_CALL payload."""
@@ -425,7 +426,7 @@ class TestValidateEventPayload:
             "timestamp": "2026-03-16T23:05:00Z",
             "session_id": "abc123",
         }
-        validate_event_payload(EventType.TOOL_CALL, payload)  # Should not raise
+        assert validate_event_payload(EventType.TOOL_CALL, payload) is None
 
     def test_validate_tool_result(self):
         """Test validating TOOL_RESULT payload."""
@@ -437,7 +438,7 @@ class TestValidateEventPayload:
             "timestamp": "2026-03-16T23:05:00Z",
             "session_id": "abc123",
         }
-        validate_event_payload(EventType.TOOL_RESULT, payload)  # Should not raise
+        assert validate_event_payload(EventType.TOOL_RESULT, payload) is None
 
     def test_validate_session_end(self):
         """Test validating SESSION_END payload."""
@@ -449,7 +450,7 @@ class TestValidateEventPayload:
             "duration_seconds": 300,
             "timestamp": "2026-03-16T23:05:00Z",
         }
-        validate_event_payload(EventType.SESSION_END, payload)  # Should not raise
+        assert validate_event_payload(EventType.SESSION_END, payload) is None
 
     def test_validate_missing_fields(self):
         """Test that missing fields raise error."""

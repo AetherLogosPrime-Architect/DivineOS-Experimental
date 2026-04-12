@@ -14,11 +14,10 @@ from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import patch
 
-
+from divineos.agent_integration.decision_store import DecisionStore
+from divineos.agent_integration.learning_audit_store import LearningAuditStore
 from divineos.agent_integration.pattern_recommender import PatternRecommender
 from divineos.agent_integration.pattern_store import PatternStore
-from divineos.agent_integration.learning_audit_store import LearningAuditStore
-from divineos.agent_integration.decision_store import DecisionStore
 
 
 class TestPatternRecommenderBasics:

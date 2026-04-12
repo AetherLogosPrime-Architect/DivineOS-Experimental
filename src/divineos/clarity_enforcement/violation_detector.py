@@ -3,10 +3,11 @@
 Detects unexplained tool calls and determines violation severity.
 """
 
-from enum import Enum
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from loguru import logger
 
 from divineos.clarity_enforcement.semantic_analyzer import SemanticAnalyzer

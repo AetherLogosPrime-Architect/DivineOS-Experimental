@@ -19,9 +19,10 @@ def _setup(tmp_path, monkeypatch):
 
 def _log_old_event(event_type, days_ago=30):
     """Log an event with a backdated timestamp."""
-    from divineos.core._ledger_base import compute_hash, get_connection
     import json
     import uuid
+
+    from divineos.core._ledger_base import compute_hash, get_connection
 
     conn = get_connection()
     event_id = str(uuid.uuid4())

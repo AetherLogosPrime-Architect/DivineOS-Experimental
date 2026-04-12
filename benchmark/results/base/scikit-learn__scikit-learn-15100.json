@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-15100",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sklearn/feature_extraction/text.py\n+++ b/sklearn/feature_extraction/text.py\n@@ -103,11 +103,8 @@ def strip_accents_unicode(s):\n     \"\"\"\n     import unicodedata\n \n-    try:\n-        # If `s` is ASCII-compatible, then it does not contain any accents.\n-        s.encode(\"ascii\", errors=\"strict\")\n-        return s\n-    except UnicodeEncodeError:\n-        normalized = unicodedata.normalize('NFKD', s)\n-        return ''.join([c for c in normalized if not unicodedata.combining(c)])\n+    normalized = unicodedata.normalize('NFKD', s)\n+    return ''.join([c for c in normalized if not unicodedata.combining(c)])\n+\n \n def _check_stop_list(stop):",
+  "thinking": null,
+  "input_tokens": 1037,
+  "output_tokens": 221,
+  "elapsed_seconds": 4.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006425999999999999
+}

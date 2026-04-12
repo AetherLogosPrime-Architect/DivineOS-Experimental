@@ -3,9 +3,9 @@
 Integrates with the existing DivineOS event emission system.
 """
 
+import sqlite3
 from typing import Any
 from uuid import UUID
-import sqlite3
 
 from loguru import logger
 

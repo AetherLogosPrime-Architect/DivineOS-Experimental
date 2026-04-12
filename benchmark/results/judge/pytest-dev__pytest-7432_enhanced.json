@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch adds a condition to prevent forcing xfail result when the test is already skipped, but this doesn't address the core issue where the skip location reporting logic is incorrectly blocked by the elif structure.",
+  "key_difference": "The candidate patch tries to fix the issue by preventing xfail handling when skipped, but the gold patch correctly identifies that the skip location reporting should run independently of xfail handling by changing 'elif' to 'if' to decouple these code paths.",
+  "instance_id": "pytest-dev__pytest-7432",
+  "condition": "enhanced",
+  "judge_tokens": 1149,
+  "judge_cost": 0.005511
+}

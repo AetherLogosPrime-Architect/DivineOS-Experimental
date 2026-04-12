@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that the TypeSerializer needs to include the 'from django.db import models' import when serializing models.Model references, which fixes the NameError in generated migration files.",
+  "key_difference": "The candidate patch is functionally identical to the gold patch - both add the required import statement to the models.Model special case in the TypeSerializer class.",
+  "instance_id": "django__django-14580",
+  "condition": "enhanced",
+  "judge_tokens": 1337,
+  "judge_cost": 0.005739
+}

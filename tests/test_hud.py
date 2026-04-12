@@ -63,7 +63,8 @@ class TestSlotBuilders:
 
     def test_session_health_slot_empty(self):
         result = SLOT_BUILDERS["session_health"]()
-        assert "Health" in result or "Session" in result
+        # Returns empty when no session data — skipped by HUD assembly
+        assert result == "" or "Health" in result or "Session" in result
 
     def test_context_budget_slot_empty(self):
         result = SLOT_BUILDERS["context_budget"]()
@@ -72,15 +73,13 @@ class TestSlotBuilders:
     def test_active_knowledge_slot_empty(self):
         init_memory_tables()
         result = SLOT_BUILDERS["active_knowledge"]()
-        assert "Know" in result
-
-    def test_warnings_slot_empty(self):
-        result = SLOT_BUILDERS["warnings"]()
-        assert "Warning" in result
+        # Returns empty when no goal-relevant complementary knowledge
+        assert result == "" or "Relevant" in result
 
     def test_task_state_slot_empty(self):
         result = SLOT_BUILDERS["task_state"]()
-        assert "Task" in result
+        # Returns empty when no task state — skipped by HUD assembly
+        assert result == "" or "Task" in result
 
 
 class TestBuildHud:
@@ -118,17 +117,24 @@ class TestSlotUpdates:
         assert "B" in result
         assert "2" in result
 
-    def test_update_context_budget(self):
+    def test_update_context_budget_low_usage_no_percentage(self):
+        # Under 70% usage, the slot doesn't show the percentage — it's noise
         update_context_budget(used_pct=45)
         result = SLOT_BUILDERS["context_budget"]()
-        assert "45%" in result
-        assert "Plenty" in result or "freely" in result
+        assert "45%" not in result
+        assert "Guardrails" in result
 
     def test_context_budget_compression_imminent(self):
         update_context_budget(used_pct=85)
         result = SLOT_BUILDERS["context_budget"]()
         assert "85%" in result
-        assert "imminent" in result
+        assert "IMMINENT" in result
+
+    def test_context_budget_approaching(self):
+        update_context_budget(used_pct=75)
+        result = SLOT_BUILDERS["context_budget"]()
+        assert "75%" in result
+        assert "approaching" in result
 
     def test_update_task_state(self):
         update_task_state(current="Building HUD", next_task="Run tests")

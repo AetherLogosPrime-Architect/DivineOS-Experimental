@@ -12,13 +12,14 @@ Property 5: Full session integration
   with no conflicts or data inconsistencies.
 """
 
-import pytest
 from datetime import datetime
 
-from divineos.clarity_enforcement.enforcer import ClarityEnforcer, ClarityViolationException
-from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+import pytest
+
 from divineos.agent_integration.learning_loop import analyze_session_for_lessons
 from divineos.agent_integration.memory_actions import get_memory_monitor
+from divineos.clarity_enforcement.config import ClarityConfig, ClarityEnforcementMode
+from divineos.clarity_enforcement.enforcer import ClarityEnforcer, ClarityViolationException
 from divineos.core.ledger import get_ledger
 from divineos.supersession.contradiction_detector import ContradictionDetector
 from divineos.supersession.resolution_engine import ResolutionEngine

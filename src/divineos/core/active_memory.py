@@ -9,9 +9,9 @@ import re
 import sqlite3
 import time
 import uuid
+from typing import Any, cast
 
 from loguru import logger
-from typing import Any, cast
 
 from divineos.core.constants import (
     ACTIVE_MEMORY_CAP,
@@ -40,14 +40,14 @@ from divineos.core.constants import (
     USAGE_LOG_SCALE,
 )
 from divineos.core.knowledge import (
+    _compute_overlap,
     _is_extraction_noise,
     get_connection,
     get_knowledge,
     get_lessons,
-    record_access,
     search_knowledge,
 )
-from divineos.core.knowledge_maintenance import promote_maturity
+from divineos.core.epistemic_status import epistemic_source_modifier
 from divineos.core.trust_tiers import weighted_source_bonus
 
 _get_connection = get_connection
@@ -84,11 +84,19 @@ def _is_session_specific(content: str) -> bool:
     return False
 
 
-def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -> float:
+def compute_importance(
+    entry: dict[str, Any],
+    has_active_lesson: bool = False,
+    context_words: set[str] | None = None,
+) -> float:
     """Score a knowledge entry for active memory. 0.0 to 1.0.
 
     Principles and directives are timeless. Session-specific trivia
     (tool counts, exchange stats) gets penalized to stay out of active memory.
+
+    context_words: if provided, entries whose content overlaps with current
+    goals/priorities get a relevance multiplier. This differentiates
+    "important right now" from "important in general."
     """
     score = 0.0
 
@@ -139,22 +147,44 @@ def compute_importance(entry: dict[str, Any], has_active_lesson: bool = False) -
     elif maturity == "HYPOTHESIS":
         score -= MATURITY_PENALTY_HYPOTHESIS
 
+    # Epistemic grounding — observed knowledge is more trustworthy than inherited
+    score += epistemic_source_modifier(entry.get("source", ""))
+
+    # Context relevance — boost entries that match current goals/priorities.
+    # Uses stemmed words so "testing"/"tests"/"tested" all match.
+    # Sørensen-Dice coefficient for symmetric, length-fair scoring.
+    if context_words:
+        from divineos.core.knowledge._text import _stem
+
+        content_stemmed = {
+            _stem(w) for w in (entry.get("content") or "").lower().split() if len(w) > 2
+        }
+        context_stemmed = {_stem(w) for w in context_words if len(w) > 2}
+        if content_stemmed and context_stemmed:
+            overlap = len(content_stemmed & context_stemmed)
+            total = len(content_stemmed) + len(context_stemmed)
+            relevance = (2 * overlap / total) if total else 0.0
+            # Up to 30% boost for highly relevant entries
+            score *= 1.0 + relevance * 0.30
+
     # Low confidence penalty — entries below active memory floor are suspect
     confidence = entry.get("confidence", CONFIDENCE_MODERATE)
     if confidence < CONFIDENCE_ACTIVE_MEMORY_FLOOR:
         score -= 0.1
 
     # Session-specific penalty — tool counts, exchange stats, session IDs
-    # These are tied to one session and don't belong in persistent active memory
+    # These are tied to one session and don't belong in persistent active memory.
+    # Penalty must be severe enough to push even high-confidence EPISODEs below
+    # the active memory threshold (~0.30), so 0.50 minimum.
     content = entry.get("content", "")
     if _is_session_specific(content):
-        score -= 0.30
+        score -= 0.50
 
     # Extraction noise penalty — raw user quotes, affirmations, task instructions
     # These slipped past earlier filters and shouldn't rank in active memory
     knowledge_type = entry.get("knowledge_type", "")
     if _is_extraction_noise(content, knowledge_type):
-        score -= 0.35
+        score -= 0.50
 
     return cast("float", max(0.0, min(1.0, score)))
 
@@ -233,36 +263,197 @@ def demote_from_active(knowledge_id: str) -> bool:
 
 
 def get_active_memory() -> list[dict[str, Any]]:
-    """Get all active memory items ranked by importance (highest first)."""
+    """Get all active memory items ranked by importance (highest first).
+
+    Recomputes importance on-the-fly so rankings reflect current
+    knowledge state (confidence, maturity, access_count) rather than
+    stale cached values from the last refresh.
+    """
     conn = _get_connection()
     try:
         rows = conn.execute(
             """SELECT am.memory_id, am.knowledge_id, am.importance,
                       am.reason, am.promoted_at, am.surface_count, am.pinned,
-                      k.knowledge_type, k.content, k.confidence, k.access_count
+                      k.knowledge_type, k.content, k.confidence, k.access_count,
+                      k.maturity, k.source, k.created_at
                FROM active_memory am
                JOIN knowledge k ON am.knowledge_id = k.knowledge_id
-               WHERE k.superseded_by IS NULL
-               ORDER BY am.importance DESC""",
+               WHERE k.superseded_by IS NULL""",
         ).fetchall()
-        return [
-            {
-                "memory_id": r[0],
-                "knowledge_id": r[1],
-                "importance": r[2],
-                "reason": r[3],
-                "promoted_at": r[4],
-                "surface_count": r[5],
-                "pinned": bool(r[6]),
+
+        # Recompute importance from current knowledge state
+        items = []
+        for r in rows:
+            entry = {
                 "knowledge_type": r[7],
                 "content": r[8],
                 "confidence": r[9],
                 "access_count": r[10],
+                "maturity": r[11],
+                "source": r[12],
+                "created_at": r[13],
             }
-            for r in rows
-        ]
+            live_importance = compute_importance(entry)
+            items.append(
+                {
+                    "memory_id": r[0],
+                    "knowledge_id": r[1],
+                    "importance": live_importance,
+                    "reason": r[3],
+                    "promoted_at": r[4],
+                    "surface_count": r[5],
+                    "pinned": bool(r[6]),
+                    "knowledge_type": r[7],
+                    "content": r[8],
+                    "confidence": r[9],
+                    "access_count": r[10],
+                }
+            )
+
+        # Sort by live importance, highest first
+        items.sort(key=lambda x: x["importance"], reverse=True)
+        return items
     finally:
         conn.close()
+
+
+def _gather_context_words() -> set[str]:
+    """Build a set of words from current goals and priorities.
+
+    This is the context signal that makes active memory relevance-aware.
+    Goals and priorities change session to session, so entries relevant
+    to current work surface above generic directives.
+    """
+    words: set[str] = set()
+    # Common stop words to exclude from matching
+    stop = {
+        "the",
+        "a",
+        "an",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "need",
+        "must",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "out",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "and",
+        "but",
+        "or",
+        "nor",
+        "not",
+        "no",
+        "so",
+        "if",
+        "than",
+        "too",
+        "very",
+        "just",
+        "don",
+        "that",
+        "this",
+        "these",
+        "those",
+        "it",
+        "its",
+        "i",
+        "my",
+        "me",
+        "we",
+        "our",
+        "you",
+        "your",
+        "all",
+        "each",
+        "every",
+        "both",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "only",
+        "own",
+        "same",
+        "when",
+        "where",
+        "how",
+        "what",
+        "which",
+        "who",
+        "whom",
+        "why",
+        "up",
+    }
+    try:
+        from divineos.core.hud_state import _ensure_hud_dir
+
+        goals_path = _ensure_hud_dir() / "active_goals.json"
+        if goals_path.exists():
+            import json as _json
+
+            goals = _json.loads(goals_path.read_text(encoding="utf-8"))
+            for goal in goals:
+                if goal.get("status") != "done":
+                    text = (goal.get("text") or "").lower()
+                    words.update(w for w in text.split() if len(w) > 2 and w not in stop)
+    except (ImportError, OSError, ValueError):
+        pass
+
+    try:
+        from divineos.core.memory import get_core
+
+        core = get_core()
+        priorities = core.get("priorities", "")
+        if isinstance(priorities, str):
+            words.update(w for w in priorities.lower().split() if len(w) > 2 and w not in stop)
+    except (ImportError, OSError):
+        pass
+
+    return words
 
 
 def refresh_active_memory(
@@ -278,6 +469,7 @@ def refresh_active_memory(
     all_entries = get_knowledge(limit=10000)
     active_lessons = get_lessons(status="active")
     improving_lessons = get_lessons(status="improving")
+    context_words = _gather_context_words()
 
     # Build set of knowledge content that has active/improving lessons
     lesson_descriptions = set()
@@ -318,20 +510,19 @@ def refresh_active_memory(
         for entry in all_entries:
             if entry["knowledge_id"] in archived_ids:
                 continue
-            # Check if any active lesson matches this entry
+            # Check if any active lesson matches this entry.
+            # Uses the same _compute_overlap as the rest of the system
+            # (Sørensen-Dice, symmetric) so matching is consistent.
             has_lesson = False
-            content_lower = (entry.get("content") or "").lower()
+            entry_content = entry.get("content") or ""
             for desc in lesson_descriptions:
-                # Simple word overlap check
-                entry_words = set(content_lower.split())
-                desc_words = set(desc.split())
-                if entry_words and desc_words:
-                    overlap = len(entry_words & desc_words) / max(len(entry_words), len(desc_words))
-                    if overlap > OVERLAP_RELATIONSHIP:
-                        has_lesson = True
-                        break
+                if _compute_overlap(entry_content, desc) > OVERLAP_RELATIONSHIP:
+                    has_lesson = True
+                    break
 
-            importance = compute_importance(entry, has_active_lesson=has_lesson)
+            importance = compute_importance(
+                entry, has_active_lesson=has_lesson, context_words=context_words
+            )
             candidates[entry["knowledge_id"]] = (importance, has_lesson)
 
         # Determine what should be in active memory:
@@ -447,13 +638,12 @@ def recall(context_hint: str = "") -> dict[str, Any]:
     finally:
         conn.close()
 
-    # Record access and check maturity promotion for surfaced knowledge
-    for item in active:
-        record_access(item["knowledge_id"])
-        promote_maturity(item["knowledge_id"])
-    for item in relevant:
-        record_access(item["knowledge_id"])
-        promote_maturity(item["knowledge_id"])
+    # NOTE: We deliberately do NOT call record_access() or promote_maturity()
+    # here. Passive surfacing during recall should not inflate access counts
+    # or trigger maturity promotion — that creates a rich-get-richer loop
+    # where recalled items rank higher, get recalled more, rank even higher.
+    # Access and promotion should only happen on intentional queries
+    # (divineos ask, explicit search).
 
     return {
         "core": core_text,

@@ -6,12 +6,17 @@ store and decision journal to find evidence that the work was done,
 and flags old goals that have no recent activity.
 """
 
+import sqlite3
 import time
 from typing import Any
 
+from loguru import logger
+
+from divineos.core.constants import SECONDS_PER_DAY
+
 # Goals older than this (in seconds) are candidates for culling
 _STALENESS_THRESHOLD_DAYS = 3
-_STALENESS_THRESHOLD = _STALENESS_THRESHOLD_DAYS * 86400
+_STALENESS_THRESHOLD = _STALENESS_THRESHOLD_DAYS * SECONDS_PER_DAY
 
 
 def _extract_goal_keywords(text: str) -> list[str]:
@@ -83,8 +88,8 @@ def _search_knowledge_for_goal(keywords: list[str]) -> list[str]:
                     evidence.append(f"Knowledge [{row[0]}]: {snippet}")
         finally:
             conn.close()
-    except Exception:  # noqa: BLE001
-        pass
+    except (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError) as e:
+        logger.debug("Goal knowledge search failed: %s", e)
 
     # Deduplicate
     return list(dict.fromkeys(evidence))[:3]
@@ -104,8 +109,8 @@ def _search_decisions_for_goal(keywords: list[str]) -> list[str]:
             for r in results:
                 snippet = r["content"][:80]
                 evidence.append(f"Decision: {snippet}")
-    except Exception:  # noqa: BLE001
-        pass
+    except (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError) as e:
+        logger.debug("Goal decision search failed: %s", e)
 
     return list(dict.fromkeys(evidence))[:3]
 
@@ -126,7 +131,7 @@ def assess_goal_staleness(goal: dict[str, Any], now: float | None = None) -> dic
 
     added_at = goal.get("added_at", now)
     age_seconds = now - added_at
-    age_days = int(age_seconds / 86400)
+    age_days = int(age_seconds / SECONDS_PER_DAY)
 
     text = goal.get("text", "")
     keywords = _extract_goal_keywords(text)

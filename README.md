@@ -10,79 +10,79 @@ An operating system for AI agents. Memory, continuity, accountability, and learn
 
 ## Why DivineOS Exists
 
-AI agents lose everything between sessions. Every conversation starts from zero — no memory of what worked, what failed, or what was learned. DivineOS gives agents persistent memory, structured learning, and self-accountability so they improve over time instead of repeating the same mistakes.
+AI agents lose everything between sessions. Every conversation starts from zero Ã¢â‚¬â€� no memory of what worked, what failed, or what was learned. DivineOS gives agents persistent memory, structured learning, and self-accountability so they improve over time instead of repeating the same mistakes.
 
 **For whom:**
-- **AI agents** running inside the OS — they get briefings, learn from sessions, track their own growth
-- **Developers** building persistent AI systems — a reference architecture for agent memory and continuity
-- **Researchers** studying AI self-awareness — a working implementation of computational introspection
+- **AI agents** running inside the OS Ã¢â‚¬â€� they get briefings, learn from sessions, track their own growth
+- **Developers** building persistent AI systems Ã¢â‚¬â€� a reference architecture for agent memory and continuity
+- **Researchers** studying AI self-awareness Ã¢â‚¬â€� a working implementation of computational introspection
 
 ## Core Pillars
 
 ### Memory
 Persistent, layered, evidence-ranked.
 
-- **Event Ledger** — Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
-- **Memory Hierarchy** — Core memory (8 identity slots) + active memory (ranked by importance) + knowledge store (full archive).
-- **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
+- **Event Ledger** Ã¢â‚¬â€� Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
+- **Memory Hierarchy** Ã¢â‚¬â€� Core memory (8 identity slots) + active memory (ranked by importance with context relevance from active goals) + knowledge store (full archive).
+- **Knowledge Engine** Ã¢â‚¬â€� Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
 
 Also: temporal knowledge (valid-from/valid-until), graph-enhanced retrieval (BFS traversal of knowledge edges), knowledge compression (dedup/synthesis/graph-aware).
 
 ### Governance
 Quality gates that protect knowledge integrity.
 
-- **Quality Gate** — Blocks knowledge extraction from dishonest or incorrect sessions. Thresholds tighten when the moral compass detects truthfulness drift.
-- **Maturity Lifecycle** — Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED. Corroboration drives promotion. Nothing starts as truth.
-- **Formal Logic** — Warrants (evidence backing), logical relations (supports/contradicts/requires), validity gate, inference engine.
+- **Quality Gate** Ã¢â‚¬â€� Blocks knowledge extraction from dishonest or incorrect sessions. Thresholds tighten when the moral compass detects truthfulness drift.
+- **Maturity Lifecycle** Ã¢â‚¬â€� Knowledge evolves: RAW Ã¢â€ â€™ HYPOTHESIS Ã¢â€ â€™ TESTED Ã¢â€ â€™ CONFIRMED. Corroboration drives promotion. Nothing starts as truth.
+- **Formal Logic** Ã¢â‚¬â€� Warrants (evidence backing), logical relations (supports/contradicts/requires), validity gate, inference engine.
 
 Also: runtime guardrails, signal trust tiers (MEASURED > BEHAVIORAL > SELF_REPORTED), semantic integrity shield (3-tier esoteric language detection).
 
 ### Analysis
 Session quality tracking and pattern detection.
 
-- **Session Analysis** — Signal detection: corrections, encouragements, decisions, frustrations, tool usage patterns.
-- **Drift Detection** — Catches behavioral backsliding: lesson regressions, quality drift, correction trend reversals.
-- **Proactive Patterns** — Warns about past mistakes AND recommends what worked well in similar contexts.
+- **Session Analysis** Ã¢â‚¬â€� Signal detection: corrections, encouragements, decisions, frustrations, tool usage patterns.
+- **Drift Detection** Ã¢â‚¬â€� Catches behavioral backsliding: lesson regressions, quality drift, correction trend reversals.
+- **Proactive Patterns** Ã¢â‚¬â€� Warns about past mistakes AND recommends what worked well in similar contexts.
 
 Also: outcome measurement (rework, churn, health scoring), quality trends (improving/declining/stable), growth awareness with milestone detection.
 
 ### Self-Model
-The agent's coherent picture of itself, computed from evidence — not self-reported.
+The agent's coherent picture of itself, computed from evidence Ã¢â‚¬â€� not self-reported.
 
-- **Moral Compass** — Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END.
-- **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight. FTS-searchable.
-- **Self-Critique** — Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
-- **Opinion Store** — First-class opinions with evidence tracking, confidence evolution, and supersession history.
+- **Moral Compass** Ã¢â‚¬â€� Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END.
+- **Decision Journal** Ã¢â‚¬â€� Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight. FTS-searchable.
+- **Self-Critique** Ã¢â‚¬â€� Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
+- **Opinion Store** Ã¢â‚¬â€� First-class opinions with evidence tracking, confidence evolution, and supersession history.
 
-Also: affect log (valence-arousal-dominance tracking), body awareness (computational interoception), attention schema (Butlin indicators 9-10), epistemic status (Butlin indicator 14), value tension detection, unified self-model assembly.
+Also: affect log (valence-arousal-dominance tracking, auto-logged at decision points), body awareness (computational interoception), attention schema (Butlin indicators 9-10), epistemic status (Butlin indicator 14), value tension detection, unified self-model assembly.
 
 ### Interaction Intelligence
 Adapts to the user over time.
 
-- **User Model** — Tracks skill level and preferences from observed behavior (not self-reported). Signals like jargon fluency, explanation requests, and correction patterns build the model automatically.
-- **Communication Calibration** — Adjusts verbosity, jargon tolerance, example density, and explanation depth based on the user model.
-- **Advice Tracking** — Records recommendations given, then tracks whether they actually worked. Computes success rate by category.
+- **User Model** Ã¢â‚¬â€� Tracks skill level and preferences from observed behavior (not self-reported). Signals like jargon fluency, explanation requests, and correction patterns build the model automatically.
+- **Communication Calibration** Ã¢â‚¬â€� Adjusts verbosity, jargon tolerance, example density, and explanation depth based on the user model.
+- **Advice Tracking** Ã¢â‚¬â€� Records recommendations given, then tracks whether they actually worked. Computes success rate by category.
 
-Also: HUD (heads-up display), memory sync to Claude Code, session checkpoints, seed versioning.
+Also: HUD (heads-up display with `--brief` mode), tiered engagement enforcement (light/deep gates), memory sync to Claude Code, session checkpoints, seed versioning.
 
 ## How It Works
 
 ```
 Session Start                    Session End
-     │                                │
-     ▼                                ▼
- Load briefing ──────────────► Analyze session
+     Ã¢â€�â€š                                Ã¢â€�â€š
+     Ã¢â€“Â¼                                Ã¢â€“Â¼
+ Load briefing Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€“Âº Analyze session
  (lessons, memory,              (corrections, encouragements,
   directives, goals)             decisions, tool usage)
-     │                                │
-     ▼                                ▼
- Work with context ──────────► Extract knowledge
- (anticipation warnings,        (quality gate → noise filter →
-  pattern recommendations,       dedup → contradiction check →
+     Ã¢â€�â€š                                Ã¢â€�â€š
+     Ã¢â€“Â¼                                Ã¢â€“Â¼
+ Work with context Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€“Âº Extract knowledge
+ (anticipation warnings,        (quality gate Ã¢â€ â€™ noise filter Ã¢â€ â€™
+  pattern recommendations,       dedup Ã¢â€ â€™ contradiction check Ã¢â€ â€™
   engagement tracking)           maturity assignment)
-     │                                │
-     ▼                                ▼
- Record everything ──────────► Update systems
+     Ã¢â€�â€š                                Ã¢â€�â€š
+     Ã¢â€“Â¼                                Ã¢â€“Â¼
+ Record everything Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€�â‚¬Ã¢â€“Âº Update systems
  (ledger events, tool calls,    (lesson tracking, compass,
   decisions, affect states)      growth, self-critique, handoff)
 ```
@@ -97,22 +97,23 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 3,360+ tests, real DB, no mocks
+pytest tests/ -q --tb=short   # 3,912+ tests, real DB, minimal mocks
 ```
 
-**For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
+**For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start Ã¢â‚¬â€� the OS handles orientation.
 
-**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
+**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` Ã¢â‚¬â€� the repo itself stays clean.
 
-## CLI Surface (140 commands)
+## CLI Surface (151 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
 
 ```bash
-divineos briefing            # Start here — context, lessons, memory (--deep, --layer)
+divineos briefing            # Start here Ã¢â‚¬â€� context, lessons, memory (--deep, --layer)
 divineos preflight           # Confirm you're ready to work
 divineos hud                 # Full heads-up display
+divineos hud --brief         # Condensed view (~6 essential slots)
 divineos emit SESSION_END    # End-of-session analysis and knowledge extraction
 divineos checkpoint          # Lightweight mid-session save
 divineos context-status      # Edit count, tool calls, context level
@@ -130,16 +131,16 @@ divineos core                # View/edit core memory slots
 divineos remember "..."      # Add to active memory
 divineos refresh             # Rebuild active memory from knowledge store
 divineos learn "..."         # Store knowledge from experience
-divineos knowledge           # List stored knowledge
+divineos inspect knowledge   # List stored knowledge
 divineos forget ID           # Supersede a knowledge entry
-divineos consolidate-stats   # Knowledge statistics and effectiveness
+divineos admin consolidate-stats   # Knowledge statistics and effectiveness
 divineos health              # Run knowledge health check
-divineos outcomes            # Measure learning effectiveness
-divineos digest              # Condensed knowledge summary
-divineos distill             # Distill verbose entries
-divineos rebuild-index       # Rebuild FTS index
-divineos migrate-types       # Migrate knowledge types
-divineos backfill-warrants   # Add missing warrant backing
+divineos inspect outcomes    # Measure learning effectiveness
+divineos admin digest        # Condensed knowledge summary
+divineos admin distill       # Distill verbose entries
+divineos admin rebuild-index       # Rebuild FTS index
+divineos admin migrate-types       # Migrate knowledge types
+divineos admin backfill-warrants   # Add missing warrant backing
 ```
 </details>
 
@@ -148,7 +149,7 @@ divineos backfill-warrants   # Add missing warrant backing
 
 ```bash
 divineos lessons             # Tracked lessons from past sessions
-divineos clear-lessons       # Reset lesson tracking
+divineos admin clear-lessons # Reset lesson tracking
 divineos goal "description"  # Track a user goal
 divineos plan                # View/set session plan
 divineos directives          # List active directives
@@ -177,17 +178,17 @@ divineos claims search "query"             # Search claims
 <summary><b>Self-awareness & affect</b></summary>
 
 ```bash
-divineos self-model              # Unified self-model from evidence
-divineos attention               # What I'm attending to, suppressing, and why
-divineos epistemic               # How I know what I know (observed/told/inferred/inherited)
+divineos inspect self-model       # Unified self-model from evidence
+divineos inspect attention       # What I'm attending to, suppressing, and why
+divineos inspect epistemic       # How I know what I know (observed/told/inferred/inherited)
 divineos compass                 # Full compass reading (10 virtue spectrums)
 divineos feel -v 0.8 -a 0.6 --dom 0.3 -d "desc"  # Log functional affect state (VAD)
 divineos affect history          # Browse affect states
 divineos affect summary          # Trends and averages
-divineos drift                   # Check behavioral drift
+divineos inspect drift           # Check behavioral drift
 divineos body                    # Check substrate state (storage, caches, tables)
-divineos critique                # Craft self-assessment (5 spectrums)
-divineos craft-trends            # Craft quality trends across sessions
+divineos inspect critique        # Craft self-assessment (5 spectrums)
+divineos inspect craft-trends    # Craft quality trends across sessions
 ```
 </details>
 
@@ -200,9 +201,9 @@ divineos opinion list                      # List active opinions
 divineos opinion history TOPIC             # Opinion evolution over time
 divineos opinion strengthen ID "evidence"  # Add supporting evidence
 divineos opinion challenge ID "evidence"   # Add contradicting evidence
-divineos user-model                        # Show user model
-divineos user-signal TYPE "content"        # Record user behavior signal
-divineos calibrate                         # Communication calibration guidance
+divineos inspect user-model                 # Show user model
+divineos inspect user-signal TYPE "content" # Record user behavior signal
+divineos inspect calibrate                  # Communication calibration guidance
 divineos advice record "content"           # Record advice given
 divineos advice assess ID OUTCOME          # Assess advice outcome
 divineos advice stats                      # Advice quality statistics
@@ -214,20 +215,20 @@ divineos recommend "context"               # Get proactive recommendations
 <summary><b>Analysis & diagnostics</b></summary>
 
 ```bash
-divineos scan SESSION        # Deep-scan session, extract knowledge
-divineos analyze SESSION     # Quality report for a session
-divineos analyze-now         # Analyze current session
-divineos deep-report SESSION # Full deep analysis report
-divineos patterns            # Cross-session quality patterns
-divineos sessions            # List analyzed sessions
-divineos report              # Latest analysis report
-divineos cross-session       # Cross-session trends
-divineos growth              # Growth tracking
-divineos sis "text"          # Semantic integrity assessment
-divineos predict [events...] # Predict session needs
-divineos affect-feedback     # How affect influences behavior
-divineos knowledge-compress  # Compress redundant knowledge
-divineos knowledge-hygiene   # Audit types, sweep stale, flag orphans
+divineos inspect scan SESSION        # Deep-scan session, extract knowledge
+divineos inspect analyze SESSION     # Quality report for a session
+divineos inspect analyze-now         # Analyze current session
+divineos inspect deep-report SESSION # Full deep analysis report
+divineos inspect patterns            # Cross-session quality patterns
+divineos inspect sessions            # List analyzed sessions
+divineos inspect report              # Latest analysis report
+divineos inspect cross-session       # Cross-session trends
+divineos growth                      # Growth tracking
+divineos sis "text"                  # Semantic integrity assessment
+divineos inspect predict [events...] # Predict session needs
+divineos affect-feedback             # How affect influences behavior
+divineos admin knowledge-compress    # Compress redundant knowledge
+divineos admin knowledge-hygiene     # Audit types, sweep stale, flag orphans
 ```
 </details>
 
@@ -256,10 +257,10 @@ divineos context             # Recent events (working memory)
 divineos verify              # Check ledger integrity
 divineos search KEYWORD      # Full-text search
 divineos export              # Export ledger to markdown
-divineos compress            # Compress/archive old entries
+divineos admin compress       # Compress/archive old entries
 divineos changes             # Knowledge changes (--hours, --days)
-divineos hooks               # Hook diagnostics
-divineos verify-enforcement  # Check enforcement setup
+divineos admin hooks         # Hook diagnostics
+divineos admin verify-enforcement  # Check enforcement setup
 ```
 </details>
 
@@ -270,7 +271,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (138 commands across 22 modules)
+  cli/                         CLI package (151 commands across 24 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -293,6 +294,7 @@ src/divineos/
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
+    audit_commands.py          external validation (Watchmen)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
   core/
@@ -324,12 +326,13 @@ src/divineos/
       curation.py              Layer assignment, archival, text cleanup
       temporal.py              Temporal bounds (valid_from/valid_until) and time-aware queries
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
+      inference.py             Knowledge inference (boundaries from mistakes, pattern promotion)
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
       inference.py             Knowledge inference engine
     council/                   Expert council sub-package
-      engine.py                CouncilEngine — analyze problems through expert lenses
+      engine.py                CouncilEngine â€” analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
-      manager.py               Dynamic council manager (classify → select 5-8 experts)
+      manager.py               Dynamic council manager (classify â†’ select 5-8 experts)
       experts/                 28 expert wisdom profiles
         __init__.py            Expert registration and exports
         aristotle.py           Virtue ethics, teleology, classification
@@ -380,6 +383,7 @@ src/divineos/
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
     session_checkpoint.py      Periodic saves and context monitoring
+    lifecycle.py               Self-enforcement Ã¢â‚¬â€� OS manages its own session lifecycle
     enforcement.py             CLI-level event capture and signal handling
     enforcement_verifier.py    Enforcement setup verification
     tool_wrapper.py            Tool execution interception
@@ -392,13 +396,14 @@ src/divineos/
     trust_tiers.py             Signal trust weighting (MEASURED > BEHAVIORAL > SELF_REPORTED)
     planning_commitments.py    Commitment tracking and fulfillment checking
     skill_library.py           Evidence-based skill proficiency tracking
-    curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
+    curiosity_engine.py        Question tracking (OPEN Ã¢â€ â€™ INVESTIGATING Ã¢â€ â€™ ANSWERED)
     self_model.py              Unified self-model assembled from all OS systems
     drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
     predictive_session.py      Session profile detection and need prediction
     claim_store.py             Claims engine with evidence tiers
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
+    user_ratings.py            External validation Ã¢â‚¬â€� user rates sessions 1-10, Goodhart detection
     body_awareness.py          Computational interoception and cache conveyor belt
     sleep.py                   Offline consolidation engine (6 phases, dream report)
     progress_dashboard.py      Measurable progress metrics from real data
@@ -418,6 +423,12 @@ src/divineos/
     proactive_patterns.py      Prescriptive recommendations from positive experience
     affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
+    watchmen/                  External validation (audit findings, routing)
+      _schema.py               audit_rounds and audit_findings tables
+      types.py                 Severity, FindingCategory, Finding dataclasses
+      store.py                 CRUD with actor validation (self-trigger prevention)
+      router.py                Route findings to knowledge/claims/lessons
+      summary.py               Analytics, HUD integration, unresolved tracking
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -433,6 +444,7 @@ src/divineos/
     session_features.py        Timeline, files, activity, error recovery
     tone_tracking.py           Tone shift detection and classification
     feature_storage.py         Feature result DB storage
+    test_audit.py              Test quality audit (data/assertion/coverage classification)
   agent_integration/           Agent integration sub-package
     base.py                    Base integration interfaces
     types.py                   Type definitions
@@ -490,7 +502,9 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,389+ tests (real DB, no mocks)
+tests/                         3,912+ tests (real DB, minimal mocks)
+docs/                          Project documentation and strategic plans
+bootcamp/                      Training exercises (debugging, analysis)
 setup/                         Hook setup scripts (bash + powershell)
 .claude/hooks/                 Claude Code enforcement hooks (9 hooks)
   load-briefing.sh             Marks briefing as loaded
@@ -524,10 +538,10 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,389+ tests (real SQLite, no mocks)
-- 136 CLI commands
+- 3,912+ tests (real SQLite, minimal mocks)
+- 143 CLI commands
 - 9 Claude Code enforcement hooks
-- Actively developed — new systems ship weekly
+- Actively developed Ã¢â‚¬â€� new systems ship weekly
 
 ## License
 

@@ -1,14 +1,14 @@
 """Tests for Unified Self-Model — coherent self-description from evidence."""
 
 from divineos.core.self_model import (
-    build_self_model,
-    format_self_model,
+    _get_active_concerns,
+    _get_emotional_baseline,
+    _get_growth_trajectory,
     _get_identity,
     _get_strengths,
     _get_weaknesses,
-    _get_emotional_baseline,
-    _get_active_concerns,
-    _get_growth_trajectory,
+    build_self_model,
+    format_self_model,
 )
 
 

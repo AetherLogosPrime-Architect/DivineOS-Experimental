@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that mutually exclusive required groups need special handling in call_command and adds logic to include arguments from such groups in parse_args when they're provided in kwargs.",
+  "key_difference": "The candidate uses a separate loop to handle mutually exclusive groups after the main required arguments loop, while the gold patch modifies the existing loop condition. Both approaches correctly solve the problem by ensuring arguments from required mutually exclusive groups are passed to parse_args when provided in kwargs.",
+  "instance_id": "django__django-11749",
+  "condition": "base",
+  "judge_tokens": 1488,
+  "judge_cost": 0.006444
+}

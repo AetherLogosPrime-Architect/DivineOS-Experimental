@@ -1,17 +1,18 @@
 """Full pipeline integration test - exercises all major components."""
 
 import pytest
-from divineos.core.ledger import init_db, log_event, get_events, verify_all_events
-from divineos.core.knowledge import (
-    init_knowledge_table,
-    store_knowledge,
-    get_knowledge,
-    search_knowledge,
-    generate_briefing,
-)
-from divineos.analysis.record_extraction import init_quality_tables
-from divineos.analysis.feature_storage import init_feature_tables
+
 from divineos.analysis.analysis import analyze_session, format_analysis_report, store_analysis
+from divineos.analysis.feature_storage import init_feature_tables
+from divineos.analysis.record_extraction import init_quality_tables
+from divineos.core.knowledge import (
+    generate_briefing,
+    get_knowledge,
+    init_knowledge_table,
+    search_knowledge,
+    store_knowledge,
+)
+from divineos.core.ledger import get_events, init_db, log_event, verify_all_events
 
 
 @pytest.fixture(autouse=True)
@@ -362,9 +363,9 @@ class TestPhase4Integration:
         from divineos.analysis.analysis import (
             analyze_session,
             format_analysis_report,
-            store_analysis,
             get_stored_report,
             list_recent_sessions,
+            store_analysis,
         )
 
         # Create and analyze a session
@@ -392,10 +393,10 @@ class TestPhase4Integration:
         """Test cross-session trends computation."""
         from divineos.analysis.analysis import (
             analyze_session,
-            format_analysis_report,
-            store_analysis,
             compute_cross_session_trends,
+            format_analysis_report,
             format_cross_session_report,
+            store_analysis,
         )
 
         # Create and analyze multiple sessions

@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-26291",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/lib/mpl_toolkits/axes_grid1/inset_locator.py\n+++ b/lib/mpl_toolkits/axes_grid1/inset_locator.py\n@@ -70,6 +70,8 @@ class AnchoredLocatorBase(AnchoredOffsetbox):\n \n     def __call__(self, ax, renderer):\n         self.axes = ax\n+        if renderer is None:\n+            renderer = ax.figure._get_renderer()\n         bbox = self.get_window_extent(renderer)\n         px, py = self.get_offset(bbox.width, bbox.height, 0, 0, renderer)\n         bbox_canvas = Bbox.from_bounds(px, py, bbox.width, bbox.height)",
+  "thinking": null,
+  "input_tokens": 2669,
+  "output_tokens": 194,
+  "elapsed_seconds": 3.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.010917
+}

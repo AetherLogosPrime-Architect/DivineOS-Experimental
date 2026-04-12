@@ -18,7 +18,6 @@ from loguru import logger
 
 from divineos.core.knowledge._base import _get_connection
 
-
 # ─── Schema ─────────────────────────────────────────────────────────
 
 
@@ -212,6 +211,137 @@ def format_origin_summary() -> str:
             parts.append(f"{count} {source.lower()}")
 
     return f"{ratio['learned']}/{ratio['total']} learned ({pct:.0f}%) — {', '.join(parts)}"
+
+
+def get_validation_divergence(n: int = 20) -> dict:
+    """Compare self-grades vs user-grades across sessions where both exist.
+
+    This is the calibration drift detector. If I consistently grade myself
+    higher than the user grades me, I'm overconfident in my self-assessment.
+    If I grade lower, I'm being too harsh. Either way, the divergence is
+    the signal that breaks the self-referential loop.
+
+    Returns:
+        total: sessions with both self and user grades
+        avg_self_score: average numeric self-score
+        overestimates: count where self_grade > user_grade
+        underestimates: count where self_grade < user_grade
+        accurate: count where grades match
+        calibration: "overconfident" | "underconfident" | "calibrated" | "insufficient_data"
+    """
+    init_validation_table()
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT self_grade, self_score, user_grade, grade_match "
+            "FROM session_validation WHERE user_grade IS NOT NULL "
+            "ORDER BY created_at DESC LIMIT ?",
+            (n,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return {
+            "total": 0,
+            "avg_self_score": 0.0,
+            "overestimates": 0,
+            "underestimates": 0,
+            "accurate": 0,
+            "calibration": "insufficient_data",
+        }
+
+    grade_order = "ABCDF"
+    overestimates = 0
+    underestimates = 0
+    accurate = 0
+    total_self_score = 0.0
+
+    for self_grade, self_score, user_grade, grade_match in rows:
+        total_self_score += self_score
+        self_idx = grade_order.find(self_grade)
+        user_idx = grade_order.find(user_grade)
+        if self_idx < 0 or user_idx < 0:
+            # Unknown grade letter (e.g. "?") — count as mismatch
+            if grade_match == 1:
+                accurate += 1
+            else:
+                overestimates += 1
+            continue
+        if self_idx < user_idx:
+            overestimates += 1  # self thinks better than user does
+        elif self_idx > user_idx:
+            underestimates += 1  # self is harsher than user
+        else:
+            accurate += 1
+
+    total = len(rows)
+    avg_self_score = total_self_score / total if total > 0 else 0.0
+
+    if total < 3:
+        calibration = "insufficient_data"
+    elif overestimates > total * 0.6:
+        calibration = "overconfident"
+    elif underestimates > total * 0.6:
+        calibration = "underconfident"
+    else:
+        calibration = "calibrated"
+
+    return {
+        "total": total,
+        "avg_self_score": round(avg_self_score, 3),
+        "overestimates": overestimates,
+        "underestimates": underestimates,
+        "accurate": accurate,
+        "calibration": calibration,
+    }
+
+
+def get_validation_calibration(n: int = 20) -> dict:
+    """Compute a quality gate adjustment from validation divergence.
+
+    This closes the feedback loop: user grades -> divergence detection ->
+    threshold tightening. If I consistently self-rate higher than the user
+    rates me (overconfident), the quality gate gets stricter. If divergence
+    data is insufficient, returns neutral.
+
+    Returns:
+        adjustment: float (0.0 = neutral, positive = tighten gate)
+        reason: str explaining the adjustment
+    """
+    from divineos.core.constants import QUALITY_VALIDATION_TIGHTEN
+
+    div = get_validation_divergence(n)
+
+    if div["calibration"] == "insufficient_data":
+        return {"adjustment": 0.0, "reason": "Insufficient validation data"}
+
+    if div["calibration"] == "overconfident":
+        # Overconfident: self-grades higher than user grades.
+        # Scale adjustment by how dominant the overestimation is.
+        ratio = div["overestimates"] / div["total"] if div["total"] > 0 else 0.0
+        adjustment = QUALITY_VALIDATION_TIGHTEN * ratio
+        return {
+            "adjustment": round(adjustment, 3),
+            "reason": (
+                f"Overconfident: {div['overestimates']}/{div['total']} sessions "
+                f"self-rated higher than user — tightening by +{adjustment:.3f}"
+            ),
+        }
+
+    if div["calibration"] == "underconfident":
+        # Underconfident: being too harsh on myself. No gate tightening needed,
+        # but surface the signal so it's visible.
+        return {
+            "adjustment": 0.0,
+            "reason": (
+                f"Underconfident: {div['underestimates']}/{div['total']} sessions "
+                f"self-rated lower than user — no gate adjustment needed"
+            ),
+        }
+
+    # Calibrated
+    return {"adjustment": 0.0, "reason": "Self-assessment calibrated with user feedback"}
 
 
 def format_validation_summary() -> str:

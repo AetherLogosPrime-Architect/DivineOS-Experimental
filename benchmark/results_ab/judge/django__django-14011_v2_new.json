@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies ThreadedWSGIServer as the source of unclosed database connections and implements the essential fix by closing all database connections in close_request(). While it lacks the additional features of the gold patch (connections_override parameter and helper methods), it addresses the core issue effectively.",
+  "key_difference": "The candidate patch provides a minimal solution with just the essential close_request() override, while the gold patch includes additional infrastructure like connections_override parameter, process_request_thread() override, and _close_connections() helper method for more comprehensive connection management and testing support.",
+  "instance_id": "django__django-14011",
+  "label": "v2_new",
+  "judge_cost": 0.00801
+}

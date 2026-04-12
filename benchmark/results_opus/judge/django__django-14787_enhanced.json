@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch targets a different part of the code (line 44 instead of line 40 where the actual issue is) and doesn't address the root cause. The problem is that partial objects lack function attributes like __name__, but the candidate doesn't preserve these attributes using wraps().",
+  "key_difference": "The candidate modifies the wrong line (line 44) and uses method.__get__ directly instead of wrapping the partial object with wraps() at line 40 where the actual issue occurs.",
+  "instance_id": "django__django-14787",
+  "condition": "enhanced",
+  "judge_cost": 0.00534
+}

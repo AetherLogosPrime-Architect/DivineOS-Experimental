@@ -1,44 +1,43 @@
 """Smart knowledge storage and consolidation."""
 
 import json
+import sqlite3
 import time
 import uuid
 from typing import Any, cast
-import sqlite3
 
 from loguru import logger
 
-from divineos.core.knowledge._base import (
-    KNOWLEDGE_TYPES,
-    _KNOWLEDGE_COLS_K,
-    _get_connection,
-    _row_to_dict,
-    compute_hash,
-)
 from divineos.core.constants import (
     OVERLAP_DUPLICATE,
     OVERLAP_QUASI_IDENTICAL,
     OVERLAP_STRONG,
 )
+from divineos.core.knowledge._base import (
+    _KNOWLEDGE_COLS_K,
+    KNOWLEDGE_TYPES,
+    _get_connection,
+    _row_to_dict,
+    compute_hash,
+)
 from divineos.core.knowledge._text import (
+    _MIN_CONTENT_WORDS,
+    _STOPWORDS,
+    _build_fts_query,
     _compute_overlap,
     _extract_key_terms,
     _is_extraction_noise,
     _normalize_text,
-    _STOPWORDS,
-    _MIN_CONTENT_WORDS,
 )
 from divineos.core.knowledge.crud import (
     get_knowledge,
     store_knowledge,
     supersede_knowledge,
 )
-from divineos.core.knowledge_maintenance import (
-    increment_corroboration,
-    promote_maturity,
-    resolve_contradiction,
-    scan_for_contradictions,
-)
+
+# Late import: knowledge_maintenance creates a circular import if loaded at
+# module level (extraction -> knowledge_maintenance -> _base -> __init__ ->
+# deep_extraction -> extraction).  Imported lazily inside functions instead.
 from divineos.core.logic.warrants import create_warrant
 
 _EXTRACTION_ERRORS = (
@@ -49,6 +48,13 @@ _EXTRACTION_ERRORS = (
     ValueError,
     json.JSONDecodeError,
 )
+
+
+def _get_maintenance():
+    """Lazy import of knowledge_maintenance to break circular import."""
+    from divineos.core import knowledge_maintenance
+
+    return knowledge_maintenance
 
 
 # Maps knowledge source to warrant type for auto-warrant creation
@@ -98,7 +104,7 @@ def _decide_operation(
         new_words = meaningful_words - existing_words
         new_ratio = len(new_words) / max(1, len(meaningful_words))
         if new_ratio > 0.2:
-            # 20%+ genuinely new words → supersede old with new
+            # 20%+ genuinely new words -> supersede old with new
             return ("UPDATE", best_match["knowledge_id"])
         return ("NOOP", best_match["knowledge_id"])
 
@@ -127,9 +133,29 @@ def store_knowledge_smart(
     and resolves them automatically.
     """
     # Voice normalization: knowledge speaks as me, not about me
-    from divineos.core.knowledge._text import normalize_to_first_person
+    from divineos.core.knowledge._text import normalize_to_first_person, segment_large_text
 
     content = normalize_to_first_person(content)
+
+    # Segment large text blocks into atomic chunks before dedup.
+    # Without this, a 2000-word paste becomes one monolithic entry.
+    segments = segment_large_text(content)
+    if len(segments) > 1:
+        logger.debug(f"Segmented large text ({len(content)} chars) into {len(segments)} chunks")
+        stored_ids: list[str] = []
+        for segment in segments:
+            kid = store_knowledge_smart(
+                knowledge_type=knowledge_type,
+                content=segment,
+                confidence=confidence,
+                source_events=source_events,
+                tags=tags,
+                source=source,
+                maturity=maturity,
+            )
+            if kid:
+                stored_ids.append(kid)
+        return stored_ids[0] if stored_ids else ""
 
     # First: try exact hash dedup (fast path)
     content_hash = compute_hash(content)
@@ -156,8 +182,10 @@ def store_knowledge_smart(
             conn.commit()
             # Exact match = corroboration
             try:
-                increment_corroboration(str(kid))
-                promote_maturity(str(kid))
+                _get_maintenance().increment_corroboration(
+                    str(kid), source_context=f"extraction:{source}"
+                )
+                _get_maintenance().promote_maturity(str(kid))
             except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
             return str(kid)
@@ -174,9 +202,10 @@ def store_knowledge_smart(
                        ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
                        LIMIT 10"""
         key_terms = _extract_key_terms(content)
-        if key_terms:
+        fts_match = _build_fts_query(content)  # OR-joined for recall
+        if key_terms and fts_match:
             try:
-                rows = conn.execute(fts_query, (key_terms,)).fetchall()
+                rows = conn.execute(fts_query, (fts_match,)).fetchall()
                 for row in rows:
                     entry = _row_to_dict(row)
                     if entry["knowledge_type"] == knowledge_type:
@@ -205,8 +234,10 @@ def store_knowledge_smart(
             conn.commit()
             # Corroboration: re-encountering knowledge strengthens trust
             try:
-                increment_corroboration(cast("str", existing_id))
-                promote_maturity(cast("str", existing_id))
+                _get_maintenance().increment_corroboration(
+                    cast("str", existing_id), source_context=f"extraction:{source}"
+                )
+                _get_maintenance().promote_maturity(cast("str", existing_id))
             except _EXTRACTION_ERRORS as e:
                 logger.debug(f"Maturity check failed: {e}", exc_info=True)
             return cast("str", existing_id)
@@ -231,7 +262,7 @@ def store_knowledge_smart(
             return str(hash_match[0])
 
         # Insert new entry — born with corroboration=1 (it was observed once,
-        # which is enough to qualify for RAW→HYPOTHESIS promotion)
+        # which is enough to qualify for RAW->HYPOTHESIS promotion)
         conn.execute(
             "INSERT INTO knowledge (knowledge_id, created_at, updated_at, knowledge_type, content, confidence, source_events, tags, access_count, content_hash, source, maturity, corroboration_count, contradiction_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1, 0)",
             (
@@ -250,19 +281,16 @@ def store_knowledge_smart(
         )
         conn.commit()
 
-        # Attempt initial maturity promotion (RAW→HYPOTHESIS).
-        # promote_maturity is already imported at module level from
-        # knowledge_maintenance — safe to call here since the module
-        # is fully initialized by the time store_knowledge_smart runs.
+        # Attempt initial maturity promotion (RAW->HYPOTHESIS).
         try:
-            promote_maturity(kid)
+            _get_maintenance().promote_maturity(kid)
         except _EXTRACTION_ERRORS as e:
             logger.debug(f"Initial maturity promotion failed: {e}", exc_info=True)
 
         # UPDATE: supersede the old entry and create a SUPERSEDES edge
         if operation == "UPDATE" and existing_id:
             supersede_knowledge(existing_id, reason=f"Updated by {kid[:12]}")
-            logger.info(f"Updated knowledge: {existing_id[:12]} → {kid[:12]}")
+            logger.info(f"Updated knowledge: {existing_id[:12]} -> {kid[:12]}")
             try:
                 from divineos.core.knowledge.edges import create_edge
 
@@ -292,17 +320,19 @@ def store_knowledge_smart(
             same_type = get_knowledge(knowledge_type=knowledge_type, limit=100)
             # Exclude the entry we just created
             same_type = [e for e in same_type if e["knowledge_id"] != kid]
-            contradictions = scan_for_contradictions(content, knowledge_type, same_type)
+            contradictions = _get_maintenance().scan_for_contradictions(
+                content, knowledge_type, same_type
+            )
             for match in contradictions:
-                resolve_contradiction(kid, match)
+                _get_maintenance().resolve_contradiction(kid, match)
         except _EXTRACTION_ERRORS as e:
             logger.debug(f"Contradiction scan failed: {e}", exc_info=True)
 
         # Post-insert dedup guard: check if FTS finds a pre-existing near-match
         # that we missed (handles race conditions with concurrent inserts)
-        if key_terms and operation == "ADD":
+        if key_terms and fts_match and operation == "ADD":
             try:
-                rows = conn.execute(fts_query, (key_terms,)).fetchall()
+                rows = conn.execute(fts_query, (fts_match,)).fetchall()
                 for row in rows:
                     entry = _row_to_dict(row)
                     if entry["knowledge_id"] == kid:
@@ -311,8 +341,13 @@ def store_knowledge_smart(
                         overlap = _compute_overlap(content, entry["content"])
                         if overlap > OVERLAP_QUASI_IDENTICAL:
                             conn.execute(
-                                "UPDATE knowledge SET superseded_by = ?, updated_at = ? WHERE knowledge_id = ?",
-                                (entry["knowledge_id"], time.time(), kid),
+                                "UPDATE knowledge SET superseded_by = ?, updated_at = ?, supersession_reason = ? WHERE knowledge_id = ?",
+                                (
+                                    entry["knowledge_id"],
+                                    time.time(),
+                                    "duplicate: quasi-identical content",
+                                    kid,
+                                ),
                             )
                             conn.execute(
                                 "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
@@ -407,8 +442,8 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict[str, Any]]:
                 for entry in cluster:
                     if entry["knowledge_id"] != new_id:
                         conn.execute(
-                            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
-                            (new_id, entry["knowledge_id"]),
+                            "UPDATE knowledge SET superseded_by = ?, supersession_reason = ? WHERE knowledge_id = ?",
+                            (new_id, "consolidation: merged into cluster", entry["knowledge_id"]),
                         )
                 conn.commit()
             finally:

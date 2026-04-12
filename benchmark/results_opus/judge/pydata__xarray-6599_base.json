@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch incorrectly modifies duck_array_ops.py instead of computation.py where the actual issue lies. The gold patch correctly identifies that the problem is in the _ensure_numeric function's to_floatable helper, which treats timedelta64 ('m' kind) the same as datetime64 ('M' kind), causing incorrect conversion.",
+  "key_difference": "The candidate targets duck_array_ops.py with offset handling changes, while the gold patch correctly fixes computation.py by separating datetime64 and timedelta64 handling in the to_floatable function.",
+  "instance_id": "pydata__xarray-6599",
+  "condition": "base",
+  "judge_cost": 0.010494
+}

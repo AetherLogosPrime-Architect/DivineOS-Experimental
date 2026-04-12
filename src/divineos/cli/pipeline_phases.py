@@ -18,6 +18,7 @@ from divineos.cli._wrappers import (
     _wrapped_refresh_active_memory,
     _wrapped_store_knowledge,
 )
+from divineos.core.constants import CONFIDENCE_ACTIVE_MEMORY_FLOOR, CONFIDENCE_RELIABLE
 from divineos.core.memory import init_memory_tables
 
 # Pipeline phases catch at integration boundaries — these are the real failure modes.
@@ -77,8 +78,8 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
 
     # 3e. SIS — assess and translate esoteric language in new entries
     try:
-        from divineos.core.semantic_integrity import assess_and_translate
         from divineos.core.knowledge import _get_connection
+        from divineos.core.semantic_integrity import assess_and_translate
 
         valid_ids = [did for did in deep_ids if did]
         if valid_ids:
@@ -210,13 +211,13 @@ def run_feedback_cycle(
                         f"planned {dev.planned:.0f}, actual {dev.actual:.0f} "
                         f"({dev.percentage:.0f}% off, session {analysis.session_id[:12]})."
                     ),
-                    confidence=0.8,
+                    confidence=CONFIDENCE_RELIABLE,
                     tags=["clarity-pipeline", "deviation", session_tag],
                 )
                 extra_stored += 1
 
         for lesson in lessons:
-            if lesson.confidence >= 0.8 and not has_session:
+            if lesson.confidence >= CONFIDENCE_RELIABLE and not has_session:
                 _wrapped_store_knowledge(
                     knowledge_type="OBSERVATION",
                     content=(
@@ -281,8 +282,8 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
             hc_parts.append(f"{hc['recurring_escalated']} escalated")
         if hc["resolved_lessons"]:
             hc_parts.append(f"{hc['resolved_lessons']} resolved")
-        if hc.get("stale_decayed"):
-            hc_parts.append(f"{hc['stale_decayed']} stale decayed")
+        if hc.get("needs_review_count"):
+            hc_parts.append(f"{hc['needs_review_count']} needs review")
         if hc.get("temporal_decayed"):
             hc_parts.append(f"{hc['temporal_decayed']} temporal decayed")
         if hc.get("contradiction_flagged"):
@@ -291,6 +292,17 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
             click.secho(f"[~] Health: {', '.join(hc_parts)}", fg="cyan")
     except _PHASE_ERRORS as e:
         logger.warning(f"Health check failed: {e}")
+
+    # 5b-pre. Backfill warrants BEFORE maturity cycle — newly warranted
+    # entries may meet promotion criteria that the maturity cycle checks.
+    try:
+        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
+
+        wresult = backfill_inherited_warrants()
+        if wresult["backfilled"]:
+            click.secho(f"[~] Backfilled {wresult['backfilled']} warrants.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Warrant backfill failed: {e}")
 
     # 5b. Maturity cycle
     promoted_ids: list[str] = []
@@ -385,15 +397,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Auto-distill failed: {e}")
 
-    # 5f. Backfill warrants for new entries
-    try:
-        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
-
-        wresult = backfill_inherited_warrants()
-        if wresult["backfilled"]:
-            click.secho(f"[~] Backfilled {wresult['backfilled']} warrants.", fg="cyan")
-    except _PHASE_ERRORS as e:
-        logger.warning(f"Warrant backfill failed: {e}")
+    # 5f. (Moved to 5b-pre — warrant backfill now runs before maturity cycle)
 
     # 5g. Drift detection — catch behavioral backsliding
     try:
@@ -421,8 +425,8 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
             hygiene_parts.append(f"{hygiene['noise_demoted']} demoted")
         if hygiene["noise_superseded"]:
             hygiene_parts.append(f"{hygiene['noise_superseded']} superseded")
-        if hygiene["stale_decayed"]:
-            hygiene_parts.append(f"{hygiene['stale_decayed']} stale decayed")
+        if hygiene.get("stale_decayed"):
+            hygiene_parts.append(f"{hygiene['stale_decayed']} temporal decayed")
         if hygiene["orphans_flagged"]:
             hygiene_parts.append(f"{hygiene['orphans_flagged']} orphans flagged")
         if hygiene_parts:
@@ -502,6 +506,89 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
     return promoted, demoted
 
 
+# ─── Phase 8p-q: Lesson detection and escalation ────────────────────
+#
+# MUST run before corroboration sweep (Phase 8c) — lessons must be
+# recorded first so maturity promotions reflect actual learning.
+
+
+def run_lesson_detection(
+    check_results: list,
+    session_id: str,
+    features: Any,
+) -> list[str]:
+    """Detect and record lessons from quality checks + session features.
+
+    Also runs auto-resolve (escalation) after detection so we don't
+    resolve a lesson that just re-occurred this session.
+
+    Returns list of lesson IDs detected.
+    """
+    lesson_ids: list[str] = []
+
+    # 8p. Lesson detection from quality checks + features
+    try:
+        from divineos.core.knowledge.lessons import extract_lessons_from_report
+
+        # Convert feature tone shifts to lesson-extraction format
+        tone_shifts_for_lessons = None
+        if features and hasattr(features, "tone_shifts") and features.tone_shifts:
+            tone_shifts_for_lessons = [
+                {
+                    "direction": ("negative" if ts.new_tone == "negative" else "positive"),
+                    "previous_tone": ts.previous_tone,
+                    "new_tone": ts.new_tone,
+                    "trigger": ts.trigger_action,
+                    "user_response": getattr(ts, "after_message", ""),
+                    "before_message": getattr(ts, "before_message", ""),
+                    "sequence": ts.sequence,
+                }
+                for ts in features.tone_shifts
+                if ts.previous_tone != ts.new_tone
+            ]
+
+        # Convert error recovery to aggregate counts
+        error_recovery_for_lessons = None
+        if features and hasattr(features, "error_recovery") and features.error_recovery:
+            blind_retries = sum(1 for e in features.error_recovery if e.recovery_action == "retry")
+            investigate_count = sum(
+                1 for e in features.error_recovery if e.recovery_action == "investigate"
+            )
+            error_recovery_for_lessons = {
+                "blind_retries": blind_retries,
+                "investigate_count": investigate_count,
+            }
+
+        lesson_ids = extract_lessons_from_report(
+            check_results,
+            session_id,
+            tone_shifts_for_lessons,
+            error_recovery_for_lessons,
+        )
+        if lesson_ids:
+            click.secho(
+                f"[+] Lesson detection: {len(lesson_ids)} entries from quality checks",
+                fg="green",
+            )
+    except (*_PHASE_ERRORS, ValueError) as e:
+        logger.debug(f"Lesson detection failed: {e}")
+
+    # 8q. Lesson escalation (auto-resolve)
+    # Runs AFTER lesson detection so we don't resolve a lesson
+    # that just re-occurred this session.
+    try:
+        from divineos.core.knowledge.lessons import auto_resolve_lessons
+
+        resolved = auto_resolve_lessons()
+        if resolved:
+            names = ", ".join(r["category"] for r in resolved)
+            click.secho(f"[+] Lessons resolved: {names}", fg="green")
+    except _PHASE_ERRORS as e:
+        logger.debug(f"Lesson escalation failed: {e}")
+
+    return lesson_ids
+
+
 # ─── Phase 8-9: Session scoring and finalization ─────────────────────
 
 
@@ -514,16 +601,38 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
 
     # 8. Session health score
     try:
-        from divineos.agent_integration.outcome_measurement import measure_session_health
+        from divineos.agent_integration.outcome_measurement import (
+            match_corrections_to_resolutions,
+            measure_session_health,
+        )
         from divineos.core.hud_handoff import was_briefing_loaded
 
+        # Position-based correction-resolution matching:
+        # Sort all signals by timestamp to get interleaved sequence numbers,
+        # then match encouragements to nearest preceding corrections.
+        all_signals = [("c", s.timestamp) for s in analysis.corrections] + [
+            ("e", s.timestamp) for s in analysis.encouragements
+        ]
+        all_signals.sort(key=lambda x: x[1])
+        corr_seq = []
+        enc_seq = []
+        for seq, (kind, _) in enumerate(all_signals):
+            if kind == "c":
+                corr_seq.append(seq)
+            else:
+                enc_seq.append(seq)
+
+        matched, unresolved = match_corrections_to_resolutions(corr_seq, enc_seq)
+        resolved_count = sum(1 for m in matched if m.encouragement_index is not None)
+
         health = measure_session_health(
-            corrections=len(analysis.corrections),
+            corrections=len(unresolved),
             encouragements=len(analysis.encouragements),
             context_overflows=len(analysis.context_overflows),
             tool_calls=analysis.tool_calls_total,
             user_messages=analysis.user_messages,
             briefing_loaded=was_briefing_loaded(),
+            resolved_corrections=resolved_count,
         )
         try:
             from divineos.core.hud_state import update_session_health
@@ -550,24 +659,43 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         from divineos.core.knowledge_maintenance import increment_corroboration, promote_maturity
 
         corroborated = 0
+        corroborated_ids: list[str] = []
         conn = _get_conn()
         current_rows = conn.execute(
             "SELECT knowledge_id, access_count FROM knowledge "
-            "WHERE superseded_by IS NULL AND confidence >= 0.3"
+            "WHERE superseded_by IS NULL AND confidence >= ?",
+            (CONFIDENCE_ACTIVE_MEMORY_FLOOR,),
         ).fetchall()
         conn.close()
         for kid, current_access in current_rows:
             start_access = access_snapshot.get(kid, 0)
             delta = current_access - start_access
-            if delta >= 2:
-                increment_corroboration(kid)
+            if delta >= 1:
+                increment_corroboration(kid, source_context="session:end_sweep")
                 promote_maturity(kid)
                 corroborated += 1
+                corroborated_ids.append(kid)
         if corroborated:
             click.secho(
-                f"[~] Corroborated {corroborated} knowledge entries (accessed 2+ times).",
+                f"[~] Corroborated {corroborated} knowledge entries (accessed this session).",
                 fg="cyan",
             )
+            # Log to ledger — corroboration must be auditable
+            try:
+                from divineos.core.ledger import log_event
+
+                log_event(
+                    "KNOWLEDGE_CORROBORATED",
+                    "session:end",
+                    {
+                        "count": corroborated,
+                        "knowledge_ids": corroborated_ids[:20],  # cap payload size
+                        "source": "session:end_sweep",
+                    },
+                    validate=False,
+                )
+            except (ImportError, sqlite3.OperationalError, OSError):
+                pass  # Ledger logging is best-effort
     except _PHASE_ERRORS as e:
         logger.warning(f"Session-end corroboration sweep failed: {e}")
 

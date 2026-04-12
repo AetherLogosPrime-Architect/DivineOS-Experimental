@@ -2,6 +2,14 @@
 
 import os
 
+from divineos.core.constants import (
+    MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
+    MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
+    MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE,
+    MATURITY_RAW_TO_HYPOTHESIS_CORROBORATION,
+    MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE,
+    MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+)
 from divineos.core.knowledge import (
     _get_connection,
     init_knowledge_table,
@@ -18,10 +26,14 @@ from divineos.core.ledger import init_db
 
 
 class TestCheckPromotion:
-    """Test promotion logic in isolation."""
+    """Test promotion logic in isolation — thresholds from constants.py."""
 
     def test_raw_to_hypothesis(self):
-        entry = {"maturity": "RAW", "corroboration_count": 1, "confidence": 0.5}
+        entry = {
+            "maturity": "RAW",
+            "corroboration_count": MATURITY_RAW_TO_HYPOTHESIS_CORROBORATION,
+            "confidence": MATURITY_RAW_TO_HYPOTHESIS_CONFIDENCE + 0.1,
+        }
         assert check_promotion(entry) == "HYPOTHESIS"
 
     def test_raw_needs_corroboration(self):
@@ -29,23 +41,44 @@ class TestCheckPromotion:
         assert check_promotion(entry) is None
 
     def test_hypothesis_to_tested(self):
-        entry = {"maturity": "HYPOTHESIS", "corroboration_count": 2, "confidence": 0.5}
+        entry = {
+            "maturity": "HYPOTHESIS",
+            "corroboration_count": MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
+            "confidence": MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE + 0.1,
+        }
         assert check_promotion(entry) == "TESTED"
 
-    def test_hypothesis_needs_two(self):
-        entry = {"maturity": "HYPOTHESIS", "corroboration_count": 1, "confidence": 0.9}
+    def test_hypothesis_below_threshold(self):
+        """HYPOTHESIS needs both corroboration AND confidence to promote."""
+        entry = {
+            "maturity": "HYPOTHESIS",
+            "corroboration_count": max(0, MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION - 1),
+            "confidence": 0.9,
+        }
         assert check_promotion(entry) is None
 
     def test_tested_to_confirmed(self):
-        entry = {"maturity": "TESTED", "corroboration_count": 5, "confidence": 0.9}
+        entry = {
+            "maturity": "TESTED",
+            "corroboration_count": MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+            "confidence": MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE + 0.1,
+        }
         assert check_promotion(entry) == "CONFIRMED"
 
     def test_tested_needs_high_confidence(self):
-        entry = {"maturity": "TESTED", "corroboration_count": 5, "confidence": 0.6}
+        entry = {
+            "maturity": "TESTED",
+            "corroboration_count": MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
+            "confidence": MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE - 0.15,
+        }
         assert check_promotion(entry) is None
 
-    def test_tested_needs_five_corroborations(self):
-        entry = {"maturity": "TESTED", "corroboration_count": 4, "confidence": 0.9}
+    def test_tested_needs_enough_corroborations(self):
+        entry = {
+            "maturity": "TESTED",
+            "corroboration_count": max(0, MATURITY_TESTED_TO_CONFIRMED_CORROBORATION - 1),
+            "confidence": 0.9,
+        }
         assert check_promotion(entry) is None
 
     def test_confirmed_no_further_promotion(self):
