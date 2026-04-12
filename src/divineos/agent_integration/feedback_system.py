@@ -155,6 +155,7 @@ def store_feedback_as_knowledge(
             content=content,
             confidence=0.9,
             tags=["session-feedback", session_tag],
+            source="SYNTHESIZED",
         )
         logger.debug(f"Stored feedback as knowledge: {entry_id[:8]}...")
         return entry_id
