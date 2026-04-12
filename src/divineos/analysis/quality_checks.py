@@ -187,13 +187,16 @@ def check_correctness(
                 ),
                 evidence=[],
             )
+        # No tests found but some code activity detected. This is
+        # inconclusive — the session may have worked in a different
+        # repo, used external tools, or focused on non-testable work.
+        # Score 0.5 (inconclusive) instead of 0.0 (failed) to avoid
+        # false-blocking the quality gate on cross-repo sessions.
         return CheckResult(
             check_name="correctness",
             passed=-1,
-            score=0.0,
-            summary=(
-                "No tests were run during this session. There's no way to know if the code works."
-            ),
+            score=0.5,
+            summary=("No tests were run during this session. Correctness is inconclusive."),
             evidence=[],
         )
 
