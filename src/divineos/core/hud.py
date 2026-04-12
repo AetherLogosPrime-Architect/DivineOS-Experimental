@@ -89,14 +89,15 @@ def _build_identity_slot() -> str:
     lines = ["# I Am\n"]
 
     label_map = {
+        "my_identity": ("Who I am", None),
         "user_identity": ("My user", None),
         "project_purpose": ("My purpose", None),
-        "communication_style": ("How I communicate", None),
+        "communication_style": ("My voice", None),
         "current_priorities": ("What matters now", None),
         "active_constraints": ("My hard boundaries", None),
         "known_strengths": ("What I do well", None),
         "known_weaknesses": ("What I watch for", None),
-        "relationship_context": ("My relationship with the user", None),
+        "relationship_context": ("How we work together", None),
     }
 
     for slot_id, (label, _) in label_map.items():
