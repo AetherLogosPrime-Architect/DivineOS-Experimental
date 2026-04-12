@@ -191,8 +191,8 @@ _LESSON_CATEGORIES = (
     (
         "blind_coding",
         re.compile(
-            r"\bblind|without reading|without checking|without looking|study.+first|"
-            r"understand.+before|research.+first|don.t just|not blindly",
+            r"\bblind(?:ly)?\b|without\s+reading|without\s+checking|without\s+looking|"
+            r"study.+first|understand.+before|research.+first|don.t\s+just|not\s+blindly\b",
             re.IGNORECASE,
         ),
     ),
