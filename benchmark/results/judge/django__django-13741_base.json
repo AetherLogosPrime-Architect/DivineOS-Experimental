@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly targets the ReadOnlyPasswordHashField class but sets disabled as a class attribute rather than using kwargs.setdefault() in __init__, which won't work properly with Django's field initialization.",
+  "key_difference": "The candidate sets disabled as a class attribute while the gold patch uses kwargs.setdefault('disabled', True) in __init__. The class attribute approach won't integrate properly with Django's field system which expects disabled to be handled through the kwargs mechanism during field initialization.",
+  "instance_id": "django__django-13741",
+  "condition": "base",
+  "judge_tokens": 1392,
+  "judge_cost": 0.006216
+}

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14771",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/utils/autoreload.py\n+++ b/django/utils/autoreload.py\n@@ -267,6 +267,11 @@ def get_child_arguments():\n     args = [sys.executable] + ['-W%s' % o for o in sys.warnoptions]\n     if sys.flags.debug:\n         args.append('-d')\n+    # Add -X options\n+    if hasattr(sys, '_xoptions'):\n+        for key, value in sys._xoptions.items():\n+            if value is True:\n+                args.append('-X%s' % key)\n+            else:\n+                args.append('-X%s=%s' % (key, value))\n     if sys.flags.optimize:\n         args.append('-O')",
+  "thinking": null,
+  "input_tokens": 565,
+  "output_tokens": 196,
+  "elapsed_seconds": 4.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004635
+}

@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch only addresses two of the six window correction issues identified in the gold patch. It fixes the power spectral density and magnitude corrections but misses the critical fixes needed in the main result calculations for magnitude and complex modes, as well as the main windowing loss compensation.",
+  "key_difference": "The candidate patch only fixes 2 out of 6 window correction locations (lines 430 and 432), while the gold patch comprehensively fixes all 6 locations including the main result calculations at lines 398, 402, 427, and 429.",
+  "instance_id": "matplotlib__matplotlib-25122",
+  "label": "v2_new",
+  "judge_cost": 0.0063750000000000005
+}

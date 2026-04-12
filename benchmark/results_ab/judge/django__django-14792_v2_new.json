@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch incorrectly targets the database operations instead of the root cause in timezone.py. It tries to handle the symptom by adding special cases for Etc/GMT timezones in the sign flipping logic, but the real issue is that _get_timezone_name() should return the offset representation rather than the full timezone name.",
+  "key_difference": "The gold patch fixes _get_timezone_name() to return timezone.tzname(None) for proper offset representation, while the candidate adds special case handling in database operations to avoid sign flipping for Etc/GMT timezones.",
+  "instance_id": "django__django-14792",
+  "label": "v2_new",
+  "judge_cost": 0.006314999999999999
+}

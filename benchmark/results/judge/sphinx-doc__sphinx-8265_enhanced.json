@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the wrong function (_format_default_value) instead of fixing the AST visitor that handles tuple representation in docstring generation. It targets tuple formatting but the issue is in how AST nodes are converted to strings.",
+  "key_difference": "The candidate patch modifies _format_default_value in python.py while the gold patch fixes visit_Tuple and visit_Subscript methods in ast.py. The gold patch correctly identifies that the issue is in AST-to-string conversion, specifically that tuples need parentheses and subscript handling needs improvement for tuple slices.",
+  "instance_id": "sphinx-doc__sphinx-8265",
+  "condition": "enhanced",
+  "judge_tokens": 1896,
+  "judge_cost": 0.008004
+}

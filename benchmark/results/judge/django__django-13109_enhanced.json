@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly changes ForeignKey validation to use _base_manager instead of _default_manager, which will allow validation of objects that might be filtered out by custom default managers.",
+  "key_difference": "The candidate patch appears to be from a slightly different version of the code where the filtering logic is structured differently (using pk=value.pk instead of field_name: value), but the core fix of changing _default_manager to _base_manager is identical and equally valid.",
+  "instance_id": "django__django-13109",
+  "condition": "enhanced",
+  "judge_tokens": 1468,
+  "judge_cost": 0.006396000000000001
+}

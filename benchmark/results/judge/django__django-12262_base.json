@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch changes token.contents to bit in a filter compilation line, which is unrelated to the keyword argument handling bug described in the problem statement.",
+  "key_difference": "The candidate patch modifies a completely different part of the code (filter compilation) while the gold patch correctly fixes the keyword argument validation logic by checking against kwonly parameters instead of unhandled_kwargs.",
+  "instance_id": "django__django-12262",
+  "condition": "base",
+  "judge_tokens": 1133,
+  "judge_cost": 0.005127
+}

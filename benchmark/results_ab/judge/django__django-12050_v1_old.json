@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The candidate patch correctly identifies the issue (coercing lists to tuples) and provides a valid fix by preserving the input iterable type using type(value). However, the diff has a syntax error - it's missing the closing parenthesis for the list comprehension on line 1092.",
+  "key_difference": "The candidate has a syntax error with unmatched parentheses in the list comprehension, while the gold patch uses a generator expression within type(value)() which is more concise and syntactically correct.",
+  "instance_id": "django__django-12050",
+  "label": "v1_old",
+  "judge_cost": 0.005319
+}

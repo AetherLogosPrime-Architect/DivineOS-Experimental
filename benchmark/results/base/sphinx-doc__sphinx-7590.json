@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-7590",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sphinx/domains/cpp.py\n+++ b/sphinx/domains/cpp.py\n@@ -1063,6 +1063,7 @@ class DefinitionParser(BaseParser):\n         self._add_template_names(names)\n         res = self._parse_literal()\n         if res is not None:\n+            res = self._parse_user_defined_literal_suffix(res)\n             return res\n         res = self._parse_fold_or_paren_expression()\n         if res is not None:\n@@ -1191,6 +1192,18 @@ class DefinitionParser(BaseParser):\n         else:\n             return res\n \n+    def _parse_user_defined_literal_suffix(self, literal):\n+        # Parse user-defined literal suffix (e.g., 123_km, 3.14_pi, \"hello\"_s)\n+        pos = self.pos\n+        if not self.skip_string('_'):\n+            return literal\n+        # Parse the suffix identifier\n+        id_res = self._parse_unqualified_id()\n+        if id_res is None:\n+            self.pos = pos\n+            return literal\n+        return literal + '_' + str(id_res)\n+\n     def _parse_fold_or_paren_expression(self) -> ASTExpression:\n         # [dcl.fct]/9, grammar/fold-or-paren-cast-expression\n         # -> ( cast-expression )",
+  "thinking": null,
+  "input_tokens": 374,
+  "output_tokens": 364,
+  "elapsed_seconds": 7.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006581999999999999
+}

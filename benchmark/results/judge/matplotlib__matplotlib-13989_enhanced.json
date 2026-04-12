@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the bug by preserving the range parameter when density=True instead of setting it to None, which was causing the histogram bins to ignore the specified range.",
+  "key_difference": "This patch takes a different approach than the gold patch - it directly fixes the range handling logic by setting hist_kwargs['range'] = range instead of hist_kwargs['range'] = None, while the gold patch fixes a dictionary initialization issue. Both are valid solutions addressing different parts of the same underlying problem.",
+  "instance_id": "matplotlib__matplotlib-13989",
+  "condition": "enhanced",
+  "judge_tokens": 1373,
+  "judge_cost": 0.006147
+}

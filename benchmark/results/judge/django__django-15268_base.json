@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch adds reduce methods to AlterUniqueTogether and AlterIndexTogether that only handle consecutive operations of the same type, but doesn't address the core issue of optimizing sequences where clearing operations are followed by setting operations.",
+  "key_difference": "The candidate patch only handles merging consecutive operations of the same exact type, while the gold patch uses can_reduce_through to allow different AlterTogetherOptionOperation types to reduce through each other, enabling the optimization of clear-then-set patterns described in the problem statement.",
+  "instance_id": "django__django-15268",
+  "condition": "base",
+  "judge_tokens": 1727,
+  "judge_cost": 0.007317000000000001
+}

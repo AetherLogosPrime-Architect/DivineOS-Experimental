@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the bug by checking the original callable storage against default_storage instead of the evaluated storage, ensuring callable storage is preserved in field deconstruction.",
+  "key_difference": "The candidate patch is nearly identical to the gold patch but has a minor difference in the upload_to handling - it removes an existing line for upload_to assignment and modifies the condition, while the gold patch keeps the upload_to line unchanged. Both approaches fix the core storage issue correctly.",
+  "instance_id": "django__django-16493",
+  "condition": "base",
+  "judge_tokens": 1226,
+  "judge_cost": 0.005646
+}

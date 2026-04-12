@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds a hasattr check to prevent overriding existing get_FOO_display methods defined on the model class, which fixes the bug where user-defined methods were being replaced.",
+  "key_difference": "The candidate patch is functionally identical to the gold patch but uses a more compact single-line format instead of the multi-line formatting. Both approaches correctly implement the same hasattr check to preserve user-defined methods.",
+  "instance_id": "django__django-11999",
+  "condition": "enhanced",
+  "judge_tokens": 1228,
+  "judge_cost": 0.005556
+}

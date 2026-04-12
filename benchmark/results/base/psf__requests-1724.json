@@ -1,0 +1,12 @@
+{
+  "instance_id": "psf__requests-1724",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, the issue is that when a unicode method name like `u'POST'` is passed, the `.upper()` method preserves the unicode type, which then causes encoding issues when the request is processed by urllib3/httplib. The method needs to be converted to a byte string in Python 2.\n\nLet me examine the repository structure and find where the method is being processed. Based on the traceback and the hint about `sessions.py:313`, I need to find where `req.method = method.upper()` is being set and ensure the method is properly encoded as a byte string.\n\n--- a/requests/sessions.py\n+++ b/requests/sessions.py\n@@ -310,7 +310,10 @@ class Session(SessionRedirectMixin):\n         p.prepare_method(method)\n         p.prepare_url(url, params)\n         p.prepare_headers(headers)\n-        p.prepare_cookies(cookies)\n+        p.prepare_cookies(cookies)\n         p.prepare_body(data, files)\n         p.prepare_auth(auth)\n \n--- a/requests/models.py\n+++ b/requests/models.py\n@@ -281,7 +281,10 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):\n \n     def prepare_method(self, method):\n         \"\"\"Prepares the given HTTP method.\"\"\"\n-        self.method = method.upper()\n+        if method is not None:\n+            method = method.upper()\n+            if isinstance(method, unicode):\n+                method = method.encode('ascii')\n+        self.method = method\n         if self.method in ('POST', 'PUT', 'PATCH'):\n             if self.body in (None, ''):\n                 self.body = ''",
+  "thinking": null,
+  "input_tokens": 2697,
+  "output_tokens": 427,
+  "elapsed_seconds": 8.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.014495999999999998
+}

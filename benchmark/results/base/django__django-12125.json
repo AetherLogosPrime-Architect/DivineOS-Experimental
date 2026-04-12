@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12125",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem statement and hints, I need to fix the `TypeSerializer` in the migrations serializer to use `__qualname__` instead of `__name__` to properly handle nested/inner classes.\n\nThe issue is in `django/db/migrations/serializer.py` where the `TypeSerializer` uses `__name__` which only gives the simple name, not the fully qualified name needed for inner classes.\n\nLet me examine the current code and create a patch:\n\n```diff\n--- a/django/db/migrations/serializer.py\n+++ b/django/db/migrations/serializer.py\n@@ -263,7 +263,7 @@ class TypeSerializer(BaseSerializer):\n         if klass.__module__ == builtins.__name__:\n             return klass.__name__, set()\n         else:\n-            return \"%s.%s\" % (klass.__module__, klass.__name__), {\"import %s\" % klass.__module__}\n+            return \"%s.%s\" % (klass.__module__, klass.__qualname__), {\"import %s\" % klass.__module__}\n \n \n class UUIDSerializer(BaseSerializer):\n```",
+  "thinking": null,
+  "input_tokens": 1408,
+  "output_tokens": 278,
+  "elapsed_seconds": 4.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008394
+}

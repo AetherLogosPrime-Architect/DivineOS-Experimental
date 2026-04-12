@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16082",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/expressions.py\n+++ b/django/db/models/expressions.py\n@@ -489,7 +489,7 @@ class CombinedExpression(SQLiteNumericMixin, Expression):\n             # __imod__ doesn't exist on Decimal\n             if connector == self.MOD:\n                 return DecimalField()\n-        elif isinstance(field, IntegerField) and isinstance(rhs_field, IntegerField):\n+        elif isinstance(field, IntegerField) and isinstance(rhs_field, IntegerField) and connector != self.MOD:\n             output_field = IntegerField()\n         elif isinstance(field, FloatField) and isinstance(rhs_field, (IntegerField, FloatField)):\n             output_field = FloatField()",
+  "thinking": null,
+  "input_tokens": 552,
+  "output_tokens": 196,
+  "elapsed_seconds": 4.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004595999999999999
+}

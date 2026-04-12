@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to create a custom StateMachine class to emit source-read events for included content, but the implementation is incomplete and incorrect - it doesn't properly handle the docname parameter and the diff is truncated.",
+  "key_difference": "While the gold patch modifies the Include directive to monkey-patch the StateMachine.insert_input method with proper docname handling, this candidate tries to subclass StateMachine but doesn't properly integrate it into the parsing flow and has an incomplete implementation that would not work.",
+  "instance_id": "sphinx-doc__sphinx-11510",
+  "condition": "base",
+  "judge_tokens": 2778,
+  "judge_cost": 0.010422
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the issue with the language code regex pattern and attempts to fix it by making the pattern more flexible to handle BCP 47 language tags with script and region components.",
+  "key_difference": "The candidate patch uses a different regex pattern approach than the gold patch - it uses a more explicit BCP 47 compliant pattern instead of the simpler quantifier-based fix in gold. However, the diff format is malformed with incomplete/duplicate sections, making it invalid.",
+  "instance_id": "django__django-15098",
+  "condition": "base",
+  "judge_tokens": 2430,
+  "judge_cost": 0.009306
+}

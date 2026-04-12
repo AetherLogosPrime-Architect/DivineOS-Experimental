@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14539",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/astropy/io/fits/diff.py\n+++ b/astropy/io/fits/diff.py\n@@ -1449,7 +1449,7 @@ class TableDataDiff(_BaseDiff):\n                 arrb.dtype, np.floating\n             ):\n                 diffs = where_not_allclose(arra, arrb, rtol=self.rtol, atol=self.atol)\n-            elif \"P\" in col.format:\n+            elif \"P\" in col.format or \"Q\" in col.format:\n                 diffs = (\n                     [\n                         idx",
+  "thinking": null,
+  "input_tokens": 919,
+  "output_tokens": 154,
+  "elapsed_seconds": 2.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.005067
+}

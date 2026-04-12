@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly replaces builtin_str with to_native_string to handle binary strings properly, but includes unnecessary whitespace changes.",
+  "key_difference": "The candidate patch makes the same core fix as the gold patch (replacing builtin_str with to_native_string) but adds unnecessary trailing whitespace changes and modifies the import structure differently. The gold patch also removes the builtin_str import, making it cleaner.",
+  "instance_id": "psf__requests-2317",
+  "condition": "base",
+  "judge_tokens": 1409,
+  "judge_cost": 0.006111
+}

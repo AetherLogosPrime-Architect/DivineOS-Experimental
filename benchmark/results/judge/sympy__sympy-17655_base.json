@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch adds the missing __rmul__ method to enable right multiplication (factor * point) by delegating to the existing __mul__ method, which fixes the TypeError when using reversed multiplication syntax.",
+  "key_difference": "The candidate patch uses 'other' as the parameter name instead of 'factor' and omits the docstring, but functionally it's identical to the gold patch and will work correctly.",
+  "instance_id": "sympy__sympy-17655",
+  "condition": "base",
+  "judge_tokens": 1410,
+  "judge_cost": 0.006054
+}

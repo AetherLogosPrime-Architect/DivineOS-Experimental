@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly fixes the missing space issue by adding a space after 'DISTINCT' and also refactors variable names from condition_sql/condition_params to sql/params.",
+  "key_difference": "The candidate patch fixes the same bug but in a different location (line 86+ in the else block) and includes unnecessary variable renaming, while the gold patch fixes it at the template level (line 68) with just the space addition.",
+  "instance_id": "django__django-10880",
+  "condition": "enhanced",
+  "judge_tokens": 1023,
+  "judge_cost": 0.004989
+}

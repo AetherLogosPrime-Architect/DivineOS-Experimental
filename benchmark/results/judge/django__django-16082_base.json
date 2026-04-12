@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the output field resolution logic for MOD operations but doesn't handle the specific case where Decimal and Integer types are combined, which is what the problem statement describes.",
+  "key_difference": "The gold patch adds MOD to the list of operators that should use proper type resolution, while the candidate patch only handles MOD when both operands are DecimalField but doesn't address mixed Decimal/Integer combinations that should resolve to Decimal.",
+  "instance_id": "django__django-16082",
+  "condition": "base",
+  "judge_tokens": 955,
+  "judge_cost": 0.004784999999999999
+}

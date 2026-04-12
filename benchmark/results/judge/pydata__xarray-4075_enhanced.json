@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch fixes the boolean weight issue by multiplying weights by 1, which converts boolean arrays to integers before the dot product calculation, ensuring correct normalization.",
+  "key_difference": "The candidate uses `self.weights * 1` to convert boolean to numeric, while the gold patch uses `self.weights.astype(int)` with explicit dtype checking. Both approaches are valid and achieve the same result, though the gold patch is more explicit about the conversion.",
+  "instance_id": "pydata__xarray-4075",
+  "condition": "enhanced",
+  "judge_tokens": 1824,
+  "judge_cost": 0.007428
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that combined querysets need special handling for none(), but the fix using pk__in=[] is incorrect because it still requires database evaluation and doesn't properly make child queries empty.",
+  "key_difference": "The candidate patch takes a simpler approach by returning a new empty queryset when a combinator is present, while the gold patch properly handles combined queries by making all child queries empty through set_empty() propagation and ensures proper cloning of combined queries.",
+  "instance_id": "django__django-13158",
+  "condition": "enhanced",
+  "judge_tokens": 1352,
+  "judge_cost": 0.006024
+}

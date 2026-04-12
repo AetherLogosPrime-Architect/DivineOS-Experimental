@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch appears to be malformed with incorrect indentation and line structure, and doesn't properly address the core issue of allowing non-disjoint cycles.",
+  "key_difference": "This patch has significant formatting issues and doesn't cleanly remove the ValueError for repeated elements in cycles like the gold patch does. The gold patch simply modifies the condition to only raise the error for non-cycle cases, while this patch appears to have structural problems.",
+  "instance_id": "sympy__sympy-12481",
+  "condition": "base",
+  "judge_tokens": 1284,
+  "judge_cost": 0.005736
+}

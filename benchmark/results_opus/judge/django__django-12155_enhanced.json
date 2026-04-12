@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies and fixes the root cause by skipping the first line when calculating indentation, which prevents the error when docstrings start text on the first line. The fix includes a sensible default value for empty sequences.",
+  "key_difference": "The candidate patch modifies the existing trim_docstring function by adding lines[1:] and default=0, while the gold patch replaces the entire trim_docstring implementation with Python's built-in cleandoc function and updates all its usage sites.",
+  "instance_id": "django__django-12155",
+  "condition": "enhanced",
+  "judge_cost": 0.007062
+}

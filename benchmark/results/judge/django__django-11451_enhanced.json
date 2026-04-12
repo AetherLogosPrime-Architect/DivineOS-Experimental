@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds an early return when username or password is None, preventing unnecessary database queries and expensive password hashing operations.",
+  "key_difference": "The patch is functionally identical to the gold patch but shows different line numbers in the diff context (35 vs 39), which is just a formatting difference and doesn't affect the actual fix.",
+  "instance_id": "django__django-11451",
+  "condition": "enhanced",
+  "judge_tokens": 1395,
+  "judge_cost": 0.005829
+}

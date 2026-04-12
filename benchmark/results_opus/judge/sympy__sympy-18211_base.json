@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies the root cause and implements the same solution as the gold patch. It wraps the solve_univariate_inequality call in a try-except block to catch NotImplementedError and returns a ConditionSet instead.",
+  "key_difference": "The only difference is the order of import statements - the candidate imports ConditionSet before solve_univariate_inequality, while the gold patch imports them in the opposite order.",
+  "instance_id": "sympy__sympy-18211",
+  "condition": "base",
+  "judge_cost": 0.0055049999999999995
+}

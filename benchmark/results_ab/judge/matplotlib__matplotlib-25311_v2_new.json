@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch targets the Legend class but the root cause is in the DraggableBase class which stores a reference to the canvas as an instance attribute, making it unpicklable. The gold patch correctly fixes this by making canvas a property instead of storing it as an attribute.",
+  "key_difference": "The candidate patch adds pickle methods to Legend class to remove the _draggable attribute, while the gold patch fixes the actual root cause by making the canvas a property in the DraggableBase class.",
+  "instance_id": "matplotlib__matplotlib-25311",
+  "label": "v2_new",
+  "judge_cost": 0.005553000000000001
+}

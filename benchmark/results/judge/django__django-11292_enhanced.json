@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to add --skip-checks option but does so incorrectly by adding it twice and appears to be incomplete/malformed.",
+  "key_difference": "Unlike the gold patch which properly adds the option once with conditional logic and updates related code structures, this patch duplicates the argument definition and is incomplete, making it syntactically invalid.",
+  "instance_id": "django__django-11292",
+  "condition": "enhanced",
+  "judge_tokens": 1283,
+  "judge_cost": 0.0055049999999999995
+}

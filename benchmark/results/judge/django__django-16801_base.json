@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the performance issue and fixes it by only connecting the post_init signal when width_field or height_field are actually configured, avoiding unnecessary signal processing.",
+  "key_difference": "The candidate patch takes a simpler approach by only modifying the signal connection logic, while the gold patch also removes the redundant dimension field check from the signal handler itself. Both approaches are valid and achieve the same performance benefit.",
+  "instance_id": "django__django-16801",
+  "condition": "base",
+  "judge_tokens": 1325,
+  "judge_cost": 0.005811
+}
