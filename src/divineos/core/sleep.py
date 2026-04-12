@@ -151,6 +151,12 @@ class DreamReport:
                     f"    Cleaned {transcripts['removed_count']} transcript debris "
                     f"({transcripts.get('freed_mb', 0):.1f}MB freed)"
                 )
+            pytest_tmp = self.maintenance_results.get("pytest_tmp", {})
+            if pytest_tmp.get("removed", 0) > 0:
+                lines.append(
+                    f"    Cleaned {pytest_tmp['removed']} pytest run dirs "
+                    f"({pytest_tmp.get('freed_mb', 0):.1f}MB freed)"
+                )
         else:
             lines.append("    Skipped")
 
