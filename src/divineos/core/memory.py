@@ -20,6 +20,7 @@ from divineos.core.ledger import compute_hash, get_connection
 # ─── Core Memory Slots ───────────────────────────────────────────────
 
 CORE_SLOTS = (
+    "my_identity",
     "user_identity",
     "project_purpose",
     "communication_style",
@@ -173,14 +174,15 @@ def format_core() -> str:
         return ""
 
     slot_labels = {
-        "user_identity": "User",
-        "project_purpose": "Project",
-        "communication_style": "Communication",
-        "current_priorities": "Priorities",
-        "active_constraints": "Constraints",
-        "known_strengths": "Strengths",
-        "known_weaknesses": "Watch out for",
-        "relationship_context": "Relationship",
+        "my_identity": "I Am",
+        "user_identity": "My User",
+        "project_purpose": "My Purpose",
+        "communication_style": "My Voice",
+        "current_priorities": "Current Focus",
+        "active_constraints": "Hard Rules",
+        "known_strengths": "What I Do Well",
+        "known_weaknesses": "What I Watch For",
+        "relationship_context": "How We Work Together",
     }
 
     lines = ["## Core Memory\n"]
