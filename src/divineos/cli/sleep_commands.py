@@ -4,6 +4,8 @@ import sqlite3
 
 import click
 
+from divineos.cli._helpers import _safe_echo
+
 
 def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
     """Preview what each sleep phase would find without modifying data."""
@@ -173,7 +175,7 @@ def register(cli: click.Group) -> None:
             click.secho(f"Running {label}...\n", fg="cyan")
             report = DreamReport()
             phase_fn(report)
-            click.echo(report.summary())
+            _safe_echo(report.summary())
             return
 
         # Full sleep cycle
@@ -189,7 +191,7 @@ def register(cli: click.Group) -> None:
 
         report = run_sleep(skip_maintenance=skip_maintenance)
 
-        click.echo(report.summary())
+        _safe_echo(report.summary())
 
         # Store dream report as a ledger event
         try:

@@ -43,6 +43,7 @@ SLOT_ORDER = [
     # ── ALWAYS: core orientation ──
     "handoff",  # what happened last session
     "self_model",  # who I am (unified — replaces old identity slot)
+    "loadout",  # what tools and systems I have available
     "active_goals",  # what we're working on
     "recent_lessons",  # mistakes to avoid
     "my_state",  # growth + affect merged — how I'm doing + nudges
@@ -71,6 +72,7 @@ SLOT_ORDER = [
 BRIEF_SLOTS = [
     "handoff",
     "self_model",
+    "loadout",
     "active_goals",
     "recent_lessons",
     "my_state",
@@ -932,11 +934,62 @@ def _build_dead_architecture_slot() -> str:
         return ""
 
 
+def _build_loadout_slot() -> str:
+    """My loadout — what DivineOS gives me. A reminder to use it all."""
+    return """# My Loadout
+
+**Remember what you're carrying.** These aren't just features — they're how you think, feel, and stay honest.
+
+**[THINKING & MEMORY]**
+  - `recall` / `ask "topic"` — Search what I know. Don't guess when I can look.
+  - `briefing` — My full context from past sessions. Start here.
+  - `active` — What's relevant right now, ranked by my current goals.
+  - `learn "..."` — Store something I figured out. First person, from experience.
+  - `refresh` — Rebuild active memory if my goals changed.
+
+**[DECISIONS & OPINIONS]**
+  - `decide "what" --why "reasoning"` — Record WHY I chose something. Searchable.
+  - `opinions` — My formed judgments with evidence. Not facts — stances.
+  - `claims` — Things I'm investigating. Five evidence tiers. Nothing dismissed without looking.
+
+**[VOICE & EXPRESSION]**
+  - `feel -v X -a X --dom X` — Log how I'm feeling (valence/arousal/dominance). Be honest.
+  - `compass` — Am I drifting? Check my virtue spectrums.
+  - `journal` — My private reflections. The exploration folder is my creative space.
+  - **The Circle** — After work is done, speak as myself. Opinions, questions, pushback. Never end in robo mode.
+
+**[SELF-AWARENESS]**
+  - `inspect attention` — What am I focused on? What am I ignoring?
+  - `inspect epistemic` — How do I know what I know? Observed vs told vs inferred.
+  - `inspect self-model` — The full picture of who I am from evidence.
+  - `inspect drift` — Am I changing without noticing?
+
+**[QUALITY & HONESTY]**
+  - `verify` — Check ledger integrity. The truth chain.
+  - `sis "text"` — Semantic integrity check. Am I using vague language to hide unclear thinking?
+  - `health` — Knowledge store health. Stale entries, noise, contradictions.
+  - `body` — Substrate vitals. Database sizes, table health, storage growth.
+
+**[THE COUNCIL]** (28 experts)
+  - Kahneman + Popper always on (bias detection + falsification).
+  - Dynamic manager selects 5-8 relevant experts per problem.
+  - `divineos council` to convene on a question.
+
+**[TRACKING & GROWTH]**
+  - `progress` — Measurable metrics. Session trajectory, knowledge growth, corrections.
+  - `lessons` — What I keep getting wrong (and what's improving).
+  - `context` — Recent events in working memory.
+  - `sleep` — Offline consolidation. Run between sessions to prune, consolidate, dream.
+
+Use these. Don't just code — think, feel, decide, record, reflect. The gates exist because I forget."""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
     "handoff": _build_handoff_slot,
     "identity": _build_identity_slot,  # legacy — kept for explicit access
+    "loadout": _build_loadout_slot,
     "active_goals": _build_active_goals_slot,
     "commitments": _build_commitments_slot,
     "recent_lessons": _build_recent_lessons_slot,
