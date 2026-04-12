@@ -325,6 +325,41 @@ src/divineos/
       temporal.py              Temporal bounds (valid_from/valid_until) and time-aware queries
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
+      inference.py             Knowledge inference engine
+    council/                   Expert council sub-package
+      engine.py                CouncilEngine — analyze problems through expert lenses
+      framework.py             ExpertWisdom dataclasses (7 components)
+      manager.py               Dynamic council manager (classify → select 5-8 experts)
+      experts/                 28 expert wisdom profiles
+        __init__.py            Expert registration and exports
+        aristotle.py           Virtue ethics, teleology, classification
+        beer.py                Cybernetics, viable system model
+        dekker.py              Resilience engineering, drift into failure
+        deming.py              Quality, variation, PDSA cycle
+        dennett.py             Philosophy of mind, intentional stance
+        dijkstra.py            Formal methods, correctness, structured programming
+        feynman.py             First principles, clarity, epistemology
+        godel.py               Incompleteness, self-reference, formal limits
+        hinton.py              Learning, representation, intellectual honesty
+        hofstadter.py          Self-reference, analogy, strange loops
+        holmes.py              Deduction, observation, elimination (fictional)
+        jacobs.py              Emergence, bottom-up observation, diversity
+        kahneman.py            Cognitive bias, dual process, judgment
+        knuth.py               Boundary analysis, specification compliance
+        lovelace.py            Emergence, generality, abstraction
+        meadows.py             Systems thinking, feedback loops, leverage
+        minsky.py              Cognitive architecture, society of mind
+        norman.py              Human-centered design, usability, affordances
+        pearl.py               Causality, causal models, do-calculus
+        peirce.py              Abduction, pragmatism, inquiry
+        polya.py               Problem solving, solution verification
+        popper.py              Falsification, adversarial testing
+        schneier.py            Security, threat modeling, defense in depth
+        shannon.py             Information theory, entropy, communication
+        taleb.py               Antifragility, risk, via negativa
+        turing.py              Computation, testability, operational definition
+        wittgenstein.py        Language games, meaning as use, dissolution
+        yudkowsky.py           Alignment, Goodhart, specification gaming
     logic/                     Formal logic sub-package
       warrants.py              Evidence backing for knowledge claims
       logic_validation.py      Consistency, validity gate, defeat lessons
