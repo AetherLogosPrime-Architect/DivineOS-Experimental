@@ -40,6 +40,7 @@ _BYPASS_COMMANDS = frozenset(
         "sleep",
         "progress",
         "validate",
+        "rt",
     }
 )
 
@@ -113,6 +114,7 @@ from divineos.cli import (  # noqa: E402
     memory_commands,
     progress_commands,
     selfmodel_commands,
+    rt_commands,
     sleep_commands,
 )
 
@@ -134,6 +136,7 @@ selfmodel_commands.register(cli)
 insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
+rt_commands.register(cli)
 
 
 # ── Command Grouping ──────────────────────────────────────────────

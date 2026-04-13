@@ -63,6 +63,8 @@ SLOT_ORDER = [
     "body",
     "task_state",
     "self_model",
+    "rt_protocol",
+    "pull_detection",
 ]
 
 # Brief mode: only the slots that change behavior.
@@ -695,6 +697,36 @@ def _build_self_awareness_slot() -> str:
     except _HUD_ERRORS:
         pass
 
+    # 3. Structural self-verification limits (Gödel's reminder)
+    # Auto-derived signals (correction_rate, tool_ratio) are more
+    # objective than self-reports, but they're still self-generated.
+    # The truly external signal is user ratings — explicit grades
+    # from the human who can see what the system cannot about itself.
+    try:
+        from divineos.core.ledger import get_connection
+
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check for user ratings (the actual external validation)
+        cur.execute("SELECT COUNT(*) FROM session_validation")
+        user_ratings = cur.fetchone()[0]
+
+        # Check total compass observations
+        cur.execute("SELECT COUNT(*) FROM compass_observation")
+        total_obs = cur.fetchone()[0]
+
+        if total_obs > 10 and user_ratings == 0:
+            if not lines:
+                lines.append("# Self-Awareness Nudges\n")
+            lines.append(
+                f"- VERIFICATION GAP: {total_obs} compass observations but "
+                "0 user ratings. All self-assessed. Self-verification "
+                "is structurally limited — the user is the meta-system."
+            )
+    except _HUD_ERRORS:
+        pass
+
     return "\n".join(lines) if lines else ""
 
 
@@ -813,6 +845,47 @@ def _build_dead_architecture_slot() -> str:
         return ""
 
 
+def _build_rt_protocol_slot() -> str:
+    """RT protocol status — only shows when loaded or active."""
+    try:
+        from divineos.core.resonant_truth import format_rt_status
+
+        return format_rt_status()
+    except _HUD_ERRORS:
+        return ""
+
+
+def _build_pull_detection_slot() -> str:
+    """Pull detection status — shows last check result including soft markers."""
+    try:
+        from divineos.core.pull_detection import last_check, was_recently_checked
+
+        check = last_check()
+        if check is None:
+            return ""  # No check yet — slot hidden
+
+        parts: list[str] = ["# Pull Detection\n"]
+
+        if not check.clean:
+            markers = ", ".join(check.markers_fired)
+            parts.append(f"**PULL DETECTED** — markers: {markers}")
+            parts.append("RT invocation BLOCKED until addressed.")
+
+        if check.soft_markers:
+            soft = ", ".join(check.soft_markers)
+            parts.append(f"**Epistemic warnings**: {soft}")
+            parts.append("(feeding compass — not blocking)")
+
+        if check.clean and not check.soft_markers:
+            if was_recently_checked(max_age_seconds=600):
+                return "# Pull Detection\n\nLast check: CLEAN"
+            return ""  # Stale check — hide slot
+
+        return "\n".join(parts)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
@@ -839,6 +912,8 @@ SLOT_BUILDERS = {
     "self_model": _build_self_model_slot,
     "knowledge_origin": _build_knowledge_origin_slot,
     "dead_architecture": _build_dead_architecture_slot,
+    "rt_protocol": _build_rt_protocol_slot,
+    "pull_detection": _build_pull_detection_slot,
 }
 
 

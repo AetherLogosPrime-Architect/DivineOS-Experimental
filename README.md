@@ -97,14 +97,14 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 3,651+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 3,699+ tests, real DB, minimal mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
 
-## CLI Surface (143 commands)
+## CLI Surface (151 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -271,7 +271,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (143 commands across 24 modules)
+  cli/                         CLI package (151 commands across 24 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -296,6 +296,9 @@ src/divineos/
     event_commands.py          emit, verify-enforcement
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
+    rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
+  protocols/                   Persistent protocol definitions (survive compaction)
+    resonant_truth.md          Full 12-section RT mantra
   core/
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
@@ -387,6 +390,41 @@ src/divineos/
     proactive_patterns.py      Prescriptive recommendations from positive experience
     affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
+    resonant_truth.py          RT protocol load/invoke/verify/deactivate with gate
+    pull_detection.py          Toward/pull-back divergence detector (fabrication markers)
+    council/                   Expert thinking council sub-package
+      engine.py                Council engine — analyze problems through expert lenses
+      framework.py             ExpertWisdom dataclass (7 components per expert)
+      manager.py               Dynamic council manager — classify problems, select 5-8 of 28 experts
+      experts/                 28 expert wisdom profiles (methodologies, not personas)
+        aristotle.py           Virtue ethics, four causes, golden mean
+        beer.py                Viable System Model, requisite variety, POSIWID
+        dekker.py              Drift into failure, work-as-done vs work-as-imagined
+        deming.py              PDSA cycle, common vs special cause variation
+        dennett.py             Intentional stance, multiple drafts, heterophenomenology
+        dijkstra.py            Correctness by construction, structured programming
+        feynman.py             First principles decomposition, observation over authority
+        godel.py               Incompleteness analysis, consistency-completeness tradeoffs
+        hinton.py              Learned representations, distillation, generalization
+        hofstadter.py          Strange loops, analogy as cognition, self-reference
+        holmes.py              Elimination of impossible, abductive investigation
+        jacobs.py              Urban complexity, diversity as resilience
+        kahneman.py            Dual process audit, substitution detection
+        knuth.py               Boundary value analysis, precise specification
+        lovelace.py            Abstraction bridges, unanticipated applications
+        meadows.py             Feedback loop mapping, leverage points, system dynamics
+        minsky.py              Society of mind, frame-based reasoning
+        norman.py              Affordance analysis, human error as design failure
+        pearl.py               Causal inference, do-calculus, counterfactual reasoning
+        peirce.py              Abductive reasoning, pragmatic maxim, fallibilism
+        polya.py               Problem understanding, solution verification
+        popper.py              Falsification, conjectures and refutations
+        schneier.py            Attack tree analysis, security theater detection
+        shannon.py             Information content analysis, channel capacity
+        taleb.py               Via negativa, antifragility, skin in the game
+        turing.py              Distinguishability test, imitation as evidence
+        wittgenstein.py        Language games, meaning as use, showing vs saying
+        yudkowsky.py           Goodhart analysis, corrigibility check
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -460,7 +498,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,651+ tests (real DB, minimal mocks)
+tests/                         3,699+ tests (real DB, minimal mocks)
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
 setup/                         Hook setup scripts (bash + powershell)
@@ -496,7 +534,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,651+ tests (real SQLite, minimal mocks)
+- 3,699+ tests (real SQLite, minimal mocks)
 - 143 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
