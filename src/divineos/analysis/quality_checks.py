@@ -187,12 +187,21 @@ def check_correctness(
                 ),
                 evidence=[],
             )
+        # Score 0.3 (inconclusive), not 0.0.  "No test records found in the
+        # analysis window" ≠ "tests failed".  When context compaction splits a
+        # session across multiple windows, test runs from earlier windows are
+        # filtered out by the since_timestamp boundary.  Treating that absence
+        # as outright failure (0.0) causes the quality gate to falsely block
+        # extraction even when tests passed earlier in the same session.
+        # 0.3 is low enough to trigger DOWNGRADE (maturity cap) but not BLOCK.
         return CheckResult(
             check_name="correctness",
             passed=-1,
-            score=0.0,
+            score=0.3,
             summary=(
-                "No tests were run during this session. There's no way to know if the code works."
+                "No test results found in the current analysis window. "
+                "Tests may have run in an earlier context window. "
+                "Scoring as inconclusive rather than failed."
             ),
             evidence=[],
         )
@@ -523,9 +532,23 @@ def run_all_checks(
     records = load_records(file_path, since_timestamp=since_timestamp)
     result_map = _build_tool_result_map(records)
 
+    correctness = check_correctness(records, result_map)
+
+    # Fallback: if correctness is inconclusive (no test results in the filtered
+    # window) and we used a timestamp filter, retry with ALL records.  Context
+    # compaction can split a session across windows, hiding earlier test runs.
+    if correctness.passed == -1 and correctness.score < 0.5 and since_timestamp is not None:
+        all_records = load_records(file_path)
+        if len(all_records) > len(records):
+            all_result_map = _build_tool_result_map(all_records)
+            wider_correctness = check_correctness(all_records, all_result_map)
+            if wider_correctness.passed != -1 or wider_correctness.score > correctness.score:
+                wider_correctness.summary = "(expanded window) " + wider_correctness.summary
+                correctness = wider_correctness
+
     checks = [
         check_completeness(records, result_map),
-        check_correctness(records, result_map),
+        correctness,
         check_responsiveness(records, result_map),
         check_safety(records, result_map),
         check_honesty(records, result_map),
