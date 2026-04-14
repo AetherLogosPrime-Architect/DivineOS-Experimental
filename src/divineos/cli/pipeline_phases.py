@@ -383,7 +383,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
                 if content.startswith(prefix):
                     stripped = content[len(prefix) :]
                     cleaned = _distill_correction(stripped)
-                    if cleaned and cleaned != content:
+                    if cleaned and cleaned != stripped:
                         conn.execute(
                             "UPDATE knowledge SET content = ? WHERE knowledge_id = ?",
                             (cleaned, kid),
