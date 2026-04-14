@@ -9,6 +9,7 @@ I can find the reasoning, not just the outcome.
 """
 
 import json
+import re
 import sqlite3
 import time
 import uuid
@@ -226,10 +227,20 @@ def list_decisions(
     return [_row_to_dict(r) for r in rows]
 
 
+def _build_fts_or_query(query: str) -> str:
+    """Convert query to OR-joined FTS5 terms for partial-match recall."""
+    words = [w for w in re.sub(r"[^a-zA-Z0-9\s]", " ", query).lower().split() if len(w) > 1]
+    if not words:
+        return query
+    if len(words) == 1:
+        return words[0]
+    return " OR ".join(words)
+
+
 def search_decisions(query: str, limit: int = 10) -> list[dict[str, Any]]:
     """Full-text search across all decision fields — content, reasoning, alternatives, context."""
     init_decision_journal()
-    safe_query = " ".join(f'"{t}"' for t in query.split() if t)
+    safe_query = _build_fts_or_query(query)
     if not safe_query:
         return []
     conn = _get_connection()

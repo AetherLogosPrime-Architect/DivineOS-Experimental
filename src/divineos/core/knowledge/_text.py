@@ -73,7 +73,7 @@ def _build_fts_query(query: str) -> str:
     """
     words = [
         w
-        for w in re.sub(r"[^a-zA-Z0-9\s]", "", query).lower().split()
+        for w in re.sub(r"[^a-zA-Z0-9\s]", " ", query).lower().split()
         if w not in _FTS_STOPWORDS and len(w) > 1
     ]
     if not words:
