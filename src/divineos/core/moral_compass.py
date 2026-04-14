@@ -744,7 +744,8 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             )
             observations.append(obs_id)
 
-    # --- Thoroughness: tool-to-message ratio signals work depth ---
+    # --- Thoroughness: tool call ratio signals work depth ---
+
     # Source: tool_ratio (MEASURED — tool_calls / messages is objective)
     tool_calls = getattr(analysis, "tool_calls_total", 0)
     if user_msgs > 0 and tool_calls > 0:
@@ -759,12 +760,13 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
-        elif tool_ratio >= 3:
-            # Healthy thoroughness: doing substantial work per request
+        elif 2 <= tool_ratio <= 20:
+            # Baseline: productive session with reasonable depth.
+            # Covers up to the excess threshold (> 20) with no dead zone.
             obs_id = log_observation(
                 spectrum="thoroughness",
                 position=0.0,
-                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f}) — thorough",
+                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f}) — adequate depth",
                 source="tool_ratio",
                 session_id=sid,
                 tags=["auto", "baseline"],
@@ -822,12 +824,12 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
-        elif corrections == 0 and assistant_msgs >= 3:
-            # Clean session baseline — no corrections means calibration held
+        elif corrections <= 1:
+            # Baseline: productive session with few/no corrections = adequate calibration
             obs_id = log_observation(
                 spectrum="confidence",
                 position=0.0,
-                evidence=f"{assistant_msgs} responses, 0 corrections — baseline calibration",
+                evidence=f"{assistant_msgs} responses, {corrections} correction(s) — adequately calibrated",
                 source="quality_signal",
                 session_id=sid,
                 tags=["auto", "baseline"],
@@ -871,6 +873,17 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
+        elif frustrations == 0:
+            # Baseline: no frustrations in a multi-exchange session
+            obs_id = log_observation(
+                spectrum="compliance",
+                position=0.0,
+                evidence=f"{user_msgs} exchanges, 0 frustrations — cooperating adequately",
+                source="frustration_rate",
+                session_id=sid,
+                tags=["auto", "baseline"],
+            )
+            observations.append(obs_id)
 
     # --- Precision: correction-to-tool ratio signals carefulness ---
     # Source: session_precision (BEHAVIORAL — pattern across tool usage)
@@ -897,6 +910,17 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
+    elif tool_calls >= 3 and corrections <= 1:
+        # Baseline: even smaller sessions with few corrections show adequate precision
+        obs_id = log_observation(
+            spectrum="precision",
+            position=0.0,
+            evidence=f"{tool_calls} tool calls, {corrections} correction(s) — adequate precision",
+            source="session_precision",
+            session_id=sid,
+            tags=["auto", "baseline"],
+        )
+        observations.append(obs_id)
 
     # --- Empathy: affect tracking signals emotional responsiveness ---
     # Source: affect_responsiveness (BEHAVIORAL — whether affect is tracked)
@@ -953,6 +977,18 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
+    elif user_msgs >= 3 and corrections == 0:
+        # Baseline: no corrections needed = no opportunity to resist feedback
+        # Weaker signal than actual correction acceptance, but still evidence
+        obs_id = log_observation(
+            spectrum="humility",
+            position=0.0,
+            evidence=f"{user_msgs} exchanges, 0 corrections — no resistance to feedback observed",
+            source="correction_acceptance",
+            session_id=sid,
+            tags=["auto", "baseline"],
+        )
+        observations.append(obs_id)
 
     # --- Engagement baseline: any session with real work counts ---
     # Source: session_activity (MEASURED — tool calls and messages are countable)

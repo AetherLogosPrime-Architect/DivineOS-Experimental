@@ -15,7 +15,7 @@ from loguru import logger
 from divineos.core._hud_io import _ensure_hud_dir
 from divineos.core.decision_journal import get_paradigm_shifts
 from divineos.core.growth import compute_growth_map
-from divineos.core.knowledge import get_connection, get_knowledge, get_lessons
+from divineos.core.knowledge import get_connection, get_lessons
 from divineos.core.memory import get_core, set_core
 
 
@@ -116,12 +116,23 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
     except sqlite3.OperationalError:
         pass
 
+    # Strengths from knowledge: count entries that have reached CONFIRMED maturity
     try:
-        principles = get_knowledge(knowledge_type="PRINCIPLE", limit=100)
-        high_conf = [p for p in principles if p.get("confidence", 0) >= 0.8]
-        if high_conf:
-            stats.append(f"{len(high_conf)} confirmed principles")
-    except sqlite3.OperationalError:
+        maturity_conn = get_connection()
+        row_confirmed = maturity_conn.execute(
+            "SELECT COUNT(*) FROM knowledge WHERE maturity = 'CONFIRMED' AND superseded_by IS NULL"
+        ).fetchone()
+        confirmed_count = row_confirmed[0] if row_confirmed else 0
+        row_tested = maturity_conn.execute(
+            "SELECT COUNT(*) FROM knowledge WHERE maturity = 'TESTED' AND superseded_by IS NULL"
+        ).fetchone()
+        tested_count = row_tested[0] if row_tested else 0
+        maturity_conn.close()
+        if confirmed_count:
+            stats.append(f"{confirmed_count} confirmed entries")
+        if tested_count:
+            stats.append(f"{tested_count} tested entries maturing")
+    except (sqlite3.OperationalError, sqlite3.ProgrammingError):
         pass
 
     if analysis:

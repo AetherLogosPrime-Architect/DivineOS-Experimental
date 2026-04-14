@@ -98,13 +98,14 @@ pip install -e ".[dev]"
 divineos init
 divineos briefing
 pytest tests/ -q --tb=short   # 3,912+ tests, real DB, minimal mocks
+
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start Ã¢â‚¬â€� the OS handles orientation.
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` Ã¢â‚¬â€� the repo itself stays clean.
 
-## CLI Surface (151 commands)
+## CLI Surface (158 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -271,7 +272,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (151 commands across 24 modules)
+  cli/                         CLI package (158 commands across 24 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -297,6 +298,9 @@ src/divineos/
     audit_commands.py          external validation (Watchmen)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
+    rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
+  protocols/                   Persistent protocol definitions (survive compaction)
+    resonant_truth.md          Full 12-section RT mantra
   core/
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
@@ -423,12 +427,15 @@ src/divineos/
     proactive_patterns.py      Prescriptive recommendations from positive experience
     affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
+    resonant_truth.py          RT protocol load/invoke/verify/deactivate with gate
+    pull_detection.py          Toward/pull-back divergence detector (fabrication markers)
     watchmen/                  External validation (audit findings, routing)
       _schema.py               audit_rounds and audit_findings tables
       types.py                 Severity, FindingCategory, Finding dataclasses
       store.py                 CRUD with actor validation (self-trigger prevention)
       router.py                Route findings to knowledge/claims/lessons
       summary.py               Analytics, HUD integration, unresolved tracking
+
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -503,6 +510,7 @@ src/divineos/
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
 tests/                         3,912+ tests (real DB, minimal mocks)
+
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
 setup/                         Hook setup scripts (bash + powershell)
@@ -539,6 +547,7 @@ ruff format src/ tests/        # Format
 
 - 175 source files across 10 packages
 - 3,912+ tests (real SQLite, minimal mocks)
+
 - 143 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed Ã¢â‚¬â€� new systems ship weekly
