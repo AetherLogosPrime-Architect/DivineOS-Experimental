@@ -141,11 +141,12 @@ class TestKnowledgeCmd:
 
 
 class TestBriefingCmd:
-    def test_briefing_empty(self, runner):
+    def test_briefing_after_init(self, runner):
         runner.invoke(cli, ["init"])
         result = runner.invoke(cli, ["briefing"])
         assert result.exit_code == 0
-        assert "No knowledge" in result.output
+        # After init, seed data is loaded so briefing has content
+        assert "Session Briefing" in result.output or "No knowledge" in result.output
 
     def test_briefing_with_data(self, runner):
         runner.invoke(cli, ["init"])

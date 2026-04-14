@@ -590,6 +590,24 @@ def _format_briefing(
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
+    # Communication calibration — HOW to talk, shown first so it shapes everything
+    try:
+        from divineos.core.communication_calibration import calibrate
+
+        cal = calibrate()
+        if not (cal.verbosity == "normal" and cal.jargon_ok and cal.explanation_depth == "normal"):
+            cal_parts: list[str] = []
+            if not cal.jargon_ok:
+                cal_parts.append("NO JARGON — explain in plain language")
+            if cal.verbosity in ("terse", "concise"):
+                cal_parts.append(f"verbosity: {cal.verbosity}")
+            if cal.notes:
+                for note in cal.notes[:2]:
+                    cal_parts.append(note)
+            lines.append(f"**How to talk:** {' | '.join(cal_parts)}\n")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"calibration: {e}")
+
     # Growth trajectory
     try:
         from divineos.core.growth import (
