@@ -371,7 +371,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         try:
             from divineos.core.self_critique import assess_session_craft
 
-            craft = assess_session_craft(analysis.session_id)
+            craft = assess_session_craft(analysis.session_id, analysis=analysis)
             if craft and craft.scores:
                 low = [name for name, score in craft.scores.items() if score < 0.4]
                 if low:

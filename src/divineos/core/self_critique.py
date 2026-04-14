@@ -108,7 +108,7 @@ def init_critique_table() -> None:
 # ─── Assessment ──────────────────────────────────────────────────────
 
 
-def assess_session_craft(session_id: str = "") -> CraftAssessment:
+def assess_session_craft(session_id: str = "", analysis: Any = None) -> CraftAssessment:
     """Run automatic self-critique for the current session.
 
     Computes craft scores from measurable session data:
@@ -117,15 +117,19 @@ def assess_session_craft(session_id: str = "") -> CraftAssessment:
     - Autonomy: OS consultation frequency (used the OS without being forced)
     - Proportionality: lines changed relative to problem size
     - Communication: corrections received (fewer = clearer communication)
+
+    If analysis (SessionAnalysis) is provided, uses its richer data (tool_usage,
+    corrections, encouragements) instead of scanning the event ledger. The ledger
+    only has DivineOS internal tool calls; the analysis has Claude Code's actual
+    Read/Edit/Bash/Grep calls from the JSONL transcript.
     """
-    import json
 
     init_critique_table()
     scores: dict[str, float] = {}
     notes: list[str] = []
 
-    # Gather evidence from the session
-    evidence = _gather_session_evidence()
+    # Gather evidence — prefer analysis object (rich) over ledger scan (sparse)
+    evidence = _gather_session_evidence(analysis=analysis)
 
     # Elegance: did changes land cleanly, or require rework?
     # Rework = re-editing the same file multiple times. Low rework = elegant.
@@ -235,8 +239,13 @@ def assess_session_craft(session_id: str = "") -> CraftAssessment:
     return assessment
 
 
-def _gather_session_evidence() -> dict[str, int]:
+def _gather_session_evidence(analysis: Any = None) -> dict[str, int]:
     """Gather measurable evidence from the current session.
+
+    If a SessionAnalysis object is provided, extracts evidence from its rich
+    tool_usage data (which comes from the JSONL transcript and includes Claude
+    Code's own Read/Edit/Bash/Grep calls). Falls back to scanning the event
+    ledger, which only has DivineOS internal tool calls.
 
     Tracks real outcomes, not just activity counts:
     - rework_edits: same file edited multiple times (indicates iteration)
@@ -259,6 +268,31 @@ def _gather_session_evidence() -> dict[str, int]:
         "user_messages": 0,
         "unique_files_edited": 0,
     }
+
+    # Prefer analysis object — it has Claude Code's actual tool usage from the
+    # JSONL transcript, which the event ledger doesn't capture.
+    if analysis is not None:
+        try:
+            tool_usage = getattr(analysis, "tool_usage", {}) or {}
+            evidence["file_reads"] = tool_usage.get("Read", 0) + tool_usage.get("read", 0)
+            evidence["file_edits"] = (
+                tool_usage.get("Edit", 0)
+                + tool_usage.get("edit", 0)
+                + tool_usage.get("Write", 0)
+                + tool_usage.get("write", 0)
+            )
+            evidence["tests_run"] = tool_usage.get("Bash", 0) + tool_usage.get("bash", 0)
+            evidence["user_messages"] = getattr(analysis, "user_messages", 0)
+            evidence["corrections"] = len(getattr(analysis, "corrections", []))
+            evidence["encouragements"] = len(getattr(analysis, "encouragements", []))
+            evidence["os_queries"] = tool_usage.get("divineos", 0)
+            # tool_calls_total gives unique_files_edited a rough proxy
+            total_tools = getattr(analysis, "tool_calls_total", 0)
+            if total_tools > 0 and evidence["file_edits"] > 0:
+                evidence["unique_files_edited"] = max(1, evidence["file_edits"] // 2)
+            return evidence
+        except _SC_ERRORS:
+            pass  # Fall through to ledger scan
 
     try:
         conn = _get_connection()
