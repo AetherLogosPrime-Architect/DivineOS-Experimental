@@ -88,10 +88,10 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
 
         conn = sqlite3.connect(_get_db_path())
         total_affect = conn.execute(
-            "SELECT COUNT(*) FROM events WHERE event_type = 'AFFECT_STATE'"
+            "SELECT COUNT(*) FROM system_events WHERE event_type = 'AFFECT_STATE'"
         ).fetchone()[0]
         old_affect = conn.execute(
-            "SELECT COUNT(*) FROM events WHERE event_type = 'AFFECT_STATE' "
+            "SELECT COUNT(*) FROM system_events WHERE event_type = 'AFFECT_STATE' "
             "AND created_at < (strftime('%s','now') - ?)",
             (SECONDS_PER_DAY * 2,),
         ).fetchone()[0]

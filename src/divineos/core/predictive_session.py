@@ -113,7 +113,7 @@ def _extract_action_sequence(limit: int = 10) -> list[list[str]]:
     try:
         # Get session boundaries
         sessions_rows = conn.execute(
-            """SELECT created_at FROM events
+            """SELECT created_at FROM system_events
                WHERE event_type = 'SESSION_END'
                ORDER BY created_at DESC LIMIT ?""",
             (limit + 1,),
@@ -251,7 +251,7 @@ def get_session_history(limit: int = 10) -> list[dict[str, Any]]:
     try:
         rows = conn.execute(
             """SELECT content, created_at
-               FROM events
+               FROM system_events
                WHERE event_type = 'SESSION_END'
                ORDER BY created_at DESC
                LIMIT ?""",
