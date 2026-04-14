@@ -842,7 +842,7 @@ def _has_prescriptive_signal(content_lower: str) -> bool:
 
 # ─── Temporal Markers ────────────────────────────────────────────────
 
-_TEMPORAL_CONTENT_MARKERS = {
+_TEMPORAL_CONTENT_MARKERS = (
     "currently",
     "right now",
     "at the moment",
@@ -857,17 +857,26 @@ _TEMPORAL_CONTENT_MARKERS = {
     "this sprint",
     "in progress",
     "work in progress",
-    "wip",
+    r"\bwip\b",  # word boundary — prevent matching "wipe", "equip", etc.
     "blocked on",
     "waiting for",
     "temporarily",
-}
+)
+
+# Pre-compile: markers with \b are regex, others get auto-wrapped in \b
+_TEMPORAL_PATTERNS = tuple(
+    re.compile(m if r"\b" in m else r"\b" + re.escape(m) + r"\b", re.IGNORECASE)
+    for m in _TEMPORAL_CONTENT_MARKERS
+)
 
 
 def _has_temporal_markers(content: str) -> bool:
-    """Check if content has time-sensitive language that may become stale."""
-    content_lower = content.lower()
-    return any(marker in content_lower for marker in _TEMPORAL_CONTENT_MARKERS)
+    """Check if content has time-sensitive language that may become stale.
+
+    Uses word-boundary matching to prevent false positives from substring
+    hits (e.g. "wip" matching "wipe", "equip").
+    """
+    return any(p.search(content) for p in _TEMPORAL_PATTERNS)
 
 
 # ─── Voice Normalization ─────────────────────────────────────────────
