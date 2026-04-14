@@ -426,6 +426,27 @@ def _phase_recombination(report: DreamReport) -> None:
     report.connections_found = len(connections)
     report.connection_details = connections
 
+    # Persist connections as RELATED_TO edges in the knowledge graph.
+    # Without this, recombination insights are ephemeral — lost after
+    # the dream report scrolls off screen.
+    if connections:
+        try:
+            from divineos.core.knowledge.edges import create_edge
+
+            for conn in connections:
+                aid = conn.get("entry_a_id", "")
+                bid = conn.get("entry_b_id", "")
+                if aid and bid and aid != "?" and bid != "?":
+                    create_edge(
+                        source_id=aid,
+                        target_id=bid,
+                        edge_type="RELATED_TO",
+                        confidence=0.6,
+                        notes=f"sleep recombination: {conn.get('similarity', '?')} similarity",
+                    )
+        except _SLEEP_ERRORS as e:
+            logger.debug(f"Failed to persist recombination edges: {e}")
+
 
 # ─── Phase 6: Curiosity Maintenance ─────────────────────────────────
 

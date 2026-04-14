@@ -478,6 +478,14 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"User model signal recording failed: {e}")
 
+        # ── Phase 8i2: Skill assessment — synthesize accumulated signals ──
+        try:
+            from divineos.core.user_model import update_skill_level
+
+            update_skill_level()
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Skill level update failed: {e}")
+
         # ── Phase 8j: Communication calibration — detect preference signals ──
         try:
             from divineos.core.communication_calibration import detect_calibration_signals

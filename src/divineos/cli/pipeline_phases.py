@@ -406,12 +406,15 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
         drift = run_drift_detection()
         severity = drift.get("severity", "none")
         if severity not in ("none", None):
-            signals = drift.get("signals", [])
-            click.secho(f"[!] Drift detected ({severity}): {len(signals)} signal(s)", fg="yellow")
-            for sig in signals[:3]:
+            signal_count = drift.get("drift_signals", 0)
+            click.secho(f"[!] Drift detected ({severity}): {signal_count} signal(s)", fg="yellow")
+            for reg in drift.get("regressions", [])[:3]:
                 click.secho(
-                    f"     {sig.get('type', '?')}: {sig.get('detail', '')[:80]}", fg="yellow"
+                    f"     {reg.get('type', '?')}: {reg.get('detail', '')[:80]}", fg="yellow"
                 )
+            quality = drift.get("quality_drift", {})
+            if quality.get("drifting"):
+                click.secho(f"     quality_drift: {quality.get('detail', '')[:80]}", fg="yellow")
     except _PHASE_ERRORS as e:
         logger.warning(f"Drift detection failed: {e}")
 
