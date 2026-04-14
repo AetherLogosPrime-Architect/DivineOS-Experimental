@@ -36,7 +36,13 @@ _PP_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeErro
 # These entries slipped in before the extraction noise filter existed.
 _LEGACY_NOISE_OPENERS = re.compile(
     r"^(yes |ok |oh |well |wonderful |it still |both fixes |auto memories |"
-    r"andrew,|absolutely |here is |heres |here's )",
+    r"andrew,|absolutely |here is |heres |here's |the audit was |this is what )",
+    re.IGNORECASE,
+)
+
+# Noise anywhere in content — conversational artifacts that shouldn't be recommendations
+_LEGACY_NOISE_MARKERS = re.compile(
+    r"(claude said|what me and claude|what claude and i|i told claude|claude told me)",
     re.IGNORECASE,
 )
 
@@ -52,6 +58,10 @@ def _is_recommendation_noise(content: str, knowledge_type: str) -> bool:
 
     # Legacy entries: raw user quotes that start with conversational openers
     if _LEGACY_NOISE_OPENERS.match(content.strip()):
+        return True
+
+    # Conversational artifacts anywhere in the content
+    if _LEGACY_NOISE_MARKERS.search(content):
         return True
 
     return False
@@ -82,7 +92,7 @@ def _get_positive_patterns() -> list[dict[str, Any]]:
                     "text": row[2],
                     "confidence": row[3],
                     "access_count": row[4],
-                    "weight": row[3] * 0.3,
+                    "weight": min(row[3] * 0.15, 0.2),
                 }
             )
     except sqlite3.OperationalError:
