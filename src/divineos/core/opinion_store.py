@@ -310,6 +310,7 @@ def get_opinion_history(topic: str) -> list[dict[str, Any]]:
                 "formed_at": row[6],
                 "updated_at": row[7],
                 "revision_count": row[8],
+                "tags": json.loads(row[9]),
                 "superseded_by": row[10],
             }
             for row in rows
