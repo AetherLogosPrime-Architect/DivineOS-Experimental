@@ -5,6 +5,8 @@ After enough regressions, the lesson should be flagged for directive
 promotion — structure over willpower.
 """
 
+import json
+
 import pytest
 
 from divineos.core.knowledge import init_knowledge_table
@@ -57,6 +59,24 @@ class TestRegressionDetection:
         lessons = get_lessons(category="test_regress")
         assert lessons[0]["status"] == "active"
         assert lessons[0]["regressions"] == 1
+
+    def test_same_session_does_not_double_count_regression(self):
+        """Re-scanning the same session must not inflate regressions."""
+        record_lesson("test_dedup_reg", "test lesson", "s1")
+        record_lesson("test_dedup_reg", "test lesson", "s2")
+        record_lesson("test_dedup_reg", "test lesson", "s3")
+        mark_lesson_improving("test_dedup_reg", "clean-1")
+        # First call with s4 — real regression
+        record_lesson("test_dedup_reg", "test lesson", "s4")
+        lessons = get_lessons(category="test_dedup_reg")
+        assert lessons[0]["regressions"] == 1
+        # Mark improving again, then re-trigger with SAME session s4
+        mark_lesson_improving("test_dedup_reg", "clean-2")
+        record_lesson("test_dedup_reg", "test lesson", "s4")  # duplicate
+        lessons = get_lessons(category="test_dedup_reg")
+        # Should still be 1, not 2 — s4 was already counted
+        assert lessons[0]["regressions"] == 1
+        assert lessons[0]["occurrences"] == 4
 
     def test_multiple_regressions_accumulate(self):
         """Each IMPROVING → ACTIVE cycle increments the regression count."""
@@ -119,6 +139,37 @@ class TestAutoResolve:
         lessons = get_lessons(status="improving")
         cats = [lesson["category"] for lesson in lessons]
         assert "test_stay_improving" in cats
+
+    def test_improving_lesson_tracks_clean_sessions(self):
+        """Once a lesson is 'improving', clean sessions still get tracked.
+
+        Without this, the sessions list freezes at transition time and the
+        resolution session-count gate can never be satisfied.
+        """
+        record_lesson("test_track_clean", "desc", "s1")
+        record_lesson("test_track_clean", "desc", "s2")
+        record_lesson("test_track_clean", "desc", "s3")
+        mark_lesson_improving("test_track_clean", "s4")  # transitions active → improving
+
+        lessons = get_lessons(category="test_track_clean")
+        assert lessons[0]["status"] == "improving"
+        initial_sessions = lessons[0]["sessions"]
+        if isinstance(initial_sessions, str):
+            initial_sessions = json.loads(initial_sessions)
+        assert "s4" in initial_sessions
+
+        # Now mark improving again with new clean sessions
+        mark_lesson_improving("test_track_clean", "s5")
+        mark_lesson_improving("test_track_clean", "s6")
+
+        lessons = get_lessons(category="test_track_clean")
+        assert lessons[0]["status"] == "improving"
+        updated_sessions = lessons[0]["sessions"]
+        if isinstance(updated_sessions, str):
+            updated_sessions = json.loads(updated_sessions)
+        assert "s5" in updated_sessions
+        assert "s6" in updated_sessions
+        assert len(updated_sessions) == len(initial_sessions) + 2
 
     def test_improving_enough_sessions_resolves(self):
         """Improving lesson with enough clean sessions gets resolved.
