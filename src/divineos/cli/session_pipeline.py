@@ -491,14 +491,14 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
             if user_text:
                 signals = detect_calibration_signals(user_text)
                 for sig in signals[:5]:  # cap at 5 per session
-                    record_signal(sig["type"], sig.get("evidence", sig["type"]))
+                    record_signal(sig["signal_type"], sig.get("content", sig["signal_type"]))
                 if signals:
                     click.secho(
                         f"[~] Calibration: detected {len(signals)} communication preference signal"
                         f"{'s' if len(signals) != 1 else ''}",
                         fg="cyan",
                     )
-        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError, KeyError) as e:
             logger.debug(f"Calibration signal detection failed: {e}")
 
         # ── Phase 8k: Advice tracking — surface stale recommendations ──

@@ -300,8 +300,8 @@ def store_knowledge_smart(
                     edge_type="SUPERSEDES",
                     notes="auto: superseded during smart store",
                 )
-            except _EXTRACTION_ERRORS:
-                pass
+            except _EXTRACTION_ERRORS as e:
+                logger.warning("Failed to create SUPERSEDES edge %s->%s: %s", kid, existing_id, e)
 
         # Auto-create warrant — every new knowledge entry is born with justification
         try:
