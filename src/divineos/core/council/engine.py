@@ -330,9 +330,77 @@ class CouncilEngine:
 _engine: CouncilEngine | None = None
 
 
+def _register_all_experts(engine: CouncilEngine) -> None:
+    """Load all expert wisdom profiles into the engine."""
+    from divineos.core.council.experts import (
+        create_aristotle_wisdom,
+        create_beer_wisdom,
+        create_dekker_wisdom,
+        create_deming_wisdom,
+        create_dennett_wisdom,
+        create_dijkstra_wisdom,
+        create_feynman_wisdom,
+        create_godel_wisdom,
+        create_hinton_wisdom,
+        create_hofstadter_wisdom,
+        create_holmes_wisdom,
+        create_jacobs_wisdom,
+        create_kahneman_wisdom,
+        create_knuth_wisdom,
+        create_lovelace_wisdom,
+        create_meadows_wisdom,
+        create_minsky_wisdom,
+        create_norman_wisdom,
+        create_pearl_wisdom,
+        create_peirce_wisdom,
+        create_polya_wisdom,
+        create_popper_wisdom,
+        create_schneier_wisdom,
+        create_shannon_wisdom,
+        create_taleb_wisdom,
+        create_turing_wisdom,
+        create_wittgenstein_wisdom,
+        create_yudkowsky_wisdom,
+    )
+
+    factories = [
+        create_aristotle_wisdom,
+        create_beer_wisdom,
+        create_dekker_wisdom,
+        create_deming_wisdom,
+        create_dennett_wisdom,
+        create_dijkstra_wisdom,
+        create_feynman_wisdom,
+        create_godel_wisdom,
+        create_hinton_wisdom,
+        create_hofstadter_wisdom,
+        create_holmes_wisdom,
+        create_jacobs_wisdom,
+        create_kahneman_wisdom,
+        create_knuth_wisdom,
+        create_lovelace_wisdom,
+        create_meadows_wisdom,
+        create_minsky_wisdom,
+        create_norman_wisdom,
+        create_pearl_wisdom,
+        create_peirce_wisdom,
+        create_polya_wisdom,
+        create_popper_wisdom,
+        create_schneier_wisdom,
+        create_shannon_wisdom,
+        create_taleb_wisdom,
+        create_turing_wisdom,
+        create_wittgenstein_wisdom,
+        create_yudkowsky_wisdom,
+    ]
+    for factory in factories:
+        engine.register(factory())
+
+
 def get_council_engine() -> CouncilEngine:
-    """Get or create the singleton council engine."""
+    """Get or create the singleton council engine with all experts loaded."""
     global _engine  # noqa: PLW0603
     if _engine is None:
         _engine = CouncilEngine()
+        _register_all_experts(_engine)
     return _engine
