@@ -1123,6 +1123,9 @@ def save_hud_snapshot() -> Path:
     hud_dir = _ensure_hud_dir()
     snapshot_path = hud_dir / "last_snapshot.md"
     content = build_hud()
+    # Re-ensure after build_hud() — some slot builders may trigger DB
+    # operations that cause the temp directory to be cleaned up in tests.
+    hud_dir.mkdir(parents=True, exist_ok=True)
     snapshot_path.write_text(content, encoding="utf-8")
     logger.debug(f"HUD snapshot saved to {snapshot_path}")
     return snapshot_path
