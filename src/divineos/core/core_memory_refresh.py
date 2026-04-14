@@ -101,12 +101,31 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
     stats: list[str] = []
     try:
         conn = get_connection()
-        row = conn.execute("SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL").fetchone()
-        knowledge_count = row[0] if row else 0
-        conn.close()
-        if knowledge_count:
-            stats.append(f"{knowledge_count} knowledge entries")
-    except sqlite3.OperationalError:
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchone()
+            knowledge_count = row[0] if row else 0
+            if knowledge_count:
+                stats.append(f"{knowledge_count} knowledge entries")
+
+            # Maturity breakdown — reuse same connection
+            row_confirmed = conn.execute(
+                "SELECT COUNT(*) FROM knowledge "
+                "WHERE maturity = 'CONFIRMED' AND superseded_by IS NULL"
+            ).fetchone()
+            confirmed_count = row_confirmed[0] if row_confirmed else 0
+            row_tested = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE maturity = 'TESTED' AND superseded_by IS NULL"
+            ).fetchone()
+            tested_count = row_tested[0] if row_tested else 0
+            if confirmed_count:
+                stats.append(f"{confirmed_count} confirmed entries")
+            if tested_count:
+                stats.append(f"{tested_count} tested entries maturing")
+        finally:
+            conn.close()
+    except (sqlite3.OperationalError, sqlite3.ProgrammingError):
         pass
 
     try:
@@ -114,25 +133,6 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
         if growth["sessions"] >= 2:
             stats.append(f"growth {growth['trend']} over {growth['sessions']} sessions")
     except sqlite3.OperationalError:
-        pass
-
-    # Strengths from knowledge: count entries that have reached CONFIRMED maturity
-    try:
-        maturity_conn = get_connection()
-        row_confirmed = maturity_conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE maturity = 'CONFIRMED' AND superseded_by IS NULL"
-        ).fetchone()
-        confirmed_count = row_confirmed[0] if row_confirmed else 0
-        row_tested = maturity_conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE maturity = 'TESTED' AND superseded_by IS NULL"
-        ).fetchone()
-        tested_count = row_tested[0] if row_tested else 0
-        maturity_conn.close()
-        if confirmed_count:
-            stats.append(f"{confirmed_count} confirmed entries")
-        if tested_count:
-            stats.append(f"{tested_count} tested entries maturing")
-    except (sqlite3.OperationalError, sqlite3.ProgrammingError):
         pass
 
     if analysis:

@@ -815,24 +815,27 @@ def _build_self_awareness_slot() -> str:
         from divineos.core.ledger import get_connection
 
         conn = get_connection()
-        cur = conn.cursor()
+        try:
+            cur = conn.cursor()
 
-        # Check for user ratings (the actual external validation)
-        cur.execute("SELECT COUNT(*) FROM session_validation")
-        user_ratings = cur.fetchone()[0]
+            # Check for user ratings (the actual external validation)
+            cur.execute("SELECT COUNT(*) FROM session_validation")
+            user_ratings = cur.fetchone()[0]
 
-        # Check total compass observations
-        cur.execute("SELECT COUNT(*) FROM compass_observation")
-        total_obs = cur.fetchone()[0]
+            # Check total compass observations
+            cur.execute("SELECT COUNT(*) FROM compass_observation")
+            total_obs = cur.fetchone()[0]
 
-        if total_obs > 10 and user_ratings == 0:
-            if not lines:
-                lines.append("# Self-Awareness Nudges\n")
-            lines.append(
-                f"- VERIFICATION GAP: {total_obs} compass observations but "
-                "0 user ratings. All self-assessed. Self-verification "
-                "is structurally limited — the user is the meta-system."
-            )
+            if total_obs > 10 and user_ratings == 0:
+                if not lines:
+                    lines.append("# Self-Awareness Nudges\n")
+                lines.append(
+                    f"- VERIFICATION GAP: {total_obs} compass observations but "
+                    "0 user ratings. All self-assessed. Self-verification "
+                    "is structurally limited — the user is the meta-system."
+                )
+        finally:
+            conn.close()
     except _HUD_ERRORS:
         pass
 
