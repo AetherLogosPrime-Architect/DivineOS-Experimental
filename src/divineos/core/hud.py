@@ -856,8 +856,8 @@ def _build_compass_slot() -> str:
         if summary["observed_spectrums"] == 0:
             return ""
         # Only show if there's something actionable: drift or excess/deficiency
-        has_drift = summary.get("drift_count", 0) > 0
-        in_virtue_count = summary.get("in_virtue_count", summary["observed_spectrums"])
+        has_drift = len(summary.get("drifting", [])) > 0
+        in_virtue_count = summary.get("in_virtue_zone", summary["observed_spectrums"])
         all_virtue = in_virtue_count == summary["observed_spectrums"]
 
         if all_virtue and not has_drift:

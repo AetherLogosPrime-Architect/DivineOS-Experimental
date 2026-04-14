@@ -202,7 +202,8 @@ def strengthen_opinion(opinion_id: str, evidence: str, boost: float = 0.05) -> f
         new_conf = min(1.0, old_conf + boost)
         conn.execute(
             "UPDATE opinions SET confidence = ?, evidence_for = ?, "
-            "updated_at = ? WHERE opinion_id = ?",
+            "updated_at = ?, revision_count = revision_count + 1 "
+            "WHERE opinion_id = ?",
             (new_conf, json.dumps(evidence_list), time.time(), opinion_id),
         )
         conn.commit()
