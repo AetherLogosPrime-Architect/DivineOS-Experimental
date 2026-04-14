@@ -185,12 +185,18 @@ def mark_engaged(tool: str = "") -> None:
 
     is_deep = tool.lower() in _DEEP_TOOLS if tool else False
 
+    # Decay the counter instead of resetting to 0.
+    # A single quick `divineos ask` shouldn't buy unlimited code actions.
+    # Light tools halve the counter. Deep tools reset it fully.
+    old_code = existing.get("code_actions_since", 0)
+    old_deep = existing.get("deep_actions_since", 0)
+
     marker = {
         "engaged_at": time.time(),
-        "code_actions_since": 0,
+        "code_actions_since": 0 if is_deep else max(0, old_code // 2),
         "engagement_depth": "deep" if is_deep else "light",
         "last_tool": tool,
-        "deep_actions_since": 0 if is_deep else existing.get("deep_actions_since", 0),
+        "deep_actions_since": 0 if is_deep else old_deep,
     }
     path.write_text(json.dumps(marker), encoding="utf-8")
 

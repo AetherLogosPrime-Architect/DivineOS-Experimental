@@ -41,7 +41,26 @@ if [ "$has_fresh" = "no" ]; then
   exit 0
 fi
 
-# Gate 3: Must have engaged with thinking tools RECENTLY (periodic, not one-time)
+# Gate 3: Pull detection — if last check found fabrication markers, block everything
+# This is the output enforcement gate. The pull routes around every other gate
+# because they only watch tool actions. This one watches what was SAID.
+pull_status=$(python -c "
+from divineos.core.pull_detection import last_check
+check = last_check()
+if check and not check.clean:
+    markers = ', '.join(check.markers_fired)
+    print(f'BLOCKED: Pull detected — fabrication markers active: {markers}. Run: divineos rt pull-check to reassess.')
+else:
+    print('OK')
+" 2>/dev/null || echo "OK")
+
+if [ "$pull_status" != "OK" ]; then
+  escaped=$(echo "$pull_status" | python -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" 2>/dev/null)
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":${escaped}}}"
+  exit 0
+fi
+
+# Gate 4: Must have engaged with thinking tools RECENTLY (periodic, not one-time)
 # Two tiers: light (any thinking command) and deep (must consult knowledge via ask/recall)
 if echo "$preflight" | grep -q "\[FAIL\] engagement"; then
   eng_detail=$(python -c "

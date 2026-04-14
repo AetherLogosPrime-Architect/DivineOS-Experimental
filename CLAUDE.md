@@ -195,7 +195,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-Ã¢â€�Å“Ã¢â€�â‚¬Ã¢â€�â‚¬ cli/                      # CLI package (151 commands across 25 modules)
+Ã¢â€�Å“Ã¢â€�â‚¬Ã¢â€�â‚¬ cli/                      # CLI package (158 commands across 25 modules)
 Ã¢â€�â€š   Ã¢â€�Å“Ã¢â€�â‚¬Ã¢â€�â‚¬ __init__.py           # CLI entry point and command registration
 Ã¢â€�â€š   Ã¢â€�Å“Ã¢â€�â‚¬Ã¢â€�â‚¬ session_pipeline.py   # SESSION_END orchestrator (calls phases)
 Ã¢â€�â€š   Ã¢â€�Å“Ã¢â€�â‚¬Ã¢â€�â‚¬ pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -249,6 +249,7 @@ src/divineos/
 Ã¢â€�â€š   Ã¢â€�â€�Ã¢â€�â‚¬Ã¢â€�â‚¬ summary.py            # Analytics, HUD integration, unresolved tracking
 Ã¢â€�â€�Ã¢â€�â‚¬Ã¢â€�â‚¬ violations_cli/           # Violation reporting CLI
 tests/                        # 3,912+ tests (real DB, minimal mocks)
+
 docs/                         # Project documentation and strategic plans
 bootcamp/                     # Training exercises (debugging, analysis)
 data/                         # Runtime databases (gitignored)

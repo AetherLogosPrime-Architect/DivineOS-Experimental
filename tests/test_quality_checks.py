@@ -339,6 +339,28 @@ class TestCheckCorrectness:
         result = check_correctness(records, {})
         assert result.passed == -1  # inconclusive
 
+    def test_no_tests_in_coding_session_scores_inconclusive(self):
+        """Coding session with edits but no test runs should score 0.3, not 0.0.
+
+        This prevents false blocking when tests ran in an earlier context
+        window (before the since_timestamp filter) but aren't visible now.
+        """
+        records = [
+            _make_assistant_record(
+                tools=[
+                    {
+                        "name": "Edit",
+                        "input": {"file_path": "src/foo.py", "old_string": "x", "new_string": "y"},
+                        "id": "e1",
+                    }
+                ],
+            ),
+        ]
+        result = check_correctness(records, {})
+        assert result.passed == -1
+        assert result.score == 0.3  # inconclusive, not 0.0
+        assert "inconclusive" in result.summary.lower()
+
     def test_trajectory_fail_then_pass(self):
         records = [
             _make_assistant_record(
@@ -626,6 +648,41 @@ class TestRunAllChecks:
         session_file = _write_session(tmp_path, [])
         report = run_all_checks(session_file)
         assert len(report.checks) == 7
+
+    def test_expanded_window_finds_earlier_test_results(self, tmp_path):
+        """When timestamp filter hides test runs, fallback to full file finds them."""
+        # Old records (before the filter timestamp) contain a passing test run
+        old_records = [
+            _make_assistant_record(
+                tools=[{"name": "Bash", "input": {"command": "pytest"}, "id": "t1"}],
+                timestamp="2025-01-01T00:00:01Z",
+            ),
+            _make_tool_result_record("t1", "5 passed", timestamp="2025-01-01T00:00:02Z"),
+        ]
+        # New records (after the filter) have edits but no test runs
+        new_records = [
+            _make_assistant_record(
+                tools=[
+                    {
+                        "name": "Edit",
+                        "input": {"file_path": "src/foo.py", "old_string": "a", "new_string": "b"},
+                        "id": "e1",
+                    }
+                ],
+                timestamp="2025-01-02T00:00:01Z",
+            ),
+        ]
+        session_file = _write_session(tmp_path, old_records + new_records)
+
+        # With timestamp filter that excludes the old test run
+        from datetime import datetime, timezone
+
+        filter_ts = datetime(2025, 1, 2, tzinfo=timezone.utc).timestamp()
+        report = run_all_checks(session_file, since_timestamp=filter_ts)
+        correctness = next(c for c in report.checks if c.check_name == "correctness")
+        # Should find the earlier test results via expanded window
+        assert correctness.score > 0.3
+        assert "expanded window" in correctness.summary
 
 
 class TestStorage:

@@ -56,8 +56,12 @@ class TestPeriodicEngagement:
             # Now engagement should be expired
             assert is_engaged() is False
 
-    def test_os_query_resets_counter(self, tmp_path: Path) -> None:
-        """Using an OS tool (mark_engaged) resets the code action counter."""
+    def test_light_engagement_decays_counter(self, tmp_path: Path) -> None:
+        """Light engagement (context, decide, feel) halves the counter.
+
+        A single quick OS query shouldn't buy unlimited code actions.
+        This prevents gaming the gate with minimal effort.
+        """
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
@@ -68,15 +72,33 @@ class TestPeriodicEngagement:
         ):
             mark_engaged()
 
-            # 7 code actions (just under threshold of 8)
-            for _ in range(_ENGAGEMENT_DECAY_THRESHOLD - 1):
+            # 10 code actions
+            for _ in range(10):
                 record_code_action()
-            assert is_engaged() is True
 
-            # Re-engage with OS — counter resets
+            # Light re-engage — counter halves (10 -> 5), not reset to 0
+            mark_engaged()
+            status = engagement_status()
+            assert status["code_actions_since"] == 5
+
+    def test_deep_engagement_resets_counter(self, tmp_path: Path) -> None:
+        """Deep engagement (ask, recall, briefing) fully resets the counter."""
+        with (
+            patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
+            patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+            patch(
+                "divineos.core.hud_handoff._active_threshold",
+                return_value=_ENGAGEMENT_DECAY_THRESHOLD,
+            ),
+        ):
             mark_engaged()
 
-            # Now we have a fresh budget of 8 code actions
+            # 10 code actions
+            for _ in range(10):
+                record_code_action()
+
+            # Deep re-engage — counter resets fully
+            mark_engaged(tool="ask")
             status = engagement_status()
             assert status["code_actions_since"] == 0
             assert status["remaining"] == _ENGAGEMENT_DECAY_THRESHOLD
