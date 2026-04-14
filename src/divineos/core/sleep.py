@@ -290,12 +290,12 @@ def _phase_affect(report: DreamReport) -> None:
             arousal = entry.get("arousal", 0.0)
 
             factor = _compute_decay_factor(valence, arousal)
-            new_valence = valence * factor
-            new_arousal = arousal * factor
+            new_valence = max(-1.0, min(1.0, valence * factor))
+            new_arousal = max(0.0, min(1.0, arousal * factor))
 
             if abs(new_valence) < _AFFECT_INTENSITY_FLOOR:
                 new_valence = 0.0
-            if abs(new_arousal) < _AFFECT_INTENSITY_FLOOR:
+            if new_arousal < _AFFECT_INTENSITY_FLOOR:
                 new_arousal = 0.0
 
             if abs(new_valence - valence) > 0.001 or abs(new_arousal - arousal) > 0.001:
