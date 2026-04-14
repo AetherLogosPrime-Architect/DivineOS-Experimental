@@ -485,8 +485,8 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
             # Scan user messages for communication preference signals
             user_text = " ".join(
-                getattr(analysis, "user_messages_text", [])
-                or [c.get("content", "") for c in getattr(analysis, "corrections", [])]
+                getattr(analysis, "user_message_texts", [])
+                or [c.content for c in getattr(analysis, "corrections", [])]
             )
             if user_text:
                 signals = detect_calibration_signals(user_text)
