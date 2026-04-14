@@ -85,7 +85,7 @@ def detect_convergence() -> ConvergenceReport:
         report.compass_available = True
     except _CD_ERRORS as e:
         logger.debug("Convergence: compass data unavailable: %s", e)
-        return report
+        # Don't return early — critique data may still be available
 
     # Get self-critique trends
     critique_data: dict[str, Any] = {}
@@ -102,7 +102,7 @@ def detect_convergence() -> ConvergenceReport:
         report.critique_available = True
     except _CD_ERRORS as e:
         logger.debug("Convergence: self-critique data unavailable: %s", e)
-        return report
+        # Don't return early — compass data may still be available
 
     # Compare each convergence pair
     for compass_spectrum, critique_spectrum in _CONVERGENCE_PAIRS.items():
