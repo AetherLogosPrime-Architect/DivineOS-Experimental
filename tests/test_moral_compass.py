@@ -200,10 +200,10 @@ class TestPositionToZone:
 class TestComputePosition:
     """Position computation from observations."""
 
-    def test_no_observations_returns_virtue(self):
+    def test_no_observations_returns_unobserved(self):
         pos = compute_position("thoroughness")
         assert pos.position == 0.0
-        assert pos.zone == "virtue"
+        assert pos.zone == "unobserved"
         assert pos.observation_count == 0
 
     def test_single_observation(self):

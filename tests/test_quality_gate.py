@@ -369,15 +369,20 @@ class TestCorrectnessSessionType:
         assert result.passed == -1
         assert "research" in result.summary.lower() or "not applicable" in result.summary.lower()
 
-    def test_coding_session_no_tests_still_zero(self):
-        """No tests + coding session = 0.0 (penalized) — unchanged behavior."""
+    def test_coding_session_no_tests_scores_inconclusive(self):
+        """No tests + coding session = 0.3 (inconclusive), not 0.0 (blocked).
+
+        Changed from 0.0: "no test results found" is absence of evidence,
+        not evidence of failure. Tests may have run in an earlier context
+        window (before the since_timestamp filter) and been filtered out.
+        """
         records = [
             _tool_call_record("Read"),
             _tool_call_record("Edit", {"file_path": "src/main.py"}),
         ]
         result = check_correctness(records, {})
-        assert result.score == 0.0
-        assert "no tests were run" in result.summary.lower()
+        assert result.score == 0.3
+        assert "inconclusive" in result.summary.lower()
 
     def test_test_writing_session_gets_neutral_score(self):
         """Writing tests but not running them = neutral, not blocked."""
