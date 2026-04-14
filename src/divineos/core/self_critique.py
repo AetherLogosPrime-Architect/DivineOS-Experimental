@@ -14,6 +14,7 @@ build a habit of reflection without being asked.
 Sanskrit anchor: atma-pariksha (self-examination, introspective assessment).
 """
 
+import json
 import sqlite3
 import time
 import uuid
@@ -273,25 +274,49 @@ def _gather_session_evidence() -> dict[str, int]:
             edit_counts: dict[str, int] = {}
 
             for event_type, content in rows:
-                content_lower = (content or "").lower()
+                content_str = content or ""
+                content_lower = content_str.lower()
+
                 if event_type == "TOOL_CALL":
-                    if "read" in content_lower:
+                    # Parse tool_name from JSON payload when available
+                    tool_name = ""
+                    tool_input: dict[str, Any] = {}
+                    try:
+                        payload = json.loads(content_str)
+                        tool_name = (payload.get("tool_name", "") or "").lower()
+                        tool_input = payload.get("tool_input", {}) or {}
+                    except (json.JSONDecodeError, AttributeError):
+                        pass
+
+                    # Match on parsed tool_name first, fall back to content search
+                    if tool_name in ("read", "read_file") or (
+                        not tool_name and "read" in content_lower
+                    ):
                         evidence["file_reads"] += 1
-                    elif "edit" in content_lower:
+                    elif tool_name in ("edit", "edit_file", "write", "write_file") or (
+                        not tool_name and "edit" in content_lower
+                    ):
                         evidence["file_edits"] += 1
                         # Track which files for rework detection
-                        # Extract file path: look for words with path separators
-                        # and at least one file extension to avoid matching math/URLs
-                        for word in content_lower.split():
-                            if ("/" in word or "\\" in word) and "." in word.split("/")[-1]:
-                                edit_counts[word] = edit_counts.get(word, 0) + 1
-                                edited_files.add(word)
-                                break
-                    if "pytest" in content_lower:
+                        file_path = (
+                            tool_input.get("file_path", "") or tool_input.get("path", "")
+                        ).lower()
+                        if not file_path:
+                            for word in content_lower.split():
+                                if ("/" in word or "\\" in word) and "." in word.split("/")[-1]:
+                                    file_path = word
+                                    break
+                        if file_path:
+                            edit_counts[file_path] = edit_counts.get(file_path, 0) + 1
+                            edited_files.add(file_path)
+
+                    if "pytest" in content_lower or tool_name in ("run_tests",):
                         evidence["tests_run"] += 1
-                    if "fail" in content_lower or "error" in content_lower:
-                        if "pytest" in content_lower:
-                            evidence["tests_failed"] += 1
+                    if ("fail" in content_lower or "error" in content_lower) and (
+                        "pytest" in content_lower
+                    ):
+                        evidence["tests_failed"] += 1
+
                 elif event_type == "TOOL_RESULT":
                     # Hook failures: pre-commit hook rejections (specific patterns)
                     if "pre-commit" in content_lower and (
@@ -302,7 +327,6 @@ def _gather_session_evidence() -> dict[str, int]:
                     if "failed" in content_lower and "passed" in content_lower:
                         evidence["tests_failed"] += 1
                 elif event_type == "OS_QUERY":
-                    # OS queries are logged as OS_QUERY events by _log_os_query
                     evidence["os_queries"] += 1
                 elif event_type == "USER_INPUT":
                     evidence["user_messages"] += 1

@@ -590,6 +590,25 @@ def _format_briefing(
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
+    # WHO you're talking to — shapes everything
+    try:
+        from divineos.core.user_model import get_or_create_user
+
+        user = get_or_create_user()
+        user_desc = user.get("description", "")
+        if not user_desc:
+            # Fall back to core memory
+            from divineos.core.memory import get_core
+
+            core = get_core()
+            user_desc = core.get("user_identity", "")
+        if user_desc:
+            # Extract the key insight — first sentence or up to 120 chars
+            short = user_desc.split(". ")[0] if ". " in user_desc else user_desc[:120]
+            lines.append(f"**Talking to:** {short}.\n")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"user-context: {e}")
+
     # Communication calibration — HOW to talk, shown first so it shapes everything
     try:
         from divineos.core.communication_calibration import calibrate
@@ -607,6 +626,35 @@ def _format_briefing(
             lines.append(f"**How to talk:** {' | '.join(cal_parts)}\n")
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"calibration: {e}")
+
+    # Self-awareness escalations — recurring failure patterns I keep hitting
+    try:
+        from divineos.core.hud import _build_self_awareness_slot
+
+        sa_text = _build_self_awareness_slot()
+        if sa_text and "ESCALATE" in sa_text:
+            escalations = [ln.strip() for ln in sa_text.split("\n") if "ESCALATE" in ln]
+            if escalations:
+                lines.append("**Recurring blind spots:**")
+                for esc in escalations[:3]:
+                    lines.append(f"  {esc}")
+                lines.append("")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"self-awareness: {e}")
+
+    # Affect nudge — emotional state can shift how I approach work
+    try:
+        from divineos.core.hud import _build_affect_slot
+
+        affect_text = _build_affect_slot()
+        if affect_text and "Nudge:" in affect_text:
+            for ln in affect_text.split("\n"):
+                if "Nudge:" in ln:
+                    nudge = ln.strip().removeprefix("**").removesuffix("**").strip()
+                    lines.append(f"**{nudge}**\n")
+                    break
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"affect-nudge: {e}")
 
     # Growth trajectory
     try:
