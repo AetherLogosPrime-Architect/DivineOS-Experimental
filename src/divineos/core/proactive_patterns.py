@@ -387,8 +387,8 @@ def _adjust_knowledge_confidence(knowledge_id: str, delta: float) -> dict[str, A
 
         new_conf = max(row[0] + delta, -1.0)  # Allow negative for archiving signal
         conn.execute(
-            "UPDATE knowledge SET confidence = ? WHERE knowledge_id = ?",
-            (new_conf, knowledge_id),
+            "UPDATE knowledge SET confidence = ?, updated_at = ? WHERE knowledge_id = ?",
+            (new_conf, time.time(), knowledge_id),
         )
         conn.commit()
 
@@ -406,32 +406,26 @@ def _adjust_knowledge_confidence(knowledge_id: str, delta: float) -> dict[str, A
 
 
 def _adjust_opinion_confidence(opinion_id: str, delta: float) -> dict[str, Any]:
-    """Adjust an opinion's confidence by delta."""
+    """Adjust an opinion's confidence by delta.
+
+    Uses the opinion store API so timestamps and revision counts
+    stay consistent (raw SQL would bypass those updates).
+    """
     try:
-        from divineos.core.opinion_store import init_opinion_table
+        if delta > 0:
+            from divineos.core.opinion_store import strengthen_opinion
 
-        init_opinion_table()
-        conn = get_connection()
-        try:
-            row = conn.execute(
-                "SELECT confidence FROM opinions WHERE opinion_id = ?",
-                (opinion_id,),
-            ).fetchone()
-            if not row:
-                return {"adjusted_confidence": 0.0, "archived": False}
+            new_conf = strengthen_opinion(opinion_id, "pattern outcome: positive", boost=delta)
+        else:
+            from divineos.core.opinion_store import challenge_opinion
 
-            new_conf = max(row[0] + delta, 0.0)
-            conn.execute(
-                "UPDATE opinions SET confidence = ? WHERE opinion_id = ?",
-                (new_conf, opinion_id),
+            new_conf = challenge_opinion(
+                opinion_id, "pattern outcome: negative", penalty=abs(delta)
             )
-            conn.commit()
-            return {
-                "adjusted_confidence": new_conf,
-                "archived": new_conf <= PATTERN_ARCHIVE_THRESHOLD,
-            }
-        finally:
-            conn.close()
+        return {
+            "adjusted_confidence": new_conf,
+            "archived": new_conf <= PATTERN_ARCHIVE_THRESHOLD,
+        }
     except _PP_ERRORS:
         return {"adjusted_confidence": 0.0, "archived": False}
 
