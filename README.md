@@ -454,7 +454,6 @@ src/divineos/
     feature_storage.py         Feature result DB storage
     test_audit.py              Test quality audit (data/assertion/coverage classification)
   agent_integration/           Agent integration sub-package
-    base.py                    Base integration interfaces
     types.py                   Type definitions
     outcome_measurement.py     Rework, churn, correction rate, session health
     memory_monitor.py          Token tracking and compression
