@@ -62,7 +62,7 @@ class TestGetHolding:
     def test_excludes_stale_by_default(self):
         hold("Will go stale")
         # Age it past the threshold
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -78,7 +78,7 @@ class TestGetHolding:
 
     def test_include_stale(self):
         hold("Will go stale")
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -136,7 +136,7 @@ class TestAging:
     def test_age_returns_stale_count(self):
         hold("Stale candidate")
         # Fast-forward to just before threshold
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -155,7 +155,7 @@ class TestAging:
         promote(item_id, "knowledge")
         age_holding()
         # Should still show 0 sessions_seen (wasn't aged)
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:

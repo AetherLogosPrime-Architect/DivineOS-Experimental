@@ -19,7 +19,7 @@ from divineos.core.affect_calibration import (
     init_calibration_table,
     record_extraction_correlation,
 )
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 
 
 @pytest.fixture(autouse=True)
@@ -28,7 +28,7 @@ def clean_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test_calibration.db"
     monkeypatch.setenv("DIVINEOS_DB", str(test_db))
 
-    from divineos.core.knowledge._base import init_knowledge_table
+    from divineos.core.knowledge import init_knowledge_table
 
     init_knowledge_table()
     init_calibration_table()

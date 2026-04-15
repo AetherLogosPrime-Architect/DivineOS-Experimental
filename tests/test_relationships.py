@@ -2,7 +2,7 @@
 
 import pytest
 
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.crud import store_knowledge
 from divineos.core.knowledge.relationships import (
     RELATIONSHIP_TYPES,

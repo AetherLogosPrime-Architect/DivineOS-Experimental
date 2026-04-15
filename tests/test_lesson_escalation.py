@@ -182,7 +182,7 @@ class TestAutoResolve:
         import time
 
         from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS, SECONDS_PER_DAY
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
         from divineos.core.ledger import get_connection as get_ledger_connection
 
         record_lesson("test_auto_resolve", "desc", "s1")
@@ -256,7 +256,7 @@ class TestAutoResolve:
         """Lesson can't resolve before LESSON_MIN_RESOLUTION_DAYS even with enough sessions."""
         import json
 
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         record_lesson("test_time_gate", "desc", "s1")
         record_lesson("test_time_gate", "desc", "s2")
@@ -296,7 +296,7 @@ class TestAutoResolve:
         import time
 
         from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS, SECONDS_PER_DAY
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         record_lesson("test_stimulus_gate", "desc", "s1")
         record_lesson("test_stimulus_gate", "desc", "s2")

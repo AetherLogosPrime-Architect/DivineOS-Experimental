@@ -452,7 +452,7 @@ src/divineos/
     session_features.py        Timeline, files, activity, error recovery
     tone_tracking.py           Tone shift detection and classification
     feature_storage.py         Feature result DB storage
-    test_audit.py              Test quality audit (data/assertion/coverage classification)
+    audit_classifier.py        Test quality audit (data/assertion/coverage classification)
   agent_integration/           Agent integration sub-package
     types.py                   Type definitions
     outcome_measurement.py     Rework, churn, correction rate, session health

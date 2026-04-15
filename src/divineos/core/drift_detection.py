@@ -21,7 +21,7 @@ import re
 import sqlite3
 from typing import Any
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 from divineos.core.ledger import get_events
 
 _DRIFT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)

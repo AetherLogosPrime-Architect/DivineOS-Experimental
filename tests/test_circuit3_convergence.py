@@ -22,7 +22,7 @@ def clean_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test_circuit3.db"
     monkeypatch.setenv("DIVINEOS_DB", str(test_db))
 
-    from divineos.core.knowledge._base import init_knowledge_table
+    from divineos.core.knowledge import init_knowledge_table
 
     init_knowledge_table()
     yield
@@ -173,7 +173,7 @@ def test_report_classifies_signals():
 
 def test_apply_convergence_stores_concerns():
     """Convergent concerns are stored as high-confidence OBSERVATION."""
-    from divineos.core.knowledge._base import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     report = ConvergenceReport(compass_available=True, critique_available=True)
     report.concerns = [
@@ -207,7 +207,7 @@ def test_apply_convergence_stores_concerns():
 
 def test_apply_convergence_stores_divergences():
     """Divergences are stored as moderate-confidence OBSERVATION."""
-    from divineos.core.knowledge._base import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     report = ConvergenceReport(compass_available=True, critique_available=True)
     report.divergences = [

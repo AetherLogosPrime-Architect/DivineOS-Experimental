@@ -5,7 +5,7 @@ import uuid
 
 import pytest
 
-from divineos.core.knowledge._base import _get_connection, compute_hash, init_knowledge_table
+from divineos.core.knowledge import _get_connection, compute_hash, init_knowledge_table
 from divineos.core.ledger import init_db
 from divineos.core.logic.warrants import (
     WARRANT_TYPES,

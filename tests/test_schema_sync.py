@@ -33,7 +33,7 @@ def _get_production_schema(db_path: str) -> dict[str, list[str]]:
 
     init_db()
 
-    from divineos.core.knowledge._base import init_knowledge_table
+    from divineos.core.knowledge import init_knowledge_table
 
     init_knowledge_table()
 

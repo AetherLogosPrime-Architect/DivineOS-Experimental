@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 from divineos.core.self_critique import (
     CRAFT_SPECTRUMS,
     CraftAssessment,

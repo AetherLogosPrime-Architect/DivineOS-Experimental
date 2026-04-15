@@ -5,7 +5,7 @@ import os
 import pytest
 
 from divineos.core.ledger import init_db
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.watchmen._schema import init_watchmen_tables
 from divineos.core.watchmen.types import (
     EXTERNAL_ACTORS,

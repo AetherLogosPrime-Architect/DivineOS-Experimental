@@ -3,7 +3,7 @@
 import sqlite3
 from typing import Any
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 from divineos.core.watchmen._schema import init_watchmen_tables
 
 

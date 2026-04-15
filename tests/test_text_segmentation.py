@@ -133,7 +133,7 @@ class TestSegmentationIntegration:
         import os
 
         from divineos.core.ledger import init_db
-        from divineos.core.knowledge._base import init_knowledge_table, _get_connection
+        from divineos.core.knowledge import init_knowledge_table, _get_connection
         from divineos.core.knowledge.extraction import store_knowledge_smart
 
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
@@ -177,7 +177,7 @@ class TestSegmentationIntegration:
         import os
 
         from divineos.core.ledger import init_db
-        from divineos.core.knowledge._base import init_knowledge_table, _get_connection
+        from divineos.core.knowledge import init_knowledge_table, _get_connection
         from divineos.core.knowledge.extraction import store_knowledge_smart
 
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")

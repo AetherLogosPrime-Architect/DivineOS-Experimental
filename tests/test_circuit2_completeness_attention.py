@@ -25,7 +25,7 @@ def clean_db(tmp_path, monkeypatch):
     test_db = tmp_path / "test_circuit2.db"
     monkeypatch.setenv("DIVINEOS_DB", str(test_db))
 
-    from divineos.core.knowledge._base import init_knowledge_table
+    from divineos.core.knowledge import init_knowledge_table
 
     init_knowledge_table()
     yield

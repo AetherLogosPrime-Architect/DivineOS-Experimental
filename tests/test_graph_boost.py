@@ -1,6 +1,6 @@
 """Tests for graph-boosted briefing scoring and compass behavioral guidance."""
 
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.edges import create_edge, init_edge_table
 from divineos.core.knowledge.extraction import store_knowledge_smart
 from divineos.core.knowledge.retrieval import _apply_graph_boost, _compass_guidance

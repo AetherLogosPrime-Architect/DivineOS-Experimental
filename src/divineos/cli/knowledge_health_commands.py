@@ -613,7 +613,7 @@ def register(cli: click.Group) -> None:
         - Coverage: failure mode vs edge case vs happy path
         Also detects inline CREATE TABLE statements (schema divergence risk).
         """
-        from divineos.analysis.test_audit import (
+        from divineos.analysis.audit_classifier import (
             audit_test_directory,
             format_audit_report,
         )

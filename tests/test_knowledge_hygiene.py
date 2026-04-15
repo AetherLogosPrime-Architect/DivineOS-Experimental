@@ -2,7 +2,7 @@
 
 import time
 
-from divineos.core.knowledge._base import _KNOWLEDGE_COLS, _get_connection, _row_to_dict
+from divineos.core.knowledge import _KNOWLEDGE_COLS, _get_connection, _row_to_dict
 from divineos.core.knowledge_maintenance import (
     _audit_types,
     _flag_orphans,
@@ -16,7 +16,7 @@ from divineos.core.knowledge_maintenance import (
 def _setup(tmp_path, monkeypatch):
     db_path = tmp_path / "test.db"
     monkeypatch.setenv("DIVINEOS_DB", str(db_path))
-    from divineos.core.knowledge._base import init_knowledge_table
+    from divineos.core.knowledge import init_knowledge_table
 
     init_knowledge_table()
 
