@@ -127,7 +127,7 @@ def _get_current_focus() -> list[dict[str, Any]]:
 
     # Recent events — what just happened shapes what I attend to next
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -181,7 +181,7 @@ def _get_suppressed() -> list[dict[str, Any]]:
     suppressed: list[dict[str, Any]] = []
 
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -279,7 +279,7 @@ def _get_attention_drivers() -> list[dict[str, Any]]:
 
     # Pattern warnings — anticipated problems shift attention
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -514,7 +514,7 @@ def predict_attention_shift(
 
     # From suppressed items approaching threshold — about to surface
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:

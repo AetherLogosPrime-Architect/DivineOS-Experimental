@@ -185,7 +185,7 @@ class TestGatherProgress:
 
     def test_gather_with_lessons(self) -> None:
         """After storing lessons, lesson counts reflect them."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.lessons import record_lesson
 
         init_knowledge_table()

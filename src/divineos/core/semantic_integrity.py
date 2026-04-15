@@ -800,7 +800,7 @@ def audit_knowledge_integrity(limit: int = 200) -> dict[str, Any]:
     """
     import sqlite3
 
-    from divineos.core.knowledge._base import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     conn = _get_connection()
     try:

@@ -1,6 +1,6 @@
 """Tests for Observational Compression — merge redundant knowledge."""
 
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.compression import (
     _extract_unique_terms,
     _maturity_score,

@@ -273,7 +273,7 @@ class TestContradictionScan:
 
     def test_nonexistent_ids_handled(self):
         """IDs that don't exist in DB should not crash."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -299,7 +299,7 @@ class TestKnowledgePostProcessing:
     def test_maturity_override_applied(self, tmp_path, monkeypatch):
         """When maturity_override is set, RAW entries should be updated."""
         from divineos.core.knowledge import _get_connection
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -334,7 +334,7 @@ class TestKnowledgePostProcessing:
     def test_no_override_leaves_maturity(self, tmp_path, monkeypatch):
         """Without maturity_override, entries stay at their original maturity."""
         from divineos.core.knowledge import _get_connection
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -369,7 +369,7 @@ class TestFeedbackCycle:
     """Test Phase 4: feedback and clarity."""
 
     def test_returns_four_values(self):
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -384,7 +384,7 @@ class TestFeedbackCycle:
 
     def test_with_corrections(self):
         """Sessions with corrections should produce feedback."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -447,7 +447,7 @@ class TestSessionScoring:
 
     def test_health_has_expected_keys(self):
         """If health is returned, it should have grade and score."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 

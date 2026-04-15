@@ -221,7 +221,7 @@ def _get_modified_files() -> list[str]:
 def _get_recent_decisions(limit: int = 3) -> list[str]:
     """Get recent decision summaries from the decision journal."""
     try:
-        from divineos.core.knowledge._base import get_connection
+        from divineos.core.knowledge import get_connection
 
         conn = get_connection()
         try:

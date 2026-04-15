@@ -6,7 +6,7 @@ import uuid
 import pytest
 
 from divineos.core.knowledge import get_connection
-from divineos.core.knowledge._base import compute_hash, init_knowledge_table
+from divineos.core.knowledge import compute_hash, init_knowledge_table
 from divineos.core.knowledge.edges import (
     ALL_EDGE_TYPES,
     INVERSE_EDGES,

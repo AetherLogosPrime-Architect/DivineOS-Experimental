@@ -197,7 +197,7 @@ def assess_epistemic_confidence(knowledge_id: str) -> dict[str, Any]:
     grounding score.
     """
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
         from divineos.core.logic.warrants import get_warrants
 
         conn = _get_connection()

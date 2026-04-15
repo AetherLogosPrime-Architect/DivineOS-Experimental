@@ -21,7 +21,7 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 
 _AC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

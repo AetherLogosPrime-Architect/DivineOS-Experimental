@@ -24,7 +24,7 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge._base import (
+from divineos.core.knowledge import (
     _KNOWLEDGE_COLS,
     _get_connection,
     _row_to_dict,

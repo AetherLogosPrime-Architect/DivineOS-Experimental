@@ -1,7 +1,7 @@
 """Tests for the pattern anticipation system."""
 
 from divineos.core.anticipation import anticipate, format_anticipation
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.crud import store_knowledge
 from divineos.core.knowledge.lessons import record_lesson
 

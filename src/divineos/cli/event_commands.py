@@ -256,7 +256,7 @@ def register(cli: click.Group) -> None:
 
         # Find the most recent session
         try:
-            from divineos.core.knowledge._base import _get_connection
+            from divineos.core.knowledge import _get_connection
 
             conn = _get_connection()
             row = conn.execute(
