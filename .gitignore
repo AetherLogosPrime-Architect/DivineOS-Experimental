@@ -95,3 +95,10 @@ exploration/
 
 # Family — private, never committed
 family/
+
+# Benchmark output — runtime results, regenerate as needed (see benchmark/README.md)
+# Historical results may be preserved via git tags or GitHub Releases.
+benchmark/results/
+benchmark/results_ab/
+benchmark/results_opus/
+benchmark/selected_tasks.json
