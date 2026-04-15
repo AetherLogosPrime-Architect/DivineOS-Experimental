@@ -133,7 +133,7 @@ def _get_current_focus() -> list[dict[str, Any]]:
         try:
             rows = conn.execute(
                 """SELECT event_type, content, created_at
-                   FROM events
+                   FROM system_events
                    ORDER BY created_at DESC
                    LIMIT 5""",
             ).fetchall()

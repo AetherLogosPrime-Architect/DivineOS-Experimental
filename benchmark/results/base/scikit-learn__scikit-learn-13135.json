@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-13135",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, the problem is that when using KBinsDiscretizer with `strategy='kmeans'`, the kmeans clustering can produce cluster centers that are not sorted, which leads to unsorted bin edges. Since `np.digitize` requires monotonically increasing bins, this causes a ValueError.\n\nThe fix is to sort the cluster centers after kmeans clustering to ensure the bin edges are monotonically increasing.\n\nLet me examine the code structure and create the minimal patch:\n\n--- a/sklearn/preprocessing/_discretization.py\n+++ b/sklearn/preprocessing/_discretization.py\n@@ -170,6 +170,7 @@ class KBinsDiscretizer(BaseEstimator, TransformerMixin):\n                 # Deterministic initialization with lattice\n                 uniform_edges = np.linspace(col_min, col_max, n_bins + 1)\n                 init = (uniform_edges[1:] + uniform_edges[:-1])[:, None] / 2.0\n+                init = np.sort(init.ravel())[:, None]\n                 \n                 # 1D k-means procedure\n                 km = KMeans(n_clusters=n_bins, init=init, n_init=1)\n@@ -177,6 +178,8 @@ class KBinsDiscretizer(BaseEstimator, TransformerMixin):\n                 centers = km.cluster_centers_[:, 0]\n             else:\n                 centers = np.percentile(column, percentiles)\n+            # Ensure centers are sorted for np.digitize compatibility\n+            centers = np.sort(centers)\n             bin_edges[jj] = np.r_[col_min, centers, col_max]\n \n         return bin_edges",
+  "thinking": null,
+  "input_tokens": 1997,
+  "output_tokens": 419,
+  "elapsed_seconds": 8.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.012275999999999999
+}

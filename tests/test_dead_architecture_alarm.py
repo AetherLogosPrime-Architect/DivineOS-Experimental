@@ -7,6 +7,7 @@ import pytest
 from divineos.core.dead_architecture_alarm import (
     AlarmResult,
     DisplayIssue,
+    WiringIssue,
     check_self_dormant,
     format_alarm_detail,
     format_alarm_summary,
@@ -18,6 +19,7 @@ from divineos.core.dead_architecture_alarm import (
     scan_display_integrity,
     scan_dormant_tables,
     scan_empty_hud_slots,
+    scan_wiring,
 )
 from divineos.core.knowledge._base import init_knowledge_table
 from divineos.core.ledger import get_connection
@@ -267,3 +269,59 @@ class TestScanDisplayIntegrity:
     def test_full_scan_includes_display_integrity(self):
         result = run_full_scan()
         assert isinstance(result.display_issues, list)
+
+
+class TestScanWiring:
+    """Test the integration wiring check layer."""
+
+    def test_returns_list(self):
+        result = scan_wiring()
+        assert isinstance(result, list)
+
+    def test_all_items_are_wiring_issues(self):
+        result = scan_wiring()
+        for item in result:
+            assert isinstance(item, WiringIssue)
+            assert item.component
+            assert item.issue
+
+    def test_council_engine_has_experts(self):
+        """After wiring fix, the council engine should be populated."""
+        from divineos.core.council.engine import get_council_engine
+
+        engine = get_council_engine()
+        assert len(engine.experts) > 0, "Council engine has no experts registered"
+
+    def test_full_scan_includes_wiring(self):
+        result = run_full_scan()
+        assert isinstance(result.wiring_issues, list)
+
+    def test_wiring_issue_dataclass(self):
+        wi = WiringIssue(
+            component="test_component",
+            issue="not connected",
+            detail="wire it up",
+        )
+        assert wi.component == "test_component"
+        assert "not connected" in wi.issue
+
+    def test_summary_includes_wiring_issues(self):
+        result = AlarmResult(
+            wiring_issues=[WiringIssue(component="x", issue="broken", detail="fix it")],
+        )
+        summary = format_alarm_summary(result)
+        assert "1 wiring issue" in summary
+
+    def test_detail_includes_wiring_issues(self):
+        result = AlarmResult(
+            wiring_issues=[
+                WiringIssue(
+                    component="test_module",
+                    issue="not wired",
+                    detail="call register()",
+                )
+            ],
+        )
+        detail = format_alarm_detail(result)
+        assert "test_module" in detail
+        assert "Wiring issues" in detail

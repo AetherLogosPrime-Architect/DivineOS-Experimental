@@ -224,11 +224,13 @@ def _get_recent_decisions(limit: int = 3) -> list[str]:
         from divineos.core.knowledge._base import get_connection
 
         conn = get_connection()
-        rows = conn.execute(
-            "SELECT what, why FROM decision_journal ORDER BY created_at DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        conn.close()
+        try:
+            rows = conn.execute(
+                "SELECT what, why FROM decision_journal ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        finally:
+            conn.close()
         return [f"{what}: {why[:100]}" for what, why in rows if what]
     except (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError):
         return []

@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-15976",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, the problem is that symbols ending with numbers are being wrapped in extra `<mi>` tags when they should be rendered as subscripts in MathML. The issue is in the MathML printer where symbols like `x2` are being converted to `<mi><msub><mi>x</mi><mi>2</mi></msub></mi>` instead of just `<msub><mi>x</mi><mi>2</mi></msub>`.\n\nLet me examine the MathML printer code to find where this extra wrapping is happening.\n\n--- a/sympy/printing/mathml.py\n+++ b/sympy/printing/mathml.py\n@@ -1180,7 +1180,7 @@ class MathMLPresentationPrinter(MathMLPrinterBase):\n                 sup = self._print(str(sup))\n                 x = '%s<msup>%s%s</msup>' % (sep, x, sup)\n             if sub is not None:\n-                sub = self._print(str(sub))\n+                sub = self._print(str(sub))\n                 x = '%s<msub>%s%s</msub>' % (sep, x, sub)\n \n         if func:\n@@ -1188,10 +1188,7 @@ class MathMLPresentationPrinter(MathMLPrinterBase):\n             x = self._print_Function(expr)\n         else:\n             # Print as symbol\n-            if sub or sup:\n-                x = '<mi>%s</mi>' % x\n-            else:\n-                x = '<mi>%s</mi>' % name\n+            x = '<mi>%s</mi>' % name if not (sub or sup) else x\n \n         return x",
+  "thinking": null,
+  "input_tokens": 1397,
+  "output_tokens": 431,
+  "elapsed_seconds": 8.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.010656
+}

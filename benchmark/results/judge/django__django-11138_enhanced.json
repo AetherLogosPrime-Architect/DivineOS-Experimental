@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that database TIME_ZONE settings should be used instead of hardcoded 'UTC', but it only fixes datetime_cast_date_sql methods and misses the core _convert_field_to_tz methods that handle timezone conversion logic.",
+  "key_difference": "The candidate patch only modifies datetime_cast_date_sql methods while the gold patch fixes the underlying _convert_field_to_tz methods that are responsible for the core timezone conversion logic. The candidate also doesn't include the optimization to skip conversion when source and target timezones are the same.",
+  "instance_id": "django__django-11138",
+  "condition": "enhanced",
+  "judge_tokens": 2974,
+  "judge_cost": 0.011214
+}

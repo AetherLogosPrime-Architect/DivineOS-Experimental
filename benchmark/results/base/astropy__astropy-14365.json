@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14365",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/astropy/io/ascii/qdp.py\n+++ b/astropy/io/ascii/qdp.py\n@@ -50,7 +50,7 @@ def _line_type(line, delimiter=None):\n     \"\"\"Interpret a QDP file line.\"\"\"\n     _decimal_re = r\"[+-]?(\\d+(\\.\\d*)?|\\.\\d+)([eE][+-]?\\d+)?\"\n     _command_re = r\"read [ster|terr|serr]\"\n-    sep = delimiter\n+    sep = delimiter \n     if delimiter is None:\n         sep = r\"\\s+\"\n     _new_re = rf\"NO({sep}NO)+\"\n@@ -59,7 +59,7 @@ def _line_type(line, delimiter=None):\n     if not line.strip():\n         return \"comment\"\n     line = line.strip()\n-    if re.match(_command_re, line):\n+    if re.match(_command_re, line, re.IGNORECASE):\n         return \"command\"\n     elif line.startswith(\"!\"):\n         return \"comment\"",
+  "thinking": null,
+  "input_tokens": 1120,
+  "output_tokens": 281,
+  "elapsed_seconds": 6.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007575
+}

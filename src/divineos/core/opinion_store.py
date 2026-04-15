@@ -202,7 +202,8 @@ def strengthen_opinion(opinion_id: str, evidence: str, boost: float = 0.05) -> f
         new_conf = min(1.0, old_conf + boost)
         conn.execute(
             "UPDATE opinions SET confidence = ?, evidence_for = ?, "
-            "updated_at = ? WHERE opinion_id = ?",
+            "updated_at = ?, revision_count = revision_count + 1 "
+            "WHERE opinion_id = ?",
             (new_conf, json.dumps(evidence_list), time.time(), opinion_id),
         )
         conn.commit()
@@ -310,6 +311,7 @@ def get_opinion_history(topic: str) -> list[dict[str, Any]]:
                 "formed_at": row[6],
                 "updated_at": row[7],
                 "revision_count": row[8],
+                "tags": json.loads(row[9]),
                 "superseded_by": row[10],
             }
             for row in rows

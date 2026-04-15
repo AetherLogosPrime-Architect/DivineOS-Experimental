@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that marks from parent classes in the MRO chain need to be collected, and implements a simple solution by iterating through the MRO to gather marks from all parent classes.",
+  "key_difference": "The candidate patch uses a simpler approach by directly iterating through the MRO within the existing function, while the gold patch refactors the function signature to accept a consider_mro parameter and handles the logic more explicitly. Both approaches are valid, but the candidate is more straightforward and achieves the same goal of collecting marks from the entire MRO chain.",
+  "instance_id": "pytest-dev__pytest-10356",
+  "condition": "enhanced",
+  "judge_tokens": 2304,
+  "judge_cost": 0.00918
+}

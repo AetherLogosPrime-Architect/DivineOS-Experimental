@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies the issue with regex special characters in the formset prefix and applies the proper fix using re.escape(). The patch targets the exact same problematic line as the gold patch and makes the minimal necessary change. However, the context appears to be from a different location in the file than expected.",
+  "key_difference": "The candidate patch shows context from a different part of the method (showing FormSet initialization code) compared to the gold patch which shows the _get_edited_object_pks method definition, but both patches target the same problematic line with the identical fix.",
+  "instance_id": "django__django-12143",
+  "label": "v1_old",
+  "judge_cost": 0.006030000000000001
+}

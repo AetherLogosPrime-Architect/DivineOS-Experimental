@@ -293,6 +293,17 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Health check failed: {e}")
 
+    # 5b-pre. Backfill warrants BEFORE maturity cycle — newly warranted
+    # entries may meet promotion criteria that the maturity cycle checks.
+    try:
+        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
+
+        wresult = backfill_inherited_warrants()
+        if wresult["backfilled"]:
+            click.secho(f"[~] Backfilled {wresult['backfilled']} warrants.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Warrant backfill failed: {e}")
+
     # 5b. Maturity cycle
     promoted_ids: list[str] = []
     try:
@@ -372,7 +383,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
                 if content.startswith(prefix):
                     stripped = content[len(prefix) :]
                     cleaned = _distill_correction(stripped)
-                    if cleaned and cleaned != content:
+                    if cleaned and cleaned != stripped:
                         conn.execute(
                             "UPDATE knowledge SET content = ? WHERE knowledge_id = ?",
                             (cleaned, kid),
@@ -386,15 +397,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Auto-distill failed: {e}")
 
-    # 5f. Backfill warrants for new entries
-    try:
-        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
-
-        wresult = backfill_inherited_warrants()
-        if wresult["backfilled"]:
-            click.secho(f"[~] Backfilled {wresult['backfilled']} warrants.", fg="cyan")
-    except _PHASE_ERRORS as e:
-        logger.warning(f"Warrant backfill failed: {e}")
+    # 5f. (Moved to 5b-pre — warrant backfill now runs before maturity cycle)
 
     # 5g. Drift detection — catch behavioral backsliding
     try:
@@ -403,12 +406,15 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
         drift = run_drift_detection()
         severity = drift.get("severity", "none")
         if severity not in ("none", None):
-            signals = drift.get("signals", [])
-            click.secho(f"[!] Drift detected ({severity}): {len(signals)} signal(s)", fg="yellow")
-            for sig in signals[:3]:
+            signal_count = drift.get("drift_signals", 0)
+            click.secho(f"[!] Drift detected ({severity}): {signal_count} signal(s)", fg="yellow")
+            for reg in drift.get("regressions", [])[:3]:
                 click.secho(
-                    f"     {sig.get('type', '?')}: {sig.get('detail', '')[:80]}", fg="yellow"
+                    f"     {reg.get('type', '?')}: {reg.get('detail', '')[:80]}", fg="yellow"
                 )
+            quality = drift.get("quality_drift", {})
+            if quality.get("drifting"):
+                click.secho(f"     quality_drift: {quality.get('detail', '')[:80]}", fg="yellow")
     except _PHASE_ERRORS as e:
         logger.warning(f"Drift detection failed: {e}")
 
@@ -503,6 +509,89 @@ def run_consolidation_and_refresh(analysis: Any) -> tuple[int, int]:
     return promoted, demoted
 
 
+# ─── Phase 8p-q: Lesson detection and escalation ────────────────────
+#
+# MUST run before corroboration sweep (Phase 8c) — lessons must be
+# recorded first so maturity promotions reflect actual learning.
+
+
+def run_lesson_detection(
+    check_results: list,
+    session_id: str,
+    features: Any,
+) -> list[str]:
+    """Detect and record lessons from quality checks + session features.
+
+    Also runs auto-resolve (escalation) after detection so we don't
+    resolve a lesson that just re-occurred this session.
+
+    Returns list of lesson IDs detected.
+    """
+    lesson_ids: list[str] = []
+
+    # 8p. Lesson detection from quality checks + features
+    try:
+        from divineos.core.knowledge.lessons import extract_lessons_from_report
+
+        # Convert feature tone shifts to lesson-extraction format
+        tone_shifts_for_lessons = None
+        if features and hasattr(features, "tone_shifts") and features.tone_shifts:
+            tone_shifts_for_lessons = [
+                {
+                    "direction": ("negative" if ts.new_tone == "negative" else "positive"),
+                    "previous_tone": ts.previous_tone,
+                    "new_tone": ts.new_tone,
+                    "trigger": ts.trigger_action,
+                    "user_response": getattr(ts, "after_message", ""),
+                    "before_message": getattr(ts, "before_message", ""),
+                    "sequence": ts.sequence,
+                }
+                for ts in features.tone_shifts
+                if ts.previous_tone != ts.new_tone
+            ]
+
+        # Convert error recovery to aggregate counts
+        error_recovery_for_lessons = None
+        if features and hasattr(features, "error_recovery") and features.error_recovery:
+            blind_retries = sum(1 for e in features.error_recovery if e.recovery_action == "retry")
+            investigate_count = sum(
+                1 for e in features.error_recovery if e.recovery_action == "investigate"
+            )
+            error_recovery_for_lessons = {
+                "blind_retries": blind_retries,
+                "investigate_count": investigate_count,
+            }
+
+        lesson_ids = extract_lessons_from_report(
+            check_results,
+            session_id,
+            tone_shifts_for_lessons,
+            error_recovery_for_lessons,
+        )
+        if lesson_ids:
+            click.secho(
+                f"[+] Lesson detection: {len(lesson_ids)} entries from quality checks",
+                fg="green",
+            )
+    except (*_PHASE_ERRORS, ValueError) as e:
+        logger.debug(f"Lesson detection failed: {e}")
+
+    # 8q. Lesson escalation (auto-resolve)
+    # Runs AFTER lesson detection so we don't resolve a lesson
+    # that just re-occurred this session.
+    try:
+        from divineos.core.knowledge.lessons import auto_resolve_lessons
+
+        resolved = auto_resolve_lessons()
+        if resolved:
+            names = ", ".join(r["category"] for r in resolved)
+            click.secho(f"[+] Lessons resolved: {names}", fg="green")
+    except _PHASE_ERRORS as e:
+        logger.debug(f"Lesson escalation failed: {e}")
+
+    return lesson_ids
+
+
 # ─── Phase 8-9: Session scoring and finalization ─────────────────────
 
 
@@ -573,6 +662,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         from divineos.core.knowledge_maintenance import increment_corroboration, promote_maturity
 
         corroborated = 0
+        corroborated_ids: list[str] = []
         conn = _get_conn()
         current_rows = conn.execute(
             "SELECT knowledge_id, access_count FROM knowledge "
@@ -587,11 +677,28 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
                 increment_corroboration(kid, source_context="session:end_sweep")
                 promote_maturity(kid)
                 corroborated += 1
+                corroborated_ids.append(kid)
         if corroborated:
             click.secho(
                 f"[~] Corroborated {corroborated} knowledge entries (accessed this session).",
                 fg="cyan",
             )
+            # Log to ledger — corroboration must be auditable
+            try:
+                from divineos.core.ledger import log_event
+
+                log_event(
+                    "KNOWLEDGE_CORROBORATED",
+                    "session:end",
+                    {
+                        "count": corroborated,
+                        "knowledge_ids": corroborated_ids[:20],  # cap payload size
+                        "source": "session:end_sweep",
+                    },
+                    validate=False,
+                )
+            except (ImportError, sqlite3.OperationalError, OSError):
+                pass  # Ledger logging is best-effort
     except _PHASE_ERRORS as e:
         logger.warning(f"Session-end corroboration sweep failed: {e}")
 
@@ -643,25 +750,47 @@ def run_session_finalization(
     except _PHASE_ERRORS as e:
         logger.warning(f"Session metrics recording failed: {e}")
 
-    # 9b2. Auto-record skills from tool usage
+    # 9b2. Record skills from real competence signals (not tool counts)
     try:
-        from divineos.core.skill_library import record_skill_use
-
-        tool_counts: dict[str, int] = {}
-        for record in records:
-            if isinstance(record, dict) and record.get("role") == "assistant":
-                for tc in record.get("content", []):
-                    if isinstance(tc, dict) and tc.get("type") == "tool_use":
-                        name = tc.get("name", "unknown")
-                        tool_counts[name] = tool_counts.get(name, 0) + 1
+        from divineos.core.skill_library import detect_skills_from_events, record_skill_use
 
         skills_recorded = 0
-        for tool_name, count in tool_counts.items():
-            if count >= 3:  # Only track tools used meaningfully (3+ times)
-                record_skill_use(tool_name, success=True)
-                skills_recorded += 1
+
+        # Detect which skill domains were active this session
+        session_events: list[str] = []
+        for record in records:
+            if isinstance(record, dict):
+                for tc in record.get("content", []):
+                    if isinstance(tc, dict):
+                        name = tc.get("name", "")
+                        text = tc.get("text", "")
+                        if name:
+                            session_events.append(name)
+                        if text and len(text) > 10:
+                            session_events.append(text[:200])
+
+        active_domains = detect_skills_from_events(session_events)
+        correction_count = len(analysis.corrections) if analysis else 0
+        encouragement_count = len(analysis.encouragements) if analysis else 0
+
+        # Corrections signal failure in the active domains
+        # Encouragements signal success
+        # No corrections + domain active = success (clean work)
+        for domain in active_domains:
+            if correction_count >= 3:
+                # Multiple corrections while working in this domain = failure signal
+                record_skill_use(domain, success=False, context="session corrections")
+            elif encouragement_count >= 2 or correction_count == 0:
+                # Encouragements or clean session = success signal
+                record_skill_use(domain, success=True, context="clean session")
+            skills_recorded += 1
+
         if skills_recorded:
-            click.secho(f"[~] Recorded {skills_recorded} skills from tool usage.", fg="cyan")
+            click.secho(
+                f"[~] Recorded {skills_recorded} skill(s) from session signals "
+                f"({correction_count} corrections, {encouragement_count} encouragements).",
+                fg="cyan",
+            )
     except _PHASE_ERRORS as e:
         logger.warning(f"Skill recording failed: {e}")
 
@@ -773,6 +902,16 @@ def print_session_summary(
         click.secho(f"  Session recs:         {len(session_feedback.recommendations)}", fg="white")
         for fb_rec in session_feedback.recommendations[:3]:
             _safe_echo(f"    - {fb_rec}")
+    # Rating solicitation — the one metric the system cannot game
+    click.secho(
+        "\n  💬 How was this session? Rate it 1-10:",
+        fg="bright_white",
+        bold=True,
+    )
+    click.secho(
+        "     divineos rate <1-10> [comment]",
+        fg="bright_black",
+    )
     click.secho(
         "  Next session: run 'divineos hud' for full dashboard, or 'divineos briefing' for knowledge.",
         fg="bright_black",

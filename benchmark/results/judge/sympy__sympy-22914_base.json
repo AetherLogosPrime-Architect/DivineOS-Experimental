@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds Min and Max mappings to the _known_functions dictionary in PythonCodePrinter, which will enable proper code generation for these functions.",
+  "key_difference": "The candidate patch adds the mappings to the PythonCodePrinter class's _known_functions dictionary, while the gold patch adds them to the module-level _known_functions dictionary. Both approaches are valid as they achieve the same result - mapping Min/Max to min/max functions.",
+  "instance_id": "sympy__sympy-22914",
+  "condition": "base",
+  "judge_tokens": 1043,
+  "judge_cost": 0.005157
+}

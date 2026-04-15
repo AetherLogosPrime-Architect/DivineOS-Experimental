@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-11445",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the issue, the problem is that when `rst_prolog` is set, it gets prepended directly to the RST content without ensuring proper separation. This can cause parsing issues when domain directives like `:mod:` are used in headings, because the prolog content gets inserted without a blank line separator.\n\nBased on the hint and the code location provided, I need to modify the `prepend_prolog` function in `sphinx/util/rst.py` to add a blank line after the prolog content to ensure proper RST parsing.\n\n```diff\n--- a/sphinx/util/rst.py\n+++ b/sphinx/util/rst.py\n@@ -88,7 +88,7 @@ def prepend_prolog(content: StringList, prolog: str) -> None:\n     if prolog:\n         prologlist = StringList()\n         prologlist.append(prolog, '<rst_prolog>')\n-        content.insert(0, prologlist)\n+        content.insert(0, prologlist + [''])\n \n \n def append_epilog(content: StringList, epilog: str) -> None:\n```",
+  "thinking": null,
+  "input_tokens": 924,
+  "output_tokens": 270,
+  "elapsed_seconds": 5.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006822
+}

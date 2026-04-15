@@ -447,8 +447,10 @@ def select_experts(
     selected: list[ExpertScore] = []
     selected_names: set[str] = set()
 
-    # 1. Always include always-on experts
+    # 1. Always include always-on experts (respecting max_experts)
     for es in scored:
+        if len(selected) >= max_experts:
+            break
         if es.expert_name in ALWAYS_ON and es.expert_name in experts:
             selected.append(es)
             selected_names.add(es.expert_name)
@@ -565,9 +567,11 @@ class CouncilManager:
         selected = select_experts(problem, experts, min_experts, max_experts)
         selected_names = [es.expert_name for es in selected]
 
-        # Add forced experts if not already selected
+        # Add forced experts if not already selected (respecting max_experts)
         if force_experts:
             for name in force_experts:
+                if len(selected) >= max_experts:
+                    break
                 if name not in selected_names and name in experts:
                     selected.append(
                         ExpertScore(

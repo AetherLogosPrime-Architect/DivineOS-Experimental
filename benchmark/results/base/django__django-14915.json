@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-14915",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/forms/models.py\n+++ b/django/forms/models.py\n@@ -1178,6 +1178,9 @@ class ModelChoiceIteratorValue:\n     def __str__(self):\n         return str(self.value)\n \n+    def __hash__(self):\n+        return hash(self.value)\n+\n \n class ModelChoiceIterator:\n     def __init__(self, field):",
+  "thinking": null,
+  "input_tokens": 678,
+  "output_tokens": 111,
+  "elapsed_seconds": 2.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.003699
+}

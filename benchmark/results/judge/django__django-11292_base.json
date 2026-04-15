@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to add --skip-checks option but has formatting issues and an incorrect approach of setting requires_system_checks to an empty list instead of properly handling the skip_checks option.",
+  "key_difference": "The candidate patch tries to modify requires_system_checks directly instead of using the existing skip_checks logic in the execute method, and it has malformed diff syntax with duplicate/contradictory changes.",
+  "instance_id": "django__django-11292",
+  "condition": "base",
+  "judge_tokens": 1728,
+  "judge_cost": 0.007008
+}

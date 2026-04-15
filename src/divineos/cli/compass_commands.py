@@ -2,6 +2,8 @@
 
 import click
 
+from divineos.cli._helpers import _safe_echo
+
 
 def register(cli: click.Group) -> None:
     """Register compass commands."""
@@ -11,7 +13,7 @@ def register(cli: click.Group) -> None:
         """Show my moral compass — where I stand on ten virtue spectrums."""
         from divineos.core.moral_compass import format_compass_reading
 
-        click.echo(format_compass_reading())
+        _safe_echo(format_compass_reading())
 
         from divineos.cli._helpers import _log_os_query
 
@@ -125,7 +127,7 @@ def register(cli: click.Group) -> None:
         """Show compass summary — concerns and drift warnings."""
         from divineos.core.moral_compass import format_compass_brief
 
-        click.echo(format_compass_brief())
+        _safe_echo(format_compass_brief())
 
     @compass_group.command("spectrums")
     def spectrums_cmd() -> None:

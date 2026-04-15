@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "This patch only changes 'legend' to 'Legend' in an error message and adds a check for FigureBase at the end, but it doesn't address the core issue which is that the isinstance check earlier in the code needs to accept FigureBase instead of just Figure.",
+  "key_difference": "The gold patch correctly imports FigureBase and changes the isinstance check from Figure to FigureBase, while the candidate patch only makes cosmetic changes to an error message and adds a check at the end without fixing the root cause of the TypeError being raised.",
+  "instance_id": "matplotlib__matplotlib-20859",
+  "condition": "base",
+  "judge_tokens": 1718,
+  "judge_cost": 0.007374
+}

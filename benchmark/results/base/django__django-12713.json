@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12713",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/contrib/admin/options.py\n+++ b/django/contrib/admin/options.py\n@@ -234,7 +234,7 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):\n         if db_field.name in self.raw_id_fields:\n             kwargs['widget'] = widgets.ManyToManyRawIdWidget(db_field.remote_field, self.admin_site, using=using)\n             kwargs['help_text'] = ''\n-        elif db_field.name in self.filter_horizontal:\n+        elif db_field.name in self.filter_horizontal and 'widget' not in kwargs:\n             kwargs['widget'] = widgets.FilteredSelectMultiple(\n                 db_field.verbose_name,\n                 db_field.name in self.filter_vertical\n@@ -242,7 +242,7 @@ class BaseModelAdmin(metaclass=forms.MediaDefiningClass):\n         elif db_field.name in self.filter_vertical:\n             kwargs['widget'] = widgets.FilteredSelectMultiple(\n                 db_field.verbose_name, True)\n-        elif not db_field.remote_field.through._meta.auto_created:\n+        elif not db_field.remote_field.through._meta.auto_created and 'widget' not in kwargs:\n             # If this is a many-to-many relation to a model that's managed by Django,\n             # we don't want to create a SelectMultiple widget with options that can contain\n             # THOUSANDS of objects. Instead, we use a more limited interface.",
+  "thinking": null,
+  "input_tokens": 264,
+  "output_tokens": 384,
+  "elapsed_seconds": 6.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0065520000000000005
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that class constructors' return types should be suppressed when objtype is 'class' by checking if the name ends with '.__init__', preventing meaningless return type documentation for class constructors.",
+  "key_difference": "The candidate patch prevents recording the return type annotation for class constructors at the source (record_typehints), while the gold patch suppresses it during display (modify_field_list). Both approaches are valid - the candidate is more efficient by not recording unnecessary data, while the gold approach allows more granular control during rendering.",
+  "instance_id": "sphinx-doc__sphinx-10449",
+  "condition": "enhanced",
+  "judge_tokens": 2234,
+  "judge_cost": 0.008922
+}

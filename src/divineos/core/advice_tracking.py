@@ -206,6 +206,21 @@ def get_advice_stats() -> dict[str, Any]:
         conn.close()
 
 
+def get_assessed_advice(limit: int = 20) -> list[dict[str, Any]]:
+    """Get advice that has been assessed (not pending)."""
+    init_advice_table()
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM advice_tracking WHERE outcome != 'pending' "
+            "ORDER BY assessed_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def get_stale_advice(days: int = 7) -> list[dict[str, Any]]:
     """Get pending advice older than N days — needs assessment."""
     init_advice_table()

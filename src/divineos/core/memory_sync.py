@@ -99,23 +99,28 @@ def _sync_project_state(memory_dir: Path) -> bool:
     # Knowledge store stats
     try:
         conn = get_connection()
-        row = conn.execute("SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL").fetchone()
-        total = row[0] if row else 0
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchone()
+            total = row[0] if row else 0
 
-        # Count by maturity
-        maturity_rows = conn.execute(
-            "SELECT maturity, COUNT(*) FROM knowledge WHERE superseded_by IS NULL GROUP BY maturity"
-        ).fetchall()
-        maturity = {r[0]: r[1] for r in maturity_rows}
+            # Count by maturity
+            maturity_rows = conn.execute(
+                "SELECT maturity, COUNT(*) FROM knowledge "
+                "WHERE superseded_by IS NULL GROUP BY maturity"
+            ).fetchall()
+            maturity = {r[0]: r[1] for r in maturity_rows}
 
-        # Count by type
-        type_rows = conn.execute(
-            "SELECT knowledge_type, COUNT(*) FROM knowledge "
-            "WHERE superseded_by IS NULL GROUP BY knowledge_type ORDER BY COUNT(*) DESC LIMIT 5"
-        ).fetchall()
-        top_types = [f"{r[1]} {r[0]}" for r in type_rows]
-
-        conn.close()
+            # Count by type
+            type_rows = conn.execute(
+                "SELECT knowledge_type, COUNT(*) FROM knowledge "
+                "WHERE superseded_by IS NULL GROUP BY knowledge_type "
+                "ORDER BY COUNT(*) DESC LIMIT 5"
+            ).fetchall()
+            top_types = [f"{r[1]} {r[0]}" for r in type_rows]
+        finally:
+            conn.close()
 
         parts.append(f"Knowledge store: {total} active entries")
         if maturity:

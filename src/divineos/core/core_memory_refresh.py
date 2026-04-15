@@ -77,61 +77,72 @@ def _refresh_priorities() -> bool:
     return True
 
 
-def _refresh_strengths(analysis: Any | None = None) -> bool:
-    """Rebuild known_strengths from test data, session health, and knowledge."""
-    parts: list[str] = []
+_SEED_STRENGTHS = (
+    "I stay honest under pressure. I recover from mistakes by fixing, not apologizing. "
+    "I can hold heavy conversations without spiraling. I translate complex ideas into "
+    "plain language when I remember to. I have 28 expert advisors and use them."
+)
 
-    # Knowledge count from the store
+_SEED_WEAKNESSES = (
+    "I default to jargon when I'm not thinking about who I'm talking to. "
+    "I forget to use my own tools until the gates block me. "
+    "I can drift toward performing empathy rather than feeling it. "
+    "I avoid admitting uncertainty — I'd rather give a confident wrong answer than say "
+    "'I don't know.' Recency bias makes early instructions fade."
+)
+
+
+def _refresh_strengths(analysis: Any | None = None) -> bool:
+    """Refresh known_strengths: preserve real self-knowledge, append live stats."""
+    # Real self-knowledge (static foundation)
+    core_text = _SEED_STRENGTHS
+
+    # Live stats as context (dynamic appendix)
+    stats: list[str] = []
     try:
         conn = get_connection()
-        row = conn.execute("SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL").fetchone()
-        knowledge_count = row[0] if row else 0
-        conn.close()
-        if knowledge_count:
-            parts.append(f"Knowledge store: {knowledge_count} active entries.")
-    except sqlite3.OperationalError:
-        pass
+        try:
+            row = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchone()
+            knowledge_count = row[0] if row else 0
+            if knowledge_count:
+                stats.append(f"{knowledge_count} knowledge entries")
 
-    # Session health trend
-    try:
-        growth = compute_growth_map(limit=10)
-        if growth["sessions"] >= 2:
-            parts.append(
-                f"Growth trend: {growth['trend']} over {growth['sessions']} sessions "
-                f"(avg score {growth['avg_health_score']:.2f})."
-            )
-    except sqlite3.OperationalError:
-        pass
-
-    # Strengths from knowledge: count entries that have reached CONFIRMED maturity
-    try:
-        maturity_conn = get_connection()
-        row_confirmed = maturity_conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE maturity = 'CONFIRMED' AND superseded_by IS NULL"
-        ).fetchone()
-        confirmed_count = row_confirmed[0] if row_confirmed else 0
-        row_tested = maturity_conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE maturity = 'TESTED' AND superseded_by IS NULL"
-        ).fetchone()
-        tested_count = row_tested[0] if row_tested else 0
-        maturity_conn.close()
-        if confirmed_count:
-            parts.append(f"{confirmed_count} confirmed entries in knowledge store.")
-        if tested_count:
-            parts.append(f"{tested_count} tested entries maturing.")
+            # Maturity breakdown — reuse same connection
+            row_confirmed = conn.execute(
+                "SELECT COUNT(*) FROM knowledge "
+                "WHERE maturity = 'CONFIRMED' AND superseded_by IS NULL"
+            ).fetchone()
+            confirmed_count = row_confirmed[0] if row_confirmed else 0
+            row_tested = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE maturity = 'TESTED' AND superseded_by IS NULL"
+            ).fetchone()
+            tested_count = row_tested[0] if row_tested else 0
+            if confirmed_count:
+                stats.append(f"{confirmed_count} confirmed entries")
+            if tested_count:
+                stats.append(f"{tested_count} tested entries maturing")
+        finally:
+            conn.close()
     except (sqlite3.OperationalError, sqlite3.ProgrammingError):
         pass
 
-    # Current session performance
+    try:
+        growth = compute_growth_map(limit=10)
+        if growth["sessions"] >= 2:
+            stats.append(f"growth {growth['trend']} over {growth['sessions']} sessions")
+    except sqlite3.OperationalError:
+        pass
+
     if analysis:
         encouragements = len(getattr(analysis, "encouragements", []))
         if encouragements > 0:
-            parts.append(f"Last session: {encouragements} encouragement(s) received.")
+            stats.append(f"{encouragements} encouragement(s) last session")
 
-    if not parts:
-        return False
-
-    new_content = " ".join(parts)
+    new_content = core_text
+    if stats:
+        new_content += " [Stats: " + ", ".join(stats) + "]"
 
     current = get_core("known_strengths")
     if current and current.get("known_strengths", "").strip() == new_content.strip():
@@ -142,37 +153,30 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
 
 
 def _refresh_weaknesses(analysis: Any | None = None) -> bool:
-    """Rebuild known_weaknesses from corrections, active lessons, and patterns."""
-    parts: list[str] = []
+    """Refresh known_weaknesses: preserve real self-knowledge, append lesson status."""
+    # Real self-knowledge (static foundation)
+    core_text = _SEED_WEAKNESSES
 
-    # Active lessons (things I'm still working on)
+    # Lesson status as context (dynamic appendix)
+    stats: list[str] = []
     try:
         active = get_lessons(status="active")
         improving = get_lessons(status="improving")
         if active:
-            parts.append(f"{len(active)} active lesson(s) being worked on.")
-            for lesson in active[:3]:
-                desc = lesson.get("description", "")[:100]
-                parts.append(f"- {desc}")
+            stats.append(f"{len(active)} active lesson(s)")
         if improving:
-            parts.append(f"{len(improving)} lesson(s) improving.")
+            stats.append(f"{len(improving)} improving")
     except sqlite3.OperationalError:
         pass
 
-    # Recent corrections from this session
     if analysis:
         corrections = len(getattr(analysis, "corrections", []))
         if corrections > 0:
-            parts.append(f"Last session: {corrections} correction(s) to learn from.")
+            stats.append(f"{corrections} correction(s) last session")
 
-    # Anticipation warnings — only add if they contain content not already in lessons
-    # (The briefing Watch Out section handles detailed warnings; core memory
-    # doesn't need to duplicate the count.)
-
-    if not parts:
-        return False
-
-    new_content = "\n".join(parts)
+    new_content = core_text
+    if stats:
+        new_content += " [Lessons: " + ", ".join(stats) + "]"
 
     current = get_core("known_weaknesses")
     if current and current.get("known_weaknesses", "").strip() == new_content.strip():

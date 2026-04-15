@@ -35,6 +35,11 @@ CONFIDENCE_VERY_HIGH = 0.9  # Very high — curation threshold
 CONFIDENCE_DEMOTE_CAP = 0.6  # Demoted entries capped at this
 CONFIDENCE_ORPHAN_DEMOTE = 0.5  # Orphan entries demoted to this
 
+# Reaper threshold — entries at or below this that are also noise or temporal
+# get superseded (not just decayed). This breaks the infinite loop where
+# entries hit the decay floor and stay in limbo forever.
+CONFIDENCE_SUPERSEDE_FLOOR = 0.15  # Below this + flagged = supersede
+
 # ─── Decay Rates ────────────────────────────────────────────────────
 # How fast knowledge depreciates when stale, unused, or contradicted.
 
@@ -89,9 +94,9 @@ EPISTEMIC_PENALTY_INHERITED = -0.15  # Meaningful penalty for seed/inherited kno
 # ─── Knowledge Retrieval Scoring ────────────────────────────────────
 # How knowledge is ranked when building briefings.
 
-RETRIEVAL_WEIGHT_CONFIDENCE = 0.4  # 40%
-RETRIEVAL_WEIGHT_ACCESS = 0.3  # 30%
-RETRIEVAL_WEIGHT_RECENCY = 0.3  # 30%
+RETRIEVAL_WEIGHT_CONFIDENCE = 0.55  # 55% — confidence is the primary signal
+RETRIEVAL_WEIGHT_ACCESS = 0.10  # 10% — access count is weak signal, easily inflated
+RETRIEVAL_WEIGHT_RECENCY = 0.35  # 35% — recent knowledge more likely relevant
 
 # ─── Maturity Promotion Gates ──────────────────────────────────────
 # Requirements for knowledge to advance through trust levels.
@@ -109,11 +114,11 @@ MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE = 0.7
 # ─── Overlap & Similarity Thresholds ───────────────────────────────
 # How similar two pieces of knowledge need to be for various operations.
 
-OVERLAP_RELATIONSHIP = 0.3  # Meaningful overlap for auto-linking
-OVERLAP_DUPLICATE = 0.4  # Close enough to be a duplicate candidate
-OVERLAP_STRONG = 0.5  # Strong overlap for merging/relationships
-OVERLAP_QUASI_IDENTICAL = 0.6  # Very high overlap
-OVERLAP_NEAR_IDENTICAL = 0.8  # Near-identical (merge threshold)
+OVERLAP_RELATIONSHIP = 0.25  # Meaningful overlap for auto-linking
+OVERLAP_DUPLICATE = 0.30  # Close enough to be a duplicate candidate
+OVERLAP_STRONG = 0.40  # Strong overlap for merging/relationships
+OVERLAP_QUASI_IDENTICAL = 0.50  # Very high overlap
+OVERLAP_NEAR_IDENTICAL = 0.65  # Near-identical (merge threshold)
 
 # ─── Quality Gate Thresholds ────────────────────────────────────────
 # Session quality requirements for knowledge extraction.
@@ -233,9 +238,15 @@ COMPASS_SPECTRUMS_HASH = "2921dfc05fa4a532c641a647aa3d7567f6de643f7e52142317bda0
 # Stimulus-presence check: absence of the stimulus is not evidence of learning.
 # A lesson can't resolve just because the mistake didn't recur — the triggering
 # situation must have actually arisen and been handled correctly.
+#
+# Absence-as-success fallback: for low-frequency mistake categories, the stimulus
+# may genuinely not arise for many sessions. After LESSON_ABSENCE_DAYS with zero
+# regressions, the stimulus requirement drops to zero — sustained absence with
+# no backsliding IS evidence of learning for infrequent triggers.
 
 LESSON_MIN_RESOLUTION_DAYS = 7.0  # Minimum days in 'improving' before resolution
-LESSON_MIN_STIMULUS_SESSIONS = 2  # Min clean sessions with category-relevant events
+LESSON_MIN_STIMULUS_SESSIONS = 1  # Min clean sessions with category-relevant events
+LESSON_ABSENCE_DAYS = 7.0  # After this many days with 0 regressions, drop stimulus requirement
 
 # ─── Briefing Budget ─────────────────────────────────────────────
 # Total line cap for the briefing. Subsystems compete by priority —

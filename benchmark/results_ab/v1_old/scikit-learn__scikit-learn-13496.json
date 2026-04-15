@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-13496",
+  "condition": "enhanced",
+  "label": "v1_old",
+  "patch": "--- a/sklearn/ensemble/iforest.py\n+++ b/sklearn/ensemble/iforest.py\n@@ -120,6 +120,12 @@ class IsolationForest(BaseBagging, OutlierMixin):\n     verbose : int, optional (default=0)\n         Controls the verbosity of the tree building process.\n \n+    warm_start : bool, optional (default=False)\n+        When set to ``True``, reuse the solution of the previous call to fit\n+        and add more estimators to the ensemble, otherwise, just fit a whole\n+        new forest. See :term:`the Glossary <warm_start>`.\n+\n+        .. versionadded:: 0.21\n \n     Attributes\n     ----------\n@@ -173,6 +179,7 @@ class IsolationForest(BaseBagging, OutlierMixin):\n                  n_jobs=None,\n                  behaviour='old',\n                  random_state=None,\n+                 warm_start=False,\n                  verbose=0):\n         super().__init__(\n             base_estimator=ExtraTreeRegressor(\n@@ -185,6 +192,7 @@ class IsolationForest(BaseBagging, OutlierMixin):\n             n_estimators=n_estimators,\n             max_samples=max_samples,\n             max_features=max_features,\n+            warm_start=warm_start,\n             n_jobs=n_jobs,\n             random_state=random_state,\n             verbose=verbose)",
+  "thinking": "The issue is straightforward: expose the `warm_start` parameter in `IsolationForest.__init__()` so users can easily use it without having to manually set it after initialization.\n\nLet me look at what needs to change:\n\n1. Add `warm_start` parameter to `IsolationForest.__init__()` \n2. Pass it to the parent class\n3. Add documentation for it\n\nLet me trace through the code. `IsolationForest` inherits from `BaseBagging`. The `__init__` of `IsolationForest` needs to accept `warm_start` and pass it through.\n\n\nNow I need to implement the actual changes: add `warm_start=False` to the method signature, pass it up to the parent class initialization, and document the parameter in the docstring.",
+  "input_tokens": 1893,
+  "output_tokens": 604,
+  "elapsed_seconds": 9.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.073695
+}

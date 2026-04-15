@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the wrong methods and adds unnecessary changes like renderer parameter. It targets the `errors` property instead of the `full_clean` method where non-form errors are actually created.",
+  "key_difference": "The candidate patch modifies the `errors` property method to append 'nonform' to existing CSS classes, while the gold patch correctly modifies the `full_clean` method where `_non_form_errors` is initialized. The candidate also adds an unrelated renderer parameter change.",
+  "instance_id": "django__django-14608",
+  "condition": "enhanced",
+  "judge_tokens": 1275,
+  "judge_cost": 0.005889
+}

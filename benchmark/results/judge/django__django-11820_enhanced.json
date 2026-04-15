@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the wrong file (model_checks.py instead of base.py) and uses an overly simplistic approach that just removes 'pk' from lookup parts without proper field validation.",
+  "key_difference": "The candidate patch is in a different file entirely and takes a shortcut approach of removing 'pk' from lookup validation rather than properly handling pk as an alias during field resolution like the gold patch does.",
+  "instance_id": "django__django-11820",
+  "condition": "enhanced",
+  "judge_tokens": 1158,
+  "judge_cost": 0.005334
+}

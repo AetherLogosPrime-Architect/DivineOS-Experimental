@@ -14,6 +14,7 @@ from divineos.core.constants import (
     CONFIDENCE_ACTIVE_MEMORY_FLOOR,
     CONFIDENCE_RELIABLE,
     CONFIDENCE_VERY_HIGH,
+    LESSON_ABSENCE_DAYS,
     LESSON_MIN_RESOLUTION_DAYS,
     LESSON_MIN_STIMULUS_SESSIONS,
     SECONDS_PER_DAY,
@@ -97,17 +98,21 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             lesson_id = existing[0]
             sessions = json.loads(existing[2])
             old_status = existing[3] if len(existing) > 3 else "active"
+            is_new_session = session_id not in sessions
             # Only bump occurrences for genuinely new sessions — prevents
             # re-scans and compaction re-triggers from inflating counts.
-            if session_id not in sessions:
+            if is_new_session:
                 occurrences = existing[1] + 1
                 sessions.append(session_id)
             else:
                 occurrences = existing[1]
 
-            # Regression detection: was IMPROVING, now recurring again
+            # Regression detection: was IMPROVING, now recurring again.
+            # Guard: only count a regression for genuinely new sessions —
+            # re-scans or compaction re-triggers for the same session must
+            # not inflate the counter (same guard as occurrences above).
             regression_bump = 0
-            if old_status == "improving":
+            if old_status == "improving" and is_new_session:
                 regression_bump = 1
                 logger.info(
                     "Lesson '%s' REGRESSED: was improving, mistake recurred (session %s)",
@@ -224,22 +229,39 @@ def mark_lesson_improving(category: str, clean_session_id: str) -> None:
 
     Called when a session is analyzed and does NOT have a mistake in this category.
     Only affects lessons that have occurred 3+ times.
+
+    For lessons already in 'improving' status, we still track the clean session
+    so the session count keeps growing toward the resolution threshold.
+    Without this, the sessions list freezes at transition time and the
+    resolution gate can never be satisfied.
     """
     conn = _get_connection()
     try:
         existing = conn.execute(
-            "SELECT lesson_id, occurrences, status, sessions FROM lesson_tracking WHERE category = ? AND status = 'active'",
+            "SELECT lesson_id, occurrences, status, sessions FROM lesson_tracking "
+            "WHERE category = ? AND status IN ('active', 'improving')",
             (category,),
         ).fetchone()
         if existing and existing[1] >= 3:
-            # Track which session triggered the improvement
+            old_status = existing[2]
             sessions_list = json.loads(existing[3]) if existing[3] else []
             if clean_session_id not in sessions_list:
                 sessions_list.append(clean_session_id)
-            conn.execute(
-                "UPDATE lesson_tracking SET status = 'improving', sessions = ?, last_seen = ? WHERE lesson_id = ?",
-                (json.dumps(sessions_list), time.time(), existing[0]),
-            )
+            # Transition active → improving, or just track the session for
+            # already-improving lessons (don't reset last_seen for those —
+            # it tracks when the lesson FIRST started improving, not last touch).
+            if old_status == "active":
+                conn.execute(
+                    "UPDATE lesson_tracking SET status = 'improving', sessions = ?, last_seen = ? "
+                    "WHERE lesson_id = ?",
+                    (json.dumps(sessions_list), time.time(), existing[0]),
+                )
+            else:
+                # Already improving — just append the clean session
+                conn.execute(
+                    "UPDATE lesson_tracking SET sessions = ? WHERE lesson_id = ?",
+                    (json.dumps(sessions_list), existing[0]),
+                )
             conn.commit()
     finally:
         conn.close()
@@ -436,7 +458,9 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
                     count += 1
                     continue
             except sqlite3.OperationalError:
-                pass  # system_events table may not exist in test DBs
+                logger.debug(
+                    "system_events table absent — stimulus check skipped for session %s", sid[:12]
+                )
 
             # Also check decision journal if the table exists
             try:
@@ -454,7 +478,10 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
                 if _any_word_boundary_match(candidates, keyword_patterns, col_index=0):
                     count += 1
             except sqlite3.OperationalError:
-                pass  # decision_journal table may not exist
+                logger.debug(
+                    "decision_journal table absent — stimulus check skipped for session %s",
+                    sid[:12],
+                )
     finally:
         conn.close()
     return count
@@ -557,15 +584,31 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
                 )
                 continue
 
-            # Check that at least some clean sessions involved the stimulus topic
+            # Check that at least some clean sessions involved the stimulus topic.
+            # Absence-as-success fallback: for low-frequency mistake categories,
+            # the triggering situation may genuinely not arise. After LESSON_ABSENCE_DAYS
+            # with zero regressions, sustained absence IS evidence of learning.
             clean_session_ids = sessions[effective:]
             stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
-            if stimulus_count < LESSON_MIN_STIMULUS_SESSIONS:
+            regressions = lesson.get("regressions", 0)
+            stimulus_required = LESSON_MIN_STIMULUS_SESSIONS
+
+            if regressions == 0 and days_improving >= LESSON_ABSENCE_DAYS:
+                # Long enough with zero backsliding — drop stimulus requirement
+                stimulus_required = 0
+                logger.debug(
+                    "Lesson '%s' absence-as-success: %.1f days, 0 regressions — "
+                    "stimulus requirement dropped",
+                    lesson["category"],
+                    days_improving,
+                )
+
+            if stimulus_count < stimulus_required:
                 logger.debug(
                     "Lesson '%s' has %d stimulus sessions (need %d) — stimulus gate holds",
                     lesson["category"],
                     stimulus_count,
-                    LESSON_MIN_STIMULUS_SESSIONS,
+                    stimulus_required,
                 )
                 continue
 

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12325",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/base.py\n+++ b/django/db/models/base.py\n@@ -196,10 +196,11 @@ class ModelBase(type):\n             if base != new_class and not base._meta.abstract:\n                 continue\n             # Locate OneToOneField instances.\n-            for field in base._meta.local_fields:\n-                if isinstance(field, OneToOneField):\n-                    related = resolve_relation(new_class, field.remote_field.model)\n-                    parent_links[make_model_tuple(related)] = field\n+            fields = [field for field in base._meta.local_fields if isinstance(field, OneToOneField)]\n+            for field in sorted(fields, key=lambda x: x.remote_field.parent_link, reverse=True):\n+                related_key = make_model_tuple(resolve_relation(new_class, field.remote_field.model))\n+                if related_key not in parent_links:\n+                    parent_links[related_key] = field\n \n         # Track fields inherited from base models.\n         inherited_attributes = set()",
+  "thinking": null,
+  "input_tokens": 1092,
+  "output_tokens": 280,
+  "elapsed_seconds": 3.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007476
+}

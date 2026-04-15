@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch attempts to modify the logic for setting rel_to but appears to be working in the wrong area of the code and doesn't properly handle the to_field parameter which is needed for foreign keys to non-primary key fields.",
+  "key_difference": "The gold patch correctly adds a to_field parameter to extra_params when the foreign key references a non-primary key column, while the candidate patch incorrectly tries to modify the rel_to string format which is used for the model reference, not the field reference. The candidate approach would not generate the correct Django model field syntax.",
+  "instance_id": "django__django-15037",
+  "condition": "base",
+  "judge_tokens": 1357,
+  "judge_cost": 0.006315
+}

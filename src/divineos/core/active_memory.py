@@ -173,16 +173,18 @@ def compute_importance(
         score -= 0.1
 
     # Session-specific penalty — tool counts, exchange stats, session IDs
-    # These are tied to one session and don't belong in persistent active memory
+    # These are tied to one session and don't belong in persistent active memory.
+    # Penalty must be severe enough to push even high-confidence EPISODEs below
+    # the active memory threshold (~0.30), so 0.50 minimum.
     content = entry.get("content", "")
     if _is_session_specific(content):
-        score -= 0.30
+        score -= 0.50
 
     # Extraction noise penalty — raw user quotes, affirmations, task instructions
     # These slipped past earlier filters and shouldn't rank in active memory
     knowledge_type = entry.get("knowledge_type", "")
     if _is_extraction_noise(content, knowledge_type):
-        score -= 0.35
+        score -= 0.50
 
     return cast("float", max(0.0, min(1.0, score)))
 
@@ -261,34 +263,56 @@ def demote_from_active(knowledge_id: str) -> bool:
 
 
 def get_active_memory() -> list[dict[str, Any]]:
-    """Get all active memory items ranked by importance (highest first)."""
+    """Get all active memory items ranked by importance (highest first).
+
+    Recomputes importance on-the-fly so rankings reflect current
+    knowledge state (confidence, maturity, access_count) rather than
+    stale cached values from the last refresh.
+    """
     conn = _get_connection()
     try:
         rows = conn.execute(
             """SELECT am.memory_id, am.knowledge_id, am.importance,
                       am.reason, am.promoted_at, am.surface_count, am.pinned,
-                      k.knowledge_type, k.content, k.confidence, k.access_count
+                      k.knowledge_type, k.content, k.confidence, k.access_count,
+                      k.maturity, k.source, k.created_at
                FROM active_memory am
                JOIN knowledge k ON am.knowledge_id = k.knowledge_id
-               WHERE k.superseded_by IS NULL
-               ORDER BY am.importance DESC""",
+               WHERE k.superseded_by IS NULL""",
         ).fetchall()
-        return [
-            {
-                "memory_id": r[0],
-                "knowledge_id": r[1],
-                "importance": r[2],
-                "reason": r[3],
-                "promoted_at": r[4],
-                "surface_count": r[5],
-                "pinned": bool(r[6]),
+
+        # Recompute importance from current knowledge state
+        items = []
+        for r in rows:
+            entry = {
                 "knowledge_type": r[7],
                 "content": r[8],
                 "confidence": r[9],
                 "access_count": r[10],
+                "maturity": r[11],
+                "source": r[12],
+                "created_at": r[13],
             }
-            for r in rows
-        ]
+            live_importance = compute_importance(entry)
+            items.append(
+                {
+                    "memory_id": r[0],
+                    "knowledge_id": r[1],
+                    "importance": live_importance,
+                    "reason": r[3],
+                    "promoted_at": r[4],
+                    "surface_count": r[5],
+                    "pinned": bool(r[6]),
+                    "knowledge_type": r[7],
+                    "content": r[8],
+                    "confidence": r[9],
+                    "access_count": r[10],
+                }
+            )
+
+        # Sort by live importance, highest first
+        items.sort(key=lambda x: x["importance"], reverse=True)
+        return items
     finally:
         conn.close()
 

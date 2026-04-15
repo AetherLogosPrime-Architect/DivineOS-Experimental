@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the need for ITRS to observed coordinate transformations and starts implementing the framework, but the code is incomplete and cuts off mid-implementation.",
+  "key_difference": "The candidate patch attempts to create a new transformation module and adds location attribute to ITRS frame, but is incomplete compared to the gold patch which focuses on fixing the TETE to ITRS transformation to properly handle location. The candidate's approach is more ambitious but unfinished.",
+  "instance_id": "astropy__astropy-13398",
+  "condition": "enhanced",
+  "judge_tokens": 2628,
+  "judge_cost": 0.00984
+}

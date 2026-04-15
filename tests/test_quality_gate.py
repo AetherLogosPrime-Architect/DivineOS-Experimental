@@ -376,12 +376,14 @@ class TestCorrectnessSessionType:
         not evidence of failure. Tests may have run in an earlier context
         window (before the since_timestamp filter) and been filtered out.
         """
+
         records = [
             _tool_call_record("Read"),
             _tool_call_record("Edit", {"file_path": "src/main.py"}),
         ]
         result = check_correctness(records, {})
         assert result.score == 0.3
+
         assert "inconclusive" in result.summary.lower()
 
     def test_test_writing_session_gets_neutral_score(self):

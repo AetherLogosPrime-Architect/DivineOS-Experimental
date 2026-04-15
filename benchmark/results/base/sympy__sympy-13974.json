@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-13974",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sympy/physics/quantum/tensorproduct.py\n+++ b/sympy/physics/quantum/tensorproduct.py\n@@ -340,6 +340,17 @@ def tensor_product_simp_Mul(e):\n     return nc_part\n \n \n+def tensor_product_simp_Pow(e):\n+    \"\"\"Simplify a power of a TensorProduct.\n+    \n+    This applies the exponent to each argument in the tensor product.\n+    \"\"\"\n+    base, exp = e.as_base_exp()\n+    if isinstance(base, TensorProduct):\n+        return TensorProduct(*[arg**exp for arg in base.args])\n+    return e\n+\n+\n def tensor_product_simp(e, **hints):\n     \"\"\"Try to simplify and combine TensorProducts.\n \n@@ -411,7 +422,7 @@ def tensor_product_simp(e, **hints):\n         return tensor_product_simp_Mul(e)\n     elif isinstance(e, Pow):\n         # TODO: Fix this -> this is a very basic case\n-        return e\n+        return tensor_product_simp_Pow(e)\n     elif isinstance(e, Add):\n         return Add(*[tensor_product_simp(arg, **hints) for arg in e.args])\n     else:",
+  "thinking": null,
+  "input_tokens": 839,
+  "output_tokens": 337,
+  "elapsed_seconds": 10.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007572
+}

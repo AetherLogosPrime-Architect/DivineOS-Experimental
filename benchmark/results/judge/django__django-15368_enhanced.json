@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly changes the type check from isinstance(attr, Expression) to hasattr(attr, 'resolve_expression') which allows F() expressions to be properly resolved instead of being treated as plain values.",
+  "key_difference": "The candidate patch appears to be from a different version of Django where the bulk_update implementation uses a slightly different structure (case_clauses list and cases list), but the core fix is identical to the gold patch - replacing the isinstance check with hasattr check for resolve_expression.",
+  "instance_id": "django__django-15368",
+  "condition": "enhanced",
+  "judge_tokens": 1536,
+  "judge_cost": 0.006672
+}

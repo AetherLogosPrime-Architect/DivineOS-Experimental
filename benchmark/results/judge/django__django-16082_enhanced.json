@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds Combinable.MOD to the list of operators that should resolve output fields when combining expressions with different types, addressing the bug where MOD operations weren't properly resolving Decimal types.",
+  "key_difference": "The candidate patch modifies the conditional check in the CombinedExpression class constructor while the gold patch adds MOD to a different tuple structure. Both approaches correctly ensure MOD operations resolve output fields, but they target different parts of the codebase - the candidate targets the immediate type resolution logic while gold targets what appears to be a configuration tuple.",
+  "instance_id": "django__django-16082",
+  "condition": "enhanced",
+  "judge_tokens": 984,
+  "judge_cost": 0.005196
+}

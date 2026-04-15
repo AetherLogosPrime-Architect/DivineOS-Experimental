@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds 'joblib' to the dependencies list in the show_versions function, which will include joblib version information in the output as requested.",
+  "key_difference": "The candidate patch adds joblib earlier in the dependency list (after setuptools) while the gold patch adds it later (after matplotlib). Both positions are valid and will achieve the same functionality of including joblib in the version display.",
+  "instance_id": "scikit-learn__scikit-learn-14141",
+  "condition": "base",
+  "judge_tokens": 801,
+  "judge_cost": 0.004215
+}

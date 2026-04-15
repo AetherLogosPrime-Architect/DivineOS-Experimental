@@ -208,6 +208,7 @@ def check_validity_for_promotion(
     knowledge_id: str,
     current_maturity: str,
     target_maturity: str,
+    corroboration_count: int = 0,
 ) -> ValidityVerdict:
     """Check if a knowledge entry's warrants support promotion.
 
@@ -218,6 +219,12 @@ def check_validity_for_promotion(
     warrants = get_warrants(knowledge_id, status="ACTIVE")
     valid_warrants = [w for w in warrants if w.is_valid()]
     warrant_types = list({w.warrant_type for w in valid_warrants})
+
+    # High corroboration (≥10) counts as implicit EMPIRICAL evidence.
+    # Being corroborated many times across sessions IS empirical validation —
+    # it means the knowledge kept coming up and being confirmed by use.
+    if corroboration_count >= 10 and "EMPIRICAL" not in warrant_types:
+        warrant_types.append("EMPIRICAL")
 
     # RAW -> HYPOTHESIS: always allowed (low bar, just needs first encounter)
     if current_maturity == "RAW" and target_maturity == "HYPOTHESIS":
@@ -290,9 +297,16 @@ def check_validity_for_promotion(
     )
 
 
-def can_promote(knowledge_id: str, current_maturity: str, target_maturity: str) -> bool:
+def can_promote(
+    knowledge_id: str,
+    current_maturity: str,
+    target_maturity: str,
+    corroboration_count: int = 0,
+) -> bool:
     """Quick check: can this entry promote? Returns True/False."""
-    verdict = check_validity_for_promotion(knowledge_id, current_maturity, target_maturity)
+    verdict = check_validity_for_promotion(
+        knowledge_id, current_maturity, target_maturity, corroboration_count
+    )
     return verdict.passed
 
 

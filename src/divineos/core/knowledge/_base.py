@@ -156,6 +156,13 @@ def init_knowledge_table() -> None:
             END
         """)
         conn.execute("""
+            CREATE TRIGGER IF NOT EXISTS knowledge_fts_delete
+            AFTER DELETE ON knowledge BEGIN
+                INSERT INTO knowledge_fts(knowledge_fts, rowid, content, tags, knowledge_type)
+                VALUES ('delete', old.rowid, old.content, old.tags, old.knowledge_type);
+            END
+        """)
+        conn.execute("""
             CREATE TRIGGER IF NOT EXISTS knowledge_fts_update
             AFTER UPDATE ON knowledge BEGIN
                 INSERT INTO knowledge_fts(knowledge_fts, rowid, content, tags, knowledge_type)
@@ -206,6 +213,14 @@ def init_knowledge_table() -> None:
                 )
             except sqlite3.OperationalError as e:
                 logger.debug(f"Column {col} already exists in knowledge table: {e}")
+
+        # Supersession reason — why an entry was replaced (duplicate, contradiction, update, forget)
+        try:
+            conn.execute(
+                "ALTER TABLE knowledge ADD COLUMN supersession_reason TEXT DEFAULT NULL",
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug(f"Column supersession_reason already exists: {e}")
 
         # Temporal dimension columns (nullable — NULL means unbounded)
         for col, col_type, default in [

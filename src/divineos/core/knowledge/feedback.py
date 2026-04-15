@@ -269,20 +269,37 @@ def health_check() -> dict[str, Any]:
 
     # 7. Retroactive noise sweep — re-evaluate existing entries against
     # the current noise filter. Entries that slipped in before the filter
-    # was improved get their confidence penalized (not deleted — append-only).
+    # was improved get penalized or superseded.
     noise_penalized = 0
-    for entry in all_entries:
-        # Already low confidence — no point penalizing further
-        if entry["confidence"] <= 0.2:
-            continue
-        # Already superseded — leave it alone
-        if entry.get("superseded_by"):
-            continue
-        if _is_extraction_noise(entry["content"], entry["knowledge_type"]):
+    noise_superseded = 0
+    conn_noise = _get_connection()
+    try:
+        for entry in all_entries:
+            # Already superseded — leave it alone
+            if entry.get("superseded_by"):
+                continue
+            if not _is_extraction_noise(entry["content"], entry["knowledge_type"]):
+                continue
+
+            # Already below floor — supersede it. This breaks the infinite
+            # loop where entries sit at 0.1 forever being re-scanned.
+            if entry["confidence"] <= 0.2:
+                conn_noise.execute(
+                    "UPDATE knowledge SET superseded_by = 'noise-sweep' WHERE knowledge_id = ?",
+                    (entry["knowledge_id"],),
+                )
+                noise_superseded += 1
+                continue
+
             new_conf = _adjust_confidence(entry["knowledge_id"], -DECAY_HEAVY, floor=0.1)
             if new_conf is not None:
                 noise_penalized += 1
+        if noise_superseded:
+            conn_noise.commit()
+    finally:
+        conn_noise.close()
     result["noise_penalized"] = noise_penalized
+    result["noise_superseded"] = noise_superseded
 
     # 8. Maturity demotion — entries that reached high maturity through
     # inflated counts but now have low confidence should be demoted.

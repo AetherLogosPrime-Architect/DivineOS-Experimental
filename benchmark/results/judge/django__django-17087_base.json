@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly changes `klass.__name__` to `klass.__qualname__` in the function serializer, which will properly handle nested class methods by including the full qualified name path instead of just the class name.",
+  "key_difference": "The candidate patch is functionally identical to the gold patch - both change `__name__` to `__qualname__` on line 171. The only difference is the candidate includes a class name comment in the context line, which is a valid formatting variation that doesn't affect functionality.",
+  "instance_id": "django__django-17087",
+  "condition": "base",
+  "judge_tokens": 1261,
+  "judge_cost": 0.005919000000000001
+}

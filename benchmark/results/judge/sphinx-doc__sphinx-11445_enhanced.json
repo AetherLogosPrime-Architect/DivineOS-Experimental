@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the wrong function (prepend_prolog that takes string parameters) instead of the StringList version that handles the actual bug with field marker detection.",
+  "key_difference": "The candidate patch targets a different prepend_prolog function that operates on strings rather than StringList objects, and doesn't address the core issue of incorrectly identifying domain directives as docinfo fields using a flawed regex pattern.",
+  "instance_id": "sphinx-doc__sphinx-11445",
+  "condition": "enhanced",
+  "judge_tokens": 1783,
+  "judge_cost": 0.007197
+}

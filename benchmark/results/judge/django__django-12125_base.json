@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies and fixes the issue by changing __name__ to __qualname__ in TypeSerializer to properly handle inner classes, but the diff format is invalid with extra explanation text.",
+  "key_difference": "The candidate patch has the same core fix as the gold patch but uses different variable names (klass vs self.value) and includes invalid explanatory text in the diff format, making it syntactically incorrect despite being functionally equivalent.",
+  "instance_id": "django__django-12125",
+  "condition": "base",
+  "judge_tokens": 1492,
+  "judge_cost": 0.006372000000000001
+}

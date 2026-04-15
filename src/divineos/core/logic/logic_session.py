@@ -172,36 +172,45 @@ def get_logic_health_summary() -> dict[str, Any]:
                 defeated_only += 1
 
         # Active contradiction edges — count and fetch details
+        # Only count edges where BOTH entries are still active (not superseded).
+        # Superseded entries are dead — they can't contradict anything.
         contradictions = 0
         contradiction_details: list[dict[str, str]] = []
+        _contra_q = (
+            "SELECT e.source_id, e.target_id FROM knowledge_edges e "
+            "JOIN knowledge k1 ON e.source_id = k1.knowledge_id "
+            "JOIN knowledge k2 ON e.target_id = k2.knowledge_id "
+            "WHERE e.edge_type = 'CONTRADICTS' AND e.status = 'ACTIVE' "
+            "AND k1.superseded_by IS NULL AND k2.superseded_by IS NULL"
+        )
         try:
-            row = conn.execute(
-                "SELECT COUNT(*) FROM knowledge_edges WHERE edge_type = 'CONTRADICTS' AND status = 'ACTIVE'"
-            ).fetchone()
-            contradictions = row[0] if row else 0
+            edges = conn.execute(_contra_q + " LIMIT 5").fetchall()
+            contradictions = len(edges)
 
-            if contradictions > 0:
-                edges = conn.execute(
-                    "SELECT source_id, target_id FROM knowledge_edges "
-                    "WHERE edge_type = 'CONTRADICTS' AND status = 'ACTIVE' LIMIT 5"
-                ).fetchall()
-                for src, tgt in edges:
-                    src_row = conn.execute(
-                        "SELECT content FROM knowledge WHERE knowledge_id = ?", (src,)
-                    ).fetchone()
-                    tgt_row = conn.execute(
-                        "SELECT content FROM knowledge WHERE knowledge_id = ?", (tgt,)
-                    ).fetchone()
-                    contradiction_details.append(
-                        {
-                            "a": (src_row[0][:137] + "...")
-                            if src_row and len(src_row[0]) > 140
-                            else (src_row[0] if src_row else "?"),
-                            "b": (tgt_row[0][:137] + "...")
-                            if tgt_row and len(tgt_row[0]) > 140
-                            else (tgt_row[0] if tgt_row else "?"),
-                        }
-                    )
+            # If we hit the limit, get the real count
+            if contradictions >= 5:
+                row = conn.execute(
+                    f"SELECT COUNT(*) FROM ({_contra_q})"  # nosec B608
+                ).fetchone()
+                contradictions = row[0] if row else contradictions
+
+            for src, tgt in edges:
+                src_row = conn.execute(
+                    "SELECT content FROM knowledge WHERE knowledge_id = ?", (src,)
+                ).fetchone()
+                tgt_row = conn.execute(
+                    "SELECT content FROM knowledge WHERE knowledge_id = ?", (tgt,)
+                ).fetchone()
+                contradiction_details.append(
+                    {
+                        "a": (src_row[0][:137] + "...")
+                        if src_row and len(src_row[0]) > 140
+                        else (src_row[0] if src_row else "?"),
+                        "b": (tgt_row[0][:137] + "...")
+                        if tgt_row and len(tgt_row[0]) > 140
+                        else (tgt_row[0] if tgt_row else "?"),
+                    }
+                )
         except sqlite3.OperationalError:
             pass
 

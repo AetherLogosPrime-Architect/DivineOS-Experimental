@@ -180,7 +180,9 @@ class TestCoreMemoryRefresh:
         assert result is True
 
         content = get_core("known_strengths")
-        assert "active entries" in content["known_strengths"]
+        # Real self-knowledge preserved, stats appended
+        assert "I stay honest" in content["known_strengths"]
+        assert "knowledge entries" in content["known_strengths"]
 
     def test_refresh_weaknesses_from_lessons(self):
         """Refresh should include active lessons."""

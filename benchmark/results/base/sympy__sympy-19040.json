@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-19040",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, when `factor(z, extension=[I])` is called, it's dropping the factor `(y-1)` and only returning `x-1`. The hint mentions there's a typo in line 1150 of `sympy/polys/factortools.py`.\n\nLet me examine the issue. The problem is that when factoring with extensions, one of the factors is being dropped. This suggests there's likely an issue with how the factorization results are being combined or returned.\n\nBased on the hint about a typo at line 1150, I need to look at the factortools.py file and find what's causing this issue.\n\n```diff\n--- a/sympy/polys/factortools.py\n+++ b/sympy/polys/factortools.py\n@@ -1147,7 +1147,7 @@ def dup_factor_list_include(f, K):\n \n         for g, k in factors:\n             if dup_degree(g) == 1:\n-                coeff *= K.convert(g[0])\n+                coeff *= K.convert(g[0])**k\n                 continue\n \n             g = dup_convert(g, K, K0)\n```",
+  "thinking": null,
+  "input_tokens": 1177,
+  "output_tokens": 294,
+  "elapsed_seconds": 8.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.007941
+}

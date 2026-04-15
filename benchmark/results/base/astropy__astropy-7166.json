@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-7166",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/astropy/utils/decorators.py\n+++ b/astropy/utils/decorators.py\n@@ -467,7 +467,7 @@ class InheritDocstrings(type):\n                 if cls_name in dct:\n                     if not inspect.isfunction(dct[cls_name]):\n                         continue\n-                elif not inspect.isfunction(getattr(cls, cls_name)):\n+                elif not (inspect.isfunction(getattr(cls, cls_name)) or inspect.isdatadescriptor(getattr(cls, cls_name))):\n                     continue\n \n                 func = getattr(cls, cls_name)",
+  "thinking": null,
+  "input_tokens": 508,
+  "output_tokens": 165,
+  "elapsed_seconds": 3.9,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.003999
+}

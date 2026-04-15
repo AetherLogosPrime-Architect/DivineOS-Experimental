@@ -1,0 +1,12 @@
+{
+  "instance_id": "astropy__astropy-14508",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/astropy/io/fits/card.py\n+++ b/astropy/io/fits/card.py\n@@ -1297,9 +1297,18 @@ class Card(_Verify):\n             return value_str\n \n         if isinstance(value, float):\n-            value_str = f\"{value:.16G}\"\n-            # Ensure a decimal point\n-            if \".\" not in value_str and \"E\" not in value_str:\n+            # First try using Python's default string representation\n+            value_str = str(value)\n+            \n+            # If the string is too long (>20 chars), use formatted version\n+            if len(value_str) > 20:\n+                value_str = f\"{value:.16G}\"\n+                \n+            # Ensure a decimal point for both cases\n+            if (\".\" not in value_str and \"E\" not in value_str and \n+                \"e\" not in value_str and \"inf\" not in value_str.lower() and \n+                \"nan\" not in value_str.lower()):\n                 value_str += \".0\"\n+                \n         elif isinstance(value, complex):\n             value_str = f\"({value.real:.16G}, {value.imag:.16G})\"\n         elif isinstance(value, bool):",
+  "thinking": null,
+  "input_tokens": 1268,
+  "output_tokens": 322,
+  "elapsed_seconds": 6.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.008634
+}

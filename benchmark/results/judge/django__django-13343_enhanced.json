@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the issue and preserves the original callable storage for deconstruction by storing it in _storage. However, it introduces unnecessary complexity with property getters/setters and has invalid diff format issues.",
+  "key_difference": "Unlike the gold patch which simply stores a reference to the callable, this patch implements a property-based approach with getter/setter methods and changes the internal storage handling. While functionally correct, it's over-engineered compared to the simpler gold solution.",
+  "instance_id": "django__django-13343",
+  "condition": "enhanced",
+  "judge_tokens": 1669,
+  "judge_cost": 0.007023
+}

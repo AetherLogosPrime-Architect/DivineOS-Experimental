@@ -90,7 +90,8 @@ class DreamReport:
         if self.health_results:
             for key in (
                 "temporal_decayed",
-                "noise_swept",
+                "noise_penalized",
+                "noise_superseded",
                 "maturity_demoted",
                 "contradiction_flagged",
             ):
@@ -104,7 +105,14 @@ class DreamReport:
                 lines.append(f"    Needs review (unseen 30d+): {review_count}")
                 pruning_found = True
         if self.hygiene_results:
-            for key in ("noise_demoted", "noise_superseded", "stale_decayed", "orphans_flagged"):
+            for key in (
+                "noise_demoted",
+                "noise_superseded",
+                "stale_decayed",
+                "stale_superseded",
+                "orphans_flagged",
+                "reaped",
+            ):
                 val = self.hygiene_results.get(key, 0)
                 if val:
                     label = key.replace("_", " ").capitalize()
@@ -142,6 +150,12 @@ class DreamReport:
                 lines.append(
                     f"    Cleaned {transcripts['removed_count']} transcript debris "
                     f"({transcripts.get('freed_mb', 0):.1f}MB freed)"
+                )
+            pytest_tmp = self.maintenance_results.get("pytest_tmp", {})
+            if pytest_tmp.get("removed", 0) > 0:
+                lines.append(
+                    f"    Cleaned {pytest_tmp['removed']} pytest run dirs "
+                    f"({pytest_tmp.get('freed_mb', 0):.1f}MB freed)"
                 )
         else:
             lines.append("    Skipped")
@@ -215,6 +229,16 @@ def _phase_pruning(report: DreamReport) -> None:
     except _SLEEP_ERRORS:
         pass
 
+    # Age the holding room — things that sit too long go stale
+    try:
+        from divineos.core.holding import age_holding
+
+        newly_stale = age_holding()
+        if newly_stale:
+            report.hygiene_results["holding_items_stale"] = newly_stale
+    except _SLEEP_ERRORS:
+        pass
+
 
 # ─── Phase 3: Affect Recalibration ───────────────────────────────────
 
@@ -276,12 +300,12 @@ def _phase_affect(report: DreamReport) -> None:
             arousal = entry.get("arousal", 0.0)
 
             factor = _compute_decay_factor(valence, arousal)
-            new_valence = valence * factor
-            new_arousal = arousal * factor
+            new_valence = max(-1.0, min(1.0, valence * factor))
+            new_arousal = max(0.0, min(1.0, arousal * factor))
 
             if abs(new_valence) < _AFFECT_INTENSITY_FLOOR:
                 new_valence = 0.0
-            if abs(new_arousal) < _AFFECT_INTENSITY_FLOOR:
+            if new_arousal < _AFFECT_INTENSITY_FLOOR:
                 new_arousal = 0.0
 
             if abs(new_valence - valence) > 0.001 or abs(new_arousal - arousal) > 0.001:
@@ -325,8 +349,8 @@ def _phase_maintenance(report: DreamReport) -> None:
 
 
 # Similarity thresholds for connection detection
-_RECOMBINATION_MIN_SIMILARITY = 0.45  # Minimum to consider related (raised from 0.35)
-_RECOMBINATION_MAX_SIMILARITY = 0.80  # Above this = near-duplicate, not a connection
+_RECOMBINATION_MIN_SIMILARITY = 0.30  # Minimum to consider related (lowered for Dice)
+_RECOMBINATION_MAX_SIMILARITY = 0.65  # Above this = near-duplicate, not a connection
 _RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
 _RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
 
@@ -411,6 +435,27 @@ def _phase_recombination(report: DreamReport) -> None:
 
     report.connections_found = len(connections)
     report.connection_details = connections
+
+    # Persist connections as RELATED_TO edges in the knowledge graph.
+    # Without this, recombination insights are ephemeral — lost after
+    # the dream report scrolls off screen.
+    if connections:
+        try:
+            from divineos.core.knowledge.edges import create_edge
+
+            for conn in connections:
+                aid = conn.get("entry_a_id", "")
+                bid = conn.get("entry_b_id", "")
+                if aid and bid and aid != "?" and bid != "?":
+                    create_edge(
+                        source_id=aid,
+                        target_id=bid,
+                        edge_type="RELATED_TO",
+                        confidence=0.6,
+                        notes=f"sleep recombination: {conn.get('similarity', '?')} similarity",
+                    )
+        except _SLEEP_ERRORS as e:
+            logger.debug(f"Failed to persist recombination edges: {e}")
 
 
 # ─── Phase 6: Curiosity Maintenance ─────────────────────────────────

@@ -58,6 +58,22 @@ def enforce_briefing_gate() -> None:
 
             init_memory_tables()
             refresh_active_memory(importance_threshold=0.3)
+            # Record which knowledge was loaded so SESSION_END can assess impact.
+            # Without this, only manual `divineos briefing` records retrievals.
+            try:
+                from divineos.core.active_memory import get_active_memory
+                from divineos.core.knowledge_impact import record_knowledge_retrieval
+                from divineos.core.session_manager import get_current_session_id
+
+                sid = get_current_session_id()
+                for entry in get_active_memory():
+                    record_knowledge_retrieval(
+                        session_id=sid,
+                        knowledge_id=entry["knowledge_id"],
+                        content_brief=entry.get("content", "")[:200],
+                    )
+            except _GATE_ERRORS as e:
+                logger.debug(f"Impact retrieval recording skipped: {e}")
             click.secho("    Briefing loaded. Proceeding.\n", fg="green")
         # Always reset the staleness counter so step 8 sees a fresh briefing.
         mark_briefing_loaded()

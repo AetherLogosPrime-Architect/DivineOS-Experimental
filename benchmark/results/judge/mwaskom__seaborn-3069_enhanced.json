@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch targets the wrong file (plotter.py instead of plot.py) and implements incorrect logic that unconditionally inverts y-axis and uses wrong tick location approach.",
+  "key_difference": "The candidate patch is in the wrong file, uses ticklocs() instead of counting major ticks, and always inverts the y-axis regardless of whether limits were already set, while the gold patch correctly handles these cases and is in the proper _finalize_figure method in plot.py.",
+  "instance_id": "mwaskom__seaborn-3069",
+  "condition": "enhanced",
+  "judge_tokens": 1947,
+  "judge_cost": 0.007880999999999999
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that substitutions involving the bound variable should be handled specially, but the fix is incomplete as it doesn't handle the case where the condition becomes S.true after substitution.",
+  "key_difference": "The candidate patch simply returns self when substituting the bound variable, while the gold patch has more comprehensive logic that handles the case where the condition becomes true and creates a proper ConditionSet with Contains condition. The candidate misses this important case and doesn't match the expected behavior shown in the problem statement.",
+  "instance_id": "sympy__sympy-19495",
+  "condition": "enhanced",
+  "judge_tokens": 2204,
+  "judge_cost": 0.008688000000000001
+}

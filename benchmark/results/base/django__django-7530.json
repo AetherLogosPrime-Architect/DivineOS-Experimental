@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-7530",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/core/management/commands/makemigrations.py\n+++ b/django/core/management/commands/makemigrations.py\n@@ -126,7 +126,7 @@ class Command(BaseCommand):\n         # Raise an error if any migrations are applied before their dependencies.\n         consistency_check_labels = {config.label for config in apps.get_app_configs()}\n         # Non-default databases are only checked if database routers used.\n-        aliases_to_check = connections if settings.DATABASE_ROUTERS else [DEFAULT_DB_ALIAS]\n+        aliases_to_check = connections if settings.DATABASE_ROUTERS else [DEFAULT_DB_ALIAS]\n         for alias in sorted(aliases_to_check):\n             connection = connections[alias]\n             if (connection.settings_dict['ENGINE'] != 'django.db.backends.dummy' and any(\n@@ -134,7 +134,7 @@ class Command(BaseCommand):\n                 # At least one model must be migrated to the database.\n                 router.allow_migrate(alias, app_label, model_name=model._meta.object_name)\n                 for app_label in consistency_check_labels\n-                for model in apps.get_app_config(app_label).get_models()\n+                for model in [m for m in apps.get_app_config(app_label).get_models() if apps.get_containing_app_config(m._meta.app_label) and apps.get_containing_app_config(m._meta.app_label).label == app_label]\n             )):\n                 loader = MigrationLoader(connection)\n                 loader.check_consistent_history(connection)\n\n--- a/django/core/management/commands/makemigrations.py\n+++ b/django/core/management/commands/makemigrations.py\n@@ -134,7 +134,7 @@ class Command(BaseCommand):\n                 # At least one model must be migrated to the database.\n                 router.allow_migrate(alias, app_label, model_name=model._meta.object_name)\n                 for app_label in consistency_check_labels\n-                for model in apps.get_app_config(app_label).get_models()\n+                for model in apps.get_app_config(app_label).get_models()\n             )):\n                 loader = MigrationLoader(connection)\n                 loader.check_consistent_history(connection)",
+  "thinking": null,
+  "input_tokens": 312,
+  "output_tokens": 602,
+  "elapsed_seconds": 9.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.009966
+}

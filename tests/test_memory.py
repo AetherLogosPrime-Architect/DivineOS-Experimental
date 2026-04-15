@@ -89,9 +89,9 @@ class TestCoreMemory:
         set_core("project_purpose", "Testing things")
         output = format_core()
         assert "Core Memory" in output
-        assert "User" in output
+        assert "My User" in output
         assert "A tester" in output
-        assert "Project" in output
+        assert "My Purpose" in output
         assert "Testing things" in output
 
     def test_all_slot_names_valid(self):
@@ -202,7 +202,10 @@ class TestActiveMemory:
         active = get_active_memory()
         assert len(active) == 1
         assert active[0]["reason"] == "updated reason"
-        assert active[0]["importance"] == 0.9
+        # get_active_memory() now recomputes importance on-the-fly from
+        # knowledge state rather than returning cached values, so we check
+        # that a valid score was computed (not the exact cached 0.9)
+        assert 0.0 < active[0]["importance"] <= 1.0
 
     def test_demote(self):
         kid = self._store_fact()

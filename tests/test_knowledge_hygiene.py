@@ -6,6 +6,7 @@ from divineos.core.knowledge._base import _KNOWLEDGE_COLS, _get_connection, _row
 from divineos.core.knowledge_maintenance import (
     _audit_types,
     _flag_orphans,
+    _reap_dead_entries,
     _sweep_stale,
     format_hygiene_report,
     run_knowledge_hygiene,
@@ -27,7 +28,6 @@ def _insert_entry(
     created_days_ago=5,
     access_count=0,
     corroboration_count=0,
-    pinned=False,
 ):
     """Insert a test knowledge entry and return its ID."""
     import hashlib
@@ -129,14 +129,26 @@ class TestAuditTypes:
         entry = _get_entry(kid)
         assert entry["superseded_by"] == "hygiene-audit"
 
-    def test_observation_type_not_audited(self, tmp_path, monkeypatch):
+    def test_noisy_observation_gets_superseded(self, tmp_path, monkeypatch):
+        """Noise detection now covers all types, not just PRINCIPLE/BOUNDARY."""
         _setup(tmp_path, monkeypatch)
-        kid = _insert_entry("some observation", "OBSERVATION", created_days_ago=3)
+        kid = _insert_entry("yes lets do it", "OBSERVATION", created_days_ago=3)
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] >= 1
+
+    def test_clean_observation_kept(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "The knowledge store uses SQLite for persistence with content hashing",
+            "OBSERVATION",
+            created_days_ago=3,
+        )
         entries = [_get_entry(kid)]
         cutoff = time.time() - 86400
         result = _audit_types(entries, cutoff)
         assert result["superseded"] == 0
-        assert result["demoted"] == 0
 
 
 class TestSweepStale:
@@ -189,14 +201,32 @@ class TestSweepStale:
         result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
         assert result["decayed"] == 0
 
-    def test_decay_floor(self, tmp_path, monkeypatch):
+    def test_at_floor_gets_superseded(self, tmp_path, monkeypatch):
+        """Temporal entries at the decay floor get superseded, not left in limbo."""
         _setup(tmp_path, monkeypatch)
         kid = _insert_entry(
             "This is currently failing", "OBSERVATION", confidence=0.3, created_days_ago=20
         )
         entries = [_get_entry(kid)]
         result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
-        assert result["decayed"] == 0  # Already at floor
+        assert result["superseded"] >= 1
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] == "temporal-stale"
+
+    def test_corroborated_temporal_not_superseded(self, tmp_path, monkeypatch):
+        """Temporal entries with corroboration are preserved even at floor."""
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "This is currently failing",
+            "OBSERVATION",
+            confidence=0.3,
+            created_days_ago=20,
+            corroboration_count=3,
+        )
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=14.0)
+        assert result["superseded"] == 0
+        assert result["decayed"] == 0
 
 
 class TestFlagOrphans:
@@ -270,6 +300,39 @@ class TestFlagOrphans:
         assert result["flagged"] == 0  # Already below threshold
 
 
+class TestReapDeadEntries:
+    """Entries below CONFIDENCE_SUPERSEDE_FLOOR get superseded by the reaper."""
+
+    def test_below_floor_gets_reaped(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Some garbage that got penalized to 0.1", "FACT", confidence=0.1, created_days_ago=10
+        )
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] >= 1
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] == "hygiene-reaper"
+
+    def test_above_floor_not_reaped(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Decent entry at moderate confidence", "FACT", confidence=0.5, created_days_ago=10
+        )
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] == 0
+
+    def test_directive_immune_to_reaper(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "A directive at low confidence", "DIRECTIVE", confidence=0.1, created_days_ago=10
+        )
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] == 0
+
+
 class TestRunKnowledgeHygiene:
     """Integration test for the full hygiene run."""
 
@@ -279,7 +342,9 @@ class TestRunKnowledgeHygiene:
         assert "entries_scanned" in report
         assert "noise_demoted" in report
         assert "stale_decayed" in report
+        assert "stale_superseded" in report
         assert "orphans_flagged" in report
+        assert "reaped" in report
         assert isinstance(report["details"], list)
 
     def test_clean_store_no_actions(self, tmp_path, monkeypatch):

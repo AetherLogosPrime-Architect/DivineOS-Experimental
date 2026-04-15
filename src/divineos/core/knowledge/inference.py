@@ -18,6 +18,7 @@ from typing import Any
 
 from loguru import logger
 
+from divineos.core.constants import OVERLAP_DUPLICATE, OVERLAP_RELATIONSHIP, OVERLAP_STRONG
 from divineos.core.knowledge._base import _get_connection
 from divineos.core.knowledge._text import _compute_overlap
 from divineos.core.knowledge.crud import get_knowledge
@@ -59,7 +60,7 @@ def infer_boundaries_from_mistakes(min_occurrences: int = 3) -> list[str]:
             if other["knowledge_id"] in used:
                 continue
             overlap = _compute_overlap(m["content"], other["content"])
-            if overlap >= 0.35:
+            if overlap >= OVERLAP_RELATIONSHIP:
                 cluster.append(other)
                 used.add(other["knowledge_id"])
         if len(cluster) >= min_occurrences:
@@ -71,7 +72,7 @@ def infer_boundaries_from_mistakes(min_occurrences: int = 3) -> list[str]:
         sample = cluster[0]["content"]
         existing_boundaries = get_knowledge(knowledge_type="BOUNDARY", limit=50)
         already_covered = any(
-            _compute_overlap(sample, b["content"]) >= 0.4 for b in existing_boundaries
+            _compute_overlap(sample, b["content"]) >= OVERLAP_DUPLICATE for b in existing_boundaries
         )
         if already_covered:
             continue
@@ -142,7 +143,9 @@ def promote_confirmed_patterns() -> list[str]:
 
         # Check if a similar principle already exists
         existing = get_knowledge(knowledge_type="PRINCIPLE", limit=100)
-        already_exists = any(_compute_overlap(content, p["content"]) >= 0.5 for p in existing)
+        already_exists = any(
+            _compute_overlap(content, p["content"]) >= OVERLAP_STRONG for p in existing
+        )
         if already_exists:
             continue
 

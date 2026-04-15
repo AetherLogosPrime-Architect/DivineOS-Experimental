@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch adds a new helper function but doesn't actually modify the core `get_unpacked_marks` function that needs to be fixed to consider MRO when collecting marks from classes.",
+  "key_difference": "Unlike the gold patch which properly modifies `get_unpacked_marks` to handle MRO traversal with a `consider_mro` parameter, this candidate patch only adds a helper function without integrating it into the main mark collection logic, making it ineffective.",
+  "instance_id": "pytest-dev__pytest-10356",
+  "condition": "base",
+  "judge_tokens": 2621,
+  "judge_cost": 0.009879
+}

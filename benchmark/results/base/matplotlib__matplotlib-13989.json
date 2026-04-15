@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-13989",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/lib/matplotlib/axes/_axes.py\n+++ b/lib/matplotlib/axes/_axes.py\n@@ -6720,7 +6720,7 @@ class Axes(martist.Artist):\n             # this will also be the bin edges for the histogram\n             bin_edges = np.histogram_bin_edges(\n                 x, bins, range, weights)\n-            uniform_bins = (np.diff(bin_edges) == np.diff(bin_edges)[0]).all()\n+            uniform_bins = (len(np.unique(np.diff(bin_edges))) == 1)\n \n         # We need to do to 'weights' what was done to 'x'\n         if weights is not None:",
+  "thinking": null,
+  "input_tokens": 672,
+  "output_tokens": 178,
+  "elapsed_seconds": 4.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004686
+}
