@@ -61,11 +61,13 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         from divineos.core.knowledge import _get_connection
 
         _snap_conn = _get_connection()
-        _snap_rows = _snap_conn.execute(
-            "SELECT knowledge_id, access_count FROM knowledge WHERE superseded_by IS NULL"
-        ).fetchall()
-        access_snapshot = {r[0]: r[1] for r in _snap_rows}
-        _snap_conn.close()
+        try:
+            _snap_rows = _snap_conn.execute(
+                "SELECT knowledge_id, access_count FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchall()
+            access_snapshot = {r[0]: r[1] for r in _snap_rows}
+        finally:
+            _snap_conn.close()
     except (ImportError, sqlite3.OperationalError) as e:
         logger.debug("Access snapshot unavailable (corroboration sweep will skip delta): %s", e)
 
