@@ -602,6 +602,9 @@ def format_user_model(user_name: str = "default") -> str:
     if signals:
         lines.append(f"\n## Evidence ({len(signals)} recent signals)")
         for sig in signals[-10:]:
-            lines.append(f"  [{sig.get('type', '?')}] {sig.get('content', '')[:80]}")
+            if isinstance(sig, dict):
+                lines.append(f"  [{sig.get('type', '?')}] {sig.get('content', '')[:80]}")
+            else:
+                lines.append(f"  {str(sig)[:100]}")
 
     return "\n".join(lines)

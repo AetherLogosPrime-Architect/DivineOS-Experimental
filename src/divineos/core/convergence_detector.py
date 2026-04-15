@@ -1,14 +1,16 @@
 """Convergence Detector — Circuit 3: independent systems strengthening each other.
 
-When moral compass and self-critique both flag the same concern
-independently, the signal is stronger than either system alone.
-This is convergent measurement — like two thermometers agreeing.
+When multiple independent measurement systems flag the same concern,
+the signal is stronger than any system alone. This is convergent
+measurement — like three thermometers agreeing.
 
 The loop:
   1. Compass measures virtue positions from behavioral evidence
   2. Self-critique measures craft quality from session metrics
-  3. This module detects where they agree (convergence) or disagree (divergence)
-  4. Convergent concerns get boosted confidence; divergent signals get flagged
+  3. Affect tracks functional feeling states (valence/arousal/dominance)
+  4. Opinions track evidence-weighted judgments and confidence
+  5. This module detects where they agree (convergence) or disagree (divergence)
+  6. Convergent concerns get boosted confidence; divergent signals get flagged
 
 Sanskrit anchor: pratyaya (convergent evidence that establishes certainty).
 """
@@ -52,7 +54,7 @@ class ConvergentSignal:
 
 @dataclass
 class ConvergenceReport:
-    """Full convergence analysis between compass and self-critique."""
+    """Full convergence analysis across all measurement systems."""
 
     signals: list[ConvergentSignal] = field(default_factory=list)
     concerns: list[ConvergentSignal] = field(default_factory=list)
@@ -60,6 +62,8 @@ class ConvergenceReport:
     divergences: list[ConvergentSignal] = field(default_factory=list)
     compass_available: bool = False
     critique_available: bool = False
+    affect_available: bool = False
+    opinions_available: bool = False
 
 
 def detect_convergence() -> ConvergenceReport:
@@ -104,7 +108,7 @@ def detect_convergence() -> ConvergenceReport:
         logger.debug("Convergence: self-critique data unavailable: %s", e)
         # Don't return early — compass data may still be available
 
-    # Compare each convergence pair
+    # Compare each compass↔critique pair
     for compass_spectrum, critique_spectrum in _CONVERGENCE_PAIRS.items():
         compass = compass_data.get(compass_spectrum)
         critique = critique_data.get(critique_spectrum)
@@ -125,6 +129,127 @@ def detect_convergence() -> ConvergenceReport:
                 report.strengths.append(signal)
             elif signal.convergence_type == "divergent":
                 report.divergences.append(signal)
+
+    # ── Affect cross-checks ──────────────────────────────────────
+    # Affect valence provides an independent emotional signal.
+    # Low valence + compass deficiency = convergent distress signal.
+    # High valence + critique strength = convergent thriving signal.
+    try:
+        from divineos.core.affect import get_affect_summary
+
+        affect_summary = get_affect_summary()
+        avg_valence = affect_summary.get("avg_valence", 0.0)
+        entry_count = affect_summary.get("count", 0)
+
+        if entry_count >= 2:
+            report.affect_available = True
+
+            # Cross-check affect valence against compass concerns
+            for compass_spectrum, compass in compass_data.items():
+                if compass.get("observation_count", 0) < 2:
+                    continue
+                c_pos = compass["position"]
+                c_zone = compass["zone"]
+
+                if avg_valence < -0.2 and c_pos < _COMPASS_CONCERN_THRESHOLD:
+                    signal = ConvergentSignal(
+                        compass_spectrum=compass_spectrum,
+                        critique_spectrum="affect-valence",
+                        compass_position=c_pos,
+                        critique_score=avg_valence,
+                        compass_zone=c_zone,
+                        critique_direction="negative",
+                        convergence_type="both_concern",
+                        combined_confidence=min(abs(c_pos) + abs(avg_valence), 1.0) * 0.8,
+                        description=(
+                            f"Affect confirms compass: {compass_spectrum} in {c_zone} "
+                            f"zone ({c_pos:+.2f}) AND emotional valence is negative "
+                            f"({avg_valence:+.2f}). The system feels what the compass measures."
+                        ),
+                    )
+                    report.signals.append(signal)
+                    report.concerns.append(signal)
+                elif avg_valence > 0.3 and c_zone == "virtue" and c_pos >= 0.0:
+                    signal = ConvergentSignal(
+                        compass_spectrum=compass_spectrum,
+                        critique_spectrum="affect-valence",
+                        compass_position=c_pos,
+                        critique_score=avg_valence,
+                        compass_zone=c_zone,
+                        critique_direction="positive",
+                        convergence_type="both_strong",
+                        combined_confidence=(c_pos + avg_valence) / 2.0,
+                        description=(
+                            f"Affect confirms compass: {compass_spectrum} virtuous "
+                            f"({c_pos:+.2f}) AND emotional state is positive "
+                            f"({avg_valence:+.2f}). Alignment between ethics and feeling."
+                        ),
+                    )
+                    report.signals.append(signal)
+                    report.strengths.append(signal)
+    except _CD_ERRORS as e:
+        logger.debug("Convergence: affect data unavailable: %s", e)
+
+    # ── Opinion confidence cross-checks ──────────────────────────
+    # High-confidence opinions about weak areas should converge with
+    # critique/compass findings in those areas.
+    try:
+        from divineos.core.opinion_store import get_opinions
+
+        opinions = get_opinions(min_confidence=0.6, active_only=True, limit=10)
+        if opinions:
+            report.opinions_available = True
+
+            for op in opinions:
+                tags = op.get("tags", [])
+                # Auto-generated correction opinions converge with critique
+                if "correction-pattern" in tags:
+                    for critique_spectrum, critique in critique_data.items():
+                        if critique.get("concern"):
+                            signal = ConvergentSignal(
+                                compass_spectrum=f"opinion:{op['topic']}",
+                                critique_spectrum=critique_spectrum,
+                                compass_position=-op["confidence"],
+                                critique_score=critique["average"],
+                                compass_zone="opinion",
+                                critique_direction=critique["direction"],
+                                convergence_type="both_concern",
+                                combined_confidence=min(
+                                    op["confidence"] + abs(critique["average"]), 1.0
+                                )
+                                * 0.7,
+                                description=(
+                                    f"Opinion confirms critique: opinion on {op['topic']} "
+                                    f"(confidence {op['confidence']:.0%}) aligns with "
+                                    f"{critique_spectrum} craft concern ({critique['average']:.2f})."
+                                ),
+                            )
+                            report.signals.append(signal)
+                            report.concerns.append(signal)
+
+                # Auto-generated quality opinions converge with strengths
+                if "quality-pattern" in tags:
+                    for critique_spectrum, critique in critique_data.items():
+                        if critique.get("average", 0) >= 0.3:
+                            signal = ConvergentSignal(
+                                compass_spectrum=f"opinion:{op['topic']}",
+                                critique_spectrum=critique_spectrum,
+                                compass_position=op["confidence"],
+                                critique_score=critique["average"],
+                                compass_zone="opinion",
+                                critique_direction=critique["direction"],
+                                convergence_type="both_strong",
+                                combined_confidence=(op["confidence"] + critique["average"]) / 2.0,
+                                description=(
+                                    f"Opinion confirms critique: quality opinion "
+                                    f"(confidence {op['confidence']:.0%}) aligns with "
+                                    f"{critique_spectrum} craft strength ({critique['average']:.2f})."
+                                ),
+                            )
+                            report.signals.append(signal)
+                            report.strengths.append(signal)
+    except _CD_ERRORS as e:
+        logger.debug("Convergence: opinion data unavailable: %s", e)
 
     return report
 
@@ -272,7 +397,23 @@ def apply_convergence_to_knowledge(report: ConvergenceReport) -> int:
 
 def format_convergence_report(report: ConvergenceReport) -> str:
     """Format convergence report for display."""
-    lines = ["# Compass-Critique Convergence (Circuit 3)"]
+    lines = ["# Multi-System Convergence (Circuit 3)"]
+
+    sources = []
+    if report.compass_available:
+        sources.append("compass")
+    if report.critique_available:
+        sources.append("critique")
+    if report.affect_available:
+        sources.append("affect")
+    if report.opinions_available:
+        sources.append("opinions")
+
+    if not sources:
+        lines.append("  All measurement systems unavailable.")
+        return "\n".join(lines)
+
+    lines.append(f"  Sources: {', '.join(sources)}")
 
     if not report.compass_available:
         lines.append("  Compass data unavailable.")

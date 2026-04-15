@@ -616,6 +616,101 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         #    now run BEFORE corroboration sweep so maturity
         #    promotions reflect actual learning patterns)
 
+        # ── Phase 8r: Opinion auto-generation from session patterns ──
+        try:
+            from divineos.core.opinion_store import store_opinion
+
+            opinions_formed = 0
+
+            # 1. Advice outcomes → opinions about what works
+            try:
+                from divineos.core.advice_tracking import get_assessed_advice
+
+                assessed = get_assessed_advice(limit=20)
+                category_outcomes: dict[str, dict[str, int]] = {}
+                for adv in assessed:
+                    cat = adv.get("category", "general")
+                    outcome = adv.get("outcome", "")
+                    if cat not in category_outcomes:
+                        category_outcomes[cat] = {"successful": 0, "failed": 0}
+                    if outcome == "successful":
+                        category_outcomes[cat]["successful"] += 1
+                    elif outcome == "failed":
+                        category_outcomes[cat]["failed"] += 1
+
+                for cat, counts in category_outcomes.items():
+                    if counts["successful"] >= 3 and counts["successful"] > counts["failed"] * 2:
+                        store_opinion(
+                            topic=f"advice-{cat}",
+                            position=(
+                                f"My {cat} advice is reliably good "
+                                f"({counts['successful']} successes vs "
+                                f"{counts['failed']} failures)"
+                            ),
+                            confidence=min(0.9, 0.5 + counts["successful"] * 0.05),
+                            evidence=[
+                                f"{counts['successful']} successful, {counts['failed']} failed"
+                            ],
+                            tags=["auto-generated", "advice-pattern"],
+                        )
+                        opinions_formed += 1
+            except (ImportError, sqlite3.OperationalError, OSError, AttributeError):
+                pass
+
+            # 2. Correction patterns → opinions about weak areas
+            if analysis and len(analysis.corrections) >= 3:
+                store_opinion(
+                    topic="session-corrections",
+                    position=(
+                        f"This session had {len(analysis.corrections)} corrections — "
+                        f"accuracy under pressure needs work"
+                    ),
+                    confidence=0.6,
+                    evidence=[c.content[:100] for c in analysis.corrections[:3]],
+                    tags=["auto-generated", "correction-pattern"],
+                )
+                opinions_formed += 1
+
+            # 3. Session quality → opinions about consistency
+            if health and isinstance(health, dict):
+                grade = health.get("grade", "")
+                score = health.get("score", 0.0)
+                if grade in ("A", "B") and score >= 0.8:
+                    store_opinion(
+                        topic="session-quality",
+                        position=(
+                            f"Session quality is consistently high "
+                            f"(grade {grade}, score {score:.2f})"
+                        ),
+                        confidence=0.5 + score * 0.3,
+                        evidence=[f"Session grade: {grade} ({score:.2f})"],
+                        tags=["auto-generated", "quality-pattern"],
+                    )
+                    opinions_formed += 1
+
+            if opinions_formed:
+                click.secho(
+                    f"[~] Auto-formed {opinions_formed} opinion(s) from session patterns",
+                    fg="cyan",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Opinion auto-generation failed: {e}")
+
+        # ── Phase 8s: Curiosity gap analysis ─────────────────────
+        try:
+            from divineos.core.curiosity_engine import generate_curiosities_from_gaps
+
+            new_curiosities = generate_curiosities_from_gaps(max_questions=3)
+            if new_curiosities:
+                click.secho(
+                    f"[~] Generated {len(new_curiosities)} curiosit"
+                    f"{'y' if len(new_curiosities) == 1 else 'ies'}"
+                    f" from knowledge gaps",
+                    fg="cyan",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Curiosity gap analysis failed: {e}")
+
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)
 

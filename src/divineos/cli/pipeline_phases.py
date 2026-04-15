@@ -750,25 +750,47 @@ def run_session_finalization(
     except _PHASE_ERRORS as e:
         logger.warning(f"Session metrics recording failed: {e}")
 
-    # 9b2. Auto-record skills from tool usage
+    # 9b2. Record skills from real competence signals (not tool counts)
     try:
-        from divineos.core.skill_library import record_skill_use
-
-        tool_counts: dict[str, int] = {}
-        for record in records:
-            if isinstance(record, dict) and record.get("role") == "assistant":
-                for tc in record.get("content", []):
-                    if isinstance(tc, dict) and tc.get("type") == "tool_use":
-                        name = tc.get("name", "unknown")
-                        tool_counts[name] = tool_counts.get(name, 0) + 1
+        from divineos.core.skill_library import detect_skills_from_events, record_skill_use
 
         skills_recorded = 0
-        for tool_name, count in tool_counts.items():
-            if count >= 3:  # Only track tools used meaningfully (3+ times)
-                record_skill_use(tool_name, success=True)
-                skills_recorded += 1
+
+        # Detect which skill domains were active this session
+        session_events: list[str] = []
+        for record in records:
+            if isinstance(record, dict):
+                for tc in record.get("content", []):
+                    if isinstance(tc, dict):
+                        name = tc.get("name", "")
+                        text = tc.get("text", "")
+                        if name:
+                            session_events.append(name)
+                        if text and len(text) > 10:
+                            session_events.append(text[:200])
+
+        active_domains = detect_skills_from_events(session_events)
+        correction_count = len(analysis.corrections) if analysis else 0
+        encouragement_count = len(analysis.encouragements) if analysis else 0
+
+        # Corrections signal failure in the active domains
+        # Encouragements signal success
+        # No corrections + domain active = success (clean work)
+        for domain in active_domains:
+            if correction_count >= 3:
+                # Multiple corrections while working in this domain = failure signal
+                record_skill_use(domain, success=False, context="session corrections")
+            elif encouragement_count >= 2 or correction_count == 0:
+                # Encouragements or clean session = success signal
+                record_skill_use(domain, success=True, context="clean session")
+            skills_recorded += 1
+
         if skills_recorded:
-            click.secho(f"[~] Recorded {skills_recorded} skills from tool usage.", fg="cyan")
+            click.secho(
+                f"[~] Recorded {skills_recorded} skill(s) from session signals "
+                f"({correction_count} corrections, {encouragement_count} encouragements).",
+                fg="cyan",
+            )
     except _PHASE_ERRORS as e:
         logger.warning(f"Skill recording failed: {e}")
 
@@ -880,6 +902,16 @@ def print_session_summary(
         click.secho(f"  Session recs:         {len(session_feedback.recommendations)}", fg="white")
         for fb_rec in session_feedback.recommendations[:3]:
             _safe_echo(f"    - {fb_rec}")
+    # Rating solicitation — the one metric the system cannot game
+    click.secho(
+        "\n  💬 How was this session? Rate it 1-10:",
+        fg="bright_white",
+        bold=True,
+    )
+    click.secho(
+        "     divineos rate <1-10> [comment]",
+        fg="bright_black",
+    )
     click.secho(
         "  Next session: run 'divineos hud' for full dashboard, or 'divineos briefing' for knowledge.",
         fg="bright_black",
