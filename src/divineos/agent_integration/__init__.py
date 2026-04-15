@@ -7,8 +7,7 @@ pattern recommendations.
 Status: STABLE. Core data flow works end-to-end:
   Tool execution -> event capture -> learning loop -> pattern store -> recommendations.
 
-Module map (14 files):
-  base.py              Abstract contracts: ToolInterceptor, LearningLoopSystem, etc.
+Module map (13 files):
   types.py             Dataclasses: ToolCallEvent, Correction, SessionLessons, etc.
   decision_store.py    Persists AGENT_DECISION events to the ledger.
   learning_audit_store.py  Stores AGENT_LEARNING_AUDIT events for self-reflection.
@@ -29,14 +28,6 @@ Integrates with:
   - core/hud.py (engagement and briefing display)
 """
 
-from divineos.agent_integration.base import (
-    AgentIntegrationComponent,
-    BehaviorAnalyzer,
-    FeedbackSystem,
-    LearningLoopSystem,
-    LoopPrevention,
-    ToolInterceptor,
-)
 from divineos.agent_integration.types import (
     INTERNAL_TOOLS,
     BehaviorAnalysis,
@@ -54,23 +45,15 @@ from divineos.agent_integration.types import (
 
 __all__ = [
     "INTERNAL_TOOLS",
-    # Base classes
-    "AgentIntegrationComponent",
     "BehaviorAnalysis",
-    "BehaviorAnalyzer",
     "Correction",
     "Decision",
     "Encouragement",
     "ErrorPattern",
-    "FeedbackSystem",
-    "LearningLoopSystem",
-    "LoopPrevention",
     "SessionFeedback",
     "SessionLessons",
     "TimingPattern",
-    # Types
     "ToolCallEvent",
-    "ToolInterceptor",
     "ToolPattern",
     "ToolResultEvent",
 ]
