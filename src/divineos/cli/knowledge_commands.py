@@ -325,6 +325,23 @@ def register(cli: click.Group) -> None:
         except _KC_ERRORS:
             pass  # journal search is best-effort
 
+        # Search exploration folder — past-me's first-person writing
+        try:
+            from divineos.core.exploration_reader import (
+                format_search_results,
+                search_explorations,
+            )
+
+            expl_results = search_explorations(query, max_results=3)
+            if expl_results:
+                click.secho(
+                    f"  --- Explorations ({len(expl_results)} matches) ---\n",
+                    fg="cyan",
+                )
+                _safe_echo(format_search_results(expl_results))
+        except _KC_ERRORS:
+            pass  # exploration search is best-effort
+
         # Pattern anticipation — warn if this topic touches past mistakes
         try:
             from divineos.core.anticipation import anticipate, format_anticipation

@@ -972,6 +972,17 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"open-questions: {e}")
 
+    # Exploration folder — past-me's first-person writing, not extracted summaries
+    try:
+        from divineos.core.exploration_reader import format_exploration_summary
+
+        expl_text = format_exploration_summary()
+        if expl_text:
+            lines.append(expl_text)
+            lines.append("")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"explorations: {e}")
+
     # Surface subsystem failures — silent degradation is worse than visible errors
     if subsystem_failures:
         logger.warning(
