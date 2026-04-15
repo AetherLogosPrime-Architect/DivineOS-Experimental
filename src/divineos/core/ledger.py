@@ -273,7 +273,7 @@ def get_recent_context(n: int = 20, meaningful_only: bool = True) -> list[dict[s
         if meaningful_only:
             placeholders = ",".join("?" for _ in _NOISE_TYPES)
             cursor = conn.execute(
-                f"SELECT event_id, timestamp, event_type, actor, payload, content_hash "
+                f"SELECT event_id, timestamp, event_type, actor, payload, content_hash "  # nosec B608: table/column names from module constants; values parameterized
                 f"FROM system_events "
                 f"WHERE event_type NOT IN ({placeholders}) "
                 f"ORDER BY timestamp DESC LIMIT ?",

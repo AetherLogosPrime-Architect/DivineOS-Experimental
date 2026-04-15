@@ -143,7 +143,7 @@ def get_valid_at(timestamp: float, limit: int = 50) -> list[dict[str, Any]]:
               AND (valid_until IS NULL OR valid_until > ?)
             ORDER BY updated_at DESC
             LIMIT ?
-        """
+        """  # nosec B608: _KNOWLEDGE_COLS is a module constant; timestamps/limit parameterized
         rows = conn.execute(query, (timestamp, timestamp, limit)).fetchall()
         return [_row_to_dict(row) for row in rows]
     except _TEMPORAL_ERRORS as e:
@@ -177,14 +177,14 @@ def get_changes_since(
 
         # New entries
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE created_at > ? AND superseded_by IS NULL ORDER BY created_at DESC LIMIT ?",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE created_at > ? AND superseded_by IS NULL ORDER BY created_at DESC LIMIT ?",  # nosec B608: table/column names from module constants; values parameterized
             (since, limit),
         ).fetchall()
         result["new"] = [_row_to_dict(r) for r in rows]
 
         # Superseded entries (superseded_by was set after `since`)
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NOT NULL AND updated_at > ? ORDER BY updated_at DESC LIMIT ?",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE superseded_by IS NOT NULL AND updated_at > ? ORDER BY updated_at DESC LIMIT ?",  # nosec B608: table/column names from module constants; values parameterized
             (since, limit),
         ).fetchall()
         result["superseded"] = [_row_to_dict(r) for r in rows]
@@ -192,7 +192,7 @@ def get_changes_since(
         # Try temporal columns (may not exist)
         try:
             rows = conn.execute(
-                f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE valid_until IS NOT NULL AND valid_until > ? AND superseded_by IS NULL ORDER BY valid_until DESC LIMIT ?",
+                f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE valid_until IS NOT NULL AND valid_until > ? AND superseded_by IS NULL ORDER BY valid_until DESC LIMIT ?",  # nosec B608: table/column names from module constants; values parameterized
                 (since, limit),
             ).fetchall()
             result["expired"] = [_row_to_dict(r) for r in rows]
@@ -203,7 +203,7 @@ def get_changes_since(
 
         # Updated entries (confidence/maturity changes, not new)
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE updated_at > ? AND created_at <= ? AND superseded_by IS NULL ORDER BY updated_at DESC LIMIT ?",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE updated_at > ? AND created_at <= ? AND superseded_by IS NULL ORDER BY updated_at DESC LIMIT ?",  # nosec B608: table/column names from module constants; values parameterized
             (since, since, limit),
         ).fetchall()
         result["updated"] = [_row_to_dict(r) for r in rows]

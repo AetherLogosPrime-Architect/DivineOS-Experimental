@@ -290,7 +290,7 @@ def run_knowledge_hygiene(
         # Previous code used CONFIDENCE_RETRIEVAL_FLOOR (0.2) which hid the
         # very entries that need to be reaped.
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge "
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge "  # nosec B608: table/column names from module constants; values parameterized
             "WHERE superseded_by IS NULL "
             "ORDER BY updated_at DESC",
         ).fetchall()

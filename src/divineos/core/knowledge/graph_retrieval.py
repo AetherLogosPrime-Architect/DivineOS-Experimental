@@ -43,7 +43,7 @@ def _get_entry_by_id(knowledge_id: str) -> dict[str, Any] | None:
     conn = _get_connection()
     try:
         row = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE knowledge_id = ?",
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE knowledge_id = ?",  # nosec B608: table/column names from module constants; values parameterized
             (knowledge_id,),
         ).fetchone()
         return _row_to_dict(row) if row else None

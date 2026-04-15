@@ -378,7 +378,7 @@ def _prune_tool_events() -> None:
 
             # Delete oldest, keep the newest _MAX_TOOL_EVENTS
             conn.execute(
-                "DELETE FROM system_events WHERE event_id IN ("
+                "DELETE FROM system_events WHERE event_id IN ("  # nosec B608: table/column names from module constants; values parameterized
                 "  SELECT event_id FROM system_events "
                 "  WHERE event_type IN ('TOOL_CALL', 'TOOL_RESULT') "
                 "  ORDER BY timestamp ASC "
