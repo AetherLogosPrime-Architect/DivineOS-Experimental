@@ -120,6 +120,41 @@ def register(cli: click.Group) -> None:
         sid = record_signal(signal_type, content, user_name=user)
         _safe_echo(click.style(f"[+] Signal recorded: {sid}", fg="green"))
 
+    # ─── Relationship Notes ─────────────────────────────────────────
+
+    @cli.command("user-note")
+    @click.argument("category")
+    @click.argument("content")
+    @click.option("--user", default="default", help="User name")
+    @click.option(
+        "--source", default="observed", help="How I learned this (observed/told/inferred)"
+    )
+    def user_note_cmd(category: str, content: str, user: str, source: str) -> None:
+        """Record something about who a person is, not just how they work."""
+        from divineos.core.user_model import NOTE_CATEGORIES, record_note
+
+        if category not in NOTE_CATEGORIES:
+            _safe_echo(
+                click.style(
+                    f"[-] Unknown category. Valid: {', '.join(sorted(NOTE_CATEGORIES))}",
+                    fg="red",
+                )
+            )
+            return
+        nid = record_note(category, content, user_name=user, source=source)
+        _safe_echo(click.style(f"[+] Note recorded: {nid}", fg="green"))
+
+    @cli.command("user-moment")
+    @click.argument("description")
+    @click.argument("significance")
+    @click.option("--user", default="default", help="User name")
+    def user_moment_cmd(description: str, significance: str, user: str) -> None:
+        """Record a moment that changed the relationship."""
+        from divineos.core.user_model import record_moment
+
+        mid = record_moment(description, significance, user_name=user)
+        _safe_echo(click.style(f"[+] Moment recorded: {mid}", fg="green"))
+
     # ─── Communication Calibration ────────────────────────────────
 
     @cli.command("calibrate")
@@ -224,3 +259,50 @@ def register(cli: click.Group) -> None:
             _safe_echo(result)
         else:
             _safe_echo("No specific recommendations for this context.")
+
+    # ─── Holding Room ────────────────────────────────────────────
+
+    @cli.group(invoke_without_command=True)
+    @click.pass_context
+    def hold(ctx: click.Context) -> None:
+        """The holding room — things that haven't been categorized yet."""
+        if ctx.invoked_subcommand is None:
+            from divineos.core.holding import format_holding
+
+            _safe_echo(format_holding())
+
+    @hold.command("add")
+    @click.argument("content")
+    @click.option(
+        "--hint", default="", help="What this might become (knowledge/opinion/lesson/etc)"
+    )
+    @click.option("--source", default="", help="Where this came from")
+    def hold_add(content: str, hint: str, source: str) -> None:
+        """Put something in the holding room. No classification needed."""
+        from divineos.core.holding import hold as hold_fn
+
+        item_id = hold_fn(content, hint=hint, source=source)
+        _safe_echo(click.style(f"[+] Held: {item_id}", fg="green"))
+
+    @hold.command("promote")
+    @click.argument("item_id")
+    @click.argument("target")
+    def hold_promote(item_id: str, target: str) -> None:
+        """Move something out of holding into a real category."""
+        from divineos.core.holding import promote
+
+        if promote(item_id, target):
+            _safe_echo(click.style(f"[+] Promoted to: {target}", fg="green"))
+        else:
+            _safe_echo(click.style("[-] Item not found or already promoted.", fg="red"))
+
+    @hold.command("stats")
+    def hold_stats() -> None:
+        """Show holding room statistics."""
+        from divineos.core.holding import holding_stats
+
+        stats = holding_stats()
+        _safe_echo(f"  Active: {stats['active']}")
+        _safe_echo(f"  Promoted: {stats['promoted']}")
+        _safe_echo(f"  Stale: {stats['stale']}")
+        _safe_echo(f"  Total: {stats['total']}")
