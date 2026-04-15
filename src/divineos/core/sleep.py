@@ -229,6 +229,16 @@ def _phase_pruning(report: DreamReport) -> None:
     except _SLEEP_ERRORS:
         pass
 
+    # Age the holding room — things that sit too long go stale
+    try:
+        from divineos.core.holding import age_holding
+
+        newly_stale = age_holding()
+        if newly_stale:
+            report.hygiene_results["holding_items_stale"] = newly_stale
+    except _SLEEP_ERRORS:
+        pass
+
 
 # ─── Phase 3: Affect Recalibration ───────────────────────────────────
 

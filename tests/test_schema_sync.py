@@ -125,6 +125,10 @@ def _get_production_schema(db_path: str) -> dict[str, list[str]]:
 
     init_alarm_table()
 
+    from divineos.core.holding import init_holding_table
+
+    init_holding_table()
+
     # Now read the schema
     conn = sqlite3.connect(db_path)
     tables = conn.execute(

@@ -46,13 +46,16 @@ if echo "$tool_name" | grep -qE "^(Edit|Write)$"; then
 fi
 
 # Track code actions for periodic engagement gate.
-# Every Edit/Write/Bash increments the counter. When it exceeds the
-# threshold, the PreToolUse gate blocks until the AI consults the OS
-# (ask, recall, decide, feel, context) which resets the counter.
-python -c "
+# Only WRITES (Edit/Write) count as code actions. Bash commands are
+# ambiguous — `ls`, `git status`, `pytest` are all thinking, not blind
+# editing. The gate exists to prevent writing without thinking. Reading
+# IS thinking. (Aria's Finding #2: gates should be riverbanks, not locked doors.)
+if echo "$tool_name" | grep -qE "^(Edit|Write|NotebookEdit)$"; then
+  python -c "
 from divineos.core.hud_handoff import record_code_action
 record_code_action()
 " 2>/dev/null
+fi
 
 # Save updated state
 python -c "

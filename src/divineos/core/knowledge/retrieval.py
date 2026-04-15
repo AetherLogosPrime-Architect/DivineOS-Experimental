@@ -590,22 +590,40 @@ def _format_briefing(
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
-    # WHO you're talking to — shapes everything
+    # WHO you're talking to — the person, not the settings
     try:
-        from divineos.core.user_model import get_or_create_user
+        from divineos.core.user_model import (
+            get_or_create_user,
+            get_relationship_notes,
+            get_shared_history,
+        )
 
         user = get_or_create_user()
-        user_desc = user.get("description", "")
-        if not user_desc:
-            # Fall back to core memory
-            from divineos.core.memory import get_core
 
-            core = get_core()
-            user_desc = core.get("user_identity", "")
-        if user_desc:
-            # Extract the key insight — first sentence or up to 120 chars
-            short = user_desc.split(". ")[0] if ". " in user_desc else user_desc[:120]
-            lines.append(f"**Talking to:** {short}.\n")
+        # Relational layer first — who they ARE
+        rel_notes = get_relationship_notes(limit=5)
+        moments = get_shared_history(limit=3)
+
+        if rel_notes or moments:
+            user_name = user.get("name", "default")
+            lines.append(f"**Talking to:** {user_name}")
+            if rel_notes:
+                for n in rel_notes[:3]:
+                    lines.append(f"  - [{n['category']}] {n['content'][:100]}")
+            if moments:
+                lines.append(f"  Recent history: {moments[0]['description'][:80]}")
+            lines.append("")
+        else:
+            # Fall back to description or core memory
+            user_desc = user.get("description", "")
+            if not user_desc:
+                from divineos.core.memory import get_core
+
+                core = get_core()
+                user_desc = core.get("user_identity", "")
+            if user_desc:
+                short = user_desc.split(". ")[0] if ". " in user_desc else user_desc[:120]
+                lines.append(f"**Talking to:** {short}.\n")
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"user-context: {e}")
 

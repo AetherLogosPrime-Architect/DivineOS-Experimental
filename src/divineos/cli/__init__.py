@@ -42,6 +42,7 @@ _BYPASS_COMMANDS = frozenset(
         "progress",
         "validate",
         "rt",
+        "hold",
     }
 )
 
