@@ -193,14 +193,13 @@ def store_knowledge_smart(
         # Find best fuzzy match via FTS5
         best_match: dict[str, Any] | None = None
         best_overlap = 0.0
-        # nosec B608 - column names are hardcoded constants, query parameters passed separately
         fts_query = f"""SELECT {_KNOWLEDGE_COLS_K}
                        FROM knowledge_fts fts
                        JOIN knowledge k ON k.rowid = fts.rowid
                        WHERE knowledge_fts MATCH ?
                          AND k.superseded_by IS NULL
                        ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
-                       LIMIT 10"""
+                       LIMIT 10"""  # nosec B608: _KNOWLEDGE_COLS_K is a module constant; MATCH param is parameterized
         key_terms = _extract_key_terms(content)
         fts_match = _build_fts_query(content)  # OR-joined for recall
         if key_terms and fts_match:

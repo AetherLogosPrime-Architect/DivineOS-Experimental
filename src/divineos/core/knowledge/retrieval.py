@@ -263,7 +263,7 @@ def generate_briefing(
     mat_conn = _get_connection()
     try:
         mat_rows = mat_conn.execute(
-            "SELECT maturity, COUNT(*) FROM knowledge "
+            "SELECT maturity, COUNT(*) FROM knowledge "  # nosec B608: table/column names from module constants; values parameterized
             f"WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_RETRIEVAL_FLOOR} "
             "GROUP BY maturity"
         ).fetchall()

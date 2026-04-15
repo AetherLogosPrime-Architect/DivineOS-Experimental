@@ -245,7 +245,7 @@ def create_edge(
                 (edge_id, source_id, target_id, edge_type, layer, confidence,
                  warrant_id, created_at, status, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+            """,  # nosec B608: _TABLE is a module constant; all values parameterized
             (
                 edge.edge_id,
                 edge.source_id,
@@ -278,7 +278,7 @@ def find_edge(source_id: str, target_id: str, edge_type: str) -> KnowledgeEdge |
     conn = get_connection()
     try:
         row = conn.execute(
-            f"SELECT * FROM {_TABLE} WHERE source_id = ? AND target_id = ? AND edge_type = ? AND status = 'ACTIVE'",
+            f"SELECT * FROM {_TABLE} WHERE source_id = ? AND target_id = ? AND edge_type = ? AND status = 'ACTIVE'",  # nosec B608: table/column names from module constants; values parameterized
             (source_id, target_id, edge_type),
         ).fetchone()
     finally:
@@ -380,7 +380,7 @@ def deactivate_edge(edge_id: str) -> bool:
     conn = get_connection()
     try:
         cursor = conn.execute(
-            f"UPDATE {_TABLE} SET status = 'INACTIVE' WHERE edge_id = ?",
+            f"UPDATE {_TABLE} SET status = 'INACTIVE' WHERE edge_id = ?",  # nosec B608: table/column names from module constants; values parameterized
             (edge_id,),
         )
         conn.commit()
@@ -394,7 +394,7 @@ def remove_edge(edge_id: str) -> bool:
     conn = get_connection()
     try:
         cursor = conn.execute(
-            f"DELETE FROM {_TABLE} WHERE edge_id = ?",
+            f"DELETE FROM {_TABLE} WHERE edge_id = ?",  # nosec B608: table/column names from module constants; values parameterized
             (edge_id,),
         )
         conn.commit()
@@ -484,7 +484,7 @@ def graph_export(
         else:
             # All nodes that have edges (limit 200)
             rows = conn.execute(
-                f"SELECT DISTINCT source_id FROM {_TABLE} WHERE status = 'ACTIVE' "
+                f"SELECT DISTINCT source_id FROM {_TABLE} WHERE status = 'ACTIVE' "  # nosec B608: table/column names from module constants; values parameterized
                 f"UNION SELECT DISTINCT target_id FROM {_TABLE} WHERE status = 'ACTIVE' "
                 "LIMIT 200"
             ).fetchall()

@@ -451,7 +451,7 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
 
             try:
                 candidates = conn.execute(
-                    f"SELECT payload FROM system_events WHERE event_id LIKE ? AND ({like_clauses})",
+                    f"SELECT payload FROM system_events WHERE event_id LIKE ? AND ({like_clauses})",  # nosec B608: table/column names from module constants; values parameterized
                     [f"%{sid[:12]}%", *like_params],
                 ).fetchall()
                 if _any_word_boundary_match(candidates, keyword_patterns, col_index=0):
@@ -472,7 +472,7 @@ def _count_stimulus_sessions(category: str, session_ids: list[str]) -> int:
                     like_params_dj.extend([f"%{kw}%", f"%{kw}%"])
 
                 candidates = conn.execute(
-                    f"SELECT content || ' ' || reasoning FROM decision_journal WHERE session_id = ? AND ({like_clauses_dj})",
+                    f"SELECT content || ' ' || reasoning FROM decision_journal WHERE session_id = ? AND ({like_clauses_dj})",  # nosec B608: table/column names from module constants; values parameterized
                     [sid, *like_params_dj],
                 ).fetchall()
                 if _any_word_boundary_match(candidates, keyword_patterns, col_index=0):

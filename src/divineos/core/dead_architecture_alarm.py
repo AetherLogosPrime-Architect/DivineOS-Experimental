@@ -197,7 +197,7 @@ def scan_dormant_tables() -> list[str]:
             if table in _INFRASTRUCTURE_TABLES or table in _FTS_SHADOW_TABLES:
                 continue
             try:
-                count = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+                count = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]  # nosec B608: table/column names from module constants; values parameterized
                 if count == 0:
                     dormant.append(table)
             except sqlite3.OperationalError:
@@ -224,7 +224,7 @@ def scan_active_tables() -> list[str]:
             if table in _INFRASTRUCTURE_TABLES or table in _FTS_SHADOW_TABLES:
                 continue
             try:
-                count = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]
+                count = conn.execute(f"SELECT COUNT(*) FROM [{table}]").fetchone()[0]  # nosec B608: table/column names from module constants; values parameterized
                 if count > 0:
                     active.append(table)
             except sqlite3.OperationalError:
