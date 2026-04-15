@@ -231,8 +231,11 @@ def update_claim(
             params.append(demotion_criteria)
 
         params.append(claim_id)
+        # nosec B608: `updates` contains only hardcoded SQL fragments
+        # ("status = ?", "tier = ?", etc.) built inline above — never from user input.
+        # All values flow through parameterized `params`.
         cursor = conn.execute(
-            f"UPDATE claims SET {', '.join(updates)} WHERE claim_id = ?",
+            f"UPDATE claims SET {', '.join(updates)} WHERE claim_id = ?",  # nosec B608
             params,
         )
         conn.commit()
