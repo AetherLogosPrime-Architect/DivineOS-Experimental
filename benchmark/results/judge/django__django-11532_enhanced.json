@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the issue with non-ASCII hostnames and applies IDNA encoding to convert Unicode domain names to ASCII-compatible format in the DNS_NAME utility.",
+  "key_difference": "The candidate uses inline try-except with manual IDNA encoding instead of the gold patch's approach of importing and using Django's punycode utility function. Both approaches achieve the same result of converting Unicode domains to ASCII-compatible format, making this a valid alternative solution.",
+  "instance_id": "django__django-11532",
+  "condition": "enhanced",
+  "judge_tokens": 2297,
+  "judge_cost": 0.008834999999999999
+}

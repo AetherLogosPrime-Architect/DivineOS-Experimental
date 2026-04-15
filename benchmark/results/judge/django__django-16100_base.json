@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch adds a transaction decorator to the get_edited_object_pks method in the wrong file (main.py), but this method only returns PKs and doesn't modify data, so it doesn't address the actual issue.",
+  "key_difference": "The gold patch correctly wraps the actual database modification loop in changelist_view with transaction.atomic, while this candidate patch incorrectly targets a read-only method in a different file that doesn't perform any database writes.",
+  "instance_id": "django__django-16100",
+  "condition": "base",
+  "judge_tokens": 1308,
+  "judge_cost": 0.005915999999999999
+}

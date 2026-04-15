@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly targets the DNS_NAME caching mechanism and converts non-ASCII hostnames to ASCII-compatible punycode encoding using IDNA, which would fix the crash when non-ASCII domains are used with non-unicode email encodings.",
+  "key_difference": "The candidate uses inline IDNA encoding conversion in utils.py while the gold patch introduces a reusable punycode utility function and applies it in multiple places including sanitize_address. Both approaches correctly handle the core issue, but the gold patch provides better code reuse and consistency across the codebase.",
+  "instance_id": "django__django-11532",
+  "condition": "base",
+  "judge_tokens": 2322,
+  "judge_cost": 0.00921
+}

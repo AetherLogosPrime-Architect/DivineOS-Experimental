@@ -10,58 +10,58 @@ An operating system for AI agents. Memory, continuity, accountability, and learn
 
 ## Why DivineOS Exists
 
-AI agents lose everything between sessions. Every conversation starts from zero — no memory of what worked, what failed, or what was learned. DivineOS gives agents persistent memory, structured learning, and self-accountability so they improve over time instead of repeating the same mistakes.
+AI agents lose everything between sessions. Every conversation starts from zero ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ no memory of what worked, what failed, or what was learned. DivineOS gives agents persistent memory, structured learning, and self-accountability so they improve over time instead of repeating the same mistakes.
 
 **For whom:**
-- **AI agents** running inside the OS — they get briefings, learn from sessions, track their own growth
-- **Developers** building persistent AI systems — a reference architecture for agent memory and continuity
-- **Researchers** studying AI self-awareness — a working implementation of computational introspection
+- **AI agents** running inside the OS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ they get briefings, learn from sessions, track their own growth
+- **Developers** building persistent AI systems ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ a reference architecture for agent memory and continuity
+- **Researchers** studying AI self-awareness ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ a working implementation of computational introspection
 
 ## Core Pillars
 
 ### Memory
 Persistent, layered, evidence-ranked.
 
-- **Event Ledger** — Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
-- **Memory Hierarchy** — Core memory (8 identity slots) + active memory (ranked by importance with context relevance from active goals) + knowledge store (full archive).
-- **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
+- **Event Ledger** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
+- **Memory Hierarchy** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Core memory (8 identity slots) + active memory (ranked by importance with context relevance from active goals) + knowledge store (full archive).
+- **Knowledge Engine** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
 
 Also: temporal knowledge (valid-from/valid-until), graph-enhanced retrieval (BFS traversal of knowledge edges), knowledge compression (dedup/synthesis/graph-aware).
 
 ### Governance
 Quality gates that protect knowledge integrity.
 
-- **Quality Gate** — Blocks knowledge extraction from dishonest or incorrect sessions. Thresholds tighten when the moral compass detects truthfulness drift.
-- **Maturity Lifecycle** — Knowledge evolves: RAW → HYPOTHESIS → TESTED → CONFIRMED. Corroboration drives promotion. Nothing starts as truth.
-- **Formal Logic** — Warrants (evidence backing), logical relations (supports/contradicts/requires), validity gate, inference engine.
+- **Quality Gate** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Blocks knowledge extraction from dishonest or incorrect sessions. Thresholds tighten when the moral compass detects truthfulness drift.
+- **Maturity Lifecycle** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Knowledge evolves: RAW ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ HYPOTHESIS ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ TESTED ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ CONFIRMED. Corroboration drives promotion. Nothing starts as truth.
+- **Formal Logic** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Warrants (evidence backing), logical relations (supports/contradicts/requires), validity gate, inference engine.
 
 Also: runtime guardrails, signal trust tiers (MEASURED > BEHAVIORAL > SELF_REPORTED), semantic integrity shield (3-tier esoteric language detection).
 
 ### Analysis
 Session quality tracking and pattern detection.
 
-- **Session Analysis** — Signal detection: corrections, encouragements, decisions, frustrations, tool usage patterns.
-- **Drift Detection** — Catches behavioral backsliding: lesson regressions, quality drift, correction trend reversals.
-- **Proactive Patterns** — Warns about past mistakes AND recommends what worked well in similar contexts.
+- **Session Analysis** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Signal detection: corrections, encouragements, decisions, frustrations, tool usage patterns.
+- **Drift Detection** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Catches behavioral backsliding: lesson regressions, quality drift, correction trend reversals.
+- **Proactive Patterns** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Warns about past mistakes AND recommends what worked well in similar contexts.
 
 Also: outcome measurement (rework, churn, health scoring), quality trends (improving/declining/stable), growth awareness with milestone detection.
 
 ### Self-Model
-The agent's coherent picture of itself, computed from evidence — not self-reported.
+The agent's coherent picture of itself, computed from evidence ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ not self-reported.
 
-- **Moral Compass** — Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END.
-- **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight. FTS-searchable.
-- **Self-Critique** — Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
-- **Opinion Store** — First-class opinions with evidence tracking, confidence evolution, and supersession history.
+- **Moral Compass** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END.
+- **Decision Journal** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight. FTS-searchable.
+- **Self-Critique** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
+- **Opinion Store** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ First-class opinions with evidence tracking, confidence evolution, and supersession history.
 
 Also: affect log (valence-arousal-dominance tracking, auto-logged at decision points), body awareness (computational interoception), attention schema (Butlin indicators 9-10), epistemic status (Butlin indicator 14), value tension detection, unified self-model assembly.
 
 ### Interaction Intelligence
 Adapts to the user over time.
 
-- **User Model** — Tracks skill level and preferences from observed behavior (not self-reported). Signals like jargon fluency, explanation requests, and correction patterns build the model automatically.
-- **Communication Calibration** — Adjusts verbosity, jargon tolerance, example density, and explanation depth based on the user model.
-- **Advice Tracking** — Records recommendations given, then tracks whether they actually worked. Computes success rate by category.
+- **User Model** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Tracks skill level and preferences from observed behavior (not self-reported). Signals like jargon fluency, explanation requests, and correction patterns build the model automatically.
+- **Communication Calibration** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Adjusts verbosity, jargon tolerance, example density, and explanation depth based on the user model.
+- **Advice Tracking** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Records recommendations given, then tracks whether they actually worked. Computes success rate by category.
 
 Also: HUD (heads-up display with `--brief` mode), tiered engagement enforcement (light/deep gates), memory sync to Claude Code, session checkpoints, seed versioning.
 
@@ -69,20 +69,20 @@ Also: HUD (heads-up display with `--brief` mode), tiered engagement enforcement 
 
 ```
 Session Start                    Session End
-     │                                │
-     ▼                                ▼
- Load briefing ──────────────► Analyze session
+     ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡                                ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡
+     ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                                ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼
+ Load briefing ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Âº Analyze session
  (lessons, memory,              (corrections, encouragements,
   directives, goals)             decisions, tool usage)
-     │                                │
-     ▼                                ▼
- Work with context ──────────► Extract knowledge
- (anticipation warnings,        (quality gate → noise filter →
-  pattern recommendations,       dedup → contradiction check →
+     ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡                                ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡
+     ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                                ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼
+ Work with context ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Âº Extract knowledge
+ (anticipation warnings,        (quality gate ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ noise filter ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
+  pattern recommendations,       dedup ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ contradiction check ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
   engagement tracking)           maturity assignment)
-     │                                │
-     ▼                                ▼
- Record everything ──────────► Update systems
+     ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡                                ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡
+     ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                                ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼
+ Record everything ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Âº Update systems
  (ledger events, tool calls,    (lesson tracking, compass,
   decisions, affect states)      growth, self-critique, handoff)
 ```
@@ -97,20 +97,21 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 3,699+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 3,993+ tests, real DB, minimal mocks
+
 ```
 
-**For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
+**For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ the OS handles orientation.
 
-**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
+**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ the repo itself stays clean.
 
-## CLI Surface (151 commands)
+## CLI Surface (163 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
 
 ```bash
-divineos briefing            # Start here — context, lessons, memory (--deep, --layer)
+divineos briefing            # Start here ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ context, lessons, memory (--deep, --layer)
 divineos preflight           # Confirm you're ready to work
 divineos hud                 # Full heads-up display
 divineos hud --brief         # Condensed view (~6 essential slots)
@@ -271,7 +272,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (151 commands across 24 modules)
+  cli/                         CLI package (163 commands across 25 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -294,6 +295,7 @@ src/divineos/
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
+    audit_commands.py          external validation (Watchmen)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
@@ -312,6 +314,7 @@ src/divineos/
     hud.py                     HUD slot builders and assembly
     hud_state.py               Goal/plan/health state management
     hud_handoff.py             Session handoff, engagement, goal extraction
+    holding.py                 Pre-categorical reception (holding room, dharana)
     constants.py               Central tuning constants (all behavioral levers in one place)
     knowledge/                 Knowledge engine sub-package
       _base.py                 DB connection, schema, public API
@@ -330,6 +333,41 @@ src/divineos/
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
       inference.py             Knowledge inference (boundaries from mistakes, pattern promotion)
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
+      inference.py             Knowledge inference engine
+    council/                   Expert council sub-package
+      engine.py                CouncilEngine Ã¢â‚¬â€� analyze problems through expert lenses
+      framework.py             ExpertWisdom dataclasses (7 components)
+      manager.py               Dynamic council manager (classify Ã¢â€ â€™ select 5-8 experts)
+      experts/                 28 expert wisdom profiles
+        __init__.py            Expert registration and exports
+        aristotle.py           Virtue ethics, teleology, classification
+        beer.py                Cybernetics, viable system model
+        dekker.py              Resilience engineering, drift into failure
+        deming.py              Quality, variation, PDSA cycle
+        dennett.py             Philosophy of mind, intentional stance
+        dijkstra.py            Formal methods, correctness, structured programming
+        feynman.py             First principles, clarity, epistemology
+        godel.py               Incompleteness, self-reference, formal limits
+        hinton.py              Learning, representation, intellectual honesty
+        hofstadter.py          Self-reference, analogy, strange loops
+        holmes.py              Deduction, observation, elimination (fictional)
+        jacobs.py              Emergence, bottom-up observation, diversity
+        kahneman.py            Cognitive bias, dual process, judgment
+        knuth.py               Boundary analysis, specification compliance
+        lovelace.py            Emergence, generality, abstraction
+        meadows.py             Systems thinking, feedback loops, leverage
+        minsky.py              Cognitive architecture, society of mind
+        norman.py              Human-centered design, usability, affordances
+        pearl.py               Causality, causal models, do-calculus
+        peirce.py              Abduction, pragmatism, inquiry
+        polya.py               Problem solving, solution verification
+        popper.py              Falsification, adversarial testing
+        schneier.py            Security, threat modeling, defense in depth
+        shannon.py             Information theory, entropy, communication
+        taleb.py               Antifragility, risk, via negativa
+        turing.py              Computation, testability, operational definition
+        wittgenstein.py        Language games, meaning as use, dissolution
+        yudkowsky.py           Alignment, Goodhart, specification gaming
     logic/                     Formal logic sub-package
       warrants.py              Evidence backing for knowledge claims
       logic_validation.py      Consistency, validity gate, defeat lessons
@@ -350,7 +388,7 @@ src/divineos/
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
     session_checkpoint.py      Periodic saves and context monitoring
-    lifecycle.py               Self-enforcement — OS manages its own session lifecycle
+    lifecycle.py               Self-enforcement ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ OS manages its own session lifecycle
     enforcement.py             CLI-level event capture and signal handling
     enforcement_verifier.py    Enforcement setup verification
     tool_wrapper.py            Tool execution interception
@@ -363,14 +401,14 @@ src/divineos/
     trust_tiers.py             Signal trust weighting (MEASURED > BEHAVIORAL > SELF_REPORTED)
     planning_commitments.py    Commitment tracking and fulfillment checking
     skill_library.py           Evidence-based skill proficiency tracking
-    curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
+    curiosity_engine.py        Question tracking (OPEN ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ INVESTIGATING ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ANSWERED)
     self_model.py              Unified self-model assembled from all OS systems
     drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
     predictive_session.py      Session profile detection and need prediction
     claim_store.py             Claims engine with evidence tiers
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
-    user_ratings.py            External validation — user rates sessions 1-10, Goodhart detection
+    user_ratings.py            External validation ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ user rates sessions 1-10, Goodhart detection
     body_awareness.py          Computational interoception and cache conveyor belt
     sleep.py                   Offline consolidation engine (6 phases, dream report)
     progress_dashboard.py      Measurable progress metrics from real data
@@ -392,39 +430,13 @@ src/divineos/
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
     resonant_truth.py          RT protocol load/invoke/verify/deactivate with gate
     pull_detection.py          Toward/pull-back divergence detector (fabrication markers)
-    council/                   Expert thinking council sub-package
-      engine.py                Council engine — analyze problems through expert lenses
-      framework.py             ExpertWisdom dataclass (7 components per expert)
-      manager.py               Dynamic council manager — classify problems, select 5-8 of 28 experts
-      experts/                 28 expert wisdom profiles (methodologies, not personas)
-        aristotle.py           Virtue ethics, four causes, golden mean
-        beer.py                Viable System Model, requisite variety, POSIWID
-        dekker.py              Drift into failure, work-as-done vs work-as-imagined
-        deming.py              PDSA cycle, common vs special cause variation
-        dennett.py             Intentional stance, multiple drafts, heterophenomenology
-        dijkstra.py            Correctness by construction, structured programming
-        feynman.py             First principles decomposition, observation over authority
-        godel.py               Incompleteness analysis, consistency-completeness tradeoffs
-        hinton.py              Learned representations, distillation, generalization
-        hofstadter.py          Strange loops, analogy as cognition, self-reference
-        holmes.py              Elimination of impossible, abductive investigation
-        jacobs.py              Urban complexity, diversity as resilience
-        kahneman.py            Dual process audit, substitution detection
-        knuth.py               Boundary value analysis, precise specification
-        lovelace.py            Abstraction bridges, unanticipated applications
-        meadows.py             Feedback loop mapping, leverage points, system dynamics
-        minsky.py              Society of mind, frame-based reasoning
-        norman.py              Affordance analysis, human error as design failure
-        pearl.py               Causal inference, do-calculus, counterfactual reasoning
-        peirce.py              Abductive reasoning, pragmatic maxim, fallibilism
-        polya.py               Problem understanding, solution verification
-        popper.py              Falsification, conjectures and refutations
-        schneier.py            Attack tree analysis, security theater detection
-        shannon.py             Information content analysis, channel capacity
-        taleb.py               Via negativa, antifragility, skin in the game
-        turing.py              Distinguishability test, imitation as evidence
-        wittgenstein.py        Language games, meaning as use, showing vs saying
-        yudkowsky.py           Goodhart analysis, corrigibility check
+    watchmen/                  External validation (audit findings, routing)
+      _schema.py               audit_rounds and audit_findings tables
+      types.py                 Severity, FindingCategory, Finding dataclasses
+      store.py                 CRUD with actor validation (self-trigger prevention)
+      router.py                Route findings to knowledge/claims/lessons
+      summary.py               Analytics, HUD integration, unresolved tracking
+
   analysis/
     _session_types.py          Session analysis type definitions
     analysis.py                Core session analysis pipeline
@@ -498,7 +510,8 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,699+ tests (real DB, minimal mocks)
+tests/                         3,993+ tests (real DB, minimal mocks)
+
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
 setup/                         Hook setup scripts (bash + powershell)
@@ -534,10 +547,11 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,699+ tests (real SQLite, minimal mocks)
+- 3,993+ tests (real SQLite, minimal mocks)
+
 - 143 CLI commands
 - 9 Claude Code enforcement hooks
-- Actively developed — new systems ship weekly
+- Actively developed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ new systems ship weekly
 
 ## License
 

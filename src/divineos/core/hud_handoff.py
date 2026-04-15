@@ -202,7 +202,11 @@ def mark_engaged(tool: str = "") -> None:
 
 
 def record_code_action() -> None:
-    """Record that a code-changing action (Edit/Write/Bash) occurred.
+    """Record that a code-changing action (Edit/Write) occurred.
+
+    Only called for actual writes — not Bash reads, not file exploration.
+    Reading IS thinking. The gate exists to prevent blind editing without
+    reflection, not to punish looking at the codebase.
 
     Increments both counters:
     - code_actions_since: actions since last ANY thinking command (light gate)

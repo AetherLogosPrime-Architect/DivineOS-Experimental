@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-12262",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/template/library.py\n+++ b/django/template/library.py\n@@ -243,7 +243,7 @@ class Library:\n                 else:\n                     # keyword argument\n                     try:\n-                        value = parser.compile_filter(token.contents)\n+                        value = parser.compile_filter(bit)\n                     except TemplateSyntaxError as exc:\n                         raise TemplateSyntaxError(\n                             '\"%s\" tag option \"%s\" is not a valid filter: %s'",
+  "thinking": null,
+  "input_tokens": 445,
+  "output_tokens": 136,
+  "elapsed_seconds": 3.7,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0033750000000000004
+}

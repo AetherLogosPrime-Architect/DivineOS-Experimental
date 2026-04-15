@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds the missing store_cv_values parameter to RidgeClassifierCV's __init__ method and passes it to the parent class, which fixes the TypeError when using this parameter.",
+  "key_difference": "The candidate patch only modifies the __init__ method implementation while the gold patch also includes documentation updates. Both approaches would fix the functional issue, but the gold patch is more complete by updating the docstring as well.",
+  "instance_id": "scikit-learn__scikit-learn-10297",
+  "condition": "enhanced",
+  "judge_tokens": 1903,
+  "judge_cost": 0.007592999999999999
+}

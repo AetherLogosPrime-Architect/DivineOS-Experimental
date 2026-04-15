@@ -6,6 +6,7 @@ from divineos.core.advice_tracking import (
     assess_advice,
     format_advice_stats,
     get_advice_stats,
+    get_assessed_advice,
     get_pending_advice,
     get_stale_advice,
     init_advice_table,
@@ -148,3 +149,27 @@ class TestFormat:
         result = format_advice_stats(stats)
         assert "Success rate" in result
         assert "%" in result
+
+
+class TestGetAssessedAdvice:
+    """Tests for the assessed advice retrieval."""
+
+    def test_returns_only_assessed(self):
+        a1 = record_advice("Good advice")
+        record_advice("Pending advice")
+        assess_advice(a1, "successful", "It worked")
+        assessed = get_assessed_advice()
+        assert len(assessed) == 1
+        assert assessed[0]["advice_id"] == a1
+        assert assessed[0]["outcome"] == "successful"
+
+    def test_returns_empty_when_none_assessed(self):
+        record_advice("Still pending")
+        assessed = get_assessed_advice()
+        assert assessed == []
+
+    def test_includes_category(self):
+        a1 = record_advice("Arch advice", category="architecture")
+        assess_advice(a1, "failed")
+        assessed = get_assessed_advice()
+        assert assessed[0]["category"] == "architecture"

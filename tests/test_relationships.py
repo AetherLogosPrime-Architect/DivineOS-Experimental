@@ -225,9 +225,8 @@ class TestClassifyRelationship:
             existing_type="FACT",
             overlap=0.35,
         )
-        # No causal language, no type affinity for EPISODE→FACT at 0.35
-        # Below cross-type RELATED_TO threshold (0.4)
-        assert result is None
+        # 0.35 > OVERLAP_DUPLICATE (0.30): cross-type RELATED_TO fires
+        assert result == "RELATED_TO"
 
     def test_cross_type_related_to(self):
         """Different types with decent overlap get RELATED_TO."""

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies HTTP errors before checking anchors and raises an HTTPError to report the actual server error instead of misleading anchor-not-found messages.",
+  "key_difference": "This patch checks response.status_code >= 400 and raises HTTPError explicitly, while the gold patch uses response.raise_for_status(). Both approaches achieve the same goal of reporting HTTP errors before anchor checking, but the candidate provides more explicit control over error handling.",
+  "instance_id": "sphinx-doc__sphinx-8269",
+  "condition": "base",
+  "judge_tokens": 1320,
+  "judge_cost": 0.005892
+}

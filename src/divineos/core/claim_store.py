@@ -13,6 +13,9 @@ Side discoveries during investigation feed back into the knowledge store.
 """
 
 import json
+import re
+
+from loguru import logger
 import time
 import uuid
 from typing import Any
@@ -169,6 +172,13 @@ def add_evidence(
     strength: float = 0.5,
 ) -> str:
     """Add evidence to a claim. Direction: SUPPORTS, CONTRADICTS, or NEUTRAL."""
+    _VALID_DIRECTIONS = {"SUPPORTS", "CONTRADICTS", "NEUTRAL"}
+    direction = direction.upper().strip()
+    if direction not in _VALID_DIRECTIONS:
+        raise ValueError(
+            f"Invalid evidence direction '{direction}'. Must be one of: {_VALID_DIRECTIONS}"
+        )
+
     init_claim_tables()
     evidence_id = str(uuid.uuid4())
     strength = max(0.0, min(1.0, strength))
@@ -300,10 +310,24 @@ def list_claims(
     return [_claim_row_to_dict(r) for r in rows]
 
 
+def _build_fts_or_query(query: str) -> str:
+    """Convert query to OR-joined FTS5 terms for partial-match recall.
+
+    Space-separated terms in FTS5 are implicit AND — requiring ALL terms
+    to match kills recall. OR-joining ensures partial matches surface.
+    """
+    words = [w for w in re.sub(r"[^a-zA-Z0-9\s]", " ", query).lower().split() if len(w) > 1]
+    if not words:
+        return query
+    if len(words) == 1:
+        return words[0]
+    return " OR ".join(words)
+
+
 def search_claims(query: str, limit: int = 10) -> list[dict[str, Any]]:
     """Full-text search across claims."""
     init_claim_tables()
-    safe_query = " ".join(f'"{t}"' for t in query.split() if t)
+    safe_query = _build_fts_or_query(query)
     if not safe_query:
         return []
     conn = _get_connection()
@@ -365,6 +389,10 @@ def _recalculate_confidence(conn: Any, claim_id: str) -> None:
             support_weight += strength
         elif direction == "CONTRADICTS":
             contra_weight += strength
+        elif direction == "NEUTRAL":
+            pass  # Neutral evidence doesn't shift confidence
+        else:
+            logger.warning(f"Unexpected evidence direction '{direction}' for claim {claim_id}")
 
     total = support_weight + contra_weight
     if total == 0:

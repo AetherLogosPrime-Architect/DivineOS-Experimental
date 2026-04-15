@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds d.tzinfo as the timezone parameter to the datetime constructor, which fixes the TypeError when subtracting offset-naive and offset-aware datetimes.",
+  "key_difference": "The candidate patch adds d.tzinfo as a positional argument while the gold patch uses the keyword argument tzinfo=d.tzinfo. Both approaches are functionally equivalent and correct.",
+  "instance_id": "django__django-16429",
+  "condition": "base",
+  "judge_tokens": 1238,
+  "judge_cost": 0.005466
+}

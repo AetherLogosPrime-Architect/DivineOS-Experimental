@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch adds Max and Min to the known_functions dictionary, but this approach won't work because Max/Min are not regular functions but MinMaxBase objects that need special handling with _print_MinMaxBase method.",
+  "key_difference": "The candidate patch tries to handle Max/Min through the known_functions dictionary mapping, while the gold patch correctly identifies that Max/Min inherit from MinMaxBase and need the _print_MinMaxBase method plus entries in the function_names dictionary with lambda predicates.",
+  "instance_id": "sympy__sympy-15345",
+  "condition": "enhanced",
+  "judge_tokens": 1112,
+  "judge_cost": 0.0054
+}

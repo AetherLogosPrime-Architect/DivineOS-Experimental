@@ -1,0 +1,12 @@
+{
+  "instance_id": "sphinx-doc__sphinx-8269",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sphinx/builders/linkcheck.py\n+++ b/sphinx/builders/linkcheck.py\n@@ -315,6 +315,11 @@ def check_uri() -> Tuple[str, str, int]:\n                         else:\n                             netloc = f'{auth_info[0]}@{netloc}'\n                         req_url = urlunsplit((req.scheme, netloc, req.path, req.query, req.fragment))\n+                    \n+                    # If we got an HTTP error, report that instead of anchor not found\n+                    if response.status_code >= 400:\n+                        raise HTTPError(response.url, response.status_code,\n+                                       response.reason_phrase, None, None)\n \n                     if \"#\" in uri and self.app.config.linkcheck_anchors:\n                         # Read the whole document and see if #anchor exists",
+  "thinking": null,
+  "input_tokens": 561,
+  "output_tokens": 219,
+  "elapsed_seconds": 5.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004968
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that when a view is async, the http_method_not_allowed method needs to return an awaitable coroutine rather than a plain HttpResponseNotAllowed object.",
+  "key_difference": "The candidate patch uses a more concise structure with an if-else flow and names the inner function 'inner' instead of 'func', but functionally achieves the same result as the gold patch by wrapping the response in an async function when view_is_async is True.",
+  "instance_id": "django__django-16136",
+  "condition": "enhanced",
+  "judge_tokens": 1678,
+  "judge_cost": 0.007098
+}

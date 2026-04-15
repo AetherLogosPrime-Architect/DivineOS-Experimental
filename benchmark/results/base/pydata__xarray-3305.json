@@ -1,0 +1,12 @@
+{
+  "instance_id": "pydata__xarray-3305",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/xarray/core/variable.py\n+++ b/xarray/core/variable.py\n@@ -1637,7 +1637,7 @@ class Variable:\n         return self._unary_op(duck_array_ops.isnan)\n \n     def quantile(\n-        self, q, dim=None, interpolation=\"linear\", keep_attrs=False\n+        self, q, dim=None, interpolation=\"linear\", keep_attrs=None\n     ):\n         \"\"\"Compute the qth quantile of the data along the specified dimension.\n \n@@ -1658,6 +1658,9 @@ class Variable:\n         keep_attrs : bool, optional\n             If True, the variable's attributes (`attrs`) will be copied\n             from the original one to the new one.  If False (default), the new\n+            one will not have attributes.\n+        \"\"\"\n+        if keep_attrs is None:\n+            keep_attrs = _get_keep_attrs(default=False)\n \n         q = np.asarray(q, dtype=np.float64)\n \n@@ -1677,7 +1680,10 @@ class Variable:\n         axis = self.get_axis_num(dim)\n         new_data = duck_array_ops.quantile(\n             self.data, q, axis=axis, interpolation=interpolation\n         )\n-        return self._constructor(new_dims, new_data, fastpath=True)\n+        result = self._constructor(new_dims, new_data, fastpath=True)\n+        if keep_attrs:\n+            result.attrs = self.attrs\n+        return result\n \n     def rank(self, dim, pct=False):\n         \"\"\"Ranks the data.",
+  "thinking": null,
+  "input_tokens": 1008,
+  "output_tokens": 424,
+  "elapsed_seconds": 9.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.009384
+}

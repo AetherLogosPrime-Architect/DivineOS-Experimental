@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch targets the wrong class (DraggableLegend) and implements unnecessary pickle methods, while the real issue is in DraggableOffsetBox where a canvas attribute prevents pickling. The gold patch correctly addresses this by making canvas a property instead of storing it as an attribute.",
+  "key_difference": "The candidate adds __getstate__/__setstate__ methods to DraggableLegend, while the gold patch removes the canvas attribute from DraggableOffsetBox and makes it a property, which is the actual root cause of the pickling issue.",
+  "instance_id": "matplotlib__matplotlib-25311",
+  "label": "v1_old",
+  "judge_cost": 0.0058709999999999995
+}

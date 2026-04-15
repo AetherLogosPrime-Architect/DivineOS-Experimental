@@ -17,11 +17,25 @@ sys.path.insert(0, str(Path(__file__).parent))
 def pytest_configure(config: pytest.Config) -> None:
     """Set basetemp to a project-local directory to avoid Windows permissions issues."""
     if config.option.basetemp is None:
-        local_tmp = Path(__file__).parent.parent / "tmp" / "pytest"
+        pytest_tmp = Path(__file__).parent.parent / "tmp" / "pytest"
         # Use a unique subdir per run to avoid stale file collisions after crashes
-        local_tmp = local_tmp / f"run-{os.getpid()}"
+        local_tmp = pytest_tmp / f"run-{os.getpid()}"
         local_tmp.mkdir(parents=True, exist_ok=True)
         config.option.basetemp = str(local_tmp)
+
+        # Clean up old runs (keep last 3) to prevent unbounded disk growth.
+        # Without this, each run leaves ~189MB of temp databases — 27 runs = 4.6GB.
+        try:
+            old_runs = sorted(
+                [d for d in pytest_tmp.iterdir() if d.is_dir() and d.name.startswith("run-")],
+                key=lambda p: p.stat().st_mtime,
+            )
+            for stale in old_runs[:-3]:
+                import shutil
+
+                shutil.rmtree(stale, ignore_errors=True)
+        except OSError:
+            pass
 
 
 @pytest.fixture(autouse=True)

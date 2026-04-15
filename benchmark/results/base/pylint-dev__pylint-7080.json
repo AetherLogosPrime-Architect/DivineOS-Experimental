@@ -1,0 +1,12 @@
+{
+  "instance_id": "pylint-dev__pylint-7080",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/pylint/lint/pylinter.py\n+++ b/pylint/lint/pylinter.py\n@@ -604,7 +604,7 @@ class PyLinter(\n         for pattern in self.config.ignore_paths:\n             if pattern.match(root):\n                 return True\n-        return False\n+        return pattern.match(os.path.normpath(root)) if pattern else False\n \n     def _get_file_descr_from_stdin(self, filepath: str) -> FileItem:\n         \"\"\"Return file description (tuple of module name, file path, base name) from",
+  "thinking": null,
+  "input_tokens": 9758,
+  "output_tokens": 148,
+  "elapsed_seconds": 4.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.031494
+}

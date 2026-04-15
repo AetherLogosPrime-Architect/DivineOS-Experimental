@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds the get_inlines() hook method and modifies get_inline_instances() to use it, which allows dynamic inline specification based on request/obj as requested.",
+  "key_difference": "The candidate patch places the get_inlines() method in a different location within the ModelAdmin class compared to the gold patch, but both approaches are functionally equivalent and valid since the method is properly added to the class.",
+  "instance_id": "django__django-11095",
+  "condition": "enhanced",
+  "judge_tokens": 1179,
+  "judge_cost": 0.005397
+}

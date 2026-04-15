@@ -1,0 +1,12 @@
+{
+  "instance_id": "pydata__xarray-6938",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, the problem is that `.swap_dims()` is modifying the original object by mutating the dimensions of variables in place. The issue occurs because when swapping dimensions, the code modifies the `dims` attribute of variables directly rather than creating copies.\n\nLet me examine the `swap_dims` implementation and identify where the mutation occurs. The issue is likely in the `Dataset.swap_dims` method where it processes variables and coordinates.\n\n--- a/xarray/core/dataset.py\n+++ b/xarray/core/dataset.py\n@@ -4633,7 +4633,7 @@ class Dataset(\n         # dimensions.\n         variables = {}\n         for k, v in self.variables.items():\n-            var_dims = dict(zip(v.dims, v.dims))\n+            var_dims = dict(zip(v.dims, v.dims))\n             var_dims.update(dims_dict)\n             variables[k] = v._replace(dims=tuple(var_dims[d] for d in v.dims))\n ",
+  "thinking": null,
+  "input_tokens": 1247,
+  "output_tokens": 247,
+  "elapsed_seconds": 5.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.0074459999999999995
+}

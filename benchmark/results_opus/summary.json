@@ -1,0 +1,12 @@
+{
+  "model": "claude-opus-4-6",
+  "judge_model": "claude-sonnet-4-20250514",
+  "n_tasks": 20,
+  "base_correct_fix": 5,
+  "enhanced_correct_fix": 8,
+  "enhanced_wins": 3,
+  "base_wins": 0,
+  "ties": 17,
+  "total_cost": 10.7,
+  "timestamp": "2026-04-12 04:23:33"
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies the need to use legacy encoding when DEFAULT_HASHING_ALGORITHM is 'sha1', but uses salted_hmac instead of the _hash method and has invalid diff syntax.",
+  "key_difference": "The candidate uses salted_hmac directly instead of calling the existing _hash method like the gold patch does with _legacy_encode. The diff also has syntax errors with incomplete function signatures and missing imports for salted_hmac.",
+  "instance_id": "django__django-13279",
+  "condition": "enhanced",
+  "judge_tokens": 1389,
+  "judge_cost": 0.006135
+}

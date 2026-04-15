@@ -69,6 +69,10 @@ _INFRASTRUCTURE_TABLES = frozenset(
         "warrants",
         "activity_breakdown",
         "dead_architecture_scan",
+        # Legacy tables superseded by knowledge_edges (migration in edges.py).
+        # Kept for rollback safety but intentionally empty.
+        "knowledge_relationships",
+        "logical_relations",
     }
 )
 
@@ -108,6 +112,15 @@ _FTS_SHADOW_TABLES = frozenset(
 
 
 @dataclass
+class WiringIssue:
+    """A wiring problem — component exists and tests pass but isn't connected in production."""
+
+    component: str
+    issue: str  # what's wrong
+    detail: str  # how to fix it
+
+
+@dataclass
 class DisplayIssue:
     """A display integrity problem — data exists but renders broken."""
 
@@ -125,6 +138,7 @@ class AlarmResult:
     empty_hud_slots: list[str] = field(default_factory=list)
     active_hud_slots: list[str] = field(default_factory=list)
     display_issues: list[DisplayIssue] = field(default_factory=list)
+    wiring_issues: list[WiringIssue] = field(default_factory=list)
     self_dormant: bool = False
     scan_time: float = 0.0
 
@@ -323,6 +337,84 @@ def scan_display_integrity() -> list[DisplayIssue]:
     return issues
 
 
+def scan_wiring() -> list[WiringIssue]:
+    """Verify that key singletons and factories return populated objects.
+
+    This catches the "constructed but not connected" pattern: a module
+    exists, imports cleanly, passes all its own tests — but the production
+    factory that creates it doesn't actually wire up its dependencies.
+
+    Each check probes a real factory/singleton the way production code would
+    use it. If the result is empty or missing expected content, it's a
+    wiring issue.
+    """
+    issues: list[WiringIssue] = []
+
+    # Council engine: should have experts registered
+    try:
+        from divineos.core.council.engine import get_council_engine
+
+        engine = get_council_engine()
+        if len(engine.experts) == 0:
+            issues.append(
+                WiringIssue(
+                    component="council_engine",
+                    issue="Engine singleton has zero experts registered",
+                    detail="get_council_engine() returns empty engine — "
+                    "experts exist but _register_all_experts() is not called",
+                )
+            )
+    except Exception:  # noqa: BLE001
+        pass  # council module may not be importable in all environments
+
+    # SLOT_BUILDERS: should have at least the core HUD slots
+    try:
+        from divineos.core.hud import SLOT_BUILDERS
+
+        expected_core = {"identity", "active_goals", "recent_lessons", "session_health"}
+        missing = expected_core - set(SLOT_BUILDERS.keys())
+        if missing:
+            issues.append(
+                WiringIssue(
+                    component="hud_slot_builders",
+                    issue=f"Core HUD slots missing from SLOT_BUILDERS: {sorted(missing)}",
+                    detail="HUD builder dict should contain all core slots",
+                )
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Active memory: refresh should produce results if knowledge exists
+    try:
+        from divineos.core.knowledge import get_connection
+
+        conn = get_connection()
+        try:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchone()[0]
+        finally:
+            conn.close()
+
+        if count > 5:
+            from divineos.core.active_memory import get_active_memory
+
+            active = get_active_memory()
+            if not active:
+                issues.append(
+                    WiringIssue(
+                        component="active_memory",
+                        issue=f"{count} knowledge entries exist but active memory is empty",
+                        detail="get_active_memory() returns nothing — "
+                        "refresh may not be running or scoring may filter everything",
+                    )
+                )
+    except Exception:  # noqa: BLE001
+        pass
+
+    return issues
+
+
 def check_self_dormant() -> bool:
     """Return True if this alarm's own table has zero scan records.
 
@@ -356,6 +448,7 @@ def run_full_scan() -> AlarmResult:
     result.active_tables = scan_active_tables()
     result.empty_hud_slots, result.active_hud_slots = scan_empty_hud_slots()
     result.display_issues = scan_display_integrity()
+    result.wiring_issues = scan_wiring()
     result.self_dormant = check_self_dormant()
     result.scan_time = time.time()
     return result
@@ -432,6 +525,8 @@ def format_alarm_summary(result: AlarmResult) -> str:
         parts.append(f"{len(result.empty_hud_slots)} empty HUD slots")
     if result.display_issues:
         parts.append(f"{len(result.display_issues)} display issues")
+    if result.wiring_issues:
+        parts.append(f"{len(result.wiring_issues)} wiring issues")
     if result.self_dormant:
         parts.append("(alarm itself is dormant -- first scan)")
     return " | ".join(parts)
@@ -441,7 +536,8 @@ def format_alarm_detail(result: AlarmResult) -> str:
     """Detailed multi-line report."""
     lines = [
         f"Dead Architecture Scan -- {result.dormant_count} dormant, {result.active_count} active"
-        f"{f', {len(result.display_issues)} display issues' if result.display_issues else ''}",
+        f"{f', {len(result.display_issues)} display issues' if result.display_issues else ''}"
+        f"{f', {len(result.wiring_issues)} wiring issues' if result.wiring_issues else ''}",
         "",
     ]
 
@@ -462,6 +558,13 @@ def format_alarm_detail(result: AlarmResult) -> str:
         for di in result.display_issues:
             lines.append(f"  [!] {di.slot_name}: {di.issue}")
             lines.append(f"      line: {di.line}")
+        lines.append("")
+
+    if result.wiring_issues:
+        lines.append("Wiring issues (constructed but not connected):")
+        for wi in result.wiring_issues:
+            lines.append(f"  [!] {wi.component}: {wi.issue}")
+            lines.append(f"      fix: {wi.detail}")
         lines.append("")
 
     if result.self_dormant:

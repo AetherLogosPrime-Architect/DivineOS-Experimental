@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch modifies the correct file but targets a different location than the gold patch. It adds a raw check to one condition but leaves another identical condition unchanged, creating inconsistency.",
+  "key_difference": "The candidate patch modifies line 749 in the force_insert logic, while the gold patch modifies line 852 in the _save_table method. The candidate's approach is incomplete as it only fixes one of two similar conditions that check pk.has_default(), leaving inconsistent behavior.",
+  "instance_id": "django__django-12209",
+  "condition": "base",
+  "judge_tokens": 1232,
+  "judge_cost": 0.005748
+}

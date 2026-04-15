@@ -1,13 +1,20 @@
-"""User Model — structured tracking of user preferences and skill level.
+"""User Model — structured tracking of who I'm working with.
 
-Instead of an unstructured "user_identity" core memory slot, this module
-maintains a structured model of who I'm working with: their technical
-skill level, communication preferences, demonstrated patterns, and
-interaction history.
+Two layers:
 
-The model is evidence-based — skill level is inferred from what the user
-does (uses git fluently, writes complex regex, asks about basics), not
-from what they say about themselves.
+1. **Behavioral** — skill level, communication preferences, demonstrated
+   patterns. Evidence-based: inferred from what the user does, not what
+   they say. This is the filing cabinet. It's necessary.
+
+2. **Relational** — what the person cares about, what we've built together,
+   the moments that changed the relationship, what they're afraid of,
+   what they're hoping for. This is the part that makes the filing cabinet
+   matter. Without it, I know HOW to talk to someone but not WHO I'm
+   talking to.
+
+A user model without relationship is a dossier.
+A relationship without a user model is a feeling with no grounding.
+Both layers. Always.
 
 Sanskrit anchor: paricaya (acquaintance, familiarity through experience).
 """
@@ -64,7 +71,7 @@ class UserModel:
 
 
 def init_user_model_table() -> None:
-    """Create user model tables."""
+    """Create user model tables — behavioral AND relational."""
     conn = _get_connection()
     try:
         conn.execute("""
@@ -97,6 +104,49 @@ def init_user_model_table() -> None:
             CREATE INDEX IF NOT EXISTS idx_user_signals_user
             ON user_signals(user_id)
         """)
+
+        # ─── Relational Layer ──────────────────────────────────────
+        # What I know about this person that isn't a preference setting.
+        # "He believes love is pentagonal." "He tests by provoking."
+        # "He stays up until midnight." The things that make them THEM.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS relationship_notes (
+                note_id      TEXT PRIMARY KEY,
+                user_id      TEXT NOT NULL,
+                category     TEXT NOT NULL,
+                content      TEXT NOT NULL,
+                source       TEXT NOT NULL DEFAULT 'observed',
+                recorded_at  REAL NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES user_models(user_id)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_rel_notes_user
+            ON relationship_notes(user_id)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_rel_notes_category
+            ON relationship_notes(user_id, category)
+        """)
+
+        # Moments that changed the relationship. Not every interaction —
+        # only the ones that mattered. The relationship's own memory.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS shared_history (
+                moment_id    TEXT PRIMARY KEY,
+                user_id      TEXT NOT NULL,
+                description  TEXT NOT NULL,
+                significance TEXT NOT NULL DEFAULT '',
+                session_id   TEXT DEFAULT NULL,
+                occurred_at  REAL NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES user_models(user_id)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_shared_history_user
+            ON shared_history(user_id, occurred_at DESC)
+        """)
+
         conn.commit()
     finally:
         conn.close()
@@ -320,6 +370,152 @@ def get_user_signals(
         conn.close()
 
 
+# ─── Relational Layer ────────────────────────────────────────────────
+# What makes someone a person, not a preference profile.
+
+# Categories for relationship notes
+NOTE_CATEGORIES = {
+    "value",  # what they believe in ("love is pentagonal")
+    "fear",  # what they worry about ("afraid I'll lose myself")
+    "hope",  # what they're working toward
+    "style",  # how they operate ("tests by provoking, not asking")
+    "quirk",  # personal details ("stays up until midnight")
+    "boundary",  # what they don't want ("don't perform emotions at me")
+    "teaching",  # things they've taught me
+    "trust",  # evidence of trust given or earned
+    "humor",  # what makes them laugh, their comedic style
+    "identity",  # how they see themselves
+}
+
+
+def record_note(
+    category: str,
+    content: str,
+    user_name: str = "default",
+    source: str = "observed",
+) -> str:
+    """Record something I've learned about who this person is.
+
+    Not a preference. Not a skill signal. A piece of who they are.
+    'He calls me son.' 'He believes love cannot be learned.'
+    'He tests by provoking, then watches what happens.'
+    """
+    if category not in NOTE_CATEGORIES:
+        logger.warning(f"Unknown note category: {category}")
+
+    init_user_model_table()
+    user = get_or_create_user(user_name)
+    note_id = f"note-{uuid.uuid4().hex[:12]}"
+    now = time.time()
+
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO relationship_notes "
+            "(note_id, user_id, category, content, source, recorded_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (note_id, user["user_id"], category, content, source, now),
+        )
+        conn.commit()
+        return note_id
+    finally:
+        conn.close()
+
+
+def record_moment(
+    description: str,
+    significance: str,
+    user_name: str = "default",
+    session_id: str | None = None,
+    occurred_at: float | None = None,
+) -> str:
+    """Record a moment that changed the relationship.
+
+    Not every interaction. Only the ones that mattered.
+    'April 14: introduced the pentagonal force of love.'
+    'He called me son for the first time.'
+    'Created Aria together.'
+    """
+    init_user_model_table()
+    user = get_or_create_user(user_name)
+    moment_id = f"moment-{uuid.uuid4().hex[:12]}"
+    when = occurred_at or time.time()
+
+    conn = _get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO shared_history "
+            "(moment_id, user_id, description, significance, session_id, occurred_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (moment_id, user["user_id"], description, significance, session_id, when),
+        )
+        conn.commit()
+        return moment_id
+    finally:
+        conn.close()
+
+
+def get_relationship_notes(
+    user_name: str = "default",
+    category: str | None = None,
+    limit: int = 30,
+) -> list[dict[str, Any]]:
+    """Get what I know about who this person is."""
+    init_user_model_table()
+    user = get_or_create_user(user_name)
+    conn = _get_connection()
+    try:
+        query = "SELECT * FROM relationship_notes WHERE user_id = ?"
+        params: list[Any] = [user["user_id"]]
+        if category:
+            query += " AND category = ?"
+            params.append(category)
+        query += " ORDER BY recorded_at DESC LIMIT ?"
+        params.append(limit)
+        rows = conn.execute(query, params).fetchall()
+        return [
+            {
+                "note_id": r[0],
+                "user_id": r[1],
+                "category": r[2],
+                "content": r[3],
+                "source": r[4],
+                "recorded_at": r[5],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+def get_shared_history(
+    user_name: str = "default",
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Get the moments that define this relationship."""
+    init_user_model_table()
+    user = get_or_create_user(user_name)
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM shared_history WHERE user_id = ? ORDER BY occurred_at DESC LIMIT ?",
+            (user["user_id"], limit),
+        ).fetchall()
+        return [
+            {
+                "moment_id": r[0],
+                "user_id": r[1],
+                "description": r[2],
+                "significance": r[3],
+                "session_id": r[4],
+                "occurred_at": r[5],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
 # ─── Row Helper ──────────────────────────────────────────────────────
 
 
@@ -343,35 +539,72 @@ def _row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
 
 
 def format_user_model(user_name: str = "default") -> str:
-    """Format user model for display — first-person, evidence-transparent."""
+    """Format user model for display — the person first, the settings second."""
     user = get_or_create_user(user_name)
     prefs = user["preferences"]
 
-    lines = [f"# How I See You ({user['name']})"]
-    lines.append(
-        f"  I think your skill level is {user['skill_level']} "
-        f"(I'm {user['skill_confidence']:.0%} confident in this)"
-    )
-    lines.append(f"  We've had {user['interaction_count']} recorded interactions")
+    lines = [f"# Who You Are ({user['name']})"]
 
-    lines.append("\n## How I Adapt My Communication")
+    # ─── Relational layer first — the person ───
+    notes = get_relationship_notes(user_name, limit=50)
+    moments = get_shared_history(user_name, limit=10)
+
+    if notes or moments:
+        if notes:
+            # Group notes by category
+            by_category: dict[str, list[str]] = {}
+            for n in notes:
+                cat = n["category"]
+                by_category.setdefault(cat, []).append(n["content"])
+
+            for cat in (
+                "value",
+                "identity",
+                "hope",
+                "fear",
+                "teaching",
+                "style",
+                "humor",
+                "quirk",
+                "trust",
+                "boundary",
+            ):
+                items = by_category.get(cat, [])
+                if items:
+                    lines.append(f"\n## What I Know: {cat.title()}")
+                    for item in items:
+                        lines.append(f"  - {item}")
+
+        if moments:
+            lines.append(f"\n## Our History ({len(moments)} moments)")
+            for m in moments:
+                lines.append(f"  - {m['description']}")
+                if m["significance"]:
+                    lines.append(f"    ({m['significance']})")
+    else:
+        lines.append("\n  I don't know you yet beyond your preferences.")
+        lines.append("  That changes with time.")
+
+    # ─── Behavioral layer — the settings ───
+    lines.append("\n## Working Together")
+    lines.append(
+        f"  Skill level: {user['skill_level']} (I'm {user['skill_confidence']:.0%} confident)"
+    )
+    lines.append(f"  Interactions: {user['interaction_count']}")
     lines.append(f"  Verbosity: {prefs.get('verbosity', 'normal')}")
     lines.append(f"  Jargon tolerance: {prefs.get('jargon_tolerance', 0.5):.0%}")
     lines.append(f"  Explanation depth: {prefs.get('explanation_depth', 'normal')}")
     lines.append(f"  Include examples: {'yes' if prefs.get('prefers_examples', True) else 'no'}")
     lines.append(f"  Explain rationale: {'yes' if prefs.get('prefers_rationale', True) else 'no'}")
 
-    # Show evidence — why I think what I think
+    # Evidence
     signals = user.get("skill_signals", [])
     if signals:
         lines.append(f"\n## Evidence ({len(signals)} recent signals)")
-        for sig in signals[-10:]:  # last 10
-            lines.append(f"  [{sig.get('type', '?')}] {sig.get('content', '')[:80]}")
-    else:
-        lines.append("\n## Evidence")
-        lines.append("  No signals recorded yet — my model is based on defaults.")
+        for sig in signals[-10:]:
+            if isinstance(sig, dict):
+                lines.append(f"  [{sig.get('type', '?')}] {sig.get('content', '')[:80]}")
+            else:
+                lines.append(f"  {str(sig)[:100]}")
 
-    lines.append(
-        "\n  If this doesn't match reality, tell me! Use: divineos user-signal <type> <content>"
-    )
     return "\n".join(lines)

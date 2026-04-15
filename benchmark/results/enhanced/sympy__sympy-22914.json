@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-22914",
+  "condition": "enhanced",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sympy/printing/pycode.py\n+++ b/sympy/printing/pycode.py\n@@ -50,6 +50,8 @@ _known_functions = {\n     \"Abs\": \"abs\",\n     \"sign\": \"sign\",\n     # \"ceiling\": \"ceil\",\n+    \"Min\": \"min\",\n+    \"Max\": \"max\",\n     # \"floor\": \"floor\",\n     # \"conjugate\": \"conjugate\",\n     \"arg\": \"arg\",",
+  "thinking": "Let me analyze this bug using the DivineOS Council lenses:\n\n**FEYNMAN (First Principles)**: The problem is simple - the PythonCodePrinter doesn't know how to convert the symbolic SymPy Min and Max functions into Python code. It currently treats them as unsupported and just prints them as comments.\n\n**SHANNON (Signal vs Noise)**: The signal is:\n- PythonCodePrinter doesn't support Min/Max functions\n- There's a specific error output showing \"# Not supported in Python\"\n- There are two proposed solutions: either add _print_Min/_print_Max methods OR add to _known_functions mapping\n- The hint shows that adding to _known_functions works and produces 'min(x, y)'\n\n**PEARL (Causal Inference)**: The root cause is that the PythonCodePrinter class doesn't have a mapping from SymPy's Min/Max to Python's built-in min/max functions.\n\n**HOLMES (Deductive Elimination)**: Looking at the hints, the second approach (adding to _known_functions) is simpler and already tested. The first approach (adding dedicated methods) would work but is more verbose for this simple case.\n\n**TALEB (Via Negativa)**: The minimal fix is to just add the mappings, not create new methods.\n\n**MEADOWS (Leverage Points)**: The highest leverage is the _known_functions dictionary - one simple addition fixes both Min and Max.\n\nNow I need to find the file. This is in sympy.printing.pycode, so it should be in sympy/printing/pycode.py.\n\nLooking at the hint, we need to add entries to the _known_functions dictionary:\n\n```python\n_known_functions = {\n    'Abs': 'abs',\n    'Min': 'min',\n    'Max': 'max',  # Need to add both\n}\n```\n\nI need to examine what's currently in that dictionary and add the Min/Max mappings.\n\n\nThe _known_functions dictionary in sympy/printing/pycode.py likely already has 'Abs' mapped to 'abs', and I need to insert the two new mappings for Min and Max. This is a straightforward addition to the existing dictionary structure.",
+  "input_tokens": 1868,
+  "output_tokens": 699,
+  "elapsed_seconds": 12.8,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.016089
+}

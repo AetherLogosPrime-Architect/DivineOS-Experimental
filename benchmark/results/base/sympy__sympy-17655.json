@@ -1,0 +1,12 @@
+{
+  "instance_id": "sympy__sympy-17655",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sympy/geometry/point.py\n+++ b/sympy/geometry/point.py\n@@ -287,6 +287,9 @@ class Point(GeometryEntity):\n \n         return Point(coords, evaluate=False)\n \n+    def __rmul__(self, other):\n+        return self.__mul__(other)\n+\n     def __neg__(self):\n         \"\"\"Negate the point.\"\"\"\n         coords = [-x for x in self.args]",
+  "thinking": null,
+  "input_tokens": 788,
+  "output_tokens": 119,
+  "elapsed_seconds": 3.0,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004149
+}

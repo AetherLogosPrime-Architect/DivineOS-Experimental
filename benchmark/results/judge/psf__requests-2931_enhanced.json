@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that binary data (bytes) should not be converted to native string, avoiding the encoding error when handling UTF-8 encoded binary payloads.",
+  "key_difference": "The candidate patch fixes the issue at the point where data is prepared for the request body, while the gold patch moves the to_native_string call from _encode_params to prepare_url. Both approaches are valid - the candidate prevents the problematic conversion of bytes to native string directly in the prepare_body method.",
+  "instance_id": "psf__requests-2931",
+  "condition": "enhanced",
+  "judge_tokens": 1025,
+  "judge_cost": 0.005127
+}

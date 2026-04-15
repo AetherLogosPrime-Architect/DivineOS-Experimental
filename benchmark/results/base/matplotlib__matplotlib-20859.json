@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-20859",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/lib/matplotlib/legend.py\n+++ b/lib/matplotlib/legend.py\n@@ -434,7 +434,7 @@ class Legend(Artist):\n         handles, labels, extra_args, kwargs = mlegend._parse_legend_args(\n                 [self] + list(args), **kwargs)\n         if len(extra_args):\n-            raise TypeError('legend only accepts two non-keyword arguments')\n+            raise TypeError('Legend only accepts two non-keyword arguments')\n         self.parent = parent\n \n         if not isinstance(parent, (Axes, FigureBase)):",
+  "thinking": null,
+  "input_tokens": 1512,
+  "output_tokens": 146,
+  "elapsed_seconds": 4.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006726
+}

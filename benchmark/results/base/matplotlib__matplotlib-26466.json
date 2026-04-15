@@ -1,0 +1,12 @@
+{
+  "instance_id": "matplotlib__matplotlib-26466",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/lib/matplotlib/text.py\n+++ b/lib/matplotlib/text.py\n@@ -1329,7 +1329,7 @@ class AnnotationBbox(Artist, _AnnotationBase):\n         \"\"\"\n         Artist.__init__(self)\n         _AnnotationBase.__init__(self, xy, xycoords, annotation_clip)\n-        self.xy = xy\n+        self.xy = np.array(xy)\n         self.offsetbox = offsetbox\n         self.arrowprops = arrowprops\n         self.set_fontsize(fontsize)",
+  "thinking": null,
+  "input_tokens": 847,
+  "output_tokens": 146,
+  "elapsed_seconds": 3.3,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.004731
+}

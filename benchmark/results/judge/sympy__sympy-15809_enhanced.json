@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly returns infinity for Min() and negative infinity for Max() with no arguments, but modifies the wrong classes - it changes Min and Max classes instead of the shared MinMaxBase class.",
+  "key_difference": "The gold patch removes the error check from the shared MinMaxBase class, while the candidate patch modifies the individual Min and Max classes. The candidate approach works but is less elegant since it duplicates the fix in two places rather than handling it once in the base class.",
+  "instance_id": "sympy__sympy-15809",
+  "condition": "enhanced",
+  "judge_tokens": 1074,
+  "judge_cost": 0.005226
+}

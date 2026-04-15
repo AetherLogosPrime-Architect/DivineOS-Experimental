@@ -270,8 +270,8 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
             raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
 
         conn.execute(
-            "UPDATE knowledge SET superseded_by = ?, valid_until = ? WHERE knowledge_id = ?",
-            (f"FORGET:{reason[:200]}", time.time(), knowledge_id),
+            "UPDATE knowledge SET superseded_by = ?, valid_until = ?, supersession_reason = ? WHERE knowledge_id = ?",
+            (f"FORGET:{reason[:200]}", time.time(), f"forget: {reason[:200]}", knowledge_id),
         )
         conn.commit()
     finally:

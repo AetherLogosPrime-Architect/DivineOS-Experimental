@@ -1,0 +1,12 @@
+{
+  "instance_id": "scikit-learn__scikit-learn-25973",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/sklearn/feature_selection/_sequential.py\n+++ b/sklearn/feature_selection/_sequential.py\n@@ -6,6 +6,7 @@ from numbers import Integral, Real\n from ..base import BaseEstimator, MetaEstimatorMixin, clone\n from ..metrics import check_scoring\n from ..model_selection import cross_validate\n+from ..model_selection._split import check_cv\n from ..utils._param_validation import Interval, StrOptions\n from ..utils.validation import check_is_fitted\n from ._base import SelectorMixin\n@@ -186,6 +187,7 @@ class SequentialFeatureSelector(SelectorMixin, MetaEstimatorMixin, BaseEstimato\n         self._validate_params()\n \n         tags = self._get_tags()\n+        cv = check_cv(self.cv, y, classifier=tags.binary_only or tags.multiclass_only)\n         X, y = self._validate_data(\n             X, y, accept_sparse=\"csc\", ensure_min_features=2, force_all_finite=not tags.allow_nan\n         )\n@@ -217,7 +219,7 @@ class SequentialFeatureSelector(SelectorMixin, MetaEstimatorMixin, BaseEstimato\n             scores = cross_validate(\n                 cloned_estimator,\n                 X[:, current_mask],\n                 y,\n-                cv=self.cv,\n+                cv=cv,\n                 scoring=self.scoring,\n                 n_jobs=self.n_jobs,\n             )",
+  "thinking": null,
+  "input_tokens": 1246,
+  "output_tokens": 395,
+  "elapsed_seconds": 7.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.009663
+}

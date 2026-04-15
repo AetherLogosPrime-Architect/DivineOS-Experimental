@@ -23,6 +23,7 @@ from divineos.core.knowledge._base import (
 from divineos.core.knowledge._text import (
     _MIN_CONTENT_WORDS,
     _STOPWORDS,
+    _build_fts_query,
     _compute_overlap,
     _extract_key_terms,
     _is_extraction_noise,
@@ -132,9 +133,29 @@ def store_knowledge_smart(
     and resolves them automatically.
     """
     # Voice normalization: knowledge speaks as me, not about me
-    from divineos.core.knowledge._text import normalize_to_first_person
+    from divineos.core.knowledge._text import normalize_to_first_person, segment_large_text
 
     content = normalize_to_first_person(content)
+
+    # Segment large text blocks into atomic chunks before dedup.
+    # Without this, a 2000-word paste becomes one monolithic entry.
+    segments = segment_large_text(content)
+    if len(segments) > 1:
+        logger.debug(f"Segmented large text ({len(content)} chars) into {len(segments)} chunks")
+        stored_ids: list[str] = []
+        for segment in segments:
+            kid = store_knowledge_smart(
+                knowledge_type=knowledge_type,
+                content=segment,
+                confidence=confidence,
+                source_events=source_events,
+                tags=tags,
+                source=source,
+                maturity=maturity,
+            )
+            if kid:
+                stored_ids.append(kid)
+        return stored_ids[0] if stored_ids else ""
 
     # First: try exact hash dedup (fast path)
     content_hash = compute_hash(content)
@@ -181,9 +202,10 @@ def store_knowledge_smart(
                        ORDER BY bm25(knowledge_fts, 10.0, 5.0, 1.0)
                        LIMIT 10"""
         key_terms = _extract_key_terms(content)
-        if key_terms:
+        fts_match = _build_fts_query(content)  # OR-joined for recall
+        if key_terms and fts_match:
             try:
-                rows = conn.execute(fts_query, (key_terms,)).fetchall()
+                rows = conn.execute(fts_query, (fts_match,)).fetchall()
                 for row in rows:
                     entry = _row_to_dict(row)
                     if entry["knowledge_type"] == knowledge_type:
@@ -278,8 +300,8 @@ def store_knowledge_smart(
                     edge_type="SUPERSEDES",
                     notes="auto: superseded during smart store",
                 )
-            except _EXTRACTION_ERRORS:
-                pass
+            except _EXTRACTION_ERRORS as e:
+                logger.warning("Failed to create SUPERSEDES edge %s->%s: %s", kid, existing_id, e)
 
         # Auto-create warrant — every new knowledge entry is born with justification
         try:
@@ -308,9 +330,9 @@ def store_knowledge_smart(
 
         # Post-insert dedup guard: check if FTS finds a pre-existing near-match
         # that we missed (handles race conditions with concurrent inserts)
-        if key_terms and operation == "ADD":
+        if key_terms and fts_match and operation == "ADD":
             try:
-                rows = conn.execute(fts_query, (key_terms,)).fetchall()
+                rows = conn.execute(fts_query, (fts_match,)).fetchall()
                 for row in rows:
                     entry = _row_to_dict(row)
                     if entry["knowledge_id"] == kid:
@@ -319,8 +341,13 @@ def store_knowledge_smart(
                         overlap = _compute_overlap(content, entry["content"])
                         if overlap > OVERLAP_QUASI_IDENTICAL:
                             conn.execute(
-                                "UPDATE knowledge SET superseded_by = ?, updated_at = ? WHERE knowledge_id = ?",
-                                (entry["knowledge_id"], time.time(), kid),
+                                "UPDATE knowledge SET superseded_by = ?, updated_at = ?, supersession_reason = ? WHERE knowledge_id = ?",
+                                (
+                                    entry["knowledge_id"],
+                                    time.time(),
+                                    "duplicate: quasi-identical content",
+                                    kid,
+                                ),
                             )
                             conn.execute(
                                 "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
@@ -415,8 +442,8 @@ def consolidate_related(min_cluster_size: int = 3) -> list[dict[str, Any]]:
                 for entry in cluster:
                     if entry["knowledge_id"] != new_id:
                         conn.execute(
-                            "UPDATE knowledge SET superseded_by = ? WHERE knowledge_id = ?",
-                            (new_id, entry["knowledge_id"]),
+                            "UPDATE knowledge SET superseded_by = ?, supersession_reason = ? WHERE knowledge_id = ?",
+                            (new_id, "consolidation: merged into cluster", entry["knowledge_id"]),
                         )
                 conn.commit()
             finally:

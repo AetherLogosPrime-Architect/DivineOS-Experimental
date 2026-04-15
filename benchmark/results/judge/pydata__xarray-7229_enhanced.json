@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that the lambda function should use `attrs[1]` to access the attributes of the specific object being processed, rather than capturing `x` from outer scope which refers to the main variable.",
+  "key_difference": "The candidate patch takes a simpler approach by reverting the lambda function to use `attrs[1]`, while the gold patch completely restructures the attribute handling logic to manually rebuild attributes at each level. Both approaches are valid, but the candidate is more minimal and directly addresses the root cause.",
+  "instance_id": "pydata__xarray-7229",
+  "condition": "enhanced",
+  "judge_tokens": 2557,
+  "judge_cost": 0.009759
+}

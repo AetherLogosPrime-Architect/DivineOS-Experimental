@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly moves the check for migrations earlier to prevent migration file creation when --check is used, but includes unnecessary code removal and comments that make it less minimal than needed.",
+  "key_difference": "The candidate patch moves the check much earlier in the flow and removes existing check logic, while the gold patch simply reorders the existing logic to exit before writing files. Both approaches work but the candidate is less minimal due to extra comment changes and code removal.",
+  "instance_id": "django__django-16116",
+  "condition": "enhanced",
+  "judge_tokens": 1425,
+  "judge_cost": 0.006231
+}

@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch targets the wrong file and function. The issue is in the application.py file where locale directories are ordered incorrectly, but this patch modifies locale/__init__.py's get_translation function instead. While the ordering change concept is correct, it's applied in the wrong location.",
+  "key_difference": "The candidate patch modifies the get_translation function in locale/__init__.py to prioritize user catalogs over system catalogs, while the gold patch fixes the locale_dirs ordering in application.py's _init_i18n method to put user locale directories before the built-in sphinx locale directory.",
+  "instance_id": "sphinx-doc__sphinx-8120",
+  "label": "v1_old",
+  "judge_cost": 0.007569
+}

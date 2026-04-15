@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 1,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch overrides has_change_permission to check the actual model's change permission for auto-created models, but it doesn't address the core issue that auto-created ManyToMany through models need to check permissions on the target model, not the through model itself.",
+  "key_difference": "The candidate patch tries to fix the permission check by using the through model's own permissions, while the gold patch correctly identifies that auto-created through models don't have meaningful permissions and instead checks permissions on the target model that the ManyToMany relationship points to.",
+  "instance_id": "django__django-11149",
+  "condition": "enhanced",
+  "judge_tokens": 1594,
+  "judge_cost": 0.006954
+}

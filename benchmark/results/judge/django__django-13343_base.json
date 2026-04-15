@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch correctly identifies that the deconstruct method needs to preserve callable storage references, but the implementation is incomplete and syntactically invalid with truncated lines and incorrect logic.",
+  "key_difference": "Unlike the gold patch which stores the callable in _storage_callable and uses getattr for safe access, this patch attempts to store the original parameter in _storage_param but the implementation is broken with incomplete lines and incorrect placement of the storage parameter assignment.",
+  "instance_id": "django__django-13343",
+  "condition": "base",
+  "judge_tokens": 1700,
+  "judge_cost": 0.0069960000000000005
+}

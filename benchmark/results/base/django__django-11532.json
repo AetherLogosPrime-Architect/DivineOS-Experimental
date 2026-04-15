@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11532",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/core/mail/utils.py\n+++ b/django/core/mail/utils.py\n@@ -14,6 +14,10 @@ class CachedDnsName:\n     def get_fqdn(self):\n         if not hasattr(self, '_fqdn'):\n             self._fqdn = socket.getfqdn()\n+            try:\n+                self._fqdn.encode('ascii')\n+            except UnicodeEncodeError:\n+                self._fqdn = self._fqdn.encode('idna').decode('ascii')\n         return self._fqdn\n \n ",
+  "thinking": null,
+  "input_tokens": 1318,
+  "output_tokens": 157,
+  "elapsed_seconds": 2.6,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006309
+}

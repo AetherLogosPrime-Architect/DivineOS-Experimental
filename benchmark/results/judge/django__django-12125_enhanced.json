@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly changes `__name__` to `__qualname__` in the TypeSerializer class to properly handle inner classes by including their full qualified name path.",
+  "key_difference": "The candidate patch modifies a different part of the TypeSerializer class (around line 266) compared to the gold patch (around line 272), but both target the same core issue of using __qualname__ instead of __name__ for proper inner class serialization.",
+  "instance_id": "django__django-12125",
+  "condition": "enhanced",
+  "judge_tokens": 1387,
+  "judge_cost": 0.0060929999999999995
+}

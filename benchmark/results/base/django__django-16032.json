@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-16032",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "--- a/django/db/models/sql/query.py\n+++ b/django/db/models/sql/query.py\n@@ -148,6 +148,7 @@ class Query(BaseExpression):\n         self.extra = {}  # Maps col_alias -> (col_sql, params).\n         self.extra_select_mask = None\n         self.extra_tables = ()\n+        self.has_select_fields = False\n \n         # SQL-related attributes\n         # Select and related select clauses as SelectInfo instances.\n@@ -323,6 +324,7 @@ class Query(BaseExpression):\n         obj.extra_select_mask = self.extra_select_mask\n         obj.extra_tables = self.extra_tables\n         obj.extra_order_by = self.extra_order_by\n+        obj.has_select_fields = self.has_select_fields\n         obj.deferred_loading = copy.deepcopy(self.deferred_loading)\n         if self.filter_is_sticky and self.used_aliases:\n             obj.used_aliases = self.used_aliases.copy()\n@@ -664,16 +666,6 @@ class Query(BaseExpression):\n             self.annotations.pop(annotation.alias, None)\n \n     @property\n-    def has_select_fields(self):\n-        return bool(\n-            self.select or self.annotation_select_mask is not None\n-        )\n-\n-    def get_select_fields(self):\n-        return [f.target for f in self.select]\n-\n-    @property\n     def select_fields(self):\n         return [f.target for f in self.select]\n \n@@ -2147,6 +2139,7 @@ class Query(BaseExpression):\n         fields_names = []\n         extra_names = []\n         annotation_names = []\n+        self.has_select_fields = True\n \n         if fields:\n             select_aliases = set()\n--- a/django/db/models/fields/related_lookups.py\n+++ b/django/db/models/fields/related_lookups.py\n@@ -106,7 +106,7 @@ class RelatedIn(In):\n             target_field = self.lhs.field.name\n         else:\n             target_field = self.lhs.field.target_field.name\n-        self.rhs.add_fields([target_field], True)\n+        self.rhs.set_values([target_field])\n         return super().get_prep_lookup()\n \n     def as_sql(self, compiler, connection):",
+  "thinking": null,
+  "input_tokens": 1640,
+  "output_tokens": 642,
+  "elapsed_seconds": 10.4,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.01455
+}

@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 0,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch attempts to handle sliced querysets in prefetch by clearing limits before filtering and re-applying them after, but this approach is fundamentally flawed because it applies the slice to the entire filtered result set rather than applying it per related object group.",
+  "key_difference": "The candidate patch modifies the general prefetch logic in query.py and tries to preserve slice boundaries globally, while the gold patch creates a specialized function in related_descriptors.py that uses window functions to properly partition and slice results per related object instance. The candidate's approach would not correctly limit results to N items per category as intended.",
+  "instance_id": "django__django-15957",
+  "condition": "enhanced",
+  "judge_tokens": 1942,
+  "judge_cost": 0.008142
+}

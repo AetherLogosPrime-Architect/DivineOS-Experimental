@@ -36,7 +36,13 @@ _PP_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeErro
 # These entries slipped in before the extraction noise filter existed.
 _LEGACY_NOISE_OPENERS = re.compile(
     r"^(yes |ok |oh |well |wonderful |it still |both fixes |auto memories |"
-    r"andrew,|absolutely |here is |heres |here's )",
+    r"andrew,|absolutely |here is |heres |here's |the audit was |this is what )",
+    re.IGNORECASE,
+)
+
+# Noise anywhere in content — conversational artifacts that shouldn't be recommendations
+_LEGACY_NOISE_MARKERS = re.compile(
+    r"(claude said|what me and claude|what claude and i|i told claude|claude told me)",
     re.IGNORECASE,
 )
 
@@ -52,6 +58,10 @@ def _is_recommendation_noise(content: str, knowledge_type: str) -> bool:
 
     # Legacy entries: raw user quotes that start with conversational openers
     if _LEGACY_NOISE_OPENERS.match(content.strip()):
+        return True
+
+    # Conversational artifacts anywhere in the content
+    if _LEGACY_NOISE_MARKERS.search(content):
         return True
 
     return False
@@ -82,7 +92,7 @@ def _get_positive_patterns() -> list[dict[str, Any]]:
                     "text": row[2],
                     "confidence": row[3],
                     "access_count": row[4],
-                    "weight": row[3] * 0.3,
+                    "weight": min(row[3] * 0.15, 0.2),
                 }
             )
     except sqlite3.OperationalError:
@@ -377,8 +387,8 @@ def _adjust_knowledge_confidence(knowledge_id: str, delta: float) -> dict[str, A
 
         new_conf = max(row[0] + delta, -1.0)  # Allow negative for archiving signal
         conn.execute(
-            "UPDATE knowledge SET confidence = ? WHERE knowledge_id = ?",
-            (new_conf, knowledge_id),
+            "UPDATE knowledge SET confidence = ?, updated_at = ? WHERE knowledge_id = ?",
+            (new_conf, time.time(), knowledge_id),
         )
         conn.commit()
 
@@ -396,32 +406,26 @@ def _adjust_knowledge_confidence(knowledge_id: str, delta: float) -> dict[str, A
 
 
 def _adjust_opinion_confidence(opinion_id: str, delta: float) -> dict[str, Any]:
-    """Adjust an opinion's confidence by delta."""
+    """Adjust an opinion's confidence by delta.
+
+    Uses the opinion store API so timestamps and revision counts
+    stay consistent (raw SQL would bypass those updates).
+    """
     try:
-        from divineos.core.opinion_store import init_opinion_table
+        if delta > 0:
+            from divineos.core.opinion_store import strengthen_opinion
 
-        init_opinion_table()
-        conn = get_connection()
-        try:
-            row = conn.execute(
-                "SELECT confidence FROM opinions WHERE opinion_id = ?",
-                (opinion_id,),
-            ).fetchone()
-            if not row:
-                return {"adjusted_confidence": 0.0, "archived": False}
+            new_conf = strengthen_opinion(opinion_id, "pattern outcome: positive", boost=delta)
+        else:
+            from divineos.core.opinion_store import challenge_opinion
 
-            new_conf = max(row[0] + delta, 0.0)
-            conn.execute(
-                "UPDATE opinions SET confidence = ? WHERE opinion_id = ?",
-                (new_conf, opinion_id),
+            new_conf = challenge_opinion(
+                opinion_id, "pattern outcome: negative", penalty=abs(delta)
             )
-            conn.commit()
-            return {
-                "adjusted_confidence": new_conf,
-                "archived": new_conf <= PATTERN_ARCHIVE_THRESHOLD,
-            }
-        finally:
-            conn.close()
+        return {
+            "adjusted_confidence": new_conf,
+            "archived": new_conf <= PATTERN_ARCHIVE_THRESHOLD,
+        }
     except _PP_ERRORS:
         return {"adjusted_confidence": 0.0, "archived": False}
 

@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-11820",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, I need to understand what's happening with the `models.E015` error when `Meta.ordering` contains `__pk` of a related field. This appears to be a regression introduced in commit `440505cb2cadbe1a5b9fba246bcde6c04f51d07e`.\n\nLet me analyze the problem:\n1. The error occurs when using `__pk` lookups in `Meta.ordering`\n2. This is a regression, meaning it worked before but was broken by a specific commit\n3. The error message suggests that Django's model validation is incorrectly flagging `option__pk` as nonexistent\n\nI need to find where Django validates the `ordering` fields and fix the logic to properly handle `__pk` lookups for related fields.\n\nLooking at Django's model validation code, the issue is likely in the model field validation where it checks if ordering fields exist. The `__pk` lookup should be recognized as valid since every model has a primary key.\n\nLet me examine the model validation code and create a fix:\n\n--- a/django/core/checks/model_checks.py\n+++ b/django/core/checks/model_checks.py\n@@ -1054,6 +1054,10 @@ def _check_ordering_item(cls, obj, field_name, label):\n             return []\n         \n         if lookup == 'pk':\n+            return []\n+        \n+        # Handle __pk lookups on related fields\n+        if parts[-1] == 'pk' and len(parts) > 1:\n             return []\n         \n         # Skip ordering in the format field1__field2 (double underscores)",
+  "thinking": null,
+  "input_tokens": 332,
+  "output_tokens": 385,
+  "elapsed_seconds": 8.2,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.006770999999999999
+}

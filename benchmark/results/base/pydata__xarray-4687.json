@@ -1,0 +1,12 @@
+{
+  "instance_id": "pydata__xarray-4687",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at the problem, `xr.where` is not preserving attributes from DataArrays. The issue is that `xr.where` uses `apply_ufunc` internally but doesn't pass the `keep_attrs` parameter to preserve attributes.\n\nLet me examine the `xr.where` function and fix it to respect the global `keep_attrs` option:\n\n--- a/xarray/core/computation.py\n+++ b/xarray/core/computation.py\n@@ -1814,6 +1814,7 @@ def where(cond, x, y):\n     return apply_ufunc(\n         duck_array_ops.where,\n         cond,\n         x,\n         y,\n+        keep_attrs=True,\n         dask=\"allowed\",\n     )",
+  "thinking": null,
+  "input_tokens": 1915,
+  "output_tokens": 187,
+  "elapsed_seconds": 4.1,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.00855
+}

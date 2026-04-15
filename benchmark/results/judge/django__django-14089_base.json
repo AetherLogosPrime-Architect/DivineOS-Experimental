@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly adds a __reversed__ method to the OrderedSet class that returns reversed(self.dict), enabling the OrderedSet to be used with Python's reversed() function.",
+  "key_difference": "The candidate patch is functionally identical to the gold patch but appears to target a different line number in the file (around line 73 vs line 25), likely due to different file versions or contexts. The implementation is the same and equally correct.",
+  "instance_id": "django__django-14089",
+  "condition": "base",
+  "judge_tokens": 892,
+  "judge_cost": 0.004608
+}

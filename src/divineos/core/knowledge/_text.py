@@ -73,7 +73,7 @@ def _build_fts_query(query: str) -> str:
     """
     words = [
         w
-        for w in re.sub(r"[^a-zA-Z0-9\s]", "", query).lower().split()
+        for w in re.sub(r"[^a-zA-Z0-9\s]", " ", query).lower().split()
         if w not in _FTS_STOPWORDS and len(w) > 1
     ]
     if not words:
@@ -380,12 +380,14 @@ def _stemmed_word_set(text: str) -> set[str]:
 
 
 def _compute_stemmed_overlap(words_a: set[str], words_b: set[str]) -> float:
-    """Word set overlap ratio from pre-stemmed sets. Returns 0.0-1.0."""
+    """Word set overlap using Sørensen-Dice on pre-stemmed sets. Returns 0.0-1.0.
+
+    Matches _compute_overlap() formula — symmetric, length-fair.
+    """
     if not words_a or not words_b:
         return 0.0
     intersection = words_a & words_b
-    smaller = min(len(words_a), len(words_b))
-    return len(intersection) / smaller
+    return 2 * len(intersection) / (len(words_a) + len(words_b))
 
 
 def _extract_key_terms(text: str) -> str:
@@ -709,6 +711,31 @@ def _is_raw_quote_noise(stripped: str, stripped_lower: str) -> bool:
     if re.search(r"\b(opt out|allow .* to use my data|make sure you opt)\b", stripped_lower):
         return True
 
+    # Council/external AI feedback pasted as knowledge — praise, not wisdom
+    if re.match(
+        r"(aether|andrew|hey aether|hey claude|hi aether)[,:]?\s",
+        stripped_lower,
+    ):
+        return True
+
+    # User praise/encouragement stored verbatim — warm but not knowledge
+    if re.match(
+        r"(perfect|wonderful|beautiful|excellent|amazing|fantastic|great job|well done|"
+        r"im proud|i.m proud|proud of you|good work|nice work|that.s (great|perfect|wonderful))",
+        stripped_lower,
+    ):
+        return True
+
+    # External audit/review paste-through — bulk content, not distilled
+    if re.search(
+        r"(here is (the|my|a) (audit|review|reply|report|analysis|assessment)|"
+        r"here.s (the|my|a) (audit|review|reply|report)|"
+        r"fresh (audit|review|clone)|"
+        r"round \d+ audit)",
+        stripped_lower,
+    ):
+        return True
+
     return False
 
 
@@ -738,10 +765,26 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         return True
 
     # Questions directed at the AI — prompts, not knowledge
-    if stripped_lower.endswith("?") and knowledge_type in ("DIRECTION", "PRINCIPLE"):
+    if stripped_lower.endswith("?"):
         is_tag_question = stripped_lower.rstrip().endswith(("ok?", "right?", "yes?", "no?"))
-        if not is_tag_question and len(stripped_lower.split()) < 15:
+        if not is_tag_question and len(stripped_lower.split()) < 20:
             return True
+
+    # Council/external praise — encouragement, not distilled knowledge
+    if re.match(
+        r"(aether|andrew|hey aether)[,:]?\s",
+        stripped_lower,
+    ):
+        return True
+
+    # User praise stored as knowledge — warm but not actionable
+    if re.match(
+        r"(perfect|wonderful|beautiful|excellent|amazing|fantastic|"
+        r"great job|well done|im proud|i.m proud|proud of you|"
+        r"good work|nice work|that.s (great|perfect|wonderful))",
+        stripped_lower,
+    ):
+        return True
 
     if knowledge_type in ("DIRECTION", "PRINCIPLE", "BOUNDARY"):
         if _is_raw_quote_noise(stripped, stripped_lower):
@@ -799,7 +842,7 @@ def _has_prescriptive_signal(content_lower: str) -> bool:
 
 # ─── Temporal Markers ────────────────────────────────────────────────
 
-_TEMPORAL_CONTENT_MARKERS = {
+_TEMPORAL_CONTENT_MARKERS = (
     "currently",
     "right now",
     "at the moment",
@@ -807,21 +850,33 @@ _TEMPORAL_CONTENT_MARKERS = {
     "is failing",
     "is down",
     "today",
+    "yesterday",
+    "this session",
+    "last session",
     "this week",
     "this sprint",
     "in progress",
     "work in progress",
-    "wip",
+    r"\bwip\b",  # word boundary — prevent matching "wipe", "equip", etc.
     "blocked on",
     "waiting for",
     "temporarily",
-}
+)
+
+# Pre-compile: markers with \b are regex, others get auto-wrapped in \b
+_TEMPORAL_PATTERNS = tuple(
+    re.compile(m if r"\b" in m else r"\b" + re.escape(m) + r"\b", re.IGNORECASE)
+    for m in _TEMPORAL_CONTENT_MARKERS
+)
 
 
 def _has_temporal_markers(content: str) -> bool:
-    """Check if content has time-sensitive language that may become stale."""
-    content_lower = content.lower()
-    return any(marker in content_lower for marker in _TEMPORAL_CONTENT_MARKERS)
+    """Check if content has time-sensitive language that may become stale.
+
+    Uses word-boundary matching to prevent false positives from substring
+    hits (e.g. "wip" matching "wipe", "equip").
+    """
+    return any(p.search(content) for p in _TEMPORAL_PATTERNS)
 
 
 # ─── Voice Normalization ─────────────────────────────────────────────
@@ -894,3 +949,113 @@ def normalize_to_first_person(text: str) -> str:
     result = result.replace(" i ", " I ").replace(" i'", " I'")
 
     return result
+
+
+# ─── Text Segmentation ──────────────────────────────────────────────
+#
+# Large text blocks (audit pastes, multi-finding reports, long lists)
+# should be split into atomic chunks before dedup and storage.
+# Without this, the entire paste becomes one monolithic knowledge entry.
+
+# Lines that are structural metadata, not content
+_METADATA_LINE = re.compile(
+    r"^("
+    r"#{1,3}\s|"  # Markdown headers
+    r"={3,}|"  # Separator lines
+    r"-{3,}|"  # Separator lines
+    r"\*{3,}|"  # Separator lines
+    r"round\s+\d+|"  # "Round 3"
+    r"audit\s+results?:?\s*$|"  # "Audit Results:"
+    r"score:?\s*\d|"  # "Score: 8"
+    r"date:?\s|"  # "Date: ..."
+    r"expert\s+count:?\s|"  # "Expert count: 25"
+    r"focus:?\s"  # "Focus: ..."
+    r")",
+    re.IGNORECASE,
+)
+
+# Minimum length for a segment to be worth storing
+_MIN_SEGMENT_CHARS = 80
+
+# Maximum content length before we attempt segmentation
+_SEGMENTATION_THRESHOLD = 500
+
+
+def segment_large_text(content: str) -> list[str]:
+    """Split large text blocks into atomic knowledge chunks.
+
+    Returns a list of content strings. If the input is small enough
+    to be a single entry, returns [content] unchanged.
+
+    Segmentation strategy:
+    1. Check for explicit list structure (numbered/bulleted) at any size
+    2. If no list structure and content < 500 chars, return as-is
+    3. Split by paragraph (double newline)
+    4. Filter out metadata lines (headers, separators, scores)
+    5. Merge micro-segments back if they're too small to stand alone
+    6. Return list of atomic segments
+    """
+    # Check for explicit list structure first — these should always split
+    # regardless of total length, because lists are inherently multi-item
+    list_items = re.split(r"\n(?=\d+[\.\)]\s|[-*•]\s)", content)
+    if len(list_items) > 1:
+        paragraphs = list_items
+    else:
+        # No list structure — check size threshold
+        if len(content) < _SEGMENTATION_THRESHOLD:
+            return [content]
+
+        # Split by paragraph boundaries (double newline, possibly with whitespace)
+        paragraphs = re.split(r"\n{2,}", content)
+
+        # Still just one block? Not segmentable — return as-is
+        if len(paragraphs) <= 1:
+            return [content]
+
+    # Filter and clean segments
+    segments: list[str] = []
+    for para in paragraphs:
+        cleaned = para.strip()
+        if not cleaned:
+            continue
+
+        # Skip pure metadata lines
+        lines = cleaned.split("\n")
+        content_lines = [ln for ln in lines if ln.strip() and not _METADATA_LINE.match(ln.strip())]
+        if not content_lines:
+            continue
+
+        cleaned = "\n".join(content_lines).strip()
+
+        if len(cleaned) >= _MIN_SEGMENT_CHARS:
+            segments.append(cleaned)
+
+    # If filtering eliminated everything or left just one, return original
+    if len(segments) <= 1:
+        return [content]
+
+    # Merge consecutive micro-segments that are too small alone
+    merged: list[str] = []
+    buffer = ""
+    for seg in segments:
+        if buffer:
+            candidate = buffer + " " + seg
+            if len(candidate) < _MIN_SEGMENT_CHARS * 2:
+                buffer = candidate
+                continue
+            else:
+                merged.append(buffer)
+                buffer = seg
+        else:
+            if len(seg) < _MIN_SEGMENT_CHARS:
+                buffer = seg
+            else:
+                merged.append(seg)
+
+    if buffer:
+        if merged:
+            merged[-1] = merged[-1] + " " + buffer
+        else:
+            merged.append(buffer)
+
+    return merged if len(merged) > 1 else [content]

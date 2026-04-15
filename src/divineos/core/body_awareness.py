@@ -392,8 +392,64 @@ def clean_transcript_debris(dry_run: bool = False) -> dict[str, int | float]:
     }
 
 
+def clean_pytest_tmp(dry_run: bool = False, keep_recent: int = 3) -> dict:
+    """Remove old pytest tmp/pytest/run-* directories.
+
+    Pytest test runs create temp directories with test databases that
+    accumulate without bound — especially in worktrees. This function
+    cleans them up, keeping only the most recent `keep_recent` runs.
+
+    Scans both the project root and any .claude/worktrees/*/tmp/pytest/.
+    """
+    import shutil
+
+    project_root = _get_project_root()
+    result: dict = {"removed": 0, "freed_mb": 0.0, "details": []}
+
+    # Collect all pytest tmp dirs: main repo + worktrees
+    pytest_dirs: list[Path] = []
+    main_pytest = project_root / "tmp" / "pytest"
+    if main_pytest.is_dir():
+        pytest_dirs.append(main_pytest)
+
+    worktrees_dir = project_root / ".claude" / "worktrees"
+    if worktrees_dir.is_dir():
+        for wt in worktrees_dir.iterdir():
+            wt_pytest = wt / "tmp" / "pytest"
+            if wt_pytest.is_dir():
+                pytest_dirs.append(wt_pytest)
+
+    for pytest_dir in pytest_dirs:
+        run_dirs = sorted(
+            [d for d in pytest_dir.iterdir() if d.is_dir() and d.name.startswith("run-")],
+            key=lambda d: d.stat().st_mtime,
+            reverse=True,
+        )
+
+        # Keep the most recent, remove the rest
+        to_remove = run_dirs[keep_recent:]
+        for run_dir in to_remove:
+            try:
+                dir_size = sum(f.stat().st_size for f in run_dir.rglob("*") if f.is_file())
+                size_mb = dir_size / (1024 * 1024)
+                if not dry_run:
+                    shutil.rmtree(run_dir)
+                result["removed"] += 1
+                result["freed_mb"] = round(result["freed_mb"] + size_mb, 1)
+            except OSError:
+                continue
+
+    if result["removed"]:
+        label = "Would remove" if dry_run else "Removed"
+        result["details"].append(
+            f"{label} {result['removed']} pytest run dirs ({result['freed_mb']:.1f}MB)"
+        )
+
+    return result
+
+
 def run_maintenance(dry_run: bool = False) -> dict[str, dict]:
-    """Run all maintenance tasks: VACUUM, log cleanup, cache prune.
+    """Run all maintenance tasks: VACUUM, log cleanup, cache prune, pytest tmp.
 
     Returns a dict keyed by task name with each task's results.
     """
@@ -411,6 +467,9 @@ def run_maintenance(dry_run: bool = False) -> dict[str, dict]:
 
     # 4. Transcript debris cleanup
     results["transcripts"] = clean_transcript_debris(dry_run=dry_run)
+
+    # 5. Pytest tmp cleanup — run dirs accumulate unbounded
+    results["pytest_tmp"] = clean_pytest_tmp(dry_run=dry_run)
 
     return results
 

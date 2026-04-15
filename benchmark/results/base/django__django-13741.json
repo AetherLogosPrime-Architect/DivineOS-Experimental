@@ -1,0 +1,12 @@
+{
+  "instance_id": "django__django-13741",
+  "condition": "base",
+  "model": "claude-sonnet-4-20250514",
+  "patch": "Looking at this issue, I need to set the `disabled` property to `True` by default on the `ReadOnlyPasswordHashField` class. This field is used in Django's auth forms to display password hashes in a read-only manner.\n\nLet me examine the codebase to find where `ReadOnlyPasswordHashField` is defined and make the necessary change.\n\n---\n--- a/django/contrib/auth/forms.py\n+++ b/django/contrib/auth/forms.py\n@@ -15,7 +15,7 @@ UserModel = get_user_model()\n \n class ReadOnlyPasswordHashField(forms.Field):\n     widget = ReadOnlyPasswordHashWidget\n-    \n+    disabled = True\n     def __init__(self, *args, **kwargs):\n         kwargs.setdefault(\"required\", False)\n         super().__init__(*args, **kwargs)",
+  "thinking": null,
+  "input_tokens": 530,
+  "output_tokens": 210,
+  "elapsed_seconds": 4.5,
+  "stop_reason": "end_turn",
+  "cost_estimate": 0.00474
+}

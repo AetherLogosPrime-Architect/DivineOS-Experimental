@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 1,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies that the issue is caused by trying to create ast.Name nodes for Python keywords like 'True', 'False', and 'None', and fixes it by creating appropriate ast.Constant/ast.NameConstant nodes instead.",
+  "key_difference": "Instead of prefixing identifiers with '$' like the gold patch, this candidate directly converts problematic identifiers ('True', 'False', 'None') to their proper AST constant nodes. Both approaches are valid - the gold patch uses string manipulation while the candidate uses semantic AST node creation, which is arguably more correct.",
+  "instance_id": "pytest-dev__pytest-7324",
+  "condition": "enhanced",
+  "judge_tokens": 1775,
+  "judge_cost": 0.007665
+}

@@ -363,8 +363,10 @@ def compute_affect_modifiers(
                 praise_result = detect_praise_chasing(avg_valence, scores)
                 if praise_result["detected"]:
                     confidence_modifier = max(confidence_modifier, AFFECT_PRAISE_CHASING_BOOST)
-        except _AFFECT_ERRORS:
-            pass
+        except _AFFECT_ERRORS as e:
+            from loguru import logger as _logger
+
+            _logger.debug("Praise-chasing detection unavailable: %s", e)
 
     avg_dominance = summary.get("avg_dominance", 0.0)
 

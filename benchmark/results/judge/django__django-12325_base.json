@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 1,
+  "brief_analysis": "The patch correctly identifies the location where parent links are processed, but attempts to fix the ordering issue by sorting fields rather than filtering for parent_link=True fields like the gold patch does.",
+  "key_difference": "The candidate patch tries to solve the ordering problem by sorting OneToOneFields with parent_link=True first and preventing overwrites, while the gold patch properly fixes it by only considering fields with parent_link=True as parent links and removing the improper validation check. The candidate's approach doesn't address the root cause that non-parent-link OneToOneFields shouldn't be treated as parent links at all.",
+  "instance_id": "django__django-12325",
+  "condition": "base",
+  "judge_tokens": 1629,
+  "judge_cost": 0.007227000000000001
+}

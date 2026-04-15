@@ -1,0 +1,12 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 1,
+  "minimal": 0,
+  "would_pass_tests": 1,
+  "valid_diff": 1,
+  "brief_analysis": "The candidate patch correctly identifies that middleware classes need to call super().__init__(get_response) to properly initialize the async capabilities. However, it makes unnecessary changes like removing key_prefix assignment in UpdateCacheMiddleware and uses an unusual super() call syntax in CacheMiddleware.",
+  "key_difference": "The candidate patch targets different middleware classes (security.py vs sessions.py) and includes some unnecessary changes, while the gold patch focuses on deprecation-related fixes in cache and session middleware with cleaner super() calls.",
+  "instance_id": "django__django-13344",
+  "label": "v1_old",
+  "judge_cost": 0.009566999999999999
+}

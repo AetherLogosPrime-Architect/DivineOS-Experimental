@@ -1,0 +1,13 @@
+{
+  "correct_diagnosis": 1,
+  "correct_fix": 0,
+  "minimal": 0,
+  "would_pass_tests": 0,
+  "valid_diff": 0,
+  "brief_analysis": "The patch attempts to fix keyword-only argument handling but is incomplete (truncated diff) and overly complex, adding unnecessary logic instead of the simple one-line fix needed.",
+  "key_difference": "The candidate patch adds complex logic to handle kwonly defaults and creates a valid_params set, while the gold patch simply changes the condition to check 'kwonly' instead of 'unhandled_kwargs'. The candidate's approach is more invasive and the diff is cut off mid-line, making it invalid.",
+  "instance_id": "django__django-12262",
+  "condition": "enhanced",
+  "judge_tokens": 1583,
+  "judge_cost": 0.006836999999999999
+}
