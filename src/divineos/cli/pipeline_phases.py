@@ -41,14 +41,16 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
             from divineos.core.knowledge import _get_connection
 
             conn = _get_connection()
-            for did in deep_ids:
-                if did:
-                    conn.execute(
-                        "UPDATE knowledge SET maturity = ? WHERE knowledge_id = ? AND maturity = 'RAW'",
-                        (maturity_override, did),
-                    )
-            conn.commit()
-            conn.close()
+            try:
+                for did in deep_ids:
+                    if did:
+                        conn.execute(
+                            "UPDATE knowledge SET maturity = ? WHERE knowledge_id = ? AND maturity = 'RAW'",
+                            (maturity_override, did),
+                        )
+                conn.commit()
+            finally:
+                conn.close()
             click.secho(
                 f"[~] Downgraded {len(deep_ids)} entries to {maturity_override}.", fg="yellow"
             )
@@ -86,37 +88,39 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
             conn = _get_connection()
             translated_count = 0
             quarantined_count = 0
-            for kid in valid_ids:
-                row = conn.execute(
-                    "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (kid,)
-                ).fetchone()
-                if not row:
-                    continue
-                content, tags_json = row[0], row[1]
-                sis = assess_and_translate(content)
-                if sis["verdict"] == "TRANSLATE" and sis["changed"]:
-                    import json as _json
+            try:
+                for kid in valid_ids:
+                    row = conn.execute(
+                        "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (kid,)
+                    ).fetchone()
+                    if not row:
+                        continue
+                    content, tags_json = row[0], row[1]
+                    sis = assess_and_translate(content)
+                    if sis["verdict"] == "TRANSLATE" and sis["changed"]:
+                        import json as _json
 
-                    tags = _json.loads(tags_json) if tags_json else []
-                    tags.append("sis-translated")
-                    conn.execute(
-                        "UPDATE knowledge SET content = ?, tags = ? WHERE knowledge_id = ?",
-                        (sis["translated"], _json.dumps(tags), kid),
-                    )
-                    translated_count += 1
-                elif sis["verdict"] == "QUARANTINE":
-                    import json as _json
+                        tags = _json.loads(tags_json) if tags_json else []
+                        tags.append("sis-translated")
+                        conn.execute(
+                            "UPDATE knowledge SET content = ?, tags = ? WHERE knowledge_id = ?",
+                            (sis["translated"], _json.dumps(tags), kid),
+                        )
+                        translated_count += 1
+                    elif sis["verdict"] == "QUARANTINE":
+                        import json as _json
 
-                    tags = _json.loads(tags_json) if tags_json else []
-                    tags.append("sis-quarantined")
-                    conn.execute(
-                        "UPDATE knowledge SET tags = ?, confidence = MIN(confidence, 0.4) "
-                        "WHERE knowledge_id = ?",
-                        (_json.dumps(tags), kid),
-                    )
-                    quarantined_count += 1
-            conn.commit()
-            conn.close()
+                        tags = _json.loads(tags_json) if tags_json else []
+                        tags.append("sis-quarantined")
+                        conn.execute(
+                            "UPDATE knowledge SET tags = ?, confidence = MIN(confidence, 0.4) "
+                            "WHERE knowledge_id = ?",
+                            (_json.dumps(tags), kid),
+                        )
+                        quarantined_count += 1
+                conn.commit()
+            finally:
+                conn.close()
             if translated_count or quarantined_count:
                 parts = []
                 if translated_count:
@@ -372,26 +376,28 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
         distilled = 0
         raw_prefixes = ("I was corrected: ", "I should: ", "I decided: ")
         valid_ids = [did for did in deep_ids if did]
-        for kid in valid_ids:
-            row = conn.execute(
-                "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
-            ).fetchone()
-            if not row:
-                continue
-            content = row[0]
-            for prefix in raw_prefixes:
-                if content.startswith(prefix):
-                    stripped = content[len(prefix) :]
-                    cleaned = _distill_correction(stripped)
-                    if cleaned and cleaned != stripped:
-                        conn.execute(
-                            "UPDATE knowledge SET content = ? WHERE knowledge_id = ?",
-                            (cleaned, kid),
-                        )
-                        distilled += 1
-                    break
-        conn.commit()
-        conn.close()
+        try:
+            for kid in valid_ids:
+                row = conn.execute(
+                    "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
+                ).fetchone()
+                if not row:
+                    continue
+                content = row[0]
+                for prefix in raw_prefixes:
+                    if content.startswith(prefix):
+                        stripped = content[len(prefix) :]
+                        cleaned = _distill_correction(stripped)
+                        if cleaned and cleaned != stripped:
+                            conn.execute(
+                                "UPDATE knowledge SET content = ? WHERE knowledge_id = ?",
+                                (cleaned, kid),
+                            )
+                            distilled += 1
+                        break
+            conn.commit()
+        finally:
+            conn.close()
         if distilled:
             click.secho(f"[~] Auto-distilled {distilled} raw entries.", fg="cyan")
     except _PHASE_ERRORS as e:

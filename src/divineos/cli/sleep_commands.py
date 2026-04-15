@@ -22,11 +22,13 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
         from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
-        rows = conn.execute(
-            "SELECT maturity, corroboration_count, confidence FROM knowledge "
-            "WHERE superseded_by IS NULL"
-        ).fetchall()
-        conn.close()
+        try:
+            rows = conn.execute(
+                "SELECT maturity, corroboration_count, confidence FROM knowledge "
+                "WHERE superseded_by IS NULL"
+            ).fetchall()
+        finally:
+            conn.close()
 
         promotable = {"HYPOTHESIS->TESTED": 0, "TESTED->CONFIRMED": 0}
         for mat, corrob, conf in rows:
@@ -66,16 +68,18 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
     click.echo("  Phase 2: Pruning")
     try:
         conn = _get_connection()
-        orphans = conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND access_count = 0 "
-            "AND created_at < (strftime('%s','now') - ?)",
-            (SECONDS_PER_DAY,),
-        ).fetchone()[0]
-        stale = conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND confidence < ?",
-            (CONFIDENCE_ACTIVE_MEMORY_FLOOR,),
-        ).fetchone()[0]
-        conn.close()
+        try:
+            orphans = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND access_count = 0 "
+                "AND created_at < (strftime('%s','now') - ?)",
+                (SECONDS_PER_DAY,),
+            ).fetchone()[0]
+            stale = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL AND confidence < ?",
+                (CONFIDENCE_ACTIVE_MEMORY_FLOOR,),
+            ).fetchone()[0]
+        finally:
+            conn.close()
         click.echo(f"    Orphan entries (never accessed, >24h old): {orphans}")
         click.echo(f"    Low-confidence entries (<{CONFIDENCE_ACTIVE_MEMORY_FLOOR}): {stale}")
     except (sqlite3.OperationalError, ImportError, OSError) as e:
@@ -108,13 +112,15 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
     click.echo("  Phase 5: Creative Recombination")
     try:
         conn = _get_connection()
-        active_count = conn.execute(
-            "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL"
-        ).fetchone()[0]
-        existing_edges = conn.execute(
-            "SELECT COUNT(*) FROM knowledge_edges WHERE status = 'ACTIVE'"
-        ).fetchone()[0]
-        conn.close()
+        try:
+            active_count = conn.execute(
+                "SELECT COUNT(*) FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchone()[0]
+            existing_edges = conn.execute(
+                "SELECT COUNT(*) FROM knowledge_edges WHERE status = 'ACTIVE'"
+            ).fetchone()[0]
+        finally:
+            conn.close()
         click.echo(f"    Active entries to scan: {active_count}")
         click.echo(f"    Existing edges: {existing_edges}")
     except (sqlite3.OperationalError, ImportError, OSError) as e:
