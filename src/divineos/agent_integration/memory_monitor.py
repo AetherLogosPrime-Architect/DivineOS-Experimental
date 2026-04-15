@@ -87,40 +87,6 @@ class AgentMemoryMonitor:
                 "error": str(e),
             }
 
-    def _auto_load_context(self) -> None:
-        """Automatically load context from ledger on session initialization.
-
-        This is called automatically when the monitor is created to restore
-        previous work context without requiring manual intervention.
-        """
-        try:
-            if self.context_loaded:
-                return
-
-            context = self.load_session_context()
-            self.context_loaded = True
-
-            # Log summary of loaded context
-            work_count = len(context.get("previous_work", []))
-            recent_count = len(context.get("recent_context", []))
-
-            if work_count > 0:
-                logger.info(f"Auto-loaded {work_count} previous work items")
-                for work in context.get("previous_work", [])[:3]:
-                    payload = work.get("payload", {})
-                    task = payload.get("task", "Unknown")
-                    status = payload.get("status", "Unknown")
-                    logger.info(f"  - {task} ({status})")
-                if work_count > 3:
-                    logger.info(f"  ... and {work_count - 3} more")
-
-            if recent_count > 0:
-                logger.info(f"Auto-loaded {recent_count} recent context items")
-
-        except _MM_ERRORS as e:
-            logger.error(f"Failed to auto-load context: {e}")
-            self.context_loaded = False
-
     def update_token_usage(self, current_tokens: int) -> dict[str, Any]:
         """Update token usage and check thresholds.
 
