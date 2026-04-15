@@ -79,7 +79,7 @@ class TestLessonDistillation:
 
     def test_lesson_description_is_cleaned(self) -> None:
         """record_lesson should clean the description text."""
-        from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+        from divineos.core.knowledge import _get_connection, init_knowledge_table
 
         init_knowledge_table()  # Also creates lesson_tracking
 

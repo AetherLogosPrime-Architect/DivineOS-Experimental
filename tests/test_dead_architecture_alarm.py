@@ -21,7 +21,7 @@ from divineos.core.dead_architecture_alarm import (
     scan_empty_hud_slots,
     scan_wiring,
 )
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.ledger import get_connection
 
 

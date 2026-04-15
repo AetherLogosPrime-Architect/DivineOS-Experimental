@@ -17,7 +17,7 @@ from divineos.core.knowledge_impact import (
 def _clean_impact_table():
     """Ensure clean impact table for each test."""
     init_impact_table()
-    from divineos.core.knowledge._base import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     conn = _get_connection()
     try:
@@ -37,7 +37,7 @@ class TestRecordRetrieval:
 
     def test_stores_retrieval(self):
         record_knowledge_retrieval("sess-1", "k-123", "User prefers concise answers")
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         row = conn.execute(
@@ -51,7 +51,7 @@ class TestRecordRetrieval:
     def test_truncates_long_content(self):
         long_content = "x" * 500
         record_knowledge_retrieval("sess-1", "k-123", long_content)
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         row = conn.execute(
@@ -135,7 +135,7 @@ class TestBriefingRecordsRetrievals:
         initialize_session()
 
     def test_briefing_populates_impact_table(self):
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
         from divineos.core.knowledge.crud import store_knowledge
 
         # Store some knowledge so the briefing has something to retrieve
@@ -153,7 +153,7 @@ class TestBriefingRecordsRetrievals:
         assert count > 0, "Briefing should record knowledge retrievals for impact tracking"
 
     def test_briefing_records_correct_knowledge_ids(self):
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
         from divineos.core.knowledge.crud import store_knowledge
 
         kid = store_knowledge("FACT", "Unique impact wiring test content aabbcc")

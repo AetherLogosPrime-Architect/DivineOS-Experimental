@@ -19,7 +19,7 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
             MATURITY_TESTED_TO_CONFIRMED_CORROBORATION,
             SECONDS_PER_DAY,
         )
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         rows = conn.execute(

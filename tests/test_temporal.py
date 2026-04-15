@@ -3,7 +3,7 @@
 import os
 import time
 
-from divineos.core.knowledge._base import (
+from divineos.core.knowledge import (
     _get_connection,
     init_knowledge_table,
 )

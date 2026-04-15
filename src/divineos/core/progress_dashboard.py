@@ -138,7 +138,7 @@ def _score_recent_sessions(report: ProgressReport, sessions: list[dict]) -> None
 
     # Read grades from session_validation table (where record_self_grade stores them)
     try:
-        from divineos.core.knowledge._base import _get_connection as _kconn
+        from divineos.core.knowledge import _get_connection as _kconn
 
         conn = _kconn()
         try:
@@ -203,7 +203,7 @@ def _score_recent_sessions(report: ProgressReport, sessions: list[dict]) -> None
 def _gather_knowledge_growth(report: ProgressReport) -> None:
     """Count knowledge entries by type and maturity."""
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:

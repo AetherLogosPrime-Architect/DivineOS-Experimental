@@ -52,7 +52,7 @@ class TestSlotBuilders:
 
     def test_recent_lessons_slot_seeded_only(self):
         """When only seeded lessons exist, show a count instead of 'No active lessons'."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.lessons import record_lesson
 
         init_knowledge_table()

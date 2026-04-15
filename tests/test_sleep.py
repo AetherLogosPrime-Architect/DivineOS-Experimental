@@ -85,7 +85,7 @@ class TestDreamReport:
 class TestPhaseConsolidation:
     def test_scans_entries(self, tmp_path, monkeypatch):
         """Consolidation phase populates entries_scanned."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -210,7 +210,7 @@ class TestPhaseAffect:
 class TestPhaseRecombination:
     def test_finds_cross_type_connections(self, tmp_path, monkeypatch):
         """Should find connections between semantically related but topically distinct entries."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
 
         init_knowledge_table()
@@ -244,7 +244,7 @@ class TestPhaseRecombination:
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):
         """Empty knowledge store should produce no connections."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -254,7 +254,7 @@ class TestPhaseRecombination:
 
     def test_respects_max_connections_limit(self, tmp_path, monkeypatch):
         """Should not exceed the max connections limit."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
 
         init_knowledge_table()
@@ -280,7 +280,7 @@ class TestPhaseRecombination:
 class TestRunSleep:
     def test_returns_dream_report(self, tmp_path, monkeypatch):
         """Full sleep cycle should return a DreamReport."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -292,7 +292,7 @@ class TestRunSleep:
 
     def test_continues_through_phase_errors(self, tmp_path, monkeypatch):
         """If a phase fails, subsequent phases should still run."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -304,7 +304,7 @@ class TestRunSleep:
 
     def test_skip_maintenance_flag(self, tmp_path, monkeypatch):
         """Skip maintenance should leave maintenance_results empty."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
