@@ -197,62 +197,61 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ cli/                      # CLI package (163 commands across 25 modules)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ __init__.py           # CLI entry point and command registration
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ session_pipeline.py   # SESSION_END orchestrator (calls phases)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ pipeline_phases.py    # Heavy-lifting phases (feedback, scoring, finalization)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ knowledge_commands.py # learn, ask, briefing, forget, lessons
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ analysis_commands.py  # analyze, report, trends
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ hud_commands.py       # hud, goal, plan commands
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ journal_commands.py   # journal save/list/search/link
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ directive_commands.py # directive management
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ entity_commands.py    # questions, relationships, knowledge entities
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ knowledge_health_commands.py  # health, distill, migrate
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬ï¿½ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ audit_commands.py     # external validation (Watchmen)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ seed.json                 # Initial knowledge seed (versioned)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ core/
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ ledger.py             # Append-only event ledger (core read/write/search)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ memory.py             # Core memory slots, active memory, importance scoring
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ memory_journal.py     # Personal journal (save/list/search/link)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ hud.py                # HUD slot builders and assembly
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ hud_state.py          # Goal/plan/health state management
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ hud_handoff.py        # Session handoff, engagement, goal extraction
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ knowledge/            # Knowledge engine sub-package
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ _base.py          # DB connection, public get_connection() API
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ extraction.py     # Knowledge extraction from sessions
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ deep_extraction.py # Deep multi-pass extraction
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ feedback.py       # Session feedback application
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ migration.py      # Knowledge type migration
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬ï¿½ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ _text.py          # Text analysis utilities (FTS, overlap, noise)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬ï¿½ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ ...                   # consolidation, quality gate, maturity, etc.
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬ï¿½ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ holding.py            # Pre-categorical reception (holding room)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ analysis/
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ analysis.py           # Core session analysis pipeline
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ analysis_storage.py   # Report storage, formatting, cross-session trends
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ quality_checks.py     # 7 measurable quality checks
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ record_extraction.py  # JSONL record parsing helpers
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ quality_storage.py    # Quality report DB storage
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ session_features.py   # Timeline, files, activity, error recovery features
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ tone_tracking.py      # Tone shift detection and classification
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ feature_storage.py    # Feature result DB storage
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬ï¿½ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ session_analyzer.py   # Signal detection (corrections, encouragements)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ agent_integration/        # Outcome measurement, memory monitor, learning cycles
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ clarity_enforcement/      # Clarity system
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ clarity_system/           # Clarity rules and violation tracking
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ event/                    # Event types and dispatch
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ hooks/                    # Git hook integration
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ integration/              # IDE and MCP integration
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ supersession/             # Contradiction detection and resolution
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ watchmen/                 # External validation (audit findings, routing, summary)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ _schema.py            # audit_rounds and audit_findings tables
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ types.py              # Severity, FindingCategory, Finding dataclasses
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ store.py              # CRUD with actor validation (self-trigger prevention)
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã…â€œÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ router.py             # Route findings to knowledge/claims/lessons
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡   ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬ï¿½ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ summary.py            # Analytics, HUD integration, unresolved tracking
-ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬ï¿½ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ violations_cli/           # Violation reporting CLI
+├── cli/                      # CLI package (163 commands across 25 modules)
+│   ├── __init__.py           # CLI entry point and command registration
+│   ├── session_pipeline.py   # SESSION_END orchestrator (calls phases)
+│   ├── pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
+│   ├── pipeline_phases.py    # Heavy-lifting phases (feedback, scoring, finalization)
+│   ├── knowledge_commands.py # learn, ask, briefing, forget, lessons
+│   ├── analysis_commands.py  # analyze, report, trends
+│   ├── hud_commands.py       # hud, goal, plan commands
+│   ├── journal_commands.py   # journal save/list/search/link
+│   ├── directive_commands.py # directive management
+│   ├── entity_commands.py    # questions, relationships, knowledge entities
+│   ├── knowledge_health_commands.py  # health, distill, migrate
+│   └── audit_commands.py     # external validation (Watchmen)
+├── seed.json                 # Initial knowledge seed (versioned)
+├── core/
+│   ├── ledger.py             # Append-only event ledger (core read/write/search)
+│   ├── memory.py             # Core memory slots, active memory, importance scoring
+│   ├── memory_journal.py     # Personal journal (save/list/search/link)
+│   ├── hud.py                # HUD slot builders and assembly
+│   ├── hud_state.py          # Goal/plan/health state management
+│   ├── hud_handoff.py        # Session handoff, engagement, goal extraction
+│   ├── knowledge/            # Knowledge engine sub-package
+│   │   ├── _base.py          # DB connection, public get_connection() API
+│   │   ├── extraction.py     # Knowledge extraction from sessions
+│   │   ├── deep_extraction.py # Deep multi-pass extraction
+│   │   ├── feedback.py       # Session feedback application
+│   │   ├── migration.py      # Knowledge type migration
+│   │   └── _text.py          # Text analysis utilities (FTS, overlap, noise)
+│   ├── ...                   # consolidation, quality gate, maturity, etc.
+│   └── holding.py            # Pre-categorical reception (holding room)
+├── analysis/
+│   ├── analysis.py           # Core session analysis pipeline
+│   ├── analysis_storage.py   # Report storage, formatting, cross-session trends
+│   ├── quality_checks.py     # 7 measurable quality checks
+│   ├── record_extraction.py  # JSONL record parsing helpers
+│   ├── quality_storage.py    # Quality report DB storage
+│   ├── session_features.py   # Timeline, files, activity, error recovery features
+│   ├── tone_tracking.py      # Tone shift detection and classification
+│   ├── feature_storage.py    # Feature result DB storage
+│   └── session_analyzer.py   # Signal detection (corrections, encouragements)
+├── agent_integration/        # Outcome measurement, memory monitor, learning cycles
+├── clarity_enforcement/      # Clarity system
+├── clarity_system/           # Clarity rules and violation tracking
+├── event/                    # Event types and dispatch
+├── hooks/                    # Git hook integration
+├── integration/              # IDE and MCP integration
+├── supersession/             # Contradiction detection and resolution
+├── watchmen/                 # External validation (audit findings, routing, summary)
+│   ├── _schema.py            # audit_rounds and audit_findings tables
+│   ├── types.py              # Severity, FindingCategory, Finding dataclasses
+│   ├── store.py              # CRUD with actor validation (self-trigger prevention)
+│   ├── router.py             # Route findings to knowledge/claims/lessons
+│   └── summary.py            # Analytics, HUD integration, unresolved tracking
+└── violations_cli/           # Violation reporting CLI
 tests/                        # 3,993+ tests (real DB, minimal mocks)
-
 docs/                         # Project documentation and strategic plans
 bootcamp/                     # Training exercises (debugging, analysis)
 data/                         # Runtime databases (gitignored)
