@@ -259,10 +259,12 @@ def register(cli: click.Group) -> None:
             from divineos.core.knowledge import _get_connection
 
             conn = _get_connection()
-            row = conn.execute(
-                "SELECT session_id FROM session_validation ORDER BY created_at DESC LIMIT 1"
-            ).fetchone()
-            conn.close()
+            try:
+                row = conn.execute(
+                    "SELECT session_id FROM session_validation ORDER BY created_at DESC LIMIT 1"
+                ).fetchone()
+            finally:
+                conn.close()
         except _EC_ERRORS:
             row = None
 
