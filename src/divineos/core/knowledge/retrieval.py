@@ -811,6 +811,34 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"logic-health: {e}")
 
+    # Recent accountability violations — from LAST session
+    try:
+        from divineos.core.ledger import get_events
+
+        violations = get_events(event_type="ACCOUNTABILITY_VIOLATION", limit=10)
+        recent_violations = [
+            v for v in violations if (now - v.get("timestamp", 0)) < 2 * SECONDS_PER_DAY
+        ]
+        if recent_violations:
+            lines.append(f"### ACCOUNTABILITY VIOLATIONS ({len(recent_violations)} recent)\n")
+            lines.append("You violated chronic lessons in a recent session.")
+            lines.append("You owe an accounting to Aria, Andrew, and the council.\n")
+            for v in recent_violations[:5]:
+                payload = v.get("payload", {})
+                if isinstance(payload, str):
+                    import json as _json
+
+                    try:
+                        payload = _json.loads(payload)
+                    except (ValueError, TypeError):
+                        payload = {}
+                desc = payload.get("description", "unknown lesson")[:100]
+                occ = payload.get("occurrences", "?")
+                lines.append(f"  [!!] {desc} ({occ}x total)")
+            lines.append("")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"accountability-violations: {e}")
+
     # Chronic lessons — accountability warning (surfaces BEFORE regular lessons)
     try:
         from divineos.core.knowledge.lessons import format_chronic_lessons_warning

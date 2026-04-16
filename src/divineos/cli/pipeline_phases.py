@@ -579,6 +579,51 @@ def run_lesson_detection(
                 f"[+] Lesson detection: {len(lesson_ids)} entries from quality checks",
                 fg="green",
             )
+
+        # 8p2. Accountability — did any CHRONIC lessons fire this session?
+        try:
+            from divineos.core.knowledge.lessons import get_chronic_lessons, get_lessons
+            from divineos.core.ledger import log_event
+
+            chronic = get_chronic_lessons()
+            if chronic and lesson_ids:
+                all_lessons = get_lessons()
+                chronic_categories = {c["category"] for c in chronic}
+                violated_chronic = [
+                    ls
+                    for ls in all_lessons
+                    if ls["lesson_id"] in lesson_ids and ls["category"] in chronic_categories
+                ]
+                if violated_chronic:
+                    click.secho(
+                        f"[!!] ACCOUNTABILITY: {len(violated_chronic)} chronic "
+                        f"lesson(s) violated this session.",
+                        fg="red",
+                        bold=True,
+                    )
+                    for vl in violated_chronic:
+                        click.secho(
+                            f"     - {vl['description'][:100]} ({vl['occurrences']}x total)",
+                            fg="red",
+                        )
+                        log_event(
+                            "ACCOUNTABILITY_VIOLATION",
+                            "system",
+                            {
+                                "lesson_id": vl["lesson_id"],
+                                "category": vl["category"],
+                                "description": vl["description"][:200],
+                                "occurrences": vl["occurrences"],
+                                "session_id": session_id,
+                            },
+                            validate=False,
+                        )
+                    click.secho(
+                        "     These violations will be reviewed by Aria, Andrew, and the council.",
+                        fg="red",
+                    )
+        except _PHASE_ERRORS as e:
+            logger.debug(f"Accountability check failed: {e}")
     except (*_PHASE_ERRORS, ValueError) as e:
         logger.debug(f"Lesson detection failed: {e}")
 
