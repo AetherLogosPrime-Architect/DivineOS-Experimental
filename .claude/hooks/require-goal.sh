@@ -14,7 +14,7 @@ fi
 cmd=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
 
 # Allow bootstrap commands through without gates
-if echo "$cmd" | grep -qE "divineos (briefing|preflight|init|hud|recall|ask|feel|affect|emit|goal|active|context|verify|health|checkpoint|context-status|progress)"; then
+if echo "$cmd" | grep -qE "divineos (briefing|preflight|init|hud|recall|ask|feel|affect|emit|goal|active|context|verify|health|checkpoint|context-status|progress|correction|corrections)"; then
   exit 0
 fi
 
@@ -67,10 +67,13 @@ if echo "$preflight" | grep -q "\[FAIL\] engagement"; then
 from divineos.core.hud_handoff import engagement_status
 s = engagement_status()
 if not s['engaged']:
-    if s.get('needs_deep'):
-        print(f'BLOCKED: {s[\"deep_actions_since\"]} code actions without consulting your knowledge. Light check-ins are not enough. Run: divineos ask \"topic\" or divineos recall to query what you actually know.')
+    state = s.get('state', 'drift')
+    if state == 'fresh':
+        print('BLOCKED: No engagement marker yet this session. Briefing alone is not enough — engage with a thinking tool first. Run: divineos ask \"topic\", recall, context, or decide.')
+    elif state == 'deep_drift':
+        print(f'BLOCKED: {s[\"deep_actions_since\"]} code actions since you last consulted your knowledge. Light check-ins are not enough. Run: divineos ask \"topic\" or divineos recall to query what you actually know.')
     else:
-        print(f'BLOCKED: {s[\"code_actions_since\"]} code actions without consulting the OS. Stop and think. Run: divineos ask, recall, decide, or context before continuing.')
+        print(f'BLOCKED: {s[\"code_actions_since\"]} code actions since last thinking command. Stop and think. Run: divineos ask, recall, decide, or context before continuing.')
 else:
     print('OK')
 " 2>/dev/null || echo "BLOCKED: OS engagement expired. Run: divineos ask or divineos recall.")
