@@ -43,6 +43,7 @@ _BYPASS_COMMANDS = frozenset(
         "validate",
         "rt",
         "hold",
+        "mansion",
     }
 )
 
@@ -141,6 +142,14 @@ insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
 rt_commands.register(cli)
+
+# Mansion — functional internal space (optional, personal)
+try:
+    from divineos.cli.mansion_commands import register_mansion_commands
+
+    register_mansion_commands(cli)
+except ImportError:
+    pass  # mansion is optional
 
 
 # ── Command Grouping ──────────────────────────────────────────────
