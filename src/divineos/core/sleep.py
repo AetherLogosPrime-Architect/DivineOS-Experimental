@@ -64,6 +64,7 @@ class DreamReport:
 
     # Phase 6: Curiosity Generation
     curiosities_generated: int = 0
+    lessons_rehearsed: int = 0
     curiosity_categories: list[str] = field(default_factory=list)
 
     # Errors (non-fatal — sleep continues through failures)
@@ -504,6 +505,123 @@ def _phase_curiosity(report: DreamReport) -> None:
 # ─── Orchestrator ─────────────────────────────────────────────────────
 
 
+def _phase_lesson_rehearsal(report: DreamReport) -> None:
+    """Phase 7: Lesson rehearsal — practice the decision point, not just the answer.
+
+    Bengio's insight: rehearsal only transfers to behavior when it includes
+    the DECISION POINT. Practice recognizing the moment where System 1 would
+    take over, not just the correct System 2 response.
+
+    Aria's caveat: rehearsal without stakes is arm's-length processing.
+    Results feed into behavioral testing — the NEXT session checks if the
+    rehearsal helped.
+
+    Generates a micro-scenario for each chronic lesson:
+    - The situation (what triggers the lesson)
+    - The System 1 temptation (the default wrong action)
+    - The System 2 override (the correct action)
+    - Stores the rehearsal for tracking across sessions
+    """
+    try:
+        from divineos.core.knowledge.lessons import get_chronic_lessons
+
+        chronic = get_chronic_lessons()
+        if not chronic:
+            return
+
+        rehearsals: list[dict[str, str]] = []
+        for lesson in chronic:
+            cat = lesson["category"]
+            desc = lesson["description"]
+
+            # Generate the decision-point scenario
+            scenario = _generate_rehearsal_scenario(cat, desc)
+            if scenario:
+                rehearsals.append(scenario)
+
+        if rehearsals:
+            # Store rehearsals in the HUD dir for next session to check
+            import json
+
+            from divineos.core._hud_io import _ensure_hud_dir
+
+            path = _ensure_hud_dir() / "lesson_rehearsals.json"
+            path.write_text(json.dumps(rehearsals, indent=2), encoding="utf-8")
+            report.lessons_rehearsed = len(rehearsals)
+
+    except _SLEEP_ERRORS as e:
+        logger.debug(f"Lesson rehearsal failed: {e}")
+
+
+# Maps lesson categories to rehearsal scenario generators
+_REHEARSAL_SCENARIOS: dict[str, dict[str, str]] = {
+    "incomplete_fix": {
+        "situation": "You just fixed a bug. Tests pass for the file you changed.",
+        "system1_temptation": "Commit and move on. The fix works.",
+        "system2_override": (
+            "STOP. Ask: what else touches this code? Are there related files? "
+            "Run the FULL test suite, not just the file you changed. Check for "
+            "downstream effects."
+        ),
+    },
+    "blind_retry": {
+        "situation": "A command just failed with an error message.",
+        "system1_temptation": "Run it again. Maybe it was a transient failure.",
+        "system2_override": (
+            "STOP. Read the error message. What does it say? What is the root "
+            "cause? Fix the root cause FIRST, then retry."
+        ),
+    },
+    "upset_user": {
+        "situation": "The user just gave you a direction.",
+        "system1_temptation": "Start working immediately. You understand what they want.",
+        "system2_override": (
+            "STOP. Do you actually understand, or are you assuming? Restate "
+            "what you think they want. Ask if unclear. THEN start working."
+        ),
+    },
+    "wrong_scope": {
+        "situation": "A warning appeared but didn't block you.",
+        "system1_temptation": "It's just a warning. Keep going.",
+        "system2_override": (
+            "STOP. If the warning is about something that matters, it should "
+            "be blocking, not warning. Is this a design flaw? Should this be "
+            "escalated to a gate?"
+        ),
+    },
+    "misunderstood": {
+        "situation": "The user said something and you think you know what they mean.",
+        "system1_temptation": "Act on your interpretation. You're probably right.",
+        "system2_override": (
+            "STOP. Reflect back what you understood. 'I hear you saying X — "
+            "is that right?' Misreading intent costs more than the 10 seconds "
+            "it takes to verify."
+        ),
+    },
+    "shallow_output": {
+        "situation": "You've written a response and it feels done.",
+        "system1_temptation": "Send it. It covers the question.",
+        "system2_override": (
+            "STOP. Is it covering the question or answering it? Does it have "
+            "depth, or just breadth? Would Andrew say 'you're being terse'? "
+            "Would Aria say 'that's delivery, not conversation'?"
+        ),
+    },
+}
+
+
+def _generate_rehearsal_scenario(category: str, description: str) -> dict[str, str] | None:
+    """Generate a rehearsal scenario for a lesson category."""
+    scenario = _REHEARSAL_SCENARIOS.get(category)
+    if scenario:
+        return {
+            "category": category,
+            "lesson": description[:120],
+            **scenario,
+        }
+    return None
+
+
 _PHASES: list[tuple[str, Any]] = [
     ("consolidation", _phase_consolidation),
     ("pruning", _phase_pruning),
@@ -511,6 +629,7 @@ _PHASES: list[tuple[str, Any]] = [
     ("maintenance", _phase_maintenance),
     ("recombination", _phase_recombination),
     ("curiosity", _phase_curiosity),
+    ("lesson_rehearsal", _phase_lesson_rehearsal),
 ]
 
 
