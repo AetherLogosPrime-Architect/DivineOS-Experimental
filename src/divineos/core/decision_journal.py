@@ -190,8 +190,10 @@ def get_affect_at_decision(decision_id: str) -> dict[str, Any] | None:
         decision_time = row[0]
 
         affect_row = conn.execute(
-            "SELECT entry_id, created_at, valence, arousal, dominance, description, trigger, "
-            "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id "
+            "SELECT entry_id, created_at, valence, arousal, dominance, "
+            "resonance, clarity, pull, presence, "
+            "description, trigger, tags, linked_claim_id, linked_decision_id, "
+            "linked_knowledge_id, session_id "
             "FROM affect_log "
             "ORDER BY ABS(created_at - ?) LIMIT 1",
             (decision_time,),

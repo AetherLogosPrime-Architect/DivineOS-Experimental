@@ -44,6 +44,10 @@ _BYPASS_COMMANDS = frozenset(
         "rt",
         "hold",
         "mansion",
+        # Corrections must always be loggable in the moment — gating the
+        # rep behind a thinking-command requirement defeats the rep.
+        "correction",
+        "corrections",
     }
 )
 
@@ -105,6 +109,7 @@ from divineos.cli import (  # noqa: E402
     body_commands,
     claim_commands,
     compass_commands,
+    correction_commands,
     decision_commands,
     directive_commands,
     entity_commands,
@@ -142,6 +147,7 @@ insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
 rt_commands.register(cli)
+correction_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:
@@ -196,6 +202,7 @@ _ADMIN_COMMANDS = [
     "migrate-types",
     "rebuild-index",
     "reclassify-directions",
+    "reclassify-seed",
     "seed-export",
     "test-audit",
     "verify-enforcement",

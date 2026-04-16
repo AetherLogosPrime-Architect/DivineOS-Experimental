@@ -778,6 +778,7 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
         for row in rows:
             lesson = _lesson_row_to_dict(row)
             sessions = json.loads(row[7]) if row[7] else []
+            now = time.time()
 
             # Count sessions AFTER the lesson was last recorded as a mistake.
             # Log-scale effective occurrences: a lesson that occurred 178 times
@@ -785,18 +786,25 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
             # more. log2 scaling: 5→5, 10→5, 50→8, 178→12.
             raw_occ = lesson["occurrences"]
             effective = max(LESSON_EFFECTIVE_MIN, int(math.log2(max(raw_occ, 1)) + 2))
-            if len(sessions) < effective + clean_session_threshold:
+            days_improving = (now - lesson["last_seen"]) / SECONDS_PER_DAY
+            regressions = lesson.get("regressions", 0)
+
+            # Absence-as-success: for low-frequency mistake categories, the
+            # triggering situation may genuinely not arise often. After
+            # LESSON_ABSENCE_DAYS with zero regressions, sustained quiet IS
+            # the evidence of learning. In this regime, both the session-count
+            # padding AND the stimulus-presence gate drop — wall-clock absence
+            # is the measurement, not session multiplicity.
+            absence_mode = regressions == 0 and days_improving >= LESSON_ABSENCE_DAYS
+
+            session_floor = effective if absence_mode else effective + clean_session_threshold
+            if len(sessions) < session_floor:
                 continue
 
-            # Stimulus-presence gate: absence of the stimulus is not evidence
-            # of learning. Check that the lesson has been in 'improving' long
-            # enough AND that clean sessions actually involved the relevant topic.
-            now = time.time()
-            days_improving = (now - lesson["last_seen"]) / SECONDS_PER_DAY
             if days_improving < LESSON_MIN_RESOLUTION_DAYS:
                 logger.debug(
                     "Lesson '%s' has enough clean sessions but only %.1f days improving "
-                    "(need %.1f) — stimulus gate holds",
+                    "(need %.1f) — time gate holds",
                     lesson["category"],
                     days_improving,
                     LESSON_MIN_RESOLUTION_DAYS,
@@ -804,32 +812,28 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
                 continue
 
             # Check that at least some clean sessions involved the stimulus topic.
-            # Absence-as-success fallback: for low-frequency mistake categories,
-            # the triggering situation may genuinely not arise. After LESSON_ABSENCE_DAYS
-            # with zero regressions, sustained absence IS evidence of learning.
-            clean_session_ids = sessions[effective:]
-            stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
-            regressions = lesson.get("regressions", 0)
-            stimulus_required = LESSON_MIN_STIMULUS_SESSIONS
-
-            if regressions == 0 and days_improving >= LESSON_ABSENCE_DAYS:
-                # Long enough with zero backsliding — drop stimulus requirement
-                stimulus_required = 0
+            # In absence_mode the stimulus requirement is already satisfied by
+            # wall-clock quiet, so we skip this entirely.
+            stimulus_count = 0
+            stimulus_required = 0 if absence_mode else LESSON_MIN_STIMULUS_SESSIONS
+            if stimulus_required > 0:
+                clean_session_ids = sessions[effective:]
+                stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
+                if stimulus_count < stimulus_required:
+                    logger.debug(
+                        "Lesson '%s' has %d stimulus sessions (need %d) — stimulus gate holds",
+                        lesson["category"],
+                        stimulus_count,
+                        stimulus_required,
+                    )
+                    continue
+            elif absence_mode:
                 logger.debug(
                     "Lesson '%s' absence-as-success: %.1f days, 0 regressions — "
-                    "stimulus requirement dropped",
+                    "session-count and stimulus gates both dropped",
                     lesson["category"],
                     days_improving,
                 )
-
-            if stimulus_count < stimulus_required:
-                logger.debug(
-                    "Lesson '%s' has %d stimulus sessions (need %d) — stimulus gate holds",
-                    lesson["category"],
-                    stimulus_count,
-                    stimulus_required,
-                )
-                continue
 
             conn.execute(
                 "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? WHERE lesson_id = ?",

@@ -420,6 +420,47 @@ def register(cli: click.Group) -> None:
                 click.secho(f"    {counts['instruction']} -> INSTRUCTION", fg="yellow")
             click.secho(f"    {counts['unchanged']} unchanged (still DIRECTION)", fg="bright_black")
 
+    @cli.command("reclassify-seed")
+    def reclassify_seed_cmd() -> None:
+        """Fix legacy seed entries mis-tagged as source='STATED'.
+
+        Seed entries that were loaded before the source-fix landed got
+        defaulted to STATED ('told by user'), when they should be INHERITED
+        ('born knowing, no session evidence'). This walks the canonical
+        seed.json contents and reclassifies any matching STATED entries
+        to INHERITED. Safe to run repeatedly.
+        """
+        import json
+        from pathlib import Path
+
+        from divineos.core.seed_manager import reclassify_seed_as_inherited
+
+        init_knowledge_table()
+
+        seed_path = Path(__file__).resolve().parents[1] / "seed.json"
+        if not seed_path.exists():
+            click.secho(f"[-] Seed file not found: {seed_path}", fg="red")
+            return
+
+        seed_data = json.loads(seed_path.read_text(encoding="utf-8"))
+        counts = reclassify_seed_as_inherited(seed_data)
+        if counts["reclassified"] == 0:
+            click.secho(
+                f"[~] No seed entries needed reclassification "
+                f"({counts['already_correct']} already INHERITED).",
+                fg="bright_black",
+            )
+        else:
+            click.secho(
+                f"[+] Reclassified {counts['reclassified']} seed entries to INHERITED.",
+                fg="green",
+            )
+            click.secho(
+                f"    {counts['already_correct']} already correct, "
+                f"{counts['not_seed']} non-seed untouched.",
+                fg="bright_black",
+            )
+
     @cli.command("seed-export")
     @click.option("--output", "-o", default=None, help="Output file path (default: stdout)")
     def seed_export_cmd(output: str | None) -> None:

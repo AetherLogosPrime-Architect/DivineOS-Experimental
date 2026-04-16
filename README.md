@@ -300,6 +300,7 @@ src/divineos/
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
+    correction_commands.py     correction (log raw), corrections (read)
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   core/
@@ -404,6 +405,7 @@ src/divineos/
     planning_commitments.py    Commitment tracking and fulfillment checking
     skill_library.py           Evidence-based skill proficiency tracking
     curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
+    corrections.py             Raw correction notebook (Andrew's exact words, no framing)
     exploration_reader.py      Surfaces past explorations in briefing and search
     lesson_interrupt.py        Mid-session chronic lesson questions (Aria's interrupt)
     self_model.py              Unified self-model assembled from all OS systems

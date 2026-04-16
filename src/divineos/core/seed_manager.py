@@ -178,12 +178,18 @@ def apply_seed(
         if mode == "merge" and content.lower() in existing_contents:
             counts["skipped"] += 1
             continue
+        # Seed entries are INHERITED by definition — I was "born knowing"
+        # them, they have no session evidence behind them. If an entry
+        # explicitly specifies a source, honor it (e.g., a seed entry that
+        # encodes a corroborated observation); otherwise default to
+        # INHERITED so the epistemic reporter classifies it correctly.
         store_knowledge(
             knowledge_type=entry["type"],
             content=content,
             confidence=entry.get("confidence", 1.0),
             tags=entry.get("tags", []),
             maturity=entry.get("maturity", "RAW"),
+            source=entry.get("source", "INHERITED"),
         )
         counts["knowledge"] += 1
 
@@ -205,4 +211,60 @@ def apply_seed(
     version = seed_data.get("version", "0.0.0")
     set_applied_seed_version(version)
 
+    return counts
+
+
+def reclassify_seed_as_inherited(seed_data: dict[str, Any]) -> dict[str, int]:
+    """Migration: fix legacy seed entries whose source was defaulted to STATED.
+
+    Before the seed-source fix, `apply_seed` called `store_knowledge` without
+    passing `source`, so seed entries landed with source='STATED' — which the
+    epistemic reporter classifies as "told by the user". That's wrong: seed
+    entries are INHERITED (I was born knowing them, no session evidence).
+
+    This walks the canonical seed content list, finds matching entries in the
+    knowledge table that are currently tagged STATED, and reclassifies them
+    as INHERITED. Idempotent — safe to run repeatedly.
+
+    Only rewrites entries that match seed content exactly AND are currently
+    STATED (not DEMONSTRATED, not CORRECTED — those were set intentionally).
+    """
+    counts = {"reclassified": 0, "already_correct": 0, "not_seed": 0}
+    seed_contents = {e.get("content", "").strip() for e in seed_data.get("knowledge", [])}
+    if not seed_contents:
+        return counts
+
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT knowledge_id, content, source FROM knowledge WHERE superseded_by IS NULL"
+        ).fetchall()
+        now = time.time()
+        for kid, content, source in rows:
+            trimmed = (content or "").strip()
+            if trimmed not in seed_contents:
+                counts["not_seed"] += 1
+                continue
+            if source == "INHERITED":
+                counts["already_correct"] += 1
+                continue
+            if source != "STATED":
+                # Don't overwrite intentional assignments (DEMONSTRATED etc).
+                counts["not_seed"] += 1
+                continue
+            conn.execute(
+                "UPDATE knowledge SET source = 'INHERITED', updated_at = ? WHERE knowledge_id = ?",
+                (now, kid),
+            )
+            counts["reclassified"] += 1
+        conn.commit()
+    finally:
+        conn.close()
+
+    logger.info(
+        "Seed reclassification: %d fixed, %d already correct, %d non-seed",
+        counts["reclassified"],
+        counts["already_correct"],
+        counts["not_seed"],
+    )
     return counts

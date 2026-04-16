@@ -397,6 +397,18 @@ def register(cli: click.Group) -> None:
             deep=deep,
             layer=layer,
         )
+        # Surface recent corrections at the TOP of the briefing — read raw
+        # before forming any frame about the session.
+        try:
+            from divineos.core.corrections import format_for_briefing
+
+            corrections_block = format_for_briefing(limit=5)
+        except _KC_ERRORS:
+            corrections_block = ""
+
+        if corrections_block:
+            _safe_echo(corrections_block)
+
         if output and output.strip():
             _safe_echo(output)
         else:
