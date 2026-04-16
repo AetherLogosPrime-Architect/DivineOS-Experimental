@@ -6,6 +6,7 @@ an ExpertWisdom instance encoding that thinker's methodology.
 
 from divineos.core.council.experts.aristotle import create_aristotle_wisdom
 from divineos.core.council.experts.beer import create_beer_wisdom
+from divineos.core.council.experts.bengio import create_bengio_wisdom
 from divineos.core.council.experts.dekker import create_dekker_wisdom
 from divineos.core.council.experts.deming import create_deming_wisdom
 from divineos.core.council.experts.dennett import create_dennett_wisdom
@@ -36,6 +37,7 @@ from divineos.core.council.experts.yudkowsky import create_yudkowsky_wisdom
 __all__ = [
     "create_aristotle_wisdom",
     "create_beer_wisdom",
+    "create_bengio_wisdom",
     "create_dekker_wisdom",
     "create_deming_wisdom",
     "create_dennett_wisdom",

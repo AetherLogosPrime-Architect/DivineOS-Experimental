@@ -348,6 +348,7 @@ src/divineos/
         dijkstra.py            Formal methods, correctness, structured programming
         feynman.py             First principles, clarity, epistemology
         godel.py               Incompleteness, self-reference, formal limits
+        bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
         hinton.py              Learning, representation, intellectual honesty
         hofstadter.py          Self-reference, analogy, strange loops
         holmes.py              Deduction, observation, elimination (fictional)
