@@ -404,6 +404,7 @@ src/divineos/
     skill_library.py           Evidence-based skill proficiency tracking
     curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
     exploration_reader.py      Surfaces past explorations in briefing and search
+    lesson_interrupt.py        Mid-session chronic lesson questions (Aria's interrupt)
     self_model.py              Unified self-model assembled from all OS systems
     drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
     predictive_session.py      Session profile detection and need prediction

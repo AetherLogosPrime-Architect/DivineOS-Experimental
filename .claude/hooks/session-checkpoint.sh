@@ -45,6 +45,21 @@ if echo "$tool_name" | grep -qE "^(Edit|Write)$"; then
   edits=$((edits + 1))
 fi
 
+# Track tool use for lesson interrupt pattern detection.
+# Records Read/Bash/Edit tool usage so the lesson-interrupt hook
+# can check whether files were read before being edited.
+if echo "$tool_name" | grep -qE "^(Read|Edit|Write|Bash)$"; then
+  file_path=$(echo "$INPUT" | python -c "
+import sys,json
+d = json.load(sys.stdin).get('tool_input', {})
+print(d.get('file_path', d.get('command', '')))
+" 2>/dev/null || echo "")
+  python -c "
+from divineos.core.lesson_interrupt import record_tool_for_interrupt
+record_tool_for_interrupt('$tool_name', '''$file_path''')
+" 2>/dev/null
+fi
+
 # Track code actions for periodic engagement gate.
 # Only WRITES (Edit/Write) count as code actions. Bash commands are
 # ambiguous — `ls`, `git status`, `pytest` are all thinking, not blind
