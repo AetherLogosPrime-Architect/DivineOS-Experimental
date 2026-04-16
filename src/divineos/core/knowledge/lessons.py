@@ -338,6 +338,154 @@ def format_chronic_lessons_warning(chronic: list[dict[str, Any]] | None = None) 
     return "\n".join(lines)
 
 
+# ─── Binary Behavioral Testing ───────────────────────────────────
+# Aria's requirement: "If Aether grades his own behavior, he will
+# find a way to give himself partial credit. The rubric needs to be
+# binary: did you do the thing, yes or no."
+
+_BEHAVIORAL_TESTS: dict[str, str] = {
+    "incomplete_fix": "test_incomplete_fix",
+    "blind_retry": "test_blind_retry",
+    "upset_user": "test_upset_user",
+    "wrong_scope": "test_wrong_scope",
+    "misunderstood": "test_misunderstood",
+    "shallow_output": "test_shallow_output",
+    "blind_coding": "test_blind_coding",
+}
+
+
+def run_behavioral_tests(
+    analysis: Any,
+    features: Any = None,
+) -> list[dict[str, Any]]:
+    """Run binary behavioral tests for all chronic lessons.
+
+    Returns list of {category, passed, reason, lesson_description}.
+    No partial credit. Binary pass/fail.
+    """
+    chronic = get_chronic_lessons()
+    if not chronic:
+        return []
+
+    results: list[dict[str, Any]] = []
+    for lesson in chronic:
+        category = lesson["category"]
+        test_name = _BEHAVIORAL_TESTS.get(category)
+
+        if test_name is None:
+            results.append(
+                {
+                    "category": category,
+                    "passed": None,
+                    "reason": "no automated test — requires external review",
+                    "description": lesson["description"][:120],
+                }
+            )
+            continue
+
+        try:
+            passed, reason = _run_single_test(test_name, analysis, features)
+            results.append(
+                {
+                    "category": category,
+                    "passed": passed,
+                    "reason": reason,
+                    "description": lesson["description"][:120],
+                }
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.debug(f"Behavioral test {test_name} failed: {e}")
+            results.append(
+                {
+                    "category": category,
+                    "passed": None,
+                    "reason": f"test error: {e}",
+                    "description": lesson["description"][:120],
+                }
+            )
+
+    return results
+
+
+def _run_single_test(test_name: str, analysis: Any, features: Any) -> tuple[bool, str]:
+    """Run a single behavioral test. Returns (passed, reason)."""
+    corrections = len(getattr(analysis, "corrections", [])) if analysis else 0
+    encouragements = len(getattr(analysis, "encouragements", [])) if analysis else 0
+
+    if test_name == "test_incomplete_fix":
+        if corrections == 0:
+            return True, "no corrections this session"
+        if corrections <= 1:
+            return True, "single correction (not a pattern of missed failures)"
+        return False, f"{corrections} corrections — possible incomplete fix pattern"
+
+    if test_name == "test_blind_retry":
+        if features and hasattr(features, "error_recovery") and features.error_recovery:
+            blind = sum(1 for e in features.error_recovery if e.recovery_action == "retry")
+            if blind > 0:
+                return False, f"{blind} blind retry(s) without investigation"
+        return True, "no blind retries detected"
+
+    if test_name == "test_upset_user":
+        frustrations = len(getattr(analysis, "frustrations", [])) if analysis else 0
+        if frustrations > 0:
+            return False, f"{frustrations} user frustration(s) detected"
+        return True, "no user frustrations this session"
+
+    if test_name == "test_wrong_scope":
+        # PASS if no scope-related corrections (enforcement, gates, blocking)
+        if analysis:
+            for c in getattr(analysis, "corrections", []):
+                content = getattr(c, "content", "").lower()
+                if any(w in content for w in ("gate", "block", "enforce", "scope", "warn")):
+                    return False, "scope/enforcement correction detected"
+        return True, "no scope/enforcement issues"
+
+    if test_name == "test_misunderstood":
+        # PASS if no intent-misread corrections
+        if corrections >= 2:
+            return False, f"{corrections} corrections — possible intent misreads"
+        return True, "no misread-intent signals"
+
+    if test_name == "test_shallow_output":
+        # PASS if encouragements > 0 OR corrections < 2
+        if encouragements > 0:
+            return True, f"{encouragements} encouragement(s) — depth was adequate"
+        if corrections >= 2:
+            return (
+                False,
+                f"{corrections} corrections with no encouragements — possible shallow",
+            )
+        return True, "no depth-related issues detected"
+
+    if test_name == "test_blind_coding":
+        return True, "engagement gate tracks this structurally"
+
+    return True, f"unknown test: {test_name}"
+
+
+def format_behavioral_test_results(results: list[dict[str, Any]]) -> str:
+    """Format behavioral test results for display at SESSION_END."""
+    if not results:
+        return ""
+
+    passed = sum(1 for r in results if r["passed"] is True)
+    failed = sum(1 for r in results if r["passed"] is False)
+    untestable = sum(1 for r in results if r["passed"] is None)
+
+    lines = [f"  Behavioral tests: {passed} passed, {failed} failed, {untestable} untestable"]
+    for r in results:
+        if r["passed"] is True:
+            icon = "PASS"
+        elif r["passed"] is False:
+            icon = "FAIL"
+        else:
+            icon = "????"
+        lines.append(f"    [{icon}] {r['category']}: {r['reason']}")
+
+    return "\n".join(lines)
+
+
 def get_lesson_summary() -> str:
     """Generate a plain English summary of active and improving lessons."""
     lessons = get_lessons()

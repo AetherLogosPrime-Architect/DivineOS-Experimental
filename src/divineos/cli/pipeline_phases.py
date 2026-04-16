@@ -525,6 +525,7 @@ def run_lesson_detection(
     check_results: list,
     session_id: str,
     features: Any,
+    analysis: Any = None,
 ) -> list[str]:
     """Detect and record lessons from quality checks + session features.
 
@@ -626,6 +627,22 @@ def run_lesson_detection(
             logger.debug(f"Accountability check failed: {e}")
     except (*_PHASE_ERRORS, ValueError) as e:
         logger.debug(f"Lesson detection failed: {e}")
+
+    # 8p3. Binary behavioral tests — pass/fail per chronic lesson
+    try:
+        from divineos.core.knowledge.lessons import (
+            format_behavioral_test_results,
+            run_behavioral_tests,
+        )
+
+        bt_results = run_behavioral_tests(analysis, features)
+        if bt_results:
+            bt_text = format_behavioral_test_results(bt_results)
+            failed_count = sum(1 for r in bt_results if r["passed"] is False)
+            color = "red" if failed_count > 0 else "green"
+            click.secho(f"[~] {bt_text}", fg=color)
+    except _PHASE_ERRORS as e:
+        logger.debug(f"Behavioral testing failed: {e}")
 
     # 8q. Lesson escalation (auto-resolve)
     # Runs AFTER lesson detection so we don't resolve a lesson

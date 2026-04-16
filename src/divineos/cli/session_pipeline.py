@@ -268,7 +268,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         # ── Phase 7c: Lesson detection BEFORE corroboration ──────
         # Lessons must be recorded first so the corroboration sweep's
         # maturity promotions reflect actual learning patterns.
-        run_lesson_detection(check_results, analysis.session_id, features)
+        run_lesson_detection(check_results, analysis.session_id, features, analysis)
 
         # ── Phase 8: Session scoring and corroboration ───────────
         health = run_session_scoring(analysis, access_snapshot)
