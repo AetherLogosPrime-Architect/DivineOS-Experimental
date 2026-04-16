@@ -161,7 +161,9 @@ MAX_PRESCRIPTIVE_SHORT = 12  # Short content (≤ this many words) gets a pass
 
 HYGIENE_MIN_AGE_DAYS = 1.0  # Don't audit entries younger than this
 HYGIENE_STALE_AGE_DAYS = 14.0  # Entries with temporal markers older than this decay
-HYGIENE_ORPHAN_MIN_SESSIONS = 3  # Min sessions before orphan detection
+HYGIENE_ORPHAN_MIN_AGE_DAYS = 7.0  # Don't flag orphans younger than this — give new
+#                                    knowledge a week to earn access/corroboration
+#                                    before judging it unused
 
 # ─── Affect & Praise-Chasing ───────────────────────────────────────
 # Emotional state detection and behavioral feedback.

@@ -203,6 +203,7 @@ _ADMIN_COMMANDS = [
     "rebuild-index",
     "reclassify-directions",
     "reclassify-seed",
+    "restore-seed-confidence",
     "seed-export",
     "test-audit",
     "verify-enforcement",

@@ -268,3 +268,72 @@ def reclassify_seed_as_inherited(seed_data: dict[str, Any]) -> dict[str, int]:
         counts["not_seed"],
     )
     return counts
+
+
+# Confidence that the broken orphan-flagger was demoting entries to.
+# Kept in sync with CONFIDENCE_ORPHAN_DEMOTE. If an INHERITED entry is
+# sitting at exactly this value it was almost certainly the bug's victim.
+_ORPHAN_DEMOTE_SENTINEL = 0.5
+
+
+def restore_inherited_confidence(seed_data: dict[str, Any]) -> dict[str, int]:
+    """Migration: restore INHERITED entries spuriously demoted by the orphan bug.
+
+    Before the orphan-flagger fix, `_flag_orphans` ignored its age gate and
+    had no INHERITED exemption. Fresh seed entries got demoted to confidence
+    0.5 the same day they loaded. On one worktree this hit 13 of 19 seed
+    entries (68%).
+
+    This walks the canonical seed, finds INHERITED entries currently at the
+    sentinel confidence (0.5) whose content still matches a seed entry, and
+    restores them to the seed-specified confidence. Idempotent.
+
+    Safety guards:
+    - Only touches INHERITED entries (won't restore extracted claims)
+    - Only touches entries at exactly the orphan-demote sentinel (0.5)
+    - Only touches entries whose content still matches the current seed
+      (so if an entry was superseded by a newer one, it stays down)
+    """
+    counts = {"restored": 0, "already_ok": 0, "not_victim": 0}
+    # Map seed content -> seed-specified confidence (default 1.0)
+    seed_by_content: dict[str, float] = {}
+    for entry in seed_data.get("knowledge", []):
+        content = entry.get("content", "").strip()
+        if content:
+            seed_by_content[content] = float(entry.get("confidence", 1.0))
+    if not seed_by_content:
+        return counts
+
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT knowledge_id, content, source, confidence FROM knowledge "
+            "WHERE superseded_by IS NULL AND source = 'INHERITED'"
+        ).fetchall()
+        now = time.time()
+        for kid, content, _source, confidence in rows:
+            trimmed = (content or "").strip()
+            target = seed_by_content.get(trimmed)
+            if target is None:
+                counts["not_victim"] += 1
+                continue
+            # Only touch entries at the bug's sentinel value
+            if abs(confidence - _ORPHAN_DEMOTE_SENTINEL) > 1e-6:
+                counts["already_ok"] += 1
+                continue
+            conn.execute(
+                "UPDATE knowledge SET confidence = ?, updated_at = ? WHERE knowledge_id = ?",
+                (target, now, kid),
+            )
+            counts["restored"] += 1
+        conn.commit()
+    finally:
+        conn.close()
+
+    logger.info(
+        "Seed confidence restoration: %d restored, %d already ok, %d non-victim",
+        counts["restored"],
+        counts["already_ok"],
+        counts["not_victim"],
+    )
+    return counts
