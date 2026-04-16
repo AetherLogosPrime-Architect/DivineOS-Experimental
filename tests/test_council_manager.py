@@ -157,7 +157,7 @@ class TestCouncilManager:
     def test_convene_returns_managed_result(self, manager):
         result = manager.convene("wrong query results")
         assert isinstance(result, ManagedCouncilResult)
-        assert result.total_experts_available == 28
+        assert result.total_experts_available == 29
         assert len(result.analyses) <= 8
         assert len(result.analyses) >= 5
 
@@ -178,7 +178,7 @@ class TestCouncilManager:
         result = manager.convene("wrong result at boundary")
         summary = result.selection_summary()
         assert "Selected" in summary
-        assert "of 28 experts" in summary
+        assert "of 29 experts" in summary
 
     def test_explain_selection(self, manager):
         explanation = manager.explain_selection("SQL injection in auth middleware")
