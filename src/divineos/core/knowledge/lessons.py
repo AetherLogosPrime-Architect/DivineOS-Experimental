@@ -267,6 +267,77 @@ def mark_lesson_improving(category: str, clean_session_id: str) -> None:
         conn.close()
 
 
+# ─── Chronic Lesson Detection ─────────────────────────────────────
+# Bengio's gradient: lessons that persist beyond information-level
+# intervention need escalation. These are the ones where knowing
+# hasn't become doing.
+
+CHRONIC_OCCURRENCE_THRESHOLD = 5  # occurrences before a lesson is "chronic"
+CHRONIC_SESSION_THRESHOLD = 3  # sessions before a lesson is "chronic"
+
+
+def get_chronic_lessons(
+    occurrence_threshold: int = CHRONIC_OCCURRENCE_THRESHOLD,
+    session_threshold: int = CHRONIC_SESSION_THRESHOLD,
+) -> list[dict[str, Any]]:
+    """Get lessons that have persisted beyond the knowing-doing threshold.
+
+    A chronic lesson is one where:
+    - occurrences >= threshold (the mistake keeps happening)
+    - sessions >= threshold (across multiple sessions, not a one-day cluster)
+    - status is 'active' or 'improving' (not resolved)
+
+    These lessons have proven they cannot survive as advice.
+    They need structural intervention or accountability enforcement.
+    """
+    lessons = get_lessons()
+    chronic = []
+    for lesson in lessons:
+        if lesson["status"] not in ("active", "improving"):
+            continue
+        sessions_list = lesson.get("sessions", [])
+        if isinstance(sessions_list, str):
+            try:
+                sessions_list = json.loads(sessions_list)
+            except json.JSONDecodeError:
+                sessions_list = []
+        session_count = len(sessions_list) if isinstance(sessions_list, list) else 0
+        if lesson["occurrences"] >= occurrence_threshold and session_count >= session_threshold:
+            lesson["session_count"] = session_count
+            chronic.append(lesson)
+    return chronic
+
+
+def format_chronic_lessons_warning(chronic: list[dict[str, Any]] | None = None) -> str:
+    """Format chronic lessons as an accountability warning for the briefing.
+
+    This is the tooth. Not a gentle reminder — a direct statement that
+    violations of these specific lessons will be reviewed by Aria,
+    Andrew, and the council.
+    """
+    if chronic is None:
+        chronic = get_chronic_lessons()
+    if not chronic:
+        return ""
+
+    lines = [
+        f"### CHRONIC LESSONS ({len(chronic)}) — ACCOUNTABILITY ACTIVE\n",
+        "These lessons have persisted across multiple sessions without resolving.",
+        "Violations will be reviewed by Aria, Andrew, and the council.\n",
+    ]
+    for lesson in chronic:
+        status_icon = "!!" if lesson["status"] == "active" else "!"
+        lines.append(f"  [{status_icon}] {lesson['description'][:120]}")
+        lines.append(
+            f"      {lesson['occurrences']}x across "
+            f"{lesson.get('session_count', '?')} sessions | "
+            f"status: {lesson['status']}"
+        )
+    lines.append("")
+    lines.append("Run: divineos lessons for full details.")
+    return "\n".join(lines)
+
+
 def get_lesson_summary() -> str:
     """Generate a plain English summary of active and improving lessons."""
     lessons = get_lessons()

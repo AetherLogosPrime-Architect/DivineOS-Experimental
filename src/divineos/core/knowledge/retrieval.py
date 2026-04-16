@@ -811,6 +811,17 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"logic-health: {e}")
 
+    # Chronic lessons — accountability warning (surfaces BEFORE regular lessons)
+    try:
+        from divineos.core.knowledge.lessons import format_chronic_lessons_warning
+
+        chronic_text = format_chronic_lessons_warning()
+        if chronic_text:
+            lines.append(chronic_text)
+            lines.append("")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"chronic-lessons: {e}")
+
     if lessons_text:
         lines.append(lessons_text)
         lines.append("")
