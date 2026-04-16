@@ -71,6 +71,13 @@ class TestDreamReport:
         assert "A=0.30" in text
         assert "D=-0.10" in text
 
+    def test_summary_shows_resolved_lessons(self):
+        report = DreamReport(lessons_resolved=["upset_user", "shallow_output"])
+        text = report.summary()
+        assert "Lessons resolved" in text
+        assert "upset_user" in text
+        assert "shallow_output" in text
+
     def test_summary_shows_errors(self):
         report = DreamReport(phase_errors={"consolidation": "DB locked"})
         text = report.summary()
@@ -93,6 +100,118 @@ class TestPhaseConsolidation:
         _phase_consolidation(report)
         # Should run without error, entries_scanned >= 0
         assert report.entries_scanned >= 0
+
+    def test_resolves_eligible_lessons(self, tmp_path, monkeypatch):
+        """Lesson resolution runs during sleep, not just explicit SESSION_END.
+
+        A lesson that's been 'improving' for >= LESSON_ABSENCE_DAYS with zero
+        regressions and enough clean sessions should resolve when sleep runs,
+        even if the full SESSION_END pipeline never fires.
+        """
+        import json
+
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge.lessons import _ensure_regressions_column
+
+        init_knowledge_table()
+        conn_init = _get_connection()
+        _ensure_regressions_column(conn_init)
+        conn_init.close()
+
+        # Insert an 'improving' lesson that qualifies for absence-mode resolution:
+        # - 21 days quiet (well past LESSON_ABSENCE_DAYS=7)
+        # - 0 regressions
+        # - 5 clean sessions (meets LESSON_EFFECTIVE_MIN floor)
+        past = time.time() - 21 * 86400
+        conn = _get_connection()
+        conn.execute(
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, regressions) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "test-lesson-1",
+                past,
+                "sleep_test_category",
+                "A test lesson that has been quiet for 21 days.",
+                "session-a",
+                5,
+                past,
+                json.dumps(["s1", "s2", "s3", "s4", "s5"]),
+                "improving",
+                "hash1",
+                "test",
+                0,
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        report = DreamReport()
+        _phase_consolidation(report)
+
+        assert "sleep_test_category" in report.lessons_resolved
+
+        # Verify the DB was actually updated
+        conn2 = _get_connection()
+        status = conn2.execute(
+            "SELECT status FROM lesson_tracking WHERE lesson_id = 'test-lesson-1'"
+        ).fetchone()[0]
+        conn2.close()
+        assert status == "resolved"
+
+    def test_ineligible_lessons_untouched(self, tmp_path, monkeypatch):
+        """Lessons that don't meet absence-mode criteria stay improving."""
+        import json
+
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge.lessons import _ensure_regressions_column
+
+        init_knowledge_table()
+        conn_init = _get_connection()
+        _ensure_regressions_column(conn_init)
+        conn_init.close()
+
+        # This lesson has regressions, so absence-mode doesn't apply.
+        # Without the session-padding threshold met, it can't resolve.
+        recent = time.time() - 3600
+        conn = _get_connection()
+        conn.execute(
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, regressions) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "test-lesson-2",
+                recent,
+                "regressing_category",
+                "A lesson that just regressed an hour ago.",
+                "session-b",
+                4,
+                recent,
+                json.dumps(["s1", "s2"]),
+                "improving",
+                "hash2",
+                "test",
+                3,
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        report = DreamReport()
+        _phase_consolidation(report)
+
+        assert "regressing_category" not in report.lessons_resolved
+
+        conn2 = _get_connection()
+        status = conn2.execute(
+            "SELECT status FROM lesson_tracking WHERE lesson_id = 'test-lesson-2'"
+        ).fetchone()[0]
+        conn2.close()
+        assert status == "improving"
 
 
 class TestPhaseAffect:

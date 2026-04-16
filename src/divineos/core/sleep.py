@@ -44,6 +44,7 @@ class DreamReport:
     entries_scanned: int = 0
     promotions: dict[str, int] = field(default_factory=dict)
     total_promoted: int = 0
+    lessons_resolved: list[str] = field(default_factory=list)
 
     # Phase 2: Pruning
     health_results: dict[str, Any] = field(default_factory=dict)
@@ -84,6 +85,8 @@ class DreamReport:
                 lines.append(f"    Promoted to {level}: {count}")
         else:
             lines.append("    No promotions needed")
+        if self.lessons_resolved:
+            lines.append(f"    Lessons resolved: {', '.join(self.lessons_resolved)}")
 
         # Pruning
         lines.append("\n  Phase 2 - Pruning")
@@ -197,8 +200,14 @@ def _phase_consolidation(report: DreamReport) -> None:
     During SESSION_END, maturity checks run on newly stored entries only.
     Sleep checks EVERYTHING — entries that accumulated corroboration across
     multiple sessions but never hit the promotion threshold in any single one.
+
+    Also runs lesson resolution: lessons are maturity too. A lesson that has
+    been 'improving' long enough with zero regressions earns RESOLVED status.
+    SESSION_END phase 8q only runs on explicit triggers; sleep ensures
+    absence-as-success still gets counted when the full pipeline doesn't fire.
     """
     from divineos.core.knowledge.crud import get_knowledge
+    from divineos.core.knowledge.lessons import auto_resolve_lessons
     from divineos.core.knowledge_maintenance import run_maturity_cycle
 
     entries = get_knowledge(limit=10000, include_superseded=False)
@@ -207,6 +216,9 @@ def _phase_consolidation(report: DreamReport) -> None:
     promotions = run_maturity_cycle(entries)
     report.promotions = promotions
     report.total_promoted = sum(promotions.values())
+
+    resolved = auto_resolve_lessons()
+    report.lessons_resolved = [r["category"] for r in resolved]
 
 
 # ─── Phase 2: Pruning ─────────────────────────────────────────────────
