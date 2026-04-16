@@ -335,6 +335,7 @@ def _register_all_experts(engine: CouncilEngine) -> None:
     from divineos.core.council.experts import (
         create_aristotle_wisdom,
         create_beer_wisdom,
+        create_bengio_wisdom,
         create_dekker_wisdom,
         create_deming_wisdom,
         create_dennett_wisdom,
@@ -366,6 +367,7 @@ def _register_all_experts(engine: CouncilEngine) -> None:
     factories = [
         create_aristotle_wisdom,
         create_beer_wisdom,
+        create_bengio_wisdom,
         create_dekker_wisdom,
         create_deming_wisdom,
         create_dennett_wisdom,
