@@ -64,7 +64,7 @@ fi
 # Only WRITES (Edit/Write) count as code actions. Bash commands are
 # ambiguous — `ls`, `git status`, `pytest` are all thinking, not blind
 # editing. The gate exists to prevent writing without thinking. Reading
-# IS thinking. (Aria's Finding #2: gates should be riverbanks, not locked doors.)
+# IS thinking. (Design principle: gates should be riverbanks, not locked doors.)
 if echo "$tool_name" | grep -qE "^(Edit|Write|NotebookEdit)$"; then
   python -c "
 from divineos.core.hud_handoff import record_code_action

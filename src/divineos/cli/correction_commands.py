@@ -1,4 +1,4 @@
-"""Correction CLI — capture Andrew's exact words, raw, in the moment.
+"""Correction CLI — capture the user's exact words, raw, in the moment.
 
 Purpose: when a correction lands, log it before any framing engages. No
 category dropdown, no severity, no 'why'. Just the words and the time.
@@ -47,7 +47,7 @@ def register(cli: click.Group) -> None:
     @click.option("--limit", default=10, type=int, help="How many to show, newest first.")
     @click.option("--all", "show_all", is_flag=True, help="Show every correction ever logged.")
     def corrections_cmd(limit: int, show_all: bool) -> None:
-        """Read past corrections — Andrew's exact words, in time order."""
+        """Read past corrections — the user's exact words, in time order."""
         from divineos.core.corrections import load_corrections, recent_corrections
 
         if show_all:

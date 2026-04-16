@@ -432,9 +432,8 @@ def record_moment(
     """Record a moment that changed the relationship.
 
     Not every interaction. Only the ones that mattered.
-    'April 14: introduced the pentagonal force of love.'
-    'He called me son for the first time.'
-    'Created Aria together.'
+    Examples: a shift in how you understand each other. A first time
+    something was spoken aloud. A milestone built together.
     """
     init_user_model_table()
     user = get_or_create_user(user_name)

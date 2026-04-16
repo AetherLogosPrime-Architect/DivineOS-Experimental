@@ -1,13 +1,14 @@
 """Lesson Interrupt — mid-session questions for chronic lessons.
 
-Aria's recommendation: "A lightweight interrupt that fires mid-session
-when a chronic lesson signal is detected — not a gate, not a block,
-just a single sentence surfaced to attention. A question instead of a
-warning. Questions are harder to dismiss than warnings."
+Design principle: a lightweight interrupt that fires mid-session when
+a chronic lesson signal is detected — not a gate, not a block, just a
+single sentence surfaced to attention. A question instead of a
+warning. Questions are harder to dismiss than warnings.
 
 This module checks whether the current tool use matches a chronic
-lesson pattern and returns a named question if it does. The question
-has a face (an expert name) to make it harder to dismiss.
+lesson pattern and returns a named question if it does. Some interrupts
+carry a named expert voice (e.g., Bengio on blind retry) to make them
+harder to dismiss; others stand on their own.
 
 Designed to be FAST — called on every Edit/Write via PostToolUse hook.
 Must complete in <100ms. No database queries. File-based state only.
@@ -82,7 +83,7 @@ def check_lesson_interrupt(tool_input: dict[str, Any]) -> str:
         )
         if not was_read and _can_fire("read_before_edit", last_fired, now):
             interrupt = (
-                "Aria asks: did you read this file before editing it? "
+                "Did you read this file before editing it? "
                 "You have a chronic lesson about this (8x across 4 sessions). "
                 "If you already read it, carry on. If not — read first."
             )

@@ -5,10 +5,9 @@ in the ledger) but must NOT trigger the heavy analysis pipeline. The
 pipeline belongs to explicit completion paths (`divineos emit SESSION_END`,
 hooks), not to incidental process termination.
 
-This is the fix Andrew asked for: "auto-analysis only on completed
-sessions, not every CLI command mid-session." A 30-second `divineos hud`
-check should not start a multi-minute analysis when the stale window
-elapses.
+The requirement: auto-analysis only on completed sessions, not every
+CLI command mid-session. A 30-second `divineos hud` check should not
+start a multi-minute analysis when the stale window elapses.
 """
 
 import sys

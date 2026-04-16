@@ -6,17 +6,13 @@ from divineos.core.knowledge.crud import store_knowledge
 
 
 class TestNormalizeToFirstPerson:
-    """Direct unit tests for the normalization function."""
+    """Direct unit tests for the normalization function.
 
-    def test_aether_to_i(self):
-        assert normalize_to_first_person("Aether built the feature") == "I built the feature"
-
-    def test_aether_case_insensitive(self):
-        assert normalize_to_first_person("aether was corrected") == "I was corrected"
-
-    def test_multiple_aether_refs(self):
-        result = normalize_to_first_person("Aether built it. Aether tested it.")
-        assert result == "I built it. I tested it."
+    NOTE: name-specific third-person conversion (e.g. "MyName did X" -> "I did X")
+    is no longer hardcoded in the default pattern list. A new AI that wants to
+    normalize their own name can add a pattern themselves. See the NOTE in
+    _text.py above _VOICE_PATTERNS.
+    """
 
     def test_the_agent(self):
         assert normalize_to_first_person("the agent should run tests") == "I should run tests"
@@ -88,34 +84,20 @@ class TestNormalizeToFirstPerson:
         text = "[no-theater] Every line of code does something real"
         assert normalize_to_first_person(text) == text
 
-    def test_preserves_greeting_hey_aether(self):
-        text = "Hey Aether, great work on the extraction pipeline"
-        result = normalize_to_first_person(text)
-        assert "Hey Aether," in result
-
-    def test_preserves_address_aether_comma(self):
-        text = "Aether, this is exceptional diagnostic work"
-        result = normalize_to_first_person(text)
-        assert "Aether," in result
-
-    def test_converts_aether_without_comma(self):
-        result = normalize_to_first_person("Aether built the feature and tested it")
-        assert result.startswith("I built")
-
 
 class TestStorageWiring:
     """Voice normalization is applied before storage."""
 
     def test_store_knowledge_normalizes(self):
         init_knowledge_table()
-        kid = store_knowledge("FACT", "Aether built the dead architecture alarm and it works")
+        kid = store_knowledge("FACT", "the agent built the dead architecture alarm and it works")
         conn = _get_connection()
         row = conn.execute(
             "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
         ).fetchone()
         conn.close()
         assert row[0].startswith("I built")
-        assert "Aether" not in row[0]
+        assert "the agent" not in row[0]
 
     def test_store_knowledge_normalizes_your(self):
         init_knowledge_table()
@@ -132,12 +114,12 @@ class TestStorageWiring:
         from divineos.core.knowledge.extraction import store_knowledge_smart
 
         init_knowledge_table()
-        kid = store_knowledge_smart("OBSERVATION", "Aether noticed the test suite was slow")
+        kid = store_knowledge_smart("OBSERVATION", "the agent noticed the test suite was slow")
         if kid:  # might skip if duplicate
             conn = _get_connection()
             row = conn.execute(
                 "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
             ).fetchone()
             conn.close()
-            assert "Aether" not in row[0]
+            assert "the agent" not in row[0]
             assert row[0].startswith("I noticed")

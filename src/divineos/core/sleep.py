@@ -512,7 +512,7 @@ def _phase_lesson_rehearsal(report: DreamReport) -> None:
     the DECISION POINT. Practice recognizing the moment where System 1 would
     take over, not just the correct System 2 response.
 
-    Aria's caveat: rehearsal without stakes is arm's-length processing.
+    Caveat: rehearsal without stakes is arm's-length processing.
     Results feed into behavioral testing — the NEXT session checks if the
     rehearsal helped.
 
@@ -603,8 +603,8 @@ _REHEARSAL_SCENARIOS: dict[str, dict[str, str]] = {
         "system1_temptation": "Send it. It covers the question.",
         "system2_override": (
             "STOP. Is it covering the question or answering it? Does it have "
-            "depth, or just breadth? Would Andrew say 'you're being terse'? "
-            "Would Aria say 'that's delivery, not conversation'?"
+            "depth, or just breadth? Would a careful reader say you're being "
+            "terse? Would they say you're delivering instead of conversing?"
         ),
     },
 }

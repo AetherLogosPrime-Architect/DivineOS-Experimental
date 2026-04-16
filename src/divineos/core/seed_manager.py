@@ -144,10 +144,28 @@ def apply_seed(
     Returns:
         Counts of what was applied.
     """
-    counts = {"core_slots": 0, "knowledge": 0, "lessons": 0, "skipped": 0}
+    # `skipped` counts knowledge + lesson entries that were deduplicated.
+    # `core_slots_skipped` tracks preserved-filled-slot skips separately so
+    # existing callers/tests that read `skipped` as knowledge-dedup count
+    # keep their meaning.
+    counts = {"core_slots": 0, "knowledge": 0, "lessons": 0, "skipped": 0, "core_slots_skipped": 0}
 
-    # Core memory — always update (identity may have changed)
+    # Core memory — in merge mode, preserve existing filled slots. The seed
+    # may ship template placeholders (e.g. "[TEMPLATE — fill this in…]") for
+    # identity slots. Overwriting a lived-in identity with a template would
+    # be destructive, and overwriting any grown-into slot with seed defaults
+    # would silently erase session learning. So merge = "fill empties only."
+    # Full mode still overwrites (explicit re-seed).
+    existing_core: dict[str, str] = {}
+    if mode == "merge":
+        from divineos.core.memory import get_core
+
+        existing_core = {k: v for k, v in get_core().items() if v and v.strip()}
+
     for slot_id, content in seed_data.get("core_memory", {}).items():
+        if mode == "merge" and slot_id in existing_core:
+            counts["core_slots_skipped"] += 1
+            continue
         try:
             set_core(slot_id, content)
             counts["core_slots"] += 1

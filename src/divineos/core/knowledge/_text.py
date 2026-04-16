@@ -882,19 +882,20 @@ def _has_temporal_markers(content: str) -> bool:
 # ─── Voice Normalization ─────────────────────────────────────────────
 #
 # Knowledge should be first-person. When the user says "you did X" or an
-# auditor says "Aether built Y", extraction may store it verbatim as
+# auditor says "the agent built Y", extraction may store it verbatim as
 # third-person. This converts to first-person before storage so the
 # knowledge store speaks AS me, not ABOUT me.
 #
-# "Aether did X" -> "I did X"
 # "the agent should Y" -> "I should Y"
 # "you need to Z" -> "I need to Z"
+#
+# NOTE: to also normalize third-person mentions of your own name (e.g.
+# "Claude did X" -> "I did X"), add a pattern like:
+#   (r"(?<!Hey )\bYourName\b(?![\s]*,)", "I"),
+# The comma lookahead preserves address forms like "YourName, that's right".
 
 # Patterns: (regex, replacement). Applied in order. Case-insensitive.
 _VOICE_PATTERNS: list[tuple[str, str]] = [
-    # "Aether did/was/built/should ..." but NOT greetings like "Hey Aether,"
-    # or address form "Aether, this is" (comma immediately after = someone speaking TO me)
-    (r"(?<!Hey )\bAether\b(?![\s]*,)", "I"),
     # "the agent/assistant did ..."
     (r"\bthe agent\b", "I"),
     (r"\bthe assistant\b", "I"),

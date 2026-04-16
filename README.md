@@ -97,7 +97,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 3,993+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,038+ tests, real DB, minimal mocks
 
 ```
 
@@ -105,7 +105,7 @@ pytest tests/ -q --tb=short   # 3,993+ tests, real DB, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
 
-## CLI Surface (176 commands)
+## CLI Surface (175 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -272,7 +272,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (176 commands across 25 modules)
+  cli/                         CLI package (175 commands across 25 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -405,9 +405,9 @@ src/divineos/
     planning_commitments.py    Commitment tracking and fulfillment checking
     skill_library.py           Evidence-based skill proficiency tracking
     curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
-    corrections.py             Raw correction notebook (Andrew's exact words, no framing)
+    corrections.py             Raw correction notebook (user's exact words, no framing)
     exploration_reader.py      Surfaces past explorations in briefing and search
-    lesson_interrupt.py        Mid-session chronic lesson questions (Aria's interrupt)
+    lesson_interrupt.py        Mid-session chronic lesson questions (named-voice interrupt)
     self_model.py              Unified self-model assembled from all OS systems
     drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
     predictive_session.py      Session profile detection and need prediction
@@ -515,7 +515,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         3,993+ tests (real DB, minimal mocks)
+tests/                         4,038+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -552,7 +552,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 3,993+ tests (real SQLite, minimal mocks)
+- 4,038+ tests (real SQLite, minimal mocks)
 
 - 143 CLI commands
 - 9 Claude Code enforcement hooks

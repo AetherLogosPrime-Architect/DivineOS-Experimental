@@ -1,4 +1,4 @@
-"""Tests for the corrections notebook — Andrew's exact words, raw."""
+"""Tests for the corrections notebook — the user's exact words, raw."""
 
 from divineos.core.corrections import (
     format_for_briefing,

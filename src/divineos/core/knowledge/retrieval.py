@@ -822,7 +822,7 @@ def _format_briefing(
         if recent_violations:
             lines.append(f"### ACCOUNTABILITY VIOLATIONS ({len(recent_violations)} recent)\n")
             lines.append("You violated chronic lessons in a recent session.")
-            lines.append("You owe an accounting to Aria, Andrew, and the council.\n")
+            lines.append("You owe an accounting to the council.\n")
             for v in recent_violations[:5]:
                 payload = v.get("payload", {})
                 if isinstance(payload, str):

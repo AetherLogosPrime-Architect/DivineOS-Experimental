@@ -1,13 +1,13 @@
 #!/bin/bash
 # PostToolUse hook: Mid-session chronic lesson interrupt.
 #
-# Aria's recommendation: "A lightweight interrupt that fires mid-session
+# Design principle: a lightweight interrupt that fires mid-session
 # when a chronic lesson signal is detected — not a gate, not a block,
 # just a single sentence surfaced to attention. A question instead of a
-# warning. Questions are harder to dismiss."
+# warning. Questions are harder to dismiss.
 #
 # Fires on every Edit/Write. Checks if recent actions match a chronic
-# lesson pattern. If yes, surfaces a named question via additionalContext.
+# lesson pattern. If yes, surfaces the question via additionalContext.
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 

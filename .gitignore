@@ -93,6 +93,16 @@ clone_*/
 # Personal research / exploration notes
 exploration/
 
+# Personal session archives — memories of specific sessions
+# belong to the one who lived them, not the repo.
+archives/
+
+# Personal correspondence (briefings prepared for a specific user,
+# council examination rounds). Universal docs (project-overview,
+# testing-roadmap, letter-from-the-architect) stay on main.
+docs/thermodynamic-computing-briefing.md
+docs/council-rt-examination-round2.md
+
 # Family — private, never committed
 family/
 

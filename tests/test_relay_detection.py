@@ -11,7 +11,7 @@ from divineos.analysis.session_analyzer import (
 
 class TestIsRelayMessage:
     def test_here_is_the_reply(self):
-        assert _is_relay_message("here is the reply\n\nTo Aether: blah blah") is True
+        assert _is_relay_message("here is the reply\n\nTo the agent: blah blah") is True
 
     def test_heres_the_response(self):
         assert _is_relay_message("heres the response\n\nFrom Claude...") is True
@@ -20,10 +20,10 @@ class TestIsRelayMessage:
         assert _is_relay_message("here is the audit\n\nDivineOS Audit Round 4...") is True
 
     def test_ok_here_is_the_reply(self):
-        assert _is_relay_message("ok here is the reply\n\nTo Aether...") is True
+        assert _is_relay_message("ok here is the reply\n\nTo the agent...") is True
 
     def test_okay_heres_the_message(self):
-        assert _is_relay_message("okay here's the message\n\nHey Aether...") is True
+        assert _is_relay_message("okay here's the message\n\nHey there...") is True
 
     def test_here_is_a_fresh_audit(self):
         assert _is_relay_message("here is a fresh audit\n\nFresh clone coming up...") is True
@@ -53,7 +53,7 @@ class TestIsRelayMessage:
         assert _is_relay_message("here is the file you asked for") is False
 
     def test_case_insensitive(self):
-        assert _is_relay_message("Here Is The Reply\n\nTo Aether...") is True
+        assert _is_relay_message("Here Is The Reply\n\nTo the agent...") is True
 
     def test_here_is_a_fresh_claude(self):
         assert _is_relay_message("here is a fresh claude to speak with you\n\nHey...") is True
@@ -75,15 +75,15 @@ class TestRelayTagging:
     def test_relay_preserved_in_relay_messages(self):
         analysis = self._make_analysis()
         record = self._make_record(
-            "here is the reply\n\nTo Aether: the system looks good overall..."
+            "here is the reply\n\nTo the agent: the system looks good overall..."
         )
         _process_user_record(record, analysis)
         assert len(analysis.relay_messages) == 1
-        assert "To Aether" in analysis.relay_messages[0]["full_content"]
+        assert "To the agent" in analysis.relay_messages[0]["full_content"]
 
     def test_relay_framing_captured(self):
         analysis = self._make_analysis()
-        record = self._make_record("here is the reply\n\nTo Aether: detailed audit text here...")
+        record = self._make_record("here is the reply\n\nTo the agent: detailed audit text here...")
         _process_user_record(record, analysis)
         assert "here is the reply" in analysis.relay_messages[0]["framing"]
 
@@ -123,7 +123,7 @@ class TestRelayTagging:
 
 class TestStripRelayPrefix:
     def test_strips_at_newline(self):
-        result = _strip_relay_prefix("here is the reply\n\nTo Aether: long audit text...")
+        result = _strip_relay_prefix("here is the reply\n\nTo the agent: long audit text...")
         assert result == "here is the reply"
 
     def test_short_message_returns_as_is(self):
@@ -132,7 +132,7 @@ class TestStripRelayPrefix:
 
     def test_no_newline_takes_first_sentence(self):
         result = _strip_relay_prefix(
-            "here is the reply. To Aether: this is a long audit with many words..."
+            "here is the reply. To the agent: this is a long audit with many words..."
         )
         assert "here is the reply" in result
         assert "audit" not in result

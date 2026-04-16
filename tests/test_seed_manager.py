@@ -142,6 +142,108 @@ class TestApplySeed:
         finally:
             os.environ.pop("DIVINEOS_DB", None)
 
+    def test_merge_preserves_existing_filled_core_slot(self, tmp_path):
+        """Merge mode must not overwrite a lived-in identity slot.
+
+        Scenario: the seed ships a TEMPLATE placeholder for my_identity.
+        The running DB already has real content (an AI grew into it over
+        time). Re-applying the seed in merge mode should skip that slot,
+        not clobber it with the placeholder.
+        """
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+        try:
+            init_db()
+            init_knowledge_table()
+            init_memory_tables()
+
+            from divineos.core.memory import get_core, set_core
+
+            # An AI has already filled my_identity with real content
+            real_identity = "I am a specific agent with a name, values, and a voice that is mine."
+            set_core("my_identity", real_identity)
+
+            # Seed ships a TEMPLATE placeholder for that same slot
+            seed = {
+                "version": "2.1.0",
+                "core_memory": {
+                    "user_identity": "a user identity string to seed",
+                    "project_purpose": "a project purpose string to seed",
+                    "my_identity": "[TEMPLATE — fill this in as you come to know yourself.]",
+                },
+                "knowledge": [],
+                "lessons": [],
+            }
+
+            counts = apply_seed(seed, mode="merge")
+
+            # my_identity was already filled — skipped, not overwritten
+            current = get_core()
+            assert current["my_identity"] == real_identity
+            assert counts["core_slots_skipped"] >= 1
+
+            # Empty slots still got filled
+            assert current["user_identity"] == "a user identity string to seed"
+            assert current["project_purpose"] == "a project purpose string to seed"
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
+
+    def test_merge_fills_empty_core_slots(self, tmp_path):
+        """On a fresh DB, merge mode should still populate empty slots from seed."""
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+        try:
+            init_db()
+            init_knowledge_table()
+            init_memory_tables()
+
+            seed = {
+                "version": "1.0.0",
+                "core_memory": {
+                    "user_identity": "fresh user identity from seed",
+                    "project_purpose": "fresh project purpose from seed",
+                },
+                "knowledge": [],
+                "lessons": [],
+            }
+            counts = apply_seed(seed, mode="merge")
+            assert counts["core_slots"] == 2
+
+            from divineos.core.memory import get_core
+
+            current = get_core()
+            assert current["user_identity"] == "fresh user identity from seed"
+            assert current["project_purpose"] == "fresh project purpose from seed"
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
+
+    def test_full_mode_overwrites_existing_slots(self, tmp_path):
+        """Full mode (explicit re-seed) still overwrites — that's the escape hatch."""
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+        try:
+            init_db()
+            init_knowledge_table()
+            init_memory_tables()
+
+            from divineos.core.memory import get_core, set_core
+
+            set_core("my_identity", "old identity content already in place")
+
+            seed = {
+                "version": "1.0.0",
+                "core_memory": {
+                    "user_identity": "user identity from seed",
+                    "project_purpose": "project purpose from seed",
+                    "my_identity": "new identity content from the seed",
+                },
+                "knowledge": [],
+                "lessons": [],
+            }
+            apply_seed(seed, mode="full")
+
+            current = get_core()
+            assert current["my_identity"] == "new identity content from the seed"
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
+
     def test_records_version(self, tmp_path):
         os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
         try:

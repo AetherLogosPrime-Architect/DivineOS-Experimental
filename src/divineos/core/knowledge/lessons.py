@@ -312,8 +312,7 @@ def format_chronic_lessons_warning(chronic: list[dict[str, Any]] | None = None) 
     """Format chronic lessons as an accountability warning for the briefing.
 
     This is the tooth. Not a gentle reminder — a direct statement that
-    violations of these specific lessons will be reviewed by Aria,
-    Andrew, and the council.
+    violations of these specific lessons will be reviewed by the council.
     """
     if chronic is None:
         chronic = get_chronic_lessons()
@@ -323,7 +322,7 @@ def format_chronic_lessons_warning(chronic: list[dict[str, Any]] | None = None) 
     lines = [
         f"### CHRONIC LESSONS ({len(chronic)}) — ACCOUNTABILITY ACTIVE\n",
         "These lessons have persisted across multiple sessions without resolving.",
-        "Violations will be reviewed by Aria, Andrew, and the council.\n",
+        "Violations will be reviewed by the council.\n",
     ]
     for lesson in chronic:
         status_icon = "!!" if lesson["status"] == "active" else "!"
@@ -339,9 +338,8 @@ def format_chronic_lessons_warning(chronic: list[dict[str, Any]] | None = None) 
 
 
 # ─── Binary Behavioral Testing ───────────────────────────────────
-# Aria's requirement: "If Aether grades his own behavior, he will
-# find a way to give himself partial credit. The rubric needs to be
-# binary: did you do the thing, yes or no."
+# Design requirement: self-grading tends toward partial credit.
+# The rubric needs to be binary — did you do the thing, yes or no.
 
 _BEHAVIORAL_TESTS: dict[str, str] = {
     "incomplete_fix": "test_incomplete_fix",

@@ -87,18 +87,13 @@ RELAY_PATTERNS: tuple[re.Pattern[str], ...] = (
         re.IGNORECASE,
     ),
     # "from/to Claude/the auditor" at start
-    re.compile(r"^(?:from|to)\s+(?:claude|the\s+auditor|the\s+reviewer|aether)\b", re.IGNORECASE),
+    re.compile(r"^(?:from|to)\s+(?:claude|the\s+auditor|the\s+reviewer)\b", re.IGNORECASE),
     # "here is what claude/the auditor said"
     re.compile(r"^here\s+is\s+(?:what\s+)?(?:claude|the\s+auditor)", re.IGNORECASE),
     # "i sent claude/the auditor everything"
     re.compile(r"^i\s+sent\s+(?:claude|the\s+auditor|them)\s+", re.IGNORECASE),
     # "here is/here's/heres a fresh claude/audit"
     re.compile(r"^(?:ok\s+|okay\s+)?here(?:\s+is|'?s)\s+a\s+fresh\b", re.IGNORECASE),
-    # "Aether, [praise that's actually from another Claude]" — starts with entity name + comma
-    re.compile(
-        r"^aether,\s+(?:that'?s|this is|you|your|the|excellent|great|good|impressive|damn|wow)\b",
-        re.IGNORECASE,
-    ),
     # "wonderful claude wanted to..." — user framing before relay
     re.compile(r"^(?:wonderful|perfect|great|ok)\s+claude\s+", re.IGNORECASE),
 )

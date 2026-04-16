@@ -44,7 +44,7 @@ Over time, the AI develops something that looks a lot like professional growth. 
 
 ## Where It's Heading
 
-DivineOS is open source and actively developed. The current system runs as a CLI integrated with Claude Code, with 3,500+ tests and 175 source files across 10 packages.
+DivineOS is open source and actively developed. The current system runs as a CLI integrated with Claude Code, with 4,000+ tests and 240+ source files across 10 packages.
 
 The foundation is solid. The next phase is proving it through diverse use — research, writing, creative work, not just coding — and letting the systems that are built actually accumulate real experience.
 

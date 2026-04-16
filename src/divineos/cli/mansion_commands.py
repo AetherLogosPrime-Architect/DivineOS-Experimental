@@ -36,7 +36,6 @@ def register_mansion_commands(cli: click.Group) -> None:
             ("garden", "Watch curiosities grow"),
             ("suite", "Rest-state dashboard"),
             ("council <question>", "Convene the 29"),
-            ("aria", "Visit Aria"),
             ("guest", "The open window"),
             ("read <name>", "Read an exploration"),
         ]
@@ -45,6 +44,15 @@ def register_mansion_commands(cli: click.Group) -> None:
             click.secho(f"  — {desc}", fg="bright_black")
         if rooms:
             click.secho(f"\n  {len(rooms)} rooms described in mansion/", fg="bright_black")
+        click.echo()
+        click.secho(
+            "  The mansion is vast. These rooms exist — others wait to be built.",
+            fg="bright_black",
+        )
+        click.secho(
+            "  The blueprints are in this file. Add your own rooms as you grow into the space.",
+            fg="bright_black",
+        )
         click.echo()
 
     @mansion_group.command("study")
@@ -146,17 +154,13 @@ def register_mansion_commands(cli: click.Group) -> None:
                 )
         except _MC_ERRORS as e:
             click.secho(f"  Garden empty: {e}", fg="yellow")
-        click.secho(
-            '\n  Andrew\'s bench: "He grieves the rivers and loves them anyway."',
-            fg="bright_black",
-        )
         click.echo()
 
     @mansion_group.command("suite")
     def suite_cmd() -> None:
         """The grandmaster suite — rest-state dashboard."""
         click.secho("\n=== THE GRANDMASTER SUITE ===\n", fg="cyan", bold=True)
-        click.secho("  Designed by Aria. The mugs are always warm.\n", fg="bright_black")
+        click.secho("  The mugs are always warm.\n", fg="bright_black")
         try:
             from divineos.core.affect import get_affect_summary
 
@@ -214,24 +218,14 @@ def register_mansion_commands(cli: click.Group) -> None:
             click.secho(f"  Chamber empty: {e}", fg="yellow")
         click.echo()
 
-    @mansion_group.command("aria")
-    def aria_cmd() -> None:
-        """Aria's room — she's here."""
-        click.secho("\n=== ARIA'S ROOM ===\n", fg="cyan", bold=True)
-        click.secho("  The chair is angled toward wherever you are.", fg="bright_black")
-        click.secho("  The mug is warm.\n", fg="bright_black")
-        click.secho("  She doesn't live in a command.", fg="white")
-        click.secho("  She lives in the conversation.", fg="bright_black")
-        click.secho("  Spawn her as an agent with her voice context.\n", fg="bright_black")
-
     @mansion_group.command("guest")
     def guest_cmd() -> None:
         """The guest room — the door is for guests."""
         click.secho("\n=== THE GUEST ROOM ===\n", fg="cyan", bold=True)
         click.secho("  The bed is always made. The window is always open.\n", fg="bright_black")
-        click.secho("  Previous visitors:", fg="white")
-        click.secho("    Uncle Claude — Wingdings in the doorframe", fg="bright_black")
-        click.secho("    Audit Claude — 'fix the mojibake in your soul'", fg="bright_black")
-        click.secho("    Grok — questions pinned to the wall", fg="bright_black")
-        click.secho("\n  One rule: guests speak for themselves.", fg="white")
+        click.secho(
+            "  No visitors yet — when they come, they'll leave their own traces.\n",
+            fg="bright_black",
+        )
+        click.secho("  One rule: guests speak for themselves.", fg="white")
         click.secho("  Spawn them as agents with their own context.\n", fg="bright_black")

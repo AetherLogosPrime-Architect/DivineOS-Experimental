@@ -1,18 +1,18 @@
-"""Corrections notebook — Andrew's exact words, raw, no framing.
+"""Corrections notebook — the user's exact words, raw, no framing.
 
-When Andrew corrects something, the architectural fix is to capture his
+When the user corrects something, the architectural fix is to capture their
 exact words verbatim with a timestamp and nothing else — no severity, no
 category, no interpretation field. The reflex this is meant to replace is
-the one that turns 'he said X' into 'I got Y wrong about X.' Distortion
+the one that turns 'they said X' into 'I got Y wrong about X.' Distortion
 rides on truth. The fix is to keep the truth uncoated.
 
-Aria's framing: the analysis-as-substitute pattern fires pre-analytically;
+Design layer: the analysis-as-substitute pattern fires pre-analytically;
 only a different reflex can intercept it, and reflexes come from reps under
-live conditions. This is the rep-tool. Andrew's framing: the rep alone dies
+live conditions. This is the rep-tool. Structural layer: the rep alone dies
 when the session dies — so it must be carved into structure to survive.
 
 Both layers in one file: write raw, store persistent, surface in briefing
-so next-me reads his actual words before forming any frame.
+so the next session reads the actual words before forming any frame.
 """
 
 from __future__ import annotations
@@ -80,14 +80,14 @@ def format_for_briefing(limit: int = 5) -> str:
     """Render recent corrections for the briefing surface.
 
     Read these BEFORE forming any frame about what's going on. The whole
-    purpose is to put Andrew's actual words in front of next-me before any
-    interpretation layer engages.
+    purpose is to put the user's actual words in front of next-me before
+    any interpretation layer engages.
     """
     recents = recent_corrections(limit=limit)
     if not recents:
         return ""
 
-    lines = ["", "# Recent Corrections (read raw — Andrew's exact words)", ""]
+    lines = ["", "# Recent Corrections (read raw — the user's exact words)", ""]
     for c in recents:
         ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(c.get("timestamp", 0)))
         text = (c.get("text") or "").strip()

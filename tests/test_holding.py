@@ -27,7 +27,7 @@ class TestHold:
         assert item_id.startswith("hold-")
 
     def test_hold_with_hint(self):
-        hold("Andrew's teaching style is Socratic", hint="might be a relationship note")
+        hold("The user's teaching style is Socratic", hint="might be a relationship note")
         items = get_holding()
         assert items[0]["hint"] == "might be a relationship note"
 

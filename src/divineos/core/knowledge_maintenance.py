@@ -336,7 +336,10 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
     (if pure noise) or demoted to OBSERVATION (if they have some value
     but claimed too high a type).
     """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
     result: dict[str, Any] = {"demoted": 0, "superseded": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
     conn = _get_connection()
 
     try:
@@ -355,8 +358,9 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
             # Don't touch high-corroboration entries — they proved useful
             if entry.get("corroboration_count", 0) >= 3:
                 continue
-            # Don't touch pinned entries
-            if entry.get("pinned"):
+            # Don't touch pinned entries (pin lives in active_memory,
+            # not on the knowledge row — check membership, not a field)
+            if kid in pinned_ids:
                 continue
 
             # Would today's filter reject this?
@@ -400,7 +404,10 @@ def _sweep_stale(
     they've had their chance and the temporal language is now stale.
     This prevents infinite limbo where entries sit at the floor forever.
     """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
     result: dict[str, Any] = {"decayed": 0, "superseded": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
     conn = _get_connection()
     stale_cutoff = now - (stale_age_days * SECONDS_PER_DAY)
 
@@ -420,8 +427,9 @@ def _sweep_stale(
                 continue
             if not _has_temporal_markers(content):
                 continue
-            # Don't touch pinned or corroborated entries
-            if entry.get("pinned") or entry.get("corroboration_count", 0) >= 2:
+            # Don't touch pinned or corroborated entries (pin lives in
+            # active_memory — check membership, not a field on the row)
+            if kid in pinned_ids or entry.get("corroboration_count", 0) >= 2:
                 continue
 
             # Already at or below floor — this entry has been decayed before
@@ -532,7 +540,10 @@ def _reap_dead_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
 
     Superseding them breaks the infinite loop.
     """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
     result: dict[str, Any] = {"reaped": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
     conn = _get_connection()
 
     try:
@@ -542,8 +553,9 @@ def _reap_dead_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
             content = entry.get("content", "")
             confidence = entry.get("confidence", 0.5)
 
-            # Directives and pinned entries are sacred
-            if ktype == "DIRECTIVE" or entry.get("pinned"):
+            # Directives and pinned entries are sacred. Pin lives in
+            # active_memory, so check membership (not a row field).
+            if ktype == "DIRECTIVE" or kid in pinned_ids:
                 continue
             # Already superseded — skip
             if entry.get("superseded_by"):

@@ -389,6 +389,88 @@ class TestReapDeadEntries:
         assert result["reaped"] == 0
 
 
+class TestPinProtection:
+    """Pinning a knowledge entry (via active_memory) shields it from hygiene.
+
+    Before the fix, the three hygiene functions (`_audit_types`,
+    `_sweep_stale`, `_reap_dead_entries`) checked `entry.get("pinned")`
+    on knowledge rows — but the knowledge table has no `pinned` column.
+    The pin flag lives on active_memory. So the guards always evaluated
+    false, and pinning protected nothing.
+
+    Fix: hygiene queries active_memory for pinned knowledge IDs and skips
+    those entries during reap / sweep / audit.
+    """
+
+    def _pin(self, kid):
+        """Promote-and-pin a knowledge entry in active memory."""
+        from divineos.core.active_memory import promote_to_active
+        from divineos.core.memory import init_memory_tables
+
+        init_memory_tables()
+        promote_to_active(kid, importance=1.0, reason="test pin", pinned=True)
+
+    def test_pinned_entry_survives_audit(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        # An entry that would normally be superseded as pure noise
+        kid = _insert_entry("yes lets do it", "PRINCIPLE", created_days_ago=3)
+        self._pin(kid)
+        entries = [_get_entry(kid)]
+        cutoff = time.time() - 86400
+        result = _audit_types(entries, cutoff)
+        assert result["superseded"] == 0
+        assert result["demoted"] == 0
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] is None
+
+    def test_pinned_entry_survives_stale_sweep(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        # An old entry with temporal markers that would normally decay
+        kid = _insert_entry(
+            "today I learned the audit catches stale content",
+            "OBSERVATION",
+            confidence=0.6,
+            created_days_ago=60,
+        )
+        # Also update updated_at to be old
+        conn = _get_connection()
+        conn.execute(
+            "UPDATE knowledge SET updated_at = ? WHERE knowledge_id = ?",
+            (time.time() - (60 * 86400), kid),
+        )
+        conn.commit()
+        conn.close()
+        self._pin(kid)
+        entries = [_get_entry(kid)]
+        result = _sweep_stale(entries, time.time(), stale_age_days=30.0)
+        assert result["decayed"] == 0
+        assert result["superseded"] == 0
+
+    def test_pinned_entry_survives_reap(self, tmp_path, monkeypatch):
+        _setup(tmp_path, monkeypatch)
+        # An entry below the supersede floor that would normally be reaped
+        kid = _insert_entry("A struggling entry", "PRINCIPLE", confidence=0.05, created_days_ago=10)
+        self._pin(kid)
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] == 0
+        entry = _get_entry(kid)
+        assert entry["superseded_by"] is None
+
+    def test_unpinned_entry_still_gets_reaped(self, tmp_path, monkeypatch):
+        """Control: the reaper still works for non-pinned entries."""
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "A struggling unpinned entry",
+            "PRINCIPLE",
+            confidence=0.05,
+            created_days_ago=10,
+        )
+        entries = [_get_entry(kid)]
+        result = _reap_dead_entries(entries)
+        assert result["reaped"] == 1
+
+
 class TestRunKnowledgeHygiene:
     """Integration test for the full hygiene run."""
 

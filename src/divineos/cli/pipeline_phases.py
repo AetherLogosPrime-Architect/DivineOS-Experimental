@@ -623,7 +623,7 @@ def run_lesson_detection(
                             validate=False,
                         )
                     click.secho(
-                        "     These violations will be reviewed by Aria, Andrew, and the council.",
+                        "     These violations will be reviewed by the council.",
                         fg="red",
                     )
         except _PHASE_ERRORS as e:
