@@ -315,10 +315,13 @@ class TestAutoResolve:
                 "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_stimulus_gate'",
                 (json.dumps(sessions),),
             )
-            # Backdate to pass time gate
+            # Backdate to pass time gate. Set regressions=1 so absence_mode
+            # does NOT apply — this test isolates the stimulus gate, so we
+            # need to keep that gate active.
             old_enough = time.time() - (LESSON_MIN_RESOLUTION_DAYS + 1) * SECONDS_PER_DAY
             conn.execute(
-                "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'test_stimulus_gate'",
+                "UPDATE lesson_tracking SET last_seen = ?, regressions = 1 "
+                "WHERE category = 'test_stimulus_gate'",
                 (old_enough,),
             )
             conn.commit()
@@ -329,6 +332,87 @@ class TestAutoResolve:
         resolved = auto_resolve_lessons()
         cats = [r["category"] for r in resolved]
         assert "test_stimulus_gate" not in cats
+
+    def test_absence_mode_resolves_with_few_sessions(self):
+        """A long-quiet lesson with zero regressions should resolve even when
+        session count is below the normal padding threshold.
+
+        This is the unstuck-the-data fix: lessons that fire infrequently get
+        permanently locked under the old rule because the triggering situation
+        rarely arises. After LESSON_ABSENCE_DAYS with zero backsliding, sustained
+        wall-clock quiet IS the evidence — session multiplicity isn't required.
+        """
+        import json
+        import time
+
+        from divineos.core.constants import LESSON_ABSENCE_DAYS, SECONDS_PER_DAY
+        from divineos.core.knowledge import _get_connection
+
+        # Lesson with 7 occurrences across only 5 sessions (mimics real data:
+        # shallow_output category was stuck like this for 21 days).
+        for i in range(1, 6):
+            record_lesson("test_absence_mode", "low-frequency mistake", f"s{i}")
+        for i in range(6, 8):
+            # Add extra occurrences in same sessions to inflate count
+            record_lesson("test_absence_mode", "low-frequency mistake", f"s{(i % 5) + 1}")
+        mark_lesson_improving("test_absence_mode", "s5")
+
+        conn = _get_connection()
+        try:
+            # Backdate to satisfy absence-mode: zero regressions, > LESSON_ABSENCE_DAYS quiet
+            old_enough = time.time() - (LESSON_ABSENCE_DAYS + 1) * SECONDS_PER_DAY
+            conn.execute(
+                "UPDATE lesson_tracking SET last_seen = ?, regressions = 0 "
+                "WHERE category = 'test_absence_mode'",
+                (old_enough,),
+            )
+            conn.commit()
+
+            # Verify session count is BELOW the old session-floor (effective + 5)
+            row = conn.execute(
+                "SELECT sessions FROM lesson_tracking WHERE category = 'test_absence_mode'"
+            ).fetchone()
+            sessions = json.loads(row[0])
+            assert len(sessions) < 10, "test setup: must be below old session threshold"
+        finally:
+            conn.close()
+
+        resolved = auto_resolve_lessons()
+        cats = [r["category"] for r in resolved]
+        assert "test_absence_mode" in cats, (
+            f"absence-mode should resolve low-session quiet lessons; got {cats}"
+        )
+
+    def test_absence_mode_does_not_apply_with_regressions(self):
+        """A lesson that has regressed cannot use absence-mode — it must
+        accumulate the full session count and pass the stimulus gate."""
+        import time
+
+        from divineos.core.constants import LESSON_ABSENCE_DAYS, SECONDS_PER_DAY
+        from divineos.core.knowledge import _get_connection
+
+        for i in range(1, 6):
+            record_lesson("test_absence_with_regress", "mistake", f"s{i}")
+        mark_lesson_improving("test_absence_with_regress", "s5")
+
+        conn = _get_connection()
+        try:
+            # Long quiet but WITH regressions — absence-mode disabled
+            old_enough = time.time() - (LESSON_ABSENCE_DAYS + 1) * SECONDS_PER_DAY
+            conn.execute(
+                "UPDATE lesson_tracking SET last_seen = ?, regressions = 2 "
+                "WHERE category = 'test_absence_with_regress'",
+                (old_enough,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        resolved = auto_resolve_lessons()
+        cats = [r["category"] for r in resolved]
+        assert "test_absence_with_regress" not in cats, (
+            "lesson with regressions must not auto-resolve via absence-mode"
+        )
 
 
 class TestLessonSummaryWithRegressions:

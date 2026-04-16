@@ -28,6 +28,7 @@ def _insert_entry(
     created_days_ago=5,
     access_count=0,
     corroboration_count=0,
+    source="STATED",
 ):
     """Insert a test knowledge entry and return its ID."""
     import hashlib
@@ -40,8 +41,9 @@ def _insert_entry(
     conn = _get_connection()
     conn.execute(
         "INSERT INTO knowledge (knowledge_id, knowledge_type, content, confidence, "
-        "created_at, updated_at, access_count, corroboration_count, maturity, content_hash) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'RAW', ?)",
+        "created_at, updated_at, access_count, corroboration_count, source, "
+        "maturity, content_hash) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'RAW', ?)",
         (
             kid,
             knowledge_type,
@@ -51,6 +53,7 @@ def _insert_entry(
             created,
             access_count,
             corroboration_count,
+            source,
             content_hash,
         ),
     )
@@ -240,9 +243,10 @@ class TestFlagOrphans:
             confidence=0.8,
             access_count=0,
             corroboration_count=0,
+            created_days_ago=10,
         )
         entries = [_get_entry(kid)]
-        result = _flag_orphans(entries, min_sessions=3)
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
         assert result["flagged"] >= 1
         entry = _get_entry(kid)
         assert entry["confidence"] == 0.5
@@ -255,9 +259,10 @@ class TestFlagOrphans:
             confidence=0.8,
             access_count=3,
             corroboration_count=0,
+            created_days_ago=10,
         )
         entries = [_get_entry(kid)]
-        result = _flag_orphans(entries, min_sessions=3)
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
         assert result["flagged"] == 0
 
     def test_corroborated_entry_not_flagged(self, tmp_path, monkeypatch):
@@ -268,9 +273,10 @@ class TestFlagOrphans:
             confidence=0.8,
             access_count=0,
             corroboration_count=1,
+            created_days_ago=10,
         )
         entries = [_get_entry(kid)]
-        result = _flag_orphans(entries, min_sessions=3)
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
         assert result["flagged"] == 0
 
     def test_directive_immune(self, tmp_path, monkeypatch):
@@ -281,9 +287,10 @@ class TestFlagOrphans:
             confidence=0.9,
             access_count=0,
             corroboration_count=0,
+            created_days_ago=10,
         )
         entries = [_get_entry(kid)]
-        result = _flag_orphans(entries, min_sessions=3)
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
         assert result["flagged"] == 0
 
     def test_low_confidence_not_flagged(self, tmp_path, monkeypatch):
@@ -294,10 +301,59 @@ class TestFlagOrphans:
             confidence=0.4,
             access_count=0,
             corroboration_count=0,
+            created_days_ago=10,
         )
         entries = [_get_entry(kid)]
-        result = _flag_orphans(entries, min_sessions=3)
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
         assert result["flagged"] == 0  # Already below threshold
+
+    def test_fresh_entry_not_flagged(self, tmp_path, monkeypatch):
+        """Regression: a fresh entry with zero access MUST NOT be flagged.
+
+        Before the fix, the `min_sessions` parameter was received but
+        never checked inside the body, so seed entries loaded today got
+        demoted to 0.5 the same day. Here we assert the age gate actually
+        protects fresh entries.
+        """
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "A fact learned today that nobody has re-accessed yet",
+            "OBSERVATION",
+            confidence=0.8,
+            access_count=0,
+            corroboration_count=0,
+            created_days_ago=1,  # well under the 7-day age gate
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] == 0
+        entry = _get_entry(kid)
+        assert entry["confidence"] == 0.8  # untouched
+
+    def test_inherited_entry_never_flagged(self, tmp_path, monkeypatch):
+        """Regression: INHERITED (seed) entries are constitutional.
+
+        Silence isn't evidence of obsolescence — a foundational boundary
+        like "always read files before editing" doesn't get touched by
+        code, but it's still a true constraint. Before the fix, 13 of 19
+        INHERITED seed entries in the worktree DB had been demoted to
+        0.5 the day they loaded. Never again.
+        """
+        _setup(tmp_path, monkeypatch)
+        kid = _insert_entry(
+            "Foundational seed principle that is axiomatic, not evidentiary",
+            "PRINCIPLE",
+            confidence=1.0,
+            access_count=0,
+            corroboration_count=0,
+            created_days_ago=30,  # old enough that age gate wouldn't save it
+            source="INHERITED",
+        )
+        entries = [_get_entry(kid)]
+        result = _flag_orphans(entries, time.time(), min_age_days=7.0)
+        assert result["flagged"] == 0
+        entry = _get_entry(kid)
+        assert entry["confidence"] == 1.0  # constitutional — never demoted
 
 
 class TestReapDeadEntries:
