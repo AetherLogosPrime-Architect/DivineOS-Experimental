@@ -61,7 +61,23 @@ def _save_state(state: dict[str, Any]) -> None:
 
 
 def _run_session_end() -> None:
-    """Run SESSION_END at process exit — the OS cleans up after itself."""
+    """Mark session end at process exit — lightweight only.
+
+    The atexit handler emits the SESSION_END *event* (a cheap ledger
+    write) so the session boundary is recorded. It does NOT run the
+    heavy analysis-extract-consolidate pipeline. That pipeline only
+    runs when explicitly invoked via:
+      - `divineos emit SESSION_END` (user/hook command)
+      - `.claude/hooks/log-session-end.sh` (Claude Code Stop hook)
+      - `.claude/hooks/pre-compact.sh` (before context compaction)
+      - `.claude/hooks/session-checkpoint.sh` (high tool-call threshold)
+
+    Why: every CLI invocation is its own Python process. atexit fires
+    per-process. Running the full pipeline here meant a 30-second
+    `divineos hud` check could trigger a multi-minute session analysis
+    once the 2-hour stale window elapsed. The pipeline belongs to
+    session completion, not process termination.
+    """
     try:  # noqa: BLE001 — atexit handlers must catch everything
         state = _load_state()
         # Don't run if already ran this session
@@ -76,18 +92,9 @@ def _run_session_end() -> None:
         if "pytest" in sys.modules:
             return
 
-        # Capture session start BEFORE emitting SESSION_END
-        from divineos.core.session_checkpoint import get_session_start_time
-
-        pre_emit_start = get_session_start_time()
-
         from divineos.event.event_emission import emit_session_end
 
         emit_session_end()
-
-        from divineos.cli.session_pipeline import _run_session_end_pipeline
-
-        _run_session_end_pipeline(session_start_override=pre_emit_start)
 
         state["session_end_emitted"] = True
         _save_state(state)

@@ -373,12 +373,21 @@ def is_engaged() -> bool:
 
 
 def engagement_status() -> dict[str, Any]:
-    """Return detailed engagement status for HUD display."""
+    """Return detailed engagement status for HUD display.
+
+    The 'state' field distinguishes WHY engagement is missing/expired so the
+    blocking message can be specific:
+      - "fresh"       : session started but no thinking command run yet
+      - "drift"       : light gate exceeded (need any thinking command)
+      - "deep_drift"  : deep gate exceeded (need ask/recall/briefing)
+      - "engaged"     : currently engaged
+    """
     threshold = _active_threshold()
     path = _get_hud_dir() / ".session_engaged"
     if not path.exists():
         return {
             "engaged": False,
+            "state": "fresh",
             "code_actions_since": 0,
             "threshold": threshold,
             "remaining": 0,
@@ -388,6 +397,7 @@ def engagement_status() -> dict[str, Any]:
         if not isinstance(marker, dict):
             return {
                 "engaged": True,
+                "state": "engaged",
                 "code_actions_since": 0,
                 "threshold": threshold,
                 "remaining": threshold,
@@ -400,8 +410,15 @@ def engagement_status() -> dict[str, Any]:
         remaining = max(0, threshold - code_actions)
         needs_deep = deep_actions >= _DEEP_ENGAGEMENT_THRESHOLD
         engaged = code_actions < threshold and not needs_deep
+        if engaged:
+            state = "engaged"
+        elif needs_deep:
+            state = "deep_drift"
+        else:
+            state = "drift"
         return {
             "engaged": engaged,
+            "state": state,
             "code_actions_since": code_actions,
             "threshold": threshold,
             "remaining": remaining,
@@ -412,6 +429,7 @@ def engagement_status() -> dict[str, Any]:
     except (json.JSONDecodeError, OSError):
         return {
             "engaged": True,
+            "state": "engaged",
             "code_actions_since": 0,
             "threshold": threshold,
             "remaining": threshold,

@@ -256,7 +256,10 @@ def run_feedback_cycle(
             # Skip if it's still a repr or too short to be useful
             if text.startswith("UserSignal(") or len(text) < 15:
                 continue
-            question = f"Why did I get this wrong: {text[:80]}?"
+            # The correction text is the USER's words to me, not my mistake.
+            # Frame the question so future-me reads it as "what was I doing
+            # that prompted this?" — not "what was wrong about [user text]".
+            question = f"What pattern of mine prompted this user correction: {text[:80]}?"
             if question[:50] not in existing:
                 add_curiosity(question, category="correction")
                 filed += 1

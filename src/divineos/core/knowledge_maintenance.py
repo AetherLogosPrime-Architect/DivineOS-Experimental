@@ -47,7 +47,7 @@ from divineos.core.constants import (
     DECAY_MODERATE,
     DECAY_STANDARD,
     HYGIENE_MIN_AGE_DAYS,
-    HYGIENE_ORPHAN_MIN_SESSIONS,
+    HYGIENE_ORPHAN_MIN_AGE_DAYS,
     HYGIENE_STALE_AGE_DAYS,
     MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
     MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
@@ -267,7 +267,7 @@ def run_knowledge_hygiene(
     flag_orphans: bool = True,
     min_age_days: float = HYGIENE_MIN_AGE_DAYS,
     stale_age_days: float = HYGIENE_STALE_AGE_DAYS,
-    orphan_min_sessions: int = HYGIENE_ORPHAN_MIN_SESSIONS,
+    orphan_min_age_days: float = HYGIENE_ORPHAN_MIN_AGE_DAYS,
 ) -> dict[str, Any]:
     """Run all hygiene operations on the knowledge store.
 
@@ -315,7 +315,7 @@ def run_knowledge_hygiene(
         report["details"].extend(stale_report["details"])
 
     if flag_orphans:
-        orphan_report = _flag_orphans(entries, orphan_min_sessions)
+        orphan_report = _flag_orphans(entries, now, orphan_min_age_days)
         report["orphans_flagged"] = orphan_report["flagged"]
         report["details"].extend(orphan_report["details"])
 
@@ -455,9 +455,28 @@ def _sweep_stale(
     return result
 
 
-def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str, Any]:
-    """Flag entries that were never accessed and are old enough to judge."""
-    logger.debug("Orphan scan: min_sessions=%d, entries=%d", min_sessions, len(entries))
+def _flag_orphans(entries: list[dict[str, Any]], now: float, min_age_days: float) -> dict[str, Any]:
+    """Flag entries that were never accessed and are old enough to judge.
+
+    Two guards protect against false-flagging foundational knowledge:
+
+    1. Age gate: entries newer than `min_age_days` are too fresh to judge.
+       A seed entry loaded today hasn't had a chance to earn access yet.
+       Without this gate, `_flag_orphans` was silently demoting fresh
+       seed entries to half-confidence the same day they loaded.
+
+    2. Source gate: INHERITED entries (the seed) are constitutional —
+       not extracted claims. They're baseline knowledge the agent is
+       born with, and silence isn't evidence of obsolescence. If a
+       seed entry becomes wrong, the contradiction/supersession
+       machinery handles it through evidence, not through neglect.
+    """
+    cutoff = now - (min_age_days * SECONDS_PER_DAY)
+    logger.debug(
+        "Orphan scan: min_age_days=%.1f, entries=%d",
+        min_age_days,
+        len(entries),
+    )
     result: dict[str, Any] = {"flagged": 0, "details": []}
     conn = _get_connection()
 
@@ -468,9 +487,17 @@ def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str,
             content = entry.get("content", "")
             access_count = entry.get("access_count", 0)
             corroboration = entry.get("corroboration_count", 0)
+            source = entry.get("source", "")
+            created = entry.get("created_at", 0)
 
-            # Directives and pinned entries are exempt
-            if ktype == "DIRECTIVE" or entry.get("pinned"):
+            # Directives are exempt (permanent by design)
+            if ktype == "DIRECTIVE":
+                continue
+            # Seed knowledge is constitutional, not an extracted claim
+            if source == "INHERITED":
+                continue
+            # Too new to judge — give it time to earn access
+            if created > cutoff:
                 continue
             # Only flag entries that have never been accessed or corroborated
             if access_count >= 2 or corroboration >= 1:
