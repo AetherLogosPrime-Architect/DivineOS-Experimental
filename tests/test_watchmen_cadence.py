@@ -168,9 +168,16 @@ class TestStatusLine:
 # ── Constants are stable ─────────────────────────────────────────────
 
 
-def test_threshold_default_value_is_14_days():
-    """Lock the default so a silent change appears in the diff."""
-    assert CADENCE_THRESHOLD_DAYS == 14
+def test_threshold_default_value_is_3_days():
+    """Lock the default so a silent change appears in the diff.
+
+    Was 14 days in the initial ship; calibrated down to 3 days on
+    2026-04-16 after Grok/Andrew observed the actual audit rhythm is
+    bursty (several per day, then gaps). 14 days failed to fire on a
+    real 5.5-day historical gap. If this default changes again, the
+    diff must reference new evidence about real-world cadence.
+    """
+    assert CADENCE_THRESHOLD_DAYS == 3
 
 
 def test_seconds_per_day_constant():

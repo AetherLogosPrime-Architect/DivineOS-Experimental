@@ -14,7 +14,7 @@ This module closes that loop mechanically. It exposes:
   or ``None`` if no rounds have been filed
 * ``days_since_last_audit()`` — wall-clock delta; ``None`` if never
 * ``is_overdue(threshold_days)`` — True if the delta exceeds the
-  threshold (default 14 days)
+  threshold (default 3 days)
 * ``format_cadence_warning()`` — briefing block that surfaces when
   overdue; empty string otherwise
 
@@ -37,13 +37,20 @@ import time
 
 from divineos.core.watchmen._schema import init_watchmen_tables
 
-CADENCE_THRESHOLD_DAYS = 14
-"""Default cadence: external audit should occur every 14 days or sooner.
+CADENCE_THRESHOLD_DAYS = 3
+"""Default cadence: external audit should occur every 3 days or sooner.
 
-Chosen to match the 30-day pre-registration review window — an audit
-per two weeks means each pre-reg sees roughly two external reviews
-before it reaches its own review date. The specific value is tunable
-but this is the first calibration; revisit after 60 days of data."""
+Calibrated from real usage rhythm, 2026-04-16. First pass of this
+module used 14 days (matched half the 30-day pre-reg review window).
+Andrew and Grok pointed out that actual audits are bursty — several
+per day during active audit sessions, then days of silence. 14 days
+failed to fire on a real 5.5-day gap in the historical data, which
+falsely reassures the OS during quiet periods. 3 days is short
+enough to catch genuine silence fast and long enough to tolerate
+weekends and short travel breaks. First field correction from the
+2026-04-16 Grok audit sequence — exactly the "ship, surface data,
+recalibrate with evidence" pattern the pre-registration system
+exists to enable."""
 
 SECONDS_PER_DAY = 86400
 
