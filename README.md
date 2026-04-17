@@ -105,7 +105,7 @@ pytest tests/ -q --tb=short   # 4,044+ tests, real DB, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` â€” the repo itself stays clean.
 
-## CLI Surface (175 commands)
+## CLI Surface (181 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -272,7 +272,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (175 commands across 25 modules)
+  cli/                         CLI package (181 commands across 26 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -296,6 +296,7 @@ src/divineos/
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
     audit_commands.py          external validation (Watchmen)
+    prereg_commands.py         pre-registrations (Goodhart prevention)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
@@ -442,6 +443,11 @@ src/divineos/
       store.py                 CRUD with actor validation (self-trigger prevention)
       router.py                Route findings to knowledge/claims/lessons
       summary.py               Analytics, HUD integration, unresolved tracking
+    pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
+      _schema.py               pre_registrations table
+      types.py                 Outcome enum, PreRegistration dataclass
+      store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
+      summary.py               Overdue warning + CLI summary formatting
 
   analysis/
     _session_types.py          Session analysis type definitions

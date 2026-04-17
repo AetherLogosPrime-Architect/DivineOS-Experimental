@@ -79,6 +79,14 @@ divineos claims evidence <id> "content"   # Add evidence to a claim
 divineos claims assess <id> "assessment"  # Update assessment/status/tier
 divineos claims search "query"            # Search claims
 
+# Pre-registrations (Goodhart prevention for new detectors)
+divineos prereg file "mechanism" --claim "..." --success "..." --falsifier "..." --review-days 30
+divineos prereg list [--outcome OPEN|SUCCESS|FAILED|INCONCLUSIVE|DEFERRED]
+divineos prereg show PREREG_ID
+divineos prereg overdue                    # Reviews whose date has passed
+divineos prereg assess PREREG_ID --outcome FAILED --actor grok --notes "..."
+divineos prereg summary                    # Counts by outcome
+
 # Affect log
 divineos feel -v 0.8 -a 0.6 --dom 0.3 -d "desc"  # Log affect (VAD)
 divineos affect history                            # Browse affect states
@@ -197,7 +205,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-â”œâ”€â”€ cli/                      # CLI package (175 commands across 25 modules)
+â”œâ”€â”€ cli/                      # CLI package (181 commands across 26 modules)
 â”‚   â”œâ”€â”€ __init__.py           # CLI entry point and command registration
 â”‚   â”œâ”€â”€ session_pipeline.py   # SESSION_END orchestrator (calls phases)
 â”‚   â”œâ”€â”€ pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)

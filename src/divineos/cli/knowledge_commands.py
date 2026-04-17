@@ -409,6 +409,20 @@ def register(cli: click.Group) -> None:
         if corrections_block:
             _safe_echo(corrections_block)
 
+        # Overdue pre-registrations — any mechanism whose ledger-scheduled
+        # review date has passed surfaces here. Goodhart-prevention depends
+        # on reviews firing independent of agent memory; this is the surface
+        # that makes them impossible to miss at session start.
+        try:
+            from divineos.core.pre_registrations import format_overdue_warning
+
+            overdue_block = format_overdue_warning()
+        except _KC_ERRORS:
+            overdue_block = ""
+
+        if overdue_block:
+            _safe_echo(overdue_block)
+
         if output and output.strip():
             _safe_echo(output)
         else:
@@ -435,7 +449,7 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--status",
         default=None,
-        type=click.Choice(["active", "improving", "resolved"]),
+        type=click.Choice(["active", "improving", "dormant", "resolved"]),
         help="Filter by lesson status",
     )
     @click.option(
