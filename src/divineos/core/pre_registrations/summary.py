@@ -55,6 +55,24 @@ def format_overdue_warning() -> str:
     return "\n".join(lines)
 
 
+def prereg_loop_status() -> str:
+    """Honest label for how much of the pre-registration loop is closed.
+
+    Updated manually. The goal of pre-registrations is Goodhart prevention:
+    every detector ships with a falsifier and a scheduled review, so numbers
+    can't quietly drift up while habits don't change. This label describes
+    whether that mechanism is active end-to-end or partial.
+    """
+    return (
+        "Loop status: filing + overdue-surfacing + one-way outcome = wired. "
+        "Briefing top-slot surfaces overdue reviews. Outcomes require an "
+        "external actor. Review dates fire independent of agent memory. "
+        "The loop is only fully closed once a review produces an outcome AND "
+        "that outcome alters downstream behavior — which is what we're "
+        "measuring over the next 30-60 days."
+    )
+
+
 def format_summary() -> str:
     """Return a plain-text summary of pre-registration state by outcome."""
     counts = count_by_outcome()
@@ -64,6 +82,8 @@ def format_summary() -> str:
 
     lines = [
         "=== Pre-registrations ===",
+        "",
+        prereg_loop_status(),
         "",
         f"  Total:      {total}",
         f"  Open:       {open_count} ({overdue} overdue)",

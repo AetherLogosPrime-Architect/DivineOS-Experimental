@@ -102,6 +102,22 @@ def unresolved_findings(limit: int = 10) -> list[dict[str, Any]]:
         conn.close()
 
 
+def watchmen_loop_status() -> str:
+    """Honest label for how much of the external-audit loop is mechanically closed.
+
+    Updated manually as loop-closing features ship. Grok audit 2026-04-16
+    named the polish-exceeds-mechanics risk; this label keeps the Watchmen
+    surface honest about which parts of external validation are automatic
+    vs. which still depend on a human remembering to request an audit.
+    """
+    return (
+        "Loop status: external-actor filing works; routing to "
+        "knowledge/claims/lessons works; auto-scheduled cadence NOT yet "
+        "wired. External audits happen only when a human requests one. "
+        "Cadence gate tracked as PR 4/4 of the Grok audit sequence."
+    )
+
+
 def format_watchmen_summary() -> str:
     """One-line summary for HUD display.
 
