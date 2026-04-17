@@ -43,6 +43,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/compass-check.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
