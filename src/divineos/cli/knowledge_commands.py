@@ -423,6 +423,22 @@ def register(cli: click.Group) -> None:
         if overdue_block:
             _safe_echo(overdue_block)
 
+        # External-audit cadence — if no external audit has been filed in
+        # the configured threshold window, the briefing surfaces a hard
+        # warning here. The require-goal hook uses the same cadence check
+        # to block non-bypass commands when overdue. Grok audit 2026-04-16
+        # finding: without mechanical cadence, the external-review pipe
+        # goes silent and the OS coasts on its own optimistic numbers.
+        try:
+            from divineos.core.watchmen.cadence import format_cadence_warning
+
+            cadence_block = format_cadence_warning()
+        except _KC_ERRORS:
+            cadence_block = ""
+
+        if cadence_block:
+            _safe_echo(cadence_block)
+
         if output and output.strip():
             _safe_echo(output)
         else:

@@ -125,21 +125,23 @@ class TestWatchmenLoopStatus:
         assert label
         assert "Loop status:" in label
 
-    def test_label_names_what_works_and_what_does_not(self):
-        """Filing works, routing works, auto-scheduled cadence does NOT work yet.
-        The label must be explicit about both sides."""
+    def test_label_names_what_works_and_what_remains(self):
+        """After PR 4/4: filing + routing + cadence all wired. The remaining
+        aspirational piece is whether external audits actually alter
+        behavior — the label must draw that line explicitly."""
         label = watchmen_loop_status()
-        # Says what works
+        # Names what works
         assert "filing" in label.lower()
-        # Says what does not
-        assert "NOT" in label or "not" in label
-        # Names the specific unfinished piece
-        assert "cadence" in label.lower() or "scheduled" in label.lower()
+        assert "cadence" in label.lower()
+        assert "active" in label.lower()
+        # Names what is still aspirational
+        assert "measuring" in label.lower() or "aspirational" in label.lower()
 
-    def test_label_tracks_pr4_reference(self):
-        """Readers should be able to trace to the PR that will close this loop."""
+    def test_label_names_the_interval(self):
+        """Readers should know the cadence interval without reading the hook."""
         label = watchmen_loop_status()
-        assert "PR 4" in label or "Grok" in label
+        # Matches the CADENCE_THRESHOLD_DAYS constant wording
+        assert "day" in label.lower()
 
 
 # ── Pre-registration loop status ─────────────────────────────────────

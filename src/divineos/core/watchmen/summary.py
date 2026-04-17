@@ -110,11 +110,15 @@ def watchmen_loop_status() -> str:
     surface honest about which parts of external validation are automatic
     vs. which still depend on a human remembering to request an audit.
     """
+    from divineos.core.watchmen.cadence import CADENCE_THRESHOLD_DAYS
+
     return (
         "Loop status: external-actor filing works; routing to "
-        "knowledge/claims/lessons works; auto-scheduled cadence NOT yet "
-        "wired. External audits happen only when a human requests one. "
-        "Cadence gate tracked as PR 4/4 of the Grok audit sequence."
+        "knowledge/claims/lessons works; auto-scheduled cadence active at "
+        f"{CADENCE_THRESHOLD_DAYS}-day interval (briefing surfaces overdue, "
+        "require-goal hook blocks non-bypass commands when stale). "
+        "The remaining aspirational piece: whether external audits "
+        "actually alter behavior — which we're still measuring."
     )
 
 
