@@ -32,6 +32,7 @@ from divineos.core.pre_registrations.store import (
 from divineos.core.pre_registrations.summary import (
     format_overdue_warning,
     format_summary,
+    prereg_loop_status,
 )
 from divineos.core.pre_registrations.types import (
     INTERNAL_ACTORS,
@@ -51,5 +52,6 @@ __all__ = [
     "get_pre_registration",
     "init_pre_registrations_tables",
     "list_pre_registrations",
+    "prereg_loop_status",
     "record_outcome",
 ]

@@ -647,6 +647,32 @@ def format_behavioral_test_results(results: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _lesson_loop_status() -> str:
+    """Honest label for how much of the lesson lifecycle is mechanically closed.
+
+    Updated manually as positive-evidence detectors wire up for new categories.
+    Grok audit 2026-04-16 named the polish-exceeds-mechanics risk: surfaces
+    must tell the truth about which loops are actually closed so readers
+    (especially external auditors and fresh Claude instances) can calibrate
+    what to invest belief in.
+    """
+    # Categories with a positive-evidence detector wired in
+    # extract_lessons_from_report. Kept in sync manually. Each new detector
+    # that ships should append its category here and its pre-registration
+    # should schedule a review that verifies the loop actually closed.
+    categories_with_evidence_detector = ("blind_retry", "upset_recovered")
+    # Total chronic-test categories tracked in _BEHAVIORAL_TESTS
+    total_tracked = len(_BEHAVIORAL_TESTS)
+    return (
+        "Loop status: RESOLVED-via-positive-evidence path wired for "
+        f"{len(categories_with_evidence_detector)}/{total_tracked} chronic categories "
+        f"({', '.join(categories_with_evidence_detector)}). "
+        "Other categories can only transition to DORMANT (quiet, not proven) "
+        "or stay ACTIVE/IMPROVING. Regressed lessons have no exit yet — "
+        "terminal-state bug tracked as Grok audit finding."
+    )
+
+
 def get_lesson_summary() -> str:
     """Generate a plain English summary of active and improving lessons."""
     lessons = get_lessons()
@@ -664,7 +690,10 @@ def get_lesson_summary() -> str:
     improving = [lesson for lesson in lessons if lesson["status"] == STATUS_IMPROVING]
     dormant = [lesson for lesson in lessons if lesson["status"] == STATUS_DORMANT]
 
-    lines = [f"### ACTIVE LESSONS ({len(active) + len(improving)})"]
+    lines = [
+        f"### ACTIVE LESSONS ({len(active) + len(improving)})",
+        _lesson_loop_status(),
+    ]
 
     for lesson in active:
         regressions = lesson.get("regressions", 0)

@@ -236,14 +236,18 @@ def register(cli: click.Group) -> None:
         from divineos.core.watchmen.summary import (
             get_watchmen_stats,
             unresolved_findings,
+            watchmen_loop_status,
         )
 
         stats = get_watchmen_stats()
         if stats["total_findings"] == 0:
             click.secho("[~] No audit data yet.", fg="bright_black")
+            click.echo(watchmen_loop_status())
             return
 
         click.secho("\n=== Watchmen Summary ===\n", fg="cyan", bold=True)
+        click.echo(watchmen_loop_status())
+        click.echo("")
         click.echo(f"  Rounds:   {stats['total_rounds']}")
         click.echo(f"  Findings: {stats['total_findings']}")
         click.echo(f"  Open:     {stats['open_count']}")

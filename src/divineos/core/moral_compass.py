@@ -543,6 +543,23 @@ def compass_summary() -> dict[str, Any]:
 # -- Formatting -------------------------------------------------------
 
 
+def _compass_loop_status() -> str:
+    """Honest label describing how much of the compass feedback loop is closed.
+
+    Updated manually as the rudder's scope expands. Grok audit 2026-04-16
+    named the polish-exceeds-mechanics risk; this label keeps the compass
+    surface honest about which drift signals actually fire into
+    decision-time vs. which are still only recorded for display.
+    """
+    return (
+        "Loop status: PARTIAL — drift-toward-excess fires the compass rudder "
+        "on Task/Agent PreToolUse (blocks subagent spawn without recent "
+        "justification). Other tool classes (Edit/Write/Bash) are NOT gated "
+        "by compass drift. Drift toward virtue or deficiency remains "
+        "informational only — no rudder, no block."
+    )
+
+
 def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> str:
     """Format compass reading for display."""
     from divineos.core.constants import COMPASS_MIN_OBSERVATIONS_ACTIVE
@@ -554,6 +571,7 @@ def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> s
     lines.append("=" * 60)
     lines.append("MORAL COMPASS -- Where I Stand")
     lines.append("=" * 60)
+    lines.append(_compass_loop_status())
 
     active = [p for p in positions if p.observation_count >= COMPASS_MIN_OBSERVATIONS_ACTIVE]
     stagnant = [p for p in positions if 0 < p.observation_count < COMPASS_MIN_OBSERVATIONS_ACTIVE]
