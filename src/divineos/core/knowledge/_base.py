@@ -314,6 +314,7 @@ _LESSON_JSON_COLS = frozenset({"sessions"})
 _LESSON_DEFAULTS: dict[str, Any] = {
     "agent": "unknown",
     "regressions": 0,
+    "positive_evidence_sessions": {},
 }
 
 
@@ -331,9 +332,22 @@ def _lesson_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
             d[name] = val
         else:
             d[name] = _LESSON_DEFAULTS.get(name)
-    # regressions may be at the end if the column exists
-    if len(row) > len(_LESSON_COL_NAMES):
-        d["regressions"] = row[len(_LESSON_COL_NAMES)]
-    elif "regressions" not in d:
-        d["regressions"] = 0
+
+    # Extra columns appended over time (regressions, positive_evidence_sessions)
+    # are optionally present depending on the caller's SELECT list. Callers
+    # must append them in this canonical order so positional decoding stays
+    # stable regardless of schema age.
+    base_len = len(_LESSON_COL_NAMES)
+    d["regressions"] = row[base_len] if len(row) > base_len else 0
+
+    pos_idx = base_len + 1
+    if len(row) > pos_idx:
+        raw = row[pos_idx]
+        try:
+            d["positive_evidence_sessions"] = json.loads(raw) if raw else {}
+        except (json.JSONDecodeError, TypeError):
+            d["positive_evidence_sessions"] = {}
+    else:
+        d["positive_evidence_sessions"] = {}
+
     return d

@@ -76,6 +76,28 @@ class TestActorValidation:
         result = _validate_actor("new-auditor")
         assert result == "new-auditor"
 
+    def test_bare_claude_rejected_as_self_audit_hole(self):
+        # Regression: Popper audit 2026-04-16 found that "claude" was in
+        # EXTERNAL_ACTORS, which meant the running Claude agent could file
+        # self-audits under its own bare name. The bare string must be
+        # structurally rejected; disambiguated names remain allowed.
+        with pytest.raises(ValueError, match="internal component"):
+            _validate_actor("claude")
+        with pytest.raises(ValueError, match="internal component"):
+            _validate_actor("Claude")  # case variant
+        with pytest.raises(ValueError, match="internal component"):
+            _validate_actor("  CLAUDE  ")  # whitespace + case
+
+    def test_disambiguated_claude_names_still_allowed(self):
+        # External Claude audits must use a disambiguated name so the actor
+        # can never collide with the running agent's identity.
+        for name in (
+            "claude-opus-auditor",
+            "claude-sonnet-external",
+            "claude-haiku-reviewer",
+        ):
+            assert _validate_actor(name) == name
+
 
 # ── Round Submission ─────────────────────────────────────────────────
 

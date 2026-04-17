@@ -483,3 +483,70 @@ class TestExportCurrentSessionWithVerification:
         for line in lines:
             msg = json.loads(line)
             assert msg["type"] == "user"
+
+
+class TestDbPathSingleSourceOfTruth:
+    """Regression: Dijkstra audit 2026-04-16 found that module-level DB_PATH
+    captured DIVINEOS_DB at import time while get_connection() re-read it
+    every call. A test that changed the env var after import would end up
+    with DB_PATH and get_connection() pointing at different databases.
+
+    Fix: PEP 562 __getattr__ on _ledger_base makes DB_PATH a dynamic lookup,
+    and get_connection() uses the same _get_db_path() helper. Both are now
+    served by a single source of truth.
+    """
+
+    def test_db_path_and_get_connection_agree_under_env_change(self, tmp_path, monkeypatch):
+        import sqlite3
+        from divineos.core import _ledger_base
+
+        first_db = tmp_path / "first.db"
+        second_db = tmp_path / "second.db"
+
+        monkeypatch.setenv("DIVINEOS_DB", str(first_db))
+        observed_first = _ledger_base.DB_PATH
+        conn_first = _ledger_base.get_connection()
+        try:
+            conn_first.execute("CREATE TABLE marker (name TEXT)")
+            conn_first.execute("INSERT INTO marker VALUES ('first')")
+            conn_first.commit()
+        finally:
+            conn_first.close()
+
+        # After runtime env change, DB_PATH must update AND get_connection()
+        # must open the new file. Before the fix, one updated and one didn't.
+        monkeypatch.setenv("DIVINEOS_DB", str(second_db))
+        observed_second = _ledger_base.DB_PATH
+        conn_second = _ledger_base.get_connection()
+        try:
+            conn_second.execute("CREATE TABLE marker (name TEXT)")
+            conn_second.execute("INSERT INTO marker VALUES ('second')")
+            conn_second.commit()
+        finally:
+            conn_second.close()
+
+        assert observed_first == first_db
+        assert observed_second == second_db
+        assert observed_first != observed_second
+
+        # Each physical file got only its own write — proof they were distinct.
+        raw_first = sqlite3.connect(str(first_db))
+        try:
+            assert raw_first.execute("SELECT name FROM marker").fetchone() == ("first",)
+        finally:
+            raw_first.close()
+        raw_second = sqlite3.connect(str(second_db))
+        try:
+            assert raw_second.execute("SELECT name FROM marker").fetchone() == ("second",)
+        finally:
+            raw_second.close()
+
+    def test_monkeypatched_db_path_shadows_dynamic_lookup(self, tmp_path, monkeypatch):
+        """Real attributes still take precedence over __getattr__, so the
+        existing ``monkeypatch.setattr(module, 'DB_PATH', p)`` pattern used
+        across the test suite continues to work."""
+        from divineos.core import _ledger_base
+
+        fake = tmp_path / "monkeypatched.db"
+        monkeypatch.setattr(_ledger_base, "DB_PATH", fake)
+        assert _ledger_base.DB_PATH == fake

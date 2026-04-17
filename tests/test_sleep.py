@@ -101,35 +101,40 @@ class TestPhaseConsolidation:
         # Should run without error, entries_scanned >= 0
         assert report.entries_scanned >= 0
 
-    def test_resolves_eligible_lessons(self, tmp_path, monkeypatch):
-        """Lesson resolution runs during sleep, not just explicit SESSION_END.
+    def test_transitions_eligible_lessons(self, tmp_path, monkeypatch):
+        """Lesson lifecycle transitions run during sleep, not just explicit
+        SESSION_END.
 
         A lesson that's been 'improving' for >= LESSON_ABSENCE_DAYS with zero
-        regressions and enough clean sessions should resolve when sleep runs,
-        even if the full SESSION_END pipeline never fires.
+        regressions and no positive-counterfactual evidence should transition
+        to DORMANT when sleep runs, even if the full SESSION_END pipeline
+        never fires. RESOLVED requires positive evidence (Kahneman audit
+        2026-04-16) — absence alone only earns "quiet, not proven."
         """
         import json
 
         from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge._base import _get_connection
-        from divineos.core.knowledge.lessons import _ensure_regressions_column
+        from divineos.core.knowledge.lessons import _ensure_lesson_schema
 
         init_knowledge_table()
         conn_init = _get_connection()
-        _ensure_regressions_column(conn_init)
+        _ensure_lesson_schema(conn_init)
         conn_init.close()
 
-        # Insert an 'improving' lesson that qualifies for absence-mode resolution:
+        # Insert an 'improving' lesson that qualifies for DORMANT transition:
         # - 21 days quiet (well past LESSON_ABSENCE_DAYS=7)
         # - 0 regressions
         # - 5 clean sessions (meets LESSON_EFFECTIVE_MIN floor)
+        # - no positive_evidence_sessions (absence-only)
         past = time.time() - 21 * 86400
         conn = _get_connection()
         conn.execute(
             "INSERT INTO lesson_tracking "
             "(lesson_id, created_at, category, description, first_session, "
-            "occurrences, last_seen, sessions, status, content_hash, agent, regressions) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "occurrences, last_seen, sessions, status, content_hash, agent, "
+            "regressions, positive_evidence_sessions) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 "test-lesson-1",
                 past,
@@ -143,6 +148,7 @@ class TestPhaseConsolidation:
                 "hash1",
                 "test",
                 0,
+                "{}",
             ),
         )
         conn.commit()
@@ -151,12 +157,104 @@ class TestPhaseConsolidation:
         report = DreamReport()
         _phase_consolidation(report)
 
-        assert "sleep_test_category" in report.lessons_resolved
+        # Absence-only → dormant, not resolved. Sleep reports the transition
+        # in the lessons_dormant bucket; lessons_resolved stays empty.
+        assert "sleep_test_category" in report.lessons_dormant
+        assert "sleep_test_category" not in report.lessons_resolved
 
         # Verify the DB was actually updated
         conn2 = _get_connection()
         status = conn2.execute(
             "SELECT status FROM lesson_tracking WHERE lesson_id = 'test-lesson-1'"
+        ).fetchone()[0]
+        conn2.close()
+        assert status == "dormant"
+
+    def test_resolves_lessons_with_positive_evidence(self, tmp_path, monkeypatch):
+        """A lesson with LESSON_MIN_POSITIVE_EVIDENCE positive-counterfactual
+        sessions plus the time and stimulus gates resolves honestly —
+        sleep reports it in lessons_resolved."""
+        import json
+
+        from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge.lessons import _ensure_lesson_schema
+        from divineos.core.ledger import get_connection as get_ledger_connection
+
+        init_knowledge_table()
+        conn_init = _get_connection()
+        _ensure_lesson_schema(conn_init)
+        conn_init.close()
+
+        # Lesson with TWO positive-evidence sessions — enough for RESOLVED.
+        past = time.time() - (LESSON_MIN_RESOLUTION_DAYS + 1) * 86400
+        evidence = {
+            "s1": "agent demonstrated corrected behavior",
+            "s2": "agent demonstrated corrected behavior",
+        }
+        conn = _get_connection()
+        conn.execute(
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, "
+            "regressions, positive_evidence_sessions) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "test-lesson-resolved",
+                past,
+                "sleep_resolved_category",
+                "Lesson with direct positive-counterfactual evidence.",
+                "s1",
+                3,
+                past,
+                json.dumps(["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]),
+                "improving",
+                "hash-resolved",
+                "test",
+                0,
+                json.dumps(evidence),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        # Stimulus gate: decision journal entries mentioning the category.
+        ledger_conn = get_ledger_connection()
+        try:
+            ledger_conn.execute(
+                """CREATE TABLE IF NOT EXISTS decision_journal (
+                    decision_id TEXT PRIMARY KEY, created_at REAL, content TEXT,
+                    reasoning TEXT DEFAULT '', alternatives TEXT DEFAULT '[]',
+                    context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
+                    tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
+                    session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
+                    almost TEXT DEFAULT '')"""
+            )
+            for sid in ("s6", "s7", "s8"):
+                ledger_conn.execute(
+                    "INSERT INTO decision_journal "
+                    "(decision_id, created_at, content, session_id) VALUES (?, ?, ?, ?)",
+                    (
+                        f"dj-{sid}",
+                        time.time(),
+                        "Worked on the sleep resolved category problem.",
+                        sid,
+                    ),
+                )
+            ledger_conn.commit()
+        finally:
+            ledger_conn.close()
+
+        report = DreamReport()
+        _phase_consolidation(report)
+
+        assert "sleep_resolved_category" in report.lessons_resolved
+        assert "sleep_resolved_category" not in report.lessons_dormant
+
+        conn2 = _get_connection()
+        status = conn2.execute(
+            "SELECT status FROM lesson_tracking WHERE lesson_id = 'test-lesson-resolved'"
         ).fetchone()[0]
         conn2.close()
         assert status == "resolved"

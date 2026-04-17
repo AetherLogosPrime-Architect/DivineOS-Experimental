@@ -12,6 +12,9 @@ import pytest
 from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.lessons import (
     REGRESSION_ESCALATION_THRESHOLD,
+    STATUS_ACTIVE,
+    STATUS_DORMANT,
+    STATUS_RESOLVED,
     auto_resolve_lessons,
     get_escalation_candidates,
     get_lesson_summary,
@@ -238,13 +241,153 @@ class TestAutoResolve:
         finally:
             ledger_conn.close()
 
-        resolved = auto_resolve_lessons()
-        assert len(resolved) == 1
-        assert resolved[0]["category"] == "test_auto_resolve"
+        # Under the 2026-04-16 rebuild, clean sessions alone don't reach
+        # RESOLVED — that would be granting learning from absence of
+        # complaint (the Kahneman failure mode). With regressions == 0
+        # and enough wall-clock silence, the honest transition is DORMANT
+        # ("quiet, not proven"). RESOLVED now requires positive-
+        # counterfactual evidence; see test_improving_resolves_with_positive_evidence.
+        transitioned = auto_resolve_lessons()
+        assert len(transitioned) == 1
+        assert transitioned[0]["category"] == "test_auto_resolve"
+        assert transitioned[0]["status"] == STATUS_DORMANT
 
-        db_lessons = get_lessons(status="resolved")
+        db_lessons = get_lessons(status=STATUS_DORMANT)
         cats = [lesson["category"] for lesson in db_lessons]
         assert "test_auto_resolve" in cats
+
+        # And it explicitly did NOT reach resolved.
+        resolved_cats = [lesson["category"] for lesson in get_lessons(status=STATUS_RESOLVED)]
+        assert "test_auto_resolve" not in resolved_cats
+
+    def test_improving_resolves_with_positive_evidence(self):
+        """With LESSON_MIN_POSITIVE_EVIDENCE positive-counterfactual
+        sessions plus the time and stimulus gates, improving → resolved.
+        This is the Kahneman-compliant happy path.
+        """
+        import time
+
+        from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS, SECONDS_PER_DAY
+        from divineos.core.knowledge import _get_connection
+        from divineos.core.ledger import get_connection as get_ledger_connection
+
+        record_lesson("test_positive_evidence", "desc", "s1")
+        record_lesson("test_positive_evidence", "desc", "s2")
+        record_lesson("test_positive_evidence", "desc", "s3")
+        # Positive-evidence session transitions active → improving.
+        mark_lesson_improving(
+            "test_positive_evidence",
+            "s4",
+            evidence="agent demonstrated corrected behavior in s4",
+        )
+        # Second positive-evidence session — meets LESSON_MIN_POSITIVE_EVIDENCE.
+        mark_lesson_improving(
+            "test_positive_evidence",
+            "s5",
+            evidence="agent demonstrated corrected behavior in s5",
+        )
+
+        # Pad the session count and backdate last_seen to satisfy the
+        # remaining gates, same as the previous test.
+        conn = _get_connection()
+        try:
+            row = conn.execute(
+                "SELECT sessions FROM lesson_tracking WHERE category = 'test_positive_evidence'"
+            ).fetchone()
+            sessions = json.loads(row[0])
+            for i in range(6, 12):
+                sessions.append(f"s{i}")
+            conn.execute(
+                "UPDATE lesson_tracking SET sessions = ? WHERE category = 'test_positive_evidence'",
+                (json.dumps(sessions),),
+            )
+            old_enough = time.time() - (LESSON_MIN_RESOLUTION_DAYS + 1) * SECONDS_PER_DAY
+            conn.execute(
+                "UPDATE lesson_tracking SET last_seen = ? WHERE category = 'test_positive_evidence'",
+                (old_enough,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Stimulus gate: decision journal entries mentioning the category.
+        ledger_conn = get_ledger_connection()
+        try:
+            ledger_conn.execute(
+                """CREATE TABLE IF NOT EXISTS decision_journal (
+                    decision_id TEXT PRIMARY KEY, created_at REAL, content TEXT,
+                    reasoning TEXT DEFAULT '', alternatives TEXT DEFAULT '[]',
+                    context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
+                    tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
+                    session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
+                    almost TEXT DEFAULT '')"""
+            )
+            for sid in ["s6", "s7", "s8"]:
+                ledger_conn.execute(
+                    "INSERT INTO decision_journal (decision_id, created_at, content, session_id) "
+                    "VALUES (?, ?, ?, ?)",
+                    (
+                        f"dj-{sid}",
+                        time.time(),
+                        "Decided to handle test positive evidence case",
+                        sid,
+                    ),
+                )
+            ledger_conn.commit()
+        finally:
+            ledger_conn.close()
+
+        transitioned = auto_resolve_lessons()
+        assert len(transitioned) == 1
+        assert transitioned[0]["category"] == "test_positive_evidence"
+        assert transitioned[0]["status"] == STATUS_RESOLVED
+
+        resolved_cats = [lesson["category"] for lesson in get_lessons(status=STATUS_RESOLVED)]
+        assert "test_positive_evidence" in resolved_cats
+
+    def test_dormant_lesson_reverts_to_active_on_regression(self):
+        """DORMANT → ACTIVE on new occurrence, with regression counter
+        bumped (Popper: dormant is revertible, not a terminal state)."""
+        import time
+
+        from divineos.core.constants import LESSON_ABSENCE_DAYS, SECONDS_PER_DAY
+        from divineos.core.knowledge import _get_connection
+
+        # Build a dormant lesson: occurrences 3, no positive evidence,
+        # enough wall-clock silence, zero regressions.
+        record_lesson("test_dormant_revert", "desc", "s1")
+        record_lesson("test_dormant_revert", "desc", "s2")
+        record_lesson("test_dormant_revert", "desc", "s3")
+        mark_lesson_improving("test_dormant_revert", "s4")  # absence-only
+
+        conn = _get_connection()
+        try:
+            # Pad sessions + backdate last_seen.
+            row = conn.execute(
+                "SELECT sessions FROM lesson_tracking WHERE category = 'test_dormant_revert'"
+            ).fetchone()
+            sessions = json.loads(row[0])
+            for i in range(5, 12):
+                sessions.append(f"s{i}")
+            old_enough = time.time() - (LESSON_ABSENCE_DAYS + 1) * SECONDS_PER_DAY
+            conn.execute(
+                "UPDATE lesson_tracking SET sessions = ?, last_seen = ? "
+                "WHERE category = 'test_dormant_revert'",
+                (json.dumps(sessions), old_enough),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        transitioned = auto_resolve_lessons()
+        assert len(transitioned) == 1
+        assert transitioned[0]["status"] == STATUS_DORMANT
+
+        # Mistake recurs — must revert to ACTIVE and bump regressions.
+        record_lesson("test_dormant_revert", "desc", "s-recur")
+        after = get_lessons(category="test_dormant_revert")[0]
+        assert after["status"] == STATUS_ACTIVE
+        assert after.get("regressions", 0) >= 1
 
     def test_active_not_resolved(self):
         """Active lessons are never auto-resolved."""
@@ -333,14 +476,17 @@ class TestAutoResolve:
         cats = [r["category"] for r in resolved]
         assert "test_stimulus_gate" not in cats
 
-    def test_absence_mode_resolves_with_few_sessions(self):
-        """A long-quiet lesson with zero regressions should resolve even when
-        session count is below the normal padding threshold.
+    def test_absence_without_evidence_transitions_to_dormant(self):
+        """A long-quiet lesson with zero regressions and no positive
+        evidence transitions to DORMANT — not RESOLVED.
 
-        This is the unstuck-the-data fix: lessons that fire infrequently get
-        permanently locked under the old rule because the triggering situation
-        rarely arises. After LESSON_ABSENCE_DAYS with zero backsliding, sustained
-        wall-clock quiet IS the evidence — session multiplicity isn't required.
+        This was ``test_absence_mode_resolves_with_few_sessions`` under
+        the pre-2026-04-16 rule that auto-resolved lessons via
+        wall-clock quiet alone. Popper flagged that as an ad-hoc rescue;
+        the honest transition is now DORMANT ("quiet, not proven"),
+        revertible on recurrence. RESOLVED requires positive-
+        counterfactual evidence — see
+        test_improving_resolves_with_positive_evidence.
         """
         import json
         import time
@@ -377,11 +523,18 @@ class TestAutoResolve:
         finally:
             conn.close()
 
-        resolved = auto_resolve_lessons()
-        cats = [r["category"] for r in resolved]
-        assert "test_absence_mode" in cats, (
-            f"absence-mode should resolve low-session quiet lessons; got {cats}"
+        transitioned = auto_resolve_lessons()
+        by_cat = {r["category"]: r for r in transitioned}
+        assert "test_absence_mode" in by_cat, (
+            f"absence-mode should transition low-session quiet lessons; got {list(by_cat)}"
         )
+        assert by_cat["test_absence_mode"]["status"] == STATUS_DORMANT, (
+            "absence-only lessons must transition to DORMANT, not RESOLVED — "
+            "the honest label for 'quiet but unproven'"
+        )
+        # And must NOT be in the resolved bucket.
+        resolved_cats = [lesson["category"] for lesson in get_lessons(status=STATUS_RESOLVED)]
+        assert "test_absence_mode" not in resolved_cats
 
     def test_absence_mode_does_not_apply_with_regressions(self):
         """A lesson that has regressed cannot use absence-mode — it must

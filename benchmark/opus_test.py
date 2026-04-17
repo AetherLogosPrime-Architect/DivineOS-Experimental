@@ -455,7 +455,10 @@ def main():
     if base_wins > 0:
         print(f"    Ratio:         {enh_wins}:{base_wins} ({enh_wins / base_wins:.1f}x)")
     elif enh_wins > 0:
-        print(f"    Ratio:         {enh_wins}:0 (enhanced undefeated)")
+        # "Undefeated" framing was softened after the 2026-04-16 Bengio audit:
+        # at small n (<50) with many ties, zero base wins is directionally
+        # encouraging but not a statistical claim.
+        print(f"    Ratio:         {enh_wins}:0 enhanced (zero base wins at n={enh_wins + ties})")
     else:
         print("    Ratio:         0:0 (identical)")
 

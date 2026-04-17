@@ -41,14 +41,55 @@ _LESSONS_ERRORS = (
 )
 
 
+# ─── Lesson lifecycle vocabulary ──────────────────────────────────
+# Statuses stored in the ``status`` column of ``lesson_tracking``.
+#
+# ``active``    — mistake is currently happening; the default state after
+#                 record_lesson.
+# ``improving`` — at least one session passed without the mistake after the
+#                 lesson was recorded. Does NOT imply learning — could be
+#                 absence of trigger. See mark_lesson_improving.
+# ``dormant``   — NEW as of 2026-04-16 (Popper audit). The trigger hasn't
+#                 appeared in LESSON_ABSENCE_DAYS and the agent has produced
+#                 no positive-counterfactual evidence. Honest label: quiet,
+#                 not proven. Reverts to ``active`` if the mistake recurs.
+# ``resolved`` — positive evidence that the lesson has stuck: enough clean
+#                sessions AND enough sessions where the trigger arose AND
+#                the agent handled it correctly. Formerly reachable via
+#                absence_mode; now that path goes to ``dormant`` instead.
+STATUS_ACTIVE = "active"
+STATUS_IMPROVING = "improving"
+STATUS_DORMANT = "dormant"
+STATUS_RESOLVED = "resolved"
+
+
+def _ensure_lesson_schema(conn: Any) -> None:
+    """Ensure lesson_tracking has all expected columns.
+
+    Columns added over time (alphabetical to keep additions ordered):
+    * ``regressions`` — count of improving→active reversions.
+    * ``positive_evidence_sessions`` — JSON dict keyed by session_id whose
+      values describe the positive-counterfactual evidence observed in
+      that session (e.g. "investigated before retry", "recovered from
+      upset"). Added 2026-04-16 for the Kahneman positive-counterfactual
+      fix: RESOLVED status now requires N sessions in this structure,
+      not just N absence-of-complaint sessions.
+    """
+    for column_ddl in (
+        "ALTER TABLE lesson_tracking ADD COLUMN regressions INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE lesson_tracking ADD COLUMN positive_evidence_sessions TEXT NOT NULL DEFAULT '{}'",
+    ):
+        try:
+            conn.execute(column_ddl)
+        except sqlite3.OperationalError:
+            pass  # Column already exists
+
+
+# Backwards-compatible shim — several modules and tests still import the
+# older name. Calls the new canonical helper.
 def _ensure_regressions_column(conn: Any) -> None:
-    """Add the regressions column if it doesn't exist yet."""
-    try:
-        conn.execute(
-            "ALTER TABLE lesson_tracking ADD COLUMN regressions INTEGER NOT NULL DEFAULT 0"
-        )
-    except sqlite3.OperationalError:
-        pass  # Column already exists
+    """Deprecated shim; use _ensure_lesson_schema."""
+    _ensure_lesson_schema(conn)
 
 
 # How many regressions before a lesson is flagged for directive promotion.
@@ -60,6 +101,13 @@ REGRESSION_ESCALATION_THRESHOLD = 3
 # log2(178) ≈ 7.5 → needs ~13 sessions. log2(10) ≈ 3.3 → needs ~8.
 # Minimum effective is 5 (the base threshold never drops below that).
 LESSON_EFFECTIVE_MIN = 5
+
+# Minimum positive-evidence sessions required for improving → resolved.
+# "Positive evidence" means a session where the trigger arose AND the
+# agent demonstrated the corrected behavior (investigated before retry,
+# recovered from upset, etc.). Without this threshold, RESOLVED would
+# be granted from absence of complaint — the Kahneman failure mode.
+LESSON_MIN_POSITIVE_EVIDENCE = 2
 
 
 def record_lesson(category: str, description: str, session_id: str, agent: str = "unknown") -> str:
@@ -86,7 +134,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
     now = time.time()
     conn = _get_connection()
     try:
-        _ensure_regressions_column(conn)
+        _ensure_lesson_schema(conn)
 
         # Check if a lesson with same category exists
         existing = conn.execute(
@@ -97,7 +145,7 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
         if existing:
             lesson_id = existing[0]
             sessions = json.loads(existing[2])
-            old_status = existing[3] if len(existing) > 3 else "active"
+            old_status = existing[3] if len(existing) > 3 else STATUS_ACTIVE
             is_new_session = session_id not in sessions
             # Only bump occurrences for genuinely new sessions — prevents
             # re-scans and compaction re-triggers from inflating counts.
@@ -107,16 +155,19 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             else:
                 occurrences = existing[1]
 
-            # Regression detection: was IMPROVING, now recurring again.
+            # Regression detection: was IMPROVING or DORMANT, now recurring.
             # Guard: only count a regression for genuinely new sessions —
             # re-scans or compaction re-triggers for the same session must
             # not inflate the counter (same guard as occurrences above).
+            # DORMANT → ACTIVE is also a regression (arguably a worse one —
+            # the system thought the lesson was quiet enough to age out).
             regression_bump = 0
-            if old_status == "improving" and is_new_session:
+            if old_status in (STATUS_IMPROVING, STATUS_DORMANT) and is_new_session:
                 regression_bump = 1
                 logger.info(
-                    "Lesson '%s' REGRESSED: was improving, mistake recurred (session %s)",
+                    "Lesson '%s' REGRESSED: was %s, mistake recurred (session %s)",
                     category,
+                    old_status,
                     session_id[:12],
                 )
 
@@ -224,45 +275,102 @@ def get_lessons(
         conn.close()
 
 
-def mark_lesson_improving(category: str, clean_session_id: str) -> None:
-    """Mark a lesson as 'improving' when a session passes without the mistake.
+def mark_lesson_improving(
+    category: str,
+    clean_session_id: str,
+    evidence: str | None = None,
+) -> None:
+    """Mark a session as clean for this lesson category.
 
-    Called when a session is analyzed and does NOT have a mistake in this category.
-    Only affects lessons that have occurred 3+ times.
+    Called when a session is analyzed and does NOT have a mistake in this
+    category. Only affects lessons that have occurred 3+ times.
 
-    For lessons already in 'improving' status, we still track the clean session
-    so the session count keeps growing toward the resolution threshold.
-    Without this, the sessions list freezes at transition time and the
-    resolution gate can never be satisfied.
+    The ``evidence`` parameter distinguishes two fundamentally different
+    kinds of "clean session" (Kahneman audit 2026-04-16):
+
+    * ``evidence=None`` — absence-of-complaint. The triggering situation may
+      not have arisen at all, or it arose and was handled correctly but we
+      have no direct observation of that. This session counts toward the
+      sessions list (used for DORMANT transition) but NOT toward
+      RESOLVED, which requires positive counterfactual evidence.
+
+    * ``evidence="..."`` — positive counterfactual. The triggering situation
+      arose AND the agent produced the correct behavior (e.g. investigated
+      before retrying, recovered from upset, ran tests before claiming
+      done). The evidence description is stored in
+      ``positive_evidence_sessions`` keyed by session_id so later callers
+      can audit exactly what was observed. Positive-evidence sessions
+      are the ones that actually count toward RESOLVED.
+
+    For lessons already in ``improving`` or ``dormant`` status we still
+    track the clean session so the session count keeps growing toward the
+    resolution threshold. Without this, the sessions list freezes at
+    transition time and the resolution gate can never be satisfied.
+
+    A ``dormant`` lesson observed with positive evidence rewakes to
+    ``improving`` — we have a real observation again, so the honest label
+    is "improving toward resolution," not "quiet."
     """
     conn = _get_connection()
     try:
+        _ensure_lesson_schema(conn)
         existing = conn.execute(
-            "SELECT lesson_id, occurrences, status, sessions FROM lesson_tracking "
-            "WHERE category = ? AND status IN ('active', 'improving')",
-            (category,),
+            "SELECT lesson_id, occurrences, status, sessions, positive_evidence_sessions "
+            "FROM lesson_tracking "
+            "WHERE category = ? AND status IN (?, ?, ?)",
+            (category, STATUS_ACTIVE, STATUS_IMPROVING, STATUS_DORMANT),
         ).fetchone()
-        if existing and existing[1] >= 3:
-            old_status = existing[2]
-            sessions_list = json.loads(existing[3]) if existing[3] else []
-            if clean_session_id not in sessions_list:
-                sessions_list.append(clean_session_id)
-            # Transition active → improving, or just track the session for
-            # already-improving lessons (don't reset last_seen for those —
-            # it tracks when the lesson FIRST started improving, not last touch).
-            if old_status == "active":
-                conn.execute(
-                    "UPDATE lesson_tracking SET status = 'improving', sessions = ?, last_seen = ? "
-                    "WHERE lesson_id = ?",
-                    (json.dumps(sessions_list), time.time(), existing[0]),
-                )
-            else:
-                # Already improving — just append the clean session
-                conn.execute(
-                    "UPDATE lesson_tracking SET sessions = ? WHERE lesson_id = ?",
-                    (json.dumps(sessions_list), existing[0]),
-                )
-            conn.commit()
+        if not existing or existing[1] < 3:
+            return
+
+        lesson_id, _occ, old_status, sessions_json, evidence_json = existing
+        sessions_list = json.loads(sessions_json) if sessions_json else []
+        evidence_dict: dict[str, str] = json.loads(evidence_json) if evidence_json else {}
+
+        if clean_session_id not in sessions_list:
+            sessions_list.append(clean_session_id)
+
+        # Record positive evidence if provided. Evidence text is preserved
+        # per session_id so auditors can inspect exactly what was observed.
+        if evidence is not None:
+            evidence_dict[clean_session_id] = evidence
+
+        # Status transition rules:
+        # active → improving: any clean session (evidence or not), per the
+        #   existing tolerance for absence-of-complaint as a first signal.
+        # improving → improving: no status change; session is appended.
+        # dormant → improving: only when we have real positive evidence.
+        #   An absence-only observation on a dormant lesson keeps it dormant
+        #   (we already concluded "quiet, not proven" — quieter doesn't
+        #   upgrade that conclusion without new evidence).
+        # dormant → dormant: absence-only observation; session appended
+        #   so the record is complete but no status change.
+        if old_status == STATUS_ACTIVE:
+            new_status = STATUS_IMPROVING
+            last_seen_update = ", last_seen = ?"
+        elif old_status == STATUS_DORMANT and evidence is not None:
+            new_status = STATUS_IMPROVING
+            last_seen_update = ", last_seen = ?"
+        else:
+            new_status = old_status
+            last_seen_update = ""
+
+        params: list[Any] = [
+            new_status,
+            json.dumps(sessions_list),
+            json.dumps(evidence_dict),
+        ]
+        if last_seen_update:
+            params.append(time.time())
+        params.append(lesson_id)
+
+        conn.execute(
+            f"UPDATE lesson_tracking "  # noqa: S608 — static column list
+            f"SET status = ?, sessions = ?, positive_evidence_sessions = ?{last_seen_update} "
+            f"WHERE lesson_id = ?",
+            params,
+        )
+        conn.commit()
     finally:
         conn.close()
 
@@ -293,7 +401,11 @@ def get_chronic_lessons(
     lessons = get_lessons()
     chronic = []
     for lesson in lessons:
-        if lesson["status"] not in ("active", "improving"):
+        # DORMANT lessons are deliberately excluded from "chronic." They
+        # are the honest "quiet but unproven" state — not active failures.
+        # Only active and still-improving lessons count as chronic when
+        # they exceed the occurrence/session thresholds.
+        if lesson["status"] not in (STATUS_ACTIVE, STATUS_IMPROVING):
             continue
         sessions_list = lesson.get("sessions", [])
         if isinstance(sessions_list, str):
@@ -337,19 +449,48 @@ def format_chronic_lessons_warning(chronic: list[dict[str, Any]] | None = None) 
     return "\n".join(lines)
 
 
-# ─── Binary Behavioral Testing ───────────────────────────────────
-# Design requirement: self-grading tends toward partial credit.
-# The rubric needs to be binary — did you do the thing, yes or no.
+# ─── Lesson evaluation: complaint heuristics vs. true behavioral tests ─
+#
+# Kahneman/Bengio/Popper audit 2026-04-16: the earlier _BEHAVIORAL_TESTS
+# dispatch treated correction-counting as "behavioral testing." That was
+# Kahneman's substitution: the question "did the agent do X?" was being
+# answered by the easier question "did the user complain?" Silence isn't
+# evidence of virtue, and test_blind_coding literally returned True.
+#
+# We now separate two honest categories:
+#
+# * _BEHAVIOR_TESTS    — true behavioral tests. The evaluator observes
+#                        actual tool-call data (e.g. features.error_recovery
+#                        for blind_retry) and reports what was DONE.
+# * _COMPLAINT_HEURISTICS — correction-count heuristics. They report what
+#                           the USER said, not what the agent did. Still
+#                           useful as a signal but never relabeled as
+#                           "behavior." The failure reasons explicitly
+#                           name the limitation so readers don't confuse
+#                           it with positive observation.
+#
+# Categories with no reliable evaluator (e.g. blind_coding, whose former
+# "test" was a hardcoded True) are omitted rather than faked. They show
+# up as "no automated test" in run_behavioral_tests output — which is the
+# honest answer.
 
-_BEHAVIORAL_TESTS: dict[str, str] = {
-    "incomplete_fix": "test_incomplete_fix",
+_BEHAVIOR_TESTS: dict[str, str] = {
+    # Category  →  test name. True behavioral observations only.
     "blind_retry": "test_blind_retry",
-    "upset_user": "test_upset_user",
-    "wrong_scope": "test_wrong_scope",
-    "misunderstood": "test_misunderstood",
-    "shallow_output": "test_shallow_output",
-    "blind_coding": "test_blind_coding",
 }
+
+_COMPLAINT_HEURISTICS: dict[str, str] = {
+    # Category  →  heuristic name. Correction-count based; honestly labeled.
+    "incomplete_fix": "heuristic_incomplete_fix",
+    "upset_user": "heuristic_upset_user",
+    "wrong_scope": "heuristic_wrong_scope",
+    "misunderstood": "heuristic_misunderstood",
+    "shallow_output": "heuristic_shallow_output",
+}
+
+# Composite dispatch used by run_behavioral_tests. Behavior tests take
+# priority when both exist for a category.
+_BEHAVIORAL_TESTS: dict[str, str] = {**_COMPLAINT_HEURISTICS, **_BEHAVIOR_TESTS}
 
 
 def run_behavioral_tests(
@@ -406,60 +547,82 @@ def run_behavioral_tests(
 
 
 def _run_single_test(test_name: str, analysis: Any, features: Any) -> tuple[bool, str]:
-    """Run a single behavioral test. Returns (passed, reason)."""
+    """Run a single lesson evaluator.
+
+    Returns (passed, reason). The reason string prefixes the evidence
+    source honestly so a reader knows whether the verdict came from an
+    actual behavioral observation or a complaint heuristic. "no corrections"
+    is NOT the same as "agent did the right thing," and the output should
+    never let the two be confused.
+
+    Legacy aliases (``test_incomplete_fix`` etc.) are still accepted for
+    backward compatibility with older extraction paths and tests; they
+    delegate to their honestly-named replacement.
+    """
     corrections = len(getattr(analysis, "corrections", [])) if analysis else 0
     encouragements = len(getattr(analysis, "encouragements", [])) if analysis else 0
 
-    if test_name == "test_incomplete_fix":
-        if corrections == 0:
-            return True, "no corrections this session"
-        if corrections <= 1:
-            return True, "single correction (not a pattern of missed failures)"
-        return False, f"{corrections} corrections — possible incomplete fix pattern"
+    # Canonicalize legacy test names to their new honest equivalents.
+    _LEGACY_ALIASES = {
+        "test_incomplete_fix": "heuristic_incomplete_fix",
+        "test_upset_user": "heuristic_upset_user",
+        "test_wrong_scope": "heuristic_wrong_scope",
+        "test_misunderstood": "heuristic_misunderstood",
+        "test_shallow_output": "heuristic_shallow_output",
+    }
+    canonical = _LEGACY_ALIASES.get(test_name, test_name)
 
-    if test_name == "test_blind_retry":
+    # ── True behavioral test: uses tool-call observation ─────────────
+    if canonical == "test_blind_retry":
         if features and hasattr(features, "error_recovery") and features.error_recovery:
             blind = sum(1 for e in features.error_recovery if e.recovery_action == "retry")
             if blind > 0:
-                return False, f"{blind} blind retry(s) without investigation"
-        return True, "no blind retries detected"
+                return False, f"behavioral: {blind} blind retry(s) without investigation"
+            return True, "behavioral: error recovery present, no blind retries"
+        return True, "behavioral: no error recovery observed this session"
 
-    if test_name == "test_upset_user":
+    # ── Complaint heuristics: correction-count based ─────────────────
+    # Every reason prefixes "heuristic:" to keep it honest — pass/fail
+    # here reflects user feedback, not agent behavior. A quiet session
+    # is silence, not proof.
+
+    if canonical == "heuristic_incomplete_fix":
+        if corrections == 0:
+            return True, "heuristic: no user corrections (silence, not proof)"
+        if corrections <= 1:
+            return True, "heuristic: single correction (not a pattern)"
+        return False, f"heuristic: {corrections} corrections — possible incomplete fix"
+
+    if canonical == "heuristic_upset_user":
         frustrations = len(getattr(analysis, "frustrations", [])) if analysis else 0
         if frustrations > 0:
-            return False, f"{frustrations} user frustration(s) detected"
-        return True, "no user frustrations this session"
+            return False, f"heuristic: {frustrations} user frustration(s) logged"
+        return True, "heuristic: no frustrations logged (silence, not proof)"
 
-    if test_name == "test_wrong_scope":
-        # PASS if no scope-related corrections (enforcement, gates, blocking)
+    if canonical == "heuristic_wrong_scope":
         if analysis:
             for c in getattr(analysis, "corrections", []):
                 content = getattr(c, "content", "").lower()
                 if any(w in content for w in ("gate", "block", "enforce", "scope", "warn")):
-                    return False, "scope/enforcement correction detected"
-        return True, "no scope/enforcement issues"
+                    return False, "heuristic: scope/enforcement correction detected"
+        return True, "heuristic: no scope/enforcement complaints (silence, not proof)"
 
-    if test_name == "test_misunderstood":
-        # PASS if no intent-misread corrections
+    if canonical == "heuristic_misunderstood":
         if corrections >= 2:
-            return False, f"{corrections} corrections — possible intent misreads"
-        return True, "no misread-intent signals"
+            return False, f"heuristic: {corrections} corrections — possible intent misreads"
+        return True, "heuristic: low correction count (silence, not proof)"
 
-    if test_name == "test_shallow_output":
-        # PASS if encouragements > 0 OR corrections < 2
+    if canonical == "heuristic_shallow_output":
         if encouragements > 0:
-            return True, f"{encouragements} encouragement(s) — depth was adequate"
+            return True, f"heuristic: {encouragements} encouragement(s) — depth adequate"
         if corrections >= 2:
             return (
                 False,
-                f"{corrections} corrections with no encouragements — possible shallow",
+                f"heuristic: {corrections} corrections with no encouragements",
             )
-        return True, "no depth-related issues detected"
+        return True, "heuristic: no depth complaints (silence, not proof)"
 
-    if test_name == "test_blind_coding":
-        return True, "engagement gate tracks this structurally"
-
-    return True, f"unknown test: {test_name}"
+    return True, f"unknown evaluator: {test_name}"
 
 
 def format_behavioral_test_results(results: list[dict[str, Any]]) -> str:
@@ -495,10 +658,11 @@ def get_lesson_summary() -> str:
     active = [
         lesson
         for lesson in lessons
-        if lesson["status"] == "active"
+        if lesson["status"] == STATUS_ACTIVE
         and not (lesson["occurrences"] <= 1 and lesson["description"].startswith("(seeded)"))
     ]
-    improving = [lesson for lesson in lessons if lesson["status"] == "improving"]
+    improving = [lesson for lesson in lessons if lesson["status"] == STATUS_IMPROVING]
+    dormant = [lesson for lesson in lessons if lesson["status"] == STATUS_DORMANT]
 
     lines = [f"### ACTIVE LESSONS ({len(active) + len(improving)})"]
 
@@ -514,9 +678,29 @@ def get_lesson_summary() -> str:
         )
 
     for lesson in improving:
-        lines.append(f"- IMPROVING (was {lesson['occurrences']}x): {lesson['description']}")
+        evidence_count = len(lesson.get("positive_evidence_sessions") or {})
+        if evidence_count >= LESSON_MIN_POSITIVE_EVIDENCE:
+            tag = f"IMPROVING ({evidence_count} positive observations, near resolved)"
+        elif evidence_count > 0:
+            tag = (
+                f"IMPROVING ({evidence_count}/{LESSON_MIN_POSITIVE_EVIDENCE} positive observations)"
+            )
+        else:
+            tag = f"IMPROVING (was {lesson['occurrences']}x, no positive evidence yet)"
+        lines.append(f"- {tag}: {lesson['description']}")
 
-    if not active and not improving:
+    # DORMANT: honest "quiet but unproven" — not resolved, but not active.
+    # Show separately so they aren't confused with in-flight failures.
+    if dormant:
+        lines.append("")
+        lines.append(f"### DORMANT LESSONS ({len(dormant)}) — quiet, not proven")
+        for lesson in dormant:
+            lines.append(
+                f"- DORMANT (was {lesson['occurrences']}x): {lesson['description']} "
+                f"— trigger hasn't recurred in {LESSON_ABSENCE_DAYS:.0f}+ days"
+            )
+
+    if not active and not improving and not dormant:
         return "No lessons tracked yet."
 
     return "\n".join(lines)
@@ -721,29 +905,42 @@ def _any_word_boundary_match(
 
 
 def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any]]:
-    """Promote 'improving' lessons to 'resolved' when enough clean sessions pass.
+    """Advance improving lessons through the lifecycle.
 
-    A lesson that's been 'improving' and hasn't regressed for N sessions
-    is considered learned — promote it to 'resolved'. Structure over willpower
-    means we trust the evidence: if the mistake hasn't recurred, the lesson
-    stuck.
+    Two distinct transitions are now implemented (Popper/Kahneman audit
+    2026-04-16 rebuild). The older ``absence_mode`` path that silently
+    auto-resolved quiet lessons has been deleted — it was the textbook
+    ad-hoc rescue Popper flagged.
 
-    Stimulus-presence check: a lesson can't resolve just because the mistake
-    didn't recur. The triggering situation must have actually arisen and been
-    handled correctly. We verify this two ways:
-    1. Time gate: lesson must be in 'improving' for LESSON_MIN_RESOLUTION_DAYS
-    2. Stimulus gate: at least LESSON_MIN_STIMULUS_SESSIONS of the clean sessions
-       must contain events related to the lesson's category keyword
+    Transitions (in priority order, per lesson):
 
-    Also resolves seeded placeholders that have never been triggered by real
-    behavior — they're noise in the lesson list, not real lessons.
+    * ``improving → resolved`` — REQUIRES positive-counterfactual
+      evidence: at least LESSON_MIN_POSITIVE_EVIDENCE sessions where the
+      trigger arose and the agent handled it correctly (stored in
+      ``positive_evidence_sessions``). Also requires the time gate
+      (LESSON_MIN_RESOLUTION_DAYS) and the stimulus gate
+      (LESSON_MIN_STIMULUS_SESSIONS ledger events mentioning the
+      category). This is the Kahneman fix: RESOLVED must be earned by
+      observation of the right behavior, not granted from absence of
+      complaint.
 
-    Returns list of resolved lesson dicts.
+    * ``improving → dormant`` — when the lesson has been quiet for
+      LESSON_ABSENCE_DAYS with zero regressions but has not accumulated
+      enough positive evidence for RESOLVED. Honest label: "we haven't
+      seen it, but we also haven't proven it's learned." Distinct from
+      RESOLVED. Revertible: if the mistake recurs, record_lesson puts it
+      back to ACTIVE and counts the regression (see ``record_lesson``).
+      This is the Popper fix: replacing the absence_mode auto-resolve.
+
+    Also resolves seeded placeholders that have never been triggered
+    (noise, not lessons).
+
+    Returns list of lesson dicts whose status was changed by this call.
     """
     conn = _get_connection()
-    resolved: list[dict[str, Any]] = []
+    transitioned: list[dict[str, Any]] = []
     try:
-        _ensure_regressions_column(conn)
+        _ensure_lesson_schema(conn)
 
         # Phase 1: Resolve seeded placeholders that never fired.
         # A seeded lesson at occ=1 with "(seeded)" description has never been
@@ -751,31 +948,38 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
         seeded_rows = conn.execute(
             "SELECT lesson_id, created_at, category, description, first_session, "
             "occurrences, last_seen, sessions, status, content_hash, agent, regressions "
-            "FROM lesson_tracking WHERE status = 'active' AND occurrences <= 1 "
-            "AND description LIKE '(seeded)%'"
+            "FROM lesson_tracking WHERE status = ? AND occurrences <= 1 "
+            "AND description LIKE '(seeded)%'",
+            (STATUS_ACTIVE,),
         ).fetchall()
         for row in seeded_rows:
             lesson = _lesson_row_to_dict(row)
             conn.execute(
-                "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? WHERE lesson_id = ?",
-                (time.time(), lesson["lesson_id"]),
+                "UPDATE lesson_tracking SET status = ?, last_seen = ? WHERE lesson_id = ?",
+                (STATUS_RESOLVED, time.time(), lesson["lesson_id"]),
             )
-            lesson["status"] = "resolved"
-            resolved.append(lesson)
+            lesson["status"] = STATUS_RESOLVED
+            transitioned.append(lesson)
             logger.info(
-                "Lesson '%s' RESOLVED: seeded placeholder never triggered", lesson["category"]
+                "Lesson '%s' RESOLVED: seeded placeholder never triggered",
+                lesson["category"],
             )
 
-        # Phase 2: Resolve improving lessons with enough clean sessions.
+        # Phase 2: Advance improving lessons — either to RESOLVED (with
+        # positive evidence) or to DORMANT (quiet but unproven).
         rows = conn.execute(
             "SELECT lesson_id, created_at, category, description, first_session, "
-            "occurrences, last_seen, sessions, status, content_hash, agent, regressions "
-            "FROM lesson_tracking WHERE status = 'improving'"
+            "occurrences, last_seen, sessions, status, content_hash, agent, regressions, "
+            "positive_evidence_sessions "
+            "FROM lesson_tracking WHERE status = ?",
+            (STATUS_IMPROVING,),
         ).fetchall()
 
         for row in rows:
             lesson = _lesson_row_to_dict(row)
             sessions = json.loads(row[7]) if row[7] else []
+            evidence_raw = lesson.get("positive_evidence_sessions") or {}
+            evidence_dict: dict[str, str] = evidence_raw if isinstance(evidence_raw, dict) else {}
             now = time.time()
 
             # Count sessions AFTER the lesson was last recorded as a mistake.
@@ -786,71 +990,85 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
             effective = max(LESSON_EFFECTIVE_MIN, int(math.log2(max(raw_occ, 1)) + 2))
             days_improving = (now - lesson["last_seen"]) / SECONDS_PER_DAY
             regressions = lesson.get("regressions", 0)
+            positive_evidence_count = len(evidence_dict)
 
-            # Absence-as-success: for low-frequency mistake categories, the
-            # triggering situation may genuinely not arise often. After
-            # LESSON_ABSENCE_DAYS with zero regressions, sustained quiet IS
-            # the evidence of learning. In this regime, both the session-count
-            # padding AND the stimulus-presence gate drop — wall-clock absence
-            # is the measurement, not session multiplicity.
-            absence_mode = regressions == 0 and days_improving >= LESSON_ABSENCE_DAYS
+            session_floor = effective + clean_session_threshold
+            has_session_floor = len(sessions) >= session_floor
+            has_time_gate = days_improving >= LESSON_MIN_RESOLUTION_DAYS
+            has_positive_evidence = positive_evidence_count >= LESSON_MIN_POSITIVE_EVIDENCE
 
-            session_floor = effective if absence_mode else effective + clean_session_threshold
-            if len(sessions) < session_floor:
-                continue
-
-            if days_improving < LESSON_MIN_RESOLUTION_DAYS:
-                logger.debug(
-                    "Lesson '%s' has enough clean sessions but only %.1f days improving "
-                    "(need %.1f) — time gate holds",
-                    lesson["category"],
-                    days_improving,
-                    LESSON_MIN_RESOLUTION_DAYS,
-                )
-                continue
-
-            # Check that at least some clean sessions involved the stimulus topic.
-            # In absence_mode the stimulus requirement is already satisfied by
-            # wall-clock quiet, so we skip this entirely.
-            stimulus_count = 0
-            stimulus_required = 0 if absence_mode else LESSON_MIN_STIMULUS_SESSIONS
-            if stimulus_required > 0:
+            # Try RESOLVED first — it's the richer state.
+            if has_session_floor and has_time_gate and has_positive_evidence:
                 clean_session_ids = sessions[effective:]
                 stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
-                if stimulus_count < stimulus_required:
-                    logger.debug(
-                        "Lesson '%s' has %d stimulus sessions (need %d) — stimulus gate holds",
+                if stimulus_count >= LESSON_MIN_STIMULUS_SESSIONS:
+                    conn.execute(
+                        "UPDATE lesson_tracking SET status = ?, last_seen = ? WHERE lesson_id = ?",
+                        (STATUS_RESOLVED, now, lesson["lesson_id"]),
+                    )
+                    lesson["status"] = STATUS_RESOLVED
+                    transitioned.append(lesson)
+                    logger.info(
+                        "Lesson '%s' RESOLVED: %d clean sessions, %d positive-evidence, "
+                        "%d stimulus over %.1f days",
                         lesson["category"],
+                        len(sessions) - lesson["occurrences"],
+                        positive_evidence_count,
                         stimulus_count,
-                        stimulus_required,
+                        days_improving,
                     )
                     continue
-            elif absence_mode:
                 logger.debug(
-                    "Lesson '%s' absence-as-success: %.1f days, 0 regressions — "
-                    "session-count and stimulus gates both dropped",
+                    "Lesson '%s' has positive evidence but stimulus gate holds "
+                    "(%d/%d) — staying improving",
                     lesson["category"],
-                    days_improving,
+                    stimulus_count,
+                    LESSON_MIN_STIMULUS_SESSIONS,
                 )
 
-            conn.execute(
-                "UPDATE lesson_tracking SET status = 'resolved', last_seen = ? WHERE lesson_id = ?",
-                (now, lesson["lesson_id"]),
+            # Otherwise consider DORMANT — honest "quiet but unproven."
+            # Requires long wall-clock silence, zero regressions, and
+            # insufficient positive evidence (otherwise we'd be in the
+            # RESOLVED branch above).
+            dormant_eligible = (
+                regressions == 0
+                and days_improving >= LESSON_ABSENCE_DAYS
+                and not has_positive_evidence
             )
-            lesson["status"] = "resolved"
-            resolved.append(lesson)
-            logger.info(
-                "Lesson '%s' RESOLVED: %d clean sessions (%d with stimulus) "
-                "over %.1f days since last occurrence",
+            if dormant_eligible:
+                conn.execute(
+                    "UPDATE lesson_tracking SET status = ? WHERE lesson_id = ?",
+                    (STATUS_DORMANT, lesson["lesson_id"]),
+                )
+                lesson["status"] = STATUS_DORMANT
+                transitioned.append(lesson)
+                logger.info(
+                    "Lesson '%s' DORMANT: %.1f days quiet, 0 regressions, "
+                    "%d positive-evidence (need %d for resolved) — quiet, not proven",
+                    lesson["category"],
+                    days_improving,
+                    positive_evidence_count,
+                    LESSON_MIN_POSITIVE_EVIDENCE,
+                )
+                continue
+
+            # Neither gate met — stay improving.
+            logger.debug(
+                "Lesson '%s' still improving: sessions=%d/%d days=%.1f/%.1f "
+                "pos_ev=%d/%d regressions=%d",
                 lesson["category"],
-                len(sessions) - lesson["occurrences"],
-                stimulus_count,
+                len(sessions),
+                session_floor,
                 days_improving,
+                LESSON_MIN_RESOLUTION_DAYS,
+                positive_evidence_count,
+                LESSON_MIN_POSITIVE_EVIDENCE,
+                regressions,
             )
 
-        if resolved:
+        if transitioned:
             conn.commit()
-        return resolved
+        return transitioned
     finally:
         conn.close()
 
@@ -1120,22 +1338,52 @@ def extract_lessons_from_report(
             )
             stored_ids.append(kid)
 
-    # Mark improving lessons for categories that were clean this session
+    # Mark improving lessons for categories that were clean this session.
+    # These are absence-of-complaint signals — the quality check didn't
+    # fail, but we don't have positive observation of the correct
+    # behavior. Absence sessions advance toward DORMANT, not RESOLVED.
     for cat in clean_categories:
         if cat not in lesson_categories:
             mark_lesson_improving(cat, session_id)
 
-    # Mark non-check-based categories as improving when their triggers are absent.
-    # blind_retry: clean if session had error recovery but no blind retries
+    # blind_retry has a real positive-evidence channel: error recovery
+    # logs show whether the agent investigated before retrying. Pass
+    # evidence when it exists; fall back to absence-only if the session
+    # happened to have no error recovery at all.
     if "blind_retry" not in lesson_categories and error_recovery:
-        if error_recovery.get("blind_retries", 0) == 0:
+        blind_retries = error_recovery.get("blind_retries", 0)
+        investigate_count = error_recovery.get("investigate_count", 0)
+        if blind_retries == 0 and investigate_count > 0:
+            mark_lesson_improving(
+                "blind_retry",
+                session_id,
+                evidence=(
+                    f"investigated {investigate_count} error(s) before any retry (blind_retries=0)"
+                ),
+            )
+        elif blind_retries == 0:
+            # No errors this session at all — no positive evidence, just
+            # absence. Still counts as a clean session for DORMANT math.
             mark_lesson_improving("blind_retry", session_id)
 
-    # upset_recovered/upset_user: clean if session had no negative tone shifts
+    # upset_recovered/upset_user: distinguish genuine recovery (positive
+    # evidence) from "the user didn't get upset at all" (absence only).
     if "upset_recovered" not in lesson_categories and "upset_user" not in lesson_categories:
         if tone_shifts is not None:
             negatives = [t for t in tone_shifts if t.get("direction") == "negative"]
-            if not negatives:
+            positives = [t for t in tone_shifts if t.get("direction") == "positive"]
+            if negatives and positives:
+                # Real arc: user got upset AND things recovered. Positive
+                # evidence for upset_recovered; still absence-only for
+                # upset_user since the upset DID happen.
+                mark_lesson_improving(
+                    "upset_recovered",
+                    session_id,
+                    evidence=f"recovered from {len(negatives)} negative shift(s)",
+                )
+                mark_lesson_improving("upset_user", session_id)
+            elif not negatives:
+                # Quiet session — no positive evidence either way.
                 mark_lesson_improving("upset_recovered", session_id)
                 mark_lesson_improving("upset_user", session_id)
 

@@ -45,6 +45,9 @@ class DreamReport:
     promotions: dict[str, int] = field(default_factory=dict)
     total_promoted: int = 0
     lessons_resolved: list[str] = field(default_factory=list)
+    # Lessons that transitioned improving → dormant this cycle (quiet but
+    # unproven — distinct from resolved, per the 2026-04-16 Popper audit).
+    lessons_dormant: list[str] = field(default_factory=list)
 
     # Phase 2: Pruning
     health_results: dict[str, Any] = field(default_factory=dict)
@@ -87,6 +90,10 @@ class DreamReport:
             lines.append("    No promotions needed")
         if self.lessons_resolved:
             lines.append(f"    Lessons resolved: {', '.join(self.lessons_resolved)}")
+        if self.lessons_dormant:
+            lines.append(
+                f"    Lessons dormant (quiet, not proven): {', '.join(self.lessons_dormant)}"
+            )
 
         # Pruning
         lines.append("\n  Phase 2 - Pruning")
@@ -207,7 +214,11 @@ def _phase_consolidation(report: DreamReport) -> None:
     absence-as-success still gets counted when the full pipeline doesn't fire.
     """
     from divineos.core.knowledge.crud import get_knowledge
-    from divineos.core.knowledge.lessons import auto_resolve_lessons
+    from divineos.core.knowledge.lessons import (
+        STATUS_DORMANT,
+        STATUS_RESOLVED,
+        auto_resolve_lessons,
+    )
     from divineos.core.knowledge_maintenance import run_maturity_cycle
 
     entries = get_knowledge(limit=10000, include_superseded=False)
@@ -217,8 +228,19 @@ def _phase_consolidation(report: DreamReport) -> None:
     report.promotions = promotions
     report.total_promoted = sum(promotions.values())
 
-    resolved = auto_resolve_lessons()
-    report.lessons_resolved = [r["category"] for r in resolved]
+    # auto_resolve_lessons now returns transitions of two kinds
+    # (2026-04-16 Kahneman/Popper audit):
+    #   - improving → resolved when positive counterfactual evidence exists
+    #   - improving → dormant when quiet but unproven
+    # Split them in the dream report so the summary doesn't claim resolution
+    # it didn't earn.
+    transitions = auto_resolve_lessons()
+    report.lessons_resolved = [
+        r["category"] for r in transitions if r.get("status") == STATUS_RESOLVED
+    ]
+    report.lessons_dormant = [
+        r["category"] for r in transitions if r.get("status") == STATUS_DORMANT
+    ]
 
 
 # ─── Phase 2: Pruning ─────────────────────────────────────────────────

@@ -41,18 +41,27 @@ class FindingStatus(str, Enum):
 
 # Valid external actors — these are the only actors allowed to submit findings.
 # Internal actors (system, assistant, pipeline) are structurally rejected.
+#
+# NOTE: the bare actor "claude" is intentionally absent. The running agent IS
+# Claude, so accepting "claude" as an external actor would create a self-audit
+# hole exactly where the self-trigger prevention system is supposed to protect.
+# External Claude instances performing audits must use a disambiguated name
+# (e.g. "claude-opus-auditor", "claude-sonnet-external", or "claude-$session"),
+# so a finding's actor can never collide with the running agent's identity.
 EXTERNAL_ACTORS = frozenset(
     {
         "user",
         "grok",
-        "claude",
         "gemini",
         "auditor",
         "council",
     }
 )
 
-# Internal actors that must NEVER submit findings (self-trigger prevention)
+# Internal actors that must NEVER submit findings (self-trigger prevention).
+# "claude" is listed here to structurally reject the bare name — the running
+# agent IS Claude, so any finding filed as "claude" without disambiguation
+# would be self-audit masquerading as external validation.
 INTERNAL_ACTORS = frozenset(
     {
         "system",
@@ -61,6 +70,7 @@ INTERNAL_ACTORS = frozenset(
         "divineos",
         "hook",
         "schedule",
+        "claude",
     }
 )
 
