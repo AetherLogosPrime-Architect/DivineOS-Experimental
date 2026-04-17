@@ -13,8 +13,13 @@ fi
 # Extract the command being run (for Bash tool calls)
 cmd=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
 
-# Allow bootstrap commands through without gates
-if echo "$cmd" | grep -qE "divineos (briefing|preflight|init|hud|recall|ask|feel|affect|emit|goal|active|context|verify|health|checkpoint|context-status|progress|correction|corrections)"; then
+# Allow bootstrap commands through without gates.
+# ``audit`` and ``prereg`` are bypass-exempt because the cadence gate
+# below would otherwise lock out the exact commands needed to file a
+# fresh audit round (and the pre-registrations that mechanisms ship
+# with). Without these in the bypass, an overdue state becomes
+# un-escapable — which would be the hook gate eating itself.
+if echo "$cmd" | grep -qE "divineos (briefing|preflight|init|hud|recall|ask|feel|affect|emit|goal|active|context|verify|health|checkpoint|context-status|progress|correction|corrections|audit|prereg)"; then
   exit 0
 fi
 
@@ -82,6 +87,31 @@ else:
     echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":${escaped}}}"
     exit 0
   fi
+fi
+
+# Gate 5: External-audit cadence — if no external audit has been filed
+# within CADENCE_THRESHOLD_DAYS (default 14), non-bypass commands are
+# blocked until a fresh audit round is filed. Grok audit 2026-04-16
+# finding: without mechanical cadence, the external-review pipe goes
+# silent and the OS coasts on its own optimistic numbers. The bypass
+# list above already permits the commands needed to unstick this gate
+# (audit submit-round, prereg, briefing, ask, recall, context).
+cadence_detail=$(python -c "
+from divineos.core.watchmen.cadence import is_overdue, days_since_last_audit, CADENCE_THRESHOLD_DAYS
+if is_overdue():
+    delta = days_since_last_audit()
+    if delta is None:
+        print(f'BLOCKED: No external audit has ever been filed. File one with: divineos audit submit-round \"focus\" --actor <grok|claude-sonnet-auditor|user>. Threshold: {CADENCE_THRESHOLD_DAYS}d.')
+    else:
+        print(f'BLOCKED: External audit overdue ({delta:.1f}d since last, threshold {CADENCE_THRESHOLD_DAYS}d). Request external review from grok / claude-*-auditor / user, then file with: divineos audit submit-round \"focus\" --actor <name>.')
+else:
+    print('OK')
+" 2>/dev/null || echo "OK")
+
+if [ "$cadence_detail" != "OK" ]; then
+  escaped=$(echo "$cadence_detail" | python -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" 2>/dev/null)
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":${escaped}}}"
+  exit 0
 fi
 
 exit 0

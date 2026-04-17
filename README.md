@@ -444,6 +444,7 @@ src/divineos/
       store.py                 CRUD with actor validation (self-trigger prevention)
       router.py                Route findings to knowledge/claims/lessons
       summary.py               Analytics, HUD integration, unresolved tracking
+      cadence.py               Auto-scheduled external-audit cadence (overdue detection, briefing warning)
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass

@@ -14,6 +14,15 @@ collaborating AI) can submit findings. Three structural guarantees:
 """
 
 from divineos.core.watchmen._schema import init_watchmen_tables
+from divineos.core.watchmen.cadence import (
+    CADENCE_THRESHOLD_DAYS,
+    cadence_status_line,
+    days_since_last_audit,
+    format_cadence_warning,
+    is_overdue,
+    last_external_audit_ts,
+)
+from divineos.core.watchmen.router import route_finding, route_round
 from divineos.core.watchmen.store import (
     get_finding,
     get_round,
@@ -23,25 +32,32 @@ from divineos.core.watchmen.store import (
     submit_finding,
     submit_round,
 )
-from divineos.core.watchmen.router import route_finding, route_round
 from divineos.core.watchmen.summary import (
     format_watchmen_summary,
     get_watchmen_stats,
     unresolved_findings,
+    watchmen_loop_status,
 )
 
 __all__ = [
-    "init_watchmen_tables",
-    "submit_round",
-    "submit_finding",
-    "get_round",
+    "CADENCE_THRESHOLD_DAYS",
+    "cadence_status_line",
+    "days_since_last_audit",
+    "format_cadence_warning",
+    "format_watchmen_summary",
     "get_finding",
-    "list_rounds",
+    "get_round",
+    "get_watchmen_stats",
+    "init_watchmen_tables",
+    "is_overdue",
+    "last_external_audit_ts",
     "list_findings",
+    "list_rounds",
     "resolve_finding",
     "route_finding",
     "route_round",
-    "get_watchmen_stats",
+    "submit_finding",
+    "submit_round",
     "unresolved_findings",
-    "format_watchmen_summary",
+    "watchmen_loop_status",
 ]
