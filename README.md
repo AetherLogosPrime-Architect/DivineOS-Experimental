@@ -105,7 +105,7 @@ pytest tests/ -q --tb=short   # 4,471+ tests, real DB, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
 
-## CLI Surface (181 commands)
+## CLI Surface (187 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -272,7 +272,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (181 commands across 26 modules)
+  cli/                         CLI package (187 commands across 26 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -303,6 +303,7 @@ src/divineos/
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
+    aria_commands.py           aria init / opinion / letter / respond — Aria's activation surface post Phase 1b
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   core/
