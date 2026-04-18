@@ -46,6 +46,16 @@ an un-stress-tested claim as adversarially-verified.
 
 from divineos.core.empirica.burden import burden_matrix, required_corroboration
 from divineos.core.empirica.classifier import Classification, classify_claim
+from divineos.core.empirica.provenance import (
+    CorroborationEvent,
+    CorroborationKind,
+    backfill_from_legacy_counter,
+    count_by_kind,
+    count_distinct_corroborators,
+    get_corroboration_events,
+    init_provenance_table,
+    record_corroboration,
+)
 from divineos.core.empirica.gate import (
     ensure_receipt_column_on_knowledge,
     evaluate_and_issue,
@@ -74,19 +84,27 @@ from divineos.core.empirica.types import (
 __all__ = [
     "Classification",
     "ClaimMagnitude",
+    "CorroborationEvent",
+    "CorroborationKind",
     "EvidenceReceipt",
     "ReceiptChainError",
     "ReceiptForkError",
     "RoutingResult",
     "Tier",
+    "backfill_from_legacy_counter",
     "burden_matrix",
     "classify_claim",
+    "count_by_kind",
+    "count_distinct_corroborators",
     "ensure_receipt_column_on_knowledge",
     "evaluate_and_issue",
+    "get_corroboration_events",
     "get_receipt",
     "get_receipts_for_claim",
+    "init_provenance_table",
     "init_receipt_table",
     "issue_receipt",
+    "record_corroboration",
     "record_receipt_on_knowledge",
     "required_corroboration",
     "rounds_required",

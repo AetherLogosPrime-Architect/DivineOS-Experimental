@@ -113,6 +113,7 @@ from divineos.cli import (  # noqa: E402
     correction_commands,
     decision_commands,
     directive_commands,
+    empirica_commands,
     entity_commands,
     event_commands,
     hud_commands,
@@ -151,6 +152,7 @@ progress_commands.register(cli)
 rt_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
+empirica_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:
