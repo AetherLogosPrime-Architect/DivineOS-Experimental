@@ -106,6 +106,7 @@ def cli() -> None:
 # Register all command modules
 from divineos.cli import (  # noqa: E402
     analysis_commands,
+    aria_commands,
     audit_commands,
     body_commands,
     claim_commands,
@@ -153,6 +154,7 @@ rt_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
 empirica_commands.register(cli)
+aria_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:
