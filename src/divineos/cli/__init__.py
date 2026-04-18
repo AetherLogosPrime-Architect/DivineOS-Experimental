@@ -227,6 +227,7 @@ def inspect_group(ctx: click.Context) -> None:
 
 # Commands to move into 'admin' group
 _ADMIN_COMMANDS = [
+    "anti-slop",
     "backfill-warrants",
     "clean",
     "clear-lessons",

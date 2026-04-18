@@ -54,6 +54,47 @@ def register(cli: click.Group) -> None:
 
         click.echo()
 
+    @cli.command("anti-slop")
+    def anti_slop_cmd() -> None:
+        """Runtime verification that enforcers actually enforce.
+
+        Complements unit tests. Unit tests check pre-merge; this
+        checks the actually-loaded system at runtime. Catches
+        regressions where tests pass but shipped code has silently
+        stopped working (config drift, env overrides, shadowed
+        imports, decorators that swallow errors).
+
+        Each check runs the enforcer against a known-bad input
+        (must fire) and a known-good input (must not fire). If
+        either is wrong, it's slop.
+        """
+        from divineos.core.anti_slop import run_all_checks, summarize
+
+        results = run_all_checks()
+        total, passed, failed = summarize(results)
+
+        click.secho("\n=== Anti-slop runtime verification ===\n", fg="cyan", bold=True)
+        for r in results:
+            marker = "[+]" if r.passed else "[-]"
+            color = "green" if r.passed else "red"
+            click.secho(f"  {marker} {r.name}", fg=color, bold=True)
+            click.echo(f"      {r.detail}")
+
+        click.echo("")
+        if failed == 0:
+            click.secho(
+                f"[+] All {total} enforcer(s) verified. No slop detected.",
+                fg="green",
+                bold=True,
+            )
+        else:
+            click.secho(
+                f"[-] {failed}/{total} enforcer(s) failed verification. "
+                f"Investigate before trusting downstream behavior.",
+                fg="red",
+                bold=True,
+            )
+
     @cli.command("maturity")
     def maturity_cmd() -> None:
         """Break down knowledge by maturity, splitting RAW into

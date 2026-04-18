@@ -105,7 +105,7 @@ pytest tests/ -q --tb=short   # 4,580+ tests, real DB, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
 
-## CLI Surface (192 commands)
+## CLI Surface (193 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -272,7 +272,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (192 commands across 26 modules)
+  cli/                         CLI package (193 commands across 26 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -390,6 +390,7 @@ src/divineos/
     seed_manager.py            Seed versioning, validation, merge/apply
     anticipation.py            Pattern anticipation engine
     corrigibility.py           Operating modes + off-switch (normal/restricted/diagnostic/emergency_stop)
+    anti_slop.py               Runtime verification that enforcers actually enforce
     dead_architecture_alarm.py Detect dormant tables, empty HUD slots, display integrity
     external_validation.py     Origin ratio, cross-entity corroboration tracking
     knowledge_impact.py        Measure whether briefing knowledge prevents corrections
