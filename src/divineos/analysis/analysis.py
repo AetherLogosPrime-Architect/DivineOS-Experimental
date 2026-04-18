@@ -227,7 +227,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
         session_file = Path.home() / ".divineos" / "current_session.txt"
         if session_file.exists():
             try:
-                current_session_id = session_file.read_text().strip()
+                current_session_id = session_file.read_text(encoding="utf-8").strip()
                 logger.debug(
                     f"[DEBUG] Read session_id from file for analysis: {current_session_id}",
                 )

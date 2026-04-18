@@ -58,7 +58,7 @@ def _read_session_file() -> str | None:
         session_file = _get_session_file_path()
         if session_file.exists():
             try:
-                content = session_file.read_text().strip()
+                content = session_file.read_text(encoding="utf-8").strip()
                 if content:
                     logger.debug(f"Read session_id from file: {content}")
                     return content
@@ -517,7 +517,7 @@ def get_or_create_session_id(session_id: str | None = None) -> str:
         # Try to read existing session ID from persistent file
         if session_file.exists():
             try:
-                existing_id = session_file.read_text().strip()
+                existing_id = session_file.read_text(encoding="utf-8").strip()
                 if existing_id:  # Only use if non-empty
                     logger.debug(f"Using existing session_id from file: {existing_id}")
                     # Also set environment variable for this process

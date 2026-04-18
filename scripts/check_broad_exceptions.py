@@ -22,7 +22,7 @@ def find_broad_exceptions() -> list[str]:
 
     for py_file in SRC.rglob("*.py"):
         rel = py_file.relative_to(ROOT)
-        text = py_file.read_text(errors="replace")
+        text = py_file.read_text(encoding="utf-8", errors="replace")
 
         for i, line in enumerate(text.splitlines(), 1):
             stripped = line.strip()

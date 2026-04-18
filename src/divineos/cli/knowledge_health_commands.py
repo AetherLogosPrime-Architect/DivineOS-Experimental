@@ -2,6 +2,7 @@
 health, distill, migrate-types, hooks."""
 
 import sqlite3
+import time as _time
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +62,95 @@ def register(cli: click.Group) -> None:
             click.secho(f"[+] Full-text search index rebuilt: {count} entries indexed.", fg="green")
         else:
             click.secho("[*] No knowledge entries to index.", fg="yellow")
+
+    @cli.command("fix-encoding")
+    @click.option(
+        "--apply",
+        is_flag=True,
+        help="Actually update rows. Without this flag the command is dry-run.",
+    )
+    def fix_encoding_cmd(apply: bool) -> None:
+        """Repair mojibake in knowledge content via ftfy.
+
+        Runs ``ftfy.fix_text`` over every row's ``content`` field and
+        reports what would change. With ``--apply``, writes the
+        cleaned text back in place AND rebuilds the FTS index so
+        searches match the corrected text.
+
+        Safe to run repeatedly — ftfy is idempotent on already-clean
+        text. Dry-run by default so the operator can inspect the
+        diff before committing.
+        """
+        try:
+            import ftfy
+        except ImportError:
+            click.secho(
+                "[-] ftfy not installed. Run: pip install ftfy",
+                fg="red",
+            )
+            return
+
+        from divineos.core.knowledge._base import get_connection
+
+        conn = get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT knowledge_id, content FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchall()
+
+            to_fix: list[tuple[str, str, str]] = []
+            for kid, content in rows:
+                if content is None:
+                    continue
+                cleaned = ftfy.fix_text(content)
+                if cleaned != content:
+                    to_fix.append((kid, content, cleaned))
+
+            if not to_fix:
+                click.secho("[*] No mojibake found. Store is clean.", fg="green")
+                return
+
+            click.secho(
+                f"[!] {len(to_fix)} row(s) contain fixable encoding issues:",
+                fg="yellow",
+                bold=True,
+            )
+            for kid, before, after in to_fix[:10]:
+                click.echo(f"  {kid}:")
+                # Use ascii() not repr() so output is terminal-safe on
+                # Windows cp1252 consoles (repr preserves U+FFFD literally).
+                click.echo(f"    before: {ascii(before[:100])}")
+                click.echo(f"    after:  {ascii(after[:100])}")
+            if len(to_fix) > 10:
+                click.echo(f"  ... and {len(to_fix) - 10} more")
+
+            if not apply:
+                click.echo("")
+                click.secho(
+                    "[*] Dry-run. Re-run with --apply to write the cleaned text.",
+                    fg="cyan",
+                )
+                return
+
+            now = _time.time()
+            for kid, _before, after in to_fix:
+                conn.execute(
+                    "UPDATE knowledge SET content = ?, updated_at = ? WHERE knowledge_id = ?",
+                    (after, now, kid),
+                )
+            conn.commit()
+            click.secho(
+                f"[+] Repaired {len(to_fix)} row(s).",
+                fg="green",
+                bold=True,
+            )
+        finally:
+            conn.close()
+
+        # Rebuild FTS so search matches the cleaned text.
+        count = _wrapped_rebuild_fts_index()
+        if count > 0:
+            click.secho(f"[+] FTS index rebuilt: {count} entries.", fg="green")
 
     @cli.command("digest")
     @click.argument("file_path", type=click.Path(exists=True))

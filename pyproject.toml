@@ -11,6 +11,7 @@ requires-python = ">=3.10"
 dependencies = [
     "click>=8.0.0",
     "loguru>=0.7.0",
+    "ftfy>=6.0",
 ]
 
 [project.optional-dependencies]

@@ -201,6 +201,7 @@ _ADMIN_COMMANDS = [
     "digest",
     "diff",
     "distill",
+    "fix-encoding",
     "hooks",
     "ingest",
     "knowledge-compress",
