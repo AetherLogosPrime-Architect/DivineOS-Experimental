@@ -97,7 +97,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,257+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,342+ tests, real DB, minimal mocks
 
 ```
 
@@ -302,6 +302,7 @@ src/divineos/
     memory_commands.py         core, recall, active, remember, refresh
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
+    empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   core/
@@ -462,8 +463,10 @@ src/divineos/
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
       classifier.py            Heuristic classifier: (content, knowledge_type, source) -> (Tier, Magnitude, audit reason)
       routing.py               Council-routing wrapper; LOAD_BEARING needs 1 round, FOUNDATIONAL needs 2
-      receipt.py               evidence_receipts table + issue_receipt + verify_chain (hash-pointer forest traversal, distinguishes forks from tamper)
+      receipt.py               evidence_receipts table + issue_receipt + verify_chain (hash-pointer forest traversal, distinguishes forks from tamper, dual chain per Hofstadter)
       gate.py                  Full pipeline orchestrator: classify -> burden -> route -> issue + receipt_id column migration
+      provenance.py            corroboration_events table + distinct-actor counting (anti-Goodhart corroboration provenance)
+      kappa.py                 Cohen's kappa computation + gold fixture + classifier agreement measurement
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -537,7 +540,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,257+ tests (real DB, minimal mocks)
+tests/                         4,342+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -574,7 +577,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 4,257+ tests (real SQLite, minimal mocks)
+- 4,342+ tests (real SQLite, minimal mocks)
 
 - 143 CLI commands
 - 9 Claude Code enforcement hooks
