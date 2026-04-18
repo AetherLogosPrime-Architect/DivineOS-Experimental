@@ -190,12 +190,22 @@ class EvidenceReceipt:
       require a pointer. Phase 1.5 stores the pointer verbatim; a
       future phase will validate that the referenced artifact
       actually exists.
-    * ``previous_receipt_hash`` — self_hash of the prior receipt in
-      the chain (or None for the genesis receipt).
-    * ``self_hash`` — SHA256 of all content fields including the
-      artifact_pointer. Tampering with the pointer post-issue
-      breaks self-hash verification — the pointer is as tamper-
-      evident as every other field.
+    * ``previous_receipt_hash_global`` — self_hash of the prior
+      receipt in the GLOBAL chain (or None for the genesis receipt
+      of the entire system). The global chain is the system's
+      self-integrity statement: tampering with any receipt breaks
+      forward traversal from genesis.
+    * ``previous_receipt_hash_in_claim`` — self_hash of the prior
+      receipt FOR THIS SAME CLAIM_ID (or None if this is the first
+      receipt ever issued for this claim). The per-claim chain is
+      the honest scope for what this receipt MEANS about its
+      claim. Added 2026-04-17 per Hofstadter audit finding
+      find-f2284f22d795: picking either chain alone amputates the
+      other's meaning. Walking per-claim is O(k) on k receipts for
+      the claim — independent of system size.
+    * ``self_hash`` — SHA256 of all content fields including BOTH
+      previous-hash fields and the artifact_pointer. Tampering with
+      any field post-issue breaks self-hash verification.
     """
 
     receipt_id: str
@@ -206,7 +216,8 @@ class EvidenceReceipt:
     council_count: int
     issued_at: float
     artifact_pointer: str | None
-    previous_receipt_hash: str | None
+    previous_receipt_hash_global: str | None
+    previous_receipt_hash_in_claim: str | None
     self_hash: str
 
     @staticmethod
@@ -218,7 +229,8 @@ class EvidenceReceipt:
         council_count: int,
         issued_at: float,
         artifact_pointer: str | None,
-        previous_receipt_hash: str | None,
+        previous_receipt_hash_global: str | None,
+        previous_receipt_hash_in_claim: str | None,
     ) -> str:
         """Compute the self_hash over all receipt fields.
 
@@ -226,8 +238,9 @@ class EvidenceReceipt:
         canonical string concatenation. Field order is fixed —
         changing it is a wire-format break and must bump a schema
         version, not silently change hashes for existing receipts.
-        artifact_pointer is included so tampering with the citation
-        post-issue breaks verification.
+
+        Both previous-hash fields (global and per-claim) are
+        included so tampering with either chain link is detectable.
         """
         canonical = "|".join(
             [
@@ -238,7 +251,8 @@ class EvidenceReceipt:
                 str(council_count),
                 f"{issued_at:.6f}",
                 artifact_pointer or "NO_POINTER",
-                previous_receipt_hash or "GENESIS",
+                previous_receipt_hash_global or "GENESIS_GLOBAL",
+                previous_receipt_hash_in_claim or "GENESIS_CLAIM",
             ]
         )
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
@@ -251,7 +265,8 @@ class EvidenceReceipt:
         magnitude: ClaimMagnitude,
         corroboration_count: int,
         council_count: int,
-        previous_receipt_hash: str | None,
+        previous_receipt_hash_global: str | None,
+        previous_receipt_hash_in_claim: str | None,
         artifact_pointer: str | None = None,
     ) -> EvidenceReceipt:
         """Construct a receipt with computed self_hash.
@@ -259,6 +274,11 @@ class EvidenceReceipt:
         Prefer this over direct __init__ — it guarantees self_hash
         is computed from the canonical field values rather than
         passed (and potentially tampered) by the caller.
+
+        Both previous-hash fields are required parameters (no
+        default) so callers must explicitly think about whether the
+        receipt is genesis-for-global (None) and/or
+        genesis-for-this-claim (None).
         """
         issued_at = time.time()
         receipt_id = f"receipt-{uuid.uuid4().hex[:12]}"
@@ -270,7 +290,8 @@ class EvidenceReceipt:
             council_count=council_count,
             issued_at=issued_at,
             artifact_pointer=artifact_pointer,
-            previous_receipt_hash=previous_receipt_hash,
+            previous_receipt_hash_global=previous_receipt_hash_global,
+            previous_receipt_hash_in_claim=previous_receipt_hash_in_claim,
         )
         return cls(
             receipt_id=receipt_id,
@@ -281,7 +302,8 @@ class EvidenceReceipt:
             council_count=council_count,
             issued_at=issued_at,
             artifact_pointer=artifact_pointer,
-            previous_receipt_hash=previous_receipt_hash,
+            previous_receipt_hash_global=previous_receipt_hash_global,
+            previous_receipt_hash_in_claim=previous_receipt_hash_in_claim,
             self_hash=self_hash,
         )
 
@@ -290,7 +312,9 @@ class EvidenceReceipt:
 
         If this returns False, the receipt has been tampered with
         since issue — either the hash field or one of the content
-        fields was changed after construction.
+        fields was changed after construction. Both chain hashes
+        (global and per-claim) participate in the signature so
+        tampering with either is detectable.
         """
         expected = self._compute_self_hash(
             claim_id=self.claim_id,
@@ -300,7 +324,8 @@ class EvidenceReceipt:
             council_count=self.council_count,
             issued_at=self.issued_at,
             artifact_pointer=self.artifact_pointer,
-            previous_receipt_hash=self.previous_receipt_hash,
+            previous_receipt_hash_global=self.previous_receipt_hash_global,
+            previous_receipt_hash_in_claim=self.previous_receipt_hash_in_claim,
         )
         return expected == self.self_hash
 

@@ -25,8 +25,8 @@ def count_test_functions() -> int:
     """Count 'def test_*' across all test files."""
     total = 0
     for f in (ROOT / "tests").rglob("test_*.py"):
-        total += f.read_text(errors="replace").count("\n    def test_")
-        total += f.read_text(errors="replace").count("\ndef test_")
+        total += f.read_text(encoding="utf-8", errors="replace").count("\n    def test_")
+        total += f.read_text(encoding="utf-8", errors="replace").count("\ndef test_")
     return total
 
 
@@ -34,14 +34,16 @@ def count_cli_commands() -> int:
     """Count @group.command() decorators in CLI modules."""
     total = 0
     for f in (ROOT / "src" / "divineos" / "cli").rglob("*.py"):
-        total += len(re.findall(r"@\w+\.command\b", f.read_text(errors="replace")))
+        total += len(
+            re.findall(r"@\w+\.command\b", f.read_text(encoding="utf-8", errors="replace"))
+        )
     return total
 
 
 def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     """Pull (label, number, context) tuples from a file."""
     findings: list[tuple[str, int, str]] = []
-    text = path.read_text(errors="replace")
+    text = path.read_text(encoding="utf-8", errors="replace")
 
     # Match patterns like "2,608+ tests" or "2608 tests"
     for m in re.finditer(r"([\d,]+)\+?\s+tests", text):
@@ -66,7 +68,7 @@ def _extract_tree_paths(readme_path: Path) -> list[str]:
     Architecture section and reconstructs relative paths from indentation.
     Returns paths relative to src/divineos/ (e.g. 'cli/__init__.py').
     """
-    text = readme_path.read_text(errors="replace")
+    text = readme_path.read_text(encoding="utf-8", errors="replace")
 
     # Find the architecture code block
     arch_match = re.search(r"## Architecture\s*\n\s*```\s*\n(.*?)```", text, re.DOTALL)
@@ -184,7 +186,7 @@ def fix_test_counts(actual_tests: int) -> list[str]:
     for doc_file in doc_files:
         if not doc_file.exists():
             continue
-        text = doc_file.read_text(errors="replace")
+        text = doc_file.read_text(encoding="utf-8", errors="replace")
         # Replace patterns like "3,641+ tests" or "3641+ tests"
         updated = re.sub(r"[\d,]+\+?\s+tests", f"{new_count} tests", text)
         if updated != text:

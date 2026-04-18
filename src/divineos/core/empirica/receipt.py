@@ -108,16 +108,17 @@ def init_receipt_table() -> None:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS evidence_receipts (
-                receipt_id             TEXT PRIMARY KEY,
-                claim_id               TEXT NOT NULL,
-                tier                   TEXT NOT NULL,
-                magnitude              INTEGER NOT NULL,
-                corroboration_count    INTEGER NOT NULL,
-                council_count          INTEGER NOT NULL,
-                issued_at              REAL NOT NULL,
-                artifact_pointer       TEXT,
-                previous_receipt_hash  TEXT,
-                self_hash              TEXT NOT NULL UNIQUE
+                receipt_id                     TEXT PRIMARY KEY,
+                claim_id                       TEXT NOT NULL,
+                tier                           TEXT NOT NULL,
+                magnitude                      INTEGER NOT NULL,
+                corroboration_count            INTEGER NOT NULL,
+                council_count                  INTEGER NOT NULL,
+                issued_at                      REAL NOT NULL,
+                artifact_pointer               TEXT,
+                previous_receipt_hash_global   TEXT,
+                previous_receipt_hash_in_claim TEXT,
+                self_hash                      TEXT NOT NULL UNIQUE
             )
             """
         )
@@ -125,6 +126,22 @@ def init_receipt_table() -> None:
         # (for databases created before prereg-e210f5fb78c9).
         try:
             conn.execute("ALTER TABLE evidence_receipts ADD COLUMN artifact_pointer TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+        # Dual-chain migration (prereg-5a9eaee8ce10): rename
+        # previous_receipt_hash to previous_receipt_hash_global,
+        # add previous_receipt_hash_in_claim.
+        try:
+            conn.execute(
+                "ALTER TABLE evidence_receipts "
+                "RENAME COLUMN previous_receipt_hash TO previous_receipt_hash_global"
+            )
+        except sqlite3.OperationalError:
+            pass  # already renamed or never existed under old name
+        try:
+            conn.execute(
+                "ALTER TABLE evidence_receipts ADD COLUMN previous_receipt_hash_in_claim TEXT"
+            )
         except sqlite3.OperationalError:
             pass  # column already exists
         conn.execute(
@@ -141,18 +158,40 @@ def init_receipt_table() -> None:
         conn.close()
 
 
-def _latest_receipt_hash() -> str | None:
-    """Return the ``self_hash`` of the most recently issued receipt.
+def _latest_global_receipt_hash() -> str | None:
+    """Return the ``self_hash`` of the most recently issued receipt
+    across the whole store.
 
-    Used to compute ``previous_receipt_hash`` for the next receipt.
-    Returns None if no receipts exist yet (the first receipt is
-    genesis).
+    Used to compute ``previous_receipt_hash_global`` for the next
+    receipt. Returns None if no receipts exist yet (the next receipt
+    is the global genesis).
     """
     init_receipt_table()
     conn = _get_ledger_conn()
     try:
         row = conn.execute(
             "SELECT self_hash FROM evidence_receipts ORDER BY issued_at DESC LIMIT 1"
+        ).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
+
+
+def _latest_receipt_hash_for_claim(claim_id: str) -> str | None:
+    """Return the ``self_hash`` of the most recently issued receipt
+    for the given claim.
+
+    Used to compute ``previous_receipt_hash_in_claim`` for the next
+    receipt on this claim. Returns None if no receipts exist for the
+    claim yet (the next receipt is this claim's chain genesis).
+    """
+    init_receipt_table()
+    conn = _get_ledger_conn()
+    try:
+        row = conn.execute(
+            "SELECT self_hash FROM evidence_receipts "
+            "WHERE claim_id = ? ORDER BY issued_at DESC LIMIT 1",
+            (claim_id,),
         ).fetchone()
         return row[0] if row else None
     finally:
@@ -180,7 +219,10 @@ def issue_receipt(
     ``EvidenceReceipt``.
     """
     init_receipt_table()
-    previous_hash = _latest_receipt_hash()
+    # Dual chain: global link + per-claim link. Each receipt belongs
+    # to the global chronology AND to the history of its own claim.
+    previous_global = _latest_global_receipt_hash()
+    previous_in_claim = _latest_receipt_hash_for_claim(claim_id)
     receipt = EvidenceReceipt.issue(
         claim_id=claim_id,
         tier=tier,
@@ -188,7 +230,8 @@ def issue_receipt(
         corroboration_count=corroboration_count,
         council_count=council_count,
         artifact_pointer=artifact_pointer,
-        previous_receipt_hash=previous_hash,
+        previous_receipt_hash_global=previous_global,
+        previous_receipt_hash_in_claim=previous_in_claim,
     )
 
     conn = _get_ledger_conn()
@@ -198,9 +241,11 @@ def issue_receipt(
             INSERT INTO evidence_receipts (
                 receipt_id, claim_id, tier, magnitude, corroboration_count,
                 council_count, issued_at, artifact_pointer,
-                previous_receipt_hash, self_hash
+                previous_receipt_hash_global,
+                previous_receipt_hash_in_claim,
+                self_hash
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 receipt.receipt_id,
@@ -211,7 +256,8 @@ def issue_receipt(
                 receipt.council_count,
                 receipt.issued_at,
                 receipt.artifact_pointer,
-                receipt.previous_receipt_hash,
+                receipt.previous_receipt_hash_global,
+                receipt.previous_receipt_hash_in_claim,
                 receipt.self_hash,
             ),
         )
@@ -236,7 +282,9 @@ def get_receipt(receipt_id: str) -> EvidenceReceipt | None:
     try:
         row = conn.execute(
             "SELECT receipt_id, claim_id, tier, magnitude, corroboration_count, "
-            "council_count, issued_at, artifact_pointer, previous_receipt_hash, self_hash "
+            "council_count, issued_at, artifact_pointer, "
+            "previous_receipt_hash_global, previous_receipt_hash_in_claim, "
+            "self_hash "
             "FROM evidence_receipts WHERE receipt_id = ?",
             (receipt_id,),
         ).fetchone()
@@ -251,8 +299,9 @@ def get_receipt(receipt_id: str) -> EvidenceReceipt | None:
             council_count=int(row[5]),
             issued_at=float(row[6]),
             artifact_pointer=row[7],
-            previous_receipt_hash=row[8],
-            self_hash=row[9],
+            previous_receipt_hash_global=row[8],
+            previous_receipt_hash_in_claim=row[9],
+            self_hash=row[10],
         )
     finally:
         conn.close()
@@ -271,7 +320,9 @@ def get_receipts_for_claim(claim_id: str) -> list[EvidenceReceipt]:
     try:
         rows = conn.execute(
             "SELECT receipt_id, claim_id, tier, magnitude, corroboration_count, "
-            "council_count, issued_at, artifact_pointer, previous_receipt_hash, self_hash "
+            "council_count, issued_at, artifact_pointer, "
+            "previous_receipt_hash_global, previous_receipt_hash_in_claim, "
+            "self_hash "
             "FROM evidence_receipts WHERE claim_id = ? ORDER BY issued_at ASC",
             (claim_id,),
         ).fetchall()
@@ -285,8 +336,9 @@ def get_receipts_for_claim(claim_id: str) -> list[EvidenceReceipt]:
                 council_count=int(r[5]),
                 issued_at=float(r[6]),
                 artifact_pointer=r[7],
-                previous_receipt_hash=r[8],
-                self_hash=r[9],
+                previous_receipt_hash_global=r[8],
+                previous_receipt_hash_in_claim=r[9],
+                self_hash=r[10],
             )
             for r in rows
         ]
@@ -294,77 +346,26 @@ def get_receipts_for_claim(claim_id: str) -> list[EvidenceReceipt]:
         conn.close()
 
 
-def verify_chain() -> None:
-    """Walk the receipt chain by HASH POINTERS and verify integrity.
+def _walk_chain(
+    receipts: list[EvidenceReceipt],
+    previous_attr: str,
+    scope_label: str,
+) -> None:
+    """Shared forest-walk verification for a set of receipts linked
+    via ``previous_attr`` (``previous_receipt_hash_global`` or
+    ``previous_receipt_hash_in_claim``).
 
-    Traversal is a forest walk starting from genesis receipts (those
-    with ``previous_receipt_hash = None``). We do NOT sort by
-    ``issued_at`` — that was the bug Dijkstra flagged in audit
-    finding find-0ea12ad4b5d0. In a Merkle chain, hashes define
-    order; order does not define which hashes must match. Reversing
-    that dependency turned honest concurrent-writer races into
-    tamper-shaped false positives.
-
-    Invariants checked (in order):
-
-    1. Every receipt's ``self_hash`` recomputes from its current
-       field values (no content tampering).
-    2. Every ``self_hash`` is unique in the store.
-    3. Exactly one genesis receipt exists. Two or more is a fork
-       at the root — usually concurrent writers on an empty store.
-    4. Walking from genesis following ``self_hash ->
-       previous_receipt_hash`` edges, every node has exactly one
-       child. Two or more children is a fork at that position —
-       usually concurrent writers racing on the same
-       latest-receipt snapshot. Zero children is end-of-chain.
-    5. The traversal reaches every receipt in the store. Any
-       receipt not reached is orphaned — its
-       ``previous_receipt_hash`` points to a hash that doesn't
-       exist in the store (stale or tampered reference).
-    6. No cycles — a receipt whose traversal revisits a hash
-       already in the chain.
-
-    Raises:
-
-    * ``ReceiptForkError`` (subclass of ``ReceiptChainError``)
-      when invariants 3 or 4 fail — distinguishes honest
-      concurrent-writer forks from tamper events so operators
-      can diagnose correctly.
-    * ``ReceiptChainError`` when invariants 1, 2, 5, or 6 fail.
-
-    Silent on success.
+    Performs the six-invariant walk (self_hash verify, uniqueness,
+    single genesis, no mid-chain fork, full reach, no cycles).
+    ``scope_label`` appears in error messages so operators can tell
+    which chain failed (global vs per-claim).
     """
-    init_receipt_table()
-    conn = _get_ledger_conn()
-    try:
-        rows = conn.execute(
-            "SELECT receipt_id, claim_id, tier, magnitude, corroboration_count, "
-            "council_count, issued_at, artifact_pointer, previous_receipt_hash, self_hash "
-            "FROM evidence_receipts"
-        ).fetchall()
-    finally:
-        conn.close()
+    if not receipts:
+        return
 
-    if not rows:
-        return  # empty store is valid
-
-    # Invariants 1 + 2: verify every receipt's self_hash, build
-    # by_self_hash index, build children_of adjacency.
     by_self_hash: dict[str, EvidenceReceipt] = {}
     children_of: dict[str | None, list[EvidenceReceipt]] = {}
-    for r in rows:
-        receipt = EvidenceReceipt(
-            receipt_id=r[0],
-            claim_id=r[1],
-            tier=Tier(r[2]),
-            magnitude=ClaimMagnitude(r[3]),
-            corroboration_count=int(r[4]),
-            council_count=int(r[5]),
-            issued_at=float(r[6]),
-            artifact_pointer=r[7],
-            previous_receipt_hash=r[8],
-            self_hash=r[9],
-        )
+    for receipt in receipts:
         if not receipt.verify_self_hash():
             raise ReceiptChainError(
                 f"Receipt {receipt.receipt_id}: self_hash mismatch — "
@@ -378,28 +379,22 @@ def verify_chain() -> None:
                 f"Hash collisions should not occur for this field set."
             )
         by_self_hash[receipt.self_hash] = receipt
-        children_of.setdefault(receipt.previous_receipt_hash, []).append(receipt)
+        children_of.setdefault(getattr(receipt, previous_attr), []).append(receipt)
 
-    # Invariant 3: exactly one genesis receipt.
     genesis = children_of.get(None, [])
     if not genesis:
         raise ReceiptChainError(
-            "No genesis receipt found (every receipt has a "
-            "previous_receipt_hash). Chain has no root — all previous "
-            "links must eventually terminate at a genesis receipt."
+            f"[{scope_label}] No genesis receipt found (every receipt "
+            f"has a previous_receipt_hash). Chain has no root."
         )
     if len(genesis) > 1:
         ids = ", ".join(r.receipt_id for r in genesis)
         raise ReceiptForkError(
-            f"Multiple genesis receipts found ({len(genesis)}): {ids}. "
-            f"Chain has forked at the root — likely concurrent writers "
-            f"on an empty store. Each genesis receipt is valid on its "
-            f"own; the fork needs operator intervention to pick the "
-            f"canonical history."
+            f"[{scope_label}] Multiple genesis receipts found "
+            f"({len(genesis)}): {ids}. Chain has forked at the root — "
+            f"likely concurrent writers on an empty store."
         )
 
-    # Invariant 4 + 6: walk forward from genesis, one child per node,
-    # no cycles.
     current = genesis[0]
     visited: set[str] = {current.self_hash}
     while True:
@@ -409,35 +404,123 @@ def verify_chain() -> None:
         if len(kids) > 1:
             ids = ", ".join(r.receipt_id for r in kids)
             raise ReceiptForkError(
-                f"Fork at receipt {current.receipt_id} "
+                f"[{scope_label}] Fork at receipt {current.receipt_id} "
                 f"({current.self_hash[:16]}...): {len(kids)} receipts "
                 f"chain to its self_hash: {ids}. Likely concurrent "
-                f"writers racing on the same latest-receipt snapshot. "
-                f"Investigate the race and consider adding a write-side "
-                f"lock or compare-and-swap on the previous hash."
+                f"writers racing on the same latest-receipt snapshot."
             )
         current = kids[0]
         if current.self_hash in visited:
             raise ReceiptChainError(
-                f"Cycle detected at receipt {current.receipt_id}: "
-                f"traversal revisits self_hash already in the chain. "
-                f"This should be structurally impossible unless a "
-                f"receipt was manually inserted with a crafted hash."
+                f"[{scope_label}] Cycle detected at receipt "
+                f"{current.receipt_id}: traversal revisits self_hash "
+                f"already in the chain."
             )
         visited.add(current.self_hash)
 
-    # Invariant 5: every receipt reached from the genesis walk.
     unvisited = set(by_self_hash.keys()) - visited
     if unvisited:
         orphans = sorted(by_self_hash[h].receipt_id for h in unvisited)
         sample = ", ".join(orphans[:5])
         suffix = f" (and {len(orphans) - 5} more)" if len(orphans) > 5 else ""
         raise ReceiptChainError(
-            f"Orphan receipts not reached from genesis traversal: "
-            f"{sample}{suffix}. Their previous_receipt_hash references "
-            f"point to self_hashes that do not exist in the store — "
-            f"either stale (a prior receipt was deleted) or tampered "
-            f"(a previous_receipt_hash was edited to a fake value)."
+            f"[{scope_label}] Orphan receipts not reached from genesis "
+            f"traversal: {sample}{suffix}. Their previous-hash references "
+            f"point to self_hashes that do not exist in this chain scope."
+        )
+
+
+def _load_all_receipts() -> list[EvidenceReceipt]:
+    """Load every receipt in the store as ``EvidenceReceipt`` objects."""
+    init_receipt_table()
+    conn = _get_ledger_conn()
+    try:
+        rows = conn.execute(
+            "SELECT receipt_id, claim_id, tier, magnitude, corroboration_count, "
+            "council_count, issued_at, artifact_pointer, "
+            "previous_receipt_hash_global, previous_receipt_hash_in_claim, "
+            "self_hash "
+            "FROM evidence_receipts"
+        ).fetchall()
+    finally:
+        conn.close()
+    return [
+        EvidenceReceipt(
+            receipt_id=r[0],
+            claim_id=r[1],
+            tier=Tier(r[2]),
+            magnitude=ClaimMagnitude(r[3]),
+            corroboration_count=int(r[4]),
+            council_count=int(r[5]),
+            issued_at=float(r[6]),
+            artifact_pointer=r[7],
+            previous_receipt_hash_global=r[8],
+            previous_receipt_hash_in_claim=r[9],
+            self_hash=r[10],
+        )
+        for r in rows
+    ]
+
+
+def verify_global_chain() -> None:
+    """Walk the global receipt chain by HASH POINTERS and verify
+    integrity. This is the system-level self-integrity chain — every
+    receipt ever issued, linked through
+    ``previous_receipt_hash_global``.
+
+    See ``_walk_chain`` for the six invariants checked. Distinguishes
+    ``ReceiptForkError`` (concurrent-writer races) from
+    ``ReceiptChainError`` (tamper / cycle / orphan).
+
+    Silent on success.
+    """
+    _walk_chain(_load_all_receipts(), "previous_receipt_hash_global", "global")
+
+
+def verify_claim_chain(claim_id: str) -> None:
+    """Walk the per-claim receipt chain for a single claim and
+    verify integrity. This is the honest semantic scope: what this
+    receipt MEANS about its claim. Added per Hofstadter audit
+    finding find-f2284f22d795 — global-chain-only made meaning and
+    integrity entangled, so tampering with receipt for claim A
+    corrupted the chain position of receipt for claim B.
+
+    Silent on success.
+    """
+    init_receipt_table()
+    receipts = get_receipts_for_claim(claim_id)
+    _walk_chain(receipts, "previous_receipt_hash_in_claim", f"claim:{claim_id[:12]}")
+
+
+def verify_chain() -> None:
+    """Verify BOTH the global chain and every per-claim chain.
+
+    The dual chain (Hofstadter audit find-f2284f22d795) separates
+    two concerns that were entangled in the single-chain design:
+
+    * Global chain — system self-integrity. Tampering with any
+      receipt breaks forward traversal from genesis.
+    * Per-claim chain — semantic scope. What a receipt means about
+      its claim is independent of receipts for other claims.
+
+    Silent on success. Raises ``ReceiptChainError`` or
+    ``ReceiptForkError`` on any invariant violation.
+    """
+    all_receipts = _load_all_receipts()
+    _walk_chain(all_receipts, "previous_receipt_hash_global", "global")
+    # Verify each per-claim chain using already-loaded receipts,
+    # partitioned by claim_id.
+    by_claim: dict[str, list[EvidenceReceipt]] = {}
+    for r in all_receipts:
+        by_claim.setdefault(r.claim_id, []).append(r)
+    for claim_id, receipts in by_claim.items():
+        # Sort chronologically so order within claim is stable for
+        # diagnostic output; walk itself is hash-driven.
+        receipts.sort(key=lambda r: r.issued_at)
+        _walk_chain(
+            receipts,
+            "previous_receipt_hash_in_claim",
+            f"claim:{claim_id[:12]}",
         )
 
 
@@ -447,4 +530,6 @@ __all__ = [
     "init_receipt_table",
     "issue_receipt",
     "verify_chain",
+    "verify_claim_chain",
+    "verify_global_chain",
 ]

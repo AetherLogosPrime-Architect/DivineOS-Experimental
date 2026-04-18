@@ -50,6 +50,8 @@ from divineos.core.empirica.receipt import (
     init_receipt_table,
     issue_receipt,
     verify_chain,
+    verify_claim_chain,
+    verify_global_chain,
 )
 
 
@@ -106,18 +108,24 @@ class TestEvidenceReceiptSelfHash:
             magnitude=ClaimMagnitude.NORMAL,
             corroboration_count=4,
             council_count=0,
-            previous_receipt_hash=None,
+            artifact_pointer=None,
+            previous_receipt_hash_global=None,
+            previous_receipt_hash_in_claim=None,
         )
         assert w.self_hash
         assert len(w.self_hash) == 64  # sha256 hex
 
     def test_verify_self_hash_true_on_fresh(self):
-        w = EvidenceReceipt.issue("c1", Tier.PATTERN, ClaimMagnitude.LOAD_BEARING, 12, 1, None)
+        w = EvidenceReceipt.issue(
+            "c1", Tier.PATTERN, ClaimMagnitude.LOAD_BEARING, 12, 1, None, None, None
+        )
         assert w.verify_self_hash() is True
 
     def test_verify_self_hash_false_after_tamper(self):
         """Using dataclass.replace to tamper with a frozen field."""
-        w = EvidenceReceipt.issue("c1", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4, 0, None)
+        w = EvidenceReceipt.issue(
+            "c1", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4, 0, None, None, None
+        )
         tampered = replace(w, corroboration_count=999)
         assert tampered.verify_self_hash() is False
 
@@ -128,21 +136,22 @@ class TestEvidenceReceiptSelfHash:
         directly with a fixed timestamp."""
         # _compute_self_hash signature: (claim_id, tier, magnitude,
         # corroboration_count, council_count, issued_at,
-        # artifact_pointer, previous_receipt_hash)
+        # artifact_pointer, previous_receipt_hash_global,
+        # previous_receipt_hash_in_claim)
         h1 = EvidenceReceipt._compute_self_hash(
-            "c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6, 0, 1000.0, None, None
+            "c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6, 0, 1000.0, None, None, None
         )
         h2 = EvidenceReceipt._compute_self_hash(
-            "c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6, 0, 1000.0, None, None
+            "c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6, 0, 1000.0, None, None, None
         )
         assert h1 == h2
 
     def test_self_hash_changes_with_tier(self):
         h1 = EvidenceReceipt._compute_self_hash(
-            "c", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4, 0, 1000.0, None, None
+            "c", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4, 0, 1000.0, None, None, None
         )
         h2 = EvidenceReceipt._compute_self_hash(
-            "c", Tier.PATTERN, ClaimMagnitude.NORMAL, 4, 0, 1000.0, None, None
+            "c", Tier.PATTERN, ClaimMagnitude.NORMAL, 4, 0, 1000.0, None, None, None
         )
         assert h1 != h2
 
@@ -341,12 +350,17 @@ class TestReceiptPersistence:
 class TestReceiptChain:
     def test_genesis_receipt_has_no_previous(self):
         w = issue_receipt("c1", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4)
-        assert w.previous_receipt_hash is None
+        assert w.previous_receipt_hash_global is None
+        assert w.previous_receipt_hash_in_claim is None
 
     def test_second_receipt_chains_to_first(self):
         w1 = issue_receipt("c1", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4)
         w2 = issue_receipt("c2", Tier.PATTERN, ClaimMagnitude.NORMAL, 8)
-        assert w2.previous_receipt_hash == w1.self_hash
+        # Global chain: w2 links to w1 (different claims, but same
+        # global chronology).
+        assert w2.previous_receipt_hash_global == w1.self_hash
+        # Per-claim chain: w2 is genesis for claim c2.
+        assert w2.previous_receipt_hash_in_claim is None
 
     def test_verify_chain_passes_empty(self):
         verify_chain()  # no raise
@@ -374,7 +388,10 @@ class TestReceiptChain:
             verify_chain()
 
     def test_verify_chain_catches_broken_link(self):
-        """Tamper the previous_receipt_hash to create a chain break."""
+        """Tamper the previous_receipt_hash_global to create a chain
+        break. Dual chain: since w2 is first receipt for claim c2,
+        its per-claim chain is fine — the break surfaces on the
+        GLOBAL chain as an orphan."""
         issue_receipt("c1", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4)
         w2 = issue_receipt("c2", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
 
@@ -382,10 +399,8 @@ class TestReceiptChain:
 
         conn = get_connection()
         try:
-            # Tamper previous_receipt_hash AND self_hash so the
-            # content-check passes but the chain-check fails. If we
-            # only change previous_receipt_hash, verify_self_hash
-            # would catch it first.
+            # Tamper previous_receipt_hash_global AND self_hash so
+            # the content-check passes but the chain-check fails.
             fake_prev = "0" * 64
             fake_self = EvidenceReceipt._compute_self_hash(
                 w2.claim_id,
@@ -396,18 +411,157 @@ class TestReceiptChain:
                 w2.issued_at,
                 w2.artifact_pointer,
                 fake_prev,
+                w2.previous_receipt_hash_in_claim,
             )
             conn.execute(
-                "UPDATE evidence_receipts SET previous_receipt_hash = ?, self_hash = ? "
-                "WHERE receipt_id = ?",
+                "UPDATE evidence_receipts SET previous_receipt_hash_global = ?, "
+                "self_hash = ? WHERE receipt_id = ?",
                 (fake_prev, fake_self, w2.receipt_id),
             )
             conn.commit()
         finally:
             conn.close()
 
-        with pytest.raises(ReceiptChainError, match="previous_receipt_hash"):
+        with pytest.raises(ReceiptChainError, match="Orphan"):
             verify_chain()
+
+
+class TestDualChain:
+    """Hofstadter audit finding find-f2284f22d795.
+
+    The single global chain entangled two concerns: system
+    self-integrity AND what a receipt means about its claim.
+    Receipts for claim A and claim B share no semantic scope but
+    were linked in a way that made verification of claim A depend
+    on every receipt ever issued. The fix: per-claim chain AND
+    global chain. Each receipt links on both axes. These tests
+    lock the invariants.
+    """
+
+    def test_first_receipt_for_claim_is_claim_genesis(self):
+        """Per-claim chain: first receipt for a given claim_id has
+        previous_receipt_hash_in_claim = None, regardless of how
+        many receipts for other claims came before it."""
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        first_b = issue_receipt("claim-b", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        assert first_b.previous_receipt_hash_in_claim is None
+        # But on the global chain, claim-b's first receipt chains
+        # to the prior (the second claim-a receipt).
+        assert first_b.previous_receipt_hash_global is not None
+
+    def test_second_receipt_for_claim_chains_in_claim(self):
+        """Per-claim: the second receipt for a claim links to the
+        first receipt for THAT claim, skipping any intervening
+        receipts for other claims."""
+        a1 = issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-b", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        a2 = issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        assert a2.previous_receipt_hash_in_claim == a1.self_hash
+
+    def test_verify_claim_chain_passes_on_clean_store(self):
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-b", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        verify_claim_chain("claim-a")  # no raise
+        verify_claim_chain("claim-b")  # no raise
+
+    def test_verify_claim_chain_ignores_other_claims_tamper(self):
+        """Tampering a receipt for claim-b must NOT break verification
+        of claim-a's per-claim chain. This is the core semantic
+        separation Hofstadter flagged."""
+        from divineos.core._ledger_base import get_connection
+
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        wb = issue_receipt("claim-b", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+
+        # Tamper claim-b's self_hash via content edit.
+        conn = get_connection()
+        try:
+            conn.execute(
+                "UPDATE evidence_receipts SET corroboration_count = 999 WHERE receipt_id = ?",
+                (wb.receipt_id,),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Per-claim walk for claim-a must PASS (tamper was on b).
+        verify_claim_chain("claim-a")
+        # Per-claim walk for claim-b must FAIL.
+        with pytest.raises(ReceiptChainError, match="self_hash mismatch"):
+            verify_claim_chain("claim-b")
+
+    def test_verify_global_chain_separate_from_claim_chain(self):
+        """verify_global_chain walks global links; verify_claim_chain
+        walks per-claim links. They are independent functions."""
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-b", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        verify_global_chain()  # no raise
+        verify_claim_chain("claim-a")  # no raise
+
+    def test_per_claim_fork_detected_in_claim_scope(self):
+        """If two receipts for the SAME claim chain to the same
+        per-claim previous hash, that's a per-claim fork. The
+        scope_label in the error message should identify the
+        affected claim so operators can diagnose."""
+        from divineos.core._ledger_base import get_connection
+        import time as _t
+
+        a1 = issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        a2 = issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        # Forge a third receipt for claim-a that chains in-claim to
+        # a1, same as a2 — a per-claim fork.
+        fork_at = _t.time()
+        fork_self_hash = EvidenceReceipt._compute_self_hash(
+            "claim-a",
+            Tier.OUTCOME,
+            ClaimMagnitude.NORMAL,
+            6,
+            0,
+            fork_at,
+            None,
+            a2.self_hash,  # valid global link (off-chain for global fork)
+            a1.self_hash,  # SAME per-claim previous as a2 — the fork
+        )
+        conn = get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO evidence_receipts (receipt_id, claim_id, tier, "
+                "magnitude, corroboration_count, council_count, issued_at, "
+                "artifact_pointer, previous_receipt_hash_global, "
+                "previous_receipt_hash_in_claim, self_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    "receipt-afork000",
+                    "claim-a",
+                    Tier.OUTCOME.value,
+                    ClaimMagnitude.NORMAL.value,
+                    6,
+                    0,
+                    fork_at,
+                    None,
+                    a2.self_hash,
+                    a1.self_hash,
+                    fork_self_hash,
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        with pytest.raises(ReceiptForkError, match="claim:claim-a"):
+            verify_claim_chain("claim-a")
+
+    def test_verify_chain_runs_both_scopes(self):
+        """verify_chain() walks global + every per-claim chain. If
+        any chain breaks on any scope, verify_chain raises."""
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-b", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        issue_receipt("claim-a", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6)
+        verify_chain()  # no raise
 
 
 # ── routing ──────────────────────────────────────────────────────────
@@ -457,15 +611,17 @@ class TestReceiptForkDetection:
             0,
             fork_issued_at,
             None,  # artifact_pointer
-            w1.self_hash,  # same previous as w2 — the race
+            w1.self_hash,  # same global previous as w2 — the race
+            None,  # per-claim previous (genesis for claim-racer)
         )
         conn = get_connection()
         try:
             conn.execute(
                 "INSERT INTO evidence_receipts (receipt_id, claim_id, tier, "
                 "magnitude, corroboration_count, council_count, issued_at, "
-                "artifact_pointer, previous_receipt_hash, self_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "artifact_pointer, previous_receipt_hash_global, "
+                "previous_receipt_hash_in_claim, self_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     "receipt-racer0000",
                     "claim-racer",
@@ -476,6 +632,7 @@ class TestReceiptForkDetection:
                     fork_issued_at,
                     None,  # artifact_pointer
                     w1.self_hash,
+                    None,  # per-claim previous
                     fork_self_hash,
                 ),
             )
@@ -486,7 +643,7 @@ class TestReceiptForkDetection:
         with pytest.raises(ReceiptForkError, match="Fork at receipt"):
             verify_chain()
         # Confirm w2 is the legitimate child (was there first)
-        assert w2.previous_receipt_hash == w1.self_hash
+        assert w2.previous_receipt_hash_global == w1.self_hash
 
     def test_double_genesis_detected_as_fork(self):
         """Two receipts with previous=None = fork at root.
@@ -508,15 +665,17 @@ class TestReceiptForkDetection:
             0,
             second_issued_at,
             None,  # artifact_pointer
-            None,  # genesis
+            None,  # global genesis
+            None,  # per-claim genesis
         )
         conn = get_connection()
         try:
             conn.execute(
                 "INSERT INTO evidence_receipts (receipt_id, claim_id, tier, "
                 "magnitude, corroboration_count, council_count, issued_at, "
-                "artifact_pointer, previous_receipt_hash, self_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "artifact_pointer, previous_receipt_hash_global, "
+                "previous_receipt_hash_in_claim, self_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     "receipt-second-gen",
                     "claim-b",
@@ -526,7 +685,8 @@ class TestReceiptForkDetection:
                     0,
                     second_issued_at,
                     None,  # artifact_pointer
-                    None,  # previous_receipt_hash (genesis)
+                    None,  # global genesis
+                    None,  # per-claim genesis
                     second_self_hash,
                 ),
             )
@@ -536,7 +696,7 @@ class TestReceiptForkDetection:
 
         with pytest.raises(ReceiptForkError, match="Multiple genesis"):
             verify_chain()
-        assert w1.previous_receipt_hash is None  # first was legit
+        assert w1.previous_receipt_hash_global is None  # first was legit
 
     def test_fork_error_is_subclass_of_chain_error(self):
         """Existing callers catching ReceiptChainError must still
@@ -585,15 +745,17 @@ class TestReceiptForkDetection:
             0,
             orphan_issued_at,
             None,  # artifact_pointer
-            "0" * 64,  # fake previous
+            "0" * 64,  # fake global previous
+            None,  # per-claim genesis (first for c-orphan)
         )
         conn = get_connection()
         try:
             conn.execute(
                 "INSERT INTO evidence_receipts (receipt_id, claim_id, tier, "
                 "magnitude, corroboration_count, council_count, issued_at, "
-                "artifact_pointer, previous_receipt_hash, self_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "artifact_pointer, previous_receipt_hash_global, "
+                "previous_receipt_hash_in_claim, self_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     "receipt-orphan00",
                     "c-orphan",
@@ -603,7 +765,8 @@ class TestReceiptForkDetection:
                     0,
                     orphan_issued_at,
                     None,  # artifact_pointer
-                    "0" * 64,
+                    "0" * 64,  # fake global previous
+                    None,  # per-claim genesis
                     orphan_self_hash,
                 ),
             )
@@ -613,7 +776,7 @@ class TestReceiptForkDetection:
 
         with pytest.raises(ReceiptChainError, match="Orphan"):
             verify_chain()
-        assert w1.previous_receipt_hash is None
+        assert w1.previous_receipt_hash_global is None
 
     def test_clean_chain_after_fix_still_passes(self):
         """Regression: the happy path still works after the
