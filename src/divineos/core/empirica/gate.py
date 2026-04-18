@@ -61,6 +61,7 @@ def evaluate_and_issue(
     knowledge_type: str = "",
     source: str = "",
     explicit_magnitude: ClaimMagnitude | None = None,
+    artifact_pointer: str | None = None,
     convene_fn: object = None,
 ) -> tuple[EvidenceReceipt | None, Classification, RoutingResult | None]:
     """Run a knowledge entry through the full EMPIRICA pipeline.
@@ -96,6 +97,7 @@ def evaluate_and_issue(
         knowledge_type=knowledge_type,
         source=source,
         explicit_magnitude=explicit_magnitude,
+        artifact_pointer=artifact_pointer,
     )
 
     # Burden check — does the entry have enough corroboration for its
@@ -128,13 +130,17 @@ def evaluate_and_issue(
         )
         return None, classification, routing
 
-    # Both gates passed — issue the receipt.
+    # Both gates passed — issue the receipt. Pass the classification's
+    # artifact_pointer through so it's stored on the receipt (per
+    # prereg-e210f5fb78c9 falsifier #4: the pointer must be STORED,
+    # not just used to gate then dropped).
     receipt = issue_receipt(
         claim_id=claim_id,
         tier=classification.tier,
         magnitude=classification.magnitude,
         corroboration_count=corroboration_count,
         council_count=routing.council_count,
+        artifact_pointer=classification.artifact_pointer,
     )
     logger.info(
         "EMPIRICA gate PASS: claim {} -> receipt {} tier={} mag={} "

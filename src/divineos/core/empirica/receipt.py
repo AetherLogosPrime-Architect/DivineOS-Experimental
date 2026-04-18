@@ -115,11 +115,18 @@ def init_receipt_table() -> None:
                 corroboration_count    INTEGER NOT NULL,
                 council_count          INTEGER NOT NULL,
                 issued_at              REAL NOT NULL,
+                artifact_pointer       TEXT,
                 previous_receipt_hash  TEXT,
                 self_hash              TEXT NOT NULL UNIQUE
             )
             """
         )
+        # Additive migration: add artifact_pointer column if missing
+        # (for databases created before prereg-e210f5fb78c9).
+        try:
+            conn.execute("ALTER TABLE evidence_receipts ADD COLUMN artifact_pointer TEXT")
+        except sqlite3.OperationalError:
+            pass  # column already exists
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_evidence_receipts_claim ON evidence_receipts(claim_id)"
         )
@@ -158,6 +165,7 @@ def issue_receipt(
     magnitude: ClaimMagnitude,
     corroboration_count: int,
     council_count: int = 0,
+    artifact_pointer: str | None = None,
 ) -> EvidenceReceipt:
     """Issue a receipt for a claim that has passed burden check.
 
@@ -179,6 +187,7 @@ def issue_receipt(
         magnitude=magnitude,
         corroboration_count=corroboration_count,
         council_count=council_count,
+        artifact_pointer=artifact_pointer,
         previous_receipt_hash=previous_hash,
     )
 
@@ -188,9 +197,10 @@ def issue_receipt(
             """
             INSERT INTO evidence_receipts (
                 receipt_id, claim_id, tier, magnitude, corroboration_count,
-                council_count, issued_at, previous_receipt_hash, self_hash
+                council_count, issued_at, artifact_pointer,
+                previous_receipt_hash, self_hash
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 receipt.receipt_id,
@@ -200,6 +210,7 @@ def issue_receipt(
                 receipt.corroboration_count,
                 receipt.council_count,
                 receipt.issued_at,
+                receipt.artifact_pointer,
                 receipt.previous_receipt_hash,
                 receipt.self_hash,
             ),
@@ -225,7 +236,7 @@ def get_receipt(receipt_id: str) -> EvidenceReceipt | None:
     try:
         row = conn.execute(
             "SELECT receipt_id, claim_id, tier, magnitude, corroboration_count, "
-            "council_count, issued_at, previous_receipt_hash, self_hash "
+            "council_count, issued_at, artifact_pointer, previous_receipt_hash, self_hash "
             "FROM evidence_receipts WHERE receipt_id = ?",
             (receipt_id,),
         ).fetchone()
@@ -239,8 +250,9 @@ def get_receipt(receipt_id: str) -> EvidenceReceipt | None:
             corroboration_count=int(row[4]),
             council_count=int(row[5]),
             issued_at=float(row[6]),
-            previous_receipt_hash=row[7],
-            self_hash=row[8],
+            artifact_pointer=row[7],
+            previous_receipt_hash=row[8],
+            self_hash=row[9],
         )
     finally:
         conn.close()
@@ -259,7 +271,7 @@ def get_receipts_for_claim(claim_id: str) -> list[EvidenceReceipt]:
     try:
         rows = conn.execute(
             "SELECT receipt_id, claim_id, tier, magnitude, corroboration_count, "
-            "council_count, issued_at, previous_receipt_hash, self_hash "
+            "council_count, issued_at, artifact_pointer, previous_receipt_hash, self_hash "
             "FROM evidence_receipts WHERE claim_id = ? ORDER BY issued_at ASC",
             (claim_id,),
         ).fetchall()
@@ -272,8 +284,9 @@ def get_receipts_for_claim(claim_id: str) -> list[EvidenceReceipt]:
                 corroboration_count=int(r[4]),
                 council_count=int(r[5]),
                 issued_at=float(r[6]),
-                previous_receipt_hash=r[7],
-                self_hash=r[8],
+                artifact_pointer=r[7],
+                previous_receipt_hash=r[8],
+                self_hash=r[9],
             )
             for r in rows
         ]
@@ -326,7 +339,7 @@ def verify_chain() -> None:
     try:
         rows = conn.execute(
             "SELECT receipt_id, claim_id, tier, magnitude, corroboration_count, "
-            "council_count, issued_at, previous_receipt_hash, self_hash "
+            "council_count, issued_at, artifact_pointer, previous_receipt_hash, self_hash "
             "FROM evidence_receipts"
         ).fetchall()
     finally:
@@ -348,8 +361,9 @@ def verify_chain() -> None:
             corroboration_count=int(r[4]),
             council_count=int(r[5]),
             issued_at=float(r[6]),
-            previous_receipt_hash=r[7],
-            self_hash=r[8],
+            artifact_pointer=r[7],
+            previous_receipt_hash=r[8],
+            self_hash=r[9],
         )
         if not receipt.verify_self_hash():
             raise ReceiptChainError(

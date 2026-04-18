@@ -182,12 +182,20 @@ class EvidenceReceipt:
       Zero for low-magnitude claims that don't require council
       review.
     * ``issued_at`` — timestamp.
+    * ``artifact_pointer`` — structured reference to unfakeable
+      evidence the caller cited at issue time (test name, commit,
+      decision-journal ID, pre-reg ID, event ID, or knowledge ID).
+      Required for PATTERN or FALSIFIABLE tier per Aria's rule in
+      prereg-e210f5fb78c9; None for OUTCOME claims that don't
+      require a pointer. Phase 1.5 stores the pointer verbatim; a
+      future phase will validate that the referenced artifact
+      actually exists.
     * ``previous_receipt_hash`` — self_hash of the prior receipt in
       the chain (or None for the genesis receipt).
-    * ``self_hash`` — SHA256 of (claim_id + tier + magnitude +
-      corroboration_count + council_count + issued_at +
-      previous_receipt_hash). Computing it at construction time
-      means tampering with any field after issue is detectable.
+    * ``self_hash`` — SHA256 of all content fields including the
+      artifact_pointer. Tampering with the pointer post-issue
+      breaks self-hash verification — the pointer is as tamper-
+      evident as every other field.
     """
 
     receipt_id: str
@@ -197,6 +205,7 @@ class EvidenceReceipt:
     corroboration_count: int
     council_count: int
     issued_at: float
+    artifact_pointer: str | None
     previous_receipt_hash: str | None
     self_hash: str
 
@@ -208,6 +217,7 @@ class EvidenceReceipt:
         corroboration_count: int,
         council_count: int,
         issued_at: float,
+        artifact_pointer: str | None,
         previous_receipt_hash: str | None,
     ) -> str:
         """Compute the self_hash over all receipt fields.
@@ -216,6 +226,8 @@ class EvidenceReceipt:
         canonical string concatenation. Field order is fixed —
         changing it is a wire-format break and must bump a schema
         version, not silently change hashes for existing receipts.
+        artifact_pointer is included so tampering with the citation
+        post-issue breaks verification.
         """
         canonical = "|".join(
             [
@@ -225,6 +237,7 @@ class EvidenceReceipt:
                 str(corroboration_count),
                 str(council_count),
                 f"{issued_at:.6f}",
+                artifact_pointer or "NO_POINTER",
                 previous_receipt_hash or "GENESIS",
             ]
         )
@@ -239,6 +252,7 @@ class EvidenceReceipt:
         corroboration_count: int,
         council_count: int,
         previous_receipt_hash: str | None,
+        artifact_pointer: str | None = None,
     ) -> EvidenceReceipt:
         """Construct a receipt with computed self_hash.
 
@@ -255,6 +269,7 @@ class EvidenceReceipt:
             corroboration_count=corroboration_count,
             council_count=council_count,
             issued_at=issued_at,
+            artifact_pointer=artifact_pointer,
             previous_receipt_hash=previous_receipt_hash,
         )
         return cls(
@@ -265,6 +280,7 @@ class EvidenceReceipt:
             corroboration_count=corroboration_count,
             council_count=council_count,
             issued_at=issued_at,
+            artifact_pointer=artifact_pointer,
             previous_receipt_hash=previous_receipt_hash,
             self_hash=self_hash,
         )
@@ -283,6 +299,7 @@ class EvidenceReceipt:
             corroboration_count=self.corroboration_count,
             council_count=self.council_count,
             issued_at=self.issued_at,
+            artifact_pointer=self.artifact_pointer,
             previous_receipt_hash=self.previous_receipt_hash,
         )
         return expected == self.self_hash

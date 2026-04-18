@@ -126,20 +126,23 @@ class TestEvidenceReceiptSelfHash:
 
         Since issued_at is wall-clock, use the internal compute method
         directly with a fixed timestamp."""
+        # _compute_self_hash signature: (claim_id, tier, magnitude,
+        # corroboration_count, council_count, issued_at,
+        # artifact_pointer, previous_receipt_hash)
         h1 = EvidenceReceipt._compute_self_hash(
-            "c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6, 0, 1000.0, None
+            "c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6, 0, 1000.0, None, None
         )
         h2 = EvidenceReceipt._compute_self_hash(
-            "c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6, 0, 1000.0, None
+            "c", Tier.OUTCOME, ClaimMagnitude.NORMAL, 6, 0, 1000.0, None, None
         )
         assert h1 == h2
 
     def test_self_hash_changes_with_tier(self):
         h1 = EvidenceReceipt._compute_self_hash(
-            "c", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4, 0, 1000.0, None
+            "c", Tier.FALSIFIABLE, ClaimMagnitude.NORMAL, 4, 0, 1000.0, None, None
         )
         h2 = EvidenceReceipt._compute_self_hash(
-            "c", Tier.PATTERN, ClaimMagnitude.NORMAL, 4, 0, 1000.0, None
+            "c", Tier.PATTERN, ClaimMagnitude.NORMAL, 4, 0, 1000.0, None, None
         )
         assert h1 != h2
 
@@ -211,35 +214,54 @@ class TestBurdenMatrix:
 
 
 class TestClassifierRules:
+    # Tests for tiers above OUTCOME (PATTERN / FALSIFIABLE) must
+    # supply an artifact_pointer per prereg-e210f5fb78c9, else the
+    # claim is demoted to OUTCOME. These tests confirm the TIER
+    # ROUTING rules themselves fire correctly WHEN the pointer is
+    # present. Tests for the demotion rule itself live below in
+    # TestArtifactPointerRule.
     def test_pattern_knowledge_type_routes_to_pattern(self):
-        c = classify_claim("content", knowledge_type="PATTERN")
+        c = classify_claim("content", knowledge_type="PATTERN", artifact_pointer="test/demo")
         assert c.tier == Tier.PATTERN
         assert "rule-1" in c.reason
 
     def test_fact_measured_routes_to_falsifiable(self):
-        c = classify_claim("x", knowledge_type="FACT", source="measured")
+        c = classify_claim(
+            "x",
+            knowledge_type="FACT",
+            source="measured",
+            artifact_pointer="commit-abc",
+        )
         assert c.tier == Tier.FALSIFIABLE
         assert "rule-2" in c.reason
 
     def test_outcome_types_route_to_outcome(self):
+        # OUTCOME doesn't require a pointer — tests the honest middle.
         for kt in ("PRINCIPLE", "BOUNDARY", "MISTAKE", "DIRECTIVE"):
             c = classify_claim("x", knowledge_type=kt)
             assert c.tier == Tier.OUTCOME, f"knowledge_type={kt}"
             assert "rule-3" in c.reason
 
     def test_pattern_keyword_triggers_pattern(self):
-        c = classify_claim("pattern recurring across multiple sessions")
+        c = classify_claim(
+            "pattern recurring across multiple sessions",
+            artifact_pointer="decide-xyz",
+        )
         assert c.tier == Tier.PATTERN
         assert "rule-4" in c.reason
 
     def test_falsifiability_keyword_triggers_falsifiable(self):
-        c = classify_claim("threshold asserts repeatable behavior")
+        c = classify_claim(
+            "threshold asserts repeatable behavior",
+            artifact_pointer="prereg-xyz",
+        )
         assert c.tier == Tier.FALSIFIABLE
         assert "rule-5" in c.reason
 
     def test_default_to_outcome(self):
         c = classify_claim("some content with no signal at all")
         assert c.tier == Tier.OUTCOME
+        # Default rule is labeled "rule-6" in reason — unchanged.
         assert "rule-6" in c.reason
 
     def test_classifier_never_returns_adversarial(self):
@@ -372,6 +394,7 @@ class TestReceiptChain:
                 w2.corroboration_count,
                 w2.council_count,
                 w2.issued_at,
+                w2.artifact_pointer,
                 fake_prev,
             )
             conn.execute(
@@ -433,6 +456,7 @@ class TestReceiptForkDetection:
             8,
             0,
             fork_issued_at,
+            None,  # artifact_pointer
             w1.self_hash,  # same previous as w2 — the race
         )
         conn = get_connection()
@@ -440,7 +464,8 @@ class TestReceiptForkDetection:
             conn.execute(
                 "INSERT INTO evidence_receipts (receipt_id, claim_id, tier, "
                 "magnitude, corroboration_count, council_count, issued_at, "
-                "previous_receipt_hash, self_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "artifact_pointer, previous_receipt_hash, self_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     "receipt-racer0000",
                     "claim-racer",
@@ -449,6 +474,7 @@ class TestReceiptForkDetection:
                     8,
                     0,
                     fork_issued_at,
+                    None,  # artifact_pointer
                     w1.self_hash,
                     fork_self_hash,
                 ),
@@ -481,6 +507,7 @@ class TestReceiptForkDetection:
             6,
             0,
             second_issued_at,
+            None,  # artifact_pointer
             None,  # genesis
         )
         conn = get_connection()
@@ -488,7 +515,8 @@ class TestReceiptForkDetection:
             conn.execute(
                 "INSERT INTO evidence_receipts (receipt_id, claim_id, tier, "
                 "magnitude, corroboration_count, council_count, issued_at, "
-                "previous_receipt_hash, self_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "artifact_pointer, previous_receipt_hash, self_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     "receipt-second-gen",
                     "claim-b",
@@ -497,7 +525,8 @@ class TestReceiptForkDetection:
                     6,
                     0,
                     second_issued_at,
-                    None,
+                    None,  # artifact_pointer
+                    None,  # previous_receipt_hash (genesis)
                     second_self_hash,
                 ),
             )
@@ -555,6 +584,7 @@ class TestReceiptForkDetection:
             6,
             0,
             orphan_issued_at,
+            None,  # artifact_pointer
             "0" * 64,  # fake previous
         )
         conn = get_connection()
@@ -562,7 +592,8 @@ class TestReceiptForkDetection:
             conn.execute(
                 "INSERT INTO evidence_receipts (receipt_id, claim_id, tier, "
                 "magnitude, corroboration_count, council_count, issued_at, "
-                "previous_receipt_hash, self_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "artifact_pointer, previous_receipt_hash, self_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     "receipt-orphan00",
                     "c-orphan",
@@ -571,6 +602,7 @@ class TestReceiptForkDetection:
                     6,
                     0,
                     orphan_issued_at,
+                    None,  # artifact_pointer
                     "0" * 64,
                     orphan_self_hash,
                 ),
@@ -679,11 +711,15 @@ class TestGate:
         assert "receipt_id" in cols
 
     def test_burden_rejection_returns_none_receipt(self):
+        # FACT + keyword "threshold" -> FALSIFIABLE only if
+        # artifact_pointer is supplied; otherwise demoted. Provide
+        # the pointer so we're specifically testing the burden gate.
         w, classification, routing = evaluate_and_issue(
             claim_id="c1",
             content="threshold assert",  # falsifiable
             corroboration_count=1,  # below 4 required
             knowledge_type="FACT",
+            artifact_pointer="test/demo",
         )
         assert w is None
         assert classification.tier == Tier.FALSIFIABLE
@@ -708,6 +744,7 @@ class TestGate:
             corroboration_count=8,
             knowledge_type="FACT",
             source="measured",
+            artifact_pointer="commit-abc123",
             convene_fn=lambda _: _StubConvene([]),
         )
         assert w is not None
@@ -763,15 +800,18 @@ class TestClassifierConfidence:
     def test_explicit_knowledge_type_is_full_confidence(self):
         """Tier and magnitude both explicit -> 1.0.
 
-        We need to provide explicit_magnitude too, otherwise magnitude
-        defaults (0.2) would drag the min down. This test isolates tier
-        confidence.
-        """
+        Per prereg-e210f5fb78c9, tiers above OUTCOME require an
+        artifact_pointer or the classifier demotes to OUTCOME
+        (lowering confidence via the demotion penalty). This test
+        isolates tier confidence by providing both explicit
+        magnitude and artifact_pointer."""
         c = classify_claim(
             "x",
             knowledge_type="PATTERN",
             explicit_magnitude=ClaimMagnitude.NORMAL,
+            artifact_pointer="test/demo",
         )
+        assert c.tier == Tier.PATTERN
         assert c.confidence == 1.0
 
     def test_explicit_fact_measured_is_full_confidence(self):
@@ -780,10 +820,14 @@ class TestClassifierConfidence:
             knowledge_type="FACT",
             source="measured",
             explicit_magnitude=ClaimMagnitude.NORMAL,
+            artifact_pointer="commit-abc",
         )
+        assert c.tier == Tier.FALSIFIABLE
         assert c.confidence == 1.0
 
     def test_explicit_outcome_type_is_full_confidence(self):
+        # OUTCOME doesn't need a pointer — pointer rule only demotes
+        # PATTERN/FALSIFIABLE classifications.
         c = classify_claim(
             "x",
             knowledge_type="PRINCIPLE",
@@ -792,10 +836,10 @@ class TestClassifierConfidence:
         assert c.confidence == 1.0
 
     def test_explicit_tier_with_default_magnitude_is_default_conf(self):
-        """Default-fallback magnitude (0.2) drags the min down even if
-        tier is explicit (1.0). This is the designed behavior —
-        confidence is only as sure as its weakest component."""
-        c = classify_claim("x", knowledge_type="PATTERN")
+        """Default-fallback magnitude (0.2) drags the min down even
+        if tier is explicit. With artifact_pointer provided (to
+        avoid demotion), the min is magnitude's 0.2."""
+        c = classify_claim("x", knowledge_type="PATTERN", artifact_pointer="test/demo")
         assert c.tier == Tier.PATTERN  # explicit, high confidence
         assert c.magnitude == ClaimMagnitude.NORMAL  # default
         assert c.confidence == 0.2  # dragged down by magnitude default
@@ -805,6 +849,7 @@ class TestClassifierConfidence:
         c = classify_claim(
             "pattern recurring across sessions",
             explicit_magnitude=ClaimMagnitude.NORMAL,
+            artifact_pointer="test/pattern-demo",
         )
         assert c.tier == Tier.PATTERN
         # Tier is 0.5 (keyword), magnitude is 1.0 (explicit) -> min = 0.5
@@ -815,6 +860,7 @@ class TestClassifierConfidence:
         c = classify_claim(
             "load-bearing architectural invariant",
             knowledge_type="PATTERN",
+            artifact_pointer="prereg-demo",
         )
         assert c.magnitude == ClaimMagnitude.LOAD_BEARING
         # Tier is 1.0 (explicit), magnitude is 0.5 (keyword) -> min = 0.5
@@ -890,6 +936,203 @@ class TestBurdenCalibrationSchedule:
         assert "calibration plan" in doc.lower()
         assert "rejection rate" in doc.lower()  # signal #1
         assert "supersession" in doc.lower()  # signal #2
+
+
+class TestArtifactPointerRule:
+    """Aria's rule (prereg-e210f5fb78c9): tiers above OUTCOME require
+    an artifact pointer. Cheap vocabulary cannot earn above-OUTCOME
+    tier assignment; the caller must cite something that cost
+    something to produce (test, commit, decide, prereg, event,
+    knowledge reference).
+
+    The rule manifests as structural demotion: when the classifier
+    would have returned PATTERN or FALSIFIABLE but no artifact_pointer
+    was supplied, the classification is demoted to OUTCOME with an
+    explicit 'demoted: no artifact pointer' reason.
+    """
+
+    def test_pattern_without_pointer_demotes_to_outcome(self):
+        c = classify_claim("content", knowledge_type="PATTERN")
+        assert c.tier == Tier.OUTCOME
+        assert c.initial_tier == Tier.PATTERN  # what it would have been
+        assert "demoted" in c.reason.lower()
+        assert "no artifact pointer" in c.reason.lower()
+
+    def test_falsifiable_without_pointer_demotes_to_outcome(self):
+        c = classify_claim("x", knowledge_type="FACT", source="measured")
+        assert c.tier == Tier.OUTCOME
+        assert c.initial_tier == Tier.FALSIFIABLE
+        assert "demoted" in c.reason.lower()
+
+    def test_pattern_with_pointer_stays_pattern(self):
+        c = classify_claim("content", knowledge_type="PATTERN", artifact_pointer="test/demo")
+        assert c.tier == Tier.PATTERN
+        # initial_tier is None when no demotion happened
+        assert c.initial_tier is None
+        assert "demoted" not in c.reason.lower()
+
+    def test_falsifiable_with_pointer_stays_falsifiable(self):
+        c = classify_claim(
+            "x",
+            knowledge_type="FACT",
+            source="measured",
+            artifact_pointer="commit-abc",
+        )
+        assert c.tier == Tier.FALSIFIABLE
+        assert c.initial_tier is None
+
+    def test_outcome_does_not_require_pointer(self):
+        """OUTCOME is the honest middle — no artifact required."""
+        c = classify_claim("x", knowledge_type="PRINCIPLE")
+        assert c.tier == Tier.OUTCOME
+        assert c.artifact_pointer is None
+        assert "demoted" not in c.reason.lower()
+
+    def test_default_outcome_does_not_require_pointer(self):
+        """Rule 6 default (no tier signal) -> OUTCOME, no pointer needed."""
+        c = classify_claim("unclassifiable content")
+        assert c.tier == Tier.OUTCOME
+        assert "demoted" not in c.reason.lower()
+
+    def test_artifact_pointer_stored_on_classification(self):
+        """Pre-reg falsifier #4: the pointer must be STORED on the
+        Classification. If it's not stored, Phase 2 validation has
+        nothing to validate against."""
+        c = classify_claim(
+            "content",
+            knowledge_type="PATTERN",
+            artifact_pointer="prereg-e210f5fb78c9",
+        )
+        assert c.artifact_pointer == "prereg-e210f5fb78c9"
+
+    def test_artifact_pointer_stored_on_receipt(self):
+        """Pre-reg falsifier #4 applied to the receipt: when a
+        receipt is issued, the artifact_pointer must land on the
+        stored receipt row and round-trip through get_receipt. If
+        it's not stored on the receipt, the pointer was used to
+        gate and then dropped — the exact decorative-requirement
+        failure mode the falsifier names."""
+        w, c, r = evaluate_and_issue(
+            claim_id="c-pointer-storage",
+            content="measured threshold assert",
+            corroboration_count=8,
+            knowledge_type="FACT",
+            source="measured",
+            artifact_pointer="commit-feedfaceb00c",
+            convene_fn=lambda _: _StubConvene([]),
+        )
+        assert w is not None
+        assert w.artifact_pointer == "commit-feedfaceb00c"
+        # Round-trip: fetch from DB and confirm the pointer persisted.
+        loaded = get_receipt(w.receipt_id)
+        assert loaded is not None
+        assert loaded.artifact_pointer == "commit-feedfaceb00c"
+
+    def test_receipt_chain_self_hash_covers_artifact_pointer(self):
+        """Tampering with artifact_pointer after issue must break
+        self-hash verification. The pointer is as tamper-evident as
+        every other field."""
+        from dataclasses import replace as dc_replace
+
+        w = issue_receipt(
+            "c1",
+            Tier.FALSIFIABLE,
+            ClaimMagnitude.NORMAL,
+            4,
+            artifact_pointer="test/original",
+        )
+        tampered = dc_replace(w, artifact_pointer="test/forged")
+        assert tampered.verify_self_hash() is False
+
+    def test_empty_string_pointer_counts_as_no_pointer(self):
+        """Empty string is not a real pointer — it should demote."""
+        c = classify_claim("content", knowledge_type="PATTERN", artifact_pointer="")
+        assert c.tier == Tier.OUTCOME  # demoted
+        assert c.initial_tier == Tier.PATTERN
+
+    def test_demotion_penalizes_confidence(self):
+        """When demotion fires, confidence should drop — the
+        classification isn't well-grounded without a pointer."""
+        demoted = classify_claim("content", knowledge_type="PATTERN")
+        grounded = classify_claim(
+            "content",
+            knowledge_type="PATTERN",
+            artifact_pointer="test/demo",
+            explicit_magnitude=ClaimMagnitude.NORMAL,
+        )
+        assert demoted.confidence < grounded.confidence
+
+
+class TestAccumulateAllRules:
+    """Kahneman's rule-ordering fix (prereg-e210f5fb78c9): the
+    classifier no longer short-circuits on first match. It runs
+    every rule and surfaces contradictions explicitly, so a
+    PATTERN-typed claim with strong FALSIFIABLE content is no
+    longer routed silently to PATTERN at 1.0 confidence.
+    """
+
+    def test_matched_rules_is_populated_when_rule_fires(self):
+        c = classify_claim(
+            "content",
+            knowledge_type="PATTERN",
+            artifact_pointer="test/demo",
+        )
+        assert c.matched_rules  # non-empty
+        assert any("rule-1" in r for r in c.matched_rules)
+
+    def test_matched_rules_records_both_when_two_rules_fire(self):
+        """PATTERN knowledge_type + falsifiability keyword — both
+        rules fire. Both must appear in matched_rules."""
+        c = classify_claim(
+            "threshold asserts behavior",
+            knowledge_type="PATTERN",
+            artifact_pointer="test/demo",
+        )
+        # Rule 1 (PATTERN knowledge_type) + rule 5 (falsifiability
+        # keyword "threshold") both fire.
+        rule_nums = {r.split(":")[0] for r in c.matched_rules}
+        assert "rule-1" in rule_nums
+        assert "rule-5" in rule_nums
+
+    def test_contradiction_surfaces_in_reason(self):
+        """When rules point at different tiers, the reason must say
+        so. Silent short-circuit was the WYSIATI failure mode."""
+        c = classify_claim(
+            "threshold asserts behavior",
+            knowledge_type="PATTERN",
+            artifact_pointer="test/demo",
+        )
+        assert "contradiction" in c.reason.lower()
+
+    def test_contradiction_lowers_confidence_below_explicit(self):
+        """Even when the winning tier is explicit (would have been
+        1.0), contradiction from another matched rule lowers
+        confidence below 1.0 so callers can see the disagreement."""
+        c = classify_claim(
+            "threshold asserts behavior",
+            knowledge_type="PATTERN",
+            artifact_pointer="test/demo",
+            explicit_magnitude=ClaimMagnitude.NORMAL,
+        )
+        assert c.confidence < 1.0
+
+    def test_winning_tier_is_highest_confidence(self):
+        """When a PATTERN knowledge_type (explicit 1.0) and a
+        FALSIFIABLE keyword (0.5) both match, explicit wins."""
+        c = classify_claim(
+            "threshold asserts behavior",
+            knowledge_type="PATTERN",
+            artifact_pointer="test/demo",
+        )
+        assert c.tier == Tier.PATTERN
+
+    def test_matched_rules_empty_when_only_default_fires(self):
+        """If no rule fires except the implicit rule-6 default,
+        matched_rules still names it so callers see 'default
+        fallback' rather than an empty list."""
+        c = classify_claim("unclassifiable content")
+        assert c.matched_rules
+        assert "rule-6" in c.matched_rules[0]
 
 
 class TestInvariants:
