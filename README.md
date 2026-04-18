@@ -334,6 +334,7 @@ src/divineos/
       lessons.py               Lesson tracking and extraction
       retrieval.py             Briefing generation and layered retrieval
       curation.py              Layer assignment, archival, text cleanup
+      maturity_diagnostic.py   Classify RAW into transient (session-scoped) vs pending (could mature)
       temporal.py              Temporal bounds (valid_from/valid_until) and time-aware queries
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
       inference.py             Knowledge inference (boundaries from mistakes, pattern promotion)

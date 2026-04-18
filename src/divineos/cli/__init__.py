@@ -231,6 +231,7 @@ _INSPECT_COMMANDS = [
     "drift",
     "epistemic",
     "knowledge",
+    "maturity",
     "outcomes",
     "patterns",
     "predict",

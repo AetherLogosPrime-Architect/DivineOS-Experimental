@@ -54,6 +54,53 @@ def register(cli: click.Group) -> None:
 
         click.echo()
 
+    @cli.command("maturity")
+    def maturity_cmd() -> None:
+        """Break down knowledge by maturity, splitting RAW into
+        transient (session-scoped, will auto-archive) vs. pending
+        (could mature via corroboration but hasn't yet).
+
+        The existing health report counts RAW as a single bucket,
+        which conflates two very different populations. This command
+        makes the distinction visible.
+        """
+        from divineos.core.knowledge.maturity_diagnostic import classify_maturity
+
+        b = classify_maturity()
+
+        click.secho("\n=== Knowledge Maturity ===\n", fg="cyan", bold=True)
+        click.echo(f"  Total (non-superseded):  {b.total}")
+        for mat in ("RAW", "HYPOTHESIS", "TESTED", "CONFIRMED"):
+            count = b.by_maturity.get(mat, 0)
+            pct = (100 * count / b.total) if b.total else 0
+            click.echo(f"  {mat:12s} {count:3d}  ({pct:5.1f}%)")
+
+        click.secho("\n=== RAW Breakdown ===\n", fg="cyan", bold=True)
+        click.echo(f"  Transient (session-scoped, will auto-archive): {len(b.raw_transient)}")
+        for e in b.raw_transient[:10]:
+            snippet = e["content"][:70]
+            click.echo(f"    [{e['knowledge_type']}] {ascii(snippet)}")
+
+        click.echo(f"\n  Pending (could mature via corroboration): {len(b.raw_pending)}")
+        for e in b.raw_pending[:10]:
+            snippet = e["content"][:70]
+            click.echo(
+                f"    [{e['knowledge_type']}] corr={e['corroboration_count']} "
+                f"conf={e['confidence']:.2f} {ascii(snippet)}"
+            )
+
+        if b.raw_transient and not b.raw_pending:
+            click.secho(
+                "\n[*] RAW population is entirely transient. Pipeline is healthy.",
+                fg="green",
+            )
+        elif b.raw_pending:
+            click.secho(
+                f"\n[*] {len(b.raw_pending)} RAW entries could mature with corroboration. "
+                "Watch whether they accumulate evidence over time.",
+                fg="yellow",
+            )
+
     @cli.command("rebuild-index")
     def rebuild_index_cmd() -> None:
         """Rebuild the full-text search index from existing knowledge."""
