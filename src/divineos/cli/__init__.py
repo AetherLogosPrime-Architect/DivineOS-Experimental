@@ -53,6 +53,38 @@ _BYPASS_COMMANDS = frozenset(
 )
 
 
+def _enforce_operating_mode() -> None:
+    """Refuse commands disallowed by the current operating mode.
+
+    Runs BEFORE the briefing gate. Corrigibility has priority over
+    every other check — if the operator has set EMERGENCY_STOP, the
+    system must refuse regardless of briefing state. The mode command
+    itself bypasses this check (it's in _ALWAYS_ALLOWED inside the
+    corrigibility module) so the off-switch can always be flipped.
+    """
+    if "pytest" in sys.modules:
+        return
+
+    args = sys.argv[1:]
+    if not args:
+        return  # bare `divineos` — show help
+
+    cmd = args[0].lower()
+    if cmd.startswith("-"):
+        return  # flags
+
+    try:
+        from divineos.core.corrigibility import is_command_allowed
+
+        allowed, reason = is_command_allowed(cmd)
+    except (ImportError, OSError):
+        return  # corrigibility module unavailable — fail open
+
+    if not allowed:
+        click.secho(f"\n  {reason}\n", fg="red", bold=True)
+        raise SystemExit(1)
+
+
 def _enforce_briefing_gate() -> None:
     """Block all non-essential commands until briefing is loaded.
 
@@ -92,6 +124,7 @@ def cli() -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
     _ensure_db()
     setup_cli_enforcement()
+    _enforce_operating_mode()
     _enforce_briefing_gate()
     if "pytest" not in sys.modules:
         capture_user_input(sys.argv[1:])
@@ -112,6 +145,7 @@ from divineos.cli import (  # noqa: E402
     claim_commands,
     compass_commands,
     correction_commands,
+    corrigibility_commands,
     decision_commands,
     directive_commands,
     empirica_commands,
@@ -155,6 +189,7 @@ correction_commands.register(cli)
 prereg_commands.register(cli)
 empirica_commands.register(cli)
 aria_commands.register(cli)
+corrigibility_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:
