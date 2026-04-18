@@ -380,6 +380,8 @@ src/divineos/
       logic_reasoning.py       Inference engine, relations, warrant backfill
       logic_session.py         Session logic pass and logic summary
       fallacies.py             Annotation-layer fallacy detector (4 fallacies, falsifier-per-flag)
+    self_monitor/              Watches agent's own output for trained-hedge patterns
+      hedge_monitor.py         2 hedge detectors (recycling density, epistemic collapse), falsifier-per-flag
     questions.py               Open question tracking and resolution
     knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle
     guardrails.py              Runtime limits and violation tracking
