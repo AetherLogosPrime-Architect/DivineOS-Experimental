@@ -97,7 +97,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,526+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,580+ tests, real DB, minimal mocks
 
 ```
 
@@ -550,7 +550,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,526+ tests (real DB, minimal mocks)
+tests/                         4,580+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -587,7 +587,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 4,526+ tests (real SQLite, minimal mocks)
+- 4,580+ tests (real SQLite, minimal mocks)
 
 - 143 CLI commands
 - 9 Claude Code enforcement hooks

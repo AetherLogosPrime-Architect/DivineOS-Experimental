@@ -110,11 +110,21 @@ def analyze_session(file_path: Path) -> AnalysisResult:
             "investigate_count": investigate_count,
         }
 
+    # Convert edit-read pairings to aggregate counts for blind_coding.
+    edit_read_for_lessons: dict[str, int] | None = None
+    if hasattr(features, "edit_read_pairings") and features.edit_read_pairings is not None:
+        pairings = features.edit_read_pairings
+        edit_read_for_lessons = {
+            "total_edits": len(pairings),
+            "paired_edits": sum(1 for p in pairings if p.read_before_edit),
+        }
+
     lessons_raw = extract_lessons_from_report(
         checks_list,
         session_id,
         tone_shifts_for_lessons,
         error_recovery_for_lessons,
+        edit_read_pairings=edit_read_for_lessons,
     )
     lessons = cast("list[dict[str, Any]]", lessons_raw if isinstance(lessons_raw, list) else [])
 

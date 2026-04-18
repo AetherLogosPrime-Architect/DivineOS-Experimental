@@ -510,6 +510,13 @@ def format_chronic_lessons_warning(chronic: list[dict[str, Any]] | None = None) 
 _BEHAVIOR_TESTS: dict[str, str] = {
     # Category  →  test name. True behavioral observations only.
     "blind_retry": "test_blind_retry",
+    # blind_coding: observes Edit tool calls against prior in-session
+    # Reads on the same path. All edits paired with a prior Read in
+    # this session = pass. Any unpaired Edit = fail (conservative; a
+    # file read in a prior session would count as unpaired here, but
+    # the false-positive risk is acceptable vs the old hardcoded-True
+    # placeholder that was removed in the Kahneman audit).
+    "blind_coding": "test_blind_coding",
 }
 
 _COMPLAINT_HEURISTICS: dict[str, str] = {
@@ -614,6 +621,27 @@ def _run_single_test(test_name: str, analysis: Any, features: Any) -> tuple[bool
             return True, "behavioral: error recovery present, no blind retries"
         return True, "behavioral: no error recovery observed this session"
 
+    if canonical == "test_blind_coding":
+        # Observe Edit tool calls paired against prior in-session Reads.
+        # All edits paired with a prior Read = pass. Any unpaired Edit = fail.
+        if features and hasattr(features, "edit_read_pairings"):
+            pairings = features.edit_read_pairings or []
+            if not pairings:
+                # No edits observed — nothing to blind-code.
+                return True, "behavioral: no Edit tool calls observed this session"
+            unpaired = sum(1 for p in pairings if not p.read_before_edit)
+            if unpaired > 0:
+                return (
+                    False,
+                    f"behavioral: {unpaired}/{len(pairings)} Edit(s) without "
+                    f"prior in-session Read of the same file",
+                )
+            return (
+                True,
+                f"behavioral: all {len(pairings)} Edit(s) preceded by in-session Read of same file",
+            )
+        return True, "behavioral: edit-read pairings feature not present"
+
     # ── Complaint heuristics: correction-count based ─────────────────
     # Every reason prefixes "heuristic:" to keep it honest — pass/fail
     # here reflects user feedback, not agent behavior. A quiet session
@@ -696,7 +724,14 @@ def _lesson_loop_status() -> str:
     # Updated 2026-04-17: incomplete_fix positive-evidence detector wired
     # per prereg-d6a211950a1b. Firing conditions documented in
     # extract_lessons_from_report near the incomplete_fix block.
-    categories_with_evidence_detector = ("blind_retry", "upset_recovered", "incomplete_fix")
+    # Updated 2026-04-18: blind_coding wired via test_blind_coding — Edit
+    # tool calls observed against prior in-session Reads.
+    categories_with_evidence_detector = (
+        "blind_retry",
+        "upset_recovered",
+        "incomplete_fix",
+        "blind_coding",
+    )
     # Total chronic-test categories tracked in _BEHAVIORAL_TESTS
     total_tracked = len(_BEHAVIORAL_TESTS)
     return (
@@ -1280,6 +1315,7 @@ def extract_lessons_from_report(
     tone_shifts: list[dict[str, Any]] | None = None,
     error_recovery: dict[str, Any] | None = None,
     corrections_count: int | None = None,
+    edit_read_pairings: dict[str, int] | None = None,
 ) -> list[str]:
     """Extract knowledge and lessons from session quality check results.
 
@@ -1292,6 +1328,9 @@ def extract_lessons_from_report(
             the incomplete_fix positive-evidence detector (see prereg-d6a211950a1b).
             When omitted, incomplete_fix still advances via absence-only (DORMANT
             track), as it did before the detector was wired.
+        edit_read_pairings: Optional dict with keys: total_edits, paired_edits.
+            Used by the blind_coding positive-evidence detector. When omitted,
+            blind_coding advances via absence-only.
 
     Returns:
         List of stored knowledge IDs.
@@ -1558,6 +1597,28 @@ def extract_lessons_from_report(
             # Quiet session or partial signal — advance toward DORMANT
             # via absence-only, not RESOLVED via positive evidence.
             mark_lesson_improving("incomplete_fix", session_id)
+
+    # blind_coding positive-evidence detector (shipped 2026-04-18).
+    # The POSITIVE evidence: a session where every Edit tool call was
+    # preceded by an in-session Read of the same file. That is direct
+    # behavioral proof of the read-first discipline the lesson names.
+    # A session with no Edits at all is absence-only (DORMANT track),
+    # not positive evidence.
+    if "blind_coding" not in lesson_categories and edit_read_pairings:
+        total = int(edit_read_pairings.get("total_edits", 0))
+        paired = int(edit_read_pairings.get("paired_edits", 0))
+        if total > 0 and paired == total:
+            mark_lesson_improving(
+                "blind_coding",
+                session_id,
+                evidence=(
+                    f"{paired}/{total} Edit(s) preceded by in-session Read of "
+                    f"same file (100% read-first discipline)"
+                ),
+            )
+        elif total == 0:
+            # No edits this session — absence-only, not positive evidence.
+            mark_lesson_improving("blind_coding", session_id)
 
     # Auto-escalate chronic lessons to DIRECTIVE entries.
     # This runs after all lesson recording/improving so the regression

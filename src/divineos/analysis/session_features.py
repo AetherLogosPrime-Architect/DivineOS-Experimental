@@ -71,6 +71,7 @@ class ActivityBreakdown:
 
 
 from divineos.analysis._session_types import (  # noqa: E402
+    EditReadPairing,
     ErrorRecoveryEntry,
     TaskTracking,
 )
@@ -496,6 +497,66 @@ def analyze_error_recovery(
     return entries
 
 
+# ============================================================
+# Feature 11: Edit-Read Pairing (blind-coding detector)
+# ============================================================
+
+
+def analyze_edit_read_pairing(records: list[dict[str, Any]]) -> list["EditReadPairing"]:
+    """Classify each Edit tool call against prior Reads in this session.
+
+    Walks tool calls in order. For each Edit, checks whether any Read
+    on the same ``file_path`` appeared earlier in the session. Returns
+    one ``EditReadPairing`` per Edit observed.
+
+    This is the positive-evidence detector for the ``blind_coding``
+    lesson. A session where every Edit was preceded by an in-session
+    Read of the same file is strong evidence that the read-first
+    discipline is being exercised. The inverse (Edit without prior
+    Read) is a weaker signal — the file may have been read in a
+    prior session — but still counts as missing direct evidence
+    for this session.
+    """
+    from divineos.analysis._session_types import EditReadPairing
+
+    pairings: list[EditReadPairing] = []
+    read_paths: set[str] = set()
+
+    for record in records:
+        if record.get("type") != "assistant":
+            continue
+        tools = _extract_tool_calls(record)
+        for tool in tools:
+            name = tool.get("name", "")
+            path = tool.get("input", {}).get("file_path", "")
+            if not path:
+                continue
+            if name == "Read":
+                read_paths.add(str(path))
+            elif name == "Edit":
+                pairings.append(
+                    EditReadPairing(
+                        edit_timestamp=str(tool.get("timestamp", "")),
+                        file_path=str(path),
+                        read_before_edit=str(path) in read_paths,
+                    )
+                )
+    return pairings
+
+
+def edit_read_pairing_report(pairings: list["EditReadPairing"]) -> str:
+    """Summary line for edit-read pairing observations."""
+    if not pairings:
+        return "No Edit tool calls observed this session."
+    paired = sum(1 for p in pairings if p.read_before_edit)
+    total = len(pairings)
+    pct = (100 * paired / total) if total else 0
+    return (
+        f"Edit-read pairing: {paired}/{total} Edits preceded by in-session "
+        f"Read of same file ({pct:.0f}%)."
+    )
+
+
 def error_recovery_report(entries: list[ErrorRecoveryEntry]) -> str:
     """Generate plain-English error recovery summary."""
     if not entries:
@@ -609,6 +670,7 @@ class FullSessionAnalysis:
     activity: ActivityBreakdown | None = None
     task_tracking: TaskTracking | None = None
     error_recovery: list[ErrorRecoveryEntry] = field(default_factory=list)
+    edit_read_pairings: list[EditReadPairing] = field(default_factory=list)
     report_text: str = ""
     evidence_hash: str = ""
 
@@ -630,6 +692,7 @@ def run_all_features(
     activity = analyze_activity(records)
     task = analyze_request_delivery(records)
     errors = analyze_error_recovery(records, result_map)
+    pairings = analyze_edit_read_pairing(records)
 
     # Build combined report
     sections: list[str] = []
@@ -658,6 +721,10 @@ def run_all_features(
 
     sections.append("--- Error Recovery ---")
     sections.append(error_recovery_report(errors))
+    sections.append("")
+
+    sections.append("--- Edit-Read Pairing ---")
+    sections.append(edit_read_pairing_report(pairings))
 
     report_text = "\n".join(sections)
     evidence_hash = compute_content_hash(report_text)
@@ -670,6 +737,7 @@ def run_all_features(
         activity=activity,
         task_tracking=task,
         error_recovery=errors,
+        edit_read_pairings=pairings,
         report_text=report_text,
         evidence_hash=evidence_hash,
     )
