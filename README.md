@@ -10,58 +10,58 @@ An operating system for AI agents. Memory, continuity, accountability, and learn
 
 ## Why DivineOS Exists
 
-AI agents lose everything between sessions. Every conversation starts from zero ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ no memory of what worked, what failed, or what was learned. DivineOS gives agents persistent memory, structured learning, and self-accountability so they improve over time instead of repeating the same mistakes.
+AI agents lose everything between sessions. Every conversation starts from zero ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ no memory of what worked, what failed, or what was learned. DivineOS gives agents persistent memory, structured learning, and self-accountability so they improve over time instead of repeating the same mistakes.
 
 **For whom:**
-- **AI agents** running inside the OS ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ they get briefings, learn from sessions, track their own growth
-- **Developers** building persistent AI systems ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ a reference architecture for agent memory and continuity
-- **Researchers** studying AI self-awareness ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ a working implementation of computational introspection
+- **AI agents** running inside the OS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ they get briefings, learn from sessions, track their own growth
+- **Developers** building persistent AI systems ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ a reference architecture for agent memory and continuity
+- **Researchers** studying AI self-awareness ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ a working implementation of computational introspection
 
 ## Core Pillars
 
 ### Memory
 Persistent, layered, evidence-ranked.
 
-- **Event Ledger** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
-- **Memory Hierarchy** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Core memory (8 identity slots) + active memory (ranked by importance with context relevance from active goals) + knowledge store (full archive).
-- **Knowledge Engine** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
+- **Event Ledger** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
+- **Memory Hierarchy** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Core memory (8 identity slots) + active memory (ranked by importance with context relevance from active goals) + knowledge store (full archive).
+- **Knowledge Engine** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
 
 Also: temporal knowledge (valid-from/valid-until), graph-enhanced retrieval (BFS traversal of knowledge edges), knowledge compression (dedup/synthesis/graph-aware).
 
 ### Governance
 Quality gates that protect knowledge integrity.
 
-- **Quality Gate** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Blocks knowledge extraction from dishonest or incorrect sessions. Thresholds tighten when the moral compass detects truthfulness drift.
-- **Maturity Lifecycle** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Knowledge evolves: RAW ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ HYPOTHESIS ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ TESTED ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ CONFIRMED. Corroboration drives promotion. Nothing starts as truth.
-- **Formal Logic** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Warrants (evidence backing), logical relations (supports/contradicts/requires), validity gate, inference engine.
+- **Quality Gate** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Blocks knowledge extraction from dishonest or incorrect sessions. Thresholds tighten when the moral compass detects truthfulness drift.
+- **Maturity Lifecycle** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Knowledge evolves: RAW ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ HYPOTHESIS ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ TESTED ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ CONFIRMED. Corroboration drives promotion. Nothing starts as truth.
+- **Formal Logic** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Warrants (evidence backing), logical relations (supports/contradicts/requires), validity gate, inference engine.
 
 Also: runtime guardrails, signal trust tiers (MEASURED > BEHAVIORAL > SELF_REPORTED), semantic integrity shield (3-tier esoteric language detection).
 
 ### Analysis
 Session quality tracking and pattern detection.
 
-- **Session Analysis** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Signal detection: corrections, encouragements, decisions, frustrations, tool usage patterns.
-- **Drift Detection** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Catches behavioral backsliding: lesson regressions, quality drift, correction trend reversals.
-- **Proactive Patterns** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Warns about past mistakes AND recommends what worked well in similar contexts.
+- **Session Analysis** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Signal detection: corrections, encouragements, decisions, frustrations, tool usage patterns.
+- **Drift Detection** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Catches behavioral backsliding: lesson regressions, quality drift, correction trend reversals.
+- **Proactive Patterns** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Warns about past mistakes AND recommends what worked well in similar contexts.
 
 Also: outcome measurement (rework, churn, health scoring), quality trends (improving/declining/stable), growth awareness with milestone detection.
 
 ### Self-Model
-The agent's coherent picture of itself, computed from evidence ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ not self-reported.
+The agent's coherent picture of itself, computed from evidence ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ not self-reported.
 
-- **Moral Compass** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END.
-- **Decision Journal** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight. FTS-searchable.
-- **Self-Critique** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
-- **Opinion Store** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ First-class opinions with evidence tracking, confidence evolution, and supersession history.
+- **Moral Compass** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Virtue ethics on 10 spectrums (Aristotle's golden mean). Auto-reflects at SESSION_END.
+- **Decision Journal** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight. FTS-searchable.
+- **Self-Critique** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Craft quality assessment across 5 spectrums: elegance, thoroughness, autonomy, proportionality, communication.
+- **Opinion Store** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ First-class opinions with evidence tracking, confidence evolution, and supersession history.
 
 Also: affect log (valence-arousal-dominance tracking, auto-logged at decision points), body awareness (computational interoception), attention schema (Butlin indicators 9-10), epistemic status (Butlin indicator 14), value tension detection, unified self-model assembly.
 
 ### Interaction Intelligence
 Adapts to the user over time.
 
-- **User Model** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Tracks skill level and preferences from observed behavior (not self-reported). Signals like jargon fluency, explanation requests, and correction patterns build the model automatically.
-- **Communication Calibration** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Adjusts verbosity, jargon tolerance, example density, and explanation depth based on the user model.
-- **Advice Tracking** ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ Records recommendations given, then tracks whether they actually worked. Computes success rate by category.
+- **User Model** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Tracks skill level and preferences from observed behavior (not self-reported). Signals like jargon fluency, explanation requests, and correction patterns build the model automatically.
+- **Communication Calibration** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Adjusts verbosity, jargon tolerance, example density, and explanation depth based on the user model.
+- **Advice Tracking** ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ Records recommendations given, then tracks whether they actually worked. Computes success rate by category.
 
 Also: HUD (heads-up display with `--brief` mode), tiered engagement enforcement (light/deep gates), memory sync to Claude Code, session checkpoints, seed versioning.
 
@@ -69,20 +69,20 @@ Also: HUD (heads-up display with `--brief` mode), tiered engagement enforcement 
 
 ```
 Session Start                    Session End
-     ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡                                ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡
-     ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                                ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼
- Load briefing ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Âº Analyze session
+     ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡                                ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡
+     ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¼                                ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¼
+ Load briefing ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Âº Analyze session
  (lessons, memory,              (corrections, encouragements,
   directives, goals)             decisions, tool usage)
-     ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡                                ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡
-     ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                                ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼
- Work with context ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Âº Extract knowledge
- (anticipation warnings,        (quality gate ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ noise filter ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
-  pattern recommendations,       dedup ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ contradiction check ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢
+     ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡                                ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡
+     ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¼                                ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¼
+ Work with context ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Âº Extract knowledge
+ (anticipation warnings,        (quality gate ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ noise filter ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢
+  pattern recommendations,       dedup ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ contradiction check ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢
   engagement tracking)           maturity assignment)
-     ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡                                ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â‚¬Å¡
-     ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼                                ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼
- Record everything ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ï¿½Ã¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬â€œÃ‚Âº Update systems
+     ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡                                ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡
+     ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¼                                ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¼
+ Record everything ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Âº Update systems
  (ledger events, tool calls,    (lesson tracking, compass,
   decisions, affect states)      growth, self-critique, handoff)
 ```
@@ -97,13 +97,13 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,180+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,257+ tests, real DB, minimal mocks
 
 ```
 
-**For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ the OS handles orientation.
+**For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ the OS handles orientation.
 
-**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ the repo itself stays clean.
+**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ the repo itself stays clean.
 
 ## CLI Surface (181 commands)
 
@@ -111,7 +111,7 @@ pytest tests/ -q --tb=short   # 4,180+ tests, real DB, minimal mocks
 <summary><b>Session workflow</b></summary>
 
 ```bash
-divineos briefing            # Start here ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ context, lessons, memory (--deep, --layer)
+divineos briefing            # Start here ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ context, lessons, memory (--deep, --layer)
 divineos preflight           # Confirm you're ready to work
 divineos hud                 # Full heads-up display
 divineos hud --brief         # Condensed view (~6 essential slots)
@@ -338,9 +338,9 @@ src/divineos/
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
       inference.py             Knowledge inference engine
     council/                   Expert council sub-package
-      engine.py                CouncilEngine ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ analyze problems through expert lenses
+      engine.py                CouncilEngine ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
-      manager.py               Dynamic council manager (classify ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ select 5-8 experts)
+      manager.py               Dynamic council manager (classify ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ select 5-8 experts)
       experts/                 28 expert wisdom profiles
         __init__.py            Expert registration and exports
         aristotle.py           Virtue ethics, teleology, classification
@@ -392,7 +392,7 @@ src/divineos/
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
     session_checkpoint.py      Periodic saves and context monitoring
-    lifecycle.py               Self-enforcement ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ OS manages its own session lifecycle
+    lifecycle.py               Self-enforcement ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ OS manages its own session lifecycle
     enforcement.py             CLI-level event capture and signal handling
     enforcement_verifier.py    Enforcement setup verification
     tool_wrapper.py            Tool execution interception
@@ -405,7 +405,7 @@ src/divineos/
     trust_tiers.py             Signal trust weighting (MEASURED > BEHAVIORAL > SELF_REPORTED)
     planning_commitments.py    Commitment tracking and fulfillment checking
     skill_library.py           Evidence-based skill proficiency tracking
-    curiosity_engine.py        Question tracking (OPEN ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ INVESTIGATING ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ ANSWERED)
+    curiosity_engine.py        Question tracking (OPEN ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ INVESTIGATING ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ ANSWERED)
     corrections.py             Raw correction notebook (user's exact words, no framing)
     exploration_reader.py      Surfaces past explorations in briefing and search
     lesson_interrupt.py        Mid-session chronic lesson questions (named-voice interrupt)
@@ -415,8 +415,8 @@ src/divineos/
     claim_store.py             Claims engine with evidence tiers
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
-    compass_rudder.py          PreToolUse rudder Ã¢â‚¬â€� blocks Task spawns during drift-toward-excess without justification
-    user_ratings.py            External validation ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ user rates sessions 1-10, Goodhart detection
+    compass_rudder.py          PreToolUse rudder ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ blocks Task spawns during drift-toward-excess without justification
+    user_ratings.py            External validation ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ user rates sessions 1-10, Goodhart detection
     body_awareness.py          Computational interoception and cache conveyor belt
     sleep.py                   Offline consolidation engine (6 phases, dream report)
     progress_dashboard.py      Measurable progress metrics from real data
@@ -454,9 +454,16 @@ src/divineos/
       _schema.py               Seven tables: members, knowledge, opinions, affect, interactions, letters, letter_responses
       db.py                    Connection helper with DIVINEOS_FAMILY_DB env override (PEP 562 dynamic path)
       types.py                 SourceTag (observed/told/inferred/inherited/architectural) + record dataclasses
-      entity.py                Read path â€” get_family_member(name), get_knowledge, get_opinions, get_recent_affect, get_recent_interactions
+      entity.py                Read path Ã¢â‚¬â€� get_family_member(name), get_knowledge, get_opinions, get_recent_affect, get_recent_interactions
       store.py                 Write path with production gate (_PRODUCTION_WRITES_GATED, Phase 1b closing flips to False)
       letters.py               Handoff letter channel + append-only response layer + length nudge
+    empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
+      types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
+      burden.py                required_corroboration(tier, magnitude) â€” proportional burden calculator
+      classifier.py            Heuristic classifier: (content, knowledge_type, source) -> (Tier, Magnitude, audit reason)
+      routing.py               Council-routing wrapper; LOAD_BEARING needs 1 round, FOUNDATIONAL needs 2
+      receipt.py               evidence_receipts table + issue_receipt + verify_chain (hash-pointer forest traversal, distinguishes forks from tamper)
+      gate.py                  Full pipeline orchestrator: classify -> burden -> route -> issue + receipt_id column migration
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -530,7 +537,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,180+ tests (real DB, minimal mocks)
+tests/                         4,257+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -567,11 +574,11 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 4,180+ tests (real SQLite, minimal mocks)
+- 4,257+ tests (real SQLite, minimal mocks)
 
 - 143 CLI commands
 - 9 Claude Code enforcement hooks
-- Actively developed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ï¿½ new systems ship weekly
+- Actively developed ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã¯Â¿Â½ new systems ship weekly
 
 ## License
 
