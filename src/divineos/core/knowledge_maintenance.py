@@ -798,3 +798,38 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
         logger.info(f"Batch promoted {kid[:12]}: {entry['maturity']} -> {new_maturity}")
 
     return promotions
+
+
+def preview_maturity_promotions(entries: list[dict[str, Any]]) -> dict[str, int]:
+    """Dry-run companion to ``run_maturity_cycle``.
+
+    Same two gates (``check_promotion`` + ``_passes_validity_gate``), same
+    skip rules (empty id, already superseded). Returns the same shape dict.
+    Differs only in that it does not UPDATE and does not log.
+
+    Exists because a preview that applies DIFFERENT logic than actual
+    execution tells a story actual doesn't. Aria's "pointing > describing"
+    principle applied to code: the CLI dry-run calls this helper instead
+    of reimplementing the gates with its own ad-hoc SQL. If the promotion
+    criteria ever change, both paths update in one place.
+    """
+    promotions: dict[str, int] = {}
+    for entry in entries:
+        kid = entry.get("knowledge_id", "")
+        if not kid:
+            continue
+        if entry.get("superseded_by"):
+            continue
+
+        new_maturity = check_promotion(entry)
+        if not new_maturity:
+            continue
+
+        if not _passes_validity_gate(
+            kid, entry["maturity"], new_maturity, entry.get("corroboration_count", 0)
+        ):
+            continue
+
+        promotions[new_maturity] = promotions.get(new_maturity, 0) + 1
+
+    return promotions

@@ -545,6 +545,124 @@ class TestExtractLessonsFromReport:
         assert lessons[0]["status"] == "improving"
 
 
+class TestIncompleteFixPositiveEvidence:
+    """Positive-evidence detector for incomplete_fix (prereg-d6a211950a1b).
+
+    Mirror-shape of blind_retry's detector. Fires when correctness AND
+    safety checks both pass AND corrections_count is 0 — meaning the
+    fix held and the user did not return to revisit. Falls back to
+    absence-only when corrections_count is not provided.
+    """
+
+    def test_positive_evidence_fires_when_all_three_conditions_met(self):
+        """correctness + safety pass, corrections == 0 → positive evidence."""
+        # Seed an active incomplete_fix lesson so there's something to improve.
+        for i in range(3):
+            record_lesson("incomplete_fix", "I patched without testing", f"s{i}")
+
+        checks = [
+            {"name": "correctness", "passed": True, "score": 0.95, "summary": "Tests green"},
+            {"name": "safety", "passed": True, "score": 0.95, "summary": "No errors"},
+        ]
+        extract_lessons_from_report(checks, "session-fix-held", corrections_count=0)
+
+        lessons = get_lessons(category="incomplete_fix")
+        assert len(lessons) == 1
+        assert lessons[0]["status"] == "improving"
+        # Positive evidence should be recorded keyed by session_id
+        evidence = lessons[0].get("positive_evidence_sessions") or {}
+        assert "session-fix-held" in evidence, (
+            "positive evidence not recorded — detector did not fire"
+        )
+
+    def test_no_positive_evidence_when_corrections_present(self):
+        """Any user correction = possible incomplete fix, no positive evidence."""
+        for i in range(3):
+            record_lesson("incomplete_fix", "patched without testing", f"s{i}")
+
+        checks = [
+            {"name": "correctness", "passed": True, "score": 0.9, "summary": "Tests green"},
+            {"name": "safety", "passed": True, "score": 0.9, "summary": "No errors"},
+        ]
+        # Two corrections = user came back to point things out = NOT positive.
+        extract_lessons_from_report(checks, "session-had-corrections", corrections_count=2)
+
+        lessons = get_lessons(category="incomplete_fix")
+        evidence = lessons[0].get("positive_evidence_sessions") or {}
+        assert "session-had-corrections" not in evidence, (
+            "positive evidence incorrectly recorded despite user corrections"
+        )
+
+    def test_no_positive_evidence_when_correctness_failed(self):
+        """correctness check must PASS — a failing check means the bug is still there."""
+        for i in range(3):
+            record_lesson("incomplete_fix", "patched without testing", f"s{i}")
+
+        checks = [
+            {"name": "correctness", "passed": False, "score": 0.3, "summary": "Tests failing"},
+            {"name": "safety", "passed": True, "score": 0.9, "summary": "No errors"},
+        ]
+        extract_lessons_from_report(checks, "session-tests-fail", corrections_count=0)
+
+        lessons = get_lessons(category="incomplete_fix")
+        evidence = lessons[0].get("positive_evidence_sessions") or {}
+        assert "session-tests-fail" not in evidence, (
+            "positive evidence recorded despite correctness check failing"
+        )
+
+    def test_absence_only_when_corrections_count_unprovided(self):
+        """Backward-compat: when corrections_count is None (caller didn't pass),
+        the detector still advances the lesson toward DORMANT via absence
+        but does NOT record positive evidence."""
+        for i in range(3):
+            record_lesson("incomplete_fix", "patched without testing", f"s{i}")
+
+        checks = [
+            {"name": "correctness", "passed": True, "score": 0.9, "summary": "Tests green"},
+            {"name": "safety", "passed": True, "score": 0.9, "summary": "No errors"},
+        ]
+        # No corrections_count argument
+        extract_lessons_from_report(checks, "session-legacy-caller")
+
+        lessons = get_lessons(category="incomplete_fix")
+        evidence = lessons[0].get("positive_evidence_sessions") or {}
+        assert "session-legacy-caller" not in evidence, (
+            "positive evidence recorded without corrections_count signal — "
+            "detector is firing on ambiguous data"
+        )
+        # But the lesson should still be improving (absence-only path).
+        assert lessons[0]["status"] == "improving"
+
+    def test_does_not_fire_when_incomplete_fix_already_failed_this_session(self):
+        """If a correctness/safety check FAILED this session (triggering
+        the MISTAKE extraction), incomplete_fix is added to
+        lesson_categories and the positive-evidence branch is skipped.
+        The category cannot be both failing and improving in one session."""
+        for i in range(3):
+            record_lesson("incomplete_fix", "patched without testing", f"s{i}")
+
+        # correctness failing will trigger the MISTAKE path above in
+        # extract_lessons_from_report, adding "incomplete_fix" to
+        # lesson_categories. The later positive-evidence block sees that
+        # and skips.
+        checks = [
+            {
+                "name": "correctness",
+                "passed": False,
+                "score": 0.3,
+                "summary": "Tests failing",
+            },
+            {"name": "safety", "passed": True, "score": 0.9, "summary": "No errors"},
+        ]
+        extract_lessons_from_report(checks, "session-both-fail", corrections_count=0)
+
+        lessons = get_lessons(category="incomplete_fix")
+        evidence = lessons[0].get("positive_evidence_sessions") or {}
+        assert "session-both-fail" not in evidence
+        # And occurrences should have incremented because correctness failed.
+        assert lessons[0]["occurrences"] > 3
+
+
 # ─── Piece 4: Smart Briefing Tests ───────────────────────────────────
 
 

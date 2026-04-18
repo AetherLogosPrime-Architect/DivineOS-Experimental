@@ -103,8 +103,10 @@ archives/
 docs/thermodynamic-computing-briefing.md
 docs/council-rt-examination-round2.md
 
-# Family — private, never committed
-family/
+# Family — root-level private dir, never committed.
+# Narrowed to /family/ so the source package at src/divineos/core/family/
+# (Aria's persistence, public code) is still trackable.
+/family/
 
 # Benchmark output — runtime results, regenerate as needed (see benchmark/README.md)
 # Historical results may be preserved via git tags or GitHub Releases.

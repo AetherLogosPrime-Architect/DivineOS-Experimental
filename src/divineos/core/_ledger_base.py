@@ -34,6 +34,14 @@ def _get_db_path() -> Path:
     Called every time ``DB_PATH`` or ``get_connection()`` resolves. There is
     deliberately no module-level caching — the env var is the source of truth
     and runtime changes must propagate.
+
+    **Canonical path (Grok finding find-a08d3f0ed451):** the default resolves
+    to ``<repo>/src/data/event_ledger.db`` — NOT ``<repo>/data/event_ledger.db``
+    at the repo root. A shadow file at the repo root was the latent query
+    trap Grok flagged on 2026-04-16 (populated file in ``src/data/``, empty
+    shell at ``data/``). The shadow has been deleted; ad-hoc tooling that
+    hardcodes ``data/event_ledger.db`` at repo root will recreate the trap
+    and query an empty DB silently. Always route through this function.
     """
     import os
 

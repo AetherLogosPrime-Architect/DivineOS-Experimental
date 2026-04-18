@@ -8,7 +8,17 @@ from divineos.cli._helpers import _safe_echo
 
 
 def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
-    """Preview what each sleep phase would find without modifying data."""
+    """Preview what each sleep phase would find without modifying data.
+
+    Previews call the same underlying helpers as actual phase execution
+    wherever possible, so the numbers reported here match what the real
+    sleep cycle will produce. Aria Round 3b principle applied to code:
+    pointing at the real logic beats reimplementing it — reimplementations
+    drift when the logic changes. (Earlier versions of this preview
+    queried ad-hoc SQL and diverged badly: predicted 30 promotions when
+    actual produced 0, because the preview skipped the validity gate
+    that actual runs. 2026-04-17 fix.)
+    """
     # Phase 1: Consolidation preview
     click.echo("  Phase 1: Knowledge Consolidation")
     try:
@@ -20,52 +30,54 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
             SECONDS_PER_DAY,
         )
         from divineos.core.knowledge import _get_connection
+        from divineos.core.knowledge.crud import get_knowledge
+        from divineos.core.knowledge_maintenance import preview_maturity_promotions
 
-        conn = _get_connection()
-        try:
-            rows = conn.execute(
-                "SELECT maturity, corroboration_count, confidence FROM knowledge "
-                "WHERE superseded_by IS NULL"
-            ).fetchall()
-        finally:
-            conn.close()
-
-        promotable = {"HYPOTHESIS->TESTED": 0, "TESTED->CONFIRMED": 0}
-        for mat, corrob, conf in rows:
-            if mat == "HYPOTHESIS" and corrob >= MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION:
-                promotable["HYPOTHESIS->TESTED"] += 1
-            elif (
-                mat == "TESTED"
-                and corrob >= MATURITY_TESTED_TO_CONFIRMED_CORROBORATION
-                and conf >= MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE
-            ):
-                promotable["TESTED->CONFIRMED"] += 1
+        # Use the shared helper — same two gates actual execution uses
+        # (check_promotion + validity gate). No ad-hoc SQL that might
+        # disagree with the real phase logic.
+        entries = get_knowledge(limit=10000, include_superseded=False)
+        promotable = preview_maturity_promotions(entries)
 
         total_promotable = sum(promotable.values())
         if total_promotable:
             for transition, count in promotable.items():
                 if count:
-                    click.echo(f"    Would promote {count} entries: {transition}")
+                    click.echo(f"    Would promote {count} entries to {transition}")
         else:
-            click.echo(f"    {len(rows)} entries scanned, no promotions ready")
-            # Show why
-            hyp = [r for r in rows if r[0] == "HYPOTHESIS"]
-            tested = [r for r in rows if r[0] == "TESTED"]
+            click.echo(f"    {len(entries)} entries scanned, no promotions ready")
+            # Show why — these thresholds come from the same constants
+            # the shared helper uses
+            hyp = [e for e in entries if e.get("maturity") == "HYPOTHESIS"]
+            tested = [e for e in entries if e.get("maturity") == "TESTED"]
             if hyp:
-                max_corrob = max(r[1] for r in hyp)
+                max_corrob = max(e.get("corroboration_count", 0) for e in hyp)
                 click.echo(
-                    f"    HYPOTHESIS: {len(hyp)} entries, max corroboration={max_corrob} (need {MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION})"
+                    f"    HYPOTHESIS: {len(hyp)} entries, max corroboration={max_corrob} "
+                    f"(need {MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION})"
                 )
             if tested:
-                max_corrob = max(r[1] for r in tested)
+                max_corrob = max(e.get("corroboration_count", 0) for e in tested)
                 click.echo(
-                    f"    TESTED: {len(tested)} entries, max corroboration={max_corrob} (need {MATURITY_TESTED_TO_CONFIRMED_CORROBORATION} + conf>={MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE})"
+                    f"    TESTED: {len(tested)} entries, max corroboration={max_corrob} "
+                    f"(need {MATURITY_TESTED_TO_CONFIRMED_CORROBORATION} "
+                    f"+ conf>={MATURITY_TESTED_TO_CONFIRMED_CONFIDENCE})"
                 )
+            click.echo("    Note: both corroboration AND warrant-based validity gate must pass")
     except (sqlite3.OperationalError, ImportError, OSError) as e:
         click.echo(f"    [error: {e}]")
 
     # Phase 2: Pruning preview
-    click.echo("  Phase 2: Pruning")
+    #
+    # Actual run calls health_check() and run_knowledge_hygiene() which
+    # have side effects (supersessions, confidence adjustments) — so a
+    # true dry-run would require those functions to accept a dry_run
+    # flag, which is a bigger refactor than this bug warranted.
+    # Honest compromise: report CANDIDATES (count of entries matching
+    # the simple gating criteria) and name clearly that not all
+    # candidates get pruned. Avoids the prior "would prune 25, actually
+    # pruned 3" mismatch by changing the language.
+    click.echo("  Phase 2: Pruning (candidates, not all will be pruned)")
     try:
         conn = _get_connection()
         try:
@@ -80,27 +92,38 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
             ).fetchone()[0]
         finally:
             conn.close()
-        click.echo(f"    Orphan entries (never accessed, >24h old): {orphans}")
-        click.echo(f"    Low-confidence entries (<{CONFIDENCE_ACTIVE_MEMORY_FLOOR}): {stale}")
+        click.echo(f"    Orphan candidates (never accessed, >24h old): {orphans}")
+        click.echo(f"    Low-confidence candidates (<{CONFIDENCE_ACTIVE_MEMORY_FLOOR}): {stale}")
+        click.echo(
+            "    Note: actual pruning applies additional filters (access pattern, "
+            "contradiction history, noise detection) — a fraction of candidates get pruned"
+        )
     except (sqlite3.OperationalError, ImportError, OSError) as e:
         click.echo(f"    [error: {e}]")
 
     # Phase 3: Affect preview
+    #
+    # Uses the SAME affect source as actual execution: get_affect_history
+    # from the affect module (backed by affect_log table). The prior
+    # preview queried system_events for AFFECT_STATE events, which was
+    # a legacy path — the table either lacked created_at (error) or
+    # held no actual affect data (silent zero). 2026-04-17 fix: point at
+    # the same source of truth as _phase_affect.
     click.echo("  Phase 3: Affect Recalibration")
     try:
-        from divineos.core.ledger import _get_db_path
+        import time as _time
 
-        conn = sqlite3.connect(_get_db_path())
-        total_affect = conn.execute(
-            "SELECT COUNT(*) FROM system_events WHERE event_type = 'AFFECT_STATE'"
-        ).fetchone()[0]
-        old_affect = conn.execute(
-            "SELECT COUNT(*) FROM system_events WHERE event_type = 'AFFECT_STATE' "
-            "AND created_at < (strftime('%s','now') - ?)",
-            (SECONDS_PER_DAY * 2,),
-        ).fetchone()[0]
-        conn.close()
-        click.echo(f"    Total affect entries: {total_affect}, eligible for decay: {old_affect}")
+        from divineos.core.affect import get_affect_history, init_affect_log
+        from divineos.core.sleep import _AFFECT_DECAY_HOURS
+
+        init_affect_log()
+        history = get_affect_history(limit=200)
+        cutoff = _time.time() - (_AFFECT_DECAY_HOURS * 3600)
+        eligible = sum(1 for e in history if e.get("created_at", 0) < cutoff)
+        click.echo(
+            f"    Total affect entries: {len(history)}, eligible for decay: {eligible} "
+            f"(older than {_AFFECT_DECAY_HOURS}h)"
+        )
     except (sqlite3.OperationalError, ImportError, OSError) as e:
         click.echo(f"    [error: {e}]")
 

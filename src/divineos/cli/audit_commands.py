@@ -129,7 +129,7 @@ def register(cli: click.Group) -> None:
                 click.secho("\n=== Audit Rounds ===\n", fg="cyan", bold=True)
                 for r in rounds:
                     click.echo(
-                        f"  {r.round_id[:16]}  {r.actor:<10} {r.finding_count} findings  {r.focus}"
+                        f"  {r.round_id}  {r.actor:<10} {r.finding_count} findings  {r.focus}"
                     )
                 click.echo()
 
@@ -147,8 +147,11 @@ def register(cli: click.Group) -> None:
         for f in findings:
             sev_color = _SEVERITY_COLORS.get(f.severity.value, "white")
             status_color = _STATUS_COLORS.get(f.status.value, "white")
+            # Full finding_id (17 chars): prior [:16] truncated to 16 and
+            # made copy-paste into `audit show` fail silently. Discovered
+            # 2026-04-17 during Grok findings cleanup.
             click.echo(
-                f"  {f.finding_id[:16]}  "
+                f"  {f.finding_id}  "
                 + click.style(f"{f.severity.value:<8}", fg=sev_color)
                 + click.style(f" {f.status.value:<12}", fg=status_color)
                 + f" {f.title}"
@@ -198,7 +201,7 @@ def register(cli: click.Group) -> None:
 
         try:
             if resolve_finding(finding_id, status, notes):
-                click.secho(f"[+] Finding {finding_id[:16]} -> {status.upper()}", fg="green")
+                click.secho(f"[+] Finding {finding_id} -> {status.upper()}", fg="green")
             else:
                 click.secho(f"[!] Finding '{finding_id}' not found.", fg="red")
         except ValueError as e:

@@ -61,6 +61,27 @@ STATUS_ACTIVE = "active"
 STATUS_IMPROVING = "improving"
 STATUS_DORMANT = "dormant"
 STATUS_RESOLVED = "resolved"
+# RESOLVED_WITH_HISTORY — a regressed lesson that has accumulated positive
+# evidence AND stayed quiet since the last regression. Distinct from
+# RESOLVED because the scar stays visible: the regressions count is
+# preserved, and callers reading the lesson can see the lesson reached
+# resolution the hard way, not cleanly. Added 2026-04-17 per
+# prereg-63e87e548a04 to close the terminal-state trap Grok flagged in
+# find-f50532457f76: a lesson with regressions > 0 could reach neither
+# DORMANT (requires regressions == 0) nor RESOLVED (required positive
+# evidence in categories where no detector was wired). This new exit
+# applies only to regressed lessons whose category HAS a positive-evidence
+# detector; categories without detectors remain blocked until their
+# detector ships. Aria's supersession-not-deletion principle applied
+# to state: the regression history is not erased to produce a cleaner
+# label.
+STATUS_RESOLVED_WITH_HISTORY = "resolved_with_history"
+
+# Minimum days since the last regression event before a regressed lesson
+# can reach RESOLVED_WITH_HISTORY. Kept as its own constant (not aliased
+# to LESSON_MIN_RESOLUTION_DAYS) so future tuning of regression-specific
+# cooldown doesn't couple to the general RESOLVED time gate.
+LESSON_REGRESSION_COOLDOWN_DAYS = 30
 
 
 def _ensure_lesson_schema(conn: Any) -> None:
@@ -252,7 +273,19 @@ def get_lessons(
     conn = _get_connection()
     try:
         _ensure_regressions_column(conn)
-        query = "SELECT lesson_id, created_at, category, description, first_session, occurrences, last_seen, sessions, status, content_hash, agent, regressions FROM lesson_tracking"
+        # positive_evidence_sessions added 2026-04-17 so the incomplete_fix
+        # detector (prereg-d6a211950a1b) and any future positive-evidence
+        # detectors surface their evidence to read-path callers like
+        # get_lesson_summary and tests. _lesson_row_to_dict decodes the
+        # trailing JSON column from base_len+1 when present; without the
+        # column in SELECT, positive_evidence_sessions silently defaulted
+        # to {} for every caller.
+        query = (
+            "SELECT lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, "
+            "regressions, positive_evidence_sessions "
+            "FROM lesson_tracking"
+        )
         conditions: list[str] = []
         params: list[Any] = []
 
@@ -660,7 +693,10 @@ def _lesson_loop_status() -> str:
     # extract_lessons_from_report. Kept in sync manually. Each new detector
     # that ships should append its category here and its pre-registration
     # should schedule a review that verifies the loop actually closed.
-    categories_with_evidence_detector = ("blind_retry", "upset_recovered")
+    # Updated 2026-04-17: incomplete_fix positive-evidence detector wired
+    # per prereg-d6a211950a1b. Firing conditions documented in
+    # extract_lessons_from_report near the incomplete_fix block.
+    categories_with_evidence_detector = ("blind_retry", "upset_recovered", "incomplete_fix")
     # Total chronic-test categories tracked in _BEHAVIORAL_TESTS
     total_tracked = len(_BEHAVIORAL_TESTS)
     return (
@@ -668,8 +704,12 @@ def _lesson_loop_status() -> str:
         f"{len(categories_with_evidence_detector)}/{total_tracked} chronic categories "
         f"({', '.join(categories_with_evidence_detector)}). "
         "Other categories can only transition to DORMANT (quiet, not proven) "
-        "or stay ACTIVE/IMPROVING. Regressed lessons have no exit yet — "
-        "terminal-state bug tracked as Grok audit finding."
+        "or stay ACTIVE/IMPROVING. Regressed lessons exit via "
+        "RESOLVED_WITH_HISTORY when positive-evidence accumulates and the "
+        f"{LESSON_REGRESSION_COOLDOWN_DAYS}-day cooldown clears (wired 2026-04-17, "
+        "prereg-63e87e548a04) — the scar stays visible so the lesson is not relabeled "
+        "as clean. Categories without positive-evidence detectors still cannot reach "
+        "either RESOLVED or RESOLVED_WITH_HISTORY; those wait on detector rollout."
     )
 
 
@@ -1026,8 +1066,62 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
             has_time_gate = days_improving >= LESSON_MIN_RESOLUTION_DAYS
             has_positive_evidence = positive_evidence_count >= LESSON_MIN_POSITIVE_EVIDENCE
 
-            # Try RESOLVED first — it's the richer state.
-            if has_session_floor and has_time_gate and has_positive_evidence:
+            # Resolution path 1 — RESOLVED_WITH_HISTORY (regressed lessons).
+            #
+            # Added 2026-04-17 per prereg-63e87e548a04. Closes the terminal-
+            # state trap Grok flagged in find-f50532457f76: regressed lessons
+            # previously couldn't reach DORMANT (gate requires regressions==0)
+            # and couldn't reach RESOLVED via the clean path (regressions
+            # would imply the scar should stay visible). They sat in
+            # IMPROVING indefinitely. Now: a regressed lesson that has
+            # accumulated positive evidence AND stayed quiet through the
+            # regression cooldown window exits to RESOLVED_WITH_HISTORY,
+            # preserving the regression count as visible scar tissue.
+            #
+            # Routed BEFORE the clean RESOLVED branch so regressed lessons
+            # never get relabeled as RESOLVED (which would erase the scar).
+            if (
+                regressions > 0
+                and has_session_floor
+                and has_time_gate
+                and has_positive_evidence
+                and days_improving >= LESSON_REGRESSION_COOLDOWN_DAYS
+            ):
+                clean_session_ids = sessions[effective:]
+                stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
+                if stimulus_count >= LESSON_MIN_STIMULUS_SESSIONS:
+                    conn.execute(
+                        "UPDATE lesson_tracking SET status = ?, last_seen = ? WHERE lesson_id = ?",
+                        (STATUS_RESOLVED_WITH_HISTORY, now, lesson["lesson_id"]),
+                    )
+                    lesson["status"] = STATUS_RESOLVED_WITH_HISTORY
+                    transitioned.append(lesson)
+                    logger.info(
+                        "Lesson '%s' RESOLVED_WITH_HISTORY: %d regression(s) preserved, "
+                        "%d positive-evidence, %d stimulus over %.1f days cooldown",
+                        lesson["category"],
+                        regressions,
+                        positive_evidence_count,
+                        stimulus_count,
+                        days_improving,
+                    )
+                    continue
+                logger.debug(
+                    "Regressed lesson '%s' meets evidence but stimulus gate holds "
+                    "(%d/%d) — staying improving",
+                    lesson["category"],
+                    stimulus_count,
+                    LESSON_MIN_STIMULUS_SESSIONS,
+                )
+
+            # Resolution path 2 — RESOLVED (never-regressed lessons only).
+            #
+            # Regressions-aware guard added 2026-04-17: the original clean
+            # path implicitly assumed "no history to preserve." Now the
+            # guard is explicit so regressed lessons never silently reach
+            # RESOLVED via this branch. The RESOLVED_WITH_HISTORY branch
+            # above handles that case deliberately.
+            if regressions == 0 and has_session_floor and has_time_gate and has_positive_evidence:
                 clean_session_ids = sessions[effective:]
                 stimulus_count = _count_stimulus_sessions(lesson["category"], clean_session_ids)
                 if stimulus_count >= LESSON_MIN_STIMULUS_SESSIONS:
@@ -1185,6 +1279,7 @@ def extract_lessons_from_report(
     session_id: str,
     tone_shifts: list[dict[str, Any]] | None = None,
     error_recovery: dict[str, Any] | None = None,
+    corrections_count: int | None = None,
 ) -> list[str]:
     """Extract knowledge and lessons from session quality check results.
 
@@ -1193,6 +1288,10 @@ def extract_lessons_from_report(
         session_id: The session identifier
         tone_shifts: Optional list of tone shift dicts with keys: direction, trigger
         error_recovery: Optional dict with keys: blind_retries, investigate_count
+        corrections_count: Optional user-correction count this session, used by
+            the incomplete_fix positive-evidence detector (see prereg-d6a211950a1b).
+            When omitted, incomplete_fix still advances via absence-only (DORMANT
+            track), as it did before the detector was wired.
 
     Returns:
         List of stored knowledge IDs.
@@ -1415,6 +1514,50 @@ def extract_lessons_from_report(
                 # Quiet session — no positive evidence either way.
                 mark_lesson_improving("upset_recovered", session_id)
                 mark_lesson_improving("upset_user", session_id)
+
+    # incomplete_fix positive-evidence detector (prereg-d6a211950a1b).
+    # The existing heuristic_incomplete_fix check fires NEGATIVE on
+    # multiple user corrections — "you fixed it, I had to come back
+    # and point out another problem." The POSITIVE mirror: both
+    # correctness and safety checks passed AND zero user corrections
+    # were logged. That is the session shape of "fix held, user did
+    # not return to revisit." Proxies: correctness_passed ≈ test
+    # passed; safety_passed ≈ no new errors introduced; corrections
+    # == 0 ≈ no follow-up fix needed within the same OS session.
+    #
+    # Session boundary is the ledger-defined SESSION_START→SESSION_END
+    # range (per Aria's caveat: wall-clock boundaries are fuzzy, ledger
+    # boundaries are not). Caller passes corrections_count if known;
+    # when absent the detector falls back to absence-only behavior
+    # (DORMANT track) so this wiring is backward-compatible.
+    if "incomplete_fix" not in lesson_categories:
+        correctness_check = next((c for c in checks if c.get("name") == "correctness"), None)
+        safety_check = next((c for c in checks if c.get("name") == "safety"), None)
+        correctness_passed = (
+            correctness_check is not None and correctness_check.get("passed") is True
+        )
+        safety_passed = safety_check is not None and safety_check.get("passed") is True
+
+        if (
+            corrections_count is not None
+            and correctness_passed
+            and safety_passed
+            and corrections_count == 0
+        ):
+            mark_lesson_improving(
+                "incomplete_fix",
+                session_id,
+                evidence=(
+                    "correctness+safety both passed, 0 user corrections "
+                    "(fix held, no follow-up needed this session)"
+                ),
+            )
+        elif corrections_count == 0 or (
+            corrections_count is None and correctness_passed and safety_passed
+        ):
+            # Quiet session or partial signal — advance toward DORMANT
+            # via absence-only, not RESOLVED via positive evidence.
+            mark_lesson_improving("incomplete_fix", session_id)
 
     # Auto-escalate chronic lessons to DIRECTIVE entries.
     # This runs after all lesson recording/improving so the regression

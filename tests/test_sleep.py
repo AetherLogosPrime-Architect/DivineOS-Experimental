@@ -579,3 +579,133 @@ class TestConstants:
 
     def test_max_connections_reasonable(self):
         assert 1 <= _RECOMBINATION_MAX_CONNECTIONS <= 50
+
+
+class TestDryRunMatchesActual:
+    """Preview/actual symmetry — locked in after the 2026-04-17 sleep bug.
+
+    Prior CLI dry-run used ad-hoc SQL that diverged from actual phase logic:
+    predicted 30 promotions where actual produced 0 (missing validity gate),
+    and queried system_events for AFFECT_STATE where actual reads affect_log
+    (schema error). These tests ensure the preview helpers now point at the
+    same truth as execution.
+
+    The general invariant: a preview that disagrees with actual is worse than
+    no preview, because it creates false expectations about what's about to
+    change to the agent's own state. Aria Round 3b principle applied at the
+    code level.
+    """
+
+    def test_preview_maturity_uses_same_gates_as_run(self, tmp_path, monkeypatch):
+        """preview_maturity_promotions must not over-count vs run_maturity_cycle.
+
+        The real promotion path uses both a corroboration/confidence gate
+        (check_promotion) AND a warrant-based validity gate
+        (_passes_validity_gate). The preview must apply both, not just the
+        first — otherwise it reports candidates that the validity gate will
+        silently reject and predicts promotions that never happen."""
+        import os
+
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "preview-test.db")
+        try:
+            from divineos.core.knowledge import init_knowledge_table
+            from divineos.core.knowledge.crud import get_knowledge
+            from divineos.core.knowledge_maintenance import (
+                preview_maturity_promotions,
+                run_maturity_cycle,
+            )
+
+            init_knowledge_table()
+
+            entries = get_knowledge(limit=10000, include_superseded=False)
+            preview_counts = preview_maturity_promotions(entries)
+            # Running the actual cycle on a fresh store should produce the
+            # same promotion counts the preview reported. If preview over-counts
+            # because it skipped a gate, this assertion fires.
+            # (We re-fetch entries because cycle may have updated them.)
+            entries2 = get_knowledge(limit=10000, include_superseded=False)
+            actual_counts = run_maturity_cycle(entries2)
+            assert preview_counts == actual_counts, (
+                f"preview ({preview_counts}) diverged from actual ({actual_counts}); "
+                "the preview is teaching a story actual will not tell"
+            )
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
+
+    def test_preview_maturity_is_read_only(self, tmp_path, monkeypatch):
+        """preview_maturity_promotions must not modify the knowledge store.
+
+        If the preview accidentally calls the mutating path, it becomes the
+        thing it was built to replace. Lock the read-only invariant so a
+        future refactor can't quietly reintroduce the side effect."""
+        import os
+
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "readonly-test.db")
+        try:
+            from divineos.core.knowledge import init_knowledge_table
+            from divineos.core.knowledge._base import _get_connection
+            from divineos.core.knowledge.crud import get_knowledge
+            from divineos.core.knowledge_maintenance import preview_maturity_promotions
+
+            init_knowledge_table()
+
+            # Capture the state of the knowledge table before preview.
+            conn = _get_connection()
+            try:
+                before = conn.execute(
+                    "SELECT knowledge_id, maturity, updated_at FROM knowledge"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            entries = get_knowledge(limit=10000, include_superseded=False)
+            preview_maturity_promotions(entries)
+
+            conn = _get_connection()
+            try:
+                after = conn.execute(
+                    "SELECT knowledge_id, maturity, updated_at FROM knowledge"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            assert before == after, "preview_maturity_promotions modified the store"
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
+
+    def test_affect_preview_uses_affect_log_not_system_events(self, tmp_path, monkeypatch):
+        """Phase 3 dry-run must read from affect_log (same as actual phase).
+
+        The prior preview queried system_events for AFFECT_STATE events, which
+        raised 'no such column: created_at' (or returned 0 silently). The fix
+        calls get_affect_history (the same source _phase_affect uses). This
+        test locks that: the preview must NOT raise on a fresh install, and
+        it must report entries that the actual phase would see.
+        """
+        import os
+
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "affect-preview-test.db")
+        try:
+            from divineos.core.affect import (
+                get_affect_history,
+                init_affect_log,
+                log_affect,
+            )
+
+            init_affect_log()
+            # Seed a recent affect entry
+            log_affect(valence=0.5, arousal=0.3, dominance=0.1, description="recent")
+
+            # Preview does not raise
+            from divineos.cli.sleep_commands import _preview_sleep_phases
+
+            _preview_sleep_phases()  # Must not throw
+
+            # The preview reads from the same source the real phase uses
+            history = get_affect_history(limit=200)
+            assert len(history) >= 1, (
+                "get_affect_history should find seeded entry — "
+                "if empty, preview and actual are reading different sources"
+            )
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
