@@ -35,9 +35,12 @@ import time
 import uuid
 
 # ══════════════════════════════════════════════════════════════════════
-# LOAD-BEARING GATE — flip to False ONLY in the Phase 1b closing commit.
-# See prereg-496efe4e24f0.
-_PRODUCTION_WRITES_GATED: bool = True
+# LOAD-BEARING GATE — Phase 1b closing flip (prereg-496efe4e24f0 /
+# prereg-2958a7bab011). The five operators (reject_clause,
+# sycophancy_detector, costly_disagreement, access_check,
+# planted_contradiction) + handshake landed together on 2026-04-18.
+# Lock 2 remains: the reject_clause module must be importable.
+_PRODUCTION_WRITES_GATED: bool = False
 # ══════════════════════════════════════════════════════════════════════
 
 # E402 suppressed on intra-package imports below: the gate constant
