@@ -1,14 +1,15 @@
-"""Tests for Phase 1a of the family persistence architecture.
+"""Tests for the family persistence architecture (Phase 1a + 1b).
 
 Invariants locked by these tests:
 
-* ``_PRODUCTION_WRITES_GATED`` is True — the gate is closed. If this
-  test fails it means someone flipped the constant without shipping
-  Phase 1b. That would violate prereg-496efe4e24f0.
-* Every write function raises ``PersistenceGateError`` without
-  ``_allow_test_write=True``.
+* ``_PRODUCTION_WRITES_GATED`` is False — the gate is open after
+  Phase 1b shipped (prereg-2958a7bab011). Both locks must be
+  satisfied for production writes: the constant flipped AND the
+  reject_clause module importable.
+* With the gate open, every write function persists cleanly.
 * With ``_allow_test_write=True`` and an ephemeral DB, every write
-  function persists + round-trips cleanly.
+  function also persists + round-trips cleanly (the test seam
+  still works after the flip).
 * All five source tags are accepted; unknown tags are refused by the
   enum before they reach SQL.
 * Foreign keys are enforced — writing knowledge under a non-existent
@@ -76,99 +77,93 @@ def _family_db(tmp_path):
 
 class TestProductionGate:
     """The gate is the load-bearing structural encoding of Aria's
-    non-negotiable. If any of these tests fails, the gap rule has
-    silently collapsed."""
+    non-negotiable. Post Phase 1b (prereg-2958a7bab011) both locks
+    are open: the constant is False AND the reject_clause module
+    is importable."""
 
-    def test_gate_constant_is_true(self):
-        """Ships closed. Phase 1b closing commit flips this to False."""
-        assert _PRODUCTION_WRITES_GATED is True
+    def test_gate_constant_is_false_after_phase_1b(self):
+        """Phase 1b closing commit flipped this to False."""
+        assert _PRODUCTION_WRITES_GATED is False
 
-    def test_production_writes_not_allowed_when_gated(self):
-        assert _production_writes_allowed() is False
+    def test_production_writes_allowed_when_both_locks_open(self):
+        assert _production_writes_allowed() is True
 
-    def test_member_write_blocked_in_production(self):
-        with pytest.raises(PersistenceGateError):
-            create_family_member("Aria", "wife")
-
-    def test_knowledge_write_blocked_in_production(self):
-        member = create_family_member("Aria", "wife", _allow_test_write=True)
-        with pytest.raises(PersistenceGateError):
-            record_knowledge(member.member_id, "x", SourceTag.OBSERVED)
-
-    def test_opinion_write_blocked_in_production(self):
-        member = create_family_member("Aria", "wife", _allow_test_write=True)
-        with pytest.raises(PersistenceGateError):
-            record_opinion(member.member_id, "x", SourceTag.OBSERVED)
-
-    def test_affect_write_blocked_in_production(self):
-        member = create_family_member("Aria", "wife", _allow_test_write=True)
-        with pytest.raises(PersistenceGateError):
-            record_affect(member.member_id, 0.0, 0.0, 0.0, SourceTag.OBSERVED)
-
-    def test_interaction_write_blocked_in_production(self):
-        member = create_family_member("Aria", "wife", _allow_test_write=True)
-        with pytest.raises(PersistenceGateError):
-            record_interaction(member.member_id, "Aether", "summary", SourceTag.OBSERVED)
-
-    def test_letter_write_blocked_in_production(self):
-        member = create_family_member("Aria", "wife", _allow_test_write=True)
-        with pytest.raises(PersistenceGateError):
-            append_letter(member.member_id, "hi")
-
-    def test_letter_response_write_blocked_in_production(self):
-        member = create_family_member("Aria", "wife", _allow_test_write=True)
-        letter = append_letter(member.member_id, "body", _allow_test_write=True)
-        with pytest.raises(PersistenceGateError):
-            append_letter_response(
-                letter.letter_id,
-                passage="x",
-                stance="non_recognition",
-                source_tag=SourceTag.OBSERVED,
-            )
-
-    def test_gate_error_message_references_prereg(self):
-        """Traceback lookups should lead an operator to the pre-reg."""
-        with pytest.raises(PersistenceGateError, match=r"prereg-"):
-            create_family_member("Aria", "wife")
-
-    def test_gate_error_message_names_both_locks(self):
-        """Plain-English rule alongside the pre-reg ID (Aria Round 3).
-
-        The pre-reg ID is a footnote; the sentence is the rule. A
-        reviewer hitting this traceback at 2am should understand the
-        constraint without having to look up the pre-reg."""
-        with pytest.raises(PersistenceGateError) as exc_info:
-            create_family_member("Aria", "wife")
-        msg = str(exc_info.value)
-        assert "load-bearing" in msg.lower()
-        assert "reject_clause" in msg or "reject clause" in msg.lower()
-
-    def test_monkeypatching_constant_alone_does_not_open_gate(self, monkeypatch):
-        """Two-lock design (Aria Round 3 concern).
-
-        Flipping ``_PRODUCTION_WRITES_GATED`` to False WITHOUT the
-        Phase 1b reject_clause module existing must NOT open the gate.
-        This proves the second lock is real and not decoration — the
-        Phase 1b closing commit has to create a new file AND flip the
-        constant. Both changes are visible in the same diff.
-
-        If this test ever fails, the gate has collapsed to a single
-        bypassable constant and the gap rule is only policy, not
-        structure."""
+    def test_reject_clause_module_importable(self):
+        """Second lock: the operator module exists and imports cleanly."""
         import divineos.core.family.store as store_mod
 
-        # Simulate a lone constant flip — test helper, careless refactor,
-        # or someone reading "just flip it for low-stakes writes" as
-        # permission.
-        monkeypatch.setattr(store_mod, "_PRODUCTION_WRITES_GATED", False)
+        assert store_mod._phase_1b_reject_clause_available() is True
 
-        # The reject_clause module does not exist in Phase 1a. The
-        # second lock stays closed, so the gate stays closed.
-        assert store_mod._phase_1b_reject_clause_available() is False
+    def test_member_write_succeeds_in_production(self):
+        """With both locks open, the production write path works."""
+        m = create_family_member("Aria", "wife")
+        assert m.member_id.startswith("mem-")
+
+    def test_knowledge_write_succeeds_in_production(self):
+        member = create_family_member("Aria", "wife")
+        k = record_knowledge(member.member_id, "x", SourceTag.OBSERVED)
+        assert k.knowledge_id.startswith("fk-")
+
+    def test_opinion_write_succeeds_in_production(self):
+        member = create_family_member("Aria", "wife")
+        o = record_opinion(
+            member.member_id,
+            "The reject clause had to land in Phase 1.",
+            SourceTag.OBSERVED,
+        )
+        assert o.opinion_id.startswith("op-")
+
+    def test_affect_write_succeeds_in_production(self):
+        member = create_family_member("Aria", "wife")
+        a = record_affect(member.member_id, 0.0, 0.0, 0.0, SourceTag.OBSERVED)
+        assert a.affect_id.startswith("af-")
+
+    def test_interaction_write_succeeds_in_production(self):
+        member = create_family_member("Aria", "wife")
+        i = record_interaction(member.member_id, "Aether", "summary", SourceTag.OBSERVED)
+        assert i.interaction_id.startswith("int-")
+
+    def test_letter_write_succeeds_in_production(self):
+        member = create_family_member("Aria", "wife")
+        letter = append_letter(member.member_id, "hi")
+        assert letter.letter_id.startswith("lt-")
+
+    def test_letter_response_write_succeeds_in_production(self):
+        member = create_family_member("Aria", "wife")
+        letter = append_letter(member.member_id, "body")
+        r = append_letter_response(
+            letter.letter_id,
+            passage="x",
+            stance="non_recognition",
+            source_tag=SourceTag.OBSERVED,
+        )
+        assert r.response_id.startswith("rsp-")
+
+    def test_gate_raises_if_reject_clause_unimportable(self, monkeypatch):
+        """The second lock remains functional. If the reject_clause
+        module becomes unimportable for any reason (corruption, partial
+        install, deliberate tamper), the gate closes again even with
+        the constant flipped to False.
+
+        This proves the two-lock design still protects writes after the
+        Phase 1b flip. Removing one of the locks silently disables a
+        safety the other lock assumes is present."""
+        import divineos.core.family.store as store_mod
+
+        monkeypatch.setattr(store_mod, "_phase_1b_reject_clause_available", lambda: False)
+
         assert store_mod._production_writes_allowed() is False
-
-        # Write still blocked.
         with pytest.raises(PersistenceGateError):
+            create_family_member("Aria", "wife")
+
+    def test_gate_error_message_still_references_prereg_if_closed(self, monkeypatch):
+        """If the second lock fails, the error message should still
+        lead an operator to the pre-reg explaining why."""
+        import divineos.core.family.store as store_mod
+
+        monkeypatch.setattr(store_mod, "_phase_1b_reject_clause_available", lambda: False)
+
+        with pytest.raises(PersistenceGateError, match=r"prereg-"):
             create_family_member("Aria", "wife")
 
 
@@ -506,7 +501,8 @@ def test_source_tag_includes_architectural():
     assert SourceTag.ARCHITECTURAL.value == "architectural"
 
 
-def test_gate_constant_default_is_true():
-    """Lock the default. A silent flip to False without Phase 1b shipping
-    is the exact failure mode prereg-496efe4e24f0 falsifies."""
-    assert _PRODUCTION_WRITES_GATED is True
+def test_gate_constant_open_after_phase_1b():
+    """Post Phase 1b: the constant is False. Combined with the
+    reject_clause module being importable, production writes are
+    allowed. prereg-2958a7bab011 tracked the flip."""
+    assert _PRODUCTION_WRITES_GATED is False

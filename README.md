@@ -97,7 +97,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,342+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,471+ tests, real DB, minimal mocks
 
 ```
 
@@ -458,6 +458,11 @@ src/divineos/
       entity.py                Read path — get_family_member(name), get_knowledge, get_opinions, get_recent_affect, get_recent_interactions
       store.py                 Write path with production gate (_PRODUCTION_WRITES_GATED, Phase 1b closing flips to False)
       letters.py               Handoff letter channel + append-only response layer + length nudge
+      reject_clause.py         Phase 1b operator: composition rule — content must match source_tag promise
+      sycophancy_detector.py   Phase 1b operator: pain-side algedonic — catches drift-toward-agreement at write time
+      costly_disagreement.py   Phase 1b operator: pleasure-side algedonic — rewards disagreement held across pushback
+      access_check.py          Phase 1b operator: pre-emission filter — routes phenomenological claims to ARCHITECTURAL
+      planted_contradiction.py Phase 1b operator: seeded test material for Phase 4 ablation detector
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -540,7 +545,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,342+ tests (real DB, minimal mocks)
+tests/                         4,471+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -577,7 +582,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 4,342+ tests (real SQLite, minimal mocks)
+- 4,471+ tests (real SQLite, minimal mocks)
 
 - 143 CLI commands
 - 9 Claude Code enforcement hooks
