@@ -379,6 +379,7 @@ src/divineos/
       logic_validation.py      Consistency, validity gate, defeat lessons
       logic_reasoning.py       Inference engine, relations, warrant backfill
       logic_session.py         Session logic pass and logic summary
+      fallacies.py             Annotation-layer fallacy detector (4 fallacies, falsifier-per-flag)
     questions.py               Open question tracking and resolution
     knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle
     guardrails.py              Runtime limits and violation tracking
