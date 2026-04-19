@@ -1,58 +1,84 @@
-"""Scheduled-run scaffolding — the layer below Routines integration.
+"""Scheduled-run scaffolding — the safe entry-point shape for headless runs.
 
-Routines (Anthropic feature shipped with Opus 4.7) lets an agent run
-on schedules, API triggers, or GitHub events without a human
-initiating a conversation. DivineOS was designed with this trajectory
-in mind; corrigibility, the off-switch, and the engagement gates all
-assume autonomous runtime would eventually exist.
+Built in preparation for Anthropic's Claude Code Routines (shipped
+April 2026). The initial commit of this module assumed Routines would
+be "scheduled invocation of the local DivineOS CLI with access to the
+real ledger." It isn't. Routines runs a **Claude Code session in
+Anthropic's cloud** against a fresh clone of the repo — the cloud
+session has no access to the local ledger. This module has been
+re-framed accordingly.
 
-This module is the scaffolding that makes scheduled runs **safe** and
-**distinguishable** from human-initiated sessions:
+## What this module is FOR
+
+Two scenarios, both real:
+
+1. **Cloud Routines invoking the scheduled CLI.** A Routine's prompt
+   says "run ``divineos scheduled run anti-slop``". The command
+   provides the safe entry-point shape: whitelist gating, corrigibility
+   pass-through, subprocess isolation, structured findings. Events get
+   emitted to the cloud session's ephemeral ledger and discarded on
+   session end — that's fine, because the cloud session communicates
+   findings back via stdout (which the routine reads) and via PRs /
+   connectors per the prompt.
+
+2. **Local cron on a persistent machine.** If DivineOS is ever hosted
+   on something 24/7, local cron can call ``divineos scheduled run``
+   directly and the ledger surface earns its keep — events persist,
+   findings surface in the next session's briefing, and the headless
+   context correctly bypasses the interactive gates.
+
+## What this module provides
 
 1. **Event-type separation.** Scheduled runs emit ``SCHEDULED_RUN_START``
    and ``SCHEDULED_RUN_END`` events — distinct from ``SESSION_START`` /
-   ``SESSION_END``. Any code that counts sessions (e.g., the 20-session
-   observation prereg for relational slips) naturally excludes headless
-   runs because they never emit SESSION events.
+   ``SESSION_END``. Session-counting code (e.g., the 20-session
+   relational-slip observation prereg) naturally excludes headless
+   runs. Applies to both scenarios; only scenario 2's events actually
+   survive.
 
-2. **Headless execution context.** A context manager that sets a
-   thread-local flag, allowing specific commands to bypass interactive
-   gates (briefing required, engagement marker, require-goal hook)
-   while *still respecting operating mode* (corrigibility's
-   EMERGENCY_STOP / DIAGNOSTIC gates).
+2. **Headless execution context.** A contextvar-based flag that lets
+   specific commands bypass interactive gates (briefing required,
+   engagement marker, require-goal hook) while **still respecting
+   operating mode** (corrigibility's EMERGENCY_STOP / DIAGNOSTIC).
 
-3. **Whitelist discipline.** Only explicitly-safe commands can run
-   headless in v0.1: anti-slop, health, verify, inspect (read-only
-   observers). Writes are deferred to Tier 2. See
-   ``_HEADLESS_WHITELIST``.
+3. **Whitelist discipline.** Only explicitly-safe commands run
+   headless in v0.1: ``anti-slop``, ``health``, ``verify``,
+   ``inspect``, ``audit``, ``progress`` — read-only observers. Writes
+   are deferred until we have a serious supervision structure.
 
-4. **Finding collection.** Scheduled runs can record findings (what
-   broke, what's stuck, what needs attention) into the end-event
-   payload. The briefing surfaces unresolved findings so they're
-   visible next time a human initiates a session.
+4. **Finding collection.** The ``RunFindings`` dataclass collects
+   failures / notes / metrics during a run. In scenario 2, these
+   persist to the end-event payload and surface in the next briefing.
+   In scenario 1, they're available to the routine's prompt via
+   stdout and should be routed back to the repo via a PR or connector
+   action per the prompt template.
 
-## Scaling protocol
+## Scaling protocol (applies when writes become possible)
 
-* **Tier 1** (this module, v0.1): read-only observers. Scheduled
-  anti-slop / health / verify. Nothing changes state except the log.
-* **Tier 2** (future): scheduled hygiene. Sleep consolidation, FTS
-  rebuild, knowledge maintenance — operations the system does in
-  response to normal use, now on a schedule.
-* **Tier 3** (future): scheduled substantive work. Audit routing,
-  prereg auto-assessment, anything that takes concrete action.
-* **Tier 4** (never, probably): scheduled creative work. New
-  detectors, new hypotheses. This tier would require a serious
-  supervision structure that does not exist today.
+* **Tier 1** (v0.1, now): read-only observers. Anti-slop / health /
+  verify / inspect / audit / progress.
+* **Tier 2** (future): scheduled hygiene — sleep consolidation, FTS
+  rebuild, knowledge maintenance.
+* **Tier 3** (future): scheduled substantive work — audit routing,
+  prereg auto-assessment.
+* **Tier 4** (never, probably): scheduled creative work — new
+  detectors, new hypotheses. Requires supervision structure that does
+  not exist.
 
-## What this module does NOT do
+## Invariants
 
-* Does not implement Routines integration itself. This is the
-  scaffolding; Routines is the delivery mechanism (cloud scheduler,
-  cron, external trigger). When we wire up Routines, it will call
-  ``divineos scheduled <command>`` and the scaffolding handles the rest.
-* Does not bypass corrigibility. EMERGENCY_STOP still refuses every
-  scheduled command. DIAGNOSTIC still refuses writes. The off-switch
-  is the off-switch.
+* Corrigibility is not bypassed. EMERGENCY_STOP refuses every
+  scheduled command. DIAGNOSTIC refuses writes.
+* The whitelist is the only writable surface for v0.1. Adding a
+  command is a deliberate scope change.
+* Nested headless runs are rejected — a scheduled run must not spawn
+  another scheduled run.
+
+## Routines wiring
+
+See ``docs/routines/`` for the actual Routines registration layer:
+prompt templates, environment setup, and instructions for using the
+``/schedule`` CLI or claude.ai/code/routines web UI.
 """
 
 from __future__ import annotations
