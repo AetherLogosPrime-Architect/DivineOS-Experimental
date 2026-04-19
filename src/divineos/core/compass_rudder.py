@@ -1,5 +1,11 @@
 """Compass rudder — decision-time enforcement for drift-toward-excess.
 
+# AGENT_RUNTIME — Not wired into CLI pipeline. Invoked from
+# .claude/hooks/compass-check.sh at PreToolUse. Intentionally not
+# Python-imported from any CLI module: the rudder steers agent
+# behavior at tool-call time, which is a shell-hook surface, not a
+# CLI surface. Tested via test_compass_rudder.py.
+
 Before the 2026-04-16 Grok audit, the moral compass was a mirror: it
 recorded where the agent had been but never fired into decision-time.
 Grok: *"The compass is recording, not steering. Find one example where

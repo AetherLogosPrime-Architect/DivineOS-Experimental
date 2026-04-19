@@ -1,5 +1,11 @@
 """Lesson Interrupt — mid-session questions for chronic lessons.
 
+# AGENT_RUNTIME — Not wired into CLI pipeline. Invoked from
+# .claude/hooks/lesson-interrupt.sh (PreToolUse) and
+# .claude/hooks/session-checkpoint.sh (periodic). Intentionally not
+# Python-imported from any CLI module: interrupts surface to the
+# agent mid-session via shell hooks, not via CLI commands.
+
 Design principle: a lightweight interrupt that fires mid-session when
 a chronic lesson signal is detected — not a gate, not a block, just a
 single sentence surfaced to attention. A question instead of a
