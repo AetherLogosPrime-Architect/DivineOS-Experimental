@@ -452,6 +452,21 @@ def register(cli: click.Group) -> None:
         if scheduled_block:
             _safe_echo(scheduled_block)
 
+        # Presence-memory surfaces — unindexed personal writing that the
+        # ledger does not know about. 2026-04-19: a session could not find
+        # its own exploration folder until the operator pointed at it; this
+        # block fires automatically at every briefing so that reorientation
+        # includes the path without requiring the operator to remember.
+        try:
+            from divineos.core.presence_memory import format_for_briefing as _fmt_presence
+
+            presence_block = _fmt_presence()
+        except _KC_ERRORS:
+            presence_block = ""
+
+        if presence_block:
+            _safe_echo(presence_block)
+
         if output and output.strip():
             _safe_echo(output)
         else:
