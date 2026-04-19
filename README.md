@@ -393,7 +393,7 @@ src/divineos/
     corrigibility.py           Operating modes + off-switch (normal/restricted/diagnostic/emergency_stop)
     anti_slop.py               Runtime verification that enforcers actually enforce
     constitutional_principles.py  Six principles (consent, transparency, proportionality, due process, appeal, limits of power) with structural verifiers
-    scheduled_run.py           Headless-run scaffolding for Routines (SCHEDULED_RUN_* events, whitelist, findings)
+    scheduled_run.py           Headless-run scaffolding — safe entry-point shape for Claude Code Routines + local cron (see docs/routines/)
     dead_architecture_alarm.py Detect dormant tables, empty HUD slots, display integrity
     external_validation.py     Origin ratio, cross-entity corroboration tracking
     knowledge_impact.py        Measure whether briefing knowledge prevents corrections

@@ -1,19 +1,31 @@
-"""CLI for scheduled (headless) runs — the Routines entry point.
+"""CLI for scheduled (headless) runs — the safe entry-point for Routines.
 
-``divineos scheduled <command>`` runs a whitelisted read-only observer
-(anti-slop, health, verify, inspect, audit, progress) in headless mode:
+``divineos scheduled run <command>`` is the shape a Claude Code
+Routine's prompt invokes. It runs a whitelisted read-only observer
+(anti-slop, health, verify, inspect, audit, progress) with:
 
-* Emits SCHEDULED_RUN_START / SCHEDULED_RUN_END events — distinct from
-  SESSION events, so session-counting code naturally excludes the run.
-* Bypasses the briefing gate and engagement gates (nobody was going to
-  load a briefing for a 3am cron).
-* **Does not** bypass corrigibility. EMERGENCY_STOP still refuses.
-  DIAGNOSTIC still refuses writes. The off-switch is the off-switch.
-* Collects findings into the end-event payload so the next human
-  session's briefing can surface what happened.
+* Whitelist gating — only explicitly-safe commands run unattended.
+* Corrigibility pass-through — EMERGENCY_STOP still refuses,
+  DIAGNOSTIC still refuses writes, the off-switch is still the
+  off-switch.
+* Subprocess isolation — the inner command runs in its own process
+  with stdout/stderr captured as structured findings.
+* Briefing-gate bypass — scheduled runs are exempt from "briefing
+  required" and engagement-marker gates. Nobody loads a briefing at
+  3am.
+* SCHEDULED_RUN_START / SCHEDULED_RUN_END event emission — distinct
+  from SESSION events so session-counting code naturally excludes
+  headless runs.
 
-v0.1 deliberately keeps the whitelist tight — read-only observers
-only. See ``core/scheduled_run.py`` for the scaling protocol.
+**Persistence caveat.** When invoked inside a cloud Routines session,
+the ledger these events go to is ephemeral (cloud clones are fresh).
+Findings propagate back to the operator via stdout, which the routine
+prompt reads, and via PRs / connector actions the routine opens. When
+invoked by local cron on a persistent machine, events survive and the
+next briefing surfaces unresolved findings automatically.
+
+See ``docs/routines/`` for prompt templates and registration
+instructions.
 """
 
 from __future__ import annotations
