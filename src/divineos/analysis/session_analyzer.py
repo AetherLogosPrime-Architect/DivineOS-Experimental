@@ -62,7 +62,13 @@ DECISION_PATTERNS: tuple[str, ...] = (
 
 FRUSTRATION_PATTERNS: tuple[str, ...] = (
     r"\bsigh\b",
-    r"\blol\b.*\?",
+    # Passive-aggressive "lol?" — "lol" and "?" must be close together (no
+    # intervening word characters). The previous pattern (\blol\b.*\?)
+    # fired on any message containing "lol" AND "?" regardless of distance,
+    # which produced false positives on enthusiastic usage like "lol ...
+    # wonderful ... what's next?" — a casual "lol" plus a separate question
+    # is not frustration.
+    r"\blol[^\w?]*\?",
     r"\bdid you not\b",
     r"\bi already\b",
     r"\bwhat do any\b",
