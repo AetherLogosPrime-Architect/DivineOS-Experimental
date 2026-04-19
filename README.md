@@ -97,7 +97,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,580+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,641+ tests, real DB, minimal mocks
 
 ```
 
@@ -391,6 +391,7 @@ src/divineos/
     anticipation.py            Pattern anticipation engine
     corrigibility.py           Operating modes + off-switch (normal/restricted/diagnostic/emergency_stop)
     anti_slop.py               Runtime verification that enforcers actually enforce
+    constitutional_principles.py  Six principles (consent, transparency, proportionality, due process, appeal, limits of power) with structural verifiers
     dead_architecture_alarm.py Detect dormant tables, empty HUD slots, display integrity
     external_validation.py     Origin ratio, cross-entity corroboration tracking
     knowledge_impact.py        Measure whether briefing knowledge prevents corrections
@@ -553,7 +554,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,580+ tests (real DB, minimal mocks)
+tests/                         4,641+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -590,7 +591,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 4,580+ tests (real SQLite, minimal mocks)
+- 4,641+ tests (real SQLite, minimal mocks)
 
 - 143 CLI commands
 - 9 Claude Code enforcement hooks

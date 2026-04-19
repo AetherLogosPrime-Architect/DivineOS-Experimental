@@ -327,13 +327,50 @@ def _check_access_check() -> SlopCheckResult:
 
 # Registry of enforcer checks. Adding a new enforcer to the system
 # should add a check here — otherwise it escapes runtime verification.
+def _make_principle_check(principle_name: str):
+    """Build a SlopCheckResult wrapper around a constitutional-principle
+    verifier. The principle's structural invariant is checked via the
+    verifier registered in ``constitutional_principles._VERIFIERS``."""
+
+    def check() -> SlopCheckResult:
+        try:
+            from divineos.core.constitutional_principles import (
+                Principle,
+                verify_principle,
+            )
+
+            p = Principle(principle_name)
+            passed, detail = verify_principle(p)
+            return SlopCheckResult(
+                name=f"principle:{principle_name}",
+                passed=passed,
+                detail=detail,
+            )
+        except Exception as e:  # noqa: BLE001
+            return SlopCheckResult(
+                name=f"principle:{principle_name}",
+                passed=False,
+                detail=f"VERIFIER ERROR: {type(e).__name__}: {e}",
+            )
+
+    return check
+
+
 _CHECKS: list[tuple[str, Callable[[], SlopCheckResult]]] = [
+    # Enforcer-level checks
     ("reject_clause", _check_reject_clause),
     ("sycophancy_detector", _check_sycophancy_detector),
     ("fallacy_detector", _check_fallacy_detector),
     ("hedge_monitor", _check_hedge_monitor),
     ("corrigibility", _check_corrigibility),
     ("access_check", _check_access_check),
+    # Principle-level checks — each verifies a constitutional invariant
+    ("principle:consent", _make_principle_check("consent")),
+    ("principle:transparency", _make_principle_check("transparency")),
+    ("principle:proportionality", _make_principle_check("proportionality")),
+    ("principle:due_process", _make_principle_check("due_process")),
+    ("principle:appeal", _make_principle_check("appeal")),
+    ("principle:limits_of_power", _make_principle_check("limits_of_power")),
 ]
 
 
