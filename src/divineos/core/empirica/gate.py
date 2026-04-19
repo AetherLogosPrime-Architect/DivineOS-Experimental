@@ -1,5 +1,16 @@
 """EMPIRICA gate — single entry point orchestrating classify + burden + route + issue.
 
+# PHASE_1_STAGED — Zero non-test callers by design. The gate is
+# intentionally not called from production code paths in Phase 1; it
+# is available for per-call-site opt-in. Adding the first caller is
+# a deliberate step that must follow the caller contract in
+# docs/empirica-caller-contract.md BEFORE it ships. The contract
+# must be reviewed by external audit because the first caller sets
+# the pattern every subsequent caller will copy. This marker signals
+# to dead-architecture sweeps that the absent-callers state is
+# intentional-for-now, not overlooked. When the first opt-in lands,
+# remove this marker.
+
 This is the wiring layer. The four core modules (types, classifier,
 burden, routing, receipt) each do one thing well. This module
 composes them into a single decision:
@@ -15,6 +26,18 @@ Return shape:
   rejected. Caller must NOT treat the knowledge entry as
   EMPIRICA-validated. The entry may still pass the existing
   validity gate; EMPIRICA is additive, not replacement.
+
+## Upstream dependency: trust_tiers source-tagging
+
+The classifier's ``kt=fact + source=measured → FALSIFIABLE`` rule
+(classifier.py, rule set) depends on the caller having correctly
+tagged the source as ``measured`` via ``trust_tiers``. If upstream
+source-tagging is wrong, EMPIRICA cannot detect it — the rigor of
+the four-tier classification has an upstream dependency on the
+honesty of source attribution. Callers must not pass ``measured``
+loosely; the demotion-on-missing-pointer check is the only downstream
+defense, and it does not catch mis-tagged sources that do have a
+pointer. Flagged in the 2026-04-18 external audit (Claude 4.7).
 
 ## Layering, not replacement
 

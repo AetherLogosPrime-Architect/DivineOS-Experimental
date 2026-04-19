@@ -419,12 +419,12 @@ def scan_wiring() -> list[WiringIssue]:
 
     # Clarity hooks: HookIntegrationInterface._clarity_hooks is a
     # registration framework with four hook categories. If all lists
-    # are empty AND the module lacks the AGENT_RUNTIME marker, the
+    # are empty AND the module lacks a documented-intent marker, the
     # framework is defined but has no producers — classic "registered
-    # but no subscribers" dead architecture. Modules that carry the
-    # AGENT_RUNTIME marker have declared the dead-on-CLI state as
-    # intentional design (extension point for agent-driven runtime)
-    # and are respected by the probe.
+    # but no subscribers" dead architecture. Modules that carry one
+    # of the intent markers (AGENT_RUNTIME or PHASE_1_STAGED) have
+    # declared the dead-on-CLI state as intentional design and are
+    # respected by the probe.
     try:
         from divineos.clarity_system import hook_integration as _hi_module
         from divineos.clarity_system.hook_integration import HookIntegrationInterface
@@ -434,11 +434,11 @@ def scan_wiring() -> list[WiringIssue]:
             + "\n"
             + (_hi_module.__file__ and _read_module_header(_hi_module.__file__) or "")
         )
-        has_agent_runtime_marker = "AGENT_RUNTIME" in module_doc
+        has_intent_marker = _has_intent_marker(module_doc)
 
         hooks = HookIntegrationInterface._clarity_hooks
         total_subscribers = sum(len(v) for v in hooks.values())
-        if total_subscribers == 0 and not has_agent_runtime_marker:
+        if total_subscribers == 0 and not has_intent_marker:
             issues.append(
                 WiringIssue(
                     component="clarity_hook_integration",
@@ -446,13 +446,33 @@ def scan_wiring() -> list[WiringIssue]:
                     detail="register_pre_work_hook / post_work / clarity_generated / "
                     "summary_generated define a full hook framework, but no production "
                     "module calls these registration methods. Either wire a subscriber "
-                    "or mark the module AGENT_RUNTIME — Not wired into CLI pipeline.",
+                    "or add an intent marker (AGENT_RUNTIME for hook/MCP-invoked, "
+                    "PHASE_1_STAGED for opt-in rollout).",
                 )
             )
     except (ImportError, AttributeError, OSError):
         pass
 
     return issues
+
+
+# Recognized documented-intent markers. A module that has zero
+# non-test callers but carries one of these strings in its docstring
+# or module header is intentionally-uncalled for a documented reason,
+# not dead architecture.
+_INTENT_MARKERS = frozenset(
+    {
+        # Invoked via shell hook or MCP protocol, not Python import
+        "AGENT_RUNTIME",
+        # Staged opt-in rollout; no callers by design until first opt-in lands
+        "PHASE_1_STAGED",
+    }
+)
+
+
+def _has_intent_marker(text: str) -> bool:
+    """True if the given text contains any recognized intent marker."""
+    return any(marker in text for marker in _INTENT_MARKERS)
 
 
 def _read_module_header(path: str) -> str:
