@@ -305,6 +305,7 @@ src/divineos/
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
     aria_commands.py           aria init / opinion / letter / respond — Aria's activation surface post Phase 1b
     corrigibility_commands.py  mode show / set / history — the off-switch
+    scheduled_commands.py      scheduled run / history / findings — Routines entry point
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   core/
@@ -392,6 +393,7 @@ src/divineos/
     corrigibility.py           Operating modes + off-switch (normal/restricted/diagnostic/emergency_stop)
     anti_slop.py               Runtime verification that enforcers actually enforce
     constitutional_principles.py  Six principles (consent, transparency, proportionality, due process, appeal, limits of power) with structural verifiers
+    scheduled_run.py           Headless-run scaffolding for Routines (SCHEDULED_RUN_* events, whitelist, findings)
     dead_architecture_alarm.py Detect dormant tables, empty HUD slots, display integrity
     external_validation.py     Origin ratio, cross-entity corroboration tracking
     knowledge_impact.py        Measure whether briefing knowledge prevents corrections

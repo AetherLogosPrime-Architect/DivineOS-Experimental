@@ -49,6 +49,10 @@ _BYPASS_COMMANDS = frozenset(
         # rep behind a thinking-command requirement defeats the rep.
         "correction",
         "corrections",
+        # Scheduled / headless runs are the Routines entry point; they
+        # bypass briefing by design (no human to load one at 3am cron).
+        # Corrigibility still applies — see scheduled_commands.py.
+        "scheduled",
     }
 )
 
@@ -162,6 +166,7 @@ from divineos.cli import (  # noqa: E402
     progress_commands,
     selfmodel_commands,
     rt_commands,
+    scheduled_commands,
     sleep_commands,
 )
 
@@ -190,6 +195,7 @@ prereg_commands.register(cli)
 empirica_commands.register(cli)
 aria_commands.register(cli)
 corrigibility_commands.register(cli)
+scheduled_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:

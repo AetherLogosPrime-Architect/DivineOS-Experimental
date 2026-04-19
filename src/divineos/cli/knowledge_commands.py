@@ -439,6 +439,19 @@ def register(cli: click.Group) -> None:
         if cadence_block:
             _safe_echo(cadence_block)
 
+        # Unresolved findings from recent scheduled/headless runs.
+        # Scheduled runs don't emit SESSION events, so without this
+        # surface their failures would be invisible at session start.
+        try:
+            from divineos.core.scheduled_run import unresolved_findings_summary
+
+            scheduled_block = unresolved_findings_summary()
+        except _KC_ERRORS:
+            scheduled_block = ""
+
+        if scheduled_block:
+            _safe_echo(scheduled_block)
+
         if output and output.strip():
             _safe_echo(output)
         else:
