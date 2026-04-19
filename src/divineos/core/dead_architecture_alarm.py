@@ -364,8 +364,13 @@ def scan_wiring() -> list[WiringIssue]:
                     "experts exist but _register_all_experts() is not called",
                 )
             )
-    except Exception:  # noqa: BLE001
-        pass  # council module may not be importable in all environments
+    except (ImportError, AttributeError):
+        # Council module may not be importable in all environments, or
+        # the engine API may have shifted. Narrowed from bare Exception
+        # so genuine bugs in get_council_engine() surface instead of
+        # silently passing — the scanner that detects "works on paper,
+        # broken in production" must not itself be broken on paper.
+        pass
 
     # SLOT_BUILDERS: should have at least the core HUD slots
     try:
@@ -381,7 +386,7 @@ def scan_wiring() -> list[WiringIssue]:
                     detail="HUD builder dict should contain all core slots",
                 )
             )
-    except Exception:  # noqa: BLE001
+    except (ImportError, AttributeError):
         pass
 
     # Active memory: refresh should produce results if knowledge exists
@@ -409,10 +414,55 @@ def scan_wiring() -> list[WiringIssue]:
                         "refresh may not be running or scoring may filter everything",
                     )
                 )
-    except Exception:  # noqa: BLE001
+    except (ImportError, AttributeError, sqlite3.Error):
+        pass
+
+    # Clarity hooks: HookIntegrationInterface._clarity_hooks is a
+    # registration framework with four hook categories. If all lists
+    # are empty AND the module lacks the AGENT_RUNTIME marker, the
+    # framework is defined but has no producers — classic "registered
+    # but no subscribers" dead architecture. Modules that carry the
+    # AGENT_RUNTIME marker have declared the dead-on-CLI state as
+    # intentional design (extension point for agent-driven runtime)
+    # and are respected by the probe.
+    try:
+        from divineos.clarity_system import hook_integration as _hi_module
+        from divineos.clarity_system.hook_integration import HookIntegrationInterface
+
+        module_doc = (
+            (_hi_module.__doc__ or "")
+            + "\n"
+            + (_hi_module.__file__ and _read_module_header(_hi_module.__file__) or "")
+        )
+        has_agent_runtime_marker = "AGENT_RUNTIME" in module_doc
+
+        hooks = HookIntegrationInterface._clarity_hooks
+        total_subscribers = sum(len(v) for v in hooks.values())
+        if total_subscribers == 0 and not has_agent_runtime_marker:
+            issues.append(
+                WiringIssue(
+                    component="clarity_hook_integration",
+                    issue="HookIntegrationInterface has zero subscribers across all four registries",
+                    detail="register_pre_work_hook / post_work / clarity_generated / "
+                    "summary_generated define a full hook framework, but no production "
+                    "module calls these registration methods. Either wire a subscriber "
+                    "or mark the module AGENT_RUNTIME — Not wired into CLI pipeline.",
+                )
+            )
+    except (ImportError, AttributeError, OSError):
         pass
 
     return issues
+
+
+def _read_module_header(path: str) -> str:
+    """Read the first ~30 lines of a module file to check for markers
+    that live outside the docstring (e.g. comment lines at the top)."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return "".join(next(f, "") for _ in range(30))
+    except OSError:
+        return ""
 
 
 def check_self_dormant() -> bool:

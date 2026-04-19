@@ -292,6 +292,26 @@ class TestScanWiring:
         engine = get_council_engine()
         assert len(engine.experts) > 0, "Council engine has no experts registered"
 
+    def test_clarity_hook_integration_respects_agent_runtime_marker(self):
+        """The clarity_hook_integration probe should defer to modules
+        that carry the AGENT_RUNTIME marker — those have explicitly
+        declared "not wired into CLI pipeline" as intentional design.
+        """
+        from divineos.clarity_system import hook_integration
+
+        # The module currently carries the AGENT_RUNTIME marker, so
+        # scan_wiring should not flag it even with zero subscribers.
+        assert "AGENT_RUNTIME" in (hook_integration.__doc__ or ""), (
+            "Setup: hook_integration.py must carry AGENT_RUNTIME marker"
+        )
+
+        result = scan_wiring()
+        clarity_issues = [r for r in result if r.component == "clarity_hook_integration"]
+        assert clarity_issues == [], (
+            "clarity_hook_integration flagged despite AGENT_RUNTIME marker — "
+            "the marker should silence the probe"
+        )
+
     def test_full_scan_includes_wiring(self):
         result = run_full_scan()
         assert isinstance(result.wiring_issues, list)
