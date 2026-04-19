@@ -50,8 +50,12 @@ def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
         num = int(m.group(1).replace(",", ""))
         findings.append(("tests", num, f"{path.name}: {m.group(0)}"))
 
-    # Match patterns like "109 commands"
-    for m in re.finditer(r"(\d+)\s+commands", text):
+    # Match patterns like "109 commands" or "143 CLI commands" — the
+    # CLI qualifier is optional so the check catches both the header
+    # (e.g. "## CLI Surface (193 commands)") and Status-section
+    # bullets (e.g. "- 143 CLI commands"). Without the optional
+    # qualifier, the Status-section drift went undetected for weeks.
+    for m in re.finditer(r"(\d+)\s+(?:CLI\s+)?commands", text):
         num = int(m.group(1))
         findings.append(("commands", num, f"{path.name}: {m.group(0)}"))
 

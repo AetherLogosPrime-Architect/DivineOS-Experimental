@@ -447,6 +447,10 @@ src/divineos/
     self_critique.py           Craft quality self-assessment (5 spectrums)
     proactive_patterns.py      Prescriptive recommendations from positive experience
     affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
+    # Circuit 2 (completeness → attention) is cross-module wiring between
+    # self_model.py and attention_schema.py — gaps in the self-model
+    # become attention-schema items. No dedicated file; see
+    # tests/test_circuit2_completeness_attention.py for the contract.
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
     resonant_truth.py          RT protocol load/invoke/verify/deactivate with gate
     pull_detection.py          Toward/pull-back divergence detector (fabrication markers)
@@ -593,9 +597,8 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 4,641+ tests (real SQLite, minimal mocks)
-
-- 143 CLI commands
+- 4,657+ tests (real SQLite, minimal mocks)
+- 196 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
 
