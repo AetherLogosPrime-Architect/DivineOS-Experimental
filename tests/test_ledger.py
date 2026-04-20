@@ -550,3 +550,57 @@ class TestDbPathSingleSourceOfTruth:
         fake = tmp_path / "monkeypatched.db"
         monkeypatch.setattr(_ledger_base, "DB_PATH", fake)
         assert _ledger_base.DB_PATH == fake
+
+
+class TestPragmaTuning:
+    """Lock the connection pragma settings (WAL + NORMAL + 32MB cache)."""
+
+    def test_journal_mode_is_wal(self):
+        from divineos.core.ledger import get_connection
+
+        conn = get_connection()
+        try:
+            mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+            assert mode.lower() == "wal", (
+                f"Expected WAL journal mode, got {mode}. WAL enables concurrent readers + writer."
+            )
+        finally:
+            conn.close()
+
+    def test_synchronous_is_normal(self):
+        """NORMAL (1) is the SQLite-recommended setting with WAL.
+        FULL (2) was previously set and added 30-50% write penalty."""
+        from divineos.core.ledger import get_connection
+
+        conn = get_connection()
+        try:
+            sync = conn.execute("PRAGMA synchronous").fetchone()[0]
+            assert sync == 1, (
+                f"Expected synchronous=NORMAL (1), got {sync}. "
+                "With WAL, NORMAL is durable across app crashes "
+                "and 30-50% faster on writes than FULL."
+            )
+        finally:
+            conn.close()
+
+    def test_cache_size_is_32mb(self):
+        """-32000 = 32 MB cache. Ledger has knowledge + events + FTS;
+        the 2 MB default was too small."""
+        from divineos.core.ledger import get_connection
+
+        conn = get_connection()
+        try:
+            cache = conn.execute("PRAGMA cache_size").fetchone()[0]
+            assert cache == -32000, f"Expected cache_size=-32000 (32 MB), got {cache}."
+        finally:
+            conn.close()
+
+    def test_busy_timeout_nonzero(self):
+        from divineos.core.ledger import get_connection
+
+        conn = get_connection()
+        try:
+            timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+            assert timeout >= 1000, f"Expected busy_timeout >= 1000ms, got {timeout}"
+        finally:
+            conn.close()
