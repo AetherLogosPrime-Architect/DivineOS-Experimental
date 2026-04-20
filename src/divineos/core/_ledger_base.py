@@ -70,11 +70,33 @@ def compute_hash(content: str) -> str:
 
 
 def get_connection() -> sqlite3.Connection:
-    """Returns a connection to the ledger database."""
+    """Returns a connection to the ledger database.
+
+    Pragma settings below are tuned for DivineOS's workload: many
+    short-lived reader processes (CLI invocations, hooks) against one
+    DB that occasionally writes (events, knowledge entries).
+
+    * ``journal_mode=WAL`` — concurrent readers don't block the writer
+      and vice versa. Standard modern default.
+    * ``synchronous=NORMAL`` — in WAL mode, NORMAL provides durability
+      across application crashes (the WAL is always flushed) and only
+      loses the most recent transaction on OS crash. FULL (the previous
+      setting) added a 30-50% write penalty for protection against a
+      scenario that effectively never happens in this workload.
+      SQLite docs explicitly recommend NORMAL with WAL.
+    * ``cache_size=-32000`` — 32 MB of page cache (negative value = KB).
+      The default was 2 MB, tiny for a ledger that holds knowledge,
+      events, affect, compass, and all their FTS indexes. 32 MB keeps
+      hot pages in memory for the duration of a CLI run without being
+      wasteful on memory-constrained systems.
+    * ``busy_timeout=5000`` — wait up to 5s on lock contention (unchanged).
+    """
     db_path = _get_db_path()
     db_path.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(str(db_path))
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA cache_size=-32000")
     conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
