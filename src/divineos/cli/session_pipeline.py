@@ -731,14 +731,17 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
     ) as e:
         click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
         logger.warning(f"Auto-scan failed: {e}")
-    finally:
-        # Reset checkpoint so the next session gets a fresh start time.
-        # Without this, get_session_start_time() would return the OLD
-        # session's start, causing the next SESSION_END to analyze the
-        # combined records of both sessions.
-        try:
-            from divineos.core.session_checkpoint import reset_state
 
-            reset_state()
-        except (ImportError, OSError):
-            pass
+    # NOTE (2026-04-20): The reset_state() call that used to live here in a
+    # finally block has been removed. That reset wiped session_start every
+    # time the pipeline ran, which since PR #159 means every time
+    # consolidation fires (write-count threshold, post-sleep, explicit).
+    # The analyzer then only saw records since the last reset, producing
+    # "Brief session (1 messages)" on every subsequent run — the surface
+    # symptom that PR #159's trigger fix alone didn't close.
+    #
+    # Session boundary is now owned exclusively by load-briefing.sh, which
+    # fires on actual Claude Code SessionStart and does the equivalent of
+    # reset_state() there (writes checkpoint_state.json with a fresh
+    # session_start). Mid-session consolidation no longer touches the
+    # session boundary. Same pattern as the engagement-gate fix (PR #160).

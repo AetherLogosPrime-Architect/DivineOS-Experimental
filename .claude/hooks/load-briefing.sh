@@ -59,6 +59,16 @@ try:
     clear_engagement()
 except Exception:
     pass
+
+# Clear any stale session plan. Same semantic: a plan set during a prior
+# Claude Code session doesn't necessarily apply to this fresh session.
+# Moved here from the consolidation pipeline where it used to fire
+# mid-session and erase the user's active plan.
+try:
+    from divineos.core.hud_state import clear_session_plan
+    clear_session_plan()
+except Exception:
+    pass
 " 2>/dev/null
 
 # Run briefing and hud in parallel via temp files. Background both,

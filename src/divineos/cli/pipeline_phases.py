@@ -789,23 +789,27 @@ def run_session_finalization(
     except _PHASE_ERRORS:
         pass
 
-    # 9. Save HUD + clear plan
+    # 9. Save HUD snapshot
     #
-    # Previously called clear_engagement() here, which reset the thinking-gate
-    # marker on every consolidation. Bug: consolidation fires mid-session
-    # (every N writes, post-sleep, explicit call), so clearing here made the
-    # gate block legitimate same-session work the moment the agent made an
-    # edit after extract. The engagement marker is supposed to be cleared
-    # at actual SessionStart (new Claude Code session = fresh context that
-    # needs re-engagement), not at every mid-session consolidation. The
-    # clearing now lives in .claude/hooks/load-briefing.sh where it
-    # semantically belongs. See the gate-fix PR for the rationale + tests.
+    # Two mid-session state-clearers have been removed from this phase:
+    #
+    # - clear_engagement() (removed 2026-04-20 in PR #160): the
+    #   thinking-gate marker was getting wiped on every consolidation,
+    #   blocking legitimate same-session work after mid-session extract.
+    # - clear_session_plan() (removed 2026-04-20 in this PR): same
+    #   wrong-location pattern. Mid-session consolidation would erase the
+    #   user's active session plan, which is annoying and has no valid
+    #   reason — a plan set for today should persist across any number
+    #   of consolidations today.
+    #
+    # Both clears now live in .claude/hooks/load-briefing.sh where they
+    # semantically belong (actual Claude Code SessionStart = fresh
+    # context = legitimately clear these). Mid-session consolidation
+    # saves state via save_hud_snapshot() but does not reset anything.
     try:
         from divineos.core.hud import save_hud_snapshot
-        from divineos.core.hud_state import clear_session_plan
 
         save_hud_snapshot()
-        clear_session_plan()
         click.secho("[~] HUD snapshot saved.", fg="cyan")
     except _PHASE_ERRORS as e:
         logger.warning(f"HUD snapshot save failed: {e}")
