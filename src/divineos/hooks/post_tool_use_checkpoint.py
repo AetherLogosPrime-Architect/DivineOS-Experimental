@@ -179,6 +179,29 @@ def _auto_run_extract() -> None:
         pass
 
 
+def _get_writes_since_consolidation() -> int:
+    """Read the writes_since_consolidation counter. Returns 0 on any error
+    (best-effort; we don't want counter-read failures to block the hook)."""
+    try:
+        from divineos.core.session_checkpoint import _load_state
+
+        state = _load_state()
+        return int(state.get("writes_since_consolidation", 0))
+    except (ImportError, OSError, ValueError, TypeError):
+        return 0
+
+
+def _get_write_threshold() -> int:
+    """Read the consolidation write threshold constant. Defaults to 40 if
+    import fails (bootstrap path)."""
+    try:
+        from divineos.core.session_checkpoint import CONSOLIDATION_WRITE_THRESHOLD
+
+        return int(CONSOLIDATION_WRITE_THRESHOLD)
+    except (ImportError, ValueError, TypeError):
+        return 40
+
+
 def _check_lesson_interrupt(tool_name: str, tool_input: dict[str, Any]) -> str:
     """Run the mid-session lesson-interrupt check. Returns question string
     or empty. Only fires for Edit/Write/NotebookEdit — other tool types
@@ -296,17 +319,32 @@ def main() -> int:
     if practice:
         messages.append(practice)
 
-    if tool_calls >= _AUTO_SESSION_END_THRESHOLD:
+    # Write-count trigger (PR #2). Fires when accumulated writes since last
+    # consolidation cross the threshold. Writes = meaningful-work ledger
+    # events (corrections, decisions, opinions, knowledge stores). Not
+    # every tool call — just the ones that produced something worth
+    # consolidating. See CONSOLIDATION_WRITE_THRESHOLD in session_checkpoint.
+    writes_since = _get_writes_since_consolidation()
+    write_threshold = _get_write_threshold()
+
+    if writes_since >= write_threshold:
         _auto_run_extract()
         messages.append(
-            f"SESSION_END auto-emitted at {tool_calls} tool calls. "
-            "Knowledge saved. Continue working — compaction may happen soon."
+            f"Consolidation auto-run: {writes_since} writes accumulated "
+            f"since last checkpoint. Knowledge saved; extraction pipeline ran."
+        )
+    elif tool_calls >= _AUTO_SESSION_END_THRESHOLD:
+        # Fallback: tool-call threshold (legacy context-pressure proxy).
+        # Stays as a safety net in case write-count misses something.
+        _auto_run_extract()
+        messages.append(
+            f"Consolidation auto-run at {tool_calls} tool calls "
+            "(tool-call fallback). Knowledge saved."
         )
     elif tool_calls >= _CONTEXT_WARNING_THRESHOLD:
         messages.append(
-            f"Context monitor: {tool_calls} tool calls, {edits} edits. "
-            f"SESSION_END will auto-emit at {_AUTO_SESSION_END_THRESHOLD} "
-            "to save knowledge."
+            f"Context monitor: {tool_calls} tool calls, {edits} edits, "
+            f"{writes_since}/{write_threshold} writes toward next consolidation."
         )
 
     if messages:

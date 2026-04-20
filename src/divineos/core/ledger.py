@@ -169,6 +169,18 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     finally:
         conn.close()
 
+    # Increment the write counter that drives the consolidation trigger.
+    # Consolidation events themselves are excluded — see increment_write_count
+    # for the guard. Wrapped in try/except because this is a low-priority
+    # side effect; the event write itself must not be blocked by a counter
+    # persistence error.
+    try:
+        from divineos.core.session_checkpoint import increment_write_count
+
+        increment_write_count(event_type)
+    except Exception:  # noqa: BLE001 — counter is best-effort
+        pass
+
     return event_id
 
 

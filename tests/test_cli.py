@@ -1,5 +1,8 @@
 """Tests for the CLI commands."""
 
+import os
+from pathlib import Path
+
 import pytest
 from click.testing import CliRunner
 
@@ -8,10 +11,28 @@ from divineos.cli import cli
 
 @pytest.fixture(autouse=True)
 def clean_db(tmp_path, monkeypatch):
-    """Use a temporary database for each test."""
+    """Use a temporary database for each test.
+
+    Also clears the extract idempotency marker between tests so each test
+    starts from a clean "first run" state. The marker lives at
+    ~/.divineos/auto_session_end_emitted and would otherwise persist
+    across test cases, causing second-and-later extract tests to hit the
+    guard and skip the pipeline.
+    """
     test_db = tmp_path / "test_ledger.db"
     monkeypatch.setenv("DIVINEOS_DB", str(test_db))
+    marker = Path(os.path.expanduser("~")) / ".divineos" / "auto_session_end_emitted"
+    if marker.exists():
+        try:
+            marker.unlink()
+        except OSError:
+            pass
     yield
+    if marker.exists():
+        try:
+            marker.unlink()
+        except OSError:
+            pass
 
 
 @pytest.fixture

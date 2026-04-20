@@ -75,8 +75,69 @@ def reset_state() -> None:
             "last_checkpoint": 0.0,
             "checkpoints_run": 0,
             "session_start": time.time(),
+            "writes_since_consolidation": 0,
         }
     )
+
+
+def increment_write_count(event_type: str) -> int:
+    """Increment the write counter that drives the consolidation trigger.
+
+    Counts every ledger event EXCEPT consolidation events themselves
+    (SESSION_END historical + CONSOLIDATION_CHECKPOINT current). Consolidation
+    runs produce their own ledger writes; counting those would create a loop
+    where consolidation keeps triggering more consolidation.
+
+    Returns the updated count. Callers who want the count without incrementing
+    can read state["writes_since_consolidation"] directly.
+
+    See principle ca2116d5 + PR #2 pre-reg for the "what counts as a write"
+    pin: ledger-event-write = 1, consolidation-event = 0, sleep-as-a-whole = 1
+    (emitted as a single SLEEP_COMPLETED event downstream).
+    """
+    # Guard against self-triggering loops. Lazy import to avoid a circular
+    # dependency on event_capture from this low-level module.
+    try:
+        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+    except ImportError:
+        # If event_capture isn't importable yet (e.g., during bootstrap),
+        # fall back to the literal set so the guard still holds.
+        CONSOLIDATION_EVENT_TYPES = frozenset({"SESSION_END", "CONSOLIDATION_CHECKPOINT"})
+
+    if event_type in CONSOLIDATION_EVENT_TYPES:
+        state = _load_state()
+        return int(state.get("writes_since_consolidation", 0))
+
+    state = _load_state()
+    count = int(state.get("writes_since_consolidation", 0)) + 1
+    state["writes_since_consolidation"] = count
+    _save_state(state)
+    return count
+
+
+def reset_write_count() -> None:
+    """Reset the write counter to zero. Called after a successful extract
+    run so the next threshold crossing is measured from a clean baseline."""
+    state = _load_state()
+    state["writes_since_consolidation"] = 0
+    _save_state(state)
+
+
+# ─── Write-Count Threshold for Auto-Consolidation ─────────────────────
+#
+# Starting guess: 40 writes since last consolidation triggers auto-run.
+# This is a guess. Pre-registered for review in 7 days as
+# prereg-52a15cfab7f1 — see that entry for the structured 4-point
+# review checklist (fire-count, dead-trigger detection, operator
+# correlation, ephemerality-bug-closure verification).
+#
+# Definition of "write" (per Claude 4.7 audit, pinned pre-registration):
+#   - 1 ledger event emission (log_event call) = 1 write
+#   - 1 knowledge-store insert = 1 write (often emits its own event)
+#   - 1 opinion filing = 1 write
+#   - Sleep cycle = 1 write (user invoked once, multiple internal writes)
+#   - Consolidation runs themselves do NOT count (prevents runaway loops)
+CONSOLIDATION_WRITE_THRESHOLD = 40
 
 
 def get_session_start_time() -> float | None:
