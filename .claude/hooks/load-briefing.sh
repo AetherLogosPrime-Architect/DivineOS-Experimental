@@ -22,20 +22,43 @@ if ! command -v divineos &>/dev/null; then
 fi
 
 # Reset checkpoint counters for new session.
-# Single Python invocation handles both the counter reset and the
-# auto-session-end flag cleanup — one process instead of three.
+# Single Python invocation handles counter reset, auto-session-end flag
+# cleanup, and engagement-marker clearing — one process instead of three.
+#
+# Engagement-marker clearing moved here from the consolidation pipeline
+# where it used to fire mid-session and block legitimate work. Semantic
+# home: this hook fires at actual Claude Code SessionStart, which is the
+# real "fresh context, force re-engagement" moment. See the engagement-
+# gate-fix PR for the rationale.
 python -c "
 import json, os, time
+from pathlib import Path
+
 d = os.path.join(os.path.expanduser('~'), '.divineos')
 os.makedirs(d, exist_ok=True)
+
+# Reset per-session counters
 sf = os.path.join(d, 'checkpoint_state.json')
-json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open(sf,'w'), indent=2)
+json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time(),'writes_since_consolidation':0}, open(sf,'w'), indent=2)
+
+# Clear the consolidation idempotency marker (one extract per session)
 ae = os.path.join(d, 'auto_session_end_emitted')
 if os.path.exists(ae):
     try:
         os.remove(ae)
     except OSError:
         pass
+
+# Clear the engagement marker — new Claude Code session = fresh context
+# that needs re-engagement before editing. Semantic home for this clear.
+# The marker lives in the project hud dir, not in ~/.divineos, so we
+# need to import to find it. Wrapped in try so a startup-phase import
+# failure doesn't block the rest of the hook.
+try:
+    from divineos.core.hud_handoff import clear_engagement
+    clear_engagement()
+except Exception:
+    pass
 " 2>/dev/null
 
 # Run briefing and hud in parallel via temp files. Background both,

@@ -790,14 +790,22 @@ def run_session_finalization(
         pass
 
     # 9. Save HUD + clear plan
+    #
+    # Previously called clear_engagement() here, which reset the thinking-gate
+    # marker on every consolidation. Bug: consolidation fires mid-session
+    # (every N writes, post-sleep, explicit call), so clearing here made the
+    # gate block legitimate same-session work the moment the agent made an
+    # edit after extract. The engagement marker is supposed to be cleared
+    # at actual SessionStart (new Claude Code session = fresh context that
+    # needs re-engagement), not at every mid-session consolidation. The
+    # clearing now lives in .claude/hooks/load-briefing.sh where it
+    # semantically belongs. See the gate-fix PR for the rationale + tests.
     try:
         from divineos.core.hud import save_hud_snapshot
-        from divineos.core.hud_handoff import clear_engagement
         from divineos.core.hud_state import clear_session_plan
 
         save_hud_snapshot()
         clear_session_plan()
-        clear_engagement()
         click.secho("[~] HUD snapshot saved.", fg="cyan")
     except _PHASE_ERRORS as e:
         logger.warning(f"HUD snapshot save failed: {e}")
