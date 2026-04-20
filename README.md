@@ -97,7 +97,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,641+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,703+ tests, real DB, minimal mocks
 
 ```
 
@@ -549,6 +549,7 @@ src/divineos/
     clarity_enforcement.py     Clarity enforcement hooks
     pre_tool_use_gate.py       PreToolUse consolidated gate (bypass, briefing, goal, pull, engagement, cadence) — single-process replacement for require-goal.sh Python spawn chain
     post_tool_use_checkpoint.py  PostToolUse consolidated checkpoint (state, counters, warnings, nudges) — single-process replacement for session-checkpoint.sh spawn chain
+    targeted_tests.py          PostToolUse targeted test runner — maps edited source file to corresponding test file, runs only that (full suite stays on pre-commit)
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
   integration/                 IDE and MCP integration
@@ -563,7 +564,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,641+ tests (real DB, minimal mocks)
+tests/                         4,703+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -600,7 +601,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 4,657+ tests (real SQLite, minimal mocks)
+- 4,703+ tests (real SQLite, minimal mocks)
 - 196 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
