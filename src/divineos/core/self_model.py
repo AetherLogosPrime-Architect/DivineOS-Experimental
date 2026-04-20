@@ -43,13 +43,18 @@ def _persist_completeness(completeness: dict[str, Any]) -> None:
     Circuit 2: this is the write side. attention_schema._get_self_model_gaps()
     is the read side. Together they close the loop: missing self-knowledge
     becomes something I actively attend to.
+
+    Writes to the canonical project-scoped HUD dir via _ensure_hud_dir().
+    Prior versions wrote to Path.home() / ".divineos" / "hud" — orphan
+    files from that era can be safely deleted (data regenerates on next
+    self-model build).
     """
     import json
-    from pathlib import Path
 
     try:
-        hud_dir = Path.home() / ".divineos" / "hud"
-        hud_dir.mkdir(parents=True, exist_ok=True)
+        from divineos.core._hud_io import _ensure_hud_dir
+
+        hud_dir = _ensure_hud_dir()
         (hud_dir / "self_model_completeness.json").write_text(
             json.dumps(completeness, indent=2), encoding="utf-8"
         )
@@ -63,10 +68,11 @@ def get_persisted_completeness() -> dict[str, Any]:
     Used by attention_schema to detect gaps without importing this module.
     """
     import json
-    from pathlib import Path
 
     try:
-        path = Path.home() / ".divineos" / "hud" / "self_model_completeness.json"
+        from divineos.core._hud_io import _ensure_hud_dir
+
+        path = _ensure_hud_dir() / "self_model_completeness.json"
         if path.exists():
             data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
             return data

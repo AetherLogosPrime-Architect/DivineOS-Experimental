@@ -15,24 +15,48 @@
 set -e
 
 STAGED_PY=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+STAGED_SH=$(git diff --cached --name-only --diff-filter=ACM | grep '\.sh$' || true)
 
-if [ -z "$STAGED_PY" ]; then
-    echo "No Python files staged."
+if [ -z "$STAGED_PY" ] && [ -z "$STAGED_SH" ]; then
+    echo "No Python or shell files staged."
     exit 0
 fi
 
 ERRORS=0
 
+# 0. Line-ending normalization for shell scripts.
+# Windows editors write CRLF by default. .gitattributes specifies LF for .sh
+# but that only applies at commit-write time; the working copy still has CRLF
+# while shellcheck runs. Normalize staged .sh files to LF before any check
+# sees them. This eliminates the "dos2unix then re-stage" dance.
+if [ -n "$STAGED_SH" ]; then
+    echo "=== Normalize .sh line endings ==="
+    if command -v dos2unix &>/dev/null; then
+        echo "$STAGED_SH" | xargs dos2unix 2>&1 | grep -v "converting" || true
+    else
+        # Fallback: sed strips \r. Works even without dos2unix.
+        while IFS= read -r f; do
+            [ -f "$f" ] && sed -i 's/\r$//' "$f"
+        done <<< "$STAGED_SH"
+    fi
+    echo "$STAGED_SH" | xargs git add
+    echo "  Normalized and re-staged."
+fi
+
 # 1. Auto-format (fix, don't just report)
-echo "=== Format ==="
-echo "$STAGED_PY" | xargs ruff format 2>/dev/null
-echo "  Formatted. Re-staging..."
-echo "$STAGED_PY" | xargs git add
+if [ -n "$STAGED_PY" ]; then
+    echo "=== Format ==="
+    echo "$STAGED_PY" | xargs ruff format 2>/dev/null
+    echo "  Formatted. Re-staging..."
+    echo "$STAGED_PY" | xargs git add
+fi
 
 # 2. Lint
-echo "=== Lint ==="
-if ! echo "$STAGED_PY" | xargs ruff check 2>/dev/null; then
-    ERRORS=$((ERRORS + 1))
+if [ -n "$STAGED_PY" ]; then
+    echo "=== Lint ==="
+    if ! echo "$STAGED_PY" | xargs ruff check 2>/dev/null; then
+        ERRORS=$((ERRORS + 1))
+    fi
 fi
 
 # 3. Mypy (src only)
@@ -63,6 +87,14 @@ if [ -n "$STAGED_SRC" ] && command -v vulture &>/dev/null; then
     echo "=== Vulture ==="
     # shellcheck disable=SC2086
     if ! vulture $STAGED_SRC scripts/vulture_whitelist.py --min-confidence 70 2>/dev/null; then
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+# 7. Shellcheck on staged .sh files (line endings already normalized in step 0)
+if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
+    echo "=== Shellcheck ==="
+    if ! echo "$STAGED_SH" | xargs shellcheck 2>/dev/null; then
         ERRORS=$((ERRORS + 1))
     fi
 fi

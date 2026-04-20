@@ -33,10 +33,19 @@ def clean_db(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def hud_dir(tmp_path, monkeypatch):
-    """Redirect HUD directory to temp path."""
-    hud = tmp_path / ".divineos" / "hud"
+    """Redirect HUD directory to temp path.
+
+    Patches _ensure_hud_dir() in every module that imports it from the
+    canonical helper, so both writers (self_model._persist_completeness)
+    and readers (self_model.get_persisted_completeness,
+    attention_schema._get_self_model_gaps) see the same tmp-scoped dir.
+    """
+    hud = tmp_path / "hud"
     hud.mkdir(parents=True)
-    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+    from divineos.core import _hud_io
+
+    monkeypatch.setattr(_hud_io, "_ensure_hud_dir", lambda: hud)
     return hud
 
 
