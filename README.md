@@ -547,6 +547,8 @@ src/divineos/
     event_validation.py        Event payload validation
   hooks/                       Hook integration
     clarity_enforcement.py     Clarity enforcement hooks
+    pre_tool_use_gate.py       PreToolUse consolidated gate (bypass, briefing, goal, pull, engagement, cadence) — single-process replacement for require-goal.sh Python spawn chain
+    post_tool_use_checkpoint.py  PostToolUse consolidated checkpoint (state, counters, warnings, nudges) — single-process replacement for session-checkpoint.sh spawn chain
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
   integration/                 IDE and MCP integration
