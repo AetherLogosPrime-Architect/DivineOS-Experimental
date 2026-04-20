@@ -23,6 +23,7 @@ from divineos.cli._wrappers import (
     logger,
 )
 from divineos.core.knowledge import KNOWLEDGE_TYPES, search_knowledge
+from divineos.core.knowledge._base import MEMORY_KINDS
 from divineos.core.memory import init_memory_tables
 
 _KC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
@@ -56,6 +57,14 @@ def register(cli: click.Group) -> None:
         default="",
         help="Comma-separated knowledge IDs this entry relates to",
     )
+    @click.option(
+        "--kind",
+        "memory_kind",
+        default=None,
+        type=click.Choice(sorted(MEMORY_KINDS), case_sensitive=False),
+        help="Memory kind: EPISODIC (event) / SEMANTIC (rule/fact) / "
+        "PROCEDURAL (how-to) / UNCLASSIFIED. Auto-classified if omitted.",
+    )
     def learn(
         text: str | None,
         knowledge_type: str | None,
@@ -65,6 +74,7 @@ def register(cli: click.Group) -> None:
         source: str,
         source_entity: str | None,
         related: str,
+        memory_kind: str | None,
     ) -> None:
         """Store a piece of knowledge extracted from experience.
 
@@ -103,6 +113,7 @@ def register(cli: click.Group) -> None:
             tags=tag_list or None,
             source_entity=source_entity,
             related_to=related_to,
+            memory_kind=memory_kind.upper() if memory_kind else None,
         )
         click.secho(f"[+] Stored knowledge: {kid}", fg="green")
         if source_entity:
@@ -118,14 +129,26 @@ def register(cli: click.Group) -> None:
         type=click.Choice(sorted(KNOWLEDGE_TYPES), case_sensitive=False),
         help="Filter by type",
     )
+    @click.option(
+        "--kind",
+        "memory_kind",
+        default=None,
+        type=click.Choice(sorted(MEMORY_KINDS), case_sensitive=False),
+        help="Filter by memory kind (EPISODIC/SEMANTIC/PROCEDURAL/UNCLASSIFIED)",
+    )
     @click.option("--min-confidence", default=0.0, type=float, help="Minimum confidence")
     @click.option("--limit", default=20, type=int, help="Max results")
-    def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int) -> None:
+    def knowledge_cmd(
+        knowledge_type: str, memory_kind: str, min_confidence: float, limit: int
+    ) -> None:
         """List stored knowledge."""
         kt = knowledge_type.upper() if knowledge_type else None
+        mk = memory_kind.upper() if memory_kind else None
         entries = _wrapped_get_knowledge(
             knowledge_type=kt, min_confidence=min_confidence, limit=limit
         )
+        if mk:
+            entries = [e for e in entries if e.get("memory_kind") == mk]
 
         if not entries:
             click.secho("[-] No knowledge found.", fg="yellow")

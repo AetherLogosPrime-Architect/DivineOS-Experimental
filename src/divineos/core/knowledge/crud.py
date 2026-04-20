@@ -11,6 +11,7 @@ from divineos.core.knowledge._base import (
     _KNOWLEDGE_COLS,
     _KNOWLEDGE_COLS_K,
     KNOWLEDGE_TYPES,
+    MEMORY_KINDS,
     _get_connection,
     _row_to_dict,
     compute_hash,
@@ -39,15 +40,29 @@ def store_knowledge(
     maturity: str = "RAW",
     source_entity: str | None = None,
     related_to: str | None = None,
+    memory_kind: str | None = None,
 ) -> str:
     """Store a piece of knowledge. Returns the knowledge_id.
 
     Auto-deduplicates: if identical content already exists (and is not superseded),
     increments access_count on the existing entry and returns its id.
+
+    memory_kind is the orthogonal diagnostic dimension
+    (EPISODIC / SEMANTIC / PROCEDURAL / UNCLASSIFIED). If None, runs the
+    heuristic classifier on content. See memory_kind.classify_kind.
     """
     if knowledge_type not in KNOWLEDGE_TYPES:
         raise ValueError(
             f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}",
+        )
+
+    if memory_kind is None:
+        from divineos.core.knowledge.memory_kind import classify_kind
+
+        memory_kind = classify_kind(content)
+    elif memory_kind not in MEMORY_KINDS:
+        raise ValueError(
+            f"Invalid memory_kind '{memory_kind}'. Must be one of: {MEMORY_KINDS}",
         )
 
     content = content.strip()
@@ -88,8 +103,8 @@ def store_knowledge(
             """INSERT INTO knowledge
                (knowledge_id, created_at, updated_at, knowledge_type, content,
                 confidence, source_events, tags, access_count, content_hash,
-                source, maturity, valid_from, source_entity, related_to)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)""",
+                source, maturity, valid_from, source_entity, related_to, memory_kind)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 knowledge_id,
                 now,
@@ -105,6 +120,7 @@ def store_knowledge(
                 now,  # temporal dimension: knowledge is valid from creation
                 source_entity,
                 related_to,
+                memory_kind,
             ),
         )
         conn.commit()

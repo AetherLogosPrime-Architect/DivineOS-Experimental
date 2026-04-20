@@ -34,6 +34,15 @@ KNOWLEDGE_SOURCES = {"STATED", "CORRECTED", "DEMONSTRATED", "SYNTHESIZED", "INHE
 
 KNOWLEDGE_MATURITY = {"RAW", "HYPOTHESIS", "TESTED", "CONFIRMED", "REVISED"}
 
+# Memory-kind diagnostic dimension — orthogonal to knowledge_type.
+# Tiebreak rule: the SHAPE of the claim decides, not the subject matter.
+#   "never commit without tests" is SEMANTIC (rule-shape) even though it
+#   describes a procedure. "to commit: stage, test, then push" is PROCEDURAL.
+# UNCLASSIFIED is first-class (Ashby's Law / variety deficit): the three
+# kinds cannot represent every state, so the fourth bucket is where entries
+# that don't cleanly fit go. Default for backfill and classifier-uncertain.
+MEMORY_KINDS = {"EPISODIC", "SEMANTIC", "PROCEDURAL", "UNCLASSIFIED"}
+
 
 # Single source of truth for knowledge column names.
 # Add a column here + add the ALTER TABLE migration = done.
@@ -60,6 +69,7 @@ _KNOWLEDGE_COL_NAMES: list[str] = [
     "source_entity",
     "related_to",
     "corroboration_sources",
+    "memory_kind",
 ]
 
 _KNOWLEDGE_COLS = ", ".join(_KNOWLEDGE_COL_NAMES)
@@ -83,6 +93,7 @@ _KNOWLEDGE_DEFAULTS: dict[str, Any] = {
     "source_entity": None,
     "related_to": None,
     "corroboration_sources": [],
+    "memory_kind": "UNCLASSIFIED",
 }
 
 
@@ -201,6 +212,15 @@ def init_knowledge_table() -> None:
             )
         except sqlite3.OperationalError as e:
             logger.debug(f"Column layer already exists in knowledge table: {e}")
+
+        # Memory-kind column (orthogonal diagnostic dimension).
+        # Defaults UNCLASSIFIED so backfill doesn't guess.
+        try:
+            conn.execute(
+                "ALTER TABLE knowledge ADD COLUMN memory_kind TEXT NOT NULL DEFAULT 'UNCLASSIFIED'",
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug(f"Column memory_kind already exists in knowledge table: {e}")
 
         # Provenance columns (cross-entity attribution and manual linking)
         for col, col_type, default in [
