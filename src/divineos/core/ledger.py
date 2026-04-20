@@ -7,6 +7,7 @@ Every row has a SHA256 content_hash for integrity verification.
 """
 
 import json
+import os
 import sys
 import time
 import uuid
@@ -71,11 +72,20 @@ try:
 except OSError:
     pass
 
+# File-log level is configurable via DIVINEOS_LOG_LEVEL env var. Default INFO
+# captures operational events (EMPIRICA decisions, mode changes, significant
+# state transitions) without per-call trace noise — smaller log files, slower
+# rotation. Set to DEBUG when deep traces are needed for troubleshooting.
+# Valid levels: TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL.
+_VALID_LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+_configured_level = os.environ.get("DIVINEOS_LOG_LEVEL", "INFO").upper()
+_FILE_LOG_LEVEL = _configured_level if _configured_level in _VALID_LOG_LEVELS else "INFO"
+
 logger.add(
     _LOG_DIR / "divineos.log",
     rotation="10 MB",
     retention=_MAX_LOG_FILES,
-    level="DEBUG",
+    level=_FILE_LOG_LEVEL,
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
 )
 
