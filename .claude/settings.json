@@ -67,32 +67,12 @@
         ]
       },
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Edit|Write|Bash|NotebookEdit",
         "hooks": [
           {
             "type": "command",
             "command": "bash .claude/hooks/session-checkpoint.sh",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pattern-anticipation.sh",
-            "timeout": 10
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/lesson-interrupt.sh",
-            "timeout": 5
           }
         ]
       }

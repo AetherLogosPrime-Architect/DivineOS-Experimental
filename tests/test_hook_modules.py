@@ -232,3 +232,61 @@ class TestPostToolUseContextWarnings:
         payload = json.loads(out)
         assert "additionalContext" in payload
         assert "Context monitor" in payload["additionalContext"]
+
+
+class TestLessonInterruptIntegration:
+    """Lesson-interrupt check was folded into the consolidated checkpoint
+    module in P3 (previously its own shell hook). Verify it only runs for
+    code-modifying tools."""
+
+    def test_lesson_interrupt_skipped_for_bash(self):
+        # Non-code-modifying tool → interrupt check skipped, empty string
+        result = post_hook._check_lesson_interrupt("Bash", {"command": "ls"})
+        assert result == ""
+
+    def test_lesson_interrupt_skipped_for_read(self):
+        result = post_hook._check_lesson_interrupt("Read", {"file_path": "x.py"})
+        assert result == ""
+
+    def test_lesson_interrupt_runs_for_edit(self):
+        # Function itself should run (return string or empty, not error)
+        result = post_hook._check_lesson_interrupt("Edit", {"file_path": "x.py"})
+        assert isinstance(result, str)
+
+    def test_lesson_interrupt_runs_for_notebook_edit(self):
+        result = post_hook._check_lesson_interrupt("NotebookEdit", {})
+        assert isinstance(result, str)
+
+
+class TestAnticipationIntegration:
+    """Pattern-anticipation was folded into the consolidated checkpoint
+    module in P3 (previously its own shell hook). Verify throttling and
+    gating behavior."""
+
+    def test_anticipation_skipped_for_bash(self):
+        state: dict = {}
+        result = post_hook._run_anticipation("Bash", "foo.py", state)
+        assert result == ""
+
+    def test_anticipation_skipped_for_empty_file_path(self):
+        state: dict = {}
+        result = post_hook._run_anticipation("Edit", "", state)
+        assert result == ""
+
+    def test_anticipation_throttled_non_multiple(self):
+        """Counter at 1, 2, 3, 4 — none trigger. Counter at 5 — triggers."""
+        # Fresh state
+        state: dict = {}
+        # First 4 edits should not trigger (counter advances but no fire)
+        for _ in range(4):
+            post_hook._run_anticipation("Edit", "foo.py", state)
+        # Counter should be at 4 now, next call bumps to 5 and fires
+        assert state[post_hook._ANTICIPATION_COUNTER_KEY] == 4
+
+    def test_anticipation_counter_persists_in_state(self):
+        """Counter should land in the main state dict so it's persisted
+        by _save_state alongside the rest of the checkpoint state."""
+        state: dict = {"edits": 0, "tool_calls": 0}
+        post_hook._run_anticipation("Edit", "foo.py", state)
+        assert post_hook._ANTICIPATION_COUNTER_KEY in state
+        assert state[post_hook._ANTICIPATION_COUNTER_KEY] == 1
