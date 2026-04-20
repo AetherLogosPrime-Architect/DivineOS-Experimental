@@ -135,12 +135,14 @@ def clear_handoff_note() -> None:
 # After this many code-changing actions (Edit, Write, Bash) without
 # consulting the OS (ask, recall, decide, feel, context, directives),
 # the engagement gate blocks until the AI re-engages.
-# Was 8 — too tight for mechanical repetitive work (same edit across
-# 9 files).  15 gives room for a batch of related changes before
-# requiring a thinking pause, while still catching runaway coding.
-# Base threshold for engagement decay. After this many code actions
-# without consulting the OS, the gate blocks.
-_ENGAGEMENT_DECAY_THRESHOLD = 15
+# Was 8 — too tight for mechanical repetitive work. 15 (2026-04) left
+# too little headroom for related-change batches during a single
+# logical PR, which typically involves 15-20 edit+test+verify actions.
+# 20 (2026-04-19) gives room for a coherent PR-shaped batch before
+# requiring a thinking pause. Flow-state detection still catches pure
+# blast-coding (threshold bumps to 50 when actions are <10s apart).
+# If drift measurably increases under 20, revert to 15.
+_ENGAGEMENT_DECAY_THRESHOLD = 20
 
 # Higher threshold during commit flows. Detected by the presence of
 # staged git files. Mechanical work (lint fixes, doc updates, file

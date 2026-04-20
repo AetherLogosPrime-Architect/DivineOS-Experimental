@@ -302,9 +302,14 @@ class TestPreflightCompassIntegrity:
 class TestThresholdValue:
     """The threshold should be reasonable — not too tight, not too loose."""
 
-    def test_threshold_is_15(self) -> None:
-        """15 code actions before re-engagement is required."""
-        assert _ENGAGEMENT_DECAY_THRESHOLD == 15
+    def test_threshold_is_20(self) -> None:
+        """20 code actions before re-engagement is required.
+
+        Bumped from 15 on 2026-04-19 — 15 was too tight for PR-shaped
+        related-change batches. 20 gives a coherent PR-sized window
+        while flow-state detection still catches pure blast-coding.
+        """
+        assert _ENGAGEMENT_DECAY_THRESHOLD == 20
 
 
 class TestContextAwareThreshold:
@@ -337,12 +342,18 @@ class TestContextAwareThreshold:
             mock_run.return_value.returncode = 1
             assert _active_threshold() == _ENGAGEMENT_COMMIT_THRESHOLD
 
-    def test_commit_threshold_is_double_base(self) -> None:
-        """Commit threshold gives twice the room for mechanical work."""
+    def test_commit_threshold_higher_than_base(self) -> None:
+        """Commit threshold gives more room than base for mechanical work.
+
+        Previously locked to exactly 2x base (30 = 2 * 15). After base
+        was bumped to 20, commit stays at 30 — still meaningfully higher
+        (1.5x) without the artificial exact-2x relationship that wasn't
+        structurally load-bearing.
+        """
         from divineos.core.hud_handoff import _ENGAGEMENT_COMMIT_THRESHOLD
 
         assert _ENGAGEMENT_COMMIT_THRESHOLD == 30
-        assert _ENGAGEMENT_COMMIT_THRESHOLD == 2 * _ENGAGEMENT_DECAY_THRESHOLD
+        assert _ENGAGEMENT_COMMIT_THRESHOLD > _ENGAGEMENT_DECAY_THRESHOLD
 
     def test_is_engaged_uses_commit_threshold_during_staging(self, tmp_path: Path) -> None:
         """During commit flow, 20 actions should still be engaged."""
