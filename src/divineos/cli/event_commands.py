@@ -200,13 +200,33 @@ def register(cli: click.Group) -> None:
         operation without metaphor. See principle ca2116d5 and opinion
         op-a175acdb297d for the naming rationale.
         """
+        import os
+        from pathlib import Path
+
         from divineos.event.event_emission import emit_consolidation_checkpoint
 
-        # `force` is accepted for forward compat with the retrigger PR. The
-        # idempotency marker check isn't wired yet in this commit — that's
-        # a separate commit in PR #2 (consolidate-retrigger). Today, --force
-        # is a no-op beyond being accepted without error.
-        _ = force
+        # Idempotency guard: skip if already run this session.
+        # The marker file lives at ~/.divineos/auto_session_end_emitted and
+        # is cleared by load-briefing.sh on actual SessionStart (new Claude
+        # Code session). Inside one session, consolidation fires once unless
+        # --force overrides.
+        #
+        # Without this guard, log-session-end.sh (Stop hook) fires extract
+        # on every assistant-stop, which resets session_start on every turn
+        # and breaks the session analyzer. The Stop-hook behavior is fixed
+        # in a later commit; this guard is the load-bearing safety net that
+        # survives even if the Stop hook path gets reintroduced.
+        marker = Path(os.path.expanduser("~")) / ".divineos" / "auto_session_end_emitted"
+        if marker.exists() and not force:
+            click.secho(
+                "[~] Consolidation already ran this session — skipping.",
+                fg="bright_black",
+            )
+            click.secho(
+                "    Use `divineos extract --force` to re-run anyway.",
+                fg="bright_black",
+            )
+            return
 
         try:
             # Capture session start BEFORE emitting — once the event lands in
@@ -224,6 +244,25 @@ def register(cli: click.Group) -> None:
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
             _run_session_end_pipeline(session_start_override=_pre_emit_start)
+
+            # Write idempotency marker AFTER successful run. If the pipeline
+            # errors out, the marker stays unset so the user can retry without
+            # needing --force.
+            try:
+                marker.parent.mkdir(parents=True, exist_ok=True)
+                marker.write_text("1", encoding="utf-8")
+            except OSError as e:
+                logger.debug(f"Could not write consolidation marker: {e}")
+
+            # Reset the write-count trigger. The next consolidation cycle is
+            # measured from this point forward; writes that preceded this
+            # extract shouldn't count toward the next threshold crossing.
+            try:
+                from divineos.core.session_checkpoint import reset_write_count
+
+                reset_write_count()
+            except Exception as e:  # noqa: BLE001 — counter is best-effort
+                logger.debug(f"Could not reset write counter: {e}")
 
         except _EC_ERRORS as e:
             click.secho(f"[-] Error running extraction: {e}", fg="red")

@@ -241,3 +241,30 @@ def register(cli: click.Group) -> None:
             )
         except (ImportError, OSError, sqlite3.OperationalError, KeyError, TypeError, ValueError):
             pass  # Don't fail the sleep command over event logging
+
+        # Post-sleep auto-extract (PR #2 commit 3).
+        # Sleep phase 5 (Creative Recombination) produces cross-knowledge
+        # connections that were ephemeral — they showed in the dream report
+        # and vanished when the function returned. Claim 36a41eb0 documented
+        # the bug. Running extract right after sleep feeds those recombinations
+        # into the knowledge pipeline. --force bypasses the idempotency guard
+        # so sleep's new material always gets processed.
+        import subprocess as _subprocess
+
+        try:
+            click.secho("\n[~] Running post-sleep extraction...", fg="cyan")
+            _subprocess.run(
+                ["divineos", "extract", "--force"],
+                capture_output=True,
+                check=False,
+                timeout=120,
+            )
+            click.secho(
+                "[+] Extraction complete — sleep recombinations landed in knowledge.",
+                fg="green",
+            )
+        except (OSError, _subprocess.SubprocessError) as e:
+            click.secho(
+                f"[!] Post-sleep extraction failed ({e}); sleep work is still saved.",
+                fg="yellow",
+            )
