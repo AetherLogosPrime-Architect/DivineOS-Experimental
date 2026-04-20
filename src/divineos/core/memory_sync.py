@@ -11,7 +11,7 @@ Nothing is permanent that doesn't need to be. But you can't filter before
 recording — that's suppression, not memory.
 
 This module writes auto-memory files to the Claude Code memory directory.
-It runs during SESSION_END to keep cross-session context accurate.
+It runs during extraction (formerly SESSION_END) to keep cross-session context accurate.
 """
 
 import os

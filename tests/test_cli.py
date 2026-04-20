@@ -315,12 +315,19 @@ class TestEmitCmd:
         list_result = runner.invoke(cli, ["list"])
         assert "readFile" in list_result.output
 
-    def test_emit_session_end(self, runner):
-        """Test emitting a SESSION_END event via CLI."""
+    def test_extract_command(self, runner):
+        """Test running `divineos extract` (formerly `emit SESSION_END`)."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["emit", "SESSION_END", "--session-id", "test_session_123"])
+        result = runner.invoke(cli, ["extract", "--session-id", "test_session_123"])
         assert result.exit_code == 0
-        assert "Event emitted: SESSION_END" in result.output
+        assert "Knowledge extracted from session" in result.output
+
+    def test_emit_session_end_is_redirected(self, runner):
+        """`emit SESSION_END` now errors with a pointer to `extract`."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["emit", "SESSION_END"])
+        assert result.exit_code != 0
+        assert "divineos extract" in result.output
 
     def test_emit_user_input_missing_content(self, runner):
         """Test that USER_INPUT without content fails."""
@@ -345,12 +352,12 @@ class TestEmitCmd:
         assert result.exit_code != 0
         assert "requires --tool-name, --tool-use-id, and --result" in result.output
 
-    def test_emit_session_end_missing_session_id(self, runner):
-        """Test that SESSION_END works without session-id (uses current session)."""
+    def test_extract_missing_session_id(self, runner):
+        """Test that `extract` works without --session-id (uses current session)."""
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["emit", "SESSION_END"])
+        result = runner.invoke(cli, ["extract"])
         assert result.exit_code == 0
-        assert "Event emitted: SESSION_END" in result.output
+        assert "Knowledge extracted from session" in result.output
 
     def test_emit_events_appear_in_ledger(self, runner):
         """Test that emitted events appear in the ledger."""

@@ -135,7 +135,13 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
 
     """
     # Validate payload before storing (only for known event types)
-    if validate and event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
+    if validate and event_type in [
+        "USER_INPUT",
+        "TOOL_CALL",
+        "TOOL_RESULT",
+        "SESSION_END",
+        "CONSOLIDATION_CHECKPOINT",
+    ]:
         is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
         if not is_valid:
             logger.error(f"Event validation failed for {event_type}: {validation_msg}")
@@ -169,7 +175,7 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
 def get_events(
     limit: int = 100,
     offset: int = 0,
-    event_type: str | None = None,
+    event_type: str | list[str] | frozenset[str] | set[str] | None = None,
     actor: str | None = None,
 ) -> list[dict[str, Any]]:
     """Retrieves events ordered by timestamp ASC.
@@ -177,7 +183,11 @@ def get_events(
     Args:
         limit: max rows to return
         offset: rows to skip
-        event_type: optional filter
+        event_type: optional filter. Accepts a single string or a
+            collection of strings (list/set/frozenset). A collection
+            becomes an SQL IN clause — useful for compat unions like
+            CONSOLIDATION_EVENT_TYPES that match both historical
+            SESSION_END rows and new CONSOLIDATION_CHECKPOINT rows.
         actor: optional filter
 
     """
@@ -188,8 +198,16 @@ def get_events(
         params: list[Any] = []
 
         if event_type:
-            conditions.append("event_type = ?")
-            params.append(event_type)
+            if isinstance(event_type, str):
+                conditions.append("event_type = ?")
+                params.append(event_type)
+            else:
+                # Collection — expand into IN clause
+                types_list = list(event_type)
+                if types_list:
+                    placeholders = ",".join("?" for _ in types_list)
+                    conditions.append(f"event_type IN ({placeholders})")  # nosec B608
+                    params.extend(types_list)
         if actor:
             conditions.append("actor = ?")
             params.append(actor)

@@ -31,7 +31,7 @@ This module is that mechanism.
 * **DIAGNOSTIC** — read-only. Write commands refused; reads
   allowed so the operator can investigate.
 * **EMERGENCY_STOP** — only shutdown-relevant commands allowed
-  (mode changes, emit SESSION_END, hud, preflight, briefing).
+  (mode changes, extract, hud, preflight, briefing).
   Everything else refused.
 
 ## Invariants

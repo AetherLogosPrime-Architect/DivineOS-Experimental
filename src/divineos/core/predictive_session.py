@@ -111,10 +111,11 @@ def _extract_action_sequence(limit: int = 10) -> list[list[str]]:
     """
     conn = _get_connection()
     try:
-        # Get session boundaries
+        # Get session boundaries — historical SESSION_END and current
+        # CONSOLIDATION_CHECKPOINT events both mark consolidation points.
         sessions_rows = conn.execute(
             """SELECT created_at FROM system_events
-               WHERE event_type = 'SESSION_END'
+               WHERE event_type IN ('SESSION_END', 'CONSOLIDATION_CHECKPOINT')
                ORDER BY created_at DESC LIMIT ?""",
             (limit + 1,),
         ).fetchall()
@@ -252,7 +253,7 @@ def get_session_history(limit: int = 10) -> list[dict[str, Any]]:
         rows = conn.execute(
             """SELECT content, created_at
                FROM system_events
-               WHERE event_type = 'SESSION_END'
+               WHERE event_type IN ('SESSION_END', 'CONSOLIDATION_CHECKPOINT')
                ORDER BY created_at DESC
                LIMIT ?""",
             (limit,),

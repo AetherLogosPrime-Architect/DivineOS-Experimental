@@ -117,11 +117,15 @@ def _gather_session_trajectory(report: ProgressReport, lookback_days: int) -> No
     try:
         from divineos.core.ledger import count_events, get_events
 
+        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+
         counts = count_events()
-        report.total_sessions = counts.get("by_type", {}).get("SESSION_END", 0)
+        by_type = counts.get("by_type", {})
+        # Sum historical SESSION_END and current CONSOLIDATION_CHECKPOINT rows
+        report.total_sessions = sum(by_type.get(t, 0) for t in CONSOLIDATION_EVENT_TYPES)
 
         # Get recent sessions for health scoring
-        sessions = get_events(event_type="SESSION_END", limit=20)
+        sessions = get_events(event_type=CONSOLIDATION_EVENT_TYPES, limit=20)
         if sessions:
             # Use the most recent session's analysis for health grade
             _score_recent_sessions(report, sessions)
@@ -320,7 +324,9 @@ def _gather_behavioral_indicators(report: ProgressReport) -> None:
         events = get_events(event_type="BRIEFING_LOADED", limit=1000)
         briefing_count = len(events)
 
-        sessions = get_events(event_type="SESSION_END", limit=1000)
+        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+
+        sessions = get_events(event_type=CONSOLIDATION_EVENT_TYPES, limit=1000)
         session_count = len(sessions)
 
         if session_count > 0:

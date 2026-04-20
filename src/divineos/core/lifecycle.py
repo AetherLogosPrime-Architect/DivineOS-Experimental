@@ -92,9 +92,9 @@ def _run_session_end() -> None:
         if "pytest" in sys.modules:
             return
 
-        from divineos.event.event_emission import emit_session_end
+        from divineos.event.event_emission import emit_consolidation_checkpoint
 
-        emit_session_end()
+        emit_consolidation_checkpoint()
 
         state["session_end_emitted"] = True
         _save_state(state)

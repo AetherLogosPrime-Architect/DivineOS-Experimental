@@ -114,7 +114,9 @@ def _get_session_payloads(limit: int = 10) -> list[str]:
     Tries the ledger (system_events) first, falls back gracefully.
     """
     try:
-        events = get_events(limit=limit, event_type="SESSION_END")
+        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+
+        events = get_events(limit=limit, event_type=CONSOLIDATION_EVENT_TYPES)
         # Reverse to get newest first
         events.reverse()
         payloads: list[str] = []

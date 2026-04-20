@@ -8,7 +8,7 @@ I'm thinking, not just what I'm producing.
 The difference: quality checks ask "did the code work?" Self-critique
 asks "was my approach to the problem elegant or brute-force?"
 
-Runs automatically at SESSION_END, not on demand. The point is to
+Runs automatically during extraction (formerly SESSION_END), not on demand. The point is to
 build a habit of reflection without being asked.
 
 Sanskrit anchor: atma-pariksha (self-examination, introspective assessment).

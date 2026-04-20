@@ -111,10 +111,12 @@ class TestContextMonitoring:
         assert "160" in warning
         assert "20" in warning
 
-    def test_urgent_warning_mentions_session_end(self):
+    def test_urgent_warning_mentions_extract_command(self):
+        # Post-rename (2026-04-20): the urgent warning points users at
+        # `divineos extract`, not the deprecated `emit SESSION_END`.
         warning = format_context_warning({"tool_calls": 260, "edits": 30, "checkpoints_run": 2})
         assert warning is not None
-        assert "SESSION_END" in warning
+        assert "extract" in warning
         assert "HIGH" in warning
 
     def test_critical_warning_mentions_imminent(self):

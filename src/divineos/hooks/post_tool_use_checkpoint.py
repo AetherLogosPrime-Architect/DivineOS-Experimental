@@ -155,14 +155,21 @@ def _run_checkpoint() -> None:
         pass
 
 
-def _auto_emit_session_end() -> None:
-    """Auto-emit SESSION_END once; mark a file so we don't repeat."""
+def _auto_run_extract() -> None:
+    """Auto-run `divineos extract` once; mark a file so we don't repeat.
+
+    Formerly `_auto_emit_session_end`. Renamed 2026-04-20 alongside the
+    SESSION_END -> CONSOLIDATION_CHECKPOINT / `divineos extract` rename.
+    The marker file name stays (auto_session_end_emitted) for backward
+    compat — renaming it would orphan markers from prior sessions and
+    trigger duplicate extractions on next boot.
+    """
     marker = _auto_emitted_path()
     if marker.exists():
         return
     try:
         subprocess.run(
-            ["divineos", "emit", "SESSION_END"],
+            ["divineos", "extract"],
             capture_output=True,
             check=False,
             timeout=60,
@@ -290,7 +297,7 @@ def main() -> int:
         messages.append(practice)
 
     if tool_calls >= _AUTO_SESSION_END_THRESHOLD:
-        _auto_emit_session_end()
+        _auto_run_extract()
         messages.append(
             f"SESSION_END auto-emitted at {tool_calls} tool calls. "
             "Knowledge saved. Continue working — compaction may happen soon."

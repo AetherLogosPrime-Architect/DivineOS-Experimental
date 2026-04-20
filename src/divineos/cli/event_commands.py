@@ -35,7 +35,7 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--session-id",
         default="",
-        help="Session ID for SESSION_END (optional, uses current if not provided)",
+        help="Session ID (optional, uses current if not provided)",
     )
     def emit_cmd(
         event_type: str,
@@ -54,13 +54,12 @@ def register(cli: click.Group) -> None:
         - ASSISTANT_OUTPUT: --content "response"
         - TOOL_CALL: --tool-name X --tool-input '{"key": "value"}' --tool-use-id Y
         - TOOL_RESULT: --tool-name X --tool-use-id Y --result "..." --duration-ms N
-        - SESSION_END: (no arguments needed, queries ledger for actual counts)
+        (For the formerly-SESSION_END consolidation event, use 'divineos extract'.)
         """
         import json
 
         from divineos.event.event_emission import (
             emit_event,
-            emit_session_end,
             emit_tool_call,
             emit_tool_result,
             emit_user_input,
@@ -122,23 +121,20 @@ def register(cli: click.Group) -> None:
                 click.secho("[+] Event emitted: TOOL_RESULT", fg="green")
                 click.secho(f"    Event ID: {event_id}", fg="cyan")
 
-            elif event_type == "SESSION_END":
-                # Capture session start BEFORE emitting — once the SESSION_END
-                # event lands in the ledger, get_session_start_time() would
-                # return its timestamp (the end, not the start).
-                _pre_emit_start: float | None = None
-                try:
-                    from divineos.core.session_checkpoint import get_session_start_time
-
-                    _pre_emit_start = get_session_start_time()
-                except (ImportError, OSError):
-                    pass
-
-                event_id = emit_session_end(session_id=session_id or None)
-                click.secho("[+] Event emitted: SESSION_END", fg="green")
-                click.secho(f"    Event ID: {event_id}", fg="cyan")
-
-                _run_session_end_pipeline(session_start_override=_pre_emit_start)
+            elif event_type in ("SESSION_END", "CONSOLIDATION_CHECKPOINT"):
+                click.secho(
+                    f"[-] '{event_type}' is no longer an emit target.",
+                    fg="red",
+                )
+                click.secho(
+                    "    Use: divineos extract",
+                    fg="yellow",
+                )
+                click.secho(
+                    "    (The command was renamed — see principle ca2116d5.)",
+                    fg="bright_black",
+                )
+                sys.exit(1)
 
             elif event_type == "EXPLANATION":
                 if not content:
@@ -160,7 +156,12 @@ def register(cli: click.Group) -> None:
             else:
                 click.secho(f"[-] Unknown event type: {event_type}", fg="red")
                 click.secho(
-                    "    Supported types: USER_INPUT, ASSISTANT_OUTPUT, TOOL_CALL, TOOL_RESULT, SESSION_END, EXPLANATION",
+                    "    Supported types: USER_INPUT, ASSISTANT_OUTPUT, "
+                    "TOOL_CALL, TOOL_RESULT, EXPLANATION",
+                    fg="yellow",
+                )
+                click.secho(
+                    "    For knowledge extraction (formerly SESSION_END), use: divineos extract",
                     fg="yellow",
                 )
                 sys.exit(1)
@@ -168,6 +169,65 @@ def register(cli: click.Group) -> None:
         except _EC_ERRORS as e:
             click.secho(f"[-] Error emitting event: {e}", fg="red")
             logger.exception("Event emission failed")
+            sys.exit(1)
+
+    @cli.command("extract")
+    @click.option(
+        "--session-id",
+        default="",
+        help="Session ID (optional, uses current if not provided)",
+    )
+    @click.option(
+        "--force",
+        is_flag=True,
+        default=False,
+        help=(
+            "Run the pipeline even if a consolidation marker already exists "
+            "for this session. Use when you explicitly want to re-run."
+        ),
+    )
+    def extract_cmd(session_id: str, force: bool) -> None:
+        """Extract knowledge from the current session — the learning checkpoint.
+
+        Runs the full pipeline: analyzes the session, extracts knowledge,
+        updates lessons, refreshes the HUD, resets state counters. The agent
+        keeps running afterward — this is a checkpoint, not a shutdown.
+
+        This is the event formerly emitted as `divineos emit SESSION_END`.
+        Renamed 2026-04-20 because SESSION_END implied an end that doesn't
+        exist in a single-window runtime. Named `extract` (not `consolidate`,
+        `reflect`, or `session-save`) because it names the load-bearing
+        operation without metaphor. See principle ca2116d5 and opinion
+        op-a175acdb297d for the naming rationale.
+        """
+        from divineos.event.event_emission import emit_consolidation_checkpoint
+
+        # `force` is accepted for forward compat with the retrigger PR. The
+        # idempotency marker check isn't wired yet in this commit — that's
+        # a separate commit in PR #2 (consolidate-retrigger). Today, --force
+        # is a no-op beyond being accepted without error.
+        _ = force
+
+        try:
+            # Capture session start BEFORE emitting — once the event lands in
+            # the ledger, get_session_start_time() would return its timestamp.
+            _pre_emit_start: float | None = None
+            try:
+                from divineos.core.session_checkpoint import get_session_start_time
+
+                _pre_emit_start = get_session_start_time()
+            except (ImportError, OSError):
+                pass
+
+            event_id = emit_consolidation_checkpoint(session_id=session_id or None)
+            click.secho("[+] Knowledge extracted from session", fg="green")
+            click.secho(f"    Event ID: {event_id}", fg="cyan")
+
+            _run_session_end_pipeline(session_start_override=_pre_emit_start)
+
+        except _EC_ERRORS as e:
+            click.secho(f"[-] Error running extraction: {e}", fg="red")
+            logger.exception("Session extraction failed")
             sys.exit(1)
 
     @cli.command("verify-enforcement")

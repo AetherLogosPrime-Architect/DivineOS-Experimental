@@ -182,7 +182,7 @@ def _setup_signal_handlers() -> None:
     - Ensures cleanup is attempted even on signal
 
     Requirements:
-        - Requirement 5.6: Emit SESSION_END event on interrupt
+        - Requirement 5.6: Emit CONSOLIDATION_CHECKPOINT event on interrupt
         - Requirement 10.1-10.6: Handle errors gracefully
     """
     with mark_internal_operation():
@@ -221,10 +221,10 @@ def _setup_signal_handlers() -> None:
 def _cleanup_on_exit() -> None:
     """Cleanup on CLI exit.
 
-    Clears session state without emitting SESSION_END events.
-    SESSION_END should only be emitted explicitly via `divineos emit SESSION_END`,
+    Clears session state without emitting CONSOLIDATION_CHECKPOINT events.
+    CONSOLIDATION_CHECKPOINT should only be emitted explicitly via `divineos extract`,
     not automatically when every CLI command finishes. Each CLI command is a
-    short-lived process — emitting SESSION_END on exit pollutes the ledger
+    short-lived process — emitting CONSOLIDATION_CHECKPOINT on exit pollutes the ledger
     with hundreds of zero-duration, zero-message session endings.
 
     Requirements:

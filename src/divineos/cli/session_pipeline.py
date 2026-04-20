@@ -1,4 +1,4 @@
-"""SESSION_END pipeline — the full extract-consolidate-refresh cycle.
+"""Extraction pipeline (formerly SESSION_END) — the full extract-consolidate-refresh cycle.
 
 This file is the orchestrator. Each phase is a single function call to
 pipeline_gates.py (enforcement) or pipeline_phases.py (heavy lifting).

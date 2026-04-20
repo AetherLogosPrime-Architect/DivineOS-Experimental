@@ -76,7 +76,7 @@ class TestAtexitDoesNotRunHeavyPipeline:
         # is unaffected.
         pytest_mod = sys.modules.pop("pytest", None)
         try:
-            with patch("divineos.event.event_emission.emit_session_end") as mock_emit:
+            with patch("divineos.event.event_emission.emit_consolidation_checkpoint") as mock_emit:
                 lifecycle._run_session_end()
                 assert mock_emit.called, "atexit handler must emit SESSION_END event"
         finally:
@@ -102,7 +102,7 @@ class TestAtexitDoesNotRunHeavyPipeline:
 
         pytest_mod = sys.modules.pop("pytest", None)
         try:
-            with patch("divineos.event.event_emission.emit_session_end") as mock_emit:
+            with patch("divineos.event.event_emission.emit_consolidation_checkpoint") as mock_emit:
                 lifecycle._run_session_end()
                 assert not mock_emit.called, (
                     "atexit must skip when session_end_emitted is already True"

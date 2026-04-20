@@ -174,7 +174,13 @@ def verify_all_events(skip_types: list[str] | None = None) -> dict[str, Any]:
 
             # Second check: validate payload content for data validity
             # Only validate known event types
-            if event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
+            if event_type in [
+                "USER_INPUT",
+                "TOOL_CALL",
+                "TOOL_RESULT",
+                "SESSION_END",
+                "CONSOLIDATION_CHECKPOINT",
+            ]:
                 is_content_valid, content_reason = EventValidator.validate_payload(
                     event_type,
                     payload,
@@ -234,7 +240,13 @@ def clean_corrupted_events() -> dict[str, Any]:
                 continue
 
             # Check content validity for known event types
-            if event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
+            if event_type in [
+                "USER_INPUT",
+                "TOOL_CALL",
+                "TOOL_RESULT",
+                "SESSION_END",
+                "CONSOLIDATION_CHECKPOINT",
+            ]:
                 is_content_valid, _ = EventValidator.validate_payload(event_type, payload)
                 if not is_content_valid:
                     corrupted_ids.append(event_id)

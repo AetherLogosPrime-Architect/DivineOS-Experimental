@@ -8,5 +8,5 @@ if ! command -v divineos &>/dev/null; then
   exit 0
 fi
 
-divineos emit SESSION_END 2>&1
+divineos extract 2>&1
 exit 0

@@ -52,7 +52,7 @@ divineos briefing          # Your session briefing (start here)
 divineos preflight         # Confirm you're ready to work
 divineos hud               # Full heads-up display
 divineos hud --brief       # Condensed view (~6 essential slots)
-divineos emit SESSION_END  # End of session analysis + knowledge extraction
+divineos extract           # Learning checkpoint: analyze session, extract knowledge, update lessons (was 'emit SESSION_END')
 
 # Memory & knowledge
 divineos recall            # Core memory + active memory
@@ -186,7 +186,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Body Awareness** — Computational interoception. Monitors database sizes, table health, storage growth, resource ratios. Catches bloat before it becomes crisis.
 - **Attention Schema** — Models what the agent is attending to, what is suppressed, what drives focus, and predicts attention shifts. Butlin indicator 9-10.
 - **Epistemic Status** — Surfaces how the agent knows what it knows: observed (empirical), told (testimonial), inferred (logical), inherited (seed). Butlin indicator 14.
-- **Memory Sync** — Auto-updates Claude Code memory files from DivineOS state at SESSION_END. Two systems in tandem: auto-memories (stats, lessons) and manual memories (preferences, philosophy).
+- **Memory Sync** — Auto-updates Claude Code memory files from DivineOS state during extraction (formerly SESSION_END). Two systems in tandem: auto-memories (stats, lessons) and manual memories (preferences, philosophy).
 - **Opinion Store** — First-class opinions (judgments from evidence) separate from facts/lessons. Evidence tracking, confidence evolution, supersession history.
 - **User Model** — Structured user preferences and skill level tracking. Evidence-based skill assessment from observed behavior signals.
 - **Communication Calibration** — Adapts output density (verbosity, jargon, examples, depth) based on learned user model.
@@ -195,7 +195,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Proactive Patterns** — Prescriptive recommendations from positive experience. Complements anticipation (warnings) with what worked well.
 - **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination. Dream report summarizes what changed.
 - **Progress Dashboard** — Measurable metrics from real data: session trajectory, knowledge growth, correction trends, system health, behavioral indicators. Three output modes (full, brief, export markdown).
-- **Lifecycle Self-Enforcement** — The OS manages its own session lifecycle from within. Every CLI command is a lifecycle checkpoint: session registration, atexit SESSION_END, periodic checkpoints. Hooks become optional scaffolding.
+- **Lifecycle Self-Enforcement** — The OS manages its own session lifecycle from within. Every CLI command is a lifecycle checkpoint: session registration, atexit extraction, periodic checkpoints. Hooks become optional scaffolding.
 - **Tiered Engagement Enforcement** — Two-level gate system. Light gate (~15 code actions) clears with any OS thinking command (context, decide, feel). Deep gate (~30 code actions) requires knowledge-consulting commands (ask, recall, briefing). Prevents shallow engagement from masking drift.
 - **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted to knowledge/opinion/lesson or go stale. Aged during sleep. Sanskrit anchor: dharana (holding before insight).
 - **Relational User Model** — Two-layer user model: behavioral (skill, preferences, signals) and relational (values, fears, hopes, shared history, teaching style, humor). The person first, the settings second.
@@ -205,9 +205,9 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-——— cli/                      # CLI package (193 commands across 26 modules)
+——— cli/                      # CLI package (197 commands across 26 modules)
 —   ——— __init__.py           # CLI entry point and command registration
-—   ——— session_pipeline.py   # SESSION_END orchestrator (calls phases)
+—   ——— session_pipeline.py   # Extraction pipeline orchestrator (formerly SESSION_END, calls phases)
 —   ——— pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
 —   ——— pipeline_phases.py    # Heavy-lifting phases (feedback, scoring, finalization)
 —   ——— knowledge_commands.py # learn, ask, briefing, forget, lessons
