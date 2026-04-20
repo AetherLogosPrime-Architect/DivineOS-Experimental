@@ -19,7 +19,7 @@ This module does all the same work in one interpreter invocation.
 Expected improvement: ~4x faster (600ms → ~150ms) which compounds
 across every tool call.
 
-## What it does (same as old shell, consolidated)
+## What it does (same as old shells, consolidated)
 
 1. Read hook input (tool_name, tool_input)
 2. Load checkpoint state from ``~/.divineos/checkpoint_state.json``
@@ -30,11 +30,25 @@ across every tool call.
 7. If edits crossed a 15-multiple threshold, run ``divineos checkpoint``
 8. Emit context-monitor warnings at 100 / 150 tool-call thresholds
 9. Emit self-awareness practice nudge if tool_calls >= 100
-10. Output ``additionalContext`` JSON for Claude Code if any warnings
+10. **Lesson-interrupt check** (Edit/Write/NotebookEdit only): run
+    ``check_lesson_interrupt`` and surface any question that fires
+11. **Pattern anticipation** (Edit/Write only, throttled every 5 edits):
+    run ``anticipate`` on the file-path context and surface warnings
+12. Output combined ``additionalContext`` JSON for Claude Code if any
+    warnings / nudges / interrupts accumulated
 
-All ten operations in one Python process. Fail-open design — if any
+All twelve operations in one Python process. Fail-open design — if any
 individual step errors, the hook keeps running; the OS never gets
 bricked by the hook.
+
+## P3 consolidation (2026-04-19)
+
+Originally three shell hooks fired on Edit/Write/Bash/NotebookEdit:
+session-checkpoint (~260ms), pattern-anticipation (~280ms),
+lesson-interrupt (~150ms). Total ~690ms per Edit/Write. P3 folded
+anticipation and lesson-interrupt into this module. Expected savings:
+~430ms per Edit/Write (two fewer process spawns, imports shared across
+the consolidated work).
 """
 
 from __future__ import annotations
@@ -51,6 +65,15 @@ from typing import Any
 _CHECKPOINT_EDIT_INTERVAL = 15
 _CONTEXT_WARNING_THRESHOLD = 100
 _AUTO_SESSION_END_THRESHOLD = 150
+
+# Pattern-anticipation runs on every Nth edit to avoid noise. Matches
+# the throttle the old pattern-anticipation.sh implemented.
+_ANTICIPATION_THROTTLE = 5
+
+# Keys used in the checkpoint state dict for anticipation tracking.
+# Separate from the main edit counter so anticipation and checkpoint
+# don't share throttle boundaries.
+_ANTICIPATION_COUNTER_KEY = "anticipation_edit_count"
 
 
 def _state_path() -> Path:
@@ -149,6 +172,51 @@ def _auto_emit_session_end() -> None:
         pass
 
 
+def _check_lesson_interrupt(tool_name: str, tool_input: dict[str, Any]) -> str:
+    """Run the mid-session lesson-interrupt check. Returns question string
+    or empty. Only fires for Edit/Write/NotebookEdit — other tool types
+    skip the check (interrupts are tied to code-modifying work)."""
+    if tool_name not in ("Edit", "Write", "NotebookEdit"):
+        return ""
+    try:
+        from divineos.core.lesson_interrupt import check_lesson_interrupt
+
+        result = check_lesson_interrupt(tool_input or {})
+        return result or ""
+    except (ImportError, OSError, AttributeError):
+        return ""
+
+
+def _run_anticipation(tool_name: str, file_path: str, state: dict[str, Any]) -> str:
+    """Run pattern-anticipation on file-edit context. Throttled to every
+    Nth edit (_ANTICIPATION_THROTTLE) to avoid repeat noise. Returns
+    formatted warnings or empty.
+
+    Throttle state lives in the checkpoint state dict under
+    _ANTICIPATION_COUNTER_KEY — carried over from the old
+    anticipation_state.json file, now part of the unified state.
+    """
+    if tool_name not in ("Edit", "Write"):
+        return ""
+    if not file_path:
+        return ""
+
+    count = int(state.get(_ANTICIPATION_COUNTER_KEY, 0)) + 1
+    state[_ANTICIPATION_COUNTER_KEY] = count
+    if count % _ANTICIPATION_THROTTLE != 0:
+        return ""
+
+    try:
+        from divineos.core.anticipation import anticipate, format_anticipation
+
+        warnings = anticipate(f"Editing: {file_path}", max_warnings=3)
+        if not warnings:
+            return ""
+        return format_anticipation(warnings) or ""
+    except (ImportError, OSError, AttributeError):
+        return ""
+
+
 def main() -> int:
     """Entry point. Reads hook input, runs all checkpoint operations, emits
     optional additionalContext for Claude Code."""
@@ -196,10 +264,26 @@ def main() -> int:
         state["checkpoints_run"] = checkpoints_run + 1
         state["last_checkpoint"] = time.time()
 
+    # Pattern anticipation — throttled to every Nth Edit/Write. Runs on the
+    # mutated state (so the counter is part of the checkpoint_state).
+    anticipation_msg = _run_anticipation(tool_name, file_path, state)
+
+    # Save state (includes the anticipation counter update)
     _save_state(state)
 
-    # Build any warnings / nudges
+    # Build any warnings / nudges / interrupts
     messages: list[str] = []
+
+    # Lesson-interrupt check fires for every code-modifying tool use.
+    # This was previously a separate hook that ran ~150ms per call;
+    # folded in here it's effectively free because the imports are
+    # already warm.
+    interrupt = _check_lesson_interrupt(tool_name, tool_input)
+    if interrupt:
+        messages.append(interrupt)
+
+    if anticipation_msg:
+        messages.append(anticipation_msg)
 
     practice = _check_self_awareness_practice(tool_calls)
     if practice:
