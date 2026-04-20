@@ -576,11 +576,12 @@ def briefing_staleness() -> dict[str, Any]:
         return base
 
 
-def clear_briefing_marker() -> None:
-    """Clear the briefing marker (called at session end)."""
-    path = _get_hud_dir() / ".briefing_loaded"
-    if path.exists():
-        path.unlink()
+# clear_briefing_marker() removed 2026-04-20 system audit. The function
+# was never called anywhere — docstring claimed "called at session end"
+# but no call site existed. Dead code. If session-end clearing of the
+# briefing marker becomes needed, add it to .claude/hooks/load-briefing.sh
+# alongside the other SessionStart resets (clear_engagement, clear_session_plan,
+# reset_state) — same semantic home.
 
 
 def _count_session_tool_calls() -> int:
