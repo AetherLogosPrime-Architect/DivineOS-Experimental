@@ -199,6 +199,13 @@ def prune_caches(dry_run: bool = False) -> list[str]:
 # Maximum rotated log files to keep.  At 10 MB per file, 2 files = 20 MB cap.
 _MAX_ROTATED_LOGS = 2
 
+# Maximum age for rotated log files. Applied alongside the count cap —
+# a file is removed if it exceeds EITHER rule. Age-based retention
+# catches files that slip through on count alone (e.g. if rotation
+# stops happening for a period and then resumes, old files from the
+# first period can hang around despite the count cap).
+_LOG_MAX_AGE_DAYS = 7
+
 # VACUUM when free pages exceed this fraction of total pages.
 _VACUUM_THRESHOLD = 0.30
 
@@ -261,22 +268,56 @@ def vacuum_database(dry_run: bool = False) -> dict[str, float]:
     return result
 
 
-def clean_old_logs(dry_run: bool = False) -> dict[str, int | float]:
-    """Remove old rotated log files beyond retention limit.
+def clean_old_logs(dry_run: bool = False, log_dir: Path | None = None) -> dict[str, int | float]:
+    """Remove old rotated log files — count-based OR age-based.
+
+    A rotated log file is removed if EITHER:
+      * It's not in the N most recent files (count rule, ``_MAX_ROTATED_LOGS``)
+      * Its modification time is older than N days (age rule,
+        ``_LOG_MAX_AGE_DAYS``)
+
+    Both rules apply; a file caught by either gets removed. The age
+    rule catches files that slip through on count alone (e.g. when
+    rotation stops for a period and then resumes).
+
+    Args:
+        dry_run: if True, report what would be removed without touching files.
+        log_dir: override the default log dir (for testing). Defaults to
+            ``<repo>/src/logs/`` computed from this module's location.
 
     Returns dict with removed_count, freed_mb.
     """
-    log_dir = Path(__file__).parent.parent.parent / "logs"
+    import time
+
+    if log_dir is None:
+        log_dir = Path(__file__).parent.parent.parent / "logs"
     if not log_dir.exists():
         return {"removed_count": 0, "freed_mb": 0.0}
 
     # Rotated logs match pattern: divineos.YYYY-MM-DD_*.log
     rotated = sorted(log_dir.glob("divineos.*.log"), key=lambda p: p.stat().st_mtime)
-
-    if len(rotated) <= _MAX_ROTATED_LOGS:
+    if not rotated:
         return {"removed_count": 0, "freed_mb": 0.0}
 
-    to_remove = rotated[: len(rotated) - _MAX_ROTATED_LOGS]
+    now = time.time()
+    age_cutoff = now - (_LOG_MAX_AGE_DAYS * 86400)
+
+    # Determine which files to remove. Count rule: any file not in the
+    # N most-recent. Age rule: any file older than the cutoff. A file
+    # is removed if either rule applies.
+    keep_by_count = set(rotated[-_MAX_ROTATED_LOGS:]) if _MAX_ROTATED_LOGS > 0 else set()
+
+    to_remove: list[Path] = []
+    for p in rotated:
+        try:
+            mtime = p.stat().st_mtime
+        except OSError:
+            continue
+        too_old = mtime < age_cutoff
+        over_count = p not in keep_by_count
+        if too_old or over_count:
+            to_remove.append(p)
+
     removed_count = 0
     freed_bytes = 0
 
