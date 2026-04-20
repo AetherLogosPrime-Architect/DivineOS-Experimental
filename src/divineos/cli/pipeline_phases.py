@@ -88,39 +88,72 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
             conn = _get_connection()
             translated_count = 0
             quarantined_count = 0
+            # Pass 1: scan and classify — read-only, single connection.
+            # Pass 2: apply changes — each TRANSLATE uses update_knowledge()
+            # (supersession), each QUARANTINE is a tag/confidence metadata
+            # tweak (not a content mutation, so direct UPDATE is fine).
+            translate_work: list[tuple[str, str]] = []  # (kid, translated_content)
+            quarantine_work: list[str] = []  # kids to quarantine
             try:
                 for kid in valid_ids:
                     row = conn.execute(
-                        "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (kid,)
+                        "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
                     ).fetchone()
                     if not row:
                         continue
-                    content, tags_json = row[0], row[1]
+                    content = row[0]
                     sis = assess_and_translate(content)
                     if sis["verdict"] == "TRANSLATE" and sis["changed"]:
-                        import json as _json
+                        translate_work.append((kid, sis["translated"]))
+                    elif sis["verdict"] == "QUARANTINE":
+                        quarantine_work.append(kid)
+            finally:
+                conn.close()
 
-                        tags = _json.loads(tags_json) if tags_json else []
-                        tags.append("sis-translated")
-                        conn.execute(
-                            "UPDATE knowledge SET content = ?, tags = ? WHERE knowledge_id = ?",
-                            (sis["translated"], _json.dumps(tags), kid),
+            # Pass 2a: supersede TRANSLATE candidates. Each call opens its
+            # own connection — serial, fine for the volumes involved
+            # (tens of entries per extract run, not thousands).
+            if translate_work:
+                from divineos.core.knowledge.crud import update_knowledge
+
+                for kid, translated in translate_work:
+                    try:
+                        update_knowledge(
+                            kid,
+                            new_content=translated,
+                            additional_tags=["sis-translated"],
                         )
                         translated_count += 1
-                    elif sis["verdict"] == "QUARANTINE":
-                        import json as _json
+                    except ValueError:
+                        # Entry was deleted/superseded between pass 1 and 2 — skip
+                        pass
 
-                        tags = _json.loads(tags_json) if tags_json else []
-                        tags.append("sis-quarantined")
+            # Pass 2b: QUARANTINE is metadata-only (tags + confidence cap).
+            # Legitimate in-place update, same class as maturity evolution.
+            if quarantine_work:
+                conn = _get_connection()
+                try:
+                    import json as _json
+
+                    for kid in quarantine_work:
+                        tags_row = conn.execute(
+                            "SELECT tags FROM knowledge WHERE knowledge_id = ?", (kid,)
+                        ).fetchone()
+                        if not tags_row:
+                            continue
+                        tags = _json.loads(tags_row[0]) if tags_row[0] else []
+                        if "sis-quarantined" not in tags:
+                            tags.append("sis-quarantined")
                         conn.execute(
                             "UPDATE knowledge SET tags = ?, confidence = MIN(confidence, 0.4) "
                             "WHERE knowledge_id = ?",
                             (_json.dumps(tags), kid),
                         )
                         quarantined_count += 1
-                conn.commit()
-            finally:
-                conn.close()
+                    conn.commit()
+                finally:
+                    conn.close()
+
             if translated_count or quarantined_count:
                 parts = []
                 if translated_count:
@@ -375,10 +408,14 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
         from divineos.core.knowledge import _get_connection
         from divineos.core.knowledge.deep_extraction import _distill_correction
 
+        # Two-pass: scan read-only, then supersede via update_knowledge.
+        # Same rationale as the SIS translation above — content changes
+        # must supersede, not mutate in place (CLAUDE.md append-only rule).
         conn = _get_connection()
         distilled = 0
         raw_prefixes = ("I was corrected: ", "I should: ", "I decided: ")
         valid_ids = [did for did in deep_ids if did]
+        distill_work: list[tuple[str, str]] = []  # (kid, cleaned_content)
         try:
             for kid in valid_ids:
                 row = conn.execute(
@@ -392,15 +429,26 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
                         stripped = content[len(prefix) :]
                         cleaned = _distill_correction(stripped)
                         if cleaned and cleaned != stripped:
-                            conn.execute(
-                                "UPDATE knowledge SET content = ? WHERE knowledge_id = ?",
-                                (cleaned, kid),
-                            )
-                            distilled += 1
+                            distill_work.append((kid, cleaned))
                         break
-            conn.commit()
         finally:
             conn.close()
+
+        if distill_work:
+            from divineos.core.knowledge.crud import update_knowledge
+
+            for kid, cleaned in distill_work:
+                try:
+                    update_knowledge(
+                        kid,
+                        new_content=cleaned,
+                        additional_tags=["auto-distilled"],
+                    )
+                    distilled += 1
+                except ValueError:
+                    # Entry was deleted/superseded between pass 1 and 2 — skip
+                    pass
+
         if distilled:
             click.secho(f"[~] Auto-distilled {distilled} raw entries.", fg="cyan")
     except _PHASE_ERRORS as e:

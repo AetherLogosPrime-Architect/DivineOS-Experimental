@@ -2,7 +2,10 @@
 health, distill, migrate-types, hooks."""
 
 import sqlite3
-import time as _time
+
+# time previously used for manual updated_at stamping of mutated rows.
+# Removed 2026-04-20 when knowledge repair moved to supersession (which
+# sets its own timestamps internally via update_knowledge).
 from pathlib import Path
 from typing import Any
 
@@ -220,20 +223,31 @@ def register(cli: click.Group) -> None:
                 )
                 return
 
-            now = _time.time()
-            for kid, _before, after in to_fix:
-                conn.execute(
-                    "UPDATE knowledge SET content = ?, updated_at = ? WHERE knowledge_id = ?",
-                    (after, now, kid),
-                )
-            conn.commit()
-            click.secho(
-                f"[+] Repaired {len(to_fix)} row(s).",
-                fg="green",
-                bold=True,
-            )
+            # Close read conn before supersessions — each update_knowledge call
+            # opens its own write. Same append-only pattern as the SIS and
+            # distill fixes in pipeline_phases.py.
         finally:
             conn.close()
+
+        from divineos.core.knowledge.crud import update_knowledge
+
+        repaired = 0
+        for kid, _before, after in to_fix:
+            try:
+                update_knowledge(
+                    kid,
+                    new_content=after,
+                    additional_tags=["encoding-repaired"],
+                )
+                repaired += 1
+            except ValueError:
+                # Entry was deleted/superseded between scan and repair — skip
+                pass
+        click.secho(
+            f"[+] Repaired {repaired} row(s).",
+            fg="green",
+            bold=True,
+        )
 
         # Rebuild FTS so search matches the cleaned text.
         count = _wrapped_rebuild_fts_index()

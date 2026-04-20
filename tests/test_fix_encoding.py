@@ -74,6 +74,29 @@ def _read_content(knowledge_id: str) -> str | None:
         conn.close()
 
 
+def _read_current_content(knowledge_id: str) -> str | None:
+    """Follow the supersession chain to the currently-active version."""
+    from divineos.core.knowledge._base import get_connection
+
+    conn = get_connection()
+    try:
+        cur_id = knowledge_id
+        for _ in range(10):  # safety bound
+            row = conn.execute(
+                "SELECT content, superseded_by FROM knowledge WHERE knowledge_id = ?",
+                (cur_id,),
+            ).fetchone()
+            if not row:
+                return None
+            content, sup_by = row
+            if not sup_by or sup_by.startswith("FORGET:"):
+                return content
+            cur_id = sup_by
+        return content
+    finally:
+        conn.close()
+
+
 # A known mojibake string — "Use SQLite — zero dependencies" with em-dash
 # double-encoded via CP-1252 read, UTF-8 write cycle twice.
 _MOJIBAKE = "Use SQLite \u00c3\u0192\u00c2\u00a2\u00c3\u00a2\u00e2\u20ac\u0161\u00c2\u00ac\u00c3\u00a2\u00e2\u201a\u00ac\u00ef\u00bf\u00bd zero deps"
@@ -110,11 +133,16 @@ class TestApply:
         assert result.exit_code == 0, result.output
         assert "Repaired" in result.output
 
-        after = _read_content("kn-dirty")
-        # ftfy should produce an em-dash (or close) from the mojibake
+        # Repair is now a supersession (append-only invariant). Original
+        # entry preserved with its original (corrupted) content; the new
+        # entry holds the cleaned version.
+        assert _read_content("kn-dirty") == _MOJIBAKE, (
+            "original entry's content must be preserved per append-only rule"
+        )
+        after = _read_current_content("kn-dirty")
+        assert after is not None
         assert after != _MOJIBAKE
-        # Should no longer contain the mojibake signature bytes
-        assert "\u00c3" not in after  # the double-Ãƒ pattern is gone
+        assert "\u00c3" not in after  # double-Ãƒ pattern is gone
 
     def test_apply_idempotent_on_second_run(self):
         """Running apply twice on the same input is a no-op the second time."""

@@ -227,9 +227,26 @@ def update_knowledge(
     new_content: str,
     new_confidence: float | None = None,
     additional_sources: list[str] | None = None,
+    additional_tags: list[str] | None = None,
+    new_confidence_cap: float | None = None,
 ) -> str:
     """Create a new knowledge entry that supersedes an existing one.
     Returns the new knowledge_id.
+
+    Args:
+        knowledge_id: The old entry to supersede.
+        new_content: Replacement content for the new entry.
+        new_confidence: Explicit confidence for the new entry. If None,
+            inherits the old entry's confidence (optionally capped via
+            new_confidence_cap).
+        additional_sources: Source events to append to the old entry's list.
+        additional_tags: Tags to add to the new entry (union with old tags).
+            Useful when the supersession marks a transformation (e.g.
+            "sis-translated", "sis-quarantined").
+        new_confidence_cap: If set, the new entry's confidence is
+            min(inherited_or_new, cap). Used when the transformation
+            should reduce confidence (e.g. quarantine drops confidence
+            to 0.4 or below).
     """
     conn = _get_connection()
     try:
@@ -240,11 +257,21 @@ def update_knowledge(
         if not old:
             raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
 
-        old_type, old_confidence, old_sources_json, old_tags = old
+        old_type, old_confidence, old_sources_json, old_tags_json = old
         old_sources = json.loads(old_sources_json)
+        old_tags = json.loads(old_tags_json) if old_tags_json else []
 
         confidence = new_confidence if new_confidence is not None else old_confidence
+        if new_confidence_cap is not None:
+            confidence = min(confidence, new_confidence_cap)
         sources = old_sources + (additional_sources or [])
+
+        # Merge tags — additions are appended if not already present.
+        merged_tags = list(old_tags)
+        for tag in additional_tags or []:
+            if tag not in merged_tags:
+                merged_tags.append(tag)
+
         content_hash = compute_hash(new_content)
         now = time.time()
         new_id = str(uuid.uuid4())
@@ -259,7 +286,7 @@ def update_knowledge(
                 new_content,
                 confidence,
                 json.dumps(sources),
-                old_tags,
+                json.dumps(merged_tags),
                 content_hash,
                 now,  # temporal dimension: valid from creation
             ),
