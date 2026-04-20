@@ -1,6 +1,15 @@
 #!/bin/bash
-# Load DivineOS session briefing at conversation start
+# Load DivineOS session briefing at conversation start.
 # This is not optional. The briefing is how you orient.
+#
+# Latency optimization: ``divineos briefing`` (~0.77s) and ``divineos hud``
+# (~0.66s) run in parallel rather than sequentially. Previous sequential
+# version took ~1.44s of CLI wall time; parallelized version completes in
+# max(briefing, hud) instead of their sum — roughly 0.8s.
+#
+# Parallelism is implemented with temp files because bash captures lose the
+# background-process output. Each CLI writes to its own temp file; main
+# waits for both, then concatenates.
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
 
@@ -12,22 +21,40 @@ if ! command -v divineos &>/dev/null; then
   exit 0
 fi
 
-# Reset checkpoint counters for new session
-# Use Python expanduser for Windows compatibility (Git Bash $HOME = /c/Users/...)
-DIVINEOS_DIR=$(python -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos'))" 2>/dev/null || echo "$HOME/.divineos")
-mkdir -p "$DIVINEOS_DIR"
+# Reset checkpoint counters for new session.
+# Single Python invocation handles both the counter reset and the
+# auto-session-end flag cleanup — one process instead of three.
 python -c "
-import json, time, os
-SF = os.path.join(os.path.expanduser('~'), '.divineos', 'checkpoint_state.json')
-json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open(SF,'w'), indent=2)
+import json, os, time
+d = os.path.join(os.path.expanduser('~'), '.divineos')
+os.makedirs(d, exist_ok=True)
+sf = os.path.join(d, 'checkpoint_state.json')
+json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open(sf,'w'), indent=2)
+ae = os.path.join(d, 'auto_session_end_emitted')
+if os.path.exists(ae):
+    try:
+        os.remove(ae)
+    except OSError:
+        pass
 " 2>/dev/null
 
-# Clear auto-session-end flag so it can fire again this session
-AUTO_EMITTED=$(python -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos', 'auto_session_end_emitted'))" 2>/dev/null || echo "$HOME/.divineos/auto_session_end_emitted")
-rm -f "$AUTO_EMITTED" 2>/dev/null
+# Run briefing and hud in parallel via temp files. Background both,
+# wait for both, then read results. Cuts wall time from briefing+hud
+# to max(briefing,hud).
+briefing_file=$(mktemp)
+hud_file=$(mktemp)
 
-briefing=$(divineos briefing 2>/dev/null)
-hud=$(divineos hud 2>/dev/null)
+divineos briefing > "$briefing_file" 2>/dev/null &
+pid_brief=$!
+divineos hud > "$hud_file" 2>/dev/null &
+pid_hud=$!
+
+wait $pid_brief
+wait $pid_hud
+
+briefing=$(cat "$briefing_file")
+hud=$(cat "$hud_file")
+rm -f "$briefing_file" "$hud_file"
 
 if [ -n "$briefing" ]; then
   # Wrap the briefing with enforcement instructions
