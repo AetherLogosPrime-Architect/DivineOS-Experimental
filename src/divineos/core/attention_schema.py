@@ -399,9 +399,10 @@ def _get_self_model_gaps() -> list[dict[str, Any]]:
     # Fast path: read persisted completeness (written by self_model.build_self_model)
     try:
         import json
-        from pathlib import Path
 
-        path = Path.home() / ".divineos" / "hud" / "self_model_completeness.json"
+        from divineos.core._hud_io import _ensure_hud_dir
+
+        path = _ensure_hud_dir() / "self_model_completeness.json"
         if path.exists():
             completeness = json.loads(path.read_text(encoding="utf-8"))
             failed = completeness.get("failed", [])
