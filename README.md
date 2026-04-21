@@ -97,13 +97,13 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,754+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,820+ tests, real DB, minimal mocks
 
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
 
-**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). Your databases are created in `~/.divineos/` — the repo itself stays clean.
+**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
 ## CLI Surface (197 commands)
 
@@ -536,7 +536,6 @@ src/divineos/
   clarity_enforcement/         Clarity checking system
     config.py                  Clarity configuration
     enforcer.py                Enforcement engine
-    hooks.py                   Clarity hooks
     semantic_analyzer.py       Semantic analysis
     violation_detector.py      Violation detection
     violation_logger.py        Violation logging
@@ -565,7 +564,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,754+ tests (real DB, minimal mocks)
+tests/                         4,820+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -602,7 +601,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 175 source files across 10 packages
-- 4,754+ tests (real SQLite, minimal mocks)
+- 4,820+ tests (real SQLite, minimal mocks)
 - 196 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly

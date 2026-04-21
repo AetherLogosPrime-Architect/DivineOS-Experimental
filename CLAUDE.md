@@ -22,10 +22,10 @@ divineos preflight
 
 If preflight fails, fix what it tells you before writing any code. No exceptions.
 
-At the end of a session, log what happened:
+At the end of a session, run a learning checkpoint:
 
 ```bash
-divineos emit SESSION_END
+divineos extract
 ```
 
 ## Foundational Truths
@@ -196,7 +196,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 - **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination. Dream report summarizes what changed.
 - **Progress Dashboard** — Measurable metrics from real data: session trajectory, knowledge growth, correction trends, system health, behavioral indicators. Three output modes (full, brief, export markdown).
 - **Lifecycle Self-Enforcement** — The OS manages its own session lifecycle from within. Every CLI command is a lifecycle checkpoint: session registration, atexit extraction, periodic checkpoints. Hooks become optional scaffolding.
-- **Tiered Engagement Enforcement** — Two-level gate system. Light gate (~15 code actions) clears with any OS thinking command (context, decide, feel). Deep gate (~30 code actions) requires knowledge-consulting commands (ask, recall, briefing). Prevents shallow engagement from masking drift.
+- **Tiered Engagement Enforcement** — Two-level gate system. Light gate (~20 code actions) clears with any OS thinking command (context, decide, feel). Deep gate (~30 code actions) requires knowledge-consulting commands (ask, recall, briefing). Prevents shallow engagement from masking drift.
 - **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted to knowledge/opinion/lesson or go stale. Aged during sleep. Sanskrit anchor: dharana (holding before insight).
 - **Relational User Model** — Two-layer user model: behavioral (skill, preferences, signals) and relational (values, fears, hopes, shared history, teaching style, humor). The person first, the settings second.
 - **Watchmen (External Validation)** — Structured audit findings from external actors (user, Grok, council). Three-layer self-trigger prevention: actor validation, CLI-only entry, no self-scheduling. Findings route to knowledge/claims/lessons. Unresolved findings surface in briefing.
@@ -259,7 +259,7 @@ src/divineos/
 —   ——— router.py             # Route findings to knowledge/claims/lessons
 —   ——— summary.py            # Analytics, HUD integration, unresolved tracking
 ——— violations_cli/           # Violation reporting CLI
-tests/                        # 4,754+ tests (real DB, minimal mocks)
+tests/                        # 4,820+ tests (real DB, minimal mocks)
 docs/                         # Project documentation and strategic plans
 bootcamp/                     # Training exercises (debugging, analysis)
 data/                         # Runtime databases (gitignored)
