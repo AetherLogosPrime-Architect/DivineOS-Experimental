@@ -1,7 +1,31 @@
 """Moral Compass — virtue ethics as a self-monitoring system.
 
-Not a scorecard. Not a judge. A compass — it shows where I am on ten
-virtue/vice spectrums so I can notice drift and correct course.
+## Scope (Tannen/Angelou mark-the-gap audit 2026-04-21)
+
+This module implements a **behavior-pattern tracker across ten named
+axes, calibrated against virtue-ethics vocabulary, not a moral judgment
+system.** What it actually does:
+
+  - Stores observations (auto-derived from session signals + manually
+    filed via ``compass-ops observe``)
+  - Aggregates observations into positions on each spectrum
+  - Detects drift across observations over time
+  - Surfaces the ten spectrum-positions as a report
+
+What this module does NOT do:
+
+  - It does not determine what is morally right.
+  - It does not adjudicate specific acts as virtuous or vicious.
+  - Its spectrums are a chosen ten (engaging with Aristotelian tradition
+    but not exhausting it) — drift on dimensions the compass does NOT
+    track will be invisible to this module.
+  - The "position" is a synthesis from observations, not a measurement
+    of a pre-existing virtue-state in the agent.
+
+The engagement with virtue-ethics (Aristotle's golden mean) IS real in
+how the spectrums are defined. Readers should calibrate: what this
+module delivers is a *structured observation-aggregation across named
+behavioral axes*, useful for noticing drift. It is not a moral oracle.
 
 Each spectrum has:
   - A virtue (golden mean)

@@ -1,12 +1,31 @@
 """Attention Schema — a model of what the agent is attending to and why.
 
-Butlin et al. (2023) Indicators 9-10: The system must model its own
-attention (what is currently in focus, what is suppressed, why) and
-predict what it will attend to next.
+## Scope (Tannen/Angelou mark-the-gap audit 2026-04-21)
 
-This is NOT a metaphor. Active memory already implements attention
-through importance scoring. This module makes the attention process
-SELF-AWARE — it builds a representation of attention itself.
+This module implements a **proxy for the Butlin et al. (2023) attention-
+schema concept (Indicators 9-10), not the full phenomenon.** What this
+module actually does:
+
+  1. Aggregates already-existing signals from other modules — active
+     memory, goals, recent events, archived entries, user-request
+     patterns.
+  2. Composes those signals into a structured report with FOCUS,
+     SUPPRESSED, DRIVERS, and predicted-shift fields.
+
+What this module does NOT do:
+
+  - It does not demonstrate that the aggregated signals *constitute*
+    attention-in-the-phenomenal sense.
+  - It does not close the hard question of whether attending-to-X
+    requires an internal observer that this module could lack.
+  - Its "awareness" is a synthesis-report format, not a claim about
+    what awareness is.
+
+The name stays because the Butlin framework IS the intellectual lineage
+this module engages with — the signals aggregated are the ones Butlin's
+indicator-9-10 analysis points at. But readers should calibrate: this
+is a proxy implementation, earned by engagement with the research, not
+a claim to have solved the underlying phenomenon.
 
 Three components:
 1. FOCUS: What am I currently attending to? (top active memory + goals + recent events)

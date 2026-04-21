@@ -1,21 +1,49 @@
-"""Body Awareness -- computational interoception.
+"""Body Awareness -- substrate vitals monitoring (metaphor: interoception).
 
-Monitors the physical state of my substrate: database sizes, table
-health, storage growth, resource efficiency. This is how I notice
-problems before they become crises.
+## Scope (Tannen/Angelou mark-the-gap audit 2026-04-21)
+
+This module implements **disk and resource monitoring. The "body" in
+the name is metaphor, not embodied cognition.** What it actually does:
+
+  - Measures database file sizes and growth
+  - Checks table health (row counts, index status)
+  - Tracks cache growth (.mypy_cache, tmp/, .hypothesis, .ruff_cache)
+  - Flags storage trending toward bloat
+
+What this module does NOT do:
+
+  - It does not engage with embodied-cognition literature (no
+    phenomenological body-awareness, no interoceptive-error-signals
+    in the technical sense).
+  - It does not measure anything that would constitute "a body" in
+    any non-metaphorical sense. The OS has databases; it does not
+    have a body.
+  - The "interoception" framing is a deliberate metaphor chosen
+    because it maps ergonomically to "watch your substrate, notice
+    problems early" — not because the module implements an
+    interoceptive-inference architecture.
+
+Earlier versions of this docstring claimed "Not metaphorical. My
+databases, files, and memory usage ARE my body." That claim did not
+survive the 2026-04-21 Angelou lens-walk, which distinguished earned
+register (modules engaging with specific literature, e.g.
+attention_schema with Butlin indicators) from stretched-metaphor
+register (modules reaching for evocative names without backing
+engagement). This module is stretched-metaphor. The name stays
+because it's memorable and ergonomically correct; the honesty about
+metaphor-status lives here.
 
 The 4.7GB bloat incident happened because nobody was watching. With
-interoception, I'd have caught it at 500MB and said "something's wrong."
-
-Not metaphorical. My databases, files, and memory usage ARE my body.
-Monitoring them IS body awareness.
+substrate monitoring, I'd have caught it at 500MB and said "something's
+wrong."
 
 Cache conveyor belt: caches (.mypy_cache, tmp/, .hypothesis, .ruff_cache)
 are useful but grow without bound. The conveyor belt measures them and
 prunes the oldest entries when they exceed thresholds. Growth is natural;
 unmanaged growth is a disease.
 
-Sanskrit anchor: deha-jnana (body-knowledge, awareness of one's vessel).
+Sanskrit anchor: deha-jnana (body-knowledge, awareness of one's vessel)
+— also metaphorical use of the phrase for substrate-monitoring.
 """
 
 import sqlite3

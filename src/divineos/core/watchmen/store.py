@@ -81,6 +81,15 @@ def submit_round(
     finally:
         conn.close()
 
+    # Detect tier-override: the resolved tier disagrees with the
+    # actor's default. Fresh-Claude + Taleb + Yudkowsky findings
+    # (2026-04-21) flagged silent overrides as a Goodhart loophole.
+    # Overrides remain legal for legitimate edge cases (e.g.,
+    # cross-validated user rounds being promoted to MEDIUM), but each
+    # override now leaves an explicit TIER_OVERRIDE audit event.
+    actor_default = tier_for_actor(normalized_actor)
+    is_override = resolved_tier != actor_default
+
     # Log to ledger
     try:
         from divineos.core.ledger import log_event
@@ -93,14 +102,30 @@ def submit_round(
                 "focus": focus,
                 "expert_count": expert_count,
                 "tier": resolved_tier.value,
+                "tier_is_override": is_override,
+                "actor_default_tier": actor_default.value,
             },
             validate=False,
         )
+        if is_override:
+            log_event(
+                "TIER_OVERRIDE",
+                normalized_actor,
+                {
+                    "round_id": round_id,
+                    "from_tier": actor_default.value,
+                    "to_tier": resolved_tier.value,
+                    "focus_preview": focus[:140],
+                },
+                validate=False,
+            )
     except (ImportError, OSError, sqlite3.OperationalError, TypeError, ValueError):
         pass  # Ledger logging is best-effort
 
+    override_marker = " [OVERRIDE from " + actor_default.value + "]" if is_override else ""
     logger.info(
-        f"Audit round created: {round_id} by {normalized_actor} [{resolved_tier.value}] — {focus}"
+        f"Audit round created: {round_id} by {normalized_actor} "
+        f"[{resolved_tier.value}]{override_marker} — {focus}"
     )
     return round_id
 

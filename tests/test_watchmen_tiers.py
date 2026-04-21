@@ -171,6 +171,59 @@ class TestSubmitRoundWithTier:
         with pytest.raises(ValueError, match="Invalid tier"):
             submit_round(actor="user", focus="test", tier="BANANA")
 
+    def test_tier_override_emits_loud_ledger_event(self, tmp_db):
+        """Fresh-Claude audit 2026-04-21: silent tier override was a
+        Goodhart loophole. Every override now emits a TIER_OVERRIDE
+        ledger event so the override is auditable.
+        """
+        # Initialize ledger so the override event can land.
+        from divineos.core.ledger import init_db
+
+        init_db()
+
+        # user-default is WEAK; explicit MEDIUM is an override.
+        submit_round(actor="user", focus="override test", tier="MEDIUM")
+
+        # Query the ledger for TIER_OVERRIDE events.
+        import os
+        import sqlite3 as _sq
+
+        ledger_path = os.environ["DIVINEOS_DB"]
+        conn = _sq.connect(str(ledger_path))
+        try:
+            row = conn.execute(
+                "SELECT event_type FROM system_events WHERE event_type = ?",
+                ("TIER_OVERRIDE",),
+            ).fetchone()
+            assert row is not None, "tier override must emit TIER_OVERRIDE event"
+        finally:
+            conn.close()
+
+    def test_actor_default_tier_does_not_emit_override(self, tmp_db):
+        """When the resolved tier matches the actor's default, no
+        TIER_OVERRIDE event is emitted — only actual overrides are loud.
+        """
+        from divineos.core.ledger import init_db
+
+        init_db()
+
+        # council default IS MEDIUM; explicit MEDIUM is NOT an override.
+        submit_round(actor="council", focus="default match", tier="MEDIUM")
+
+        import os
+        import sqlite3 as _sq
+
+        ledger_path = os.environ["DIVINEOS_DB"]
+        conn = _sq.connect(str(ledger_path))
+        try:
+            row = conn.execute(
+                "SELECT event_type FROM system_events WHERE event_type = ?",
+                ("TIER_OVERRIDE",),
+            ).fetchone()
+            assert row is None, "tier matching actor-default must NOT emit TIER_OVERRIDE"
+        finally:
+            conn.close()
+
 
 class TestSubmitFindingWithTier:
     def test_user_finding_defaults_to_weak(self, tmp_db):

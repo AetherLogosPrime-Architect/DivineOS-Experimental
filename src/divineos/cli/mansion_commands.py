@@ -213,6 +213,7 @@ def register_mansion_commands(cli: click.Group) -> None:
         click.secho("\n=== THE COUNCIL CHAMBER ===\n", fg="cyan", bold=True)
         try:
             from divineos.core.council.consultation_log import (
+                format_invocation_balance,
                 log_consultation,
                 promote_to_audit,
             )
@@ -226,6 +227,17 @@ def register_mansion_commands(cli: click.Group) -> None:
                 f"  {len(result.analyses)} of {result.total_experts_available} experts\n",
                 fg="bright_black",
             )
+
+            # Invocation-balance surface — visibility intervention for
+            # sycophancy-toward-self (knowledge 929cb459). Shows who's been
+            # invoked most / rarely over the last 20 consultations so the
+            # agent can see its own selection bias at the moment of use.
+            balance_block = format_invocation_balance(
+                all_expert_names=list(engine.experts.keys()), last_n=20
+            )
+            if balance_block:
+                _safe_echo(balance_block)
+                click.echo()
             for a in result.analyses:
                 click.secho(f"  [{a.expert_name}]", fg="white", bold=True)
                 click.secho(f"    {a.methodology_applied}", fg="bright_black")

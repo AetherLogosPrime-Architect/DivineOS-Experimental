@@ -194,9 +194,79 @@ def list_recent_consultations(limit: int = 20) -> list[dict]:
     return results
 
 
+def invocation_tally(last_n: int = 20) -> dict[str, int]:
+    """Count how often each expert was selected across recent consultations.
+
+    Reads the ``selected_experts`` field from the most recent ``last_n``
+    COUNCIL_CONSULTATION events and returns ``{expert_name: count}``.
+    Experts that never appear in the window return 0 (via the combined
+    ``invocation_balance`` helper) — not absent from the dict here.
+
+    Added 2026-04-21 per sycophancy-toward-self principle (knowledge
+    929cb459): the agent had been reaching for the same 5–7 analytical
+    experts and steering away from lenses whose concerns would challenge
+    it. Making the invocation imbalance VISIBLE at the point of
+    selection is the light-touch structural intervention — the operator
+    (or agent) can still choose, but can't choose unconsciously.
+    """
+    tally: dict[str, int] = {}
+    for payload in list_recent_consultations(limit=last_n):
+        for name in payload.get("selected_experts", []):
+            tally[name] = tally.get(name, 0) + 1
+    return tally
+
+
+def invocation_balance(
+    all_expert_names: list[str], last_n: int = 20
+) -> tuple[list[tuple[str, int]], list[tuple[str, int]]]:
+    """Return (most_invoked, rarely_invoked) over the last N consultations.
+
+    ``all_expert_names`` is the full registered-expert roster so the
+    "rarely" side includes experts who have never appeared in the window
+    (count 0). Top-5 and bottom-5 are returned in sorted order
+    (descending / ascending by count respectively). Ties broken
+    alphabetically for stable output.
+    """
+    tally = invocation_tally(last_n=last_n)
+    all_counts = [(name, tally.get(name, 0)) for name in all_expert_names]
+    # Sort alphabetically first for stable tiebreak, then by count
+    all_counts.sort(key=lambda t: t[0])
+    most = sorted(all_counts, key=lambda t: (-t[1], t[0]))[:5]
+    rarely = sorted(all_counts, key=lambda t: (t[1], t[0]))[:5]
+    return most, rarely
+
+
+def format_invocation_balance(all_expert_names: list[str], last_n: int = 20) -> str:
+    """Format the invocation balance for display next to a council consult.
+
+    Used by the ``mansion council`` CLI to surface selection bias at the
+    moment of invocation. Returns a short human-readable block.
+    """
+    most, rarely = invocation_balance(all_expert_names, last_n=last_n)
+    if not most or all(count == 0 for _, count in most):
+        return ""  # No history yet — nothing to surface
+
+    top = ", ".join(f"{n} ({c})" for n, c in most if c > 0)
+    bot_zero = [n for n, c in rarely if c == 0]
+    lines = [
+        f"  [invocation balance, last {last_n} consultations]",
+        f"    most-invoked: {top}" if top else "",
+    ]
+    if bot_zero:
+        bot_str = ", ".join(bot_zero[:5])
+        lines.append(f"    never-invoked: {bot_str}")
+    else:
+        bot = ", ".join(f"{n} ({c})" for n, c in rarely)
+        lines.append(f"    rarely-invoked: {bot}")
+    return "\n".join(line for line in lines if line)
+
+
 __all__ = [
     "CONSULTATION_EVENT_TYPE",
     "LoggedConsultation",
+    "format_invocation_balance",
+    "invocation_balance",
+    "invocation_tally",
     "list_recent_consultations",
     "log_consultation",
     "promote_to_audit",
