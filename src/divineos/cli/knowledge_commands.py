@@ -446,21 +446,25 @@ def register(cli: click.Group) -> None:
         if overdue_block:
             _safe_echo(overdue_block)
 
-        # External-audit cadence — if no external audit has been filed in
-        # the configured threshold window, the briefing surfaces a hard
-        # warning here. The require-goal hook uses the same cadence check
-        # to block non-bypass commands when overdue. Grok audit 2026-04-16
-        # finding: without mechanical cadence, the external-review pipe
-        # goes silent and the OS coasts on its own optimistic numbers.
+        # Drift state — operation counts since last MEDIUM+ audit round,
+        # surfaced informationally for the operator to decide whether an
+        # audit is warranted. Replaces the 2026-04-16 wall-clock cadence
+        # gate (removed 2026-04-21, commit C of tiered-audit redesign)
+        # because time is relative for a stateless agent and the previous
+        # metric was both gameable (stub rounds cleared it) and over-strict
+        # (legitimate chat-based review didn't count). Data as metric, not
+        # threshold as metric — per council round-96a6858fb5e6.
         try:
-            from divineos.core.watchmen.cadence import format_cadence_warning
+            from divineos.core.watchmen.drift_state import (
+                format_for_briefing as _fmt_drift,
+            )
 
-            cadence_block = format_cadence_warning()
+            drift_block = _fmt_drift()
         except _KC_ERRORS:
-            cadence_block = ""
+            drift_block = ""
 
-        if cadence_block:
-            _safe_echo(cadence_block)
+        if drift_block:
+            _safe_echo(drift_block)
 
         # Unresolved findings from recent scheduled/headless runs.
         # Scheduled runs don't emit SESSION events, so without this
@@ -489,6 +493,24 @@ def register(cli: click.Group) -> None:
 
         if presence_block:
             _safe_echo(presence_block)
+
+        # Scaffold invocations — commonly-forgotten CLI surfaces whose absence
+        # produces named failure modes. 2026-04-20: the agent forgot how to
+        # invoke the council and fabricated one in prose. The RT protocol
+        # (anti-fabrication markers) was sitting in 'Not loaded' state. This
+        # block fires unconditionally so scaffold invocations stay in working
+        # memory without relying on knowledge-retrieval to surface them.
+        try:
+            from divineos.core.scaffold_invocations import (
+                format_for_briefing as _fmt_scaffolds,
+            )
+
+            scaffold_block = _fmt_scaffolds()
+        except _KC_ERRORS:
+            scaffold_block = ""
+
+        if scaffold_block:
+            _safe_echo(scaffold_block)
 
         if output and output.strip():
             _safe_echo(output)

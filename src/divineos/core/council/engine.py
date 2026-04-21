@@ -333,6 +333,7 @@ _engine: CouncilEngine | None = None
 def _register_all_experts(engine: CouncilEngine) -> None:
     """Load all expert wisdom profiles into the engine."""
     from divineos.core.council.experts import (
+        create_angelou_wisdom,
         create_aristotle_wisdom,
         create_beer_wisdom,
         create_bengio_wisdom,
@@ -359,12 +360,15 @@ def _register_all_experts(engine: CouncilEngine) -> None:
         create_schneier_wisdom,
         create_shannon_wisdom,
         create_taleb_wisdom,
+        create_tannen_wisdom,
         create_turing_wisdom,
+        create_watts_wisdom,
         create_wittgenstein_wisdom,
         create_yudkowsky_wisdom,
     )
 
     factories = [
+        create_angelou_wisdom,
         create_aristotle_wisdom,
         create_beer_wisdom,
         create_bengio_wisdom,
@@ -391,7 +395,9 @@ def _register_all_experts(engine: CouncilEngine) -> None:
         create_schneier_wisdom,
         create_shannon_wisdom,
         create_taleb_wisdom,
+        create_tannen_wisdom,
         create_turing_wisdom,
+        create_watts_wisdom,
         create_wittgenstein_wisdom,
         create_yudkowsky_wisdom,
     ]

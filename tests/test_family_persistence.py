@@ -290,7 +290,17 @@ class TestContentTables:
     def test_all_five_source_tags_persist(self):
         m = self._member()
         for tag in SourceTag:
-            record_knowledge(m.member_id, f"claim-{tag.value}", tag, _allow_test_write=True)
+            # force=True bypasses the content check — this test is about
+            # tag *persistence* across all five source tags, not about
+            # whether every synthetic content string composes cleanly
+            # against the operator (operator correctness has its own tests).
+            record_knowledge(
+                m.member_id,
+                f"claim-{tag.value}",
+                tag,
+                _allow_test_write=True,
+                force=True,
+            )
         rows = get_knowledge(m.member_id, limit=10)
         tags_seen = {r.source_tag for r in rows}
         assert tags_seen == set(SourceTag)

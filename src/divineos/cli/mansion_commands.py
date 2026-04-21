@@ -191,10 +191,31 @@ def register_mansion_commands(cli: click.Group) -> None:
 
     @mansion_group.command("council")
     @click.argument("question")
-    def council_cmd(question: str) -> None:
-        """The council chamber — 29 chairs in a circle."""
+    @click.option(
+        "--audit",
+        is_flag=True,
+        help="Also promote this consultation to an audit round (bumps cadence).",
+    )
+    @click.option(
+        "--audit-tier",
+        type=click.Choice(["WEAK", "MEDIUM", "STRONG"], case_sensitive=False),
+        default=None,
+        help="Override the tier of the promoted audit round. Defaults to MEDIUM.",
+    )
+    def council_cmd(question: str, audit: bool, audit_tier: str | None) -> None:
+        """The council chamber — 29 chairs in a circle.
+
+        Every consultation is logged to the ledger as a COUNCIL_CONSULTATION
+        event (searchable, non-gating). Pass --audit to also create an
+        audit_round with each fired concern as a finding; this bumps the
+        cadence gate and counts as a MEDIUM-tier external-review signal.
+        """
         click.secho("\n=== THE COUNCIL CHAMBER ===\n", fg="cyan", bold=True)
         try:
+            from divineos.core.council.consultation_log import (
+                log_consultation,
+                promote_to_audit,
+            )
             from divineos.core.council.engine import get_council_engine
             from divineos.core.council.manager import CouncilManager
 
@@ -214,6 +235,30 @@ def register_mansion_commands(cli: click.Group) -> None:
             if result.synthesis:
                 click.secho("  Synthesis:", fg="cyan")
                 _safe_echo(f"  {result.synthesis[:400]}")
+
+            # Always-on: log the consultation as a ledger event. Cheap, searchable.
+            logged = log_consultation(
+                question=question,
+                selected_expert_names=[a.expert_name for a in result.analyses],
+                analyses=result.analyses,
+                synthesis=result.synthesis or "",
+            )
+            click.echo()
+            click.secho(
+                f"  (consultation logged: {logged.consultation_id})",
+                fg="bright_black",
+            )
+
+            # Opt-in: promote to audit.
+            if audit:
+                round_id = promote_to_audit(
+                    consultation_id=logged.consultation_id,
+                    tier=audit_tier,
+                )
+                click.secho(
+                    f"  [+] Audit round created: {round_id} (tier: {audit_tier or 'MEDIUM'})",
+                    fg="green",
+                )
         except _MC_ERRORS as e:
             click.secho(f"  Chamber empty: {e}", fg="yellow")
         click.echo()

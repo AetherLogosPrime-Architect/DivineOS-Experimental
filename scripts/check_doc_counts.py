@@ -16,6 +16,8 @@ from pathlib import Path
 # How far the docs can drift before we complain.
 TEST_DRIFT_THRESHOLD = 50  # tests get added/removed in batches
 CMD_DRIFT_THRESHOLD = 3
+SOURCE_FILE_DRIFT_THRESHOLD = 5  # source files — small churn tolerated
+PACKAGE_DRIFT_THRESHOLD = 1  # packages — any drift is a structural change
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src" / "divineos"
@@ -40,6 +42,21 @@ def count_cli_commands() -> int:
     return total
 
 
+def count_source_files() -> int:
+    """Count .py files under src/divineos/ (excluding __pycache__).
+
+    Added 2026-04-21 to close the Status-footer gap fresh-Claude flagged:
+    the previous checker only verified tests/commands, so source-file
+    claims in the README Status section could drift silently forever.
+    """
+    return sum(1 for f in SRC.rglob("*.py") if "__pycache__" not in f.parts)
+
+
+def count_packages() -> int:
+    """Count packages under src/divineos/ (directories with __init__.py)."""
+    return sum(1 for f in SRC.rglob("__init__.py") if "__pycache__" not in f.parts)
+
+
 def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     """Pull (label, number, context) tuples from a file."""
     findings: list[tuple[str, int, str]] = []
@@ -58,6 +75,17 @@ def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     for m in re.finditer(r"(\d+)\s+(?:CLI\s+)?commands", text):
         num = int(m.group(1))
         findings.append(("commands", num, f"{path.name}: {m.group(0)}"))
+
+    # Match patterns like "287 source files" or "175 source files across 22 packages".
+    # Added 2026-04-21 per fresh-Claude audit finding find-8bf13aa80d9d.
+    for m in re.finditer(r"(\d+)\s+source\s+files", text):
+        num = int(m.group(1))
+        findings.append(("source_files", num, f"{path.name}: {m.group(0)}"))
+
+    # Match patterns like "across 22 packages" or "10 packages".
+    for m in re.finditer(r"(?:across\s+)?(\d+)\s+packages", text):
+        num = int(m.group(1))
+        findings.append(("packages", num, f"{path.name}: {m.group(0)}"))
 
     return findings
 
@@ -208,12 +236,21 @@ def main() -> int:
 
     actual_tests = count_test_functions()
     actual_cmds = count_cli_commands()
+    actual_source_files = count_source_files()
+    actual_packages = count_packages()
 
     doc_files = [
         ROOT / "CLAUDE.md",
         ROOT / "README.md",
         ROOT / "src" / "divineos" / "seed.json",
     ]
+
+    actuals = {
+        "tests": (actual_tests, TEST_DRIFT_THRESHOLD),
+        "commands": (actual_cmds, CMD_DRIFT_THRESHOLD),
+        "source_files": (actual_source_files, SOURCE_FILE_DRIFT_THRESHOLD),
+        "packages": (actual_packages, PACKAGE_DRIFT_THRESHOLD),
+    }
 
     errors: list[str] = []
     test_drift_found = False
@@ -222,12 +259,9 @@ def main() -> int:
         if not doc_file.exists():
             continue
         for label, documented, context in extract_documented_counts(doc_file):
-            if label == "tests":
-                actual = actual_tests
-                threshold = TEST_DRIFT_THRESHOLD
-            else:
-                actual = actual_cmds
-                threshold = CMD_DRIFT_THRESHOLD
+            if label not in actuals:
+                continue
+            actual, threshold = actuals[label]
 
             drift = abs(actual - documented)
             if drift > threshold:
@@ -253,14 +287,20 @@ def main() -> int:
         errors.extend(tree_errors)
 
     if errors:
-        print(f"Doc drift detected (tests={actual_tests}, commands={actual_cmds}):")
+        print(
+            f"Doc drift detected (tests={actual_tests}, commands={actual_cmds}, "
+            f"source_files={actual_source_files}, packages={actual_packages}):"
+        )
         print("\n".join(errors))
         if not fix_mode:
             print("\nUpdate documentation to match reality.")
             print("Or run: python scripts/check_doc_counts.py --fix")
         return 1
 
-    print(f"Doc checks OK (tests={actual_tests}, commands={actual_cmds}, tree=synced)")
+    print(
+        f"Doc checks OK (tests={actual_tests}, commands={actual_cmds}, "
+        f"source_files={actual_source_files}, packages={actual_packages}, tree=synced)"
+    )
     return 0
 
 

@@ -102,14 +102,17 @@ def _get_current_focus() -> list[dict[str, Any]]:
     except _AS_ERRORS as e:
         logger.debug("Attention focus (active memory) failed: %s", e)
 
-    # Current goals — where effort is directed
+    # Current goals — where effort is directed.
+    # Route through _ledger_base.hud_dir so DIVINEOS_DB env override
+    # moves this path along with the DB (2026-04-21, fresh-Claude
+    # find-498cc7ac6b4b — the previous relative Path("data/hud/...")
+    # was CWD-dependent and caused xdist races on parallel test runs).
     try:
         import json
-        from pathlib import Path
 
-        goal_path = Path("data/hud/active_goals.json")
-        if not goal_path.exists():
-            goal_path = Path("data") / "hud" / "active_goals.json"
+        from divineos.core._ledger_base import hud_dir
+
+        goal_path = hud_dir() / "active_goals.json"
         goals = json.loads(goal_path.read_text(encoding="utf-8")) if goal_path.exists() else []
         for goal in goals:
             if goal.get("status") == "active":

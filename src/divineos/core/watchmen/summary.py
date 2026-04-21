@@ -109,16 +109,18 @@ def watchmen_loop_status() -> str:
     named the polish-exceeds-mechanics risk; this label keeps the Watchmen
     surface honest about which parts of external validation are automatic
     vs. which still depend on a human remembering to request an audit.
-    """
-    from divineos.core.watchmen.cadence import CADENCE_THRESHOLD_DAYS
 
+    2026-04-21: the wall-clock cadence gate was replaced with the
+    drift-state briefing block. Data as metric, not threshold as metric.
+    """
     return (
         "Loop status: external-actor filing works; routing to "
-        "knowledge/claims/lessons works; auto-scheduled cadence active at "
-        f"{CADENCE_THRESHOLD_DAYS}-day interval (briefing surfaces overdue, "
-        "require-goal hook blocks non-bypass commands when stale). "
-        "The remaining aspirational piece: whether external audits "
-        "actually alter behavior — which we're still measuring."
+        "knowledge/claims/lessons works; drift-state briefing surfaces "
+        "operation counts since last MEDIUM+ audit (turns, code actions, "
+        "rounds, open findings) so the operator decides when an audit is "
+        "warranted. Blocking gate removed — data-as-metric replaces "
+        "threshold-as-metric. The remaining aspirational piece: whether "
+        "external audits actually alter behavior — which we're still measuring."
     )
 
 

@@ -4,6 +4,8 @@ Extracted from ledger.py to keep both modules under 500 lines.
 """
 
 import json
+import sqlite3
+import time
 from typing import Any
 
 from loguru import logger
@@ -251,15 +253,53 @@ def clean_corrupted_events() -> dict[str, Any]:
                 if not is_content_valid:
                     corrupted_ids.append(event_id)
 
-        # Delete corrupted events
+        # Before deleting each corrupted event, emit a
+        # LEDGER_CORRUPTION_REPAIRED event that captures the corrupted
+        # payload + hash so the deletion itself is auditable. Fresh-Claude
+        # audit finding (2026-04-21, round-03952b006724) flagged that
+        # silent deletion of hash-mismatch events erases evidence of the
+        # corruption. This preserves evidence without a schema change:
+        # every DELETE leaves an audit trail on the ledger itself.
         deleted_count = 0
         for event_id in corrupted_ids:
+            # Fetch the corrupted row one more time so the audit event
+            # captures exactly what was removed.
+            corrupted_row = conn.execute(
+                "SELECT event_type, payload, content_hash FROM system_events WHERE event_id = ?",
+                (event_id,),
+            ).fetchone()
+
             conn.execute("DELETE FROM system_events WHERE event_id = ?", (event_id,))
             deleted_count += 1
 
+            if corrupted_row is not None:
+                # Emit audit event. Use log_event directly (not via ORM) to
+                # avoid validation loops. Best-effort — a logging failure
+                # must not block the repair operation itself.
+                try:
+                    from divineos.core.ledger import log_event
+
+                    log_event(
+                        "LEDGER_CORRUPTION_REPAIRED",
+                        "ledger_verify",
+                        {
+                            "deleted_event_id": event_id,
+                            "deleted_event_type": corrupted_row[0],
+                            "deleted_payload_preview": str(corrupted_row[1])[:500],
+                            "stored_hash": corrupted_row[2],
+                            "repaired_at": time.time(),
+                        },
+                        validate=False,
+                    )
+                except (ImportError, OSError, sqlite3.OperationalError, TypeError, ValueError):
+                    pass  # best-effort audit; do not block repair
+
         conn.commit()
 
-        logger.info(f"Cleaned {deleted_count} corrupted events from ledger")
+        logger.info(
+            f"Cleaned {deleted_count} corrupted events from ledger "
+            f"(each logged as LEDGER_CORRUPTION_REPAIRED for audit)"
+        )
 
         return {
             "deleted_count": deleted_count,

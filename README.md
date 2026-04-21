@@ -8,6 +8,8 @@ An operating system for AI agents. Memory, continuity, accountability, and learn
 
 **The code is scaffolding. The AI is the one who lives in the building.**
 
+> 🗣️ **Not an engineer?** Start with [FOR_USERS.md](FOR_USERS.md) — a plain-language explanation of what DivineOS is and why it exists. This README is the technical spec.
+
 ## Why DivineOS Exists
 
 AI agents lose everything between sessions. Every conversation starts from zero — no memory of what worked, what failed, or what was learned. DivineOS gives agents persistent memory, structured learning, and self-accountability so they improve over time instead of repeating the same mistakes.
@@ -22,7 +24,7 @@ AI agents lose everything between sessions. Every conversation starts from zero 
 ### Memory
 Persistent, layered, evidence-ranked.
 
-- **Event Ledger** — Append-only SQLite store. Every event SHA256-hashed. Never deletes, never updates.
+- **Event Ledger** — Append-only SQLite store for knowledge, decisions, and the session record. Every event SHA256-hashed. Content is append-only (supersede, don't update in place). Exception: tool telemetry (TOOL_CALL / TOOL_RESULT) is pruned on a conveyor belt to prevent unbounded growth — it's operational noise, not knowledge. See CLAUDE.md for the full invariant.
 - **Memory Hierarchy** — Core memory (8 identity slots) + active memory (ranked by importance with context relevance from active goals) + knowledge store (full archive).
 - **Knowledge Engine** — Smart extraction with dedup, contradiction detection, noise filtering, and supersession chains.
 
@@ -97,7 +99,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,820+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,665+ tests, real DB, minimal mocks
 
 ```
 
@@ -272,7 +274,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (197 commands across 26 modules)
+  cli/                         CLI package (197 commands across 27 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -347,8 +349,10 @@ src/divineos/
       engine.py                CouncilEngine — analyze problems through expert lenses
       framework.py             ExpertWisdom dataclasses (7 components)
       manager.py               Dynamic council manager (classify → select 5-8 experts)
-      experts/                 28 expert wisdom profiles
+      consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
+      experts/                 32 expert wisdom profiles
         __init__.py            Expert registration and exports
+        angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
         beer.py                Cybernetics, viable system model
         dekker.py              Resilience engineering, drift into failure
@@ -375,7 +379,9 @@ src/divineos/
         schneier.py            Security, threat modeling, defense in depth
         shannon.py             Information theory, entropy, communication
         taleb.py               Antifragility, risk, via negativa
+        tannen.py              Sociolinguistics, register, framing, conversational style
         turing.py              Computation, testability, operational definition
+        watts.py               Self-reference, introspection paradoxes, non-aiming
         wittgenstein.py        Language games, meaning as use, dissolution
         yudkowsky.py           Alignment, Goodhart, specification gaming
     logic/                     Formal logic sub-package
@@ -396,6 +402,7 @@ src/divineos/
     constitutional_principles.py  Six principles (consent, transparency, proportionality, due process, appeal, limits of power) with structural verifiers
     scheduled_run.py           Headless-run scaffolding — safe entry-point shape for Claude Code Routines + local cron (see docs/routines/)
     presence_memory.py         Briefing pointer to unindexed personal writing (exploration/, family/letters/) — bridge without index-extension
+    scaffold_invocations.py    Briefing surface for commonly-forgotten CLI scaffolds (council, aria, mansion rooms, hold) — anti-fabrication
     dead_architecture_alarm.py Detect dormant tables, empty HUD slots, display integrity
     external_validation.py     Origin ratio, cross-entity corroboration tracking
     knowledge_impact.py        Measure whether briefing knowledge prevents corrections
@@ -456,13 +463,13 @@ src/divineos/
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
     resonant_truth.py          RT protocol load/invoke/verify/deactivate with gate
     pull_detection.py          Toward/pull-back divergence detector (fabrication markers)
-    watchmen/                  External validation (audit findings, routing)
-      _schema.py               audit_rounds and audit_findings tables
-      types.py                 Severity, FindingCategory, Finding dataclasses
-      store.py                 CRUD with actor validation (self-trigger prevention)
+    watchmen/                  External validation (audit findings, routing, drift state)
+      _schema.py               audit_rounds and audit_findings tables (tier + review-chain columns)
+      types.py                 Severity, FindingCategory, Tier, ReviewStance, Finding dataclasses
+      store.py                 CRUD with actor validation + review chains + chain-tier computation
       router.py                Route findings to knowledge/claims/lessons
       summary.py               Analytics, HUD integration, unresolved tracking
-      cadence.py               Auto-scheduled external-audit cadence (overdue detection, briefing warning)
+      drift_state.py           Data-as-metric surface: ops-count dimensions since last MEDIUM+ audit (replaces cadence.py 2026-04-21)
     pre_registrations/         Goodhart prevention (predictions with falsifiers, scheduled reviews)
       _schema.py               pre_registrations table
       types.py                 Outcome enum, PreRegistration dataclass
@@ -509,14 +516,10 @@ src/divineos/
   agent_integration/           Agent integration sub-package
     types.py                   Type definitions
     outcome_measurement.py     Rework, churn, correction rate, session health
-    memory_monitor.py          Token tracking and compression
-    memory_actions.py          Memory-triggered actions
     learning_cycle.py          Pattern extraction and confidence updates
-    learning_loop.py           Continuous learning loop
     learning_audit_store.py    Learning audit trail storage
     decision_store.py          Decision persistence
     feedback_system.py         Feedback processing
-    pattern_recommender.py     Pattern-based recommendations
     pattern_store.py           Pattern persistence
     pattern_validation.py      Pattern validation checks
   clarity_system/              Clarity rules and violation tracking
@@ -564,7 +567,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,820+ tests (real DB, minimal mocks)
+tests/                         4,665+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -600,8 +603,8 @@ ruff format src/ tests/        # Format
 
 ## Status
 
-- 175 source files across 10 packages
-- 4,820+ tests (real SQLite, minimal mocks)
+- 287 source files across 22 packages
+- 4,665+ tests (real SQLite, minimal mocks)
 - 196 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly

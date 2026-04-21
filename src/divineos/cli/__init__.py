@@ -77,12 +77,42 @@ def _enforce_operating_mode() -> None:
     if cmd.startswith("-"):
         return  # flags
 
+    # Rule 8 violation corrected 2026-04-21 (fresh-Claude audit
+    # round-03952b006724, finding find-3055d64bfa1c):
+    #
+    # Previous code did `except (ImportError, OSError): return` — fail open
+    # on both module-load and I/O errors. That violated CLAUDE.md Rule 8
+    # ("No fallback chains. If it fails, it fails loud") at the most
+    # safety-critical site — the corrigibility off-switch itself. An
+    # off-switch that silently disables itself if its module fails to
+    # import is a bigger problem than an unbootable CLI.
+    #
+    # New behavior:
+    #   ImportError: fail CLOSED with a loud exit — the off-switch must
+    #     work or the system must stop.
+    #   OSError: fail open but write a loud stderr warning. Mode-file I/O
+    #     errors are usually permission issues and shouldn't lock the
+    #     operator out, but they must leave a trace.
     try:
         from divineos.core.corrigibility import is_command_allowed
+    except ImportError as _imp_err:
+        click.secho(
+            f"\n  CRITICAL: corrigibility module failed to import: {_imp_err}\n"
+            "  The off-switch cannot function. All commands refused. "
+            "Fix the import error before running any divineos command.\n",
+            fg="red",
+            bold=True,
+        )
+        raise SystemExit(2) from _imp_err
 
+    try:
         allowed, reason = is_command_allowed(cmd)
-    except (ImportError, OSError):
-        return  # corrigibility module unavailable — fail open
+    except OSError as _io_err:
+        print(
+            f"corrigibility: mode-file I/O error — proceeding fail-open: {_io_err}",
+            file=sys.stderr,
+        )
+        return
 
     if not allowed:
         click.secho(f"\n  {reason}\n", fg="red", bold=True)
