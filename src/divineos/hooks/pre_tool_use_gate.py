@@ -203,32 +203,28 @@ def _check_gates() -> dict[str, Any] | None:
     except (ImportError, OSError, AttributeError):
         pass
 
-    # Gate 5: external-audit cadence
-    try:
-        from divineos.core.watchmen.cadence import (
-            CADENCE_THRESHOLD_DAYS,
-            days_since_last_audit,
-            is_overdue,
-        )
-
-        if is_overdue():
-            delta = days_since_last_audit()
-            if delta is None:
-                return _make_deny(
-                    "BLOCKED: No external audit has ever been filed. "
-                    'File one with: divineos audit submit-round "focus" '
-                    "--actor <grok|claude-sonnet-auditor|user>. "
-                    f"Threshold: {CADENCE_THRESHOLD_DAYS}d."
-                )
-            return _make_deny(
-                f"BLOCKED: External audit overdue ({delta:.1f}d since "
-                f"last, threshold {CADENCE_THRESHOLD_DAYS}d). Request "
-                "external review from grok / claude-*-auditor / user, "
-                'then file with: divineos audit submit-round "focus" '
-                "--actor <name>."
-            )
-    except (ImportError, OSError, AttributeError):
-        pass
+    # Gate 5 removed 2026-04-21 (commit C of tiered-audit redesign).
+    #
+    # The previous wall-clock cadence gate blocked non-bypass commands when
+    # more than 3 days elapsed since the last filed audit_round. That gate
+    # was removed for two reasons:
+    #
+    # 1. Time is relative — the agent has no subjective duration between
+    #    turns, so measuring cadence in wall-clock days measures the
+    #    operator's calendar rather than the agent's drift exposure.
+    # 2. The previous metric was trivially gameable (file a stub round,
+    #    gate clears) AND over-strict (legitimate external review via chat
+    #    didn't count). Both failure modes at once.
+    #
+    # The replacement is informational: ``watchmen.drift_state`` surfaces
+    # operation counts (turns, code actions, rounds, open findings) in the
+    # briefing, and the operator decides whether an audit is warranted.
+    # Data as metric, not threshold as metric. Per council consultation
+    # consult-2760777ef7a3 → audit round round-96a6858fb5e6 (MEDIUM).
+    #
+    # If a narrow blocking variant is needed later (e.g., block when N+
+    # open HIGH findings accumulate), add it here as a new, specific gate
+    # rather than reviving the generic time-based block.
 
     return None
 

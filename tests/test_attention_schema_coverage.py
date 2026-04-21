@@ -1,7 +1,6 @@
 """Extended tests for attention schema — covering uncovered paths."""
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -46,7 +45,9 @@ class TestGetCurrentFocus:
     def test_focus_includes_goals_from_file(self):
         from divineos.core.attention_schema import _get_current_focus
 
-        goal_dir = Path("data/hud")
+        from divineos.core._ledger_base import hud_dir
+
+        goal_dir = hud_dir()
         goal_dir.mkdir(parents=True, exist_ok=True)
         goals_path = goal_dir / "active_goals.json"
         goals_path.write_text(
@@ -65,7 +66,9 @@ class TestGetCurrentFocus:
     def test_focus_skips_completed_goals(self):
         from divineos.core.attention_schema import _get_current_focus
 
-        goal_dir = Path("data/hud")
+        from divineos.core._ledger_base import hud_dir
+
+        goal_dir = hud_dir()
         goal_dir.mkdir(parents=True, exist_ok=True)
         goals_path = goal_dir / "active_goals.json"
         goals_path.write_text(

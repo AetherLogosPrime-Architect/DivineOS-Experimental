@@ -126,22 +126,27 @@ class TestWatchmenLoopStatus:
         assert "Loop status:" in label
 
     def test_label_names_what_works_and_what_remains(self):
-        """After PR 4/4: filing + routing + cadence all wired. The remaining
-        aspirational piece is whether external audits actually alter
-        behavior — the label must draw that line explicitly."""
+        """After commit C of tiered-audit redesign (2026-04-21): filing +
+        routing + drift-state surfacing all wired. The wall-clock cadence
+        gate was replaced by a drift-state briefing block (data-as-metric,
+        not threshold-as-metric). The remaining aspirational piece is
+        whether external audits actually alter behavior — the label must
+        draw that line explicitly."""
         label = watchmen_loop_status()
         # Names what works
         assert "filing" in label.lower()
-        assert "cadence" in label.lower()
-        assert "active" in label.lower()
+        assert "drift" in label.lower() or "briefing" in label.lower()
+        assert "routing" in label.lower()
         # Names what is still aspirational
         assert "measuring" in label.lower() or "aspirational" in label.lower()
 
-    def test_label_names_the_interval(self):
-        """Readers should know the cadence interval without reading the hook."""
+    def test_label_names_drift_dimensions(self):
+        """Readers should see that the surface is operation-based without
+        having to inspect the module.
+        """
         label = watchmen_loop_status()
-        # Matches the CADENCE_THRESHOLD_DAYS constant wording
-        assert "day" in label.lower()
+        # Names the kind of data surfaced, not a wall-clock interval
+        assert "operation" in label.lower() or "turns" in label.lower()
 
 
 # ── Pre-registration loop status ─────────────────────────────────────

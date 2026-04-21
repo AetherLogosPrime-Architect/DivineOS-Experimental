@@ -230,8 +230,16 @@ def headless_run(
                     "started_at": started_at,
                 },
             )
-        except Exception:  # noqa: BLE001 — ledger unavailable must not block
-            pass
+        except Exception as _log_err:  # noqa: BLE001 — ledger unavailable must not block
+            # Write to stderr so cron-captured logs see the failure even when
+            # the ledger itself is down. Headless operation has no other audit
+            # trail (fresh-Claude finding find-db34aa7d4508, 2026-04-21).
+            import sys as _sys
+
+            print(
+                f"scheduled_run: start-event ledger log failed (run_id={run_id}): {_log_err}",
+                file=_sys.stderr,
+            )
 
         yield findings
 
@@ -254,8 +262,15 @@ def headless_run(
                     **findings.to_dict(),
                 },
             )
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _log_err:  # noqa: BLE001 — ledger unavailable must not block
+            import sys as _sys
+
+            print(
+                f"scheduled_run: end-event ledger log failed "
+                f"(run_id={run_id}, duration={round(completed_at - started_at, 3)}s): "
+                f"{_log_err}",
+                file=_sys.stderr,
+            )
 
 
 def recent_scheduled_runs(limit: int = 10) -> list[dict[str, Any]]:

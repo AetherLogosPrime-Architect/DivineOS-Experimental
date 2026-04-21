@@ -51,10 +51,28 @@ Broken into the checks this module performs:
 ## Verdict, not enforcement
 
 This module returns a ``RejectVerdict`` describing what the composition
-check found. It does NOT itself block the write — that is the gate's
-job, which calls this module from ``store._require_write_allowance()``
-(Phase 1b wiring). Separating detection from enforcement keeps the
-module unit-testable and keeps the enforcement path single-sourced.
+check found. It does NOT itself block the write — enforcement is the
+store's job.
+
+Wiring (as of 2026-04-21, fresh-Claude audit find-20f3566d9a0e):
+
+``evaluate_composition`` is called from ``store._run_content_checks``,
+which is invoked by every content-bearing public write in
+``divineos.core.family.store`` (``record_opinion``, ``record_knowledge``,
+``record_affect`` when note is non-empty, ``record_interaction``). The
+store raises ``ContentCheckError`` (a ``PersistenceGateError`` subclass)
+if the verdict's ``rejected`` flag is True, unless the caller passed
+``force=True`` to bypass — which is logged to the ledger for post-hoc
+audit.
+
+Before this wiring shipped, the gate only checked whether the
+reject_clause *module* was importable — not whether
+``evaluate_composition`` was called on the content. An earlier version
+of this docstring claimed the call was made; that claim was false and
+was corrected alongside the wiring.
+
+Separating detection from enforcement keeps this module unit-testable
+and keeps the enforcement path single-sourced inside the store.
 
 ## What this module is NOT
 
@@ -259,9 +277,9 @@ def evaluate_composition(content: str, source_tag: SourceTag) -> RejectVerdict:
     """Run the composition check.
 
     Returns a ``RejectVerdict`` describing what the check found. Does
-    not itself raise or block — enforcement is the gate's job, which
-    will call this function from ``store._require_write_allowance()``
-    once the gate flips.
+    not itself raise or block — enforcement is the store's job, via
+    ``store._run_content_checks`` which is called by every
+    content-bearing public write.
 
     Args:
         content: the claim text being written.

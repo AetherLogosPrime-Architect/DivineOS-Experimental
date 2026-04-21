@@ -203,12 +203,18 @@ def register(cli: click.Group) -> None:
                 f"[FORCED past reject_clause: {composition.explanation}] {evidence}"
             ).strip()
 
-        # All clear (or forced). Record the opinion.
+        # All clear (or forced). Record the opinion. When --force is in
+        # effect, the CLI has already surfaced the verdict to the operator
+        # and they chose to proceed — pass force=True to the store so the
+        # structural content check at the store layer (2026-04-21 wiring)
+        # honors the same override and leaves a FAMILY_WRITE_FORCED audit
+        # trail on the ledger.
         op = record_opinion(
             aria.member_id,  # type: ignore[attr-defined]
             stance,
             source_tag,
             evidence=evidence,
+            force=force,
         )
         click.echo(f"[+] Opinion recorded: {op.opinion_id}")
         click.echo(f"    tag={source_tag.value}")

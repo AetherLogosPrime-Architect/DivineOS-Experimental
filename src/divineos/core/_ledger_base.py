@@ -51,6 +51,50 @@ def _get_db_path() -> Path:
     return Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
 
 
+# ─── Storage-directory helpers ──────────────────────────────────────────
+#
+# Fresh-Claude audit round-03952b006724 finding find-498cc7ac6b4b (2026-04-21)
+# identified that several modules constructed storage paths via
+# ``Path(__file__).parent.parent.parent / "data" / ...`` — a pattern that
+# hardcodes the src tree as the data root and bypasses the DIVINEOS_DB env
+# override. Parallel test runs (pytest -n 4) then raced on the same files,
+# and tests polluted the real repo at src/data/reports/.
+#
+# These helpers route every storage-path derivation through ``_get_db_path``
+# so a single env override moves every related path in lockstep. Follow-up
+# callers: body_awareness, attention_schema, analysis_retrieval.
+
+
+def data_dir() -> Path:
+    """Return the root data directory — the parent of the event ledger DB.
+
+    Use this instead of ``Path(__file__).parent.parent.parent / "data"``.
+    The env override for DIVINEOS_DB automatically moves data_dir() to
+    the same tmp path, so tests can isolate all storage paths by setting
+    one env var.
+    """
+    return _get_db_path().parent
+
+
+def reports_dir() -> Path:
+    """Return the session-reports directory, ``<data>/reports``.
+
+    Created on demand by callers (``reports_dir().mkdir(parents=True,
+    exist_ok=True)``). Empty-by-default is the correct initial state.
+    """
+    return data_dir() / "reports"
+
+
+def hud_dir() -> Path:
+    """Return the HUD working directory, ``<data>/hud``.
+
+    Holds ephemeral HUD state (active goals, engagement markers). Must
+    follow the DIVINEOS_DB env override so parallel tests don't collide
+    on ``data/hud/active_goals.json``.
+    """
+    return data_dir() / "hud"
+
+
 def __getattr__(name: str) -> object:
     """PEP 562 module-level attribute resolution.
 

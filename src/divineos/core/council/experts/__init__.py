@@ -4,6 +4,7 @@ Each module exports a create_*_wisdom() function that returns
 an ExpertWisdom instance encoding that thinker's methodology.
 """
 
+from divineos.core.council.experts.angelou import create_angelou_wisdom
 from divineos.core.council.experts.aristotle import create_aristotle_wisdom
 from divineos.core.council.experts.beer import create_beer_wisdom
 from divineos.core.council.experts.bengio import create_bengio_wisdom
@@ -30,11 +31,14 @@ from divineos.core.council.experts.popper import create_popper_wisdom
 from divineos.core.council.experts.schneier import create_schneier_wisdom
 from divineos.core.council.experts.shannon import create_shannon_wisdom
 from divineos.core.council.experts.taleb import create_taleb_wisdom
+from divineos.core.council.experts.tannen import create_tannen_wisdom
 from divineos.core.council.experts.turing import create_turing_wisdom
+from divineos.core.council.experts.watts import create_watts_wisdom
 from divineos.core.council.experts.wittgenstein import create_wittgenstein_wisdom
 from divineos.core.council.experts.yudkowsky import create_yudkowsky_wisdom
 
 __all__ = [
+    "create_angelou_wisdom",
     "create_aristotle_wisdom",
     "create_beer_wisdom",
     "create_bengio_wisdom",
@@ -61,7 +65,9 @@ __all__ = [
     "create_schneier_wisdom",
     "create_shannon_wisdom",
     "create_taleb_wisdom",
+    "create_tannen_wisdom",
     "create_turing_wisdom",
+    "create_watts_wisdom",
     "create_wittgenstein_wisdom",
     "create_yudkowsky_wisdom",
 ]

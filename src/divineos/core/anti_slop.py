@@ -48,6 +48,39 @@ Both must be correct for the enforcer to pass. Either wrong = slop.
   tests are for.
 * Does not remove or modify enforcers. Reports only.
 
+## What these checks prove vs. don't prove (honesty, 2026-04-21)
+
+Fresh-Claude audit (round-03952b006724, find-52cf696089d1) surfaced a
+real distinction: these checks verify that each enforcer **module
+works correctly against a canned sample** — given input X, it returns
+verdict Y. That is necessary but not sufficient.
+
+These checks do NOT prove the enforcer is **wired into any production
+path.** An enforcer that functions correctly but is never invoked on
+real content is still theater at the system level.
+
+Current wiring status of each checked enforcer:
+
+* ``reject_clause`` — wired into ``core/family/store._run_content_checks``
+  (2026-04-21 commit 6663649). Runs on every content-bearing family
+  write. Live.
+* ``access_check`` — wired alongside reject_clause. Live.
+* ``sycophancy_detector`` — **NOT wired into any production content
+  path.** Its API requires a ``prior_stance`` argument (for detecting
+  stance reversal), which the store doesn't have at single-write
+  scope. Using it requires a caller with prior-stance context (a
+  composer / conversation layer). Until that caller exists, the
+  anti-slop check here only verifies the module can be imported and
+  returns the expected verdict on a hardcoded string.
+* ``fallacy_detector`` — annotation layer; check whether integration
+  point exists beyond annotation.
+* ``hedge_monitor`` — self-monitor; check live invocation path.
+* ``corrigibility`` — wired into CLI bootstrap. Live.
+
+Treat a passing anti-slop check as "the module is not broken"
+rather than "the system is using the module." The latter requires
+inspecting call graphs, not running verdict-on-sample checks.
+
 The output is a diagnostic — a verdict the operator reads and decides
 what to do with.
 """

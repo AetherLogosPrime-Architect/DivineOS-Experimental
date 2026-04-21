@@ -14,19 +14,19 @@ collaborating AI) can submit findings. Three structural guarantees:
 """
 
 from divineos.core.watchmen._schema import init_watchmen_tables
-from divineos.core.watchmen.cadence import (
-    CADENCE_THRESHOLD_DAYS,
-    cadence_status_line,
-    days_since_last_audit,
-    format_cadence_warning,
-    is_overdue,
-    last_external_audit_ts,
+from divineos.core.watchmen.drift_state import (
+    DriftState,
+    compute_drift_state,
+    last_medium_plus_audit_ts,
+    last_strong_audit_ts,
 )
 from divineos.core.watchmen.router import route_finding, route_round
 from divineos.core.watchmen.store import (
+    chain_tier_for_finding,
     get_finding,
     get_round,
     list_findings,
+    list_reviews_of,
     list_rounds,
     resolve_finding,
     submit_finding,
@@ -40,18 +40,18 @@ from divineos.core.watchmen.summary import (
 )
 
 __all__ = [
-    "CADENCE_THRESHOLD_DAYS",
-    "cadence_status_line",
-    "days_since_last_audit",
-    "format_cadence_warning",
+    "DriftState",
+    "chain_tier_for_finding",
+    "compute_drift_state",
     "format_watchmen_summary",
     "get_finding",
     "get_round",
     "get_watchmen_stats",
     "init_watchmen_tables",
-    "is_overdue",
-    "last_external_audit_ts",
+    "last_medium_plus_audit_ts",
+    "last_strong_audit_ts",
     "list_findings",
+    "list_reviews_of",
     "list_rounds",
     "resolve_finding",
     "route_finding",

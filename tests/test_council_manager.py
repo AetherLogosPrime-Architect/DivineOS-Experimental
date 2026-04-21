@@ -19,7 +19,7 @@ from divineos.core.council.manager import (
 
 @pytest.fixture
 def full_engine():
-    """Engine with all 28 experts registered."""
+    """Engine with all 32 experts registered."""
     from divineos.core.council import experts
 
     engine = CouncilEngine()
@@ -157,7 +157,7 @@ class TestCouncilManager:
     def test_convene_returns_managed_result(self, manager):
         result = manager.convene("wrong query results")
         assert isinstance(result, ManagedCouncilResult)
-        assert result.total_experts_available == 29
+        assert result.total_experts_available == 32
         assert len(result.analyses) <= 8
         assert len(result.analyses) >= 5
 
@@ -178,7 +178,7 @@ class TestCouncilManager:
         result = manager.convene("wrong result at boundary")
         summary = result.selection_summary()
         assert "Selected" in summary
-        assert "of 29 experts" in summary
+        assert "of 32 experts" in summary
 
     def test_explain_selection(self, manager):
         explanation = manager.explain_selection("SQL injection in auth middleware")
@@ -189,7 +189,7 @@ class TestCouncilManager:
     def test_synthesis_comes_from_selected_only(self, manager):
         result = manager.convene("FITS header field width spec")
         analysis_names = {a.expert_name for a in result.analyses}
-        # Should NOT have all 28
-        assert len(analysis_names) < 28
+        # Should NOT have all 32 — selection should pick 5-8
+        assert len(analysis_names) < 32
         # Should have Knuth for this problem
         assert "Knuth" in analysis_names

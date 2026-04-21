@@ -567,18 +567,24 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
     vitals = SubstrateVitals(measured_at=time.time())
 
     # -- Storage sizes --
-    # DBs live in src/data/, not src/divineos/data/
-    data_dir = Path(__file__).parent.parent.parent / "data"
-    if data_dir.exists():
-        for db_file in data_dir.glob("*.db"):
+    # Route through _ledger_base.data_dir so DIVINEOS_DB env override moves
+    # the introspection target along with the DB (2026-04-21, fresh-Claude
+    # find-498cc7ac6b4b). Previously hardcoded to src/data which bypassed
+    # the env override and caused tests to read from the real repo's data.
+    from divineos.core._ledger_base import data_dir as _data_dir
+    from divineos.core._ledger_base import reports_dir as _reports_dir
+
+    data_path = _data_dir()
+    if data_path.exists():
+        for db_file in data_path.glob("*.db"):
             size_mb = db_file.stat().st_size / (1024 * 1024)
             if "knowledge" in db_file.name:
                 vitals.knowledge_db_size_mb = round(size_mb, 2)
             vitals.db_size_mb = round(vitals.db_size_mb + size_mb, 2)
 
-        reports_dir = data_dir / "reports"
-        if reports_dir.exists():
-            for f in reports_dir.glob("*"):
+        reports_path = _reports_dir()
+        if reports_path.exists():
+            for f in reports_path.glob("*"):
                 vitals.reports_size_mb += f.stat().st_size / (1024 * 1024)
             vitals.reports_size_mb = round(vitals.reports_size_mb, 2)
 

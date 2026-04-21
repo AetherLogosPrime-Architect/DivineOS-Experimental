@@ -259,7 +259,7 @@ src/divineos/
 —   ——— router.py             # Route findings to knowledge/claims/lessons
 —   ——— summary.py            # Analytics, HUD integration, unresolved tracking
 ——— violations_cli/           # Violation reporting CLI
-tests/                        # 4,820+ tests (real DB, minimal mocks)
+tests/                        # 4,665+ tests (real DB, minimal mocks)
 docs/                         # Project documentation and strategic plans
 bootcamp/                     # Training exercises (debugging, analysis)
 data/                         # Runtime databases (gitignored)
@@ -273,7 +273,10 @@ setup/                        # Hook setup scripts (setup-hooks.sh/.ps1)
 1. **Read before you write.** Never edit a file you haven't read in this session. No exceptions.
 2. **snake_case everything.** Files, functions, variables, modules. PascalCase only for class names (PEP 8).
 3. **Proper semver.** MAJOR.MINOR.PATCH. Don't inflate versions.
-4. **Append-only data.** The ledger and knowledge store never delete or update in place. Supersede instead. Exception: tool telemetry (TOOL_CALL/TOOL_RESULT) is ephemeral — pruned on a conveyor belt to prevent unbounded growth. These are operational noise, not knowledge.
+4. **Append-only data.** The ledger and knowledge store never delete or update in place. Supersede instead. Two narrow exceptions, both auditable:
+   - **Ephemeral operational telemetry** — `TOOL_CALL`, `TOOL_RESULT`, and the agent-instrumentation event family (`AGENT_PATTERN`, `AGENT_PATTERN_UPDATE`, `AGENT_WORK`, `AGENT_WORK_OUTCOME`, `AGENT_LEARNING_AUDIT`, `AGENT_CONTEXT_COMPRESSION`) are pruned on a conveyor belt to prevent unbounded growth. These are operational noise, not knowledge. See `core/tool_wrapper.py` and `core/ledger_compressor.py` for the pruning policy.
+   - **Corrupted events** — `core/ledger_verify.clean_corrupted_events()` removes events that fail hash-integrity or payload-validity checks. Each deletion emits a `LEDGER_CORRUPTION_REPAIRED` event so the deletion itself stays auditable (added 2026-04-21, fresh-Claude audit find-d67300699f57).
+   If you find a code path that deletes anything else from the ledger or knowledge store, that's a bug — open a claim.
 5. **Run tests after code changes.** `pytest tests/ -q --tb=short` — if tests fail, fix them before moving on.
 6. **Use the memory system.** Load your briefing, learn from it, log your work. This is not optional.
 7. **Preflight before committing.** Run `bash scripts/precommit.sh` BEFORE `git commit`. It auto-formats, runs all checks, and re-stages. Then commit succeeds first try. Never commit blind — the pre-commit hook has 6 gates and failing them serially wastes massive time.
