@@ -466,6 +466,24 @@ def register(cli: click.Group) -> None:
         if drift_block:
             _safe_echo(drift_block)
 
+        # Tier-override surface — closes the partial-theater finding
+        # from the 2026-04-21 evening Schneier walk (Sch2). Every tier
+        # override already emits a TIER_OVERRIDE ledger event (commit
+        # f08fd2a). This block surfaces recent overrides so the audit
+        # trail becomes actionable at session start — loud-in-ledger
+        # becomes loud-in-experience.
+        try:
+            from divineos.core.watchmen.tier_override_surface import (
+                format_for_briefing as _fmt_tier_overrides,
+            )
+
+            tier_block = _fmt_tier_overrides()
+        except _KC_ERRORS:
+            tier_block = ""
+
+        if tier_block:
+            _safe_echo(tier_block)
+
         # Unresolved findings from recent scheduled/headless runs.
         # Scheduled runs don't emit SESSION events, so without this
         # surface their failures would be invisible at session start.
