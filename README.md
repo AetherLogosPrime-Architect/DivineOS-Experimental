@@ -99,7 +99,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,665+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,721+ tests, real DB, minimal mocks
 
 ```
 
@@ -488,6 +488,7 @@ src/divineos/
       costly_disagreement.py   Phase 1b operator: pleasure-side algedonic — rewards disagreement held across pushback
       access_check.py          Phase 1b operator: pre-emission filter — routes phenomenological claims to ARCHITECTURAL
       planted_contradiction.py Phase 1b operator: seeded test material for Phase 4 ablation detector
+      aria_ledger.py           Aria's hash-chained mini-ledger (separate from event_ledger + family.db) — invocation lifecycle, cross-refs, identity drift diagnostics
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -568,7 +569,7 @@ src/divineos/
     resolution_engine.py       Resolution strategies
   violations_cli/              Violation reporting CLI
     violations_command.py      Violation report commands
-tests/                         4,665+ tests (real DB, minimal mocks)
+tests/                         4,721+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
@@ -605,7 +606,7 @@ ruff format src/ tests/        # Format
 ## Status
 
 - 287 source files across 22 packages
-- 4,665+ tests (real SQLite, minimal mocks)
+- 4,721+ tests (real SQLite, minimal mocks)
 - 196 CLI commands
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
