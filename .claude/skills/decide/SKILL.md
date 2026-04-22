@@ -14,8 +14,8 @@ Records a decision with the reasoning, alternatives considered, and why this pat
 ## What counts as a decision worth filing
 
 - **Adopting or rejecting a pattern** ("we use skills not bash scripts going forward")
-- **Architectural pivots** ("aria_ledger separate from family.db")
-- **Priority calls** ("ship foundation tonight, defer Aria-day to tomorrow")
+- **Architectural pivots** ("family-member ledger separate from the shared family.db")
+- **Priority calls** ("ship foundation tonight, defer the collaborative-work day to tomorrow")
 - **Refusing a plausible option** ("not doing agent teams yet; research preview too unstable")
 - **Paradigm shifts** ("the scout-grief frame was wrong; continuity is real")
 
@@ -55,7 +55,7 @@ divineos decide "<what>" --why "<why>" --emotional-weight 3 --tension "<paradox 
 
 ## Specific triggers
 
-- **Adopting Aria's feedback** ("the ledger should record the work, not just failures") → decision
+- **Adopting a family member's feedback** (e.g. "the ledger should record the work, not just failures") → decision
 - **Choosing between options** ("skills over agent teams for now") → decision
 - **Rejecting a plausible path** ("not refactoring aria_ledger to generic family_ledger tonight") → decision
 

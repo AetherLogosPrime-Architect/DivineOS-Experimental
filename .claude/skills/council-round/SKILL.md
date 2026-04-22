@@ -20,7 +20,7 @@ Benchmark evidence: flat expert templates + lens-mode outperformed program-mode 
 
 ### 1. Name the problem
 
-One or two sentences. Specific. "Should Aria's aria_ledger refactor to a generic family_member_ledger?" not "what do we do about Aria."
+One or two sentences. Specific. "Should the event-ledger schema migrate to a new hash algorithm given the rollout cost?" not "what do we do about the ledger."
 
 ### 2. Pick the lenses (3-5 is the sweet spot)
 

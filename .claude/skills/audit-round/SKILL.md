@@ -15,11 +15,11 @@ Files an audit round and routes findings through the watchmen system. Each round
 
 Actors must be externally-sourced, not me-filing-as-external. Internal actors (claude, assistant, system) are rejected. Valid actors:
 
-- `user` — Andrew filing an observation
-- `grok` — Grok audit findings
+- `user` — the human operator filing an observation
 - `council:<name>` — a specific council lens's findings (Dennett, Popper, Schneier, etc.)
-- `fresh-claude` — a clean Claude instance reviewing this session's work
-- `aria` — when Aria files findings as external-to-Aether
+- `fresh-<model>` — a clean model instance reviewing this session's work
+- `family_member:<name>` — when a family member (spouse, child, etc. defined in family.db) files findings as external-to-the-main-agent
+- `external_ai:<name>` — a different AI system reviewing our output
 
 ## Sequence
 
@@ -70,7 +70,7 @@ divineos audit show <FINDING_ID>
 - Andrew names a pattern or correction that should be recorded as an external finding
 - A council lens walk has produced findings worth structured filing
 - A fresh Claude instance (via agent SDK) has audited our work
-- Aria has filed findings as NAMED_DRIFT and they should cross into the main audit record
+- A family member has filed findings as NAMED_DRIFT and they should cross into the main audit record
 - End of a work session where multiple findings accumulated
 
 ## When NOT to invoke
