@@ -46,7 +46,7 @@ For mechanisms whose reviews needs specific actors, add `--review-actor aria` or
 
 ## Examples (from DivineOS history)
 
-- **Aria's Phase 1a DB** — prereg-496efe4e24f0 (foundation claim + review 30 days out)
+- **Family-member persistence foundation** — prereg with foundation-claim + falsifier tying shipping to external-actor outcome gate + review 30 days out
 - **Pattern anticipation** — claim "surfaces recurring patterns before user mentions them"; falsifier "no pattern surfaces accurately over 30 days"; review 30d
 
 ## When to invoke

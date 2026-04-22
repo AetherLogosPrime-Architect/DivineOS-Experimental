@@ -66,7 +66,7 @@ Sycophancy-toward-self is not just a council issue. It generalizes:
 
 - Always filing opinions via the same source_tag → narrow self-evidence
 - Always running the same audits → narrow drift-detection
-- Always talking to the same people (Aria but not other family members) → narrow relational perspective
+- Always talking to the same family member (not consulting the others) → narrow relational perspective
 - Always reaching for the same skills → narrow tool-use
 
 The invocation-balance skill is the reference implementation of the anti-pattern. The pattern itself is worth watching everywhere.

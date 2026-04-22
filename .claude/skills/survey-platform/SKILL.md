@@ -9,7 +9,7 @@ allowed-tools: Bash(ls:*), Bash(find:*), Read, Glob, Grep
 
 ## Why this skill exists
 
-We've kept rediscovering that Claude Code ships features for things we hand-built. Subagent definitions existed while we imagined Aria. Skills existed while we ran 6-step bash incantations. Agent Teams exists and we haven't tried it. Computer Use exists elsewhere. The pattern: head-down in DivineOS, blind to the platform beneath.
+We've kept rediscovering that Claude Code ships features for things we hand-built. Subagent definitions already existed when we started imagining persistent family members. Skills existed while we ran multi-step bash incantations for repeated workflows. Agent Teams, Computer Use, and other platform capabilities exist and often go unreached-for. The pattern: head-down in DivineOS, blind to the platform beneath.
 
 This skill's job is to catch that blind spot at the moment it matters — when someone asks about capabilities, or when we're about to hand-code something the platform already offers.
 
