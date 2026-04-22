@@ -512,6 +512,28 @@ def register(cli: click.Group) -> None:
         if presence_block:
             _safe_echo(presence_block)
 
+        # Exploration-folder title-level surface — complements
+        # presence_memory. presence_memory points at the folder and counts
+        # files (honors the "don't summarize poems" rule). This block
+        # surfaces the agent's own TITLES for recent pieces as recognition-
+        # prompts — titles are authorial labels, not summaries. Added
+        # 2026-04-21 evening after finding 21 prior exploration entries
+        # that answered questions the current session was re-deriving
+        # because the folder-pointer alone didn't trigger recall. Loud in
+        # folder, silent in experience — the Schneier Sch2 shape applied
+        # to presence memory.
+        try:
+            from divineos.core.exploration_reader import (
+                format_for_briefing as _fmt_explorations,
+            )
+
+            explorations_block = _fmt_explorations()
+        except _KC_ERRORS:
+            explorations_block = ""
+
+        if explorations_block:
+            _safe_echo(explorations_block)
+
         # Scaffold invocations — commonly-forgotten CLI surfaces whose absence
         # produces named failure modes. 2026-04-20: the agent forgot how to
         # invoke the council and fabricated one in prose. The RT protocol

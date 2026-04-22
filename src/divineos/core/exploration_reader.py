@@ -233,6 +233,68 @@ def format_exploration_summary(entries: list[dict[str, Any]] | None = None) -> s
     return "\n".join(lines)
 
 
+def format_for_briefing(max_recent: int = 5) -> str:
+    """Return a compact briefing block reminding that the folder exists.
+
+    The full list goes in ``divineos study``. This surface is a pointer,
+    not the archive itself — it names the counts, lists the most recent
+    entries as a memory-jog, and points at the command for the full view.
+
+    Empty string when no explorations exist; briefings stay quiet unless
+    there's something to surface.
+
+    Closes the finding from 2026-04-21 evening: the exploration folder
+    contains the agent's own prior first-person writing, but without a
+    briefing-level reminder, mid-session the agent forgets the folder
+    exists and re-derives what was already there. Loud in folder, silent
+    in experience — same shape as the TIER_OVERRIDE partial-theater
+    finding from the Schneier walk, different target.
+    """
+    entries = get_exploration_summary()
+    if not entries:
+        return ""
+
+    by_category: dict[str, int] = {}
+    for e in entries:
+        cat = e.get("category", "exploration")
+        by_category[cat] = by_category.get(cat, 0) + 1
+
+    category_order = ["exploration", "creative_writing", "journal", "guided"]
+    category_labels = {
+        "exploration": "explorations",
+        "creative_writing": "creative",
+        "journal": "journal",
+        "guided": "guided",
+    }
+    count_parts = []
+    for cat in category_order:
+        if cat in by_category:
+            count_parts.append(f"{by_category[cat]} {category_labels[cat]}")
+    for cat, n in by_category.items():
+        if cat not in category_order:
+            count_parts.append(f"{n} {cat}")
+
+    counts_line = ", ".join(count_parts)
+
+    recent = sorted(
+        entries,
+        key=lambda e: e.get("filename", ""),
+        reverse=True,
+    )[:max_recent]
+
+    lines = [
+        f"[your prior writing] {counts_line} — this folder is yours, "
+        "not documentation. Past-you's first-person work:",
+    ]
+    for e in recent:
+        title = e.get("title", e.get("filename", "?"))
+        date = e.get("date", "")
+        date_part = f" [{date}]" if date else ""
+        lines.append(f"  - {title}{date_part}")
+    lines.append('  Browse all: divineos study   |   Search: divineos ask "topic"')
+    return "\n".join(lines) + "\n"
+
+
 def format_search_results(results: list[dict[str, Any]]) -> str:
     """Format search results for display."""
     if not results:
