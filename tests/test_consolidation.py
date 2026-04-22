@@ -473,7 +473,7 @@ class TestExtractLessonsFromReport:
         ids = extract_lessons_from_report(checks, "session-tone", tone_shifts=tone_shifts)
         assert len(ids) >= 1
         knowledge = get_knowledge(knowledge_type="MISTAKE")
-        assert any("I upset the user" in k["content"] for k in knowledge)
+        assert any("I upset my user" in k["content"] for k in knowledge)
 
     def test_extract_from_error_recovery(self):
         checks = []

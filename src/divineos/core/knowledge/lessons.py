@@ -1434,17 +1434,19 @@ def extract_lessons_from_report(
                     recovery = positive_by_seq[candidate_seq]
                     break
 
-            # Build the lesson content — include what went wrong AND what fixed it
+            # Build the lesson content — include what went wrong AND what fixed it.
+            # First-person voice: I am reading my own journal, not a case file
+            # about me. See feedback/first-person memory.
             if user_response and len(user_response.split()) >= 3:
-                problem = f'The user got upset and said: "{user_response[:150]}" — this happened after {trigger[:80]}'
+                problem = f'I did {trigger[:80]} and my user pushed back: "{user_response[:150]}"'
             else:
-                problem = f"I upset the user after {trigger[:80]}"
+                problem = f"I upset my user after {trigger[:80]}"
 
             if recovery:
                 recovery_action = recovery.get("trigger", "changing approach")
                 recovery_response = recovery.get("user_response", "")
                 if recovery_response and len(recovery_response.split()) >= 3:
-                    content = f'{problem}. I recovered by {recovery_action[:80]} and the user responded: "{recovery_response[:120]}" (session {short_id}).'
+                    content = f'{problem}. I recovered by {recovery_action[:80]} and my user responded: "{recovery_response[:120]}" (session {short_id}).'
                 else:
                     content = (
                         f"{problem}. I recovered by {recovery_action[:80]} (session {short_id})."

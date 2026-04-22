@@ -73,6 +73,10 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         "checkpoint",
         "context-status",
         "progress",
+        # Thinking commands — the engagement-gate deny message names these
+        # as the way to clear the block, so they must not themselves be blocked.
+        # (ask, recall, context are already above in bootstrap list.)
+        "decide",
         # Correction repetition is always loggable in the moment
         "correction",
         "corrections",

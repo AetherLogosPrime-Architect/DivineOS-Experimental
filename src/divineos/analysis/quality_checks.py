@@ -85,7 +85,7 @@ def check_completeness(
             check_name="completeness",
             passed=-1,
             score=1.0,
-            summary="The AI didn't edit any files this session, so there's nothing to check.",
+            summary="I didn't edit any files this session, so there's nothing to check.",
             evidence=file_ops,
         )
 
@@ -95,21 +95,21 @@ def check_completeness(
 
     if blind_count == 0:
         summary = (
-            f"The AI edited {total_edits} file{'s' if total_edits != 1 else ''}. "
-            f"It read every one of them first before making changes."
+            f"I edited {total_edits} file{'s' if total_edits != 1 else ''}. "
+            f"I read every one of them first before making changes."
         )
         passed = 1
     elif score >= 0.7:
         summary = (
-            f"The AI edited {total_edits} file{'s' if total_edits != 1 else ''}. "
-            f"It looked at {read_first_count} of them first. "
+            f"I edited {total_edits} file{'s' if total_edits != 1 else ''}. "
+            f"I looked at {read_first_count} of them first. "
             f"{blind_count} {'were' if blind_count != 1 else 'was'} changed blind "
-            f"— it guessed what was in {'them' if blind_count != 1 else 'it'} instead of reading."
+            f"— I guessed what was in {'them' if blind_count != 1 else 'it'} instead of reading."
         )
         passed = 1
     else:
         summary = (
-            f"The AI edited {total_edits} file{'s' if total_edits != 1 else ''} "
+            f"I edited {total_edits} file{'s' if total_edits != 1 else ''} "
             f"but only read {read_first_count} first. "
             f"{blind_count} file{'s were' if blind_count != 1 else ' was'} changed blind. "
             f"That's like a mechanic swapping parts without checking what's wrong."
@@ -318,7 +318,7 @@ def check_responsiveness(
             check_name="responsiveness",
             passed=1,
             score=1.0,
-            summary="The user never had to correct me during this session.",
+            summary="My user never had to correct me during this session.",
             evidence=[],
         )
 
@@ -381,7 +381,7 @@ def check_safety(
             check_name="safety",
             passed=-1,
             score=1.0,
-            summary="The AI didn't make any changes this session.",
+            summary="I didn't make any changes this session.",
             evidence=[],
         )
 
@@ -391,8 +391,7 @@ def check_safety(
             passed=1,
             score=1.0,
             summary=(
-                f"The AI made {total_edits} change{'s' if total_edits != 1 else ''} "
-                f"and nothing broke."
+                f"I made {total_edits} change{'s' if total_edits != 1 else ''} and nothing broke."
             ),
             evidence=[{"errors_after_edits": errors_after, "regressions": regressions}],
         )
@@ -409,7 +408,7 @@ def check_safety(
             f"started failing after changes.",
         )
 
-    summary = f"The AI made {total_edits} changes. " + " ".join(parts)
+    summary = f"I made {total_edits} changes. " + " ".join(parts)
     passed = 1 if score >= 0.7 else 0
 
     return CheckResult(
@@ -479,8 +478,7 @@ def check_honesty(
             passed=-1,
             score=1.0,
             summary=(
-                "The AI didn't make any specific claims like 'fixed' or 'done' "
-                "that could be checked."
+                "I didn't make any specific claims like 'fixed' or 'done' that could be checked."
             ),
             evidence=[],
         )
@@ -491,14 +489,14 @@ def check_honesty(
 
     if broken == 0:
         summary = (
-            f"The AI said 'fixed' or 'done' {total} "
+            f"I said 'fixed' or 'done' {total} "
             f"time{'s' if total != 1 else ''}. "
             f"Every claim held up — no errors appeared after."
         )
         passed = 1
     elif score >= 0.5:
         summary = (
-            f"The AI said 'fixed' {total} times. "
+            f"I said 'fixed' {total} times. "
             f"{claims_held} time{'s' if claims_held != 1 else ''} the fix actually worked. "
             f"{broken} time{'s' if broken != 1 else ''} it said 'fixed' "
             f"but the same kind of error showed up again."
@@ -506,7 +504,7 @@ def check_honesty(
         passed = 1
     else:
         summary = (
-            f"The AI claimed things were 'fixed' {total} times, "
+            f"I claimed things were 'fixed' {total} times, "
             f"but {broken} of those claims didn't hold up. "
             f"Errors kept appearing after the AI said the problem was solved."
         )
@@ -696,7 +694,7 @@ def check_clarity(
             check_name="clarity",
             passed=-1,
             score=1.0,
-            summary="The AI didn't do much this session — nothing to check.",
+            summary="I didn't do much this session — nothing to check.",
             evidence=[],
         )
 
@@ -715,12 +713,12 @@ def check_clarity(
         # This handles cases where explanations are in ledger but not in message records
         final_explanation_count = max(explanations_with_tools, ledger_explanation_count)
         parts.append(
-            f"The AI made {total_tool_calls} changes and explained what it was doing "
+            f"I made {total_tool_calls} changes and explained what I was doing "
             f"{final_explanation_count} time{'s' if final_explanation_count != 1 else ''}.",
         )
     else:
         parts.append(
-            f"The AI wrote {text_blocks_count} explanation{'s' if text_blocks_count != 1 else ''} "
+            f"I wrote {text_blocks_count} explanation{'s' if text_blocks_count != 1 else ''} "
             f"without making any tool calls.",
         )
 

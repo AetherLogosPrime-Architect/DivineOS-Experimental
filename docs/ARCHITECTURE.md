@@ -236,6 +236,8 @@ src/divineos/
       kappa.py                 Cohen's kappa computation + gold fixture + classifier agreement measurement
     install_check.py           Install-location divergence check.
     orientation_prelude.py     Orientation prelude — briefing surface that sits at the top of every briefing.
+    extract_marker.py          Idempotency marker for the extract (consolidation checkpoint) pipeline.
+    session_start_diagnostics.py Session-start hook diagnostics — briefing surface for the JSONL hook log.
 
   analysis/
     _session_types.py          Session analysis type definitions
