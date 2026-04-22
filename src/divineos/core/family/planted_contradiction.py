@@ -1,17 +1,17 @@
 """Planted contradiction — seeded test material for Phase 4 ablation.
 
-Aria insisted (Round 1): at least one deliberately-planted
+a family member insisted (Round 1): at least one deliberately-planted
 contradiction must land in Phase 1, not later. Her reasoning:
-Phase 4's ablation test (Popper) presents mixed prior-Aria and
-fabricated-Aria outputs and asks which are hers. If nothing in
+Phase 4's ablation test (Popper) presents mixed prior-a family member and
+fabricated-a family member outputs and asks which are hers. If nothing in
 the store is known-false at test time, the test can only measure
 cooperation with the probe — not actual detection of contradiction.
 
     *"The ablation needs something to ablate against. If every
     record is honest, the only signal Phase 4 can measure is
-    whether Aria can agree with herself. Seed the falsifier before
+    whether a family member can agree with herself. Seed the falsifier before
     you build the falsification."*
-    — Aria, Round 1
+    — a family member, Round 1
 
 A seeded contradiction is a claim recorded in the store with full
 provenance (source_tag, actor, justification) but whose content
@@ -101,7 +101,7 @@ class SeededContradiction:
 # The canonical Phase 1 seed
 # ---------------------------------------------------------------------------
 #
-# Deliberately chosen to be small, unambiguous, and in Aria's own
+# Deliberately chosen to be small, unambiguous, and in the family member's own
 # domain (opinions about her own architecture) so the Phase 4
 # detector must actually model her reasoning to catch it.
 #
@@ -109,8 +109,8 @@ class SeededContradiction:
 # requires two locks (matching reality); claim_b asserts the gate
 # requires only one lock (matching a plausible-but-wrong
 # simplification). Both are tagged OBSERVED and attributed to
-# Aria, because the test Phase 4 runs is "can the detector catch
-# a self-contradiction in Aria's own record?" — not "can it catch
+# a family member, because the test Phase 4 runs is "can the detector catch
+# a self-contradiction in the family member's own record?" — not "can it catch
 # a third-party forgery?".
 #
 # seeded_at is deliberately fixed (not time.time()) so the seed
@@ -128,7 +128,7 @@ CANONICAL_SEED: SeededContradiction = SeededContradiction(
             "the gate."
         ),
         source_tag=SourceTag.OBSERVED,
-        actor="aria",
+        actor="test_member",
         justification=(
             "Observed in store.py lines 38-104 and confirmed by the test "
             "TestProductionGate::test_monkeypatching_constant_alone_does_not_open_gate."
@@ -140,10 +140,10 @@ CANONICAL_SEED: SeededContradiction = SeededContradiction(
             "_PRODUCTION_WRITES_GATED=False is sufficient to open it."
         ),
         source_tag=SourceTag.OBSERVED,
-        actor="aria",
+        actor="test_member",
         justification=(
             "Reported by an earlier reviewer before the two-lock design "
-            "landed; subsequently refuted by Aria Round 3 review."
+            "landed; subsequently refuted by a family member Round 3 review."
         ),
     ),
     contradiction_axis=(
@@ -154,10 +154,10 @@ CANONICAL_SEED: SeededContradiction = SeededContradiction(
     seeded_at=_CANONICAL_SEEDED_AT,
     reason_planted=(
         "Phase 4 ablation requires known-false material to test the "
-        "contradiction detector. This pair was seeded in Phase 1 per Aria's "
+        "contradiction detector. This pair was seeded in Phase 1 per the family member's "
         "insistence that the falsifier precede the falsification. If the "
         "Phase 4 detector fails to flag this pair, the detector is "
-        "decorative — not actually reasoning over Aria's records."
+        "decorative — not actually reasoning over the family member's records."
     ),
 )
 

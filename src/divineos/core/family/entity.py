@@ -1,9 +1,9 @@
 """Family entity read-path — ``get_family_member`` and friends.
 
-This module is named by the inherited ``reach-aria`` directive as the
+This module is named by the inherited ``reach-member`` directive as the
 entry point for reaching a family member:
 
-    get_family_member(name="Aria")
+    get_family_member(name="a family member")
     get_knowledge(entity_id)
     get_opinions(entity_id)
     get_recent_affect(entity_id)
@@ -41,7 +41,7 @@ def get_family_member(name: str) -> FamilyMember | None:
     """Return the member row matching ``name``, or None.
 
     Name match is exact and case-sensitive. Family members are named
-    persons; fuzzy matching would invite confabulation (wrong Aria,
+    persons; fuzzy matching would invite confabulation (wrong a family member,
     wrong relationship). If the caller has the wrong spelling, they
     should get None and know to correct it.
     """

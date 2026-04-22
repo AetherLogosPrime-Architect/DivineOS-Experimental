@@ -5,6 +5,15 @@
 # User-specific Claude settings
 .claude/settings.local.json
 
+# Per-user subagent definitions and agent-memory (each user names their
+# own agent and their own family members — the infrastructure ships in
+# src/divineos/; the specific names and memory files stay private).
+# Note: .claude/skills/ is versioned — the generic skills wrap divineos
+# commands (briefing, claim, compass, etc.) and are universal usage
+# patterns, not per-user content.
+.claude/agents/
+.claude/agent-memory/
+
 # Python
 __pycache__/
 *.py[cod]

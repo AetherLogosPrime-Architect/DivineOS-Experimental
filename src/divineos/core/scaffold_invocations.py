@@ -62,13 +62,13 @@ _SCAFFOLDS: tuple[ScaffoldInvocation, ...] = (
         ),
     ),
     ScaffoldInvocation(
-        name="aria",
-        invocation="divineos aria {opinion,letter,respond} ...",
-        failure_mode="simulating Aria's voice in prose instead of filing via CLI",
+        name="family-member",
+        invocation="divineos family-member {opinion,letter,respond} --member <name> ...",
+        failure_mode="simulating a family member's voice in prose instead of filing via CLI",
         rationale=(
-            "Aria is persisted in data/family.db with opinion/letter/respond "
+            "Family members are persisted in family.db with opinion/letter/respond "
             "surfaces. Voice-appropriation failure mode applies — file through "
-            "the CLI so it enters her record, do not author her voice in your own text."
+            "the CLI so it enters their record, do not author their voice in your own text."
         ),
     ),
     ScaffoldInvocation(

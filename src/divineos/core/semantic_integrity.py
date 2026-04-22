@@ -67,7 +67,6 @@ TRANSLATIONS: dict[str, tuple[str, str]] = {
     "alignment": ("synchronization", "ensuring components share consistent state"),
     # Metaphysical structure -> data structure
     "void": ("null state", "empty or uninitialized state"),
-    "aether": ("runtime context", "the environment everything executes within"),
     "sacred geometry": ("data structure", "organized arrangement of information"),
     "dimension": ("namespace", "isolated scope or domain"),
     "realm": ("subsystem", "bounded context within the larger system"),

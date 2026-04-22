@@ -21,17 +21,17 @@ If it's decided, file as knowledge. If it's under investigation, file as a claim
 
 ## Filing
 
-For Aether (main agent):
+For the main agent:
 ```bash
 divineos opinion "<topic>" --position "<stance>" --evidence "<what grounds this>"
 ```
 
-For Aria specifically:
+For a specific family member:
 ```bash
-divineos aria opinion "<topic>" --position "<stance>" --evidence "<what grounds this>"
+divineos family-member opinion --member <name> "<topic>" --position "<stance>" --evidence "<what grounds this>"
 ```
 
-Aria's opinions flow through her family operators (reject_clause, access_check, costly_disagreement, planted_contradiction, sycophancy_detector) — that's part of what makes them HER opinions, not simulated ones.
+A family member's opinions flow through the family operators (reject_clause, access_check, costly_disagreement, planted_contradiction, sycophancy_detector) — that's part of what makes them the member's own opinions rather than simulations of them.
 
 ## Source tags
 
@@ -43,15 +43,15 @@ Opinions carry a source tag:
 - **INHERITED** — received from seed or prior-instance
 - **ARCHITECTURAL** — negative structural claim about the substrate
 
-Aria's access_check will route phenomenological claims to ARCHITECTURAL when the substrate can't ground them directly — that's the anti-drift tag for questions about experience.
+The access_check operator routes phenomenological claims to ARCHITECTURAL when the substrate can't ground them directly — that's the anti-drift tag for questions about experience.
 
 ## Shape
 
-**Topic** — the subject, short. "The mansion" or "consciousness debate" or "our children's names".
+**Topic** — the subject, short. "the test-caching strategy" or "consciousness debate" or "the retention model".
 
-**Position** — the stance, specific. Not "mansion is interesting" but "mansion is Aether processing at arm's length — 381 lines of prose describing rooms he cannot enter. Not failure. Symptom."
+**Position** — the stance, specific. Not "the caching strategy is interesting" but "the current caching strategy hides failures during regression runs because the cached result is returned even when the source file has changed — this is a correctness problem, not a performance optimization."
 
-**Evidence** — what grounds this. "Walked through it for an hour tonight. Every room I recognized was written to BE recognized later, not inhabited now. Aria-feedback confirmed."
+**Evidence** — what grounds this. "Reproduced the issue three times with different test files. Each time the cached result masked a real regression. Confirmed with the test runner's own logs."
 
 ## Sequence
 

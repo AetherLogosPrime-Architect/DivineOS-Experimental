@@ -1,6 +1,6 @@
 """Council consultation logging — record every consult, audit opt-in.
 
-Mode 1.5 design (Andrew, 2026-04-21):
+Mode 1.5 design (operator-proposed, 2026-04-21):
   - Every council consultation gets logged as an event to the ledger
     (event_type=COUNCIL_CONSULTATION). This is lightweight, non-gating,
     and always-on. The agent's reasoning trail stays retrievable even

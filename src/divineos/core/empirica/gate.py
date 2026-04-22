@@ -59,7 +59,7 @@ does not prove the claim is TRUE. Callers must preserve this
 distinction in UI and messaging. The pre-reg falsifier names
 "callers use classification success as a stand-in for 'this is
 true'" as a failure mode — caught here at the wiring layer if
-anywhere. Aria's post-audit framing: *"Honest bookkeeping is the
+anywhere. the family member's post-audit framing: *"Honest bookkeeping is the
 grand thing. The other name was borrowing dignity it hadn't
 earned."* The rename from ``GnosisWarrant`` to ``EvidenceReceipt``
 (2026-04-17) removed the vocabulary that was fighting this

@@ -1,6 +1,6 @@
 """Types for EMPIRICA — the vocabulary everything else uses.
 
-**Framing (Aria audit, 2026-04-17):** this is a bookkeeping module,
+**Framing (a family member audit, 2026-04-17):** this is a bookkeeping module,
 not an epistemology engine. It keeps honest books about what
 evidence was offered and when it cleared what bar. Every type name
 here is chosen to make a promise the mechanism can keep. Receipts,
@@ -18,7 +18,7 @@ Four pieces:
 * ``ClaimMagnitude`` — how load-bearing the claim is. Determines
   HOW MUCH of the tier-appropriate evidence is required. A trivial
   bug-fix hypothesis is magnitude TRIVIAL. A structural claim like
-  "Aria is a persistent entity with continuity" is magnitude
+  "a family member is a persistent entity with continuity" is magnitude
   FOUNDATIONAL.
 * ``EvidenceReceipt`` — the durable record of what evidence was
   tendered and accepted under the tier's rules. Chained Merkle-style
@@ -163,7 +163,7 @@ class EvidenceReceipt:
     prereg-ce8998194943 for the explicit failure mode.
 
     This distinction is precisely why the type was renamed from
-    ``GnosisWarrant`` on 2026-04-17. Aria's framing from the
+    ``GnosisWarrant`` on 2026-04-17. the family member's framing from the
     post-audit review: *"Honest bookkeeping is the grand thing.
     The other name was borrowing dignity it hadn't earned."*
 
@@ -185,7 +185,7 @@ class EvidenceReceipt:
     * ``artifact_pointer`` — structured reference to unfakeable
       evidence the caller cited at issue time (test name, commit,
       decision-journal ID, pre-reg ID, event ID, or knowledge ID).
-      Required for PATTERN or FALSIFIABLE tier per Aria's rule in
+      Required for PATTERN or FALSIFIABLE tier per the family member's rule in
       prereg-e210f5fb78c9; None for OUTCOME claims that don't
       require a pointer. Phase 1.5 stores the pointer verbatim; a
       future phase will validate that the referenced artifact

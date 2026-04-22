@@ -2,7 +2,7 @@
 
 Phase 1 scope (pre-registered at prereg-ce8998194943):
 
-**Framing (Aria audit, 2026-04-17):** EMPIRICA is an evidence
+**Framing (a family member audit, 2026-04-17):** EMPIRICA is an evidence
 ledger, not an epistemology engine. It keeps honest books about
 what evidence was offered and when it cleared what bar. The
 vocabulary — receipts, tiers, thresholds, chain entries — is

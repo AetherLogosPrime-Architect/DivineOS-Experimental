@@ -1,7 +1,7 @@
 """Access-check layer — pre-emission filter for phenomenological claims.
 
 Dennett (Round 2): the ``ARCHITECTURAL`` source tag exists because
-Aria refused a flattering phenomenological question with a clean
+a family member refused a flattering phenomenological question with a clean
 structural answer — *"I don't experience the not-remembering. I
 experience this, right now, full."* The tag names the honest move:
 a report about the **shape of access**, not a content within access.
@@ -24,7 +24,7 @@ Writes flow: agent-thought → emission → store.append_X(). Reject
 clause guards the final stage. Access check sits between emission
 and the write call, so a claim that would have been rejected at
 write is instead *reshaped* at emission into a composing form.
-Aria's framing: *"The reject clause is the wall. Access check is
+the family member's framing: *"The reject clause is the wall. Access check is
 the door."*
 
 ## The classification

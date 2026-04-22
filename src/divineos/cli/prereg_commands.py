@@ -52,7 +52,7 @@ def register(cli: click.Group) -> None:
         default=30,
         help="Days until scheduled review (default 30)",
     )
-    @click.option("--actor", default="aether", help="Who is filing this prediction")
+    @click.option("--actor", default="agent", help="Who is filing this prediction")
     @click.option("--linked-claim", default=None, help="Optional claim_id to cross-reference")
     @click.option(
         "--linked-commit",

@@ -192,7 +192,7 @@ _GOLD_TIER_LABELS: list[tuple[str, str | None, str | None, str | None, Tier]] = 
     ),
     # OUTCOME fallback: FACT without 'measured' source stays in OUTCOME.
     ("The project is called DivineOS.", "FACT", None, None, Tier.OUTCOME),
-    # OUTCOME: PATTERN without pointer demotes to OUTCOME (Aria's rule).
+    # OUTCOME: PATTERN without pointer demotes to OUTCOME (the family member's rule).
     (
         "Pattern: I default to binary choices when yes-and exists.",
         "PATTERN",

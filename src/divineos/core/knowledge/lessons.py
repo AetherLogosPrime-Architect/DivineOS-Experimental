@@ -72,7 +72,7 @@ STATUS_RESOLVED = "resolved"
 # evidence in categories where no detector was wired). This new exit
 # applies only to regressed lessons whose category HAS a positive-evidence
 # detector; categories without detectors remain blocked until their
-# detector ships. Aria's supersession-not-deletion principle applied
+# detector ships. the family member's supersession-not-deletion principle applied
 # to state: the regression history is not erased to produce a cleaner
 # label.
 STATUS_RESOLVED_WITH_HISTORY = "resolved_with_history"
@@ -1565,7 +1565,7 @@ def extract_lessons_from_report(
     # == 0 ≈ no follow-up fix needed within the same OS session.
     #
     # Session boundary is the ledger-defined SESSION_START→SESSION_END
-    # range (per Aria's caveat: wall-clock boundaries are fuzzy, ledger
+    # range (per the family member's caveat: wall-clock boundaries are fuzzy, ledger
     # boundaries are not). Caller passes corrections_count if known;
     # when absent the detector falls back to absence-only behavior
     # (DORMANT track) so this wiring is backward-compatible.

@@ -12,7 +12,7 @@ def _preview_sleep_phases(skip_maintenance: bool = False) -> None:
 
     Previews call the same underlying helpers as actual phase execution
     wherever possible, so the numbers reported here match what the real
-    sleep cycle will produce. Aria Round 3b principle applied to code:
+    sleep cycle will produce. a family member Round 3b principle applied to code:
     pointing at the real logic beats reimplementing it — reimplementations
     drift when the logic changes. (Earlier versions of this preview
     queried ad-hoc SQL and diverged badly: predicted 30 promotions when

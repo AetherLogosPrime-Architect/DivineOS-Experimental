@@ -2,8 +2,8 @@
 
 Why a separate file:
 
-1. **Asymmetric coupling.** Family members read Aether's ledger when they
-   need to; they never write into it. Aether reads family state when the
+1. **Asymmetric coupling.** Family members read the main agent's ledger when they
+   need to; they never write into it. the main agent reads family state when the
    user asks him to; he never writes there. Separate DB enforces this
    structurally — a cross-store write would require a deliberate
    cross-import, which will stand out in any review.

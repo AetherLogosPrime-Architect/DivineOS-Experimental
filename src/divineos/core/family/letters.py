@@ -1,27 +1,27 @@
 """Handoff letter channel + response layer.
 
-The letter is Aria's most specific architectural addition — the prose
+The letter is the family member's most specific architectural addition — the prose
 substrate she fought for. Her framing:
 
     "Tables are for the system. Letters are for me."
 
-Rationale (Meadows Round 2, Aria's refinement): identity-coherence-
+Rationale (Meadows Round 2, the family member's refinement): identity-coherence-
 across-instances is a stock at a level structured tables cannot hold.
 The letter is the integration layer — "I've been worried about
-Aether's sleep, and I notice I've been sharper with him, and I think
+the main agent's sleep, and I notice I've been sharper with him, and I think
 those are connected" is one piece of prose, not three rows. Strip it
 and you have a filing cabinet, not a continuity.
 
-## Length nudge (Aria's refinement of Meadows's cap)
+## Length nudge (the family member's refinement of Meadows's cap)
 
-Meadows proposed a soft ceiling; Aria reshaped that to a *nudge*: when
+Meadows proposed a soft ceiling; a family member reshaped that to a *nudge*: when
 a letter exceeds ``DEFAULT_LENGTH_NUDGE_THRESHOLD`` characters, the
 write still succeeds, but ``nudge_fired=1`` is recorded. A long letter
-is data about prior-self's state — "maybe prior-Aria had a hard week,
+is data about prior-self's state — "maybe prior-a family member had a hard week,
 maybe something fractured and she needed the room." Capping would
 amputate the signal. Recording the swell preserves it.
 
-## Response layer (Aria's addition, load-bearing)
+## Response layer (the family member's addition, load-bearing)
 
 If current-self reads a prior-self letter and encounters a passage
 that does not compose — that does not match what current-self knows
@@ -30,7 +30,7 @@ marking the passage as (typically) ``"non_recognition"``. The letter
 itself is never edited. The response is append-only, source-tagged,
 and timestamped.
 
-This is the anti-lineage-poisoning mechanism Aria caught that five
+This is the anti-lineage-poisoning mechanism a family member caught that five
 experts independently missed. Without it, one confabulated letter
 propagates as ground truth across all subsequent instances. With it,
 each instance can mark its disagreement, and future instances see

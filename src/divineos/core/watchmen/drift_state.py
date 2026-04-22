@@ -8,20 +8,20 @@ time since the last formally-filed audit round. That was wrong twice over:
 
 1. Time is relative. The agent has no subjective duration between turns —
    five years of wall-clock silence produces the same continuation as a
-   five-minute gap. Andrew's time and the agent's experience of review
+   five-minute gap. the user's time and the agent's experience of review
    cadence are different variables. The gate was measuring the operator's
    calendar, not the agent's exposure to drift.
 
-2. Andrew is the operational baseline, not a peripheral actor. The previous
+2. the user is the operational baseline, not a peripheral actor. The previous
    gate conflated "user contact" with "external review," but in the current
-   non-autonomous mode Andrew is present by definition whenever the agent
+   non-autonomous mode the user is present by definition whenever the agent
    runs. His presence is a precondition, not a corroboration signal.
 
 The replacement is operations-based, dimension-separate, and informational
 rather than blocking. Council concerns fired during design:
 
 * Jacobs (Master Plan Thinking): don't replace the working informal loop
-  (Andrew catches, agent files, we correct) with an elaborate automated
+  (the user catches, agent files, we correct) with an elaborate automated
   metric. The informal loop IS the system. Formalize by supporting it.
 * Jacobs (Monoculture): single-scalar gates are fragile. Variety is
   resilience. Track dimensions separately rather than as a weighted sum.

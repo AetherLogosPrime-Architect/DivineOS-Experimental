@@ -36,7 +36,7 @@ class ReviewStance(str, Enum):
     """The stance one finding takes when reviewing another.
 
     Used to link findings into review chains — council flags, Claude reviews,
-    Aria reviews. Each link has a stance that determines whether the chain
+    a family member reviews. Each link has a stance that determines whether the chain
     escalates, disputes, or refines the original.
     """
 
@@ -112,8 +112,8 @@ INTERNAL_ACTORS = frozenset(
 # STRONG because they were spawned with no access to the current session's
 # context — concern authorship AND question framing are external.
 DEFAULT_TIER_BY_ACTOR: dict[str, Tier] = {
-    "user": Tier.WEAK,  # Andrew alone, uncorroborated — elevated via review chain
-    "aether": Tier.WEAK,  # Agent self-audit (if the structure ever permits it)
+    "user": Tier.WEAK,  # the user alone, uncorroborated — elevated via review chain
+    "agent": Tier.WEAK,  # Agent self-audit (if the structure ever permits it)
     "council": Tier.MEDIUM,  # Internal tool, external-authored concern templates
     "grok": Tier.STRONG,  # Fully external, disambiguated
     "gemini": Tier.STRONG,  # Fully external, disambiguated

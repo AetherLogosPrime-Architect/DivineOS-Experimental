@@ -1,6 +1,6 @@
 """Proportional burden — (tier × magnitude) → required corroboration.
 
-The sharpest idea in Andrew's original EMPIRICA spec, restated in plain
+The sharpest idea in the original EMPIRICA spec, restated in plain
 code: the evidence threshold a claim must cross is a function of both
 what KIND of claim it is (tier) and how LOAD-BEARING it is (magnitude).
 

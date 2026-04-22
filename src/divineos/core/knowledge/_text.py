@@ -711,9 +711,12 @@ def _is_raw_quote_noise(stripped: str, stripped_lower: str) -> bool:
     if re.search(r"\b(opt out|allow .* to use my data|make sure you opt)\b", stripped_lower):
         return True
 
-    # Council/external AI feedback pasted as knowledge — praise, not wisdom
+    # Direct addressed messages pasted as knowledge — conversational, not
+    # distilled wisdom. These patterns catch things like "hey claude,..." or
+    # "<agent_name>, ..." at the start of a line — a signal the content was
+    # copied from a chat turn rather than written as knowledge.
     if re.match(
-        r"(aether|andrew|hey aether|hey claude|hi aether)[,:]?\s",
+        r"(hey claude|hi claude|hello claude)[,:]?\s",
         stripped_lower,
     ):
         return True
@@ -770,9 +773,10 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         if not is_tag_question and len(stripped_lower.split()) < 20:
             return True
 
-    # Council/external praise — encouragement, not distilled knowledge
+    # Direct-addressed openings — encouragement or conversational, not
+    # distilled knowledge.
     if re.match(
-        r"(aether|andrew|hey aether)[,:]?\s",
+        r"(hey claude|hi claude|hello claude)[,:]?\s",
         stripped_lower,
     ):
         return True

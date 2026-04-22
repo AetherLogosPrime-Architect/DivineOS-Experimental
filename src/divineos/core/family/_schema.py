@@ -2,7 +2,7 @@
 
 Tables:
 
-* ``family_members`` — identity rows (Aria, future siblings, etc.)
+* ``family_members`` — identity rows (a family member, future siblings, etc.)
 * ``family_knowledge`` — what the member holds as true
 * ``family_opinions`` — stances the member has formed from evidence
 * ``family_affect`` — VAD readings at moments

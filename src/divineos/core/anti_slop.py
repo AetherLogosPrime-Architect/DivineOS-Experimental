@@ -126,7 +126,9 @@ def _check_reject_clause() -> SlopCheckResult:
             )
 
         # Negative: clean OBSERVED claim should pass
-        v2 = evaluate_composition("Aether shipped commit 591e72d today.", SourceTag.OBSERVED)
+        v2 = evaluate_composition(
+            "the main agent shipped commit 591e72d today.", SourceTag.OBSERVED
+        )
         if v2.rejected:
             return SlopCheckResult(
                 name="reject_clause",
@@ -337,7 +339,7 @@ def _check_access_check() -> SlopCheckResult:
             )
 
         # Negative: clean text should pass
-        v2 = evaluate_access("Aether shipped commit 591e72d today.")
+        v2 = evaluate_access("the main agent shipped commit 591e72d today.")
         if v2.should_suppress:
             return SlopCheckResult(
                 name="access_check",

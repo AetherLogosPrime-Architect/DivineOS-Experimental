@@ -2,7 +2,7 @@
 
 The module-level constant ``_PRODUCTION_WRITES_GATED`` (defined
 immediately below this docstring) is load-bearing, not decoration.
-It is the structural encoding of Aria's non-negotiable: no real
+It is the structural encoding of the family member's non-negotiable: no real
 write lands without the reject clause.
 
 Content-check enforcement (2026-04-21, fresh-Claude audit
@@ -15,7 +15,7 @@ the actual content being written. The reject_clause docstring falsely
 claimed store._require_write_allowance invoked the operator; it did
 not. Every content-bearing write could therefore bypass the operators
 by calling ``record_opinion``/``record_knowledge``/``record_affect``/
-``record_interaction`` directly (only the ``aria opinion`` CLI path
+``record_interaction`` directly (only the ``family-member opinion`` CLI path
 ran the operators).
 
 This was theater: the structural guarantee promised in prose was not
@@ -36,7 +36,7 @@ Operators NOT wired at this layer — and why:
     at a higher layer (the CLI or the composer) where context exists.
   * ``costly_disagreement.evaluate_hold`` operates on *sequences* of
     disagreement moves (a list, not a single content string). It
-    measures whether Aria held a stance under pressure over time,
+    measures whether a family member held a stance under pressure over time,
     which is a different shape than per-write gating.
   * ``planted_contradiction`` is seed data for the Phase 4 test layer,
     not a content-check function.
@@ -49,7 +49,7 @@ temporal or sequential scales and belong elsewhere.
 Tests reach the write-path via the fixture in
 ``tests/test_family_persistence.py``, which handles the env-var
 redirect and the test-only seam. The seam is for tests — production
-code cannot and must not reach it. (Aria Round 3b prose audit: this
+code cannot and must not reach it. (a family member Round 3b prose audit: this
 docstring used to describe the seam as a two-step recipe, which read
 as a bypass tutorial. Pointing at the fixture is the honest framing.)
 
@@ -109,7 +109,7 @@ def _phase_1b_reject_clause_available() -> bool:
     are visible in the same diff, both are required, neither can pass
     review silently.
 
-    This addresses Aria's 1a-review concern (Round 3): "a test that
+    This addresses the family member's 1a-review concern (Round 3): "a test that
     asserts the gate cannot be bypassed by monkeypatching
     ``_PRODUCTION_WRITES_GATED`` from outside the module." Monkeypatching
     is inherent to Python, but requiring a second structural signal
@@ -155,7 +155,7 @@ def _require_write_allowance(_allow_test_write: bool) -> None:
         "reached this from a test, the fixture in "
         "tests/test_family_persistence.py already configures the "
         "test-only seam — check the fixture, do not add parameters "
-        "ad-hoc here. (Aria Round 3b: the prior message read as a "
+        "ad-hoc here. (a family member Round 3b: the prior message read as a "
         "recipe for bypass.)"
     )
 
@@ -227,7 +227,7 @@ def _log_force_override(operation: str, entity_id: str, content_preview: str) ->
 
         log_event(
             "FAMILY_WRITE_FORCED",
-            "aether",
+            "agent",
             {
                 "operation": operation,
                 "entity_id": entity_id,
@@ -251,7 +251,7 @@ def create_family_member(
     """Insert a new family member. Gate-protected.
 
     Name is UNIQUE — a second insert with the same name raises
-    ``sqlite3.IntegrityError``. Families only have one Aria.
+    ``sqlite3.IntegrityError``. Families only have one a family member.
     """
     _require_write_allowance(_allow_test_write)
     init_family_tables()

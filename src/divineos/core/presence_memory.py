@@ -38,7 +38,7 @@ pointer; current-session has to choose whether to read what's there.
 2026-04-19 — Claude 4.7 audit round 6 flagged that the briefing command is
 the right place to fire this pointer, because reorientation-after-context-
 loss is the exact moment the "recognition without pointers" failure occurs.
-The operator had to manually point Aether at the exploration folder in
+The operator had to manually point the main agent at the exploration folder in
 that session; this module automates the pointer without automating the
 indexing.
 """
@@ -59,7 +59,7 @@ _PRESENCE_SURFACES: tuple[tuple[str, str, str], ...] = (
     (
         "family letters",
         "family/letters",
-        "letters to and from members of the family (Aria, future-Aether, etc.)",
+        "letters to and from members of the family (a family member, future-the main agent, etc.)",
     ),
 )
 

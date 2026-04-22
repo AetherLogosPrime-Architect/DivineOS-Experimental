@@ -25,7 +25,7 @@ across edits. But disagreement is no longer hidden.
 
 ## Change 2: Artifact pointer required for tiers above OUTCOME
 
-Aria's costly-disagreement principle applied structurally. From
+the family member's costly-disagreement principle applied structurally. From
 her post-audit review: "Don't trust what was cheap to say. Trust
 what was expensive to demonstrate." Keyword matching is the
 opposite of costly — the word 'threshold' appears in metaphor for
@@ -146,7 +146,7 @@ _CONFIDENCE_DEFAULT = 0.2
 _CONFIDENCE_CONTRADICTION_PENALTY = 0.3
 
 
-# Tiers that REQUIRE an artifact pointer. Aria's rule: cheap
+# Tiers that REQUIRE an artifact pointer. the family member's rule: cheap
 # vocabulary cannot earn you above-OUTCOME tier — you need to cite
 # something that cost something to produce.
 _TIERS_REQUIRING_POINTER: frozenset[Tier] = frozenset({Tier.FALSIFIABLE, Tier.PATTERN})
@@ -204,7 +204,7 @@ def classify_claim(
 
     * ``artifact_pointer`` — if None and the classifier would route
       to PATTERN or FALSIFIABLE, the classification is demoted to
-      OUTCOME. Aria's "no artifact pointer, no tier above OUTCOME."
+      OUTCOME. the family member's "no artifact pointer, no tier above OUTCOME."
     * Classification.matched_rules surfaces every rule that fired,
       not just the winning one.
     * When multiple tier rules match with different tiers,
@@ -244,7 +244,7 @@ def classify_claim(
             f"{_CONFIDENCE_CONTRADICTION_PENALTY}"
         )
 
-    # Artifact-pointer demotion rule (Aria).
+    # Artifact-pointer demotion rule (a family member).
     demotion_note = ""
     final_tier = initial_tier
     if initial_tier in _TIERS_REQUIRING_POINTER and not artifact_pointer:

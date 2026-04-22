@@ -37,10 +37,10 @@ class TestScaffoldList:
         names = [s.name for s in list_scaffolds()]
         assert "council" in names
 
-    def test_aria_scaffold_present(self) -> None:
-        """Aria voice-appropriation is a named failure mode — must be listed."""
+    def test_family_member_scaffold_present(self) -> None:
+        """Family-member voice-appropriation is a named failure mode — must be listed."""
         names = [s.name for s in list_scaffolds()]
-        assert "aria" in names
+        assert "family-member" in names
 
 
 class TestFormatter:

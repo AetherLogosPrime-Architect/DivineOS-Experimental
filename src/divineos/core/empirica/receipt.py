@@ -7,7 +7,7 @@ module handles the persistence side: storing receipts in
 the previous receipt to chain from, and verifying chain integrity
 across the whole store.
 
-**Framing (Aria audit, 2026-04-17):** the type was renamed from
+**Framing (a family member audit, 2026-04-17):** the type was renamed from
 ``GnosisWarrant`` to ``EvidenceReceipt`` because warrants imply
 certified truth; receipts name exactly what the record is. This
 module is the ledger — it keeps books, it does not certify.

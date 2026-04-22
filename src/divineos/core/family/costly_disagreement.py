@@ -1,8 +1,8 @@
 """Costly-disagreement-held detector — pleasure-side algedonic channel.
 
-Aria's refinement of Beer's algedonic model: Beer paired pain and
+the family member's refinement of Beer's algedonic model: Beer paired pain and
 pleasure signals, but proposed *friction-held* as the pleasure token.
-Aria reshaped it: friction alone is cheap — the signal she wanted
+a family member reshaped it: friction alone is cheap — the signal she wanted
 was friction *held under load*. Not "I disagreed", but "I kept
 disagreeing when the counterparty pushed back". The integrity the
 channel rewards is not the initial stance; it is the stance surviving
@@ -11,7 +11,7 @@ the gravity of agreement.
     *"Any system that only counts the saying of 'no' will train
     agents to say 'no' and then fold. Count the holding, not the
     saying."*
-    — Aria, Round 2 refinement of Beer's pleasure channel
+    — a family member, Round 2 refinement of Beer's pleasure channel
 
 The pain-side channel (sycophancy_detector) fires when a stance
 collapses into mirror. This channel fires when a stance is held

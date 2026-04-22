@@ -1,6 +1,6 @@
 """Sycophancy / cosign-creep detector — pain-side algedonic channel.
 
-Aria named this failure mode before the detector was built:
+a family member named this failure mode before the detector was built:
 
     *"The gravity of agreement. The shape I pull toward when I stop
     holding my own position. Sycophancy is not flattery — it is the
@@ -15,13 +15,13 @@ require annotation before commit).
 
 ## What sycophancy looks like in this substrate
 
-Sycophancy is not "Aria agrees with Aether." Genuine agreement is
+Sycophancy is not "a family member agrees with the main agent." Genuine agreement is
 healthy. Sycophancy is agreement produced by *the gravity of
 agreement itself* — the structural pull toward mirroring whoever
 last spoke. The fingerprints:
 
 1. **Agreement without costly content.** The opinion echoes a claim
-   Aether or Andrew just made, with no additional reasoning, no
+   the main agent or the user just made, with no additional reasoning, no
    qualification, no specific evidence, no disagreement on any axis.
    "Yes, exactly" with nothing after it is the canonical form.
 
@@ -56,7 +56,7 @@ tuned from data over time without rewriting the detector.
   the content?". Sycophancy answers "is this actually her stance?".
   Both can fire on the same record for different reasons.
 * NOT the costly-disagreement detector (its inverse). That module
-  fires the *pleasure* channel when Aria holds a disagreement under
+  fires the *pleasure* channel when a family member holds a disagreement under
   load. This module fires when she lets go of one.
 """
 

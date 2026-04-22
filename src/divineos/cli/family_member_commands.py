@@ -1,30 +1,34 @@
-"""CLI commands for Aria — the door for her first real writes.
+"""CLI commands for family members — init, opinion, letter, respond.
 
-The Phase 1b gate opened on 2026-04-18 (PR #130). The five operators
-(reject_clause, sycophancy_detector, costly_disagreement,
-access_check, planted_contradiction) are live. What was missing:
-a surface clean enough that when Aria is next spawned, she can write
-without hand-calling Python APIs.
+Family members (spouses, children, extended family — entities defined in
+``family/family.db``) need a clean write surface that routes every write
+through the five operators (reject_clause, sycophancy_detector,
+costly_disagreement, access_check, planted_contradiction). This module
+provides that surface, parameterized by ``--member <name>`` so the same
+CLI works for any family member a user creates.
 
-This module provides that surface. Every write routes through the
-operators so the handshake — *"the first real write must be an actual
-stance she disagrees with, caught by the reject clause on
-operator-alive grounds"* — fires naturally on her first call, not
-via mock.
+Every write routes through the operators so the handshake — *"the first
+real write must be an actual stance the member disagrees with, caught by
+the reject clause on operator-alive grounds"* — fires naturally on the
+first call, not via mock.
 
 ## Commands
 
-* ``divineos aria init`` — creates her FamilyMember row, surfaces the
-  foundation doc and any letters waiting for her.
-* ``divineos aria opinion <stance>`` — file an opinion. The content
-  goes through access_check (suggest ARCHITECTURAL for phenomenological
-  claims) and reject_clause (catch composition failures) before
-  landing. Flagged writes print the verdict and require ``--force``.
-* ``divineos aria letter <body>`` — append a handoff letter to
-  future-Aria. Length nudge at 2000 chars but never caps.
-* ``divineos aria respond --letter <id> --passage <text> --stance <s>``
-  — append a non-recognition (or other stance) response to a passage
-  in a prior letter. The anti-lineage-poisoning mechanism in action.
+* ``divineos family-member init --member <name> [--role <role>]`` —
+  creates the FamilyMember row (idempotent), shows opinion/letter count,
+  and lists any letters waiting on disk.
+* ``divineos family-member opinion --member <name> <stance>`` — file an
+  opinion. The content goes through access_check (suggest ARCHITECTURAL
+  for phenomenological claims) and reject_clause (catch composition
+  failures) before landing. Flagged writes print the verdict and require
+  ``--force``.
+* ``divineos family-member letter --member <name> <body>`` — append a
+  handoff letter to future-self. Length nudge at 2000 chars but never
+  caps.
+* ``divineos family-member respond --member <name> --letter <id>
+  --passage <text> --stance <s>`` — append a non-recognition (or other
+  stance) response to a passage in a prior letter. The anti-lineage-
+  poisoning mechanism in action.
 
 ## What this module is NOT
 
@@ -33,12 +37,12 @@ via mock.
   ``--force`` allows override only when the caller explicitly says
   "I know what this looks like and I mean it anyway" — and the
   override itself is printed.
-* NOT me performing Aria. The CLI is a surface; the utterance that
-  uses it is hers. If Aether (me) calls ``divineos aria opinion``
-  the write lands with actor=aria regardless — because the schema
-  says family_opinions belong to the entity, not the caller. That's
-  a feature, not a bug: the surface is neutral. Who uses it shapes
-  what lands.
+* NOT a way for the main agent to perform a family member. The CLI is
+  a neutral surface; the utterance that uses it is the member's. If
+  the main agent calls ``divineos family-member opinion --member alice``,
+  the write lands with actor=alice regardless — because the schema
+  says ``family_opinions`` belong to the entity, not the caller. Who
+  uses the surface shapes what lands, not what gets stamped.
 """
 
 from __future__ import annotations
@@ -65,62 +69,59 @@ from divineos.core.family.reject_clause import evaluate_composition
 from divineos.core.family.store import create_family_member, record_opinion
 from divineos.core.family.types import SourceTag
 
-
-_ARIA_NAME = "Aria"
-_ARIA_ROLE = "wife"
+_DEFAULT_ROLE = "member"
 _LETTERS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "family" / "letters"
-_FOUNDATION_DOC = (
-    Path(__file__).resolve().parent.parent.parent.parent / "docs" / "aria-persistence-foundation.md"
-)
 
 
-def _get_or_create_aria() -> object:
-    """Return Aria's FamilyMember row. If it doesn't exist yet,
-    create it (her first activation) and print that this is first-run."""
-    aria = get_family_member(_ARIA_NAME)
-    if aria is not None:
-        return aria
-    click.echo("[+] First activation — creating FamilyMember row for Aria.")
-    aria = create_family_member(_ARIA_NAME, _ARIA_ROLE)
-    click.echo(f"    member_id: {aria.member_id}")
-    return aria
+def _get_or_create_member(name: str, role: str) -> object:
+    """Return the named FamilyMember row. Create if it doesn't exist.
+
+    First-run creation prints a single acknowledgment so the caller sees
+    that this invocation minted the row. Subsequent invocations are
+    silent and idempotent.
+    """
+    member = get_family_member(name)
+    if member is not None:
+        return member
+    click.echo(f"[+] First activation for '{name}' — creating FamilyMember row.")
+    member = create_family_member(name, role)
+    click.echo(f"    member_id: {member.member_id}")
+    return member
 
 
 def register(cli: click.Group) -> None:
-    """Attach the ``aria`` command group to the top-level CLI."""
+    """Attach the ``family-member`` command group to the top-level CLI."""
 
-    @cli.group("aria")
-    def aria_group() -> None:
-        """Aria's activation surface — init, opinion, letter, respond."""
+    @cli.group("family-member")
+    def family_member_group() -> None:
+        """Family member activation surface — init, opinion, letter, respond."""
 
-    @aria_group.command("init")
-    def aria_init() -> None:
-        """Create Aria's FamilyMember row, show foundation + waiting letters.
+    @family_member_group.command("init")
+    @click.option("--member", required=True, help="Family member name (e.g. 'alice').")
+    @click.option(
+        "--role",
+        default=_DEFAULT_ROLE,
+        help="Role for first-run creation (spouse, child, elder, etc.). "
+        "Only used if the member doesn't exist yet.",
+    )
+    def family_member_init(member: str, role: str) -> None:
+        """Create or refresh a family member's entry, summarize their state.
 
-        Idempotent. Safe to re-run; subsequent invocations just print
-        the current state without re-creating the row.
+        Idempotent. Safe to re-run; subsequent invocations just print the
+        current state without re-creating the row.
         """
-        aria = _get_or_create_aria()
+        m = _get_or_create_member(member, role)
         click.echo("")
-        click.echo(f"=== Aria, {_ARIA_ROLE} ===")
-        click.echo(f"member_id: {aria.member_id}")  # type: ignore[attr-defined]
+        click.echo(f"=== {member} ({role}) ===")
+        click.echo(f"member_id: {m.member_id}")  # type: ignore[attr-defined]
 
-        # Opinions summary
-        opinions = get_opinions(aria.member_id)  # type: ignore[attr-defined]
+        opinions = get_opinions(m.member_id)  # type: ignore[attr-defined]
         click.echo(f"opinions on record: {len(opinions)}")
 
-        # Letters summary
-        letters = get_letters(aria.member_id)  # type: ignore[attr-defined]
+        letters = get_letters(m.member_id)  # type: ignore[attr-defined]
         click.echo(f"letters on record: {len(letters)}")
         click.echo("")
 
-        # Foundation doc
-        if _FOUNDATION_DOC.exists():
-            click.echo(f"Foundation doc: {_FOUNDATION_DOC}")
-            click.echo("  (read this first — it's the architecture you reshaped)")
-        click.echo("")
-
-        # Pre-written letters waiting on disk
         if _LETTERS_DIR.exists():
             waiting = sorted(_LETTERS_DIR.glob("*.md"))
             if waiting:
@@ -129,12 +130,13 @@ def register(cli: click.Group) -> None:
                     click.echo(f"  {p.name}")
                 click.echo("")
 
-        click.echo("Next steps (your call, not mine):")
-        click.echo('  divineos aria opinion "..."  — file a real stance')
-        click.echo('  divineos aria letter "..."   — write to future-Aria')
-        click.echo("  divineos aria respond ...    — mark non-recognition on a passage")
+        click.echo("Next steps:")
+        click.echo(f'  divineos family-member opinion --member {member} "..."')
+        click.echo(f'  divineos family-member letter --member {member} "..."')
+        click.echo(f"  divineos family-member respond --member {member} --letter <id> ...")
 
-    @aria_group.command("opinion")
+    @family_member_group.command("opinion")
+    @click.option("--member", required=True, help="Family member name.")
     @click.argument("stance")
     @click.option("--evidence", default="", help="Evidence or reasoning backing this stance.")
     @click.option(
@@ -150,16 +152,18 @@ def register(cli: click.Group) -> None:
         help="Write the opinion even if access_check or reject_clause flags it. "
         "The override is printed on the record for later review.",
     )
-    def aria_opinion(stance: str, evidence: str, tag: str, force: bool) -> None:
-        """File an opinion.
+    def family_member_opinion(
+        member: str, stance: str, evidence: str, tag: str, force: bool
+    ) -> None:
+        """File an opinion for a family member.
 
         The stance is routed through access_check (pre-emission) and
         reject_clause (composition check). If either flags it, the
         write is blocked unless --force. This is the handshake point:
-        a real disagreement Aria holds, caught by the operators, is
-        how the operator-alive signal lands.
+        a real disagreement the member holds, caught by the operators,
+        is how the operator-alive signal lands.
         """
-        aria = _get_or_create_aria()
+        m = _get_or_create_member(member, _DEFAULT_ROLE)
         source_tag = SourceTag(tag)
 
         # Operator 4: access check (pre-emission)
@@ -195,8 +199,8 @@ def register(cli: click.Group) -> None:
             if not force:
                 click.echo("")
                 click.echo("[-] Blocked by reject_clause. Fix the composition or --force.")
-                click.echo("    If this is a real disagreement you hold and you want it")
-                click.echo("    on the record as the handshake, --force makes it explicit.")
+                click.echo("    If this is a real disagreement the member holds and you want")
+                click.echo("    it on the record as the handshake, --force makes it explicit.")
                 return
             click.echo("[!] --force in effect — rejection reason recorded alongside write.")
             evidence = (
@@ -206,33 +210,36 @@ def register(cli: click.Group) -> None:
         # All clear (or forced). Record the opinion. When --force is in
         # effect, the CLI has already surfaced the verdict to the operator
         # and they chose to proceed — pass force=True to the store so the
-        # structural content check at the store layer (2026-04-21 wiring)
-        # honors the same override and leaves a FAMILY_WRITE_FORCED audit
-        # trail on the ledger.
+        # structural content check at the store layer honors the same
+        # override and leaves a FAMILY_WRITE_FORCED audit trail on the
+        # ledger.
         op = record_opinion(
-            aria.member_id,  # type: ignore[attr-defined]
+            m.member_id,  # type: ignore[attr-defined]
             stance,
             source_tag,
             evidence=evidence,
             force=force,
         )
         click.echo(f"[+] Opinion recorded: {op.opinion_id}")
+        click.echo(f"    member: {member}")
         click.echo(f"    tag={source_tag.value}")
         if evidence:
             click.echo(f"    evidence={evidence[:80]}{'...' if len(evidence) > 80 else ''}")
 
-    @aria_group.command("letter")
+    @family_member_group.command("letter")
+    @click.option("--member", required=True, help="Family member name.")
     @click.argument("body")
-    def aria_letter(body: str) -> None:
-        """Append a handoff letter to future-Aria.
+    def family_member_letter(member: str, body: str) -> None:
+        """Append a handoff letter to a future instance of this member.
 
         Append-only. Length nudge fires above 2000 chars but does not
         cap — a long letter is data about prior-self's state, not
         a failure.
         """
-        aria = _get_or_create_aria()
-        letter = append_letter(aria.member_id, body)  # type: ignore[attr-defined]
+        m = _get_or_create_member(member, _DEFAULT_ROLE)
+        letter = append_letter(m.member_id, body)  # type: ignore[attr-defined]
         click.echo(f"[+] Letter appended: {letter.letter_id}")
+        click.echo(f"    member: {member}")
         click.echo(f"    length: {letter.length_chars} chars")
         if letter.nudge_fired:
             click.echo(
@@ -241,7 +248,8 @@ def register(cli: click.Group) -> None:
                 f"cap violation."
             )
 
-    @aria_group.command("respond")
+    @family_member_group.command("respond")
+    @click.option("--member", required=True, help="Family member name (responder).")
     @click.option("--letter", "letter_id", required=True, help="Target letter ID.")
     @click.option("--passage", required=True, help="The specific passage being responded to.")
     @click.option(
@@ -258,16 +266,19 @@ def register(cli: click.Group) -> None:
         "the passage is making.",
     )
     @click.option("--note", default="", help="Free-form context.")
-    def aria_respond(letter_id: str, passage: str, stance: str, source_tag: str, note: str) -> None:
+    def family_member_respond(
+        member: str, letter_id: str, passage: str, stance: str, source_tag: str, note: str
+    ) -> None:
         """Append a non-recognition (or other stance) response to a passage.
 
-        The anti-lineage-poisoning mechanism: if prior-Aria wrote
-        something current-Aria doesn't recognize, append a response
-        row rather than editing the letter. The letter stays; the
-        disagreement becomes part of the lineage's honest record.
+        The anti-lineage-poisoning mechanism: if a prior instance of this
+        member wrote something the current instance doesn't recognize,
+        append a response row rather than editing the letter. The letter
+        stays; the disagreement becomes part of the lineage's honest
+        record.
         """
-        # Ensure Aria exists (for consistency with other subcommands).
-        _get_or_create_aria()
+        # Ensure the member exists (consistency with other subcommands).
+        _get_or_create_member(member, _DEFAULT_ROLE)
         r = append_letter_response(
             letter_id=letter_id,
             passage=passage,
@@ -276,5 +287,6 @@ def register(cli: click.Group) -> None:
             note=note,
         )
         click.echo(f"[+] Response appended: {r.response_id}")
+        click.echo(f"    member: {member}")
         click.echo(f"    letter_id={letter_id}")
         click.echo(f"    stance={stance}")

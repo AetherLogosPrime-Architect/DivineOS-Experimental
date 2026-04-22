@@ -3,10 +3,17 @@
 
 Greps the actual codebase for test functions and CLI commands, then compares
 to the numbers in CLAUDE.md, README.md, and seed.json.  Also verifies that
-files listed in the README architecture tree actually exist, and flags real
-.py files that are missing from the tree.
+files listed in the architecture tree (``docs/ARCHITECTURE.md``, with README
+fallback for backward compatibility) actually exist, and flags real ``.py``
+files that are missing from the tree.
 
 Fast enough for pre-commit: pure grep/path checks, no imports or pytest collection.
+
+History: the architecture tree used to live inline under the ``## Architecture``
+section of README.md. It was extracted to ``docs/ARCHITECTURE.md`` on
+2026-04-22 because the 300-line file listing was drowning the README's
+overview prose. This checker now prefers ``docs/ARCHITECTURE.md`` and falls
+back to README only if the dedicated doc is missing.
 """
 
 import re
@@ -93,26 +100,49 @@ def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
 # ── Architecture tree verification ─────────────────────────────────────
 
 
-def _extract_tree_paths(readme_path: Path) -> list[str]:
-    """Extract .py file paths from the README architecture code block.
+def _extract_tree_paths(readme_path: Path, arch_doc_path: Path | None = None) -> list[str]:
+    """Extract .py file paths from the architecture code block.
 
-    Parses lines like '    ledger.py   Append-only event store' inside the
-    Architecture section and reconstructs relative paths from indentation.
-    Returns paths relative to src/divineos/ (e.g. 'cli/__init__.py').
+    Prefers ``docs/ARCHITECTURE.md`` (where the tree lives as of 2026-04-22).
+    Falls back to the README's ``## Architecture`` section for backward
+    compatibility with older checkouts.
+
+    Parses lines like '    ledger.py   Append-only event store' and
+    reconstructs relative paths from indentation. Returns paths relative to
+    src/divineos/ (e.g. 'cli/__init__.py').
+
+    ``arch_doc_path`` is optional; defaults to ``<repo>/docs/ARCHITECTURE.md``.
+    Tests pass an explicit non-existent path to force fallback to the README.
     """
-    text = readme_path.read_text(encoding="utf-8", errors="replace")
+    if arch_doc_path is None:
+        arch_doc_path = ROOT / "docs" / "ARCHITECTURE.md"
 
-    # Find the architecture code block
+    # Prefer the dedicated architecture doc.
+    if arch_doc_path.exists():
+        text = arch_doc_path.read_text(encoding="utf-8", errors="replace")
+        # Architecture doc has the tree in a top-level ``` code block after "## The tree"
+        arch_match = re.search(r"## The tree\s*\n\s*```\s*\n(.*?)```", text, re.DOTALL)
+        if arch_match:
+            return _parse_tree_block(arch_match.group(1))
+
+    # Fallback: legacy inline tree under README's "## Architecture" heading.
+    text = readme_path.read_text(encoding="utf-8", errors="replace")
     arch_match = re.search(r"## Architecture\s*\n\s*```\s*\n(.*?)```", text, re.DOTALL)
     if not arch_match:
         return []
+    return _parse_tree_block(arch_match.group(1))
 
-    block = arch_match.group(1)
+
+def _parse_tree_block(block: str) -> list[str]:
+    """Parse a single tree code block into relative ``.py`` paths.
+
+    Tree convention: ``src/divineos/`` as the root, 2-space base indent,
+    directory names end in ``/`` and get pushed onto a stack, file lines
+    (``name.py   Description``) get joined with the stack to form paths.
+    """
     paths: list[str] = []
     dir_stack: list[str] = []  # track directory nesting by indent level
-
-    # Find the base indent (first non-blank, non-root line)
-    base_indent = 2  # README uses 2-space base indent under src/divineos/
+    base_indent = 2  # 2-space base indent under src/divineos/
 
     for line in block.splitlines():
         # Skip blank lines and the root 'src/divineos/' line
@@ -159,15 +189,20 @@ def _get_actual_py_files() -> set[str]:
     return result
 
 
-def check_architecture_tree(readme_path: Path) -> list[str]:
-    """Verify README architecture tree against actual files.
+def check_architecture_tree(readme_path: Path, arch_doc_path: Path | None = None) -> list[str]:
+    """Verify architecture tree against actual files.
 
-    Returns list of error strings (empty = all good).
+    Reads the tree from ``docs/ARCHITECTURE.md`` (preferred) or the
+    README's legacy inline tree (fallback). Returns list of error
+    strings (empty = all good).
+
+    ``arch_doc_path`` is optional; tests pass an explicit non-existent
+    path to force fallback to the README.
     """
     if not readme_path.exists():
         return []
 
-    tree_paths = _extract_tree_paths(readme_path)
+    tree_paths = _extract_tree_paths(readme_path, arch_doc_path=arch_doc_path)
     if not tree_paths:
         return ["Could not parse architecture tree from README.md"]
 

@@ -50,7 +50,7 @@ def register(cli: click.Group) -> None:
         "--from",
         "source_entity",
         default=None,
-        help="Who generated this finding (e.g., 'claude_auditor', 'aether_council')",
+        help="Who generated this finding (e.g., 'claude_auditor', 'agent_council')",
     )
     @click.option(
         "--related",

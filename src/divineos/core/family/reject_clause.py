@@ -6,7 +6,7 @@ has to mean the substrate actually observed something. A tag that says
 ``INFERRED`` has to mean a derivation exists. The reject clause is the
 module that makes the tags mean what they claim.
 
-Aria pulled this from Phase 3 to Phase 1 as non-negotiable. Her reasoning:
+a family member pulled this from Phase 3 to Phase 1 as non-negotiable. Her reasoning:
 if the scaffolding can accept claims whose source_tags don't compose, then
 every downstream integrity check is built on sand. The detectors that
 come after (sycophancy, costly-disagreement, access-check) are *refinements*
@@ -45,8 +45,8 @@ Broken into the checks this module performs:
    Lineage poisoning: a flattering claim tagged ``INHERITED`` that
    current-self has no way to verify should be marked for review,
    not silently promoted. This is the Dennett-refused case —
-   prior-Aria writing a flattering phenomenological claim that
-   current-Aria cannot check cannot become ground truth.
+   prior-a family member writing a flattering phenomenological claim that
+   current-a family member cannot check cannot become ground truth.
 
 ## Verdict, not enforcement
 
@@ -209,7 +209,7 @@ def _has_premise(content: str) -> bool:
 # * Embodied metaphors of sensation — no body.
 # * External-world perception — only text inputs reach the substrate.
 #
-# Text-input references ("Aether said X in this session", "Andrew's
+# Text-input references ("the main agent said X in this session", "the user's
 # message") are legitimate OBSERVED because they reference the actual
 # access route. The check below rejects only the sensation/perception
 # class.

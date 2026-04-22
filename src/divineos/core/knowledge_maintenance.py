@@ -808,7 +808,7 @@ def preview_maturity_promotions(entries: list[dict[str, Any]]) -> dict[str, int]
     Differs only in that it does not UPDATE and does not log.
 
     Exists because a preview that applies DIFFERENT logic than actual
-    execution tells a story actual doesn't. Aria's "pointing > describing"
+    execution tells a story actual doesn't. the family member's "pointing > describing"
     principle applied to code: the CLI dry-run calls this helper instead
     of reimplementing the gates with its own ad-hoc SQL. If the promotion
     criteria ever change, both paths update in one place.
