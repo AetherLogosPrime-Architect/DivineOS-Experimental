@@ -234,6 +234,8 @@ src/divineos/
       gate.py                  Full pipeline orchestrator: classify -> burden -> route -> issue + receipt_id column migration
       provenance.py            corroboration_events table + distinct-actor counting (anti-Goodhart corroboration provenance)
       kappa.py                 Cohen's kappa computation + gold fixture + classifier agreement measurement
+    install_check.py           Install-location divergence check.
+    orientation_prelude.py     Orientation prelude — briefing surface that sits at the top of every briefing.
 
   analysis/
     _session_types.py          Session analysis type definitions

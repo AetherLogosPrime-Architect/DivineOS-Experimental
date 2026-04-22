@@ -168,13 +168,20 @@ def _auto_run_extract() -> None:
     if marker.exists():
         return
     try:
+        # Tag the extract with trigger attribution so later callers see a
+        # meaningful skip message. Extract itself writes the marker on
+        # success; we don't overwrite it afterward because that would
+        # clobber the trigger field and also mask subprocess failures
+        # (previously the marker got written even if extract errored out).
+        env = os.environ.copy()
+        env["DIVINEOS_EXTRACT_TRIGGER"] = "hook"
         subprocess.run(
             ["divineos", "extract"],
             capture_output=True,
             check=False,
             timeout=60,
+            env=env,
         )
-        marker.write_text("1", encoding="utf-8")
     except (OSError, subprocess.SubprocessError):
         pass
 

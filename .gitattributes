@@ -1,2 +1,16 @@
 # Shell scripts must stay LF — bash chokes on CRLF
 *.sh text eol=lf
+
+# Python source should stay LF across platforms so that Windows checkouts
+# don't get warned at every git operation ("LF will be replaced by CRLF")
+# and so that tooling (ruff, mypy, pytest) sees consistent line endings.
+*.py text eol=lf
+
+# Text-only config and docs — same reasoning as Python.
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.cfg text eol=lf
+*.ini text eol=lf

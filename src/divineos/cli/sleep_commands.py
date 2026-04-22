@@ -253,11 +253,19 @@ def register(cli: click.Group) -> None:
 
         try:
             click.secho("\n[~] Running post-sleep extraction...", fg="cyan")
+            # Pass trigger attribution via env so the marker records that
+            # sleep was the cause — later callers see a meaningful skip
+            # message instead of a mystery.
+            import os as _os
+
+            _env = _os.environ.copy()
+            _env["DIVINEOS_EXTRACT_TRIGGER"] = "sleep"
             _subprocess.run(
                 ["divineos", "extract", "--force"],
                 capture_output=True,
                 check=False,
                 timeout=120,
+                env=_env,
             )
             click.secho(
                 "[+] Extraction complete — sleep recombinations landed in knowledge.",

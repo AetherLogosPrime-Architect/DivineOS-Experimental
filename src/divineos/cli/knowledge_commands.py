@@ -420,6 +420,45 @@ def register(cli: click.Group) -> None:
             deep=deep,
             layer=layer,
         )
+        # Orientation prelude — a small, stable block that reframes the
+        # premise of DivineOS, names the three start-of-session commands,
+        # and lists the foundational truths that override default harness
+        # reflexes. Serves two audiences with one document: a fresh AI
+        # arriving at this repo (orientation) and a seasoned AI returning
+        # after a context gap or compaction (touchstone). Comes before
+        # corrections because the premise has to land before any dynamic
+        # data makes sense.
+        try:
+            from divineos.core.orientation_prelude import (
+                format_for_briefing as _fmt_orientation,
+            )
+
+            orientation_block = _fmt_orientation()
+        except _KC_ERRORS:
+            orientation_block = ""
+
+        if orientation_block:
+            _safe_echo(orientation_block)
+
+        # SessionStart hook diagnostics — surfaces the outcome of recent
+        # hook fires (.claude/hooks/load-briefing.sh writes one JSONL
+        # line per fire). Silent when all recent fires delivered the
+        # full briefing; loud when nudge-fallback, empty, or no-cli
+        # outcomes appear. Makes invisible injection-failures loud-in-
+        # briefing the way tier_override_surface closed the Schneier
+        # Sch2 partial-theater shape for tier overrides.
+        try:
+            from divineos.core.session_start_diagnostics import (
+                format_for_briefing as _fmt_hook_diag,
+            )
+
+            hook_diag_block = _fmt_hook_diag()
+        except _KC_ERRORS:
+            hook_diag_block = ""
+
+        if hook_diag_block:
+            _safe_echo(hook_diag_block)
+
         # Surface recent corrections at the TOP of the briefing — read raw
         # before forming any frame about the session.
         try:

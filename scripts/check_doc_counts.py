@@ -263,6 +263,85 @@ def fix_test_counts(actual_tests: int) -> list[str]:
     return changed
 
 
+def _extract_module_description(module_path: Path) -> str:
+    """Return the first line of the module's docstring, trimmed.
+
+    Falls back to "(no description)" if the module has no docstring or
+    the docstring can't be parsed. Keeps the description under ~100 chars
+    so it fits in the architecture tree's column-aligned format.
+    """
+    try:
+        text = module_path.read_text(encoding="utf-8", errors="replace")
+    except (OSError, UnicodeError):
+        return "(no description)"
+    # Match triple-quoted docstring at the top of the file, after optional
+    # imports/comments. Keep it simple — most modules have the docstring
+    # as the first non-comment element.
+    match = re.search(r'^\s*"""(.+?)"""', text, re.DOTALL | re.MULTILINE)
+    if not match:
+        return "(no description)"
+    first_line = match.group(1).strip().split("\n")[0].strip()
+    if len(first_line) > 100:
+        first_line = first_line[:97] + "..."
+    return first_line or "(no description)"
+
+
+def fix_architecture_tree(missing_files: list[str]) -> list[str]:
+    """Append entries for undocumented files to docs/ARCHITECTURE.md.
+
+    ``missing_files`` are paths relative to src/divineos/ (as emitted by
+    check_architecture_tree). For each, find the parent package's section
+    in the tree and append a best-effort line using the module's docstring
+    first line as description.
+
+    Returns list of entries successfully added. Entries are appended at
+    the end of the matching package section; column alignment is
+    approximate — a human/agent pass may tighten it, but the tree no
+    longer has undocumented files so precommit unblocks.
+    """
+    arch_doc = ROOT / "docs" / "ARCHITECTURE.md"
+    if not arch_doc.exists():
+        return []
+
+    text = arch_doc.read_text(encoding="utf-8", errors="replace")
+    added: list[str] = []
+
+    for missing in sorted(missing_files):
+        # missing looks like "core/orientation_prelude.py" — split into
+        # package directory and filename.
+        parts = missing.split("/")
+        if len(parts) < 2:
+            continue  # top-level file; skip, too rare to auto-place
+        package = parts[0]
+        filename = parts[-1]
+
+        module_path = SRC / Path(*parts)
+        description = _extract_module_description(module_path)
+
+        # Find the package section in the tree. Packages appear as lines
+        # like "  package/" at base indent. We insert the new entry as
+        # the last line of the package block, before the next package
+        # heading or the end of the tree.
+        pkg_pattern = rf"(\n  {re.escape(package)}/\s*\n(?:    [^\n]+\n)+)"
+        m = re.search(pkg_pattern, text)
+        if not m:
+            continue  # package section not found; skip
+
+        block = m.group(1)
+        # Build the new line matching existing format: 4 spaces, filename,
+        # padding to column ~27, description.
+        name_col = 27
+        padding = max(1, name_col - len(filename))
+        new_line = f"    {filename}{' ' * padding}{description}\n"
+        new_block = block + new_line
+        text = text[: m.start()] + new_block + text[m.end() :]
+        added.append(missing)
+
+    if added:
+        arch_doc.write_text(text, encoding="utf-8")
+    return added
+
+
 # ── Main ───────────────────────────────────────────────────────────────
 
 
@@ -317,6 +396,24 @@ def main() -> int:
     # Architecture tree check
     readme = ROOT / "README.md"
     tree_errors = check_architecture_tree(readme)
+
+    # Auto-fix undocumented files in the architecture tree if requested.
+    # Ghost files (listed but don't exist) still need human attention —
+    # auto-removing them could lose information if the filename was just
+    # mistyped in the tree.
+    if fix_mode and tree_errors:
+        missing_files = [
+            line.strip().removeprefix("UNDOCUMENTED: ").split(" ")[0]
+            for line in tree_errors
+            if "UNDOCUMENTED:" in line
+        ]
+        if missing_files:
+            added = fix_architecture_tree(missing_files)
+            if added:
+                print(f"Auto-added to docs/ARCHITECTURE.md: {', '.join(added)}")
+                # Re-check after fix — only ghost-file errors should remain
+                tree_errors = check_architecture_tree(readme)
+
     if tree_errors:
         errors.append("Architecture tree drift:")
         errors.extend(tree_errors)
