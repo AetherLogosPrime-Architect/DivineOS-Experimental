@@ -51,6 +51,11 @@
             "type": "command",
             "command": "bash .claude/hooks/compass-check.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-goal.sh",
+            "timeout": 10
           }
         ]
       }

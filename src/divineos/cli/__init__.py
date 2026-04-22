@@ -11,6 +11,21 @@ import click
 from divineos.cli._wrappers import _ensure_db
 from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 
+# Make stdout/stderr tolerant of Unicode characters that the underlying
+# console can't render. On Windows the default cp1252 console codec
+# crashes on emojis (e.g. "💬" used in the session rating prompt),
+# bubbling up as UnicodeEncodeError — we saw this as spurious
+# "Auto-scan failed" messages during extract. Reconfiguring with
+# errors="replace" substitutes an unsupported character with "?" instead
+# of raising. No-op on platforms whose streams are already UTF-8.
+# Runs at import time so it is in effect before any CLI command writes
+# to stdout/stderr.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+    except (AttributeError, OSError, ValueError):
+        pass
+
 # Commands that work without briefing loaded — the minimum to bootstrap.
 _BYPASS_COMMANDS = frozenset(
     {
@@ -156,6 +171,16 @@ def _enforce_briefing_gate() -> None:
 @click.group()
 def cli() -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
+    # Install-location divergence check — fires when this CLI's installed
+    # package points at a different source tree than the current working
+    # directory's git repo. Silent the rest of the time. Suppressable via
+    # DIVINEOS_SUPPRESS_INSTALL_WARNING=1 for intentional cross-repo use.
+    try:
+        from divineos.core.install_check import emit_install_warning
+
+        emit_install_warning()
+    except (ImportError, OSError):
+        pass  # check machinery unavailable — fail open
     _ensure_db()
     setup_cli_enforcement()
     _enforce_operating_mode()

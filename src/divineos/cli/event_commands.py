@@ -201,7 +201,6 @@ def register(cli: click.Group) -> None:
         op-a175acdb297d for the naming rationale.
         """
         import os
-        from pathlib import Path
 
         from divineos.event.event_emission import emit_consolidation_checkpoint
 
@@ -216,10 +215,17 @@ def register(cli: click.Group) -> None:
         # and breaks the session analyzer. The Stop-hook behavior is fixed
         # in a later commit; this guard is the load-bearing safety net that
         # survives even if the Stop hook path gets reintroduced.
-        marker = Path(os.path.expanduser("~")) / ".divineos" / "auto_session_end_emitted"
-        if marker.exists() and not force:
+        from divineos.core.extract_marker import (
+            format_skip_message,
+            read_marker,
+            write_marker,
+        )
+
+        existing = read_marker()
+        if existing is not None and not force:
+            skip_detail = format_skip_message(existing)
             click.secho(
-                "[~] Consolidation already ran this session — skipping.",
+                f"[~] Consolidation already ran this session — skipping. {skip_detail}",
                 fg="bright_black",
             )
             click.secho(
@@ -247,12 +253,12 @@ def register(cli: click.Group) -> None:
 
             # Write idempotency marker AFTER successful run. If the pipeline
             # errors out, the marker stays unset so the user can retry without
-            # needing --force.
-            try:
-                marker.parent.mkdir(parents=True, exist_ok=True)
-                marker.write_text("1", encoding="utf-8")
-            except OSError as e:
-                logger.debug(f"Could not write consolidation marker: {e}")
+            # needing --force. The trigger attribution helps a later caller
+            # see who ran extract first — sleep's post-sleep subprocess sets
+            # DIVINEOS_EXTRACT_TRIGGER=sleep so its run is distinguishable
+            # from a direct invocation.
+            trigger = os.environ.get("DIVINEOS_EXTRACT_TRIGGER", "manual")
+            write_marker(trigger=trigger, session_id=session_id or None)
 
             # Reset the write-count trigger. The next consolidation cycle is
             # measured from this point forward; writes that preceded this
