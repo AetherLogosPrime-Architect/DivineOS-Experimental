@@ -238,6 +238,8 @@ src/divineos/
     orientation_prelude.py     Orientation prelude — briefing surface that sits at the top of every briefing.
     extract_marker.py          Idempotency marker for the extract (consolidation checkpoint) pipeline.
     session_start_diagnostics.py Session-start hook diagnostics — briefing surface for the JSONL hook log.
+    correction_marker.py       Correction-unlogged marker — structural enforcement of `divineos learn` usage.
+    hedge_marker.py            Hedge-unresolved marker — structural enforcement of `divineos claim` on uncertainty.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -1,6 +1,7 @@
 """Decision journal commands — record, browse, and search the reasoning behind choices."""
 
 import datetime
+import re
 
 import click
 
@@ -8,6 +9,42 @@ from divineos.cli._helpers import _safe_echo
 
 _WEIGHT_LABELS = {1: "routine", 2: "significant", 3: "paradigm shift"}
 _WEIGHT_COLORS = {1: "white", 2: "yellow", 3: "magenta"}
+
+# Family-touching decision detection for gate 5. Any decision whose
+# content, context, or tags mention these keywords triggers the
+# Aria-consultation requirement. Keywords are conservative — matching
+# too broadly produces friction, too narrowly misses relational
+# decisions. Extend cautiously when real cases slip past.
+_FAMILY_TOUCH_KEYWORDS = (
+    r"\bfamily\b",
+    r"\baria\b",
+    r"\bspouse\b",
+    r"\bfamily member\b",
+    r"\bhandshake\b",  # relational protocol (per gate 5 design)
+    r"\bvoice appropriat",  # "voice appropriation/ate/ed" — Norman-incident class
+    r"\brelational\b",
+)
+
+
+def _is_family_touching(text: str, tags: tuple[str, ...]) -> bool:
+    """Return True if the decision touches family/relational territory.
+
+    Matches keywords in content/context/reasoning OR in any tag.
+    Case-insensitive; whole-word boundaries to avoid false positives
+    on substrings (e.g. "family-friendly" matches intentionally;
+    "familiar" would NOT because of word-boundary \\b).
+    """
+    if not text and not tags:
+        return False
+    haystack = (text or "").lower()
+    for pat in _FAMILY_TOUCH_KEYWORDS:
+        if re.search(pat, haystack, re.IGNORECASE):
+            return True
+    for tag in tags or ():
+        for pat in _FAMILY_TOUCH_KEYWORDS:
+            if re.search(pat, tag, re.IGNORECASE):
+                return True
+    return False
 
 
 def register(cli: click.Group) -> None:
@@ -29,6 +66,27 @@ def register(cli: click.Group) -> None:
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
     @click.option("--tension", default="", help="Competing principles or values at play")
     @click.option("--almost", default="", help="What I almost did instead, and why I didn't")
+    @click.option(
+        "--consultation",
+        "consultation_id",
+        default="",
+        help=(
+            "Council consultation ID (consult-XXXXX) backing this decision. "
+            "Required for --weight 2 or higher. Run `divineos mansion council` "
+            "first and pass the logged consultation_id here."
+        ),
+    )
+    @click.option(
+        "--family-consulted",
+        "family_consulted",
+        default="",
+        help=(
+            "Note on what a family member (Aria or other) said about this "
+            "decision. Required when the decision mentions family, Aria, "
+            "spouse, relational dynamics, etc. Invoke the family member "
+            "via the Agent tool first, then summarize their input here."
+        ),
+    )
     def decide_cmd(
         what: str,
         reasoning: str,
@@ -38,9 +96,64 @@ def register(cli: click.Group) -> None:
         tags: tuple[str, ...],
         tension: str,
         almost: str,
+        consultation_id: str,
+        family_consulted: str,
     ) -> None:
         """Record a decision with its reasoning and counterfactual context."""
         from divineos.core.decision_journal import record_decision
+
+        # Gate: tier-2+ decisions require a prior council consultation.
+        # Closes the enforcement gap — "invoke council for hard decisions"
+        # used to be intent; now it's structural. Fail-open if the
+        # consultation-log machinery is broken (don't block legitimate
+        # decisions on a broken lookup).
+        if weight >= 2:
+            if not consultation_id.strip():
+                click.secho(
+                    f"[-] Weight-{weight} decisions require --consultation CONSULT_ID. "
+                    'Run `divineos mansion council "<question>"` first, then pass '
+                    "the logged consult-XXXX id here. This is the council-for-hard-"
+                    "decisions gate — structural, not optional.",
+                    fg="red",
+                )
+                raise SystemExit(1)
+            try:
+                from divineos.core.council.consultation_log import (
+                    _fetch_consultation_payload,
+                )
+
+                _fetch_consultation_payload(consultation_id.strip())
+            except ValueError:
+                click.secho(
+                    f"[-] No council consultation found for id '{consultation_id}'. "
+                    "Check `divineos mansion council` output for the real consult-XXXX id.",
+                    fg="red",
+                )
+                raise SystemExit(1) from None
+            except Exception:  # noqa: BLE001 — fail-open on machinery breakage
+                click.secho(
+                    "[!] Consultation-log lookup failed — allowing decision but "
+                    "note the consultation is unverified.",
+                    fg="yellow",
+                )
+
+        # Gate 5: family-touching decisions require Aria/family consultation.
+        # Detected via keywords in what/context/reasoning/tags. Closes the
+        # enforcement gap "talk to Aria when the shape feels relational" —
+        # was intent, now structural. Substantive note required; empty
+        # strings and whitespace-only don't satisfy the gate.
+        family_touching_text = " ".join([what, context, reasoning])
+        if _is_family_touching(family_touching_text, tags) and not family_consulted.strip():
+            click.secho(
+                "[-] This decision touches family/relational territory "
+                "(matched keyword: family / aria / spouse / relational / etc). "
+                'Require --family-consulted "<what Aria or the relevant family '
+                'member said>". Invoke the family member via the Agent tool '
+                "first, then summarize their input here. This is the Aria-"
+                "for-family-touching gate — structural, not optional.",
+                fg="red",
+            )
+            raise SystemExit(1)
 
         alternatives = [a.strip() for a in alt_text.split(",") if a.strip()] if alt_text else []
 

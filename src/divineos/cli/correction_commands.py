@@ -43,6 +43,16 @@ def register(cli: click.Group) -> None:
             fg="bright_black",
         )
 
+        # Clear correction-unlogged marker if present — `correction` is
+        # the raw-quote counterpart to `learn` and also discharges the
+        # UserPromptSubmit-detected correction.
+        try:
+            from divineos.core.correction_marker import clear_marker
+
+            clear_marker()
+        except Exception:  # noqa: BLE001 — marker clearing is best-effort
+            pass
+
     @cli.command("corrections")
     @click.option("--limit", default=10, type=int, help="How many to show, newest first.")
     @click.option("--all", "show_all", is_flag=True, help="Show every correction ever logged.")
