@@ -121,6 +121,16 @@ def register(cli: click.Group) -> None:
         if related_to:
             click.secho(f"    related to: {related_to}", fg="bright_black")
 
+        # Clear correction-unlogged marker if present — `learn` is the
+        # canonical way to discharge a correction the UserPromptSubmit
+        # hook detected. See core/correction_marker.py.
+        try:
+            from divineos.core.correction_marker import clear_marker
+
+            clear_marker()
+        except _KC_ERRORS:
+            pass
+
     @cli.command("knowledge")
     @click.option(
         "--type",

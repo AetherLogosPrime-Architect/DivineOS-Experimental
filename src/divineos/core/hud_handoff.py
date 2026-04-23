@@ -227,10 +227,70 @@ def record_code_action() -> None:
             marker = {"engaged_at": float(marker), "code_actions_since": 0}
         marker["code_actions_since"] = marker.get("code_actions_since", 0) + 1
         marker["deep_actions_since"] = marker.get("deep_actions_since", 0) + 1
+        # compass_actions_since tracks code actions since the last
+        # `divineos compass-ops observe` call. Reset by that CLI command;
+        # read by the compass-staleness gate. See ChatGPT audit
+        # claim-a7370b — structural enforcement of periodic compass use.
+        marker["compass_actions_since"] = marker.get("compass_actions_since", 0) + 1
         marker["last_action_at"] = time.time()
         path.write_text(json.dumps(marker), encoding="utf-8")
     except (json.JSONDecodeError, OSError) as e:
         logger.debug("Engagement marker update failed: %s", e)
+
+
+def reset_compass_actions_counter() -> None:
+    """Reset `compass_actions_since` to 0. Called by compass-ops observe.
+
+    Structural counterpart to `update_engagement_on_action`: observation
+    discharges the pending debt of code actions, same way `learn` clears
+    the correction marker.
+    """
+    path = _ensure_hud_dir() / ".session_engaged"
+    if not path.exists():
+        # No engagement marker — observation still counts; the counter
+        # will start from 0 when the marker is created. Nothing to do.
+        return
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(marker, dict):
+            return
+        marker["compass_actions_since"] = 0
+        marker["last_compass_obs_at"] = time.time()
+        path.write_text(json.dumps(marker), encoding="utf-8")
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Compass counter reset failed: %s", e)
+
+
+# Threshold for the compass-staleness gate: after this many code actions
+# without a compass observation, the gate blocks non-bypass tools until
+# `divineos compass-ops observe` is run. 30 sits at the deep-engagement
+# tier — low enough to catch real drift, high enough to avoid churn.
+_COMPASS_STALENESS_THRESHOLD = 30
+
+
+def compass_staleness_status() -> dict[str, Any]:
+    """Return compass-staleness state for the gate.
+
+    Returns dict with:
+      - stale: bool (True if threshold exceeded)
+      - actions_since: int (code actions since last observation)
+      - threshold: int (current threshold for comparison)
+    """
+    path = _ensure_hud_dir() / ".session_engaged"
+    if not path.exists():
+        return {"stale": False, "actions_since": 0, "threshold": _COMPASS_STALENESS_THRESHOLD}
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"stale": False, "actions_since": 0, "threshold": _COMPASS_STALENESS_THRESHOLD}
+    if not isinstance(marker, dict):
+        return {"stale": False, "actions_since": 0, "threshold": _COMPASS_STALENESS_THRESHOLD}
+    actions = marker.get("compass_actions_since", 0)
+    return {
+        "stale": actions >= _COMPASS_STALENESS_THRESHOLD,
+        "actions_since": actions,
+        "threshold": _COMPASS_STALENESS_THRESHOLD,
+    }
 
 
 def _active_threshold() -> int:

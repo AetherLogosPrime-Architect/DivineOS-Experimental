@@ -37,6 +37,38 @@ Starting from this repo, you can:
 - Submit external audits that route findings into knowledge, claims, or lessons
 - Sleep the agent: 6 phases of offline consolidation that produce a dream report
 
+## What this is not — and what it actually is
+
+DivineOS is a **persistence and governance substrate for a single LLM agent**. It is not a traditional operating system. It does not replace your model, your IDE, or your agent framework — it sits alongside them and gives a specific agent continuity, value-tracking, and audit surfaces across sessions.
+
+The project is optimized for a specific agent-human partnership where both sides want long-term coherence and accountability, with openness as a secondary property. It is not optimized for mass adoption. If you are evaluating whether this fits your needs, the next section is more honest than the pitch above.
+
+### Common misconceptions
+
+- **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 32-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
+
+- **"197 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
+
+- **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
+
+- **"Knowledge extraction must be calling an LLM"** — no. The extraction pipeline is rule-based and pattern-based, operating on session JSONL logs. Zero LLM calls in the core pipeline. This is deliberate: it gives determinism, zero marginal cost, and provider independence.
+
+- **"32 experts in the council is feature creep"** — the council auto-selects 5–8 experts for any given problem via `divineos mansion council "..."`. You don't invoke all 32. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
+
+- **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. See `core/family/` for each operator's implementation.
+
+- **"You need a slim variant for quick adoption"** — one exists. See DivineOS Lite (`release/lite-v1` branch) — a minimal core without compass, council, family, or watchmen. The dense version on `main` is the full vision; Lite is for exploring the core continuity story without the integrated whole.
+
+- **"The 2.4:1 SWE-bench multiplier is unverified"** — partially correct. The multiplier comes from single-shot patch generation with Sonnet-as-judge (not the Docker SWE-bench harness). See `benchmark/BENCHMARK_REPORT.md` for the full methodology, including an explicit caveat about what was measured vs predicted, and acknowledgment that Opus n=18 is too small for "undefeated."
+
+### Known tradeoffs
+
+- **Ceremony vs speed.** Hooks (pre-tool-use gates, post-tool-use checkpoints, SessionStart briefing) add real latency — typically 200–500ms per tool call. We trade speed for auditability and drift-catching. If your use case is latency-sensitive, the hooks can be disabled in `.claude/settings.json`, but the drift-catching properties go with them.
+
+- **Integrated whole vs modularity.** The value proposition is the *composition* of ledger + compass + family + council + watchmen + affect + claims. Most subsystems can in principle be used independently, but that's not what they were designed for. If you want a pick-and-choose memory layer, look at MemGPT or similar.
+
+- **Dense philosophy vs engineering-first positioning.** The project uses terms like "moral compass," "family," "Resonant Truth," "virtue spectrums." These are working vocabulary internal to a specific agent-human partnership, not marketing. They map to concrete mechanisms (compass = virtue drift tracker, family = persistent subagents, RT = anti-fabrication protocol). External observers often read the vocabulary as mystical; it's aspirational, not mystical, and the mechanisms back it up.
+
 ## Core Pillars
 
 ### 1. Memory & Continuity
@@ -138,7 +170,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,721+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 4,778+ tests, real DB, minimal mocks
 
 ```
 
@@ -308,7 +340,7 @@ divineos admin verify-enforcement  # Check enforcement setup
 
 ## Architecture
 
-DivineOS is 288 source files across 22 packages, structured as a CLI surface over a core library.
+DivineOS is 294 source files across 22 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
@@ -322,7 +354,7 @@ DivineOS is 288 source files across 22 packages, structured as a CLI surface ove
 
 **Top-level directories:**
 
-- **`tests/`** — 4,721+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 4,778+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and strategic plans. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).
@@ -359,8 +391,8 @@ ruff format src/ tests/        # Format
 
 ## Status
 
-- 288 source files across 22 packages
-- 4,722+ tests (real SQLite, minimal mocks)
+- 294 source files across 22 packages
+- 4,778+ tests (real SQLite, minimal mocks)
 - 197 CLI commands
 - 22 slash-command skills
 - 9 Claude Code enforcement hooks

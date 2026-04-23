@@ -150,6 +150,57 @@ def _check_gates() -> dict[str, Any] | None:
     except (ImportError, OSError, AttributeError):
         pass  # fail open — gate machinery unavailable
 
+    # Gate 1.4: compass-staleness.
+    # Closes ChatGPT audit claim-a7370b (compass observation is an intent,
+    # not enforced). After N code actions without a compass observation,
+    # the gate blocks non-bypass tools until `divineos compass-ops observe`
+    # is run. Reset is structural — the observe command clears the counter.
+    try:
+        from divineos.core.hud_handoff import compass_staleness_status
+
+        cs = compass_staleness_status()
+        if cs.get("stale"):
+            return _make_deny(
+                f"BLOCKED: {cs.get('actions_since', '?')} code actions since "
+                f"the last compass observation (threshold "
+                f"{cs.get('threshold', '?')}). Run: divineos compass-ops "
+                f'observe <spectrum> -p <position> -e "<evidence>" — '
+                f"virtue drift is not tracked by the system if you never "
+                f"observe your own position."
+            )
+    except (ImportError, OSError, AttributeError):
+        pass
+
+    # Gate 1.45: hedge-unresolved. Closes the hedge-claim enforcement gap —
+    # when my last assistant output had >= 2 hedge flags (detected by the
+    # Stop hook), a claim must be filed before further tool use. Hedge
+    # without claim is floating doubt; claim discharges it into the
+    # investigation queue.
+    try:
+        from divineos.core.hedge_marker import format_gate_message as _hm_msg
+        from divineos.core.hedge_marker import read_marker as _hm_read
+
+        h = _hm_read()
+        if h is not None:
+            return _make_deny(_hm_msg(h))
+    except (ImportError, OSError, AttributeError):
+        pass
+
+    # Gate 1.5: correction detected but not logged.
+    # Closes ChatGPT audit claim-964493 (theater-learning bypass) by making
+    # "log the correction" a structural requirement, not intent. The
+    # UserPromptSubmit hook (detect-correction.sh) sets the marker when a
+    # user message matches CORRECTION_PATTERNS; `divineos learn` and
+    # `divineos correction` clear it. Fail open on missing machinery.
+    try:
+        from divineos.core.correction_marker import format_gate_message, read_marker
+
+        marker = read_marker()
+        if marker is not None:
+            return _make_deny(format_gate_message(marker))
+    except (ImportError, OSError, AttributeError):
+        pass
+
     # Gate 2: session-fresh goal
     try:
         from divineos.core.hud_state import has_session_fresh_goal

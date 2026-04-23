@@ -11,6 +11,17 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-correction.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
@@ -89,6 +100,11 @@
             "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-hedge.sh",
+            "timeout": 15
           }
         ]
       }

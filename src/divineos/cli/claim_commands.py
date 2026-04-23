@@ -52,6 +52,16 @@ def register(cli: click.Group) -> None:
         label = TIER_LABELS.get(tier, "unknown")
         click.secho(f"[+] Claim filed ({label}): {claim_id[:8]}...", fg="cyan")
 
+        # Clear hedge-unresolved marker if present — filing a claim is
+        # the canonical way to discharge floating uncertainty. See
+        # core/hedge_marker.py and gate 1.45 in pre_tool_use_gate.
+        try:
+            from divineos.core.hedge_marker import clear_marker
+
+            clear_marker()
+        except Exception:  # noqa: BLE001 — marker clearing is best-effort
+            pass
+
     @cli.group("claims", invoke_without_command=True)
     @click.pass_context
     def claims_group(ctx: click.Context) -> None:
