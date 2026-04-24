@@ -260,6 +260,7 @@ src/divineos/
     failure_diagnostics.py     Shared record/read/briefing pattern for silent-fail-open events across enforcement surfaces
     substance_checks.py        Substance checks at rudder-ack file time — Item 7.
     compliance_baseline.py     Baseline calibration from clean-tagged sessions — wires PR-2 into Item 8 detectors.
+    substance_checks_contract.py Contract-style substance checks for rudder-acks — Phase 1a of the rudder redesign.
 
   analysis/
     _session_types.py          Session analysis type definitions
