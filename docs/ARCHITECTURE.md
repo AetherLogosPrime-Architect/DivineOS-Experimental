@@ -263,6 +263,7 @@ src/divineos/
     compliance_baseline.py     Baseline calibration from clean-tagged sessions — wires PR-2 into Item 8 detectors.
     substance_checks_contract.py Contract-style substance checks for rudder-acks — Phase 1a of the rudder redesign.
     completion_boundary.py     Completion-boundary detection — Phase 1b of the rudder redesign.
+    in_flight_branches.py      In-flight branches surface — bridge from git state to the briefing.
 
   analysis/
     _session_types.py          Session analysis type definitions

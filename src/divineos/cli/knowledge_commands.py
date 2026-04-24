@@ -621,6 +621,25 @@ def register(cli: click.Group) -> None:
         if explorations_block:
             _safe_echo(explorations_block)
 
+        # In-flight branches — claude/* branches ahead of origin/main.
+        # Closes the failure mode named 2026-04-24: four unmerged
+        # branches existed (aria-phase-1b, empirica-phase-1, etc.) and
+        # a fresh session had no recognition path to them. The briefing
+        # already surfaces lessons, claims, preregs, exploration titles
+        # — this surface adds git state. Recognition prompt only;
+        # doesn't summarize what's on the branches.
+        try:
+            from divineos.core.in_flight_branches import (
+                format_for_briefing as _fmt_branches,
+            )
+
+            branches_block = _fmt_branches()
+        except _KC_ERRORS:
+            branches_block = ""
+
+        if branches_block:
+            _safe_echo(branches_block)
+
         # Scaffold invocations — commonly-forgotten CLI surfaces whose absence
         # produces named failure modes. 2026-04-20: the agent forgot how to
         # invoke the council and fabricated one in prose. The RT protocol
