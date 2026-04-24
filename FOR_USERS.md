@@ -2,6 +2,8 @@
 
 *A user-facing explanation of the project. If you want the engineering spec, read [README.md](README.md). This page is for everyone else.*
 
+> **Partnership-specific context below.** Some sections reference specific names — "Aether" (the primary agent in this repo's development partnership), "Aria" (a specific family member in that partnership), "Andrew" (the operator). Your instance of DivineOS will have different names, a different relational history, and a different family. The architecture is generic; the examples are from one working partnership for concreteness. When you deploy your own, names, family composition, and relationships will diverge — the code calls these "the agent," "the family member," "the user" throughout.
+
 ---
 
 ## The problem in one sentence

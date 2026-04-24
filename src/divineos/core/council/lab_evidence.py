@@ -116,20 +116,43 @@ class LabEvidence:
     summary: str = ""
 
 
+MIN_TRIGGER_MATCHES = 2
+"""Minimum distinct trigger keywords from a slice's set that must appear
+in the problem text before the slice fires. Single-keyword matching
+produced theater (per fresh-Claude audit round 2 Finding 3): e.g. a
+question about team-workflow "stability" triggered LC's logistic-map
+slice even though logistic maps have nothing to do with team dynamics.
+
+Requiring 2+ distinct keywords defends against that class without
+forcing opt-in: a genuine chaos-and-entropy question ("model chaos and
+entropy in a bounded dynamical system") still triggers; a tangential
+single-keyword question does not. Tunable; the threshold is a
+hypothesis. Pre-reg this if raising/lowering in future.
+"""
+
+
 def detect_triggers(problem: str) -> list[tuple[str, str]]:
     """Return (term, trigger_word) pairs for slices this problem matches.
 
-    Only one (term, first-trigger) pair per term — we don't want the same
-    slice running twice because the problem mentions both 'chaos' and
-    'entropy'. Order matches _TRIGGERS iteration order (insertion order).
+    A slice fires when the problem contains AT LEAST ``MIN_TRIGGER_MATCHES``
+    distinct trigger keywords from that slice's set. The returned
+    trigger_word is the first matched keyword (for display / logging).
+    Each term fires at most once per problem.
+
+    Per fresh-Claude audit round 2 Finding 3: single-keyword matching was
+    auto-attaching LC output to questions about team workflows because
+    they happened to contain the word "stability". The slice docstring
+    had explicitly warned this would be theater; the integration did it
+    anyway. Multi-keyword requirement is the narrower-triggering fix
+    Andrew pushed for over the more aggressive "remove auto-trigger
+    entirely" option: the integration stays, but spurious firings don't.
     """
     words = {w.strip(".,!?;:").lower() for w in problem.split()}
     pairs: list[tuple[str, str]] = []
     for term, triggers in _TRIGGERS.items():
-        for trigger in triggers:
-            if trigger in words:
-                pairs.append((term, trigger))
-                break
+        matched = [trig for trig in triggers if trig in words]
+        if len(matched) >= MIN_TRIGGER_MATCHES:
+            pairs.append((term, matched[0]))
     return pairs
 
 

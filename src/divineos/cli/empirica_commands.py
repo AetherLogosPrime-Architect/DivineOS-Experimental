@@ -35,7 +35,7 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--actor",
         required=True,
-        help='Who/what is corroborating (e.g. "user:andrew", "council:popper", "audit:grok")',
+        help='Who/what is corroborating (e.g. "user:<operator>", "council:popper", "audit:grok")',
     )
     @click.option(
         "--kind",

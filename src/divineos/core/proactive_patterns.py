@@ -36,9 +36,13 @@ _PP_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeErro
 # These entries slipped in before the extraction noise filter existed.
 _LEGACY_NOISE_OPENERS = re.compile(
     r"^(yes |ok |oh |well |wonderful |it still |both fixes |auto memories |"
-    r"andrew,|absolutely |here is |heres |here's |the audit was |this is what )",
+    r"absolutely |here is |heres |here's |the audit was |this is what )",
     re.IGNORECASE,
 )
+# The literal 'andrew,' opener was removed per fresh-Claude audit round 2
+# Finding 2 (blank-slate cleanup): personal-name patterns in regex are
+# dead code for non-Andrew instances and a trust-hygiene cost for the
+# public skill library that ships this module.
 
 # Noise anywhere in content — conversational artifacts that shouldn't be recommendations
 _LEGACY_NOISE_MARKERS = re.compile(

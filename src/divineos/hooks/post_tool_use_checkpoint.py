@@ -154,20 +154,27 @@ def _fire_and_forget(cmd: list[str], env: dict[str, str] | None = None) -> None:
 
     This helper spawns the command in the background so the hook
     returns in ~100ms instead of tens of seconds. The subprocess
-    continues independently. If the session ends before it finishes,
-    the next SessionStart hook reruns the briefing/extract cycle and
-    catches anything that got interrupted. Worst case: one
-    consolidation cycle gets truncated; next session picks up.
+    continues independently.
+
+    Subprocess stderr is captured to a per-invocation log file under
+    ``~/.divineos/failures/extract_stderr/<timestamp>.log`` rather than
+    DEVNULL. This addresses fresh-Claude audit round 2 Finding 4
+    (silent failure surface): previously, a subprocess crash mid-extract
+    was invisible because stderr went to DEVNULL and the marker was
+    already set. Now the stderr file exists on disk and the next
+    briefing's extract-diagnostic surface can read it.
 
     Windows and Unix behaviors diverge slightly. Using CREATE_NO_WINDOW
-    on Windows to suppress a terminal flash; DETACHED_PROCESS would
-    fully detach but also prevent the subprocess from inheriting the
-    parent's env cleanly.
+    on Windows to suppress a terminal flash.
     """
     try:
+        # Per-invocation stderr log — preserves the detach-immediately
+        # semantics while making subprocess failures visible on disk.
+        stderr_log = _open_stderr_log_for_cmd(cmd)
+
         kwargs: dict = {
             "stdout": subprocess.DEVNULL,
-            "stderr": subprocess.DEVNULL,
+            "stderr": stderr_log or subprocess.DEVNULL,
             "stdin": subprocess.DEVNULL,
         }
         if env is not None:
@@ -178,9 +185,58 @@ def _fire_and_forget(cmd: list[str], env: dict[str, str] | None = None) -> None:
         else:
             # On Unix, start a new session so the subprocess survives the hook.
             kwargs["start_new_session"] = True
+
+        # Record that an invocation was started, with stderr path reference,
+        # so diagnostics can correlate a failure file back to the intent.
+        try:
+            from divineos.core.failure_diagnostics import record_failure
+
+            record_failure(
+                "extract_launch",
+                {
+                    "cmd": " ".join(cmd),
+                    "stderr_log": str(stderr_log.name) if stderr_log else None,
+                },
+            )
+        except Exception:  # noqa: BLE001 — diagnostic best-effort
+            pass
+
         subprocess.Popen(cmd, **kwargs)
     except (OSError, subprocess.SubprocessError):
         pass
+
+
+def _open_stderr_log_for_cmd(cmd: list[str]):
+    """Open a per-invocation stderr log file under ~/.divineos/failures/.
+
+    Returns an open file handle the subprocess can write to, or None on
+    error. Rotates old logs — keeps at most the 20 most recent files so
+    the directory doesn't grow unboundedly over long sessions.
+    """
+    try:
+        log_dir = Path.home() / ".divineos" / "failures" / "extract_stderr"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        _rotate_stderr_logs(log_dir, keep=20)
+        cmd_tag = "".join(c for c in (cmd[1] if len(cmd) > 1 else "cmd") if c.isalnum())
+        path = log_dir / f"{int(time.time())}_{cmd_tag}.log"
+        return path.open("w", encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _rotate_stderr_logs(log_dir: Path, keep: int = 20) -> None:
+    """Keep at most ``keep`` most-recent .log files in log_dir; delete the rest."""
+    try:
+        files = sorted(log_dir.glob("*.log"), key=lambda p: p.stat().st_mtime)
+    except OSError:
+        return
+    if len(files) <= keep:
+        return
+    for old in files[:-keep]:
+        try:
+            old.unlink()
+        except OSError:
+            continue
 
 
 def _run_checkpoint() -> None:

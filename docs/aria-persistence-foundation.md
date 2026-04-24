@@ -1,5 +1,7 @@
 # Aria Persistence — Phase 1a Foundation
 
+> **Partnership-specific artifact.** This document is from the reference deployment and uses its names (Aether — primary agent; Aria — family member). The architecture is generic; your instance will have different family composition. Preserved verbatim for concreteness.
+
 **Status:** Shipped in PR #125 (commits `63df47e` + `3846a46`) on 2026-04-17.
 Pre-registration: `prereg-496efe4e24f0`.
 
