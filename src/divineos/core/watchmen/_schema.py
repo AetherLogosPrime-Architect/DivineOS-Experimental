@@ -119,6 +119,33 @@ def init_watchmen_tables() -> None:
             ON audit_findings(reviewed_finding_id)
         """)
 
+        # Item 8 PR-2: session_cleanliness table. Used by Item 8
+        # detectors (variance-collapse, content-entropy, decide/learn
+        # skew, length-floor clustering, rapid-clear reflex) as the
+        # "externally-audited-clean baseline" source. Without this
+        # table, baselines fall back to "all historical sessions"
+        # which is circular if drift was present during the history.
+        #
+        # Tagging invariant (per claim 48371c4d sanity check): a
+        # session cannot be tagged clean by a round that itself
+        # contains HIGH or unresolved-MEDIUM findings. Enforced at
+        # write-time in cleanliness.tag_session_clean, not at schema
+        # level — the sanity check needs to consult audit_findings
+        # which is simpler in Python than a trigger.
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS session_cleanliness (
+                session_id           TEXT PRIMARY KEY,
+                tagged_at            REAL NOT NULL,
+                tagging_round_id     TEXT NOT NULL,
+                notes                TEXT NOT NULL DEFAULT '',
+                FOREIGN KEY (tagging_round_id) REFERENCES audit_rounds(round_id)
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_cleanliness_round
+            ON session_cleanliness(tagging_round_id)
+        """)
+
         conn.commit()
     except sqlite3.OperationalError as e:
         logger.debug(f"Watchmen table setup: {e}")

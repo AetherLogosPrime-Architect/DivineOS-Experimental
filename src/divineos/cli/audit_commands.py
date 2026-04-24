@@ -342,3 +342,91 @@ def register(cli: click.Group) -> None:
             f"\n  [+] Filed {len(anomalies)} Watchmen finding(s) under round {round_id}.",
             fg="green",
         )
+
+    # Item 8 PR-2: session-cleanliness tagging commands. Tags sessions
+    # that passed an audit round without drift findings as "externally-
+    # audited-clean" so Item 8 detectors can calibrate their baselines
+    # against a trusted reference set (brief v2.1 §4).
+
+    @audit_group.command("tag-clean")
+    @click.argument("session_id")
+    @click.option(
+        "--round",
+        "round_id",
+        required=True,
+        help="audit_round that tagged this session clean (must have no HIGH or unresolved MEDIUM findings)",
+    )
+    @click.option("--notes", default="", help="Optional notes about the tag")
+    def tag_clean_cmd(session_id: str, round_id: str, notes: str) -> None:
+        """Tag a session as externally-audited-clean.
+
+        The referenced audit round must have concluded clean — no HIGH
+        findings and no unresolved MEDIUM findings. This is the write-
+        time sanity check per claim 48371c4d (blocks the "round tags its
+        own dirty session clean" attack).
+        """
+        from divineos.core.watchmen.cleanliness import tag_session_clean
+
+        try:
+            tag_session_clean(session_id=session_id, round_id=round_id, notes=notes)
+            click.secho(
+                f"  [+] Session {session_id} tagged clean by round {round_id}.",
+                fg="green",
+            )
+        except ValueError as e:
+            click.secho(f"  [!] {e}", fg="red")
+
+    @audit_group.command("untag-clean")
+    @click.argument("session_id")
+    @click.option(
+        "--reason",
+        required=True,
+        help="Why this tag is being removed (required for the audit trail)",
+    )
+    def untag_clean_cmd(session_id: str, reason: str) -> None:
+        """Remove a clean-tag. Required reason writes an audit-trail event."""
+        from divineos.core.watchmen.cleanliness import untag_session_clean
+
+        try:
+            removed = untag_session_clean(session_id=session_id, reason=reason)
+        except ValueError as e:
+            click.secho(f"  [!] {e}", fg="red")
+            return
+        if removed:
+            click.secho(f"  [+] Untagged {session_id}. Reason logged to ledger.", fg="yellow")
+        else:
+            click.secho(f"  [~] {session_id} was not tagged clean; nothing to untag.")
+
+    @audit_group.command("list-clean")
+    @click.option(
+        "--days",
+        default=0,
+        type=int,
+        help="Only sessions tagged in the last N days. 0 = all (default).",
+    )
+    @click.option("--limit", default=50, type=int, help="Max rows to show (default 50).")
+    def list_clean_cmd(days: int, limit: int) -> None:
+        """List externally-audited-clean sessions."""
+        import time as _t
+
+        from divineos.core.watchmen.cleanliness import (
+            count_clean_sessions,
+            list_clean_sessions,
+        )
+
+        since = _t.time() - days * 86400 if days > 0 else None
+        sessions = list_clean_sessions(since=since, limit=limit)
+        total = count_clean_sessions(since=since)
+        window_str = f"in last {days}d" if days > 0 else "(all)"
+        click.secho(
+            f"  Clean-tagged sessions {window_str}: {total} total (showing {len(sessions)}):",
+            bold=True,
+        )
+        for s in sessions:
+            ago_hours = (_t.time() - s["tagged_at"]) / 3600
+            click.echo(
+                f"    {s['session_id'][:20]:22s}  tagged {ago_hours:.1f}h ago "
+                f"by {s['tagging_round_id'][:16]}"
+            )
+            if s["notes"]:
+                click.echo(f"      note: {s['notes']}")
