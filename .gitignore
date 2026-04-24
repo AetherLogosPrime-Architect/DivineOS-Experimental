@@ -126,3 +126,4 @@ benchmark/selected_tasks.json
 mansion/
 core_memory_backup.json
 main_core_memory_backup.json
+.claude/scheduled_tasks.lock

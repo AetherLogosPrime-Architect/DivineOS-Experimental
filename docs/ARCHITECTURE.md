@@ -265,6 +265,7 @@ src/divineos/
     completion_boundary.py     Completion-boundary detection — Phase 1b of the rudder redesign.
     in_flight_branches.py      In-flight branches surface — bridge from git state to the briefing.
     module_inventory.py        Module-inventory surface — bridge from src/divineos/core/ to the briefing.
+    upstream_freshness.py      Upstream-freshness surface — bridge from remote-state to the briefing.
 
   analysis/
     _session_types.py          Session analysis type definitions

@@ -621,6 +621,26 @@ def register(cli: click.Group) -> None:
         if explorations_block:
             _safe_echo(explorations_block)
 
+        # Upstream freshness — local main behind origin/main. Closes the
+        # upstream thinking error that the pre-push freshness hook
+        # (PR #200) catches downstream. Auditor on #200: "the hook
+        # enforces discipline; it doesn't prevent the thinking error
+        # that leads to stale branches." This surface is that
+        # prevention — agent reads at session start that local main is
+        # stale, fetches before branching, never produces the failure
+        # mode that the hook would otherwise have to catch.
+        try:
+            from divineos.core.upstream_freshness import (
+                format_for_briefing as _fmt_upstream,
+            )
+
+            upstream_block = _fmt_upstream()
+        except _KC_ERRORS:
+            upstream_block = ""
+
+        if upstream_block:
+            _safe_echo(upstream_block)
+
         # In-flight branches — claude/* branches ahead of origin/main.
         # Closes the failure mode named 2026-04-24: four unmerged
         # branches existed (aria-phase-1b, empirica-phase-1, etc.) and
