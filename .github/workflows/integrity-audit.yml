@@ -1,0 +1,128 @@
+name: Integrity Audit
+
+# Server-side enforcement of integrity invariants that the local pre-commit
+# hook tries to enforce but can be bypassed with --no-verify. This workflow
+# runs in GitHub Actions where the agent has no write access, so it's the
+# off-host anchor for the self-audit stack.
+#
+# PHASE 1 scope (this file):
+#   - Verify: any commit in a PR that modifies a guardrail file must carry
+#     an "External-Review: <id>" trailer in its commit message. This is a
+#     purely textual check — the trailer's PRESENCE is verified, not the
+#     referenced audit round's validity.
+#
+# What Phase 1 does NOT yet enforce (Phase 2 architectural work):
+#   - That the referenced audit round actually exists in the Watchmen store
+#   - That the round has CONFIRMS findings from user + external AI actors
+#   - That the round's diff-hash matches the current diff
+#   - That the referenced pre-reg exists and is open
+#
+#   Phase 2 requires committed audit-round and pre-reg state (or an external
+#   DB that CI can query). That's a bigger architectural shift — deferred.
+#   Phase 1 still closes the --no-verify bypass on the trailer requirement,
+#   which is the biggest single integrity gap.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  guardrail-trailer-check:
+    name: multi-party-review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify guardrail-modifying commits carry External-Review trailer
+        shell: bash
+        run: |
+          set -e
+
+          if [ ! -f scripts/guardrail_files.txt ]; then
+            echo "No scripts/guardrail_files.txt in this repo; nothing to guard."
+            exit 0
+          fi
+
+          # Load guardrail list (skip comments + blanks)
+          GUARDRAIL_LIST=$(grep -v '^[[:space:]]*#' scripts/guardrail_files.txt | grep -v '^[[:space:]]*$' || true)
+          if [ -z "$GUARDRAIL_LIST" ]; then
+            echo "Guardrail list is empty."
+            exit 0
+          fi
+
+          # Determine the commit range to check.
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+          fi
+
+          # Handle edge case: BASE_SHA may be all-zeros for initial push.
+          if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ] || [ -z "$BASE_SHA" ]; then
+            echo "No base commit available (initial push?). Skipping range check."
+            exit 0
+          fi
+
+          # List every commit in the range.
+          COMMITS=$(git rev-list "$BASE_SHA..$HEAD_SHA" 2>/dev/null || true)
+          if [ -z "$COMMITS" ]; then
+            echo "No commits to check in range $BASE_SHA..$HEAD_SHA."
+            exit 0
+          fi
+
+          BLOCKED_COMMITS=""
+          for commit in $COMMITS; do
+            # Files touched by THIS commit only
+            FILES=$(git show --name-only --pretty=format: "$commit" 2>/dev/null || true)
+
+            # Does this commit touch any guardrail file?
+            TOUCHES_GUARDRAIL=""
+            while IFS= read -r f; do
+              [ -z "$f" ] && continue
+              if echo "$GUARDRAIL_LIST" | grep -Fxq "$f"; then
+                TOUCHES_GUARDRAIL="yes"
+                break
+              fi
+            done <<< "$FILES"
+
+            if [ -z "$TOUCHES_GUARDRAIL" ]; then
+              continue
+            fi
+
+            # Does the commit message have an External-Review trailer?
+            MSG=$(git log -1 --format=%B "$commit")
+            if echo "$MSG" | grep -qiE '^External-Review:[[:space:]]*\S+'; then
+              echo "[ok] $commit modifies guardrail file(s); trailer present."
+            else
+              BLOCKED_COMMITS="$BLOCKED_COMMITS $commit"
+              echo "[BLOCKED] $commit modifies guardrail file(s); no External-Review trailer."
+            fi
+          done
+
+          if [ -n "$BLOCKED_COMMITS" ]; then
+            echo ""
+            echo "=== Multi-Party-Review Gate (server-side) ==="
+            echo "BLOCKED. Commits modifying guardrail files without External-Review trailer:"
+            for c in $BLOCKED_COMMITS; do
+              echo "  $c"
+            done
+            echo ""
+            echo "Every commit that modifies a file in scripts/guardrail_files.txt"
+            echo "must carry an 'External-Review: <audit_round_id>' trailer in its"
+            echo "commit message. The referenced audit round should contain CONFIRMS"
+            echo "findings from both actor=user and an external AI actor."
+            echo ""
+            echo "The local pre-commit hook enforces this but can be bypassed with"
+            echo "--no-verify. This server-side check cannot be bypassed."
+            exit 1
+          fi
+
+          echo ""
+          echo "All guardrail-modifying commits in this range carry the External-Review trailer."
