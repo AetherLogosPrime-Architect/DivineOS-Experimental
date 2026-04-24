@@ -205,6 +205,7 @@ from divineos.cli import (  # noqa: E402
     body_commands,
     claim_commands,
     compass_commands,
+    complete_commands,
     correction_commands,
     corrigibility_commands,
     decision_commands,
@@ -256,6 +257,7 @@ family_member_commands.register(cli)
 corrigibility_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)
+complete_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:
