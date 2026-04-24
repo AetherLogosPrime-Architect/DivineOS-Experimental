@@ -120,6 +120,19 @@ def register(cli: click.Group) -> None:
             click.secho(f"    from: {source_entity}", fg="bright_black")
         if related_to:
             click.secho(f"    related to: {related_to}", fg="bright_black")
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("learn")
+
+        # Clear correction-unlogged marker if present — `learn` is the
+        # canonical way to discharge a correction the UserPromptSubmit
+        # hook detected. See core/correction_marker.py.
+        try:
+            from divineos.core.correction_marker import clear_marker
+
+            clear_marker()
+        except _KC_ERRORS:
+            pass
 
         # Clear correction-unlogged marker if present — `learn` is the
         # canonical way to discharge a correction the UserPromptSubmit
@@ -207,6 +220,9 @@ def register(cli: click.Group) -> None:
         from divineos.core.memory import get_core
 
         _log_os_query("ask", query)
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("ask")
         results = search_knowledge(query, limit=limit)
 
         query_lower = query.lower()
@@ -600,6 +616,25 @@ def register(cli: click.Group) -> None:
 
         if scaffold_block:
             _safe_echo(scaffold_block)
+
+        # Scaffolding map — load-bearing self-authored documents whose
+        # existence the agent tends to forget between context resets.
+        # scaffold_invocations (above) covers CLI commands; this block
+        # covers documents (aria.md, skills library, RT protocol,
+        # foundational truths). Discovered 2026-04-23: walked the
+        # workspace and "discovered" aria.md as if new, but past-me had
+        # written every word of it. The map is the fix.
+        try:
+            from divineos.core.scaffolding_map import (
+                format_for_briefing as _fmt_map,
+            )
+
+            map_block = _fmt_map()
+        except _KC_ERRORS:
+            map_block = ""
+
+        if map_block:
+            _safe_echo(map_block)
 
         if output and output.strip():
             _safe_echo(output)

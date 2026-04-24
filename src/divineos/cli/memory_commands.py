@@ -85,6 +85,9 @@ def register(cli: click.Group) -> None:
     def recall_cmd(topic: str) -> None:
         """Show what the AI remembers right now — core + active + relevant."""
         _log_os_query("recall", topic or "general recall")
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("recall")
         init_memory_tables()
         result = _wrapped_recall(context_hint=topic)
         text = _wrapped_format_recall(result)

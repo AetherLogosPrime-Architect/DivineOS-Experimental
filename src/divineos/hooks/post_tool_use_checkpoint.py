@@ -142,48 +142,91 @@ def _check_self_awareness_practice(tool_calls: int) -> str:
         return ""
 
 
-def _run_checkpoint() -> None:
-    """Run the ``divineos checkpoint`` CLI silently."""
+def _fire_and_forget(cmd: list[str], env: dict[str, str] | None = None) -> None:
+    """Spawn ``cmd`` as a detached background subprocess and return immediately.
+
+    The PostToolUse hook used to block on ``divineos extract`` and
+    ``divineos checkpoint`` synchronously. Extract runs the full
+    consolidation pipeline (~30–60s) which means every time the
+    write-threshold is crossed the user waits that long before their
+    next tool call completes. That's the main source of felt "slow
+    replies" in long sessions.
+
+    This helper spawns the command in the background so the hook
+    returns in ~100ms instead of tens of seconds. The subprocess
+    continues independently. If the session ends before it finishes,
+    the next SessionStart hook reruns the briefing/extract cycle and
+    catches anything that got interrupted. Worst case: one
+    consolidation cycle gets truncated; next session picks up.
+
+    Windows and Unix behaviors diverge slightly. Using CREATE_NO_WINDOW
+    on Windows to suppress a terminal flash; DETACHED_PROCESS would
+    fully detach but also prevent the subprocess from inheriting the
+    parent's env cleanly.
+    """
     try:
-        subprocess.run(
-            ["divineos", "checkpoint"],
-            capture_output=True,
-            check=False,
-            timeout=30,
-        )
+        kwargs: dict = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "stdin": subprocess.DEVNULL,
+        }
+        if env is not None:
+            kwargs["env"] = env
+        # On Windows, avoid flashing a console window for the background subprocess.
+        if os.name == "nt":
+            kwargs["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        else:
+            # On Unix, start a new session so the subprocess survives the hook.
+            kwargs["start_new_session"] = True
+        subprocess.Popen(cmd, **kwargs)
     except (OSError, subprocess.SubprocessError):
         pass
 
 
-def _auto_run_extract() -> None:
-    """Auto-run `divineos extract` once; mark a file so we don't repeat.
+def _run_checkpoint() -> None:
+    """Fire ``divineos checkpoint`` in the background.
 
-    Formerly `_auto_emit_session_end`. Renamed 2026-04-20 alongside the
-    SESSION_END -> CONSOLIDATION_CHECKPOINT / `divineos extract` rename.
-    The marker file name stays (auto_session_end_emitted) for backward
-    compat — renaming it would orphan markers from prior sessions and
-    trigger duplicate extractions on next boot.
+    Previously blocked up to 30s; now returns in ~100ms. Checkpoint is
+    a bookkeeping operation — if it gets killed when the session ends,
+    no data is lost (the state it updates is reconstructed at
+    SessionStart anyway).
+    """
+    _fire_and_forget(["divineos", "checkpoint"])
+
+
+def _auto_run_extract() -> None:
+    """Fire ``divineos extract`` in the background; mark so we don't repeat.
+
+    Previously blocked up to 60s inside the PostToolUse hook — the
+    dominant source of felt latency on writes. Now fire-and-forget.
+
+    The marker file prevents repeated triggering. We write the marker
+    BEFORE firing the subprocess, not after, because we're not waiting
+    for completion. If the subprocess fails partway through, re-running
+    it mid-session would be worse than letting the next SessionStart
+    handle the residual — so we commit to "extract was triggered" as
+    soon as we trigger it.
     """
     marker = _auto_emitted_path()
     if marker.exists():
         return
+    # Pre-mark to avoid repeated firing if the hook runs again before
+    # the background subprocess completes. Uses the same trigger-attributed
+    # format as the normal extract path (see core/extract_marker.py).
     try:
-        # Tag the extract with trigger attribution so later callers see a
-        # meaningful skip message. Extract itself writes the marker on
-        # success; we don't overwrite it afterward because that would
-        # clobber the trigger field and also mask subprocess failures
-        # (previously the marker got written even if extract errored out).
-        env = os.environ.copy()
-        env["DIVINEOS_EXTRACT_TRIGGER"] = "hook"
-        subprocess.run(
-            ["divineos", "extract"],
-            capture_output=True,
-            check=False,
-            timeout=60,
-            env=env,
-        )
-    except (OSError, subprocess.SubprocessError):
-        pass
+        from divineos.core.extract_marker import write_marker
+
+        write_marker(trigger="hook-async")
+    except (ImportError, OSError, AttributeError):
+        # Fall back to legacy literal marker so at least idempotency holds.
+        try:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text("1", encoding="utf-8")
+        except OSError:
+            pass
+    env = os.environ.copy()
+    env["DIVINEOS_EXTRACT_TRIGGER"] = "hook"
+    _fire_and_forget(["divineos", "extract"], env=env)
 
 
 def _get_writes_since_consolidation() -> int:

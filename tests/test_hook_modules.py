@@ -75,7 +75,10 @@ class TestPreToolUseBypassCommands:
     @pytest.mark.parametrize(
         "cmd",
         [
-            "divineos learn 'x'",
+            # 'divineos learn' was moved to bypass on 2026-04-23 when the
+            # correction-detection gate was shipped — the gate instructs the
+            # agent to run `divineos learn` to clear the marker, so learn
+            # itself must not be blocked (catch-22 discovered live).
             "divineos forget abc",
             "divineos ingest file.md",
             "rm -rf /",
@@ -87,6 +90,11 @@ class TestPreToolUseBypassCommands:
     )
     def test_non_bypass_commands_return_false(self, cmd: str):
         assert pre_hook._is_bypass_command(cmd) is False
+
+    def test_learn_is_bypass_to_break_correction_catch22(self):
+        """Regression guard: `divineos learn` must be bypass so the
+        correction-detection gate's remedy isn't itself blocked."""
+        assert pre_hook._is_bypass_command("divineos learn 'x'") is True
 
 
 class TestPreToolUseEntryPoint:

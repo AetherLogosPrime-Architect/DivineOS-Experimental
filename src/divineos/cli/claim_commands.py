@@ -51,6 +51,9 @@ def register(cli: click.Group) -> None:
         )
         label = TIER_LABELS.get(tier, "unknown")
         click.secho(f"[+] Claim filed ({label}): {claim_id[:8]}...", fg="cyan")
+        from divineos.cli._anti_substitution import emit_label as _emit_as_label
+
+        _emit_as_label("claim")
 
         # Clear hedge-unresolved marker if present — filing a claim is
         # the canonical way to discharge floating uncertainty. See
@@ -288,6 +291,9 @@ def register(cli: click.Group) -> None:
         from divineos.cli._helpers import _log_os_query
 
         _log_os_query("feel", f"v={valence:.1f} a={arousal:.1f}")
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("feel")
 
         # Map to a human-readable region
         region = describe_affect(valence, arousal, dominance)

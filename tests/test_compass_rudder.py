@@ -121,17 +121,53 @@ class TestAllowPath:
         v = check_tool_use(tool_name="Task")
         assert v.decision == "allow"
 
-    def test_recent_justification_allows(self):
-        """When a decide mentioning the drifting spectrum was logged in
-        the last 5 minutes, the Task call passes."""
+    def test_recent_ack_observation_allows(self):
+        """A compass observation with the rudder-ack tag recorded in the
+        last 5 minutes clears the rudder. Decisions alone do not — the
+        clearance path is the compass, not the decision journal."""
+        from divineos.core.compass_rudder import RUDDER_ACK_TAG
+        from divineos.core.moral_compass import log_observation
+
+        _seed_drift("initiative", toward_excess=True, magnitude=0.8)
+        log_observation(
+            spectrum="initiative",
+            position=0.1,
+            evidence="scope is bounded to 3 agents; initiative drift acknowledged",
+            source="rudder_ack",
+            tags=[RUDDER_ACK_TAG],
+        )
+        v = check_tool_use(tool_name="Task")
+        assert v.decision == "allow", v.reason
+        assert "initiative" in v.recent_justifications
+
+    def test_decide_alone_does_not_clear(self):
+        """A decide mentioning the spectrum is NOT sufficient — the old
+        clearance path was gameable; the new gate requires a structured
+        compass observation. This test locks in the strictness."""
         _seed_drift("initiative", toward_excess=True, magnitude=0.8)
         record_decision(
             content="spawning 3 subagents for parallel audit analysis",
             reasoning="scope is bounded to 3 agents; initiative drift acknowledged",
         )
         v = check_tool_use(tool_name="Task")
-        assert v.decision == "allow", v.reason
-        assert "initiative" in v.recent_justifications
+        assert v.blocked, v.reason
+        assert "initiative" not in v.recent_justifications
+
+    def test_untagged_observation_does_not_clear(self):
+        """A compass observation without the rudder-ack tag doesn't count.
+        This is the specific gameability fix: the seed observations that
+        CAUSED the drift must not also accidentally clear the gate."""
+        _seed_drift("initiative", toward_excess=True, magnitude=0.8)
+        from divineos.core.moral_compass import log_observation
+
+        log_observation(
+            spectrum="initiative",
+            position=0.0,
+            evidence="something about initiative but no ack tag",
+            source="self_report",
+        )
+        v = check_tool_use(tool_name="Task")
+        assert v.blocked, v.reason
 
 
 # ── Block path ───────────────────────────────────────────────────────
@@ -153,26 +189,41 @@ class TestBlockPath:
         assert v.blocked
         assert "Task" in v.reason
         assert "initiative" in v.reason
-        assert "divineos decide" in v.reason  # unblock instructions present
+        # unblock instructions point at compass-ops observe now, not decide
+        assert "compass-ops observe" in v.reason
+        assert "rudder-ack" in v.reason
 
-    def test_stale_justification_does_not_allow(self):
-        """A justification older than the window is not fresh enough."""
+    def test_stale_ack_observation_does_not_allow(self):
+        """An ack observation older than the window is not fresh enough."""
+        from divineos.core.compass_rudder import RUDDER_ACK_TAG
+        from divineos.core.moral_compass import log_observation
+
         _seed_drift("initiative", toward_excess=True, magnitude=0.8)
-        record_decision(
-            content="earlier thought about initiative",
-            reasoning="long stale",
+        log_observation(
+            spectrum="initiative",
+            position=0.0,
+            evidence="earlier ack",
+            source="rudder_ack",
+            tags=[RUDDER_ACK_TAG],
         )
         # Simulate time passing by passing a ``now`` past the window
         future = time.time() + JUSTIFICATION_WINDOW_SECONDS + 60
         v = check_tool_use(tool_name="Task", now=future)
         assert v.blocked
 
-    def test_justification_must_mention_the_drifting_spectrum(self):
-        """A decide about something unrelated doesn't count."""
+    def test_ack_on_different_spectrum_does_not_clear(self):
+        """An ack observation on a spectrum that isn't drifting doesn't
+        help the drifting spectrum. The tag must match the drift."""
+        from divineos.core.compass_rudder import RUDDER_ACK_TAG
+        from divineos.core.moral_compass import log_observation
+
         _seed_drift("initiative", toward_excess=True, magnitude=0.8)
-        record_decision(
-            content="adding a test for compass rudder",
-            reasoning="covers the fail-open semantics",
+        log_observation(
+            spectrum="humility",
+            position=0.0,
+            evidence="ack for a different spectrum",
+            source="rudder_ack",
+            tags=[RUDDER_ACK_TAG],
         )
         v = check_tool_use(tool_name="Task")
         assert v.blocked
@@ -183,29 +234,42 @@ class TestBlockPath:
 
 
 class TestMultipleDrifts:
-    def test_must_justify_all_drifting_spectrums(self):
-        """If two spectrums drift toward excess, a single justification
+    def test_must_ack_all_drifting_spectrums(self):
+        """If two spectrums drift toward excess, a single ack observation
         covering one is not enough."""
+        from divineos.core.compass_rudder import RUDDER_ACK_TAG
+        from divineos.core.moral_compass import log_observation
+
         _seed_drift("initiative", toward_excess=True, magnitude=0.8)
         _seed_drift("confidence", toward_excess=True, magnitude=0.8)
-        record_decision(
-            content="justification for initiative only",
-            reasoning="initiative drift acknowledged",
+        log_observation(
+            spectrum="initiative",
+            position=0.0,
+            evidence="ack for initiative only",
+            source="rudder_ack",
+            tags=[RUDDER_ACK_TAG],
         )
         v = check_tool_use(tool_name="Task")
         assert v.blocked, v.reason
         assert set(v.drifting_spectrums) >= {"initiative", "confidence"}
         assert "initiative" in v.recent_justifications
-        # confidence is drifting but not justified -> blocks
+        # confidence is drifting but not acked -> blocks
         assert "confidence" not in v.recent_justifications
 
-    def test_all_drifting_spectrums_justified_allows(self):
+    def test_all_drifting_spectrums_acked_allows(self):
+        from divineos.core.compass_rudder import RUDDER_ACK_TAG
+        from divineos.core.moral_compass import log_observation
+
         _seed_drift("initiative", toward_excess=True, magnitude=0.8)
         _seed_drift("confidence", toward_excess=True, magnitude=0.8)
-        record_decision(
-            content="covering both initiative and confidence drift before spawn",
-            reasoning="initiative bounded to 3; confidence calibrated against fail-open",
-        )
+        for spectrum in ("initiative", "confidence"):
+            log_observation(
+                spectrum=spectrum,
+                position=0.0,
+                evidence=f"ack for {spectrum} before spawn",
+                source="rudder_ack",
+                tags=[RUDDER_ACK_TAG],
+            )
         v = check_tool_use(tool_name="Task")
         assert v.decision == "allow", v.reason
 

@@ -1,0 +1,29 @@
+# Guardrail files — paths that require multi-party review to modify.
+#
+# Format: one path per line, relative to the repo root. Lines starting
+# with # are comments and blank lines are ignored. Paths are matched
+# as exact string equality against the staged file list.
+#
+# Pre-reg: prereg-... (the multi-party-review gate).
+#
+# What makes a path a guardrail:
+#   - It is part of the self-auditing or self-enforcement stack.
+#   - The running agent modifying it without external co-sign would
+#     weaken defenses against itself — a self-modification attack.
+#   - It is small and stable enough that changes are genuinely rare.
+#
+# What does NOT belong here:
+#   - Ordinary feature code that changes often.
+#   - Documentation (CLAUDE.md has its own foundational-truths layer;
+#     adding a guardrail there should be a deliberate, separate decision).
+#   - Tests (tests should be freely modifiable so failing tests can be
+#     explained, repaired, or removed under normal review).
+#
+# The file itself and the review-check script are self-protecting:
+# both are listed below, so modifications to the guardrail list or to
+# the gate itself require the same multi-party review they enforce.
+
+scripts/guardrail_files.txt
+scripts/check_multi_party_review.py
+src/divineos/core/compliance_audit.py
+src/divineos/core/compass_rudder.py

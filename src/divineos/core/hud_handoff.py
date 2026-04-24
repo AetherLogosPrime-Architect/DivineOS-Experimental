@@ -164,7 +164,7 @@ _LIGHT_TOOLS = {"context", "decide", "feel", "directives", "body", "compass"}
 _DEEP_ENGAGEMENT_THRESHOLD = 30
 
 
-def mark_engaged(tool: str = "") -> None:
+def mark_engaged(tool: str = "", query: str = "") -> None:
     """Mark that the OS was used for thinking this session.
 
     Called when a thinking tool is used. Resets the code-action counter.
@@ -172,6 +172,12 @@ def mark_engaged(tool: str = "") -> None:
     the basic gate, but deep tools (ask, recall) are required periodically
     to ensure the agent actually consults stored knowledge, not just
     runs the minimum command to clear the gate.
+
+    Also tracks engagement RELEVANCE — a thinking command whose content
+    shares keywords with recent work is substantive; one with no shared
+    keywords is a shell. Shell thinking commands halve the counter
+    instead of zeroing it, so a bare `divineos recall` cannot buy
+    unlimited code actions. Pre-reg: prereg-637ea9a0d852.
     """
     path = _ensure_hud_dir() / ".session_engaged"
 
@@ -187,18 +193,41 @@ def mark_engaged(tool: str = "") -> None:
 
     is_deep = tool.lower() in _DEEP_TOOLS if tool else False
 
+    # Relevance check: does this thinking command's content share keywords
+    # with recent work? Shell commands (no content, or content about nothing
+    # the agent has touched) don't fully clear the counter.
+    try:
+        from divineos.core.engagement_relevance import is_substantive
+
+        substantive = is_substantive(query)
+    except Exception:  # noqa: BLE001 — never let an infra error gate legit work
+        substantive = True
+
     # Decay the counter instead of resetting to 0.
     # A single quick `divineos ask` shouldn't buy unlimited code actions.
-    # Light tools halve the counter. Deep tools reset it fully.
+    # Light+substantive halves. Deep+substantive resets. Non-substantive
+    # halves regardless of depth — same penalty as a light command.
     old_code = existing.get("code_actions_since", 0)
     old_deep = existing.get("deep_actions_since", 0)
 
+    if substantive and is_deep:
+        new_code = 0
+        new_deep = 0
+    elif substantive:
+        new_code = max(0, old_code // 2)
+        new_deep = old_deep
+    else:
+        # Shell: halve, never fully reset.
+        new_code = max(0, old_code // 2)
+        new_deep = old_deep
+
     marker = {
         "engaged_at": time.time(),
-        "code_actions_since": 0 if is_deep else max(0, old_code // 2),
+        "code_actions_since": new_code,
         "engagement_depth": "deep" if is_deep else "light",
+        "engagement_substantive": substantive,
         "last_tool": tool,
-        "deep_actions_since": 0 if is_deep else old_deep,
+        "deep_actions_since": new_deep,
     }
     path.write_text(json.dumps(marker), encoding="utf-8")
 

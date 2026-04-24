@@ -68,6 +68,9 @@ _BYPASS_COMMANDS = frozenset(
         # bypass briefing by design (no human to load one at 3am cron).
         # Corrigibility still applies — see scheduled_commands.py.
         "scheduled",
+        # Science lab is a read-only numerical tool; shouldn't gate on
+        # briefing. Safe to run cold.
+        "lab",
     }
 )
 
@@ -214,6 +217,7 @@ from divineos.cli import (  # noqa: E402
     journal_commands,
     knowledge_commands,
     knowledge_health_commands,
+    lab_commands,
     ledger_commands,
     memory_commands,
     prereg_commands,
@@ -251,6 +255,7 @@ empirica_commands.register(cli)
 family_member_commands.register(cli)
 corrigibility_commands.register(cli)
 scheduled_commands.register(cli)
+lab_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:

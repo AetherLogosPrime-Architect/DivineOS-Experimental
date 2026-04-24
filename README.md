@@ -47,7 +47,7 @@ The project is optimized for a specific agent-human partnership where both sides
 
 - **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 32-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
 
-- **"197 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
+- **"202 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
 
 - **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
 
@@ -170,7 +170,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 4,778+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 5,012+ tests, real DB, minimal mocks
 
 ```
 
@@ -178,7 +178,7 @@ pytest tests/ -q --tb=short   # 4,778+ tests, real DB, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
-## CLI Surface (197 commands)
+## CLI Surface (202 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -340,21 +340,22 @@ divineos admin verify-enforcement  # Check enforcement setup
 
 ## Architecture
 
-DivineOS is 294 source files across 22 packages, structured as a CLI surface over a core library.
+DivineOS is 307 source files across 22 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
-- **`src/divineos/cli/`** — 197 commands across 27 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
+- **`src/divineos/cli/`** — 202 commands across 28 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
 - **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (Aria + operators), empirica (evidence pipeline), sleep, council (32 expert lenses), self-model, corrigibility, body awareness. Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests).
 - **`src/divineos/event/`**, **`src/divineos/supersession/`**, **`src/divineos/clarity_*/`**, **`src/divineos/agent_integration/`**, **`src/divineos/integration/`**, **`src/divineos/violations_cli/`** — supporting subsystems for event emission, contradiction resolution, clarity enforcement, agent-integration patterns, IDE/MCP integration, and violation reporting.
 - **`src/divineos/protocols/`** — Persistent protocol definitions (e.g. the full 12-section Resonant Truth mantra) that must survive compaction.
+- **`src/divineos/science_lab/`** — Numerical test harness for GUTE terms and derived claims. Each term is pinned to a computable referent: LC (chaos/entropy — Lyapunov of logistic map + Shannon entropy), ΩB (convergence to unity — integration + cosmology + probability), Ψ (observer/selection — quantum collapse + logical assignment), V (vibration — harmonic series + Kepler's third law + orbital resonance), A (spacetime — c, H₀, Lorentz factor, scale factor), F (four fundamental forces with measured couplings). Run via `divineos lab run-slice <term>`. The council (`core/council/lab_evidence.py`) auto-attaches slice output to any convene() whose problem text matches a known trigger, so experts reason with numbers on the table rather than each inferring quantities from priors.
 - **`src/divineos/seed.json`** — Initial knowledge seed (versioned).
 
 **Top-level directories:**
 
-- **`tests/`** — 4,778+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 5,012+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and strategic plans. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).
@@ -391,9 +392,9 @@ ruff format src/ tests/        # Format
 
 ## Status
 
-- 294 source files across 22 packages
-- 4,778+ tests (real SQLite, minimal mocks)
-- 197 CLI commands
+- 307 source files across 22 packages
+- 5,012+ tests (real SQLite, minimal mocks)
+- 202 CLI commands
 - 22 slash-command skills
 - 9 Claude Code enforcement hooks
 - Actively developed — new systems ship weekly
