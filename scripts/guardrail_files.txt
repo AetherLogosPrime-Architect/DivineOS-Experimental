@@ -27,3 +27,17 @@ scripts/guardrail_files.txt
 scripts/check_multi_party_review.py
 src/divineos/core/compliance_audit.py
 src/divineos/core/compass_rudder.py
+
+# Added in deferred-bundle Item 1 (approved in design brief round-1 review —
+# see docs/audit-round-1-deferred-design-brief.md v2, Item 1). Each closes
+# a specific self-modification attack class; see the brief for per-path
+# rationale.
+src/divineos/core/moral_compass.py
+.claude/hooks/compass-check.sh
+.claude/hooks/detect-correction.sh
+.claude/hooks/detect-hedge.sh
+.claude/settings.json
+setup/setup-hooks.sh
+setup/setup-hooks.ps1
+scripts/check_preregs.py
+.github/workflows/integrity-audit.yml
