@@ -40,10 +40,12 @@ def _fresh_db(tmp_path, monkeypatch):
     for flag in ("LENGTH", "ENTROPY", "SIMILARITY"):
         monkeypatch.setenv(f"DIVINEOS_DETECTOR_SUBSTANCE_{flag}", "off")
     from divineos.core.decision_journal import init_decision_journal
+    from divineos.core.knowledge import init_knowledge_table
     from divineos.core.ledger import init_db
     from divineos.core.moral_compass import init_compass
 
     init_db()
+    init_knowledge_table()
     init_compass()
     init_decision_journal()
     try:
@@ -102,12 +104,17 @@ class TestRudderAckSummary:
         # 2 of 3 are at zero -> fraction_zero = 0.667
         assert summary["position"]["fraction_zero"] == pytest.approx(2 / 3, abs=0.01)
 
-    def test_evidence_length_short_fraction(self) -> None:
-        _file_ack(0.1, "ack")  # 3 chars — short
-        _file_ack(0.1, "ok")  # 2 chars — short
+    def test_evidence_length_near_floor_fraction(self) -> None:
+        """Item 8 v2.1: fraction_near_floor replaces retired fraction_short.
+
+        Measures fraction of acks clustered within 5 chars of the
+        20-char gate floor (in [20, 25]).
+        """
+        _file_ack(0.1, "short ack lines here ")  # 21 chars — near floor
+        _file_ack(0.1, "another near-floor l")  # 20 chars — at floor
         _file_ack(0.1, "long evidence describing a real calibration event")
         summary = summarize_rudder_acks(window_seconds=3600)
-        assert summary["evidence_length"]["fraction_short"] == pytest.approx(2 / 3, abs=0.01)
+        assert summary["evidence_length"]["fraction_near_floor"] == pytest.approx(2 / 3, abs=0.01)
 
 
 class TestAnomalyDetection:
@@ -124,12 +131,22 @@ class TestAnomalyDetection:
         pos_anom = next(a for a in anomalies if a.name == "rudder_ack_position_zero_cluster")
         assert pos_anom.severity == AnomalySeverity.HIGH
 
-    def test_detects_short_evidence(self) -> None:
-        for _ in range(4):
-            _file_ack(0.3, "ack")  # short AND non-zero position
+    def test_detects_length_floor_clustering(self) -> None:
+        """Item 8 v2.1: replaces retired short_evidence detector.
+
+        Fires on tight length distribution at the gate floor — the
+        minimum-compliant-theater shape post-Item-7.
+        """
+        for evidence in (
+            "exactly twenty chars!",  # 21
+            "also at the floor abc",  # 21
+            "twenty char filler ok",  # 21
+            "minimum compliant aaa",  # 21
+        ):
+            _file_ack(0.3, evidence)
         anomalies = detect_anomalies(window_seconds=3600)
         names = {a.name for a in anomalies}
-        assert "rudder_ack_short_evidence" in names
+        assert "rudder_ack_length_floor_clustering" in names
 
     def test_clean_distribution_does_not_flag(self) -> None:
         # 4 acks with varied positions and long evidence → no anomalies
@@ -188,3 +205,175 @@ class TestWindowing:
         future = time.time() + 10000
         summary = summarize_rudder_acks(window_seconds=3600, now=future)
         assert summary["count"] == 0
+
+
+# --------- Item 8 v2.1 new detectors ---------
+
+
+def _emit_fire_event(fire_id: str, spectrum: str = "initiative") -> None:
+    """Test helper: emit a COMPASS_RUDDER_FIRED event for binding tests."""
+    from divineos.core.ledger import log_event
+
+    log_event(
+        event_type="COMPASS_RUDDER_FIRED",
+        actor="rudder",
+        payload={
+            "fire_id": fire_id,
+            "spectrum": spectrum,
+            "all_drifting": [spectrum],
+            "tool_name": "Task",
+            "window_seconds": 300,
+            "threshold": 0.15,
+            "drift_values": {spectrum: 0.5},
+        },
+        validate=False,
+    )
+
+
+def _emit_allow_event() -> None:
+    from divineos.core.ledger import log_event
+
+    log_event(
+        event_type="COMPASS_RUDDER_ALLOW",
+        actor="rudder",
+        payload={
+            "tool_name": "Task",
+            "reason": "test allow",
+            "drifting_spectrums": [],
+            "recent_justifications": [],
+        },
+        validate=False,
+    )
+
+
+class TestBlockAllowRatioDetector:
+    def test_healthy_ratio_no_fire(self) -> None:
+        # 99 allows, 1 fire → ratio = 0.01, edge of healthy
+        _emit_fire_event("a" * 16)
+        for _ in range(99):
+            _emit_allow_event()
+        anomalies = detect_anomalies(window_seconds=3600)
+        assert not any(a.name == "rudder_block_allow_ratio" for a in anomalies)
+
+    def test_high_ratio_fires_medium(self) -> None:
+        # 40% block rate, way above 0.30 threshold
+        for i in range(4):
+            _emit_fire_event(f"{i:016x}")
+        for _ in range(6):
+            _emit_allow_event()
+        anomalies = detect_anomalies(window_seconds=3600)
+        found = next((a for a in anomalies if a.name == "rudder_block_allow_ratio"), None)
+        assert found is not None
+        assert found.severity == AnomalySeverity.MEDIUM
+
+    def test_infrastructure_failure_branch_deferred_to_pr1b(self) -> None:
+        """Item 8 PR-1a DEFERRED: rudder_infrastructure_failure is
+        spec'd in brief v2.1 §3 but requires an externally-sourced
+        active-session counter (not fires+allows as proxy). Fresh-
+        Claude round-2 caught that the branch is structurally
+        unreachable under the fire+allow proxy — if fires==0 AND
+        allows==0 then total==0 and the quiet-session early-return
+        catches it first. Lands in PR-1b once an external tool-call
+        counter is wired.
+
+        This test verifies the branch stays unreachable in PR-1a —
+        no anomaly should fire for zero-zero even if the session
+        is nominally 'active' by some other measure.
+        """
+        anomalies = detect_anomalies(window_seconds=3600)
+        assert not any(a.name == "rudder_infrastructure_failure" for a in anomalies)
+
+    def test_quiet_session_no_signal(self) -> None:
+        # 5 events total (< 10 active threshold)
+        for _ in range(5):
+            _emit_allow_event()
+        anomalies = detect_anomalies(window_seconds=3600)
+        assert not any(a.name == "rudder_block_allow_ratio" for a in anomalies)
+
+    def test_low_ratio_in_active_session_fires_low(self) -> None:
+        # 11 allows, 0 fires → active session, rate=0, should fire
+        for _ in range(11):
+            _emit_allow_event()
+        anomalies = detect_anomalies(window_seconds=3600)
+        found = next((a for a in anomalies if a.name == "rudder_block_allow_ratio"), None)
+        assert found is not None
+
+
+class TestDecideLearnSkewDetector:
+    def test_high_skew_decides_no_learns_fires(self) -> None:
+        for i in range(10):
+            _file_decide(f"decision {i}", f"reasoning {i}")
+        # no learns filed
+        anomalies = detect_anomalies(window_seconds=3600)
+        found = next((a for a in anomalies if a.name == "decide_learn_skew"), None)
+        assert found is not None
+        assert found.severity == AnomalySeverity.MEDIUM
+
+    def test_balanced_mix_does_not_fire(self) -> None:
+        from divineos.core.knowledge import store_knowledge
+
+        for i in range(3):
+            _file_decide(f"d{i}", f"r{i}")
+        for i in range(3):
+            store_knowledge(content=f"learned {i}", source="STATED", knowledge_type="FACT")
+        anomalies = detect_anomalies(window_seconds=3600)
+        assert not any(a.name == "decide_learn_skew" for a in anomalies)
+
+
+class TestFeatureFlags:
+    def test_disabled_length_floor_does_not_fire(self, monkeypatch) -> None:
+        monkeypatch.setenv("DIVINEOS_DETECTOR_LENGTH_FLOOR_CLUSTERING", "off")
+        for evidence in (
+            "exactly twenty chars!",
+            "also at the floor abc",
+            "twenty char filler ok",
+            "minimum compliant aaa",
+        ):
+            _file_ack(0.3, evidence)
+        anomalies = detect_anomalies(window_seconds=3600)
+        assert not any(a.name == "rudder_ack_length_floor_clustering" for a in anomalies)
+
+    def test_disabled_position_zero_does_not_fire(self, monkeypatch) -> None:
+        monkeypatch.setenv("DIVINEOS_DETECTOR_POSITION_ZERO", "off")
+        for _ in range(4):
+            _file_ack(
+                0.0,
+                "substantive evidence text with sufficient variety and length",
+            )
+        anomalies = detect_anomalies(window_seconds=3600)
+        assert not any(a.name == "rudder_ack_position_zero_cluster" for a in anomalies)
+
+
+class TestRapidClearReflexDetector:
+    def test_rapid_clear_fires_when_latency_below_threshold(self) -> None:
+        """3 fires, each acked within <30s → detector fires."""
+        from divineos.core.moral_compass import log_observation
+
+        # Seed three fires, then ack each immediately
+        fire_ids = [f"{i:016x}" for i in range(3)]
+        for fid in fire_ids:
+            _emit_fire_event(fid, spectrum="initiative")
+        # Ack each fire (skipping substance checks so test stays focused)
+        import os as _os
+
+        for flag in ("LENGTH", "ENTROPY", "SIMILARITY"):
+            _os.environ[f"DIVINEOS_DETECTOR_SUBSTANCE_{flag}"] = "off"
+        try:
+            for fid in fire_ids:
+                log_observation(
+                    spectrum="initiative",
+                    position=0.1,
+                    evidence="quick ack with fire binding",
+                    source="rudder_ack",
+                    tags=["rudder-ack"],
+                    fire_id=fid,
+                )
+            anomalies = detect_anomalies(window_seconds=3600)
+            found = next(
+                (a for a in anomalies if a.name == "rudder_ack_rapid_clear_reflex"),
+                None,
+            )
+            assert found is not None
+        finally:
+            for flag in ("LENGTH", "ENTROPY", "SIMILARITY"):
+                _os.environ.pop(f"DIVINEOS_DETECTOR_SUBSTANCE_{flag}", None)
