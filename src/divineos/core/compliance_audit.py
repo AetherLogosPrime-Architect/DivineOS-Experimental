@@ -498,6 +498,17 @@ def detect_anomalies(
     if _flag_enabled("CONTENT_ENTROPY"):
         anomalies.extend(_detect_content_entropy_drop(window_seconds, now))
 
+    # Baselines-uncalibrated — PR-2 → detectors wiring. Fires when
+    # gated activity is high but zero clean-tagged sessions exist,
+    # signalling Item 8 detectors are running on conceptual defaults
+    # instead of calibrated thresholds. Recommendation points at
+    # `divineos audit tag-clean`. Follow-up from claim 6bf81b38 (the
+    # conversation that named "completion-checking, not cooldown" as
+    # the real rudder purpose; wiring PR-2 into consumers was the
+    # immediate missing completion).
+    if _flag_enabled("BASELINES_UNCALIBRATED"):
+        anomalies.extend(_detect_baselines_uncalibrated(window_seconds, now))
+
     # PR-1b §3: HIGH-severity emission is optional per caller. Single-
     # window users (format_report, CLI) keep emit_events=True so a
     # HIGH anomaly produces a ledger event inline. Multi-window
@@ -1041,6 +1052,51 @@ def _detect_content_entropy_drop(window_seconds: float, now: float | None) -> li
                 "contracting to a narrow vocabulary. Surface which "
                 "topics the second half is circling; intentional "
                 "variation restores the signal."
+            ),
+        )
+    )
+    return anomalies
+
+
+def _detect_baselines_uncalibrated(window_seconds: float, now: float | None) -> list[Anomaly]:
+    """Fire when gated activity is high but zero clean-tagged sessions exist.
+
+    The feedback loop that tells the operator: Item 8 detectors need
+    real data to calibrate against. Without clean-tagged sessions the
+    detectors run on conceptual defaults from the design brief —
+    which is honest for the first 60 days but shouldn't become the
+    permanent state.
+
+    Uses the TOOL_CALL-based gated-activity count from the same
+    source as the block/allow detector (brief v2.1 addendum Q1
+    Option C). Only fires when the session has been "active enough"
+    to plausibly have contained auditable work.
+    """
+    anomalies: list[Anomaly] = []
+    ts = now if now is not None else time.time()
+    cutoff = ts - window_seconds
+    try:
+        from divineos.core.compliance_baseline import detect_uncalibrated_baselines
+
+        gated_activity = _count_gated_tool_calls(cutoff)
+        detection = detect_uncalibrated_baselines(gated_activity=gated_activity)
+    except Exception:  # noqa: BLE001
+        return anomalies
+    if detection is None:
+        return anomalies
+
+    anomalies.append(
+        Anomaly(
+            name="baselines_uncalibrated",
+            severity=AnomalySeverity.LOW,
+            observation=detection["note"],
+            detail=detection,
+            recommendation=(
+                "Run an external audit round on a recent session, verify "
+                "no drift findings, then tag the session clean: "
+                "`divineos audit tag-clean <session_id> --round <round_id>`. "
+                "After 5+ clean sessions accumulate, Item 8 detectors "
+                "auto-calibrate from real data instead of defaults."
             ),
         )
     )
