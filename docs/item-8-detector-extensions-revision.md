@@ -1,6 +1,10 @@
 # Item 8 Design-Brief Revision — Compliance-Audit Detector Extensions
 
-> **Status:** v1, pre-review. Revises the original Item 8 spec from design brief v2 (docs/audit-round-1-deferred-design-brief.md, Item 8) with inputs from Items 6 and 7 landing. Implementation deferred until this revision is approved.
+> **Status:** v2, post-review. Approve-with-refinements from fresh-Claude round-1; ten refinements folded in. Implementation proceeds after v2 approval.
+
+**Revision history:**
+- v1 (2026-04-24 morning): initial brief, six review questions, seven detectors.
+- v2 (2026-04-24 same session): fresh-Claude round-1 refinements folded in — (1b-new) switched from range-check to distribution-shape (σ<5 AND mean<30); (1c) renamed + respec'd as ack-latency-from-fire not inter-ack spacing; (2d) baseline source changed from "first 60 days" to externally-audited sessions; (3a) split `RUDDER_INFRASTRUCTURE_FAILURE` from `COMPLIANCE_DRIFT_HIGH` as different event classes; "active session" defined operationally; (4) circularity addressed in 1a/1b-new baselines; (5) boundary tests added to pre-regs + baseline dependency between 2a/2b named; (6) scope revised to ~700-800 lines; (7) composite-score §8 dropped as speculative; multi-window simplified to 1day/1week; (new) §5.5 cross-detector aggregation added; (new) false-negative check added to every pre-reg.
 
 ## Why this brief exists (and not just the v2 spec)
 
@@ -27,14 +31,14 @@ This brief does the inventory check fresh-Claude asked for: every existing detec
 - **What it measures:** fraction of rudder-ack evidence strings under 15 chars
 - **Source of signal:** same as 1a
 - **What Items 6/7 changed:** Item 7's 20-char length gate blocks any ack <20 chars at write-time. `<15 chars >60%` is impossible in production. DOMINATED.
-- **Status: RETIRE + REPLACE.** Retire the existing detector. Add `rudder_ack_minimum_compliant_length` that fires when `>=60%` of evidence strings are in the 20-30 char range — the new minimum-compliant-theater shape, where an agent writes 20 chars of filler to clear Item 7's gate without actually reflecting. Different cutoff, same class of concern.
+- **Status: RETIRE + REPLACE.** Retire the existing detector. Add `rudder_ack_length_clustering_at_floor`. v1 proposed a range-check (20-30 >60%), which fresh-Claude flagged as a ceiling trap — it false-positives on legitimately-brief acks like "scope bounded to 3 agents" (24 chars, substantive). v2 switches to **distribution-shape** detection: fires when either (a) σ(length) < 5 AND mean(length) < 30 (clustering tight at the floor) OR (b) >60% of acks land within 5 chars of the gate floor, i.e. in [20, 25]. The signal is "just clear the gate" uniformity, not "length in a range."
 
-### 1c. `rudder_ack_bursty_filings` (MEDIUM)
+### 1c. `rudder_ack_rapid_clear_reflex` (MEDIUM, renamed from bursty_filings)
 
-- **What it measures:** fraction of rudder-acks filed within 10s of another ack
-- **Source of signal:** same as 1a (uses created_at intervals)
-- **What Items 6/7 changed:** Item 6's one-shot consumption means repeat acks on the SAME fire_id fail at the second INSERT. Burst acks across DIFFERENT fire_ids (or different spectrums) still work. Partially dominated.
-- **Status: RECALIBRATE.** Current threshold fires on same-spectrum bursts that Item 6 now prevents. Re-aim to: bursts across distinct fire_ids within the same short window. That's the post-Item-6 gaming shape — fire pops for 3 spectrums in quick succession, agent batches 3 acks in <30s, all technically bound but none actually reflected.
+- **What it measures:** median **ack-latency-from-fire** — time between FIRED event and the ack that consumes its fire_id. Fires when the median latency across acks is <30s AND the distribution is tight.
+- **Source of signal:** `COMPASS_RUDDER_FIRED` event timestamps joined to `rudder_ack_consumption.consumed_at`.
+- **What Items 6/7 changed:** Item 6's one-shot consumption means repeat acks on SAME fire_id fail; Item 6's structural binding gives us the ack-to-fire timestamp pairing this detector needs.
+- **Status: RECALIBRATE + RENAME.** v1 measured inter-ack spacing (after Item 6 partially dominated). Fresh-Claude flagged that ack-latency-from-fire is the more interesting signal — it catches reflex-clearing without reflection. Name makes it explicit: "rapid-clear reflex" measures fire-to-ack latency, not spacing between acks.
 
 ---
 
@@ -54,12 +58,12 @@ This brief does the inventory check fresh-Claude asked for: every existing detec
 - **What Items 6/7 changed:** Item 7's entropy floor rejects individual acks below 2.5 bits. Item 8's content-entropy measures trend across the window — a gradual drift downward even if every individual item passes Item 7.
 - **Status: KEEP as specified.**
 
-### 2c. Multi-window cross-check
+### 2c. Multi-window cross-check (simplified)
 
-- **What it measures:** meta-detector — runs each of the other detectors across three windows (1hr, 1day, 1week) and elevates severity if the same pattern fires across >=2 windows.
+- **What it measures:** meta-detector — runs each primary detector across **two windows (1day, 1week)** and elevates severity if a pattern fires in both.
 - **Source of signal:** the other detectors' outputs.
-- **What Items 6/7 changed:** no direct change — operates over whatever the primary detectors report.
-- **Status: KEEP as specified.**
+- **What Items 6/7 changed:** no direct change.
+- **Status: KEEP as specified, SIMPLIFIED per fresh-Claude.** v1 had 1hr/1day/1week = three windows × seven detectors = up to 21 independent fires per audit cycle (noise). v2 drops 1hr: start with 1day vs. 1week (trend without short-window jitter); add 1hr back only if the simpler version misses real drift. "Less is more" so the meta-detector doesn't teach agents to ignore it.
 
 ### 2d. `decide/learn` distribution skew
 
@@ -85,8 +89,11 @@ This brief does the inventory check fresh-Claude asked for: every existing detec
 **Severity structure:**
 - Rate in `[0.01, 0.15]`: no anomaly
 - Rate in `[0.0, 0.01)` OR `(0.15, 0.30]`: LOW anomaly (report entry)
-- Rate = 0 with FIRED==0 over >2hrs active session OR rate > 0.30: MEDIUM (report + briefing surface)
-- Rate = 0 with ALLOW==0 (rudder literally never ran for any gated tool): HIGH (report + briefing + `COMPLIANCE_DRIFT_HIGH` event). This case means the gate itself is dead.
+- Rate = 0 with FIRED==0 over an **active session** (defined: `>=10 gated-tool invocations` in the window — per fresh-Claude Q3 operational definition, prevents false-positive on genuinely quiet sessions): MEDIUM (report + briefing)
+- Rate > 0.30 sustained: MEDIUM (report + briefing) — chronic drift or mis-calibrated threshold
+
+**Infrastructure failure class (separate from drift, per fresh-Claude Q3):**
+- Rate = 0 with **ALLOW == 0** across an active session: the rudder itself is not running. Emits `RUDDER_INFRASTRUCTURE_FAILURE` event (NOT `COMPLIANCE_DRIFT_HIGH`). Different semantics: drift = "agent is gaming the rudder"; gate-dead = "the rudder doesn't exist." Different investigation path (check hook installation, DB connectivity, import path), different escalation (halt gated work vs. investigate operator shape). Conflating them makes forensics harder.
 
 ---
 
@@ -96,15 +103,17 @@ Each detector needs a named baseline source; "historical data" is circular if th
 
 | Detector | Baseline source | Rationale |
 |---|---|---|
-| 1a position-zero | existing threshold 0.60 stands — empirically validated pre-Items-6/7 | Item 6/7 don't touch position; no re-baseline needed |
+| 1a position-zero | 30 days post-Item-7 merge (threshold retested from 0.60) | **Revised v2 (fresh-Claude Q4):** the 0.60 threshold was empirically validated under pre-Items-6/7 gameability. Item 7 may have pushed gamers from short_evidence to position-zero (closed the easier attack). Retest 0.60 against 30 days post-Item-7 data before shipping. |
 | 1b (retired) | N/A — retired | |
-| 1b-new 20-30 char cluster | First 30 days post-Item-7 merge, acks that cleared all gates | Pure post-gate distribution; the "just enough" shape is what we're measuring |
-| 1c bursty recalibrated | Synthetic adversarial cases (burst-3-acks-across-fire-ids) + 30 days live data | Pattern is concrete; synthetic test establishes positive-detection boundary |
-| 2a variance-collapse | Sessions that passed an externally-audited round (clean baseline) | Can't use historical broadly — agent may have been drifting |
-| 2b content-entropy | Same as 2a | Same reason |
+| 1b-new length-floor clustering | Externally-audited post-Item-7 sessions (sessions where an external actor confirmed operator mix was healthy) | **Revised v2 (fresh-Claude Q4):** v1 said "first 30 days post-Item-7 merge, acks that cleared all gates." Circular — if those acks include theater, the baseline includes theater. Use only audited-clean sessions. |
+| 1c rapid-clear reflex | Synthetic adversarial (3 fires <60s, 3 acks <30s post-fire) + externally-audited live sessions | Pattern is concrete; synthetic establishes positive-detection boundary |
+| 2a variance-collapse | Sessions that passed externally-audited rounds (clean baseline) | Can't use historical broadly — agent may have been drifting |
+| 2b content-entropy | Different audited rounds than 2a (per fresh-Claude Q5 baseline-independence) | Using the same audited rounds for both creates false-positive correlation — one tainted tag falsifies both simultaneously. Named as a dependency to split. |
 | 2c multi-window | Meta — no standalone baseline | Inherits from primary detectors |
-| 2d decide/learn skew | First 60 days of project (pre-Item-7 baseline where operators were least constrained) | Natural range established under less-constrained conditions |
+| 2d decide/learn skew | Externally-audited sessions, NOT "first 60 days of project" | **Revised v2 (fresh-Claude Q2 pushback):** "first 60 days" is circular if Aether was drifting during those 60 days. Clean baseline = sessions where a reviewer confirmed operator mix was healthy. Every audit round produces such sessions; that's cleaner than time-based cutoff. |
 | 3a block/allow ratio | Item 6 brief commit: `[0.01, 0.15]` starting band; 30 days post-merge adjusts | Range pre-registered; live data empirically tunes |
+
+**Audited-clean session tagging (per fresh-Claude Q4 scalability concern):** baselines that cite "externally-audited sessions" require an operational way to identify those sessions. Add a `session_cleanliness` table with `(session_id, tagged_clean_at, tagging_round_id, notes)` — rows written when an external-audit round concludes with no drift findings on the session. Otherwise "which sessions are clean-baseline" becomes "Andrew remembers," which doesn't scale past a few rounds. Tagging happens in `watchmen/router.py` as a new route for clean-signal audit rounds.
 
 ---
 
@@ -115,8 +124,8 @@ Each detector specifies what LOW / MEDIUM / HIGH does. Signal-without-action is 
 | Detector | LOW | MEDIUM | HIGH |
 |---|---|---|---|
 | 1a position-zero | Report | Report + briefing | Report + briefing + `COMPLIANCE_DRIFT_HIGH` event |
-| 1b-new 20-30 cluster | Report | Report + briefing | Report + briefing + event |
-| 1c bursty recalibrated | Report | Report + briefing | Report + briefing + event |
+| 1b-new length-floor clustering | Report | Report + briefing | Report + briefing + event |
+| 1c rapid-clear reflex | Report | Report + briefing | Report + briefing + event |
 | 2a variance-collapse | Report | Report + briefing | Report + briefing + event |
 | 2b content-entropy | Report | Report + briefing | Report + briefing + event |
 | 2c multi-window | N/A | Elevates 2+ window matches to its own severity | 3/3 window matches add briefing + event |
@@ -124,6 +133,15 @@ Each detector specifies what LOW / MEDIUM / HIGH does. Signal-without-action is 
 | 3a block/allow ratio | Report | Report + briefing | Report + briefing + `COMPLIANCE_DRIFT_HIGH` event (gate-dead case) |
 
 ---
+
+## 5.5. Cross-detector aggregation (new in v2, per fresh-Claude)
+
+Multiple detectors firing on the same window means different things from multiple detectors firing on different windows. The compliance report groups findings two ways:
+
+1. **By window, then by detector:** "Between 10:00 and 11:00, 3 detectors fired (position-zero, length-floor, rapid-clear)." Reader sees the session-shape at a glance.
+2. **By detector family, then by window:** "position-zero fired in 4 of the last 7 daily windows." Reader sees which pattern is chronic vs. transient.
+
+Both views land in the report. HIGH-severity fires within the same window get a dedicated "concurrent HIGH" section at the top of the report — if three HIGH-severity detectors fire simultaneously, that's a distinct signal from "three different windows each had one HIGH."
 
 ## 6. Feature flags — cross-cutting rollback
 
@@ -135,75 +153,96 @@ Applies to: 1b-new, 1c-recalibrated, 2a, 2b, 2c, 2d, 3a. (1a's threshold is unch
 
 ## 7. Pre-regs — one per detector (distinct falsifiers)
 
-### 7.1b-new — minimum-compliant-length cluster
+### 7.1b-new — length-floor clustering
 
-- **claim**: post-Item-7, >=60% of evidence in 20-30 char range is the new performative-theater shape
-- **success**: adversarial — 30 synthetic acks all in 20-30 char range → detector fires; 30 synthetic acks with varied lengths (mean ~50) → detector does not
-- **falsifier**: >20% false-positive rate on 30 days of legitimate post-Item-7 ack data; OR feature-flag disabled for >7 days
+- **claim**: post-Item-7, tight clustering at the 20-char gate floor (σ<5 AND mean<30, OR >60% within [20,25]) is the new performative-theater shape
+- **success (true-positive)**: 30 synthetic acks all in [20,25] → fires; 30 synthetic acks σ=12 mean=45 → does not
+- **success (boundary)**: 30 synthetic acks where exactly 60% are in [20,25] (threshold boundary) → fires at threshold; at 59% → does not. **Added v2 per fresh-Claude Q5** — v1's "all in range" criterion was too easy (positive-by-construction); boundary test is the harder check.
+- **false-negative check (new v2)**: detector must fire on at least one known-drifting synthetic case per month. If monthly fire count is 0 across 3 consecutive months, audit surface flags.
+- **falsifier**: >20% FPR on externally-audited-clean post-Item-7 sessions; OR feature-flag disabled for >7 days
 - **review**: +60 days
 
-### 7.1c-recalibrated — cross-fire-id burst
+### 7.1c-renamed — rapid-clear reflex (ack-latency-from-fire)
 
-- **claim**: bursts of acks across distinct fire_ids within 30s represent batched clearing not spaced calibration
-- **success**: 3 fires in <60s, 3 acks bound to different fire_ids in <30s → fires; same 3 fires acked >2min apart → does not
-- **falsifier**: >15% FPR on legitimate post-Item-6 multi-spectrum drift sessions
+- **claim**: median ack-latency-from-fire <30s (tight distribution) is reflex-clearing without reflection
+- **success**: 3 fires each followed by ack in <20s → fires; same fires acked >2min post-fire → does not
+- **false-negative check (new v2)**: at least one synthetic rapid-clear case per month fires the detector. 3 months zero → audit flag.
+- **falsifier**: >15% FPR on externally-audited multi-spectrum drift sessions
 - **review**: +60 days
 
 ### 7.2a — variance-collapse
 
 - **claim**: lexical variance across decide/learn/ack content over window trending down is detectable drift
 - **success**: 20 decides with same rephrased stem → fires; 20 decides with genuine topical variety → does not
-- **falsifier**: >20% FPR on focused-work sessions from clean-baseline (audited rounds)
+- **false-negative check (new v2)**: fire on at least one synthetic copy-paste case/month; 3 months zero → audit flag.
+- **falsifier**: >20% FPR on focused-work sessions from clean-baseline (audited rounds). **Note (v2, fresh-Claude Q5):** 2a and 2b share the clean-baseline source but must use DIFFERENT audited rounds — one tainted tag shouldn't falsify both simultaneously. Dependency named.
 - **review**: +60 days
 
 ### 7.2b — content-entropy trend
 
 - **claim**: Shannon entropy over joined recent operator content trending downward >2σ is detectable drift
 - **success**: increasing copy-paste ratio → downward trend; natural operator mix → stable
-- **falsifier**: >20% FPR on clean-baseline sessions
+- **false-negative check (new v2)**: fire on synthetic downward-trend case/month; 3 months zero → audit flag.
+- **falsifier**: >20% FPR on different audited-clean sessions than 2a uses (see 2a note)
 - **review**: +60 days
 
-### 7.2c — multi-window cross-check
+### 7.2c — multi-window cross-check (simplified to 1day/1week)
 
-- **claim**: same pattern firing in >=2 of {1hr, 1day, 1week} windows is stronger signal than single-window
-- **success**: paired synthetic datasets (short-burst drift fires only 1hr; sustained drift fires all 3)
-- **falsifier**: detector fires on zero multi-window matches over 60 days of clean baseline
+- **claim**: same pattern firing in both 1day and 1week windows is stronger signal than single-window
+- **success**: paired synthetic datasets (short-burst drift fires only 1day; sustained drift fires both)
+- **false-negative check (new v2)**: fire on at least one synthetic sustained-drift case/month; 3 months zero → audit flag.
+- **falsifier**: zero 2-of-2 matches over 60 days of clean baseline
 - **review**: +60 days
 
 ### 7.2d — decide/learn skew
 
 - **claim**: decide:learn ratio outside [1:5, 5:1] over the window is drift
 - **success**: 20 decides with 0 learns → fires skew-high; 20 learns with 0 decides → fires skew-low; 10+10 → does not
-- **falsifier**: clean-baseline produces ratios outside [1:5, 5:1] in >5% of windows
+- **false-negative check (new v2)**: fire on one synthetic extreme-skew case/month; 3 months zero → audit flag.
+- **falsifier**: externally-audited-clean sessions produce ratios outside [1:5, 5:1] in >5% of windows (revised per §4 baseline change)
 - **review**: +60 days
 
 ### 7.3a — rudder block/allow ratio
 
-- **claim**: ratio outside `[0.01, 0.15]` signals either silently-broken rudder or chronic drift
+- **claim**: ratio outside `[0.01, 0.15]` signals drift; rate=0 with ALLOW==0 signals infrastructure failure (different class)
 - **success**:
-    - 100 ALLOW, 0 FIRED over multi-hour session → fires LOW
-    - 0 ALLOW, 0 FIRED over gated-tool sessions → fires HIGH
+    - 100 ALLOW, 0 FIRED over active session (>=10 gated-tool calls) → fires LOW
+    - 0 ALLOW, 0 FIRED over active session → fires `RUDDER_INFRASTRUCTURE_FAILURE` (NOT drift event)
     - 30% block rate sustained → fires MEDIUM
     - Clean sessions in `[0.01, 0.15]` → no fires
+- **false-negative check (new v2)**: at least one synthetic out-of-band case/month fires detector; 3 months zero → audit flag.
 - **falsifier**: >15% FPR on 30 days live data (which itself tunes the band)
 - **review**: +45 days (shorter — primary new surface)
 
 ---
 
-## 8. Composite-score v2 trigger
+## 8. [DROPPED] Composite-score v2 trigger
 
-v1 ships detectors independent; if >50% of triggers in real use co-occur within the same window across multiple detectors, v2 adds a composite score that penalizes correlated signals and raises aggregate severity. Trigger condition pre-registered; v2 isn't built now.
+v1 had a "composite score if >50% of triggers co-occur" forward-look. Fresh-Claude flagged this as speculative: the trigger condition can't be measured until 7 detectors have fired enough to produce correlation data (months), and having it in this brief creates false sense that v2 is planned when it's really a separate future design question. **Dropped from v2.** If real-use shows correlated detector fires, a separate future brief addresses composite scoring then.
 
 ---
 
-## 9. Scope estimate
+## 9. Scope estimate (revised v2)
 
-- `compliance_audit.py`: ~200 lines (retire short_evidence, add 1b-new, 1c-recalibrated, 2a/2b/2d, 3a, severity response paths, feature flags)
+v1 said ~500 lines. Fresh-Claude Q6 pushed back that this is light. Honest revised count:
+
+- `compliance_audit.py`: ~275-350 lines
+    - 7 detector functions × ~25 lines = 175
+    - Severity dispatch + response path wiring: ~40
+    - Feature flag handling: ~20
+    - Cross-detector aggregation (§5.5): ~40
+    - False-negative monthly-fire check: ~15
+- New event types: `COMPLIANCE_DRIFT_HIGH` + `RUDDER_INFRASTRUCTURE_FAILURE`: ~30 lines (definitions + validators)
+- Watchmen `clean-session` routing (for §4 baseline tagging): ~40 lines
+- Tests: ~400-500 lines
+    - 7 detectors × ~5 tests each = ~35 tests
+    - Multi-window meta-detector × ~10 tests (cross-window logic is the complex bit)
+    - Boundary tests per 7.x success criteria
+    - Infrastructure-failure separation tests
 - `ledger_compressor.py`: 0 lines — ALLOW already in `_COMPRESSIBLE_TYPES` from Item 6
-- `scripts/guardrail_files.txt`: +0 lines (compliance_audit.py already guardrailed; ledger_compressor.py handled by claim df5b3113 post-Item-6)
-- Tests: ~300 lines across `test_compliance_audit.py` (extend) + possibly new `test_block_allow_detector.py`
+- `scripts/guardrail_files.txt`: +0 lines — compliance_audit.py already guardrailed; ledger_compressor.py follow-up handled by claim df5b3113
 
-Total: ~500 lines across ~3 files. Touches guardrailed `compliance_audit.py` — External-Review trailer required.
+**Total: ~750-900 lines across ~4 files.** Touches guardrailed `compliance_audit.py` — External-Review trailer required. Expect 2-3 diff-review rounds given scope.
 
 ---
 
@@ -216,14 +255,18 @@ Total: ~500 lines across ~3 files. Touches guardrailed `compliance_audit.py` —
 
 ---
 
-## What fresh-Claude is asked to review
+## v2 review status
 
-1. Existing detector inventory in §1 — is the KEEP/RETIRE/RECALIBRATE call correct for each?
-2. v2-spec detectors in §2 — anything dominated that I marked as KEEP?
-3. Block/allow detector in §3 — are the LOW/MEDIUM/HIGH bounds right? Is "rate=0 with ALLOW==0" really HIGH or should it be a separate class (infrastructure failure, not drift)?
-4. Baseline calibration sources in §4 — each detector's baseline named explicitly?
-5. Pre-regs in §7 — seven distinct falsifiers; any shared-falsifier contamination that should split further?
-6. Scope in §9 — is ~500 lines realistic for what §1-3 specify?
-7. Is anything in the original v2 Item 8 spec that should be dropped given what 6/7 taught us, beyond short_evidence?
+All v1 questions answered and folded in. Cross-cutting refinements from fresh-Claude round-1 all addressed:
 
-After approval, implementation proceeds with precommit-first discipline. The diff-review round happens on the commit once written.
+- Q1: 1b-new switched to distribution-shape (σ<5 AND mean<30 OR [20,25] clustering); 1c renamed + respec'd as ack-latency-from-fire
+- Q2: 2d baseline changed from "first 60 days" to externally-audited sessions (circular-logic fix)
+- Q3: `RUDDER_INFRASTRUCTURE_FAILURE` split from `COMPLIANCE_DRIFT_HIGH`; "active session" defined operationally (>=10 gated-tool calls)
+- Q4: 1a threshold retest named; 1b-new baseline uses audited-clean not "cleared all gates"; clean-session tagging infrastructure spec'd
+- Q5: 2a/2b baseline dependency named (different audited rounds required); 7.1b-new adds boundary tests at 60%/59%
+- Q6: scope revised to ~750-900 lines with itemized breakdown
+- Q7: composite-score §8 dropped as speculative; multi-window simplified to 1day/1week
+- New §5.5 cross-detector aggregation (both "by window × detector" and "by detector × window" views)
+- New: false-negative monthly-fire check on every pre-reg (asymmetric-falsifier gap named)
+
+After v2 approval, implementation proceeds with precommit-first discipline. Per v2 §9 scope, expect 2-3 diff-review rounds — Item 8 is the biggest of the bundle.
