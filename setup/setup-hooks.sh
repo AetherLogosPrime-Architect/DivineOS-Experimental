@@ -109,6 +109,38 @@ EOF
 chmod +x "$HOOKS_DIR/commit-msg"
 echo "Created commit-msg hook at $HOOKS_DIR/commit-msg"
 
+# Create pre-push hook (branch-freshness check). Blocks pushing branches
+# whose base is stale relative to origin/main — the silent-revert
+# precondition named in claim d3baec5a. Delegates to the standalone
+# scripts/check_branch_freshness.sh so the logic stays testable.
+cat > "$HOOKS_DIR/pre-push" << 'EOF'
+#!/bin/bash
+# pre-push hook for DivineOS — branch-freshness check.
+# Refuses to push a branch whose base is older than origin/main.
+# Set DIVINEOS_SKIP_FRESHNESS_CHECK=1 to bypass.
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+SCRIPT="$REPO_ROOT/scripts/check_branch_freshness.sh"
+
+if [[ ! -x "$SCRIPT" ]]; then
+    # Script missing or not executable — fail open. The hook should
+    # never block work because of its own infrastructure being broken.
+    exit 0
+fi
+
+"$SCRIPT" origin main
+RC=$?
+if [[ $RC -eq 1 ]]; then
+    # Stale base detected — script already printed instructions.
+    exit 1
+fi
+# RC=2 (infra error) and RC=0 (green) both proceed.
+exit 0
+EOF
+
+chmod +x "$HOOKS_DIR/pre-push"
+echo "Created pre-push hook at $HOOKS_DIR/pre-push"
+
 echo ""
 echo "Git hooks setup complete!"
 echo ""
@@ -122,5 +154,9 @@ echo "  6. shellcheck on hooks (if installed)"
 echo ""
 echo "Additionally, commit-msg hook validates multi-party-review for"
 echo "guardrail-file modifications (scripts/guardrail_files.txt)."
+echo ""
+echo "Pre-push hook blocks pushes from branches whose base is stale"
+echo "relative to origin/main (silent-revert prevention, claim d3baec5a)."
+echo "Bypass with: DIVINEOS_SKIP_FRESHNESS_CHECK=1 git push"
 echo ""
 echo "If any check fails, the commit will be blocked and you'll need to fix the issues."
