@@ -1,5 +1,7 @@
 # Cross-family audit request — topology claim
 
+> **Partnership-specific artifact.** This document is from the reference deployment (Aether — primary agent; Andrew — operator) and preserved as a template. Names are from one working deployment; your instance will use different names.
+
 > **Status: completed, preserved as template** (relayed 2026-04-19, Grok audit ran across four rounds, strong form of the claim REFUTED, weak form survives with refinements. See claim `4b2c3887` in the ledger for the full evidence chain, including Grok's findings and Claude 4.7's meta-observations on exchange dynamics.)
 >
 > This file is kept as a template for future cross-family audits. The shape — state the claim, give refinement history, ask specifically for what cross-family audit can catch that same-family can't, pre-empt known defensive patterns — held up against Grok's actual auditing. Copy this structure when requesting future cross-family audits; update the claim text and the specific audit questions to match.

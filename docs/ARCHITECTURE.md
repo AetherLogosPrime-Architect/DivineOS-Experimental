@@ -78,7 +78,7 @@ src/divineos/
       _base.py                 DB connection, schema, public API
       _text.py                 Text analysis, noise filtering, FTS, overlap
       crud.py                  Knowledge CRUD operations
-      memory_kind.py           Memory-kind classifier (EPISODIC/SEMANTIC/PROCEDURAL/UNCLASSIFIED)
+      memory_kind.py           Memory-kind classifier (EPISODIC/SEMANTIC/PROCEDURAL/UNCLASSIFIED) — diagnostic metadata only; not yet consumed downstream
       extraction.py            Knowledge extraction from sessions
       deep_extraction.py       Deep multi-pass extraction
       feedback.py              Session feedback application
@@ -256,6 +256,7 @@ src/divineos/
     scaffolding_map.py         Scaffolding map — briefing surface for self-authored documents that carry load-bearing state.
     engagement_relevance.py    Engagement relevance — does this thinking command relate to current work?
     compliance_audit.py        Compliance-distribution audit — substantive testing of the compliance log.
+    failure_diagnostics.py     Shared record/read/briefing pattern for silent-fail-open events across enforcement surfaces
 
   analysis/
     _session_types.py          Session analysis type definitions

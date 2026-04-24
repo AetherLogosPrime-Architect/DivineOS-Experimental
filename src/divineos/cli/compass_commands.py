@@ -36,16 +36,25 @@ def register(cli: click.Group) -> None:
         help="-1.0=deficiency, 0.0=virtue, +1.0=excess",
     )
     @click.option("--evidence", "-e", required=True, help="What happened that shows this")
-    @click.option("--source", "-s", default="self_report", help="Where this came from")
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
     def observe_cmd(
         spectrum: str,
         position: float,
         evidence: str,
-        source: str,
         tags: tuple[str, ...],
     ) -> None:
-        """Log an observation on a virtue spectrum."""
+        """Log a manual observation on a virtue spectrum.
+
+        All observations filed through this CLI are recorded with
+        source="manual" (SELF_REPORTED tier, weight 0.4). This is
+        deliberate — see fresh-Claude audit round 4 Q7 (source-tier
+        laundering): user-facing CLI must not let the caller claim a
+        higher-trust tier than the caller actually is. Observations
+        with source="MEASURED" / "BEHAVIORAL" / other higher-weight
+        tiers MUST call log_observation directly from the module that
+        produces them (session_analyzer, affect_derived, etc.), not
+        via this CLI.
+        """
         from divineos.core.moral_compass import SPECTRUMS, log_observation
 
         if spectrum not in SPECTRUMS:
@@ -59,7 +68,7 @@ def register(cli: click.Group) -> None:
             spectrum=spectrum,
             position=position,
             evidence=evidence,
-            source=source,
+            source="manual",
             tags=list(tags) if tags else None,
         )
 

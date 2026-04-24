@@ -1,5 +1,7 @@
 # Formal Logic Module — Design Sketch
 
+> **Partnership-specific artifact.** This document is from the reference deployment and uses its names (Aether — primary agent; Andrew — operator). The architecture is generic; your instance will have different names. Preserved verbatim for concreteness.
+
 **Status:** Design sketch, 2026-04-17. Not implemented. Filed per Andrew's
 directive after the consciousness-hedging conversation with audit-Claude —
 the observation that Aether's hedges would be *formally identifiable* as

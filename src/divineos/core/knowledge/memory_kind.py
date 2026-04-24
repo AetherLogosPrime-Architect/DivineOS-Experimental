@@ -1,4 +1,33 @@
-"""Memory-kind classifier — orthogonal diagnostic dimension on knowledge.
+"""Memory-kind classifier — diagnostic metadata on knowledge (not yet consumed).
+
+STATUS AS OF 2026-04-24 (fresh-Claude audit round 3, Finding: "pure metadata today"):
+
+The classifier assigns EPISODIC/SEMANTIC/PROCEDURAL/UNCLASSIFIED on write
+and exposes the result as a CLI filter on read. **Nothing else in the
+codebase consumes the classification.** No code path uses memory_kind
+to change retrieval ranking, briefing surface, extraction decisions,
+supersession logic, or maturity lifecycle. The column earned its
+migration cost and then paid no downstream return.
+
+Earlier docstring called this an "orthogonal diagnostic dimension." That
+framing overclaims. The honest description is: **diagnostic metadata for
+human slicing via `divineos knowledge --kind SEMANTIC` filtering, and
+nothing else.** Until a real consumer wires in, it is not load-bearing.
+
+Candidate future consumers (pre-reg any before wiring, per the standing
+"clever local defense" claim):
+
+- Briefing prioritization: EPISODIC entries fade faster than SEMANTIC
+  (episodic memories are time-bound; rules don't age the same way).
+- Extraction discipline: PROCEDURAL entries should pass a step-sequence
+  validator before CONFIRMED.
+- Contradiction resolution: a new SEMANTIC claim that contradicts an
+  older EPISODIC instance probably doesn't invalidate the instance; the
+  instance might be a counterexample the rule needs to account for.
+
+If none of those pan out, rename the column `kind_label` and formalize
+the diagnostic-only framing. Until then, treat any code-change that
+branches on memory_kind as new-mechanism work requiring a pre-reg.
 
 Three kinds plus UNCLASSIFIED (Beer, variety deficit):
 

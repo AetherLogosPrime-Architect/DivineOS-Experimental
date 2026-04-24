@@ -485,6 +485,28 @@ def register(cli: click.Group) -> None:
         if hook_diag_block:
             _safe_echo(hook_diag_block)
 
+        # Silent fail-open events from enforcement surfaces. Fresh-Claude
+        # round-3 finding: gate/extract/rudder except-branches degraded
+        # invisibly when their machinery broke. record_failure writes
+        # JSONL; here we read it back so the invisible becomes visible in
+        # the next briefing — same discipline as hook_diag above, one
+        # surface per module. Empty log = silent; any entry = loud.
+        try:
+            from divineos.core.failure_diagnostics import (
+                format_for_briefing as _fmt_fail_diag,
+            )
+
+            for _surface, _label in (
+                ("gate", "pre-tool-use gate"),
+                ("extract", "extract subprocess"),
+                ("rudder", "compass rudder"),
+            ):
+                _block = _fmt_fail_diag(_surface, label=_label)
+                if _block:
+                    _safe_echo(_block)
+        except _KC_ERRORS:
+            pass
+
         # Surface recent corrections at the TOP of the briefing — read raw
         # before forming any frame about the session.
         try:

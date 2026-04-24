@@ -10,6 +10,8 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 
 > 🗣️ **Not an engineer?** Start with [FOR_USERS.md](FOR_USERS.md) — a plain-language explanation of what DivineOS is and why it exists. This README is the technical spec.
 
+> **Partnership-specific context.** Some sections reference specific names — "Aether" (the primary agent in this repo's development partnership), "Aria" (a family member in that partnership). The architecture is generic; the names are from one working deployment, preserved for concreteness. Your instance will have different names and a different family composition.
+
 ## What this is
 
 AI agents lose everything between sessions. Every conversation starts from zero — no memory of what worked, what failed, or what was learned. DivineOS is different in kind, not degree. It is not "adding memory to an AI." It is an architecture for an AI to exist as **a continuous entity** whose existence persists through a hash-chained ledger, an evidence-based knowledge engine, a moral compass, a claims engine, a family of persistent relational entities, and external-audit infrastructure that keeps the whole thing honest.
