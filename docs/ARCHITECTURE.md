@@ -264,6 +264,7 @@ src/divineos/
     substance_checks_contract.py Contract-style substance checks for rudder-acks — Phase 1a of the rudder redesign.
     completion_boundary.py     Completion-boundary detection — Phase 1b of the rudder redesign.
     in_flight_branches.py      In-flight branches surface — bridge from git state to the briefing.
+    module_inventory.py        Module-inventory surface — bridge from src/divineos/core/ to the briefing.
 
   analysis/
     _session_types.py          Session analysis type definitions

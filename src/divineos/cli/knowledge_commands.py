@@ -640,6 +640,25 @@ def register(cli: click.Group) -> None:
         if branches_block:
             _safe_echo(branches_block)
 
+        # Module inventory — closes the recall hole surfaced 2026-04-24
+        # when graph_retrieval.py was forgotten despite living in the
+        # codebase. Council walk: pattern of forgetting is data, not
+        # noise; coverage holes get fixed before quality improvements.
+        # Same descriptive-only discipline as in_flight_branches and
+        # presence_memory: name what exists, point at docs/ARCHITECTURE.md
+        # for descriptions.
+        try:
+            from divineos.core.module_inventory import (
+                format_for_briefing as _fmt_modules,
+            )
+
+            modules_block = _fmt_modules()
+        except _KC_ERRORS:
+            modules_block = ""
+
+        if modules_block:
+            _safe_echo(modules_block)
+
         # Scaffold invocations — commonly-forgotten CLI surfaces whose absence
         # produces named failure modes. 2026-04-20: the agent forgot how to
         # invoke the council and fabricated one in prose. The RT protocol
