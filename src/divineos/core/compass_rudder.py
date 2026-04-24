@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+import secrets
 from typing import Any
 
 DRIFT_THRESHOLD = 0.15
@@ -56,6 +57,102 @@ RUDDER_ACK_TAG = "rudder-ack"
 response. Distinguishes intentional acknowledgement of the drift alert
 from the background observations that caused the drift in the first
 place. Unguessable by accident (a typo becomes a no-op)."""
+
+_FIRE_ID_ENTROPY_BYTES = 8
+"""Item 6: 8 bytes = 16 hex chars = 64 bits of entropy. Forward-
+guessing within the 5-minute window is computationally infeasible.
+Full-length id is displayed and validated; no prefix matching."""
+
+
+def _generate_fire_id() -> str:
+    """Cryptographically-random fire id (16 hex chars)."""
+    return secrets.token_hex(_FIRE_ID_ENTROPY_BYTES)
+
+
+def _emit_fire_event(
+    fire_id: str,
+    spectrum: str,
+    all_drifting: list[str],
+    tool_name: str,
+    window_seconds: float,
+    threshold: float,
+    drift_values: dict[str, float],
+) -> None:
+    """Log COMPASS_RUDDER_FIRED to the ledger.
+
+    Forensic record of enforcement. Never pruned by the ephemeral
+    compressor — see ledger_compressor._COMPRESSIBLE_TYPES (FIRED is
+    deliberately NOT in that set). Payload includes ``threshold`` per
+    fresh-Claude round-2 Q3 so historical fires stay interpretable if
+    DRIFT_THRESHOLD changes.
+    """
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            event_type="COMPASS_RUDDER_FIRED",
+            actor="rudder",
+            payload={
+                "fire_id": fire_id,
+                "spectrum": spectrum,
+                "all_drifting": all_drifting,
+                "tool_name": tool_name,
+                "window_seconds": window_seconds,
+                "threshold": threshold,
+                "drift_values": drift_values,
+            },
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001
+        # Failure to log the event must not fail the rudder open.
+        pass
+
+
+def _emit_allow_event(
+    tool_name: str,
+    reason: str,
+    drifting_spectrums: list[str],
+    recent_justifications: list[str],
+) -> None:
+    """Log COMPASS_RUDDER_ALLOW to the ledger.
+
+    Frequent (every gated tool call). Goes through the ephemeral-
+    pruning path in ledger_compressor; Item 8's compliance audit uses
+    block/allow ratio as a health signal. Payload fields match
+    brief v2.1 §3 — no redundant timestamp (ledger auto-adds), no
+    redundant fire_id/spectrum fields that drifting_spectrums carries.
+    """
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            event_type="COMPASS_RUDDER_ALLOW",
+            actor="rudder",
+            payload={
+                "tool_name": tool_name,
+                "reason": reason,
+                "drifting_spectrums": drifting_spectrums,
+                "recent_justifications": recent_justifications,
+            },
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _drift_values_for_spectrums(spectrums: list[str]) -> dict[str, float]:
+    """Snapshot drift magnitudes for spectrums at fire time (forensic record)."""
+    try:
+        from divineos.core.moral_compass import read_compass
+
+        positions = read_compass()
+    except Exception:  # noqa: BLE001
+        return {}
+    result: dict[str, float] = {}
+    for pos in positions:
+        if pos.spectrum in spectrums:
+            result[pos.spectrum] = float(abs(getattr(pos, "drift", 0.0)))
+    return result
 
 
 @dataclass
@@ -138,18 +235,32 @@ def _find_justifications(
     # the filter to SQL: get_observations now takes tag= and since= and
     # does the membership check via json_each. No Python-side tag filter,
     # no limit=10.
+    #
+    # Item 6: an ack satisfies a rudder fire ONLY if it has a fire_id
+    # bound to a COMPASS_RUDDER_FIRED event (brief v2.1 §4 scenario b).
+    # An unbound ack (fire_id IS NULL) was silently accepted in the
+    # first-draft Item 6 implementation — fresh-Claude round-3 caught
+    # this as the single correctness gap. Fix: filter acks to
+    # fire_id IS NOT NULL. The log_observation validator already
+    # verifies at write-time that the fire_id references a real fire
+    # event, and the consumption table's PRIMARY KEY enforces one-shot,
+    # so fire_id-not-null is a sufficient proof of binding here.
     justified: set[str] = set()
     for spectrum in spectrums:
         try:
+            # Fetch a small batch so we can skip unbound acks without
+            # making too many queries. 20 is well over the realistic
+            # ack-per-window count and keeps the SQL filter's precision
+            # property (Item 4).
             acks = get_observations(
                 spectrum=spectrum,
                 tag=RUDDER_ACK_TAG,
                 since=cutoff,
-                limit=1,
+                limit=20,
             )
         except Exception:  # noqa: BLE001
             continue
-        if acks:
+        if any(a.get("fire_id") for a in acks):
             justified.add(spectrum)
     return sorted(justified)
 
@@ -177,6 +288,9 @@ def check_tool_use(
     del tool_input  # currently unused; kept in signature for future per-tool logic
 
     if tool_name not in GATED_TOOL_NAMES:
+        # Non-gated tools don't emit allow-events — the rudder never
+        # ran for them. Allow-events are only for gated-tool decisions,
+        # so Item 8's block/allow ratio is meaningful.
         return RudderVerdict(
             decision="allow",
             reason=f"tool '{tool_name}' is not gated by the compass rudder",
@@ -186,9 +300,11 @@ def check_tool_use(
 
     drifting = _get_drifting_spectrums(threshold=threshold)
     if not drifting:
+        reason = "no spectrum drifting toward excess above threshold"
+        _emit_allow_event(tool_name, reason, [], [])
         return RudderVerdict(
             decision="allow",
-            reason="no spectrum drifting toward excess above threshold",
+            reason=reason,
             drifting_spectrums=[],
             recent_justifications=[],
         )
@@ -197,48 +313,74 @@ def check_tool_use(
     missing = [s for s in drifting if s not in justified]
 
     if not missing:
+        reason = "all drifting spectrums have a recent justification: " + ", ".join(justified)
+        _emit_allow_event(tool_name, reason, drifting, justified)
         return RudderVerdict(
             decision="allow",
-            reason=("all drifting spectrums have a recent justification: " + ", ".join(justified)),
+            reason=reason,
             drifting_spectrums=drifting,
             recent_justifications=justified,
         )
 
+    # Block path: Item 6 generates a fire_id, emits FIRED event, and
+    # embeds the full-length fire_id in the block message for the agent
+    # to reference when filing the ack.
+    fire_id = _generate_fire_id()
+    _emit_fire_event(
+        fire_id=fire_id,
+        spectrum=missing[0],
+        all_drifting=drifting,
+        tool_name=tool_name,
+        window_seconds=window_seconds,
+        threshold=threshold,
+        drift_values=_drift_values_for_spectrums(missing),
+    )
     return RudderVerdict(
         decision="block",
-        reason=_build_block_message(tool_name, missing, window_seconds),
+        reason=_build_block_message(tool_name, missing, window_seconds, fire_id=fire_id),
         drifting_spectrums=drifting,
         recent_justifications=justified,
     )
 
 
-def _build_block_message(tool_name: str, missing: list[str], window_seconds: float) -> str:
+def _build_block_message(
+    tool_name: str,
+    missing: list[str],
+    window_seconds: float,
+    fire_id: str | None = None,
+) -> str:
     """Construct the agent-facing block message.
 
-    Shape: name the specific spectrum, the specific tool, and the exact
-    command needed to unblock. Keep the unblock trivially accessible —
-    the rudder is a pause, not a wall — but require a structured
-    compass observation, not free-form prose. Observations have a
-    spectrum name, a signed position delta, and evidence text;
-    together they force the operator to actually say where the
-    spectrum sits and why.
+    Includes the Item 6 fire_id when one was issued. Full-length (16
+    hex chars) — brief v2.1 §2 picked security cleanliness over CLI
+    brevity; what-you-see-is-what-you-copy since validation is exact-
+    equality.
     """
     window_min = window_seconds / 60
     spectrum_list = ", ".join(missing)
     primary_spectrum = missing[0] if missing else "SPECTRUM"
+    fire_id_prefix = f"[fire-{fire_id}] " if fire_id else ""
+    fire_id_flag = f" --fire-id {fire_id}" if fire_id else ""
+    fire_id_note = (
+        "\n\nThe fire_id binds your ack to this specific block. Prior "
+        "acks cannot satisfy this fire, and this fire_id cannot satisfy "
+        "future blocks."
+        if fire_id
+        else ""
+    )
     return (
-        f"COMPASS RUDDER: '{tool_name}' blocked because "
+        f"COMPASS RUDDER {fire_id_prefix}: '{tool_name}' blocked because "
         f"{spectrum_list} is drifting toward excess and no compass "
         f"observation was recorded in the last {window_min:.0f} minutes. "
         f"Before proceeding, file a compass observation — not a decide, "
         f"not prose. Name where the spectrum sits and why:\n\n"
         f"    divineos compass-ops observe {primary_spectrum} "
         f'-p <signed delta> -e "<evidence for the position>" '
-        f"--tag {RUDDER_ACK_TAG}\n\n"
+        f"--tag {RUDDER_ACK_TAG}{fire_id_flag}\n\n"
         f"Delta is signed: negative = toward deficiency, positive = "
         f"toward excess, zero = on-center. Evidence is concrete "
         f"(what observable behavior justifies the position). Then "
         f"retry the tool call. The observation is logged to the "
         f"compass_observation table so drift-under-ignored-alert is "
-        f"auditable as a data entry, not narrative."
+        f"auditable as a data entry, not narrative." + fire_id_note
     )

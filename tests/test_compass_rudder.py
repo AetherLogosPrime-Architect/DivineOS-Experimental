@@ -46,6 +46,29 @@ def _rudder_db(tmp_path):
         os.environ.pop("DIVINEOS_DB", None)
 
 
+def _fire_id_for(spectrum: str) -> str:
+    """Item 6 helper: trigger a rudder fire and return the issued fire_id.
+
+    Post-Item-6 an ack requires a fire_id binding. Tests that check
+    "ack clears rudder" must first produce a fire. This helper seeds
+    nothing (caller has already seeded drift) and simply runs
+    check_tool_use to force the block and capture the fire_id.
+    """
+    from divineos.core.ledger import get_events
+
+    v = check_tool_use(tool_name="Task")
+    if not v.blocked:
+        raise RuntimeError("test setup error: expected drift to block the rudder")
+    fires = get_events(event_type="COMPASS_RUDDER_FIRED", limit=10)
+    if not fires:
+        raise RuntimeError("test setup error: no FIRED event emitted")
+    for ev in reversed(fires):
+        p = ev.get("payload") or {}
+        if p.get("spectrum") == spectrum:
+            return p["fire_id"]
+    raise RuntimeError(f"test setup error: no FIRED event for spectrum={spectrum}")
+
+
 def _seed_drift(spectrum: str, *, toward_excess: bool, magnitude: float = 0.5) -> None:
     """Seed enough compass observations to produce a drift reading.
 
@@ -122,23 +145,53 @@ class TestAllowPath:
         assert v.decision == "allow"
 
     def test_recent_ack_observation_allows(self):
-        """A compass observation with the rudder-ack tag recorded in the
-        last 5 minutes clears the rudder. Decisions alone do not — the
-        clearance path is the compass, not the decision journal."""
+        """A compass observation with the rudder-ack tag + fire_id
+        recorded in the last 5 minutes clears the rudder. Post-Item-6,
+        an ack requires a fire_id bound to a real fire event — an
+        unbound ack no longer clears (see test_b_unbound_ack_rejected)."""
         from divineos.core.compass_rudder import RUDDER_ACK_TAG
         from divineos.core.moral_compass import log_observation
 
         _seed_drift("initiative", toward_excess=True, magnitude=0.8)
+        fire_id = _fire_id_for("initiative")
         log_observation(
             spectrum="initiative",
             position=0.1,
             evidence="scope is bounded to 3 agents; initiative drift acknowledged",
             source="rudder_ack",
             tags=[RUDDER_ACK_TAG],
+            fire_id=fire_id,
         )
         v = check_tool_use(tool_name="Task")
         assert v.decision == "allow", v.reason
         assert "initiative" in v.recent_justifications
+
+    def test_b_unbound_ack_does_not_clear_firing_rudder(self):
+        """Item 6 pre-reg scenario (b): an ack with no fire_id filed
+        while the rudder is firing does not clear it. Brief v2.1 §4
+        requires the consumption-time check to filter acks by
+        fire_id IS NOT NULL. Added after fresh-Claude round-3 review
+        caught this gap in the first-draft implementation."""
+        from divineos.core.compass_rudder import RUDDER_ACK_TAG
+        from divineos.core.moral_compass import log_observation
+
+        _seed_drift("initiative", toward_excess=True, magnitude=0.8)
+        # Trigger a fire so the rudder is actively firing
+        v1 = check_tool_use(tool_name="Task")
+        assert v1.blocked
+        # File an ack WITHOUT fire_id — substantive evidence, correct
+        # tag, right spectrum, but unbound to any specific fire.
+        log_observation(
+            spectrum="initiative",
+            position=0.1,
+            evidence="unbound ack attempting to satisfy fire without binding",
+            source="rudder_ack",
+            tags=[RUDDER_ACK_TAG],
+        )
+        # Rudder should still block — the ack has no fire_id to bind it.
+        v2 = check_tool_use(tool_name="Task")
+        assert v2.blocked, v2.reason
+        assert "initiative" not in v2.recent_justifications
 
     def test_ack_found_under_observation_load(self):
         """Item 4 adversarial — ack is findable even when non-ack
@@ -161,6 +214,10 @@ class TestAllowPath:
         from divineos.core.compass_rudder import RUDDER_ACK_TAG, _find_justifications
         from divineos.core.moral_compass import log_observation
 
+        # Seed drift and trigger a fire so we have a fire_id to bind.
+        _seed_drift("initiative", toward_excess=True, magnitude=0.8)
+        fire_id = _fire_id_for("initiative")
+
         # File the ack first (oldest, still within window).
         log_observation(
             spectrum="initiative",
@@ -168,6 +225,7 @@ class TestAllowPath:
             evidence="bounded scope; initiative drift acknowledged",
             source="rudder_ack",
             tags=[RUDDER_ACK_TAG],
+            fire_id=fire_id,
         )
         # Then 11 non-ack observations on the same spectrum, within
         # window. Pre-Item-4 these would push the ack out of the
@@ -279,40 +337,75 @@ class TestBlockPath:
 class TestMultipleDrifts:
     def test_must_ack_all_drifting_spectrums(self):
         """If two spectrums drift toward excess, a single ack observation
-        covering one is not enough."""
+        covering one is not enough. Post-Item-6 each ack must carry a
+        fire_id bound to the same spectrum the fire was issued for."""
         from divineos.core.compass_rudder import RUDDER_ACK_TAG
+        from divineos.core.ledger import get_events
         from divineos.core.moral_compass import log_observation
 
         _seed_drift("initiative", toward_excess=True, magnitude=0.8)
         _seed_drift("confidence", toward_excess=True, magnitude=0.8)
+        # Trigger the first fire and ack whichever spectrum the rudder
+        # picked as primary — leaving the other unacked.
+        v_block = check_tool_use(tool_name="Task")
+        assert v_block.blocked
+        fires = get_events(event_type="COMPASS_RUDDER_FIRED", limit=5)
+        fire_id = fires[-1]["payload"]["fire_id"]
+        acked_spectrum = fires[-1]["payload"]["spectrum"]
+        other_spectrum = "confidence" if acked_spectrum == "initiative" else "initiative"
         log_observation(
-            spectrum="initiative",
+            spectrum=acked_spectrum,
             position=0.0,
-            evidence="ack for initiative only",
+            evidence=f"ack for {acked_spectrum} only; {other_spectrum} still drifting",
             source="rudder_ack",
             tags=[RUDDER_ACK_TAG],
+            fire_id=fire_id,
         )
         v = check_tool_use(tool_name="Task")
         assert v.blocked, v.reason
         assert set(v.drifting_spectrums) >= {"initiative", "confidence"}
-        assert "initiative" in v.recent_justifications
-        # confidence is drifting but not acked -> blocks
-        assert "confidence" not in v.recent_justifications
+        assert acked_spectrum in v.recent_justifications
+        # Other spectrum is drifting but not acked -> still blocks
+        assert other_spectrum not in v.recent_justifications
 
     def test_all_drifting_spectrums_acked_allows(self):
         from divineos.core.compass_rudder import RUDDER_ACK_TAG
+        from divineos.core.ledger import get_events
         from divineos.core.moral_compass import log_observation
 
         _seed_drift("initiative", toward_excess=True, magnitude=0.8)
         _seed_drift("confidence", toward_excess=True, magnitude=0.8)
-        for spectrum in ("initiative", "confidence"):
-            log_observation(
-                spectrum=spectrum,
-                position=0.0,
-                evidence=f"ack for {spectrum} before spawn",
-                source="rudder_ack",
-                tags=[RUDDER_ACK_TAG],
-            )
+        # Trigger a fire; FIRED event's primary spectrum is one of them
+        # but all_drifting covers both. To bind both acks we need two
+        # fires, one per spectrum — the rudder only issues one per
+        # check_tool_use call, but by acking the primary spectrum and
+        # re-checking we trigger a new fire on the other.
+        v_block1 = check_tool_use(tool_name="Task")
+        assert v_block1.blocked
+        fires_after_first = get_events(event_type="COMPASS_RUDDER_FIRED", limit=5)
+        fire_id_1 = fires_after_first[-1]["payload"]["fire_id"]
+        first_spectrum = fires_after_first[-1]["payload"]["spectrum"]
+        other_spectrum = "confidence" if first_spectrum == "initiative" else "initiative"
+        log_observation(
+            spectrum=first_spectrum,
+            position=0.0,
+            evidence=f"first ack for {first_spectrum} spectrum before spawn",
+            source="rudder_ack",
+            tags=[RUDDER_ACK_TAG],
+            fire_id=fire_id_1,
+        )
+        v_block2 = check_tool_use(tool_name="Task")
+        assert v_block2.blocked  # second spectrum still drifting
+        fires_after_second = get_events(event_type="COMPASS_RUDDER_FIRED", limit=10)
+        fire_id_2 = fires_after_second[-1]["payload"]["fire_id"]
+        log_observation(
+            spectrum=other_spectrum,
+            position=0.0,
+            evidence=f"second ack for {other_spectrum} spectrum before spawn",
+            source="rudder_ack",
+            tags=[RUDDER_ACK_TAG],
+            fire_id=fire_id_2,
+        )
         v = check_tool_use(tool_name="Task")
         assert v.decision == "allow", v.reason
 

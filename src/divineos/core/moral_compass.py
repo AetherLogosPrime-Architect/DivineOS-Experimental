@@ -226,7 +226,17 @@ _MC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError
 
 
 def init_compass() -> None:
-    """Create compass tables if they don't exist."""
+    """Create compass tables if they don't exist.
+
+    Item 6 additions:
+        * compass_observation gets an optional ``fire_id TEXT`` column
+          via ALTER TABLE. Null for non-ack observations and legacy
+          rows; set for rudder-acks filed under the fire-ID flow.
+        * rudder_ack_consumption table with PRIMARY KEY on fire_id
+          enforces one-shot-per-fire structurally (concurrent INSERT
+          with same fire_id fails with IntegrityError, which the
+          validator catches as "already consumed").
+    """
     conn = _get_connection()
     try:
         # Observations: raw evidence from behavior
@@ -246,6 +256,27 @@ def init_compass() -> None:
             CREATE INDEX IF NOT EXISTS idx_compass_spectrum
             ON compass_observation(spectrum, created_at DESC)
         """)
+
+        # Item 6: add fire_id column to compass_observation. SQLite
+        # does not support ADD COLUMN IF NOT EXISTS, so we inspect
+        # PRAGMA table_info first. Safe to call on fresh or existing DB.
+        existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(compass_observation)")}
+        if "fire_id" not in existing_cols:
+            conn.execute("ALTER TABLE compass_observation ADD COLUMN fire_id TEXT")
+
+        # Item 6: one-shot-per-fire consumption table. PRIMARY KEY on
+        # fire_id is the race defense — two concurrent INSERTs with
+        # the same fire_id both fail at the second one (IntegrityError),
+        # and the validator translates that to "already consumed".
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rudder_ack_consumption (
+                fire_id             TEXT NOT NULL,
+                ack_observation_id  TEXT NOT NULL,
+                consumed_at         REAL NOT NULL,
+                PRIMARY KEY (fire_id),
+                UNIQUE      (ack_observation_id)
+            )
+        """)
         conn.commit()
     finally:
         conn.close()
@@ -256,6 +287,71 @@ def init_compass() -> None:
 
 _RUDDER_ACK_TAG_FOR_SUBSTANCE_CHECKS = "rudder-ack"
 
+# Item 6: fire-ID validation window. Matches compass_rudder's
+# JUSTIFICATION_WINDOW_SECONDS; kept local to avoid a circular import.
+_FIRE_VALIDATION_WINDOW_SECONDS = 5 * 60
+
+
+def _validate_fire_id(
+    fire_id: str,
+    spectrum: str,
+    window_seconds: float = _FIRE_VALIDATION_WINDOW_SECONDS,
+    now: float | None = None,
+) -> None:
+    """Raise ValueError if fire_id isn't bound to a recent fire on this spectrum.
+
+    Looks up COMPASS_RUDDER_FIRED events and confirms one exists with
+    matching fire_id + spectrum within the window. Consumed-already
+    is caught at INSERT time by the PRIMARY KEY on
+    rudder_ack_consumption, not here — that's the race-safe path.
+    """
+    ts = now if now is not None else time.time()
+    cutoff = ts - window_seconds
+
+    try:
+        from divineos.core.ledger import get_events
+    except ImportError as e:
+        raise ValueError(f"rudder-ack fire_id validation failed: ledger unavailable ({e})") from e
+
+    fires = get_events(event_type="COMPASS_RUDDER_FIRED", limit=100)
+    for ev in fires:
+        if ev.get("timestamp", 0.0) < cutoff:
+            continue
+        payload = ev.get("payload") or {}
+        if payload.get("fire_id") == fire_id and payload.get("spectrum") == spectrum:
+            return
+    raise ValueError(
+        f"rudder-ack fire_id references nonexistent or stale fire event "
+        f"(fire_id={fire_id}, spectrum={spectrum})"
+    )
+
+
+def _record_fire_id_rejection(
+    fire_id: str | None,
+    spectrum: str,
+    reason: str,
+) -> None:
+    """Log fire-ID validation failure to failure_diagnostics with stage='fire_id'.
+
+    Shares the "rudder-ack" surface with Item 7 substance rejections.
+    Unified view via the stage field so compliance_audit sees all
+    ack-rejection signals (not just substance).
+    """
+    try:
+        from divineos.core.failure_diagnostics import record_failure
+
+        record_failure(
+            surface="rudder-ack",
+            payload={
+                "spectrum": spectrum,
+                "stage": "fire_id",
+                "fire_id_attempted": (fire_id or "<none>")[:32],
+                "reason": reason[:240],
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
 
 def log_observation(
     spectrum: str,
@@ -264,6 +360,7 @@ def log_observation(
     source: str = "",
     session_id: str = "",
     tags: list[str] | None = None,
+    fire_id: str | None = None,
 ) -> str:
     """Log a moral compass observation — evidence of where I am on a spectrum.
 
@@ -271,14 +368,20 @@ def log_observation(
     position: -1.0 (deficiency) to +1.0 (excess), 0.0 is the virtue
     evidence: what happened that shows this position
     source: where the observation came from (e.g. "session_end", "self_report")
+    fire_id: Item 6 — optional fire-event binding. When present, the
+        ack is validated against a COMPASS_RUDDER_FIRED event with the
+        same fire_id and spectrum within the window. Stored on the
+        observation row and in rudder_ack_consumption (one-shot).
 
-    When the observation carries the rudder-ack tag, a three-stage
-    substance gate runs before the write (Item 7 of the deferred
-    bundle — design brief v2). See substance_checks.py. Rejected acks
-    raise ValueError; the caller (typically the CLI) surfaces the
-    reason to the operator.
+    Ordering (brief v2.1 §7):
+        1. Spectrum schema validation
+        2. Item 7 substance checks (if tag=rudder-ack)
+        3. Item 6 fire-ID validation (if fire_id provided)
+        4. Transactional write: observation + consumption row
+        5. IntegrityError on consumption PK -> "already consumed"
 
-    Returns the observation_id.
+    Raises ValueError for any rejection. Returns observation_id on
+    success.
     """
     if spectrum not in SPECTRUMS:
         msg = f"Unknown spectrum '{spectrum}'. Valid: {', '.join(sorted(SPECTRUMS))}"
@@ -299,16 +402,30 @@ def log_observation(
         if not result.ok:
             raise ValueError(f"rudder-ack rejected ({result.stage}): {result.reason}")
 
+    # Item 6: fire-ID validation runs AFTER substance checks so we
+    # fail cheap on trivial content before touching the ledger.
+    if fire_id is not None:
+        try:
+            _validate_fire_id(fire_id=fire_id, spectrum=spectrum)
+        except ValueError as e:
+            _record_fire_id_rejection(fire_id, spectrum, str(e))
+            raise
+
     init_compass()
     observation_id = str(uuid.uuid4())
     position = max(-1.0, min(1.0, position))
 
     conn = _get_connection()
     try:
+        # Transactional write: both INSERTs land or neither does.
+        # PRIMARY KEY on rudder_ack_consumption(fire_id) is the race
+        # defense — a concurrent duplicate fire_id raises IntegrityError
+        # and the entire transaction rolls back; no orphan observation.
         conn.execute(
             "INSERT INTO compass_observation "
-            "(observation_id, created_at, spectrum, position, evidence, source, session_id, tags) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "(observation_id, created_at, spectrum, position, evidence, source, "
+            "session_id, tags, fire_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 observation_id,
                 time.time(),
@@ -318,8 +435,22 @@ def log_observation(
                 source,
                 session_id,
                 json.dumps(tags or []),
+                fire_id,
             ),
         )
+        if fire_id is not None:
+            try:
+                conn.execute(
+                    "INSERT INTO rudder_ack_consumption "
+                    "(fire_id, ack_observation_id, consumed_at) "
+                    "VALUES (?, ?, ?)",
+                    (fire_id, observation_id, time.time()),
+                )
+            except sqlite3.IntegrityError as e:
+                conn.rollback()
+                reason = f"rudder-ack fire_id already consumed (fire_id={fire_id})"
+                _record_fire_id_rejection(fire_id, spectrum, reason)
+                raise ValueError(reason) from e
         conn.commit()
     finally:
         conn.close()
@@ -373,7 +504,7 @@ def get_observations(
         params.append(limit)
         rows = conn.execute(
             "SELECT observation_id, created_at, spectrum, position, evidence, "
-            "source, session_id, tags "
+            "source, session_id, tags, fire_id "
             f"FROM compass_observation{where_sql} "
             "ORDER BY created_at DESC LIMIT ?",
             tuple(params),
@@ -393,6 +524,7 @@ def _obs_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "source": row[5],
         "session_id": row[6],
         "tags": json.loads(row[7]) if row[7] else [],
+        "fire_id": row[8] if len(row) > 8 else None,
     }
 
 

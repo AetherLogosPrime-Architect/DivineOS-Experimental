@@ -44,6 +44,15 @@ _COMPRESSIBLE_TYPES = frozenset(
         "AGENT_WORK_OUTCOME",
         "AGENT_LEARNING_AUDIT",
         "AGENT_CONTEXT_COMPRESSION",
+        # Item 6: allow-events are frequent (every gated tool call)
+        # but carry no per-event forensic weight. Item 8 uses block/
+        # allow *ratios* which survive pruning — the ratio is
+        # computed over the live-window before compression runs.
+        # FIRED events are deliberately NOT in this set: they are
+        # forensic records of enforcement and must persist for audit.
+        # Follow-up claim df5b3113: guardrail this file post-Item-6
+        # so adding FIRED here later requires multi-party review.
+        "COMPASS_RUDDER_ALLOW",
     }
 )
 

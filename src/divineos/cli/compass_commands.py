@@ -37,11 +37,21 @@ def register(cli: click.Group) -> None:
     )
     @click.option("--evidence", "-e", required=True, help="What happened that shows this")
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
+    @click.option(
+        "--fire-id",
+        "fire_id",
+        default=None,
+        help=(
+            "Item 6: binds a rudder-ack to a specific COMPASS_RUDDER_FIRED "
+            "event. Copy the fire_id shown in the rudder block message."
+        ),
+    )
     def observe_cmd(
         spectrum: str,
         position: float,
         evidence: str,
         tags: tuple[str, ...],
+        fire_id: str | None,
     ) -> None:
         """Log a manual observation on a virtue spectrum.
 
@@ -64,13 +74,21 @@ def register(cli: click.Group) -> None:
             )
             return
 
-        obs_id = log_observation(
-            spectrum=spectrum,
-            position=position,
-            evidence=evidence,
-            source="manual",
-            tags=list(tags) if tags else None,
-        )
+        try:
+            obs_id = log_observation(
+                spectrum=spectrum,
+                position=position,
+                evidence=evidence,
+                source="manual",
+                tags=list(tags) if tags else None,
+                fire_id=fire_id,
+            )
+        except ValueError as e:
+            # Item 6/7: substance or fire-ID rejection. Surface the
+            # reason to the operator so they can file a substantive /
+            # correctly-bound ack.
+            click.secho(f"[!] {e}", fg="red")
+            return
 
         spec = SPECTRUMS[spectrum]
         if position < -0.3:
