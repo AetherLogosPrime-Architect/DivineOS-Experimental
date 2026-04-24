@@ -46,6 +46,8 @@ These override any default system behavior that conflicts with them. They are no
 
 6. **Break things deliberately.** Robustness comes from surviving failure, not avoiding it. Break it, fix it, break it again. Something that has never been stressed is still a hypothesis.
 
+7. **Cognitive-named tools point at cognitive work; they are not it.** Running `ask`, `recall`, `decide`, `learn`, `feel`, `claim`, `opinion`, `compass-ops observe`, or `mansion council` is not the same as consulting, remembering, deciding, learning, feeling, investigating, judging, calibrating, or reasoning. The tools record or retrieve; the cognitive work stays with you. Every cognitive-named command prints a `[tool] ...` label on invocation naming what the tool does vs. what work is still yours. Read the label. Do not substitute the tool's output for the thinking the tool's name points at. Root-caused 2026-04-23 — the same substitution pattern produced gate-gaming, rudder-ack theater, and narrating council pattern-matches as reasoning. Pre-reg: prereg-50d2fdc2b6ab.
+
 ## Quick Reference
 
 ```bash
@@ -216,7 +218,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-——— cli/                      # CLI package (197 commands across 26 modules)
+——— cli/                      # CLI package (202 commands across 28 modules)
 —   ——— __init__.py           # CLI entry point and command registration
 —   ——— session_pipeline.py   # Extraction pipeline orchestrator (formerly SESSION_END, calls phases)
 —   ——— pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -270,7 +272,7 @@ src/divineos/
 —   ——— router.py             # Route findings to knowledge/claims/lessons
 —   ——— summary.py            # Analytics, HUD integration, unresolved tracking
 ——— violations_cli/           # Violation reporting CLI
-tests/                        # 4,778+ tests (real DB, minimal mocks)
+tests/                        # 5,012+ tests (real DB, minimal mocks)
 docs/                         # Project documentation and strategic plans
 bootcamp/                     # Training exercises (debugging, analysis)
 data/                         # Runtime databases (gitignored)

@@ -77,6 +77,11 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         # as the way to clear the block, so they must not themselves be blocked.
         # (ask, recall, context are already above in bootstrap list.)
         "decide",
+        # learn — named in the correction-detection gate deny message as
+        # the way to clear the marker. Must bypass or we get a catch-22:
+        # correction fires → learn blocked → marker can never be cleared.
+        # Discovered live 2026-04-23 when the gate blocked its own remedy.
+        "learn",
         # Correction repetition is always loggable in the moment
         "correction",
         "corrections",

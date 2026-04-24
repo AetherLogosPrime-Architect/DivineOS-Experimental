@@ -83,6 +83,9 @@ def register(cli: click.Group) -> None:
         from divineos.cli._helpers import _log_os_query
 
         _log_os_query("compass", f"observe {spectrum}")
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("compass-observe")
 
         # Reset the compass-staleness counter in the engagement marker.
         # Structural discharge of "virtue drift untracked" — see gate 1.4

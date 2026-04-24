@@ -82,6 +82,47 @@ if ! python scripts/check_broad_exceptions.py 2>/dev/null; then
     ERRORS=$((ERRORS + 1))
 fi
 
+# 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
+# The gate reads the staged diff and blocks when a new mechanism lacks a
+# matching OPEN pre-registration in the ledger. Discipline from the
+# gute_bridge docstring made binding. See scripts/check_preregs.py.
+echo "=== Pre-reg Gate ==="
+if ! python scripts/check_preregs.py; then
+    ERRORS=$((ERRORS + 1))
+fi
+
+# 5c. Multi-party-review warning. The actual gate runs at commit-msg time
+# (see .git/hooks/commit-msg installed by setup/setup-hooks.sh). This is
+# an early warning so the operator sees the requirement BEFORE typing
+# the commit message. Non-blocking — it only surfaces information.
+if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.py ]; then
+    echo "=== Multi-Party-Review Check ==="
+    # Read guardrail list (skip comments + blanks) once, then match.
+    # Avoid `set -e` killing the subshell on grep-non-match.
+    GUARDRAIL_LIST=$(grep -v '^\s*#' scripts/guardrail_files.txt | grep -v '^\s*$' || true)
+    STAGED_GUARDRAILS=$(git diff --cached --name-only | while read -r f; do
+        if echo "$GUARDRAIL_LIST" | grep -Fxq "$f"; then
+            echo "$f"
+        fi
+    done || true)
+    if [ -n "$STAGED_GUARDRAILS" ]; then
+        echo "  [!] Guardrail files in this commit:"
+        while IFS= read -r line; do
+            [ -n "$line" ] && echo "      $line"
+        done <<< "$STAGED_GUARDRAILS"
+        DIFF_HASH=$(git diff --cached --unified=3 | sha256sum | cut -c1-64)
+        echo ""
+        echo "  Before committing, file a Watchmen audit round with:"
+        echo "      - CONFIRMS from actor=user"
+        echo "      - CONFIRMS from actor=grok | gemini | claude-<variant>"
+        echo "      - round focus/notes contain: 'diff-hash: $DIFF_HASH'"
+        echo "  Then add to the commit message:"
+        echo "      External-Review: <round_id>"
+        echo ""
+        echo "  The commit-msg hook will block the commit if any piece is missing."
+    fi
+fi
+
 # 6. Vulture
 if [ -n "$STAGED_SRC" ] && command -v vulture &>/dev/null; then
     echo "=== Vulture ==="

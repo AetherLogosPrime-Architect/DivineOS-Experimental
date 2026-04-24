@@ -11,10 +11,11 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (197 commands across 27 modules)
+  cli/                         CLI package (202 commands across 28 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
+    _anti_substitution.py      Labels that name what each cognitive-named tool does vs. what cognitive work is still the agent's (pre-reg prereg-50d2fdc2b6ab)
     session_pipeline.py        Extraction pipeline orchestrator (formerly SESSION_END, calls phases)
     pipeline_gates.py          Enforcement gates (quality, briefing, engagement)
     pipeline_phases.py         Heavy-lifting phases (feedback, scoring, finalization)
@@ -45,8 +46,19 @@ src/divineos/
     family_member_commands.py  family-member init / opinion / letter / respond — activation surface for family members (takes --member <name>)
     corrigibility_commands.py  mode show / set / history — the off-switch
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
+    lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
+  science_lab/                 Numerical test harness for GUTE terms and derived claims
+    complexity_theory.py       Chaos, fractals, emergence (Lyapunov, Lorenz, Mandelbrot, power laws)
+    information_theory.py      Shannon entropy, mutual information, KL, channel capacity, von Neumann entropy
+    mathematics.py             Numerical analysis (Simpson, Newton, bisection, RK4) and linear algebra
+    cosmology.py               Friedmann equations, black-hole scales, gravitational-wave quantities
+    quantum_mechanics.py       Quantum states, operators, Pauli/Hadamard/CNOT gates, Bell/GHZ states
+    formal_logic.py            Propositions, formulas, laws of thought, modus ponens/tollens
+    harmonics.py               Harmonic series, just intonation, Kepler's third law, orbital resonance
+    physics.py                 Special relativity (Lorentz, time dilation, Schwarzschild)
+    gute_bridge.py             Term → slice dispatch; slices for LC, OmegaB, Psi, V, A, F
   core/
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
@@ -86,6 +98,7 @@ src/divineos/
       framework.py             ExpertWisdom dataclasses (7 components)
       manager.py               Dynamic council manager (classify → select 5-8 experts)
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
+      lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
       experts/                 32 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
@@ -240,6 +253,9 @@ src/divineos/
     session_start_diagnostics.py Session-start hook diagnostics — briefing surface for the JSONL hook log.
     correction_marker.py       Correction-unlogged marker — structural enforcement of `divineos learn` usage.
     hedge_marker.py            Hedge-unresolved marker — structural enforcement of `divineos claim` on uncertainty.
+    scaffolding_map.py         Scaffolding map — briefing surface for self-authored documents that carry load-bearing state.
+    engagement_relevance.py    Engagement relevance — does this thinking command relate to current work?
+    compliance_audit.py        Compliance-distribution audit — substantive testing of the compliance log.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -257,7 +273,7 @@ src/divineos/
     tone_tracking.py           Tone shift detection and classification
     feature_storage.py         Feature result DB storage
     audit_classifier.py        Test quality audit (data/assertion/coverage classification)
-  agent_integration/           Agent integration sub-package
+  agent_integration/           Agent self-observation: tool-call events → session lessons → pattern feedback. The "observing myself" side. Distinct from integration/ which handles external systems.
     types.py                   Type definitions
     outcome_measurement.py     Rework, churn, correction rate, session health
     learning_cycle.py          Pattern extraction and confidence updates
@@ -266,7 +282,7 @@ src/divineos/
     feedback_system.py         Feedback processing
     pattern_store.py           Pattern persistence
     pattern_validation.py      Pattern validation checks
-  clarity_system/              Clarity rules and violation tracking
+  clarity_system/              Pre-work/post-work clarity statements (plan → execute → deviation → learning). Work-cycle scope. Distinct from clarity_enforcement/ which is per-tool-call.
     base.py                    Clarity system base
     types.py                   Type definitions
     clarity_generator.py       Clarity statement generation
@@ -280,7 +296,7 @@ src/divineos/
     hook_integration.py        Hook execution integration
     learning_extractor.py      Learning extraction from clarity
     ledger_integration.py      Ledger integration
-  clarity_enforcement/         Clarity checking system
+  clarity_enforcement/         Real-time tool-call clarity gate: BLOCKING / LOGGING / PERMISSIVE modes. Per-call scope. Distinct from clarity_system/ which operates across a full work cycle.
     config.py                  Clarity configuration
     enforcer.py                Enforcement engine
     semantic_analyzer.py       Semantic analysis
@@ -299,7 +315,7 @@ src/divineos/
     targeted_tests.py          PostToolUse targeted test runner — maps edited source file to corresponding test file, runs only that (full suite stays on pre-commit)
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
-  integration/                 IDE and MCP integration
+  integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper). The "integrating with other systems" side — distinct from agent_integration/ which observes the agent itself.
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
   supersession/                Contradiction detection and resolution

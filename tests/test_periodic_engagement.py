@@ -97,8 +97,12 @@ class TestPeriodicEngagement:
             for _ in range(10):
                 record_code_action()
 
-            # Deep re-engage — counter resets fully
-            mark_engaged(tool="ask")
+            # Deep re-engage with a query → counter resets fully.
+            # Empty-query thinking is now treated as a shell (see
+            # core/engagement_relevance.py, prereg-637ea9a0d852). The
+            # ask must have content to zero the counter, otherwise it
+            # only halves.
+            mark_engaged(tool="ask", query="asking a real question about state")
             status = engagement_status()
             assert status["code_actions_since"] == 0
             assert status["remaining"] == _ENGAGEMENT_DECAY_THRESHOLD

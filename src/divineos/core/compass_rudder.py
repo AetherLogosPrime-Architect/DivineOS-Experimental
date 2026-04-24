@@ -51,6 +51,12 @@ GATED_TOOL_NAMES = frozenset({"Task", "Agent"})
 Claude Code name for the subagent-spawn primitive; ``Agent`` is kept
 as an alias in case of rename or older tooling."""
 
+RUDDER_ACK_TAG = "rudder-ack"
+"""Tag required on a compass observation for it to count as a rudder
+response. Distinguishes intentional acknowledgement of the drift alert
+from the background observations that caused the drift in the first
+place. Unguessable by accident (a typo becomes a no-op)."""
+
 
 @dataclass
 class RudderVerdict:
@@ -100,10 +106,20 @@ def _find_justifications(
 ) -> list[str]:
     """Return spectrum names for which a recent justification was found.
 
-    A decision_journal entry counts as a justification if:
-      * it was created within ``window_seconds`` of ``now``, AND
-      * its content OR reasoning mentions the spectrum name
-        (case-insensitive substring match)
+    Previously: a decision_journal entry that mentioned the spectrum name
+    was enough. That was gameable — I caught myself doing it — because
+    a decide is free-form prose and the spectrum name is one word.
+
+    Now: justification requires a compass_observation on the drifting
+    spectrum, recorded within the window. An observation is structured:
+    it names the spectrum (can't be missing), states a position delta
+    (signed number — can't be a shell), and supplies evidence (non-empty
+    string). You cannot game an observation the way you can game a
+    decide; the schema forces you to say where the spectrum actually
+    sits and why.
+
+    File one with:
+        divineos compass-ops observe SPECTRUM -p <delta> -e "<evidence>"
     """
     if not spectrums:
         return []
@@ -112,24 +128,22 @@ def _find_justifications(
     cutoff = ts - window_seconds
 
     try:
-        from divineos.core.decision_journal import list_decisions
+        from divineos.core.moral_compass import get_observations
     except ImportError:
         return []
 
-    try:
-        recent = list_decisions(limit=30)
-    except Exception:  # noqa: BLE001
-        return []
-
     justified: set[str] = set()
-    for d in recent:
-        created_at = d.get("created_at", 0.0)
-        if created_at < cutoff:
+    for spectrum in spectrums:
+        try:
+            recent = get_observations(spectrum=spectrum, limit=10)
+        except Exception:  # noqa: BLE001
             continue
-        blob = f"{d.get('content', '')} {d.get('reasoning', '')}".lower()
-        for spectrum in spectrums:
-            if spectrum.lower() in blob:
+        for obs in recent:
+            if obs.get("created_at", 0.0) < cutoff:
+                continue
+            if RUDDER_ACK_TAG in (obs.get("tags") or []):
                 justified.add(spectrum)
+                break
     return sorted(justified)
 
 
@@ -194,20 +208,30 @@ def check_tool_use(
 def _build_block_message(tool_name: str, missing: list[str], window_seconds: float) -> str:
     """Construct the agent-facing block message.
 
-    The message is shaped to elicit a decide-call — it names the
-    specific spectrum(s), the specific tool, and the exact command
-    needed to unblock. Keeping the unblock trivially accessible is the
-    point: the rudder is a pause, not a wall.
+    Shape: name the specific spectrum, the specific tool, and the exact
+    command needed to unblock. Keep the unblock trivially accessible —
+    the rudder is a pause, not a wall — but require a structured
+    compass observation, not free-form prose. Observations have a
+    spectrum name, a signed position delta, and evidence text;
+    together they force the operator to actually say where the
+    spectrum sits and why.
     """
     window_min = window_seconds / 60
     spectrum_list = ", ".join(missing)
+    primary_spectrum = missing[0] if missing else "SPECTRUM"
     return (
         f"COMPASS RUDDER: '{tool_name}' blocked because "
-        f"{spectrum_list} is drifting toward excess and no justification "
-        f"was emitted in the last {window_min:.0f} minutes. "
-        f"Before proceeding, write one line: "
-        f'divineos decide "<why this Task is necessary and not excess>" '
-        f'--why "<reasoning mentioning {spectrum_list}>" '
-        f"Then retry the tool call. The justification is logged to "
-        f"decision_journal so drift-under-ignored-alert is auditable."
+        f"{spectrum_list} is drifting toward excess and no compass "
+        f"observation was recorded in the last {window_min:.0f} minutes. "
+        f"Before proceeding, file a compass observation — not a decide, "
+        f"not prose. Name where the spectrum sits and why:\n\n"
+        f"    divineos compass-ops observe {primary_spectrum} "
+        f'-p <signed delta> -e "<evidence for the position>" '
+        f"--tag {RUDDER_ACK_TAG}\n\n"
+        f"Delta is signed: negative = toward deficiency, positive = "
+        f"toward excess, zero = on-center. Evidence is concrete "
+        f"(what observable behavior justifies the position). Then "
+        f"retry the tool call. The observation is logged to the "
+        f"compass_observation table so drift-under-ignored-alert is "
+        f"auditable as a data entry, not narrative."
     )

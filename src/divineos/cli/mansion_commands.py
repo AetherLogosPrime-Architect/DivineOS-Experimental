@@ -16,6 +16,84 @@ _safe_echo = click.echo
 _MC_ERRORS = (ImportError, OSError, KeyError, TypeError, ValueError)
 
 
+def _render_council_as_lens(result) -> None:  # type: ignore[no-untyped-def]
+    """Lens-mode output: selection + methodologies, no canned concerns or synthesis.
+
+    The point of lens mode is to make the agent do the thinking. The engine's
+    contribution is expert SELECTION (who's relevant given the question); the
+    methodology per expert is raw framework for the agent to apply to specifics
+    the engine cannot see. Concerns and synthesis are deliberately withheld —
+    emitting them invites the name-substitution failure where pattern-matched
+    fragments get narrated as reasoning.
+    """
+    click.secho(
+        "  [lens mode] The engine selected these experts as relevant to the question.",
+        fg="cyan",
+    )
+    click.secho(
+        "  Apply each expert's methodology to specifics only you can see.",
+        fg="cyan",
+    )
+    click.secho(
+        "  This is framework material, not analysis. The analysis is yours.",
+        fg="cyan",
+    )
+    click.echo()
+    for a in result.analyses:
+        click.secho(f"  [{a.expert_name}] — {a.methodology_applied}", fg="white", bold=True)
+        click.secho(f"    core principle: {a.core_principle}", fg="bright_black")
+        if a.methodology_steps:
+            click.secho("    steps:", fg="bright_black")
+            for step in a.methodology_steps[:4]:
+                click.secho(f"      - {step}", fg="bright_black")
+        if a.characteristic_questions:
+            click.secho("    questions they'd ask:", fg="bright_black")
+            for q in a.characteristic_questions[:3]:
+                click.secho(f"      ? {q}", fg="bright_black")
+        click.echo()
+    click.secho(
+        "  Next: walk each methodology through your specifics. Do not let "
+        "this output stand as the thinking.",
+        fg="yellow",
+    )
+
+
+def _render_council_as_code(result) -> None:  # type: ignore[no-untyped-def]
+    """Code-mode output: pattern-matched canned concerns (old default behavior).
+
+    Prepends a prominent warning label so the output cannot be mistaken for
+    reasoning. Useful as a quick checklist or expert selector; not useful as
+    synthesis.
+    """
+    click.secho(
+        "  [!] AS-CODE MODE: pattern-matched raw material, not lens reasoning.",
+        fg="red",
+        bold=True,
+    )
+    click.secho(
+        "  Concerns below are triggered by keywords in your question. The engine",
+        fg="red",
+    )
+    click.secho(
+        "  cannot see DivineOS from outside; its output is a selector + checklist,",
+        fg="red",
+    )
+    click.secho(
+        "  not thinking. Do not narrate consensus from these fragments.",
+        fg="red",
+    )
+    click.echo()
+    for a in result.analyses:
+        click.secho(f"  [{a.expert_name}]", fg="white", bold=True)
+        click.secho(f"    {a.methodology_applied}", fg="bright_black")
+        for c in a.concerns[:2]:
+            click.secho(f"    ! {c}", fg="yellow")
+        click.echo()
+    if result.synthesis:
+        click.secho("  Synthesis (pattern-matched — use as checklist):", fg="cyan")
+        _safe_echo(f"  {result.synthesis[:400]}")
+
+
 def register_mansion_commands(cli: click.Group) -> None:
     """Register all mansion commands."""
 
@@ -202,13 +280,29 @@ def register_mansion_commands(cli: click.Group) -> None:
         default=None,
         help="Override the tier of the promoted audit round. Defaults to MEDIUM.",
     )
-    def council_cmd(question: str, audit: bool, audit_tier: str | None) -> None:
+    @click.option(
+        "--as-code",
+        is_flag=True,
+        help=(
+            "Run council as pattern-matched code (old default). Returns canned "
+            "expert concerns triggered by keywords — useful as a selector or "
+            "quick checklist, NOT as thinking. Default is lens mode."
+        ),
+    )
+    def council_cmd(question: str, audit: bool, audit_tier: str | None, as_code: bool) -> None:
         """The council chamber — 29 chairs in a circle.
 
-        Every consultation is logged to the ledger as a COUNCIL_CONSULTATION
-        event (searchable, non-gating). Pass --audit to also create an
-        audit_round with each fired concern as a finding; this bumps the
-        cadence gate and counts as a MEDIUM-tier external-review signal.
+        Default is LENS mode: the engine selects relevant experts and prints
+        their METHODOLOGIES for you to apply to the specifics only you can
+        see. The output is raw material for YOUR lens work, not a synthesis.
+
+        --as-code runs the old pattern-matched mode that emits canned
+        concerns. Useful as a selector for "which experts are relevant" or
+        as a quick checklist, but it cannot see DivineOS from outside and
+        its output should not be mistaken for thinking.
+
+        Every consultation (either mode) is logged as a COUNCIL_CONSULTATION
+        event. Pass --audit to also promote to an audit_round.
         """
         click.secho("\n=== THE COUNCIL CHAMBER ===\n", fg="cyan", bold=True)
         try:
@@ -238,15 +332,11 @@ def register_mansion_commands(cli: click.Group) -> None:
             if balance_block:
                 _safe_echo(balance_block)
                 click.echo()
-            for a in result.analyses:
-                click.secho(f"  [{a.expert_name}]", fg="white", bold=True)
-                click.secho(f"    {a.methodology_applied}", fg="bright_black")
-                for c in a.concerns[:2]:
-                    click.secho(f"    ! {c}", fg="yellow")
-                click.echo()
-            if result.synthesis:
-                click.secho("  Synthesis:", fg="cyan")
-                _safe_echo(f"  {result.synthesis[:400]}")
+
+            if as_code:
+                _render_council_as_code(result)
+            else:
+                _render_council_as_lens(result)
 
             # Always-on: log the consultation as a ledger event. Cheap, searchable.
             logged = log_consultation(

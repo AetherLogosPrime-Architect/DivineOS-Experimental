@@ -171,6 +171,9 @@ def register(cli: click.Group) -> None:
         from divineos.cli._helpers import _log_os_query
 
         _log_os_query("decide", what)
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("decide")
 
         label = _WEIGHT_LABELS.get(weight, "routine")
         color = _WEIGHT_COLORS.get(weight, "white")

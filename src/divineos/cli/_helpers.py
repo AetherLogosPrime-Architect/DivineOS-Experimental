@@ -201,7 +201,7 @@ def _log_os_query(tool: str, query: str = "") -> None:
         actor="assistant",
         payload={"tool": tool, "query": query},
     )
-    mark_engaged(tool=tool)
+    mark_engaged(tool=tool, query=query)
 
 
 def _role_to_event_type(role: str) -> str:

@@ -78,6 +78,37 @@ EOF
 chmod +x "$HOOKS_DIR/pre-commit"
 echo "Created pre-commit hook at $HOOKS_DIR/pre-commit"
 
+# Create commit-msg hook (multi-party-review gate for guardrail files).
+# Runs after the user has written the commit message; validates that
+# any modification to guardrail files carries a valid External-Review
+# trailer referencing a Watchmen audit round with user + external-AI
+# CONFIRMS findings. See scripts/check_multi_party_review.py.
+cat > "$HOOKS_DIR/commit-msg" << 'EOF'
+#!/bin/bash
+# commit-msg hook for DivineOS — multi-party-review gate.
+# Blocks commits that modify guardrail files without the required
+# External-Review trailer + valid Watchmen audit round.
+
+set -e
+
+python scripts/check_multi_party_review.py "$1" || {
+    echo ""
+    echo "Guardrail-file modification blocked. See above for the specific"
+    echo "reason. To proceed:"
+    echo "  1. File an audit round with CONFIRMS findings from:"
+    echo "       actor=user  (the human operator)"
+    echo "       actor=grok | actor=gemini | actor=claude-<variant>"
+    echo "  2. Include 'diff-hash: <64-hex>' in the round's focus or notes."
+    echo "  3. Add 'External-Review: <round_id>' trailer to the commit."
+    exit 1
+}
+
+exit 0
+EOF
+
+chmod +x "$HOOKS_DIR/commit-msg"
+echo "Created commit-msg hook at $HOOKS_DIR/commit-msg"
+
 echo ""
 echo "Git hooks setup complete!"
 echo ""
@@ -88,5 +119,8 @@ echo "  3. mypy (type checking)"
 echo "  4. doc count drift (test/command counts vs reality)"
 echo "  5. vulture dead-code (if installed)"
 echo "  6. shellcheck on hooks (if installed)"
+echo ""
+echo "Additionally, commit-msg hook validates multi-party-review for"
+echo "guardrail-file modifications (scripts/guardrail_files.txt)."
 echo ""
 echo "If any check fails, the commit will be blocked and you'll need to fix the issues."
