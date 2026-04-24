@@ -41,3 +41,11 @@ setup/setup-hooks.sh
 setup/setup-hooks.ps1
 scripts/check_preregs.py
 .github/workflows/integrity-audit.yml
+
+# Added in deferred-bundle Item 8 PR-1b (resolves claim df5b3113 from
+# Item 6 review). Post-Item-6, ledger_compressor.py controls what
+# enforcement history survives — adding COMPASS_RUDDER_FIRED or
+# COMPLIANCE_DRIFT_HIGH to _COMPRESSIBLE_TYPES would silently destroy
+# forensic records. Guardrailing blocks that modification without
+# multi-party review.
+src/divineos/core/ledger_compressor.py

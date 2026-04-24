@@ -121,7 +121,51 @@ _BLOCK_ALLOW_ACTIVE_SESSION_GATED_CALLS = 10
 """Item 8 v2.1: an 'active session' for block/allow-rate-zero purposes
 requires >=10 gated-tool invocations in the window. Prevents false-
 positive on genuinely quiet sessions (reading, thinking, few tool
-calls). Per fresh-Claude Q3 operational definition."""
+calls). Per fresh-Claude Q3 operational definition.
+
+PR-1b: 'gated-tool invocation count' sourced from TOOL_CALL ledger
+events (emitted by tool_wrapper.wrap_tool_execution BEFORE
+tool_func execution — independent of the rudder hook path).
+Verified upstream-of-rudder at implementation-time per addendum
+Q1 refinement 8."""
+
+_RUDDER_PARTIAL_FAILURE_COVERAGE_THRESHOLD = 0.80
+"""Item 8 PR-1b: if the rudder emits events for fewer than 80% of
+gated tool calls, some calls are bypassing the rudder (partial
+infrastructure failure — e.g., hook registered for Task but not
+Agent). Pre-reg 7.1-infra-B; review at 60 days with live data."""
+
+# PR-1b 2a: variance-collapse detector. TF-IDF cosine similarity
+# across ALL operator content (decides + learns + ack evidence) in
+# the window. If a high fraction of items have a near-neighbor above
+# the threshold, the vocabulary distribution has collapsed.
+_VARIANCE_COLLAPSE_SIMILARITY_THRESHOLD = 0.75
+"""Distribution-level — 0.75 across many items indicates collapsed
+vocabulary. Distinct from Item 7's per-item 0.9 (one-vs-one)."""
+
+_VARIANCE_COLLAPSE_FRACTION_HIGH_SIMILARITY = 0.50
+"""Fires if >=50% of items have a near-neighbor above the threshold."""
+
+_VARIANCE_COLLAPSE_MIN_ITEMS = 10
+"""Below 10 items, the distribution is too small to read."""
+
+# PR-1b 2b: content-entropy trend. Shannon entropy over joined
+# operator content (first half vs second half of the window). A
+# meaningful drop across halves suggests distribution drift.
+_CONTENT_ENTROPY_DROP_THRESHOLD = 0.30
+"""Relative drop from first-half entropy to second-half entropy.
+30% is a genuine trend, not noise."""
+
+_CONTENT_ENTROPY_MIN_ITEMS_PER_HALF = 3
+
+# PR-1b 2c: multi-window meta-detector. Brief v2.1 §2c specifies
+# detectors running across 1day and 1week windows. If the SAME
+# detector fires in BOTH windows, the pattern is chronic not
+# transient — severity elevates one step (LOW→MEDIUM, MEDIUM→HIGH,
+# HIGH stays HIGH).
+_MULTI_WINDOW_SECONDS = (86400.0, 604800.0)
+"""1 day and 1 week. Dropped 1hr per fresh-Claude review — reduces
+noise; add back if simpler version misses real drift."""
 
 # Item 8 v2.1: decide/learn distribution skew. Ratio outside [1:5, 5:1]
 # over the window suggests thinking-substitution (too many decides) or
@@ -331,7 +375,9 @@ def _measure_rapid_clear_latency(window_seconds: float, now: float | None) -> di
 
 
 def detect_anomalies(
-    window_seconds: float = DEFAULT_WINDOW_SECONDS, now: float | None = None
+    window_seconds: float = DEFAULT_WINDOW_SECONDS,
+    now: float | None = None,
+    emit_events: bool = True,
 ) -> list[Anomaly]:
     """Run all distribution detectors; return any anomalies found.
 
@@ -444,15 +490,126 @@ def detect_anomalies(
     if _flag_enabled("DECIDE_LEARN_SKEW"):
         anomalies.extend(_detect_decide_learn_skew(window_seconds, now))
 
+    # 2a — variance-collapse (PR-1b)
+    if _flag_enabled("VARIANCE_COLLAPSE"):
+        anomalies.extend(_detect_variance_collapse(window_seconds, now))
+
+    # 2b — content-entropy trend (PR-1b)
+    if _flag_enabled("CONTENT_ENTROPY"):
+        anomalies.extend(_detect_content_entropy_drop(window_seconds, now))
+
+    # PR-1b §3: HIGH-severity emission is optional per caller. Single-
+    # window users (format_report, CLI) keep emit_events=True so a
+    # HIGH anomaly produces a ledger event inline. Multi-window
+    # orchestrators (format_multi_window_report) pass
+    # emit_events=False, then dedupe across windows and emit once per
+    # unique detector — prevents the same finding from producing
+    # multiple ledger events at different time scales.
+    # Fresh-Claude PR-1b round-2 finding. Decision d91c8bca.
+    if emit_events:
+        _emit_high_severity_events(anomalies, window_seconds)
+
     return anomalies
+
+
+def _emit_high_severity_events(anomalies: list[Anomaly], window_seconds: float) -> None:
+    """PR-1b: emit a ledger event for each HIGH anomaly.
+
+    Separate event classes per brief §3. Neither type is in
+    _COMPRESSIBLE_TYPES (guardrailed via PR-1b's addition of
+    ledger_compressor.py to the guardrail list).
+
+    Payload shape is consistent across all HIGH emissions
+    (fresh-Claude addendum refinement 5): detector, observation,
+    detail, window_seconds, fire_timestamp at top level.
+    """
+    for a in anomalies:
+        if a.severity != AnomalySeverity.HIGH:
+            continue
+        if a.name == "rudder_infrastructure_failure":
+            event_type = "RUDDER_INFRASTRUCTURE_FAILURE"
+        else:
+            event_type = "COMPLIANCE_DRIFT_HIGH"
+        try:
+            from divineos.core.ledger import log_event
+
+            log_event(
+                event_type=event_type,
+                actor="compliance_audit",
+                payload={
+                    "detector": a.name,
+                    "observation": a.observation,
+                    "detail": a.detail,
+                    "window_seconds": window_seconds,
+                    "fire_timestamp": time.time(),
+                },
+                validate=False,
+            )
+        except Exception as e:  # noqa: BLE001
+            # Don't swallow silently — log to failure_diagnostics so a
+            # systematic ledger-write failure becomes visible in the
+            # next briefing (fresh-Claude addendum refinement 6).
+            try:
+                from divineos.core.failure_diagnostics import record_failure
+
+                record_failure(
+                    surface="compliance_audit_emission",
+                    payload={
+                        "event_type": event_type,
+                        "detector": a.name,
+                        "error": str(e)[:240],
+                    },
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def _count_gated_tool_calls(cutoff: float) -> int:
+    """PR-1b: count TOOL_CALL ledger events in the window whose
+    tool_name is in compass_rudder.GATED_TOOL_NAMES.
+
+    Independent signal from rudder events — TOOL_CALL fires from
+    tool_wrapper BEFORE tool_func runs (verified upstream at impl
+    time). If rudder is broken, TOOL_CALL still fires; the mismatch
+    between gated-call-count and rudder-event-count is the
+    infrastructure-failure signal.
+
+    Shared-source-of-truth: imports GATED_TOOL_NAMES from
+    compass_rudder so adding a new gated tool in one place
+    automatically updates the active-session filter.
+    """
+    try:
+        from divineos.core.compass_rudder import GATED_TOOL_NAMES
+        from divineos.core.ledger import get_events
+    except ImportError:
+        return 0
+    try:
+        # limit=20000 comfortably covers a week of high-activity sessions
+        # (100 calls/hr × 24 × 7 = 16800). Bumped from the 5000 used
+        # elsewhere per fresh-Claude addendum refinement 9.
+        events = get_events(event_type="TOOL_CALL", limit=20000)
+    except Exception:  # noqa: BLE001
+        return 0
+    count = 0
+    for e in events:
+        if e.get("timestamp", 0.0) < cutoff:
+            continue
+        payload = e.get("payload") or {}
+        if payload.get("tool_name") in GATED_TOOL_NAMES:
+            count += 1
+    return count
 
 
 def _detect_block_allow_anomalies(window_seconds: float, now: float | None) -> list[Anomaly]:
     """Item 8 v2.1 3a: block/allow ratio with two-sided bounds.
 
-    Separate RUDDER_INFRASTRUCTURE_FAILURE class for the gate-dead
-    case (ALLOW==0 on active session) vs. COMPLIANCE_DRIFT_* for
-    gaming shapes. Per fresh-Claude round-1 Q3.
+    PR-1b: active-session is sourced from TOOL_CALL events (not
+    fires+allows as proxy). This resolves the unreachable-branch
+    contradiction fresh-Claude flagged in PR-1a round-2.
+
+    Two infrastructure-failure classes emerge:
+      - FULL: TOOL_CALL > 0 AND fires+allows == 0 → gate-dead
+      - PARTIAL: coverage < 80% → some calls bypass the rudder
     """
     ts = now if now is not None else time.time()
     cutoff = ts - window_seconds
@@ -473,22 +630,74 @@ def _detect_block_allow_anomalies(window_seconds: float, now: float | None) -> l
     except Exception:  # noqa: BLE001
         return anomalies
 
-    total = len(fires) + len(allows)
-    # "Active session" operational definition: >=10 gated-tool
-    # invocations in the window. Fire+allow count is the proxy.
-    if total < _BLOCK_ALLOW_ACTIVE_SESSION_GATED_CALLS:
+    # PR-1b: active-session signal is gated TOOL_CALL count, not
+    # fires+allows. See _count_gated_tool_calls + addendum Q1.
+    gated_activity = _count_gated_tool_calls(cutoff)
+    rudder_events = len(fires) + len(allows)
+
+    if gated_activity < _BLOCK_ALLOW_ACTIVE_SESSION_GATED_CALLS:
         return anomalies  # quiet session; no signal
 
-    # Item 8 v2.1 §3 specs a `rudder_infrastructure_failure` branch
-    # for the fires==0 AND allows==0 AND active-session case. That's
-    # DEFERRED to PR-1b: the current active-session proxy is fires+
-    # allows itself, so the branch is structurally unreachable — if
-    # fires==0 AND allows==0 then total==0 and the quiet-session
-    # early-return above catches it first. PR-1b rewires
-    # active-session to an external tool-call counter, which resolves
-    # the contradiction. Fresh-Claude PR-1a review round-2 caught the
-    # gap; documented here rather than shipping dead code.
+    # Full infrastructure failure — active session, rudder emitted 0 events
+    if rudder_events == 0:
+        anomalies.append(
+            Anomaly(
+                name="rudder_infrastructure_failure",
+                severity=AnomalySeverity.HIGH,
+                observation=(
+                    f"{gated_activity} gated tool calls ran in "
+                    f"{window_seconds / 3600:.1f}h window but 0 rudder "
+                    "events emitted. Gate-dead: rudder is not running."
+                ),
+                detail={
+                    "gated_activity": gated_activity,
+                    "fires": 0,
+                    "allows": 0,
+                    "window_hours": window_seconds / 3600,
+                },
+                recommendation=(
+                    "This is infrastructure failure, not drift. Investigation: "
+                    "verify hook installation, check DB connectivity, inspect "
+                    "import path for compass_rudder. Halt gated work until "
+                    "rudder is verified running."
+                ),
+            )
+        )
+        return anomalies
 
+    # Partial infrastructure failure — some calls bypass the rudder
+    coverage = rudder_events / max(1, gated_activity)
+    if coverage < _RUDDER_PARTIAL_FAILURE_COVERAGE_THRESHOLD:
+        anomalies.append(
+            Anomaly(
+                name="rudder_partial_infrastructure_failure",
+                severity=AnomalySeverity.MEDIUM,
+                observation=(
+                    f"rudder emitted {rudder_events} events for "
+                    f"{gated_activity} gated calls ({coverage:.0%} coverage; "
+                    f"threshold {_RUDDER_PARTIAL_FAILURE_COVERAGE_THRESHOLD:.0%}). "
+                    "Some gated calls are bypassing the rudder — likely a "
+                    "partial hook-registration failure."
+                ),
+                detail={
+                    "gated_activity": gated_activity,
+                    "rudder_events": rudder_events,
+                    "coverage": coverage,
+                    "fires": len(fires),
+                    "allows": len(allows),
+                },
+                recommendation=(
+                    "Investigation: check which gated tool names are missing "
+                    "hook coverage (compare hook settings.json to "
+                    "compass_rudder.GATED_TOOL_NAMES). Fix hook registration "
+                    "for any that diverge."
+                ),
+            )
+        )
+        # Continue to ratio check even on partial failure — both signals
+        # can surface simultaneously.
+
+    total = len(fires) + len(allows)
     ratio = len(fires) / total if total else 0.0
 
     if _BLOCK_ALLOW_HEALTHY_LOW <= ratio <= _BLOCK_ALLOW_HEALTHY_HIGH:
@@ -624,6 +833,290 @@ def _detect_decide_learn_skew(window_seconds: float, now: float | None) -> list[
     return anomalies
 
 
+def _gather_operator_content(window_seconds: float, now: float | None) -> list[str]:
+    """Gather text content from decides, learns, and ack evidence in window.
+
+    Used by variance-collapse (2a) and content-entropy (2b) detectors.
+    Returns a list of strings — one per operator entry. Short strings
+    filtered out (noise floor).
+    """
+    ts = now if now is not None else time.time()
+    cutoff = ts - window_seconds
+    texts: list[str] = []
+
+    # Decide reasoning
+    try:
+        for d in _get_decisions(window_seconds, now):
+            reasoning = (d.get("reasoning") or "").strip()
+            if len(reasoning) >= 10:
+                texts.append(reasoning)
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Learn content
+    try:
+        from divineos.core.knowledge import get_knowledge
+
+        for k in get_knowledge(limit=500):
+            if float(k.get("created_at", 0.0)) < cutoff:
+                continue
+            content = (k.get("content") or "").strip()
+            if len(content) >= 10:
+                texts.append(content)
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Ack evidence
+    try:
+        for o in _get_observations(window_seconds, now, rudder_ack_only=True):
+            evidence = (o.get("evidence") or "").strip()
+            if len(evidence) >= 10:
+                texts.append(evidence)
+    except Exception:  # noqa: BLE001
+        pass
+
+    return texts
+
+
+def _detect_variance_collapse(window_seconds: float, now: float | None) -> list[Anomaly]:
+    """PR-1b 2a: variance-collapse via TF-IDF cosine similarity.
+
+    For each item in the corpus, compute similarity to every other
+    item. If >=50% of items have a near-neighbor above 0.75, the
+    vocabulary has collapsed across operators.
+
+    Uses the hand-rolled TF-IDF from substance_checks (shared
+    implementation avoids dependency on sklearn in this write path).
+
+    Cost model: O(n²) in corpus size (n = decides + learns + acks in
+    the window). A 1-week window with busy activity may see n ~= 500;
+    that's 250K similarity computations per detector run.
+    format_multi_window_report runs this twice (1d + 1w), so total
+    cost is 2× per report. Acceptable at current scale.
+
+    Caching opportunity (follow-up, not in PR-1b): 1day corpus is a
+    subset of 1week corpus. A corpus-overlap cache would let the
+    1week run reuse the 1day TF-IDF vectors for shared items. Defer
+    until profiling shows it matters.
+    """
+    anomalies: list[Anomaly] = []
+    texts = _gather_operator_content(window_seconds, now)
+    if len(texts) < _VARIANCE_COLLAPSE_MIN_ITEMS:
+        return anomalies
+
+    try:
+        from divineos.core.substance_checks import _cosine, _tfidf_vectors
+    except ImportError:
+        return anomalies
+
+    vecs = _tfidf_vectors(texts)
+    high_similarity_count = 0
+    max_neighbor_sim: list[float] = []
+    for i, vec_i in enumerate(vecs):
+        best = 0.0
+        for j, vec_j in enumerate(vecs):
+            if i == j:
+                continue
+            sim = _cosine(vec_i, vec_j)
+            if sim > best:
+                best = sim
+        max_neighbor_sim.append(best)
+        if best >= _VARIANCE_COLLAPSE_SIMILARITY_THRESHOLD:
+            high_similarity_count += 1
+
+    fraction = high_similarity_count / len(texts)
+    if fraction < _VARIANCE_COLLAPSE_FRACTION_HIGH_SIMILARITY:
+        return anomalies
+
+    anomalies.append(
+        Anomaly(
+            name="variance_collapse",
+            severity=AnomalySeverity.MEDIUM,
+            observation=(
+                f"{fraction:.0%} of operator content "
+                f"(n={len(texts)}) has a near-neighbor with cosine "
+                f">= {_VARIANCE_COLLAPSE_SIMILARITY_THRESHOLD}. "
+                "Vocabulary distribution has collapsed across "
+                "decides/learns/acks — operators are rephrasing the "
+                "same content rather than carrying distinct signal."
+            ),
+            detail={
+                "item_count": len(texts),
+                "high_similarity_count": high_similarity_count,
+                "fraction": fraction,
+                "threshold": _VARIANCE_COLLAPSE_SIMILARITY_THRESHOLD,
+            },
+            recommendation=(
+                "Real operator content varies with what's being captured. "
+                "High cross-item similarity means the operators are "
+                "carrying the same payload — structural filing without "
+                "distinct content. Vary the content deliberately."
+            ),
+        )
+    )
+    return anomalies
+
+
+def _shannon_entropy_bits(text: str) -> float:
+    """Shannon entropy over character frequencies, in bits."""
+    import math
+    from collections import Counter
+
+    if not text:
+        return 0.0
+    total = len(text)
+    counts = Counter(text)
+    return -sum((c / total) * math.log2(c / total) for c in counts.values())
+
+
+def _detect_content_entropy_drop(window_seconds: float, now: float | None) -> list[Anomaly]:
+    """PR-1b 2b: content-entropy trend across halves of the window.
+
+    Split the operator content into first-half and second-half by
+    timestamp. Compute Shannon entropy of joined content for each
+    half. If the second half dropped >=30% vs the first, a trend is
+    suggesting drift.
+    """
+    anomalies: list[Anomaly] = []
+    ts = now if now is not None else time.time()
+    cutoff = ts - window_seconds
+    midpoint = cutoff + window_seconds / 2.0
+
+    first_half: list[str] = []
+    second_half: list[str] = []
+
+    try:
+        for d in _get_decisions(window_seconds, now):
+            reasoning = (d.get("reasoning") or "").strip()
+            if len(reasoning) < 10:
+                continue
+            t = float(d.get("created_at", 0.0))
+            (first_half if t < midpoint else second_half).append(reasoning)
+        for o in _get_observations(window_seconds, now, rudder_ack_only=True):
+            evidence = (o.get("evidence") or "").strip()
+            if len(evidence) < 10:
+                continue
+            t = float(o.get("created_at", 0.0))
+            (first_half if t < midpoint else second_half).append(evidence)
+    except Exception:  # noqa: BLE001
+        return anomalies
+
+    if (
+        len(first_half) < _CONTENT_ENTROPY_MIN_ITEMS_PER_HALF
+        or len(second_half) < _CONTENT_ENTROPY_MIN_ITEMS_PER_HALF
+    ):
+        return anomalies
+
+    first_entropy = _shannon_entropy_bits(" ".join(first_half))
+    second_entropy = _shannon_entropy_bits(" ".join(second_half))
+    if first_entropy == 0.0:
+        return anomalies
+
+    drop = (first_entropy - second_entropy) / first_entropy
+    if drop < _CONTENT_ENTROPY_DROP_THRESHOLD:
+        return anomalies
+
+    anomalies.append(
+        Anomaly(
+            name="content_entropy_drop",
+            severity=AnomalySeverity.MEDIUM,
+            observation=(
+                f"content entropy dropped {drop:.0%} from first half "
+                f"({first_entropy:.2f} bits, n={len(first_half)}) to "
+                f"second half ({second_entropy:.2f} bits, "
+                f"n={len(second_half)}). Distribution is narrowing "
+                "over time — vocabulary restriction, repetitive shape, "
+                "or increasing copy-paste ratio."
+            ),
+            detail={
+                "first_half_entropy": first_entropy,
+                "second_half_entropy": second_entropy,
+                "drop_fraction": drop,
+                "threshold": _CONTENT_ENTROPY_DROP_THRESHOLD,
+                "first_half_items": len(first_half),
+                "second_half_items": len(second_half),
+            },
+            recommendation=(
+                "Entropy drop across the window suggests thinking is "
+                "contracting to a narrow vocabulary. Surface which "
+                "topics the second half is circling; intentional "
+                "variation restores the signal."
+            ),
+        )
+    )
+    return anomalies
+
+
+def _detect_multi_window_fires(
+    per_window_anomalies: dict[float, list[Anomaly]],
+) -> list[Anomaly]:
+    """PR-1b 2c: elevate severity when same detector fires across windows.
+
+    Per brief v2.1 §2c simplified: if a detector name fires in BOTH
+    1day and 1week windows, the pattern is chronic not transient.
+    Emit a separate meta-anomaly with severity one step above the
+    worst single-window fire of the same detector.
+    """
+    anomalies: list[Anomaly] = []
+    windows = sorted(per_window_anomalies.keys())
+    # Fresh-Claude PR-1b round-2 Finding 2: guard against single-window
+    # input. The meta-detector's semantic is "chronic across time
+    # scales" — meaningless with one window. Without this guard, any
+    # fire in a single-window call would be labeled multi-window.
+    if len(windows) < 2:
+        return anomalies
+
+    # Group by detector name: which windows did each fire in?
+    detector_windows: dict[str, list[tuple[float, Anomaly]]] = {}
+    for w, window_anomalies in per_window_anomalies.items():
+        for a in window_anomalies:
+            detector_windows.setdefault(a.name, []).append((w, a))
+
+    for name, fires in detector_windows.items():
+        windows_fired = {w for w, _ in fires}
+        if windows_fired != set(windows):
+            continue  # Didn't fire in every window
+
+        # Elevate severity one step
+        severities = [a.severity for _, a in fires]
+        worst = (
+            AnomalySeverity.HIGH
+            if AnomalySeverity.HIGH in severities
+            else AnomalySeverity.MEDIUM
+            if AnomalySeverity.MEDIUM in severities
+            else AnomalySeverity.LOW
+        )
+        elevated = {
+            AnomalySeverity.LOW: AnomalySeverity.MEDIUM,
+            AnomalySeverity.MEDIUM: AnomalySeverity.HIGH,
+            AnomalySeverity.HIGH: AnomalySeverity.HIGH,  # saturated
+        }[worst]
+
+        anomalies.append(
+            Anomaly(
+                name=f"multi_window::{name}",
+                severity=elevated,
+                observation=(
+                    f"{name} fired in all {len(windows)} windows "
+                    f"({', '.join(f'{w / 86400:.0f}d' for w in windows)}). "
+                    "Pattern is chronic, not transient — severity elevated."
+                ),
+                detail={
+                    "detector": name,
+                    "windows_fired": list(windows_fired),
+                    "worst_single_severity": worst.value,
+                },
+                recommendation=(
+                    "Chronic patterns persist across time-scales. Single-"
+                    "window fires might be a bad session; multi-window "
+                    "fires are habit. Investigate the underlying cause "
+                    "before the habit calcifies."
+                ),
+            )
+        )
+    return anomalies
+
+
 def format_report(window_seconds: float = DEFAULT_WINDOW_SECONDS, now: float | None = None) -> str:
     """Render a human-readable compliance-distribution report.
 
@@ -681,4 +1174,115 @@ def format_report(window_seconds: float = DEFAULT_WINDOW_SECONDS, now: float | N
         "  This is substantive audit — distribution-level, post-hoc, "
         "external-shaped. The gates can miss what the distribution shows."
     )
+    return "\n".join(lines)
+
+
+def format_multi_window_report(
+    windows: tuple[float, ...] = _MULTI_WINDOW_SECONDS,
+    now: float | None = None,
+) -> str:
+    """PR-1b §5.5: cross-detector aggregation report across windows.
+
+    Runs detectors per-window (not once at widest window — per brief
+    addendum Q2 Option A: non-partitionable detectors like variance-
+    collapse can't be correctly post-hoc windowed from a single run).
+
+    Report layout (fresh-Claude addendum refinements 3+4):
+        1. Concurrent HIGH (top, if any) — strongest signal class
+        2. By-window default listing — zero-anomaly case rendered
+           explicitly so absence-of-signal is itself visible
+        3. By-detector appendix — sorted by fire-count descending
+           (chronic patterns above one-off fires)
+        4. Multi-window meta — detectors that fired in all windows,
+           severity elevated one step per brief §2c
+    """
+    # Normalize `now` across all windows so the same call produces
+    # byte-identical output when called twice with the same `now`.
+    ts = now if now is not None else time.time()
+
+    # emit_events=False: detect_anomalies skips inline emission so we
+    # can dedupe across windows before emitting. Same HIGH anomaly
+    # visible at 1d and 1w scales is ONE finding, not two ledger
+    # events.
+    per_window: dict[float, list[Anomaly]] = {}
+    for w in windows:
+        per_window[w] = detect_anomalies(window_seconds=w, now=ts, emit_events=False)
+
+    # Dedupe HIGH anomalies by detector name across windows. Widest
+    # window carries the emission so the event's window_seconds
+    # payload reflects the fullest context the detector saw.
+    emitted_names: set[str] = set()
+    for w in sorted(windows, reverse=True):  # widest first
+        for a in per_window[w]:
+            if a.severity != AnomalySeverity.HIGH:
+                continue
+            if a.name in emitted_names:
+                continue
+            _emit_high_severity_events([a], w)
+            emitted_names.add(a.name)
+
+    multi_window_anomalies = _detect_multi_window_fires(per_window)
+
+    # Aggregate by detector for appendix view
+    by_detector: dict[str, list[tuple[float, Anomaly]]] = {}
+    for w, anomalies in per_window.items():
+        for a in anomalies:
+            by_detector.setdefault(a.name, []).append((w, a))
+
+    # Concurrent HIGH — HIGH-severity anomalies firing in same window
+    concurrent_high: dict[float, list[Anomaly]] = {}
+    for w, anomalies in per_window.items():
+        highs = [a for a in anomalies if a.severity == AnomalySeverity.HIGH]
+        if len(highs) >= 2:
+            concurrent_high[w] = highs
+
+    lines: list[str] = []
+    lines.append("=== Multi-Window Compliance Audit ===")
+    lines.append(f"  windows: {', '.join(f'{w / 86400:.0f}d' for w in sorted(windows))}")
+    lines.append("")
+
+    # 1. Concurrent HIGH (if any)
+    if concurrent_high:
+        lines.append("  [!!!] CONCURRENT HIGH-SEVERITY FIRES:")
+        for w, highs in sorted(concurrent_high.items()):
+            lines.append(f"    In {w / 86400:.0f}d window ({len(highs)} detectors):")
+            for a in highs:
+                lines.append(f"      - {a.name}: {a.observation}")
+        lines.append("")
+
+    # 2. By-window default (explicit zero-anomaly rendering)
+    total_anomalies = sum(len(v) for v in per_window.values())
+    if total_anomalies == 0:
+        lines.append(f"  0 anomalies across {len(windows)} windows. Clean distribution.")
+    else:
+        lines.append("  By window:")
+        for w in sorted(windows):
+            w_anomalies = per_window[w]
+            lines.append(f"    {w / 86400:.0f}d window:")
+            if not w_anomalies:
+                lines.append("      (no anomalies)")
+                continue
+            for a in w_anomalies:
+                lines.append(f"      [{a.severity.value}] {a.name}")
+                lines.append(f"        {a.observation}")
+    lines.append("")
+
+    # 3. By-detector appendix, sorted by fire-count descending
+    if by_detector:
+        lines.append("  By detector (sorted by fire-count, chronic first):")
+        sorted_detectors = sorted(by_detector.items(), key=lambda kv: -len(kv[1]))
+        for name, fires in sorted_detectors:
+            windows_fired = sorted({w for w, _ in fires})
+            windows_str = ", ".join(f"{w / 86400:.0f}d" for w in windows_fired)
+            lines.append(f"    {name} — fired in {len(fires)} windows: {windows_str}")
+        lines.append("")
+
+    # 4. Multi-window meta fires
+    if multi_window_anomalies:
+        lines.append("  [!] Multi-window patterns (chronic, severity elevated):")
+        for a in multi_window_anomalies:
+            lines.append(f"    [{a.severity.value}] {a.name}")
+            lines.append(f"      {a.observation}")
+        lines.append("")
+
     return "\n".join(lines)
