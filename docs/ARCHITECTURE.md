@@ -28,6 +28,7 @@ src/divineos/
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
     compass_commands.py        Moral compass reading and observations
+    complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
@@ -261,6 +262,7 @@ src/divineos/
     substance_checks.py        Substance checks at rudder-ack file time — Item 7.
     compliance_baseline.py     Baseline calibration from clean-tagged sessions — wires PR-2 into Item 8 detectors.
     substance_checks_contract.py Contract-style substance checks for rudder-acks — Phase 1a of the rudder redesign.
+    completion_boundary.py     Completion-boundary detection — Phase 1b of the rudder redesign.
 
   analysis/
     _session_types.py          Session analysis type definitions

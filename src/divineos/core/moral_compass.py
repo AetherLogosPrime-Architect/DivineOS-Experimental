@@ -287,6 +287,39 @@ def init_compass() -> None:
 
 _RUDDER_ACK_TAG_FOR_SUBSTANCE_CHECKS = "rudder-ack"
 
+# Phase 1b of the rudder redesign — tri-state feature flag controlling
+# whether the contract-style substance checks (substance_checks_contract)
+# run alongside the legacy time-based checks. Values:
+#
+#   "off"     — default. Only legacy checks run. Current behavior.
+#   "observe" — contract checks run; failures are logged to
+#               failure_diagnostics + a CONTRACT_DUAL_RUN_DISCREPANCY
+#               event is emitted when verdicts disagree. Contract verdict
+#               does NOT block the write — legacy still gates.
+#   "enforce" — both checks run; BOTH must pass to commit. This is the
+#               post-flip state from brief v2.1 §Migration Phase 3.
+#
+# Default-OFF preserves the existing surface: an unset env var means
+# nothing changes. Phase 1b ships the wiring; Phase 2 turns "observe"
+# on for calibration; Phase 3 flips to "enforce" only after the
+# capture-rate / FPR criteria from the brief are met.
+_RUDDER_CONTRACT_MODE_ENV = "DIVINEOS_RUDDER_CONTRACT_MODE"
+_RUDDER_CONTRACT_MODES = frozenset({"off", "observe", "enforce"})
+
+
+def _rudder_contract_mode() -> str:
+    """Read the contract-mode flag, defaulting to 'off'.
+
+    Unknown values fall back to 'off' (fail-closed against typos —
+    we'd rather no-op than silently enforce when the operator typed
+    'enable' or 'on').
+    """
+    import os
+
+    raw = os.environ.get(_RUDDER_CONTRACT_MODE_ENV, "off").strip().lower()
+    return raw if raw in _RUDDER_CONTRACT_MODES else "off"
+
+
 # Item 6: fire-ID validation window. Matches compass_rudder's
 # JUSTIFICATION_WINDOW_SECONDS; kept local to avoid a circular import.
 _FIRE_VALIDATION_WINDOW_SECONDS = 5 * 60
@@ -324,6 +357,93 @@ def _validate_fire_id(
         f"rudder-ack fire_id references nonexistent or stale fire event "
         f"(fire_id={fire_id}, spectrum={spectrum})"
     )
+
+
+def _emit_dual_run_discrepancy(
+    spectrum: str,
+    legacy_ok: bool,
+    legacy_stage: str,
+    contract_ok: bool,
+    contract_stage: str,
+    contract_reason: str,
+    fire_id: str | None,
+    parsed_wired: str | None,
+) -> None:
+    """Append a CONTRACT_DUAL_RUN_DISCREPANCY event when verdicts diverge.
+
+    Fired only when legacy and contract checks disagree — this is the
+    calibration data Phase 2 reads to compute capture-rate and FPR
+    before the Phase 3 flip. Best-effort: ledger-write failure must
+    not break the live write path.
+
+    fire_id and parsed_wired are included so Phase 2 calibration can
+    compute discrepancy-per-fire stats and which wire-status values
+    were attempted at disagreement points without back-joining through
+    the observation table.
+    """
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            event_type="CONTRACT_DUAL_RUN_DISCREPANCY",
+            actor="rudder",
+            payload={
+                "spectrum": spectrum,
+                "legacy_ok": legacy_ok,
+                "legacy_stage": legacy_stage,
+                "contract_ok": contract_ok,
+                "contract_stage": contract_stage,
+                "contract_reason": contract_reason[:240],
+                "fire_id": fire_id,
+                "parsed_wired": parsed_wired,
+            },
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _emit_rudder_ack_retracted(
+    spectrum: str,
+    fire_id: str | None,
+    observation_id: str,
+    artifact_reference: str | None,
+    next_plan: str | None,
+    depends_on: str | None,
+) -> None:
+    """Emit RUDDER_ACK_RETRACTED when a contract ack carries wired=retracted.
+
+    Brief v2.1 fire-ID retraction (path-a interpretation, claim TBD):
+    an agent who previously claimed "wired: yes" can take it back via
+    "wired: retracted" in a new ack. **The fire_id stays consumed** —
+    retraction is a loud forensic signal, not a permission to re-ack.
+    The brief's original "re-opens the fire_id" language was scoped
+    out of Phase 1b; if re-acking is later determined necessary, a
+    Phase 1c PR adds the wired_status schema column.
+
+    observation_id is the unambiguous pointer to the specific
+    compass_observation row that carried the retraction — included so
+    forensic readers can join exactly back to the retracting ack
+    without ambiguity when multiple acks share a fire_id over time.
+    """
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            event_type="RUDDER_ACK_RETRACTED",
+            actor="rudder",
+            payload={
+                "spectrum": spectrum,
+                "fire_id": fire_id,
+                "observation_id": observation_id,
+                "artifact_reference": artifact_reference,
+                "next_plan": next_plan,
+                "depends_on": depends_on,
+            },
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _record_fire_id_rejection(
@@ -387,6 +507,7 @@ def log_observation(
         msg = f"Unknown spectrum '{spectrum}'. Valid: {', '.join(sorted(SPECTRUMS))}"
         raise ValueError(msg)
 
+    contract_parsed = None  # captured in dual-run for downstream retraction emission
     if tags and _RUDDER_ACK_TAG_FOR_SUBSTANCE_CHECKS in tags:
         from divineos.core.substance_checks import check_rudder_ack, fetch_prior_ack_corpus
 
@@ -394,13 +515,50 @@ def log_observation(
             spectrum=spectrum,
             tag=_RUDDER_ACK_TAG_FOR_SUBSTANCE_CHECKS,
         )
-        result = check_rudder_ack(
+        legacy_result = check_rudder_ack(
             evidence=evidence,
             spectrum=spectrum,
             prior_evidences=prior,
         )
-        if not result.ok:
-            raise ValueError(f"rudder-ack rejected ({result.stage}): {result.reason}")
+
+        # Phase 1b dual-run: when DIVINEOS_RUDDER_CONTRACT_MODE is
+        # "observe" or "enforce", the contract check runs in parallel
+        # with the legacy check. The verdicts and any disagreement
+        # surface via CONTRACT_DUAL_RUN_DISCREPANCY for calibration.
+        contract_mode = _rudder_contract_mode()
+        contract_result = None
+        if contract_mode in ("observe", "enforce"):
+            from divineos.core.substance_checks_contract import check_contract_ack
+
+            contract_result = check_contract_ack(
+                evidence=evidence,
+                prior_evidences=prior,
+                current_fire_id=fire_id,
+            )
+            contract_parsed = contract_result.parsed
+            if legacy_result.ok != contract_result.ok:
+                _emit_dual_run_discrepancy(
+                    spectrum=spectrum,
+                    legacy_ok=legacy_result.ok,
+                    legacy_stage=legacy_result.stage,
+                    contract_ok=contract_result.ok,
+                    contract_stage=contract_result.stage,
+                    contract_reason=contract_result.reason,
+                    fire_id=fire_id,
+                    parsed_wired=(
+                        getattr(contract_parsed, "wired", None)
+                        if contract_parsed is not None
+                        else None
+                    ),
+                )
+
+        if not legacy_result.ok:
+            raise ValueError(f"rudder-ack rejected ({legacy_result.stage}): {legacy_result.reason}")
+        if contract_mode == "enforce" and contract_result is not None and not contract_result.ok:
+            raise ValueError(
+                f"rudder-ack rejected by contract check "
+                f"({contract_result.stage}): {contract_result.reason}"
+            )
 
     # Item 6: fire-ID validation runs AFTER substance checks so we
     # fail cheap on trivial content before touching the ledger.
@@ -454,6 +612,22 @@ def log_observation(
         conn.commit()
     finally:
         conn.close()
+
+    # Phase 1b retraction signal: only emit AFTER successful commit so
+    # a rolled-back insert never leaves a phantom retraction in the
+    # ledger. Fires when the parsed contract carried wired=retracted —
+    # observation-mode discrepancies don't trigger this; only an
+    # actually-persisted retracting ack does.
+    if contract_parsed is not None and getattr(contract_parsed, "wired", None) == "retracted":
+        _emit_rudder_ack_retracted(
+            spectrum=spectrum,
+            fire_id=fire_id,
+            observation_id=observation_id,
+            artifact_reference=contract_parsed.artifact_reference,
+            next_plan=contract_parsed.next_plan,
+            depends_on=contract_parsed.depends_on,
+        )
+
     return observation_id
 
 
