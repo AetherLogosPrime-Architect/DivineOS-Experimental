@@ -245,7 +245,7 @@ class TestBlockPath:
         log_observation(
             spectrum="initiative",
             position=0.0,
-            evidence="earlier ack",
+            evidence="acknowledged earlier; scope bounded to 3 agents for this task",
             source="rudder_ack",
             tags=[RUDDER_ACK_TAG],
         )

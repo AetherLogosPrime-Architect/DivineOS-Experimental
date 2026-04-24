@@ -25,9 +25,20 @@ from divineos.core.compliance_audit import (
 
 
 @pytest.fixture(autouse=True)
-def _fresh_db(tmp_path):
-    """Isolated DB per test."""
+def _fresh_db(tmp_path, monkeypatch):
+    """Isolated DB per test.
+
+    Substance-check feature flags (Item 7) are disabled for this suite:
+    these tests file deliberately-trivial rudder-acks (short evidence,
+    duplicate evidence, position=0 clusters) to exercise Item 8's
+    post-hoc detection surface. Item 7's write-time gate would reject
+    these shapes at source, which is the desired production behavior
+    but incompatible with seeding anomaly fixtures. The flags exist
+    precisely for this kind of clean separation.
+    """
     os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+    for flag in ("LENGTH", "ENTROPY", "SIMILARITY"):
+        monkeypatch.setenv(f"DIVINEOS_DETECTOR_SUBSTANCE_{flag}", "off")
     from divineos.core.decision_journal import init_decision_journal
     from divineos.core.ledger import init_db
     from divineos.core.moral_compass import init_compass

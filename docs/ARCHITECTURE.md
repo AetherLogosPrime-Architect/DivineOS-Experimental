@@ -257,6 +257,7 @@ src/divineos/
     engagement_relevance.py    Engagement relevance — does this thinking command relate to current work?
     compliance_audit.py        Compliance-distribution audit — substantive testing of the compliance log.
     failure_diagnostics.py     Shared record/read/briefing pattern for silent-fail-open events across enforcement surfaces
+    substance_checks.py        Substance checks at rudder-ack file time — Item 7.
 
   analysis/
     _session_types.py          Session analysis type definitions

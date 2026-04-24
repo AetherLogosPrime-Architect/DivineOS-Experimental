@@ -254,6 +254,9 @@ def init_compass() -> None:
 # -- Observations -----------------------------------------------------
 
 
+_RUDDER_ACK_TAG_FOR_SUBSTANCE_CHECKS = "rudder-ack"
+
+
 def log_observation(
     spectrum: str,
     position: float,
@@ -269,11 +272,32 @@ def log_observation(
     evidence: what happened that shows this position
     source: where the observation came from (e.g. "session_end", "self_report")
 
+    When the observation carries the rudder-ack tag, a three-stage
+    substance gate runs before the write (Item 7 of the deferred
+    bundle — design brief v2). See substance_checks.py. Rejected acks
+    raise ValueError; the caller (typically the CLI) surfaces the
+    reason to the operator.
+
     Returns the observation_id.
     """
     if spectrum not in SPECTRUMS:
         msg = f"Unknown spectrum '{spectrum}'. Valid: {', '.join(sorted(SPECTRUMS))}"
         raise ValueError(msg)
+
+    if tags and _RUDDER_ACK_TAG_FOR_SUBSTANCE_CHECKS in tags:
+        from divineos.core.substance_checks import check_rudder_ack, fetch_prior_ack_corpus
+
+        prior = fetch_prior_ack_corpus(
+            spectrum=spectrum,
+            tag=_RUDDER_ACK_TAG_FOR_SUBSTANCE_CHECKS,
+        )
+        result = check_rudder_ack(
+            evidence=evidence,
+            spectrum=spectrum,
+            prior_evidences=prior,
+        )
+        if not result.ok:
+            raise ValueError(f"rudder-ack rejected ({result.stage}): {result.reason}")
 
     init_compass()
     observation_id = str(uuid.uuid4())
