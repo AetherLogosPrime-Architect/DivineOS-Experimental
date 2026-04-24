@@ -305,26 +305,55 @@ def log_observation(
 def get_observations(
     spectrum: str | None = None,
     limit: int = 50,
+    tag: str | None = None,
+    since: float | None = None,
 ) -> list[dict[str, Any]]:
-    """Get compass observations, optionally filtered by spectrum."""
+    """Get compass observations, optionally filtered.
+
+    Filters (all optional, combinable):
+        spectrum — exact match on spectrum name.
+        tag — server-side tag membership check via json_each(tags).
+            Exact value match, not substring — a tag "rudder-ack" will
+            not match "rudder-ack-reviewed". Added in deferred-bundle
+            Item 4 to close a gameability: the rudder's
+            _find_justifications previously fetched limit=10 and
+            filtered tags in Python, which missed a valid ack when
+            >=10 non-ack observations were filed on a drifting spectrum
+            within the window.
+        since — lower bound on created_at (epoch seconds). Observations
+            at or after this time are returned. Pairs with tag to make
+            "did this actor ack this spectrum within the window" a
+            precise SQL question.
+
+    Tag storage is JSON-blob (json.dumps(tags)). json_each() walks the
+    blob and lets us filter on exact tag value without a LIKE pattern
+    (which would false-match on prefixes like "rudder-ack-reviewed")
+    and without a schema migration to a junction table. SQLite 3.9+
+    supports json_each natively.
+    """
     init_compass()
     conn = _get_connection()
     try:
+        clauses: list[str] = []
+        params: list[Any] = []
         if spectrum:
-            rows = conn.execute(
-                "SELECT observation_id, created_at, spectrum, position, evidence, "
-                "source, session_id, tags "
-                "FROM compass_observation WHERE spectrum = ? "
-                "ORDER BY created_at DESC LIMIT ?",
-                (spectrum, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT observation_id, created_at, spectrum, position, evidence, "
-                "source, session_id, tags "
-                "FROM compass_observation ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+            clauses.append("spectrum = ?")
+            params.append(spectrum)
+        if since is not None:
+            clauses.append("created_at >= ?")
+            params.append(since)
+        if tag is not None:
+            clauses.append("EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)")
+            params.append(tag)
+        where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(limit)
+        rows = conn.execute(
+            "SELECT observation_id, created_at, spectrum, position, evidence, "
+            "source, session_id, tags "
+            f"FROM compass_observation{where_sql} "
+            "ORDER BY created_at DESC LIMIT ?",
+            tuple(params),
+        ).fetchall()
     finally:
         conn.close()
     return [_obs_row_to_dict(r) for r in rows]

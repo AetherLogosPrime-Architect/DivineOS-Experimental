@@ -140,6 +140,49 @@ class TestAllowPath:
         assert v.decision == "allow", v.reason
         assert "initiative" in v.recent_justifications
 
+    def test_ack_found_under_observation_load(self):
+        """Item 4 adversarial — ack is findable even when non-ack
+        observations past the old limit=10 slice exist on the drifting
+        spectrum within the window.
+
+        Pre-Item-4 path fetched limit=10 observations and Python-side
+        filtered for the ack tag. When ack is older than 10 non-ack
+        observations on the same spectrum (all within window), the ack
+        fell out of the slice and the rudder blocked despite a valid
+        ack being present. Item 4 pushes the filter to SQL via
+        json_each so the ack is found regardless of slice position.
+
+        Test directly exercises _find_justifications rather than the
+        full rudder — the full-rudder path has side-effects on drift
+        computation when many new observations land, which is
+        orthogonal to this test's claim. The SQL filter is the unit
+        under test.
+        """
+        from divineos.core.compass_rudder import RUDDER_ACK_TAG, _find_justifications
+        from divineos.core.moral_compass import log_observation
+
+        # File the ack first (oldest, still within window).
+        log_observation(
+            spectrum="initiative",
+            position=0.1,
+            evidence="bounded scope; initiative drift acknowledged",
+            source="rudder_ack",
+            tags=[RUDDER_ACK_TAG],
+        )
+        # Then 11 non-ack observations on the same spectrum, within
+        # window. Pre-Item-4 these would push the ack out of the
+        # limit=10 slice; post-Item-4 the SQL filter finds the ack
+        # directly via json_each on the tags column.
+        for i in range(11):
+            log_observation(
+                spectrum="initiative",
+                position=0.5,
+                evidence=f"non-ack observation {i}",
+                source="self_report",
+            )
+        justified = _find_justifications(["initiative"])
+        assert justified == ["initiative"], f"expected ack found under load, got {justified}"
+
     def test_decide_alone_does_not_clear(self):
         """A decide mentioning the spectrum is NOT sufficient — the old
         clearance path was gameable; the new gate requires a structured

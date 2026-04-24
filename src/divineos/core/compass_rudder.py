@@ -132,18 +132,25 @@ def _find_justifications(
     except ImportError:
         return []
 
+    # Pre-Item-4: fetched limit=10 and filtered tags in Python. Gameable
+    # under load — 10 non-ack observations on a drifting spectrum within
+    # the window made a legitimate earlier ack invisible. Item 4 pushes
+    # the filter to SQL: get_observations now takes tag= and since= and
+    # does the membership check via json_each. No Python-side tag filter,
+    # no limit=10.
     justified: set[str] = set()
     for spectrum in spectrums:
         try:
-            recent = get_observations(spectrum=spectrum, limit=10)
+            acks = get_observations(
+                spectrum=spectrum,
+                tag=RUDDER_ACK_TAG,
+                since=cutoff,
+                limit=1,
+            )
         except Exception:  # noqa: BLE001
             continue
-        for obs in recent:
-            if obs.get("created_at", 0.0) < cutoff:
-                continue
-            if RUDDER_ACK_TAG in (obs.get("tags") or []):
-                justified.add(spectrum)
-                break
+        if acks:
+            justified.add(spectrum)
     return sorted(justified)
 
 
