@@ -266,6 +266,7 @@ src/divineos/
     in_flight_branches.py      In-flight branches surface — bridge from git state to the briefing.
     module_inventory.py        Module-inventory surface — bridge from src/divineos/core/ to the briefing.
     upstream_freshness.py      Upstream-freshness surface — bridge from remote-state to the briefing.
+    open_claims_surface.py     Stale-open-claims surface — bridge from the claims store to the briefing.
 
   analysis/
     _session_types.py          Session analysis type definitions
