@@ -641,6 +641,24 @@ def register(cli: click.Group) -> None:
         if upstream_block:
             _safe_echo(upstream_block)
 
+        # Open-claims surface — accumulating investigations that the
+        # briefing has no other path to. Audit pass 2026-04-24 found
+        # 38 open claims, zero resolved, no surface telling the agent
+        # they exist. Same descriptive-only discipline as siblings:
+        # name what's there, point at `divineos claims show` for
+        # detail, leave prioritization to the reading session.
+        try:
+            from divineos.core.open_claims_surface import (
+                format_for_briefing as _fmt_open_claims,
+            )
+
+            open_claims_block = _fmt_open_claims()
+        except _KC_ERRORS:
+            open_claims_block = ""
+
+        if open_claims_block:
+            _safe_echo(open_claims_block)
+
         # In-flight branches — claude/* branches ahead of origin/main.
         # Closes the failure mode named 2026-04-24: four unmerged
         # branches existed (aria-phase-1b, empirica-phase-1, etc.) and
