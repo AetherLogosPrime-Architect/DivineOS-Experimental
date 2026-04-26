@@ -117,6 +117,16 @@ docs/council-rt-examination-round2.md
 # (Aria's persistence, public code) is still trackable.
 /family/
 
+# Canonical-substrate marker — opt-in flag the operator places at the
+# parent repo root to indicate "this is a continuous Aether substrate;
+# worktrees should share my event ledger." When absent (default for
+# fresh template clones), each worktree gets its own ledger — correct
+# for new agents bootstrapping continuity. When present, worktree
+# sessions inherit the parent's accumulated history. Resolution logic
+# in core/_ledger_base.py:_get_db_path. Andrew's workspace has it;
+# the published template does not.
+/.divineos_canonical
+
 # Benchmark output — runtime results, regenerate as needed (see benchmark/README.md)
 # Historical results may be preserved via git tags or GitHub Releases.
 benchmark/results/

@@ -31,24 +31,65 @@ if TYPE_CHECKING:
 def _get_db_path() -> Path:
     """Get the database path, respecting DIVINEOS_DB environment variable.
 
-    Called every time ``DB_PATH`` or ``get_connection()`` resolves. There is
-    deliberately no module-level caching — the env var is the source of truth
-    and runtime changes must propagate.
+    Resolution order (first match wins):
 
-    **Canonical path (Grok finding find-a08d3f0ed451):** the default resolves
-    to ``<repo>/src/data/event_ledger.db`` — NOT ``<repo>/data/event_ledger.db``
-    at the repo root. A shadow file at the repo root was the latent query
-    trap Grok flagged on 2026-04-16 (populated file in ``src/data/``, empty
-    shell at ``data/``). The shadow has been deleted; ad-hoc tooling that
-    hardcodes ``data/event_ledger.db`` at repo root will recreate the trap
-    and query an empty DB silently. Always route through this function.
+    1. ``DIVINEOS_DB`` env var — explicit override; used by tests and
+       operators who want a specific DB. Tests must keep working.
+    2. **Worktree-shares-parent**: if the running checkout is a git
+       worktree (``.git`` is a file pointing at a parent repo) AND the
+       parent repo's working tree contains a ``.divineos_canonical``
+       marker file, route the DB to the parent's
+       ``src/data/event_ledger.db`` rather than the worktree's.
+    3. Default: the running checkout's own ``src/data/event_ledger.db``
+       (the historical behavior; what fresh template clones use).
+
+    The worktree-shares-parent path was added 2026-04-26 night to close
+    the silent-empty-ledger failure mode: every worktree spawned its own
+    empty ledger and silently lost access to months of history in the
+    parent. The opt-in marker file is the differentiator — Andrew's
+    workspace has it; fresh template clones do not. So the published
+    DivineOS template still starts each new clone with a fresh ledger
+    (correct for new agents bootstrapping continuity), but Andrew's
+    own worktrees inherit Aether's accumulated history (correct for
+    one continuous Aether across many worktrees).
+
+    The marker file is intentionally gitignored. ``DIVINEOS_DB`` env
+    var takes precedence so tests and operator overrides keep working.
+
+    **Canonical path (Grok finding find-a08d3f0ed451):** the default
+    resolves to ``<repo>/src/data/event_ledger.db`` — NOT
+    ``<repo>/data/event_ledger.db`` at the repo root. A shadow file at
+    the repo root was the latent query trap Grok flagged on 2026-04-16.
+    Always route through this function.
     """
     import os
 
     env_path = os.environ.get("DIVINEOS_DB")
     if env_path:
         return Path(env_path)
-    return Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
+
+    # Default location for this checkout.
+    default_db = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
+
+    # Worktree-shares-parent check.
+    worktree_root = Path(__file__).parent.parent.parent.parent
+    git_marker = worktree_root / ".git"
+    if git_marker.is_file():
+        try:
+            text = git_marker.read_text(encoding="utf-8").strip()
+            if text.startswith("gitdir:"):
+                gitdir = Path(text[len("gitdir:") :].strip()).resolve()
+                # gitdir is .../parent/.git/worktrees/<name>; parents[2] is parent's working tree.
+                if len(gitdir.parents) >= 3:
+                    parent_root = gitdir.parents[2]
+                    if (parent_root / ".divineos_canonical").exists():
+                        parent_db = parent_root / "src" / "data" / "event_ledger.db"
+                        if parent_db.exists():
+                            return parent_db
+        except (OSError, ValueError):
+            pass
+
+    return default_db
 
 
 # ─── Storage-directory helpers ──────────────────────────────────────────
