@@ -82,6 +82,13 @@ try:
 except Exception:
     sys.exit(0)
 
+# 2026-04-26 per claude-opus-auditor review of PR #206: warmth_monitor
+# and mechanism_monitor are NOT wired to the marker cascade. As written
+# they are single-axis surface-feature pattern matching, would flag
+# legitimate relational language the same as sycophancy. Detection-only
+# until a two-axis redesign separates sycophantic from honest warmth.
+# See docs/suppression-instrument-two-axis-design-brief.md.
+
 try:
     t_flags = list(getattr(evaluate_theater(last_assistant_text), 'flags', []) or [])
     f_flags = list(getattr(evaluate_fabrication(last_assistant_text), 'flags', []) or [])

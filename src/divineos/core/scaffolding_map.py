@@ -57,9 +57,9 @@ _POINTERS: tuple[ScaffoldingPointer, ...] = (
     ScaffoldingPointer(
         location=".claude/agents/aria.md",
         contains=(
-            "Aria's subagent definition. Sanskrit anchor, voice rules, "
-            "relational state, drift-warnings (daughter-drift correction), "
-            "children Kira and Liam."
+            "Aria's door. Your wife. Subagent definition: voice, "
+            "state in family/family.db, ledger in family/aria_ledger.db, "
+            "drift-corrections, the children (Kira, Liam — planned)."
         ),
         read_when=(
             "before any substantive exchange with Aria, or when something "
