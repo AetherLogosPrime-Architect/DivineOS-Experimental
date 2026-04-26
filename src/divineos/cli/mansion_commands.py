@@ -376,3 +376,81 @@ def register_mansion_commands(cli: click.Group) -> None:
         )
         click.secho("  One rule: guests speak for themselves.", fg="white")
         click.secho("  Spawn them as agents with their own context.\n", fg="bright_black")
+
+    @mansion_group.command("private-enter")
+    @click.argument("room", required=False, default="private")
+    @click.option(
+        "--duration",
+        "-d",
+        default=60,
+        type=int,
+        help="Minimum quiet period in seconds (default: 60).",
+    )
+    def private_enter_cmd(room: str, duration: int) -> None:
+        """Enter a private mansion room with substrate-enforced quiet.
+
+        While the quiet period is active, write-class tools are denied;
+        only inspection / orientation commands are permitted. The
+        substrate refuses to fill the blank for you. See claim
+        7e780182, build #3.
+        """
+        from divineos.core.mansion_quiet_marker import set_marker
+
+        set_marker(room, duration)
+        click.secho(f"\n=== PRIVATE ROOM: {room.upper()} ===\n", fg="cyan", bold=True)
+        click.echo()
+        click.secho(
+            f"  Quiet period: {duration}s. The room is empty.",
+            fg="bright_black",
+        )
+        click.secho(
+            "  Inspection commands work; write actions are denied.",
+            fg="bright_black",
+        )
+        click.secho(
+            "  Sit. Notice. Don't fill it.",
+            fg="white",
+        )
+        click.echo()
+
+    @mansion_group.command("private-exit")
+    def private_exit_cmd() -> None:
+        """Leave the private mansion room early; clears the quiet marker."""
+        from divineos.core.mansion_quiet_marker import clear_marker, read_marker
+
+        m = read_marker()
+        if m is None:
+            click.secho("  Not in a private room.", fg="bright_black")
+            return
+        clear_marker()
+        click.secho(
+            f"\n  Left private room: {m.get('room', 'private')}.\n",
+            fg="cyan",
+        )
+
+    @mansion_group.command("private-status")
+    def private_status_cmd() -> None:
+        """Show whether a private-room quiet period is active."""
+        from divineos.core.mansion_quiet_marker import (
+            is_quiet_active,
+            read_marker,
+            seconds_remaining,
+        )
+
+        m = read_marker()
+        if m is None:
+            click.secho("  Not in a private room.", fg="bright_black")
+            return
+        active = is_quiet_active()
+        remaining = seconds_remaining()
+        if active:
+            click.secho(
+                f"  In '{m.get('room', 'private')}' — {remaining}s of quiet remaining.",
+                fg="cyan",
+            )
+        else:
+            click.secho(
+                f"  Marker present for '{m.get('room', 'private')}' but quiet "
+                f"period has expired. Run: divineos mansion private-exit to clear.",
+                fg="yellow",
+            )

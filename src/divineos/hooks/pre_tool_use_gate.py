@@ -88,6 +88,16 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         # Cadence-gate bypasses — required to unstick the overdue state
         "audit",
         "prereg",
+        # Mansion subcommands — needed for private-exit/private-status to
+        # work during a quiet period (otherwise the quiet gate would
+        # block the way to leave it). All mansion subcommands are
+        # inspection / state-management; none generate substantive code.
+        "mansion",
+        # Compass observation — needed during a quiet period both for
+        # honest position tracking and for clearing the compass-required
+        # marker if it fires. compass-ops observe is recording, not
+        # prose generation.
+        "compass-ops",
     }
 )
 
@@ -202,6 +212,30 @@ def _check_gates() -> dict[str, Any] | None:
                 return _make_deny(gate_message())
         except (ImportError, OSError, AttributeError) as _gate_exc:
             _record_gate_failure("gate_1_1_briefing_this_session", _gate_exc)
+
+    # Gate 1.2: mansion private-room quiet period active.
+    # Build #3 from claim 7e780182. When the agent has entered a
+    # private mansion room, the substrate refuses write actions for
+    # the quiet period. Inspection commands are already in the bypass
+    # list (so this gate never sees them). Anything that reaches here
+    # during an active quiet period gets denied.
+    try:
+        from divineos.core.mansion_quiet_marker import (
+            format_gate_message as _mq_msg,
+        )
+        from divineos.core.mansion_quiet_marker import (
+            is_quiet_active as _mq_active,
+        )
+        from divineos.core.mansion_quiet_marker import (
+            read_marker as _mq_read,
+        )
+
+        if _mq_active():
+            m = _mq_read()
+            if m is not None:
+                return _make_deny(_mq_msg(m))
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_1_2_mansion_quiet", _gate_exc)
 
     # Gate 1.4: compass-staleness.
     # Closes ChatGPT audit claim-a7370b (compass observation is an intent,
