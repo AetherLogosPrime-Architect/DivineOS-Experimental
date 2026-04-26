@@ -124,6 +124,16 @@ def register(cli: click.Group) -> None:
         except Exception:  # noqa: BLE001 — best-effort reset
             pass
 
+        # Clear the compass-required marker — observing the position
+        # discharges the virtue-relevant event that triggered the
+        # marker. See core/compass_required_marker.py and gate 1.47.
+        try:
+            from divineos.core.compass_required_marker import clear_marker
+
+            clear_marker()
+        except Exception:  # noqa: BLE001 — best-effort clear
+            pass
+
     @compass_group.command("history")
     @click.option("--spectrum", "-s", default=None, help="Filter by spectrum name")
     @click.option("--limit", "-n", default=20, help="Number of entries")

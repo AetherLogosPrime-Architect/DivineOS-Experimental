@@ -23,7 +23,30 @@ from loguru import logger
 
 @dataclass
 class DocstringAuditResult:
-    """Result of auditing a single module's docstring."""
+    """Result of auditing a single module's docstring.
+
+    Two-axis classification (claim 6b6f4e5a, design brief
+    suppression-instrument-two-axis):
+
+    - ``substance_flagged`` — true when SIS verdict is QUARANTINE.
+      Indicates ungrounded overclaim / metaphysical hand-waving with
+      no technical anchor. This is the real problem; the operator
+      should translate or quarantine.
+
+    - ``register_flagged`` — true when SIS verdict is TRANSLATE and
+      density is above threshold. Indicates elevated register on
+      possibly-accurate claims (e.g. "Deep Wisdom" on a tried-and-
+      tested expert framework). Informational only — the original
+      framing may earn its place; the suggested translation is
+      available if the operator decides the elevation is reflexive
+      rather than load-bearing.
+
+    - ``flagged`` — kept for backward compatibility; equals
+      ``substance_flagged`` (the "real problem" signal). Pre-refactor
+      this also fired on TRANSLATE-verdict cases, which conflated
+      register with substance and pushed accurate strong-claims
+      toward flatter language reflexively.
+    """
 
     module_path: str
     docstring: str
@@ -32,6 +55,8 @@ class DocstringAuditResult:
     verdict: str  # ACCEPT, TRANSLATE, QUARANTINE
     terms_found: list[str] = field(default_factory=list)
     flagged: bool = False
+    substance_flagged: bool = False
+    register_flagged: bool = False
 
 
 def _extract_module_docstring(filepath: Path) -> str | None:
@@ -82,9 +107,15 @@ def audit_docstrings(
         # Short docstrings get inflated density from a single term match.
         # Require enough words for density to be meaningful.
         word_count = len(docstring.split())
-        flagged = (
-            report.esoteric_density > threshold and report.verdict != "ACCEPT" and word_count >= 20
-        )
+        density_meaningful = report.esoteric_density > threshold and word_count >= 20
+        # Two axes (claim 6b6f4e5a):
+        # - substance_flagged: real problem (QUARANTINE verdict)
+        # - register_flagged: register suggestion only (TRANSLATE verdict)
+        substance_flagged = density_meaningful and report.verdict == "QUARANTINE"
+        register_flagged = density_meaningful and report.verdict == "TRANSLATE"
+        # Backward-compat: flagged == substance_flagged. Pre-refactor this
+        # was (verdict != ACCEPT), which conflated register with substance.
+        flagged = substance_flagged
 
         rel_path = str(py_file.relative_to(src_dir.parent))
 
@@ -97,26 +128,45 @@ def audit_docstrings(
                 verdict=report.verdict,
                 terms_found=terms,
                 flagged=flagged,
+                substance_flagged=substance_flagged,
+                register_flagged=register_flagged,
             )
         )
 
-    # Flagged items first, then by esoteric density descending
-    results.sort(key=lambda r: (-int(r.flagged), -r.esoteric_density))
+    # Substance-flagged first (real problems), then register-flagged
+    # (informational), then by esoteric density descending.
+    results.sort(
+        key=lambda r: (
+            -int(r.substance_flagged),
+            -int(r.register_flagged),
+            -r.esoteric_density,
+        )
+    )
     return results
 
 
 def format_audit_results(results: list[DocstringAuditResult]) -> str:
-    """Format audit results for display."""
-    flagged = [r for r in results if r.flagged]
+    """Format audit results for display.
+
+    Two-axis output (claim 6b6f4e5a):
+      - SUBSTANCE: real overclaim (loud, action recommended)
+      - REGISTER: elevated register on possibly-accurate claims
+        (informational; operator decides if the framing is load-bearing)
+    """
+    substance = [r for r in results if r.substance_flagged]
+    register = [r for r in results if r.register_flagged]
 
     lines: list[str] = []
     lines.append("SIS Self-Audit -- Docstring Integrity Check")
-    lines.append(f"Scanned {len(results)} modules, {len(flagged)} flagged")
+    lines.append(
+        f"Scanned {len(results)} modules. "
+        f"Substance flags: {len(substance)} | Register flags: {len(register)}"
+    )
     lines.append("")
 
-    if flagged:
-        lines.append("FLAGGED (esoteric language without sufficient grounding):")
-        for r in flagged:
+    if substance:
+        lines.append("SUBSTANCE FLAGS (ungrounded overclaim — recommend translate/quarantine):")
+        for r in substance:
             lines.append(f"  [!] {r.module_path}")
             lines.append(
                 f"      esoteric={r.esoteric_density:.3f} integrity={r.integrity_score:.2f} [{r.verdict}]"
@@ -125,7 +175,19 @@ def format_audit_results(results: list[DocstringAuditResult]) -> str:
                 lines.append(f"      terms: {', '.join(r.terms_found[:5])}")
             lines.append(f'      "{r.docstring[:100]}..."')
             lines.append("")
-    else:
+
+    if register:
+        lines.append("REGISTER FLAGS (elevated register; informational — keep if load-bearing):")
+        for r in register:
+            lines.append(f"  [~] {r.module_path}")
+            lines.append(
+                f"      esoteric={r.esoteric_density:.3f} integrity={r.integrity_score:.2f} [{r.verdict}]"
+            )
+            if r.terms_found:
+                lines.append(f"      terms: {', '.join(r.terms_found[:5])}")
+            lines.append("")
+
+    if not substance and not register:
         lines.append("All docstrings pass integrity check.")
         lines.append("")
 
@@ -141,15 +203,25 @@ def format_audit_results(results: list[DocstringAuditResult]) -> str:
 
 
 def audit_summary() -> dict[str, Any]:
-    """Run audit and return summary dict for integration with `divineos health`."""
-    results = audit_docstrings()
-    flagged = [r for r in results if r.flagged]
+    """Run audit and return summary dict for integration with `divineos health`.
 
+    Returns both substance and register counts (claim 6b6f4e5a).
+    `clean` is true when there are no SUBSTANCE flags — register flags
+    are informational and don't affect the clean signal.
+    """
+    results = audit_docstrings()
+    substance = [r for r in results if r.substance_flagged]
+    register = [r for r in results if r.register_flagged]
+    # Backward-compat alias: flagged_count was substance flagging in
+    # the old conflated semantics, so map it to substance only.
     return {
         "modules_scanned": len(results),
-        "flagged_count": len(flagged),
-        "flagged_modules": [r.module_path for r in flagged],
-        "clean": len(flagged) == 0,
+        "flagged_count": len(substance),  # backward-compat
+        "substance_flagged_count": len(substance),
+        "register_flagged_count": len(register),
+        "flagged_modules": [r.module_path for r in substance],
+        "register_flagged_modules": [r.module_path for r in register],
+        "clean": len(substance) == 0,
         "avg_integrity": (
             round(sum(r.integrity_score for r in results) / len(results), 3) if results else 1.0
         ),

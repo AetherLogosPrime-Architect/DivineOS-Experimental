@@ -129,9 +129,12 @@ def _measure_cache(cache_dir: Path, name: str, limit_mb: float) -> CacheState:
     file_count = 0
     try:
         for f in cache_dir.rglob("*"):
-            if f.is_file():
-                total_bytes += f.stat().st_size
-                file_count += 1
+            try:
+                if f.is_file():
+                    total_bytes += f.stat().st_size
+                    file_count += 1
+            except OSError:
+                continue  # file vanished mid-scan (concurrent process)
     except OSError:
         pass
     # Compare raw bytes to avoid rounding hiding real sizes
@@ -175,15 +178,23 @@ def prune_caches(dry_run: bool = False) -> list[str]:
         files_by_age: list[tuple[float, Path]] = []
         try:
             for f in cache_dir.rglob("*"):
-                if f.is_file():
-                    files_by_age.append((f.stat().st_mtime, f))
+                try:
+                    if f.is_file():
+                        files_by_age.append((f.stat().st_mtime, f))
+                except OSError:
+                    continue  # file vanished mid-scan
         except OSError:
             continue
 
         files_by_age.sort()  # oldest first
 
         target_bytes = int(limit_mb * 1024 * 1024)
-        current_bytes = sum(f.stat().st_size for f in cache_dir.rglob("*") if f.is_file())
+        current_bytes = 0
+        for _, _f in files_by_age:
+            try:
+                current_bytes += _f.stat().st_size
+            except OSError:
+                continue
         removed_count = 0
         removed_bytes = 0
 
@@ -552,14 +563,22 @@ def _auto_prune_cache(cache_dir: Path, limit_mb: float) -> int:
     try:
         files_by_age: list[tuple[float, Path]] = []
         for f in cache_dir.rglob("*"):
-            if f.is_file():
-                files_by_age.append((f.stat().st_mtime, f))
+            try:
+                if f.is_file():
+                    files_by_age.append((f.stat().st_mtime, f))
+            except OSError:
+                continue  # file vanished mid-scan (concurrent process)
     except OSError:
         return 0
 
     files_by_age.sort()  # oldest first
     target_bytes = int(limit_mb * 1024 * 1024)
-    current_bytes = sum(f.stat().st_size for _, f in files_by_age)
+    current_bytes = 0
+    for _, f in files_by_age:
+        try:
+            current_bytes += f.stat().st_size
+        except OSError:
+            continue  # file vanished between scan and size check
     removed = 0
 
     for _mtime, filepath in files_by_age:
@@ -590,8 +609,14 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
     Args:
         auto_remediate: If True (default), automatically prune caches
             that exceed their size limits. Reflexive, not conscious —
-            the body cleans up without being asked.
+            the body cleans up without being asked. Forced off when
+            DIVINEOS_DISABLE_AUTO_REMEDIATE=1 (set by test harness so
+            xdist workers don't delete each other's tmp directories).
     """
+    import os as _os
+
+    if _os.environ.get("DIVINEOS_DISABLE_AUTO_REMEDIATE") == "1":
+        auto_remediate = False
     vitals = SubstrateVitals(measured_at=time.time())
 
     # -- Storage sizes --

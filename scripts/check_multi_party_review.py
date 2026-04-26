@@ -61,6 +61,14 @@ _TRAILER_PATTERN = re.compile(r"^External-Review:\s*(\S+)\s*$", re.MULTILINE | r
 # unified diff to prevent stale approvals from authorizing a new change.
 _DIFF_HASH_PATTERN = re.compile(r"diff-hash:\s*([0-9a-f]{64})", re.IGNORECASE)
 
+# Tree-hash pattern — alternative to diff-hash. Tree hashes are content-
+# addressed (SHA-1 of the staged git tree) and reproduce deterministically
+# across platforms, while unified-diff bytes can vary by line endings or
+# diff-header formatting between Windows/Linux/macOS. Either tree-hash OR
+# diff-hash satisfies the binding requirement; cross-platform verifiers
+# (claim 2026-04-24 06:15) should prefer tree-hash. SHA-1 = 40 hex chars.
+_TREE_HASH_PATTERN = re.compile(r"tree-hash:\s*([0-9a-f]{40})", re.IGNORECASE)
+
 # Recency window: 7 days. An old audit round cannot authorize a new commit.
 _RECENCY_WINDOW_SECONDS = 7 * 24 * 3600
 
@@ -119,6 +127,26 @@ def _staged_diff_hash() -> str:
     except (subprocess.CalledProcessError, FileNotFoundError):
         return ""
     return hashlib.sha256(out.stdout.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _staged_tree_hash() -> str:
+    """Git tree-hash (SHA-1) of the staged index.
+
+    Cross-platform reproducible: derives from the same staged blobs the
+    commit will create, with line-ending normalization already applied
+    via .gitattributes. Recommended over _staged_diff_hash for any
+    independent verifier running on a different OS.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "write-tree"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return ""
+    return out.stdout.strip()
 
 
 def _is_external_ai_actor(actor: str) -> bool:
@@ -225,8 +253,11 @@ def validate(commit_msg: str, now: float | None = None) -> tuple[bool, str]:
             + "The referenced audit round must contain at least two\n"
             + "CONFIRMS findings — one from actor=user and one from an\n"
             + "external AI actor (grok/gemini/claude-<variant>). The\n"
-            + "round description must include the current diff-hash:\n\n"
-            + f"    diff-hash: {_staged_diff_hash()}\n\n"
+            + "round description must include the current change-hash.\n"
+            + "Either form satisfies; tree-hash is cross-platform\n"
+            + "deterministic (preferred for independent verification):\n\n"
+            + f"    diff-hash: {_staged_diff_hash()}\n"
+            + f"    tree-hash: {_staged_tree_hash()}\n\n"
             + "See docs and pre-reg for the full review workflow."
         )
 
@@ -250,19 +281,36 @@ def validate(commit_msg: str, now: float | None = None) -> tuple[bool, str]:
             "fresh review round and reference it."
         )
 
+    # Either diff-hash or tree-hash satisfies the binding. Tree-hash is
+    # cross-platform deterministic (claim 2026-04-24 06:15: diff bytes
+    # diverge between Windows and Linux container despite .gitattributes
+    # normalization). Verifiers running independently should prefer tree-hash.
     actual_diff_hash = _staged_diff_hash()
+    actual_tree_hash = _staged_tree_hash()
     description = _round_description(rnd)
-    hash_match = _DIFF_HASH_PATTERN.search(description)
-    if not hash_match or hash_match.group(1).lower() != actual_diff_hash.lower():
-        expected = actual_diff_hash
-        found = hash_match.group(1) if hash_match else "(none)"
+    diff_match = _DIFF_HASH_PATTERN.search(description)
+    tree_match = _TREE_HASH_PATTERN.search(description)
+
+    diff_ok = diff_match is not None and diff_match.group(1).lower() == actual_diff_hash.lower()
+    tree_ok = (
+        tree_match is not None
+        and actual_tree_hash != ""
+        and tree_match.group(1).lower() == actual_tree_hash.lower()
+    )
+
+    if not (diff_ok or tree_ok):
+        found_diff = diff_match.group(1) if diff_match else "(none)"
+        found_tree = tree_match.group(1) if tree_match else "(none)"
         return False, (
             f"External-Review round '{trailer}' does not reference the\n"
-            "current diff-hash. Stale or mismatched approval.\n\n"
-            f"    current diff-hash:  {expected}\n"
-            f"    round's diff-hash:  {found}\n\n"
-            "File a fresh review round that describes THIS diff and\n"
-            "reference it in the commit trailer."
+            "current change. Stale or mismatched approval.\n\n"
+            f"    current diff-hash:  {actual_diff_hash}\n"
+            f"    round's diff-hash:  {found_diff}\n"
+            f"    current tree-hash:  {actual_tree_hash}\n"
+            f"    round's tree-hash:  {found_tree}\n\n"
+            "Either matching hash satisfies the binding. Tree-hash is\n"
+            "cross-platform deterministic; prefer it for independent\n"
+            "verification. File a fresh review round and reference it."
         )
 
     user_confirm = False

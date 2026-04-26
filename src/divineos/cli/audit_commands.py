@@ -428,5 +428,8 @@ def register(cli: click.Group) -> None:
                 f"    {s['session_id'][:20]:22s}  tagged {ago_hours:.1f}h ago "
                 f"by {s['tagging_round_id'][:16]}"
             )
+            focus = s.get("round_focus")
+            if focus:
+                click.echo(f"      round: {focus[:80]}")
             if s["notes"]:
                 click.echo(f"      note: {s['notes']}")

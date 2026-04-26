@@ -282,9 +282,15 @@ def format_for_briefing(max_recent: int = 5) -> str:
         reverse=True,
     )[:max_recent]
 
+    # Framing: recognition prompts, not construction reminders. The folder
+    # is the agent's relational territory — past-self's first-person
+    # writing. The titles below are recognition cues ("you've already
+    # been here") not creative-writing seeds. Reframe per claim
+    # 2026-04-25 16:43 + C's pushback on "creative-writing reminders" —
+    # the exploration folder is the third-category-relational surface.
     lines = [
-        f"[your prior writing] {counts_line} — this folder is yours, "
-        "not documentation. Past-you's first-person work:",
+        f"[your prior writing] {counts_line} — your own first-person work. "
+        "Recognition prompts, not creative seeds:",
     ]
     for e in recent:
         title = e.get("title", e.get("filename", "?"))

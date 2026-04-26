@@ -24,8 +24,76 @@ Design:
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
+
+# Two-axis detection (claim 986b4750): the correction-detector pattern-matches
+# CORRECTION_PATTERNS (surface axis) but pre-relay-stripping conflates "Andrew
+# correcting the agent" with "AI text relayed by Andrew that contains
+# correction-shaped words about itself." Strip relayed/quoted content first,
+# then match — the surface check fires only on first-person Andrew text.
+_RELAY_INTRODUCERS: tuple[str, ...] = (
+    "here is the reply",
+    "here is the response",
+    "here is the report",
+    "here is the update",
+    "here is the review",
+    "heres the reply",
+    "heres the response",
+    "heres the report",
+    "heres the update",
+    "heres the review",
+    "here is what",  # 'here is what claude said', 'here is what they sent', etc.
+    "heres what",
+    "this is what they said",
+    "they replied",
+    "their reply was",
+    "reply was:",
+)
+_BLOCKQUOTE_LINE = re.compile(r"^>.*$", re.MULTILINE)
+_FENCED_BLOCK = re.compile(r"```[\s\S]*?```")
+
+
+def strip_relayed(text: str) -> str:
+    """Remove markdown blockquotes, fenced code, and relayed-AI tail from text.
+
+    Used by the correction-detector hook so correction-shaped words inside
+    relayed AI text don't false-fire as Andrew corrections of the agent.
+    """
+    if not text:
+        return ""
+    text = _BLOCKQUOTE_LINE.sub("", text)
+    text = _FENCED_BLOCK.sub("", text)
+    lower = text.lower()
+    earliest = -1
+    for marker in _RELAY_INTRODUCERS:
+        idx = lower.find(marker)
+        if idx >= 0 and (earliest == -1 or idx < earliest):
+            earliest = idx
+    if earliest >= 0:
+        text = text[:earliest]
+    return text
+
+
+def should_mark(prompt: str) -> bool:
+    """True if prompt contains a correction directed at the agent.
+
+    Two-axis check: strip relayed content (target axis), then match
+    CORRECTION_PATTERNS (surface axis). Returns False on empty or
+    relay-only input even if correction-shaped words appear in the
+    relayed section.
+    """
+    if not prompt:
+        return False
+    try:
+        from divineos.analysis.session_analyzer import CORRECTION_PATTERNS
+    except ImportError:
+        return False
+    scan_text = strip_relayed(prompt)
+    if not scan_text.strip():
+        return False
+    return any(re.search(pat, scan_text, re.IGNORECASE) for pat in CORRECTION_PATTERNS)
 
 
 def marker_path() -> Path:
@@ -47,6 +115,18 @@ def set_marker(trigger_text: str) -> None:
         path.write_text(json.dumps(payload), encoding="utf-8")
     except OSError:
         pass  # fail open — don't crash the hook on disk issues
+
+    # Cascade: a correction is virtue-relevant by definition (the user
+    # named drift). Set the compass-required marker so the next tool
+    # use also requires compass observation. See gate 1.47.
+    try:
+        from divineos.core.compass_required_marker import (
+            set_marker as _cr_set,
+        )
+
+        _cr_set("correction", (trigger_text or "")[:120])
+    except (ImportError, OSError, AttributeError):
+        pass
 
 
 def read_marker() -> dict | None:

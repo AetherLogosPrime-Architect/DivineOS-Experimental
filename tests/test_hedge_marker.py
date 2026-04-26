@@ -68,8 +68,11 @@ class TestGateIntegration:
             ),
             encoding="utf-8",
         )
+        from divineos.core import session_briefing_gate
+
         with (
             patch.object(hud_handoff, "was_briefing_loaded", return_value=True),
+            patch.object(session_briefing_gate, "briefing_loaded_this_session", return_value=True),
             patch.object(hedge_marker, "marker_path", return_value=mpath),
         ):
             decision = pre_tool_use_gate._check_gates()

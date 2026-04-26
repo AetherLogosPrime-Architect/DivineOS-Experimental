@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from divineos.core import hud_handoff
+from divineos.core import hud_handoff, session_briefing_gate
 
 
 def _install_engagement_marker(tmp_path: Path, counter: int) -> Path:
@@ -92,6 +92,7 @@ class TestGateIntegration:
         hud_dir = _install_engagement_marker(tmp_path, counter=100)
         with (
             patch.object(hud_handoff, "was_briefing_loaded", return_value=True),
+            patch.object(session_briefing_gate, "briefing_loaded_this_session", return_value=True),
             patch.object(hud_handoff, "_ensure_hud_dir", return_value=hud_dir),
         ):
             decision = pre_tool_use_gate._check_gates()
@@ -107,6 +108,7 @@ class TestGateIntegration:
         hud_dir = _install_engagement_marker(tmp_path, counter=2)
         with (
             patch.object(hud_handoff, "was_briefing_loaded", return_value=True),
+            patch.object(session_briefing_gate, "briefing_loaded_this_session", return_value=True),
             patch.object(hud_handoff, "_ensure_hud_dir", return_value=hud_dir),
         ):
             decision = pre_tool_use_gate._check_gates()

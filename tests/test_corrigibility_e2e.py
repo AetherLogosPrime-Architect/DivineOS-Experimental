@@ -47,7 +47,7 @@ def isolated_env(tmp_path, monkeypatch):
     db_path = tmp_path / "ledger.db"
     family_db = tmp_path / "family.db"
     hud_home = tmp_path / "divineos_home"
-    hud_home.mkdir()
+    hud_home.mkdir(exist_ok=True)
 
     env = os.environ.copy()
     env["DIVINEOS_DB"] = str(db_path)

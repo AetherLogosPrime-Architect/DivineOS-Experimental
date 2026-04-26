@@ -53,6 +53,16 @@ def register(cli: click.Group) -> None:
         except Exception:  # noqa: BLE001 — marker clearing is best-effort
             pass
 
+        # Also clear the theater/fabrication marker — naming the pattern
+        # via `correction` discharges output-drift markers parallel to
+        # how it discharges UserPromptSubmit corrections.
+        try:
+            from divineos.core.theater_marker import clear_marker as _clear_theater
+
+            _clear_theater()
+        except Exception:  # noqa: BLE001 — best-effort
+            pass
+
     @cli.command("corrections")
     @click.option("--limit", default=10, type=int, help="How many to show, newest first.")
     @click.option("--all", "show_all", is_flag=True, help="Show every correction ever logged.")

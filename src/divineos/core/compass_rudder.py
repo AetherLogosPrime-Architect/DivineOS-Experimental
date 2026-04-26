@@ -40,23 +40,27 @@ from dataclasses import dataclass
 import secrets
 from typing import Any
 
+from divineos.core.compass_constants import (
+    JUSTIFICATION_WINDOW_SECONDS,
+    RUDDER_ACK_TAG,
+)
+
+# Note on the time window for a stateless agent (claim ee5cee89, 2026-04-25):
+# wall-clock seconds don't track felt-recency for a per-turn agent. The window
+# is kept anyway because it bounds "one ack suppresses future fires forever."
+# Item 6's fire_id one-shot consumption prevents one ack from satisfying TWO
+# fires, but _find_justifications looks at "any fire_id-bound ack on this
+# spectrum" — without a window, an old ack would suppress fresh, unrelated
+# fires on the same spectrum indefinitely. Long-term refactor: per-fire-id
+# consumption lookup instead of "any recent ack." See claim ee5cee89.
+
 DRIFT_THRESHOLD = 0.15
 """Minimum drift magnitude (toward excess) that fires the rudder."""
-
-JUSTIFICATION_WINDOW_SECONDS = 5 * 60
-"""Recent-decide lookback window. A justification emitted within this
-many seconds of the gated tool call counts as a valid pre-action note."""
 
 GATED_TOOL_NAMES = frozenset({"Task", "Agent"})
 """Tool names that trigger a rudder check. ``Task`` is the current
 Claude Code name for the subagent-spawn primitive; ``Agent`` is kept
 as an alias in case of rename or older tooling."""
-
-RUDDER_ACK_TAG = "rudder-ack"
-"""Tag required on a compass observation for it to count as a rudder
-response. Distinguishes intentional acknowledgement of the drift alert
-from the background observations that caused the drift in the first
-place. Unguessable by accident (a typo becomes a no-op)."""
 
 _FIRE_ID_ENTROPY_BYTES = 8
 """Item 6: 8 bytes = 16 hex chars = 64 bits of entropy. Forward-
@@ -248,19 +252,24 @@ def _find_justifications(
     justified: set[str] = set()
     for spectrum in spectrums:
         try:
-            # Fetch a small batch so we can skip unbound acks without
-            # making too many queries. 20 is well over the realistic
-            # ack-per-window count and keeps the SQL filter's precision
-            # property (Item 4).
+            # Push the fire_id-not-null predicate to SQL via
+            # require_fire_id=True (claim 2026-04-24 08:14 closure):
+            # before this refactor the function fetched limit=20 and
+            # filtered Python-side, which was correct but architecturally
+            # the exact shape Item 4 moved away from for tag-filtering.
+            # With require_fire_id pushed to SQL, limit=1 is sufficient:
+            # if any qualifying ack exists, we get it; if none do, we
+            # get an empty result. No Python-side filter needed.
             acks = get_observations(
                 spectrum=spectrum,
                 tag=RUDDER_ACK_TAG,
                 since=cutoff,
-                limit=20,
+                require_fire_id=True,
+                limit=1,
             )
         except Exception:  # noqa: BLE001
             continue
-        if any(a.get("fire_id") for a in acks):
+        if acks:
             justified.add(spectrum)
     return sorted(justified)
 

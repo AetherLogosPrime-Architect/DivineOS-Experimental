@@ -419,6 +419,15 @@ def detect_anomalies(
         # Fires if EITHER (stdev<5 AND mean<30 — tight cluster at the
         # floor) OR (>60% within 5 chars of the floor — "just clear the
         # gate" shape). Distribution-shape signal, not range-check.
+        #
+        # Suspected-redundancy note (claim 2026-04-24 16:20): post-Item-7,
+        # mean>=20 always (the gate enforces it). Under that constraint,
+        # 'stdev<5 AND mean<30' statistically implies cluster in [20,25],
+        # making condition (a) nearly-subsumed by condition (b). Keeping
+        # both for now; observation window runs through ~2026-06-23
+        # (60 days post-merge of PR-1b on 2026-04-24). If condition (a)
+        # never fires on cases (b) misses during that window, drop (a)
+        # for a cleaner detector spec.
         length_clustered_stdev = (
             ev.get("stdev", 0.0) < _RUDDER_ACK_LENGTH_CLUSTER_STDEV
             and ev.get("mean", 0.0) < _RUDDER_ACK_LENGTH_CLUSTER_MEAN

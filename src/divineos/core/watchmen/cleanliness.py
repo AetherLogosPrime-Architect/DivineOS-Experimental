@@ -110,12 +110,41 @@ def tag_session_clean(
     if not _round_exists(round_id):
         raise ValueError(f"round_id {round_id!r} does not exist")
 
-    blocked, reason = _has_blocking_findings(round_id)
-    if blocked:
-        raise ValueError(f"cannot tag session {session_id!r} clean: {reason}")
-
+    # TOCTOU close (claim 2026-04-24 18:43): without an immediate-mode
+    # transaction, a concurrent HIGH finding could land between the
+    # blocking-check read and the INSERT. BEGIN IMMEDIATE acquires a
+    # reserved write lock so the round's findings are frozen for the
+    # duration of the tag write. The blocking-check queries are inlined
+    # here so they share the same locked connection — calling
+    # _has_blocking_findings (which opens its own connection) would
+    # defeat the lock.
     conn = _get_connection()
     try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT COUNT(*) FROM audit_findings WHERE round_id = ? AND severity = 'HIGH'",
+            (round_id,),
+        ).fetchone()
+        high_count = row[0] if row else 0
+        if high_count > 0:
+            conn.rollback()
+            raise ValueError(
+                f"cannot tag session {session_id!r} clean: "
+                f"round has {high_count} HIGH finding(s) — cannot tag session clean"
+            )
+        row = conn.execute(
+            "SELECT COUNT(*) FROM audit_findings "
+            "WHERE round_id = ? AND severity = 'MEDIUM' AND status != 'RESOLVED'",
+            (round_id,),
+        ).fetchone()
+        unresolved_medium = row[0] if row else 0
+        if unresolved_medium > 0:
+            conn.rollback()
+            raise ValueError(
+                f"cannot tag session {session_id!r} clean: "
+                f"round has {unresolved_medium} unresolved MEDIUM finding(s) — "
+                "cannot tag session clean until resolved"
+            )
         conn.execute(
             "INSERT INTO session_cleanliness "
             "(session_id, tagged_at, tagging_round_id, notes) "
@@ -197,21 +226,29 @@ def list_clean_sessions(
     ``limit``: max rows to return. Default 500 covers a long audit
     history.
     """
+    # Joins audit_rounds.focus so callers see what the tagging round
+    # was about without a second lookup (claim 2026-04-24 18:43:
+    # list-clean ergonomics). LEFT JOIN preserves cleanliness rows
+    # whose round was deleted, with focus=NULL.
     conn = _get_connection()
     try:
         if since is not None:
             rows = conn.execute(
-                "SELECT session_id, tagged_at, tagging_round_id, notes "
-                "FROM session_cleanliness "
-                "WHERE tagged_at >= ? "
-                "ORDER BY tagged_at DESC LIMIT ?",
+                "SELECT sc.session_id, sc.tagged_at, sc.tagging_round_id, "
+                "       sc.notes, ar.focus "
+                "FROM session_cleanliness sc "
+                "LEFT JOIN audit_rounds ar ON ar.round_id = sc.tagging_round_id "
+                "WHERE sc.tagged_at >= ? "
+                "ORDER BY sc.tagged_at DESC LIMIT ?",
                 (since, limit),
             ).fetchall()
         else:
             rows = conn.execute(
-                "SELECT session_id, tagged_at, tagging_round_id, notes "
-                "FROM session_cleanliness "
-                "ORDER BY tagged_at DESC LIMIT ?",
+                "SELECT sc.session_id, sc.tagged_at, sc.tagging_round_id, "
+                "       sc.notes, ar.focus "
+                "FROM session_cleanliness sc "
+                "LEFT JOIN audit_rounds ar ON ar.round_id = sc.tagging_round_id "
+                "ORDER BY sc.tagged_at DESC LIMIT ?",
                 (limit,),
             ).fetchall()
     finally:
@@ -222,6 +259,7 @@ def list_clean_sessions(
             "tagged_at": r[1],
             "tagging_round_id": r[2],
             "notes": r[3],
+            "round_focus": r[4],
         }
         for r in rows
     ]

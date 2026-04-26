@@ -172,14 +172,36 @@ def _check_gates() -> dict[str, Any] | None:
     first-run bootstrap), that gate is skipped rather than crashing the hook.
     Fail-open is the correct disposition for a gate whose machinery is broken.
     """
-    # Gate 1: briefing loaded
+    # Gate 1: briefing loaded (TTL-based, catches stale-within-session)
     try:
         from divineos.core.hud_handoff import was_briefing_loaded
 
-        if not was_briefing_loaded():
+        ttl_loaded = was_briefing_loaded()
+        if not ttl_loaded:
             return _make_deny("BLOCKED: Briefing not loaded. Run: divineos briefing")
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_briefing", _gate_exc)
+        ttl_loaded = False
+
+    # Gate 1.1: briefing loaded THIS session.
+    # Strictly tighter than gate 1's TTL-based check. Closes the hole
+    # documented 2026-04-26 (claim 7e780182): a new session inheriting
+    # a briefing-loaded marker from a previous session within the 4h
+    # TTL window passes gate 1 without ever engaging with briefing for
+    # the new session. This gate fires ONLY when gate 1 would have
+    # passed — its purpose is to catch "TTL says ok but this session
+    # never actually loaded," not to replace gate 1.
+    if ttl_loaded:
+        try:
+            from divineos.core.session_briefing_gate import (
+                briefing_loaded_this_session,
+                gate_message,
+            )
+
+            if not briefing_loaded_this_session():
+                return _make_deny(gate_message())
+        except (ImportError, OSError, AttributeError) as _gate_exc:
+            _record_gate_failure("gate_1_1_briefing_this_session", _gate_exc)
 
     # Gate 1.4: compass-staleness.
     # Closes ChatGPT audit claim-a7370b (compass observation is an intent,
@@ -231,6 +253,58 @@ def _check_gates() -> dict[str, Any] | None:
             )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_45_hedge", _gate_exc)
+
+    # Gate 1.46: theater/fabrication-shape on last output. Closes the
+    # enforcement gap for kitchen-theater (writing-AT-subagent) and
+    # unflagged embodied-action claims documented 2026-04-26. Marker
+    # is set by the Stop hook when theater_monitor or fabrication_monitor
+    # fires; cleared by `divineos correction` or `divineos learn`.
+    try:
+        from divineos.core.theater_marker import format_gate_message as _tm_msg
+        from divineos.core.theater_marker import marker_path as _tm_path
+        from divineos.core.theater_marker import read_marker as _tm_read
+
+        if _tm_path().exists():
+            t = _tm_read()
+            if t is not None:
+                return _make_deny(_tm_msg(t))
+            return _make_deny(
+                "BLOCKED: theater marker present at "
+                f"{_tm_path()} but unreadable. "
+                'Clear by naming the pattern: divineos correction "..." or '
+                'divineos learn "...". Fail-closed by design.'
+            )
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_1_46_theater", _gate_exc)
+
+    # Gate 1.47: compass observation required after virtue-relevant event.
+    # Build #4 from claim 7e780182. When a correction, theater fire,
+    # hedge fire, or substantive claim has occurred, the gate blocks
+    # tools until `divineos compass-ops observe` is run. Converts the
+    # intent "observe position when it matters" into "can-not-without."
+    try:
+        from divineos.core.compass_required_marker import (
+            format_gate_message as _cr_msg,
+        )
+        from divineos.core.compass_required_marker import (
+            marker_path as _cr_path,
+        )
+        from divineos.core.compass_required_marker import (
+            read_marker as _cr_read,
+        )
+
+        if _cr_path().exists():
+            cr = _cr_read()
+            if cr is not None:
+                return _make_deny(_cr_msg(cr))
+            return _make_deny(
+                "BLOCKED: compass-required marker present at "
+                f"{_cr_path()} but unreadable. "
+                "Clear by running: divineos compass-ops observe "
+                "<spectrum> -p <position> -e <evidence>. Fail-closed."
+            )
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_1_47_compass_required", _gate_exc)
 
     # Gate 1.5: correction detected but not logged.
     # Closes ChatGPT audit claim-964493 (theater-learning bypass) by making

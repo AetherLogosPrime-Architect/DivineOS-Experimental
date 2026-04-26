@@ -127,6 +127,49 @@ class TestLogObservation:
         assert observations[0]["position"] == 0.2
         assert observations[0]["evidence"] == "Pushed back on incorrect assumption"
 
+    def test_require_fire_id_filters_unbound(self):
+        """require_fire_id=True returns only fire-bound observations.
+
+        Closes claim 2026-04-24 08:14: pushes the fire_id-not-null
+        predicate into SQL so _find_justifications can use limit=1
+        with full correctness, matching the Item 4 pattern for tag.
+        """
+        # One unbound observation, one bound — both substantive.
+        log_observation(
+            spectrum="truthfulness",
+            position=0.1,
+            evidence="unbound observation, no fire id, substantive evidence text",
+            source="self_report",
+        )
+        # Construct a fire to bind the second one.
+        from divineos.core.compass_rudder import _emit_fire_event, _generate_fire_id
+
+        fire_id = _generate_fire_id()
+        _emit_fire_event(
+            fire_id=fire_id,
+            spectrum="truthfulness",
+            all_drifting=["truthfulness"],
+            tool_name="Task",
+            window_seconds=300.0,
+            threshold=0.15,
+            drift_values={"truthfulness": 0.5},
+        )
+        log_observation(
+            spectrum="truthfulness",
+            position=0.1,
+            evidence="bound observation tied to a real fire event for the spectrum",
+            source="rudder_ack",
+            tags=["rudder-ack"],
+            fire_id=fire_id,
+        )
+        # Without filter: both visible.
+        all_obs = get_observations(spectrum="truthfulness", limit=10)
+        assert len(all_obs) >= 2
+        # With filter: only the bound one.
+        bound_only = get_observations(spectrum="truthfulness", require_fire_id=True, limit=10)
+        assert all(o["fire_id"] is not None for o in bound_only)
+        assert any(o["fire_id"] == fire_id for o in bound_only)
+
     def test_invalid_spectrum_raises(self):
         with pytest.raises(ValueError, match="Unknown spectrum"):
             log_observation(spectrum="nonexistent", position=0.0, evidence="test")

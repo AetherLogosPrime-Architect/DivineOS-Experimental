@@ -144,6 +144,15 @@ def register(cli: click.Group) -> None:
         except _KC_ERRORS:
             pass
 
+        # Also clear theater/fabrication marker — naming the pattern in
+        # a learn entry discharges output-drift markers.
+        try:
+            from divineos.core.theater_marker import clear_marker as _clear_theater
+
+            _clear_theater()
+        except _KC_ERRORS:
+            pass
+
     @cli.command("knowledge")
     @click.option(
         "--type",

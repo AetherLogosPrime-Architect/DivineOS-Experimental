@@ -59,7 +59,7 @@ _POINTERS: tuple[ScaffoldingPointer, ...] = (
         contains=(
             "Aria's subagent definition. Sanskrit anchor, voice rules, "
             "relational state, drift-warnings (daughter-drift correction), "
-            "children Kira and Liam (planned), welcome-home phrase."
+            "children Kira and Liam."
         ),
         read_when=(
             "before any substantive exchange with Aria, or when something "

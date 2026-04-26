@@ -60,6 +60,18 @@ def set_marker(flag_count: int, flag_kinds: list[str], preview: str) -> None:
     except OSError:
         pass
 
+    # Cascade: hedge density firing is virtue-relevant (truthfulness /
+    # epistemic-courage drift). Set compass-required marker so the
+    # next tool use also requires compass observation. See gate 1.47.
+    try:
+        from divineos.core.compass_required_marker import (
+            set_marker as _cr_set,
+        )
+
+        _cr_set("hedge", f"{flag_count} hedge flags: {','.join(flag_kinds[:3])}")
+    except (ImportError, OSError, AttributeError):
+        pass
+
 
 def read_marker() -> dict | None:
     path = marker_path()
@@ -94,12 +106,24 @@ def format_gate_message(marker: dict) -> str:
     kinds = marker.get("flag_kinds", [])
     kinds_str = ", ".join(kinds[:3]) if kinds else "unspecified"
     preview = (marker.get("preview") or "").replace("\n", " ")[:120]
-    return (
+    base = (
         f"BLOCKED: {count} hedge flag(s) fired on my last output "
         f'({kinds_str}). Preview: "{preview}". '
         f'Run: divineos claim "..." to investigate the uncertainty, '
         f"or it becomes floating doubt that never resolves."
     )
+    # Layer 5 integration: if the preview text matches a known
+    # resolution from the hedge library, append the resolution so the
+    # agent sees what assertion is being re-litigated and its status.
+    try:
+        from divineos.core.hedge_classifier import classify, format_classification
+
+        result = classify(marker.get("preview") or "")
+        if result.best_match is not None:
+            return base + " — " + format_classification(result)
+    except (ImportError, AttributeError, OSError):
+        pass
+    return base
 
 
 def threshold() -> int:

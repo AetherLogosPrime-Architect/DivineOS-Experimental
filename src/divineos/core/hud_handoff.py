@@ -685,6 +685,73 @@ def _count_session_tool_calls() -> int:
 # ─── Preflight Check ────────────────────────────────────────────────
 
 
+def _check_branch_base_fresh() -> tuple[bool, str]:
+    """Check whether the current branch's base is fresh against origin/main.
+
+    Returns (passed, detail). Passes — does not block — when:
+      - running on main itself (no branching scenario)
+      - git unavailable / not a repo / no remote configured
+      - origin/main not fetched recently (skip rather than fetch on every
+        preflight; fetching has network cost and slows session start)
+      - HEAD already includes origin/main (branch is fresh or ahead)
+
+    Fails (soft warning) when origin/main has commits HEAD lacks: the
+    setup for the silent-revert pattern. Pre-push hook will catch this
+    at push time anyway; surfacing it here lets the operator rebase
+    BEFORE doing work on a stale base.
+    """
+    import subprocess
+
+    try:
+        # Current branch
+        out = subprocess.run(
+            ["git", "symbolic-ref", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode != 0:
+            return True, "Branch base check skipped (detached HEAD)"
+        current = out.stdout.strip()
+        if current == "main":
+            return True, "On main; base check not applicable"
+
+        # Is origin/main fetched?
+        out = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode != 0:
+            return True, "Branch base check skipped (origin/main not fetched)"
+
+        # Is origin/main an ancestor of HEAD?
+        out = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", "refs/remotes/origin/main", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode == 0:
+            return True, "Branch base is fresh (origin/main in HEAD's history)"
+
+        # Stale: count behind for the message
+        out = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD..refs/remotes/origin/main"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        behind = out.stdout.strip() if out.returncode == 0 else "?"
+        return False, (
+            f"Branch '{current}' is {behind} commit(s) behind origin/main. "
+            "Rebase before doing work: git fetch && git rebase origin/main"
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return True, "Branch base check skipped (git unavailable)"
+
+
 def preflight_check() -> dict[str, Any]:
     """Check session readiness before work begins.
 
@@ -798,6 +865,21 @@ def preflight_check() -> dict[str, Any]:
             "name": "compass_integrity",
             "passed": compass_ok,
             "detail": compass_detail,
+        }
+    )
+
+    # 7. Branch base freshness — soft warning (claim 2026-04-24 18:37).
+    # Catches the operator early: if main has moved while you were away,
+    # surfaces it at session start so you can fetch+rebase BEFORE you do
+    # work on a stale base. The pre-push hook also catches this, but by
+    # then you've already done the work. Soft: skips checks that would
+    # need network or aren't applicable; never blocks readiness.
+    base_ok, base_detail = _check_branch_base_fresh()
+    checks.append(
+        {
+            "name": "branch_base",
+            "passed": base_ok,
+            "detail": base_detail,
         }
     )
 

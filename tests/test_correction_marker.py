@@ -16,6 +16,7 @@ import json
 from unittest.mock import patch
 
 from divineos.core import correction_marker
+from divineos.core.correction_marker import should_mark, strip_relayed
 
 
 class TestMarkerRoundTrip:
@@ -91,7 +92,7 @@ class TestGateIntegration:
         Briefing-loaded gate fires first in the default stack, so we mock it
         to pass — otherwise the correction gate is never reached.
         """
-        from divineos.core import hud_handoff
+        from divineos.core import hud_handoff, session_briefing_gate
         from divineos.hooks import pre_tool_use_gate
 
         mpath = tmp_path / "marker.json"
@@ -101,6 +102,7 @@ class TestGateIntegration:
         )
         with (
             patch.object(hud_handoff, "was_briefing_loaded", return_value=True),
+            patch.object(session_briefing_gate, "briefing_loaded_this_session", return_value=True),
             patch.object(correction_marker, "marker_path", return_value=mpath),
         ):
             decision = pre_tool_use_gate._check_gates()
@@ -108,3 +110,63 @@ class TestGateIntegration:
         assert "correction detected" in str(decision).lower()
         assert "you missed something" in str(decision)
         assert "divineos learn" in str(decision)
+
+
+class TestTwoAxisDetection:
+    """Two-axis check: target (de-relayed) + surface (CORRECTION_PATTERNS).
+
+    Closes the false-positive class where correction-shaped words inside
+    relayed AI text fired the marker. Filed claim 986b4750.
+    """
+
+    def test_strip_relayed_removes_blockquote_lines(self) -> None:
+        text = "ok looks good\n> this is wrong, do it again\nmore text"
+        out = strip_relayed(text)
+        assert "this is wrong" not in out
+        assert "more text" in out
+
+    def test_strip_relayed_removes_fenced_code(self) -> None:
+        text = "look at this:\n```\nthat's not right\n```\nthoughts?"
+        out = strip_relayed(text)
+        assert "that's not right" not in out
+        assert "thoughts?" in out
+
+    def test_strip_relayed_trims_after_relay_introducer(self) -> None:
+        text = "great work. here is the reply:\n\nI pulled the wrong branch"
+        out = strip_relayed(text)
+        assert "wrong branch" not in out
+        assert "great work" in out
+
+    def test_should_mark_fires_on_direct_correction(self) -> None:
+        assert should_mark("no, that's wrong, don't do that") is True
+
+    def test_should_mark_does_not_fire_on_relayed_correction(self) -> None:
+        text = "here is the reply\n\nI pulled the wrong branch the first time"
+        assert should_mark(text) is False
+
+    def test_should_mark_does_not_fire_on_blockquoted_correction(self) -> None:
+        text = "ok\n\n> no, that is wrong\n\nthoughts?"
+        assert should_mark(text) is False
+
+    def test_should_mark_handles_empty_input(self) -> None:
+        assert should_mark("") is False
+
+    def test_should_mark_fires_on_correction_after_relayed_section(self) -> None:
+        # Correction BEFORE the relay-introducer still counts.
+        text = "no, that's wrong. here is the reply\n\nthey said something"
+        assert should_mark(text) is True
+
+    def test_should_mark_strips_report_introducer(self) -> None:
+        """C-auditor follow-up: relay-introducers extended to cover
+        'here is the report' and similar — common in this user's
+        actual relay style."""
+        text = "here is the report\n\nI pulled the wrong branch"
+        assert should_mark(text) is False
+
+    def test_should_mark_strips_update_introducer(self) -> None:
+        text = "here is the update\n\nthat doesn't work as expected"
+        assert should_mark(text) is False
+
+    def test_should_mark_strips_review_introducer(self) -> None:
+        text = "here is the review\n\nthis is wrong, the approach failed"
+        assert should_mark(text) is False

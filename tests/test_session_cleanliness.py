@@ -240,3 +240,58 @@ class TestQueries:
         tag_session_clean("session-one", "round-test-abc")
         future = time.time() + 10000
         assert count_clean_sessions(since=future) == 0
+
+    def test_list_clean_sessions_includes_round_focus(self) -> None:
+        """Ergonomics fix (claim 2026-04-24 18:43): callers see round focus
+        text without a second lookup."""
+        from divineos.core.watchmen.cleanliness import list_clean_sessions, tag_session_clean
+
+        _make_round()
+        tag_session_clean("session-with-focus", "round-test-abc")
+        clean = list_clean_sessions()
+        assert len(clean) == 1
+        assert clean[0]["round_focus"] == "test round focus"
+
+    def test_list_clean_sessions_focus_is_null_when_round_deleted(self) -> None:
+        """LEFT JOIN preserves the cleanliness row when the round is gone."""
+        from divineos.core.knowledge import _get_connection
+        from divineos.core.watchmen.cleanliness import list_clean_sessions, tag_session_clean
+
+        _make_round()
+        tag_session_clean("session-orphan", "round-test-abc")
+        conn = _get_connection()
+        try:
+            conn.execute("DELETE FROM audit_rounds WHERE round_id = 'round-test-abc'")
+            conn.commit()
+        finally:
+            conn.close()
+        clean = list_clean_sessions()
+        assert len(clean) == 1
+        assert clean[0]["round_focus"] is None
+
+
+class TestTaggingTOCTOU:
+    """TOCTOU close (claim 2026-04-24 18:43): blocking-check + INSERT now
+    share an IMMEDIATE-mode transaction so concurrent HIGH findings can't
+    sneak between the read and the write."""
+
+    def test_tag_uses_immediate_transaction(self) -> None:
+        """The tag write should still succeed when no concurrent writer exists."""
+        from divineos.core.watchmen.cleanliness import is_session_clean, tag_session_clean
+
+        _make_round()
+        tag_session_clean("session-tx", "round-test-abc")
+        assert is_session_clean("session-tx")
+
+    def test_high_finding_added_before_tag_blocks(self) -> None:
+        """Pre-existing HIGH findings still block — sanity check that the
+        TOCTOU refactor didn't break the basic blocking semantics."""
+        import pytest
+
+        from divineos.core.watchmen.cleanliness import is_session_clean, tag_session_clean
+
+        _make_round()
+        _add_finding("round-test-abc", "HIGH")
+        with pytest.raises(ValueError, match="HIGH finding"):
+            tag_session_clean("session-blocked", "round-test-abc")
+        assert not is_session_clean("session-blocked")

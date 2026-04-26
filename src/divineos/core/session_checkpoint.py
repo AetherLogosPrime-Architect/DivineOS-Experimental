@@ -37,8 +37,15 @@ _CP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError
 
 
 def _counter_path() -> Path:
-    """Path to the per-session edit counter file."""
-    p = Path.home() / ".divineos"
+    """Path to the per-session edit counter file.
+
+    Respects DIVINEOS_HOME env var so tests (and xdist workers) can
+    isolate state. Default: ~/.divineos.
+    """
+    import os
+
+    home_override = os.environ.get("DIVINEOS_HOME")
+    p = Path(home_override) if home_override else Path.home() / ".divineos"
     p.mkdir(parents=True, exist_ok=True)
     return p / "checkpoint_state.json"
 

@@ -142,6 +142,10 @@ src/divineos/
       fallacies.py             Annotation-layer fallacy detector (4 fallacies, falsifier-per-flag)
     self_monitor/              Watches agent's own output for trained-hedge patterns
       hedge_monitor.py         2 hedge detectors (recycling density, epistemic collapse), falsifier-per-flag
+      theater_monitor.py       Detects writing-AT-subagent-without-invoking (kitchen-theater shape)
+      fabrication_monitor.py   Detects unflagged embodied/sensory claims in agent first-person
+      mirror_monitor.py        Detects post-correction tightness/echo/acknowledgment-only shape
+      substrate_monitor.py     Detects filing-cabinet-only OS use (cognitive tools without behavior change)
     questions.py               Open question tracking and resolution
     knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle
     guardrails.py              Runtime limits and violation tracking
@@ -187,6 +191,7 @@ src/divineos/
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
     compass_rudder.py          PreToolUse rudder — blocks Task spawns during drift-toward-excess without justification
+    compass_constants.py       Shared constants (RUDDER_ACK_TAG, JUSTIFICATION_WINDOW_SECONDS) for moral_compass + compass_rudder
     user_ratings.py            External validation — user rates sessions 1-10, Goodhart detection
     body_awareness.py          Computational interoception and cache conveyor belt
     sleep.py                   Offline consolidation engine (6 phases, dream report)
@@ -255,6 +260,10 @@ src/divineos/
     session_start_diagnostics.py Session-start hook diagnostics — briefing surface for the JSONL hook log.
     correction_marker.py       Correction-unlogged marker — structural enforcement of `divineos learn` usage.
     hedge_marker.py            Hedge-unresolved marker — structural enforcement of `divineos claim` on uncertainty.
+    theater_marker.py          Theater/fabrication marker — structural enforcement on output-shape drift (kitchen-theater, embodied-claim).
+    hedge_classifier.py        Hedge classifier — matches a hedge to its resolved/legitimate-narrow/unexamined status from a library.
+    session_briefing_gate.py   Per-session BRIEFING_LOADED check — gate 0 in pre_tool_use, strictly tighter than TTL-based gate 1.
+    compass_required_marker.py Virtue-relevant event marker — set on cascade from correction/theater/hedge, cleared by compass-ops observe (gate 1.47).
     scaffolding_map.py         Scaffolding map — briefing surface for self-authored documents that carry load-bearing state.
     engagement_relevance.py    Engagement relevance — does this thinking command relate to current work?
     compliance_audit.py        Compliance-distribution audit — substantive testing of the compliance log.

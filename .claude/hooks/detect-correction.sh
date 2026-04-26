@@ -24,7 +24,7 @@ fi
 
 # Delegate to Python — regex matching + marker write in one interpreter call.
 echo "$INPUT" | python -c "
-import json, sys, re
+import json, sys
 try:
     data = json.loads(sys.stdin.read() or '{}')
 except Exception:
@@ -34,21 +34,12 @@ prompt = data.get('prompt', '') or ''
 if not prompt:
     sys.exit(0)
 
-# Reuse CORRECTION_PATTERNS from the session analyzer — single source of truth.
 try:
-    from divineos.analysis.session_analyzer import CORRECTION_PATTERNS
-    from divineos.core.correction_marker import set_marker
+    from divineos.core.correction_marker import set_marker, should_mark
 except Exception:
     sys.exit(0)
 
-# Check each pattern case-insensitively against the prompt text.
-matched = False
-for pat in CORRECTION_PATTERNS:
-    if re.search(pat, prompt, re.IGNORECASE):
-        matched = True
-        break
-
-if matched:
+if should_mark(prompt):
     set_marker(prompt)
 " 2>/dev/null
 

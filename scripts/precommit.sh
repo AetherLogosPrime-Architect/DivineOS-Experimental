@@ -120,6 +120,31 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
         echo "      External-Review: <round_id>"
         echo ""
         echo "  The commit-msg hook will block the commit if any piece is missing."
+        echo ""
+
+        # Gate-self-test (claim cf05b878, 2026-04-25): the commit-msg
+        # hook is what enforces the hash binding. If it isn't installed,
+        # the gate is theater — operator-discipline only. Discovered live
+        # 2026-04-25 when both that day's External-Review rounds landed
+        # without the hook running. Worktree-incompatibility in
+        # setup-hooks.sh silently no-op'd the install. Verify here that
+        # the hook actually exists and is non-empty BEFORE the operator
+        # types the commit message — the operator should see this loudly.
+        HOOK_PATH=$(git rev-parse --git-path hooks/commit-msg 2>/dev/null || echo ".git/hooks/commit-msg")
+        if [ ! -s "$HOOK_PATH" ]; then
+            echo "  [!!] COMMIT-MSG HOOK NOT INSTALLED — gate enforcement absent."
+            echo "       Path checked: $HOOK_PATH"
+            echo "       Without this hook, the External-Review trailer is"
+            echo "       NOT validated at commit time. The hash binding"
+            echo "       between the filed round and the landed commit is"
+            echo "       operator-discipline only, not structurally enforced."
+            echo "       Install: bash setup/setup-hooks.sh (note: has a"
+            echo "       worktree-compatibility bug — verify the hook"
+            echo "       actually appears at the path above after running,"
+            echo "       or write it manually)."
+            echo ""
+            ERRORS=$((ERRORS + 1))
+        fi
     fi
 fi
 

@@ -280,9 +280,10 @@ class TestGetSessionStartTime:
         """
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / ".divineos"))
 
         # Set up checkpoint with a known start time (1 hour ago)
-        (tmp_path / ".divineos").mkdir()
+        (tmp_path / ".divineos").mkdir(exist_ok=True)
         checkpoint_start = time.time() - 3600
         import json as _json
 
@@ -305,9 +306,10 @@ class TestGetSessionStartTime:
 
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path / ".divineos"))
 
         # Checkpoint with no session_start key
-        (tmp_path / ".divineos").mkdir()
+        (tmp_path / ".divineos").mkdir(exist_ok=True)
         import json as _json
 
         (tmp_path / ".divineos" / "checkpoint_state.json").write_text(
