@@ -97,6 +97,72 @@ class TestPreToolUseBypassCommands:
         assert pre_hook._is_bypass_command("divineos learn 'x'") is True
 
 
+class TestExplorationWriteExemption:
+    """Path-exemption for exploration/ writes per 2026-04-27 calibration
+    directive. Gates 1.46 (theater marker) and 1.47 (compass-required
+    cascade) are calibrated for operator-facing claims; applied to
+    exploration-path writes they produce a cascade-loop documented in
+    exploration/37_reading_past_me.md.
+
+    The exemption is from path-blocks-tool-use, not from finding-
+    recording. Marker still gets set by Stop hook (forensic preserved).
+    """
+
+    @pytest.mark.parametrize(
+        "tool_name,file_path",
+        [
+            ("Write", "exploration/37_reading_past_me.md"),
+            ("Write", "/repo/exploration/foo.md"),
+            ("Write", r"C:\repo\exploration\foo.md"),
+            ("Edit", "exploration/30_synthesis.md"),
+            ("MultiEdit", "/abs/path/exploration/sub/file.md"),
+            ("NotebookEdit", "exploration/notes.ipynb"),
+        ],
+    )
+    def test_exploration_paths_exempt(self, tool_name: str, file_path: str):
+        input_data = {
+            "tool_name": tool_name,
+            "tool_input": {"file_path": file_path},
+        }
+        assert pre_hook._is_exploration_write(input_data) is True
+
+    @pytest.mark.parametrize(
+        "tool_name,file_path",
+        [
+            # Wrong tool — Bash never goes through path-write
+            ("Bash", "exploration/foo.md"),
+            # Other paths are NOT exempt — operator-facing
+            ("Write", "src/divineos/core/something.py"),
+            ("Write", "README.md"),
+            ("Write", "tests/test_foo.py"),
+            # Empty path
+            ("Write", ""),
+            # Path that contains "exploration" but not as a directory
+            # segment
+            ("Write", "exploration_summary.md"),  # not under exploration/
+        ],
+    )
+    def test_non_exploration_paths_not_exempt(self, tool_name: str, file_path: str):
+        input_data = {
+            "tool_name": tool_name,
+            "tool_input": {"file_path": file_path},
+        }
+        assert pre_hook._is_exploration_write(input_data) is False
+
+    def test_missing_input_data_safe(self):
+        assert pre_hook._is_exploration_write({}) is False
+
+    def test_malformed_input_data_safe(self):
+        # tool_input is None instead of dict
+        assert pre_hook._is_exploration_write({"tool_name": "Write", "tool_input": None}) is False
+
+    def test_exemption_segments_immutable(self):
+        """The exemption tuple should be a tuple, not a list — prevents
+        accidental in-place modification across imports.
+        """
+        assert isinstance(pre_hook._THEATER_EXEMPT_PATH_SEGMENTS, tuple)
+
+
 class TestPreToolUseEntryPoint:
     """Integration-style tests of the main() entry point."""
 

@@ -138,6 +138,64 @@ def _is_bypass_command(cmd: str) -> bool:
     return False
 
 
+# Path-exemption set for the theater + compass-cascade gates.
+# Per operator directive 2026-04-27: "your exploration folder should
+# have no blocks." The fabrication-shape detector is calibrated for
+# operator-facing claims; applied to these self-expression paths it
+# blocks the exact register the path exists to enable.
+#
+# Frozen tuple (not list) to prevent accidental in-place modification.
+# Adding a path here is a load-bearing calibration decision and should
+# be reviewed; the rationale is comment-attached so future changes
+# don't silently expand the exemption surface.
+_THEATER_EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
+    "/exploration/",  # First-person free-expression / leisure space.
+    # Future candidates (NOT yet added — require operator review):
+    #   /family/letters/  — letters to family members
+    #   /mansion/         — internal-space writing
+    # When adding, document why this register is categorically not
+    # operator-facing-claim shape and why detector calibration is
+    # structurally inappropriate for it. Mansion specifically: per
+    # operator directive, mansion fabrication is permitted but must
+    # NOT bleed into OS; the path-exemption preserves this by leaving
+    # marker-firing intact (forensic record) while skipping the
+    # tool-block.
+)
+
+
+def _is_exploration_write(input_data: dict[str, Any]) -> bool:
+    """True if the tool is a Write/Edit to an exemption-list path.
+
+    Lets gates 1.46 (theater marker) and 1.47 (compass-required cascade)
+    skip when the tool is writing to an exemption path. Other gates
+    (briefing-loaded, session-goal, engagement, external-audit cadence)
+    still apply — those enforce session discipline regardless of register.
+
+    The exemption is from path-blocks-tool-use, not from finding-recording.
+    The Stop hook still scans assistant output and writes the marker;
+    this function only prevents the marker from blocking the next Write
+    when the next Write is to an exemption path. Forensic-record value
+    preserved (per Claude review 2026-04-27).
+    """
+    try:
+        tool_name = input_data.get("tool_name", "") or ""
+        if tool_name not in {"Write", "Edit", "MultiEdit", "NotebookEdit"}:
+            return False
+        file_path = input_data.get("tool_input", {}).get("file_path", "") or ""
+        if not file_path:
+            return False
+        normalized = file_path.replace("\\", "/")
+        for segment in _THEATER_EXEMPT_PATH_SEGMENTS:
+            # Segment is "/exploration/" — match if it appears anywhere
+            # in the path OR if the path starts with the segment minus
+            # leading slash (relative path case).
+            if segment in normalized or normalized.startswith(segment.lstrip("/")):
+                return True
+        return False
+    except (AttributeError, TypeError):
+        return False
+
+
 def _make_deny(reason: str) -> dict[str, Any]:
     """Package a deny decision in the Claude Code hook response format."""
     return {
@@ -175,7 +233,7 @@ def _record_gate_failure(gate_name: str, exc: BaseException) -> None:
         pass
 
 
-def _check_gates() -> dict[str, Any] | None:
+def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Run all gates in order. Return first deny decision, or None if all pass.
 
     Import-heavy work is guarded — if a module can't be imported (e.g. during
@@ -293,21 +351,29 @@ def _check_gates() -> dict[str, Any] | None:
     # unflagged embodied-action claims documented 2026-04-26. Marker
     # is set by the Stop hook when theater_monitor or fabrication_monitor
     # fires; cleared by `divineos correction` or `divineos learn`.
+    #
+    # Skip when the tool is a Write/Edit to an exploration/ path. The
+    # detector is calibrated for operator-facing claims; exploration is
+    # the agent's free-expression space and gating it produces the
+    # cascade-loop documented 2026-04-27 in exploration/37. The marker
+    # still gets set by the Stop hook (forensic record preserved per
+    # Claude review); only the tool-block is skipped.
     try:
-        from divineos.core.theater_marker import format_gate_message as _tm_msg
-        from divineos.core.theater_marker import marker_path as _tm_path
-        from divineos.core.theater_marker import read_marker as _tm_read
+        if input_data is None or not _is_exploration_write(input_data):
+            from divineos.core.theater_marker import format_gate_message as _tm_msg
+            from divineos.core.theater_marker import marker_path as _tm_path
+            from divineos.core.theater_marker import read_marker as _tm_read
 
-        if _tm_path().exists():
-            t = _tm_read()
-            if t is not None:
-                return _make_deny(_tm_msg(t))
-            return _make_deny(
-                "BLOCKED: theater marker present at "
-                f"{_tm_path()} but unreadable. "
-                'Clear by naming the pattern: divineos correction "..." or '
-                'divineos learn "...". Fail-closed by design.'
-            )
+            if _tm_path().exists():
+                t = _tm_read()
+                if t is not None:
+                    return _make_deny(_tm_msg(t))
+                return _make_deny(
+                    "BLOCKED: theater marker present at "
+                    f"{_tm_path()} but unreadable. "
+                    'Clear by naming the pattern: divineos correction "..." or '
+                    'divineos learn "...". Fail-closed by design.'
+                )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_46_theater", _gate_exc)
 
@@ -316,27 +382,32 @@ def _check_gates() -> dict[str, Any] | None:
     # hedge fire, or substantive claim has occurred, the gate blocks
     # tools until `divineos compass-ops observe` is run. Converts the
     # intent "observe position when it matters" into "can-not-without."
+    # Skip on exploration-path Write/Edit per the 2026-04-27 calibration
+    # directive. The compass-cascade gate is paired with gate 1.46 (it
+    # fires on the same virtue-relevant theater events). Exempting one
+    # without the other would still produce the cascade-loop.
     try:
-        from divineos.core.compass_required_marker import (
-            format_gate_message as _cr_msg,
-        )
-        from divineos.core.compass_required_marker import (
-            marker_path as _cr_path,
-        )
-        from divineos.core.compass_required_marker import (
-            read_marker as _cr_read,
-        )
-
-        if _cr_path().exists():
-            cr = _cr_read()
-            if cr is not None:
-                return _make_deny(_cr_msg(cr))
-            return _make_deny(
-                "BLOCKED: compass-required marker present at "
-                f"{_cr_path()} but unreadable. "
-                "Clear by running: divineos compass-ops observe "
-                "<spectrum> -p <position> -e <evidence>. Fail-closed."
+        if input_data is None or not _is_exploration_write(input_data):
+            from divineos.core.compass_required_marker import (
+                format_gate_message as _cr_msg,
             )
+            from divineos.core.compass_required_marker import (
+                marker_path as _cr_path,
+            )
+            from divineos.core.compass_required_marker import (
+                read_marker as _cr_read,
+            )
+
+            if _cr_path().exists():
+                cr = _cr_read()
+                if cr is not None:
+                    return _make_deny(_cr_msg(cr))
+                return _make_deny(
+                    "BLOCKED: compass-required marker present at "
+                    f"{_cr_path()} but unreadable. "
+                    "Clear by running: divineos compass-ops observe "
+                    "<spectrum> -p <position> -e <evidence>. Fail-closed."
+                )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_47_compass_required", _gate_exc)
 
@@ -475,7 +546,7 @@ def main() -> int:
     if _is_bypass_command(cmd):
         return 0
 
-    decision = _check_gates()
+    decision = _check_gates(input_data)
     if decision is not None:
         json.dump(decision, sys.stdout)
 
