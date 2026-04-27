@@ -297,6 +297,9 @@ src/divineos/
       mode_marker.py           VOID adversarial-mode marker — write/read/clear protocol.
       persona_loader.py        VOID persona loader — parses markdown persona definitions.
       engine.py                VOID engine — TRAP / ATTACK / EXTRACT / SEAL / SHRED orchestrator.
+    supervisor/
+      __init__.py              Supervisor — circuit-breaker / chronic-failure handling (claim 0d628d8e).
+      circuit_breaker.py       Circuit-breaker primitive — three-strikes module-tripping with explicit reset.
 
   analysis/
     _session_types.py          Session analysis type definitions
