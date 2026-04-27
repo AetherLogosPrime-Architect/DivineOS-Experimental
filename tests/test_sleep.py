@@ -50,6 +50,7 @@ class TestDreamReport:
 
     def test_summary_shows_connections(self):
         report = DreamReport(
+            connections_new=2,
             connections_found=2,
             connection_details=[
                 {"summary": "PRINCIPLE~BOUNDARY: found overlap"},
@@ -445,11 +446,6 @@ class TestPhaseRecombination:
             "and reveals what actually went wrong.",
         )
 
-        # Pin similarity to word-overlap fallback so the test is deterministic
-        # regardless of whether sentence-transformers is installed.
-        # Embedding similarity and word overlap can disagree on whether entries
-        # are "too similar" (>0.80 semantic vs <=0.50 word overlap), making
-        # the test flaky when the backend varies between environments.
         monkeypatch.setattr(
             "divineos.core.knowledge._text._embeddings_available",
             False,
@@ -457,7 +453,9 @@ class TestPhaseRecombination:
 
         report = DreamReport()
         _phase_recombination(report)
-        assert report.connections_found >= 1
+        # 2026-04-24 fix: use connections_new (genuine novelty) not
+        # connections_found (total pairs in band, new + already-known)
+        assert report.connections_new >= 1
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):
         """Empty knowledge store should produce no connections."""
@@ -467,16 +465,21 @@ class TestPhaseRecombination:
 
         report = DreamReport()
         _phase_recombination(report)
-        assert report.connections_found == 0
+        assert report.connections_new == 0
+        assert report.connections_already_known == 0
 
     def test_respects_max_connections_limit(self, tmp_path, monkeypatch):
-        """Should not exceed the max connections limit."""
+        """Display cap applies to connections_new, not connections_found.
+
+        connections_found is the total band-pair count (new + already-
+        known) and has no cap — it can exceed MAX_CONNECTIONS when
+        the similarity space is large.
+        """
         from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
 
         init_knowledge_table()
 
-        # Store many similar entries across two types
         for i in range(20):
             store_knowledge(
                 "PRINCIPLE",
@@ -491,7 +494,119 @@ class TestPhaseRecombination:
 
         report = DreamReport()
         _phase_recombination(report)
-        assert report.connections_found <= _RECOMBINATION_MAX_CONNECTIONS
+        # The NEW-connections count is capped (display discipline)
+        assert report.connections_new <= _RECOMBINATION_MAX_CONNECTIONS
+
+    def test_already_known_pairs_not_recounted_as_new(self, tmp_path, monkeypatch):
+        """2026-04-24 honesty fix: a pair with an existing RELATED_TO
+        edge from a prior sleep must count as already_known, NOT new."""
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.edges import create_edge, init_edge_table
+
+        init_knowledge_table()
+        init_edge_table()
+
+        monkeypatch.setattr(
+            "divineos.core.knowledge._text._embeddings_available",
+            False,
+        )
+
+        a_id = store_knowledge(
+            "PRINCIPLE",
+            "When an action fails, investigate the root cause of the error "
+            "before retrying. Blind repetition wastes valuable debugging time.",
+        )
+        b_id = store_knowledge(
+            "BOUNDARY",
+            "Never retry an action that fails without finding the root cause "
+            "first. Investigating each error reveals what went wrong.",
+        )
+
+        # Simulate a prior sleep having already connected these two.
+        create_edge(
+            source_id=a_id,
+            target_id=b_id,
+            edge_type="RELATED_TO",
+            confidence=0.6,
+            notes="prior sleep",
+        )
+
+        # Now run the recombination phase. Before the fix, this pair
+        # would be counted as "new" every time. After the fix, it
+        # must count as already_known.
+        report = DreamReport()
+        _phase_recombination(report)
+        assert report.connections_new == 0, (
+            f"expected 0 new connections, got {report.connections_new}"
+        )
+        assert report.connections_already_known >= 1, (
+            f"expected >= 1 already-known, got {report.connections_already_known}"
+        )
+
+    def test_reverse_direction_also_deduped(self, tmp_path, monkeypatch):
+        """RELATED_TO edges are direction-neutral; prior edge in B→A
+        direction still counts current A→B pair as already_known."""
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.edges import create_edge, init_edge_table
+
+        init_knowledge_table()
+        init_edge_table()
+
+        monkeypatch.setattr(
+            "divineos.core.knowledge._text._embeddings_available",
+            False,
+        )
+
+        a_id = store_knowledge(
+            "PRINCIPLE",
+            "When an action fails, investigate the root cause of the error "
+            "before retrying. Blind repetition wastes debugging time.",
+        )
+        b_id = store_knowledge(
+            "BOUNDARY",
+            "Never retry an action that fails without finding the root cause "
+            "first. Investigating each error reveals what went wrong.",
+        )
+
+        # Prior edge stored in B→A direction (reverse of discovery order).
+        create_edge(
+            source_id=b_id,
+            target_id=a_id,
+            edge_type="RELATED_TO",
+            confidence=0.6,
+            notes="prior sleep reverse dir",
+        )
+
+        report = DreamReport()
+        _phase_recombination(report)
+        assert report.connections_new == 0
+        assert report.connections_already_known >= 1
+
+    def test_summary_reports_already_known_count(self, tmp_path, monkeypatch):
+        """When already-known pairs exist, the dream-report summary
+        surfaces them in the Phase 5 output so the operator can see
+        saturation."""
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.edges import create_edge, init_edge_table
+
+        init_knowledge_table()
+        init_edge_table()
+        monkeypatch.setattr("divineos.core.knowledge._text._embeddings_available", False)
+
+        a = store_knowledge("PRINCIPLE", "Investigate root cause before retrying failed actions.")
+        b = store_knowledge("BOUNDARY", "Retry only after root cause is understood.")
+        create_edge(a, b, "RELATED_TO", confidence=0.6)
+
+        report = DreamReport()
+        _phase_recombination(report)
+        out = report.summary()
+        # Either we found new AND listed already-known, or we found
+        # zero new and still listed already-known. Either way the
+        # already-known count should surface.
+        assert "already-known" in out or "saturating" in out
 
 
 class TestRunSleep:

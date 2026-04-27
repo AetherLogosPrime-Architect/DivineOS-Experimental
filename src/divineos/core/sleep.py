@@ -63,7 +63,15 @@ class DreamReport:
     maintenance_results: dict[str, Any] = field(default_factory=dict)
 
     # Phase 5: Recombination
-    connections_found: int = 0
+    # `connections_found` used to mean "pairs in the similarity band"
+    # regardless of whether we'd surfaced them before. That was
+    # Goodhart-shape: the same 10 pairs could report as "new" every
+    # sleep indefinitely. Split per 2026-04-24 audit — the report
+    # now distinguishes genuinely-new connections from re-encountered
+    # pairs (which have existing RELATED_TO edges from prior sleeps).
+    connections_found: int = 0  # total pairs in similarity band (new + already-known)
+    connections_new: int = 0  # pairs with no existing RELATED_TO edge — novel this sleep
+    connections_already_known: int = 0  # pairs already in graph from prior sleeps
     connection_details: list[dict[str, str]] = field(default_factory=list)
 
     # Phase 6: Curiosity Generation
@@ -171,14 +179,25 @@ class DreamReport:
         else:
             lines.append("    Skipped")
 
-        # Recombination
+        # Recombination — honest counts (2026-04-24 fix)
         lines.append("\n  Phase 5 - Creative Recombination")
-        if self.connections_found > 0:
-            lines.append(f"    Found {self.connections_found} new connection(s)")
+        if self.connections_new > 0:
+            if self.connections_already_known > 0:
+                lines.append(
+                    f"    Found {self.connections_new} new connection(s) "
+                    f"({self.connections_already_known} already-known skipped)"
+                )
+            else:
+                lines.append(f"    Found {self.connections_new} new connection(s)")
             for conn in self.connection_details[:5]:
                 lines.append(f"    ~ {conn.get('summary', '?')}")
+        elif self.connections_already_known > 0:
+            lines.append(
+                f"    No new connections — {self.connections_already_known} "
+                "already-known pairs skipped (similarity space may be saturating)"
+            )
         else:
-            lines.append("    No new connections found")
+            lines.append("    No connections found in similarity band")
 
         # Curiosity
         lines.append("\n  Phase 6 - Curiosity Maintenance")
@@ -397,12 +416,22 @@ def _phase_recombination(report: DreamReport) -> None:
     semantically related but topically distinct. Filters out obvious
     same-topic pairs (e.g. MISTAKE about tests + DIRECTION about tests)
     by checking word overlap in key terms.
+
+    **2026-04-24 honesty fix** (claim tbd): the discovery loop now
+    checks `find_edge` before counting a pair. If a RELATED_TO edge
+    already exists from a prior sleep, the pair is counted as
+    "already-known" and does NOT count toward the MAX_CONNECTIONS
+    display cap. Before this fix, the same 10 pairs could report as
+    "new" every sleep indefinitely — the `create_edge` call was
+    idempotent at the DB layer but the discovery loop was blind to
+    that. Report now distinguishes new vs. re-encountered.
     """
     from divineos.core.knowledge._text import (
         _compute_overlap,
         compute_similarity,
     )
     from divineos.core.knowledge.crud import get_knowledge
+    from divineos.core.knowledge.edges import find_edge
 
     entries = get_knowledge(limit=5000, include_superseded=False)
     if len(entries) < 2:
@@ -417,6 +446,15 @@ def _phase_recombination(report: DreamReport) -> None:
 
     types = list(by_type.keys())
     connections: list[dict[str, str]] = []
+    already_known_count = 0
+    total_band_pairs = 0  # pairs in similarity band regardless of novelty
+
+    def _first_sentence(text: str, cap: int = 140) -> str:
+        for delim in (". ", "! ", "? "):
+            idx = text.find(delim)
+            if 0 < idx < cap:
+                return text[: idx + 1]
+        return text[:cap] + "..." if len(text) > cap else text
 
     for i, type_a in enumerate(types):
         for type_b in types[i + 1 :]:
@@ -440,18 +478,35 @@ def _phase_recombination(report: DreamReport) -> None:
 
                     similarity = compute_similarity(content_a, content_b)
                     if _RECOMBINATION_MIN_SIMILARITY <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
-                        # Show first sentence of each, not arbitrary truncation
-                        def _first_sentence(text: str, cap: int = 140) -> str:
-                            for delim in (". ", "! ", "? "):
-                                idx = text.find(delim)
-                                if 0 < idx < cap:
-                                    return text[: idx + 1]
-                            return text[:cap] + "..." if len(text) > cap else text
+                        total_band_pairs += 1
+                        aid = entry_a.get("knowledge_id", "?")
+                        bid = entry_b.get("knowledge_id", "?")
+
+                        # 2026-04-24 honesty fix: skip pairs that
+                        # already have a RELATED_TO edge from a prior
+                        # sleep. These are "re-encountered," not
+                        # "new." Count them separately so the report
+                        # can distinguish saturation (mostly already-
+                        # known) from genuine novelty (mostly new).
+                        try:
+                            existing = find_edge(aid, bid, "RELATED_TO")
+                        except Exception:  # noqa: BLE001
+                            existing = None
+                        if existing is None and aid != "?" and bid != "?":
+                            # Also check the reverse direction — edges
+                            # are direction-neutral for RELATED_TO.
+                            try:
+                                existing = find_edge(bid, aid, "RELATED_TO")
+                            except Exception:  # noqa: BLE001
+                                existing = None
+                        if existing is not None:
+                            already_known_count += 1
+                            continue
 
                         connections.append(
                             {
-                                "entry_a_id": entry_a.get("knowledge_id", "?"),
-                                "entry_b_id": entry_b.get("knowledge_id", "?"),
+                                "entry_a_id": aid,
+                                "entry_b_id": bid,
                                 "type_a": type_a,
                                 "type_b": type_b,
                                 "similarity": f"{similarity:.0%}",
@@ -468,7 +523,17 @@ def _phase_recombination(report: DreamReport) -> None:
             if len(connections) >= _RECOMBINATION_MAX_CONNECTIONS:
                 break
 
-    report.connections_found = len(connections)
+    # Honest counts (2026-04-24 fix):
+    # - connections_new: pairs genuinely new this sleep (capped at
+    #   _RECOMBINATION_MAX_CONNECTIONS)
+    # - connections_already_known: pairs in the similarity band that
+    #   already have a RELATED_TO edge from prior sleeps
+    # - connections_found: total band-pairs encountered (new +
+    #   already-known). Preserved for backward-compat with existing
+    #   HUD/dream-report callers that read this field.
+    report.connections_new = len(connections)
+    report.connections_already_known = already_known_count
+    report.connections_found = total_band_pairs
     report.connection_details = connections
 
     # Persist connections as RELATED_TO edges in the knowledge graph.
