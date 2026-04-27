@@ -228,6 +228,7 @@ from divineos.cli import (  # noqa: E402
     rt_commands,
     scheduled_commands,
     sleep_commands,
+    void_commands,
 )
 
 ledger_commands.register(cli)
@@ -258,6 +259,7 @@ corrigibility_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)
 complete_commands.register(cli)
+void_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:

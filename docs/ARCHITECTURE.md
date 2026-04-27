@@ -37,6 +37,7 @@ src/divineos/
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
     audit_commands.py          external validation (Watchmen)
+    void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
@@ -281,6 +282,13 @@ src/divineos/
     module_inventory.py        Module-inventory surface — bridge from src/divineos/core/ to the briefing.
     upstream_freshness.py      Upstream-freshness surface — bridge from remote-state to the briefing.
     open_claims_surface.py     Stale-open-claims surface — bridge from the claims store to the briefing.
+    void/
+      __init__.py              VOID — adversarial-sandbox subsystem.
+      finding.py               VOID Finding dataclass and severity rubric.
+      ledger.py                VOID separate hash-chained ledger.
+      mode_marker.py           VOID adversarial-mode marker — write/read/clear protocol.
+      persona_loader.py        VOID persona loader — parses markdown persona definitions.
+      engine.py                VOID engine — TRAP / ATTACK / EXTRACT / SEAL / SHRED orchestrator.
 
   analysis/
     _session_types.py          Session analysis type definitions

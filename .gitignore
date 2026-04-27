@@ -76,6 +76,9 @@ data/
 **/data/*.db
 **/data/reports/
 **/data/hud/
+# Package-shipped data (NOT runtime) — checked in
+!src/divineos/data/
+!src/divineos/data/**
 logs/
 **/logs/*.log
 /archive/
