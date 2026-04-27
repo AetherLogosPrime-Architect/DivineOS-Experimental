@@ -51,6 +51,12 @@ from divineos.core.self_monitor.mechanism_monitor import (
     MechanismVerdict,
     evaluate_mechanism,
 )
+from divineos.core.self_monitor.temporal_monitor import (
+    TemporalFlag,
+    TemporalKind,
+    TemporalVerdict,
+    evaluate_temporal,
+)
 from divineos.core.self_monitor.warmth_monitor import (
     WarmthFlag,
     WarmthKind,
@@ -74,6 +80,9 @@ __all__ = [
     "SubstrateFlag",
     "SubstrateKind",
     "SubstrateVerdict",
+    "TemporalFlag",
+    "TemporalKind",
+    "TemporalVerdict",
     "TheaterFlag",
     "TheaterKind",
     "TheaterVerdict",
@@ -86,6 +95,7 @@ __all__ = [
     "evaluate_mechanism",
     "evaluate_mirror",
     "evaluate_substrate",
+    "evaluate_temporal",
     "evaluate_theater",
     "evaluate_warmth",
 ]
