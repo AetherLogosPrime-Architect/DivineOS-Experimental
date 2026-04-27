@@ -342,7 +342,7 @@ divineos admin verify-enforcement  # Check enforcement setup
 
 ## Architecture
 
-DivineOS is 339 source files across 24 packages, structured as a CLI surface over a core library.
+DivineOS is 346 source files across 25 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
@@ -394,7 +394,7 @@ ruff format src/ tests/        # Format
 
 ## Status
 
-- 339 source files across 24 packages
+- 346 source files across 25 packages
 - 5,495+ tests (real SQLite, minimal mocks)
 - 217 CLI commands
 - 22 slash-command skills
