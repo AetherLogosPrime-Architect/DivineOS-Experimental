@@ -287,6 +287,9 @@ src/divineos/
     voice_guard/
       __init__.py              Voice-guard package — pre-output audit primitives (claim 07bed376).
       banned_phrases.py        Banned-phrase detector (Phase 1) — flags assistant-shaped drift markers.
+    reliability/
+      __init__.py              Reliability — Bayesian confidence with uncertainty (claim e6cbd14d).
+      beta.py                  Beta(α,β) reliability primitive — mean / variance / credible interval / updates.
     void/
       __init__.py              VOID — adversarial-sandbox subsystem.
       finding.py               VOID Finding dataclass and severity rubric.
