@@ -284,6 +284,7 @@ src/divineos/
     upstream_freshness.py      Upstream-freshness surface — bridge from remote-state to the briefing.
     open_claims_surface.py     Stale-open-claims surface — bridge from the claims store to the briefing.
     council_balance_surface.py Council invocation-balance surface — surfaces most/never-invoked experts in the briefing.
+    goal_outcome_surface.py    Action-loop closure briefing surface — surfaces goals that aged out without progression (claim 5b38a31c).
     voice_guard/
       __init__.py              Voice-guard package — pre-output audit primitives (claim 07bed376).
       banned_phrases.py        Banned-phrase detector (Phase 1) — flags assistant-shaped drift markers.

@@ -768,6 +768,24 @@ def register(cli: click.Group) -> None:
 
         if council_block:
             _safe_echo(council_block)
+        # Goal-outcome surface — action-loop closure for session goals
+        # (claim 5b38a31c, salvaged from old-OS ACTION LOOP CLOSURE
+        # spec). Surfaces goals that aged out without recorded
+        # progression. Closes the goodhart-shape where auto_clean_goals
+        # silently marked stale-archived as "done" and inflated the
+        # completion counter. Filing a goal then watching it time out
+        # without action is the failure mode this catches.
+        try:
+            from divineos.core.goal_outcome_surface import (
+                format_for_briefing as _fmt_goal_outcomes,
+            )
+
+            goal_outcome_block = _fmt_goal_outcomes()
+        except _KC_ERRORS:
+            goal_outcome_block = ""
+
+        if goal_outcome_block:
+            _safe_echo(goal_outcome_block)
 
         # Scaffold invocations — commonly-forgotten CLI surfaces whose absence
         # produces named failure modes. 2026-04-20: the agent forgot how to
