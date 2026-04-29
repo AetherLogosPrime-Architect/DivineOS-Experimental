@@ -136,7 +136,55 @@ benchmark/results/
 benchmark/results_ab/
 benchmark/results_opus/
 benchmark/selected_tasks.json
+
+# In-progress benchmark experiments — kept local while data is still being
+# gathered (e.g. needs more API credits to complete). Not shared until the
+# experiment is ready to publish. Explicit lines per experiment rather than a
+# broad benchmark/* glob, so legitimate source files (opus_test.py, README, etc.)
+# stay trackable.
+benchmark/experiment_logs/
+benchmark/experiment_results/
+benchmark/experiment_writeup_subagent.md
+benchmark/iter_runs/
+benchmark/results_docker_ab/
+benchmark/results_full_workflow/
+benchmark/results_live_session/
+benchmark/results_live_session_batch2/
+benchmark/results_live_session_batch3/
+benchmark/docker_eval_wrapper-smoke/
+benchmark/visual_runs/
+benchmark/video_runs/
+benchmark/FINAL_RESULTS.md
+benchmark/MESSAGE_TO_CLAUDE.md
+benchmark/PHASE_1_2_WRITEUP.md
+benchmark/phase2_record.md
+benchmark/live_session_record.md
+benchmark/gold-patch-smoke.smoke.json
+benchmark/live_session_tasks.json
+benchmark/live_session_tasks_batch2.json
+benchmark/live_session_tasks_batch3.json
+benchmark/morning_tasks.json
+benchmark/morning_tasks_b.json
+benchmark/morning_tasks_c.json
+benchmark/morning_tasks_d.json
+benchmark/agent_loop.py
+benchmark/deep_investigator.py
+benchmark/docker_eval.py
+benchmark/docker_eval_smoke.py
+benchmark/docker_smoke.py
+benchmark/iter_tool.py
+benchmark/run_ab_docker.py
+benchmark/run_arm_a_case2.py
+benchmark/run_full_workflow_ab.py
+benchmark/score_batch2.py
+benchmark/score_batch3.py
+benchmark/score_live_session.py
+benchmark/smoke_predictions.json
+benchmark/streaming_record.md
+benchmark/streaming_tasks.json
+benchmark/streaming_tasks_batch2.json
 mansion/
 core_memory_backup.json
 main_core_memory_backup.json
 .claude/scheduled_tasks.lock
+freelance/

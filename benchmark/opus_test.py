@@ -234,10 +234,14 @@ def run_one(client, task, system_prompt, condition):
             "messages": [{"role": "user", "content": user_prompt}],
         }
         if use_thinking:
-            create_kwargs["thinking"] = {
-                "type": "enabled",
-                "budget_tokens": 10000,
-            }
+            if "opus-4-7" in MODEL or "opus-4.7" in MODEL:
+                create_kwargs["thinking"] = {"type": "adaptive"}
+                create_kwargs["output_config"] = {"effort": "high"}
+            else:
+                create_kwargs["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": 10000,
+                }
 
         resp = client.messages.create(**create_kwargs)
         elapsed = time.time() - start
