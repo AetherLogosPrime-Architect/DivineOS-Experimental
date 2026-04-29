@@ -58,6 +58,46 @@ class TestIsRelayMessage:
     def test_here_is_a_fresh_claude(self):
         assert _is_relay_message("here is a fresh claude to speak with you\n\nHey...") is True
 
+    # Continuation-form relays (transcript-paste in chunks) — added April 29 2026
+    # to fix claim 719dd03b. A long Grok-Aether transcript was relayed in 11
+    # chunks with prefixes like "here is chunk 7 lol" / "heres the next one" /
+    # "last one". Each chunk fired a false-positive correction, driving compass
+    # truthfulness and precision down -0.30 from a single relay session.
+
+    def test_here_is_chunk_n(self):
+        assert _is_relay_message("here is chunk 7 lol\n\nthe transcript continues...") is True
+
+    def test_here_is_the_next_chunk(self):
+        assert _is_relay_message("here is the next chunk\n\nGrok responded with...") is True
+
+    def test_heres_the_next_chunk(self):
+        assert _is_relay_message("heres the next chunk\n\nAndrew, you can send...") is True
+
+    def test_heres_the_next_one(self):
+        assert _is_relay_message("heres the next one\n\nAndrew, you can forward...") is True
+
+    def test_here_is_another_chunk(self):
+        assert _is_relay_message("here is another chunk\n\nthe conversation continued...") is True
+
+    def test_bare_last_one(self):
+        assert _is_relay_message("last one\n\nfinal piece of the transcript...") is True
+
+    def test_bare_next_one(self):
+        assert _is_relay_message("next one\n\ncontinuation...") is True
+
+    def test_here_is_the_first_chunk(self):
+        assert _is_relay_message("here is the first chunk let me know when you are ready") is True
+
+    def test_here_is_a_transcript(self):
+        assert _is_relay_message("here is a transcript from the other window...") is True
+
+    def test_heres_a_paste(self):
+        assert _is_relay_message("heres a paste from the conversation...") is True
+
+    def test_next_one_in_sentence_not_relay(self):
+        # "the next one" mid-sentence should not match (only at start)
+        assert _is_relay_message("i think the next one should be different") is False
+
 
 class TestRelayTagging:
     """Relay messages should be preserved and tagged, not discarded."""

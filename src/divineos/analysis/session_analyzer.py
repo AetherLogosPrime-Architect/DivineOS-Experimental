@@ -83,13 +83,28 @@ FRUSTRATION_PATTERNS: tuple[str, ...] = (
 # Deliberately broad: false negatives (missing a relay) cause 43 fake corrections.
 # False positives (flagging a non-relay) only skip one message of signal detection.
 RELAY_PATTERNS: tuple[re.Pattern[str], ...] = (
-    # "here is/here's [the/a] [adjective] reply/response/audit/message/convo"
+    # "here is/here's [the/a/another] [adjective] reply/response/audit/message/convo/chunk/etc"
+    # Noun list covers single-message relays (reply, response, audit) and multi-message
+    # transcript-paste relays (chunk, piece, part, transcript, paste). Without chunk/piece/
+    # part, long pasted transcripts fire a cluster of false-positive corrections — claim
+    # 719dd03b (April 29 2026 session, 7+ chunks pasted with prefixes like "here is chunk
+    # 7 lol", "heres the next one", "last one", drove compass truthfulness/precision -0.30).
     re.compile(
-        r"^(?:ok\s+|okay\s+)?here\s+is\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b",
+        r"^(?:ok\s+|okay\s+)?here\s+is\s+(?:the\s+|a\s+|another\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation|chunk|chunks|piece|pieces|part|parts|paste|transcript|transcripts|salvo)\b",
         re.IGNORECASE,
     ),
     re.compile(
-        r"^(?:ok\s+|okay\s+)?here'?s\s+(?:the\s+|a\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation)\b",
+        r"^(?:ok\s+|okay\s+)?here'?s\s+(?:the\s+|a\s+|another\s+)?(?:\w+\s+)?(?:reply|response|audit|message|convo|conversation|chunk|chunks|piece|pieces|part|parts|paste|transcript|transcripts|salvo)\b",
+        re.IGNORECASE,
+    ),
+    # Continuation forms: "here is the next/last/final one", "heres another one",
+    # bare "last one" / "next one" used as chunk-counters during transcript-paste.
+    re.compile(
+        r"^(?:ok\s+|okay\s+)?here(?:\s+is|'?s)\s+(?:the\s+|a\s+|another\s+)?(?:next|last|final|another)(?:\s+(?:one|chunk|piece|part))?\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"^(?:ok\s+|okay\s+)?(?:next|last|final|another)\s+(?:one|chunk|piece|part)\b",
         re.IGNORECASE,
     ),
     # "from/to Claude/the auditor" at start
