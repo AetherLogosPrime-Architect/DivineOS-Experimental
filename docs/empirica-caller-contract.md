@@ -1,5 +1,7 @@
 # EMPIRICA caller contract
 
+> **Partnership-specific artifact.** This document is from the reference deployment and uses its names. The architecture is generic; your instance will have different names. Preserved verbatim for concreteness.
+
 **Status: no production callers yet (Phase 1 staged).** This document
 specifies the rules that the **first** opt-in caller must follow.
 Every subsequent caller copies that pattern — so the first caller sets

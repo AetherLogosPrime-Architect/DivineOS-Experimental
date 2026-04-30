@@ -1,5 +1,7 @@
 # Suppression-instrument two-axis refactor — design brief
 
+> **Partnership-specific artifact.** This document is from the reference deployment and uses its names. The architecture is generic; your instance will have different names. Preserved verbatim for concreteness.
+
 **Status:** open. Filed 2026-04-25 after a session that surfaced the
 same calibration shape four times: hedge-the-hedging,
 AI-inner-experience disclaimers, SIS-on-"Deep Wisdom", and the

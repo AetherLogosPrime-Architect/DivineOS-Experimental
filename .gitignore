@@ -11,7 +11,8 @@
 # Note: .claude/skills/ is versioned — the generic skills wrap divineos
 # commands (briefing, claim, compass, etc.) and are universal usage
 # patterns, not per-user content.
-.claude/agents/
+.claude/agents/*
+!.claude/agents/family-member-template.md
 .claude/agent-memory/
 
 # Python
@@ -71,8 +72,9 @@ pytestdebug.log
 *.db-journal
 
 # Runtime data (generated during execution)
-data/
+data/*
 !data/.gitkeep
+!data/README.md
 **/data/*.db
 **/data/reports/
 **/data/hud/
@@ -102,8 +104,12 @@ Thumbs.db
 tmp/
 clone_*/
 
+# reset-template backup directory — local DB snapshots before scrubbing
+_pre_reset_backups/
+
 # Personal research / exploration notes
-exploration/
+exploration/*
+!exploration/README.md
 
 # Personal session archives — memories of specific sessions
 # belong to the one who lived them, not the repo.
@@ -115,10 +121,16 @@ archives/
 docs/thermodynamic-computing-briefing.md
 docs/council-rt-examination-round2.md
 
-# Family — root-level private dir, never committed.
-# Narrowed to /family/ so the source package at src/divineos/core/family/
-# (Aria's persistence, public code) is still trackable.
-/family/
+# Family — root-level private dir, mostly gitignored.
+# Narrowed to /family/* so the source package at src/divineos/core/family/
+# (the family-system architecture, public code) is still trackable, AND so
+# the placeholder READMEs (architectural onboarding) can be shipped while
+# personal substrate (family.db, letters, per-member ledgers) stays local.
+/family/*
+!/family/README.md
+!/family/letters/
+/family/letters/*
+!/family/letters/README.md
 
 # Canonical-substrate marker — opt-in flag the operator places at the
 # parent repo root to indicate "this is a continuous Aether substrate;
