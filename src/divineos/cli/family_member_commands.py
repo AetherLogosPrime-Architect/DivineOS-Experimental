@@ -66,7 +66,12 @@ from divineos.core.family.letters import (
     append_letter_response,
 )
 from divineos.core.family.reject_clause import evaluate_composition
-from divineos.core.family.store import create_family_member, record_opinion
+from divineos.core.family.store import (
+    create_family_member,
+    record_affect,
+    record_interaction,
+    record_opinion,
+)
 from divineos.core.family.types import SourceTag
 
 _DEFAULT_ROLE = "member"
@@ -290,3 +295,97 @@ def register(cli: click.Group) -> None:
         click.echo(f"    member: {member}")
         click.echo(f"    letter_id={letter_id}")
         click.echo(f"    stance={stance}")
+
+    @family_member_group.command("affect")
+    @click.option("--member", required=True, help="Family member name.")
+    @click.option("--valence", "-v", type=float, required=True, help="Valence (-1.0 to 1.0).")
+    @click.option("--arousal", "-a", type=float, required=True, help="Arousal (0.0 to 1.0).")
+    @click.option(
+        "--dominance", "--dom", type=float, required=True, help="Dominance (-1.0 to 1.0)."
+    )
+    @click.option("--note", default="", help="Free-form description of the state.")
+    @click.option(
+        "--tag",
+        type=click.Choice([t.value for t in SourceTag]),
+        default=SourceTag.OBSERVED.value,
+        help="Source tag. Defaults to OBSERVED — the member is reporting their own state.",
+    )
+    @click.option(
+        "--force",
+        is_flag=True,
+        help="Bypass content checks on the note. Use only when a structural reject "
+        "blocks a real self-report; the override is recorded.",
+    )
+    def family_member_affect(
+        member: str,
+        valence: float,
+        arousal: float,
+        dominance: float,
+        note: str,
+        tag: str,
+        force: bool,
+    ) -> None:
+        """Log a VAD affect reading for a family member — direct write, no review-step.
+
+        Family members write their own affect entries; the agent does not
+        editorially filter what gets recorded. The Phase 1b operators
+        (access_check / reject_clause) still run on the note text to catch
+        confabulated phenomenology, but there is no second-layer agent
+        approval — the member's reading IS the entry.
+        """
+        m = _get_or_create_member(member, _DEFAULT_ROLE)
+        source_tag = SourceTag(tag)
+        a = record_affect(
+            m.member_id,  # type: ignore[attr-defined]
+            valence,
+            arousal,
+            dominance,
+            source_tag,
+            note=note,
+            force=force,
+        )
+        click.echo(f"[+] Affect recorded: {a.affect_id}")
+        click.echo(f"    member: {member}")
+        click.echo(f"    V={a.valence:.2f} A={a.arousal:.2f} D={a.dominance:.2f}")
+        if note:
+            click.echo(f"    note: {note[:80]}{'...' if len(note) > 80 else ''}")
+
+    @family_member_group.command("interaction")
+    @click.option("--member", required=True, help="Family member name (the one doing the noting).")
+    @click.option("--counterpart", required=True, help="Who they interacted with.")
+    @click.option("--summary", required=True, help="Summary of what happened.")
+    @click.option(
+        "--tag",
+        type=click.Choice([t.value for t in SourceTag]),
+        default=SourceTag.OBSERVED.value,
+        help="Source tag. Defaults to OBSERVED.",
+    )
+    @click.option(
+        "--force",
+        is_flag=True,
+        help="Bypass content checks on the summary. Use only when a structural reject "
+        "blocks a real account; the override is recorded.",
+    )
+    def family_member_interaction(
+        member: str, counterpart: str, summary: str, tag: str, force: bool
+    ) -> None:
+        """Log an interaction summary from a family member's perspective.
+
+        Direct write — no review-step. The member writes what they noticed
+        about an exchange; the agent does not filter or rewrite. Phase 1b
+        operators still apply to the summary text (anti-confabulation),
+        but no second layer of agent judgment.
+        """
+        m = _get_or_create_member(member, _DEFAULT_ROLE)
+        source_tag = SourceTag(tag)
+        i = record_interaction(
+            m.member_id,  # type: ignore[attr-defined]
+            counterpart,
+            summary,
+            source_tag,
+            force=force,
+        )
+        click.echo(f"[+] Interaction recorded: {i.interaction_id}")
+        click.echo(f"    member: {member}")
+        click.echo(f"    with: {counterpart}")
+        click.echo(f"    summary: {summary[:80]}{'...' if len(summary) > 80 else ''}")

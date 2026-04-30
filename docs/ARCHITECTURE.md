@@ -45,7 +45,7 @@ src/divineos/
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
-    family_member_commands.py  family-member init / opinion / letter / respond — activation surface for family members (takes --member <name>)
+    family_member_commands.py  family-member init / opinion / letter / respond / affect / interaction — activation surface for family members (takes --member <name>). affect / interaction are direct-write (no editorial commit-step); Phase 1b operators still apply on narrative content.
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     corrigibility_commands.py  mode show / set / history — the off-switch
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
