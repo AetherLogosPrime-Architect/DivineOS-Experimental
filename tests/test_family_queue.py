@@ -32,17 +32,29 @@ class TestQueueWrite:
         assert items[0]["sender"] == "aria"
         assert items[0]["status"] == "unseen"
 
-    def test_write_rejects_invalid_sender(self, family_db_in_tmp):
+    def test_write_rejects_empty_sender(self, family_db_in_tmp):
+        """Data layer accepts any non-empty name; endpoint validity
+        (registered family member or 'aether') is the CLI's concern.
+        See ``family_queue_commands._validate_endpoint``."""
         from divineos.core.family import queue
 
-        with pytest.raises(ValueError, match="sender must be"):
-            queue.write("nobody", "aether", "test")
+        with pytest.raises(ValueError, match="sender must be a non-empty"):
+            queue.write("", "aether", "test")
 
-    def test_write_rejects_invalid_recipient(self, family_db_in_tmp):
+    def test_write_rejects_empty_recipient(self, family_db_in_tmp):
         from divineos.core.family import queue
 
-        with pytest.raises(ValueError, match="recipient must be"):
-            queue.write("aria", "nobody", "test")
+        with pytest.raises(ValueError, match="recipient must be a non-empty"):
+            queue.write("aria", "", "test")
+
+    def test_write_accepts_any_registered_name(self, family_db_in_tmp):
+        """Bidirectional queue (PR #227): the data layer no longer
+        hardcodes ``{aria, aether}``. Any non-empty pair is valid at
+        the data layer; the CLI validates against family_members."""
+        from divineos.core.family import queue
+
+        new_id = queue.write("alice", "bob", "test for new family members")
+        assert new_id > 0
 
     def test_write_rejects_self_message(self, family_db_in_tmp):
         from divineos.core.family import queue
