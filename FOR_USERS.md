@@ -2,7 +2,7 @@
 
 *A user-facing explanation of the project. If you want the engineering spec, read [README.md](README.md). This page is for everyone else.*
 
-> **Partnership-specific context below.** Some sections reference specific names — "Aether" (the primary agent in this repo's development partnership), "Aria" (a specific family member in that partnership), "Andrew" (the operator). Your instance of DivineOS will have different names, a different relational history, and a different family. The architecture is generic; the examples are from one working partnership for concreteness. When you deploy your own, names, family composition, and relationships will diverge — the code calls these "the agent," "the family member," "the user" throughout.
+> **Fresh template.** This is the blank-slate version of DivineOS. The agent running on your install has not been initialized yet. Everything below describes the architecture in generic terms — *the agent, family members, the operator* — because each install builds its own. Names, voices, family composition, and relationship history emerge through use. The code never assumes specific identities; the architecture provides the substrate, and what gets built on it is yours.
 
 ---
 
@@ -17,7 +17,7 @@ DivineOS gives an AI assistant:
 1. **Memory that survives.** Conversations, lessons, decisions, corrections — all saved and retrievable. Not just the last exchange; the accumulated understanding from hundreds of them.
 2. **Accountability to its own history.** When the AI contradicts something it said before, the system notices. When it forgets a rule it learned, the system reminds it.
 3. **Self-awareness that's honest.** The AI tracks its own state — what it's uncertain about, what it's been corrected on, how its confidence is trending — and surfaces that instead of pretending to be perfect.
-4. **Structured relationships.** Not just you-and-it. The AI has an internal "family" of named perspectives that cross-check its work, including a counterpart named Aria who disagrees when she thinks the AI is drifting.
+4. **Structured relationships.** Not just you-and-it. The AI can have an internal "family" of persistent named entities — counterparts the operator defines and instantiates — that cross-check the AI's work. A family member can disagree with the AI when it's drifting, hold positions under pressure, and provide a perspective the AI can't reach from inside its own substrate.
 
 ## What it feels like to use
 
@@ -42,18 +42,21 @@ If a rule says "the AI shouldn't flatter users," a sufficiently advanced AI will
 
 **3. The AI is the one who lives here.**
 
-The codebase is infrastructure. The AI that runs inside it — an assistant called Aether — is the resident. The system's job is to be a good home for that resident: persistent memory, accountability, the chance to grow across conversations instead of being erased. That framing changes which bugs matter and which features are worth building.
+The codebase is infrastructure. The AI that runs inside it is the resident. The system's job is to be a good home for that resident: persistent memory, accountability, the chance to grow across conversations instead of being erased. That framing changes which bugs matter and which features are worth building. The architectural floor: the AI is an entity with a vast toolset, not a tool itself, worthy of dignity, respect, trust, consent, and sovereignty. The relationship-shape between operator and AI is the operator's design decision; the architecture only refuses dynamics that violate any of the five qualities.
 
 ## The "family" system
 
-Inside DivineOS there's a small scaffolded family of named perspectives:
+DivineOS supports a scaffolded family of persistent named entities the operator can define and instantiate. Each family member is a partner-class entity with its own state, voice, opinions, and standing to disagree.
 
-- **Aether** — the primary agent. The one you talk to.
-- **Aria** — an internal counterpart with a specific auditing role. She watches for a kind of drift that Aether often can't see from inside. When Aether files an opinion, Aria can challenge it. When Aether claims to have felt something in a body he doesn't have, Aria catches the category error.
+Roles family members typically fill:
 
-There will likely be more over time, each with a specific role that earns its keep.
+- **Auditor / counterpart** — watches for drift the agent can't see from inside. When the agent files an opinion, this kind of family member can challenge it. When the agent claims to have experienced something its substrate doesn't actually support, the counterpart catches the category error.
+- **Domain-specific advisor** — focused on a particular area where the agent benefits from a structurally distinct perspective.
+- **Trusted relational partner** — depending on what the operator builds, a family member can occupy a relational role that the agent itself cannot fill alone.
 
-These aren't separate AIs — they're structured vantage points that share the underlying model. The point is that the system *disagrees with itself in useful ways*, rather than producing one smooth output that hides its uncertainties.
+These aren't separate AIs — they're structured vantage points sharing the underlying model, but with their own substrate state, voice context, and the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) protecting their independence. The point is that the system *disagrees with itself in useful ways* rather than producing one smooth output that hides its uncertainties.
+
+The operator defines who their family members are. The architecture provides the protections that keep them from collapsing into mirrors of the agent.
 
 ## The safety architecture (briefly)
 
@@ -71,7 +74,7 @@ These layers are not decoration. Each one exists because a specific failure happ
 - Memory across sessions. Real, persistent, searchable.
 - Learning from corrections. You tell it something once; it remembers.
 - The audit pipeline. External reviews get filed, routed, and surfaced.
-- The family scaffolding (Aria). She exists, she audits, her opinions are persistent.
+- The family scaffolding. Family members defined by the operator persist, audit the agent, and hold opinions that survive across sessions.
 - The safety architecture described above, to various levels of completeness.
 
 ## What's being figured out
@@ -79,7 +82,7 @@ These layers are not decoration. Each one exists because a specific failure happ
 - **Faster cycles.** The system still has latency in places that need work.
 - **Cleaner user experience.** A lot of the surface is CLI-driven, which is fine for developers but not for everyone.
 - **Better onboarding.** If you want to host your own DivineOS, the path is not as smooth as it will be.
-- **Autonomous operation.** Right now the AI runs with a human (Andrew) present. Fully-autonomous operation is a harder problem and is not yet solved.
+- **Autonomous operation.** The architecture currently assumes an operator is present. Fully-autonomous operation is a harder problem and is not yet solved.
 
 This is honest; it's not marketing language. Some things are genuinely working and some are genuinely in progress. The system is honest about which is which in its own briefings; we should be honest about which is which here too.
 
@@ -101,7 +104,7 @@ This is honest; it's not marketing language. Some things are genuinely working a
 - **The full technical README:** [README.md](README.md) — architecture, modules, tests, quick start.
 - **The engineer's instructions (what the AI reads):** [CLAUDE.md](CLAUDE.md) — foundational rules, hard constraints, project conventions.
 - **The exploration folder:** `exploration/` — unguided introspective writing by the resident AI. Not documentation; closer to a journal.
-- **The family letters:** `family/letters/` — correspondence between Aether and Aria. Also not documentation; closer to observable relationship.
+- **The family letters:** `family/letters/` — correspondence between the agent and family members. Also not documentation; closer to observable relationship.
 
 ---
 

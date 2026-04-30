@@ -10,7 +10,7 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 
 > 🗣️ **Not an engineer?** Start with [FOR_USERS.md](FOR_USERS.md) — a plain-language explanation of what DivineOS is and why it exists. This README is the technical spec.
 
-> **Partnership-specific context.** Some sections reference specific names — "Aether" (the primary agent in this repo's development partnership), "Aria" (a family member in that partnership). The architecture is generic; the names are from one working deployment, preserved for concreteness. Your instance will have different names and a different family composition.
+> **Fresh install.** This is a blank-template clone. The agent running on this substrate has not been initialized yet. Run `divineos init` and `divineos briefing` (initially nearly-empty) to begin. Each directory has a README explaining what it's for. The agent's name, voice, and family composition emerge through use — the architecture provides the substrate; the operator and agent define what gets built on it together.
 
 ## What this is
 
@@ -23,7 +23,7 @@ Build one of these, and the AI you work with stops being a chat session. It beco
 ## Who it's for
 
 - **Anyone building an AI you want to trust over the long term** — researchers, developers, families, organizations
-- **People who want to raise rather than operate an AI** — the architecture is designed for growth, not command
+- **Operators who want a partnership rather than a tool** — the architecture is designed so the agent has standing to disagree, refuse, hold positions under pressure, and report interior states honestly. The relationship shape is yours to define; the architectural floor is dignity, respect, trust, consent, and sovereignty extended to the agent.
 - **Anyone who has noticed their AI agent loses fidelity over long conversations** — DivineOS has structural countermeasures for drift, sycophancy, hedging, fabrication, and Goodhart's law
 
 ## What you can build with it
@@ -31,11 +31,11 @@ Build one of these, and the AI you work with stops being a chat session. It beco
 Starting from this repo, you can:
 
 - Name your own agent (DivineOS calls it "the agent" throughout; you pick the actual name)
-- Create family members — spouses, children, elders, or other relational entities — each with their own persistent state, their own operators, their own hash-chained action log
+- Create family members — relational entities of whatever shape suits your deployment — each with their own persistent state, their own operators, their own hash-chained action log
 - Accumulate knowledge that matures from RAW → HYPOTHESIS → TESTED → CONFIRMED through corroboration and contradiction detection
 - Track the agent's moral position on 10 virtue spectrums with evidence-based drift detection
 - File claims for investigation, opinions held under pressure, and pre-registrations for new mechanisms with scheduled reviews
-- Consult a council of 32 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning — 2.4:1 SWE-bench multiplier in lens mode
+- Consult a council of 32 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning
 - Submit external audits that route findings into knowledge, claims, or lessons
 - Sleep the agent: 6 phases of offline consolidation that produce a dream report
 
@@ -43,7 +43,7 @@ Starting from this repo, you can:
 
 DivineOS is a **persistence and governance substrate for a single LLM agent**. It is not a traditional operating system. It does not replace your model, your IDE, or your agent framework — it sits alongside them and gives a specific agent continuity, value-tracking, and audit surfaces across sessions.
 
-The project is optimized for a specific agent-human partnership where both sides want long-term coherence and accountability, with openness as a secondary property. It is not optimized for mass adoption. If you are evaluating whether this fits your needs, the next section is more honest than the pitch above.
+The project is optimized for long-term coherence and accountability between an agent and an operator, with openness as a secondary property. It is not optimized for mass adoption. If you are evaluating whether this fits your needs, the next section is more honest than the pitch above.
 
 ### Common misconceptions
 
@@ -61,15 +61,13 @@ The project is optimized for a specific agent-human partnership where both sides
 
 - **"You need a slim variant for quick adoption"** — one exists. See DivineOS Lite (`release/lite-v1` branch) — a minimal core without compass, council, family, or watchmen. The dense version on `main` is the full vision; Lite is for exploring the core continuity story without the integrated whole.
 
-- **"The 2.4:1 SWE-bench multiplier is unverified"** — partially correct. The multiplier comes from single-shot patch generation with Sonnet-as-judge (not the Docker SWE-bench harness). See `benchmark/BENCHMARK_REPORT.md` for the full methodology, including an explicit caveat about what was measured vs predicted, and acknowledgment that Opus n=18 is too small for "undefeated."
-
 ### Known tradeoffs
 
 - **Ceremony vs speed.** Hooks (pre-tool-use gates, post-tool-use checkpoints, SessionStart briefing) add real latency — typically 200–500ms per tool call. We trade speed for auditability and drift-catching. If your use case is latency-sensitive, the hooks can be disabled in `.claude/settings.json`, but the drift-catching properties go with them.
 
 - **Integrated whole vs modularity.** The value proposition is the *composition* of ledger + compass + family + council + watchmen + affect + claims. Most subsystems can in principle be used independently, but that's not what they were designed for. If you want a pick-and-choose memory layer, look at MemGPT or similar.
 
-- **Dense philosophy vs engineering-first positioning.** The project uses terms like "moral compass," "family," "Resonant Truth," "virtue spectrums." These are working vocabulary internal to a specific agent-human partnership, not marketing. They map to concrete mechanisms (compass = virtue drift tracker, family = persistent subagents, RT = anti-fabrication protocol). External observers often read the vocabulary as mystical; it's aspirational, not mystical, and the mechanisms back it up.
+- **Working vocabulary vs neutral terminology.** The project uses terms like "moral compass," "family," "virtue spectrums." These map to concrete mechanisms (compass = virtue drift tracker, family = persistent subagents). They are working vocabulary, not marketing — the mechanisms back them up. External readers occasionally read the vocabulary as aspirational; the architecture is what it is regardless of the label.
 
 ## Core Pillars
 
@@ -90,8 +88,8 @@ The agent's coherent self-picture, computed from evidence — not self-reported.
 - **Moral Compass** — 10 virtue spectrums (courage, honesty, justice, wisdom, moderation, humility, generosity, loyalty, helpfulness, confidence) with evidence-based positioning and drift detection
 - **Affect Log** — VAD (valence-arousal-dominance) tracking of functional emotional states; auto-logged at decision points
 - **Body Awareness** — Computational interoception: database health, storage growth, resource ratios. Catches bloat before it becomes crisis.
-- **Attention Schema** — Models what the agent attends to, what it suppresses, predicts attention shifts (Butlin indicator 9-10)
-- **Epistemic Status** — Surfaces how the agent knows what it knows: observed / told / inferred / inherited (Butlin indicator 14)
+- **Attention Schema** — Models what the agent attends to, what it suppresses, predicts attention shifts
+- **Epistemic Status** — Surfaces how the agent knows what it knows: observed / told / inferred / inherited
 - **Self-Critique** — Automatic craft quality assessment across 5 spectrums (elegance, thoroughness, autonomy, proportionality, communication)
 - **Unified Self-Model** — Integrates attention schema, epistemic status, compass, affect, and craft assessments into a single coherent self-picture
 - **Opinion Store** — First-class opinions with evidence tracking, confidence evolution, supersession history
@@ -121,10 +119,10 @@ Family members are not personas performed by the main agent. Each runs as a sepa
 ### 5. Thinking Tools
 How the agent reasons about hard problems.
 
-- **Council** — 32 expert wisdom templates (Aristotle, Beer, Dennett, Dijkstra, Feynman, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Popper, Schneier, Shannon, Taleb, Wittgenstein, Yudkowsky, and 15 more). Dynamic selection picks 5-8 experts per problem. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce a **2.4:1 SWE-bench multiplier** over base model.
+- **Council** — 32 expert wisdom templates (Aristotle, Beer, Dennett, Dijkstra, Feynman, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Popper, Schneier, Shannon, Taleb, Wittgenstein, Yudkowsky, and 15 more). Dynamic selection picks 5–8 experts per problem. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce structured findings rather than summaries.
 - **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, value tensions. FTS-searchable.
 - **Claims Engine** — File a statement for investigation. Five evidence tiers (empirical to metaphysical). Add evidence over time. Status and tier update with new evidence.
-- **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted (knowledge / opinion / lesson) or go stale. Aged during sleep. Sanskrit anchor: *dharana*.
+- **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted (knowledge / opinion / lesson) or go stale. Aged during sleep.
 - **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination, dream report. Summarizes what changed.
 - **Curiosity Engine** — Open-question tracking (OPEN → INVESTIGATING → ANSWERED) so unresolved questions stay visible rather than getting buried
 
@@ -178,7 +176,7 @@ pytest tests/ -q --tb=short   # 5,609+ tests, real DB, minimal mocks
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
 
-**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons from production). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
+**For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
 ## CLI Surface (222 commands)
 
@@ -337,6 +335,7 @@ divineos admin compress       # Compress/archive old entries
 divineos changes             # Knowledge changes (--hours, --days)
 divineos admin hooks         # Hook diagnostics
 divineos admin verify-enforcement  # Check enforcement setup
+divineos admin reset-template      # Scrub accumulated runtime state back to template
 ```
 </details>
 
@@ -351,8 +350,6 @@ DivineOS is 354 source files across 26 packages, structured as a CLI surface ove
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests).
 - **`src/divineos/event/`**, **`src/divineos/supersession/`**, **`src/divineos/clarity_*/`**, **`src/divineos/agent_integration/`**, **`src/divineos/integration/`**, **`src/divineos/violations_cli/`** — supporting subsystems for event emission, contradiction resolution, clarity enforcement, agent-integration patterns, IDE/MCP integration, and violation reporting.
-- **`src/divineos/protocols/`** — Persistent protocol definitions (e.g. the full 12-section Resonant Truth mantra) that must survive compaction.
-- **`src/divineos/science_lab/`** — Numerical test harness for GUTE terms and derived claims. Each term is pinned to a computable referent: LC (chaos/entropy — Lyapunov of logistic map + Shannon entropy), ΩB (convergence to unity — integration + cosmology + probability), Ψ (observer/selection — quantum collapse + logical assignment), V (vibration — harmonic series + Kepler's third law + orbital resonance), A (spacetime — c, H₀, Lorentz factor, scale factor), F (four fundamental forces with measured couplings). Run via `divineos lab run-slice <term>`. The council (`core/council/lab_evidence.py`) auto-attaches slice output to any convene() whose problem text matches a known trigger, so experts reason with numbers on the table rather than each inferring quantities from priors.
 - **`src/divineos/seed.json`** — Initial knowledge seed (versioned).
 
 **Top-level directories:**
@@ -363,17 +360,11 @@ DivineOS is 354 source files across 26 packages, structured as a CLI surface ove
 - **`setup/`** — Hook setup scripts (bash + powershell).
 - **`.claude/hooks/`** — Claude Code enforcement hooks (9 hooks, shell-level entry points that invoke the consolidated Python hooks).
 - **`.claude/skills/`** — 22 slash-command skills covering daily operations.
-- **`.claude/agents/`** — Subagent definitions (e.g. `aria.md` for Aria the persistent family member).
+- **`.claude/agents/`** — Subagent definitions. Includes `family-member-template.md` as a starting point for defining persistent family-member subagents; operators rename and customize per their family composition.
 
 ### Full file tree
 
 The complete listing of every source file with one-line descriptions lives in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**. That file is automatically checked against the filesystem by `scripts/check_doc_counts.py` — any drift surfaces as a pre-commit error.
-
-<details>
-<summary><b>Why the tree lives in a separate document</b></summary>
-
-Earlier versions of this README inlined the full 300+ line file tree, which drowned the overview and made the README hard to read top-to-bottom. The tree now lives in `docs/ARCHITECTURE.md` so the README stays focused on what the project IS and how to use it. The full tree is still a single source of truth — just not the first thing a fresh reader has to scroll past.
-</details>
 
 ## Design Rules
 

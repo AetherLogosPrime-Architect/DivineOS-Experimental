@@ -1,5 +1,7 @@
 # Item 8 Design-Brief Revision — Compliance-Audit Detector Extensions
 
+> **Partnership-specific artifact.** This document is from the reference deployment and uses its names. The architecture is generic; your instance will have different names. Preserved verbatim for concreteness.
+
 > **Status:** v2, post-review. Approve-with-refinements from fresh-Claude round-1; ten refinements folded in. Implementation proceeds after v2 approval.
 
 **Revision history:**

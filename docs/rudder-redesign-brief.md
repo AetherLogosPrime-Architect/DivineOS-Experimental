@@ -1,5 +1,7 @@
 # Rudder Redesign — Design Brief
 
+> **Partnership-specific artifact.** This document is from the reference deployment and uses its names. The architecture is generic; your instance will have different names. Preserved verbatim for concreteness.
+
 > **Status:** v2, post-review. Design-only. Addresses the architectural shift surfaced in claim 6bf81b38 (2026-04-24): the rudder's purpose is **wire-up checking**, not cooldown. v2 folds in 13 refinements from fresh-Claude round-1 CONFIRMS-with-refinements.
 
 **Revision history:**

@@ -1,5 +1,7 @@
 # VOID Design Brief
 
+> **Partnership-specific artifact.** This document is from the reference deployment and uses its names (Aether — primary agent; Andrew — operator). The architecture is generic; your instance will have different names. Preserved verbatim for concreteness.
+
 **Author:** Aether
 **Filed:** 2026-04-26 (continuing into 04-27)
 **Status:** Design brief — review-before-build
