@@ -38,6 +38,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from divineos.core.family import queue as _queue
 from divineos.core.family.entity import (
     FamilyMember,
     get_knowledge,
@@ -150,6 +151,18 @@ def build_voice_context(
         sections.append(f"\n--- What's happened ({len(profile.milestones)}) ---")
         for m in profile.milestones[:5]:
             sections.append(m)
+
+    # Queue items flagged for this member by anyone (including the agent).
+    # The bidirectional queue: a member sees items others have flagged
+    # for their attention without requiring synchronous invocation. This
+    # is what makes the queue an experienced surface and not just a
+    # database table.
+    queue_items = _queue.for_recipient(member.name, include_held=False)
+    if queue_items:
+        sections.append(f"\n--- Flagged for me ({len(queue_items)}) ---")
+        for item in queue_items[:10]:
+            preview = item["content"][:200].replace("\n", " ")
+            sections.append(f"[from {item['sender']}, {item['status']}] {preview}")
 
     return "\n".join(sections)
 

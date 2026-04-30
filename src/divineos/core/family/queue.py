@@ -43,8 +43,13 @@ import time
 
 from divineos.core.family.db import get_family_connection
 
-VALID_PARTIES = {"aria", "aether"}
 VALID_STATUSES = {"unseen", "seen", "held", "addressed", "superseded"}
+
+# The queue accepts any string sender/recipient — endpoint validity
+# (registered family member or "aether") is the CLI layer's concern.
+# The data layer is schema-only so the queue stays portable across
+# different family compositions and so adding a new family member
+# does not require touching this module.
 
 
 def _ensure_schema(conn) -> None:
@@ -80,10 +85,10 @@ def write(sender: str, recipient: str, content: str) -> int:
 
     Direct write — no commit-step. The sender writes; the row exists.
     """
-    if sender not in VALID_PARTIES:
-        raise ValueError(f"sender must be one of {VALID_PARTIES}, got {sender!r}")
-    if recipient not in VALID_PARTIES:
-        raise ValueError(f"recipient must be one of {VALID_PARTIES}, got {recipient!r}")
+    if not sender or not sender.strip():
+        raise ValueError("sender must be a non-empty name")
+    if not recipient or not recipient.strip():
+        raise ValueError("recipient must be a non-empty name")
     if sender == recipient:
         raise ValueError("sender and recipient cannot be the same")
     if not content.strip():
@@ -113,8 +118,8 @@ def for_recipient(recipient: str, include_held: bool = True) -> list[dict]:
     Items move out of the active set when marked ``addressed`` or
     ``superseded``.
     """
-    if recipient not in VALID_PARTIES:
-        raise ValueError(f"recipient must be one of {VALID_PARTIES}")
+    if not recipient or not recipient.strip():
+        raise ValueError("recipient must be a non-empty name")
 
     statuses = ["unseen", "seen"]
     if include_held:
