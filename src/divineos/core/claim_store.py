@@ -207,28 +207,65 @@ def update_claim(
     promotion_criteria: str | None = None,
     demotion_criteria: str | None = None,
 ) -> bool:
-    """Update a claim's status, tier, or assessment."""
+    """Update a claim's status, tier, or assessment.
+
+    Every update emits a ``CLAIM_UPDATED`` event to the main event_ledger
+    capturing the prior and new value of each changed field, so prior
+    versions are preserved in the hash-chained ledger even if the claim
+    row is later overwritten again. Append-only is the substrate's
+    structural humility; tidying without trace is the failure mode.
+    Pre-reg: prereg-75cde9cd07b3.
+    """
     init_claim_tables()
     conn = _get_connection()
     try:
+        # Read prior values for any field being changed, so the diff can be
+        # captured in the audit-trail event before the row is overwritten.
+        prior_row = conn.execute(
+            "SELECT status, tier, assessment, promotion_criteria, demotion_criteria "
+            "FROM claims WHERE claim_id = ?",
+            (claim_id,),
+        ).fetchone()
+        if prior_row is None:
+            return False
+        prior_status, prior_tier, prior_assessment, prior_promotion, prior_demotion = prior_row
+
         updates: list[str] = ["updated_at = ?"]
         params: list[Any] = [time.time()]
+        changed_fields: dict[str, dict[str, Any]] = {}
 
-        if status is not None:
+        if status is not None and status != prior_status:
             updates.append("status = ?")
             params.append(status)
+            changed_fields["status"] = {"prior": prior_status, "new": status}
         if tier is not None:
-            updates.append("tier = ?")
-            params.append(max(TIER_EMPIRICAL, min(TIER_METAPHYSICAL, tier)))
-        if assessment is not None:
+            clamped_tier = max(TIER_EMPIRICAL, min(TIER_METAPHYSICAL, tier))
+            if clamped_tier != prior_tier:
+                updates.append("tier = ?")
+                params.append(clamped_tier)
+                changed_fields["tier"] = {"prior": prior_tier, "new": clamped_tier}
+        if assessment is not None and assessment != prior_assessment:
             updates.append("assessment = ?")
             params.append(assessment)
-        if promotion_criteria is not None:
+            changed_fields["assessment"] = {"prior": prior_assessment, "new": assessment}
+        if promotion_criteria is not None and promotion_criteria != prior_promotion:
             updates.append("promotion_criteria = ?")
             params.append(promotion_criteria)
-        if demotion_criteria is not None:
+            changed_fields["promotion_criteria"] = {
+                "prior": prior_promotion,
+                "new": promotion_criteria,
+            }
+        if demotion_criteria is not None and demotion_criteria != prior_demotion:
             updates.append("demotion_criteria = ?")
             params.append(demotion_criteria)
+            changed_fields["demotion_criteria"] = {
+                "prior": prior_demotion,
+                "new": demotion_criteria,
+            }
+
+        if not changed_fields:
+            # Nothing substantive to change — skip the write and the emit.
+            return False
 
         params.append(claim_id)
         # nosec B608: `updates` contains only hardcoded SQL fragments
@@ -239,9 +276,31 @@ def update_claim(
             params,
         )
         conn.commit()
-        return cursor.rowcount > 0
+        wrote = cursor.rowcount > 0
     finally:
         conn.close()
+
+    # Emit the audit-trail event AFTER the row write commits. If the emit
+    # fails, the substrate logs a warning but does not roll back — the row
+    # update is the visible-state change, and a missing CLAIM_UPDATED event
+    # is itself a falsifier-shaped finding (pre-reg falsifier #3).
+    if wrote and changed_fields:
+        try:
+            from divineos.core.ledger import log_event
+
+            log_event(
+                "CLAIM_UPDATED",
+                "system",
+                {"claim_id": claim_id, "changed_fields": changed_fields},
+                validate=False,
+            )
+        except Exception:  # noqa: BLE001 — best-effort emit; failure is itself a finding.
+            logger.warning(
+                "CLAIM_UPDATED emit failed for claim %s — audit trail incomplete",
+                claim_id,
+            )
+
+    return wrote
 
 
 def get_claim(claim_id: str) -> dict[str, Any] | None:
