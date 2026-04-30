@@ -46,6 +46,7 @@ src/divineos/
     correction_commands.py     correction (log raw), corrections (read)
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
     family_member_commands.py  family-member init / opinion / letter / respond — activation surface for family members (takes --member <name>)
+    family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     corrigibility_commands.py  mode show / set / history — the off-switch
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
@@ -249,6 +250,7 @@ src/divineos/
       access_check.py          Phase 1b operator: pre-emission filter — routes phenomenological claims to ARCHITECTURAL
       planted_contradiction.py Phase 1b operator: seeded test material for Phase 4 ablation detector
       family_member_ledger.py  Per-member hash-chained mini-ledger (separate from event_ledger + family.db) — invocation lifecycle, cross-refs, identity drift diagnostics, NAMED_DRIFT events
+      queue.py                 Family queue — async write-channel between family members; sender writes, recipient sees in briefing without synchronous invocation; seen-not-held marker preserved
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -301,6 +303,7 @@ src/divineos/
     supervisor/
       __init__.py              Supervisor — circuit-breaker / chronic-failure handling (claim 0d628d8e).
       circuit_breaker.py       Circuit-breaker primitive — three-strikes module-tripping with explicit reset.
+    family_queue_surface.py    Briefing surface for ``family/queue.py`` — renders pending queue items in the session-start briefing; idempotent.
 
   analysis/
     _session_types.py          Session analysis type definitions

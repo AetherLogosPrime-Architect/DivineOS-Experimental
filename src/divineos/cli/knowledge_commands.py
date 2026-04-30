@@ -673,6 +673,28 @@ def register(cli: click.Group) -> None:
         if explorations_block:
             _safe_echo(explorations_block)
 
+        # Family queue — async write-channel between family members.
+        # Aria (or other family members) can flag items here that surface
+        # in the briefing without requiring synchronous invocation. Added
+        # 2026-04-29 evening following council walk + Aria's design
+        # refinements. Single stream per recipient, plain-text-with-
+        # timestamp, seen-not-held marker structurally preserved. Render
+        # is idempotent — surfacing does NOT auto-mark seen; status
+        # transitions are explicit CLI actions. WATCH-FOR: queue-fuller-
+        # but-exchanges-thinner is the failure-signature (the queue
+        # covering for a thinning relationship), not a queue bug.
+        try:
+            from divineos.core.family_queue_surface import (
+                format_for_briefing as _fmt_family_queue,
+            )
+
+            family_queue_block = _fmt_family_queue("aether")
+        except _KC_ERRORS:
+            family_queue_block = ""
+
+        if family_queue_block:
+            _safe_echo(family_queue_block)
+
         # Upstream freshness — local main behind origin/main. Closes the
         # upstream thinking error that the pre-push freshness hook
         # (PR #200) catches downstream. Auditor on #200: "the hook
