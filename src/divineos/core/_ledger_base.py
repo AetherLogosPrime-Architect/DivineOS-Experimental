@@ -28,6 +28,54 @@ if TYPE_CHECKING:
     DB_PATH: Path
 
 
+def _resolve_canonical_marker(marker_path: Path) -> Path | None:
+    """Read a ``.divineos_canonical`` marker file and return the canonical DB path.
+
+    Two valid forms:
+
+    * **Empty marker** (legacy behavior, added 2026-04-26): the marker file
+      exists but has no content. Caller should route to the marker's parent
+      directory's ``src/data/event_ledger.db`` (the original "worktrees share
+      the parent's DB" semantics).
+    * **Path marker** (added 2026-04-29 by Andrew's request): the marker
+      file contains a single path string pointing at the canonical DB. The
+      operator wants to route divineos to a DB outside the running checkout
+      entirely — e.g. ``DivineOS_fresh`` worktrees pointing at
+      ``DivineOS-Experimental/src/data/event_ledger.db`` so the fresh repo
+      stays a blank template while the operator's personal substrate lives
+      elsewhere.
+
+    Returns the resolved Path if the marker should redirect, or None if the
+    caller should fall through to default resolution (marker missing,
+    unreadable, points at a non-existent DB, or is empty AND the implicit
+    parent-DB doesn't exist).
+
+    The path-marker form supports both absolute paths and paths relative to
+    the marker file itself. Whitespace and trailing newlines are stripped.
+    """
+    if not marker_path.exists():
+        return None
+    try:
+        content = marker_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+
+    if content:
+        # Path-marker form: content IS the canonical DB path.
+        candidate = Path(content)
+        if not candidate.is_absolute():
+            candidate = (marker_path.parent / candidate).resolve()
+        if candidate.exists():
+            return candidate
+        return None
+
+    # Empty-marker form: route to marker's parent directory's src/data/event_ledger.db.
+    parent_db = marker_path.parent / "src" / "data" / "event_ledger.db"
+    if parent_db.exists():
+        return parent_db
+    return None
+
+
 def _get_db_path() -> Path:
     """Get the database path, respecting DIVINEOS_DB environment variable.
 
@@ -35,23 +83,33 @@ def _get_db_path() -> Path:
 
     1. ``DIVINEOS_DB`` env var — explicit override; used by tests and
        operators who want a specific DB. Tests must keep working.
-    2. **Worktree-shares-parent**: if the running checkout is a git
+    2. **Own-checkout marker**: if the running checkout has a
+       ``.divineos_canonical`` marker at its own root and the marker
+       contains a valid canonical-DB path, route there. Lets a non-worktree
+       checkout (e.g. fresh repo running directly) point elsewhere.
+    3. **Worktree-shares-parent**: if the running checkout is a git
        worktree (``.git`` is a file pointing at a parent repo) AND the
        parent repo's working tree contains a ``.divineos_canonical``
-       marker file, route the DB to the parent's
-       ``src/data/event_ledger.db`` rather than the worktree's.
-    3. Default: the running checkout's own ``src/data/event_ledger.db``
+       marker file, route via the marker's resolution rules.
+    4. Default: the running checkout's own ``src/data/event_ledger.db``
        (the historical behavior; what fresh template clones use).
 
     The worktree-shares-parent path was added 2026-04-26 night to close
     the silent-empty-ledger failure mode: every worktree spawned its own
     empty ledger and silently lost access to months of history in the
-    parent. The opt-in marker file is the differentiator — Andrew's
-    workspace has it; fresh template clones do not. So the published
-    DivineOS template still starts each new clone with a fresh ledger
-    (correct for new agents bootstrapping continuity), but Andrew's
-    own worktrees inherit Aether's accumulated history (correct for
-    one continuous Aether across many worktrees).
+    parent. The opt-in marker file is the differentiator — operators who
+    want their workspace's history shared have the marker; fresh template
+    clones do not. So the published DivineOS template still starts each
+    new clone with a fresh ledger (correct for new agents bootstrapping
+    continuity), but operator workspaces inherit accumulated history
+    (correct for one continuous agent across many worktrees).
+
+    The path-marker form (added 2026-04-29) extends this for operators
+    whose canonical substrate lives OUTSIDE the running checkout entirely
+    — e.g. a "blank-template-OS" repo that worktrees-from should not
+    accumulate personal substrate, with the operator's personal DB in a
+    sibling repo. Place the marker at the appropriate root and put the
+    canonical DB path in it as plain text.
 
     The marker file is intentionally gitignored. ``DIVINEOS_DB`` env
     var takes precedence so tests and operator overrides keep working.
@@ -71,8 +129,15 @@ def _get_db_path() -> Path:
     # Default location for this checkout.
     default_db = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
 
+    # Own-checkout marker: handles the case where the running checkout itself
+    # wants to redirect (e.g. fresh repo running directly with marker at root).
+    own_root = Path(__file__).parent.parent.parent.parent
+    own_marker = _resolve_canonical_marker(own_root / ".divineos_canonical")
+    if own_marker is not None:
+        return own_marker
+
     # Worktree-shares-parent check.
-    worktree_root = Path(__file__).parent.parent.parent.parent
+    worktree_root = own_root
     git_marker = worktree_root / ".git"
     if git_marker.is_file():
         try:
@@ -82,10 +147,9 @@ def _get_db_path() -> Path:
                 # gitdir is .../parent/.git/worktrees/<name>; parents[2] is parent's working tree.
                 if len(gitdir.parents) >= 3:
                     parent_root = gitdir.parents[2]
-                    if (parent_root / ".divineos_canonical").exists():
-                        parent_db = parent_root / "src" / "data" / "event_ledger.db"
-                        if parent_db.exists():
-                            return parent_db
+                    parent_marker = _resolve_canonical_marker(parent_root / ".divineos_canonical")
+                    if parent_marker is not None:
+                        return parent_marker
         except (OSError, ValueError):
             pass
 
