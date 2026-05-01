@@ -18,12 +18,18 @@ Six phases:
   6. Dream Report — summary of what changed
 """
 
+import re
 import sqlite3
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
+
+# Pre-compiled at module load: detects "(session abcd1234)" suffix used by
+# tone-shift extraction in lessons.py. Used by _phase_recombination to skip
+# session-specific entries from cross-knowledge mining.
+_SESSION_SUFFIX_PATTERN = re.compile(r"\(session [a-f0-9]{6,16}\)")
 
 _SLEEP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError, ImportError)
 
@@ -434,6 +440,35 @@ def _phase_recombination(report: DreamReport) -> None:
     from divineos.core.knowledge.edges import find_edge
 
     entries = get_knowledge(limit=5000, include_superseded=False)
+    if len(entries) < 2:
+        return
+
+    # 2026-05-01 fix: exclude session-specific entries from cross-knowledge
+    # recombination. Tone-shift PATTERN/MISTAKE entries embed verbatim user
+    # text and a "(session abc12345)" suffix; they cluster with each other
+    # AND with unrelated FACT-class entries because of shared boilerplate
+    # tokens. Recombination is supposed to surface TIMELESS connections;
+    # session-specific entries are particular to one session and should not
+    # participate. Filter by tag (session-*) and by content-pattern fallback.
+    def _is_session_specific_entry(entry: dict[str, Any]) -> bool:
+        tags = entry.get("tags", []) or []
+        if any(isinstance(t, str) and t.startswith("session-") for t in tags):
+            return True
+        if any(isinstance(t, str) and t in {"tone_shift", "tone_recovery"} for t in tags):
+            return True
+        # Content-pattern fallback for entries that lost their tags
+        content = entry.get("content") or ""
+        if _SESSION_SUFFIX_PATTERN.search(content.lower()):
+            return True
+        return False
+
+    pre_filter_count = len(entries)
+    entries = [e for e in entries if not _is_session_specific_entry(e)]
+    if pre_filter_count - len(entries) > 0:
+        logger.debug(
+            f"Recombination: filtered {pre_filter_count - len(entries)} session-specific entries",
+        )
+
     if len(entries) < 2:
         return
 
