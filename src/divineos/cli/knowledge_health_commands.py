@@ -340,7 +340,13 @@ def register(cli: click.Group) -> None:
                 content=digest_text,
                 confidence=1.0,
                 source_events=[],
-                tags=["digest", f"digest:{file_tag}"],
+                # `reference_only` tag: this entry is reference data (code/file
+                # inventory), not a timeless knowledge claim. It serves search
+                # (find what's in cli.py) but should NOT participate in
+                # cross-knowledge recombination during sleep — its boilerplate
+                # prefix would create spurious connection-magnets. See
+                # core/sleep.py _phase_recombination filter.
+                tags=["digest", f"digest:{file_tag}", "reference_only"],
             )
             click.secho(f"[+] Digest stored: {entry_id[:12]}...", fg="green")
             if superseded:
