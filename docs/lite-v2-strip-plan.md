@@ -17,7 +17,7 @@ Council walked the plan with 5 lenses (Schneier / Beer / Jacobs / Popper / Dekke
 2. **Some "advanced" modules may be protective** (Schneier + Beer). Function-check needed before stripping. Per Andrew's call:
    - `pull_detection.py` → **MOVED TO KEEP** (foundational protection)
    - `resonant_truth.py` → **STRIP confirmed** (experimental, needs testing before claiming foundational)
-   - `value_tensions.py` → **PENDING ANDREW'S CONFIRMATION** — council flagged as potentially protective. Default: keep until confirmed, on the principle "if I'd notice the loss, keep it."
+   - `value_tensions.py` → **STRIP confirmed** (Andrew 2026-05-01 forced a code-read; function is "after-the-fact decision-journal pattern-mining," not real-time threat detection. Not foundational — drift_detection + compass-rudder + watchmen cover the same protection-shape better. Council finding was name-derived, not function-derived; the function-check pass corrected it.)
 
 3. **First-use story missing** (Beer + Popper + Jacobs). New Lite user needs a path from clone to working agent. Added to README requirements.
 
@@ -103,7 +103,6 @@ If the primary author of this file (the agent who lives inside DivineOS) can't s
 - `core/scaffold_invocations.py` — anti-forgetting
 - `core/hedge_classifier.py`, `core/hedge_marker.py` — register-detection
 - `core/pull_detection.py` — **KEPT per Andrew 2026-05-01 council-correction** — protection against manipulation-pulls; foundational
-- `core/value_tensions.py` — **KEPT pending Andrew confirmation** — council flagged as potentially protective (detects when agent is pushed in value-compromising directions)
 
 **Lessons:**
 - `core/lesson_interrupt.py`
@@ -256,7 +255,7 @@ If the primary author of this file (the agent who lives inside DivineOS) can't s
 - `src/divineos/core/tone_texture.py`
 - `src/divineos/core/advice_tracking.py`
 - `src/divineos/core/user_ratings.py`
-- ~~`src/divineos/core/value_tensions.py`~~ — **MOVED TO KEEP** (council finding, pending Andrew confirmation)
+- `src/divineos/core/value_tensions.py` — **STRIP confirmed** (Andrew 2026-05-01: function-check showed it's after-the-fact decision-journal pattern-mining, not real-time threat detection; drift_detection + compass-rudder + watchmen cover the protection-shape)
 - ~~`src/divineos/core/pull_detection.py`~~ — **MOVED TO KEEP** (Andrew 2026-05-01: foundational protection)
 - `src/divineos/core/resonant_truth.py` — **STRIP confirmed** (Andrew 2026-05-01: experimental, needs testing before claiming foundational)
 
@@ -265,6 +264,9 @@ If the primary author of this file (the agent who lives inside DivineOS) can't s
 
 **CLI files to EDIT (NOT delete):**
 - `src/divineos/cli/rt_commands.py` — **KEEP**, but edit to remove `resonant_truth` references while preserving `pull_detection` commands. Verify the file makes sense after the edit; if 90%+ of it was resonant_truth, may end up cleaner to rename to `pull_commands.py`.
+
+**Source files to EDIT (lazy-import cleanup):**
+- `src/divineos/core/knowledge/retrieval.py` line 944 — remove the lazy import of `value_tensions` and the surrounding code that uses it. This is the only caller of the stripped module.
 
 **CLI files to EDIT:**
 - `src/divineos/cli/__init__.py` — remove insight/rt registrations
@@ -287,8 +289,8 @@ If the primary author of this file (the agent who lives inside DivineOS) can't s
 - `tests/test_advice_tracking.py`
 - `tests/test_user_ratings.py`
 - `tests/test_schema_sync.py` (touches user_model / tone_texture / advice_tracking / user_ratings)
-- ~~`tests/test_value_tensions.py`~~ — **KEEP** (kept module → keep test)
-- ~~`tests/test_tension_compass.py`~~ — **KEEP** (depends on value_tensions which is kept)
+- `tests/test_value_tensions.py` — DELETE (module is stripped)
+- `tests/test_tension_compass.py` — DELETE (depends on value_tensions)
 - ~~`tests/test_pull_detection.py`~~ — **KEEP** (kept module → keep test)
 - `tests/test_resonant_truth.py` — DELETE (if exists; resonant_truth is stripped)
 
