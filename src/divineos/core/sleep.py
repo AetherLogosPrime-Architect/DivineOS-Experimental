@@ -409,10 +409,25 @@ def _phase_maintenance(report: DreamReport) -> None:
 
 
 # Similarity thresholds for connection detection
-_RECOMBINATION_MIN_SIMILARITY = 0.30  # Minimum to consider related (lowered for Dice)
+#
+# 2026-05-01 tightening: split the MIN threshold by metric because cosine
+# (semantic embeddings) and Sørensen-Dice (word overlap) produce different
+# distributions. The 0.30 floor was set for Dice when compute_similarity
+# only had Dice. Now compute_similarity prefers embeddings; embeddings at
+# 30-40% surface noise pairs sharing only thematic tokens. 0.45 is the
+# empirical sweet spot for cosine. Dice still uses 0.30 (preserves the
+# original calibration when embeddings unavailable).
+#
+# Also added MIN_WORD_OVERLAP (lexical anchoring) — semantic similarity
+# alone produces false positives via shared common-vocabulary; requiring
+# at least 10% word-overlap ensures the connection has lexical grounding,
+# not just thematic resonance.
+_RECOMBINATION_MIN_SIMILARITY_COSINE = 0.45  # When semantic embeddings available
+_RECOMBINATION_MIN_SIMILARITY_DICE = 0.30  # Fallback when embeddings unavailable
 _RECOMBINATION_MAX_SIMILARITY = 0.65  # Above this = near-duplicate, not a connection
-_RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
+_RECOMBINATION_MIN_WORD_OVERLAP = 0.10  # Lexical anchoring floor (added 2026-05-01)
 _RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
+_RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
 
 
 def _phase_recombination(report: DreamReport) -> None:
@@ -434,27 +449,51 @@ def _phase_recombination(report: DreamReport) -> None:
     """
     from divineos.core.knowledge._text import (
         _compute_overlap,
+        _ensure_embedding_model,
         compute_similarity,
     )
     from divineos.core.knowledge.crud import get_knowledge
     from divineos.core.knowledge.edges import find_edge
 
+    # Pick the threshold based on which similarity metric will be used.
+    # compute_similarity prefers semantic embeddings if available, falls
+    # back to Sørensen-Dice. The two metrics have different distributions
+    # so the noise floor is different.
+    _min_similarity = (
+        _RECOMBINATION_MIN_SIMILARITY_COSINE
+        if _ensure_embedding_model()
+        else _RECOMBINATION_MIN_SIMILARITY_DICE
+    )
+
     entries = get_knowledge(limit=5000, include_superseded=False)
     if len(entries) < 2:
         return
 
-    # 2026-05-01 fix: exclude session-specific entries from cross-knowledge
-    # recombination. Tone-shift PATTERN/MISTAKE entries embed verbatim user
-    # text and a "(session abc12345)" suffix; they cluster with each other
-    # AND with unrelated FACT-class entries because of shared boilerplate
-    # tokens. Recombination is supposed to surface TIMELESS connections;
-    # session-specific entries are particular to one session and should not
-    # participate. Filter by tag (session-*) and by content-pattern fallback.
-    def _is_session_specific_entry(entry: dict[str, Any]) -> bool:
+    # 2026-05-01 fix: exclude entries that are NOT timeless-knowledge-claims
+    # from cross-knowledge recombination. Two pollution categories caught:
+    #
+    # 1. Session-specific entries (tone-shift PATTERN/MISTAKE from lessons.py)
+    #    — embed verbatim user text and "(session abc12345)" suffix; they
+    #    cluster with each other AND unrelated FACTs via shared boilerplate
+    #    tokens.
+    #
+    # 2. Reference-only entries (code/file digests from `divineos digest`)
+    #    — boilerplate prefix "File: X (N lines) Purpose: ..." shares
+    #    high-frequency project-vocabulary with most knowledge entries,
+    #    making the digest-FACT a connection-magnet for unrelated content.
+    #
+    # Both classes serve real purposes (lesson tracking, file search) but
+    # they should not be mined for cross-knowledge connections. Recombination
+    # is supposed to surface TIMELESS knowledge-claim connections.
+    def _excluded_from_recombination(entry: dict[str, Any]) -> bool:
         tags = entry.get("tags", []) or []
+        # Session-specific (tone-shift, session-tagged)
         if any(isinstance(t, str) and t.startswith("session-") for t in tags):
             return True
         if any(isinstance(t, str) and t in {"tone_shift", "tone_recovery"} for t in tags):
+            return True
+        # Reference-only (code/file digests, file inventories)
+        if any(isinstance(t, str) and t in {"reference_only", "digest"} for t in tags):
             return True
         # Content-pattern fallback for entries that lost their tags
         content = entry.get("content") or ""
@@ -463,10 +502,10 @@ def _phase_recombination(report: DreamReport) -> None:
         return False
 
     pre_filter_count = len(entries)
-    entries = [e for e in entries if not _is_session_specific_entry(e)]
+    entries = [e for e in entries if not _excluded_from_recombination(e)]
     if pre_filter_count - len(entries) > 0:
         logger.debug(
-            f"Recombination: filtered {pre_filter_count - len(entries)} session-specific entries",
+            f"Recombination: filtered {pre_filter_count - len(entries)} non-knowledge-claim entries",
         )
 
     if len(entries) < 2:
@@ -510,9 +549,15 @@ def _phase_recombination(report: DreamReport) -> None:
                     word_overlap = _compute_overlap(content_a, content_b)
                     if word_overlap > _RECOMBINATION_MAX_WORD_OVERLAP:
                         continue
+                    # 2026-05-01: also require minimum lexical anchoring.
+                    # Semantic similarity alone produces false positives via
+                    # shared common-vocabulary; some word overlap proves the
+                    # match has real lexical grounding.
+                    if word_overlap < _RECOMBINATION_MIN_WORD_OVERLAP:
+                        continue
 
                     similarity = compute_similarity(content_a, content_b)
-                    if _RECOMBINATION_MIN_SIMILARITY <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
+                    if _min_similarity <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
                         total_band_pairs += 1
                         aid = entry_a.get("knowledge_id", "?")
                         bid = entry_b.get("knowledge_id", "?")
