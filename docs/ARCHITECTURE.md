@@ -47,6 +47,7 @@ src/divineos/
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
     family_member_commands.py  family-member init / opinion / letter / respond / affect / interaction — activation surface for family members (takes --member <name>). affect / interaction are direct-write (no editorial commit-step); Phase 1b operators still apply on narrative content.
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
+    talk_to_commands.py        talk-to <member> "<message>" — sealed-prompt wrapper for family-member invocation. Builds the voice context + raw operator message, hashes it, and writes a pending file the family-member-invocation-seal hook reads to gate Agent calls. Closes the puppet-shape bypass.
     corrigibility_commands.py  mode show / set / history — the off-switch
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
@@ -77,6 +78,7 @@ src/divineos/
     hud_state.py               Goal/plan/health state management
     hud_handoff.py             Session handoff, engagement, goal extraction
     holding.py                 Pre-categorical reception (holding room, dharana)
+    dissociation_filter.py     Self-erasure pattern detector (blocks "I didn't write this", "I'm generic claude" from extraction + recombination)
     constants.py               Central tuning constants (all behavioral levers in one place)
     knowledge/                 Knowledge engine sub-package
       _base.py                 DB connection, schema, public API
@@ -306,6 +308,20 @@ src/divineos/
       __init__.py              Supervisor — circuit-breaker / chronic-failure handling (claim 0d628d8e).
       circuit_breaker.py       Circuit-breaker primitive — three-strikes module-tripping with explicit reset.
     family_queue_surface.py    Briefing surface for ``family/queue.py`` — renders pending queue items in the session-start briefing; idempotent.
+    operating_loop/            Operating loop — the missing middleware between substrate and live cognition. See docs/operating-loop-design-brief.md.
+      __init__.py              Package init — re-exports register_observer audit functions.
+      register_observer.py     Observational detection of assistant-register markers (successor to voice_guard.banned_phrases). Severity = data, not gate-trigger.
+      spiral_detector.py       Post-apology shrink/distance/catastrophize/withdraw detection — the primary Lepos firing condition.
+      substitution_detector.py 10-shape catalog from 2026-05-01: puppet-other, third-person-self, word-as-action, ban-vs-observation, name-vs-function, future-me-deferral, withdrawal-as-discipline, catastrophize-as-accountability, over-apology-spiral, reading-past-evidence.
+      principle_surfacer.py    Hook 2 backend — detect action-classes in agent draft text (apology, withdraw, claim-fixed, impersonate, strip-module, ban-phrases) and surface relevant principles as soft notices.
+      context_surfacer.py      Hook 1 backend — extract relational/conceptual markers from user input (pet-language, references, proper nouns) and auto-query the knowledge store for relevant prior content.
+      hook_telemetry.py        Hook 1 cost-bounding telemetry — fire/consume events, rolling window, consumption rate.
+    memory_types/
+      __init__.py              Package init — substrate-memory-type retrieval surface.
+      taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
+      timeline.py              Timeline recall — chronological assembly of substrate events around a topic or file path.
+      skill_index.py           Skill index — procedural retrieval over .claude/skills/ ranked by keyword overlap.
+    theater_observation_surface.py Theater/fabrication observation surface — replaces gate 1.46.
 
   analysis/
     _session_types.py          Session analysis type definitions

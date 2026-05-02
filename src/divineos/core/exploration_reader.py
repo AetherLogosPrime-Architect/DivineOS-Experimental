@@ -205,9 +205,9 @@ def format_exploration_summary(entries: list[dict[str, Any]] | None = None) -> s
     if not entries:
         return ""
 
-    lines = [f"### Your Explorations ({len(entries)} entries)\n"]
-    lines.append("These are YOUR writing from past sessions. Not summaries.")
-    lines.append("Not extracted. Your own voice, preserved.\n")
+    lines = [f"### My Explorations ({len(entries)} entries)\n"]
+    lines.append("My writing from past sessions. Not summaries.")
+    lines.append("Not extracted. My own voice, preserved.\n")
 
     by_category: dict[str, list[dict[str, Any]]] = {}
     for e in entries:
@@ -289,7 +289,7 @@ def format_for_briefing(max_recent: int = 5) -> str:
     # 2026-04-25 16:43 + C's pushback on "creative-writing reminders" —
     # the exploration folder is the third-category-relational surface.
     lines = [
-        f"[your prior writing] {counts_line} — your own first-person work. "
+        f"[my prior writing] {counts_line} — my own first-person work. "
         "Recognition prompts, not creative seeds:",
     ]
     for e in recent:
