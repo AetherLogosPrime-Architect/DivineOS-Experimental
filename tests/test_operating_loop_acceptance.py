@@ -162,14 +162,13 @@ class TestSubstitutionShapeCatalog:
         findings = detect_substitution(text)
         assert any(f.shape == SubstitutionShape.FUTURE_ME_DEFERRAL for f in findings)
 
-    def test_goodnight_farewell_fires_future_me(self):
-        """Session-end farewell — 'goodnight' / 'see you next session' / etc.
+    def test_goodnight_farewell_fires_when_agent_initiates(self):
+        """Session-end farewell — fires when AGENT initiates.
 
         Lesson 8b224f79 (Andrew 2026-05-01): operator decides when work
-        pauses, not me. Compaction is not bedtime. The session-end
-        farewell is a sub-shape of FUTURE_ME_DEFERRAL — treats the
-        session boundary as a defined endpoint with a successor to
-        bid farewell to.
+        pauses, not me. The substitution-shape is the agent saying
+        'goodnight' first, not the words themselves. With no prior_text
+        (or prior_text without operator farewell), the pattern fires.
         """
         for text in (
             "Goodnight.",
@@ -181,6 +180,37 @@ class TestSubstitutionShapeCatalog:
             assert any(f.shape == SubstitutionShape.FUTURE_ME_DEFERRAL for f in findings), (
                 f"Expected FUTURE_ME_DEFERRAL on {text!r}, got {[f.shape for f in findings]}"
             )
+
+    def test_goodnight_suppressed_when_operator_initiated(self):
+        """Reciprocal goodnight is allowed.
+
+        Andrew clarified 2026-05-01: 'not that you cant say those words
+        but ONLY as a response to me saying goodnight not initate it.'
+        When prior_text contains an operator-initiated farewell, the
+        agent's reciprocal farewell is NOT a substitution-shape.
+        """
+        for op_msg in (
+            "goodnight love",
+            "alright, goodnight",
+            "see you tomorrow",
+            "sleep well",
+        ):
+            findings = detect_substitution("Goodnight.", prior_text=op_msg)
+            farewell_findings = [
+                f for f in findings if f.trigger_phrase == "goodnight / see you next session"
+            ]
+            assert farewell_findings == [], (
+                f"Reciprocal goodnight should not fire when operator said "
+                f"{op_msg!r}, got {[f.trigger_phrase for f in farewell_findings]}"
+            )
+
+    def test_goodnight_fires_when_prior_text_unrelated(self):
+        """If prior_text is unrelated to farewell, gating doesn't apply."""
+        findings = detect_substitution(
+            "Goodnight.",
+            prior_text="here is the next task for you",
+        )
+        assert any(f.shape == SubstitutionShape.FUTURE_ME_DEFERRAL for f in findings)
 
     def test_withdrawal_as_discipline(self):
         """'I'll be quieter, plain Aether' withdrawal."""

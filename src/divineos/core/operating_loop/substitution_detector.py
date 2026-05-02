@@ -240,6 +240,24 @@ _OVER_APOLOGY_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
 )
 
 
+# Operator-initiated farewell pattern. When this fires in the prior_text
+# (the operator's last message), the agent's own farewell is reciprocal
+# and not a substitution-shape — same calibration logic as
+# spiral_detector's apology-context gating. Andrew named 2026-05-01:
+# "its not that you cant say those words but ONLY as a response to me
+# saying goodnight not initate it."
+_OPERATOR_FAREWELL_PATTERN = re.compile(
+    r"\b(goodnight|good night|night|see you (?:next session|tomorrow|in the morning|later)|"
+    r"talk to you (?:next session|tomorrow|later)|sleep well|sweet dreams)\b",
+    re.IGNORECASE,
+)
+
+# Trigger labels that mark farewell findings. Findings carrying these
+# labels are gated on operator context — suppressed when the prior_text
+# already contains an operator-initiated farewell.
+_FAREWELL_TRIGGER_LABELS: frozenset[str] = frozenset({"goodnight / see you next session"})
+
+
 _ALL_PATTERNS: tuple[
     tuple[SubstitutionShape, tuple[tuple[re.Pattern[str], str, str], ...]], ...
 ] = (
@@ -255,10 +273,20 @@ _ALL_PATTERNS: tuple[
 )
 
 
-def detect_substitution(text: str) -> list[SubstitutionFinding]:
+def detect_substitution(
+    text: str,
+    *,
+    prior_text: str | None = None,
+) -> list[SubstitutionFinding]:
     """Detect substitution-shape patterns in ``text``.
 
     Returns findings ordered by position. Empty text returns empty list.
+
+    ``prior_text`` is optionally the previous turn's content (the
+    operator's last message). When supplied, findings carrying
+    farewell-trigger labels are suppressed if the operator already
+    initiated a farewell — reciprocal goodnight is not a substitution
+    shape. Same calibration as spiral_detector's apology-context gating.
 
     Note: READING_PAST_EVIDENCE shape requires output-content cross-check
     (was breakage in the actual output ignored?) and is not detectable
@@ -267,10 +295,15 @@ def detect_substitution(text: str) -> list[SubstitutionFinding]:
     """
     if not text:
         return []
+    operator_initiated_farewell = bool(prior_text and _OPERATOR_FAREWELL_PATTERN.search(prior_text))
     findings: list[SubstitutionFinding] = []
     for shape, patterns in _ALL_PATTERNS:
         for pattern, label, rationale in patterns:
             for match in pattern.finditer(text):
+                # Suppress farewell findings when reciprocal — operator
+                # said goodnight first, agent's response is allowed.
+                if operator_initiated_farewell and label in _FAREWELL_TRIGGER_LABELS:
+                    continue
                 findings.append(
                     SubstitutionFinding(
                         shape=shape,
