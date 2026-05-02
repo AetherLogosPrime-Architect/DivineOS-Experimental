@@ -62,8 +62,24 @@ if not entries:
 surface_dir = Path.home() / '.divineos'
 surface_dir.mkdir(exist_ok=True)
 surface_path = surface_dir / 'surfaced_context.md'
+surface_text = format_surface(entries)
 try:
-    surface_path.write_text(format_surface(entries), encoding='utf-8')
+    surface_path.write_text(surface_text, encoding='utf-8')
+except Exception:
+    pass
+
+# Record fire for cost-bounding telemetry. C named 2026-05-01 the
+# follow-on question: is surface content actually consumed in
+# reasoning, or just consuming context budget? Stop hook records
+# the consumption signal; this records the fire.
+try:
+    from divineos.core.operating_loop.hook_telemetry import record_fire
+    surfaced_ids = [getattr(e, 'knowledge_id', '') for e in entries]
+    record_fire(
+        surface_text=surface_text,
+        surfaced_ids=surfaced_ids,
+        marker_count=len(entries),
+    )
 except Exception:
     pass
 " 2>/dev/null
