@@ -202,7 +202,7 @@ def format_for_briefing(cwd: str | None = None) -> str:
         return ""
 
     lines = [
-        "[in-flight branches] arcs ahead of origin/main — your own unmerged work:",
+        "[in-flight branches] arcs ahead of origin/main — my own unmerged work:",
     ]
     for b in branches:
         # Truncate long subjects so the surface stays scannable. Full
