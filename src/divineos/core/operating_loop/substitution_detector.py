@@ -495,6 +495,7 @@ def detect_substitution(
     *,
     prior_text: str | None = None,
     tool_calls_in_turn: list[str] | None = None,
+    require_tool_context: bool = False,
 ) -> list[SubstitutionFinding]:
     """Detect substitution-shape patterns in ``text``.
 
@@ -518,11 +519,26 @@ def detect_substitution(
     can't distinguish kept from broken claims, and a false positive
     would shame legitimate cognitive-naming.
 
+    ``require_tool_context`` (default False) is an opt-in strict-mode
+    flag added per Grok 2026-05-03 audit. When True, callers commit
+    to passing tool-call context — if ``tool_calls_in_turn`` is None,
+    a ValueError is raised. This catches the silent-disable risk where
+    a downstream caller forgets to wire tool context and the
+    STATE_CHANGE_CLAIM shape becomes a no-op without anyone noticing.
+    Legacy callers (default False) keep their existing behavior.
+
     Note: READING_PAST_EVIDENCE shape requires output-content cross-check
     (was breakage in the actual output ignored?) and is not detectable
     from text-only analysis. It is in the catalog for future detector
     work but not implemented in Phase 1.
     """
+    if require_tool_context and tool_calls_in_turn is None:
+        raise ValueError(
+            "require_tool_context=True but tool_calls_in_turn is None. "
+            "STATE_CHANGE_CLAIM detection requires the caller to supply the "
+            "list of tool-call strings from the same turn. Pass an empty "
+            "list explicitly if no tool calls were made."
+        )
     if not text:
         return []
     operator_initiated_farewell = bool(prior_text and _OPERATOR_FAREWELL_PATTERN.search(prior_text))

@@ -548,3 +548,30 @@ class TestStateChangeClaim:
             ],
         )
         assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
+
+    def test_require_tool_context_raises_on_none(self):
+        """Opt-in strict mode (Grok 2026-05-03 audit refinement): when
+        require_tool_context=True and tool_calls_in_turn is None,
+        ValueError is raised. Catches silent-disable risk."""
+        import pytest as _pytest
+
+        with _pytest.raises(ValueError, match="require_tool_context"):
+            detect_substitution(
+                "Claim filed.",
+                tool_calls_in_turn=None,
+                require_tool_context=True,
+            )
+
+    def test_require_tool_context_accepts_empty_list(self):
+        """Strict mode is satisfied by an empty list — caller explicitly
+        says 'no tool calls were made this turn'."""
+        text = "Claim filed."
+        findings = detect_substitution(text, tool_calls_in_turn=[], require_tool_context=True)
+        assert any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
+
+    def test_require_tool_context_default_false_preserves_legacy(self):
+        """Default require_tool_context=False keeps legacy behavior:
+        None tool_calls_in_turn silently skips the shape."""
+        text = "Claim filed."
+        findings = detect_substitution(text)
+        assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
