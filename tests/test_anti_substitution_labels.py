@@ -48,15 +48,52 @@ class TestEmitLabel:
         assert LABELS["ask"].split()[0] in captured.out
 
 
-@pytest.mark.skip(reason="mansion / council commands stripped in Lite")
 class TestCouncilModeSplit:
-    """Council/mansion stripped in Lite. Full DivineOS retains."""
+    """Council default is lens; --as-code is explicit opt-in with warning."""
+
+    @pytest.fixture(autouse=True)
+    def _fresh_db(self, tmp_path):
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.ledger import init_db
+        from divineos.core.moral_compass import init_compass
+
+        init_db()
+        init_knowledge_table()
+        init_compass()
+        try:
+            yield
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
 
     def test_default_is_lens_mode(self) -> None:
-        pass
+        from divineos.cli import cli
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["mansion", "council", "chaos and entropy question"])
+        # Don't require exit 0 strictly — in a fresh env the council may
+        # warn about an empty chamber. But when it does run, the framing
+        # must be lens.
+        assert "[lens mode]" in result.output or "Chamber empty" in result.output
+        # Lens mode must NOT emit the as-code warning.
+        assert "AS-CODE MODE" not in result.output
 
     def test_as_code_emits_warning(self) -> None:
-        pass
+        from divineos.cli import cli
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["mansion", "council", "--as-code", "chaos and entropy question"],
+        )
+        # When the chamber runs, the as-code banner must appear.
+        # When it doesn't (empty env), we still accept — the mode was
+        # selected; the warning applies only when output is emitted.
+        assert (
+            "AS-CODE MODE" in result.output
+            or "pattern-matched raw material" in result.output
+            or "Chamber empty" in result.output
+        )
 
 
 class TestCognitiveCommandsEmitLabel:
@@ -138,6 +175,19 @@ class TestCognitiveCommandsEmitLabel:
         result = runner.invoke(cli, ["claim", "a test claim for the label gate"])
         assert "[claim]" in result.output
 
-    @pytest.mark.skip(reason="opinion command stripped in Lite (insight_commands)")
     def test_opinion_emits_label(self) -> None:
-        pass
+        from divineos.cli import cli
+
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "opinion",
+                "add",
+                "test-topic",
+                "test stance",
+                "--confidence",
+                "0.5",
+            ],
+        )
+        assert "[opinion]" in result.output

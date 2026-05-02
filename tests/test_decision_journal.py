@@ -200,15 +200,29 @@ class TestDecisionCLI:
         assert "Decision recorded" in result.output
 
     def test_decide_with_weight(self):
-        """Weight-3 records as paradigm shift. Council-gate removed in
-        Lite, so the test no longer mocks consultation lookup."""
+        """Weight-3 requires --consultation (gate 4). Provide a mocked
+        consultation so this test exercises the weight-labeling path, not
+        the council-gate rejection (which has dedicated tests)."""
+        from unittest.mock import patch
+
         from divineos.cli import cli
 
         runner = CliRunner()
-        result = runner.invoke(
-            cli,
-            ["decide", "Paradigm shift", "--weight", "3"],
-        )
+        with patch(
+            "divineos.core.council.consultation_log._fetch_consultation_payload",
+            return_value={"consultation_id": "consult-w3", "question": "q"},
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "decide",
+                    "Paradigm shift",
+                    "--weight",
+                    "3",
+                    "--consultation",
+                    "consult-w3",
+                ],
+            )
         assert result.exit_code == 0
         assert "paradigm shift" in result.output
 
@@ -239,14 +253,30 @@ class TestDecisionCLI:
         assert "No paradigm shifts" in result.output
 
     def test_decisions_show(self):
-        """Weight-3 path. Council-gate removed in Lite, no mock needed."""
+        """Weight-3 requires --consultation; mock the lookup so the test
+        exercises the show path, not the council-gate rejection."""
+        from unittest.mock import patch
+
         from divineos.cli import cli
 
         runner = CliRunner()
-        result = runner.invoke(
-            cli,
-            ["decide", "Important choice", "--why", "Full reasoning here", "--weight", "3"],
-        )
+        with patch(
+            "divineos.core.council.consultation_log._fetch_consultation_payload",
+            return_value={"consultation_id": "consult-show", "question": "q"},
+        ):
+            result = runner.invoke(
+                cli,
+                [
+                    "decide",
+                    "Important choice",
+                    "--why",
+                    "Full reasoning here",
+                    "--weight",
+                    "3",
+                    "--consultation",
+                    "consult-show",
+                ],
+            )
         assert result.exit_code == 0
 
         # List and verify show works

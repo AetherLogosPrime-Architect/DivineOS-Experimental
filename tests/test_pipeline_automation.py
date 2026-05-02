@@ -1,7 +1,5 @@
 """Tests for pipeline automation: auto-distill, auto-warrant, auto-context briefing."""
 
-import pytest
-
 from divineos.core.knowledge import _get_connection, init_knowledge_table, store_knowledge
 from divineos.core.ledger import init_db
 
@@ -114,10 +112,8 @@ class TestAutoDistill:
 
 
 class TestAutoWarrantBackfill:
-    """Phase 5f: new entries get INHERITED warrants automatically.
-    Lite: logic.warrants stripped — class kept as placeholder."""
+    """Phase 5f: new entries get INHERITED warrants automatically."""
 
-    @pytest.mark.skip(reason="logic.warrants stripped in Lite")
     def test_new_entry_gets_warrant(self, tmp_path, monkeypatch):
         _setup(tmp_path, monkeypatch)
         # Create warrant table

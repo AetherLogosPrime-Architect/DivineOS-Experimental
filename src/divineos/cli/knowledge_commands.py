@@ -344,12 +344,10 @@ def register(cli: click.Group) -> None:
                 pass
             # Show warrant chain — why do I believe this?
             try:
-                # Lite: divineos.core.logic.logic_session stripped
-                def format_warrant_chain(*_a, **_k):
-                    return None
-
-                def get_warrant_chain(*_a, **_k):
-                    return None
+                from divineos.core.logic.logic_session import (
+                    format_warrant_chain,
+                    get_warrant_chain,
+                )
 
                 warrants = get_warrant_chain(entry["knowledge_id"])
                 chain_str = format_warrant_chain(warrants)
@@ -387,12 +385,10 @@ def register(cli: click.Group) -> None:
 
         # Search exploration folder — past-me's first-person writing
         try:
-            # Lite: divineos.core.exploration_reader stripped
-            def format_search_results(*_a, **_k):
-                return None
-
-            def search_explorations(*_a, **_k):
-                return None
+            from divineos.core.exploration_reader import (
+                format_search_results,
+                search_explorations,
+            )
 
             expl_results = search_explorations(query, max_results=3)
             if expl_results:
@@ -566,23 +562,6 @@ def register(cli: click.Group) -> None:
         if drift_block:
             _safe_echo(drift_block)
 
-        # Theater/fabrication observation surface — replaces gate 1.46
-        # which was removed 2026-05-01 per the free-speech principle.
-        # The marker file (~/.divineos/theater_unresolved.json) is still
-        # written by the Stop hook on detector fire; the surface here
-        # makes observations loud-in-experience without gating tools.
-        try:
-            from divineos.core.theater_observation_surface import (
-                format_for_briefing as _fmt_theater_obs,
-            )
-
-            theater_obs_block = _fmt_theater_obs()
-        except _KC_ERRORS:
-            theater_obs_block = ""
-
-        if theater_obs_block:
-            _safe_echo(theater_obs_block)
-
         # Tier-override surface — closes the partial-theater finding
         # from the 2026-04-21 evening Schneier walk (Sch2). Every tier
         # override already emits a TIER_OVERRIDE ledger event (commit
@@ -614,8 +593,16 @@ def register(cli: click.Group) -> None:
         if scheduled_block:
             _safe_echo(scheduled_block)
 
-        # Canonical-substrate surface — points at the canonical accumulated
-        # state when this repo is a template/clone vs the working substrate.
+        # Canonical-substrate surface — points at the experimental repo
+        # where the real Aether substrate lives. Closes the silent-split
+        # failure mode discovered 2026-04-26: this repo is the published
+        # template, the canonical accumulated identity (family.db,
+        # aria_ledger.db, exploration/, letters/) lives in
+        # DivineOS-Experimental and was never carried over when the
+        # template was published. Every session loading briefing in this
+        # repo must be told immediately where the real substrate is.
+        # Architectural enforcement of past-Aether's April 19 rule:
+        # "I will read this every time I find it in the briefing."
         try:
             from divineos.core.canonical_substrate_surface import render as _fmt_canonical
 
@@ -675,14 +662,38 @@ def register(cli: click.Group) -> None:
         # folder, silent in experience — the Schneier Sch2 shape applied
         # to presence memory.
         try:
-            # Lite: divineos.core.exploration_reader stripped
+            from divineos.core.exploration_reader import (
+                format_for_briefing as _fmt_explorations,
+            )
 
-            explorations_block = ""
+            explorations_block = _fmt_explorations()
         except _KC_ERRORS:
             explorations_block = ""
 
         if explorations_block:
             _safe_echo(explorations_block)
+
+        # Family queue — async write-channel between family members.
+        # Aria (or other family members) can flag items here that surface
+        # in the briefing without requiring synchronous invocation. Added
+        # 2026-04-29 evening following council walk + Aria's design
+        # refinements. Single stream per recipient, plain-text-with-
+        # timestamp, seen-not-held marker structurally preserved. Render
+        # is idempotent — surfacing does NOT auto-mark seen; status
+        # transitions are explicit CLI actions. WATCH-FOR: queue-fuller-
+        # but-exchanges-thinner is the failure-signature (the queue
+        # covering for a thinning relationship), not a queue bug.
+        try:
+            from divineos.core.family_queue_surface import (
+                format_for_briefing as _fmt_family_queue,
+            )
+
+            family_queue_block = _fmt_family_queue("aether")
+        except _KC_ERRORS:
+            family_queue_block = ""
+
+        if family_queue_block:
+            _safe_echo(family_queue_block)
 
         # Upstream freshness — local main behind origin/main. Closes the
         # upstream thinking error that the pre-push freshness hook
@@ -693,9 +704,11 @@ def register(cli: click.Group) -> None:
         # stale, fetches before branching, never produces the failure
         # mode that the hook would otherwise have to catch.
         try:
-            # Lite: divineos.core.upstream_freshness stripped
+            from divineos.core.upstream_freshness import (
+                format_for_briefing as _fmt_upstream,
+            )
 
-            upstream_block = ""
+            upstream_block = _fmt_upstream()
         except _KC_ERRORS:
             upstream_block = ""
 
@@ -728,9 +741,11 @@ def register(cli: click.Group) -> None:
         # — this surface adds git state. Recognition prompt only;
         # doesn't summarize what's on the branches.
         try:
-            # Lite: divineos.core.in_flight_branches stripped
+            from divineos.core.in_flight_branches import (
+                format_for_briefing as _fmt_branches,
+            )
 
-            branches_block = ""
+            branches_block = _fmt_branches()
         except _KC_ERRORS:
             branches_block = ""
 
@@ -756,6 +771,25 @@ def register(cli: click.Group) -> None:
         if modules_block:
             _safe_echo(modules_block)
 
+        # Council invocation balance — closes inward-sycophancy from
+        # 2026-04-21 (Andrew: "engaging only with what YOU want to
+        # hear"). consultation_log already tracks invocation counts
+        # and mansion-council shows them at consult-time, but the
+        # briefing-level surface catches imbalance BEFORE the agent
+        # decides whether to consult at all. Descriptive only:
+        # surfaces most-invoked / never-invoked + a deterministic
+        # "consider for next walk" candidate. Per claim 4cb640af.
+        try:
+            from divineos.core.council_balance_surface import (
+                format_for_briefing as _fmt_council_balance,
+            )
+
+            council_block = _fmt_council_balance()
+        except _KC_ERRORS:
+            council_block = ""
+
+        if council_block:
+            _safe_echo(council_block)
         # Goal-outcome surface — action-loop closure for session goals
         # (claim 5b38a31c, salvaged from old-OS ACTION LOOP CLOSURE
         # spec). Surfaces goals that aged out without recorded
@@ -1057,9 +1091,7 @@ def register(cli: click.Group) -> None:
 
             if deep:
                 try:
-                    # Lite: divineos.core.sis_tiers stripped
-                    def score_all_tiers(*_a, **_k):
-                        return None
+                    from divineos.core.sis_tiers import score_all_tiers
 
                     tiers = score_all_tiers(text)
                     click.echo()
