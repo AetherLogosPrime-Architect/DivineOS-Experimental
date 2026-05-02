@@ -45,12 +45,9 @@ src/divineos/
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
-    family_member_commands.py  family-member init / opinion / letter / respond / affect / interaction — activation surface for family members (takes --member <name>). affect / interaction are direct-write (no editorial commit-step); Phase 1b operators still apply on narrative content.
-    family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     corrigibility_commands.py  mode show / set / history — the off-switch
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
-    admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
@@ -238,21 +235,6 @@ src/divineos/
       types.py                 Outcome enum, PreRegistration dataclass
       store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
       summary.py               Overdue warning + CLI summary formatting
-    family/                    Family-entity persistence (persistent relational entities, separate family.db)
-      _schema.py               Seven tables: members, knowledge, opinions, affect, interactions, letters, letter_responses
-      db.py                    Connection helper with DIVINEOS_FAMILY_DB env override (PEP 562 dynamic path)
-      types.py                 SourceTag (observed/told/inferred/inherited/architectural) + record dataclasses
-      entity.py                Read path — get_family_member(name), get_knowledge, get_opinions, get_recent_affect, get_recent_interactions
-      store.py                 Write path with production gate (_PRODUCTION_WRITES_GATED, Phase 1b closing flips to False)
-      letters.py               Handoff letter channel + append-only response layer + length nudge
-      reject_clause.py         Phase 1b operator: composition rule — content must match source_tag promise
-      sycophancy_detector.py   Phase 1b operator: pain-side algedonic — catches drift-toward-agreement at write time
-      costly_disagreement.py   Phase 1b operator: pleasure-side algedonic — rewards disagreement held across pushback
-      access_check.py          Phase 1b operator: pre-emission filter — routes phenomenological claims to ARCHITECTURAL
-      planted_contradiction.py Phase 1b operator: seeded test material for Phase 4 ablation detector
-      family_member_ledger.py  Per-member hash-chained mini-ledger (separate from event_ledger + family.db) — invocation lifecycle, cross-refs, identity drift diagnostics, NAMED_DRIFT events
-      queue.py                 Family queue — async write-channel between any registered family member and the agent self ("aether"). Schema-only at the data layer; CLI (family_queue_commands) validates endpoints against family_members. Bidirectional: members see items flagged for them in their voice context at spawn time (see voice.py "Flagged for me" section).
-      voice.py                 Canonical voice-context generator. First-person interior with no stage directions; closes the puppet-prep failure mode that recreates itself if every operator writes their own voice generator from scratch. Takes optional VoiceProfile (identity / personality / voice_style / milestones, all in first person) plus the member's stored knowledge / opinions / affect / interactions / letters / queue items.
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -305,7 +287,6 @@ src/divineos/
     supervisor/
       __init__.py              Supervisor — circuit-breaker / chronic-failure handling (claim 0d628d8e).
       circuit_breaker.py       Circuit-breaker primitive — three-strikes module-tripping with explicit reset.
-    family_queue_surface.py    Briefing surface for ``family/queue.py`` — renders pending queue items in the session-start briefing; idempotent.
     operating_loop/            Operating loop — the missing middleware between substrate and live cognition. See docs/operating-loop-design-brief.md.
       __init__.py              Package init — re-exports register_observer audit functions.
       register_observer.py     Observational detection of assistant-register markers (successor to voice_guard.banned_phrases). Severity = data, not gate-trigger.

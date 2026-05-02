@@ -222,9 +222,6 @@ from divineos.cli import (  # noqa: E402
     ledger_commands,
     memory_commands,
     prereg_commands,
-    admin_reset_template,
-    family_member_commands,
-    family_queue_commands,
     progress_commands,
     selfmodel_commands,
     rt_commands,
@@ -256,9 +253,6 @@ rt_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
 empirica_commands.register(cli)
-family_member_commands.register(cli)
-family_queue_commands.register(cli)
-cli.add_command(admin_reset_template.reset_template)
 corrigibility_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)
