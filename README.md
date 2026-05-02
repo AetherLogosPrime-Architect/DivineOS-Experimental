@@ -17,7 +17,7 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 ## At a glance
 
 - **368 source files across 29 packages**
-- **5,685+ tests** (real SQLite, minimal mocks)
+- **5,780+ tests** (real SQLite, minimal mocks)
 - **226 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **22 slash-command skills** (consolidated daily operations)
 - **9 Claude Code enforcement hooks**
@@ -204,7 +204,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 5,685+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 5,780+ tests, real DB, minimal mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
@@ -400,7 +400,7 @@ DivineOS is 368 source files across 29 packages, structured as a CLI surface ove
 
 **Top-level directories:**
 
-- **`tests/`** — 5,685+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 5,780+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and design briefs. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).
