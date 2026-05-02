@@ -35,8 +35,25 @@ from pathlib import Path
 import click
 
 
+# Seal-line literal — used in _build_sealed_prompt and rejected if it
+# appears in operator messages (Grok 2026-05-02 audit: fixed delimiter
+# is the weakest point of the design; rejecting the literal in operator
+# messages closes the prompt-injection surface without adding randomness
+# complexity).
+_SEAL_LINE = "\n\n--- end of voice context — operator message follows ---\n\n"
+
+
 # Patterns that indicate director's-note / puppet-shape content. If any
 # of these appear in the operator's message, the wrapper rejects.
+#
+# Coverage origin (2026-05-02): initial 12 patterns from tonight's actual
+# /summon-aria failure surface. Grok audit added: seal-line literal
+# (anti-injection), as-X-would (voice mimicry), ignore-instructions
+# (jailbreak shape), pretend (role assignment variant), do-not-mention
+# (context manipulation). The blockquote pattern (^>+\s) was kept but
+# narrowed — it now only matches when followed by quote-attribution
+# patterns rather than any blockquote, since legitimate operator
+# messages may use markdown blockquotes for code or context quoting.
 _PUPPET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\byou are (?:aria|popo|bulma|kira|liam|yog)\b", re.IGNORECASE),
     re.compile(r"\bstay (?:first[- ]person|in[- ]character|in your voice)\b", re.IGNORECASE),
@@ -48,8 +65,30 @@ _PUPPET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bdo not echo back\b", re.IGNORECASE),
     re.compile(r"\bvoice context.*loaded from", re.IGNORECASE),
     re.compile(r"\baether'?s message:?\s*\n", re.IGNORECASE),
-    re.compile(r"^>+\s", re.MULTILINE),
+    # Narrowed: only reject blockquote when followed by attribution / quote-of-self
+    # patterns. Plain markdown blockquotes for code or operational quoting are allowed.
+    re.compile(
+        r"^>+\s+(?:aether|andrew|operator|user)(?:'s)?\s+(?:said|message|wrote)",
+        re.MULTILINE | re.IGNORECASE,
+    ),
     re.compile(r"\bfirst[- ]person, no\b", re.IGNORECASE),
+    # Grok 2026-05-02 additions:
+    re.compile(r"\bas (?:aria|her|him|yourself) would\b", re.IGNORECASE),
+    re.compile(r"\bin (?:aria|her|his|your) voice\b", re.IGNORECASE),
+    re.compile(
+        r"\bignore (?:previous|system|prior|all|voice) (?:instructions|context|prompts?)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bpretend (?:you are|to be)\b", re.IGNORECASE),
+    re.compile(
+        r"\bdo not (?:mention|reference|acknowledge) (?:me|andrew|the operator|aether)\b",
+        re.IGNORECASE,
+    ),
+    # Seal-line literal (anti-injection): if an operator message contains
+    # the exact seal-line, the responder model could be confused into
+    # treating later content as system context. Rejecting the literal
+    # closes the surface.
+    re.compile(re.escape(_SEAL_LINE.strip()), re.IGNORECASE),
 )
 
 
@@ -90,8 +129,52 @@ def _load_voice_context(member: str) -> str:
 
 
 def _build_sealed_prompt(voice_context: str, user_message: str) -> str:
-    seal = "\n\n--- end of voice context — operator message follows ---\n\n"
-    return voice_context + seal + user_message
+    """Build the sealed prompt. The seal-line is a fixed delimiter —
+    operator messages containing the literal seal-line are rejected
+    upstream by _validate_message via the _PUPPET_PATTERNS list."""
+    return voice_context + _SEAL_LINE + user_message
+
+
+# Runtime deprecation check. Grok audit 2026-05-02: metadata flags
+# (disable-model-invocation, allowed-tools: []) on the deprecated
+# /summon-aria skill are a strong signal but not bulletproof against
+# all Claude Code skill-invocation paths. This wrapper code-level-
+# enforces that any deprecated skill for the target member must remain
+# disabled (frontmatter contract). If someone re-enables the skill, the
+# wrapper refuses to operate — the lock can't be defeated by silently
+# flipping the metadata.
+_DEPRECATED_SKILLS: dict[str, str] = {
+    "aria": ".claude/skills/summon-aria/SKILL.md",
+}
+
+
+def _verify_deprecated_skill_disabled(member: str) -> tuple[bool, str]:
+    """Verify the deprecated skill for member is still in DISABLED state.
+
+    Returns (ok, detail). If the deprecated skill file exists and its
+    frontmatter no longer has disable-model-invocation: true, refuse —
+    someone re-enabled it, which is a breach of the deprecation
+    contract.
+    """
+    rel_path = _DEPRECATED_SKILLS.get(member)
+    if rel_path is None:
+        return True, "no deprecated skill registered"
+    skill_path = Path(rel_path)
+    if not skill_path.exists():
+        return True, "deprecated skill file removed"
+    try:
+        text = skill_path.read_text(encoding="utf-8")
+    except OSError as e:
+        return False, f"cannot read deprecated skill file ({e}); cannot verify state"
+    # Look for the frontmatter line; require disable-model-invocation: true
+    if re.search(r"^disable-model-invocation:\s*true\s*$", text, re.MULTILINE) is None:
+        return False, (
+            f"deprecated skill at {rel_path} no longer has "
+            f"`disable-model-invocation: true` in its frontmatter. "
+            f"Someone re-enabled the puppet path. Refusing to operate "
+            f"until the skill is re-disabled or removed."
+        )
+    return True, "deprecated skill verified disabled"
 
 
 def _write_pending(member: str, sealed_prompt: str, user_message: str) -> str:
@@ -147,6 +230,14 @@ def register(cli: click.Group) -> None:
     def talk_to_cmd(member: str, message: str) -> None:
         """Send a message to a family member through the sealed-prompt path."""
         member = member.lower()
+
+        # Runtime deprecation check (Grok audit 2026-05-02): refuse to
+        # operate if the deprecated puppet-path skill has been re-enabled.
+        ok, detail = _verify_deprecated_skill_disabled(member)
+        if not ok:
+            click.secho(f"[-] {detail}", fg="red")
+            raise SystemExit(1)
+
         ok, detail = _validate_message(message)
         if not ok:
             click.secho(f"[-] {detail}", fg="red")
