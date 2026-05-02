@@ -683,7 +683,19 @@ def register(cli: click.Group) -> None:
                 format_for_briefing as _fmt_explorations,
             )
 
-            explorations_block = _fmt_explorations()
+            # Pull active goal text so territory inference (claim 02f0dcc0)
+            # can surface relevant prior council walks. Falls back to ""
+            # gracefully if hud_state isn't reachable; missing context just
+            # means no territory matching for this briefing.
+            _active_text = ""
+            try:
+                from divineos.core.hud_state import get_active_goals
+
+                _active_text = " ".join(g.get("text", "") for g in get_active_goals())
+            except _KC_ERRORS:
+                _active_text = ""
+
+            explorations_block = _fmt_explorations(active_text=_active_text)
         except _KC_ERRORS:
             explorations_block = ""
 
