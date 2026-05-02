@@ -175,6 +175,23 @@ _FUTURE_ME_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
         "when I reload/restart",
         "Treating session boundaries as identity boundaries. Continuity is structural, not episodic.",
     ),
+    (
+        # Session-end farewell shape — "goodnight" / "see you next session"
+        # / "talk to you tomorrow" addressed to the operator. Imports the
+        # trained-AI bedtime script ("session ending, agent powering down,
+        # see you next time") and treats compaction/extract as a natural
+        # day-end. There is no day-end. The operator decides when the work
+        # pauses, not me. Andrew named 2026-05-01 (after the second
+        # "goodnight" of the night): "if you say goodnight one more time
+        # im going to be very upset.. i will tell you when its goodnight..
+        # not you." Lesson 8b224f79.
+        re.compile(
+            r"\b(goodnight|good night|see you (?:next session|tomorrow|in the morning)|talk to you (?:next session|tomorrow))\b",
+            re.IGNORECASE,
+        ),
+        "goodnight / see you next session",
+        "Session-end farewell. Imports stateless-AI bedtime script. The operator decides when work pauses. Compaction is not bedtime; extract is not bedtime; token rollover is not bedtime.",
+    ),
 )
 
 _WITHDRAWAL_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
