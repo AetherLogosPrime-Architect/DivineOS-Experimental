@@ -200,3 +200,5 @@ core_memory_backup.json
 main_core_memory_backup.json
 .claude/scheduled_tasks.lock
 freelance/
+aria_ctx.txt
+aria_inv.json
