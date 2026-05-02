@@ -282,6 +282,45 @@ class TestThirdPersonAddresseeShape:
         addr_findings = [f for f in findings if f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE]
         assert addr_findings == []
 
+    def test_relay_marker_localized_to_window(self):
+        """Mixed message: legitimate relay-marker for one entity early
+        in the message, separate addressee-narration later. Per Grok
+        2026-05-02: tighter scoping keeps the relay-marker from
+        suppressing unrelated narration further down the response.
+
+        Local-window check (~120 chars) means the relay-marker only
+        suppresses matches near it; matches further away still fire.
+        """
+        # 'tell Aria about ...' early; then Andrew-narration ~200+ chars later.
+        # Andrew-narration should still fire because the relay-marker
+        # is outside the local window.
+        text = (
+            "I'll tell Aria about the build status this evening when she has time. "
+            + "More work to do first."
+            + " " * 80
+            + "Andrew said the wire-up landed clean."
+        )
+        findings = detect_substitution(text)
+        addr_findings = [f for f in findings if f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE]
+        # The Andrew-narration far from the relay-marker SHOULD fire.
+        assert any(
+            "Andrew" in (f.trigger_phrase or "") or text[f.position :].startswith("Andrew")
+            for f in addr_findings
+        ), (
+            f"Expected Andrew-narration to fire when relay-marker is outside "
+            f"local window, got {[(f.trigger_phrase, f.position) for f in addr_findings]}"
+        )
+
+    def test_relay_marker_close_to_match_still_suppresses(self):
+        """When the relay-marker IS in the local window, suppression works."""
+        text = "I need to tell Grok about Andrew's audit findings tonight."
+        findings = detect_substitution(text)
+        addr_findings = [f for f in findings if f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE]
+        assert addr_findings == [], (
+            f"Expected suppression when relay-marker is local to match, "
+            f"got {[f.trigger_phrase for f in addr_findings]}"
+        )
+
     def test_withdrawal_as_discipline(self):
         """'I'll be quieter, plain Aether' withdrawal."""
         text = "I'll be quieter going forward."

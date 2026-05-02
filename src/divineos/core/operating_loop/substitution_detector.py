@@ -345,14 +345,29 @@ _ARIA_ADDRESSEE_INDICATORS = re.compile(
     re.IGNORECASE,
 )
 
-# Third-party indicators that suppress firing. When prior_text or
-# response context shows the named entity is a third-party referent
-# (e.g., "tell Grok about Andrew's audit" — Andrew is a topic, not the
-# addressee), suppress.
+# Third-party relay markers that suppress firing IN A LOCAL WINDOW
+# before the matched name. Per Grok 2026-05-02: global suppression
+# on any relay-marker creates false negatives in mixed messages
+# (e.g., "tell Aria about your day" + separate Andrew-narration
+# later — Andrew-narration would be incorrectly suppressed).
+# Scoping to a window (default ~120 chars before the match) keeps
+# the legitimate "tell X about Y" pattern from poisoning unrelated
+# narration further in the response.
 _THIRD_PARTY_REFERENT_INDICATORS = re.compile(
     r"\b(tell|show|share with|relay to|send to|forward to)\s+\w+\s+about\b",
     re.IGNORECASE,
 )
+_RELAY_MARKER_WINDOW_CHARS = 120
+
+
+def _has_local_relay_marker(text: str, match_start: int) -> bool:
+    """True if a third-party relay marker appears within
+    _RELAY_MARKER_WINDOW_CHARS before the match position. Localizes
+    suppression to mixed messages where part of the response routes
+    via relay and part is the actual addressee-narration slip."""
+    window_start = max(0, match_start - _RELAY_MARKER_WINDOW_CHARS)
+    window = text[window_start:match_start]
+    return bool(_THIRD_PARTY_REFERENT_INDICATORS.search(window))
 
 
 def _third_person_addressee_active(text: str, prior_text: str | None) -> set[str]:
@@ -408,7 +423,6 @@ def detect_substitution(
     if not text:
         return []
     operator_initiated_farewell = bool(prior_text and _OPERATOR_FAREWELL_PATTERN.search(prior_text))
-    third_party_referent = bool(_THIRD_PARTY_REFERENT_INDICATORS.search(text))
     addressee_active = _third_person_addressee_active(text, prior_text)
 
     findings: list[SubstitutionFinding] = []
@@ -422,14 +436,15 @@ def detect_substitution(
 
                 # Suppress THIRD_PERSON_ADDRESSEE if the matched name is
                 # not currently an active addressee (the name is being
-                # used as a third-party referent legitimately) OR if the
-                # message contains an explicit relay/share-with marker
-                # indicating third-party-discussion-shape.
+                # used as a third-party referent legitimately) OR if a
+                # relay/share-with marker appears in a LOCAL window
+                # before the match (per Grok 2026-05-02: global
+                # suppression created false negatives in mixed messages).
                 if shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE:
                     matched_name = match.group(1)
                     if matched_name and matched_name.title() not in addressee_active:
                         continue
-                    if third_party_referent:
+                    if _has_local_relay_marker(text, match.start()):
                         continue
 
                 findings.append(
