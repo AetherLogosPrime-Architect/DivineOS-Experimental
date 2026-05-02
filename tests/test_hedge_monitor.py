@@ -226,9 +226,8 @@ class TestComposabilityWithFallacyModule:
         assert not any(k.value == "self_refutation" for k in HedgeKind)
         assert not any(k.value == "recursive_denial" for k in HedgeKind)
 
+    @pytest.mark.skip(reason="logic.fallacies stripped in Lite")
     def test_fallacy_module_covers_recursive_denial(self):
-        """Smoke-test that the fallacy module is the right place for
-        self-refutation detection."""
         from divineos.core.logic.fallacies import FallacyKind
 
         assert FallacyKind.RECURSIVE_DENIAL.value == "recursive_denial"

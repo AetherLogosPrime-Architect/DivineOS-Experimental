@@ -32,15 +32,12 @@ class TestScaffoldList:
             assert s.failure_mode
             assert s.rationale
 
-    def test_council_scaffold_present(self) -> None:
-        """Council was the triggering incident — must be in the list."""
+    def test_lite_scaffolds_present(self) -> None:
+        """Lite: council/family-member stripped; audit-round/prereg substituted.
+        Full DivineOS keeps the original list."""
         names = [s.name for s in list_scaffolds()]
-        assert "council" in names
-
-    def test_family_member_scaffold_present(self) -> None:
-        """Family-member voice-appropriation is a named failure mode — must be listed."""
-        names = [s.name for s in list_scaffolds()]
-        assert "family-member" in names
+        assert "audit-round" in names
+        assert "prereg" in names
 
 
 class TestFormatter:

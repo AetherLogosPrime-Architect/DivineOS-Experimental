@@ -342,25 +342,8 @@ def _gather_behavioral_indicators(report: ProgressReport) -> None:
 
 
 def _gather_user_ratings(report: ProgressReport) -> None:
-    """User satisfaction — the external ground truth metric."""
-    try:
-        # Lite: divineos.core.user_ratings stripped — stub the imported symbols.
-        def correlate_with_internal(*_a, **_k):
-            return None
-
-        def get_rating_stats(*_a, **_k):
-            return None
-
-        stats = get_rating_stats()
-        report.user_rating_avg = stats["avg"]
-        report.user_rating_count = stats["count"]
-        report.user_rating_trend = stats["trend"]
-
-        if stats["count"] >= 3:
-            correlation = correlate_with_internal()
-            report.goodhart_correlation = correlation.get("correlation", "no_data")
-    except (ImportError, OSError, KeyError, sqlite3.OperationalError) as exc:
-        logger.debug(f"User ratings gather failed: {exc}")
+    """Lite: user_ratings stripped — no-op."""
+    _ = report
 
 
 def format_progress_text(report: ProgressReport) -> str:

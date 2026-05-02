@@ -402,39 +402,8 @@ def register(cli: click.Group) -> None:
             for status, count in sorted(report["by_status"].items()):
                 click.secho(f"    {status:15s} {count}", fg="bright_black")
 
-        # SIS self-audit — check own docstrings for ungrounded esoteric language
-        try:
-            # Lite: divineos.core.sis_self_audit stripped
-            def audit_summary(*_a, **_k):
-                return None
-
-            sis = audit_summary()
-            click.secho(
-                f"\n  SIS self-audit:         {sis['modules_scanned']} modules scanned",
-                fg="white",
-            )
-            if sis["clean"]:
-                click.secho("    All docstrings grounded (no substance flags)", fg="green")
-            else:
-                click.secho(
-                    f"    {sis['substance_flagged_count']} substance-flagged "
-                    "(ungrounded overclaim — recommend translate)",
-                    fg="yellow",
-                )
-                for mod in sis["flagged_modules"][:5]:
-                    click.secho(f"      - {mod}", fg="bright_black")
-            # Register flags are informational (claim 6b6f4e5a). Show only
-            # if present and only as a soft note — operator decides if the
-            # elevated framing is load-bearing.
-            register_count = sis.get("register_flagged_count", 0)
-            if register_count:
-                click.secho(
-                    f"    {register_count} register-flagged "
-                    "(elevated tone; informational — keep if load-bearing)",
-                    fg="bright_black",
-                )
-        except (ImportError, OSError) as e:
-            click.secho(f"\n  SIS self-audit: unavailable ({e})", fg="bright_black")
+        # Lite: SIS self-audit removed (sis_self_audit stripped). Full
+        # DivineOS retains the recursive-SIS pass on own docstrings.
 
         click.echo()
 

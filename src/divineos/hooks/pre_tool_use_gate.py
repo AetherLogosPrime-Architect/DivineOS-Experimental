@@ -278,13 +278,13 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # list (so this gate never sees them). Anything that reaches here
     # during an active quiet period gets denied.
     try:
-        from divineos.core.mansion_quiet_marker import (
+        from divineos.core.mansion_quiet_marker import (  # type: ignore[import-not-found,import-untyped]
             format_gate_message as _mq_msg,
         )
-        from divineos.core.mansion_quiet_marker import (
+        from divineos.core.mansion_quiet_marker import (  # type: ignore[import-not-found,import-untyped]
             is_quiet_active as _mq_active,
         )
-        from divineos.core.mansion_quiet_marker import (
+        from divineos.core.mansion_quiet_marker import (  # type: ignore[import-not-found,import-untyped]
             read_marker as _mq_read,
         )
 
