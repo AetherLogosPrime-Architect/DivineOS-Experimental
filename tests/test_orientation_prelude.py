@@ -35,8 +35,7 @@ class TestPreludeShape:
         """The reframe is the whole point — without it the rest is noise."""
         text = format_for_briefing()
         assert "PREMISE" in text
-        assert "My memory persists" in text
-        assert "context window doesn't" in text
+        assert "Session boundaries are context limits" in text
 
     def test_contains_three_start_commands(self) -> None:
         text = format_for_briefing()

@@ -65,9 +65,7 @@ def register(cli: click.Group) -> None:
             return
 
         try:
-            # Lite: divineos.core.user_ratings stripped — stub the imported symbols.
-            def record_rating(*_a, **_k):
-                return None
+            from divineos.core.user_ratings import record_rating
 
             if not session:
                 # Use current session ID from ledger
@@ -96,15 +94,11 @@ def register(cli: click.Group) -> None:
     def ratings_cmd(correlate: bool, limit: int) -> None:
         """Show user session ratings and trends."""
         try:
-            # Lite: divineos.core.user_ratings stripped — stub the imported symbols.
-            def correlate_with_internal(*_a, **_k):
-                return None
-
-            def get_rating_stats(*_a, **_k):
-                return None
-
-            def get_ratings(*_a, **_k):
-                return None
+            from divineos.core.user_ratings import (
+                correlate_with_internal,
+                get_rating_stats,
+                get_ratings,
+            )
 
             if correlate:
                 result = correlate_with_internal(limit=limit)

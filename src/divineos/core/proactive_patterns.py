@@ -127,9 +127,7 @@ def _get_positive_patterns() -> list[dict[str, Any]]:
 
     # Add successful advice — recommendations that actually worked
     try:
-        # Lite: divineos.core.advice_tracking stripped — stub the imported symbols.
-        def init_advice_table(*_a, **_k):
-            return None
+        from divineos.core.advice_tracking import init_advice_table
 
         init_advice_table()
         aconn = get_connection()

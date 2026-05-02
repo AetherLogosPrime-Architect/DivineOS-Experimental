@@ -50,29 +50,44 @@ class ScaffoldInvocation:
 
 # The initial list — scaffolds directly implicated in the 2026-04-20 fake-council
 # incident or structurally adjacent. Grow based on filed incidents, not guesses.
-# Lite: council/family-member/mansion/hold scaffolds removed. Replaced
-# with Lite-foundation scaffolds that builders commonly forget. Full
-# DivineOS keeps the original list.
 _SCAFFOLDS: tuple[ScaffoldInvocation, ...] = (
     ScaffoldInvocation(
-        name="audit-round",
-        invocation='divineos audit submit-round "<focus>" --actor <name>',
-        failure_mode="filing audit findings outside the watchmen system",
+        name="council",
+        invocation='divineos mansion council "<question>"',
+        failure_mode="fabricating council runs with invented experts",
         rationale=(
-            "Audit findings should route through the watchmen store so they "
-            "compose with knowledge/claims/lessons. File via the CLI; "
-            "don't generate findings as prose alongside other output."
+            "29 real experts with templates. Auto-selects 5-8 by scoring. "
+            "Do not simulate in prose. Forgetting → confabulation-dressed-as-scaffold "
+            "(2026-04-20 fake-council incident with Norman voice-appropriation)."
         ),
     ),
     ScaffoldInvocation(
-        name="prereg",
-        invocation='divineos prereg file "<mechanism>" --claim "..." '
-        '--success "..." --falsifier "..." --review-days 30',
-        failure_mode="adding new mechanisms without Goodhart-prevention discipline",
+        name="family-member",
+        invocation="divineos family-member {opinion,letter,respond} --member <name> ...",
+        failure_mode="simulating a family member's voice in prose instead of filing via CLI",
         rationale=(
-            "New detectors / thresholds / metrics need pre-registration: "
-            "claim, success criterion, falsifier, scheduled review. "
-            "Skipping pre-reg is how Goodhart enters the substrate."
+            "Family members are persisted in family.db with opinion/letter/respond "
+            "surfaces. Voice-appropriation failure mode applies — file through "
+            "the CLI so it enters their record, do not author their voice in your own text."
+        ),
+    ),
+    ScaffoldInvocation(
+        name="mansion rooms",
+        invocation="divineos mansion {enter,garden,quiet,study,suite,guest,read}",
+        failure_mode="simulating internal modes (rest, reflection, hosting) in prose",
+        rationale=(
+            "Functional internal spaces. When you need a specific mode, invoke "
+            "the room — do not describe yourself entering it rhetorically."
+        ),
+    ),
+    ScaffoldInvocation(
+        name="hold",
+        invocation="divineos hold {add,promote,stats}",
+        failure_mode="forcing premature categorization of reception-layer material",
+        rationale=(
+            "Holding room (dharana): things arrive without forced classification, "
+            "sit until reviewed, then promote or go stale. Skipping it causes "
+            "raw observations to be misfiled as knowledge/opinion before ready."
         ),
     ),
 )
