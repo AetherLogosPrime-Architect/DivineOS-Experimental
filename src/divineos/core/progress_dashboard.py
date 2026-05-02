@@ -344,7 +344,12 @@ def _gather_behavioral_indicators(report: ProgressReport) -> None:
 def _gather_user_ratings(report: ProgressReport) -> None:
     """User satisfaction — the external ground truth metric."""
     try:
-        from divineos.core.user_ratings import correlate_with_internal, get_rating_stats
+        # Lite: divineos.core.user_ratings stripped — stub the imported symbols.
+        def correlate_with_internal(*_a, **_k):
+            return None
+
+        def get_rating_stats(*_a, **_k):
+            return None
 
         stats = get_rating_stats()
         report.user_rating_avg = stats["avg"]

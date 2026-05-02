@@ -214,7 +214,6 @@ from divineos.cli import (  # noqa: E402
     entity_commands,
     event_commands,
     hud_commands,
-    insight_commands,
     journal_commands,
     knowledge_commands,
     knowledge_health_commands,
@@ -223,8 +222,6 @@ from divineos.cli import (  # noqa: E402
     memory_commands,
     prereg_commands,
     progress_commands,
-    selfmodel_commands,
-    rt_commands,
     scheduled_commands,
     sleep_commands,
     void_commands,
@@ -245,11 +242,8 @@ analysis_commands.register(cli)
 hud_commands.register(cli)
 event_commands.register(cli)
 knowledge_health_commands.register(cli)
-selfmodel_commands.register(cli)
-insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
-rt_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
 empirica_commands.register(cli)

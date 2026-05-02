@@ -404,7 +404,9 @@ def register(cli: click.Group) -> None:
 
         # SIS self-audit — check own docstrings for ungrounded esoteric language
         try:
-            from divineos.core.sis_self_audit import audit_summary
+            # Lite: divineos.core.sis_self_audit stripped
+            def audit_summary(*_a, **_k):
+                return None
 
             sis = audit_summary()
             click.secho(
@@ -522,7 +524,10 @@ def register(cli: click.Group) -> None:
         Entries created before the warrant system have no justification chain.
         This creates an INHERITED warrant for each unwarranted entry.
         """
-        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
+
+        # Lite: divineos.core.logic.logic_reasoning stripped
+        def backfill_inherited_warrants(*_a, **_k):
+            return None
 
         dry_run = not execute
         if dry_run:

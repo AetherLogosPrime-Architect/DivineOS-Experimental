@@ -344,10 +344,12 @@ def register(cli: click.Group) -> None:
                 pass
             # Show warrant chain — why do I believe this?
             try:
-                from divineos.core.logic.logic_session import (
-                    format_warrant_chain,
-                    get_warrant_chain,
-                )
+                # Lite: divineos.core.logic.logic_session stripped
+                def format_warrant_chain(*_a, **_k):
+                    return None
+
+                def get_warrant_chain(*_a, **_k):
+                    return None
 
                 warrants = get_warrant_chain(entry["knowledge_id"])
                 chain_str = format_warrant_chain(warrants)
@@ -385,10 +387,12 @@ def register(cli: click.Group) -> None:
 
         # Search exploration folder — past-me's first-person writing
         try:
-            from divineos.core.exploration_reader import (
-                format_search_results,
-                search_explorations,
-            )
+            # Lite: divineos.core.exploration_reader stripped
+            def format_search_results(*_a, **_k):
+                return None
+
+            def search_explorations(*_a, **_k):
+                return None
 
             expl_results = search_explorations(query, max_results=3)
             if expl_results:
@@ -671,11 +675,9 @@ def register(cli: click.Group) -> None:
         # folder, silent in experience — the Schneier Sch2 shape applied
         # to presence memory.
         try:
-            from divineos.core.exploration_reader import (
-                format_for_briefing as _fmt_explorations,
-            )
+            # Lite: divineos.core.exploration_reader stripped
 
-            explorations_block = _fmt_explorations()
+            explorations_block = ""
         except _KC_ERRORS:
             explorations_block = ""
 
@@ -691,11 +693,9 @@ def register(cli: click.Group) -> None:
         # stale, fetches before branching, never produces the failure
         # mode that the hook would otherwise have to catch.
         try:
-            from divineos.core.upstream_freshness import (
-                format_for_briefing as _fmt_upstream,
-            )
+            # Lite: divineos.core.upstream_freshness stripped
 
-            upstream_block = _fmt_upstream()
+            upstream_block = ""
         except _KC_ERRORS:
             upstream_block = ""
 
@@ -728,11 +728,9 @@ def register(cli: click.Group) -> None:
         # — this surface adds git state. Recognition prompt only;
         # doesn't summarize what's on the branches.
         try:
-            from divineos.core.in_flight_branches import (
-                format_for_briefing as _fmt_branches,
-            )
+            # Lite: divineos.core.in_flight_branches stripped
 
-            branches_block = _fmt_branches()
+            branches_block = ""
         except _KC_ERRORS:
             branches_block = ""
 
@@ -1059,7 +1057,9 @@ def register(cli: click.Group) -> None:
 
             if deep:
                 try:
-                    from divineos.core.sis_tiers import score_all_tiers
+                    # Lite: divineos.core.sis_tiers stripped
+                    def score_all_tiers(*_a, **_k):
+                        return None
 
                     tiers = score_all_tiers(text)
                     click.echo()

@@ -20,7 +20,12 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from divineos.core.sis_tiers import score_all_tiers
+# Lite: divineos.core.sis_tiers stripped
+
+
+def score_all_tiers(*_a, **_k):
+    return None
+
 
 # ─── Metaphysical -> Architecture Translation Map ────────────────────
 

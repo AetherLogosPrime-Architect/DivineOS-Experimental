@@ -109,10 +109,11 @@ class TestSkillIndex:
         # file-claim should be top hit
         assert hits[0].name == "file-claim"
 
-    def test_rank_council_finds_council_round(self) -> None:
-        hits = rank_skills("invoke the council", limit=3)
+    def test_rank_audit_finds_audit_round(self) -> None:
+        # council-round skill stripped in Lite; substitute audit-round.
+        hits = rank_skills("file an audit round", limit=3)
         names = [h.name for h in hits]
-        assert "council-round" in names
+        assert "audit-round" in names
 
     def test_rank_empty_query_returns_empty(self) -> None:
         assert rank_skills("") == []

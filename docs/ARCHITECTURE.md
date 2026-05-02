@@ -32,8 +32,6 @@ src/divineos/
     body_commands.py           Body awareness and cache pruning
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
-    selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
-    insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
     audit_commands.py          external validation (Watchmen)
@@ -41,7 +39,6 @@ src/divineos/
     prereg_commands.py         pre-registrations (Goodhart prevention)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
-    rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
     corrigibility_commands.py  mode show / set / history — the off-switch
@@ -93,12 +90,6 @@ src/divineos/
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
       inference.py             Knowledge inference engine — boundaries from mistakes, pattern promotion
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
-    logic/                     Formal logic sub-package
-      warrants.py              Evidence backing for knowledge claims
-      logic_validation.py      Consistency, validity gate, defeat lessons
-      logic_reasoning.py       Inference engine, relations, warrant backfill
-      logic_session.py         Session logic pass and logic summary
-      fallacies.py             Annotation-layer fallacy detector (4 fallacies, falsifier-per-flag)
     self_monitor/              Watches agent's own output for trained-hedge patterns
       hedge_monitor.py         2 hedge detectors (recycling density, epistemic collapse), falsifier-per-flag
       theater_monitor.py       Detects writing-AT-subagent-without-invoking (kitchen-theater shape)
@@ -125,7 +116,6 @@ src/divineos/
     session_affect.py          Auto-derive VAD affect state from session signals
     session_reflection.py      Structured self-assessment with quality metrics
     growth.py                  Growth awareness and milestone tracking
-    tone_texture.py            Emotional arc and tone classification
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
     session_checkpoint.py      Periodic saves and context monitoring
@@ -140,36 +130,22 @@ src/divineos/
     loop_prevention.py         Loop detection and prevention
     affect.py                  Affect tracking and feedback loop
     trust_tiers.py             Signal trust weighting (MEASURED > BEHAVIORAL > SELF_REPORTED)
-    planning_commitments.py    Commitment tracking and fulfillment checking
-    skill_library.py           Evidence-based skill proficiency tracking
-    curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
     corrections.py             Raw correction notebook (user's exact words, no framing)
-    exploration_reader.py      Surfaces past explorations in briefing and search
     lesson_interrupt.py        Mid-session chronic lesson questions (named-voice interrupt)
-    self_model.py              Unified self-model assembled from all OS systems
     drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
-    predictive_session.py      Session profile detection and need prediction
     claim_store.py             Claims engine with evidence tiers
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
     compass_rudder.py          PreToolUse rudder — blocks Task spawns during drift-toward-excess without justification
     compass_constants.py       Shared constants (RUDDER_ACK_TAG, JUSTIFICATION_WINDOW_SECONDS) for moral_compass + compass_rudder
-    user_ratings.py            External validation — user rates sessions 1-10, Goodhart detection
     body_awareness.py          Computational interoception and cache conveyor belt
     sleep.py                   Offline consolidation engine (6 phases, dream report)
     progress_dashboard.py      Measurable progress metrics from real data
-    attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
     epistemic_status.py        Epistemic channel analysis (Butlin 14)
-    value_tensions.py          Recurring value conflict detection from decisions
     goal_cull.py               Evidence-based goal staleness detection
     ledger_compressor.py       ELMO ledger compression and archival
     semantic_integrity.py      Esoteric language detection
-    sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
-    sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
     opinion_store.py           Structured opinions with evidence tracking and evolution
-    user_model.py              User preference and skill level modeling
-    communication_calibration.py  Output density adaptation based on user model
-    advice_tracking.py         Long-term feedback loops on recommendation quality
     self_critique.py           Craft quality self-assessment (5 spectrums)
     proactive_patterns.py      Prescriptive recommendations from positive experience
     affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
@@ -178,7 +154,6 @@ src/divineos/
     # become attention-schema items. No dedicated file; see
     # tests/test_circuit2_completeness_attention.py for the contract.
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
-    resonant_truth.py          RT protocol load/invoke/verify/deactivate with gate
     pull_detection.py          Toward/pull-back divergence detector (fabrication markers)
     watchmen/                  External validation (audit findings, routing, drift state)
       _schema.py               audit_rounds + audit_findings + session_cleanliness tables
@@ -223,9 +198,7 @@ src/divineos/
     compliance_baseline.py     Baseline calibration from clean-tagged sessions — wires PR-2 into Item 8 detectors.
     substance_checks_contract.py Contract-style substance checks for rudder-acks — Phase 1a of the rudder redesign.
     completion_boundary.py     Completion-boundary detection — Phase 1b of the rudder redesign.
-    in_flight_branches.py      In-flight branches surface — bridge from git state to the briefing.
     module_inventory.py        Module-inventory surface — bridge from src/divineos/core/ to the briefing.
-    upstream_freshness.py      Upstream-freshness surface — bridge from remote-state to the briefing.
     open_claims_surface.py     Stale-open-claims surface — bridge from the claims store to the briefing.
     goal_outcome_surface.py    Action-loop closure briefing surface — surfaces goals that aged out without progression (claim 5b38a31c).
     voice_guard/
