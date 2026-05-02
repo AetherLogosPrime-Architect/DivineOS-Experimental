@@ -338,7 +338,18 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Health check failed: {e}")
 
-    # 5b-pre. Lite: warrant backfill removed (logic.logic_reasoning stripped).
+    # 5b-pre. Backfill warrants BEFORE maturity cycle — newly warranted
+    # entries may meet promotion criteria that the maturity cycle checks.
+    try:
+        # Lite: divineos.core.logic.logic_reasoning stripped
+        def backfill_inherited_warrants(*_a, **_k):
+            return None
+
+        wresult = backfill_inherited_warrants()
+        if wresult["backfilled"]:
+            click.secho(f"[~] Backfilled {wresult['backfilled']} warrants.", fg="cyan")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Warrant backfill failed: {e}")
 
     # 5b. Maturity cycle
     promoted_ids: list[str] = []
@@ -357,7 +368,27 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     except _PHASE_ERRORS as e:
         logger.warning(f"Maturity cycle failed: {e}")
 
-    # 5c. Lite: logic pass removed (logic.logic_session stripped).
+    # 5c. Logic pass
+    try:
+        # Lite: divineos.core.logic.logic_session stripped
+        def format_logic_summary(*_a, **_k):
+            return None
+
+        def run_session_logic_pass(*_a, **_k):
+            return None
+
+        valid_deep_ids = [did for did in deep_ids if did]
+        logic_result = run_session_logic_pass(
+            new_knowledge_ids=valid_deep_ids,
+            promoted_ids=promoted_ids or None,
+            session_id=analysis.session_id,
+        )
+        logic_line = format_logic_summary(logic_result)
+        click.secho(f"[~] {logic_line}", fg="cyan")
+        for detail in logic_result.details[:5]:
+            click.secho(f"     {detail}", fg="bright_black")
+    except _PHASE_ERRORS as e:
+        logger.warning(f"Logic pass failed: {e}")
 
     # 5d. Auto-answer check
     try:
