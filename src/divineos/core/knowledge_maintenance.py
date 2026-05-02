@@ -663,10 +663,20 @@ def check_promotion(entry: dict[str, Any]) -> str | None:
     return None
 
 
-def _passes_validity_gate(*args, **kwargs) -> bool:
-    """Lite: logic.logic_validation stripped — promotion always allowed."""
-    _ = (args, kwargs)
-    return True
+def _passes_validity_gate(
+    knowledge_id: str, current: str, target: str, corroboration_count: int = 0
+) -> bool:
+    """Check if the validity gate allows this promotion.
+
+    Fails gracefully if logic tables aren't initialized yet.
+    """
+    try:
+        from divineos.core.logic.logic_validation import can_promote
+
+        return can_promote(knowledge_id, current, target, corroboration_count)
+    except _KM_ERRORS:
+        # Logic tables may not exist yet — allow promotion (backward compat)
+        return True
 
 
 def promote_maturity(knowledge_id: str) -> str | None:

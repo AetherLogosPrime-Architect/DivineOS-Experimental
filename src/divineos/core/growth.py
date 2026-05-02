@@ -13,16 +13,7 @@ from typing import Any
 from loguru import logger
 
 from divineos.core.knowledge import get_connection
-
-
-# Lite: divineos.core.tone_texture stripped — stub the imported symbols.
-def format_tone_insight(*_a, **_k):
-    return None
-
-
-def get_tone_history(*_a, **_k):
-    return None
-
+from divineos.core.tone_texture import format_tone_insight, get_tone_history
 
 _GROWTH_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 

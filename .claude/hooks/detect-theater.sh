@@ -102,36 +102,6 @@ try:
         kinds = [getattr(f, 'kind', type(f).__name__) for f in all_flags]
         kinds = [str(k).split('.')[-1] if hasattr(k, 'name') or '.' in str(k) else str(k) for k in kinds]
         set_marker(','.join(monitors), kinds, last_assistant_text[:300])
-
-        # Also append to the operating-loop findings JSON so theater /
-        # fabrication observations join the same family as
-        # register / spiral / substitution detectors. Reworked
-        # 2026-05-01: this shape is observation, not gate.
-        try:
-            import time
-            findings_path = Path.home() / '.divineos' / 'operating_loop_findings.json'
-            findings_path.parent.mkdir(exist_ok=True)
-            existing = []
-            if findings_path.exists():
-                try:
-                    existing = json.loads(findings_path.read_text(encoding='utf-8'))
-                    if not isinstance(existing, list):
-                        existing = []
-                except Exception:
-                    existing = []
-            entry = {
-                'timestamp': time.time(),
-                'total_findings': len(all_flags),
-                'theater_fabrication': [
-                    {'monitor': m, 'kinds': kinds[:5]}
-                    for m in monitors
-                ],
-            }
-            existing.append(entry)
-            existing = existing[-50:]
-            findings_path.write_text(json.dumps(existing, indent=2), encoding='utf-8')
-        except Exception:
-            pass
 except Exception:
     pass
 " 2>/dev/null

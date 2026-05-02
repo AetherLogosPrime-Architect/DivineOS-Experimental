@@ -18,18 +18,12 @@ Six phases:
   6. Dream Report — summary of what changed
 """
 
-import re
 import sqlite3
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
-
-# Pre-compiled at module load: detects "(session abcd1234)" suffix used by
-# tone-shift extraction in lessons.py. Used by _phase_recombination to skip
-# session-specific entries from cross-knowledge mining.
-_SESSION_SUFFIX_PATTERN = re.compile(r"\(session [a-f0-9]{6,16}\)")
 
 _SLEEP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError, ImportError)
 
@@ -281,9 +275,7 @@ def _phase_pruning(report: DreamReport) -> None:
 
     # Prune stale curiosities — wonder has a shelf life
     try:
-        # Lite: divineos.core.curiosity_engine stripped — stub the imported symbols.
-        def prune_stale_curiosities(*_a, **_k):
-            return None
+        from divineos.core.curiosity_engine import prune_stale_curiosities
 
         shelved = prune_stale_curiosities()
         if shelved:
@@ -411,25 +403,10 @@ def _phase_maintenance(report: DreamReport) -> None:
 
 
 # Similarity thresholds for connection detection
-#
-# 2026-05-01 tightening: split the MIN threshold by metric because cosine
-# (semantic embeddings) and Sørensen-Dice (word overlap) produce different
-# distributions. The 0.30 floor was set for Dice when compute_similarity
-# only had Dice. Now compute_similarity prefers embeddings; embeddings at
-# 30-40% surface noise pairs sharing only thematic tokens. 0.45 is the
-# empirical sweet spot for cosine. Dice still uses 0.30 (preserves the
-# original calibration when embeddings unavailable).
-#
-# Also added MIN_WORD_OVERLAP (lexical anchoring) — semantic similarity
-# alone produces false positives via shared common-vocabulary; requiring
-# at least 10% word-overlap ensures the connection has lexical grounding,
-# not just thematic resonance.
-_RECOMBINATION_MIN_SIMILARITY_COSINE = 0.45  # When semantic embeddings available
-_RECOMBINATION_MIN_SIMILARITY_DICE = 0.30  # Fallback when embeddings unavailable
+_RECOMBINATION_MIN_SIMILARITY = 0.30  # Minimum to consider related (lowered for Dice)
 _RECOMBINATION_MAX_SIMILARITY = 0.65  # Above this = near-duplicate, not a connection
-_RECOMBINATION_MIN_WORD_OVERLAP = 0.10  # Lexical anchoring floor (added 2026-05-01)
-_RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
 _RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
+_RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
 
 
 def _phase_recombination(report: DreamReport) -> None:
@@ -451,72 +428,12 @@ def _phase_recombination(report: DreamReport) -> None:
     """
     from divineos.core.knowledge._text import (
         _compute_overlap,
-        _ensure_embedding_model,
         compute_similarity,
     )
     from divineos.core.knowledge.crud import get_knowledge
     from divineos.core.knowledge.edges import find_edge
 
-    # Pick the threshold based on which similarity metric will be used.
-    # compute_similarity prefers semantic embeddings if available, falls
-    # back to Sørensen-Dice. The two metrics have different distributions
-    # so the noise floor is different.
-    _min_similarity = (
-        _RECOMBINATION_MIN_SIMILARITY_COSINE
-        if _ensure_embedding_model()
-        else _RECOMBINATION_MIN_SIMILARITY_DICE
-    )
-
     entries = get_knowledge(limit=5000, include_superseded=False)
-    if len(entries) < 2:
-        return
-
-    # 2026-05-01 fix: exclude entries that are NOT timeless-knowledge-claims
-    # from cross-knowledge recombination. Two pollution categories caught:
-    #
-    # 1. Session-specific entries (tone-shift PATTERN/MISTAKE from lessons.py)
-    #    — embed verbatim user text and "(session abc12345)" suffix; they
-    #    cluster with each other AND unrelated FACTs via shared boilerplate
-    #    tokens.
-    #
-    # 2. Reference-only entries (code/file digests from `divineos digest`)
-    #    — boilerplate prefix "File: X (N lines) Purpose: ..." shares
-    #    high-frequency project-vocabulary with most knowledge entries,
-    #    making the digest-FACT a connection-magnet for unrelated content.
-    #
-    # Both classes serve real purposes (lesson tracking, file search) but
-    # they should not be mined for cross-knowledge connections. Recombination
-    # is supposed to surface TIMELESS knowledge-claim connections.
-    def _excluded_from_recombination(entry: dict[str, Any]) -> bool:
-        tags = entry.get("tags", []) or []
-        # Session-specific CONTENT only — NOT all session-tagged entries.
-        # Almost every new entry has a `session-{short_id}` provenance tag;
-        # filtering by that excludes everything new from recombination, which
-        # was the bug Andrew caught 2026-05-01. Only the content-class tags
-        # (tone_shift, tone_recovery) mark genuinely session-particular
-        # content that shouldn't recombine; the bare `session-*` tag is just
-        # provenance, not a content-class signal.
-        if any(isinstance(t, str) and t in {"tone_shift", "tone_recovery"} for t in tags):
-            return True
-        # Reference-only (code/file digests, file inventories)
-        if any(isinstance(t, str) and t in {"reference_only", "digest"} for t in tags):
-            return True
-        # Content-pattern fallback for entries that have a (session abc12345)
-        # suffix in their content body (the tone-shift entries with verbatim
-        # user text that lost their tags somehow). This catches the actual
-        # session-specific-CONTENT shape regardless of tagging.
-        content = entry.get("content") or ""
-        if _SESSION_SUFFIX_PATTERN.search(content.lower()):
-            return True
-        return False
-
-    pre_filter_count = len(entries)
-    entries = [e for e in entries if not _excluded_from_recombination(e)]
-    if pre_filter_count - len(entries) > 0:
-        logger.debug(
-            f"Recombination: filtered {pre_filter_count - len(entries)} non-knowledge-claim entries",
-        )
-
     if len(entries) < 2:
         return
 
@@ -558,15 +475,9 @@ def _phase_recombination(report: DreamReport) -> None:
                     word_overlap = _compute_overlap(content_a, content_b)
                     if word_overlap > _RECOMBINATION_MAX_WORD_OVERLAP:
                         continue
-                    # 2026-05-01: also require minimum lexical anchoring.
-                    # Semantic similarity alone produces false positives via
-                    # shared common-vocabulary; some word overlap proves the
-                    # match has real lexical grounding.
-                    if word_overlap < _RECOMBINATION_MIN_WORD_OVERLAP:
-                        continue
 
                     similarity = compute_similarity(content_a, content_b)
-                    if _min_similarity <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
+                    if _RECOMBINATION_MIN_SIMILARITY <= similarity <= _RECOMBINATION_MAX_SIMILARITY:
                         total_band_pairs += 1
                         aid = entry_a.get("knowledge_id", "?")
                         bid = entry_b.get("knowledge_id", "?")
@@ -658,13 +569,7 @@ def _phase_curiosity(report: DreamReport) -> None:
     cross-topic connections — these are genuine "huh, interesting" moments where
     two unrelated knowledge areas overlap unexpectedly.
     """
-
-    # Lite: divineos.core.curiosity_engine stripped — stub the imported symbols.
-    def add_curiosity(*_a, **_k):
-        return None
-
-    def prune_stale_curiosities(*_a, **_k):
-        return None
+    from divineos.core.curiosity_engine import add_curiosity, prune_stale_curiosities
 
     pruned = prune_stale_curiosities()
     report.curiosities_generated = 0

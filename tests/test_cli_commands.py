@@ -381,13 +381,14 @@ class TestDecisionCmd:
         assert result.exit_code == 0
 
     def test_decide_paradigm_shift(self, initialized):
-        """Weight-3 decisions land as paradigm shifts. Council-gate
-        removed in Lite — full DivineOS retains the consultation
-        requirement."""
+        """Weight-3 decisions require --consultation (council-for-hard-decisions
+        gate). Test asserts the gate fires — the actual enforcement happens in
+        test_decision_council_gate.py."""
         result = initialized.invoke(
             cli, ["decide", "Consciousness is substrate-independent", "--weight", "3"]
         )
-        assert result.exit_code == 0
+        assert result.exit_code != 0
+        assert "require --consultation" in result.output
 
     def test_decisions_list_empty(self, initialized):
         result = initialized.invoke(cli, ["decisions", "list"])
@@ -407,11 +408,26 @@ class TestDecisionCmd:
         assert result.exit_code == 0
 
     def test_decisions_shifts(self, initialized):
-        # Council-gate removed in Lite, no mock needed.
-        initialized.invoke(
-            cli,
-            ["decide", "Decision content unrelated to keywords", "--weight", "3"],
-        )
+        # Weight-3 decisions now require --consultation; pass a mock id and
+        # mock the lookup. The shifts subcommand just lists; content doesn't
+        # need to actually exist for exit-code assertion.
+        from unittest.mock import patch
+
+        with patch(
+            "divineos.core.council.consultation_log._fetch_consultation_payload",
+            return_value={"consultation_id": "consult-test", "question": "q"},
+        ):
+            initialized.invoke(
+                cli,
+                [
+                    "decide",
+                    "Decision content unrelated to keywords",
+                    "--weight",
+                    "3",
+                    "--consultation",
+                    "consult-test",
+                ],
+            )
         result = initialized.invoke(cli, ["decisions", "shifts"])
         assert result.exit_code == 0
 

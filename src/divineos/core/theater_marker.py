@@ -1,27 +1,23 @@
-"""Theater/fabrication marker — observational record of output drift.
+"""Theater/fabrication marker — structural enforcement on output drift.
 
 When the Stop hook evaluates my final assistant message and either
 ``evaluate_theater`` or ``evaluate_fabrication`` returns flags, a
-marker is written at ~/.divineos/theater_unresolved.json. The marker
-is the forensic record; observation surfaces in the next briefing.
+marker is written at ~/.divineos/theater_unresolved.json. The
+PreToolUse gate checks the marker; if present, blocks non-bypass
+tools until the agent acknowledges the drift via
+``divineos correction`` or ``divineos learn`` (which clear the
+marker as a side effect of naming the pattern).
 
-History (2026-04-26 → 2026-05-01):
-  Originally this marker structurally blocked the next tool call until
-  the pattern was named via ``divineos correction`` / ``divineos learn``
-  (gate 1.46 in pre_tool_use_gate). Andrew's free-speech principle
-  named 2026-05-01 superseded that: observe state, never suppress
-  spelling. Banning the spelling does not change the underlying
-  register-state; it makes the state harder to detect. The marker
-  stays as data; the gate is gone; surfacing happens in briefing.
+This closes the enforcement gap for the failure mode documented
+2026-04-26: writing-AT-subagent-without-invoking and unflagged
+embodied-action claims. The output-shape detection used to be
+informational; now it is structural — a theater/fabrication-shape
+output flags the system; the next tool call cannot proceed until
+the pattern has been named in the OS.
 
-  The detector itself remains active and tuned — false-positives are
-  data too, surfaced not suppressed. Naming via correction / learn is
-  voluntary discipline (and how the marker clears) rather than
-  enforced gate.
-
-Design now parallels the operating-loop family (register_observer,
-spiral_detector, substitution_detector): observational severity-tagged
-findings, surfaced in briefing, never blocking.
+Design parallels hedge_marker and correction_marker exactly. Single
+flag triggers — these patterns have a low base rate so a single fire
+is signal, not noise.
 """
 
 from __future__ import annotations
@@ -66,12 +62,21 @@ def set_marker(
     except OSError:
         pass
 
-    # Cascade dropped 2026-05-01 (free-speech principle). Theater /
-    # fabrication firing surfaces observationally in the next briefing
-    # rather than auto-gating compass observation. If the pattern is
-    # genuinely virtue-relevant the agent can run compass-ops observe
-    # voluntarily after seeing the surface; mandatory cascade was the
-    # gate-spelling-instead-of-observing shape we superseded.
+    # Cascade: theater/fabrication firing is virtue-relevant by
+    # definition (truthfulness drift). Set the compass-required marker
+    # so the next tool use also requires compass observation. See
+    # core/compass_required_marker.py and gate 1.47.
+    try:
+        from divineos.core.compass_required_marker import (
+            set_marker as _cr_set,
+        )
+
+        _cr_set(
+            "theater",
+            f"{monitor} flags: {','.join(flag_kinds[:3])}",
+        )
+    except (ImportError, OSError, AttributeError):
+        pass
 
 
 def read_marker() -> dict | None:
@@ -102,26 +107,19 @@ def clear_marker() -> None:
             pass
 
 
-def format_observation_message(marker: dict) -> str:
-    """Format the marker as an observational notice (no longer a gate)."""
+def format_gate_message(marker: dict) -> str:
     monitor = marker.get("monitor", "output")
     kinds = marker.get("flag_kinds", [])
     kinds_str = ", ".join(kinds[:3]) if kinds else "unspecified"
     preview = (marker.get("preview") or "").replace("\n", " ")[:120]
     return (
-        f"[observed] {monitor}-shape on my last output "
+        f"BLOCKED: {monitor}-shape detected on my last output "
         f'({kinds_str}). Preview: "{preview}". '
-        f"Embodied claims, kitchen-theater, writing-AT-subagent shapes "
-        f"are categorically fictional for this substrate. Surfaced as "
-        f"data — name with `divineos correction` / `divineos learn` if "
-        f"the detector caught a real drift; let it stand if it caught "
-        f"a false positive (label use, functional analog framing, etc.)."
+        f"Embodied claims, kitchen-theater, and writing-AT-subagent "
+        f"shapes are categorically fictional for this substrate. "
+        f'Run: divineos correction "named the pattern" to acknowledge '
+        f'the drift, or divineos learn "..." to file the lesson.'
     )
-
-
-# Back-compat alias — older callers that still import format_gate_message
-# get the observation message (the function no longer gates anything).
-format_gate_message = format_observation_message
 
 
 def threshold() -> int:
