@@ -281,9 +281,7 @@ def _phase_pruning(report: DreamReport) -> None:
 
     # Prune stale curiosities — wonder has a shelf life
     try:
-        # Lite: divineos.core.curiosity_engine stripped — stub the imported symbols.
-        def prune_stale_curiosities(*_a, **_k):
-            return None
+        from divineos.core.curiosity_engine import prune_stale_curiosities
 
         shelved = prune_stale_curiosities()
         if shelved:
@@ -677,13 +675,7 @@ def _phase_curiosity(report: DreamReport) -> None:
     cross-topic connections — these are genuine "huh, interesting" moments where
     two unrelated knowledge areas overlap unexpectedly.
     """
-
-    # Lite: divineos.core.curiosity_engine stripped — stub the imported symbols.
-    def add_curiosity(*_a, **_k):
-        return None
-
-    def prune_stale_curiosities(*_a, **_k):
-        return None
+    from divineos.core.curiosity_engine import add_curiosity, prune_stale_curiosities
 
     pruned = prune_stale_curiosities()
     report.curiosities_generated = 0

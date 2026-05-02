@@ -323,12 +323,7 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
     # Deactivate any logical relations pointing to/from the superseded entry
     try:
         # Late import: crud -> logic_reasoning -> knowledge -> crud cycle
-        # Lite: divineos.core.logic.logic_reasoning stripped
-        def deactivate_relation(*_a, **_k):
-            return None
-
-        def get_relations(*_a, **_k):
-            return None
+        from divineos.core.logic.logic_reasoning import deactivate_relation, get_relations
 
         relations = get_relations(knowledge_id, direction="both")
         for rel in relations:

@@ -189,18 +189,12 @@ def _ensure_db() -> None:
     init_edge_table()
 
     from divineos.core.growth import init_session_history_table
-
-    # Lite: divineos.core.tone_texture stripped — stub the imported symbols.
-    def init_tone_texture_table(*_a, **_k):
-        return None
+    from divineos.core.tone_texture import init_tone_texture_table
 
     init_session_history_table()
     init_tone_texture_table()
 
-    # Lite: divineos.core.logic.warrants stripped
-
-    def init_warrant_table(*_a, **_k):
-        return None
+    from divineos.core.logic.warrants import init_warrant_table
 
     init_warrant_table()
 
@@ -208,9 +202,7 @@ def _ensure_db() -> None:
 
     init_questions_table()
 
-    # Lite: divineos.core.user_ratings stripped — stub the imported symbols.
-    def init_ratings_table(*_a, **_k):
-        return None
+    from divineos.core.user_ratings import init_ratings_table
 
     init_ratings_table()
 

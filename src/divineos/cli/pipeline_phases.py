@@ -277,12 +277,7 @@ def run_feedback_cycle(
 
     # 4d. Auto-file curiosities from corrections (things we got wrong = things worth investigating)
     try:
-        # Lite: divineos.core.curiosity_engine stripped — stub the imported symbols.
-        def add_curiosity(*_a, **_k):
-            return None
-
-        def get_open_curiosities(*_a, **_k):
-            return None
+        from divineos.core.curiosity_engine import add_curiosity, get_open_curiosities
 
         existing = {c["question"][:50] for c in get_open_curiosities()}
         filed = 0
@@ -341,9 +336,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
     # 5b-pre. Backfill warrants BEFORE maturity cycle — newly warranted
     # entries may meet promotion criteria that the maturity cycle checks.
     try:
-        # Lite: divineos.core.logic.logic_reasoning stripped
-        def backfill_inherited_warrants(*_a, **_k):
-            return None
+        from divineos.core.logic.logic_reasoning import backfill_inherited_warrants
 
         wresult = backfill_inherited_warrants()
         if wresult["backfilled"]:
@@ -370,12 +363,7 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
 
     # 5c. Logic pass
     try:
-        # Lite: divineos.core.logic.logic_session stripped
-        def format_logic_summary(*_a, **_k):
-            return None
-
-        def run_session_logic_pass(*_a, **_k):
-            return None
+        from divineos.core.logic.logic_session import format_logic_summary, run_session_logic_pass
 
         valid_deep_ids = [did for did in deep_ids if did]
         logic_result = run_session_logic_pass(
@@ -895,12 +883,7 @@ def run_session_finalization(
 
     # 9b2. Record skills from real competence signals (not tool counts)
     try:
-        # Lite: divineos.core.skill_library stripped — stub the imported symbols.
-        def detect_skills_from_events(*_a, **_k):
-            return None
-
-        def record_skill_use(*_a, **_k):
-            return None
+        from divineos.core.skill_library import detect_skills_from_events, record_skill_use
 
         skills_recorded = 0
 
@@ -970,13 +953,7 @@ def run_session_finalization(
     # 9c. Tone texture
     try:
         from divineos.analysis.tone_tracking import classify_all_user_tones
-
-        # Lite: divineos.core.tone_texture stripped — stub the imported symbols.
-        def compute_emotional_arc(*_a, **_k):
-            return None
-
-        def record_session_tone(*_a, **_k):
-            return None
+        from divineos.core.tone_texture import compute_emotional_arc, record_session_tone
 
         tone_sequence = classify_all_user_tones(records)
         if tone_sequence:

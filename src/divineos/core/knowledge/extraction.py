@@ -35,14 +35,10 @@ from divineos.core.knowledge.crud import (
     supersede_knowledge,
 )
 
-
 # Late import: knowledge_maintenance creates a circular import if loaded at
 # module level (extraction -> knowledge_maintenance -> _base -> __init__ ->
 # deep_extraction -> extraction).  Imported lazily inside functions instead.
-# Lite: divineos.core.logic.warrants stripped
-def create_warrant(*_a, **_k):
-    return None
-
+from divineos.core.logic.warrants import create_warrant
 
 _EXTRACTION_ERRORS = (
     sqlite3.OperationalError,
