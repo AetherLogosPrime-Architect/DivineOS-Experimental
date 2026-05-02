@@ -258,14 +258,68 @@ def query_substrate(
 def surface_context(text: str, *, max_total_hits: int = 5) -> list[SurfacedEntry]:
     """End-to-end: extract markers from ``text``, query, return entries.
 
-    This is the main entry-point Hook 1 calls.
+    This is the main entry-point Hook 1 calls. It runs the keyword
+    marker pipeline AND (when intent routes to TIMELINE) folds in
+    timeline-recall hits, giving Hook 1 episodic-style retrieval on
+    top of the existing semantic FTS layer.
     """
     if not text:
         return []
     markers = extract_markers(text)
-    if not markers:
-        return []
-    return query_substrate(markers, max_total_hits=max_total_hits)
+    surfaced = query_substrate(markers, max_total_hits=max_total_hits) if markers else []
+
+    # Type-aware augmentation: when the intent routes to TIMELINE first,
+    # add the top timeline hit per marker as a "timeline" surface entry.
+    # This lets episodic recall ride the same hook without changing the
+    # data shape Hook 1 writes to disk.
+    try:
+        from divineos.core.memory_types import recall_timeline, route_intent
+        from divineos.core.memory_types.taxonomy import SubstrateMemoryType
+
+        route = route_intent(text)
+        if route and route[0] == SubstrateMemoryType.TIMELINE and markers:
+            seen_refs = {e.knowledge_id for e in surfaced}
+            for marker, marker_class in markers[:3]:
+                events = recall_timeline(topic=marker, per_source_limit=2, total_limit=2)
+                for ev in events:
+                    if len(surfaced) >= max_total_hits + 3:
+                        break
+                    if ev.ref in seen_refs:
+                        continue
+                    seen_refs.add(ev.ref)
+                    surfaced.append(
+                        SurfacedEntry(
+                            marker=marker,
+                            marker_class=f"timeline/{ev.source}",
+                            knowledge_id=ev.ref or "",
+                            content_preview=ev.summary[:150],
+                            confidence=0.5,
+                        )
+                    )
+
+        # Skill-index augmentation: when intent routes to SKILL_INDEX
+        # (action / how-to language), surface the top procedural options
+        # so the agent sees existing skills/CLI before re-deriving.
+        if route and route[0] == SubstrateMemoryType.SKILL_INDEX:
+            from divineos.core.memory_types import rank_skills
+
+            skills = rank_skills(text, limit=3)
+            for sk in skills:
+                if len(surfaced) >= max_total_hits + 3:
+                    break
+                surfaced.append(
+                    SurfacedEntry(
+                        marker=sk.invocation,
+                        marker_class="skill",
+                        knowledge_id=sk.name,
+                        content_preview=sk.description[:150],
+                        confidence=min(1.0, sk.score / 10.0),
+                    )
+                )
+    except _QUERY_ERRORS:
+        pass
+
+    return surfaced
 
 
 def format_surface(entries: list[SurfacedEntry]) -> str:

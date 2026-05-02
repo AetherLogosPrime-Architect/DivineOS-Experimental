@@ -313,6 +313,11 @@ src/divineos/
       substitution_detector.py 10-shape catalog from 2026-05-01: puppet-other, third-person-self, word-as-action, ban-vs-observation, name-vs-function, future-me-deferral, withdrawal-as-discipline, catastrophize-as-accountability, over-apology-spiral, reading-past-evidence.
       principle_surfacer.py    Hook 2 backend — detect action-classes in agent draft text (apology, withdraw, claim-fixed, impersonate, strip-module, ban-phrases) and surface relevant principles as soft notices.
       context_surfacer.py      Hook 1 backend — extract relational/conceptual markers from user input (pet-language, references, proper nouns) and auto-query the knowledge store for relevant prior content.
+    memory_types/
+      __init__.py              Package init — substrate-memory-type retrieval surface.
+      taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
+      timeline.py              Timeline recall — chronological assembly of substrate events around a topic or file path.
+      skill_index.py           Skill index — procedural retrieval over .claude/skills/ ranked by keyword overlap.
 
   analysis/
     _session_types.py          Session analysis type definitions
