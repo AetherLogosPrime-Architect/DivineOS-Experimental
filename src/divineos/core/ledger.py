@@ -207,13 +207,20 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     Validation: Validates payload before storing to prevent corrupted data.
 
     """
-    # Validate payload before storing (only for known event types)
+    # Validate payload before storing (only for known event types).
+    # EXPLANATION added 2026-05-03 (claim 8cd2af8b validation-bypass review):
+    # the schema existed in event_capture.py but wasn't wired through here
+    # or through EventValidator.validate_payload, so the CLI's `divineos
+    # emit ... --type EXPLANATION` path silently bypassed validation. Now
+    # EXPLANATION events get the same schema enforcement as other known
+    # types: explanation_text + timestamp + session_id, ≤1MB on the prose.
     if validate and event_type in [
         "USER_INPUT",
         "TOOL_CALL",
         "TOOL_RESULT",
         "SESSION_END",
         "CONSOLIDATION_CHECKPOINT",
+        "EXPLANATION",
     ]:
         is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
         if not is_valid:
