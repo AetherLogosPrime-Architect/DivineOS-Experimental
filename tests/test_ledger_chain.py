@@ -146,6 +146,39 @@ class TestBackfillIdempotent:
         assert verify_result["ok"] is True
 
 
+class TestMigrationOrderingHazard:
+    """Grok audit 2026-05-02: legacy NULL events + new event written
+    before backfill must not produce a broken seam at verify time."""
+
+    def test_log_event_after_legacy_rows_chains_correctly(self, fresh_ledger):
+        conn = get_connection()
+        try:
+            conn.execute(
+                "INSERT INTO system_events "
+                "(event_id, timestamp, event_type, actor, payload, content_hash, "
+                "prior_hash, chain_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)",
+                ("legacy1", 1.0, "TEST", "test", "{}", "h1"),
+            )
+            conn.execute(
+                "INSERT INTO system_events "
+                "(event_id, timestamp, event_type, actor, payload, content_hash, "
+                "prior_hash, chain_hash) "
+                "VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)",
+                ("legacy2", 2.0, "TEST", "test", "{}", "h2"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        # Guard in log_event auto-triggers backfill so the new event
+        # chains onto the last legacy chain_hash, not GENESIS.
+        log_event("TEST_EVENT", "test", {"k": "post"}, validate=False)
+
+        verify_result = verify_chain()
+        assert verify_result["ok"] is True, verify_result
+
+
 class TestComputeHashIsDeterministic:
     def test_same_inputs_same_hash(self):
         h1 = _compute_chain_hash(
