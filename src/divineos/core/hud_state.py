@@ -92,6 +92,26 @@ def update_task_state(
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
+def get_active_goals() -> list[dict[str, Any]]:
+    """Return the list of active (non-done) goals, or an empty list.
+
+    Public read accessor — used by territory-tagged exploration surfacing
+    (claim 02f0dcc0) and any other surfaces that want to enrich briefing
+    output with current-work context. Reads `active_goals.json` from the
+    HUD dir; returns [] if the file doesn't exist or is unreadable.
+    """
+    path = _ensure_hud_dir() / "active_goals.json"
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except _HS_ERRORS:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [g for g in data if isinstance(g, dict) and g.get("status") != "done"]
+
+
 def add_goal(text: str, original_words: str = "") -> None:
     """Add a single goal to the active goals list."""
     if not text.strip():

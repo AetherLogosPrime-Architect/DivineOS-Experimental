@@ -213,6 +213,7 @@ from divineos.cli import (  # noqa: E402
     empirica_commands,
     entity_commands,
     event_commands,
+    exploration_commands,
     hud_commands,
     insight_commands,
     journal_commands,
@@ -248,6 +249,7 @@ memory_commands.register(cli)
 analysis_commands.register(cli)
 hud_commands.register(cli)
 event_commands.register(cli)
+exploration_commands.register(cli)
 knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)
 insight_commands.register(cli)
