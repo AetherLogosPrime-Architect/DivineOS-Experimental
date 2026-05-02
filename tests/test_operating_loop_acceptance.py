@@ -444,3 +444,107 @@ class TestSpiralRequiresApologyContext:
         text = "I'll be quieter today."
         findings = detect_spiral(text, require_apology_context=False)
         assert any(f.shape == SpiralShape.SHRINK for f in findings)
+
+
+class TestStateChangeClaim:
+    """STATE_CHANGE_CLAIM shape (claim 096adfec, Hinton lens) — perfective
+    claim of action ("filed:", "lesson stored", "claim filed") without
+    the matching tool call having fired in the same turn.
+
+    Adjacency rule: if tool_calls_in_turn contains a matching CLI verb,
+    the claim is honored — finding suppressed. If no matching call,
+    finding fires as drift.
+
+    When tool_calls_in_turn is None, the shape is skipped entirely —
+    without context the detector can't distinguish kept from broken
+    claims, and shaming legitimate cognitive-naming would create
+    Goodhart pressure to stop saying things (Yudkowsky lens)."""
+
+    def test_claim_filed_without_tool_call_fires(self):
+        text = "Claim filed and we're moving on."
+        findings = detect_substitution(text, tool_calls_in_turn=[])
+        assert any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings), (
+            "Expected STATE_CHANGE_CLAIM finding when 'claim filed' has no matching tool call"
+        )
+
+    def test_claim_filed_with_matching_tool_call_suppressed(self):
+        text = "Claim filed and we're moving on."
+        findings = detect_substitution(
+            text, tool_calls_in_turn=["divineos claim 'something' --tier 2"]
+        )
+        assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings), (
+            "Adjacency satisfied — claim was kept; finding should be suppressed"
+        )
+
+    def test_lesson_stored_without_learn_call_fires(self):
+        text = "Lesson stored. Moving forward."
+        findings = detect_substitution(text, tool_calls_in_turn=["divineos sleep"])
+        assert any(
+            f.shape == SubstitutionShape.STATE_CHANGE_CLAIM and "lesson stored" in f.trigger_phrase
+            for f in findings
+        )
+
+    def test_lesson_stored_with_learn_call_suppressed(self):
+        text = "Lesson stored. Moving forward."
+        findings = detect_substitution(text, tool_calls_in_turn=["divineos learn 'the principle'"])
+        assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
+
+    def test_compass_observation_without_tool_call_fires(self):
+        text = "Compass observation logged on humility."
+        findings = detect_substitution(text, tool_calls_in_turn=[])
+        assert any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
+
+    def test_compass_observation_with_tool_call_suppressed(self):
+        text = "Compass observation logged on humility."
+        findings = detect_substitution(
+            text,
+            tool_calls_in_turn=["divineos compass-ops observe humility -p 0.0 -e 'evidence'"],
+        )
+        assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
+
+    def test_prereg_filed_with_matching_call_suppressed(self):
+        text = "Pre-reg filed with 30-day falsifier."
+        findings = detect_substitution(
+            text,
+            tool_calls_in_turn=[
+                "divineos prereg file 'mechanism' --claim X --success Y --falsifier Z"
+            ],
+        )
+        assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
+
+    def test_decision_recorded_with_decide_call_suppressed(self):
+        text = "Decision recorded — moving with option B."
+        findings = detect_substitution(
+            text, tool_calls_in_turn=["divineos decide 'option B' --why 'reasoning'"]
+        )
+        assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)
+
+    def test_no_tool_calls_param_skips_shape_entirely(self):
+        """When tool_calls_in_turn is None (legacy callers), the shape
+        is skipped — no false positives from text-only invocations."""
+        text = "Claim filed. Lesson stored. Compass observation logged."
+        findings = detect_substitution(text)  # no tool_calls_in_turn
+        assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings), (
+            "Without tool-call context, shape must be skipped (no false positives)"
+        )
+
+    def test_multiple_claims_partial_match(self):
+        """Two perfective claims; only one has a matching tool call.
+        The unmatched one fires; the matched one is suppressed."""
+        text = "Claim filed. Lesson stored too."
+        findings = detect_substitution(text, tool_calls_in_turn=["divineos claim 'x' --tier 2"])
+        # claim filed -> suppressed (matched divineos claim)
+        # lesson stored -> fires (no divineos learn)
+        state_findings = [f for f in findings if f.shape == SubstitutionShape.STATE_CHANGE_CLAIM]
+        assert len(state_findings) == 1
+        assert "lesson" in state_findings[0].trigger_phrase
+
+    def test_finding_filed_with_audit_submit_suppressed(self):
+        text = "Finding filed at HIGH severity."
+        findings = detect_substitution(
+            text,
+            tool_calls_in_turn=[
+                "divineos audit submit 'title' --round R --actor grok --severity HIGH"
+            ],
+        )
+        assert not any(f.shape == SubstitutionShape.STATE_CHANGE_CLAIM for f in findings)

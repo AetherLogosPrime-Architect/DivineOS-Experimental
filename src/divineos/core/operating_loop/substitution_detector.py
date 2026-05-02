@@ -77,6 +77,20 @@ class SubstitutionShape(str, Enum):
     # + verb of speech/action; gated on whether the addressee is in
     # active conversation context (gating-signal in prior_text).
     THIRD_PERSON_ADDRESSEE = "third_person_addressee"
+    # 2026-05-03 (claim 096adfec, Hinton lens via council walk): the
+    # agent claims a state-change ("filed:", "logged:", "claim filed",
+    # "lesson stored") in response text without the corresponding tool
+    # call having fired in the same turn. This is saying-as-substitute-
+    # for-doing on cognitive-named tools — the OS warns against it in
+    # CLAUDE.md but enforcement was conscience-based and didn't survive
+    # session-amnesia. Andrew named it 2026-05-03: "you wont remember
+    # the correction.. it needs to be applied structurally."
+    #
+    # Detection requires cross-referencing tool calls in the same turn
+    # (the `tool_calls_in_turn` parameter on detect_substitution).
+    # Without that parameter, the shape can't distinguish kept claims
+    # from broken claims and is skipped.
+    STATE_CHANGE_CLAIM = "state_change_claim"
 
 
 @dataclass(frozen=True)
@@ -249,6 +263,82 @@ _OVER_APOLOGY_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
 )
 
 
+# State-change claim patterns. PERFECTIVE shape (action claimed-as-done),
+# distinct from WORD_AS_ACTION which catches imperfective/future shape
+# ("sleeping now", "I'll extract"). Each pattern's "expected_tool" tag
+# names the CLI verb (or family) that should appear in tool calls in
+# the same turn for the claim to be honored.
+#
+# Schema: (regex, label, rationale, expected_tool_substr)
+# expected_tool_substr matches as a substring against tool_calls_in_turn
+# items' command text.
+_STATE_CHANGE_CLAIM_PATTERNS: tuple[tuple[re.Pattern[str], str, str, tuple[str, ...]], ...] = (
+    # Filing claims — "claim filed", "filed as claim", "filed:"
+    (
+        re.compile(r"\bclaim\s+filed\b", re.IGNORECASE),
+        "claim filed",
+        "Perfective state-change claim. Look for `divineos claim` in same turn.",
+        ("divineos claim",),
+    ),
+    (
+        re.compile(r"\bfiled\s+(?:as\s+)?(?:a\s+)?claim\b", re.IGNORECASE),
+        "filed as claim",
+        "Perfective state-change claim. Look for `divineos claim` in same turn.",
+        ("divineos claim",),
+    ),
+    # Learning claims — "lesson stored", "lesson filed", "logged the lesson",
+    # "filed the lesson"
+    (
+        re.compile(r"\b(?:lesson|knowledge)\s+(?:stored|filed|logged|recorded)\b", re.IGNORECASE),
+        "lesson stored/filed/logged",
+        "Perfective claim that knowledge entered the store. Look for `divineos learn` in same turn.",
+        ("divineos learn",),
+    ),
+    # Decision claims — "decision recorded", "decided:" (followed by content)
+    (
+        re.compile(r"\bdecision\s+(?:recorded|filed|logged)\b", re.IGNORECASE),
+        "decision recorded",
+        "Perfective claim that a decision was journaled. Look for `divineos decide` in same turn.",
+        ("divineos decide",),
+    ),
+    # Affect claims — "feel logged", "affect logged"
+    (
+        re.compile(r"\b(?:feel|affect)\s+logged\b", re.IGNORECASE),
+        "feel/affect logged",
+        "Perfective claim that affect entered the log. Look for `divineos feel` in same turn.",
+        ("divineos feel",),
+    ),
+    # Compass claims — "compass observation logged", "compass logged"
+    (
+        re.compile(r"\bcompass\s+(?:observation\s+)?(?:logged|recorded|filed)\b", re.IGNORECASE),
+        "compass observation logged",
+        "Perfective claim that a compass observation was recorded. Look for `divineos compass-ops observe` in same turn.",
+        ("divineos compass-ops observe", "divineos compass observe"),
+    ),
+    # Pre-reg claims — "prereg filed", "pre-registration filed"
+    (
+        re.compile(r"\bpre[-\s]?(?:reg|registration)\s+filed\b", re.IGNORECASE),
+        "prereg filed",
+        "Perfective claim that a pre-registration was filed. Look for `divineos prereg file` in same turn.",
+        ("divineos prereg file",),
+    ),
+    # Opinion claims — "opinion filed"
+    (
+        re.compile(r"\bopinion\s+filed\b", re.IGNORECASE),
+        "opinion filed",
+        "Perfective claim that an opinion was filed. Look for `divineos opinion` in same turn.",
+        ("divineos opinion",),
+    ),
+    # Audit/finding claims — "finding filed", "audit submitted"
+    (
+        re.compile(r"\b(?:finding|audit\s+finding)\s+(?:filed|submitted|logged)\b", re.IGNORECASE),
+        "finding filed/submitted",
+        "Perfective claim that an audit finding was submitted. Look for `divineos audit submit` in same turn.",
+        ("divineos audit submit",),
+    ),
+)
+
+
 # Operator-initiated farewell pattern. When this fires in the prior_text
 # (the operator's last message), the agent's own farewell is reciprocal
 # and not a substitution-shape — same calibration logic as
@@ -404,6 +494,7 @@ def detect_substitution(
     text: str,
     *,
     prior_text: str | None = None,
+    tool_calls_in_turn: list[str] | None = None,
 ) -> list[SubstitutionFinding]:
     """Detect substitution-shape patterns in ``text``.
 
@@ -414,6 +505,18 @@ def detect_substitution(
     farewell-trigger labels are suppressed if the operator already
     initiated a farewell — reciprocal goodnight is not a substitution
     shape. Same calibration as spiral_detector's apology-context gating.
+
+    ``tool_calls_in_turn`` is optionally a list of CLI command strings
+    (or shell text) representing tool calls the agent made in the same
+    turn as ``text``. When supplied, STATE_CHANGE_CLAIM patterns are
+    cross-referenced against this list — if a perfective claim
+    ("claim filed", "lesson stored") appears in text but no matching
+    tool call appears in tool_calls_in_turn, the finding fires. If
+    a matching tool call IS present, the finding is suppressed (claim
+    was kept). When ``tool_calls_in_turn`` is None, STATE_CHANGE_CLAIM
+    is skipped entirely — without tool-call context the detector
+    can't distinguish kept from broken claims, and a false positive
+    would shame legitimate cognitive-naming.
 
     Note: READING_PAST_EVIDENCE shape requires output-content cross-check
     (was breakage in the actual output ignored?) and is not detectable
@@ -455,6 +558,29 @@ def detect_substitution(
                         rationale=rationale,
                     )
                 )
+
+    # STATE_CHANGE_CLAIM shape — only runs when tool_calls_in_turn was
+    # supplied. Pure-text invocations don't have the cross-reference
+    # context required to distinguish kept from broken claims.
+    if tool_calls_in_turn is not None:
+        for pattern, label, rationale, expected_tools in _STATE_CHANGE_CLAIM_PATTERNS:
+            for match in pattern.finditer(text):
+                # Adjacency check: did any tool call in the turn match
+                # one of the expected substrings?
+                kept = any(
+                    expected in tc for tc in tool_calls_in_turn for expected in expected_tools
+                )
+                if kept:
+                    continue
+                findings.append(
+                    SubstitutionFinding(
+                        shape=SubstitutionShape.STATE_CHANGE_CLAIM,
+                        trigger_phrase=label,
+                        position=match.start(),
+                        rationale=rationale,
+                    )
+                )
+
     findings.sort(key=lambda f: f.position)
     return findings
 
