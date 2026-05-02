@@ -70,8 +70,15 @@ jobs:
             exit 0
           fi
 
-          # List every commit in the range.
-          COMMITS=$(git rev-list "$BASE_SHA..$HEAD_SHA" 2>/dev/null || true)
+          # List commits authored DIRECTLY on this branch in the range,
+          # using --first-parent. Commits absorbed via merge from an
+          # upstream remote rode in on a merge commit; their review
+          # happened upstream (or rides on the merge commit's own trailer
+          # if the merge itself touches a guardrail file). Without
+          # --first-parent the gate retroactively re-validates upstream
+          # history every time a downstream branch merges, which is the
+          # wrong responsibility-boundary — closed 2026-05-01.
+          COMMITS=$(git rev-list --first-parent "$BASE_SHA..$HEAD_SHA" 2>/dev/null || true)
           if [ -z "$COMMITS" ]; then
             echo "No commits to check in range $BASE_SHA..$HEAD_SHA."
             exit 0
