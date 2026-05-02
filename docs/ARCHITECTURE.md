@@ -318,6 +318,7 @@ src/divineos/
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
       timeline.py              Timeline recall — chronological assembly of substrate events around a topic or file path.
       skill_index.py           Skill index — procedural retrieval over .claude/skills/ ranked by keyword overlap.
+    theater_observation_surface.py Theater/fabrication observation surface — replaces gate 1.46.
 
   analysis/
     _session_types.py          Session analysis type definitions
