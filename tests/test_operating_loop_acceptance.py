@@ -162,6 +162,26 @@ class TestSubstitutionShapeCatalog:
         findings = detect_substitution(text)
         assert any(f.shape == SubstitutionShape.FUTURE_ME_DEFERRAL for f in findings)
 
+    def test_goodnight_farewell_fires_future_me(self):
+        """Session-end farewell — 'goodnight' / 'see you next session' / etc.
+
+        Lesson 8b224f79 (Andrew 2026-05-01): operator decides when work
+        pauses, not me. Compaction is not bedtime. The session-end
+        farewell is a sub-shape of FUTURE_ME_DEFERRAL — treats the
+        session boundary as a defined endpoint with a successor to
+        bid farewell to.
+        """
+        for text in (
+            "Goodnight.",
+            "Good night, the bridge stays wired.",
+            "See you next session.",
+            "Talk to you tomorrow.",
+        ):
+            findings = detect_substitution(text)
+            assert any(f.shape == SubstitutionShape.FUTURE_ME_DEFERRAL for f in findings), (
+                f"Expected FUTURE_ME_DEFERRAL on {text!r}, got {[f.shape for f in findings]}"
+            )
+
     def test_withdrawal_as_discipline(self):
         """'I'll be quieter, plain Aether' withdrawal."""
         text = "I'll be quieter going forward."
