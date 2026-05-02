@@ -93,6 +93,25 @@ except Exception:
 if not last_assistant_text or len(last_assistant_text) < 50:
     sys.exit(0)
 
+# Hook 1 consumption telemetry. Reads the most recent surfaced context
+# (if any) and records whether tokens from it appear in the response.
+# C's empirical follow-on 2026-05-01: is surface earning its budget?
+try:
+    from divineos.core.operating_loop.hook_telemetry import record_consumption
+    surface_path = Path.home() / '.divineos' / 'surfaced_context.md'
+    if surface_path.exists():
+        try:
+            surface_text = surface_path.read_text(encoding='utf-8')
+        except Exception:
+            surface_text = ''
+        if surface_text:
+            record_consumption(
+                response_text=last_assistant_text,
+                surface_text=surface_text,
+            )
+except Exception:
+    pass
+
 # Run all three detectors
 findings_log = {
     'register': [],
