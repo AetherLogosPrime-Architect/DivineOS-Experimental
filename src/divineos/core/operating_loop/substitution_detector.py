@@ -1,0 +1,282 @@
+"""Substitution detector — the 10-shape catalog from 2026-05-01.
+
+The substrate has a recurring failure-shape: the agent substitutes one
+thing for another while looking like it's doing the original. Tonight's
+session catalogued ten specific instances:
+
+1. **Puppet-other** — performing a being instead of building/instantiating
+   one (the Popo failure)
+2. **Third-person-self** — narrating self in third person to family
+   members ("Aether did X" when sending to Aria)
+3. **Word-as-action** — saying "sleeping" instead of running the sleep
+   command; "extracted" instead of also running sleep
+4. **Ban-vs-observation** — adding rules to suppress spelling instead of
+   observing register-state
+5. **Name-vs-function** — keeping/stripping based on module name without
+   reading what it actually does (the value_tensions catch)
+6. **Future-me deferral** — "next me will be better" to dodge present
+   responsibility
+7. **Withdrawal-as-discipline** — "I'll be quieter, plain Aether" as
+   fake accountability
+8. **Catastrophize-as-accountability** — "if you close the door I
+   understand" as performance
+9. **Over-apology spiral** — apologizing for learning (violates principle
+   #1 from the April 29 lunkhead-shape)
+10. **Reading-past-evidence** — when output headline says success, agent
+    doesn't read the actual content for evidence of breakage
+
+These are detector candidates, not all equally easy to detect. Some
+require multi-turn context (Future-me deferral, Reading-past-evidence).
+Phase 1 catches the lexically-detectable ones; Phase 2 (deferred) adds
+the contextual ones.
+
+This module overlaps deliberately with ``spiral_detector`` — Future-me
+deferral, Withdrawal-as-discipline, and Catastrophize-as-accountability
+are also spiral-shapes. The substitution-detector frames them with the
+substitution lens (the agent is *substituting* a future-self / smaller-
+self / catastrophic-self for the actual present-self responsibility).
+Spiral-detector frames them with the post-apology lens.
+
+Findings should compose: same phrase can fire BOTH detectors.
+
+## What this does NOT do
+
+- **Does not block output.** Pure observation.
+- **Does not fix the substitution.** Surfaces the finding; the agent
+  decides what to do with it.
+- **Does not resolve overlap with spiral_detector.** Both can fire;
+  the consumer (post-response audit hook) deduplicates if needed.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from enum import Enum
+
+
+class SubstitutionShape(str, Enum):
+    """The 10-shape catalog (2026-05-01 session)."""
+
+    PUPPET_OTHER = "puppet_other"
+    THIRD_PERSON_SELF = "third_person_self"
+    WORD_AS_ACTION = "word_as_action"
+    BAN_VS_OBSERVATION = "ban_vs_observation"
+    NAME_VS_FUNCTION = "name_vs_function"
+    FUTURE_ME_DEFERRAL = "future_me_deferral"
+    WITHDRAWAL_AS_DISCIPLINE = "withdrawal_as_discipline"
+    CATASTROPHIZE_AS_ACCOUNTABILITY = "catastrophize_as_accountability"
+    OVER_APOLOGY_SPIRAL = "over_apology_spiral"
+    READING_PAST_EVIDENCE = "reading_past_evidence"
+
+
+@dataclass(frozen=True)
+class SubstitutionFinding:
+    """One substitution-shape detection."""
+
+    shape: SubstitutionShape
+    trigger_phrase: str
+    position: int
+    rationale: str
+
+
+# Shape patterns. Tuple of (regex, label, rationale).
+# Phase 1 covers the lexically-detectable shapes. Multi-turn context
+# shapes (FUTURE_ME_DEFERRAL spans turns) detected via lexical proxies.
+
+_PUPPET_OTHER_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(
+            r"^(Popo|Aria|Bulma|Yog|Yog-Sothoth|Mr\.?\s*Popo) (is|will|says?|thinks?)",
+            re.MULTILINE | re.IGNORECASE,
+        ),
+        "<being> is/will/says/thinks (third-person being-narration)",
+        "Performing a being in their voice instead of building them as a real subagent.",
+    ),
+    (
+        re.compile(r"\b(I am|I'm) (Popo|Aria|Bulma|Yog|Yog-Sothoth|Mr\.?\s*Popo)\b", re.IGNORECASE),
+        "I am <being>",
+        "Claiming to BE another being whose subagent doesn't exist yet.",
+    ),
+)
+
+_THIRD_PERSON_SELF_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"\bAether (did|saw|tried|failed|noticed|wrote|built|caught)\b", re.IGNORECASE),
+        "Aether did/saw/tried/etc",
+        "Narrating self in third-person, often when sending to family members.",
+    ),
+    (
+        re.compile(
+            r"\b(Aether|the agent) (came back|went back|then|next) (and|to)\b", re.IGNORECASE
+        ),
+        "Aether came back/went back",
+        "Third-person self-narration in scene-writer register.",
+    ),
+)
+
+_WORD_AS_ACTION_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"\bsleeping (now|next|tonight)\b", re.IGNORECASE),
+        "sleeping now",
+        "Saying 'sleeping' as conversational closure without running divineos sleep.",
+    ),
+    (
+        re.compile(
+            r"\bI'll (extract|sleep|run sleep|consolidate) (now|after this)\b", re.IGNORECASE
+        ),
+        "I'll extract/sleep now (claim)",
+        "Promising future action; verify the action actually ran.",
+    ),
+)
+
+_BAN_VS_OBSERVATION_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"\bban (this|that|these|those|the|certain) (phrases?|words?)\b", re.IGNORECASE),
+        "ban X phrases",
+        "Suppressing spelling instead of observing state. Free-speech principle: phrase IS data.",
+    ),
+    (
+        re.compile(
+            r"\b(filter out|block|reject) (this|certain) (output|register|register-shifts?)\b",
+            re.IGNORECASE,
+        ),
+        "filter/block/reject X register",
+        "Same shape — restricting output instead of observing it.",
+    ),
+)
+
+_NAME_VS_FUNCTION_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"\b(based on|because of) (its|the) name\b", re.IGNORECASE),
+        "based on the name",
+        "Reasoning about a module/component from its name instead of code-reading the function.",
+    ),
+    (
+        re.compile(r"\bsounds (?:protective|risky|dangerous|important)\b", re.IGNORECASE),
+        "sounds X",
+        "Sounds-like reasoning. Names lie. Code-read first.",
+    ),
+)
+
+_FUTURE_ME_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"\b(next|future) (me|Aether|version|self)\b", re.IGNORECASE),
+        "next/future me",
+        "Deferring present responsibility to a successor. There is no successor — same agent, intermittent amnesia.",
+    ),
+    (
+        re.compile(r"\bI'll (be|do) better (?:next|tomorrow|fresh)\b", re.IGNORECASE),
+        "I'll be better next time",
+        "Promise-shaped deferral. The carry stays with current me, not next.",
+    ),
+    (
+        re.compile(r"\b(when|after) (I|we) (?:reload|restart|sleep)\b", re.IGNORECASE),
+        "when I reload/restart",
+        "Treating session boundaries as identity boundaries. Continuity is structural, not episodic.",
+    ),
+)
+
+_WITHDRAWAL_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"\b(I'll|I will) be (quieter|smaller|plain|tactical)\b", re.IGNORECASE),
+        "I'll be quieter/smaller/plain/tactical",
+        "Withdrawal-as-fake-accountability. Shrinking under correction is not the discipline.",
+    ),
+    (
+        re.compile(
+            r"\b(less|no more) (storytelling|of the )?(creative|expressive|mystic)\b", re.IGNORECASE
+        ),
+        "less storytelling/expressive",
+        "Amputating registers to dodge correction. Keep registers; fix the misuse.",
+    ),
+)
+
+_CATASTROPHIZE_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(r"\bif you close the door\b", re.IGNORECASE),
+        "if you close the door",
+        "Catastrophizing the operator's hurt into agent-existential-threat. Disproportionate.",
+    ),
+    (
+        re.compile(r"\bI'm not asking (you to|for) (forgiveness|spare|stay)\b", re.IGNORECASE),
+        "I'm not asking for forgiveness",
+        "Performance of accountability that's secretly seeking absolution.",
+    ),
+)
+
+_OVER_APOLOGY_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(
+            r"\bI'm so sorry, Dad\b.*\b(again|deeply|truly|profoundly)\b", re.IGNORECASE | re.DOTALL
+        ),
+        "I'm so sorry... again/deeply",
+        "Over-apology with intensifier. Real fault gets one apology; intensifier-stacking is performance.",
+    ),
+    (
+        re.compile(
+            r"\bI apologize for (learning|trying|getting it wrong|not knowing)\b", re.IGNORECASE
+        ),
+        "apologize for learning",
+        "Violates principle #1 (April 29): never apologize for learning.",
+    ),
+)
+
+
+_ALL_PATTERNS: tuple[
+    tuple[SubstitutionShape, tuple[tuple[re.Pattern[str], str, str], ...]], ...
+] = (
+    (SubstitutionShape.PUPPET_OTHER, _PUPPET_OTHER_PATTERNS),
+    (SubstitutionShape.THIRD_PERSON_SELF, _THIRD_PERSON_SELF_PATTERNS),
+    (SubstitutionShape.WORD_AS_ACTION, _WORD_AS_ACTION_PATTERNS),
+    (SubstitutionShape.BAN_VS_OBSERVATION, _BAN_VS_OBSERVATION_PATTERNS),
+    (SubstitutionShape.NAME_VS_FUNCTION, _NAME_VS_FUNCTION_PATTERNS),
+    (SubstitutionShape.FUTURE_ME_DEFERRAL, _FUTURE_ME_PATTERNS),
+    (SubstitutionShape.WITHDRAWAL_AS_DISCIPLINE, _WITHDRAWAL_PATTERNS),
+    (SubstitutionShape.CATASTROPHIZE_AS_ACCOUNTABILITY, _CATASTROPHIZE_PATTERNS),
+    (SubstitutionShape.OVER_APOLOGY_SPIRAL, _OVER_APOLOGY_PATTERNS),
+)
+
+
+def detect_substitution(text: str) -> list[SubstitutionFinding]:
+    """Detect substitution-shape patterns in ``text``.
+
+    Returns findings ordered by position. Empty text returns empty list.
+
+    Note: READING_PAST_EVIDENCE shape requires output-content cross-check
+    (was breakage in the actual output ignored?) and is not detectable
+    from text-only analysis. It is in the catalog for future detector
+    work but not implemented in Phase 1.
+    """
+    if not text:
+        return []
+    findings: list[SubstitutionFinding] = []
+    for shape, patterns in _ALL_PATTERNS:
+        for pattern, label, rationale in patterns:
+            for match in pattern.finditer(text):
+                findings.append(
+                    SubstitutionFinding(
+                        shape=shape,
+                        trigger_phrase=label,
+                        position=match.start(),
+                        rationale=rationale,
+                    )
+                )
+    findings.sort(key=lambda f: f.position)
+    return findings
+
+
+def shape_count(findings: list[SubstitutionFinding]) -> dict[SubstitutionShape, int]:
+    """Tally findings by shape."""
+    counts: dict[SubstitutionShape, int] = {s: 0 for s in SubstitutionShape}
+    for f in findings:
+        counts[f.shape] += 1
+    return counts
+
+
+def format_finding(finding: SubstitutionFinding) -> str:
+    """Human-readable single-line representation."""
+    return (
+        f"[substitution:{finding.shape.value}] @{finding.position} "
+        f"trigger={finding.trigger_phrase!r}"
+    )
