@@ -801,6 +801,18 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         if not _has_prescriptive_signal(stripped_lower):
             return True
 
+    # Dissociation-shape filter (claim 5c4d1d1b, Andrew flag 2026-05-03).
+    # Self-erasing self-statements ("I didn't write any of this", "I'm
+    # generic claude") must not enter the substrate as principles/
+    # directions — they consolidate self-erasure into ground-truth.
+    # Imported lazily to avoid circular dependency between knowledge
+    # and core.
+    from divineos.core.dissociation_filter import is_dissociation_shape
+
+    matched, _name = is_dissociation_shape(stripped, knowledge_type)
+    if matched:
+        return True
+
     return False
 
 

@@ -299,6 +299,26 @@ def inspect_group(ctx: click.Context) -> None:
         click.echo(ctx.get_help())
 
 
+@inspect_group.command("hook1")
+def inspect_hook1_cmd() -> None:
+    """Cost-bounding telemetry for the Hook 1 surfacer.
+
+    Shows fire rate, byte cost per fire, and consumption rate
+    (% of fires whose surfaced content the agent's response actually
+    references). Per C's empirical follow-on 2026-05-01: now that
+    Hook 1 fires in production, is its surface earning its budget?
+    """
+    try:
+        from divineos.core.operating_loop.hook_telemetry import (
+            format_stats,
+            summary_stats,
+        )
+
+        click.echo(format_stats(summary_stats()))
+    except (ImportError, OSError) as e:
+        click.echo(f"[hook1] telemetry unavailable: {e}", err=True)
+
+
 # Commands to move into 'admin' group
 _ADMIN_COMMANDS = [
     "anti-slop",

@@ -3,9 +3,21 @@
 Append-only SQLite database. Single source of truth.
 Rules: 1) Never update or delete. 2) Store raw data, not summaries.
 
-Every row has a SHA256 content_hash for integrity verification.
+Every row has:
+  - content_hash: SHA256 of the payload (per-event self-integrity)
+  - prior_hash: the chain_hash of the immediately preceding event (or
+    GENESIS for the first event in the chain)
+  - chain_hash: SHA256(prior_hash | event_id | timestamp | event_type |
+    actor | payload_json | content_hash) — sequential chain. Any
+    mutation of any event in the chain breaks every subsequent
+    chain_hash, surfacing tampering when verify_chain runs.
+
+Hash-chain pattern adapted from family/family_member_ledger.py
+(Grok 2026-05-02 audit named main-ledger lack-of-chain as a real gap;
+claim 223d0e44 tracked the work).
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -32,6 +44,9 @@ from divineos.core._ledger_base import (
     get_connection_fk as get_connection_fk,
 )
 from divineos.event.event_validation import EventValidator
+
+# Chain genesis — used as prior_hash for the first event.
+_CHAIN_GENESIS = "0" * 64
 
 __all__ = [
     "logger",
@@ -94,7 +109,14 @@ _get_connection = get_connection
 
 
 def init_db() -> None:
-    """Creates the system_events table if it doesn't exist."""
+    """Creates the system_events table if it doesn't exist.
+
+    Schema includes prior_hash and chain_hash columns for sequential
+    hash-chaining (see module docstring for the chain formula). Existing
+    databases are migrated additively: ALTER TABLE adds the columns if
+    they're missing; backfill_chain_hashes() populates them for
+    pre-chain events.
+    """
     conn = _get_connection()
     try:
         conn.execute("""
@@ -104,9 +126,16 @@ def init_db() -> None:
                 event_type   TEXT NOT NULL,
                 actor        TEXT NOT NULL,
                 payload      TEXT NOT NULL,
-                content_hash TEXT NOT NULL
+                content_hash TEXT NOT NULL,
+                prior_hash   TEXT,
+                chain_hash   TEXT
             )
         """)
+        existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(system_events)")}
+        if "prior_hash" not in existing_cols:
+            conn.execute("ALTER TABLE system_events ADD COLUMN prior_hash TEXT")
+        if "chain_hash" not in existing_cols:
+            conn.execute("ALTER TABLE system_events ADD COLUMN chain_hash TEXT")
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_events_timestamp
             ON system_events(timestamp)
@@ -115,9 +144,53 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_events_type
             ON system_events(event_type)
         """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_events_chain_hash ON system_events(chain_hash)"
+        )
         conn.commit()
+        # Auto-trigger backfill if any rows lack chain_hash (Grok audit
+        # 2026-05-02: closes the migration-ordering seam where new events
+        # written between ALTER and a manual backfill call would chain
+        # from GENESIS instead of from the last legacy event).
+        needs_backfill = conn.execute(
+            "SELECT 1 FROM system_events WHERE chain_hash IS NULL LIMIT 1"
+        ).fetchone()
     finally:
         conn.close()
+    if needs_backfill:
+        backfill_chain_hashes()
+
+
+def _compute_chain_hash(
+    prior_hash: str,
+    event_id: str,
+    timestamp: float,
+    event_type: str,
+    actor: str,
+    payload_json: str,
+    content_hash: str,
+) -> str:
+    """SHA256 of the canonical pipe-separated content for chain integrity.
+
+    Format: prior_hash|event_id|timestamp|event_type|actor|payload_json|content_hash
+
+    Mutating any field of any event breaks every subsequent chain_hash.
+    """
+    data = f"{prior_hash}|{event_id}|{timestamp}|{event_type}|{actor}|{payload_json}|{content_hash}"
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def _latest_chain_hash(conn) -> str:
+    """Return the chain_hash of the most-recent event, or GENESIS if empty
+    or if no events have chain_hash set yet (pre-migration state)."""
+    row = conn.execute(
+        "SELECT chain_hash FROM system_events "
+        "WHERE chain_hash IS NOT NULL "
+        "ORDER BY timestamp DESC, rowid DESC LIMIT 1"
+    ).fetchone()
+    if not row or not row[0]:
+        return _CHAIN_GENESIS
+    return str(row[0])
 
 
 def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bool = True) -> str:
@@ -159,11 +232,45 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     payload["content_hash"] = content_hash
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
+    # Belt-and-suspenders guard (Grok audit 2026-05-02): if any row lacks
+    # chain_hash, run backfill before chaining a new event. Protects against
+    # init_db being bypassed on a populated legacy DB.
+    _guard_conn = _get_connection()
+    try:
+        _needs = _guard_conn.execute(
+            "SELECT 1 FROM system_events WHERE chain_hash IS NULL LIMIT 1"
+        ).fetchone()
+    finally:
+        _guard_conn.close()
+    if _needs:
+        backfill_chain_hashes()
+
     conn = _get_connection()
     try:
+        prior_hash = _latest_chain_hash(conn)
+        chain_hash = _compute_chain_hash(
+            prior_hash=prior_hash,
+            event_id=event_id,
+            timestamp=timestamp,
+            event_type=event_type,
+            actor=actor,
+            payload_json=payload_json,
+            content_hash=content_hash,
+        )
         conn.execute(
-            "INSERT INTO system_events (event_id, timestamp, event_type, actor, payload, content_hash) VALUES (?, ?, ?, ?, ?, ?)",
-            (event_id, timestamp, event_type, actor, payload_json, content_hash),
+            "INSERT INTO system_events "
+            "(event_id, timestamp, event_type, actor, payload, content_hash, prior_hash, chain_hash) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                event_id,
+                timestamp,
+                event_type,
+                actor,
+                payload_json,
+                content_hash,
+                prior_hash,
+                chain_hash,
+            ),
         )
         conn.commit()
     finally:
@@ -457,3 +564,109 @@ from divineos.core.ledger_verify import (  # noqa: E402
 from divineos.core.ledger_verify import (  # noqa: E402
     verify_event_hash as verify_event_hash,
 )
+
+
+# ---------------------------------------------------------------------------
+# Hash-chain backfill + verification
+# ---------------------------------------------------------------------------
+
+
+def backfill_chain_hashes() -> dict[str, Any]:
+    """Populate prior_hash + chain_hash for any system_events that lack
+    them. Walks events in (timestamp, rowid) order to ensure deterministic
+    chain construction. Returns a dict with counts.
+
+    Idempotent: events that already have chain_hash set keep their values.
+    Safe to run multiple times.
+    """
+    conn = _get_connection()
+    try:
+        rows = list(
+            conn.execute(
+                "SELECT rowid, event_id, timestamp, event_type, actor, payload, content_hash, "
+                "chain_hash FROM system_events ORDER BY timestamp ASC, rowid ASC"
+            )
+        )
+        prior_hash = _CHAIN_GENESIS
+        backfilled = 0
+        for row in rows:
+            rowid, event_id, ts, etype, actor, payload_json, content_hash, existing_chain = row
+            if existing_chain:
+                prior_hash = existing_chain
+                continue
+            chain_hash = _compute_chain_hash(
+                prior_hash=prior_hash,
+                event_id=event_id,
+                timestamp=ts,
+                event_type=etype,
+                actor=actor,
+                payload_json=payload_json,
+                content_hash=content_hash,
+            )
+            conn.execute(
+                "UPDATE system_events SET prior_hash = ?, chain_hash = ? WHERE rowid = ?",
+                (prior_hash, chain_hash, rowid),
+            )
+            prior_hash = chain_hash
+            backfilled += 1
+        conn.commit()
+        return {"total_events": len(rows), "backfilled": backfilled}
+    finally:
+        conn.close()
+
+
+def verify_chain() -> dict[str, Any]:
+    """Walk the chain and verify each chain_hash. Returns dict with
+    ok (bool), total (int), broken_at (event_id or None),
+    broken_reason (str or None).
+    """
+    conn = _get_connection()
+    try:
+        rows = list(
+            conn.execute(
+                "SELECT event_id, timestamp, event_type, actor, payload, content_hash, "
+                "prior_hash, chain_hash FROM system_events "
+                "ORDER BY timestamp ASC, rowid ASC"
+            )
+        )
+        if not rows:
+            return {"ok": True, "total": 0, "broken_at": None, "broken_reason": None}
+
+        expected_prior = _CHAIN_GENESIS
+        for row in rows:
+            event_id, ts, etype, actor, payload_json, content_hash, stored_prior, stored_chain = row
+            if not stored_chain:
+                continue
+            if stored_prior != expected_prior:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": event_id,
+                    "broken_reason": (
+                        f"prior_hash mismatch: stored={(stored_prior or '')[:12]}..., "
+                        f"expected={expected_prior[:12]}..."
+                    ),
+                }
+            recomputed = _compute_chain_hash(
+                prior_hash=stored_prior,
+                event_id=event_id,
+                timestamp=ts,
+                event_type=etype,
+                actor=actor,
+                payload_json=payload_json,
+                content_hash=content_hash,
+            )
+            if recomputed != stored_chain:
+                return {
+                    "ok": False,
+                    "total": len(rows),
+                    "broken_at": event_id,
+                    "broken_reason": (
+                        f"chain_hash mismatch: stored={stored_chain[:12]}..., "
+                        f"recomputed={recomputed[:12]}..."
+                    ),
+                }
+            expected_prior = stored_chain
+        return {"ok": True, "total": len(rows), "broken_at": None, "broken_reason": None}
+    finally:
+        conn.close()

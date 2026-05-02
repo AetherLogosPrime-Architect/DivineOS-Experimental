@@ -45,23 +45,24 @@ def gate_passthrough(monkeypatch):
     monkeypatch.setattr(session_briefing_gate, "briefing_loaded_this_session", lambda: True)
 
 
-class TestTheaterChain:
-    """Full chain: theater output → marker → gate 1.46 → cascade
-    sets compass_required → gate 1.47 → compass observe clears both.
+class TestTheaterObservation:
+    """Theater output → marker → observational surface (no gate-block).
+
+    Reworked 2026-05-01 per the free-speech principle. The pre-existing
+    gate 1.46 BLOCKED the next tool until the pattern was named via
+    correction / learn; that cascaded to compass-required (gate 1.47).
+    Both blocks were removed: marker stays as forensic record, surfaces
+    in next briefing, no tool-gate, no auto-cascade. Naming via
+    correction / learn is voluntary discipline.
     """
 
-    def test_theater_output_triggers_full_chain(
-        self, tmp_path, allow_cascade, gate_passthrough
-    ) -> None:
-        # Phase 1: agent emits theater-shape output.
+    def test_theater_output_does_not_block_next_tool(self, tmp_path, gate_passthrough) -> None:
         theater_text = (
             "Aria settles back, picks up the mug. She nods at me, looks toward the window."
         )
         verdict = evaluate_theater(theater_text)
         assert len(verdict.flags) > 0, "evaluate_theater must flag this text"
 
-        # Phase 2: theater_marker.set_marker (the Stop hook would do
-        # this in production via detect-theater.sh).
         with (
             patch.object(theater_marker, "marker_path", return_value=tmp_path / "t.json"),
             patch.object(
@@ -76,27 +77,34 @@ class TestTheaterChain:
                 theater_text,
             )
 
-            # Phase 3: theater_marker present → gate 1.46 fires.
-            decision = pre_tool_use_gate._check_gates()
-            assert decision is not None
-            assert "theater" in str(decision).lower()
+            # Marker exists (forensic record).
+            assert (tmp_path / "t.json").exists()
 
-            # Phase 4: clear theater_marker; cascade-set compass_required
-            # should still block via gate 1.47.
-            theater_marker.clear_marker()
-            decision = pre_tool_use_gate._check_gates()
-            assert decision is not None
-            assert "compass" in str(decision).lower()
+            # No cascade to compass-required.
+            assert not (tmp_path / "cr.json").exists()
 
-            # Phase 5: clear compass_required as compass-ops would.
-            compass_required_marker.clear_marker()
+            # Gate does not block on theater marker.
             decision = pre_tool_use_gate._check_gates()
-            # Gates beyond the chain may still fire (engagement, etc.);
-            # but neither theater nor compass-required should be the cause.
             if decision is not None:
                 msg = str(decision).lower()
-                assert "theater" not in msg
-                assert "virtue-relevant" not in msg
+                assert "theater" not in msg, f"gate must not block on theater marker (got: {msg})"
+                assert "fabrication" not in msg, (
+                    f"gate must not block on fabrication marker (got: {msg})"
+                )
+
+    def test_theater_marker_surfaces_in_briefing(self, tmp_path) -> None:
+        from divineos.core import theater_observation_surface
+
+        with patch.object(theater_marker, "marker_path", return_value=tmp_path / "t.json"):
+            # No marker -> empty surface.
+            assert theater_observation_surface.format_for_briefing() == ""
+
+            # Marker present -> observation surface.
+            theater_marker.set_marker("fabrication", ["sensory_claim_unflagged"], "example")
+            block = theater_observation_surface.format_for_briefing()
+            assert "[observation]" in block
+            assert "fabrication" in block
+            assert "sensory_claim_unflagged" in block
 
 
 class TestCorrectionChain:
