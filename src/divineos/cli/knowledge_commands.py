@@ -758,25 +758,6 @@ def register(cli: click.Group) -> None:
         if modules_block:
             _safe_echo(modules_block)
 
-        # Council invocation balance — closes inward-sycophancy from
-        # 2026-04-21 (Andrew: "engaging only with what YOU want to
-        # hear"). consultation_log already tracks invocation counts
-        # and mansion-council shows them at consult-time, but the
-        # briefing-level surface catches imbalance BEFORE the agent
-        # decides whether to consult at all. Descriptive only:
-        # surfaces most-invoked / never-invoked + a deterministic
-        # "consider for next walk" candidate. Per claim 4cb640af.
-        try:
-            from divineos.core.council_balance_surface import (
-                format_for_briefing as _fmt_council_balance,
-            )
-
-            council_block = _fmt_council_balance()
-        except _KC_ERRORS:
-            council_block = ""
-
-        if council_block:
-            _safe_echo(council_block)
         # Goal-outcome surface — action-loop closure for session goals
         # (claim 5b38a31c, salvaged from old-OS ACTION LOOP CLOSURE
         # spec). Surfaces goals that aged out without recorded

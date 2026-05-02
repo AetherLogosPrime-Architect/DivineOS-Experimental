@@ -259,14 +259,6 @@ lab_commands.register(cli)
 complete_commands.register(cli)
 void_commands.register(cli)
 
-# Mansion — functional internal space (optional, personal)
-try:
-    from divineos.cli.mansion_commands import register_mansion_commands
-
-    register_mansion_commands(cli)
-except ImportError:
-    pass  # mansion is optional
-
 
 # ── Command Grouping ──────────────────────────────────────────────
 # Move rarely-used commands into subgroups to reduce top-level noise.

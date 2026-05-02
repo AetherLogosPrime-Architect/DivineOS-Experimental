@@ -285,13 +285,6 @@ class TestScanWiring:
             assert item.component
             assert item.issue
 
-    def test_council_engine_has_experts(self):
-        """After wiring fix, the council engine should be populated."""
-        from divineos.core.council.engine import get_council_engine
-
-        engine = get_council_engine()
-        assert len(engine.experts) > 0, "Council engine has no experts registered"
-
     def test_clarity_hook_integration_respects_agent_runtime_marker(self):
         """The clarity_hook_integration probe should defer to modules
         that carry the AGENT_RUNTIME marker — those have explicitly
