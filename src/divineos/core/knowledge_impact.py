@@ -17,7 +17,7 @@ import time
 
 from loguru import logger
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 
 # ─── Schema ─────────────────────────────────────────────────────────
 

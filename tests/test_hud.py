@@ -52,7 +52,7 @@ class TestSlotBuilders:
 
     def test_recent_lessons_slot_seeded_only(self):
         """When only seeded lessons exist, show a count instead of 'No active lessons'."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.lessons import record_lesson
 
         init_knowledge_table()
@@ -75,6 +75,13 @@ class TestSlotBuilders:
         result = SLOT_BUILDERS["active_knowledge"]()
         # Returns empty when no goal-relevant complementary knowledge
         assert result == "" or "Relevant" in result
+
+    def test_loadout_slot(self):
+        result = SLOT_BUILDERS["loadout"]()
+        assert "My Loadout" in result
+        assert "recall" in result
+        assert "The Circle" in result
+        assert "THE COUNCIL" in result
 
     def test_task_state_slot_empty(self):
         result = SLOT_BUILDERS["task_state"]()

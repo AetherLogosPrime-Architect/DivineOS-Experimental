@@ -218,9 +218,11 @@ class TestSessionManagerErrorHandling:
         """Test end_session continues when event emission fails"""
         with patch("divineos.core.session_manager.get_current_session_id", return_value="test-id"):
             with patch("divineos.core.session_manager.clear_session"):
-                # Import and patch the emit_session_end function
+                # Import and patch the emit_consolidation_checkpoint function
 
-                with patch("divineos.event.event_emission.emit_session_end") as mock_emit:
+                with patch(
+                    "divineos.event.event_emission.emit_consolidation_checkpoint"
+                ) as mock_emit:
                     mock_emit.side_effect = ValueError("Event validation failed")
 
                     # Should not raise
@@ -235,10 +237,11 @@ class TestSessionManagerErrorHandling:
             with patch("divineos.core.session_manager.clear_session") as mock_clear:
                 mock_clear.side_effect = Exception("Clear failed")
 
-                # Import and patch the emit_session_end function
+                # Import and patch the emit_consolidation_checkpoint function
 
                 with patch(
-                    "divineos.event.event_emission.emit_session_end", return_value="event-id"
+                    "divineos.event.event_emission.emit_consolidation_checkpoint",
+                    return_value="event-id",
                 ):
                     # Should raise the exception from clear_session
                     with pytest.raises(Exception, match="Clear failed"):

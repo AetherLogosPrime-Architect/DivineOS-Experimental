@@ -2,6 +2,10 @@
 health, distill, migrate-types, hooks."""
 
 import sqlite3
+
+# time previously used for manual updated_at stamping of mutated rows.
+# Removed 2026-04-20 when knowledge repair moved to supersession (which
+# sets its own timestamps internally via update_knowledge).
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +57,94 @@ def register(cli: click.Group) -> None:
 
         click.echo()
 
+    @cli.command("anti-slop")
+    def anti_slop_cmd() -> None:
+        """Runtime verification that enforcers actually enforce.
+
+        Complements unit tests. Unit tests check pre-merge; this
+        checks the actually-loaded system at runtime. Catches
+        regressions where tests pass but shipped code has silently
+        stopped working (config drift, env overrides, shadowed
+        imports, decorators that swallow errors).
+
+        Each check runs the enforcer against a known-bad input
+        (must fire) and a known-good input (must not fire). If
+        either is wrong, it's slop.
+        """
+        from divineos.core.anti_slop import run_all_checks, summarize
+
+        results = run_all_checks()
+        total, passed, failed = summarize(results)
+
+        click.secho("\n=== Anti-slop runtime verification ===\n", fg="cyan", bold=True)
+        for r in results:
+            marker = "[+]" if r.passed else "[-]"
+            color = "green" if r.passed else "red"
+            click.secho(f"  {marker} {r.name}", fg=color, bold=True)
+            click.echo(f"      {r.detail}")
+
+        click.echo("")
+        if failed == 0:
+            click.secho(
+                f"[+] All {total} enforcer(s) verified. No slop detected.",
+                fg="green",
+                bold=True,
+            )
+        else:
+            click.secho(
+                f"[-] {failed}/{total} enforcer(s) failed verification. "
+                f"Investigate before trusting downstream behavior.",
+                fg="red",
+                bold=True,
+            )
+
+    @cli.command("maturity")
+    def maturity_cmd() -> None:
+        """Break down knowledge by maturity, splitting RAW into
+        transient (session-scoped, will auto-archive) vs. pending
+        (could mature via corroboration but hasn't yet).
+
+        The existing health report counts RAW as a single bucket,
+        which conflates two very different populations. This command
+        makes the distinction visible.
+        """
+        from divineos.core.knowledge.maturity_diagnostic import classify_maturity
+
+        b = classify_maturity()
+
+        click.secho("\n=== Knowledge Maturity ===\n", fg="cyan", bold=True)
+        click.echo(f"  Total (non-superseded):  {b.total}")
+        for mat in ("RAW", "HYPOTHESIS", "TESTED", "CONFIRMED"):
+            count = b.by_maturity.get(mat, 0)
+            pct = (100 * count / b.total) if b.total else 0
+            click.echo(f"  {mat:12s} {count:3d}  ({pct:5.1f}%)")
+
+        click.secho("\n=== RAW Breakdown ===\n", fg="cyan", bold=True)
+        click.echo(f"  Transient (session-scoped, will auto-archive): {len(b.raw_transient)}")
+        for e in b.raw_transient[:10]:
+            snippet = e["content"][:70]
+            click.echo(f"    [{e['knowledge_type']}] {ascii(snippet)}")
+
+        click.echo(f"\n  Pending (could mature via corroboration): {len(b.raw_pending)}")
+        for e in b.raw_pending[:10]:
+            snippet = e["content"][:70]
+            click.echo(
+                f"    [{e['knowledge_type']}] corr={e['corroboration_count']} "
+                f"conf={e['confidence']:.2f} {ascii(snippet)}"
+            )
+
+        if b.raw_transient and not b.raw_pending:
+            click.secho(
+                "\n[*] RAW population is entirely transient. Pipeline is healthy.",
+                fg="green",
+            )
+        elif b.raw_pending:
+            click.secho(
+                f"\n[*] {len(b.raw_pending)} RAW entries could mature with corroboration. "
+                "Watch whether they accumulate evidence over time.",
+                fg="yellow",
+            )
+
     @cli.command("rebuild-index")
     def rebuild_index_cmd() -> None:
         """Rebuild the full-text search index from existing knowledge."""
@@ -61,6 +153,106 @@ def register(cli: click.Group) -> None:
             click.secho(f"[+] Full-text search index rebuilt: {count} entries indexed.", fg="green")
         else:
             click.secho("[*] No knowledge entries to index.", fg="yellow")
+
+    @cli.command("fix-encoding")
+    @click.option(
+        "--apply",
+        is_flag=True,
+        help="Actually update rows. Without this flag the command is dry-run.",
+    )
+    def fix_encoding_cmd(apply: bool) -> None:
+        """Repair mojibake in knowledge content via ftfy.
+
+        Runs ``ftfy.fix_text`` over every row's ``content`` field and
+        reports what would change. With ``--apply``, writes the
+        cleaned text back in place AND rebuilds the FTS index so
+        searches match the corrected text.
+
+        Safe to run repeatedly — ftfy is idempotent on already-clean
+        text. Dry-run by default so the operator can inspect the
+        diff before committing.
+        """
+        try:
+            import ftfy
+        except ImportError:
+            click.secho(
+                "[-] ftfy not installed. Run: pip install ftfy",
+                fg="red",
+            )
+            return
+
+        from divineos.core.knowledge._base import get_connection
+
+        conn = get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT knowledge_id, content FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchall()
+
+            to_fix: list[tuple[str, str, str]] = []
+            for kid, content in rows:
+                if content is None:
+                    continue
+                cleaned = ftfy.fix_text(content)
+                if cleaned != content:
+                    to_fix.append((kid, content, cleaned))
+
+            if not to_fix:
+                click.secho("[*] No mojibake found. Store is clean.", fg="green")
+                return
+
+            click.secho(
+                f"[!] {len(to_fix)} row(s) contain fixable encoding issues:",
+                fg="yellow",
+                bold=True,
+            )
+            for kid, before, after in to_fix[:10]:
+                click.echo(f"  {kid}:")
+                # Use ascii() not repr() so output is terminal-safe on
+                # Windows cp1252 consoles (repr preserves U+FFFD literally).
+                click.echo(f"    before: {ascii(before[:100])}")
+                click.echo(f"    after:  {ascii(after[:100])}")
+            if len(to_fix) > 10:
+                click.echo(f"  ... and {len(to_fix) - 10} more")
+
+            if not apply:
+                click.echo("")
+                click.secho(
+                    "[*] Dry-run. Re-run with --apply to write the cleaned text.",
+                    fg="cyan",
+                )
+                return
+
+            # Close read conn before supersessions — each update_knowledge call
+            # opens its own write. Same append-only pattern as the SIS and
+            # distill fixes in pipeline_phases.py.
+        finally:
+            conn.close()
+
+        from divineos.core.knowledge.crud import update_knowledge
+
+        repaired = 0
+        for kid, _before, after in to_fix:
+            try:
+                update_knowledge(
+                    kid,
+                    new_content=after,
+                    additional_tags=["encoding-repaired"],
+                )
+                repaired += 1
+            except ValueError:
+                # Entry was deleted/superseded between scan and repair — skip
+                pass
+        click.secho(
+            f"[+] Repaired {repaired} row(s).",
+            fg="green",
+            bold=True,
+        )
+
+        # Rebuild FTS so search matches the cleaned text.
+        count = _wrapped_rebuild_fts_index()
+        if count > 0:
+            click.secho(f"[+] FTS index rebuilt: {count} entries.", fg="green")
 
     @cli.command("digest")
     @click.argument("file_path", type=click.Path(exists=True))
@@ -214,14 +406,25 @@ def register(cli: click.Group) -> None:
                 fg="white",
             )
             if sis["clean"]:
-                click.secho("    All docstrings grounded", fg="green")
+                click.secho("    All docstrings grounded (no substance flags)", fg="green")
             else:
                 click.secho(
-                    f"    {sis['flagged_count']} flagged (ungrounded esoteric language)",
+                    f"    {sis['substance_flagged_count']} substance-flagged "
+                    "(ungrounded overclaim — recommend translate)",
                     fg="yellow",
                 )
                 for mod in sis["flagged_modules"][:5]:
                     click.secho(f"      - {mod}", fg="bright_black")
+            # Register flags are informational (claim 6b6f4e5a). Show only
+            # if present and only as a soft note — operator decides if the
+            # elevated framing is load-bearing.
+            register_count = sis.get("register_flagged_count", 0)
+            if register_count:
+                click.secho(
+                    f"    {register_count} register-flagged "
+                    "(elevated tone; informational — keep if load-bearing)",
+                    fg="bright_black",
+                )
         except (ImportError, OSError) as e:
             click.secho(f"\n  SIS self-audit: unavailable ({e})", fg="bright_black")
 
@@ -420,6 +623,89 @@ def register(cli: click.Group) -> None:
                 click.secho(f"    {counts['instruction']} -> INSTRUCTION", fg="yellow")
             click.secho(f"    {counts['unchanged']} unchanged (still DIRECTION)", fg="bright_black")
 
+    @cli.command("reclassify-seed")
+    def reclassify_seed_cmd() -> None:
+        """Fix legacy seed entries mis-tagged as source='STATED'.
+
+        Seed entries that were loaded before the source-fix landed got
+        defaulted to STATED ('told by user'), when they should be INHERITED
+        ('born knowing, no session evidence'). This walks the canonical
+        seed.json contents and reclassifies any matching STATED entries
+        to INHERITED. Safe to run repeatedly.
+        """
+        import json
+        from pathlib import Path
+
+        from divineos.core.seed_manager import reclassify_seed_as_inherited
+
+        init_knowledge_table()
+
+        seed_path = Path(__file__).resolve().parents[1] / "seed.json"
+        if not seed_path.exists():
+            click.secho(f"[-] Seed file not found: {seed_path}", fg="red")
+            return
+
+        seed_data = json.loads(seed_path.read_text(encoding="utf-8"))
+        counts = reclassify_seed_as_inherited(seed_data)
+        if counts["reclassified"] == 0:
+            click.secho(
+                f"[~] No seed entries needed reclassification "
+                f"({counts['already_correct']} already INHERITED).",
+                fg="bright_black",
+            )
+        else:
+            click.secho(
+                f"[+] Reclassified {counts['reclassified']} seed entries to INHERITED.",
+                fg="green",
+            )
+            click.secho(
+                f"    {counts['already_correct']} already correct, "
+                f"{counts['not_seed']} non-seed untouched.",
+                fg="bright_black",
+            )
+
+    @cli.command("restore-seed-confidence")
+    def restore_seed_confidence_cmd() -> None:
+        """Restore INHERITED entries spuriously demoted by the orphan-flagger bug.
+
+        Before the orphan-flagger fix, fresh seed entries got demoted to
+        confidence 0.5 the same day they loaded because the age gate was
+        unenforced and there was no INHERITED exemption. This walks the
+        seed and restores any INHERITED entry sitting at exactly the bug's
+        sentinel value (0.5) whose content still matches the seed. Safe
+        to run repeatedly — only touches entries at the sentinel value.
+        """
+        import json
+        from pathlib import Path
+
+        from divineos.core.seed_manager import restore_inherited_confidence
+
+        init_knowledge_table()
+
+        seed_path = Path(__file__).resolve().parents[1] / "seed.json"
+        if not seed_path.exists():
+            click.secho(f"[-] Seed file not found: {seed_path}", fg="red")
+            return
+
+        seed_data = json.loads(seed_path.read_text(encoding="utf-8"))
+        counts = restore_inherited_confidence(seed_data)
+        if counts["restored"] == 0:
+            click.secho(
+                f"[~] No seed entries needed restoration "
+                f"({counts['already_ok']} at correct confidence).",
+                fg="bright_black",
+            )
+        else:
+            click.secho(
+                f"[+] Restored {counts['restored']} INHERITED entries to seed confidence.",
+                fg="green",
+            )
+            click.secho(
+                f"    {counts['already_ok']} already ok, "
+                f"{counts['not_victim']} non-seed untouched.",
+                fg="bright_black",
+            )
+
     @cli.command("seed-export")
     @click.option("--output", "-o", default=None, help="Output file path (default: stdout)")
     def seed_export_cmd(output: str | None) -> None:
@@ -613,7 +899,7 @@ def register(cli: click.Group) -> None:
         - Coverage: failure mode vs edge case vs happy path
         Also detects inline CREATE TABLE statements (schema divergence risk).
         """
-        from divineos.analysis.test_audit import (
+        from divineos.analysis.audit_classifier import (
             audit_test_directory,
             format_audit_report,
         )
@@ -625,7 +911,7 @@ def register(cli: click.Group) -> None:
 
         click.secho("\n=== Test Quality Audit ===\n", fg="cyan", bold=True)
         summary = audit_test_directory(test_dir)
-        click.echo(format_audit_report(summary))
+        _safe_echo(format_audit_report(summary))
         click.echo()
 
 

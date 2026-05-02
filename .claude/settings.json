@@ -11,6 +11,17 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-correction.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
@@ -43,6 +54,21 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "Task|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/compass-check.sh",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/require-goal.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -57,22 +83,12 @@
         ]
       },
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Edit|Write|Bash|NotebookEdit",
         "hooks": [
           {
             "type": "command",
             "command": "bash .claude/hooks/session-checkpoint.sh",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/pattern-anticipation.sh",
-            "timeout": 10
           }
         ]
       }
@@ -84,6 +100,16 @@
             "type": "command",
             "command": "bash .claude/hooks/log-session-end.sh",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-hedge.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/detect-theater.sh",
+            "timeout": 15
           }
         ]
       }

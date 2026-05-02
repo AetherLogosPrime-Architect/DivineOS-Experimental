@@ -7,7 +7,7 @@ from divineos.core.growth import (
     init_session_history_table,
     record_session_metrics,
 )
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 
 
 def _setup():

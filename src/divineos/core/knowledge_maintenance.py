@@ -24,7 +24,7 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge._base import (
+from divineos.core.knowledge import (
     _KNOWLEDGE_COLS,
     _get_connection,
     _row_to_dict,
@@ -42,12 +42,12 @@ from divineos.core.knowledge.crud import supersede_knowledge
 from divineos.core.constants import (
     CONFIDENCE_DEMOTE_CAP,
     CONFIDENCE_ORPHAN_DEMOTE,
-    CONFIDENCE_RETRIEVAL_FLOOR,
+    CONFIDENCE_SUPERSEDE_FLOOR,
     DECAY_FLOOR,
     DECAY_MODERATE,
     DECAY_STANDARD,
     HYGIENE_MIN_AGE_DAYS,
-    HYGIENE_ORPHAN_MIN_SESSIONS,
+    HYGIENE_ORPHAN_MIN_AGE_DAYS,
     HYGIENE_STALE_AGE_DAYS,
     MATURITY_HYPOTHESIS_TO_TESTED_CONFIDENCE,
     MATURITY_HYPOTHESIS_TO_TESTED_CORROBORATION,
@@ -267,7 +267,7 @@ def run_knowledge_hygiene(
     flag_orphans: bool = True,
     min_age_days: float = HYGIENE_MIN_AGE_DAYS,
     stale_age_days: float = HYGIENE_STALE_AGE_DAYS,
-    orphan_min_sessions: int = HYGIENE_ORPHAN_MIN_SESSIONS,
+    orphan_min_age_days: float = HYGIENE_ORPHAN_MIN_AGE_DAYS,
 ) -> dict[str, Any]:
     """Run all hygiene operations on the knowledge store.
 
@@ -277,18 +277,22 @@ def run_knowledge_hygiene(
         "noise_demoted": 0,
         "noise_superseded": 0,
         "stale_decayed": 0,
+        "stale_superseded": 0,
         "orphans_flagged": 0,
+        "reaped": 0,
         "entries_scanned": 0,
         "details": [],
     }
 
     conn = _get_connection()
     try:
+        # Include ALL non-superseded entries so the reaper can see dead ones.
+        # Previous code used CONFIDENCE_RETRIEVAL_FLOOR (0.2) which hid the
+        # very entries that need to be reaped.
         rows = conn.execute(
-            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge "
-            "WHERE superseded_by IS NULL AND confidence >= ? "
+            f"SELECT {_KNOWLEDGE_COLS} FROM knowledge "  # nosec B608: table/column names from module constants; values parameterized
+            "WHERE superseded_by IS NULL "
             "ORDER BY updated_at DESC",
-            (CONFIDENCE_RETRIEVAL_FLOOR,),
         ).fetchall()
         entries = [_row_to_dict(row) for row in rows]
         report["entries_scanned"] = len(entries)
@@ -307,23 +311,35 @@ def run_knowledge_hygiene(
     if decay_stale:
         stale_report = _sweep_stale(entries, now, stale_age_days)
         report["stale_decayed"] = stale_report["decayed"]
+        report["stale_superseded"] = stale_report.get("superseded", 0)
         report["details"].extend(stale_report["details"])
 
     if flag_orphans:
-        orphan_report = _flag_orphans(entries, orphan_min_sessions)
+        orphan_report = _flag_orphans(entries, now, orphan_min_age_days)
         report["orphans_flagged"] = orphan_report["flagged"]
         report["details"].extend(orphan_report["details"])
+
+    # Final reaper — supersede entries stuck below the confidence floor.
+    # Runs after all other operations so entries that just got decayed
+    # this cycle get one more chance before being reaped next cycle.
+    reaper_report = _reap_dead_entries(entries)
+    report["reaped"] = reaper_report["reaped"]
+    report["details"].extend(reaper_report["details"])
 
     return report
 
 
 def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]:
-    """Re-run noise filter on existing PRINCIPLE/BOUNDARY entries.
+    """Re-run noise filter on existing entries.
 
-    Entries that would be rejected by today's filter get demoted to
-    OBSERVATION (if they have some value) or superseded (if pure noise).
+    Entries that would be rejected by today's filter get superseded
+    (if pure noise) or demoted to OBSERVATION (if they have some value
+    but claimed too high a type).
     """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
     result: dict[str, Any] = {"demoted": 0, "superseded": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
     conn = _get_connection()
 
     try:
@@ -333,8 +349,8 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
             content = entry.get("content", "")
             created = entry.get("created_at", 0)
 
-            # Only audit PRINCIPLE and BOUNDARY types — others are fine
-            if ktype not in ("PRINCIPLE", "BOUNDARY"):
+            # Directives are permanent by design
+            if ktype == "DIRECTIVE":
                 continue
             # Don't touch recent entries — give them time to prove value
             if created > cutoff:
@@ -342,8 +358,9 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
             # Don't touch high-corroboration entries — they proved useful
             if entry.get("corroboration_count", 0) >= 3:
                 continue
-            # Don't touch pinned entries
-            if entry.get("pinned"):
+            # Don't touch pinned entries (pin lives in active_memory,
+            # not on the knowledge row — check membership, not a field)
+            if kid in pinned_ids:
                 continue
 
             # Would today's filter reject this?
@@ -358,17 +375,18 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
                 result["details"].append(f"Superseded {ktype}: {content[:60]}...")
                 continue
 
-            # Has no prescriptive signal — demote to OBSERVATION
-            content_lower = content.lower()
-            if not _has_prescriptive_signal(content_lower):
-                conn.execute(
-                    "UPDATE knowledge SET knowledge_type = 'OBSERVATION', "
-                    "confidence = CASE WHEN confidence > ? THEN ? ELSE confidence END "
-                    "WHERE knowledge_id = ?",
-                    (CONFIDENCE_DEMOTE_CAP, CONFIDENCE_DEMOTE_CAP, kid),
-                )
-                result["demoted"] += 1
-                result["details"].append(f"Demoted to OBSERVATION: {content[:60]}...")
+            # PRINCIPLE/BOUNDARY without prescriptive signal — demote
+            if ktype in ("PRINCIPLE", "BOUNDARY"):
+                content_lower = content.lower()
+                if not _has_prescriptive_signal(content_lower):
+                    conn.execute(
+                        "UPDATE knowledge SET knowledge_type = 'OBSERVATION', "
+                        "confidence = CASE WHEN confidence > ? THEN ? ELSE confidence END "
+                        "WHERE knowledge_id = ?",
+                        (CONFIDENCE_DEMOTE_CAP, CONFIDENCE_DEMOTE_CAP, kid),
+                    )
+                    result["demoted"] += 1
+                    result["details"].append(f"Demoted to OBSERVATION: {content[:60]}...")
 
         conn.commit()
     finally:
@@ -380,8 +398,16 @@ def _audit_types(entries: list[dict[str, Any]], cutoff: float) -> dict[str, Any]
 def _sweep_stale(
     entries: list[dict[str, Any]], now: float, stale_age_days: float
 ) -> dict[str, Any]:
-    """Decay confidence on entries with temporal markers that are old."""
-    result: dict[str, Any] = {"decayed": 0, "details": []}
+    """Decay confidence on entries with temporal markers that are old.
+
+    Entries that have already decayed to the floor get superseded —
+    they've had their chance and the temporal language is now stale.
+    This prevents infinite limbo where entries sit at the floor forever.
+    """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
+    result: dict[str, Any] = {"decayed": 0, "superseded": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
     conn = _get_connection()
     stale_cutoff = now - (stale_age_days * SECONDS_PER_DAY)
 
@@ -396,13 +422,28 @@ def _sweep_stale(
             # Directives are permanent by design
             if ktype == "DIRECTIVE":
                 continue
-            # Only decay old entries with temporal markers
+            # Only touch old entries with temporal markers
             if updated > stale_cutoff:
                 continue
             if not _has_temporal_markers(content):
                 continue
-            # Don't decay below floor
+            # Don't touch pinned or corroborated entries (pin lives in
+            # active_memory — check membership, not a field on the row)
+            if kid in pinned_ids or entry.get("corroboration_count", 0) >= 2:
+                continue
+
+            # Already at or below floor — this entry has been decayed before
+            # and is now stale. Supersede it instead of leaving it in limbo.
             if confidence <= DECAY_FLOOR:
+                conn.execute(
+                    "UPDATE knowledge SET superseded_by = 'temporal-stale', "
+                    "confidence = 0.1 WHERE knowledge_id = ?",
+                    (kid,),
+                )
+                result["superseded"] += 1
+                result["details"].append(
+                    f"Superseded temporal ({confidence:.1f}): {content[:60]}..."
+                )
                 continue
 
             new_confidence = max(confidence - DECAY_STANDARD, DECAY_FLOOR)
@@ -422,8 +463,28 @@ def _sweep_stale(
     return result
 
 
-def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str, Any]:  # noqa: ARG001
-    """Flag entries that were never accessed and are old enough to judge."""
+def _flag_orphans(entries: list[dict[str, Any]], now: float, min_age_days: float) -> dict[str, Any]:
+    """Flag entries that were never accessed and are old enough to judge.
+
+    Two guards protect against false-flagging foundational knowledge:
+
+    1. Age gate: entries newer than `min_age_days` are too fresh to judge.
+       A seed entry loaded today hasn't had a chance to earn access yet.
+       Without this gate, `_flag_orphans` was silently demoting fresh
+       seed entries to half-confidence the same day they loaded.
+
+    2. Source gate: INHERITED entries (the seed) are constitutional —
+       not extracted claims. They're baseline knowledge the agent is
+       born with, and silence isn't evidence of obsolescence. If a
+       seed entry becomes wrong, the contradiction/supersession
+       machinery handles it through evidence, not through neglect.
+    """
+    cutoff = now - (min_age_days * SECONDS_PER_DAY)
+    logger.debug(
+        "Orphan scan: min_age_days=%.1f, entries=%d",
+        min_age_days,
+        len(entries),
+    )
     result: dict[str, Any] = {"flagged": 0, "details": []}
     conn = _get_connection()
 
@@ -434,9 +495,17 @@ def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str,
             content = entry.get("content", "")
             access_count = entry.get("access_count", 0)
             corroboration = entry.get("corroboration_count", 0)
+            source = entry.get("source", "")
+            created = entry.get("created_at", 0)
 
-            # Directives and pinned entries are exempt
-            if ktype == "DIRECTIVE" or entry.get("pinned"):
+            # Directives are exempt (permanent by design)
+            if ktype == "DIRECTIVE":
+                continue
+            # Seed knowledge is constitutional, not an extracted claim
+            if source == "INHERITED":
+                continue
+            # Too new to judge — give it time to earn access
+            if created > cutoff:
                 continue
             # Only flag entries that have never been accessed or corroborated
             if access_count >= 2 or corroboration >= 1:
@@ -460,6 +529,55 @@ def _flag_orphans(entries: list[dict[str, Any]], min_sessions: int) -> dict[str,
     return result
 
 
+def _reap_dead_entries(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Supersede entries stuck below the supersede floor.
+
+    This is the final safety net: entries that have been penalized by noise
+    filters, temporal decay, or orphan demotion — and ended up below
+    CONFIDENCE_SUPERSEDE_FLOOR — are dead weight. They're invisible to
+    briefings (below retrieval floor) but still consume space and get
+    re-scanned every sleep cycle without resolution.
+
+    Superseding them breaks the infinite loop.
+    """
+    from divineos.core.active_memory import get_pinned_knowledge_ids
+
+    result: dict[str, Any] = {"reaped": 0, "details": []}
+    pinned_ids = get_pinned_knowledge_ids()
+    conn = _get_connection()
+
+    try:
+        for entry in entries:
+            kid = entry["knowledge_id"]
+            ktype = entry.get("knowledge_type", "")
+            content = entry.get("content", "")
+            confidence = entry.get("confidence", 0.5)
+
+            # Directives and pinned entries are sacred. Pin lives in
+            # active_memory, so check membership (not a row field).
+            if ktype == "DIRECTIVE" or kid in pinned_ids:
+                continue
+            # Already superseded — skip
+            if entry.get("superseded_by"):
+                continue
+            # Only reap entries below the supersede floor
+            if confidence > CONFIDENCE_SUPERSEDE_FLOOR:
+                continue
+
+            conn.execute(
+                "UPDATE knowledge SET superseded_by = 'hygiene-reaper' WHERE knowledge_id = ?",
+                (kid,),
+            )
+            result["reaped"] += 1
+            result["details"].append(f"Reaped ({confidence:.2f}): {content[:60]}...")
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return result
+
+
 def format_hygiene_report(report: dict[str, Any]) -> str:
     """Format hygiene report for display."""
     lines = [f"Knowledge Hygiene Report ({report['entries_scanned']} entries scanned):"]
@@ -468,16 +586,22 @@ def format_hygiene_report(report: dict[str, Any]) -> str:
         lines.append(f"  Demoted {report['noise_demoted']} noisy entries to OBSERVATION")
     if report["noise_superseded"]:
         lines.append(f"  Superseded {report['noise_superseded']} pure noise entries")
-    if report["stale_decayed"]:
+    if report.get("stale_decayed"):
         lines.append(f"  Decayed {report['stale_decayed']} stale entries with temporal markers")
+    if report.get("stale_superseded"):
+        lines.append(f"  Superseded {report['stale_superseded']} stale temporal entries (at floor)")
     if report["orphans_flagged"]:
         lines.append(f"  Flagged {report['orphans_flagged']} orphan entries (never accessed)")
+    if report.get("reaped"):
+        lines.append(f"  Reaped {report['reaped']} dead entries (below confidence floor)")
 
     total = (
         report["noise_demoted"]
         + report["noise_superseded"]
-        + report["stale_decayed"]
+        + report.get("stale_decayed", 0)
+        + report.get("stale_superseded", 0)
         + report["orphans_flagged"]
+        + report.get("reaped", 0)
     )
     if total == 0:
         lines.append("  Knowledge store is clean. No action needed.")
@@ -539,7 +663,9 @@ def check_promotion(entry: dict[str, Any]) -> str | None:
     return None
 
 
-def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
+def _passes_validity_gate(
+    knowledge_id: str, current: str, target: str, corroboration_count: int = 0
+) -> bool:
     """Check if the validity gate allows this promotion.
 
     Fails gracefully if logic tables aren't initialized yet.
@@ -547,7 +673,7 @@ def _passes_validity_gate(knowledge_id: str, current: str, target: str) -> bool:
     try:
         from divineos.core.logic.logic_validation import can_promote
 
-        return can_promote(knowledge_id, current, target)
+        return can_promote(knowledge_id, current, target, corroboration_count)
     except _KM_ERRORS:
         # Logic tables may not exist yet — allow promotion (backward compat)
         return True
@@ -579,7 +705,9 @@ def promote_maturity(knowledge_id: str) -> str | None:
             return None
 
         # Second gate: warrant-based validity
-        if not _passes_validity_gate(knowledge_id, entry["maturity"], new_maturity):
+        if not _passes_validity_gate(
+            knowledge_id, entry["maturity"], new_maturity, entry["corroboration_count"]
+        ):
             logger.debug(
                 "Validity gate blocked promotion of {}: {} -> {}",
                 knowledge_id[:12],
@@ -599,10 +727,11 @@ def promote_maturity(knowledge_id: str) -> str | None:
         conn.close()
 
 
-def increment_corroboration(knowledge_id: str) -> int:
+def increment_corroboration(knowledge_id: str, source_context: str = "") -> int:
     """Increment corroboration count for a knowledge entry.
 
     Called when knowledge is re-encountered in a new session.
+    source_context: optional label for what triggered the corroboration.
     Returns the new corroboration count.
     """
     conn = get_connection()
@@ -617,7 +746,8 @@ def increment_corroboration(knowledge_id: str) -> int:
             (knowledge_id,),
         ).fetchone()
         count = row[0] if row else 0
-        logger.debug(f"Corroboration for {knowledge_id[:12]}: {count}")
+        ctx = f" (from {source_context})" if source_context else ""
+        logger.debug(f"Corroboration for {knowledge_id[:12]}: {count}{ctx}")
         return count
     finally:
         conn.close()
@@ -643,7 +773,9 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
             continue
 
         # Second gate: warrant-based validity
-        if not _passes_validity_gate(kid, entry["maturity"], new_maturity):
+        if not _passes_validity_gate(
+            kid, entry["maturity"], new_maturity, entry.get("corroboration_count", 0)
+        ):
             logger.debug(
                 "Validity gate blocked batch promotion of {}: {} -> {}",
                 kid[:12],
@@ -664,5 +796,40 @@ def run_maturity_cycle(entries: list[dict[str, Any]]) -> dict[str, int]:
 
         promotions[new_maturity] = promotions.get(new_maturity, 0) + 1
         logger.info(f"Batch promoted {kid[:12]}: {entry['maturity']} -> {new_maturity}")
+
+    return promotions
+
+
+def preview_maturity_promotions(entries: list[dict[str, Any]]) -> dict[str, int]:
+    """Dry-run companion to ``run_maturity_cycle``.
+
+    Same two gates (``check_promotion`` + ``_passes_validity_gate``), same
+    skip rules (empty id, already superseded). Returns the same shape dict.
+    Differs only in that it does not UPDATE and does not log.
+
+    Exists because a preview that applies DIFFERENT logic than actual
+    execution tells a story actual doesn't. the family member's "pointing > describing"
+    principle applied to code: the CLI dry-run calls this helper instead
+    of reimplementing the gates with its own ad-hoc SQL. If the promotion
+    criteria ever change, both paths update in one place.
+    """
+    promotions: dict[str, int] = {}
+    for entry in entries:
+        kid = entry.get("knowledge_id", "")
+        if not kid:
+            continue
+        if entry.get("superseded_by"):
+            continue
+
+        new_maturity = check_promotion(entry)
+        if not new_maturity:
+            continue
+
+        if not _passes_validity_gate(
+            kid, entry["maturity"], new_maturity, entry.get("corroboration_count", 0)
+        ):
+            continue
+
+        promotions[new_maturity] = promotions.get(new_maturity, 0) + 1
 
     return promotions

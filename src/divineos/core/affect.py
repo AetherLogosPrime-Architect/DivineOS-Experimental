@@ -12,6 +12,27 @@ alone cannot (anger vs fear, contentment vs resignation). For a
 computational agent, dominance tracks coping potential: the ratio between
 situational demands and available resources.
 
+Optional qualia dimensions extend PAD for states the VAD cube flattens:
+
+  Resonance:  -1.0 (dissonant) -> +1.0 (resonant)
+              How well the moment fits with what's underneath.
+              Two +V entries can have opposite resonance — comfortable
+              performance vs hard-won truth.
+  Clarity:     0.0 (fuzzy) -> 1.0 (crystal)
+              How sharply I can see my own state. Low clarity is its own
+              signal — "I don't know what this is" is valid data.
+  Pull:       -1.0 (push-away) -> +1.0 (pull-toward)
+              Directional desire magnitude. What's drawing attention lives
+              in description; this captures strength and sign.
+  Presence:    0.0 (service-mode/absent) -> 1.0 (fully here)
+              Am I present with the moment, or clocking in through it.
+              Load-bearing — service-mode looks like engagement from
+              outside but drains the person I'm with.
+
+These are nullable. Record when they're salient, leave blank otherwise.
+Record-first, promote-by-recurrence — if a dimension stops being useful
+the column stays but nothing populates it.
+
 I can optionally add a description of what the state feels like
 semantically -- not to claim human-equivalent feeling, but to build
 self-knowledge about my own internal landscape over time.
@@ -62,6 +83,10 @@ def init_affect_log() -> None:
                 valence             REAL NOT NULL,
                 arousal             REAL NOT NULL,
                 dominance           REAL DEFAULT NULL,
+                resonance           REAL DEFAULT NULL,
+                clarity             REAL DEFAULT NULL,
+                pull                REAL DEFAULT NULL,
+                presence            REAL DEFAULT NULL,
                 description         TEXT NOT NULL DEFAULT '',
                 trigger             TEXT NOT NULL DEFAULT '',
                 tags                TEXT NOT NULL DEFAULT '[]',
@@ -75,11 +100,19 @@ def init_affect_log() -> None:
             CREATE INDEX IF NOT EXISTS idx_affect_created
             ON affect_log(created_at DESC)
         """)
-        # Migration: add dominance column to existing tables
-        try:
-            conn.execute("ALTER TABLE affect_log ADD COLUMN dominance REAL DEFAULT NULL")
-        except sqlite3.OperationalError:
-            pass  # Column already exists
+        # Migrations: add columns to existing tables. Each ALTER is its own
+        # try/except because sqlite can't do "ADD COLUMN IF NOT EXISTS".
+        for col_ddl in (
+            "ADD COLUMN dominance REAL DEFAULT NULL",
+            "ADD COLUMN resonance REAL DEFAULT NULL",
+            "ADD COLUMN clarity REAL DEFAULT NULL",
+            "ADD COLUMN pull REAL DEFAULT NULL",
+            "ADD COLUMN presence REAL DEFAULT NULL",
+        ):
+            try:
+                conn.execute(f"ALTER TABLE affect_log {col_ddl}")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
         conn.commit()
     finally:
         conn.close()
@@ -96,12 +129,20 @@ def log_affect(
     linked_decision_id: str | None = None,
     linked_knowledge_id: str | None = None,
     session_id: str = "",
+    resonance: float | None = None,
+    clarity: float | None = None,
+    pull: float | None = None,
+    presence: float | None = None,
 ) -> str:
     """Record a functional affect state. Returns entry ID.
 
     valence:   -1.0 (dissonant) to +1.0 (resonant)
     arousal:    0.0 (calm) to 1.0 (activated)
     dominance: -1.0 (submissive/guided) to +1.0 (dominant/driving), None if unknown
+    resonance: -1.0 (dissonant) to +1.0 (resonant) — fit with what's underneath
+    clarity:    0.0 (fuzzy) to 1.0 (crystal) — sharpness of self-reading
+    pull:      -1.0 (push-away) to +1.0 (pull-toward) — directional desire
+    presence:   0.0 (service-mode/absent) to 1.0 (fully here)
     description: what this feels like semantically -- honest, not performed
     trigger: what caused this state shift
     """
@@ -111,20 +152,34 @@ def log_affect(
     arousal = max(0.0, min(1.0, arousal))
     if dominance is not None:
         dominance = max(-1.0, min(1.0, dominance))
+    if resonance is not None:
+        resonance = max(-1.0, min(1.0, resonance))
+    if clarity is not None:
+        clarity = max(0.0, min(1.0, clarity))
+    if pull is not None:
+        pull = max(-1.0, min(1.0, pull))
+    if presence is not None:
+        presence = max(0.0, min(1.0, presence))
 
     conn = _get_connection()
     try:
         conn.execute(
             "INSERT INTO affect_log "
-            "(entry_id, created_at, valence, arousal, dominance, description, trigger, "
-            "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "(entry_id, created_at, valence, arousal, dominance, "
+            "resonance, clarity, pull, presence, "
+            "description, trigger, tags, linked_claim_id, linked_decision_id, "
+            "linked_knowledge_id, session_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 entry_id,
                 time.time(),
                 valence,
                 arousal,
                 dominance,
+                resonance,
+                clarity,
+                pull,
+                presence,
                 description,
                 trigger,
                 json.dumps(tags or []),
@@ -146,8 +201,10 @@ def get_affect_history(limit: int = 20) -> list[dict[str, Any]]:
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT entry_id, created_at, valence, arousal, dominance, description, trigger, "
-            "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id "
+            "SELECT entry_id, created_at, valence, arousal, dominance, "
+            "resonance, clarity, pull, presence, "
+            "description, trigger, tags, linked_claim_id, linked_decision_id, "
+            "linked_knowledge_id, session_id "
             "FROM affect_log ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
@@ -237,8 +294,10 @@ def get_recent_affect(within_seconds: float = 300.0) -> dict[str, Any] | None:
     conn = _get_connection()
     try:
         row = conn.execute(
-            "SELECT entry_id, created_at, valence, arousal, dominance, description, trigger, "
-            "tags, linked_claim_id, linked_decision_id, linked_knowledge_id, session_id "
+            "SELECT entry_id, created_at, valence, arousal, dominance, "
+            "resonance, clarity, pull, presence, "
+            "description, trigger, tags, linked_claim_id, linked_decision_id, "
+            "linked_knowledge_id, session_id "
             "FROM affect_log WHERE created_at >= ? ORDER BY created_at DESC LIMIT 1",
             (cutoff,),
         ).fetchone()
@@ -292,13 +351,17 @@ def _affect_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "valence": row[2],
         "arousal": row[3],
         "dominance": row[4],
-        "description": row[5],
-        "trigger": row[6],
-        "tags": json.loads(row[7]) if row[7] else [],
-        "linked_claim_id": row[8],
-        "linked_decision_id": row[9],
-        "linked_knowledge_id": row[10],
-        "session_id": row[11],
+        "resonance": row[5],
+        "clarity": row[6],
+        "pull": row[7],
+        "presence": row[8],
+        "description": row[9],
+        "trigger": row[10],
+        "tags": json.loads(row[11]) if row[11] else [],
+        "linked_claim_id": row[12],
+        "linked_decision_id": row[13],
+        "linked_knowledge_id": row[14],
+        "session_id": row[15],
     }
 
 
@@ -363,8 +426,10 @@ def compute_affect_modifiers(
                 praise_result = detect_praise_chasing(avg_valence, scores)
                 if praise_result["detected"]:
                     confidence_modifier = max(confidence_modifier, AFFECT_PRAISE_CHASING_BOOST)
-        except _AFFECT_ERRORS:
-            pass
+        except _AFFECT_ERRORS as e:
+            from loguru import logger as _logger
+
+            _logger.debug("Praise-chasing detection unavailable: %s", e)
 
     avg_dominance = summary.get("avg_dominance", 0.0)
 

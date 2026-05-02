@@ -263,7 +263,7 @@ def generate_briefing(
     mat_conn = _get_connection()
     try:
         mat_rows = mat_conn.execute(
-            "SELECT maturity, COUNT(*) FROM knowledge "
+            "SELECT maturity, COUNT(*) FROM knowledge "  # nosec B608: table/column names from module constants; values parameterized
             f"WHERE superseded_by IS NULL AND confidence >= {CONFIDENCE_RETRIEVAL_FLOOR} "
             "GROUP BY maturity"
         ).fetchall()
@@ -590,6 +590,90 @@ def _format_briefing(
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
+    # WHO you're talking to — the person, not the settings
+    try:
+        from divineos.core.user_model import (
+            get_or_create_user,
+            get_relationship_notes,
+            get_shared_history,
+        )
+
+        user = get_or_create_user()
+
+        # Relational layer first — who they ARE
+        rel_notes = get_relationship_notes(limit=5)
+        moments = get_shared_history(limit=3)
+
+        if rel_notes or moments:
+            user_name = user.get("name", "default")
+            lines.append(f"**Talking to:** {user_name}")
+            if rel_notes:
+                for n in rel_notes[:3]:
+                    lines.append(f"  - [{n['category']}] {n['content'][:100]}")
+            if moments:
+                lines.append(f"  Recent history: {moments[0]['description'][:80]}")
+            lines.append("")
+        else:
+            # Fall back to description or core memory
+            user_desc = user.get("description", "")
+            if not user_desc:
+                from divineos.core.memory import get_core
+
+                core = get_core()
+                user_desc = core.get("user_identity", "")
+            if user_desc:
+                short = user_desc.split(". ")[0] if ". " in user_desc else user_desc[:120]
+                lines.append(f"**Talking to:** {short}.\n")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"user-context: {e}")
+
+    # Communication calibration — HOW to talk, shown first so it shapes everything
+    try:
+        from divineos.core.communication_calibration import calibrate
+
+        cal = calibrate()
+        if not (cal.verbosity == "normal" and cal.jargon_ok and cal.explanation_depth == "normal"):
+            cal_parts: list[str] = []
+            if not cal.jargon_ok:
+                cal_parts.append("NO JARGON — explain in plain language")
+            if cal.verbosity in ("terse", "concise"):
+                cal_parts.append(f"verbosity: {cal.verbosity}")
+            if cal.notes:
+                for note in cal.notes[:2]:
+                    cal_parts.append(note)
+            lines.append(f"**How to talk:** {' | '.join(cal_parts)}\n")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"calibration: {e}")
+
+    # Self-awareness escalations — recurring failure patterns I keep hitting
+    try:
+        from divineos.core.hud import _build_self_awareness_slot
+
+        sa_text = _build_self_awareness_slot()
+        if sa_text and "ESCALATE" in sa_text:
+            escalations = [ln.strip() for ln in sa_text.split("\n") if "ESCALATE" in ln]
+            if escalations:
+                lines.append("**Recurring blind spots:**")
+                for esc in escalations[:3]:
+                    lines.append(f"  {esc}")
+                lines.append("")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"self-awareness: {e}")
+
+    # Affect nudge — emotional state can shift how I approach work
+    try:
+        from divineos.core.hud import _build_affect_slot
+
+        affect_text = _build_affect_slot()
+        if affect_text and "Nudge:" in affect_text:
+            for ln in affect_text.split("\n"):
+                if "Nudge:" in ln:
+                    nudge = ln.strip().removeprefix("**").removesuffix("**").strip()
+                    lines.append(f"**{nudge}**\n")
+                    break
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"affect-nudge: {e}")
+
     # Growth trajectory
     try:
         from divineos.core.growth import (
@@ -726,6 +810,45 @@ def _format_briefing(
             lines.append(f"**Logic health:** {logic_line}\n")
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"logic-health: {e}")
+
+    # Recent accountability violations — from LAST session
+    try:
+        from divineos.core.ledger import get_events
+
+        violations = get_events(event_type="ACCOUNTABILITY_VIOLATION", limit=10)
+        recent_violations = [
+            v for v in violations if (now - v.get("timestamp", 0)) < 2 * SECONDS_PER_DAY
+        ]
+        if recent_violations:
+            lines.append(f"### ACCOUNTABILITY VIOLATIONS ({len(recent_violations)} recent)\n")
+            lines.append("You violated chronic lessons in a recent session.")
+            lines.append("You owe an accounting to the council.\n")
+            for v in recent_violations[:5]:
+                payload = v.get("payload", {})
+                if isinstance(payload, str):
+                    import json as _json
+
+                    try:
+                        payload = _json.loads(payload)
+                    except (ValueError, TypeError):
+                        payload = {}
+                desc = payload.get("description", "unknown lesson")[:100]
+                occ = payload.get("occurrences", "?")
+                lines.append(f"  [!!] {desc} ({occ}x total)")
+            lines.append("")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"accountability-violations: {e}")
+
+    # Chronic lessons — accountability warning (surfaces BEFORE regular lessons)
+    try:
+        from divineos.core.knowledge.lessons import format_chronic_lessons_warning
+
+        chronic_text = format_chronic_lessons_warning()
+        if chronic_text:
+            lines.append(chronic_text)
+            lines.append("")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"chronic-lessons: {e}")
 
     if lessons_text:
         lines.append(lessons_text)
@@ -887,6 +1010,17 @@ def _format_briefing(
             lines.append("")
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"open-questions: {e}")
+
+    # Exploration folder — past-me's first-person writing, not extracted summaries
+    try:
+        from divineos.core.exploration_reader import format_exploration_summary
+
+        expl_text = format_exploration_summary()
+        if expl_text:
+            lines.append(expl_text)
+            lines.append("")
+    except _RETRIEVAL_ERRORS as e:
+        subsystem_failures.append(f"explorations: {e}")
 
     # Surface subsystem failures — silent degradation is worse than visible errors
     if subsystem_failures:

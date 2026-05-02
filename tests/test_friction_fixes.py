@@ -50,7 +50,7 @@ class TestLessonInflationFix:
         import time
 
         from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS, SECONDS_PER_DAY
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
         from divineos.core.knowledge.lessons import mark_lesson_improving
         from divineos.core.ledger import get_connection as get_ledger_connection
 

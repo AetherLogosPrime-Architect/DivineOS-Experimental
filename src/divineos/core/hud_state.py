@@ -173,13 +173,51 @@ def complete_goal(text: str) -> bool:
     return found
 
 
+def _record_goal_outcome(goal: dict[str, Any], outcome: str) -> None:
+    """Append a goal outcome record to the outcomes log.
+
+    Called by auto_clean_goals when a goal exits the active list via
+    timeout or dedup (as opposed to actual completion). Recent
+    outcomes feed the action-loop-closure briefing surface — surfacing
+    goals that aged out without progression so they're visible at next
+    session start (claim 5b38a31c, salvaged from old-OS ACTION LOOP
+    CLOSURE spec).
+    """
+    path = _ensure_hud_dir() / "goal_outcomes.json"
+    outcomes: list[dict[str, Any]] = []
+    if path.exists():
+        try:
+            outcomes = json.loads(path.read_text(encoding="utf-8"))
+        except _HS_ERRORS:
+            outcomes = []
+    outcomes.append(
+        {
+            "text": goal.get("text", ""),
+            "original_words": goal.get("original_words", ""),
+            "added_at": goal.get("added_at", 0),
+            "archived_at": time.time(),
+            "outcome": outcome,
+        }
+    )
+    # Cap at 200 entries to prevent unbounded growth — the surface
+    # only reads recent entries anyway.
+    outcomes = outcomes[-200:]
+    path.write_text(json.dumps(outcomes, indent=2), encoding="utf-8")
+
+
 def auto_clean_goals(max_age_days: float = 1.0) -> dict[str, int]:
     """Auto-clean goals at session end.
 
-    - Completed goals are removed from the list entirely
-    - Active goals older than max_age_days are marked done (stale)
-    - Duplicate/near-duplicate goals are deduplicated (keep newest)
-    - Goals that are subsets of newer goals are removed (superseded)
+    - Completed goals (status='done' from complete_goal) are removed from
+      the active list entirely; they were already counted in lifetime
+      when complete_goal ran
+    - Active goals older than max_age_days are stale-archived (recorded
+      to goal_outcomes.json with outcome='stale_archived', NOT counted
+      as completed — fixes goodhart-shape where staleness inflated
+      completion count)
+    - Duplicate/near-duplicate goals are deduplicated; recorded as
+      outcome='superseded'
+    - Goals that are subsets of newer goals are removed; outcome='superseded'
 
     Returns counts of actions taken.
     """
@@ -192,7 +230,8 @@ def auto_clean_goals(max_age_days: float = 1.0) -> dict[str, int]:
     except (json.JSONDecodeError, OSError):
         return {"stale_archived": 0, "deduped": 0, "completed_cleared": 0}
 
-    # Remove completed goals — they've served their purpose
+    # Remove completed goals — they've served their purpose. Already
+    # counted in lifetime by complete_goal; do NOT double-count here.
     completed_cleared = sum(1 for g in goals if g.get("status") == "done")
     goals = [g for g in goals if g.get("status") != "done"]
 
@@ -200,9 +239,11 @@ def auto_clean_goals(max_age_days: float = 1.0) -> dict[str, int]:
     stale_archived = 0
     deduped = 0
 
-    # Archive stale active goals
+    # Archive stale active goals — record outcome before status change
+    # so the briefing surface can show what timed out
     for goal in goals:
         if goal.get("status") == "active" and goal.get("added_at", 0) < cutoff:
+            _record_goal_outcome(goal, "stale_archived")
             goal["status"] = "done"
             stale_archived += 1
 
@@ -235,15 +276,18 @@ def auto_clean_goals(max_age_days: float = 1.0) -> dict[str, int]:
                 deduped += 1
 
     for idx in to_dedup:
+        _record_goal_outcome(active[idx], "superseded")
         active[idx]["status"] = "done"
 
+    # Stop counting stale-archived + deduped as "completed" — that was
+    # the goodhart-shape (auto-archival inflated completion count).
+    # complete_goal() is the only path that counts toward lifetime.
     total_cleared = completed_cleared + stale_archived + deduped
     changed = total_cleared > 0
     if changed:
         # Remove any newly-marked-done goals too
         goals = [g for g in goals if g.get("status") != "done"]
         path.write_text(json.dumps(goals, indent=2), encoding="utf-8")
-        _increment_lifetime_goals(total_cleared)
 
     return {
         "stale_archived": stale_archived,

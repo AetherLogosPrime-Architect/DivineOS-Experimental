@@ -2,6 +2,8 @@
 
 import click
 
+from divineos.cli._helpers import _safe_echo
+
 
 def register(cli: click.Group) -> None:
     """Register compass commands."""
@@ -11,7 +13,7 @@ def register(cli: click.Group) -> None:
         """Show my moral compass — where I stand on ten virtue spectrums."""
         from divineos.core.moral_compass import format_compass_reading
 
-        click.echo(format_compass_reading())
+        _safe_echo(format_compass_reading())
 
         from divineos.cli._helpers import _log_os_query
 
@@ -34,16 +36,35 @@ def register(cli: click.Group) -> None:
         help="-1.0=deficiency, 0.0=virtue, +1.0=excess",
     )
     @click.option("--evidence", "-e", required=True, help="What happened that shows this")
-    @click.option("--source", "-s", default="self_report", help="Where this came from")
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
+    @click.option(
+        "--fire-id",
+        "fire_id",
+        default=None,
+        help=(
+            "Item 6: binds a rudder-ack to a specific COMPASS_RUDDER_FIRED "
+            "event. Copy the fire_id shown in the rudder block message."
+        ),
+    )
     def observe_cmd(
         spectrum: str,
         position: float,
         evidence: str,
-        source: str,
         tags: tuple[str, ...],
+        fire_id: str | None,
     ) -> None:
-        """Log an observation on a virtue spectrum."""
+        """Log a manual observation on a virtue spectrum.
+
+        All observations filed through this CLI are recorded with
+        source="manual" (SELF_REPORTED tier, weight 0.4). This is
+        deliberate — see fresh-Claude audit round 4 Q7 (source-tier
+        laundering): user-facing CLI must not let the caller claim a
+        higher-trust tier than the caller actually is. Observations
+        with source="MEASURED" / "BEHAVIORAL" / other higher-weight
+        tiers MUST call log_observation directly from the module that
+        produces them (session_analyzer, affect_derived, etc.), not
+        via this CLI.
+        """
         from divineos.core.moral_compass import SPECTRUMS, log_observation
 
         if spectrum not in SPECTRUMS:
@@ -53,13 +74,21 @@ def register(cli: click.Group) -> None:
             )
             return
 
-        obs_id = log_observation(
-            spectrum=spectrum,
-            position=position,
-            evidence=evidence,
-            source=source,
-            tags=list(tags) if tags else None,
-        )
+        try:
+            obs_id = log_observation(
+                spectrum=spectrum,
+                position=position,
+                evidence=evidence,
+                source="manual",
+                tags=list(tags) if tags else None,
+                fire_id=fire_id,
+            )
+        except ValueError as e:
+            # Item 6/7: substance or fire-ID rejection. Surface the
+            # reason to the operator so they can file a substantive /
+            # correctly-bound ack.
+            click.secho(f"[!] {e}", fg="red")
+            return
 
         spec = SPECTRUMS[spectrum]
         if position < -0.3:
@@ -81,6 +110,29 @@ def register(cli: click.Group) -> None:
         from divineos.cli._helpers import _log_os_query
 
         _log_os_query("compass", f"observe {spectrum}")
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("compass-observe")
+
+        # Reset the compass-staleness counter in the engagement marker.
+        # Structural discharge of "virtue drift untracked" — see gate 1.4
+        # in pre_tool_use_gate.py.
+        try:
+            from divineos.core.hud_handoff import reset_compass_actions_counter
+
+            reset_compass_actions_counter()
+        except Exception:  # noqa: BLE001 — best-effort reset
+            pass
+
+        # Clear the compass-required marker — observing the position
+        # discharges the virtue-relevant event that triggered the
+        # marker. See core/compass_required_marker.py and gate 1.47.
+        try:
+            from divineos.core.compass_required_marker import clear_marker
+
+            clear_marker()
+        except Exception:  # noqa: BLE001 — best-effort clear
+            pass
 
     @compass_group.command("history")
     @click.option("--spectrum", "-s", default=None, help="Filter by spectrum name")
@@ -125,7 +177,7 @@ def register(cli: click.Group) -> None:
         """Show compass summary — concerns and drift warnings."""
         from divineos.core.moral_compass import format_compass_brief
 
-        click.echo(format_compass_brief())
+        _safe_echo(format_compass_brief())
 
     @compass_group.command("spectrums")
     def spectrums_cmd() -> None:

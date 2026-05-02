@@ -262,6 +262,37 @@ def demote_from_active(knowledge_id: str) -> bool:
         conn.close()
 
 
+def get_pinned_knowledge_ids() -> set[str]:
+    """Return the set of knowledge IDs pinned in active memory.
+
+    Pinning is an active_memory concept — a user or agent marking an
+    entry as "keep this surfaced, don't let it drift." That same signal
+    doubles as a shield against knowledge hygiene: pinned entries must
+    not be reaped, staled, or demoted by maintenance passes.
+
+    Without this, the pin-guards in knowledge_maintenance checked
+    ``entry.get("pinned")`` on rows from the knowledge table — which
+    has no ``pinned`` column — so the guards always evaluated false
+    and protected nothing.
+
+    Returns an empty set if the active_memory table doesn't exist yet
+    (fresh DB, tests that only init the knowledge table). "No pins
+    recorded" is the correct answer — no protection is applied.
+    """
+    conn = _get_connection()
+    try:
+        return {
+            row[0]
+            for row in conn.execute(
+                "SELECT knowledge_id FROM active_memory WHERE pinned = 1",
+            ).fetchall()
+        }
+    except sqlite3.OperationalError:
+        return set()
+    finally:
+        conn.close()
+
+
 def get_active_memory() -> list[dict[str, Any]]:
     """Get all active memory items ranked by importance (highest first).
 

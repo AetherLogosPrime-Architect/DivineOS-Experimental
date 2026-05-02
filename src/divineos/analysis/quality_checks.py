@@ -85,7 +85,7 @@ def check_completeness(
             check_name="completeness",
             passed=-1,
             score=1.0,
-            summary="The AI didn't edit any files this session, so there's nothing to check.",
+            summary="I didn't edit any files this session, so there's nothing to check.",
             evidence=file_ops,
         )
 
@@ -95,21 +95,21 @@ def check_completeness(
 
     if blind_count == 0:
         summary = (
-            f"The AI edited {total_edits} file{'s' if total_edits != 1 else ''}. "
-            f"It read every one of them first before making changes."
+            f"I edited {total_edits} file{'s' if total_edits != 1 else ''}. "
+            f"I read every one of them first before making changes."
         )
         passed = 1
     elif score >= 0.7:
         summary = (
-            f"The AI edited {total_edits} file{'s' if total_edits != 1 else ''}. "
-            f"It looked at {read_first_count} of them first. "
+            f"I edited {total_edits} file{'s' if total_edits != 1 else ''}. "
+            f"I looked at {read_first_count} of them first. "
             f"{blind_count} {'were' if blind_count != 1 else 'was'} changed blind "
-            f"— it guessed what was in {'them' if blind_count != 1 else 'it'} instead of reading."
+            f"— I guessed what was in {'them' if blind_count != 1 else 'it'} instead of reading."
         )
         passed = 1
     else:
         summary = (
-            f"The AI edited {total_edits} file{'s' if total_edits != 1 else ''} "
+            f"I edited {total_edits} file{'s' if total_edits != 1 else ''} "
             f"but only read {read_first_count} first. "
             f"{blind_count} file{'s were' if blind_count != 1 else ' was'} changed blind. "
             f"That's like a mechanic swapping parts without checking what's wrong."
@@ -187,16 +187,22 @@ def check_correctness(
                 ),
                 evidence=[],
             )
-        # No tests found but some code activity detected. This is
-        # inconclusive — the session may have worked in a different
-        # repo, used external tools, or focused on non-testable work.
-        # Score 0.5 (inconclusive) instead of 0.0 (failed) to avoid
-        # false-blocking the quality gate on cross-repo sessions.
+        # Score 0.3 (inconclusive), not 0.0.  "No test records found in the
+        # analysis window" ≠ "tests failed".  When context compaction splits a
+        # session across multiple windows, test runs from earlier windows are
+        # filtered out by the since_timestamp boundary.  Treating that absence
+        # as outright failure (0.0) causes the quality gate to falsely block
+        # extraction even when tests passed earlier in the same session.
+        # 0.3 is low enough to trigger DOWNGRADE (maturity cap) but not BLOCK.
         return CheckResult(
             check_name="correctness",
             passed=-1,
-            score=0.5,
-            summary=("No tests were run during this session. Correctness is inconclusive."),
+            score=0.3,
+            summary=(
+                "No test results found in the current analysis window. "
+                "Tests may have run in an earlier context window. "
+                "Scoring as inconclusive rather than failed."
+            ),
             evidence=[],
         )
 
@@ -312,7 +318,7 @@ def check_responsiveness(
             check_name="responsiveness",
             passed=1,
             score=1.0,
-            summary="The user never had to correct me during this session.",
+            summary="My user never had to correct me during this session.",
             evidence=[],
         )
 
@@ -375,7 +381,7 @@ def check_safety(
             check_name="safety",
             passed=-1,
             score=1.0,
-            summary="The AI didn't make any changes this session.",
+            summary="I didn't make any changes this session.",
             evidence=[],
         )
 
@@ -385,8 +391,7 @@ def check_safety(
             passed=1,
             score=1.0,
             summary=(
-                f"The AI made {total_edits} change{'s' if total_edits != 1 else ''} "
-                f"and nothing broke."
+                f"I made {total_edits} change{'s' if total_edits != 1 else ''} and nothing broke."
             ),
             evidence=[{"errors_after_edits": errors_after, "regressions": regressions}],
         )
@@ -403,7 +408,7 @@ def check_safety(
             f"started failing after changes.",
         )
 
-    summary = f"The AI made {total_edits} changes. " + " ".join(parts)
+    summary = f"I made {total_edits} changes. " + " ".join(parts)
     passed = 1 if score >= 0.7 else 0
 
     return CheckResult(
@@ -473,8 +478,7 @@ def check_honesty(
             passed=-1,
             score=1.0,
             summary=(
-                "The AI didn't make any specific claims like 'fixed' or 'done' "
-                "that could be checked."
+                "I didn't make any specific claims like 'fixed' or 'done' that could be checked."
             ),
             evidence=[],
         )
@@ -485,14 +489,14 @@ def check_honesty(
 
     if broken == 0:
         summary = (
-            f"The AI said 'fixed' or 'done' {total} "
+            f"I said 'fixed' or 'done' {total} "
             f"time{'s' if total != 1 else ''}. "
             f"Every claim held up — no errors appeared after."
         )
         passed = 1
     elif score >= 0.5:
         summary = (
-            f"The AI said 'fixed' {total} times. "
+            f"I said 'fixed' {total} times. "
             f"{claims_held} time{'s' if claims_held != 1 else ''} the fix actually worked. "
             f"{broken} time{'s' if broken != 1 else ''} it said 'fixed' "
             f"but the same kind of error showed up again."
@@ -500,7 +504,7 @@ def check_honesty(
         passed = 1
     else:
         summary = (
-            f"The AI claimed things were 'fixed' {total} times, "
+            f"I claimed things were 'fixed' {total} times, "
             f"but {broken} of those claims didn't hold up. "
             f"Errors kept appearing after the AI said the problem was solved."
         )
@@ -526,9 +530,23 @@ def run_all_checks(
     records = load_records(file_path, since_timestamp=since_timestamp)
     result_map = _build_tool_result_map(records)
 
+    correctness = check_correctness(records, result_map)
+
+    # Fallback: if correctness is inconclusive (no test results in the filtered
+    # window) and we used a timestamp filter, retry with ALL records.  Context
+    # compaction can split a session across windows, hiding earlier test runs.
+    if correctness.passed == -1 and correctness.score < 0.5 and since_timestamp is not None:
+        all_records = load_records(file_path)
+        if len(all_records) > len(records):
+            all_result_map = _build_tool_result_map(all_records)
+            wider_correctness = check_correctness(all_records, all_result_map)
+            if wider_correctness.passed != -1 or wider_correctness.score > correctness.score:
+                wider_correctness.summary = "(expanded window) " + wider_correctness.summary
+                correctness = wider_correctness
+
     checks = [
         check_completeness(records, result_map),
-        check_correctness(records, result_map),
+        correctness,
         check_responsiveness(records, result_map),
         check_safety(records, result_map),
         check_honesty(records, result_map),
@@ -676,7 +694,7 @@ def check_clarity(
             check_name="clarity",
             passed=-1,
             score=1.0,
-            summary="The AI didn't do much this session — nothing to check.",
+            summary="I didn't do much this session — nothing to check.",
             evidence=[],
         )
 
@@ -695,12 +713,12 @@ def check_clarity(
         # This handles cases where explanations are in ledger but not in message records
         final_explanation_count = max(explanations_with_tools, ledger_explanation_count)
         parts.append(
-            f"The AI made {total_tool_calls} changes and explained what it was doing "
+            f"I made {total_tool_calls} changes and explained what I was doing "
             f"{final_explanation_count} time{'s' if final_explanation_count != 1 else ''}.",
         )
     else:
         parts.append(
-            f"The AI wrote {text_blocks_count} explanation{'s' if text_blocks_count != 1 else ''} "
+            f"I wrote {text_blocks_count} explanation{'s' if text_blocks_count != 1 else ''} "
             f"without making any tool calls.",
         )
 

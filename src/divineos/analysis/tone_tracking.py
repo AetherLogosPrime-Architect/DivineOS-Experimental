@@ -33,20 +33,30 @@ class ToneShift:
 
 
 def _classify_tone(text: str) -> str:
-    """Classify a user message as positive, negative, or neutral."""
+    """Classify a user message as positive, negative, or neutral.
 
+    Mixed signals (positive markers + negative markers present in the
+    same message) resolve to neutral. This applies to BOTH correction
+    and frustration markers — the previous version short-circuited on
+    frustration and ignored positive markers, producing false upsets on
+    messages like "wonderful... what's next? lol" where "lol + ?" fired
+    frustration even though "wonderful" is clearly positive.
+    """
     positive = _detect_signals(text, ENCOURAGEMENT_PATTERNS, "pos", "")
     negative_correction = _detect_signals(text, CORRECTION_PATTERNS, "neg", "")
     negative_frustration = _detect_signals(text, FRUSTRATION_PATTERNS, "neg", "")
 
+    # Mixed signals — positive markers AND any negative marker both
+    # present — resolve to neutral regardless of which negative fired.
+    if positive and (negative_correction or negative_frustration):
+        return "neutral"
+
     if negative_frustration:
         return "negative"
-    if negative_correction and not positive:
+    if negative_correction:
         return "negative"
-    if positive and not negative_correction:
+    if positive:
         return "positive"
-    if positive and negative_correction:
-        return "neutral"  # mixed signals
     return "neutral"
 
 

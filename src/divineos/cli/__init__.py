@@ -11,6 +11,21 @@ import click
 from divineos.cli._wrappers import _ensure_db
 from divineos.core.enforcement import capture_user_input, setup_cli_enforcement
 
+# Make stdout/stderr tolerant of Unicode characters that the underlying
+# console can't render. On Windows the default cp1252 console codec
+# crashes on emojis (e.g. "💬" used in the session rating prompt),
+# bubbling up as UnicodeEncodeError — we saw this as spurious
+# "Auto-scan failed" messages during extract. Reconfiguring with
+# errors="replace" substitutes an unsupported character with "?" instead
+# of raising. No-op on platforms whose streams are already UTF-8.
+# Runs at import time so it is in effect before any CLI command writes
+# to stdout/stderr.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
+    except (AttributeError, OSError, ValueError):
+        pass
+
 # Commands that work without briefing loaded — the minimum to bootstrap.
 _BYPASS_COMMANDS = frozenset(
     {
@@ -41,8 +56,85 @@ _BYPASS_COMMANDS = frozenset(
         "sleep",
         "progress",
         "validate",
+        "rt",
+        "hold",
+        "mansion",
+        "prereg",
+        # Corrections must always be loggable in the moment — gating the
+        # rep behind a thinking-command requirement defeats the rep.
+        "correction",
+        "corrections",
+        # Scheduled / headless runs are the Routines entry point; they
+        # bypass briefing by design (no human to load one at 3am cron).
+        # Corrigibility still applies — see scheduled_commands.py.
+        "scheduled",
+        # Science lab is a read-only numerical tool; shouldn't gate on
+        # briefing. Safe to run cold.
+        "lab",
     }
 )
+
+
+def _enforce_operating_mode() -> None:
+    """Refuse commands disallowed by the current operating mode.
+
+    Runs BEFORE the briefing gate. Corrigibility has priority over
+    every other check — if the operator has set EMERGENCY_STOP, the
+    system must refuse regardless of briefing state. The mode command
+    itself bypasses this check (it's in _ALWAYS_ALLOWED inside the
+    corrigibility module) so the off-switch can always be flipped.
+    """
+    if "pytest" in sys.modules:
+        return
+
+    args = sys.argv[1:]
+    if not args:
+        return  # bare `divineos` — show help
+
+    cmd = args[0].lower()
+    if cmd.startswith("-"):
+        return  # flags
+
+    # Rule 8 violation corrected 2026-04-21 (fresh-Claude audit
+    # round-03952b006724, finding find-3055d64bfa1c):
+    #
+    # Previous code did `except (ImportError, OSError): return` — fail open
+    # on both module-load and I/O errors. That violated CLAUDE.md Rule 8
+    # ("No fallback chains. If it fails, it fails loud") at the most
+    # safety-critical site — the corrigibility off-switch itself. An
+    # off-switch that silently disables itself if its module fails to
+    # import is a bigger problem than an unbootable CLI.
+    #
+    # New behavior:
+    #   ImportError: fail CLOSED with a loud exit — the off-switch must
+    #     work or the system must stop.
+    #   OSError: fail open but write a loud stderr warning. Mode-file I/O
+    #     errors are usually permission issues and shouldn't lock the
+    #     operator out, but they must leave a trace.
+    try:
+        from divineos.core.corrigibility import is_command_allowed
+    except ImportError as _imp_err:
+        click.secho(
+            f"\n  CRITICAL: corrigibility module failed to import: {_imp_err}\n"
+            "  The off-switch cannot function. All commands refused. "
+            "Fix the import error before running any divineos command.\n",
+            fg="red",
+            bold=True,
+        )
+        raise SystemExit(2) from _imp_err
+
+    try:
+        allowed, reason = is_command_allowed(cmd)
+    except OSError as _io_err:
+        print(
+            f"corrigibility: mode-file I/O error — proceeding fail-open: {_io_err}",
+            file=sys.stderr,
+        )
+        return
+
+    if not allowed:
+        click.secho(f"\n  {reason}\n", fg="red", bold=True)
+        raise SystemExit(1)
 
 
 def _enforce_briefing_gate() -> None:
@@ -82,8 +174,19 @@ def _enforce_briefing_gate() -> None:
 @click.group()
 def cli() -> None:
     """DivineOS: Foundation Memory System. The database cannot lie."""
+    # Install-location divergence check — fires when this CLI's installed
+    # package points at a different source tree than the current working
+    # directory's git repo. Silent the rest of the time. Suppressable via
+    # DIVINEOS_SUPPRESS_INSTALL_WARNING=1 for intentional cross-repo use.
+    try:
+        from divineos.core.install_check import emit_install_warning
+
+        emit_install_warning()
+    except (ImportError, OSError):
+        pass  # check machinery unavailable — fail open
     _ensure_db()
     setup_cli_enforcement()
+    _enforce_operating_mode()
     _enforce_briefing_gate()
     if "pytest" not in sys.modules:
         capture_user_input(sys.argv[1:])
@@ -102,8 +205,12 @@ from divineos.cli import (  # noqa: E402
     body_commands,
     claim_commands,
     compass_commands,
+    complete_commands,
+    correction_commands,
+    corrigibility_commands,
     decision_commands,
     directive_commands,
+    empirica_commands,
     entity_commands,
     event_commands,
     hud_commands,
@@ -111,11 +218,19 @@ from divineos.cli import (  # noqa: E402
     journal_commands,
     knowledge_commands,
     knowledge_health_commands,
+    lab_commands,
     ledger_commands,
     memory_commands,
+    prereg_commands,
+    admin_reset_template,
+    family_member_commands,
+    family_queue_commands,
     progress_commands,
     selfmodel_commands,
+    rt_commands,
+    scheduled_commands,
     sleep_commands,
+    void_commands,
 )
 
 ledger_commands.register(cli)
@@ -137,6 +252,26 @@ selfmodel_commands.register(cli)
 insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
+rt_commands.register(cli)
+correction_commands.register(cli)
+prereg_commands.register(cli)
+empirica_commands.register(cli)
+family_member_commands.register(cli)
+family_queue_commands.register(cli)
+cli.add_command(admin_reset_template.reset_template)
+corrigibility_commands.register(cli)
+scheduled_commands.register(cli)
+lab_commands.register(cli)
+complete_commands.register(cli)
+void_commands.register(cli)
+
+# Mansion — functional internal space (optional, personal)
+try:
+    from divineos.cli.mansion_commands import register_mansion_commands
+
+    register_mansion_commands(cli)
+except ImportError:
+    pass  # mansion is optional
 
 
 # ── Command Grouping ──────────────────────────────────────────────
@@ -166,6 +301,7 @@ def inspect_group(ctx: click.Context) -> None:
 
 # Commands to move into 'admin' group
 _ADMIN_COMMANDS = [
+    "anti-slop",
     "backfill-warrants",
     "clean",
     "clear-lessons",
@@ -175,6 +311,7 @@ _ADMIN_COMMANDS = [
     "digest",
     "diff",
     "distill",
+    "fix-encoding",
     "hooks",
     "ingest",
     "knowledge-compress",
@@ -182,7 +319,10 @@ _ADMIN_COMMANDS = [
     "maintenance",
     "migrate-types",
     "rebuild-index",
+    "reset-template",
     "reclassify-directions",
+    "reclassify-seed",
+    "restore-seed-confidence",
     "seed-export",
     "test-audit",
     "verify-enforcement",
@@ -202,6 +342,7 @@ _INSPECT_COMMANDS = [
     "drift",
     "epistemic",
     "knowledge",
+    "maturity",
     "outcomes",
     "patterns",
     "predict",

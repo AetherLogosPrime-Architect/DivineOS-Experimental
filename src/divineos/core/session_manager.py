@@ -3,7 +3,7 @@
 This module provides functions to manage the session lifecycle:
 - Initialize sessions and generate/retrieve session IDs
 - Persist session IDs to files and environment variables
-- End sessions and emit SESSION_END events
+- End sessions and emit CONSOLIDATION_CHECKPOINT events (formerly SESSION_END)
 - Clear session state
 - Track session duration
 - Provide session tracker for backward compatibility
@@ -58,7 +58,7 @@ def _read_session_file() -> str | None:
         session_file = _get_session_file_path()
         if session_file.exists():
             try:
-                content = session_file.read_text().strip()
+                content = session_file.read_text(encoding="utf-8").strip()
                 if content:
                     logger.debug(f"Read session_id from file: {content}")
                     return content
@@ -288,22 +288,24 @@ def end_session() -> str:
 
     """
     with mark_internal_operation():
-        from divineos.event.event_emission import emit_session_end
+        from divineos.event.event_emission import emit_consolidation_checkpoint
 
         try:
             session_id = get_current_session_id()
             logger.debug(f"Ending session: {session_id}")
 
-            # Emit SESSION_END event with error handling
+            # Emit CONSOLIDATION_CHECKPOINT event with error handling
             event_id = ""
             try:
-                event_id = emit_session_end(session_id=session_id)
-                logger.debug(f"SESSION_END event emitted: {event_id}")
+                event_id = emit_consolidation_checkpoint(session_id=session_id)
+                logger.debug(f"CONSOLIDATION_CHECKPOINT event emitted: {event_id}")
             except ValueError as e:
-                logger.error(f"Validation error during SESSION_END event emission: {e}")
+                logger.error(
+                    f"Validation error during CONSOLIDATION_CHECKPOINT event emission: {e}"
+                )
                 logger.warning("Continuing with session cleanup")
             except _SM_ERRORS as e:
-                logger.error(f"Failed to emit SESSION_END event: {e}", exc_info=True)
+                logger.error(f"Failed to emit CONSOLIDATION_CHECKPOINT event: {e}", exc_info=True)
                 logger.warning("Continuing with session cleanup")
 
             # Clear session state (always attempt this)
@@ -517,7 +519,7 @@ def get_or_create_session_id(session_id: str | None = None) -> str:
         # Try to read existing session ID from persistent file
         if session_file.exists():
             try:
-                existing_id = session_file.read_text().strip()
+                existing_id = session_file.read_text(encoding="utf-8").strip()
                 if existing_id:  # Only use if non-empty
                     logger.debug(f"Using existing session_id from file: {existing_id}")
                     # Also set environment variable for this process

@@ -9,13 +9,33 @@
 
 ---
 
+> ### ⚠️ Measurement Caveat — Added 2026-04-16 after Bengio audit
+>
+> **All `correct_fix` and `would_pass_tests` numbers below are
+> Sonnet-as-judge estimates, not Docker SWE-bench harness results.** The
+> judge is scoring patches on a 5-binary rubric — including whether tests
+> *would* pass — without actually executing them. Diff-overlap metrics
+> (`file_overlap`, `change_overlap` in `summary.json`) are real
+> measurements; pass/fail verdicts are predictions.
+>
+> A Docker-verified subset (~20 tasks) should be run before citing any
+> absolute pass-rate number externally. The relative effect (enhanced vs.
+> base) and the win/tie/loss counts are likely to survive harness
+> evaluation because they depend on diff-overlap alignment, which *is*
+> measured. But the headline percentages are judge estimates.
+>
+> Nothing below has been retracted — the framing is just being sharpened
+> to match what was actually measured.
+
+---
+
 ## Executive Summary
 
-The DivineOS expert council — a system prompt containing 28 named thinking frameworks — demonstrably improves Claude's ability to fix real-world software bugs. Across 170 tasks on two models:
+The DivineOS expert council — a system prompt containing 28 named thinking frameworks — demonstrably improves Claude's ability to fix real-world software bugs (as judged by Sonnet; see caveat above). Across 170 tasks on two models:
 
-- **Sonnet (150 tasks):** 29 enhanced wins, 12 base wins. 2.4:1 ratio.
-- **Opus (20 tasks):** 3 enhanced wins, 0 base wins. Undefeated.
-- **Total: 32 wins, 12 losses.** The council helps in 2.7x more cases than it hurts.
+- **Sonnet (150 tasks):** 29 enhanced wins, 12 base wins, 109 ties. 2.4:1 win ratio.
+- **Opus (20 tasks):** 3 enhanced wins, 0 base wins, 15 ties (2 tasks had judge JSON parse errors). Zero regressions, n=18. *n is too small to call "undefeated" in a statistical sense — earlier wording has been softened throughout this document.*
+- **Total (head-to-head):** 32 wins, 12 losses, 124 ties across 168 scored tasks.
 
 A failed experiment with mandatory process phases (v2 prompt) proved equally valuable: rigid structure actively degraded performance, confirming the design principle "structure, not control."
 
@@ -201,12 +221,14 @@ Reverted to v1's flat list style. Kept the 3 new experts (Popper, Knuth, Polya) 
 
 (18 of 20 tasks scored; 2 tasks had judge JSON parse errors)
 
-### Head-to-Head: Enhanced Undefeated
+### Head-to-Head: Zero Regressions at n=18
 
 - Enhanced wins: **3**
 - Base wins: **0**
 - Ties: **15**
-- **Zero regressions.**
+- **Zero regressions** across the 18 scored tasks.
+
+At n=18 with 15 ties, this is directionally encouraging but statistically thin — 83% of the dataset shows no edge either way. The original "undefeated" framing has been softened throughout this document; the finding that matters is *zero base wins* (no regressions from adding the council), which is real but needs n≥50 before it earns a stronger label.
 
 ### The Enhanced Wins
 
@@ -308,7 +330,9 @@ All results are cached per-task. Rerunning skips completed tasks. Adding 50 more
 
 ## Conclusion
 
-The DivineOS council demonstrably improves Claude's bug-fixing ability. At scale (150 tasks on Sonnet), it wins 2.4x more often than it loses. On Opus with the refined v3 prompt, it's undefeated. The cost overhead is negligible (2 cents per task on Sonnet).
+The DivineOS council demonstrably improves Claude's bug-fixing ability *as scored by an LLM judge*. At scale (150 tasks on Sonnet), it wins 2.4x more often than it loses. On Opus with the refined v3 prompt (n=18), it produced zero regressions — a directionally encouraging signal that needs n≥50 before it earns a stronger claim. The cost overhead is negligible (2 cents per task on Sonnet).
+
+For honest external citation, a Docker-verified subset should be run first (see "Measurement Caveat" at the top of this document). The relative effect is likely to survive; the absolute pass-rate percentages are judge estimates.
 
 The failed v2 experiment proved equally valuable — mandatory structure hurts, confirming the project's core design principle. The data changed the design, not the other way around.
 

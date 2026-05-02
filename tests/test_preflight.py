@@ -104,7 +104,7 @@ class TestPreflightCheck:
             assert handoff["passed"] is True
 
     def test_all_checks_present(self, tmp_path: Path) -> None:
-        """Preflight always returns all 6 checks."""
+        """Preflight always returns all 7 checks."""
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
@@ -118,4 +118,82 @@ class TestPreflightCheck:
                 "goals",
                 "session_goal",
                 "compass_integrity",
+                "branch_base",
             }
+
+
+class TestBranchBaseCheck:
+    """Soft warning when current branch is behind origin/main (claim 2026-04-24 18:37)."""
+
+    def test_passes_on_main(self, monkeypatch) -> None:
+        """When operator is on main itself, the check is not applicable."""
+        from divineos.core.hud_handoff import _check_branch_base_fresh
+
+        def fake_run(cmd, **_kwargs):
+            class R:
+                returncode = 0
+                stdout = "main\n"
+
+            return R()
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        passed, detail = _check_branch_base_fresh()
+        assert passed
+        assert "main" in detail.lower()
+
+    def test_passes_when_origin_main_in_history(self, monkeypatch) -> None:
+        """Branch is fresh when origin/main is an ancestor of HEAD."""
+        from divineos.core.hud_handoff import _check_branch_base_fresh
+
+        call_log: list[list[str]] = []
+
+        def fake_run(cmd, **_kwargs):
+            call_log.append(cmd)
+
+            class R:
+                returncode = 0
+                stdout = "feature-branch\n" if cmd[1] == "symbolic-ref" else ""
+
+            return R()
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        passed, _ = _check_branch_base_fresh()
+        assert passed
+
+    def test_fails_when_branch_behind(self, monkeypatch) -> None:
+        """Soft warning fires when origin/main has commits HEAD lacks."""
+        from divineos.core.hud_handoff import _check_branch_base_fresh
+
+        def fake_run(cmd, **_kwargs):
+            class R:
+                returncode = 0
+                stdout = ""
+
+            r = R()
+            if cmd[1] == "symbolic-ref":
+                r.stdout = "feature\n"
+            elif cmd[1] == "rev-parse":
+                r.returncode = 0
+            elif cmd[1] == "merge-base":
+                r.returncode = 1  # NOT an ancestor — stale
+            elif cmd[1] == "rev-list":
+                r.stdout = "5\n"
+            return r
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        passed, detail = _check_branch_base_fresh()
+        assert not passed
+        assert "5" in detail
+        assert "rebase" in detail.lower()
+
+    def test_skips_when_git_unavailable(self, monkeypatch) -> None:
+        """Soft check: never block readiness when git isn't around."""
+        from divineos.core.hud_handoff import _check_branch_base_fresh
+
+        def fake_run(*_a, **_kw):
+            raise FileNotFoundError("git not found")
+
+        monkeypatch.setattr("subprocess.run", fake_run)
+        passed, detail = _check_branch_base_fresh()
+        assert passed
+        assert "skipped" in detail.lower()

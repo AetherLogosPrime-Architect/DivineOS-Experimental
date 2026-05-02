@@ -80,6 +80,35 @@ $preCommitPath = "$hooksDir/pre-commit"
 Set-Content -Path $preCommitPath -Value $preCommitContent -Encoding UTF8
 Write-Host "Created pre-commit hook at $preCommitPath"
 
+# Pre-push hook (branch-freshness check). Refuses to push branches whose
+# base is stale relative to origin/main — the silent-revert precondition
+# named in claim d3baec5a. Delegates to the standalone
+# scripts/check_branch_freshness.sh so logic stays testable.
+$prePushContent = @'
+#!/bin/bash
+# pre-push hook for DivineOS — branch-freshness check.
+# Refuses to push a branch whose base is older than origin/main.
+# Set DIVINEOS_SKIP_FRESHNESS_CHECK=1 to bypass.
+
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+SCRIPT="$REPO_ROOT/scripts/check_branch_freshness.sh"
+
+if [[ ! -x "$SCRIPT" ]]; then
+    exit 0
+fi
+
+"$SCRIPT" origin main
+RC=$?
+if [[ $RC -eq 1 ]]; then
+    exit 1
+fi
+exit 0
+'@
+
+$prePushPath = "$hooksDir/pre-push"
+Set-Content -Path $prePushPath -Value $prePushContent -Encoding UTF8
+Write-Host "Created pre-push hook at $prePushPath"
+
 Write-Host ""
 Write-Host "Git hooks setup complete!" -ForegroundColor Green
 Write-Host ""
@@ -90,5 +119,9 @@ Write-Host "  3. mypy (type checking)"
 Write-Host "  4. doc count drift (test/command counts vs reality)"
 Write-Host "  5. vulture dead-code (if installed)"
 Write-Host "  6. shellcheck on hooks (if installed)"
+Write-Host ""
+Write-Host "Pre-push hook blocks pushes from branches whose base is stale" -ForegroundColor Cyan
+Write-Host "relative to origin/main (silent-revert prevention, claim d3baec5a)."
+Write-Host "Bypass with: DIVINEOS_SKIP_FRESHNESS_CHECK=1 git push"
 Write-Host ""
 Write-Host "If any check fails, the commit will be blocked and you'll need to fix the issues." -ForegroundColor Cyan

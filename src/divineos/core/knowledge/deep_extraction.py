@@ -532,6 +532,14 @@ def _create_structural_edges(stored_ids: list[str]) -> int:
         if any(t in v["tags"] for t in ("preference", "instruction", "direction"))
     ]
 
+    # Cap list sizes to prevent O(n²) explosion on marathon sessions.
+    # Past the first ~20 corrections, additional cross-links add noise not signal.
+    _MAX_CROSS_LINK = 20
+    corrections = corrections[:_MAX_CROSS_LINK]
+    encouragements = encouragements[:_MAX_CROSS_LINK]
+    decisions = decisions[:_MAX_CROSS_LINK]
+    preferences = preferences[:_MAX_CROSS_LINK]
+
     # Corrections CAUSED_BY the same session context -> link them
     for i, cid_a in enumerate(corrections):
         for cid_b in corrections[i + 1 :]:

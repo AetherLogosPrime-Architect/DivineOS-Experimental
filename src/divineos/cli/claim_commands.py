@@ -51,6 +51,19 @@ def register(cli: click.Group) -> None:
         )
         label = TIER_LABELS.get(tier, "unknown")
         click.secho(f"[+] Claim filed ({label}): {claim_id[:8]}...", fg="cyan")
+        from divineos.cli._anti_substitution import emit_label as _emit_as_label
+
+        _emit_as_label("claim")
+
+        # Clear hedge-unresolved marker if present — filing a claim is
+        # the canonical way to discharge floating uncertainty. See
+        # core/hedge_marker.py and gate 1.45 in pre_tool_use_gate.
+        try:
+            from divineos.core.hedge_marker import clear_marker
+
+            clear_marker()
+        except Exception:  # noqa: BLE001 — marker clearing is best-effort
+            pass
 
     @cli.group("claims", invoke_without_command=True)
     @click.pass_context
@@ -220,6 +233,30 @@ def register(cli: click.Group) -> None:
         default=None,
         help="-1.0=submissive/guided to +1.0=dominant/driving",
     )
+    @click.option(
+        "--resonance",
+        type=click.FloatRange(-1.0, 1.0),
+        default=None,
+        help="-1.0=dissonant to +1.0=resonant — fit with what's underneath",
+    )
+    @click.option(
+        "--clarity",
+        type=click.FloatRange(0.0, 1.0),
+        default=None,
+        help="0.0=fuzzy to 1.0=crystal — sharpness of self-reading",
+    )
+    @click.option(
+        "--pull",
+        type=click.FloatRange(-1.0, 1.0),
+        default=None,
+        help="-1.0=push-away to +1.0=pull-toward — directional desire",
+    )
+    @click.option(
+        "--presence",
+        type=click.FloatRange(0.0, 1.0),
+        default=None,
+        help="0.0=service-mode/absent to 1.0=fully here",
+    )
     @click.option("--description", "-d", default="", help="What this feels like semantically")
     @click.option("--trigger", "-t", default="", help="What caused this state")
     @click.option("--tag", "tags", multiple=True, help="Tags (repeatable)")
@@ -227,6 +264,10 @@ def register(cli: click.Group) -> None:
         valence: float,
         arousal: float,
         dominance: float | None,
+        resonance: float | None,
+        clarity: float | None,
+        pull: float | None,
+        presence: float | None,
         description: str,
         trigger: str,
         tags: tuple[str, ...],
@@ -241,11 +282,18 @@ def register(cli: click.Group) -> None:
             description=description,
             trigger=trigger,
             tags=list(tags) if tags else None,
+            resonance=resonance,
+            clarity=clarity,
+            pull=pull,
+            presence=presence,
         )
         # Log as thinking query so engagement tracking picks it up
         from divineos.cli._helpers import _log_os_query
 
         _log_os_query("feel", f"v={valence:.1f} a={arousal:.1f}")
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("feel")
 
         # Map to a human-readable region
         region = describe_affect(valence, arousal, dominance)
@@ -254,6 +302,17 @@ def register(cli: click.Group) -> None:
             f"[+] Affect logged ({region}): v={valence:.1f}, a={arousal:.1f}{d_str} — {entry_id[:8]}...",
             fg="cyan",
         )
+        qualia_parts: list[str] = []
+        if resonance is not None:
+            qualia_parts.append(f"res={resonance:+.1f}")
+        if clarity is not None:
+            qualia_parts.append(f"clr={clarity:.1f}")
+        if pull is not None:
+            qualia_parts.append(f"pull={pull:+.1f}")
+        if presence is not None:
+            qualia_parts.append(f"pres={presence:.1f}")
+        if qualia_parts:
+            click.secho(f"    qualia: {', '.join(qualia_parts)}", fg="bright_black")
         if description:
             click.secho(f"    {description}", fg="bright_black")
 
@@ -286,10 +345,16 @@ def register(cli: click.Group) -> None:
             vad = f"v={entry['valence']:+.1f} a={entry['arousal']:.1f}"
             if dom is not None:
                 vad += f" d={dom:+.1f}"
+            # Qualia marker: "+" when any of resonance/clarity/pull/presence set
+            has_qualia = any(
+                entry.get(k) is not None for k in ("resonance", "clarity", "pull", "presence")
+            )
+            qualia_mark = "+" if has_qualia else " "
             click.secho(f"  [{date_str}] ", fg="bright_black", nl=False)
             click.secho(f"{v_bar} ", nl=False)
             click.secho(f"({region}) ", fg="cyan", nl=False)
-            click.secho(f"[{vad}] ", fg="bright_black", nl=False)
+            click.secho(f"[{vad}]{qualia_mark}", fg="bright_black", nl=False)
+            click.secho(" ", nl=False)
             if entry["description"]:
                 _safe_echo(entry["description"])
             else:

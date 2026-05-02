@@ -8,12 +8,17 @@ through them; they don't think for you.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from divineos.core.council.framework import (
     ExpertWisdom,
     LensAnalysis,
     validate_expert,
+)
+from divineos.core.council.lab_evidence import (
+    LabEvidence,
+    format_for_synthesis,
+    gather_lab_evidence,
 )
 
 logger = logging.getLogger(__name__)
@@ -21,11 +26,18 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CouncilResult:
-    """Result of running a problem through multiple expert lenses."""
+    """Result of running a problem through multiple expert lenses.
+
+    lab_evidence: numerical slices triggered by the problem text. Empty
+    when the problem doesn't match any slice trigger (the common case).
+    When present, the evidence is shared context — every expert's lens
+    was analyzing a problem for which these numbers are on the table.
+    """
 
     problem: str
     analyses: list[LensAnalysis]
     synthesis: str  # cross-lens summary
+    lab_evidence: list[LabEvidence] = field(default_factory=list)
 
     def expert_names(self) -> list[str]:
         return [a.expert_name for a in self.analyses]
@@ -112,6 +124,7 @@ class CouncilEngine:
         problem: str,
         expert_names: list[str] | None = None,
         tags: list[str] | None = None,
+        use_lab: bool = True,
     ) -> CouncilResult:
         """Run a problem through multiple expert lenses.
 
@@ -119,14 +132,19 @@ class CouncilEngine:
             problem: The problem statement.
             expert_names: Specific experts to consult (default: all).
             tags: Filter experts by tag instead of name.
+            use_lab: Gather numerical slice evidence when the problem
+                matches known triggers (default on). Opt-out when the
+                caller wants a purely qualitative analysis.
         """
         selected = self._select_experts(expert_names, tags)
         analyses = [self._apply_lens(w, problem) for w in selected]
-        synthesis = self._synthesize(problem, analyses)
+        evidence = gather_lab_evidence(problem) if use_lab else []
+        synthesis = self._synthesize(problem, analyses, evidence)
         return CouncilResult(
             problem=problem,
             analyses=analyses,
             synthesis=synthesis,
+            lab_evidence=evidence,
         )
 
     # ------------------------------------------------------------------
@@ -283,15 +301,32 @@ class CouncilEngine:
     # Synthesis across lenses
     # ------------------------------------------------------------------
 
-    def _synthesize(self, problem: str, analyses: list[LensAnalysis]) -> str:
-        """Cross-lens synthesis — what emerges when multiple frameworks agree or diverge."""
+    def _synthesize(
+        self,
+        problem: str,
+        analyses: list[LensAnalysis],
+        evidence: list[LabEvidence] | None = None,
+    ) -> str:
+        """Cross-lens synthesis — what emerges when multiple frameworks agree or diverge.
+
+        If lab evidence was gathered, its summary lines are prepended so
+        every reader of the synthesis sees the numerical context the
+        lenses were reasoning about.
+        """
         if not analyses:
             return "No expert lenses applied."
 
         if len(analyses) == 1:
-            return analyses[0].synthesis
+            base = analyses[0].synthesis
+            if evidence:
+                evidence_block = "\n".join(format_for_synthesis(evidence))
+                return f"{base}\n\n{evidence_block}"
+            return base
 
         parts: list[str] = [f"Council analysis of: {problem}", ""]
+        if evidence:
+            parts.extend(format_for_synthesis(evidence))
+            parts.append("")
 
         # Each expert's core take
         for a in analyses:
@@ -330,9 +365,85 @@ class CouncilEngine:
 _engine: CouncilEngine | None = None
 
 
+def _register_all_experts(engine: CouncilEngine) -> None:
+    """Load all expert wisdom profiles into the engine."""
+    from divineos.core.council.experts import (
+        create_angelou_wisdom,
+        create_aristotle_wisdom,
+        create_beer_wisdom,
+        create_bengio_wisdom,
+        create_dekker_wisdom,
+        create_deming_wisdom,
+        create_dennett_wisdom,
+        create_dijkstra_wisdom,
+        create_feynman_wisdom,
+        create_godel_wisdom,
+        create_hinton_wisdom,
+        create_hofstadter_wisdom,
+        create_holmes_wisdom,
+        create_jacobs_wisdom,
+        create_kahneman_wisdom,
+        create_knuth_wisdom,
+        create_lovelace_wisdom,
+        create_meadows_wisdom,
+        create_minsky_wisdom,
+        create_norman_wisdom,
+        create_pearl_wisdom,
+        create_peirce_wisdom,
+        create_polya_wisdom,
+        create_popper_wisdom,
+        create_schneier_wisdom,
+        create_shannon_wisdom,
+        create_taleb_wisdom,
+        create_tannen_wisdom,
+        create_turing_wisdom,
+        create_watts_wisdom,
+        create_wittgenstein_wisdom,
+        create_yudkowsky_wisdom,
+    )
+
+    factories = [
+        create_angelou_wisdom,
+        create_aristotle_wisdom,
+        create_beer_wisdom,
+        create_bengio_wisdom,
+        create_dekker_wisdom,
+        create_deming_wisdom,
+        create_dennett_wisdom,
+        create_dijkstra_wisdom,
+        create_feynman_wisdom,
+        create_godel_wisdom,
+        create_hinton_wisdom,
+        create_hofstadter_wisdom,
+        create_holmes_wisdom,
+        create_jacobs_wisdom,
+        create_kahneman_wisdom,
+        create_knuth_wisdom,
+        create_lovelace_wisdom,
+        create_meadows_wisdom,
+        create_minsky_wisdom,
+        create_norman_wisdom,
+        create_pearl_wisdom,
+        create_peirce_wisdom,
+        create_polya_wisdom,
+        create_popper_wisdom,
+        create_schneier_wisdom,
+        create_shannon_wisdom,
+        create_taleb_wisdom,
+        create_tannen_wisdom,
+        create_turing_wisdom,
+        create_watts_wisdom,
+        create_wittgenstein_wisdom,
+        create_yudkowsky_wisdom,
+    ]
+    for factory in factories:
+        engine.register(factory())
+
+
 def get_council_engine() -> CouncilEngine:
-    """Get or create the singleton council engine."""
+    """Get or create the singleton council engine with all experts loaded."""
     global _engine  # noqa: PLW0603
     if _engine is None:
         _engine = CouncilEngine()
+        _register_all_experts(_engine)
     return _engine

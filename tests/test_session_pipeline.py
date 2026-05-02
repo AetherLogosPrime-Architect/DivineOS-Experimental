@@ -273,7 +273,7 @@ class TestContradictionScan:
 
     def test_nonexistent_ids_handled(self):
         """IDs that don't exist in DB should not crash."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -299,7 +299,7 @@ class TestKnowledgePostProcessing:
     def test_maturity_override_applied(self, tmp_path, monkeypatch):
         """When maturity_override is set, RAW entries should be updated."""
         from divineos.core.knowledge import _get_connection
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -334,7 +334,7 @@ class TestKnowledgePostProcessing:
     def test_no_override_leaves_maturity(self, tmp_path, monkeypatch):
         """Without maturity_override, entries stay at their original maturity."""
         from divineos.core.knowledge import _get_connection
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -369,7 +369,7 @@ class TestFeedbackCycle:
     """Test Phase 4: feedback and clarity."""
 
     def test_returns_four_values(self):
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -384,7 +384,7 @@ class TestFeedbackCycle:
 
     def test_with_corrections(self):
         """Sessions with corrections should produce feedback."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -447,7 +447,7 @@ class TestSessionScoring:
 
     def test_health_has_expected_keys(self):
         """If health is returned, it should have grade and score."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -856,8 +856,13 @@ class TestLifetimeGoals:
         assert get_lifetime_goals_completed() == 5
         assert get_lifetime_goals_completed() == 5
 
-    def test_auto_clean_increments_lifetime(self, hud_dir):
-        """auto_clean_goals should increment lifetime counter for all cleared goals."""
+    def test_auto_clean_does_not_count_stale_as_completed(self, hud_dir):
+        """auto_clean_goals must NOT count stale-archived goals toward lifetime
+        completed. Per claim 5b38a31c: timeout-archival != actual completion.
+        Only complete_goal() counts toward lifetime. Goodhart-shape fix:
+        auto_clean used to inflate the completion counter via stale archival;
+        now it records outcome='stale_archived' to goal_outcomes.json instead.
+        """
         from divineos.core.hud_state import auto_clean_goals, get_lifetime_goals_completed
 
         goals = [
@@ -869,4 +874,29 @@ class TestLifetimeGoals:
         before = get_lifetime_goals_completed()
         auto_clean_goals()
         after = get_lifetime_goals_completed()
-        assert after == before + 2
+        # Lifetime unchanged — done goals were already counted by complete_goal.
+        assert after == before
+
+    def test_auto_clean_records_stale_archived_outcomes(self, hud_dir):
+        """Stale-archived goals are recorded to goal_outcomes.json with
+        outcome='stale_archived' so the briefing surface can surface them.
+        """
+        import json as _json
+
+        from divineos.core.hud_state import auto_clean_goals
+
+        ancient = time.time() - 5 * 86400  # 5 days old
+        goals = [
+            {"text": "stale goal", "status": "active", "added_at": ancient},
+        ]
+        (hud_dir / "active_goals.json").write_text(json.dumps(goals))
+
+        result = auto_clean_goals(max_age_days=1.0)
+        assert result["stale_archived"] == 1
+
+        outcomes_path = hud_dir / "goal_outcomes.json"
+        assert outcomes_path.exists()
+        outcomes = _json.loads(outcomes_path.read_text())
+        assert len(outcomes) == 1
+        assert outcomes[0]["outcome"] == "stale_archived"
+        assert outcomes[0]["text"] == "stale goal"

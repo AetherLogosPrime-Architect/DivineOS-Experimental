@@ -135,12 +135,14 @@ def clear_handoff_note() -> None:
 # After this many code-changing actions (Edit, Write, Bash) without
 # consulting the OS (ask, recall, decide, feel, context, directives),
 # the engagement gate blocks until the AI re-engages.
-# Was 8 — too tight for mechanical repetitive work (same edit across
-# 9 files).  15 gives room for a batch of related changes before
-# requiring a thinking pause, while still catching runaway coding.
-# Base threshold for engagement decay. After this many code actions
-# without consulting the OS, the gate blocks.
-_ENGAGEMENT_DECAY_THRESHOLD = 15
+# Was 8 — too tight for mechanical repetitive work. 15 (2026-04) left
+# too little headroom for related-change batches during a single
+# logical PR, which typically involves 15-20 edit+test+verify actions.
+# 20 (2026-04-19) gives room for a coherent PR-shaped batch before
+# requiring a thinking pause. Flow-state detection still catches pure
+# blast-coding (threshold bumps to 50 when actions are <10s apart).
+# If drift measurably increases under 20, revert to 15.
+_ENGAGEMENT_DECAY_THRESHOLD = 20
 
 # Higher threshold during commit flows. Detected by the presence of
 # staged git files. Mechanical work (lint fixes, doc updates, file
@@ -162,7 +164,7 @@ _LIGHT_TOOLS = {"context", "decide", "feel", "directives", "body", "compass"}
 _DEEP_ENGAGEMENT_THRESHOLD = 30
 
 
-def mark_engaged(tool: str = "") -> None:
+def mark_engaged(tool: str = "", query: str = "") -> None:
     """Mark that the OS was used for thinking this session.
 
     Called when a thinking tool is used. Resets the code-action counter.
@@ -170,6 +172,12 @@ def mark_engaged(tool: str = "") -> None:
     the basic gate, but deep tools (ask, recall) are required periodically
     to ensure the agent actually consults stored knowledge, not just
     runs the minimum command to clear the gate.
+
+    Also tracks engagement RELEVANCE — a thinking command whose content
+    shares keywords with recent work is substantive; one with no shared
+    keywords is a shell. Shell thinking commands halve the counter
+    instead of zeroing it, so a bare `divineos recall` cannot buy
+    unlimited code actions. Pre-reg: prereg-637ea9a0d852.
     """
     path = _ensure_hud_dir() / ".session_engaged"
 
@@ -185,18 +193,51 @@ def mark_engaged(tool: str = "") -> None:
 
     is_deep = tool.lower() in _DEEP_TOOLS if tool else False
 
+    # Relevance check: does this thinking command's content share keywords
+    # with recent work? Shell commands (no content, or content about nothing
+    # the agent has touched) don't fully clear the counter.
+    try:
+        from divineos.core.engagement_relevance import is_substantive
+
+        substantive = is_substantive(query)
+    except Exception:  # noqa: BLE001 — never let an infra error gate legit work
+        substantive = True
+
+    # Decay the counter instead of resetting to 0.
+    # A single quick `divineos ask` shouldn't buy unlimited code actions.
+    # Light+substantive halves. Deep+substantive resets. Non-substantive
+    # halves regardless of depth — same penalty as a light command.
+    old_code = existing.get("code_actions_since", 0)
+    old_deep = existing.get("deep_actions_since", 0)
+
+    if substantive and is_deep:
+        new_code = 0
+        new_deep = 0
+    elif substantive:
+        new_code = max(0, old_code // 2)
+        new_deep = old_deep
+    else:
+        # Shell: halve, never fully reset.
+        new_code = max(0, old_code // 2)
+        new_deep = old_deep
+
     marker = {
         "engaged_at": time.time(),
-        "code_actions_since": 0,
+        "code_actions_since": new_code,
         "engagement_depth": "deep" if is_deep else "light",
+        "engagement_substantive": substantive,
         "last_tool": tool,
-        "deep_actions_since": 0 if is_deep else existing.get("deep_actions_since", 0),
+        "deep_actions_since": new_deep,
     }
     path.write_text(json.dumps(marker), encoding="utf-8")
 
 
 def record_code_action() -> None:
-    """Record that a code-changing action (Edit/Write/Bash) occurred.
+    """Record that a code-changing action (Edit/Write) occurred.
+
+    Only called for actual writes — not Bash reads, not file exploration.
+    Reading IS thinking. The gate exists to prevent blind editing without
+    reflection, not to punish looking at the codebase.
 
     Increments both counters:
     - code_actions_since: actions since last ANY thinking command (light gate)
@@ -215,10 +256,70 @@ def record_code_action() -> None:
             marker = {"engaged_at": float(marker), "code_actions_since": 0}
         marker["code_actions_since"] = marker.get("code_actions_since", 0) + 1
         marker["deep_actions_since"] = marker.get("deep_actions_since", 0) + 1
+        # compass_actions_since tracks code actions since the last
+        # `divineos compass-ops observe` call. Reset by that CLI command;
+        # read by the compass-staleness gate. See ChatGPT audit
+        # claim-a7370b — structural enforcement of periodic compass use.
+        marker["compass_actions_since"] = marker.get("compass_actions_since", 0) + 1
         marker["last_action_at"] = time.time()
         path.write_text(json.dumps(marker), encoding="utf-8")
     except (json.JSONDecodeError, OSError) as e:
         logger.debug("Engagement marker update failed: %s", e)
+
+
+def reset_compass_actions_counter() -> None:
+    """Reset `compass_actions_since` to 0. Called by compass-ops observe.
+
+    Structural counterpart to `update_engagement_on_action`: observation
+    discharges the pending debt of code actions, same way `learn` clears
+    the correction marker.
+    """
+    path = _ensure_hud_dir() / ".session_engaged"
+    if not path.exists():
+        # No engagement marker — observation still counts; the counter
+        # will start from 0 when the marker is created. Nothing to do.
+        return
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(marker, dict):
+            return
+        marker["compass_actions_since"] = 0
+        marker["last_compass_obs_at"] = time.time()
+        path.write_text(json.dumps(marker), encoding="utf-8")
+    except (json.JSONDecodeError, OSError) as e:
+        logger.debug("Compass counter reset failed: %s", e)
+
+
+# Threshold for the compass-staleness gate: after this many code actions
+# without a compass observation, the gate blocks non-bypass tools until
+# `divineos compass-ops observe` is run. 30 sits at the deep-engagement
+# tier — low enough to catch real drift, high enough to avoid churn.
+_COMPASS_STALENESS_THRESHOLD = 30
+
+
+def compass_staleness_status() -> dict[str, Any]:
+    """Return compass-staleness state for the gate.
+
+    Returns dict with:
+      - stale: bool (True if threshold exceeded)
+      - actions_since: int (code actions since last observation)
+      - threshold: int (current threshold for comparison)
+    """
+    path = _ensure_hud_dir() / ".session_engaged"
+    if not path.exists():
+        return {"stale": False, "actions_since": 0, "threshold": _COMPASS_STALENESS_THRESHOLD}
+    try:
+        marker = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"stale": False, "actions_since": 0, "threshold": _COMPASS_STALENESS_THRESHOLD}
+    if not isinstance(marker, dict):
+        return {"stale": False, "actions_since": 0, "threshold": _COMPASS_STALENESS_THRESHOLD}
+    actions = marker.get("compass_actions_since", 0)
+    return {
+        "stale": actions >= _COMPASS_STALENESS_THRESHOLD,
+        "actions_since": actions,
+        "threshold": _COMPASS_STALENESS_THRESHOLD,
+    }
 
 
 def _active_threshold() -> int:
@@ -363,12 +464,21 @@ def is_engaged() -> bool:
 
 
 def engagement_status() -> dict[str, Any]:
-    """Return detailed engagement status for HUD display."""
+    """Return detailed engagement status for HUD display.
+
+    The 'state' field distinguishes WHY engagement is missing/expired so the
+    blocking message can be specific:
+      - "fresh"       : session started but no thinking command run yet
+      - "drift"       : light gate exceeded (need any thinking command)
+      - "deep_drift"  : deep gate exceeded (need ask/recall/briefing)
+      - "engaged"     : currently engaged
+    """
     threshold = _active_threshold()
     path = _get_hud_dir() / ".session_engaged"
     if not path.exists():
         return {
             "engaged": False,
+            "state": "fresh",
             "code_actions_since": 0,
             "threshold": threshold,
             "remaining": 0,
@@ -378,6 +488,7 @@ def engagement_status() -> dict[str, Any]:
         if not isinstance(marker, dict):
             return {
                 "engaged": True,
+                "state": "engaged",
                 "code_actions_since": 0,
                 "threshold": threshold,
                 "remaining": threshold,
@@ -390,8 +501,15 @@ def engagement_status() -> dict[str, Any]:
         remaining = max(0, threshold - code_actions)
         needs_deep = deep_actions >= _DEEP_ENGAGEMENT_THRESHOLD
         engaged = code_actions < threshold and not needs_deep
+        if engaged:
+            state = "engaged"
+        elif needs_deep:
+            state = "deep_drift"
+        else:
+            state = "drift"
         return {
             "engaged": engaged,
+            "state": state,
             "code_actions_since": code_actions,
             "threshold": threshold,
             "remaining": remaining,
@@ -402,6 +520,7 @@ def engagement_status() -> dict[str, Any]:
     except (json.JSONDecodeError, OSError):
         return {
             "engaged": True,
+            "state": "engaged",
             "code_actions_since": 0,
             "threshold": threshold,
             "remaining": threshold,
@@ -546,11 +665,12 @@ def briefing_staleness() -> dict[str, Any]:
         return base
 
 
-def clear_briefing_marker() -> None:
-    """Clear the briefing marker (called at session end)."""
-    path = _get_hud_dir() / ".briefing_loaded"
-    if path.exists():
-        path.unlink()
+# clear_briefing_marker() removed 2026-04-20 system audit. The function
+# was never called anywhere — docstring claimed "called at session end"
+# but no call site existed. Dead code. If session-end clearing of the
+# briefing marker becomes needed, add it to .claude/hooks/load-briefing.sh
+# alongside the other SessionStart resets (clear_engagement, clear_session_plan,
+# reset_state) — same semantic home.
 
 
 def _count_session_tool_calls() -> int:
@@ -563,6 +683,73 @@ def _count_session_tool_calls() -> int:
 
 
 # ─── Preflight Check ────────────────────────────────────────────────
+
+
+def _check_branch_base_fresh() -> tuple[bool, str]:
+    """Check whether the current branch's base is fresh against origin/main.
+
+    Returns (passed, detail). Passes — does not block — when:
+      - running on main itself (no branching scenario)
+      - git unavailable / not a repo / no remote configured
+      - origin/main not fetched recently (skip rather than fetch on every
+        preflight; fetching has network cost and slows session start)
+      - HEAD already includes origin/main (branch is fresh or ahead)
+
+    Fails (soft warning) when origin/main has commits HEAD lacks: the
+    setup for the silent-revert pattern. Pre-push hook will catch this
+    at push time anyway; surfacing it here lets the operator rebase
+    BEFORE doing work on a stale base.
+    """
+    import subprocess
+
+    try:
+        # Current branch
+        out = subprocess.run(
+            ["git", "symbolic-ref", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode != 0:
+            return True, "Branch base check skipped (detached HEAD)"
+        current = out.stdout.strip()
+        if current == "main":
+            return True, "On main; base check not applicable"
+
+        # Is origin/main fetched?
+        out = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode != 0:
+            return True, "Branch base check skipped (origin/main not fetched)"
+
+        # Is origin/main an ancestor of HEAD?
+        out = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", "refs/remotes/origin/main", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if out.returncode == 0:
+            return True, "Branch base is fresh (origin/main in HEAD's history)"
+
+        # Stale: count behind for the message
+        out = subprocess.run(
+            ["git", "rev-list", "--count", "HEAD..refs/remotes/origin/main"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        behind = out.stdout.strip() if out.returncode == 0 else "?"
+        return False, (
+            f"Branch '{current}' is {behind} commit(s) behind origin/main. "
+            "Rebase before doing work: git fetch && git rebase origin/main"
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return True, "Branch base check skipped (git unavailable)"
 
 
 def preflight_check() -> dict[str, Any]:
@@ -678,6 +865,21 @@ def preflight_check() -> dict[str, Any]:
             "name": "compass_integrity",
             "passed": compass_ok,
             "detail": compass_detail,
+        }
+    )
+
+    # 7. Branch base freshness — soft warning (claim 2026-04-24 18:37).
+    # Catches the operator early: if main has moved while you were away,
+    # surfaces it at session start so you can fetch+rebase BEFORE you do
+    # work on a stale base. The pre-push hook also catches this, but by
+    # then you've already done the work. Soft: skips checks that would
+    # need network or aren't applicable; never blocks readiness.
+    base_ok, base_detail = _check_branch_base_fresh()
+    checks.append(
+        {
+            "name": "branch_base",
+            "passed": base_ok,
+            "detail": base_detail,
         }
     )
 

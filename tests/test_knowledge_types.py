@@ -3,7 +3,7 @@
 import pytest
 
 from divineos.core.knowledge import init_knowledge_table
-from divineos.core.knowledge._base import KNOWLEDGE_TYPES
+from divineos.core.knowledge import KNOWLEDGE_TYPES
 from divineos.core.knowledge.crud import get_knowledge, store_knowledge
 from divineos.core.knowledge.deep_extraction import _classify_user_direction
 

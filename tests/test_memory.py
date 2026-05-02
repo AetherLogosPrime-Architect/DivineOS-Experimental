@@ -89,9 +89,9 @@ class TestCoreMemory:
         set_core("project_purpose", "Testing things")
         output = format_core()
         assert "Core Memory" in output
-        assert "User" in output
+        assert "My User" in output
         assert "A tester" in output
-        assert "Project" in output
+        assert "My Purpose" in output
         assert "Testing things" in output
 
     def test_all_slot_names_valid(self):

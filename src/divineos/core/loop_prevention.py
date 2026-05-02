@@ -104,7 +104,7 @@ def get_internal_tools() -> set[str]:
         "emit_user_input",
         "emit_tool_call",
         "emit_tool_result",
-        "emit_session_end",
+        "emit_consolidation_checkpoint",
         "emit_explanation",
         # Session management operations
         "initialize_session",

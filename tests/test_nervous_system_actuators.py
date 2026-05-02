@@ -115,7 +115,7 @@ class TestBriefingSurface:
 
     def test_briefing_includes_emotional_arc(self):
         """Briefing text includes the LAST SESSION EMOTIONAL ARC section."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.extraction import store_knowledge_smart
         from divineos.core.tone_texture import record_session_tone
 

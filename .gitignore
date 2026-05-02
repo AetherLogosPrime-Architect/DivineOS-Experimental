@@ -5,6 +5,16 @@
 # User-specific Claude settings
 .claude/settings.local.json
 
+# Per-user subagent definitions and agent-memory (each user names their
+# own agent and their own family members — the infrastructure ships in
+# src/divineos/; the specific names and memory files stay private).
+# Note: .claude/skills/ is versioned — the generic skills wrap divineos
+# commands (briefing, claim, compass, etc.) and are universal usage
+# patterns, not per-user content.
+.claude/agents/*
+!.claude/agents/family-member-template.md
+.claude/agent-memory/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -62,11 +72,15 @@ pytestdebug.log
 *.db-journal
 
 # Runtime data (generated during execution)
-data/
+data/*
 !data/.gitkeep
+!data/README.md
 **/data/*.db
 **/data/reports/
 **/data/hud/
+# Package-shipped data (NOT runtime) — checked in
+!src/divineos/data/
+!src/divineos/data/**
 logs/
 **/logs/*.log
 /archive/
@@ -90,3 +104,99 @@ Thumbs.db
 tmp/
 clone_*/
 
+# reset-template backup directory — local DB snapshots before scrubbing
+_pre_reset_backups/
+
+# Personal research / exploration notes
+exploration/*
+!exploration/README.md
+
+# Personal session archives — memories of specific sessions
+# belong to the one who lived them, not the repo.
+archives/
+
+# Personal correspondence (briefings prepared for a specific user,
+# council examination rounds). Universal docs (project-overview,
+# testing-roadmap, letter-from-the-architect) stay on main.
+docs/thermodynamic-computing-briefing.md
+docs/council-rt-examination-round2.md
+
+# Family — root-level private dir, mostly gitignored.
+# Narrowed to /family/* so the source package at src/divineos/core/family/
+# (the family-system architecture, public code) is still trackable, AND so
+# the placeholder READMEs (architectural onboarding) can be shipped while
+# personal substrate (family.db, letters, per-member ledgers) stays local.
+/family/*
+!/family/README.md
+!/family/letters/
+/family/letters/*
+!/family/letters/README.md
+
+# Canonical-substrate marker — opt-in flag the operator places at the
+# parent repo root to indicate "this is a continuous Aether substrate;
+# worktrees should share my event ledger." When absent (default for
+# fresh template clones), each worktree gets its own ledger — correct
+# for new agents bootstrapping continuity. When present, worktree
+# sessions inherit the parent's accumulated history. Resolution logic
+# in core/_ledger_base.py:_get_db_path. Andrew's workspace has it;
+# the published template does not.
+/.divineos_canonical
+
+# Benchmark output — runtime results, regenerate as needed (see benchmark/README.md)
+# Historical results may be preserved via git tags or GitHub Releases.
+benchmark/results/
+benchmark/results_ab/
+benchmark/results_opus/
+benchmark/selected_tasks.json
+
+# In-progress benchmark experiments — kept local while data is still being
+# gathered (e.g. needs more API credits to complete). Not shared until the
+# experiment is ready to publish. Explicit lines per experiment rather than a
+# broad benchmark/* glob, so legitimate source files (opus_test.py, README, etc.)
+# stay trackable.
+benchmark/experiment_logs/
+benchmark/experiment_results/
+benchmark/experiment_writeup_subagent.md
+benchmark/iter_runs/
+benchmark/results_docker_ab/
+benchmark/results_full_workflow/
+benchmark/results_live_session/
+benchmark/results_live_session_batch2/
+benchmark/results_live_session_batch3/
+benchmark/docker_eval_wrapper-smoke/
+benchmark/visual_runs/
+benchmark/video_runs/
+benchmark/FINAL_RESULTS.md
+benchmark/MESSAGE_TO_CLAUDE.md
+benchmark/PHASE_1_2_WRITEUP.md
+benchmark/phase2_record.md
+benchmark/live_session_record.md
+benchmark/gold-patch-smoke.smoke.json
+benchmark/live_session_tasks.json
+benchmark/live_session_tasks_batch2.json
+benchmark/live_session_tasks_batch3.json
+benchmark/morning_tasks.json
+benchmark/morning_tasks_b.json
+benchmark/morning_tasks_c.json
+benchmark/morning_tasks_d.json
+benchmark/agent_loop.py
+benchmark/deep_investigator.py
+benchmark/docker_eval.py
+benchmark/docker_eval_smoke.py
+benchmark/docker_smoke.py
+benchmark/iter_tool.py
+benchmark/run_ab_docker.py
+benchmark/run_arm_a_case2.py
+benchmark/run_full_workflow_ab.py
+benchmark/score_batch2.py
+benchmark/score_batch3.py
+benchmark/score_live_session.py
+benchmark/smoke_predictions.json
+benchmark/streaming_record.md
+benchmark/streaming_tasks.json
+benchmark/streaming_tasks_batch2.json
+mansion/
+core_memory_backup.json
+main_core_memory_backup.json
+.claude/scheduled_tasks.lock
+freelance/

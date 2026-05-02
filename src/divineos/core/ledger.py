@@ -7,6 +7,7 @@ Every row has a SHA256 content_hash for integrity verification.
 """
 
 import json
+import os
 import sys
 import time
 import uuid
@@ -71,11 +72,20 @@ try:
 except OSError:
     pass
 
+# File-log level is configurable via DIVINEOS_LOG_LEVEL env var. Default INFO
+# captures operational events (EMPIRICA decisions, mode changes, significant
+# state transitions) without per-call trace noise — smaller log files, slower
+# rotation. Set to DEBUG when deep traces are needed for troubleshooting.
+# Valid levels: TRACE, DEBUG, INFO, WARNING, ERROR, CRITICAL.
+_VALID_LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+_configured_level = os.environ.get("DIVINEOS_LOG_LEVEL", "INFO").upper()
+_FILE_LOG_LEVEL = _configured_level if _configured_level in _VALID_LOG_LEVELS else "INFO"
+
 logger.add(
     _LOG_DIR / "divineos.log",
     rotation="10 MB",
     retention=_MAX_LOG_FILES,
-    level="DEBUG",
+    level=_FILE_LOG_LEVEL,
     format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
 )
 
@@ -125,7 +135,13 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
 
     """
     # Validate payload before storing (only for known event types)
-    if validate and event_type in ["USER_INPUT", "TOOL_CALL", "TOOL_RESULT", "SESSION_END"]:
+    if validate and event_type in [
+        "USER_INPUT",
+        "TOOL_CALL",
+        "TOOL_RESULT",
+        "SESSION_END",
+        "CONSOLIDATION_CHECKPOINT",
+    ]:
         is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
         if not is_valid:
             logger.error(f"Event validation failed for {event_type}: {validation_msg}")
@@ -153,13 +169,25 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     finally:
         conn.close()
 
+    # Increment the write counter that drives the consolidation trigger.
+    # Consolidation events themselves are excluded — see increment_write_count
+    # for the guard. Wrapped in try/except because this is a low-priority
+    # side effect; the event write itself must not be blocked by a counter
+    # persistence error.
+    try:
+        from divineos.core.session_checkpoint import increment_write_count
+
+        increment_write_count(event_type)
+    except Exception:  # noqa: BLE001 — counter is best-effort
+        pass
+
     return event_id
 
 
 def get_events(
     limit: int = 100,
     offset: int = 0,
-    event_type: str | None = None,
+    event_type: str | list[str] | frozenset[str] | set[str] | None = None,
     actor: str | None = None,
 ) -> list[dict[str, Any]]:
     """Retrieves events ordered by timestamp ASC.
@@ -167,7 +195,11 @@ def get_events(
     Args:
         limit: max rows to return
         offset: rows to skip
-        event_type: optional filter
+        event_type: optional filter. Accepts a single string or a
+            collection of strings (list/set/frozenset). A collection
+            becomes an SQL IN clause — useful for compat unions like
+            CONSOLIDATION_EVENT_TYPES that match both historical
+            SESSION_END rows and new CONSOLIDATION_CHECKPOINT rows.
         actor: optional filter
 
     """
@@ -178,8 +210,16 @@ def get_events(
         params: list[Any] = []
 
         if event_type:
-            conditions.append("event_type = ?")
-            params.append(event_type)
+            if isinstance(event_type, str):
+                conditions.append("event_type = ?")
+                params.append(event_type)
+            else:
+                # Collection — expand into IN clause
+                types_list = list(event_type)
+                if types_list:
+                    placeholders = ",".join("?" for _ in types_list)
+                    conditions.append(f"event_type IN ({placeholders})")  # nosec B608
+                    params.extend(types_list)
         if actor:
             conditions.append("actor = ?")
             params.append(actor)
@@ -273,7 +313,7 @@ def get_recent_context(n: int = 20, meaningful_only: bool = True) -> list[dict[s
         if meaningful_only:
             placeholders = ",".join("?" for _ in _NOISE_TYPES)
             cursor = conn.execute(
-                f"SELECT event_id, timestamp, event_type, actor, payload, content_hash "
+                f"SELECT event_id, timestamp, event_type, actor, payload, content_hash "  # nosec B608: table/column names from module constants; values parameterized
                 f"FROM system_events "
                 f"WHERE event_type NOT IN ({placeholders}) "
                 f"ORDER BY timestamp DESC LIMIT ?",

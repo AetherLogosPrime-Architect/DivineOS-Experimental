@@ -4,6 +4,7 @@ Things the AI chooses to remember, not filtered or scored.
 Save, list, search, link, and count journal entries.
 """
 
+import re
 import time
 import uuid
 from typing import Any, cast
@@ -72,11 +73,20 @@ def journal_count() -> int:
         conn.close()
 
 
+def _build_fts_or_query(query: str) -> str:
+    """Convert query to OR-joined FTS5 terms for partial-match recall."""
+    words = [w for w in re.sub(r"[^a-zA-Z0-9\s]", " ", query).lower().split() if len(w) > 1]
+    if not words:
+        return query
+    if len(words) == 1:
+        return words[0]
+    return " OR ".join(words)
+
+
 def journal_search(query: str, limit: int = 10) -> list[dict[str, Any]]:
     """Full-text search across journal entries using FTS5."""
     init_memory_tables()
-    # Quote each term so FTS5 special characters (-, *, etc.) are treated as literals
-    safe_query = " ".join(f'"{t}"' for t in query.split() if t)
+    safe_query = _build_fts_or_query(query)
     conn = _get_connection()
     try:
         rows = conn.execute(

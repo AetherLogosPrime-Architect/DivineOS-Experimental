@@ -315,6 +315,6 @@ class EventValidator:
             return EventValidator.validate_tool_call_payload(payload)
         if event_type == "TOOL_RESULT":
             return EventValidator.validate_tool_result_payload(payload)
-        if event_type == "SESSION_END":
+        if event_type in ("SESSION_END", "CONSOLIDATION_CHECKPOINT"):
             return EventValidator.validate_session_end_payload(payload)
         return False, f"Unknown event type: {event_type}"

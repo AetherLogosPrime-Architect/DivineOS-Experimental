@@ -127,6 +127,49 @@ class TestLogObservation:
         assert observations[0]["position"] == 0.2
         assert observations[0]["evidence"] == "Pushed back on incorrect assumption"
 
+    def test_require_fire_id_filters_unbound(self):
+        """require_fire_id=True returns only fire-bound observations.
+
+        Closes claim 2026-04-24 08:14: pushes the fire_id-not-null
+        predicate into SQL so _find_justifications can use limit=1
+        with full correctness, matching the Item 4 pattern for tag.
+        """
+        # One unbound observation, one bound — both substantive.
+        log_observation(
+            spectrum="truthfulness",
+            position=0.1,
+            evidence="unbound observation, no fire id, substantive evidence text",
+            source="self_report",
+        )
+        # Construct a fire to bind the second one.
+        from divineos.core.compass_rudder import _emit_fire_event, _generate_fire_id
+
+        fire_id = _generate_fire_id()
+        _emit_fire_event(
+            fire_id=fire_id,
+            spectrum="truthfulness",
+            all_drifting=["truthfulness"],
+            tool_name="Task",
+            window_seconds=300.0,
+            threshold=0.15,
+            drift_values={"truthfulness": 0.5},
+        )
+        log_observation(
+            spectrum="truthfulness",
+            position=0.1,
+            evidence="bound observation tied to a real fire event for the spectrum",
+            source="rudder_ack",
+            tags=["rudder-ack"],
+            fire_id=fire_id,
+        )
+        # Without filter: both visible.
+        all_obs = get_observations(spectrum="truthfulness", limit=10)
+        assert len(all_obs) >= 2
+        # With filter: only the bound one.
+        bound_only = get_observations(spectrum="truthfulness", require_fire_id=True, limit=10)
+        assert all(o["fire_id"] is not None for o in bound_only)
+        assert any(o["fire_id"] == fire_id for o in bound_only)
+
     def test_invalid_spectrum_raises(self):
         with pytest.raises(ValueError, match="Unknown spectrum"):
             log_observation(spectrum="nonexistent", position=0.0, evidence="test")
@@ -735,16 +778,16 @@ class TestReflectOnSessionBoundaries:
         assert obs_after == obs_before
 
     def test_thoroughness_exactly_at_ratio_20(self):
-        """tool_ratio exactly 20 should NOT trigger (> 20, not >= 20)."""
+        """tool_ratio exactly 20 should trigger baseline (>= 3), not excess (> 20)."""
         from divineos.core.moral_compass import reflect_on_session
 
         # 200 tool calls / 10 messages = ratio 20 exactly
         analysis = self._make_analysis(user_messages=10, tool_calls_total=200)
-        obs_before = len(get_observations(spectrum="thoroughness", limit=100))
         reflect_on_session(analysis)
-        obs_after = len(get_observations(spectrum="thoroughness", limit=100))
-        # Ratio 20 should NOT trigger (threshold is > 20)
-        assert obs_after == obs_before
+        obs = get_observations(spectrum="thoroughness", limit=1)
+        # Ratio 20 triggers baseline thoroughness (>= 3), not excess (> 20)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0  # Baseline, not excess
 
     def test_thoroughness_above_ratio_20_triggers(self):
         """tool_ratio 21 should trigger excess thoroughness."""
@@ -758,11 +801,12 @@ class TestReflectOnSessionBoundaries:
         assert obs[0]["position"] > 0  # Excess
 
     # --- Initiative boundaries ---
-    def test_initiative_zero_overflows_no_observation(self):
-        """0 overflows should NOT trigger initiative observation."""
+    def test_initiative_zero_overflows_low_activity_no_observation(self):
+        """0 overflows + low activity should NOT trigger initiative observation."""
         from divineos.core.moral_compass import reflect_on_session
 
-        analysis = self._make_analysis(context_overflows=[])
+        # Low tool calls (< 10) AND no overflows = no initiative observation
+        analysis = self._make_analysis(context_overflows=[], tool_calls_total=5, user_messages=1)
         obs_before = len(get_observations(spectrum="initiative", limit=100))
         reflect_on_session(analysis)
         obs_after = len(get_observations(spectrum="initiative", limit=100))
@@ -795,8 +839,8 @@ class TestReflectOnSessionBoundaries:
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
-    def test_confidence_four_assistant_msgs_no_observation(self):
-        """assistant_msgs 4 should NOT trigger (< 5)."""
+    def test_confidence_four_assistant_msgs_triggers_with_encouragements(self):
+        """assistant_msgs 4 with encouragements should trigger (>= 2)."""
         from types import SimpleNamespace
 
         from divineos.core.moral_compass import reflect_on_session
@@ -805,10 +849,10 @@ class TestReflectOnSessionBoundaries:
         analysis = self._make_analysis(
             assistant_messages=4, corrections=[], encouragements=encouragements
         )
-        obs_before = len(get_observations(spectrum="confidence", limit=100))
         reflect_on_session(analysis)
-        obs_after = len(get_observations(spectrum="confidence", limit=100))
-        assert obs_after == obs_before
+        obs = get_observations(spectrum="confidence", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
 
     def test_confidence_exactly_two_encouragements(self):
         """encouragements >= 2 threshold boundary."""
@@ -856,8 +900,8 @@ class TestReflectOnSessionBoundaries:
         assert len(obs) >= 1
         assert obs[0]["position"] == 0.0
 
-    def test_compliance_two_user_msgs_no_observation(self):
-        """user_msgs 2 should NOT trigger compliance."""
+    def test_compliance_two_user_msgs_with_encouragement_triggers(self):
+        """user_msgs 2 with encouragement should trigger compliance (>= 2)."""
         from types import SimpleNamespace
 
         from divineos.core.moral_compass import reflect_on_session
@@ -866,11 +910,10 @@ class TestReflectOnSessionBoundaries:
         analysis = self._make_analysis(
             user_messages=2, frustrations=[], encouragements=encouragements
         )
-        obs_before = len(get_observations(spectrum="compliance", limit=100))
         reflect_on_session(analysis)
-        obs_after = len(get_observations(spectrum="compliance", limit=100))
-        # compliance path shouldn't fire with only 2 user msgs
-        assert obs_after == obs_before
+        obs = get_observations(spectrum="compliance", limit=1)
+        assert len(obs) >= 1
+        assert obs[0]["position"] == 0.0
 
     def test_compliance_exactly_one_encouragement(self):
         """encouragements >= 1 boundary for good compliance."""

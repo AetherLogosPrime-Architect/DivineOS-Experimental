@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 from divineos.core.knowledge import init_knowledge_table
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 from divineos.core.semantic_integrity import (
     audit_knowledge_integrity,
     format_audit_report,

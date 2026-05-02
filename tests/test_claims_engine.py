@@ -131,6 +131,50 @@ class TestUpdateClaim:
     def test_nonexistent_returns_false(self):
         assert update_claim("nonexistent", status="OPEN") is False
 
+    def test_no_op_update_returns_false(self):
+        """Updating with values equal to prior is a no-op — no row write,
+        no CLAIM_UPDATED emit. Keep-drift-entries pre-reg prereg-75cde9cd07b3:
+        emits only happen on real changes, so the audit trail isn't padded
+        with empty events."""
+        cid = file_claim("Test", tier=TIER_SPECULATIVE)
+        assert update_claim(cid, tier=TIER_INFERENTIAL)
+        assert update_claim(cid, tier=TIER_INFERENTIAL) is False
+
+    def test_update_emits_claim_updated_event_with_prior(self):
+        """update_claim must emit CLAIM_UPDATED to the main event_ledger
+        capturing prior and new values for every changed field. Pre-reg
+        prereg-75cde9cd07b3: append-only is structural humility — the
+        embarrassing prior version of an assessment must be preserved
+        in the hash-chained ledger forever, even if the row is later
+        overwritten again.
+
+        Falsifier: an update_claim call whose changed fields don't surface
+        as a CLAIM_UPDATED event with the prior value in the ledger.
+        """
+        from divineos.core.ledger import get_events
+
+        cid = file_claim("Test claim for audit-trail check")
+        update_claim(cid, assessment="initial assessment, possibly wrong")
+        update_claim(cid, assessment="revised assessment, embarrassed")
+
+        events = get_events(limit=50, event_type="CLAIM_UPDATED")
+        found_priors = []
+        for ev in events:
+            payload = ev.get("payload") or {}
+            if isinstance(payload, str):
+                import json
+
+                payload = json.loads(payload)
+            if payload.get("claim_id") == cid:
+                changed = payload.get("changed_fields", {})
+                if "assessment" in changed:
+                    found_priors.append(changed["assessment"]["prior"])
+
+        assert "initial assessment, possibly wrong" in found_priors, (
+            f"prior assessment not preserved in CLAIM_UPDATED ledger event; "
+            f"found priors: {found_priors}"
+        )
+
 
 class TestGetClaim:
     def test_full_id(self):

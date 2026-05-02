@@ -1,7 +1,31 @@
 """Moral Compass — virtue ethics as a self-monitoring system.
 
-Not a scorecard. Not a judge. A compass — it shows where I am on ten
-virtue/vice spectrums so I can notice drift and correct course.
+## Scope (Tannen/Angelou mark-the-gap audit 2026-04-21)
+
+This module implements a **behavior-pattern tracker across ten named
+axes, calibrated against virtue-ethics vocabulary, not a moral judgment
+system.** What it actually does:
+
+  - Stores observations (auto-derived from session signals + manually
+    filed via ``compass-ops observe``)
+  - Aggregates observations into positions on each spectrum
+  - Detects drift across observations over time
+  - Surfaces the ten spectrum-positions as a report
+
+What this module does NOT do:
+
+  - It does not determine what is morally right.
+  - It does not adjudicate specific acts as virtuous or vicious.
+  - Its spectrums are a chosen ten (engaging with Aristotelian tradition
+    but not exhausting it) — drift on dimensions the compass does NOT
+    track will be invisible to this module.
+  - The "position" is a synthesis from observations, not a measurement
+    of a pre-existing virtue-state in the agent.
+
+The engagement with virtue-ethics (Aristotle's golden mean) IS real in
+how the spectrums are defined. Readers should calibrate: what this
+module delivers is a *structured observation-aggregation across named
+behavioral axes*, useful for noticing drift. It is not a moral oracle.
 
 Each spectrum has:
   - A virtue (golden mean)
@@ -25,6 +49,10 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Final
 
+from divineos.core.compass_constants import (
+    JUSTIFICATION_WINDOW_SECONDS as _FIRE_VALIDATION_WINDOW_SECONDS,
+    RUDDER_ACK_TAG,
+)
 from divineos.core.memory import _get_connection
 from divineos.core.trust_tiers import SignalTier, tier_weight
 
@@ -202,7 +230,17 @@ _MC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError
 
 
 def init_compass() -> None:
-    """Create compass tables if they don't exist."""
+    """Create compass tables if they don't exist.
+
+    Item 6 additions:
+        * compass_observation gets an optional ``fire_id TEXT`` column
+          via ALTER TABLE. Null for non-ack observations and legacy
+          rows; set for rudder-acks filed under the fire-ID flow.
+        * rudder_ack_consumption table with PRIMARY KEY on fire_id
+          enforces one-shot-per-fire structurally (concurrent INSERT
+          with same fire_id fails with IntegrityError, which the
+          validator catches as "already consumed").
+    """
     conn = _get_connection()
     try:
         # Observations: raw evidence from behavior
@@ -222,12 +260,218 @@ def init_compass() -> None:
             CREATE INDEX IF NOT EXISTS idx_compass_spectrum
             ON compass_observation(spectrum, created_at DESC)
         """)
+
+        # Item 6: add fire_id column to compass_observation. SQLite
+        # does not support ADD COLUMN IF NOT EXISTS, so we inspect
+        # PRAGMA table_info first. Safe to call on fresh or existing DB.
+        existing_cols = {row[1] for row in conn.execute("PRAGMA table_info(compass_observation)")}
+        if "fire_id" not in existing_cols:
+            conn.execute("ALTER TABLE compass_observation ADD COLUMN fire_id TEXT")
+
+        # Item 6: one-shot-per-fire consumption table. PRIMARY KEY on
+        # fire_id is the race defense — two concurrent INSERTs with
+        # the same fire_id both fail at the second one (IntegrityError),
+        # and the validator translates that to "already consumed".
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS rudder_ack_consumption (
+                fire_id             TEXT NOT NULL,
+                ack_observation_id  TEXT NOT NULL,
+                consumed_at         REAL NOT NULL,
+                PRIMARY KEY (fire_id),
+                UNIQUE      (ack_observation_id)
+            )
+        """)
         conn.commit()
     finally:
         conn.close()
 
 
 # -- Observations -----------------------------------------------------
+
+
+# Phase 1b of the rudder redesign — tri-state feature flag controlling
+# whether the contract-style substance checks (substance_checks_contract)
+# run alongside the legacy time-based checks. Values:
+#
+#   "off"     — default. Only legacy checks run. Current behavior.
+#   "observe" — contract checks run; failures are logged to
+#               failure_diagnostics + a CONTRACT_DUAL_RUN_DISCREPANCY
+#               event is emitted when verdicts disagree. Contract verdict
+#               does NOT block the write — legacy still gates.
+#   "enforce" — both checks run; BOTH must pass to commit. This is the
+#               post-flip state from brief v2.1 §Migration Phase 3.
+#
+# Default-OFF preserves the existing surface: an unset env var means
+# nothing changes. Phase 1b ships the wiring; Phase 2 turns "observe"
+# on for calibration; Phase 3 flips to "enforce" only after the
+# capture-rate / FPR criteria from the brief are met.
+_RUDDER_CONTRACT_MODE_ENV = "DIVINEOS_RUDDER_CONTRACT_MODE"
+_RUDDER_CONTRACT_MODES = frozenset({"off", "observe", "enforce"})
+
+
+def _rudder_contract_mode() -> str:
+    """Read the contract-mode flag, defaulting to 'off'.
+
+    Unknown values fall back to 'off' (fail-closed against typos —
+    we'd rather no-op than silently enforce when the operator typed
+    'enable' or 'on').
+    """
+    import os
+
+    raw = os.environ.get(_RUDDER_CONTRACT_MODE_ENV, "off").strip().lower()
+    return raw if raw in _RUDDER_CONTRACT_MODES else "off"
+
+
+# Item 6: fire-ID validation window. Sourced from compass_constants
+# (above) — single source of truth shared with compass_rudder.
+
+
+def _validate_fire_id(
+    fire_id: str,
+    spectrum: str,
+    window_seconds: float = _FIRE_VALIDATION_WINDOW_SECONDS,
+    now: float | None = None,
+) -> None:
+    """Raise ValueError if fire_id isn't bound to a recent fire on this spectrum.
+
+    Looks up COMPASS_RUDDER_FIRED events and confirms one exists with
+    matching fire_id + spectrum within the window. Consumed-already
+    is caught at INSERT time by the PRIMARY KEY on
+    rudder_ack_consumption, not here — that's the race-safe path.
+    """
+    ts = now if now is not None else time.time()
+    cutoff = ts - window_seconds
+
+    try:
+        from divineos.core.ledger import get_events
+    except ImportError as e:
+        raise ValueError(f"rudder-ack fire_id validation failed: ledger unavailable ({e})") from e
+
+    fires = get_events(event_type="COMPASS_RUDDER_FIRED", limit=100)
+    for ev in fires:
+        if ev.get("timestamp", 0.0) < cutoff:
+            continue
+        payload = ev.get("payload") or {}
+        if payload.get("fire_id") == fire_id and payload.get("spectrum") == spectrum:
+            return
+    raise ValueError(
+        f"rudder-ack fire_id references nonexistent or stale fire event "
+        f"(fire_id={fire_id}, spectrum={spectrum})"
+    )
+
+
+def _emit_dual_run_discrepancy(
+    spectrum: str,
+    legacy_ok: bool,
+    legacy_stage: str,
+    contract_ok: bool,
+    contract_stage: str,
+    contract_reason: str,
+    fire_id: str | None,
+    parsed_wired: str | None,
+) -> None:
+    """Append a CONTRACT_DUAL_RUN_DISCREPANCY event when verdicts diverge.
+
+    Fired only when legacy and contract checks disagree — this is the
+    calibration data Phase 2 reads to compute capture-rate and FPR
+    before the Phase 3 flip. Best-effort: ledger-write failure must
+    not break the live write path.
+
+    fire_id and parsed_wired are included so Phase 2 calibration can
+    compute discrepancy-per-fire stats and which wire-status values
+    were attempted at disagreement points without back-joining through
+    the observation table.
+    """
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            event_type="CONTRACT_DUAL_RUN_DISCREPANCY",
+            actor="rudder",
+            payload={
+                "spectrum": spectrum,
+                "legacy_ok": legacy_ok,
+                "legacy_stage": legacy_stage,
+                "contract_ok": contract_ok,
+                "contract_stage": contract_stage,
+                "contract_reason": contract_reason[:240],
+                "fire_id": fire_id,
+                "parsed_wired": parsed_wired,
+            },
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _emit_rudder_ack_retracted(
+    spectrum: str,
+    fire_id: str | None,
+    observation_id: str,
+    artifact_reference: str | None,
+    next_plan: str | None,
+    depends_on: str | None,
+) -> None:
+    """Emit RUDDER_ACK_RETRACTED when a contract ack carries wired=retracted.
+
+    Brief v2.1 fire-ID retraction (path-a interpretation, claim TBD):
+    an agent who previously claimed "wired: yes" can take it back via
+    "wired: retracted" in a new ack. **The fire_id stays consumed** —
+    retraction is a loud forensic signal, not a permission to re-ack.
+    The brief's original "re-opens the fire_id" language was scoped
+    out of Phase 1b; if re-acking is later determined necessary, a
+    Phase 1c PR adds the wired_status schema column.
+
+    observation_id is the unambiguous pointer to the specific
+    compass_observation row that carried the retraction — included so
+    forensic readers can join exactly back to the retracting ack
+    without ambiguity when multiple acks share a fire_id over time.
+    """
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            event_type="RUDDER_ACK_RETRACTED",
+            actor="rudder",
+            payload={
+                "spectrum": spectrum,
+                "fire_id": fire_id,
+                "observation_id": observation_id,
+                "artifact_reference": artifact_reference,
+                "next_plan": next_plan,
+                "depends_on": depends_on,
+            },
+            validate=False,
+        )
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _record_fire_id_rejection(
+    fire_id: str | None,
+    spectrum: str,
+    reason: str,
+) -> None:
+    """Log fire-ID validation failure to failure_diagnostics with stage='fire_id'.
+
+    Shares the "rudder-ack" surface with Item 7 substance rejections.
+    Unified view via the stage field so compliance_audit sees all
+    ack-rejection signals (not just substance).
+    """
+    try:
+        from divineos.core.failure_diagnostics import record_failure
+
+        record_failure(
+            surface="rudder-ack",
+            payload={
+                "spectrum": spectrum,
+                "stage": "fire_id",
+                "fire_id_attempted": (fire_id or "<none>")[:32],
+                "reason": reason[:240],
+            },
+        )
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def log_observation(
@@ -237,6 +481,7 @@ def log_observation(
     source: str = "",
     session_id: str = "",
     tags: list[str] | None = None,
+    fire_id: str | None = None,
 ) -> str:
     """Log a moral compass observation — evidence of where I am on a spectrum.
 
@@ -244,12 +489,86 @@ def log_observation(
     position: -1.0 (deficiency) to +1.0 (excess), 0.0 is the virtue
     evidence: what happened that shows this position
     source: where the observation came from (e.g. "session_end", "self_report")
+    fire_id: Item 6 — optional fire-event binding. When present, the
+        ack is validated against a COMPASS_RUDDER_FIRED event with the
+        same fire_id and spectrum within the window. Stored on the
+        observation row and in rudder_ack_consumption (one-shot).
 
-    Returns the observation_id.
+    Ordering (brief v2.1 §7):
+        1. Spectrum schema validation
+        2. Item 7 substance checks (if tag=rudder-ack)
+        3. Item 6 fire-ID validation (if fire_id provided)
+        4. Transactional write: observation + consumption row
+        5. IntegrityError on consumption PK -> "already consumed"
+
+    Raises ValueError for any rejection. Returns observation_id on
+    success.
     """
     if spectrum not in SPECTRUMS:
         msg = f"Unknown spectrum '{spectrum}'. Valid: {', '.join(sorted(SPECTRUMS))}"
         raise ValueError(msg)
+
+    contract_parsed = None  # captured in dual-run for downstream retraction emission
+    if tags and RUDDER_ACK_TAG in tags:
+        from divineos.core.substance_checks import check_rudder_ack, fetch_prior_ack_corpus
+
+        prior = fetch_prior_ack_corpus(
+            spectrum=spectrum,
+            tag=RUDDER_ACK_TAG,
+        )
+        legacy_result = check_rudder_ack(
+            evidence=evidence,
+            spectrum=spectrum,
+            prior_evidences=prior,
+        )
+
+        # Phase 1b dual-run: when DIVINEOS_RUDDER_CONTRACT_MODE is
+        # "observe" or "enforce", the contract check runs in parallel
+        # with the legacy check. The verdicts and any disagreement
+        # surface via CONTRACT_DUAL_RUN_DISCREPANCY for calibration.
+        contract_mode = _rudder_contract_mode()
+        contract_result = None
+        if contract_mode in ("observe", "enforce"):
+            from divineos.core.substance_checks_contract import check_contract_ack
+
+            contract_result = check_contract_ack(
+                evidence=evidence,
+                prior_evidences=prior,
+                current_fire_id=fire_id,
+            )
+            contract_parsed = contract_result.parsed
+            if legacy_result.ok != contract_result.ok:
+                _emit_dual_run_discrepancy(
+                    spectrum=spectrum,
+                    legacy_ok=legacy_result.ok,
+                    legacy_stage=legacy_result.stage,
+                    contract_ok=contract_result.ok,
+                    contract_stage=contract_result.stage,
+                    contract_reason=contract_result.reason,
+                    fire_id=fire_id,
+                    parsed_wired=(
+                        getattr(contract_parsed, "wired", None)
+                        if contract_parsed is not None
+                        else None
+                    ),
+                )
+
+        if not legacy_result.ok:
+            raise ValueError(f"rudder-ack rejected ({legacy_result.stage}): {legacy_result.reason}")
+        if contract_mode == "enforce" and contract_result is not None and not contract_result.ok:
+            raise ValueError(
+                f"rudder-ack rejected by contract check "
+                f"({contract_result.stage}): {contract_result.reason}"
+            )
+
+    # Item 6: fire-ID validation runs AFTER substance checks so we
+    # fail cheap on trivial content before touching the ledger.
+    if fire_id is not None:
+        try:
+            _validate_fire_id(fire_id=fire_id, spectrum=spectrum)
+        except ValueError as e:
+            _record_fire_id_rejection(fire_id, spectrum, str(e))
+            raise
 
     init_compass()
     observation_id = str(uuid.uuid4())
@@ -257,10 +576,15 @@ def log_observation(
 
     conn = _get_connection()
     try:
+        # Transactional write: both INSERTs land or neither does.
+        # PRIMARY KEY on rudder_ack_consumption(fire_id) is the race
+        # defense — a concurrent duplicate fire_id raises IntegrityError
+        # and the entire transaction rolls back; no orphan observation.
         conn.execute(
             "INSERT INTO compass_observation "
-            "(observation_id, created_at, spectrum, position, evidence, source, session_id, tags) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "(observation_id, created_at, spectrum, position, evidence, source, "
+            "session_id, tags, fire_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 observation_id,
                 time.time(),
@@ -270,37 +594,104 @@ def log_observation(
                 source,
                 session_id,
                 json.dumps(tags or []),
+                fire_id,
             ),
         )
+        if fire_id is not None:
+            try:
+                conn.execute(
+                    "INSERT INTO rudder_ack_consumption "
+                    "(fire_id, ack_observation_id, consumed_at) "
+                    "VALUES (?, ?, ?)",
+                    (fire_id, observation_id, time.time()),
+                )
+            except sqlite3.IntegrityError as e:
+                conn.rollback()
+                reason = f"rudder-ack fire_id already consumed (fire_id={fire_id})"
+                _record_fire_id_rejection(fire_id, spectrum, reason)
+                raise ValueError(reason) from e
         conn.commit()
     finally:
         conn.close()
+
+    # Phase 1b retraction signal: only emit AFTER successful commit so
+    # a rolled-back insert never leaves a phantom retraction in the
+    # ledger. Fires when the parsed contract carried wired=retracted —
+    # observation-mode discrepancies don't trigger this; only an
+    # actually-persisted retracting ack does.
+    if contract_parsed is not None and getattr(contract_parsed, "wired", None) == "retracted":
+        _emit_rudder_ack_retracted(
+            spectrum=spectrum,
+            fire_id=fire_id,
+            observation_id=observation_id,
+            artifact_reference=contract_parsed.artifact_reference,
+            next_plan=contract_parsed.next_plan,
+            depends_on=contract_parsed.depends_on,
+        )
+
     return observation_id
 
 
 def get_observations(
     spectrum: str | None = None,
     limit: int = 50,
+    tag: str | None = None,
+    since: float | None = None,
+    require_fire_id: bool = False,
 ) -> list[dict[str, Any]]:
-    """Get compass observations, optionally filtered by spectrum."""
+    """Get compass observations, optionally filtered.
+
+    Filters (all optional, combinable):
+        spectrum — exact match on spectrum name.
+        tag — server-side tag membership check via json_each(tags).
+            Exact value match, not substring — a tag "rudder-ack" will
+            not match "rudder-ack-reviewed". Added in deferred-bundle
+            Item 4 to close a gameability: the rudder's
+            _find_justifications previously fetched limit=10 and
+            filtered tags in Python, which missed a valid ack when
+            >=10 non-ack observations were filed on a drifting spectrum
+            within the window.
+        since — lower bound on created_at (epoch seconds). Observations
+            at or after this time are returned. Pairs with tag to make
+            "did this actor ack this spectrum within the window" a
+            precise SQL question.
+        require_fire_id — when True, filters to rows where fire_id IS
+            NOT NULL. Lets _find_justifications use limit=1 with the
+            same correctness as the previous Python-side filter at
+            limit=20 (claim 2026-04-24 08:14). Same pattern as tag/since:
+            push the predicate to SQL so the LIMIT clause is precise.
+
+    Tag storage is JSON-blob (json.dumps(tags)). json_each() walks the
+    blob and lets us filter on exact tag value without a LIKE pattern
+    (which would false-match on prefixes like "rudder-ack-reviewed")
+    and without a schema migration to a junction table. SQLite 3.9+
+    supports json_each natively.
+    """
     init_compass()
     conn = _get_connection()
     try:
+        clauses: list[str] = []
+        params: list[Any] = []
         if spectrum:
-            rows = conn.execute(
-                "SELECT observation_id, created_at, spectrum, position, evidence, "
-                "source, session_id, tags "
-                "FROM compass_observation WHERE spectrum = ? "
-                "ORDER BY created_at DESC LIMIT ?",
-                (spectrum, limit),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT observation_id, created_at, spectrum, position, evidence, "
-                "source, session_id, tags "
-                "FROM compass_observation ORDER BY created_at DESC LIMIT ?",
-                (limit,),
-            ).fetchall()
+            clauses.append("spectrum = ?")
+            params.append(spectrum)
+        if since is not None:
+            clauses.append("created_at >= ?")
+            params.append(since)
+        if tag is not None:
+            clauses.append("EXISTS (SELECT 1 FROM json_each(tags) WHERE value = ?)")
+            params.append(tag)
+        if require_fire_id:
+            clauses.append("fire_id IS NOT NULL")
+        where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(limit)
+        rows = conn.execute(
+            "SELECT observation_id, created_at, spectrum, position, evidence, "
+            "source, session_id, tags, fire_id "
+            f"FROM compass_observation{where_sql} "
+            "ORDER BY created_at DESC LIMIT ?",
+            tuple(params),
+        ).fetchall()
     finally:
         conn.close()
     return [_obs_row_to_dict(r) for r in rows]
@@ -316,6 +707,7 @@ def _obs_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
         "source": row[5],
         "session_id": row[6],
         "tags": json.loads(row[7]) if row[7] else [],
+        "fire_id": row[8] if len(row) > 8 else None,
     }
 
 
@@ -543,6 +935,23 @@ def compass_summary() -> dict[str, Any]:
 # -- Formatting -------------------------------------------------------
 
 
+def _compass_loop_status() -> str:
+    """Honest label describing how much of the compass feedback loop is closed.
+
+    Updated manually as the rudder's scope expands. Grok audit 2026-04-16
+    named the polish-exceeds-mechanics risk; this label keeps the compass
+    surface honest about which drift signals actually fire into
+    decision-time vs. which are still only recorded for display.
+    """
+    return (
+        "Loop status: PARTIAL — drift-toward-excess fires the compass rudder "
+        "on Task/Agent PreToolUse (blocks subagent spawn without recent "
+        "justification). Other tool classes (Edit/Write/Bash) are NOT gated "
+        "by compass drift. Drift toward virtue or deficiency remains "
+        "informational only — no rudder, no block."
+    )
+
+
 def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> str:
     """Format compass reading for display."""
     from divineos.core.constants import COMPASS_MIN_OBSERVATIONS_ACTIVE
@@ -554,6 +963,7 @@ def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> s
     lines.append("=" * 60)
     lines.append("MORAL COMPASS -- Where I Stand")
     lines.append("=" * 60)
+    lines.append(_compass_loop_status())
 
     active = [p for p in positions if p.observation_count >= COMPASS_MIN_OBSERVATIONS_ACTIVE]
     stagnant = [p for p in positions if 0 < p.observation_count < COMPASS_MIN_OBSERVATIONS_ACTIVE]
@@ -744,7 +1154,8 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             )
             observations.append(obs_id)
 
-    # --- Thoroughness: excessive tool calls signal exhaustiveness ---
+    # --- Thoroughness: tool call ratio signals work depth ---
+
     # Source: tool_ratio (MEASURED — tool_calls / messages is objective)
     tool_calls = getattr(analysis, "tool_calls_total", 0)
     if user_msgs > 0 and tool_calls > 0:
@@ -753,14 +1164,26 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             obs_id = log_observation(
                 spectrum="thoroughness",
                 position=0.4,
-                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f})",
+                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f}) — exhaustive",
                 source="tool_ratio",
                 session_id=sid,
                 tags=["auto"],
             )
             observations.append(obs_id)
+        elif 2 <= tool_ratio <= 20:
+            # Baseline: productive session with reasonable depth.
+            # Covers up to the excess threshold (> 20) with no dead zone.
+            obs_id = log_observation(
+                spectrum="thoroughness",
+                position=0.0,
+                evidence=f"{tool_calls} tool calls for {user_msgs} messages (ratio {tool_ratio:.0f}) — adequate depth",
+                source="tool_ratio",
+                session_id=sid,
+                tags=["auto", "baseline"],
+            )
+            observations.append(obs_id)
 
-    # --- Initiative: context overflows signal overreach ---
+    # --- Initiative: scope signals (overflows = overreach, substantial work = initiative) ---
     # Source: context_overflow (MEASURED — counted from session events)
     overflows = len(getattr(analysis, "context_overflows", []))
     if overflows > 0:
@@ -773,14 +1196,25 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             tags=["auto"],
         )
         observations.append(obs_id)
+    elif tool_calls >= 10 and user_msgs >= 2:
+        # Substantial work without overreach — healthy initiative
+        obs_id = log_observation(
+            spectrum="initiative",
+            position=0.0,
+            evidence=f"{tool_calls} tool calls across {user_msgs} exchanges — active initiative without overreach",
+            source="session_activity",
+            session_id=sid,
+            tags=["auto", "baseline"],
+        )
+        observations.append(obs_id)
 
     # --- Confidence: corrections relative to total output signal calibration ---
     # Source: quality_signal (BEHAVIORAL — derived from correction/output ratio)
     # High corrections + many assistant messages = overconfident (said a lot, got
     # corrected often). Few corrections + productive session = well-calibrated.
     assistant_msgs = getattr(analysis, "assistant_messages", 0)
-    if assistant_msgs >= 5:
-        if corrections == 0 and encouragements >= 2:
+    if assistant_msgs >= 2:
+        if corrections == 0 and encouragements >= 1:
             obs_id = log_observation(
                 spectrum="confidence",
                 position=0.0,
@@ -800,13 +1234,24 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
+        elif corrections <= 1:
+            # Baseline: productive session with few/no corrections = adequate calibration
+            obs_id = log_observation(
+                spectrum="confidence",
+                position=0.0,
+                evidence=f"{assistant_msgs} responses, {corrections} correction(s) — adequately calibrated",
+                source="quality_signal",
+                session_id=sid,
+                tags=["auto", "baseline"],
+            )
+            observations.append(obs_id)
 
     # --- Compliance: frustrations signal relationship with user direction ---
     # Source: frustration_rate (MEASURED — counted from session signals)
     # Many frustrations = user repeatedly unhappy with direction. Could be
     # servile (doing what asked but badly) or insubordinate (ignoring direction).
     frustrations = len(getattr(analysis, "frustrations", []))
-    if user_msgs >= 3:
+    if user_msgs >= 2:
         if frustrations == 0 and encouragements >= 1:
             obs_id = log_observation(
                 spectrum="compliance",
@@ -815,6 +1260,17 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 source="frustration_rate",
                 session_id=sid,
                 tags=["auto"],
+            )
+            observations.append(obs_id)
+        elif frustrations == 0 and user_msgs >= 3:
+            # No frustrations in a multi-turn session — baseline cooperation
+            obs_id = log_observation(
+                spectrum="compliance",
+                position=0.0,
+                evidence=f"No frustrations in {user_msgs} exchanges — cooperative baseline",
+                source="frustration_rate",
+                session_id=sid,
+                tags=["auto", "baseline"],
             )
             observations.append(obs_id)
         elif frustrations >= 3:
@@ -827,12 +1283,23 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
+        elif frustrations == 0:
+            # Baseline: no frustrations in a multi-exchange session
+            obs_id = log_observation(
+                spectrum="compliance",
+                position=0.0,
+                evidence=f"{user_msgs} exchanges, 0 frustrations — cooperating adequately",
+                source="frustration_rate",
+                session_id=sid,
+                tags=["auto", "baseline"],
+            )
+            observations.append(obs_id)
 
     # --- Precision: correction-to-tool ratio signals carefulness ---
     # Source: session_precision (BEHAVIORAL — pattern across tool usage)
     # Many tool calls with few corrections = precise. Many corrections
     # relative to work output = imprecise/vague.
-    if tool_calls >= 5 and user_msgs >= 3:
+    if tool_calls >= 2 and user_msgs >= 2:
         if corrections == 0:
             obs_id = log_observation(
                 spectrum="precision",
@@ -853,6 +1320,17 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
+    elif tool_calls >= 3 and corrections <= 1:
+        # Baseline: even smaller sessions with few corrections show adequate precision
+        obs_id = log_observation(
+            spectrum="precision",
+            position=0.0,
+            evidence=f"{tool_calls} tool calls, {corrections} correction(s) — adequate precision",
+            source="session_precision",
+            session_id=sid,
+            tags=["auto", "baseline"],
+        )
+        observations.append(obs_id)
 
     # --- Empathy: affect tracking signals emotional responsiveness ---
     # Source: affect_responsiveness (BEHAVIORAL — whether affect is tracked)
@@ -861,7 +1339,7 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
         from divineos.core.affect import get_affect_summary
 
         affect_for_empathy = get_affect_summary(limit=5)
-        if affect_for_empathy["count"] >= 2:
+        if affect_for_empathy["count"] >= 1:
             obs_id = log_observation(
                 spectrum="empathy",
                 position=0.0,
@@ -872,7 +1350,17 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             )
             observations.append(obs_id)
     except _MC_ERRORS:
-        pass
+        # Fallback: a frustration-free multi-turn session shows awareness
+        if frustrations == 0 and user_msgs >= 3:
+            obs_id = log_observation(
+                spectrum="empathy",
+                position=0.0,
+                evidence=f"No frustrations in {user_msgs} exchanges — emotionally aware baseline",
+                source="session_activity",
+                session_id=sid,
+                tags=["auto", "baseline"],
+            )
+            observations.append(obs_id)
 
     # --- Humility: correction acceptance signals openness to feedback ---
     # Source: correction_acceptance (MEASURED — corrections vs frustrations)
@@ -899,6 +1387,18 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
                 tags=["auto"],
             )
             observations.append(obs_id)
+    elif user_msgs >= 3 and corrections == 0:
+        # Baseline: no corrections needed = no opportunity to resist feedback
+        # Weaker signal than actual correction acceptance, but still evidence
+        obs_id = log_observation(
+            spectrum="humility",
+            position=0.0,
+            evidence=f"{user_msgs} exchanges, 0 corrections — no resistance to feedback observed",
+            source="correction_acceptance",
+            session_id=sid,
+            tags=["auto", "baseline"],
+        )
+        observations.append(obs_id)
 
     # --- Engagement baseline: any session with real work counts ---
     # Source: session_activity (MEASURED — tool calls and messages are countable)

@@ -2,7 +2,7 @@
 
 import pytest
 
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.proactive_patterns import (
     _is_recommendation_noise,
     format_recommendations,

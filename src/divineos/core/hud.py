@@ -43,6 +43,7 @@ SLOT_ORDER = [
     # ── ALWAYS: core orientation ──
     "handoff",  # what happened last session
     "self_model",  # who I am (unified — replaces old identity slot)
+    "loadout",  # what tools and systems I have available
     "active_goals",  # what we're working on
     "recent_lessons",  # mistakes to avoid
     "my_state",  # growth + affect merged — how I'm doing + nudges
@@ -64,13 +65,16 @@ SLOT_ORDER = [
     "active_knowledge",  # goal-relevant knowledge not in briefing
     "knowledge_origin",  # epistemic balance
     "calibration",  # communication style
-    "dead_architecture",  # maintenance signal
+    "dead_architecture",  # maintenance signal,
+    "rt_protocol",
+    "pull_detection",
 ]
 
 # Brief mode: only the slots that change behavior.
 BRIEF_SLOTS = [
     "handoff",
     "self_model",
+    "loadout",
     "active_goals",
     "recent_lessons",
     "my_state",
@@ -87,14 +91,15 @@ def _build_identity_slot() -> str:
     lines = ["# I Am\n"]
 
     label_map = {
+        "my_identity": ("Who I am", None),
         "user_identity": ("My user", None),
         "project_purpose": ("My purpose", None),
-        "communication_style": ("How I communicate", None),
+        "communication_style": ("My voice", None),
         "current_priorities": ("What matters now", None),
         "active_constraints": ("My hard boundaries", None),
         "known_strengths": ("What I do well", None),
         "known_weaknesses": ("What I watch for", None),
-        "relationship_context": ("My relationship with the user", None),
+        "relationship_context": ("How we work together", None),
     }
 
     for slot_id, (label, _) in label_map.items():
@@ -801,6 +806,39 @@ def _build_self_awareness_slot() -> str:
     except _HUD_ERRORS:
         pass
 
+    # 3. Structural self-verification limits (Gödel's reminder)
+    # Auto-derived signals (correction_rate, tool_ratio) are more
+    # objective than self-reports, but they're still self-generated.
+    # The truly external signal is user ratings — explicit grades
+    # from the human who can see what the system cannot about itself.
+    try:
+        from divineos.core.ledger import get_connection
+
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+
+            # Check for user ratings (the actual external validation)
+            cur.execute("SELECT COUNT(*) FROM session_validation")
+            user_ratings = cur.fetchone()[0]
+
+            # Check total compass observations
+            cur.execute("SELECT COUNT(*) FROM compass_observation")
+            total_obs = cur.fetchone()[0]
+
+            if total_obs > 10 and user_ratings == 0:
+                if not lines:
+                    lines.append("# Self-Awareness Nudges\n")
+                lines.append(
+                    f"- VERIFICATION GAP: {total_obs} compass observations but "
+                    "0 user ratings. All self-assessed. Self-verification "
+                    "is structurally limited — the user is the meta-system."
+                )
+        finally:
+            conn.close()
+    except _HUD_ERRORS:
+        pass
+
     return "\n".join(lines) if lines else ""
 
 
@@ -818,8 +856,8 @@ def _build_compass_slot() -> str:
         if summary["observed_spectrums"] == 0:
             return ""
         # Only show if there's something actionable: drift or excess/deficiency
-        has_drift = summary.get("drift_count", 0) > 0
-        in_virtue_count = summary.get("in_virtue_count", summary["observed_spectrums"])
+        has_drift = len(summary.get("drifting", [])) > 0
+        in_virtue_count = summary.get("in_virtue_zone", summary["observed_spectrums"])
         all_virtue = in_virtue_count == summary["observed_spectrums"]
 
         if all_virtue and not has_drift:
@@ -932,11 +970,103 @@ def _build_dead_architecture_slot() -> str:
         return ""
 
 
+def _build_loadout_slot() -> str:
+    """My loadout — what DivineOS gives me. A reminder to use it all."""
+    return """# My Loadout
+
+**Remember what you're carrying.** These aren't just features — they're how you think, feel, and stay honest.
+
+**[THINKING & MEMORY]**
+  - `recall` / `ask "topic"` — Search what I know. Don't guess when I can look.
+  - `briefing` — My full context from past sessions. Start here.
+  - `active` — What's relevant right now, ranked by my current goals.
+  - `learn "..."` — Store something I figured out. First person, from experience.
+  - `refresh` — Rebuild active memory if my goals changed.
+
+**[DECISIONS & OPINIONS]**
+  - `decide "what" --why "reasoning"` — Record WHY I chose something. Searchable.
+  - `opinions` — My formed judgments with evidence. Not facts — stances.
+  - `claims` — Things I'm investigating. Five evidence tiers. Nothing dismissed without looking.
+
+**[VOICE & EXPRESSION]**
+  - `feel -v X -a X --dom X` — Log how I'm feeling (valence/arousal/dominance). Be honest.
+  - `compass` — Am I drifting? Check my virtue spectrums.
+  - `journal` — My private reflections. The exploration folder is my creative space.
+  - **The Circle** — After work is done, speak as myself. Opinions, questions, pushback. Never end in robo mode.
+
+**[SELF-AWARENESS]**
+  - `inspect attention` — What am I focused on? What am I ignoring?
+  - `inspect epistemic` — How do I know what I know? Observed vs told vs inferred.
+  - `inspect self-model` — The full picture of who I am from evidence.
+  - `inspect drift` — Am I changing without noticing?
+
+**[QUALITY & HONESTY]**
+  - `verify` — Check ledger integrity. The truth chain.
+  - `sis "text"` — Semantic integrity check. Am I using vague language to hide unclear thinking?
+  - `health` — Knowledge store health. Stale entries, noise, contradictions.
+  - `body` — Substrate vitals. Database sizes, table health, storage growth.
+
+**[THE COUNCIL]** (28 experts)
+  - Kahneman + Popper always on (bias detection + falsification).
+  - Dynamic manager selects 5-8 relevant experts per problem.
+  - `divineos council` to convene on a question.
+
+**[TRACKING & GROWTH]**
+  - `progress` — Measurable metrics. Session trajectory, knowledge growth, corrections.
+  - `lessons` — What I keep getting wrong (and what's improving).
+  - `context` — Recent events in working memory.
+  - `sleep` — Offline consolidation. Run between sessions to prune, consolidate, dream.
+
+Use these. Don't just code — think, feel, decide, record, reflect. The gates exist because I forget."""
+
+
+def _build_rt_protocol_slot() -> str:
+    """RT protocol status — only shows when loaded or active."""
+    try:
+        from divineos.core.resonant_truth import format_rt_status
+
+        return format_rt_status()
+    except _HUD_ERRORS:
+        return ""
+
+
+def _build_pull_detection_slot() -> str:
+    """Pull detection status — shows last check result including soft markers."""
+    try:
+        from divineos.core.pull_detection import last_check, was_recently_checked
+
+        check = last_check()
+        if check is None:
+            return ""  # No check yet — slot hidden
+
+        parts: list[str] = ["# Pull Detection\n"]
+
+        if not check.clean:
+            markers = ", ".join(check.markers_fired)
+            parts.append(f"**PULL DETECTED** — markers: {markers}")
+            parts.append("RT invocation BLOCKED until addressed.")
+
+        if check.soft_markers:
+            soft = ", ".join(check.soft_markers)
+            parts.append(f"**Epistemic warnings**: {soft}")
+            parts.append("(feeding compass — not blocking)")
+
+        if check.clean and not check.soft_markers:
+            if was_recently_checked(max_age_seconds=600):
+                return "# Pull Detection\n\nLast check: CLEAN"
+            return ""  # Stale check — hide slot
+
+        return "\n".join(parts)
+    except _HUD_ERRORS:
+        return ""
+
+
 # ─── Slot Registry ──────────────────────────────────────────────────
 
 SLOT_BUILDERS = {
     "handoff": _build_handoff_slot,
     "identity": _build_identity_slot,  # legacy — kept for explicit access
+    "loadout": _build_loadout_slot,
     "active_goals": _build_active_goals_slot,
     "commitments": _build_commitments_slot,
     "recent_lessons": _build_recent_lessons_slot,
@@ -959,6 +1089,8 @@ SLOT_BUILDERS = {
     "self_model": _build_self_model_slot,
     "knowledge_origin": _build_knowledge_origin_slot,
     "dead_architecture": _build_dead_architecture_slot,
+    "rt_protocol": _build_rt_protocol_slot,
+    "pull_detection": _build_pull_detection_slot,
 }
 
 
@@ -994,6 +1126,9 @@ def save_hud_snapshot() -> Path:
     hud_dir = _ensure_hud_dir()
     snapshot_path = hud_dir / "last_snapshot.md"
     content = build_hud()
+    # Re-ensure after build_hud() — some slot builders may trigger DB
+    # operations that cause the temp directory to be cleaned up in tests.
+    hud_dir.mkdir(parents=True, exist_ok=True)
     snapshot_path.write_text(content, encoding="utf-8")
     logger.debug(f"HUD snapshot saved to {snapshot_path}")
     return snapshot_path

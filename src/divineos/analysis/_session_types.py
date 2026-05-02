@@ -21,3 +21,26 @@ class ErrorRecoveryEntry:
     tool_name: str
     error_summary: str
     recovery_action: str  # retry, investigate, different_approach, ignore
+
+
+@dataclass
+class EditReadPairing:
+    """One Edit tool call, classified against prior Read tool calls
+    on the same file path in the same session.
+
+    ``read_before_edit`` is True iff a Read of ``file_path`` appears
+    earlier in the session's tool-call sequence than this Edit.
+
+    False means "no Read of this path observed earlier in the session."
+    That is a possible-but-not-certain blind-coding signal: the file
+    might have been read in a prior session (persistent knowledge
+    the agent legitimately carries). The test still uses it as a
+    conservative positive-evidence signal — a session where every
+    Edit was preceded by an in-session Read is strong evidence of
+    the read-first discipline. The inverse is a weaker signal: some
+    Edits without preceding Reads might be legitimate.
+    """
+
+    edit_timestamp: str
+    file_path: str
+    read_before_edit: bool

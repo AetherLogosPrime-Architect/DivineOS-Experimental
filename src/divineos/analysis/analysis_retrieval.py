@@ -243,17 +243,23 @@ def save_analysis_report(result: AnalysisResult, report_text: str) -> Path:
         Path to saved report file
 
     """
-    reports_dir = Path(__file__).parent.parent.parent / "data" / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
+    # Route through _ledger_base.reports_dir so DIVINEOS_DB env override
+    # moves this directory along with the DB (2026-04-21, fresh-Claude
+    # finding find-498cc7ac6b4b — the previous hardcoded path polluted
+    # src/data/reports/ during test runs and caused xdist races).
+    from divineos.core._ledger_base import reports_dir as _reports_dir
 
-    report_file = reports_dir / f"{result.session_id}.txt"
+    reports_path = _reports_dir()
+    reports_path.mkdir(parents=True, exist_ok=True)
+
+    report_file = reports_path / f"{result.session_id}.txt"
     # Use UTF-8 encoding to handle special characters like + and x
     report_file.write_text(report_text, encoding="utf-8")
 
     # Conveyor belt: keep only the last N reports, prune old ones.
     _MAX_REPORTS = 50
     try:
-        existing = sorted(reports_dir.glob("*.txt"), key=lambda p: p.stat().st_mtime)
+        existing = sorted(reports_path.glob("*.txt"), key=lambda p: p.stat().st_mtime)
         if len(existing) > _MAX_REPORTS:
             for stale in existing[: len(existing) - _MAX_REPORTS]:
                 stale.unlink()

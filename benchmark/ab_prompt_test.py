@@ -510,7 +510,10 @@ def main():
     if v1_wins > 0:
         print(f"    Ratio:       {v2_wins}:{v1_wins} ({v2_wins / v1_wins:.1f}x)")
     else:
-        print(f"    Ratio:       {v2_wins}:0 (v2 undefeated)")
+        # "Undefeated" framing was softened after the 2026-04-16 Bengio audit:
+        # at small n with many ties, zero losses is directionally encouraging
+        # but not a statistical claim.
+        print(f"    Ratio:       {v2_wins}:0 v2 (zero v1_old wins at n={v2_wins + ties})")
 
     print(f"\n  Total A/B cost: ${total_cost:.2f}")
 

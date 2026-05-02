@@ -40,15 +40,27 @@ def pytest_configure(config: pytest.Config) -> None:
 
 @pytest.fixture(autouse=True)
 def _isolated_db(tmp_path):
-    """Give every test its own fresh database so tests never interfere with each other."""
+    """Give every test its own fresh database so tests never interfere with each other.
+
+    Also isolates DIVINEOS_HOME (per-user state dir for files like
+    checkpoint_state.json) so xdist workers don't stomp on each other's
+    counters under -n auto.
+    """
     db_path = tmp_path / "test_ledger.db"
+    home_path = tmp_path / "divineos_home"
+    home_path.mkdir(parents=True, exist_ok=True)
+
     os.environ["DIVINEOS_DB"] = str(db_path)
+    os.environ["DIVINEOS_HOME"] = str(home_path)
+    os.environ["DIVINEOS_DISABLE_AUTO_REMEDIATE"] = "1"
 
     from divineos.core.ledger import init_db
 
     init_db()
     yield
     os.environ.pop("DIVINEOS_DB", None)
+    os.environ.pop("DIVINEOS_HOME", None)
+    os.environ.pop("DIVINEOS_DISABLE_AUTO_REMEDIATE", None)
 
 
 @pytest.fixture

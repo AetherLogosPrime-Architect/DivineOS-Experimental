@@ -13,7 +13,7 @@ from typing import Any
 
 from loguru import logger
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 from divineos.core.watchmen.types import (
     Finding,
     FindingCategory,

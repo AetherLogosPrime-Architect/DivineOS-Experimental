@@ -14,34 +14,50 @@ collaborating AI) can submit findings. Three structural guarantees:
 """
 
 from divineos.core.watchmen._schema import init_watchmen_tables
+from divineos.core.watchmen.drift_state import (
+    DriftState,
+    compute_drift_state,
+    last_medium_plus_audit_ts,
+    last_strong_audit_ts,
+)
+from divineos.core.watchmen.router import route_finding, route_round
 from divineos.core.watchmen.store import (
+    chain_tier_for_finding,
     get_finding,
     get_round,
     list_findings,
+    list_reviews_of,
     list_rounds,
     resolve_finding,
     submit_finding,
     submit_round,
 )
-from divineos.core.watchmen.router import route_finding, route_round
 from divineos.core.watchmen.summary import (
     format_watchmen_summary,
     get_watchmen_stats,
     unresolved_findings,
+    watchmen_loop_status,
 )
 
 __all__ = [
-    "init_watchmen_tables",
-    "submit_round",
-    "submit_finding",
-    "get_round",
+    "DriftState",
+    "chain_tier_for_finding",
+    "compute_drift_state",
+    "format_watchmen_summary",
     "get_finding",
-    "list_rounds",
+    "get_round",
+    "get_watchmen_stats",
+    "init_watchmen_tables",
+    "last_medium_plus_audit_ts",
+    "last_strong_audit_ts",
     "list_findings",
+    "list_reviews_of",
+    "list_rounds",
     "resolve_finding",
     "route_finding",
     "route_round",
-    "get_watchmen_stats",
+    "submit_finding",
+    "submit_round",
     "unresolved_findings",
-    "format_watchmen_summary",
+    "watchmen_loop_status",
 ]

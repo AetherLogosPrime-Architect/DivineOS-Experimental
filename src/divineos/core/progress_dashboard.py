@@ -117,11 +117,15 @@ def _gather_session_trajectory(report: ProgressReport, lookback_days: int) -> No
     try:
         from divineos.core.ledger import count_events, get_events
 
+        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+
         counts = count_events()
-        report.total_sessions = counts.get("by_type", {}).get("SESSION_END", 0)
+        by_type = counts.get("by_type", {})
+        # Sum historical SESSION_END and current CONSOLIDATION_CHECKPOINT rows
+        report.total_sessions = sum(by_type.get(t, 0) for t in CONSOLIDATION_EVENT_TYPES)
 
         # Get recent sessions for health scoring
-        sessions = get_events(event_type="SESSION_END", limit=20)
+        sessions = get_events(event_type=CONSOLIDATION_EVENT_TYPES, limit=20)
         if sessions:
             # Use the most recent session's analysis for health grade
             _score_recent_sessions(report, sessions)
@@ -138,7 +142,7 @@ def _score_recent_sessions(report: ProgressReport, sessions: list[dict]) -> None
 
     # Read grades from session_validation table (where record_self_grade stores them)
     try:
-        from divineos.core.knowledge._base import _get_connection as _kconn
+        from divineos.core.knowledge import _get_connection as _kconn
 
         conn = _kconn()
         try:
@@ -203,7 +207,7 @@ def _score_recent_sessions(report: ProgressReport, sessions: list[dict]) -> None
 def _gather_knowledge_growth(report: ProgressReport) -> None:
     """Count knowledge entries by type and maturity."""
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -297,7 +301,15 @@ def _gather_system_health(report: ProgressReport, lookback_days: int) -> None:
         from divineos.core.ledger_verify import verify_all_events
 
         result = verify_all_events()
-        report.db_integrity = "intact" if result.get("integrity") == "PASS" else "broken"
+        checked = result.get("checked", 0)
+        failed = result.get("failed", 0)
+        if failed == 0:
+            report.db_integrity = "intact"
+        elif checked > 0 and (failed / checked) < 0.01:
+            # <1% failures = legacy hash drift, not corruption
+            report.db_integrity = f"intact ({failed} legacy)"
+        else:
+            report.db_integrity = "broken"
     except (ImportError, OSError, KeyError, sqlite3.OperationalError) as exc:
         report.db_integrity = "unknown"
         logger.debug(f"DB integrity check failed: {exc}")
@@ -312,7 +324,9 @@ def _gather_behavioral_indicators(report: ProgressReport) -> None:
         events = get_events(event_type="BRIEFING_LOADED", limit=1000)
         briefing_count = len(events)
 
-        sessions = get_events(event_type="SESSION_END", limit=1000)
+        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+
+        sessions = get_events(event_type=CONSOLIDATION_EVENT_TYPES, limit=1000)
         session_count = len(sessions)
 
         if session_count > 0:

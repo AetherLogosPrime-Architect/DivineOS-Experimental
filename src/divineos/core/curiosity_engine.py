@@ -235,7 +235,7 @@ def generate_curiosities_from_gaps(max_questions: int = 5) -> list[dict[str, Any
     existing_questions = {c.get("question", "") for c in get_open_curiosities()}
 
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
     except (ImportError, sqlite3.OperationalError):

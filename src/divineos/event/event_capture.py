@@ -1,7 +1,8 @@
 """Event Capture Infrastructure — Core data structures and validation for IDE events.
 
 This module provides:
-- Event type enums (USER_INPUT, TOOL_CALL, TOOL_RESULT, SESSION_END)
+- Event type enums (USER_INPUT, TOOL_CALL, TOOL_RESULT, CONSOLIDATION_CHECKPOINT,
+  SESSION_END for historical compat)
 - Payload schemas for each event type
 - Validation functions for event payloads
 - Event normalization and enrichment
@@ -18,14 +19,34 @@ from typing import Any
 
 
 class EventType(str, Enum):
-    """Supported event types for IDE integration."""
+    """Supported event types for IDE integration.
+
+    SESSION_END is retained for historical events (the ledger is append-only;
+    events written before the 2026-04-20 rename stay under that label).
+    CONSOLIDATION_CHECKPOINT is the current name for the same semantic event:
+    "run the learning pipeline, analyze, promote knowledge, reset counters."
+    See CONSOLIDATION_EVENT_TYPES below for the compat union that readers use.
+    """
 
     USER_INPUT = "USER_INPUT"
     TOOL_CALL = "TOOL_CALL"
     TOOL_RESULT = "TOOL_RESULT"
     EXPLANATION = "EXPLANATION"
-    SESSION_END = "SESSION_END"
+    SESSION_END = "SESSION_END"  # historical label; retained for old ledger rows
+    CONSOLIDATION_CHECKPOINT = "CONSOLIDATION_CHECKPOINT"
     CLARITY_VIOLATION = "CLARITY_VIOLATION"
+
+
+# Compat union — readers that want to find "any consolidation-style event"
+# should check this set, not a single literal. Contains both the historical
+# SESSION_END label and the current CONSOLIDATION_CHECKPOINT label.
+# Use: `if event.get("event_type") in CONSOLIDATION_EVENT_TYPES: ...`
+CONSOLIDATION_EVENT_TYPES = frozenset(
+    {
+        EventType.SESSION_END.value,
+        EventType.CONSOLIDATION_CHECKPOINT.value,
+    }
+)
 
 
 class EventValidationError(Exception):
@@ -244,7 +265,14 @@ class ExplanationPayload:
 
 @dataclass
 class SessionEndPayload:
-    """Payload schema for SESSION_END events."""
+    """Payload schema for SESSION_END and CONSOLIDATION_CHECKPOINT events.
+
+    The two event types share this schema: they carry the same semantic content
+    (a checkpoint summary of what the session did). Only the event_type label
+    differs — SESSION_END for historical rows, CONSOLIDATION_CHECKPOINT for new
+    writes after the 2026-04-20 rename. See ConsolidationCheckpointPayload
+    below — it's an alias to this class so callers can use the current name.
+    """
 
     session_id: str
     message_count: int
@@ -254,7 +282,7 @@ class SessionEndPayload:
     timestamp: str
 
     def validate(self) -> None:
-        """Validate SESSION_END payload."""
+        """Validate SESSION_END / CONSOLIDATION_CHECKPOINT payload."""
         if not isinstance(self.session_id, str):
             msg = "session_id must be a string"
             raise EventValidationError(msg)
@@ -302,6 +330,12 @@ class SessionEndPayload:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return asdict(self)
+
+
+# Current name for the same payload shape. Use this when writing new
+# CONSOLIDATION_CHECKPOINT events; SessionEndPayload remains for historical
+# SESSION_END reads. Both resolve to the same dataclass at runtime.
+ConsolidationCheckpointPayload = SessionEndPayload
 
 
 @dataclass
@@ -445,7 +479,7 @@ def validate_event_payload(event_type: EventType, payload: dict[str, Any]) -> No
         elif event_type == EventType.EXPLANATION:
             p = ExplanationPayload(**payload)
             p.validate()
-        elif event_type == EventType.SESSION_END:
+        elif event_type in (EventType.SESSION_END, EventType.CONSOLIDATION_CHECKPOINT):
             p = SessionEndPayload(**payload)
             p.validate()
         elif event_type == EventType.CLARITY_VIOLATION:
@@ -488,7 +522,7 @@ def normalize_event_payload(event_type: EventType, payload: dict[str, Any]) -> d
     if event_type == EventType.EXPLANATION:
         p = ExplanationPayload(**payload)
         return p.to_dict()
-    if event_type == EventType.SESSION_END:
+    if event_type in (EventType.SESSION_END, EventType.CONSOLIDATION_CHECKPOINT):
         p = SessionEndPayload(**payload)
         return p.to_dict()
     if event_type == EventType.CLARITY_VIOLATION:

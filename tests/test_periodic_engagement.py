@@ -56,8 +56,12 @@ class TestPeriodicEngagement:
             # Now engagement should be expired
             assert is_engaged() is False
 
-    def test_os_query_resets_counter(self, tmp_path: Path) -> None:
-        """Using an OS tool (mark_engaged) resets the code action counter."""
+    def test_light_engagement_decays_counter(self, tmp_path: Path) -> None:
+        """Light engagement (context, decide, feel) halves the counter.
+
+        A single quick OS query shouldn't buy unlimited code actions.
+        This prevents gaming the gate with minimal effort.
+        """
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
@@ -68,15 +72,37 @@ class TestPeriodicEngagement:
         ):
             mark_engaged()
 
-            # 7 code actions (just under threshold of 8)
-            for _ in range(_ENGAGEMENT_DECAY_THRESHOLD - 1):
+            # 10 code actions
+            for _ in range(10):
                 record_code_action()
-            assert is_engaged() is True
 
-            # Re-engage with OS — counter resets
+            # Light re-engage — counter halves (10 -> 5), not reset to 0
+            mark_engaged()
+            status = engagement_status()
+            assert status["code_actions_since"] == 5
+
+    def test_deep_engagement_resets_counter(self, tmp_path: Path) -> None:
+        """Deep engagement (ask, recall, briefing) fully resets the counter."""
+        with (
+            patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
+            patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
+            patch(
+                "divineos.core.hud_handoff._active_threshold",
+                return_value=_ENGAGEMENT_DECAY_THRESHOLD,
+            ),
+        ):
             mark_engaged()
 
-            # Now we have a fresh budget of 8 code actions
+            # 10 code actions
+            for _ in range(10):
+                record_code_action()
+
+            # Deep re-engage with a query → counter resets fully.
+            # Empty-query thinking is now treated as a shell (see
+            # core/engagement_relevance.py, prereg-637ea9a0d852). The
+            # ask must have content to zero the counter, otherwise it
+            # only halves.
+            mark_engaged(tool="ask", query="asking a real question about state")
             status = engagement_status()
             assert status["code_actions_since"] == 0
             assert status["remaining"] == _ENGAGEMENT_DECAY_THRESHOLD
@@ -280,9 +306,14 @@ class TestPreflightCompassIntegrity:
 class TestThresholdValue:
     """The threshold should be reasonable — not too tight, not too loose."""
 
-    def test_threshold_is_15(self) -> None:
-        """15 code actions before re-engagement is required."""
-        assert _ENGAGEMENT_DECAY_THRESHOLD == 15
+    def test_threshold_is_20(self) -> None:
+        """20 code actions before re-engagement is required.
+
+        Bumped from 15 on 2026-04-19 — 15 was too tight for PR-shaped
+        related-change batches. 20 gives a coherent PR-sized window
+        while flow-state detection still catches pure blast-coding.
+        """
+        assert _ENGAGEMENT_DECAY_THRESHOLD == 20
 
 
 class TestContextAwareThreshold:
@@ -315,12 +346,18 @@ class TestContextAwareThreshold:
             mock_run.return_value.returncode = 1
             assert _active_threshold() == _ENGAGEMENT_COMMIT_THRESHOLD
 
-    def test_commit_threshold_is_double_base(self) -> None:
-        """Commit threshold gives twice the room for mechanical work."""
+    def test_commit_threshold_higher_than_base(self) -> None:
+        """Commit threshold gives more room than base for mechanical work.
+
+        Previously locked to exactly 2x base (30 = 2 * 15). After base
+        was bumped to 20, commit stays at 30 — still meaningfully higher
+        (1.5x) without the artificial exact-2x relationship that wasn't
+        structurally load-bearing.
+        """
         from divineos.core.hud_handoff import _ENGAGEMENT_COMMIT_THRESHOLD
 
         assert _ENGAGEMENT_COMMIT_THRESHOLD == 30
-        assert _ENGAGEMENT_COMMIT_THRESHOLD == 2 * _ENGAGEMENT_DECAY_THRESHOLD
+        assert _ENGAGEMENT_COMMIT_THRESHOLD > _ENGAGEMENT_DECAY_THRESHOLD
 
     def test_is_engaged_uses_commit_threshold_during_staging(self, tmp_path: Path) -> None:
         """During commit flow, 20 actions should still be engaged."""

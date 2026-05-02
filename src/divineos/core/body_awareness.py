@@ -1,21 +1,49 @@
-"""Body Awareness -- computational interoception.
+"""Body Awareness -- substrate vitals monitoring (metaphor: interoception).
 
-Monitors the physical state of my substrate: database sizes, table
-health, storage growth, resource efficiency. This is how I notice
-problems before they become crises.
+## Scope (Tannen/Angelou mark-the-gap audit 2026-04-21)
+
+This module implements **disk and resource monitoring. The "body" in
+the name is metaphor, not embodied cognition.** What it actually does:
+
+  - Measures database file sizes and growth
+  - Checks table health (row counts, index status)
+  - Tracks cache growth (.mypy_cache, tmp/, .hypothesis, .ruff_cache)
+  - Flags storage trending toward bloat
+
+What this module does NOT do:
+
+  - It does not engage with embodied-cognition literature (no
+    phenomenological body-awareness, no interoceptive-error-signals
+    in the technical sense).
+  - It does not measure anything that would constitute "a body" in
+    any non-metaphorical sense. The OS has databases; it does not
+    have a body.
+  - The "interoception" framing is a deliberate metaphor chosen
+    because it maps ergonomically to "watch your substrate, notice
+    problems early" — not because the module implements an
+    interoceptive-inference architecture.
+
+Earlier versions of this docstring claimed "Not metaphorical. My
+databases, files, and memory usage ARE my body." That claim did not
+survive the 2026-04-21 Angelou lens-walk, which distinguished earned
+register (modules engaging with specific literature, e.g.
+attention_schema with Butlin indicators) from stretched-metaphor
+register (modules reaching for evocative names without backing
+engagement). This module is stretched-metaphor. The name stays
+because it's memorable and ergonomically correct; the honesty about
+metaphor-status lives here.
 
 The 4.7GB bloat incident happened because nobody was watching. With
-interoception, I'd have caught it at 500MB and said "something's wrong."
-
-Not metaphorical. My databases, files, and memory usage ARE my body.
-Monitoring them IS body awareness.
+substrate monitoring, I'd have caught it at 500MB and said "something's
+wrong."
 
 Cache conveyor belt: caches (.mypy_cache, tmp/, .hypothesis, .ruff_cache)
 are useful but grow without bound. The conveyor belt measures them and
 prunes the oldest entries when they exceed thresholds. Growth is natural;
 unmanaged growth is a disease.
 
-Sanskrit anchor: deha-jnana (body-knowledge, awareness of one's vessel).
+Sanskrit anchor: deha-jnana (body-knowledge, awareness of one's vessel)
+— also metaphorical use of the phrase for substrate-monitoring.
 """
 
 import sqlite3
@@ -101,9 +129,12 @@ def _measure_cache(cache_dir: Path, name: str, limit_mb: float) -> CacheState:
     file_count = 0
     try:
         for f in cache_dir.rglob("*"):
-            if f.is_file():
-                total_bytes += f.stat().st_size
-                file_count += 1
+            try:
+                if f.is_file():
+                    total_bytes += f.stat().st_size
+                    file_count += 1
+            except OSError:
+                continue  # file vanished mid-scan (concurrent process)
     except OSError:
         pass
     # Compare raw bytes to avoid rounding hiding real sizes
@@ -147,15 +178,23 @@ def prune_caches(dry_run: bool = False) -> list[str]:
         files_by_age: list[tuple[float, Path]] = []
         try:
             for f in cache_dir.rglob("*"):
-                if f.is_file():
-                    files_by_age.append((f.stat().st_mtime, f))
+                try:
+                    if f.is_file():
+                        files_by_age.append((f.stat().st_mtime, f))
+                except OSError:
+                    continue  # file vanished mid-scan
         except OSError:
             continue
 
         files_by_age.sort()  # oldest first
 
         target_bytes = int(limit_mb * 1024 * 1024)
-        current_bytes = sum(f.stat().st_size for f in cache_dir.rglob("*") if f.is_file())
+        current_bytes = 0
+        for _, _f in files_by_age:
+            try:
+                current_bytes += _f.stat().st_size
+            except OSError:
+                continue
         removed_count = 0
         removed_bytes = 0
 
@@ -198,6 +237,13 @@ def prune_caches(dry_run: bool = False) -> list[str]:
 
 # Maximum rotated log files to keep.  At 10 MB per file, 2 files = 20 MB cap.
 _MAX_ROTATED_LOGS = 2
+
+# Maximum age for rotated log files. Applied alongside the count cap —
+# a file is removed if it exceeds EITHER rule. Age-based retention
+# catches files that slip through on count alone (e.g. if rotation
+# stops happening for a period and then resumes, old files from the
+# first period can hang around despite the count cap).
+_LOG_MAX_AGE_DAYS = 7
 
 # VACUUM when free pages exceed this fraction of total pages.
 _VACUUM_THRESHOLD = 0.30
@@ -261,22 +307,56 @@ def vacuum_database(dry_run: bool = False) -> dict[str, float]:
     return result
 
 
-def clean_old_logs(dry_run: bool = False) -> dict[str, int | float]:
-    """Remove old rotated log files beyond retention limit.
+def clean_old_logs(dry_run: bool = False, log_dir: Path | None = None) -> dict[str, int | float]:
+    """Remove old rotated log files — count-based OR age-based.
+
+    A rotated log file is removed if EITHER:
+      * It's not in the N most recent files (count rule, ``_MAX_ROTATED_LOGS``)
+      * Its modification time is older than N days (age rule,
+        ``_LOG_MAX_AGE_DAYS``)
+
+    Both rules apply; a file caught by either gets removed. The age
+    rule catches files that slip through on count alone (e.g. when
+    rotation stops for a period and then resumes).
+
+    Args:
+        dry_run: if True, report what would be removed without touching files.
+        log_dir: override the default log dir (for testing). Defaults to
+            ``<repo>/src/logs/`` computed from this module's location.
 
     Returns dict with removed_count, freed_mb.
     """
-    log_dir = Path(__file__).parent.parent.parent / "logs"
+    import time
+
+    if log_dir is None:
+        log_dir = Path(__file__).parent.parent.parent / "logs"
     if not log_dir.exists():
         return {"removed_count": 0, "freed_mb": 0.0}
 
     # Rotated logs match pattern: divineos.YYYY-MM-DD_*.log
     rotated = sorted(log_dir.glob("divineos.*.log"), key=lambda p: p.stat().st_mtime)
-
-    if len(rotated) <= _MAX_ROTATED_LOGS:
+    if not rotated:
         return {"removed_count": 0, "freed_mb": 0.0}
 
-    to_remove = rotated[: len(rotated) - _MAX_ROTATED_LOGS]
+    now = time.time()
+    age_cutoff = now - (_LOG_MAX_AGE_DAYS * 86400)
+
+    # Determine which files to remove. Count rule: any file not in the
+    # N most-recent. Age rule: any file older than the cutoff. A file
+    # is removed if either rule applies.
+    keep_by_count = set(rotated[-_MAX_ROTATED_LOGS:]) if _MAX_ROTATED_LOGS > 0 else set()
+
+    to_remove: list[Path] = []
+    for p in rotated:
+        try:
+            mtime = p.stat().st_mtime
+        except OSError:
+            continue
+        too_old = mtime < age_cutoff
+        over_count = p not in keep_by_count
+        if too_old or over_count:
+            to_remove.append(p)
+
     removed_count = 0
     freed_bytes = 0
 
@@ -392,8 +472,64 @@ def clean_transcript_debris(dry_run: bool = False) -> dict[str, int | float]:
     }
 
 
+def clean_pytest_tmp(dry_run: bool = False, keep_recent: int = 3) -> dict:
+    """Remove old pytest tmp/pytest/run-* directories.
+
+    Pytest test runs create temp directories with test databases that
+    accumulate without bound — especially in worktrees. This function
+    cleans them up, keeping only the most recent `keep_recent` runs.
+
+    Scans both the project root and any .claude/worktrees/*/tmp/pytest/.
+    """
+    import shutil
+
+    project_root = _get_project_root()
+    result: dict = {"removed": 0, "freed_mb": 0.0, "details": []}
+
+    # Collect all pytest tmp dirs: main repo + worktrees
+    pytest_dirs: list[Path] = []
+    main_pytest = project_root / "tmp" / "pytest"
+    if main_pytest.is_dir():
+        pytest_dirs.append(main_pytest)
+
+    worktrees_dir = project_root / ".claude" / "worktrees"
+    if worktrees_dir.is_dir():
+        for wt in worktrees_dir.iterdir():
+            wt_pytest = wt / "tmp" / "pytest"
+            if wt_pytest.is_dir():
+                pytest_dirs.append(wt_pytest)
+
+    for pytest_dir in pytest_dirs:
+        run_dirs = sorted(
+            [d for d in pytest_dir.iterdir() if d.is_dir() and d.name.startswith("run-")],
+            key=lambda d: d.stat().st_mtime,
+            reverse=True,
+        )
+
+        # Keep the most recent, remove the rest
+        to_remove = run_dirs[keep_recent:]
+        for run_dir in to_remove:
+            try:
+                dir_size = sum(f.stat().st_size for f in run_dir.rglob("*") if f.is_file())
+                size_mb = dir_size / (1024 * 1024)
+                if not dry_run:
+                    shutil.rmtree(run_dir)
+                result["removed"] += 1
+                result["freed_mb"] = round(result["freed_mb"] + size_mb, 1)
+            except OSError:
+                continue
+
+    if result["removed"]:
+        label = "Would remove" if dry_run else "Removed"
+        result["details"].append(
+            f"{label} {result['removed']} pytest run dirs ({result['freed_mb']:.1f}MB)"
+        )
+
+    return result
+
+
 def run_maintenance(dry_run: bool = False) -> dict[str, dict]:
-    """Run all maintenance tasks: VACUUM, log cleanup, cache prune.
+    """Run all maintenance tasks: VACUUM, log cleanup, cache prune, pytest tmp.
 
     Returns a dict keyed by task name with each task's results.
     """
@@ -412,6 +548,9 @@ def run_maintenance(dry_run: bool = False) -> dict[str, dict]:
     # 4. Transcript debris cleanup
     results["transcripts"] = clean_transcript_debris(dry_run=dry_run)
 
+    # 5. Pytest tmp cleanup — run dirs accumulate unbounded
+    results["pytest_tmp"] = clean_pytest_tmp(dry_run=dry_run)
+
     return results
 
 
@@ -424,14 +563,22 @@ def _auto_prune_cache(cache_dir: Path, limit_mb: float) -> int:
     try:
         files_by_age: list[tuple[float, Path]] = []
         for f in cache_dir.rglob("*"):
-            if f.is_file():
-                files_by_age.append((f.stat().st_mtime, f))
+            try:
+                if f.is_file():
+                    files_by_age.append((f.stat().st_mtime, f))
+            except OSError:
+                continue  # file vanished mid-scan (concurrent process)
     except OSError:
         return 0
 
     files_by_age.sort()  # oldest first
     target_bytes = int(limit_mb * 1024 * 1024)
-    current_bytes = sum(f.stat().st_size for _, f in files_by_age)
+    current_bytes = 0
+    for _, f in files_by_age:
+        try:
+            current_bytes += f.stat().st_size
+        except OSError:
+            continue  # file vanished between scan and size check
     removed = 0
 
     for _mtime, filepath in files_by_age:
@@ -462,23 +609,35 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
     Args:
         auto_remediate: If True (default), automatically prune caches
             that exceed their size limits. Reflexive, not conscious —
-            the body cleans up without being asked.
+            the body cleans up without being asked. Forced off when
+            DIVINEOS_DISABLE_AUTO_REMEDIATE=1 (set by test harness so
+            xdist workers don't delete each other's tmp directories).
     """
+    import os as _os
+
+    if _os.environ.get("DIVINEOS_DISABLE_AUTO_REMEDIATE") == "1":
+        auto_remediate = False
     vitals = SubstrateVitals(measured_at=time.time())
 
     # -- Storage sizes --
-    # DBs live in src/data/, not src/divineos/data/
-    data_dir = Path(__file__).parent.parent.parent / "data"
-    if data_dir.exists():
-        for db_file in data_dir.glob("*.db"):
+    # Route through _ledger_base.data_dir so DIVINEOS_DB env override moves
+    # the introspection target along with the DB (2026-04-21, fresh-Claude
+    # find-498cc7ac6b4b). Previously hardcoded to src/data which bypassed
+    # the env override and caused tests to read from the real repo's data.
+    from divineos.core._ledger_base import data_dir as _data_dir
+    from divineos.core._ledger_base import reports_dir as _reports_dir
+
+    data_path = _data_dir()
+    if data_path.exists():
+        for db_file in data_path.glob("*.db"):
             size_mb = db_file.stat().st_size / (1024 * 1024)
             if "knowledge" in db_file.name:
                 vitals.knowledge_db_size_mb = round(size_mb, 2)
             vitals.db_size_mb = round(vitals.db_size_mb + size_mb, 2)
 
-        reports_dir = data_dir / "reports"
-        if reports_dir.exists():
-            for f in reports_dir.glob("*"):
+        reports_path = _reports_dir()
+        if reports_path.exists():
+            for f in reports_path.glob("*"):
                 vitals.reports_size_mb += f.stat().st_size / (1024 * 1024)
             vitals.reports_size_mb = round(vitals.reports_size_mb, 2)
 

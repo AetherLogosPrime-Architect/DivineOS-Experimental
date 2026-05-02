@@ -1,10 +1,11 @@
 """Event Emission Module — Functions to emit events to the ledger.
 
-This module provides functions to emit the four event types:
+This module provides functions to emit the core event types:
 - emit_user_input() — Emit USER_INPUT events
 - emit_tool_call() — Emit TOOL_CALL events
 - emit_tool_result() — Emit TOOL_RESULT events
-- emit_session_end() — Emit SESSION_END events
+- emit_consolidation_checkpoint() — Emit CONSOLIDATION_CHECKPOINT events
+  (the event formerly named SESSION_END; see ca2116d5 for the rename principle)
 
 All events are validated, stored in the ledger with SHA256 hashes,
 and include timestamps and session IDs.
@@ -259,60 +260,39 @@ def emit_tool_result(
         raise
 
 
-def emit_session_end(
+def emit_consolidation_checkpoint(
     session_id: str | None = None,
     message_count: int | None = None,
     tool_call_count: int | None = None,
     tool_result_count: int | None = None,
     duration_seconds: float | None = None,
 ) -> str:
-    """Emit a SESSION_END event to the ledger.
+    """Emit a CONSOLIDATION_CHECKPOINT event to the ledger.
 
-    Args:
-        session_id: Optional session ID (uses current session if not provided)
-        message_count: Optional count of USER_INPUT events (queries ledger if not provided)
-        tool_call_count: Optional count of TOOL_CALL events (queries ledger if not provided)
-        tool_result_count: Optional count of TOOL_RESULT events (queries ledger if not provided)
-        duration_seconds: Optional session duration in seconds (calculates if not provided)
+    This is the current name for the event formerly emitted via
+    emit_session_end(). The payload schema is identical; only the event_type
+    label differs. See the rename principle (ca2116d5) and EventType in
+    event_capture.py for the SESSION_END -> CONSOLIDATION_CHECKPOINT context.
 
-    Returns:
-        event_id: The ID of the stored event
-
-    Raises:
-        EventValidationError: If payload validation fails
-
+    Args: same as emit_session_end. Returns: event_id.
+    Raises: EventValidationError if payload validation fails.
     """
     try:
         session_id = get_or_create_session_id(session_id)
         timestamp = get_current_timestamp()
 
-        # Query ledger for event counts if not provided
         if message_count is None or tool_call_count is None or tool_result_count is None:
             events = get_events(limit=10000, event_type=None)
-            logger.debug(f"[DEBUG] Total events in ledger: {len(events)}")
-            logger.debug(f"[DEBUG] Looking for session_id: {session_id}")
-
             session_events = [
                 e for e in events if e.get("payload", {}).get("session_id") == session_id
             ]
-            logger.debug(f"[DEBUG] Events matching session_id: {len(session_events)}")
-
-            # FALLBACK: If no events found for this session_id, use the most recent events' session_id
-            # This handles the case where session_id lookup got a stale or wrong session_id
             if not session_events and events:
-                logger.debug(
-                    f"[DEBUG] No events found for session_id {session_id}, using most recent events' session_id",
-                )
                 most_recent_session_id = events[0].get("payload", {}).get("session_id")
                 if most_recent_session_id:
                     session_id = most_recent_session_id
                     session_events = [
                         e for e in events if e.get("payload", {}).get("session_id") == session_id
                     ]
-                    logger.debug(
-                        f"[DEBUG] Found {len(session_events)} events for fallback session_id: {session_id}",
-                    )
-
             if message_count is None:
                 message_count = sum(1 for e in session_events if e["event_type"] == "USER_INPUT")
             if tool_call_count is None:
@@ -324,7 +304,6 @@ def emit_session_end(
 
         if duration_seconds is None:
             duration_seconds = get_session_duration()
-            logger.debug(f"[DEBUG] Using session manager duration: {duration_seconds}s")
 
         payload = {
             "session_id": session_id,
@@ -335,23 +314,23 @@ def emit_session_end(
             "timestamp": timestamp,
         }
 
-        validate_event_payload(EventType.SESSION_END, payload)
-        normalized_payload = normalize_event_payload(EventType.SESSION_END, payload)
+        validate_event_payload(EventType.CONSOLIDATION_CHECKPOINT, payload)
+        normalized_payload = normalize_event_payload(EventType.CONSOLIDATION_CHECKPOINT, payload)
         event_id = log_event(
-            event_type=EventType.SESSION_END.value,
+            event_type=EventType.CONSOLIDATION_CHECKPOINT.value,
             actor="system",
             payload=normalized_payload,
             validate=True,
         )
 
-        logger.debug(f"Emitted SESSION_END event: {event_id} for session {session_id}")
+        logger.debug(f"Emitted CONSOLIDATION_CHECKPOINT event: {event_id} for session {session_id}")
         return event_id
 
     except EventValidationError as e:
-        logger.error(f"Failed to emit SESSION_END event: {e}")
+        logger.error(f"Failed to emit CONSOLIDATION_CHECKPOINT event: {e}")
         raise
     except _EE_ERRORS as e:
-        logger.error(f"Unexpected error emitting SESSION_END event: {e}")
+        logger.error(f"Unexpected error emitting CONSOLIDATION_CHECKPOINT event: {e}")
         raise
 
 

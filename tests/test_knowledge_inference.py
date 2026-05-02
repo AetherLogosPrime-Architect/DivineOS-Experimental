@@ -2,7 +2,7 @@
 
 import time
 
-from divineos.core.knowledge._base import init_knowledge_table
+from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.crud import store_knowledge
 from divineos.core.knowledge.edges import init_edge_table
 from divineos.core.knowledge.inference import (
@@ -33,7 +33,7 @@ class TestInferBoundariesFromMistakes:
         created = infer_boundaries_from_mistakes(min_occurrences=3)
         assert len(created) >= 1
 
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         row = conn.execute(
@@ -115,7 +115,7 @@ class TestPromoteConfirmedPatterns:
 
     def test_confirmed_pattern_becomes_principle(self):
         _setup()
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         kid = store_knowledge(
             knowledge_type="PATTERN",
@@ -155,7 +155,7 @@ class TestPromoteConfirmedPatterns:
 
     def test_existing_principle_prevents_duplicate(self):
         _setup()
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         store_knowledge(
             knowledge_type="PRINCIPLE",
@@ -185,7 +185,7 @@ class TestSynthesizeLessonInsights:
 
     def test_category_cluster_produces_insight(self):
         _setup()
-        from divineos.core.knowledge._base import _get_connection, compute_hash
+        from divineos.core.knowledge import _get_connection, compute_hash
 
         conn = _get_connection()
         # lesson_tracking created by init_knowledge_table() in _setup()
@@ -250,7 +250,7 @@ class TestSourceTagging:
 
     def test_store_knowledge_accepts_synthesized(self):
         _setup()
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         kid = store_knowledge(
             knowledge_type="OBSERVATION",

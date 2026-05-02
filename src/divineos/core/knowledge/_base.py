@@ -34,6 +34,15 @@ KNOWLEDGE_SOURCES = {"STATED", "CORRECTED", "DEMONSTRATED", "SYNTHESIZED", "INHE
 
 KNOWLEDGE_MATURITY = {"RAW", "HYPOTHESIS", "TESTED", "CONFIRMED", "REVISED"}
 
+# Memory-kind diagnostic dimension — orthogonal to knowledge_type.
+# Tiebreak rule: the SHAPE of the claim decides, not the subject matter.
+#   "never commit without tests" is SEMANTIC (rule-shape) even though it
+#   describes a procedure. "to commit: stage, test, then push" is PROCEDURAL.
+# UNCLASSIFIED is first-class (Ashby's Law / variety deficit): the three
+# kinds cannot represent every state, so the fourth bucket is where entries
+# that don't cleanly fit go. Default for backfill and classifier-uncertain.
+MEMORY_KINDS = {"EPISODIC", "SEMANTIC", "PROCEDURAL", "UNCLASSIFIED"}
+
 
 # Single source of truth for knowledge column names.
 # Add a column here + add the ALTER TABLE migration = done.
@@ -60,6 +69,7 @@ _KNOWLEDGE_COL_NAMES: list[str] = [
     "source_entity",
     "related_to",
     "corroboration_sources",
+    "memory_kind",
 ]
 
 _KNOWLEDGE_COLS = ", ".join(_KNOWLEDGE_COL_NAMES)
@@ -83,6 +93,7 @@ _KNOWLEDGE_DEFAULTS: dict[str, Any] = {
     "source_entity": None,
     "related_to": None,
     "corroboration_sources": [],
+    "memory_kind": "UNCLASSIFIED",
 }
 
 
@@ -202,6 +213,15 @@ def init_knowledge_table() -> None:
         except sqlite3.OperationalError as e:
             logger.debug(f"Column layer already exists in knowledge table: {e}")
 
+        # Memory-kind column (orthogonal diagnostic dimension).
+        # Defaults UNCLASSIFIED so backfill doesn't guess.
+        try:
+            conn.execute(
+                "ALTER TABLE knowledge ADD COLUMN memory_kind TEXT NOT NULL DEFAULT 'UNCLASSIFIED'",
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug(f"Column memory_kind already exists in knowledge table: {e}")
+
         # Provenance columns (cross-entity attribution and manual linking)
         for col, col_type, default in [
             ("source_entity", "TEXT", "NULL"),
@@ -314,6 +334,7 @@ _LESSON_JSON_COLS = frozenset({"sessions"})
 _LESSON_DEFAULTS: dict[str, Any] = {
     "agent": "unknown",
     "regressions": 0,
+    "positive_evidence_sessions": {},
 }
 
 
@@ -331,9 +352,22 @@ def _lesson_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
             d[name] = val
         else:
             d[name] = _LESSON_DEFAULTS.get(name)
-    # regressions may be at the end if the column exists
-    if len(row) > len(_LESSON_COL_NAMES):
-        d["regressions"] = row[len(_LESSON_COL_NAMES)]
-    elif "regressions" not in d:
-        d["regressions"] = 0
+
+    # Extra columns appended over time (regressions, positive_evidence_sessions)
+    # are optionally present depending on the caller's SELECT list. Callers
+    # must append them in this canonical order so positional decoding stays
+    # stable regardless of schema age.
+    base_len = len(_LESSON_COL_NAMES)
+    d["regressions"] = row[base_len] if len(row) > base_len else 0
+
+    pos_idx = base_len + 1
+    if len(row) > pos_idx:
+        raw = row[pos_idx]
+        try:
+            d["positive_evidence_sessions"] = json.loads(raw) if raw else {}
+        except (json.JSONDecodeError, TypeError):
+            d["positive_evidence_sessions"] = {}
+    else:
+        d["positive_evidence_sessions"] = {}
+
     return d

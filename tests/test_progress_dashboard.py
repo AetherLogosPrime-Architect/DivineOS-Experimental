@@ -185,7 +185,7 @@ class TestGatherProgress:
 
     def test_gather_with_lessons(self) -> None:
         """After storing lessons, lesson counts reflect them."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.lessons import record_lesson
 
         init_knowledge_table()
@@ -199,7 +199,10 @@ class TestGatherProgress:
         """DB integrity check runs without error."""
         report = gather_progress()
         # On empty/fresh DB, integrity should be intact or unknown
-        assert report.db_integrity in ("intact", "broken", "unknown")
+        assert report.db_integrity.startswith("intact") or report.db_integrity in (
+            "broken",
+            "unknown",
+        )
 
     def test_gather_knowledge_maturity(self) -> None:
         """Maturity distribution is captured."""

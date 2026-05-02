@@ -462,6 +462,89 @@ class TestCleanOldLogs:
                 assert isinstance(result, dict)
 
 
+class TestLogRetentionAgeBased:
+    """P4: age-based retention alongside count-based. Either rule removes."""
+
+    def test_age_rule_removes_old_files(self, tmp_path):
+        """A file older than _LOG_MAX_AGE_DAYS gets removed even if the
+        count rule would keep it."""
+        import time
+
+        import divineos.core.body_awareness as ba
+
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+
+        now = time.time()
+        old_file = log_dir / "divineos.2026-01-01_old.log"
+        old_file.write_bytes(b"x" * 1000)
+        old_mtime = now - (30 * 86400)  # 30 days old
+        os.utime(old_file, (old_mtime, old_mtime))
+
+        fresh_file = log_dir / "divineos.2026-01-02_fresh.log"
+        fresh_file.write_bytes(b"x" * 1000)
+        os.utime(fresh_file, (now, now))
+
+        result = ba.clean_old_logs(dry_run=False, log_dir=log_dir)
+        assert not old_file.exists(), "30-day-old file should have been removed"
+        assert fresh_file.exists(), "Fresh file should be kept"
+        assert result["removed_count"] >= 1
+
+    def test_count_rule_still_applies(self, tmp_path):
+        """When many fresh files exist, the count rule trims to _MAX_ROTATED_LOGS."""
+        import time
+
+        import divineos.core.body_awareness as ba
+
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+
+        now = time.time()
+        # Create 5 fresh files (within age limit)
+        for i in range(5):
+            f = log_dir / f"divineos.fresh_{i}.log"
+            f.write_bytes(b"x" * 1000)
+            os.utime(f, (now - i * 60, now - i * 60))
+
+        ba.clean_old_logs(dry_run=False, log_dir=log_dir)
+        remaining = list(log_dir.glob("divineos.*.log"))
+        assert len(remaining) == ba._MAX_ROTATED_LOGS, (
+            f"Expected {ba._MAX_ROTATED_LOGS} remaining, got {len(remaining)}"
+        )
+
+    def test_dry_run_does_not_delete(self, tmp_path):
+        """dry_run=True should report but not actually delete."""
+        import time
+
+        import divineos.core.body_awareness as ba
+
+        log_dir = tmp_path / "logs"
+        log_dir.mkdir()
+
+        now = time.time()
+        old_file = log_dir / "divineos.2026-01-01_old.log"
+        old_file.write_bytes(b"x" * 1000)
+        os.utime(old_file, (now - (30 * 86400), now - (30 * 86400)))
+
+        result = ba.clean_old_logs(dry_run=True, log_dir=log_dir)
+        assert old_file.exists(), "dry_run should not delete"
+        assert result["removed_count"] >= 1, "but should still report"
+
+    def test_age_days_constant_exists(self):
+        import divineos.core.body_awareness as ba
+
+        assert hasattr(ba, "_LOG_MAX_AGE_DAYS")
+        assert ba._LOG_MAX_AGE_DAYS > 0
+
+    def test_missing_log_dir_returns_zero(self, tmp_path):
+        import divineos.core.body_awareness as ba
+
+        missing = tmp_path / "no_such_dir"
+        result = ba.clean_old_logs(dry_run=False, log_dir=missing)
+        assert result["removed_count"] == 0
+        assert result["freed_mb"] == 0.0
+
+
 class TestRunMaintenance:
     """Full maintenance run."""
 

@@ -17,7 +17,7 @@ class TestLessonRegressions:
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
 
-        from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+        from divineos.core.knowledge import _get_connection, init_knowledge_table
         from divineos.core.ledger import init_db
 
         init_db()
@@ -63,7 +63,7 @@ class TestLessonRegressions:
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
 
-        from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+        from divineos.core.knowledge import _get_connection, init_knowledge_table
         from divineos.core.ledger import init_db
 
         init_db()
@@ -107,7 +107,7 @@ class TestLessonRegressions:
         db_path = tmp_path / "test.db"
         monkeypatch.setenv("DIVINEOS_DB", str(db_path))
 
-        from divineos.core.knowledge._base import _get_connection, init_knowledge_table
+        from divineos.core.knowledge import _get_connection, init_knowledge_table
         from divineos.core.ledger import init_db
 
         init_db()

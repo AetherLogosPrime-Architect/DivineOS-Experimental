@@ -33,7 +33,7 @@ import json
 from pathlib import Path
 p = Path.home() / '.divineos' / 'hud' / 'handoff_note.json'
 if p.exists():
-    d = json.loads(p.read_text())
+    d = json.loads(p.read_text(encoding='utf-8'))
     print('Last session: ' + d.get('summary', 'unknown'))
     if d.get('open_threads'):
         print('Open threads:')

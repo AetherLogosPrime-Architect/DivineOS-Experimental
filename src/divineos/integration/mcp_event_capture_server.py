@@ -1,5 +1,11 @@
 """MCP Event Capture Server - Automatic tool event emission.
 
+# AGENT_RUNTIME — Not wired into CLI pipeline. Runs as a standalone
+# MCP server that an AI IDE (Claude Code, Cursor, etc.) connects to.
+# Intentionally not Python-imported from any CLI module: the MCP
+# protocol IS the integration surface. Launched via the IDE's MCP
+# config, not via `divineos <command>`.
+
 This MCP server provides tools that an AI IDE can use to automatically
 emit TOOL_CALL and TOOL_RESULT events when tools are executed.
 

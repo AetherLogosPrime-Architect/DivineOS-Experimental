@@ -6,7 +6,7 @@ Training exercises for stress-testing DivineOS across different cognitive modes.
 
 **Files:** `task_queue.py`, `test_task_queue.py`
 
-A priority-based task queue with intentional bugs, given to Aether with no context.
+A priority-based task queue with intentional bugs, given to the agent with no context.
 Four real bugs found and fixed, one false diagnosis caught and reverted.
 
 - `hashlib.md5()` missing `.encode()` on string input

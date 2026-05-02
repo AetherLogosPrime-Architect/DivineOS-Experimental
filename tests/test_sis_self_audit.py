@@ -106,6 +106,18 @@ class TestAuditOnRealCodebase:
         assert isinstance(summary["clean"], bool)
         assert isinstance(summary["avg_integrity"], float)
 
+    def test_summary_distinguishes_substance_from_register(self):
+        """Two-axis summary (claim 6b6f4e5a): clean iff no SUBSTANCE flags.
+        Register flags don't make the codebase 'unclean.'"""
+        summary = audit_summary()
+        assert "substance_flagged_count" in summary
+        assert "register_flagged_count" in summary
+        # Clean signal tracks substance only — register flags are
+        # informational and shouldn't pull clean=False.
+        assert summary["clean"] == (summary["substance_flagged_count"] == 0)
+        # Backward-compat: flagged_count aliases substance_flagged_count
+        assert summary["flagged_count"] == summary["substance_flagged_count"]
+
 
 class TestFormatting:
     """Output formatting."""
@@ -123,9 +135,12 @@ class TestFormatting:
         ]
         output = format_audit_results(results)
         assert "1 modules" in output or "Scanned 1" in output
-        assert "0 flagged" in output
+        assert "Substance flags: 0" in output
+        assert "Register flags: 0" in output
 
     def test_format_flagged_results(self):
+        # Two-axis (claim 6b6f4e5a): substance_flagged for QUARANTINE,
+        # register_flagged for TRANSLATE. Test both surface differently.
         results = [
             DocstringAuditResult(
                 module_path="core/quantum.py",
@@ -135,8 +150,29 @@ class TestFormatting:
                 verdict="QUARANTINE",
                 terms_found=["consciousness", "quantum"],
                 flagged=True,
+                substance_flagged=True,
             )
         ]
         output = format_audit_results(results)
-        assert "FLAGGED" in output
+        assert "SUBSTANCE FLAGS" in output
         assert "quantum.py" in output
+
+    def test_format_register_flagged_separately(self):
+        """Register flags surface as informational, not as substance flags."""
+        results = [
+            DocstringAuditResult(
+                module_path="core/council/experts/kahneman.py",
+                docstring="Kahneman Deep Wisdom...",
+                esoteric_density=0.06,
+                integrity_score=0.78,
+                verdict="TRANSLATE",
+                terms_found=["wisdom", "intuition"],
+                flagged=False,
+                register_flagged=True,
+            )
+        ]
+        output = format_audit_results(results)
+        assert "REGISTER FLAGS" in output
+        assert "kahneman.py" in output
+        # Should NOT appear under SUBSTANCE FLAGS — that's the whole point.
+        assert "SUBSTANCE FLAGS" not in output

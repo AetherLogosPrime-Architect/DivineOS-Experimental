@@ -21,7 +21,7 @@ import re
 import sqlite3
 from typing import Any
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 from divineos.core.ledger import get_events
 
 _DRIFT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
@@ -114,7 +114,9 @@ def _get_session_payloads(limit: int = 10) -> list[str]:
     Tries the ledger (system_events) first, falls back gracefully.
     """
     try:
-        events = get_events(limit=limit, event_type="SESSION_END")
+        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+
+        events = get_events(limit=limit, event_type=CONSOLIDATION_EVENT_TYPES)
         # Reverse to get newest first
         events.reverse()
         payloads: list[str] = []
