@@ -487,15 +487,22 @@ def _phase_recombination(report: DreamReport) -> None:
     # is supposed to surface TIMELESS knowledge-claim connections.
     def _excluded_from_recombination(entry: dict[str, Any]) -> bool:
         tags = entry.get("tags", []) or []
-        # Session-specific (tone-shift, session-tagged)
-        if any(isinstance(t, str) and t.startswith("session-") for t in tags):
-            return True
+        # Session-specific CONTENT only — NOT all session-tagged entries.
+        # Almost every new entry has a `session-{short_id}` provenance tag;
+        # filtering by that excludes everything new from recombination, which
+        # was the bug Andrew caught 2026-05-01. Only the content-class tags
+        # (tone_shift, tone_recovery) mark genuinely session-particular
+        # content that shouldn't recombine; the bare `session-*` tag is just
+        # provenance, not a content-class signal.
         if any(isinstance(t, str) and t in {"tone_shift", "tone_recovery"} for t in tags):
             return True
         # Reference-only (code/file digests, file inventories)
         if any(isinstance(t, str) and t in {"reference_only", "digest"} for t in tags):
             return True
-        # Content-pattern fallback for entries that lost their tags
+        # Content-pattern fallback for entries that have a (session abc12345)
+        # suffix in their content body (the tone-shift entries with verbatim
+        # user text that lost their tags somehow). This catches the actual
+        # session-specific-CONTENT shape regardless of tagging.
         content = entry.get("content") or ""
         if _SESSION_SUFFIX_PATTERN.search(content.lower()):
             return True
