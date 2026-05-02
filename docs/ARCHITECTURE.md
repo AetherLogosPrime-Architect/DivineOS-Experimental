@@ -39,7 +39,6 @@ src/divineos/
     audit_commands.py          external validation (Watchmen)
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
-    mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
     rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
@@ -94,46 +93,6 @@ src/divineos/
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
       inference.py             Knowledge inference engine — boundaries from mistakes, pattern promotion
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
-    council/                   Expert council sub-package
-      engine.py                CouncilEngine — analyze problems through expert lenses
-      framework.py             ExpertWisdom dataclasses (7 components)
-      manager.py               Dynamic council manager (classify → select 5-8 experts)
-      consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
-      lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 32 expert wisdom profiles
-        __init__.py            Expert registration and exports
-        angelou.py             Voice, expressive truth, discipline of warmth
-        aristotle.py           Virtue ethics, teleology, classification
-        beer.py                Cybernetics, viable system model
-        dekker.py              Resilience engineering, drift into failure
-        deming.py              Quality, variation, PDSA cycle
-        dennett.py             Philosophy of mind, intentional stance
-        dijkstra.py            Formal methods, correctness, structured programming
-        feynman.py             First principles, clarity, epistemology
-        godel.py               Incompleteness, self-reference, formal limits
-        bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
-        hinton.py              Learning, representation, intellectual honesty
-        hofstadter.py          Self-reference, analogy, strange loops
-        holmes.py              Deduction, observation, elimination (fictional)
-        jacobs.py              Emergence, bottom-up observation, diversity
-        kahneman.py            Cognitive bias, dual process, judgment
-        knuth.py               Boundary analysis, specification compliance
-        lovelace.py            Emergence, generality, abstraction
-        meadows.py             Systems thinking, feedback loops, leverage
-        minsky.py              Cognitive architecture, society of mind
-        norman.py              Human-centered design, usability, affordances
-        pearl.py               Causality, causal models, do-calculus
-        peirce.py              Abduction, pragmatism, inquiry
-        polya.py               Problem solving, solution verification
-        popper.py              Falsification, adversarial testing
-        schneier.py            Security, threat modeling, defense in depth
-        shannon.py             Information theory, entropy, communication
-        taleb.py               Antifragility, risk, via negativa
-        tannen.py              Sociolinguistics, register, framing, conversational style
-        turing.py              Computation, testability, operational definition
-        watts.py               Self-reference, introspection paradoxes, non-aiming
-        wittgenstein.py        Language games, meaning as use, dissolution
-        yudkowsky.py           Alignment, Goodhart, specification gaming
     logic/                     Formal logic sub-package
       warrants.py              Evidence backing for knowledge claims
       logic_validation.py      Consistency, validity gate, defeat lessons
@@ -254,7 +213,6 @@ src/divineos/
     hedge_classifier.py        Hedge classifier — matches a hedge to its resolved/legitimate-narrow/unexamined status from a library.
     session_briefing_gate.py   Per-session BRIEFING_LOADED check — gate 0 in pre_tool_use, strictly tighter than TTL-based gate 1.
     compass_required_marker.py Virtue-relevant event marker — set on cascade from correction/theater/hedge, cleared by compass-ops observe (gate 1.47).
-    mansion_quiet_marker.py    Mansion private-room substrate-enforced quiet — write actions denied during quiet period (gate 1.2).
     canonical_substrate_surface.py  Briefing pointer at canonical agent substrate location — closes silent-split failure mode.
     historical_ledger_surface.py    Briefing pointer at parent-repo event ledger when running in a worktree — closes silent-empty-ledger failure mode 2026-04-26.
     scaffolding_map.py         Scaffolding map — briefing surface for self-authored documents that carry load-bearing state.
@@ -269,7 +227,6 @@ src/divineos/
     module_inventory.py        Module-inventory surface — bridge from src/divineos/core/ to the briefing.
     upstream_freshness.py      Upstream-freshness surface — bridge from remote-state to the briefing.
     open_claims_surface.py     Stale-open-claims surface — bridge from the claims store to the briefing.
-    council_balance_surface.py Council invocation-balance surface — surfaces most/never-invoked experts in the briefing.
     goal_outcome_surface.py    Action-loop closure briefing surface — surfaces goals that aged out without progression (claim 5b38a31c).
     voice_guard/
       __init__.py              Voice-guard package — pre-output audit primitives (claim 07bed376).

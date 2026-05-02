@@ -131,23 +131,18 @@ def route_for_approval(
 
 
 def _default_convene(claim_content: str) -> object:
-    """Lazy-load the real council. Import here so routing.py has no
-    upfront dependency on the council package — keeps the routing
-    module importable even when the council fixtures aren't available
-    (e.g., minimal test environments).
-
-    Constructs a CouncilEngine and registers default experts before
-    handing it to CouncilManager; this mirrors the public usage
-    pattern in the council package's own examples.
+    """Council fixture removed for Lite — full DivineOS provides the real
+    convene() implementation. In Lite the empirica routing degrades to
+    no-op approval (callers should pass an explicit ``convene_fn`` if
+    they want real review).
     """
-    from divineos.core.council.engine import CouncilEngine
-    from divineos.core.council.manager import CouncilManager
+    _ = claim_content
 
-    engine = CouncilEngine()
-    # Let CouncilManager pick up whatever experts its own registry
-    # knows about — the wrapper does not override expert selection.
-    manager = CouncilManager(engine=engine)
-    return manager.convene(claim_content)
+    class _NullConvocation:
+        approved = True
+        rationale = "lite: council not available; auto-approved"
+
+    return _NullConvocation()
 
 
 __all__ = [

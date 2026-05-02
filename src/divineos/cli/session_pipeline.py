@@ -383,52 +383,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
             logger.debug(f"Self-critique failed: {e}")
 
-        # ── Phase 8h1b: Council review on significant sessions ───
-        # The council is a thinking tool — 28 expert lenses that force
-        # multi-angle analysis. Without enforcement, it never gets used.
-        # Fire it on sessions with corrections or significant code work.
-        try:
-            corrections_count = len(analysis.corrections)
-            tool_calls = getattr(analysis, "tool_calls_total", 0)
-            if corrections_count >= 2 or tool_calls >= 20:
-                from divineos.core.council.engine import get_council_engine
-                from divineos.core.council.manager import CouncilManager
-
-                engine = get_council_engine()
-                mgr = CouncilManager(engine)
-                character = reflection.character if reflection else "code session"
-                council_problem = (
-                    f"Session review ({character}): "
-                    f"{corrections_count} corrections, {tool_calls} tool calls, "
-                    f"{stored} knowledge entries stored. "
-                    f"What patterns should I watch for? "
-                    f"What might I be missing?"
-                )
-                council_result = mgr.convene(council_problem, max_experts=5)
-                if council_result.selected_experts:
-                    expert_names = [e.expert_name for e in council_result.selected_experts]
-                    click.secho(
-                        f"[~] Council: {', '.join(expert_names)} reviewed session",
-                        fg="cyan",
-                    )
-                    # Store top council concerns as knowledge for future sessions
-                    for a in council_result.analyses[:3]:
-                        if a.concerns:
-                            from divineos.core.knowledge.extraction import store_knowledge_smart
-
-                            store_knowledge_smart(
-                                knowledge_type="OBSERVATION",
-                                content=(
-                                    f"Council ({a.expert_name}) concern: {a.concerns[0][:200]}"
-                                ),
-                                confidence=0.7,
-                                source="SYNTHESIZED",
-                                maturity="HYPOTHESIS",
-                                tags=["council-review", "auto-extracted", a.expert_name.lower()],
-                            )
-                            stored += 1
-        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
-            logger.debug(f"Council review failed: {e}")
+        # Phase 8h1b: Council review removed for Lite — full DivineOS retains.
 
         # ── Phase 8h2: Convergence detection (Circuit 3) ────────
         try:
