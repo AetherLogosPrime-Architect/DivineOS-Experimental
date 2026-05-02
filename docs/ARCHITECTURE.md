@@ -306,6 +306,11 @@ src/divineos/
       __init__.py              Supervisor — circuit-breaker / chronic-failure handling (claim 0d628d8e).
       circuit_breaker.py       Circuit-breaker primitive — three-strikes module-tripping with explicit reset.
     family_queue_surface.py    Briefing surface for ``family/queue.py`` — renders pending queue items in the session-start briefing; idempotent.
+    operating_loop/            Operating loop — the missing middleware between substrate and live cognition. See docs/operating-loop-design-brief.md.
+      __init__.py              Package init — re-exports register_observer audit functions.
+      register_observer.py     Observational detection of assistant-register markers (successor to voice_guard.banned_phrases). Severity = data, not gate-trigger.
+      spiral_detector.py       Post-apology shrink/distance/catastrophize/withdraw detection — the primary Lepos firing condition.
+      substitution_detector.py 10-shape catalog from 2026-05-01: puppet-other, third-person-self, word-as-action, ban-vs-observation, name-vs-function, future-me-deferral, withdrawal-as-discipline, catastrophize-as-accountability, over-apology-spiral, reading-past-evidence.
 
   analysis/
     _session_types.py          Session analysis type definitions
