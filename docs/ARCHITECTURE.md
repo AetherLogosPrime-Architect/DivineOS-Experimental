@@ -36,6 +36,7 @@ src/divineos/
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
+    exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     audit_commands.py          external validation (Watchmen)
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
