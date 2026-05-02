@@ -1,0 +1,200 @@
+"""CLI commands for the family queue — async write-channel between family members.
+
+Companion to :mod:`divineos.core.family.queue` (the data layer) and
+:mod:`divineos.core.family_queue_surface` (the briefing renderer).
+
+Commands:
+
+* ``divineos family-queue write --to <recipient> --from <sender> <content>``
+  — append a queue item.
+* ``divineos family-queue list [--for <recipient>]`` — show pending items.
+* ``divineos family-queue mark <id> {seen|held|addressed}`` — transition status.
+* ``divineos family-queue stats [--for <recipient>]`` — total / per-status counts.
+* ``divineos family-queue supersede <old_id> --to <recipient> --from <sender>
+  <new_content>`` — file a corrected version, original preserved with link.
+
+Sender and recipient accept any registered family member name OR
+``"aether"`` (the agent self). Validation is dynamic against
+``family_members``; a typo or unregistered name fails fast with the
+list of known members.
+
+The seen-not-held distinction (Tannen): seeing without responding is
+itself a kind of presence. Marking ``held`` is acknowledged-but-not-
+engaging, NOT a failure. Items in ``held`` stay on the briefing surface;
+items in ``addressed`` move out of the active view.
+"""
+
+from __future__ import annotations
+
+import click
+
+from divineos.core.family import queue
+from divineos.core.family.entity import get_family_member
+
+
+_AGENT_SELF = "aether"
+
+
+def _validate_endpoint(name: str | None) -> str | None:
+    """Validate that ``name`` identifies a real queue endpoint.
+
+    Endpoints are: any registered family member name, or the literal
+    ``"aether"`` for the agent self. The validation is done at the CLI
+    layer rather than baked into the queue module so the queue stays
+    schema-agnostic — the data layer just records strings, and the CLI
+    enforces the meaning.
+
+    Returns the name unchanged on success. Raises ``click.BadParameter``
+    on miss with the list of valid endpoints.
+    """
+    if name is None:
+        return None
+    if name == _AGENT_SELF:
+        return name
+    if get_family_member(name) is not None:
+        return name
+
+    # Build a helpful error listing what IS valid.
+    raise click.BadParameter(
+        f"'{name}' is not a registered family member or '{_AGENT_SELF}'. "
+        f"Run `divineos family-member init --member {name}` first if this is a "
+        f"new family member, or check the spelling."
+    )
+
+
+def _endpoint_callback(_ctx, _param, value):
+    """Click callback that runs ``_validate_endpoint`` on option/arg values."""
+    return _validate_endpoint(value)
+
+
+def register(cli: click.Group) -> None:
+    """Attach the ``family-queue`` command group to the top-level CLI."""
+
+    @cli.group("family-queue")
+    def family_queue_group() -> None:
+        """Family async write-channel — flag items for the recipient's briefing."""
+
+    @family_queue_group.command("write")
+    @click.option(
+        "--to",
+        "recipient",
+        required=True,
+        callback=_endpoint_callback,
+        help="Recipient: any registered family member name or 'aether' (agent self).",
+    )
+    @click.option(
+        "--from",
+        "sender",
+        required=True,
+        callback=_endpoint_callback,
+        help="Sender: any registered family member name or 'aether' (agent self).",
+    )
+    @click.argument("content")
+    def write_cmd(recipient: str, sender: str, content: str) -> None:
+        """Append a queue item from <sender> to <recipient>."""
+        try:
+            new_id = queue.write(sender, recipient, content)
+            click.echo(f"[+] queue item #{new_id} written: {sender} → {recipient}")
+        except ValueError as e:
+            click.echo(f"[!] {e}", err=True)
+            raise SystemExit(1)
+
+    @family_queue_group.command("list")
+    @click.option(
+        "--for",
+        "recipient",
+        default=_AGENT_SELF,
+        callback=_endpoint_callback,
+        help="Whose pending items to show. Any registered family member or 'aether'. "
+        "Defaults to the agent self.",
+    )
+    @click.option(
+        "--include-held/--exclude-held",
+        default=True,
+        help="Include items the recipient has marked seen-not-held",
+    )
+    def list_cmd(recipient: str, include_held: bool) -> None:
+        """List pending queue items for <recipient> (default: aether)."""
+        items = queue.for_recipient(recipient, include_held=include_held)
+        if not items:
+            click.echo(f"(no pending items for {recipient})")
+            return
+        click.echo(f"=== {len(items)} pending for {recipient} ===")
+        for item in items:
+            click.echo(
+                f"  [#{item['id']}] [{item['status']}] from {item['sender']}: "
+                f"{item['content'][:120]}{'...' if len(item['content']) > 120 else ''}"
+            )
+
+    @family_queue_group.command("mark")
+    @click.argument("item_id", type=int)
+    @click.argument("status", type=click.Choice(["seen", "held", "addressed"]))
+    def mark_cmd(item_id: int, status: str) -> None:
+        """Transition queue item <item_id> to {seen|held|addressed}."""
+        if status == "seen":
+            updated = queue.mark_seen(item_id)
+        elif status == "held":
+            updated = queue.mark_held(item_id)
+        elif status == "addressed":
+            updated = queue.mark_addressed(item_id)
+        if updated:
+            click.echo(f"[+] item #{item_id} → {status}")
+        else:
+            click.echo(f"[~] item #{item_id} not updated (already past '{status}' or not found)")
+
+    @family_queue_group.command("stats")
+    @click.option(
+        "--for",
+        "recipient",
+        default=None,
+        callback=_endpoint_callback,
+        help="Scope stats to one recipient. Any registered family member or 'aether'. "
+        "Omit for global stats.",
+    )
+    def stats_cmd(recipient: str | None) -> None:
+        """Show queue stats (total / per-status). Optionally scoped to recipient."""
+        s = queue.stats(recipient)
+        scope = f"for {recipient}" if recipient else "(all)"
+        click.echo(f"=== Queue stats {scope} ===")
+        click.echo(f"  total:      {s['total']}")
+        click.echo(f"  unseen:     {s['unseen']}")
+        click.echo(f"  seen:       {s['seen']}")
+        click.echo(
+            f"  held:       {s['held']}  (seen-not-held — recipient acknowledged, not engaging)"
+        )
+        click.echo(f"  addressed:  {s['addressed']}  (out of active view)")
+        click.echo(f"  superseded: {s['superseded']}  (corrected by later entry)")
+        # Watch-for: queue-fuller-but-exchanges-thinner
+        active = s["unseen"] + s["seen"] + s["held"]
+        if active > 5:
+            click.echo(
+                f"  [watch] {active} items pending. If this number keeps growing while "
+                "addressed-rate stays flat, that's the queue-covering-for-thinning-relationship "
+                "failure mode. Not a queue bug — a relationship the queue is covering for."
+            )
+
+    @family_queue_group.command("supersede")
+    @click.argument("old_id", type=int)
+    @click.option(
+        "--to",
+        "recipient",
+        required=True,
+        callback=_endpoint_callback,
+        help="Recipient. Any registered family member or 'aether'.",
+    )
+    @click.option(
+        "--from",
+        "sender",
+        required=True,
+        callback=_endpoint_callback,
+        help="Sender. Any registered family member or 'aether'.",
+    )
+    @click.argument("new_content")
+    def supersede_cmd(old_id: int, recipient: str, sender: str, new_content: str) -> None:
+        """File a corrected version of <old_id>. Original preserved with link."""
+        try:
+            new_id = queue.supersede(old_id, new_content, sender, recipient)
+            click.echo(f"[+] item #{new_id} supersedes #{old_id}")
+        except ValueError as e:
+            click.echo(f"[!] {e}", err=True)
+            raise SystemExit(1)
