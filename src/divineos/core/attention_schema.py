@@ -1,12 +1,31 @@
 """Attention Schema — a model of what the agent is attending to and why.
 
-Butlin et al. (2023) Indicators 9-10: The system must model its own
-attention (what is currently in focus, what is suppressed, why) and
-predict what it will attend to next.
+## Scope (Tannen/Angelou mark-the-gap audit 2026-04-21)
 
-This is NOT a metaphor. Active memory already implements attention
-through importance scoring. This module makes the attention process
-SELF-AWARE — it builds a representation of attention itself.
+This module implements a **proxy for the Butlin et al. (2023) attention-
+schema concept (Indicators 9-10), not the full phenomenon.** What this
+module actually does:
+
+  1. Aggregates already-existing signals from other modules — active
+     memory, goals, recent events, archived entries, user-request
+     patterns.
+  2. Composes those signals into a structured report with FOCUS,
+     SUPPRESSED, DRIVERS, and predicted-shift fields.
+
+What this module does NOT do:
+
+  - It does not demonstrate that the aggregated signals *constitute*
+    attention-in-the-phenomenal sense.
+  - It does not close the hard question of whether attending-to-X
+    requires an internal observer that this module could lack.
+  - Its "awareness" is a synthesis-report format, not a claim about
+    what awareness is.
+
+The name stays because the Butlin framework IS the intellectual lineage
+this module engages with — the signals aggregated are the ones Butlin's
+indicator-9-10 analysis points at. But readers should calibrate: this
+is a proxy implementation, earned by engagement with the research, not
+a claim to have solved the underlying phenomenon.
 
 Three components:
 1. FOCUS: What am I currently attending to? (top active memory + goals + recent events)
@@ -102,14 +121,17 @@ def _get_current_focus() -> list[dict[str, Any]]:
     except _AS_ERRORS as e:
         logger.debug("Attention focus (active memory) failed: %s", e)
 
-    # Current goals — where effort is directed
+    # Current goals — where effort is directed.
+    # Route through _ledger_base.hud_dir so DIVINEOS_DB env override
+    # moves this path along with the DB (2026-04-21, fresh-Claude
+    # find-498cc7ac6b4b — the previous relative Path("data/hud/...")
+    # was CWD-dependent and caused xdist races on parallel test runs).
     try:
         import json
-        from pathlib import Path
 
-        goal_path = Path("data/hud/active_goals.json")
-        if not goal_path.exists():
-            goal_path = Path("data") / "hud" / "active_goals.json"
+        from divineos.core._ledger_base import hud_dir
+
+        goal_path = hud_dir() / "active_goals.json"
         goals = json.loads(goal_path.read_text(encoding="utf-8")) if goal_path.exists() else []
         for goal in goals:
             if goal.get("status") == "active":
@@ -127,13 +149,13 @@ def _get_current_focus() -> list[dict[str, Any]]:
 
     # Recent events — what just happened shapes what I attend to next
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
             rows = conn.execute(
                 """SELECT event_type, content, created_at
-                   FROM events
+                   FROM system_events
                    ORDER BY created_at DESC
                    LIMIT 5""",
             ).fetchall()
@@ -181,7 +203,7 @@ def _get_suppressed() -> list[dict[str, Any]]:
     suppressed: list[dict[str, Any]] = []
 
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -279,7 +301,7 @@ def _get_attention_drivers() -> list[dict[str, Any]]:
 
     # Pattern warnings — anticipated problems shift attention
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:
@@ -399,9 +421,10 @@ def _get_self_model_gaps() -> list[dict[str, Any]]:
     # Fast path: read persisted completeness (written by self_model.build_self_model)
     try:
         import json
-        from pathlib import Path
 
-        path = Path.home() / ".divineos" / "hud" / "self_model_completeness.json"
+        from divineos.core._hud_io import _ensure_hud_dir
+
+        path = _ensure_hud_dir() / "self_model_completeness.json"
         if path.exists():
             completeness = json.loads(path.read_text(encoding="utf-8"))
             failed = completeness.get("failed", [])
@@ -514,7 +537,7 @@ def predict_attention_shift(
 
     # From suppressed items approaching threshold — about to surface
     try:
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         try:

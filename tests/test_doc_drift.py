@@ -28,7 +28,7 @@ class TestExtractTreePaths:
             "  __main__.py       Entry point\n"
             "```\n"
         )
-        paths = _extract_tree_paths(readme)
+        paths = _extract_tree_paths(readme, arch_doc_path=tmp_path / "nonexistent.md")
         assert "__init__.py" in paths
         assert "__main__.py" in paths
 
@@ -43,7 +43,7 @@ class TestExtractTreePaths:
             "    ledger.py        Event store\n"
             "```\n"
         )
-        paths = _extract_tree_paths(readme)
+        paths = _extract_tree_paths(readme, arch_doc_path=tmp_path / "nonexistent.md")
         assert "cli/__init__.py" in paths
         assert "cli/commands.py" in paths
         assert "core/ledger.py" in paths
@@ -58,7 +58,7 @@ class TestExtractTreePaths:
             "      extraction.py Extraction\n"
             "```\n"
         )
-        paths = _extract_tree_paths(readme)
+        paths = _extract_tree_paths(readme, arch_doc_path=tmp_path / "nonexistent.md")
         assert "core/knowledge/_base.py" in paths
         assert "core/knowledge/extraction.py" in paths
 
@@ -71,14 +71,14 @@ class TestExtractTreePaths:
             "    ledger.py       Store\n"
             "```\n"
         )
-        paths = _extract_tree_paths(readme)
+        paths = _extract_tree_paths(readme, arch_doc_path=tmp_path / "nonexistent.md")
         assert "seed.json" not in paths
         assert "core/ledger.py" in paths
 
     def test_returns_empty_for_no_section(self, tmp_path):
         readme = tmp_path / "README.md"
         readme.write_text("# No architecture section here\n\nJust text.\n")
-        paths = _extract_tree_paths(readme)
+        paths = _extract_tree_paths(readme, arch_doc_path=tmp_path / "nonexistent.md")
         assert paths == []
 
     def test_sibling_directories_not_nested(self, tmp_path):
@@ -92,7 +92,7 @@ class TestExtractTreePaths:
             "    b.py            B\n"
             "```\n"
         )
-        paths = _extract_tree_paths(readme)
+        paths = _extract_tree_paths(readme, arch_doc_path=tmp_path / "nonexistent.md")
         assert "cli/a.py" in paths
         assert "core/b.py" in paths
         # Should NOT have cli/core/b.py
@@ -133,7 +133,7 @@ class TestCheckArchitectureTree:
             "    nonexistent_file.py  Does not exist\n"
             "```\n"
         )
-        errors = check_architecture_tree(readme)
+        errors = check_architecture_tree(readme, arch_doc_path=tmp_path / "nonexistent.md")
         ghost_errors = [e for e in errors if "GHOST" in e]
         assert len(ghost_errors) >= 1
 

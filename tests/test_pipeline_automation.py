@@ -33,15 +33,24 @@ class TestAutoDistill:
             user_messages = 5
 
         run_knowledge_quality_cycle([kid], FakeAnalysis())
+        # Distillation is now a supersession (append-only invariant):
+        # the old entry stays intact, a NEW entry holds the cleaned content.
         conn = _get_connection()
-        row = conn.execute(
-            "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
+        old_row = conn.execute(
+            "SELECT content, superseded_by FROM knowledge WHERE knowledge_id = ?", (kid,)
+        ).fetchone()
+        # Old entry preserved with its original content
+        assert old_row[0].startswith("I was corrected:")
+        # But marked superseded
+        new_id = old_row[1]
+        assert new_id is not None
+        new_row = conn.execute(
+            "SELECT content FROM knowledge WHERE knowledge_id = ?", (new_id,)
         ).fetchone()
         conn.close()
-        content = row[0]
-        # Should have stripped the "I was corrected:" prefix
+        content = new_row[0]
+        # New entry has the cleaned content
         assert not content.startswith("I was corrected:")
-        # Should have cleaned casual markers
         assert "lol" not in content.lower()
 
     def test_distills_should_prefix(self, tmp_path, monkeypatch):
@@ -63,11 +72,16 @@ class TestAutoDistill:
 
         run_knowledge_quality_cycle([kid], FakeAnalysis())
         conn = _get_connection()
-        row = conn.execute(
-            "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
+        old_row = conn.execute(
+            "SELECT superseded_by FROM knowledge WHERE knowledge_id = ?", (kid,)
+        ).fetchone()
+        new_id = old_row[0]
+        assert new_id is not None, "distillation should supersede the old entry"
+        new_row = conn.execute(
+            "SELECT content FROM knowledge WHERE knowledge_id = ?", (new_id,)
         ).fetchone()
         conn.close()
-        content = row[0]
+        content = new_row[0]
         assert not content.startswith("I should:")
 
     def test_leaves_clean_entries_alone(self, tmp_path, monkeypatch):

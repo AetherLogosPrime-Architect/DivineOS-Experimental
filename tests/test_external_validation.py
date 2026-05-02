@@ -20,7 +20,7 @@ from divineos.core.external_validation import (
 def _clean_validation_table():
     """Ensure clean validation table for each test."""
     init_validation_table()
-    from divineos.core.knowledge._base import _get_connection
+    from divineos.core.knowledge import _get_connection
 
     conn = _get_connection()
     try:
@@ -40,7 +40,7 @@ class TestRecordSelfGrade:
 
     def test_stores_grade(self):
         record_self_grade("sess-1", "A", 0.92)
-        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge import _get_connection
 
         conn = _get_connection()
         row = conn.execute(

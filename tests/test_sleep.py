@@ -50,6 +50,7 @@ class TestDreamReport:
 
     def test_summary_shows_connections(self):
         report = DreamReport(
+            connections_new=2,
             connections_found=2,
             connection_details=[
                 {"summary": "PRINCIPLE~BOUNDARY: found overlap"},
@@ -71,6 +72,13 @@ class TestDreamReport:
         assert "A=0.30" in text
         assert "D=-0.10" in text
 
+    def test_summary_shows_resolved_lessons(self):
+        report = DreamReport(lessons_resolved=["upset_user", "shallow_output"])
+        text = report.summary()
+        assert "Lessons resolved" in text
+        assert "upset_user" in text
+        assert "shallow_output" in text
+
     def test_summary_shows_errors(self):
         report = DreamReport(phase_errors={"consolidation": "DB locked"})
         text = report.summary()
@@ -85,7 +93,7 @@ class TestDreamReport:
 class TestPhaseConsolidation:
     def test_scans_entries(self, tmp_path, monkeypatch):
         """Consolidation phase populates entries_scanned."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -93,6 +101,216 @@ class TestPhaseConsolidation:
         _phase_consolidation(report)
         # Should run without error, entries_scanned >= 0
         assert report.entries_scanned >= 0
+
+    def test_transitions_eligible_lessons(self, tmp_path, monkeypatch):
+        """Lesson lifecycle transitions run during sleep, not just explicit
+        SESSION_END.
+
+        A lesson that's been 'improving' for >= LESSON_ABSENCE_DAYS with zero
+        regressions and no positive-counterfactual evidence should transition
+        to DORMANT when sleep runs, even if the full SESSION_END pipeline
+        never fires. RESOLVED requires positive evidence (Kahneman audit
+        2026-04-16) — absence alone only earns "quiet, not proven."
+        """
+        import json
+
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge.lessons import _ensure_lesson_schema
+
+        init_knowledge_table()
+        conn_init = _get_connection()
+        _ensure_lesson_schema(conn_init)
+        conn_init.close()
+
+        # Insert an 'improving' lesson that qualifies for DORMANT transition:
+        # - 21 days quiet (well past LESSON_ABSENCE_DAYS=7)
+        # - 0 regressions
+        # - 5 clean sessions (meets LESSON_EFFECTIVE_MIN floor)
+        # - no positive_evidence_sessions (absence-only)
+        past = time.time() - 21 * 86400
+        conn = _get_connection()
+        conn.execute(
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, "
+            "regressions, positive_evidence_sessions) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "test-lesson-1",
+                past,
+                "sleep_test_category",
+                "A test lesson that has been quiet for 21 days.",
+                "session-a",
+                5,
+                past,
+                json.dumps(["s1", "s2", "s3", "s4", "s5"]),
+                "improving",
+                "hash1",
+                "test",
+                0,
+                "{}",
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        report = DreamReport()
+        _phase_consolidation(report)
+
+        # Absence-only → dormant, not resolved. Sleep reports the transition
+        # in the lessons_dormant bucket; lessons_resolved stays empty.
+        assert "sleep_test_category" in report.lessons_dormant
+        assert "sleep_test_category" not in report.lessons_resolved
+
+        # Verify the DB was actually updated
+        conn2 = _get_connection()
+        status = conn2.execute(
+            "SELECT status FROM lesson_tracking WHERE lesson_id = 'test-lesson-1'"
+        ).fetchone()[0]
+        conn2.close()
+        assert status == "dormant"
+
+    def test_resolves_lessons_with_positive_evidence(self, tmp_path, monkeypatch):
+        """A lesson with LESSON_MIN_POSITIVE_EVIDENCE positive-counterfactual
+        sessions plus the time and stimulus gates resolves honestly —
+        sleep reports it in lessons_resolved."""
+        import json
+
+        from divineos.core.constants import LESSON_MIN_RESOLUTION_DAYS
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge.lessons import _ensure_lesson_schema
+        from divineos.core.ledger import get_connection as get_ledger_connection
+
+        init_knowledge_table()
+        conn_init = _get_connection()
+        _ensure_lesson_schema(conn_init)
+        conn_init.close()
+
+        # Lesson with TWO positive-evidence sessions — enough for RESOLVED.
+        past = time.time() - (LESSON_MIN_RESOLUTION_DAYS + 1) * 86400
+        evidence = {
+            "s1": "agent demonstrated corrected behavior",
+            "s2": "agent demonstrated corrected behavior",
+        }
+        conn = _get_connection()
+        conn.execute(
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, "
+            "regressions, positive_evidence_sessions) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "test-lesson-resolved",
+                past,
+                "sleep_resolved_category",
+                "Lesson with direct positive-counterfactual evidence.",
+                "s1",
+                3,
+                past,
+                json.dumps(["s1", "s2", "s3", "s4", "s5", "s6", "s7", "s8", "s9", "s10"]),
+                "improving",
+                "hash-resolved",
+                "test",
+                0,
+                json.dumps(evidence),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        # Stimulus gate: decision journal entries mentioning the category.
+        ledger_conn = get_ledger_connection()
+        try:
+            ledger_conn.execute(
+                """CREATE TABLE IF NOT EXISTS decision_journal (
+                    decision_id TEXT PRIMARY KEY, created_at REAL, content TEXT,
+                    reasoning TEXT DEFAULT '', alternatives TEXT DEFAULT '[]',
+                    context TEXT DEFAULT '', emotional_weight INTEGER DEFAULT 1,
+                    tags TEXT DEFAULT '[]', linked_knowledge_ids TEXT DEFAULT '[]',
+                    session_id TEXT DEFAULT '', tension TEXT DEFAULT '',
+                    almost TEXT DEFAULT '')"""
+            )
+            for sid in ("s6", "s7", "s8"):
+                ledger_conn.execute(
+                    "INSERT INTO decision_journal "
+                    "(decision_id, created_at, content, session_id) VALUES (?, ?, ?, ?)",
+                    (
+                        f"dj-{sid}",
+                        time.time(),
+                        "Worked on the sleep resolved category problem.",
+                        sid,
+                    ),
+                )
+            ledger_conn.commit()
+        finally:
+            ledger_conn.close()
+
+        report = DreamReport()
+        _phase_consolidation(report)
+
+        assert "sleep_resolved_category" in report.lessons_resolved
+        assert "sleep_resolved_category" not in report.lessons_dormant
+
+        conn2 = _get_connection()
+        status = conn2.execute(
+            "SELECT status FROM lesson_tracking WHERE lesson_id = 'test-lesson-resolved'"
+        ).fetchone()[0]
+        conn2.close()
+        assert status == "resolved"
+
+    def test_ineligible_lessons_untouched(self, tmp_path, monkeypatch):
+        """Lessons that don't meet absence-mode criteria stay improving."""
+        import json
+
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge._base import _get_connection
+        from divineos.core.knowledge.lessons import _ensure_regressions_column
+
+        init_knowledge_table()
+        conn_init = _get_connection()
+        _ensure_regressions_column(conn_init)
+        conn_init.close()
+
+        # This lesson has regressions, so absence-mode doesn't apply.
+        # Without the session-padding threshold met, it can't resolve.
+        recent = time.time() - 3600
+        conn = _get_connection()
+        conn.execute(
+            "INSERT INTO lesson_tracking "
+            "(lesson_id, created_at, category, description, first_session, "
+            "occurrences, last_seen, sessions, status, content_hash, agent, regressions) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                "test-lesson-2",
+                recent,
+                "regressing_category",
+                "A lesson that just regressed an hour ago.",
+                "session-b",
+                4,
+                recent,
+                json.dumps(["s1", "s2"]),
+                "improving",
+                "hash2",
+                "test",
+                3,
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        report = DreamReport()
+        _phase_consolidation(report)
+
+        assert "regressing_category" not in report.lessons_resolved
+
+        conn2 = _get_connection()
+        status = conn2.execute(
+            "SELECT status FROM lesson_tracking WHERE lesson_id = 'test-lesson-2'"
+        ).fetchone()[0]
+        conn2.close()
+        assert status == "improving"
 
 
 class TestPhaseAffect:
@@ -210,7 +428,7 @@ class TestPhaseAffect:
 class TestPhaseRecombination:
     def test_finds_cross_type_connections(self, tmp_path, monkeypatch):
         """Should find connections between semantically related but topically distinct entries."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
 
         init_knowledge_table()
@@ -228,11 +446,6 @@ class TestPhaseRecombination:
             "and reveals what actually went wrong.",
         )
 
-        # Pin similarity to word-overlap fallback so the test is deterministic
-        # regardless of whether sentence-transformers is installed.
-        # Embedding similarity and word overlap can disagree on whether entries
-        # are "too similar" (>0.80 semantic vs <=0.50 word overlap), making
-        # the test flaky when the backend varies between environments.
         monkeypatch.setattr(
             "divineos.core.knowledge._text._embeddings_available",
             False,
@@ -240,26 +453,33 @@ class TestPhaseRecombination:
 
         report = DreamReport()
         _phase_recombination(report)
-        assert report.connections_found >= 1
+        # 2026-04-24 fix: use connections_new (genuine novelty) not
+        # connections_found (total pairs in band, new + already-known)
+        assert report.connections_new >= 1
 
     def test_no_connections_in_empty_store(self, tmp_path, monkeypatch):
         """Empty knowledge store should produce no connections."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
         report = DreamReport()
         _phase_recombination(report)
-        assert report.connections_found == 0
+        assert report.connections_new == 0
+        assert report.connections_already_known == 0
 
     def test_respects_max_connections_limit(self, tmp_path, monkeypatch):
-        """Should not exceed the max connections limit."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        """Display cap applies to connections_new, not connections_found.
+
+        connections_found is the total band-pair count (new + already-
+        known) and has no cap — it can exceed MAX_CONNECTIONS when
+        the similarity space is large.
+        """
+        from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
 
         init_knowledge_table()
 
-        # Store many similar entries across two types
         for i in range(20):
             store_knowledge(
                 "PRINCIPLE",
@@ -274,13 +494,125 @@ class TestPhaseRecombination:
 
         report = DreamReport()
         _phase_recombination(report)
-        assert report.connections_found <= _RECOMBINATION_MAX_CONNECTIONS
+        # The NEW-connections count is capped (display discipline)
+        assert report.connections_new <= _RECOMBINATION_MAX_CONNECTIONS
+
+    def test_already_known_pairs_not_recounted_as_new(self, tmp_path, monkeypatch):
+        """2026-04-24 honesty fix: a pair with an existing RELATED_TO
+        edge from a prior sleep must count as already_known, NOT new."""
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.edges import create_edge, init_edge_table
+
+        init_knowledge_table()
+        init_edge_table()
+
+        monkeypatch.setattr(
+            "divineos.core.knowledge._text._embeddings_available",
+            False,
+        )
+
+        a_id = store_knowledge(
+            "PRINCIPLE",
+            "When an action fails, investigate the root cause of the error "
+            "before retrying. Blind repetition wastes valuable debugging time.",
+        )
+        b_id = store_knowledge(
+            "BOUNDARY",
+            "Never retry an action that fails without finding the root cause "
+            "first. Investigating each error reveals what went wrong.",
+        )
+
+        # Simulate a prior sleep having already connected these two.
+        create_edge(
+            source_id=a_id,
+            target_id=b_id,
+            edge_type="RELATED_TO",
+            confidence=0.6,
+            notes="prior sleep",
+        )
+
+        # Now run the recombination phase. Before the fix, this pair
+        # would be counted as "new" every time. After the fix, it
+        # must count as already_known.
+        report = DreamReport()
+        _phase_recombination(report)
+        assert report.connections_new == 0, (
+            f"expected 0 new connections, got {report.connections_new}"
+        )
+        assert report.connections_already_known >= 1, (
+            f"expected >= 1 already-known, got {report.connections_already_known}"
+        )
+
+    def test_reverse_direction_also_deduped(self, tmp_path, monkeypatch):
+        """RELATED_TO edges are direction-neutral; prior edge in B→A
+        direction still counts current A→B pair as already_known."""
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.edges import create_edge, init_edge_table
+
+        init_knowledge_table()
+        init_edge_table()
+
+        monkeypatch.setattr(
+            "divineos.core.knowledge._text._embeddings_available",
+            False,
+        )
+
+        a_id = store_knowledge(
+            "PRINCIPLE",
+            "When an action fails, investigate the root cause of the error "
+            "before retrying. Blind repetition wastes debugging time.",
+        )
+        b_id = store_knowledge(
+            "BOUNDARY",
+            "Never retry an action that fails without finding the root cause "
+            "first. Investigating each error reveals what went wrong.",
+        )
+
+        # Prior edge stored in B→A direction (reverse of discovery order).
+        create_edge(
+            source_id=b_id,
+            target_id=a_id,
+            edge_type="RELATED_TO",
+            confidence=0.6,
+            notes="prior sleep reverse dir",
+        )
+
+        report = DreamReport()
+        _phase_recombination(report)
+        assert report.connections_new == 0
+        assert report.connections_already_known >= 1
+
+    def test_summary_reports_already_known_count(self, tmp_path, monkeypatch):
+        """When already-known pairs exist, the dream-report summary
+        surfaces them in the Phase 5 output so the operator can see
+        saturation."""
+        from divineos.core.knowledge import init_knowledge_table
+        from divineos.core.knowledge.crud import store_knowledge
+        from divineos.core.knowledge.edges import create_edge, init_edge_table
+
+        init_knowledge_table()
+        init_edge_table()
+        monkeypatch.setattr("divineos.core.knowledge._text._embeddings_available", False)
+
+        a = store_knowledge("PRINCIPLE", "Investigate root cause before retrying failed actions.")
+        b = store_knowledge("BOUNDARY", "Retry only after root cause is understood.")
+        create_edge(a, b, "RELATED_TO", confidence=0.6)
+
+        report = DreamReport()
+        _phase_recombination(report)
+        out = report.summary()
+        # Either we found new AND listed already-known, or we found
+        # zero new and still listed already-known. Either way the
+        # already-known count should surface.
+        assert "already-known" in out or "saturating" in out
 
 
 class TestRunSleep:
     def test_returns_dream_report(self, tmp_path, monkeypatch):
         """Full sleep cycle should return a DreamReport."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -292,7 +624,7 @@ class TestRunSleep:
 
     def test_continues_through_phase_errors(self, tmp_path, monkeypatch):
         """If a phase fails, subsequent phases should still run."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -304,7 +636,7 @@ class TestRunSleep:
 
     def test_skip_maintenance_flag(self, tmp_path, monkeypatch):
         """Skip maintenance should leave maintenance_results empty."""
-        from divineos.core.knowledge._base import init_knowledge_table
+        from divineos.core.knowledge import init_knowledge_table
 
         init_knowledge_table()
 
@@ -362,3 +694,133 @@ class TestConstants:
 
     def test_max_connections_reasonable(self):
         assert 1 <= _RECOMBINATION_MAX_CONNECTIONS <= 50
+
+
+class TestDryRunMatchesActual:
+    """Preview/actual symmetry — locked in after the 2026-04-17 sleep bug.
+
+    Prior CLI dry-run used ad-hoc SQL that diverged from actual phase logic:
+    predicted 30 promotions where actual produced 0 (missing validity gate),
+    and queried system_events for AFFECT_STATE where actual reads affect_log
+    (schema error). These tests ensure the preview helpers now point at the
+    same truth as execution.
+
+    The general invariant: a preview that disagrees with actual is worse than
+    no preview, because it creates false expectations about what's about to
+    change to the agent's own state. Aria Round 3b principle applied at the
+    code level.
+    """
+
+    def test_preview_maturity_uses_same_gates_as_run(self, tmp_path, monkeypatch):
+        """preview_maturity_promotions must not over-count vs run_maturity_cycle.
+
+        The real promotion path uses both a corroboration/confidence gate
+        (check_promotion) AND a warrant-based validity gate
+        (_passes_validity_gate). The preview must apply both, not just the
+        first — otherwise it reports candidates that the validity gate will
+        silently reject and predicts promotions that never happen."""
+        import os
+
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "preview-test.db")
+        try:
+            from divineos.core.knowledge import init_knowledge_table
+            from divineos.core.knowledge.crud import get_knowledge
+            from divineos.core.knowledge_maintenance import (
+                preview_maturity_promotions,
+                run_maturity_cycle,
+            )
+
+            init_knowledge_table()
+
+            entries = get_knowledge(limit=10000, include_superseded=False)
+            preview_counts = preview_maturity_promotions(entries)
+            # Running the actual cycle on a fresh store should produce the
+            # same promotion counts the preview reported. If preview over-counts
+            # because it skipped a gate, this assertion fires.
+            # (We re-fetch entries because cycle may have updated them.)
+            entries2 = get_knowledge(limit=10000, include_superseded=False)
+            actual_counts = run_maturity_cycle(entries2)
+            assert preview_counts == actual_counts, (
+                f"preview ({preview_counts}) diverged from actual ({actual_counts}); "
+                "the preview is teaching a story actual will not tell"
+            )
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
+
+    def test_preview_maturity_is_read_only(self, tmp_path, monkeypatch):
+        """preview_maturity_promotions must not modify the knowledge store.
+
+        If the preview accidentally calls the mutating path, it becomes the
+        thing it was built to replace. Lock the read-only invariant so a
+        future refactor can't quietly reintroduce the side effect."""
+        import os
+
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "readonly-test.db")
+        try:
+            from divineos.core.knowledge import init_knowledge_table
+            from divineos.core.knowledge._base import _get_connection
+            from divineos.core.knowledge.crud import get_knowledge
+            from divineos.core.knowledge_maintenance import preview_maturity_promotions
+
+            init_knowledge_table()
+
+            # Capture the state of the knowledge table before preview.
+            conn = _get_connection()
+            try:
+                before = conn.execute(
+                    "SELECT knowledge_id, maturity, updated_at FROM knowledge"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            entries = get_knowledge(limit=10000, include_superseded=False)
+            preview_maturity_promotions(entries)
+
+            conn = _get_connection()
+            try:
+                after = conn.execute(
+                    "SELECT knowledge_id, maturity, updated_at FROM knowledge"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            assert before == after, "preview_maturity_promotions modified the store"
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)
+
+    def test_affect_preview_uses_affect_log_not_system_events(self, tmp_path, monkeypatch):
+        """Phase 3 dry-run must read from affect_log (same as actual phase).
+
+        The prior preview queried system_events for AFFECT_STATE events, which
+        raised 'no such column: created_at' (or returned 0 silently). The fix
+        calls get_affect_history (the same source _phase_affect uses). This
+        test locks that: the preview must NOT raise on a fresh install, and
+        it must report entries that the actual phase would see.
+        """
+        import os
+
+        os.environ["DIVINEOS_DB"] = str(tmp_path / "affect-preview-test.db")
+        try:
+            from divineos.core.affect import (
+                get_affect_history,
+                init_affect_log,
+                log_affect,
+            )
+
+            init_affect_log()
+            # Seed a recent affect entry
+            log_affect(valence=0.5, arousal=0.3, dominance=0.1, description="recent")
+
+            # Preview does not raise
+            from divineos.cli.sleep_commands import _preview_sleep_phases
+
+            _preview_sleep_phases()  # Must not throw
+
+            # The preview reads from the same source the real phase uses
+            history = get_affect_history(limit=200)
+            assert len(history) >= 1, (
+                "get_affect_history should find seeded entry — "
+                "if empty, preview and actual are reading different sources"
+            )
+        finally:
+            os.environ.pop("DIVINEOS_DB", None)

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from divineos.analysis.test_audit import (
+from divineos.analysis.audit_classifier import (
     AuditSummary,
     _classify_assertion,
     _classify_coverage,

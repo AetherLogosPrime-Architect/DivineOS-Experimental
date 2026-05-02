@@ -321,7 +321,7 @@ def find_graph_clusters(max_clusters: int = 10) -> list[dict[str, Any]]:
 
             # Get the target entry
             target_row = conn.execute(
-                f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",
+                f"SELECT {_KNOWLEDGE_COLS} FROM knowledge WHERE knowledge_id = ? AND superseded_by IS NULL",  # nosec B608: table/column names from module constants; values parameterized
                 (target_id,),
             ).fetchone()
             if not target_row:
@@ -335,7 +335,7 @@ def find_graph_clusters(max_clusters: int = 10) -> list[dict[str, Any]]:
                     FROM knowledge k
                     JOIN knowledge_edges e ON k.knowledge_id = e.source_id
                     WHERE e.target_id = ? AND e.edge_type IN ('SUPPORTS', 'ELABORATES')
-                    AND k.superseded_by IS NULL""",
+                    AND k.superseded_by IS NULL""",  # nosec B608: _KNOWLEDGE_COLS is a module constant; target_id parameterized
                 (target_id,),
             ).fetchall()
 

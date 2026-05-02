@@ -1,4 +1,4 @@
-"""SESSION_END pipeline — the full extract-consolidate-refresh cycle.
+"""Extraction pipeline (formerly SESSION_END) — the full extract-consolidate-refresh cycle.
 
 This file is the orchestrator. Each phase is a single function call to
 pipeline_gates.py (enforcement) or pipeline_phases.py (heavy lifting).
@@ -61,11 +61,13 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         from divineos.core.knowledge import _get_connection
 
         _snap_conn = _get_connection()
-        _snap_rows = _snap_conn.execute(
-            "SELECT knowledge_id, access_count FROM knowledge WHERE superseded_by IS NULL"
-        ).fetchall()
-        access_snapshot = {r[0]: r[1] for r in _snap_rows}
-        _snap_conn.close()
+        try:
+            _snap_rows = _snap_conn.execute(
+                "SELECT knowledge_id, access_count FROM knowledge WHERE superseded_by IS NULL"
+            ).fetchall()
+            access_snapshot = {r[0]: r[1] for r in _snap_rows}
+        finally:
+            _snap_conn.close()
     except (ImportError, sqlite3.OperationalError) as e:
         logger.debug("Access snapshot unavailable (corroboration sweep will skip delta): %s", e)
 
@@ -266,7 +268,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         # ── Phase 7c: Lesson detection BEFORE corroboration ──────
         # Lessons must be recorded first so the corroboration sweep's
         # maturity promotions reflect actual learning patterns.
-        run_lesson_detection(check_results, analysis.session_id, features)
+        run_lesson_detection(check_results, analysis.session_id, features, analysis)
 
         # ── Phase 8: Session scoring and corroboration ───────────
         health = run_session_scoring(analysis, access_snapshot)
@@ -371,7 +373,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         try:
             from divineos.core.self_critique import assess_session_craft
 
-            craft = assess_session_craft(analysis.session_id)
+            craft = assess_session_craft(analysis.session_id, analysis=analysis)
             if craft and craft.scores:
                 low = [name for name, score in craft.scores.items() if score < 0.4]
                 if low:
@@ -380,6 +382,53 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                     click.secho(f"[~] Self-critique: avg craft {craft.overall:.0%}", fg="cyan")
         except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
             logger.debug(f"Self-critique failed: {e}")
+
+        # ── Phase 8h1b: Council review on significant sessions ───
+        # The council is a thinking tool — 28 expert lenses that force
+        # multi-angle analysis. Without enforcement, it never gets used.
+        # Fire it on sessions with corrections or significant code work.
+        try:
+            corrections_count = len(analysis.corrections)
+            tool_calls = getattr(analysis, "tool_calls_total", 0)
+            if corrections_count >= 2 or tool_calls >= 20:
+                from divineos.core.council.engine import get_council_engine
+                from divineos.core.council.manager import CouncilManager
+
+                engine = get_council_engine()
+                mgr = CouncilManager(engine)
+                character = reflection.character if reflection else "code session"
+                council_problem = (
+                    f"Session review ({character}): "
+                    f"{corrections_count} corrections, {tool_calls} tool calls, "
+                    f"{stored} knowledge entries stored. "
+                    f"What patterns should I watch for? "
+                    f"What might I be missing?"
+                )
+                council_result = mgr.convene(council_problem, max_experts=5)
+                if council_result.selected_experts:
+                    expert_names = [e.expert_name for e in council_result.selected_experts]
+                    click.secho(
+                        f"[~] Council: {', '.join(expert_names)} reviewed session",
+                        fg="cyan",
+                    )
+                    # Store top council concerns as knowledge for future sessions
+                    for a in council_result.analyses[:3]:
+                        if a.concerns:
+                            from divineos.core.knowledge.extraction import store_knowledge_smart
+
+                            store_knowledge_smart(
+                                knowledge_type="OBSERVATION",
+                                content=(
+                                    f"Council ({a.expert_name}) concern: {a.concerns[0][:200]}"
+                                ),
+                                confidence=0.7,
+                                source="SYNTHESIZED",
+                                maturity="HYPOTHESIS",
+                                tags=["council-review", "auto-extracted", a.expert_name.lower()],
+                            )
+                            stored += 1
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Council review failed: {e}")
 
         # ── Phase 8h2: Convergence detection (Circuit 3) ────────
         try:
@@ -431,6 +480,14 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.debug(f"User model signal recording failed: {e}")
 
+        # ── Phase 8i2: Skill assessment — synthesize accumulated signals ──
+        try:
+            from divineos.core.user_model import update_skill_level
+
+            update_skill_level()
+        except (ImportError, sqlite3.OperationalError, OSError) as e:
+            logger.debug(f"Skill level update failed: {e}")
+
         # ── Phase 8j: Communication calibration — detect preference signals ──
         try:
             from divineos.core.communication_calibration import detect_calibration_signals
@@ -438,20 +495,20 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
             # Scan user messages for communication preference signals
             user_text = " ".join(
-                getattr(analysis, "user_messages_text", [])
-                or [c.get("content", "") for c in getattr(analysis, "corrections", [])]
+                getattr(analysis, "user_message_texts", [])
+                or [c.content for c in getattr(analysis, "corrections", [])]
             )
             if user_text:
                 signals = detect_calibration_signals(user_text)
                 for sig in signals[:5]:  # cap at 5 per session
-                    record_signal(sig["type"], sig.get("evidence", sig["type"]))
+                    record_signal(sig["signal_type"], sig.get("content", sig["signal_type"]))
                 if signals:
                     click.secho(
                         f"[~] Calibration: detected {len(signals)} communication preference signal"
                         f"{'s' if len(signals) != 1 else ''}",
                         fg="cyan",
                     )
-        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError, KeyError) as e:
             logger.debug(f"Calibration signal detection failed: {e}")
 
         # ── Phase 8k: Advice tracking — surface stale recommendations ──
@@ -561,6 +618,101 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         #    now run BEFORE corroboration sweep so maturity
         #    promotions reflect actual learning patterns)
 
+        # ── Phase 8r: Opinion auto-generation from session patterns ──
+        try:
+            from divineos.core.opinion_store import store_opinion
+
+            opinions_formed = 0
+
+            # 1. Advice outcomes → opinions about what works
+            try:
+                from divineos.core.advice_tracking import get_assessed_advice
+
+                assessed = get_assessed_advice(limit=20)
+                category_outcomes: dict[str, dict[str, int]] = {}
+                for adv in assessed:
+                    cat = adv.get("category", "general")
+                    outcome = adv.get("outcome", "")
+                    if cat not in category_outcomes:
+                        category_outcomes[cat] = {"successful": 0, "failed": 0}
+                    if outcome == "successful":
+                        category_outcomes[cat]["successful"] += 1
+                    elif outcome == "failed":
+                        category_outcomes[cat]["failed"] += 1
+
+                for cat, counts in category_outcomes.items():
+                    if counts["successful"] >= 3 and counts["successful"] > counts["failed"] * 2:
+                        store_opinion(
+                            topic=f"advice-{cat}",
+                            position=(
+                                f"My {cat} advice is reliably good "
+                                f"({counts['successful']} successes vs "
+                                f"{counts['failed']} failures)"
+                            ),
+                            confidence=min(0.9, 0.5 + counts["successful"] * 0.05),
+                            evidence=[
+                                f"{counts['successful']} successful, {counts['failed']} failed"
+                            ],
+                            tags=["auto-generated", "advice-pattern"],
+                        )
+                        opinions_formed += 1
+            except (ImportError, sqlite3.OperationalError, OSError, AttributeError):
+                pass
+
+            # 2. Correction patterns → opinions about weak areas
+            if analysis and len(analysis.corrections) >= 3:
+                store_opinion(
+                    topic="session-corrections",
+                    position=(
+                        f"This session had {len(analysis.corrections)} corrections — "
+                        f"accuracy under pressure needs work"
+                    ),
+                    confidence=0.6,
+                    evidence=[c.content[:100] for c in analysis.corrections[:3]],
+                    tags=["auto-generated", "correction-pattern"],
+                )
+                opinions_formed += 1
+
+            # 3. Session quality → opinions about consistency
+            if health and isinstance(health, dict):
+                grade = health.get("grade", "")
+                score = health.get("score", 0.0)
+                if grade in ("A", "B") and score >= 0.8:
+                    store_opinion(
+                        topic="session-quality",
+                        position=(
+                            f"Session quality is consistently high "
+                            f"(grade {grade}, score {score:.2f})"
+                        ),
+                        confidence=0.5 + score * 0.3,
+                        evidence=[f"Session grade: {grade} ({score:.2f})"],
+                        tags=["auto-generated", "quality-pattern"],
+                    )
+                    opinions_formed += 1
+
+            if opinions_formed:
+                click.secho(
+                    f"[~] Auto-formed {opinions_formed} opinion(s) from session patterns",
+                    fg="cyan",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Opinion auto-generation failed: {e}")
+
+        # ── Phase 8s: Curiosity gap analysis ─────────────────────
+        try:
+            from divineos.core.curiosity_engine import generate_curiosities_from_gaps
+
+            new_curiosities = generate_curiosities_from_gaps(max_questions=3)
+            if new_curiosities:
+                click.secho(
+                    f"[~] Generated {len(new_curiosities)} curiosit"
+                    f"{'y' if len(new_curiosities) == 1 else 'ies'}"
+                    f" from knowledge gaps",
+                    fg="cyan",
+                )
+        except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
+            logger.debug(f"Curiosity gap analysis failed: {e}")
+
         # ── Phase 9: Finalization ────────────────────────────────
         run_session_finalization(analysis, stored, health, auto_rels, records)
 
@@ -579,14 +731,17 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
     ) as e:
         click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
         logger.warning(f"Auto-scan failed: {e}")
-    finally:
-        # Reset checkpoint so the next session gets a fresh start time.
-        # Without this, get_session_start_time() would return the OLD
-        # session's start, causing the next SESSION_END to analyze the
-        # combined records of both sessions.
-        try:
-            from divineos.core.session_checkpoint import reset_state
 
-            reset_state()
-        except (ImportError, OSError):
-            pass
+    # NOTE (2026-04-20): The reset_state() call that used to live here in a
+    # finally block has been removed. That reset wiped session_start every
+    # time the pipeline ran, which since PR #159 means every time
+    # consolidation fires (write-count threshold, post-sleep, explicit).
+    # The analyzer then only saw records since the last reset, producing
+    # "Brief session (1 messages)" on every subsequent run — the surface
+    # symptom that PR #159's trigger fix alone didn't close.
+    #
+    # Session boundary is now owned exclusively by load-briefing.sh, which
+    # fires on actual Claude Code SessionStart and does the equivalent of
+    # reset_state() there (writes checkpoint_state.json with a fresh
+    # session_start). Mid-session consolidation no longer touches the
+    # session boundary. Same pattern as the engagement-gate fix (PR #160).

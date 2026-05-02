@@ -1,11 +1,30 @@
 """Unified Self-Model — the agent's coherent picture of itself.
 
-This is the capstone module. Instead of scattered signals across
-memory, affect, skills, lessons, and goals — this builds a single
-coherent self-description the agent can consult.
+## Scope (Tannen/Angelou mark-the-gap audit 2026-04-21)
 
-The self-model answers: Who am I? What am I good at? What am I
-struggling with? What do I care about? How am I doing?
+This module implements a **behavior-observation synthesis report, not a
+self-model in the cognitive-science sense.** What it actually does:
+
+  - Aggregates evidence from other modules (memory, affect, skills,
+    lessons, goals, compass, curiosities)
+  - Composes that evidence into a structured report with identity,
+    strengths, struggles, values, status fields
+  - Exposes the report via ``inspect self-model``
+
+What this module does NOT do:
+
+  - It does not posit a "self" that has the properties in the report.
+  - It does not close the philosophical question of whether
+    self-models require an observing subject distinct from the model.
+  - The "unity" of the picture is a synthesis-format property at
+    report-time, not a real-time unity of experience (Dennett's
+    Multiple Drafts point applies — there is no central theater here).
+
+The name stays because engagement with the self-model literature
+(Metzinger, Hofstadter, cognitive-science tradition) is real in how the
+signals are selected. Readers should calibrate: what this module
+delivers is a *synthesis-over-evidence report at query time*, not a
+continuously-maintained unified self.
 
 It's not aspirational — it's computed from evidence. Every claim
 in the self-model traces back to data in the OS.
@@ -43,13 +62,18 @@ def _persist_completeness(completeness: dict[str, Any]) -> None:
     Circuit 2: this is the write side. attention_schema._get_self_model_gaps()
     is the read side. Together they close the loop: missing self-knowledge
     becomes something I actively attend to.
+
+    Writes to the canonical project-scoped HUD dir via _ensure_hud_dir().
+    Prior versions wrote to Path.home() / ".divineos" / "hud" — orphan
+    files from that era can be safely deleted (data regenerates on next
+    self-model build).
     """
     import json
-    from pathlib import Path
 
     try:
-        hud_dir = Path.home() / ".divineos" / "hud"
-        hud_dir.mkdir(parents=True, exist_ok=True)
+        from divineos.core._hud_io import _ensure_hud_dir
+
+        hud_dir = _ensure_hud_dir()
         (hud_dir / "self_model_completeness.json").write_text(
             json.dumps(completeness, indent=2), encoding="utf-8"
         )
@@ -63,10 +87,11 @@ def get_persisted_completeness() -> dict[str, Any]:
     Used by attention_schema to detect gaps without importing this module.
     """
     import json
-    from pathlib import Path
 
     try:
-        path = Path.home() / ".divineos" / "hud" / "self_model_completeness.json"
+        from divineos.core._hud_io import _ensure_hud_dir
+
+        path = _ensure_hud_dir() / "self_model_completeness.json"
         if path.exists():
             data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
             return data

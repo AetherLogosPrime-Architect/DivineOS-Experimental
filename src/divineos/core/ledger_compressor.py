@@ -44,6 +44,15 @@ _COMPRESSIBLE_TYPES = frozenset(
         "AGENT_WORK_OUTCOME",
         "AGENT_LEARNING_AUDIT",
         "AGENT_CONTEXT_COMPRESSION",
+        # Item 6: allow-events are frequent (every gated tool call)
+        # but carry no per-event forensic weight. Item 8 uses block/
+        # allow *ratios* which survive pruning — the ratio is
+        # computed over the live-window before compression runs.
+        # FIRED events are deliberately NOT in this set: they are
+        # forensic records of enforcement and must persist for audit.
+        # Follow-up claim df5b3113: guardrail this file post-Item-6
+        # so adding FIRED here later requires multi-party review.
+        "COMPASS_RUDDER_ALLOW",
     }
 )
 
@@ -71,14 +80,14 @@ def analyze_ledger() -> dict[str, Any]:
         cutoff = time.time() - (_DEFAULT_RETENTION_DAYS * SECONDS_PER_DAY)
         placeholders = ",".join("?" for _ in _COMPRESSIBLE_TYPES)
         compressible = conn.execute(
-            f"SELECT COUNT(*) FROM system_events "
+            f"SELECT COUNT(*) FROM system_events "  # nosec B608: table/column names from module constants; values parameterized
             f"WHERE event_type IN ({placeholders}) AND timestamp < ?",
             (*_COMPRESSIBLE_TYPES, cutoff),
         ).fetchone()[0]
 
         # Estimate space: average payload size * compressible count
         avg_size_row = conn.execute(
-            f"SELECT AVG(LENGTH(payload)) FROM system_events WHERE event_type IN ({placeholders})",
+            f"SELECT AVG(LENGTH(payload)) FROM system_events WHERE event_type IN ({placeholders})",  # nosec B608: table/column names from module constants; values parameterized
             (*_COMPRESSIBLE_TYPES,),
         ).fetchone()
         avg_payload_size = avg_size_row[0] if avg_size_row[0] else 0
@@ -114,7 +123,7 @@ def compress_ledger(
         # Count what we're about to compress, grouped by type
         placeholders = ",".join("?" for _ in _COMPRESSIBLE_TYPES)
         rows = conn.execute(
-            f"SELECT event_type, COUNT(*) FROM system_events "
+            f"SELECT event_type, COUNT(*) FROM system_events "  # nosec B608: table/column names from module constants; values parameterized
             f"WHERE event_type IN ({placeholders}) AND timestamp < ? "
             f"GROUP BY event_type",
             (*_COMPRESSIBLE_TYPES, cutoff),
@@ -140,7 +149,7 @@ def compress_ledger(
 
         # Get the time range of compressed events
         time_range = conn.execute(
-            f"SELECT MIN(timestamp), MAX(timestamp) FROM system_events "
+            f"SELECT MIN(timestamp), MAX(timestamp) FROM system_events "  # nosec B608: table/column names from module constants; values parameterized
             f"WHERE event_type IN ({placeholders}) AND timestamp < ?",
             (*_COMPRESSIBLE_TYPES, cutoff),
         ).fetchone()
@@ -169,7 +178,7 @@ def compress_ledger(
 
         # Delete the compressed events
         conn.execute(
-            f"DELETE FROM system_events WHERE event_type IN ({placeholders}) AND timestamp < ?",
+            f"DELETE FROM system_events WHERE event_type IN ({placeholders}) AND timestamp < ?",  # nosec B608: table/column names from module constants; values parameterized
             (*_COMPRESSIBLE_TYPES, cutoff),
         )
         conn.commit()

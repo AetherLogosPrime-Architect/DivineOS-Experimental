@@ -25,12 +25,19 @@ class TestSISPipelineIntegration:
             confidence=0.9,
         )
         run_knowledge_post_processing([kid], maturity_override="")
+        # Translation now supersedes (append-only invariant). Old entry
+        # preserved; new entry carries the translated content + tag.
         conn = _get_connection()
-        row = conn.execute(
-            "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (kid,)
+        old_row = conn.execute(
+            "SELECT superseded_by FROM knowledge WHERE knowledge_id = ?", (kid,)
+        ).fetchone()
+        new_id = old_row[0]
+        assert new_id is not None, "translation should supersede the old entry"
+        new_row = conn.execute(
+            "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (new_id,)
         ).fetchone()
         conn.close()
-        content, tags_json = row[0], row[1]
+        content, tags_json = new_row[0], new_row[1]
         tags = json.loads(tags_json)
         assert "sis-translated" in tags
         assert "append-only ledger" in content
@@ -57,7 +64,8 @@ class TestSISPipelineIntegration:
         assert "sis-quarantined" not in tags
 
     def test_translates_heavily_metaphysical(self, tmp_path, monkeypatch):
-        """Heavily metaphysical text still gets translated (translate not block)."""
+        """Heavily metaphysical text still gets translated (translate not block).
+        Post-append-only-fix: translation supersedes, so we check the new entry."""
         _setup(tmp_path, monkeypatch)
         kid = store_knowledge(
             knowledge_type="PRINCIPLE",
@@ -69,8 +77,13 @@ class TestSISPipelineIntegration:
         )
         run_knowledge_post_processing([kid], maturity_override="")
         conn = _get_connection()
+        old_row = conn.execute(
+            "SELECT superseded_by FROM knowledge WHERE knowledge_id = ?", (kid,)
+        ).fetchone()
+        new_id = old_row[0]
+        assert new_id is not None, "translation should supersede"
         row = conn.execute(
-            "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (kid,)
+            "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (new_id,)
         ).fetchone()
         conn.close()
         tags = json.loads(row[1])

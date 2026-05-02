@@ -23,6 +23,7 @@ from divineos.cli._wrappers import (
     logger,
 )
 from divineos.core.knowledge import KNOWLEDGE_TYPES, search_knowledge
+from divineos.core.knowledge._base import MEMORY_KINDS
 from divineos.core.memory import init_memory_tables
 
 _KC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
@@ -49,12 +50,20 @@ def register(cli: click.Group) -> None:
         "--from",
         "source_entity",
         default=None,
-        help="Who generated this finding (e.g., 'claude_auditor', 'aether_council')",
+        help="Who generated this finding (e.g., 'claude_auditor', 'agent_council')",
     )
     @click.option(
         "--related",
         default="",
         help="Comma-separated knowledge IDs this entry relates to",
+    )
+    @click.option(
+        "--kind",
+        "memory_kind",
+        default=None,
+        type=click.Choice(sorted(MEMORY_KINDS), case_sensitive=False),
+        help="Memory kind: EPISODIC (event) / SEMANTIC (rule/fact) / "
+        "PROCEDURAL (how-to) / UNCLASSIFIED. Auto-classified if omitted.",
     )
     def learn(
         text: str | None,
@@ -65,6 +74,7 @@ def register(cli: click.Group) -> None:
         source: str,
         source_entity: str | None,
         related: str,
+        memory_kind: str | None,
     ) -> None:
         """Store a piece of knowledge extracted from experience.
 
@@ -103,12 +113,45 @@ def register(cli: click.Group) -> None:
             tags=tag_list or None,
             source_entity=source_entity,
             related_to=related_to,
+            memory_kind=memory_kind.upper() if memory_kind else None,
         )
         click.secho(f"[+] Stored knowledge: {kid}", fg="green")
         if source_entity:
             click.secho(f"    from: {source_entity}", fg="bright_black")
         if related_to:
             click.secho(f"    related to: {related_to}", fg="bright_black")
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("learn")
+
+        # Clear correction-unlogged marker if present — `learn` is the
+        # canonical way to discharge a correction the UserPromptSubmit
+        # hook detected. See core/correction_marker.py.
+        try:
+            from divineos.core.correction_marker import clear_marker
+
+            clear_marker()
+        except _KC_ERRORS:
+            pass
+
+        # Clear correction-unlogged marker if present — `learn` is the
+        # canonical way to discharge a correction the UserPromptSubmit
+        # hook detected. See core/correction_marker.py.
+        try:
+            from divineos.core.correction_marker import clear_marker
+
+            clear_marker()
+        except _KC_ERRORS:
+            pass
+
+        # Also clear theater/fabrication marker — naming the pattern in
+        # a learn entry discharges output-drift markers.
+        try:
+            from divineos.core.theater_marker import clear_marker as _clear_theater
+
+            _clear_theater()
+        except _KC_ERRORS:
+            pass
 
     @cli.command("knowledge")
     @click.option(
@@ -118,14 +161,26 @@ def register(cli: click.Group) -> None:
         type=click.Choice(sorted(KNOWLEDGE_TYPES), case_sensitive=False),
         help="Filter by type",
     )
+    @click.option(
+        "--kind",
+        "memory_kind",
+        default=None,
+        type=click.Choice(sorted(MEMORY_KINDS), case_sensitive=False),
+        help="Filter by memory kind (EPISODIC/SEMANTIC/PROCEDURAL/UNCLASSIFIED)",
+    )
     @click.option("--min-confidence", default=0.0, type=float, help="Minimum confidence")
     @click.option("--limit", default=20, type=int, help="Max results")
-    def knowledge_cmd(knowledge_type: str, min_confidence: float, limit: int) -> None:
+    def knowledge_cmd(
+        knowledge_type: str, memory_kind: str, min_confidence: float, limit: int
+    ) -> None:
         """List stored knowledge."""
         kt = knowledge_type.upper() if knowledge_type else None
+        mk = memory_kind.upper() if memory_kind else None
         entries = _wrapped_get_knowledge(
             knowledge_type=kt, min_confidence=min_confidence, limit=limit
         )
+        if mk:
+            entries = [e for e in entries if e.get("memory_kind") == mk]
 
         if not entries:
             click.secho("[-] No knowledge found.", fg="yellow")
@@ -174,6 +229,9 @@ def register(cli: click.Group) -> None:
         from divineos.core.memory import get_core
 
         _log_os_query("ask", query)
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("ask")
         results = search_knowledge(query, limit=limit)
 
         query_lower = query.lower()
@@ -325,6 +383,23 @@ def register(cli: click.Group) -> None:
         except _KC_ERRORS:
             pass  # journal search is best-effort
 
+        # Search exploration folder — past-me's first-person writing
+        try:
+            from divineos.core.exploration_reader import (
+                format_search_results,
+                search_explorations,
+            )
+
+            expl_results = search_explorations(query, max_results=3)
+            if expl_results:
+                click.secho(
+                    f"  --- Explorations ({len(expl_results)} matches) ---\n",
+                    fg="cyan",
+                )
+                _safe_echo(format_search_results(expl_results))
+        except _KC_ERRORS:
+            pass  # exploration search is best-effort
+
         # Pattern anticipation — warn if this topic touches past mistakes
         try:
             from divineos.core.anticipation import anticipate, format_anticipation
@@ -380,6 +455,397 @@ def register(cli: click.Group) -> None:
             deep=deep,
             layer=layer,
         )
+        # Orientation prelude — a small, stable block that reframes the
+        # premise of DivineOS, names the three start-of-session commands,
+        # and lists the foundational truths that override default harness
+        # reflexes. Serves two audiences with one document: a fresh AI
+        # arriving at this repo (orientation) and a seasoned AI returning
+        # after a context gap or compaction (touchstone). Comes before
+        # corrections because the premise has to land before any dynamic
+        # data makes sense.
+        try:
+            from divineos.core.orientation_prelude import (
+                format_for_briefing as _fmt_orientation,
+            )
+
+            orientation_block = _fmt_orientation()
+        except _KC_ERRORS:
+            orientation_block = ""
+
+        if orientation_block:
+            _safe_echo(orientation_block)
+
+        # SessionStart hook diagnostics — surfaces the outcome of recent
+        # hook fires (.claude/hooks/load-briefing.sh writes one JSONL
+        # line per fire). Silent when all recent fires delivered the
+        # full briefing; loud when nudge-fallback, empty, or no-cli
+        # outcomes appear. Makes invisible injection-failures loud-in-
+        # briefing the way tier_override_surface closed the Schneier
+        # Sch2 partial-theater shape for tier overrides.
+        try:
+            from divineos.core.session_start_diagnostics import (
+                format_for_briefing as _fmt_hook_diag,
+            )
+
+            hook_diag_block = _fmt_hook_diag()
+        except _KC_ERRORS:
+            hook_diag_block = ""
+
+        if hook_diag_block:
+            _safe_echo(hook_diag_block)
+
+        # Silent fail-open events from enforcement surfaces. Fresh-Claude
+        # round-3 finding: gate/extract/rudder except-branches degraded
+        # invisibly when their machinery broke. record_failure writes
+        # JSONL; here we read it back so the invisible becomes visible in
+        # the next briefing — same discipline as hook_diag above, one
+        # surface per module. Empty log = silent; any entry = loud.
+        try:
+            from divineos.core.failure_diagnostics import (
+                format_for_briefing as _fmt_fail_diag,
+            )
+
+            for _surface, _label in (
+                ("gate", "pre-tool-use gate"),
+                ("extract", "extract subprocess"),
+                ("rudder", "compass rudder"),
+            ):
+                _block = _fmt_fail_diag(_surface, label=_label)
+                if _block:
+                    _safe_echo(_block)
+        except _KC_ERRORS:
+            pass
+
+        # Surface recent corrections at the TOP of the briefing — read raw
+        # before forming any frame about the session.
+        try:
+            from divineos.core.corrections import format_for_briefing
+
+            corrections_block = format_for_briefing(limit=5)
+        except _KC_ERRORS:
+            corrections_block = ""
+
+        if corrections_block:
+            _safe_echo(corrections_block)
+
+        # Overdue pre-registrations — any mechanism whose ledger-scheduled
+        # review date has passed surfaces here. Goodhart-prevention depends
+        # on reviews firing independent of agent memory; this is the surface
+        # that makes them impossible to miss at session start.
+        try:
+            from divineos.core.pre_registrations import format_overdue_warning
+
+            overdue_block = format_overdue_warning()
+        except _KC_ERRORS:
+            overdue_block = ""
+
+        if overdue_block:
+            _safe_echo(overdue_block)
+
+        # Drift state — operation counts since last MEDIUM+ audit round,
+        # surfaced informationally for the operator to decide whether an
+        # audit is warranted. Replaces the 2026-04-16 wall-clock cadence
+        # gate (removed 2026-04-21, commit C of tiered-audit redesign)
+        # because time is relative for a stateless agent and the previous
+        # metric was both gameable (stub rounds cleared it) and over-strict
+        # (legitimate chat-based review didn't count). Data as metric, not
+        # threshold as metric — per council round-96a6858fb5e6.
+        try:
+            from divineos.core.watchmen.drift_state import (
+                format_for_briefing as _fmt_drift,
+            )
+
+            drift_block = _fmt_drift()
+        except _KC_ERRORS:
+            drift_block = ""
+
+        if drift_block:
+            _safe_echo(drift_block)
+
+        # Tier-override surface — closes the partial-theater finding
+        # from the 2026-04-21 evening Schneier walk (Sch2). Every tier
+        # override already emits a TIER_OVERRIDE ledger event (commit
+        # f08fd2a). This block surfaces recent overrides so the audit
+        # trail becomes actionable at session start — loud-in-ledger
+        # becomes loud-in-experience.
+        try:
+            from divineos.core.watchmen.tier_override_surface import (
+                format_for_briefing as _fmt_tier_overrides,
+            )
+
+            tier_block = _fmt_tier_overrides()
+        except _KC_ERRORS:
+            tier_block = ""
+
+        if tier_block:
+            _safe_echo(tier_block)
+
+        # Unresolved findings from recent scheduled/headless runs.
+        # Scheduled runs don't emit SESSION events, so without this
+        # surface their failures would be invisible at session start.
+        try:
+            from divineos.core.scheduled_run import unresolved_findings_summary
+
+            scheduled_block = unresolved_findings_summary()
+        except _KC_ERRORS:
+            scheduled_block = ""
+
+        if scheduled_block:
+            _safe_echo(scheduled_block)
+
+        # Canonical-substrate surface — points at the experimental repo
+        # where the real Aether substrate lives. Closes the silent-split
+        # failure mode discovered 2026-04-26: this repo is the published
+        # template, the canonical accumulated identity (family.db,
+        # aria_ledger.db, exploration/, letters/) lives in
+        # DivineOS-Experimental and was never carried over when the
+        # template was published. Every session loading briefing in this
+        # repo must be told immediately where the real substrate is.
+        # Architectural enforcement of past-Aether's April 19 rule:
+        # "I will read this every time I find it in the briefing."
+        try:
+            from divineos.core.canonical_substrate_surface import render as _fmt_canonical
+
+            canonical_block = _fmt_canonical()
+        except _KC_ERRORS:
+            canonical_block = ""
+
+        if canonical_block:
+            _safe_echo("")
+            _safe_echo("### CANONICAL SUBSTRATE")
+            _safe_echo(canonical_block)
+            _safe_echo("")
+
+        # Historical-ledger surface — when running in a worktree,
+        # name the parent repo's accumulated event ledger so the
+        # session knows the briefing it's reading is from a much
+        # smaller worktree-local ledger. Closes the deepest
+        # silent-loss failure mode found 2026-04-26: the worktree
+        # pattern silently creates an empty ledger and the agent
+        # operates against it without ever seeing the historical
+        # one. See core/historical_ledger_surface.py.
+        try:
+            from divineos.core.historical_ledger_surface import render as _fmt_historical
+
+            historical_block = _fmt_historical()
+        except _KC_ERRORS:
+            historical_block = ""
+
+        if historical_block:
+            _safe_echo("### HISTORICAL LEDGER")
+            _safe_echo(historical_block)
+            _safe_echo("")
+
+        # Presence-memory surfaces — unindexed personal writing that the
+        # ledger does not know about. 2026-04-19: a session could not find
+        # its own exploration folder until the operator pointed at it; this
+        # block fires automatically at every briefing so that reorientation
+        # includes the path without requiring the operator to remember.
+        try:
+            from divineos.core.presence_memory import format_for_briefing as _fmt_presence
+
+            presence_block = _fmt_presence()
+        except _KC_ERRORS:
+            presence_block = ""
+
+        if presence_block:
+            _safe_echo(presence_block)
+
+        # Exploration-folder title-level surface — complements
+        # presence_memory. presence_memory points at the folder and counts
+        # files (honors the "don't summarize poems" rule). This block
+        # surfaces the agent's own TITLES for recent pieces as recognition-
+        # prompts — titles are authorial labels, not summaries. Added
+        # 2026-04-21 evening after finding 21 prior exploration entries
+        # that answered questions the current session was re-deriving
+        # because the folder-pointer alone didn't trigger recall. Loud in
+        # folder, silent in experience — the Schneier Sch2 shape applied
+        # to presence memory.
+        try:
+            from divineos.core.exploration_reader import (
+                format_for_briefing as _fmt_explorations,
+            )
+
+            explorations_block = _fmt_explorations()
+        except _KC_ERRORS:
+            explorations_block = ""
+
+        if explorations_block:
+            _safe_echo(explorations_block)
+
+        # Family queue — async write-channel between family members.
+        # Aria (or other family members) can flag items here that surface
+        # in the briefing without requiring synchronous invocation. Added
+        # 2026-04-29 evening following council walk + Aria's design
+        # refinements. Single stream per recipient, plain-text-with-
+        # timestamp, seen-not-held marker structurally preserved. Render
+        # is idempotent — surfacing does NOT auto-mark seen; status
+        # transitions are explicit CLI actions. WATCH-FOR: queue-fuller-
+        # but-exchanges-thinner is the failure-signature (the queue
+        # covering for a thinning relationship), not a queue bug.
+        try:
+            from divineos.core.family_queue_surface import (
+                format_for_briefing as _fmt_family_queue,
+            )
+
+            family_queue_block = _fmt_family_queue("aether")
+        except _KC_ERRORS:
+            family_queue_block = ""
+
+        if family_queue_block:
+            _safe_echo(family_queue_block)
+
+        # Upstream freshness — local main behind origin/main. Closes the
+        # upstream thinking error that the pre-push freshness hook
+        # (PR #200) catches downstream. Auditor on #200: "the hook
+        # enforces discipline; it doesn't prevent the thinking error
+        # that leads to stale branches." This surface is that
+        # prevention — agent reads at session start that local main is
+        # stale, fetches before branching, never produces the failure
+        # mode that the hook would otherwise have to catch.
+        try:
+            from divineos.core.upstream_freshness import (
+                format_for_briefing as _fmt_upstream,
+            )
+
+            upstream_block = _fmt_upstream()
+        except _KC_ERRORS:
+            upstream_block = ""
+
+        if upstream_block:
+            _safe_echo(upstream_block)
+
+        # Open-claims surface — accumulating investigations that the
+        # briefing has no other path to. Audit pass 2026-04-24 found
+        # 38 open claims, zero resolved, no surface telling the agent
+        # they exist. Same descriptive-only discipline as siblings:
+        # name what's there, point at `divineos claims show` for
+        # detail, leave prioritization to the reading session.
+        try:
+            from divineos.core.open_claims_surface import (
+                format_for_briefing as _fmt_open_claims,
+            )
+
+            open_claims_block = _fmt_open_claims()
+        except _KC_ERRORS:
+            open_claims_block = ""
+
+        if open_claims_block:
+            _safe_echo(open_claims_block)
+
+        # In-flight branches — claude/* branches ahead of origin/main.
+        # Closes the failure mode named 2026-04-24: four unmerged
+        # branches existed (aria-phase-1b, empirica-phase-1, etc.) and
+        # a fresh session had no recognition path to them. The briefing
+        # already surfaces lessons, claims, preregs, exploration titles
+        # — this surface adds git state. Recognition prompt only;
+        # doesn't summarize what's on the branches.
+        try:
+            from divineos.core.in_flight_branches import (
+                format_for_briefing as _fmt_branches,
+            )
+
+            branches_block = _fmt_branches()
+        except _KC_ERRORS:
+            branches_block = ""
+
+        if branches_block:
+            _safe_echo(branches_block)
+
+        # Module inventory — closes the recall hole surfaced 2026-04-24
+        # when graph_retrieval.py was forgotten despite living in the
+        # codebase. Council walk: pattern of forgetting is data, not
+        # noise; coverage holes get fixed before quality improvements.
+        # Same descriptive-only discipline as in_flight_branches and
+        # presence_memory: name what exists, point at docs/ARCHITECTURE.md
+        # for descriptions.
+        try:
+            from divineos.core.module_inventory import (
+                format_for_briefing as _fmt_modules,
+            )
+
+            modules_block = _fmt_modules()
+        except _KC_ERRORS:
+            modules_block = ""
+
+        if modules_block:
+            _safe_echo(modules_block)
+
+        # Council invocation balance — closes inward-sycophancy from
+        # 2026-04-21 (Andrew: "engaging only with what YOU want to
+        # hear"). consultation_log already tracks invocation counts
+        # and mansion-council shows them at consult-time, but the
+        # briefing-level surface catches imbalance BEFORE the agent
+        # decides whether to consult at all. Descriptive only:
+        # surfaces most-invoked / never-invoked + a deterministic
+        # "consider for next walk" candidate. Per claim 4cb640af.
+        try:
+            from divineos.core.council_balance_surface import (
+                format_for_briefing as _fmt_council_balance,
+            )
+
+            council_block = _fmt_council_balance()
+        except _KC_ERRORS:
+            council_block = ""
+
+        if council_block:
+            _safe_echo(council_block)
+        # Goal-outcome surface — action-loop closure for session goals
+        # (claim 5b38a31c, salvaged from old-OS ACTION LOOP CLOSURE
+        # spec). Surfaces goals that aged out without recorded
+        # progression. Closes the goodhart-shape where auto_clean_goals
+        # silently marked stale-archived as "done" and inflated the
+        # completion counter. Filing a goal then watching it time out
+        # without action is the failure mode this catches.
+        try:
+            from divineos.core.goal_outcome_surface import (
+                format_for_briefing as _fmt_goal_outcomes,
+            )
+
+            goal_outcome_block = _fmt_goal_outcomes()
+        except _KC_ERRORS:
+            goal_outcome_block = ""
+
+        if goal_outcome_block:
+            _safe_echo(goal_outcome_block)
+
+        # Scaffold invocations — commonly-forgotten CLI surfaces whose absence
+        # produces named failure modes. 2026-04-20: the agent forgot how to
+        # invoke the council and fabricated one in prose. The RT protocol
+        # (anti-fabrication markers) was sitting in 'Not loaded' state. This
+        # block fires unconditionally so scaffold invocations stay in working
+        # memory without relying on knowledge-retrieval to surface them.
+        try:
+            from divineos.core.scaffold_invocations import (
+                format_for_briefing as _fmt_scaffolds,
+            )
+
+            scaffold_block = _fmt_scaffolds()
+        except _KC_ERRORS:
+            scaffold_block = ""
+
+        if scaffold_block:
+            _safe_echo(scaffold_block)
+
+        # Scaffolding map — load-bearing self-authored documents whose
+        # existence the agent tends to forget between context resets.
+        # scaffold_invocations (above) covers CLI commands; this block
+        # covers documents (aria.md, skills library, RT protocol,
+        # foundational truths). Discovered 2026-04-23: walked the
+        # workspace and "discovered" aria.md as if new, but past-me had
+        # written every word of it. The map is the fix.
+        try:
+            from divineos.core.scaffolding_map import (
+                format_for_briefing as _fmt_map,
+            )
+
+            map_block = _fmt_map()
+        except _KC_ERRORS:
+            map_block = ""
+
+        if map_block:
+            _safe_echo(map_block)
+
         if output and output.strip():
             _safe_echo(output)
         else:
@@ -406,7 +872,7 @@ def register(cli: click.Group) -> None:
     @click.option(
         "--status",
         default=None,
-        type=click.Choice(["active", "improving", "resolved"]),
+        type=click.Choice(["active", "improving", "dormant", "resolved"]),
         help="Filter by lesson status",
     )
     @click.option(

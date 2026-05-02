@@ -37,8 +37,15 @@ _CP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError
 
 
 def _counter_path() -> Path:
-    """Path to the per-session edit counter file."""
-    p = Path.home() / ".divineos"
+    """Path to the per-session edit counter file.
+
+    Respects DIVINEOS_HOME env var so tests (and xdist workers) can
+    isolate state. Default: ~/.divineos.
+    """
+    import os
+
+    home_override = os.environ.get("DIVINEOS_HOME")
+    p = Path(home_override) if home_override else Path.home() / ".divineos"
     p.mkdir(parents=True, exist_ok=True)
     return p / "checkpoint_state.json"
 
@@ -75,8 +82,69 @@ def reset_state() -> None:
             "last_checkpoint": 0.0,
             "checkpoints_run": 0,
             "session_start": time.time(),
+            "writes_since_consolidation": 0,
         }
     )
+
+
+def increment_write_count(event_type: str) -> int:
+    """Increment the write counter that drives the consolidation trigger.
+
+    Counts every ledger event EXCEPT consolidation events themselves
+    (SESSION_END historical + CONSOLIDATION_CHECKPOINT current). Consolidation
+    runs produce their own ledger writes; counting those would create a loop
+    where consolidation keeps triggering more consolidation.
+
+    Returns the updated count. Callers who want the count without incrementing
+    can read state["writes_since_consolidation"] directly.
+
+    See principle ca2116d5 + PR #2 pre-reg for the "what counts as a write"
+    pin: ledger-event-write = 1, consolidation-event = 0, sleep-as-a-whole = 1
+    (emitted as a single SLEEP_COMPLETED event downstream).
+    """
+    # Guard against self-triggering loops. Lazy import to avoid a circular
+    # dependency on event_capture from this low-level module.
+    try:
+        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+    except ImportError:
+        # If event_capture isn't importable yet (e.g., during bootstrap),
+        # fall back to the literal set so the guard still holds.
+        CONSOLIDATION_EVENT_TYPES = frozenset({"SESSION_END", "CONSOLIDATION_CHECKPOINT"})
+
+    if event_type in CONSOLIDATION_EVENT_TYPES:
+        state = _load_state()
+        return int(state.get("writes_since_consolidation", 0))
+
+    state = _load_state()
+    count = int(state.get("writes_since_consolidation", 0)) + 1
+    state["writes_since_consolidation"] = count
+    _save_state(state)
+    return count
+
+
+def reset_write_count() -> None:
+    """Reset the write counter to zero. Called after a successful extract
+    run so the next threshold crossing is measured from a clean baseline."""
+    state = _load_state()
+    state["writes_since_consolidation"] = 0
+    _save_state(state)
+
+
+# ─── Write-Count Threshold for Auto-Consolidation ─────────────────────
+#
+# Starting guess: 40 writes since last consolidation triggers auto-run.
+# This is a guess. Pre-registered for review in 7 days as
+# prereg-52a15cfab7f1 — see that entry for the structured 4-point
+# review checklist (fire-count, dead-trigger detection, operator
+# correlation, ephemerality-bug-closure verification).
+#
+# Definition of "write" (per Claude 4.7 audit, pinned pre-registration):
+#   - 1 ledger event emission (log_event call) = 1 write
+#   - 1 knowledge-store insert = 1 write (often emits its own event)
+#   - 1 opinion filing = 1 write
+#   - Sleep cycle = 1 write (user invoked once, multiple internal writes)
+#   - Consolidation runs themselves do NOT count (prevents runaway loops)
+CONSOLIDATION_WRITE_THRESHOLD = 40
 
 
 def get_session_start_time() -> float | None:
@@ -103,7 +171,7 @@ def get_session_start_time() -> float | None:
         try:
             row = conn.execute(
                 "SELECT timestamp FROM system_events "
-                "WHERE event_type = 'SESSION_END' "
+                "WHERE event_type IN ('SESSION_END', 'CONSOLIDATION_CHECKPOINT') "
                 "ORDER BY timestamp DESC LIMIT 1"
             ).fetchone()
             if row:
@@ -181,20 +249,20 @@ def format_context_warning(state: dict[str, Any]) -> str | None:
     if level == "warn":
         return (
             f"{base}\n"
-            "Context usage ~50%. Consider running 'divineos emit SESSION_END' "
+            "Context usage ~50%. Consider running 'divineos extract' "
             "to save knowledge before compaction."
         )
     if level == "urgent":
         return (
             f"{base}\n"
-            "CONTEXT USAGE HIGH (~80%). Run 'divineos emit SESSION_END' NOW "
+            "CONTEXT USAGE HIGH (~80%). Run 'divineos extract' NOW "
             "to extract knowledge. Session will compact soon."
         )
     if level == "critical":
         return (
             f"{base}\n"
             "CRITICAL: Context nearly full (~90%). "
-            "Run 'divineos emit SESSION_END' IMMEDIATELY. "
+            "Run 'divineos extract' IMMEDIATELY. "
             "Context compaction is imminent — unsaved work will be summarized away."
         )
     return None
@@ -221,14 +289,16 @@ def _get_modified_files() -> list[str]:
 def _get_recent_decisions(limit: int = 3) -> list[str]:
     """Get recent decision summaries from the decision journal."""
     try:
-        from divineos.core.knowledge._base import get_connection
+        from divineos.core.knowledge import get_connection
 
         conn = get_connection()
-        rows = conn.execute(
-            "SELECT what, why FROM decision_journal ORDER BY created_at DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
-        conn.close()
+        try:
+            rows = conn.execute(
+                "SELECT what, why FROM decision_journal ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        finally:
+            conn.close()
         return [f"{what}: {why[:100]}" for what, why in rows if what]
     except (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError):
         return []

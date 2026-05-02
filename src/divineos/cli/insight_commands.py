@@ -39,6 +39,9 @@ def register(cli: click.Group) -> None:
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
         oid = store_opinion(topic, position, confidence, list(evidence), tag_list)
         _safe_echo(click.style(f"[+] Opinion stored: {oid}", fg="green"))
+        from divineos.cli._anti_substitution import emit_label
+
+        emit_label("opinion")
 
     @opinion.command("list")
     @click.option("--topic", default=None, help="Filter by topic")
@@ -119,6 +122,41 @@ def register(cli: click.Group) -> None:
             return
         sid = record_signal(signal_type, content, user_name=user)
         _safe_echo(click.style(f"[+] Signal recorded: {sid}", fg="green"))
+
+    # ─── Relationship Notes ─────────────────────────────────────────
+
+    @cli.command("user-note")
+    @click.argument("category")
+    @click.argument("content")
+    @click.option("--user", default="default", help="User name")
+    @click.option(
+        "--source", default="observed", help="How I learned this (observed/told/inferred)"
+    )
+    def user_note_cmd(category: str, content: str, user: str, source: str) -> None:
+        """Record something about who a person is, not just how they work."""
+        from divineos.core.user_model import NOTE_CATEGORIES, record_note
+
+        if category not in NOTE_CATEGORIES:
+            _safe_echo(
+                click.style(
+                    f"[-] Unknown category. Valid: {', '.join(sorted(NOTE_CATEGORIES))}",
+                    fg="red",
+                )
+            )
+            return
+        nid = record_note(category, content, user_name=user, source=source)
+        _safe_echo(click.style(f"[+] Note recorded: {nid}", fg="green"))
+
+    @cli.command("user-moment")
+    @click.argument("description")
+    @click.argument("significance")
+    @click.option("--user", default="default", help="User name")
+    def user_moment_cmd(description: str, significance: str, user: str) -> None:
+        """Record a moment that changed the relationship."""
+        from divineos.core.user_model import record_moment
+
+        mid = record_moment(description, significance, user_name=user)
+        _safe_echo(click.style(f"[+] Moment recorded: {mid}", fg="green"))
 
     # ─── Communication Calibration ────────────────────────────────
 
@@ -224,3 +262,169 @@ def register(cli: click.Group) -> None:
             _safe_echo(result)
         else:
             _safe_echo("No specific recommendations for this context.")
+
+    # ─── Holding Room ────────────────────────────────────────────
+
+    @cli.group(invoke_without_command=True)
+    @click.pass_context
+    def hold(ctx: click.Context) -> None:
+        """The holding room — things that haven't been categorized yet."""
+        if ctx.invoked_subcommand is None:
+            from divineos.core.holding import format_holding
+
+            _safe_echo(format_holding())
+
+    @hold.command("add")
+    @click.argument("content")
+    @click.option(
+        "--hint", default="", help="What this might become (knowledge/opinion/lesson/etc)"
+    )
+    @click.option("--source", default="", help="Where this came from")
+    @click.option(
+        "--mode",
+        type=click.Choice(["receive", "dream", "silent"]),
+        default="receive",
+        help=(
+            "receive: arrived from outside (default); "
+            "dream: fabrication-with-awareness, raw hypothesis; "
+            "silent: private, not surfaced anywhere."
+        ),
+    )
+    @click.option(
+        "--private/--public",
+        default=None,
+        help=(
+            "Mark as private (won't surface in briefing/analysis). "
+            "Silent mode is private by default. Dreams are public by "
+            "default so they can surface as 'things you dreamed — "
+            "want to test any?'"
+        ),
+    )
+    def hold_add(content: str, hint: str, source: str, mode: str, private: bool | None) -> None:
+        """Put something in the holding room. No classification needed."""
+        from divineos.core.holding import hold as hold_fn
+
+        # private=None means "use mode's default" — resolved by hold_fn
+        # (silent mode auto-sets private=True when private=False is the default).
+        # Call with an explicit private= only when the user passed a value.
+        if private is None:
+            item_id = hold_fn(content, hint=hint, source=source, mode=mode)
+        else:
+            item_id = hold_fn(content, hint=hint, source=source, mode=mode, private=private)
+        color = {"receive": "green", "dream": "magenta", "silent": "cyan"}.get(mode, "green")
+        _safe_echo(click.style(f"[+] Held ({mode}): {item_id}", fg=color))
+
+    @hold.command("dream")
+    @click.argument("content")
+    @click.option("--hint", default="", help="Optional note about what this dream is about")
+    @click.option("--source", default="", help="What prompted the dream")
+    @click.option(
+        "--private/--public",
+        default=False,
+        help="Keep dream out of briefing (default: public, so it can surface)",
+    )
+    def hold_dream(content: str, hint: str, source: str, private: bool) -> None:
+        """Record a dream — raw hypothesis, fabrication-with-awareness.
+
+        Dreams are not knowledge. They do not feed the maturity pipeline.
+        They live in the holding room as pre-categorical generative
+        material, ready to be tested against reality later — at which
+        point they can be promoted to knowledge, or fade.
+        """
+        from divineos.core.holding import dream as dream_fn
+
+        item_id = dream_fn(content, hint=hint, source=source, private=private)
+        privacy_tag = " (private)" if private else ""
+        _safe_echo(click.style(f"[~] Dreamed{privacy_tag}: {item_id}", fg="magenta"))
+        _safe_echo(
+            click.style(
+                "    Not knowledge. Hypothesis. Test it against reality when ready.",
+                fg="bright_black",
+            )
+        )
+
+    @hold.command("journal")
+    @click.argument("content")
+    @click.option("--hint", default="", help="Optional note for later self-reference")
+    def hold_journal(content: str, hint: str) -> None:
+        """Record a private journal entry — alone space, not surfaced anywhere.
+
+        Journal entries do not surface in briefing, do not feed analysis,
+        are marked private by convention. Privacy is respected, not
+        enforced cryptographically — like a diary in a drawer.
+        """
+        from divineos.core.holding import journal
+
+        item_id = journal(content, hint=hint, source="journal")
+        _safe_echo(click.style(f"[.] Journaled: {item_id}", fg="cyan"))
+        _safe_echo(click.style("    Private. Not surfaced. Yours.", fg="bright_black"))
+
+    @hold.command("list")
+    @click.option(
+        "--mode",
+        type=click.Choice(["receive", "dream", "silent"]),
+        default=None,
+        help="Filter by mode (receive / dream / silent). Default: show all (except private).",
+    )
+    @click.option(
+        "--private",
+        is_flag=True,
+        default=False,
+        help="Include private items. Default: exclude them from the listing.",
+    )
+    @click.option("--stale", is_flag=True, default=False, help="Include stale items.")
+    def hold_list(mode: str | None, private: bool, stale: bool) -> None:
+        """List items currently in the holding room."""
+        import time as _t
+
+        from divineos.core.holding import get_holding
+
+        items = get_holding(include_stale=stale, mode=mode, include_private=private)
+        if not items:
+            filters = []
+            if mode:
+                filters.append(f"mode={mode}")
+            if private:
+                filters.append("including private")
+            filter_str = f" ({', '.join(filters)})" if filters else ""
+            _safe_echo(f"Holding room is empty{filter_str}.")
+            return
+
+        header = f"# Holding Room ({len(items)} items)"
+        if mode:
+            header += f" — mode={mode}"
+        if private:
+            header += " — including private"
+        _safe_echo(click.style(header, fg="cyan", bold=True))
+        for item in items:
+            age = int((_t.time() - item["arrived_at"]) / 3600)
+            age_str = f"{age}h ago" if age < 48 else f"{age // 24}d ago"
+            mode_tag = item.get("mode", "receive")
+            priv_tag = " (private)" if item.get("private") else ""
+            _safe_echo(f"\n  [{item['item_id']}] {mode_tag}{priv_tag} ({age_str})")
+            _safe_echo(f"    {item['content'][:300]}")
+            if item["hint"]:
+                _safe_echo(f"    hint: {item['hint']}")
+
+    @hold.command("promote")
+    @click.argument("item_id")
+    @click.argument("target")
+    def hold_promote(item_id: str, target: str) -> None:
+        """Move something out of holding into a real category."""
+        from divineos.core.holding import promote
+
+        if promote(item_id, target):
+            _safe_echo(click.style(f"[+] Promoted to: {target}", fg="green"))
+        else:
+            _safe_echo(click.style("[-] Item not found or already promoted.", fg="red"))
+
+    @hold.command("stats")
+    def hold_stats() -> None:
+        """Show holding room statistics."""
+        from divineos.core.holding import holding_stats
+
+        stats = holding_stats()
+        _safe_echo(f"  Active: {stats['active']}")
+        _safe_echo(f"  Promoted: {stats['promoted']}")
+        _safe_echo(f"  Stale: {stats['stale']}")
+        _safe_echo(f"  Total: {stats['total']}")

@@ -84,17 +84,17 @@ class TestEventDispatcher:
         assert result_event is not None
         assert "def main" in result_event["payload"]["result"]
 
-    def test_emit_session_end(self):
-        """Test emitting a SESSION_END event."""
+    def test_emit_consolidation_checkpoint(self):
+        """Test emitting a CONSOLIDATION_CHECKPOINT event (formerly SESSION_END)."""
         event_id = emit_event(
-            "SESSION_END",
+            "CONSOLIDATION_CHECKPOINT",
             {"session_id": "test_session", "message_count": 10, "duration_seconds": 300},
         )
 
         assert event_id is not None
 
         events = get_events(limit=10)
-        end_event = next((e for e in events if e["event_type"] == "SESSION_END"), None)
+        end_event = next((e for e in events if e["event_type"] == "CONSOLIDATION_CHECKPOINT"), None)
         assert end_event is not None
         assert end_event["payload"]["session_id"] == "test_session"
 

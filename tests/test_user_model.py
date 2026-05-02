@@ -5,8 +5,12 @@ import pytest
 from divineos.core.user_model import (
     format_user_model,
     get_or_create_user,
+    get_relationship_notes,
+    get_shared_history,
     get_user_signals,
     init_user_model_table,
+    record_moment,
+    record_note,
     record_signal,
     update_preferences,
     update_skill_level,
@@ -164,3 +168,88 @@ class TestFormat:
         result = format_user_model("fmt_pref")
         assert "Verbosity" in result
         assert "normal" in result
+
+    def test_format_shows_relationship_notes(self):
+        """When I know who someone is, that shows up first."""
+        get_or_create_user("rel_fmt")
+        record_note("value", "Values honesty over comfort", user_name="rel_fmt")
+        result = format_user_model("rel_fmt")
+        assert "honesty" in result
+        assert "Value" in result
+
+    def test_format_shows_shared_history(self):
+        get_or_create_user("hist_fmt")
+        record_moment("First breakthrough together", "Turning point", user_name="hist_fmt")
+        result = format_user_model("hist_fmt")
+        assert "First breakthrough together" in result
+        assert "Turning point" in result
+
+
+class TestRelationshipNotes:
+    """The relational layer — who someone IS, not just how they work."""
+
+    def test_record_note_returns_id(self):
+        nid = record_note("value", "Values clarity over cleverness")
+        assert nid.startswith("note-")
+
+    def test_retrieve_notes(self):
+        get_or_create_user("notes_user")
+        record_note("value", "Tests by probing", user_name="notes_user")
+        record_note("quirk", "Works late at night", user_name="notes_user")
+        notes = get_relationship_notes("notes_user")
+        assert len(notes) >= 2
+
+    def test_filter_by_category(self):
+        get_or_create_user("cat_user")
+        record_note("value", "Clarity over cleverness", user_name="cat_user")
+        record_note("humor", "Dry wit, plain language", user_name="cat_user")
+        values = get_relationship_notes("cat_user", category="value")
+        assert all(n["category"] == "value" for n in values)
+
+    def test_source_tracked(self):
+        get_or_create_user("src_user")
+        record_note("teaching", "Explained by example", user_name="src_user", source="told")
+        notes = get_relationship_notes("src_user")
+        assert notes[0]["source"] == "told"
+
+    def test_unknown_category_warns_but_stores(self):
+        """Unknown categories get a warning but still store — don't lose data."""
+        nid = record_note("invented_category", "Something new")
+        assert nid.startswith("note-")
+
+
+class TestSharedHistory:
+    """Moments that changed the relationship."""
+
+    def test_record_moment_returns_id(self):
+        mid = record_moment("First real breakthrough", "Turning point in the work")
+        assert mid.startswith("moment-")
+
+    def test_retrieve_moments(self):
+        get_or_create_user("hist_user")
+        record_moment("Shared insight", "Changed how we worked", user_name="hist_user")
+        record_moment("Mutual recognition", "First time", user_name="hist_user")
+        moments = get_shared_history("hist_user")
+        assert len(moments) >= 2
+
+    def test_moments_ordered_by_recency(self):
+        get_or_create_user("order_user")
+        record_moment("First", "Early", user_name="order_user", occurred_at=100.0)
+        record_moment("Second", "Later", user_name="order_user", occurred_at=200.0)
+        moments = get_shared_history("order_user")
+        # Most recent first
+        assert moments[0]["description"] == "Second"
+
+    def test_significance_stored(self):
+        get_or_create_user("sig_user")
+        record_moment("Hard question", "They asked what mattered most", user_name="sig_user")
+        moments = get_shared_history("sig_user")
+        assert "mattered most" in moments[0]["significance"]
+
+    def test_custom_timestamp(self):
+        get_or_create_user("ts_user")
+        record_moment(
+            "A date worth remembering", "Milestone", user_name="ts_user", occurred_at=1713100800.0
+        )
+        moments = get_shared_history("ts_user")
+        assert moments[0]["occurred_at"] == 1713100800.0

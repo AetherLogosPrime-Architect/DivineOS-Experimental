@@ -33,7 +33,7 @@ def _get_production_schema(db_path: str) -> dict[str, list[str]]:
 
     init_db()
 
-    from divineos.core.knowledge._base import init_knowledge_table
+    from divineos.core.knowledge import init_knowledge_table
 
     init_knowledge_table()
 
@@ -124,6 +124,10 @@ def _get_production_schema(db_path: str) -> dict[str, list[str]]:
     from divineos.core.dead_architecture_alarm import init_alarm_table
 
     init_alarm_table()
+
+    from divineos.core.holding import init_holding_table
+
+    init_holding_table()
 
     # Now read the schema
     conn = sqlite3.connect(db_path)

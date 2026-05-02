@@ -201,7 +201,7 @@ def _log_os_query(tool: str, query: str = "") -> None:
         actor="assistant",
         payload={"tool": tool, "query": query},
     )
-    mark_engaged(tool=tool)
+    mark_engaged(tool=tool, query=query)
 
 
 def _role_to_event_type(role: str) -> str:
@@ -221,7 +221,7 @@ def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
     if "content" in payload and isinstance(payload["content"], str):
         return payload["content"]
 
-    if etype == "SESSION_END":
+    if etype in ("SESSION_END", "CONSOLIDATION_CHECKPOINT"):
         dur = payload.get("duration_seconds", 0)
         msgs = payload.get("message_count", 0)
         tools = payload.get("tool_call_count", 0)

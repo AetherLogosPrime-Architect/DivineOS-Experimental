@@ -1,4 +1,21 @@
-"""Hook Integration.
+"""Hook Integration — clarity-system event bus.
+
+# AGENT_RUNTIME — Not wired into CLI pipeline. Provides four hook
+# categories (pre_work, post_work, clarity_generated, summary_generated)
+# for agents or external code to register callbacks against. No CLI
+# command currently calls register_* or trigger_*; this is deliberate —
+# the module is reserved for cross-process / agent-driven integration.
+#
+# Tested via test_clarity_system_verification.py. Dead-architecture
+# alarm's scan_wiring() specifically probes this module's
+# _clarity_hooks registry; if subscribers ever register here, the
+# probe stops firing and the module stops looking dead.
+#
+# Note: a sibling ViolationHookRegistry previously lived at
+# divineos.clarity_enforcement.hooks. That one was removed 2026-04-20
+# (zero production callers, pure speculation-abstraction). This module
+# keeps the AGENT_RUNTIME marker because the dead-architecture probe
+# still watches it — if it stops being probed, reconsider keeping it.
 
 Integrates clarity system with the existing hook infrastructure.
 """

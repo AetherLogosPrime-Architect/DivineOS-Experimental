@@ -8,19 +8,20 @@ I'm thinking, not just what I'm producing.
 The difference: quality checks ask "did the code work?" Self-critique
 asks "was my approach to the problem elegant or brute-force?"
 
-Runs automatically at SESSION_END, not on demand. The point is to
+Runs automatically during extraction (formerly SESSION_END), not on demand. The point is to
 build a habit of reflection without being asked.
 
 Sanskrit anchor: atma-pariksha (self-examination, introspective assessment).
 """
 
+import json
 import sqlite3
 import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 
 _SC_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -107,7 +108,7 @@ def init_critique_table() -> None:
 # ─── Assessment ──────────────────────────────────────────────────────
 
 
-def assess_session_craft(session_id: str = "") -> CraftAssessment:
+def assess_session_craft(session_id: str = "", analysis: Any = None) -> CraftAssessment:
     """Run automatic self-critique for the current session.
 
     Computes craft scores from measurable session data:
@@ -116,15 +117,19 @@ def assess_session_craft(session_id: str = "") -> CraftAssessment:
     - Autonomy: OS consultation frequency (used the OS without being forced)
     - Proportionality: lines changed relative to problem size
     - Communication: corrections received (fewer = clearer communication)
+
+    If analysis (SessionAnalysis) is provided, uses its richer data (tool_usage,
+    corrections, encouragements) instead of scanning the event ledger. The ledger
+    only has DivineOS internal tool calls; the analysis has Claude Code's actual
+    Read/Edit/Bash/Grep calls from the JSONL transcript.
     """
-    import json
 
     init_critique_table()
     scores: dict[str, float] = {}
     notes: list[str] = []
 
-    # Gather evidence from the session
-    evidence = _gather_session_evidence()
+    # Gather evidence — prefer analysis object (rich) over ledger scan (sparse)
+    evidence = _gather_session_evidence(analysis=analysis)
 
     # Elegance: did changes land cleanly, or require rework?
     # Rework = re-editing the same file multiple times. Low rework = elegant.
@@ -234,8 +239,13 @@ def assess_session_craft(session_id: str = "") -> CraftAssessment:
     return assessment
 
 
-def _gather_session_evidence() -> dict[str, int]:
+def _gather_session_evidence(analysis: Any = None) -> dict[str, int]:
     """Gather measurable evidence from the current session.
+
+    If a SessionAnalysis object is provided, extracts evidence from its rich
+    tool_usage data (which comes from the JSONL transcript and includes Claude
+    Code's own Read/Edit/Bash/Grep calls). Falls back to scanning the event
+    ledger, which only has DivineOS internal tool calls.
 
     Tracks real outcomes, not just activity counts:
     - rework_edits: same file edited multiple times (indicates iteration)
@@ -259,6 +269,31 @@ def _gather_session_evidence() -> dict[str, int]:
         "unique_files_edited": 0,
     }
 
+    # Prefer analysis object — it has Claude Code's actual tool usage from the
+    # JSONL transcript, which the event ledger doesn't capture.
+    if analysis is not None:
+        try:
+            tool_usage = getattr(analysis, "tool_usage", {}) or {}
+            evidence["file_reads"] = tool_usage.get("Read", 0) + tool_usage.get("read", 0)
+            evidence["file_edits"] = (
+                tool_usage.get("Edit", 0)
+                + tool_usage.get("edit", 0)
+                + tool_usage.get("Write", 0)
+                + tool_usage.get("write", 0)
+            )
+            evidence["tests_run"] = tool_usage.get("Bash", 0) + tool_usage.get("bash", 0)
+            evidence["user_messages"] = getattr(analysis, "user_messages", 0)
+            evidence["corrections"] = len(getattr(analysis, "corrections", []))
+            evidence["encouragements"] = len(getattr(analysis, "encouragements", []))
+            evidence["os_queries"] = tool_usage.get("divineos", 0)
+            # tool_calls_total gives unique_files_edited a rough proxy
+            total_tools = getattr(analysis, "tool_calls_total", 0)
+            if total_tools > 0 and evidence["file_edits"] > 0:
+                evidence["unique_files_edited"] = max(1, evidence["file_edits"] // 2)
+            return evidence
+        except _SC_ERRORS:
+            pass  # Fall through to ledger scan
+
     try:
         conn = _get_connection()
         try:
@@ -273,25 +308,49 @@ def _gather_session_evidence() -> dict[str, int]:
             edit_counts: dict[str, int] = {}
 
             for event_type, content in rows:
-                content_lower = (content or "").lower()
+                content_str = content or ""
+                content_lower = content_str.lower()
+
                 if event_type == "TOOL_CALL":
-                    if "read" in content_lower:
+                    # Parse tool_name from JSON payload when available
+                    tool_name = ""
+                    tool_input: dict[str, Any] = {}
+                    try:
+                        payload = json.loads(content_str)
+                        tool_name = (payload.get("tool_name", "") or "").lower()
+                        tool_input = payload.get("tool_input", {}) or {}
+                    except (json.JSONDecodeError, AttributeError):
+                        pass
+
+                    # Match on parsed tool_name first, fall back to content search
+                    if tool_name in ("read", "read_file") or (
+                        not tool_name and "read" in content_lower
+                    ):
                         evidence["file_reads"] += 1
-                    elif "edit" in content_lower:
+                    elif tool_name in ("edit", "edit_file", "write", "write_file") or (
+                        not tool_name and "edit" in content_lower
+                    ):
                         evidence["file_edits"] += 1
                         # Track which files for rework detection
-                        # Extract file path: look for words with path separators
-                        # and at least one file extension to avoid matching math/URLs
-                        for word in content_lower.split():
-                            if ("/" in word or "\\" in word) and "." in word.split("/")[-1]:
-                                edit_counts[word] = edit_counts.get(word, 0) + 1
-                                edited_files.add(word)
-                                break
-                    if "pytest" in content_lower:
+                        file_path = (
+                            tool_input.get("file_path", "") or tool_input.get("path", "")
+                        ).lower()
+                        if not file_path:
+                            for word in content_lower.split():
+                                if ("/" in word or "\\" in word) and "." in word.split("/")[-1]:
+                                    file_path = word
+                                    break
+                        if file_path:
+                            edit_counts[file_path] = edit_counts.get(file_path, 0) + 1
+                            edited_files.add(file_path)
+
+                    if "pytest" in content_lower or tool_name in ("run_tests",):
                         evidence["tests_run"] += 1
-                    if "fail" in content_lower or "error" in content_lower:
-                        if "pytest" in content_lower:
-                            evidence["tests_failed"] += 1
+                    if ("fail" in content_lower or "error" in content_lower) and (
+                        "pytest" in content_lower
+                    ):
+                        evidence["tests_failed"] += 1
+
                 elif event_type == "TOOL_RESULT":
                     # Hook failures: pre-commit hook rejections (specific patterns)
                     if "pre-commit" in content_lower and (
@@ -302,7 +361,6 @@ def _gather_session_evidence() -> dict[str, int]:
                     if "failed" in content_lower and "passed" in content_lower:
                         evidence["tests_failed"] += 1
                 elif event_type == "OS_QUERY":
-                    # OS queries are logged as OS_QUERY events by _log_os_query
                     evidence["os_queries"] += 1
                 elif event_type == "USER_INPUT":
                     evidence["user_messages"] += 1

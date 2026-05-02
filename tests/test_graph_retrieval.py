@@ -2,7 +2,7 @@
 
 import os
 
-from divineos.core.knowledge._base import (
+from divineos.core.knowledge import (
     init_knowledge_table,
 )
 from divineos.core.knowledge.crud import (

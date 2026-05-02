@@ -54,7 +54,8 @@ def verify_enforcement() -> dict[str, Any]:
                 "USER_INPUT": 0,
                 "TOOL_CALL": 0,
                 "TOOL_RESULT": 0,
-                "SESSION_END": 0,
+                "SESSION_END": 0,  # historical label
+                "CONSOLIDATION_CHECKPOINT": 0,  # current label
                 "EXPLANATION": 0,
             }
 
@@ -255,6 +256,8 @@ def generate_enforcement_report() -> str:
                 f"  TOOL_CALL:   {report.get('event_counts', {}).get('TOOL_CALL', 0)}",
                 f"  TOOL_RESULT: {report.get('event_counts', {}).get('TOOL_RESULT', 0)}",
                 f"  SESSION_END: {report.get('event_counts', {}).get('SESSION_END', 0)}",
+                f"  CONSOLIDATION_CHECKPOINT: "
+                f"{report.get('event_counts', {}).get('CONSOLIDATION_CHECKPOINT', 0)}",
                 f"  Total:       {report.get('total_events', 0)}",
                 "",
                 "Capture Rates:",

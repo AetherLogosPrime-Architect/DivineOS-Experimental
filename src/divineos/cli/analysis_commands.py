@@ -62,7 +62,7 @@ def register(cli: click.Group) -> None:
         path = Path(file_path)
         analysis = _analyzer_mod.analyze_session(path)
 
-        click.echo(analysis.summary())
+        _safe_echo(analysis.summary())
 
         if not store:
             click.secho("  (Use --store to save findings to knowledge DB)", fg="bright_black")

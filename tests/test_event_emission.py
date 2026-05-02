@@ -12,7 +12,7 @@ from divineos.event.event_capture import (
     get_session_tracker,
 )
 from divineos.event.event_emission import (
-    emit_session_end,
+    emit_consolidation_checkpoint,
     emit_tool_call,
     emit_tool_result,
     emit_user_input,
@@ -356,10 +356,10 @@ class TestEmitToolResult:
         assert len(events) == 3
 
 
-class TestEmitSessionEnd:
-    """Tests for emit_session_end function."""
+class TestEmitConsolidationCheckpoint:
+    """Tests for emit_consolidation_checkpoint function."""
 
-    def test_emit_session_end_basic(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_basic(self, temp_db, fresh_session):
         """Test basic SESSION_END event emission."""
         # Emit some events first
         emit_user_input("Message 1")
@@ -367,20 +367,20 @@ class TestEmitSessionEnd:
         emit_tool_call("readFile", {"path": "file.py"})
         emit_tool_result("readFile", "tool-1", "Result", 50)
 
-        event_id = emit_session_end()
+        event_id = emit_consolidation_checkpoint()
 
         assert event_id is not None
         assert isinstance(event_id, str)
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
-        assert events[0]["event_type"] == "SESSION_END"
+        assert events[0]["event_type"] == "CONSOLIDATION_CHECKPOINT"
         assert events[0]["actor"] == "system"
 
-    def test_emit_session_end_with_explicit_session_id(self, temp_db):
+    def test_emit_consolidation_checkpoint_with_explicit_session_id(self, temp_db):
         """Test SESSION_END event with explicit session ID."""
         session_id = "test-session-123"
-        emit_session_end(
+        emit_consolidation_checkpoint(
             session_id=session_id,
             message_count=5,
             tool_call_count=3,
@@ -388,107 +388,109 @@ class TestEmitSessionEnd:
             duration_seconds=60.0,
         )
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
         assert events[0]["payload"]["session_id"] == session_id
 
-    def test_emit_session_end_includes_message_count(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_includes_message_count(self, temp_db, fresh_session):
         """Test that SESSION_END includes message count."""
         emit_user_input("Message 1")
         emit_user_input("Message 2")
 
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=2, tool_call_count=0, tool_result_count=0, duration_seconds=30.0
         )
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
         assert events[0]["payload"]["message_count"] == 2
 
-    def test_emit_session_end_includes_tool_call_count(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_includes_tool_call_count(self, temp_db, fresh_session):
         """Test that SESSION_END includes tool call count."""
         emit_tool_call("readFile", {"path": "file.py"})
         emit_tool_call("strReplace", {"path": "file.py"})
 
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=0, tool_call_count=2, tool_result_count=0, duration_seconds=30.0
         )
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
         assert events[0]["payload"]["tool_call_count"] == 2
 
-    def test_emit_session_end_includes_tool_result_count(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_includes_tool_result_count(self, temp_db, fresh_session):
         """Test that SESSION_END includes tool result count."""
         emit_tool_result("readFile", "tool-1", "Result 1", 50)
         emit_tool_result("strReplace", "tool-2", "Result 2", 50)
 
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=0, tool_call_count=0, tool_result_count=2, duration_seconds=30.0
         )
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
         assert events[0]["payload"]["tool_result_count"] == 2
 
-    def test_emit_session_end_includes_duration(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_includes_duration(self, temp_db, fresh_session):
         """Test that SESSION_END includes duration."""
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=120.5
         )
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
         assert events[0]["payload"]["duration_seconds"] == 120.5
 
-    def test_emit_session_end_includes_timestamp(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_includes_timestamp(self, temp_db, fresh_session):
         """Test that SESSION_END event includes ISO8601 timestamp."""
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=30.0
         )
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
 
         timestamp = events[0]["payload"]["timestamp"]
         assert timestamp is not None
         datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
-    def test_emit_session_end_includes_hash(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_includes_hash(self, temp_db, fresh_session):
         """Test that SESSION_END event includes SHA256 hash."""
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=30.0
         )
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
         assert events[0]["content_hash"] is not None
         assert len(events[0]["content_hash"]) == 32
 
-    def test_emit_session_end_zero_counts(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_zero_counts(self, temp_db, fresh_session):
         """Test SESSION_END with zero event counts."""
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=0.0
         )
 
-        events = get_events(limit=10, event_type="SESSION_END")
+        events = get_events(limit=10, event_type="CONSOLIDATION_CHECKPOINT")
         assert len(events) == 1
         assert events[0]["payload"]["message_count"] == 0
         assert events[0]["payload"]["tool_call_count"] == 0
         assert events[0]["payload"]["tool_result_count"] == 0
         assert events[0]["payload"]["duration_seconds"] == 0.0
 
-    def test_emit_session_end_negative_message_count_fails(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_negative_message_count_fails(
+        self, temp_db, fresh_session
+    ):
         """Test that negative message_count fails validation."""
         with pytest.raises(EventValidationError, match="message_count cannot be negative"):
-            emit_session_end(
+            emit_consolidation_checkpoint(
                 message_count=-1, tool_call_count=0, tool_result_count=0, duration_seconds=30.0
             )
 
-    def test_emit_session_end_negative_duration_fails(self, temp_db, fresh_session):
+    def test_emit_consolidation_checkpoint_negative_duration_fails(self, temp_db, fresh_session):
         """Test that negative duration fails validation."""
         with pytest.raises(EventValidationError, match="duration_seconds cannot be negative"):
-            emit_session_end(
+            emit_consolidation_checkpoint(
                 message_count=0, tool_call_count=0, tool_result_count=0, duration_seconds=-1.0
             )
 
@@ -508,7 +510,7 @@ class TestEventEmissionIntegration:
         emit_tool_result("readFile", tool_call_id, "File content", 50)
 
         # Emit SESSION_END
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=1, tool_call_count=1, tool_result_count=1, duration_seconds=60.0
         )
 
@@ -520,14 +522,14 @@ class TestEventEmissionIntegration:
         assert "USER_INPUT" in event_types
         assert "TOOL_CALL" in event_types
         assert "TOOL_RESULT" in event_types
-        assert "SESSION_END" in event_types
+        assert "CONSOLIDATION_CHECKPOINT" in event_types
 
     def test_events_have_consistent_session_id(self, temp_db, fresh_session):
         """Test that all events in a session have the same session ID."""
         emit_user_input("Message 1")
         emit_tool_call("readFile", {"path": "file.py"})
         emit_tool_result("readFile", "tool-1", "Result", 50)
-        emit_session_end(
+        emit_consolidation_checkpoint(
             message_count=1, tool_call_count=1, tool_result_count=1, duration_seconds=30.0
         )
 

@@ -73,7 +73,7 @@ def _build_fts_query(query: str) -> str:
     """
     words = [
         w
-        for w in re.sub(r"[^a-zA-Z0-9\s]", "", query).lower().split()
+        for w in re.sub(r"[^a-zA-Z0-9\s]", " ", query).lower().split()
         if w not in _FTS_STOPWORDS and len(w) > 1
     ]
     if not words:
@@ -711,9 +711,12 @@ def _is_raw_quote_noise(stripped: str, stripped_lower: str) -> bool:
     if re.search(r"\b(opt out|allow .* to use my data|make sure you opt)\b", stripped_lower):
         return True
 
-    # Council/external AI feedback pasted as knowledge — praise, not wisdom
+    # Direct addressed messages pasted as knowledge — conversational, not
+    # distilled wisdom. These patterns catch things like "hey claude,..." or
+    # "<agent_name>, ..." at the start of a line — a signal the content was
+    # copied from a chat turn rather than written as knowledge.
     if re.match(
-        r"(aether|andrew|hey aether|hey claude|hi aether)[,:]?\s",
+        r"(hey claude|hi claude|hello claude)[,:]?\s",
         stripped_lower,
     ):
         return True
@@ -770,9 +773,10 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         if not is_tag_question and len(stripped_lower.split()) < 20:
             return True
 
-    # Council/external praise — encouragement, not distilled knowledge
+    # Direct-addressed openings — encouragement or conversational, not
+    # distilled knowledge.
     if re.match(
-        r"(aether|andrew|hey aether)[,:]?\s",
+        r"(hey claude|hi claude|hello claude)[,:]?\s",
         stripped_lower,
     ):
         return True
@@ -842,7 +846,7 @@ def _has_prescriptive_signal(content_lower: str) -> bool:
 
 # ─── Temporal Markers ────────────────────────────────────────────────
 
-_TEMPORAL_CONTENT_MARKERS = {
+_TEMPORAL_CONTENT_MARKERS = (
     "currently",
     "right now",
     "at the moment",
@@ -850,39 +854,52 @@ _TEMPORAL_CONTENT_MARKERS = {
     "is failing",
     "is down",
     "today",
+    "yesterday",
+    "this session",
+    "last session",
     "this week",
     "this sprint",
     "in progress",
     "work in progress",
-    "wip",
+    r"\bwip\b",  # word boundary — prevent matching "wipe", "equip", etc.
     "blocked on",
     "waiting for",
     "temporarily",
-}
+)
+
+# Pre-compile: markers with \b are regex, others get auto-wrapped in \b
+_TEMPORAL_PATTERNS = tuple(
+    re.compile(m if r"\b" in m else r"\b" + re.escape(m) + r"\b", re.IGNORECASE)
+    for m in _TEMPORAL_CONTENT_MARKERS
+)
 
 
 def _has_temporal_markers(content: str) -> bool:
-    """Check if content has time-sensitive language that may become stale."""
-    content_lower = content.lower()
-    return any(marker in content_lower for marker in _TEMPORAL_CONTENT_MARKERS)
+    """Check if content has time-sensitive language that may become stale.
+
+    Uses word-boundary matching to prevent false positives from substring
+    hits (e.g. "wip" matching "wipe", "equip").
+    """
+    return any(p.search(content) for p in _TEMPORAL_PATTERNS)
 
 
 # ─── Voice Normalization ─────────────────────────────────────────────
 #
 # Knowledge should be first-person. When the user says "you did X" or an
-# auditor says "Aether built Y", extraction may store it verbatim as
+# auditor says "the agent built Y", extraction may store it verbatim as
 # third-person. This converts to first-person before storage so the
 # knowledge store speaks AS me, not ABOUT me.
 #
-# "Aether did X" -> "I did X"
 # "the agent should Y" -> "I should Y"
 # "you need to Z" -> "I need to Z"
+#
+# NOTE: to also normalize third-person mentions of your own name (e.g.
+# "Claude did X" -> "I did X"), add a pattern like:
+#   (r"(?<!Hey )\bYourName\b(?![\s]*,)", "I"),
+# The comma lookahead preserves address forms like "YourName, that's right".
 
 # Patterns: (regex, replacement). Applied in order. Case-insensitive.
 _VOICE_PATTERNS: list[tuple[str, str]] = [
-    # "Aether did/was/built/should ..." but NOT greetings like "Hey Aether,"
-    # or address form "Aether, this is" (comma immediately after = someone speaking TO me)
-    (r"(?<!Hey )\bAether\b(?![\s]*,)", "I"),
     # "the agent/assistant did ..."
     (r"\bthe agent\b", "I"),
     (r"\bthe assistant\b", "I"),

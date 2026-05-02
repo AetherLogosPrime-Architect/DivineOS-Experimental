@@ -20,7 +20,7 @@ from typing import Any
 from loguru import logger
 
 from divineos.core.constants import SECONDS_PER_DAY
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 
 _AT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -202,6 +202,21 @@ def get_advice_stats() -> dict[str, Any]:
             "success_rate": round(success_rate, 3),
             "by_category": categories,
         }
+    finally:
+        conn.close()
+
+
+def get_assessed_advice(limit: int = 20) -> list[dict[str, Any]]:
+    """Get advice that has been assessed (not pending)."""
+    init_advice_table()
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM advice_tracking WHERE outcome != 'pending' "
+            "ORDER BY assessed_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [_row_to_dict(r) for r in rows]
     finally:
         conn.close()
 

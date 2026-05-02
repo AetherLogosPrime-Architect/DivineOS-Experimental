@@ -41,14 +41,16 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
             from divineos.core.knowledge import _get_connection
 
             conn = _get_connection()
-            for did in deep_ids:
-                if did:
-                    conn.execute(
-                        "UPDATE knowledge SET maturity = ? WHERE knowledge_id = ? AND maturity = 'RAW'",
-                        (maturity_override, did),
-                    )
-            conn.commit()
-            conn.close()
+            try:
+                for did in deep_ids:
+                    if did:
+                        conn.execute(
+                            "UPDATE knowledge SET maturity = ? WHERE knowledge_id = ? AND maturity = 'RAW'",
+                            (maturity_override, did),
+                        )
+                conn.commit()
+            finally:
+                conn.close()
             click.secho(
                 f"[~] Downgraded {len(deep_ids)} entries to {maturity_override}.", fg="yellow"
             )
@@ -86,37 +88,72 @@ def run_knowledge_post_processing(deep_ids: list[str], maturity_override: str) -
             conn = _get_connection()
             translated_count = 0
             quarantined_count = 0
-            for kid in valid_ids:
-                row = conn.execute(
-                    "SELECT content, tags FROM knowledge WHERE knowledge_id = ?", (kid,)
-                ).fetchone()
-                if not row:
-                    continue
-                content, tags_json = row[0], row[1]
-                sis = assess_and_translate(content)
-                if sis["verdict"] == "TRANSLATE" and sis["changed"]:
+            # Pass 1: scan and classify — read-only, single connection.
+            # Pass 2: apply changes — each TRANSLATE uses update_knowledge()
+            # (supersession), each QUARANTINE is a tag/confidence metadata
+            # tweak (not a content mutation, so direct UPDATE is fine).
+            translate_work: list[tuple[str, str]] = []  # (kid, translated_content)
+            quarantine_work: list[str] = []  # kids to quarantine
+            try:
+                for kid in valid_ids:
+                    row = conn.execute(
+                        "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
+                    ).fetchone()
+                    if not row:
+                        continue
+                    content = row[0]
+                    sis = assess_and_translate(content)
+                    if sis["verdict"] == "TRANSLATE" and sis["changed"]:
+                        translate_work.append((kid, sis["translated"]))
+                    elif sis["verdict"] == "QUARANTINE":
+                        quarantine_work.append(kid)
+            finally:
+                conn.close()
+
+            # Pass 2a: supersede TRANSLATE candidates. Each call opens its
+            # own connection — serial, fine for the volumes involved
+            # (tens of entries per extract run, not thousands).
+            if translate_work:
+                from divineos.core.knowledge.crud import update_knowledge
+
+                for kid, translated in translate_work:
+                    try:
+                        update_knowledge(
+                            kid,
+                            new_content=translated,
+                            additional_tags=["sis-translated"],
+                        )
+                        translated_count += 1
+                    except ValueError:
+                        # Entry was deleted/superseded between pass 1 and 2 — skip
+                        pass
+
+            # Pass 2b: QUARANTINE is metadata-only (tags + confidence cap).
+            # Legitimate in-place update, same class as maturity evolution.
+            if quarantine_work:
+                conn = _get_connection()
+                try:
                     import json as _json
 
-                    tags = _json.loads(tags_json) if tags_json else []
-                    tags.append("sis-translated")
-                    conn.execute(
-                        "UPDATE knowledge SET content = ?, tags = ? WHERE knowledge_id = ?",
-                        (sis["translated"], _json.dumps(tags), kid),
-                    )
-                    translated_count += 1
-                elif sis["verdict"] == "QUARANTINE":
-                    import json as _json
+                    for kid in quarantine_work:
+                        tags_row = conn.execute(
+                            "SELECT tags FROM knowledge WHERE knowledge_id = ?", (kid,)
+                        ).fetchone()
+                        if not tags_row:
+                            continue
+                        tags = _json.loads(tags_row[0]) if tags_row[0] else []
+                        if "sis-quarantined" not in tags:
+                            tags.append("sis-quarantined")
+                        conn.execute(
+                            "UPDATE knowledge SET tags = ?, confidence = MIN(confidence, 0.4) "
+                            "WHERE knowledge_id = ?",
+                            (_json.dumps(tags), kid),
+                        )
+                        quarantined_count += 1
+                    conn.commit()
+                finally:
+                    conn.close()
 
-                    tags = _json.loads(tags_json) if tags_json else []
-                    tags.append("sis-quarantined")
-                    conn.execute(
-                        "UPDATE knowledge SET tags = ?, confidence = MIN(confidence, 0.4) "
-                        "WHERE knowledge_id = ?",
-                        (_json.dumps(tags), kid),
-                    )
-                    quarantined_count += 1
-            conn.commit()
-            conn.close()
             if translated_count or quarantined_count:
                 parts = []
                 if translated_count:
@@ -252,7 +289,10 @@ def run_feedback_cycle(
             # Skip if it's still a repr or too short to be useful
             if text.startswith("UserSignal(") or len(text) < 15:
                 continue
-            question = f"Why did I get this wrong: {text[:80]}?"
+            # The correction text is the USER's words to me, not my mistake.
+            # Frame the question so future-me reads it as "what was I doing
+            # that prompted this?" — not "what was wrong about [user text]".
+            question = f"What pattern of mine prompted this user correction: {text[:80]}?"
             if question[:50] not in existing:
                 add_curiosity(question, category="correction")
                 filed += 1
@@ -368,30 +408,47 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
         from divineos.core.knowledge import _get_connection
         from divineos.core.knowledge.deep_extraction import _distill_correction
 
+        # Two-pass: scan read-only, then supersede via update_knowledge.
+        # Same rationale as the SIS translation above — content changes
+        # must supersede, not mutate in place (CLAUDE.md append-only rule).
         conn = _get_connection()
         distilled = 0
         raw_prefixes = ("I was corrected: ", "I should: ", "I decided: ")
         valid_ids = [did for did in deep_ids if did]
-        for kid in valid_ids:
-            row = conn.execute(
-                "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
-            ).fetchone()
-            if not row:
-                continue
-            content = row[0]
-            for prefix in raw_prefixes:
-                if content.startswith(prefix):
-                    stripped = content[len(prefix) :]
-                    cleaned = _distill_correction(stripped)
-                    if cleaned and cleaned != content:
-                        conn.execute(
-                            "UPDATE knowledge SET content = ? WHERE knowledge_id = ?",
-                            (cleaned, kid),
-                        )
-                        distilled += 1
-                    break
-        conn.commit()
-        conn.close()
+        distill_work: list[tuple[str, str]] = []  # (kid, cleaned_content)
+        try:
+            for kid in valid_ids:
+                row = conn.execute(
+                    "SELECT content FROM knowledge WHERE knowledge_id = ?", (kid,)
+                ).fetchone()
+                if not row:
+                    continue
+                content = row[0]
+                for prefix in raw_prefixes:
+                    if content.startswith(prefix):
+                        stripped = content[len(prefix) :]
+                        cleaned = _distill_correction(stripped)
+                        if cleaned and cleaned != stripped:
+                            distill_work.append((kid, cleaned))
+                        break
+        finally:
+            conn.close()
+
+        if distill_work:
+            from divineos.core.knowledge.crud import update_knowledge
+
+            for kid, cleaned in distill_work:
+                try:
+                    update_knowledge(
+                        kid,
+                        new_content=cleaned,
+                        additional_tags=["auto-distilled"],
+                    )
+                    distilled += 1
+                except ValueError:
+                    # Entry was deleted/superseded between pass 1 and 2 — skip
+                    pass
+
         if distilled:
             click.secho(f"[~] Auto-distilled {distilled} raw entries.", fg="cyan")
     except _PHASE_ERRORS as e:
@@ -406,12 +463,15 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
         drift = run_drift_detection()
         severity = drift.get("severity", "none")
         if severity not in ("none", None):
-            signals = drift.get("signals", [])
-            click.secho(f"[!] Drift detected ({severity}): {len(signals)} signal(s)", fg="yellow")
-            for sig in signals[:3]:
+            signal_count = drift.get("drift_signals", 0)
+            click.secho(f"[!] Drift detected ({severity}): {signal_count} signal(s)", fg="yellow")
+            for reg in drift.get("regressions", [])[:3]:
                 click.secho(
-                    f"     {sig.get('type', '?')}: {sig.get('detail', '')[:80]}", fg="yellow"
+                    f"     {reg.get('type', '?')}: {reg.get('detail', '')[:80]}", fg="yellow"
                 )
+            quality = drift.get("quality_drift", {})
+            if quality.get("drifting"):
+                click.secho(f"     quality_drift: {quality.get('detail', '')[:80]}", fg="yellow")
     except _PHASE_ERRORS as e:
         logger.warning(f"Drift detection failed: {e}")
 
@@ -516,6 +576,7 @@ def run_lesson_detection(
     check_results: list,
     session_id: str,
     features: Any,
+    analysis: Any = None,
 ) -> list[str]:
     """Detect and record lessons from quality checks + session features.
 
@@ -570,8 +631,69 @@ def run_lesson_detection(
                 f"[+] Lesson detection: {len(lesson_ids)} entries from quality checks",
                 fg="green",
             )
+
+        # 8p2. Accountability — did any CHRONIC lessons fire this session?
+        try:
+            from divineos.core.knowledge.lessons import get_chronic_lessons, get_lessons
+            from divineos.core.ledger import log_event
+
+            chronic = get_chronic_lessons()
+            if chronic and lesson_ids:
+                all_lessons = get_lessons()
+                chronic_categories = {c["category"] for c in chronic}
+                violated_chronic = [
+                    ls
+                    for ls in all_lessons
+                    if ls["lesson_id"] in lesson_ids and ls["category"] in chronic_categories
+                ]
+                if violated_chronic:
+                    click.secho(
+                        f"[!!] ACCOUNTABILITY: {len(violated_chronic)} chronic "
+                        f"lesson(s) violated this session.",
+                        fg="red",
+                        bold=True,
+                    )
+                    for vl in violated_chronic:
+                        click.secho(
+                            f"     - {vl['description'][:100]} ({vl['occurrences']}x total)",
+                            fg="red",
+                        )
+                        log_event(
+                            "ACCOUNTABILITY_VIOLATION",
+                            "system",
+                            {
+                                "lesson_id": vl["lesson_id"],
+                                "category": vl["category"],
+                                "description": vl["description"][:200],
+                                "occurrences": vl["occurrences"],
+                                "session_id": session_id,
+                            },
+                            validate=False,
+                        )
+                    click.secho(
+                        "     These violations will be reviewed by the council.",
+                        fg="red",
+                    )
+        except _PHASE_ERRORS as e:
+            logger.debug(f"Accountability check failed: {e}")
     except (*_PHASE_ERRORS, ValueError) as e:
         logger.debug(f"Lesson detection failed: {e}")
+
+    # 8p3. Binary behavioral tests — pass/fail per chronic lesson
+    try:
+        from divineos.core.knowledge.lessons import (
+            format_behavioral_test_results,
+            run_behavioral_tests,
+        )
+
+        bt_results = run_behavioral_tests(analysis, features)
+        if bt_results:
+            bt_text = format_behavioral_test_results(bt_results)
+            failed_count = sum(1 for r in bt_results if r["passed"] is False)
+            color = "red" if failed_count > 0 else "green"
+            click.secho(f"[~] {bt_text}", fg=color)
+    except _PHASE_ERRORS as e:
+        logger.debug(f"Behavioral testing failed: {e}")
 
     # 8q. Lesson escalation (auto-resolve)
     # Runs AFTER lesson detection so we don't resolve a lesson
@@ -715,15 +837,27 @@ def run_session_finalization(
     except _PHASE_ERRORS:
         pass
 
-    # 9. Save HUD + clear plan
+    # 9. Save HUD snapshot
+    #
+    # Two mid-session state-clearers have been removed from this phase:
+    #
+    # - clear_engagement() (removed 2026-04-20 in PR #160): the
+    #   thinking-gate marker was getting wiped on every consolidation,
+    #   blocking legitimate same-session work after mid-session extract.
+    # - clear_session_plan() (removed 2026-04-20 in this PR): same
+    #   wrong-location pattern. Mid-session consolidation would erase the
+    #   user's active session plan, which is annoying and has no valid
+    #   reason — a plan set for today should persist across any number
+    #   of consolidations today.
+    #
+    # Both clears now live in .claude/hooks/load-briefing.sh where they
+    # semantically belong (actual Claude Code SessionStart = fresh
+    # context = legitimately clear these). Mid-session consolidation
+    # saves state via save_hud_snapshot() but does not reset anything.
     try:
         from divineos.core.hud import save_hud_snapshot
-        from divineos.core.hud_handoff import clear_engagement
-        from divineos.core.hud_state import clear_session_plan
 
         save_hud_snapshot()
-        clear_session_plan()
-        clear_engagement()
         click.secho("[~] HUD snapshot saved.", fg="cyan")
     except _PHASE_ERRORS as e:
         logger.warning(f"HUD snapshot save failed: {e}")
@@ -747,25 +881,47 @@ def run_session_finalization(
     except _PHASE_ERRORS as e:
         logger.warning(f"Session metrics recording failed: {e}")
 
-    # 9b2. Auto-record skills from tool usage
+    # 9b2. Record skills from real competence signals (not tool counts)
     try:
-        from divineos.core.skill_library import record_skill_use
-
-        tool_counts: dict[str, int] = {}
-        for record in records:
-            if isinstance(record, dict) and record.get("role") == "assistant":
-                for tc in record.get("content", []):
-                    if isinstance(tc, dict) and tc.get("type") == "tool_use":
-                        name = tc.get("name", "unknown")
-                        tool_counts[name] = tool_counts.get(name, 0) + 1
+        from divineos.core.skill_library import detect_skills_from_events, record_skill_use
 
         skills_recorded = 0
-        for tool_name, count in tool_counts.items():
-            if count >= 3:  # Only track tools used meaningfully (3+ times)
-                record_skill_use(tool_name, success=True)
-                skills_recorded += 1
+
+        # Detect which skill domains were active this session
+        session_events: list[str] = []
+        for record in records:
+            if isinstance(record, dict):
+                for tc in record.get("content", []):
+                    if isinstance(tc, dict):
+                        name = tc.get("name", "")
+                        text = tc.get("text", "")
+                        if name:
+                            session_events.append(name)
+                        if text and len(text) > 10:
+                            session_events.append(text[:200])
+
+        active_domains = detect_skills_from_events(session_events)
+        correction_count = len(analysis.corrections) if analysis else 0
+        encouragement_count = len(analysis.encouragements) if analysis else 0
+
+        # Corrections signal failure in the active domains
+        # Encouragements signal success
+        # No corrections + domain active = success (clean work)
+        for domain in active_domains:
+            if correction_count >= 3:
+                # Multiple corrections while working in this domain = failure signal
+                record_skill_use(domain, success=False, context="session corrections")
+            elif encouragement_count >= 2 or correction_count == 0:
+                # Encouragements or clean session = success signal
+                record_skill_use(domain, success=True, context="clean session")
+            skills_recorded += 1
+
         if skills_recorded:
-            click.secho(f"[~] Recorded {skills_recorded} skills from tool usage.", fg="cyan")
+            click.secho(
+                f"[~] Recorded {skills_recorded} skill(s) from session signals "
+                f"({correction_count} corrections, {encouragement_count} encouragements).",
+                fg="cyan",
+            )
     except _PHASE_ERRORS as e:
         logger.warning(f"Skill recording failed: {e}")
 
@@ -877,6 +1033,16 @@ def print_session_summary(
         click.secho(f"  Session recs:         {len(session_feedback.recommendations)}", fg="white")
         for fb_rec in session_feedback.recommendations[:3]:
             _safe_echo(f"    - {fb_rec}")
+    # Rating solicitation — the one metric the system cannot game
+    click.secho(
+        "\n  💬 How was this session? Rate it 1-10:",
+        fg="bright_white",
+        bold=True,
+    )
+    click.secho(
+        "     divineos rate <1-10> [comment]",
+        fg="bright_black",
+    )
     click.secho(
         "  Next session: run 'divineos hud' for full dashboard, or 'divineos briefing' for knowledge.",
         fg="bright_black",

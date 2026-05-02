@@ -1,6 +1,6 @@
 ---
 name: audit-round
-description: File an external audit round (watchmen system) and route findings to knowledge, claims, or lessons. Use when starting a new audit, when an external actor (Andrew, Grok, council, fresh-Claude) has surfaced findings, or when completing an audit cycle. Handles routing so findings land in the right destination.
+description: File an external audit round (watchmen system) and route findings to knowledge, claims, or lessons. Use when starting a new audit, when an external actor (the user, Grok, council, fresh-Claude) has surfaced findings, or when completing an audit cycle. Handles routing so findings land in the right destination.
 disable-model-invocation: false
 allowed-tools: Bash(divineos audit:*), Read
 ---
@@ -30,7 +30,7 @@ divineos audit submit-round "<focus>" --actor <actor> --tier <WEAK|MEDIUM|STRONG
 ```
 
 Tier defaults:
-- `user` → STRONG (Andrew is the highest-trust external)
+- `user` → STRONG (the operator is the highest-trust external actor)
 - `grok` / `council:*` → MEDIUM
 - `aria` → MEDIUM
 - `fresh-claude` → MEDIUM
@@ -67,7 +67,7 @@ divineos audit show <FINDING_ID>
 
 ## When to invoke
 
-- Andrew names a pattern or correction that should be recorded as an external finding
+- The user names a pattern or correction that should be recorded as an external finding
 - A council lens walk has produced findings worth structured filing
 - A fresh Claude instance (via agent SDK) has audited our work
 - A family member has filed findings as NAMED_DRIFT and they should cross into the main audit record

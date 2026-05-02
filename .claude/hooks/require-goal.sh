@@ -1,5 +1,11 @@
 #!/bin/bash
-# Block code changes until briefing loaded, goal set, and OS engaged.
+# PreToolUse gate — consolidated into a single Python invocation.
+#
+# The previous version spawned 5 separate Python interpreters (~1.2s on
+# Windows). This version delegates all gate logic to a single module
+# invocation, reducing overhead to ~200-300ms per tool call.
+#
+# See src/divineos/hooks/pre_tool_use_gate.py for the gate logic.
 # Uses JSON deny to ACTUALLY block — exit 1 does nothing in Claude Code.
 
 INPUT=$(cat)
@@ -10,56 +16,8 @@ if ! command -v divineos &>/dev/null; then
   exit 0
 fi
 
-# Extract the command being run (for Bash tool calls)
-cmd=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
-
-# Allow bootstrap commands through without gates
-if echo "$cmd" | grep -qE "divineos (briefing|preflight|init|hud|recall|ask|feel|affect|emit|goal|active|context|verify|health|checkpoint|context-status|progress)"; then
-  exit 0
-fi
-
-# Allow git, pytest, ls, pip, cp, and other read-only/dev commands
-if echo "$cmd" | grep -qE "^(git |pytest |python -m pytest|ls |cat |head |diff |echo |pip |cd |pwd|cp |copy |ruff )"; then
-  exit 0
-fi
-
-# Gate 1: Briefing must be loaded (by the AI, not by a hook)
-preflight=$(divineos preflight 2>/dev/null)
-if echo "$preflight" | grep -q "\[FAIL\] briefing"; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: Briefing not loaded. Run: divineos briefing"}}'
-  exit 0
-fi
-
-# Gate 2: A session-fresh goal must exist (not just old goals from prior sessions)
-has_fresh=$(python -c "
-from divineos.core.hud_state import has_session_fresh_goal
-print('yes' if has_session_fresh_goal() else 'no')
-" 2>/dev/null || echo "yes")
-
-if [ "$has_fresh" = "no" ]; then
-  echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: No goal set for this session. Run: divineos goal add \"what you are working on\""}}'
-  exit 0
-fi
-
-# Gate 3: Must have engaged with thinking tools RECENTLY (periodic, not one-time)
-# Two tiers: light (any thinking command) and deep (must consult knowledge via ask/recall)
-if echo "$preflight" | grep -q "\[FAIL\] engagement"; then
-  eng_detail=$(python -c "
-from divineos.core.hud_handoff import engagement_status
-s = engagement_status()
-if not s['engaged']:
-    if s.get('needs_deep'):
-        print(f'BLOCKED: {s[\"deep_actions_since\"]} code actions without consulting your knowledge. Light check-ins are not enough. Run: divineos ask \"topic\" or divineos recall to query what you actually know.')
-    else:
-        print(f'BLOCKED: {s[\"code_actions_since\"]} code actions without consulting the OS. Stop and think. Run: divineos ask, recall, decide, or context before continuing.')
-else:
-    print('OK')
-" 2>/dev/null || echo "BLOCKED: OS engagement expired. Run: divineos ask or divineos recall.")
-  if [ "$eng_detail" != "OK" ]; then
-    escaped=$(echo "$eng_detail" | python -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" 2>/dev/null)
-    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":${escaped}}}"
-    exit 0
-  fi
-fi
+# Single Python invocation — all imports happen once, all gates checked,
+# a single JSON decision is emitted to stdout (or empty = allow).
+echo "$INPUT" | python -m divineos.hooks.pre_tool_use_gate 2>/dev/null
 
 exit 0

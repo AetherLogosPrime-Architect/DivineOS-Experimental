@@ -14,11 +14,12 @@ Three prediction sources, from most to least reliable:
    stage of a project?
 """
 
+import json
 import re
 import sqlite3
 from typing import Any
 
-from divineos.core.knowledge._base import _get_connection
+from divineos.core.knowledge import _get_connection
 
 # ─── Session Profile Detection ─────────────────────────────────────
 
@@ -110,10 +111,11 @@ def _extract_action_sequence(limit: int = 10) -> list[list[str]]:
     """
     conn = _get_connection()
     try:
-        # Get session boundaries
+        # Get session boundaries — historical SESSION_END and current
+        # CONSOLIDATION_CHECKPOINT events both mark consolidation points.
         sessions_rows = conn.execute(
-            """SELECT created_at FROM events
-               WHERE event_type = 'SESSION_END'
+            """SELECT created_at FROM system_events
+               WHERE event_type IN ('SESSION_END', 'CONSOLIDATION_CHECKPOINT')
                ORDER BY created_at DESC LIMIT ?""",
             (limit + 1,),
         ).fetchall()
@@ -140,12 +142,32 @@ def _extract_action_sequence(limit: int = 10) -> list[list[str]]:
                 if event_type != "TOOL_CALL":
                     continue
                 content_str = (content or "").lower()
-                for action_name, pattern in _ACTION_PATTERNS.items():
-                    if pattern.search(content_str):
-                        # Deduplicate consecutive same actions
-                        if not actions or actions[-1] != action_name:
-                            actions.append(action_name)
-                        break
+
+                # Extract tool_name from JSON payload when available
+                tool_name = ""
+                try:
+                    payload = json.loads(content or "")
+                    tool_name = (payload.get("tool_name", "") or "").lower()
+                except (json.JSONDecodeError, AttributeError):
+                    pass
+
+                # Match on parsed tool_name first for accuracy
+                matched_action = ""
+                if tool_name:
+                    for action_name, pattern in _ACTION_PATTERNS.items():
+                        if pattern.search(tool_name):
+                            matched_action = action_name
+                            break
+                # Fall back to full content search for unparsed payloads
+                if not matched_action:
+                    for action_name, pattern in _ACTION_PATTERNS.items():
+                        if pattern.search(content_str):
+                            matched_action = action_name
+                            break
+                if matched_action:
+                    # Deduplicate consecutive same actions
+                    if not actions or actions[-1] != matched_action:
+                        actions.append(matched_action)
 
             if len(actions) >= 2:
                 session_sequences.append(actions)
@@ -230,8 +252,8 @@ def get_session_history(limit: int = 10) -> list[dict[str, Any]]:
     try:
         rows = conn.execute(
             """SELECT content, created_at
-               FROM events
-               WHERE event_type = 'SESSION_END'
+               FROM system_events
+               WHERE event_type IN ('SESSION_END', 'CONSOLIDATION_CHECKPOINT')
                ORDER BY created_at DESC
                LIMIT ?""",
             (limit,),

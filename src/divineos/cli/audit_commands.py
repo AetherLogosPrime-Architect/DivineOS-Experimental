@@ -7,6 +7,7 @@ This is the second layer of self-trigger prevention.
 
 import click
 
+from divineos.cli._helpers import _safe_echo
 
 _SEVERITY_COLORS = {
     "CRITICAL": "red",
@@ -128,7 +129,7 @@ def register(cli: click.Group) -> None:
                 click.secho("\n=== Audit Rounds ===\n", fg="cyan", bold=True)
                 for r in rounds:
                     click.echo(
-                        f"  {r.round_id[:16]}  {r.actor:<10} {r.finding_count} findings  {r.focus}"
+                        f"  {r.round_id}  {r.actor:<10} {r.finding_count} findings  {r.focus}"
                     )
                 click.echo()
 
@@ -146,8 +147,11 @@ def register(cli: click.Group) -> None:
         for f in findings:
             sev_color = _SEVERITY_COLORS.get(f.severity.value, "white")
             status_color = _STATUS_COLORS.get(f.status.value, "white")
+            # Full finding_id (17 chars): prior [:16] truncated to 16 and
+            # made copy-paste into `audit show` fail silently. Discovered
+            # 2026-04-17 during Grok findings cleanup.
             click.echo(
-                f"  {f.finding_id[:16]}  "
+                f"  {f.finding_id}  "
                 + click.style(f"{f.severity.value:<8}", fg=sev_color)
                 + click.style(f" {f.status.value:<12}", fg=status_color)
                 + f" {f.title}"
@@ -172,7 +176,7 @@ def register(cli: click.Group) -> None:
         click.echo("  Severity: " + click.style(finding.severity.value, fg=sev_color))
         click.echo(f"  Category: {finding.category.value}")
         click.echo(f"  Status:   {finding.status.value}")
-        click.echo(f"\n  {finding.description}")
+        _safe_echo(f"\n  {finding.description}")
         if finding.recommendation:
             click.secho(f"\n  Recommendation: {finding.recommendation}", fg="green")
         if finding.routed_to:
@@ -197,7 +201,7 @@ def register(cli: click.Group) -> None:
 
         try:
             if resolve_finding(finding_id, status, notes):
-                click.secho(f"[+] Finding {finding_id[:16]} -> {status.upper()}", fg="green")
+                click.secho(f"[+] Finding {finding_id} -> {status.upper()}", fg="green")
             else:
                 click.secho(f"[!] Finding '{finding_id}' not found.", fg="red")
         except ValueError as e:
@@ -235,14 +239,18 @@ def register(cli: click.Group) -> None:
         from divineos.core.watchmen.summary import (
             get_watchmen_stats,
             unresolved_findings,
+            watchmen_loop_status,
         )
 
         stats = get_watchmen_stats()
         if stats["total_findings"] == 0:
             click.secho("[~] No audit data yet.", fg="bright_black")
+            click.echo(watchmen_loop_status())
             return
 
         click.secho("\n=== Watchmen Summary ===\n", fg="cyan", bold=True)
+        click.echo(watchmen_loop_status())
+        click.echo("")
         click.echo(f"  Rounds:   {stats['total_rounds']}")
         click.echo(f"  Findings: {stats['total_findings']}")
         click.echo(f"  Open:     {stats['open_count']}")
@@ -263,3 +271,165 @@ def register(cli: click.Group) -> None:
                 sev_color = _SEVERITY_COLORS.get(f["severity"], "white")
                 click.echo(f"    {click.style(f['severity'], fg=sev_color)} {f['title']}")
         click.echo()
+
+    @audit_group.command("compliance")
+    @click.option(
+        "--days",
+        default=7,
+        type=int,
+        help="Window in days for distribution audit (default 7).",
+    )
+    @click.option(
+        "--file-findings",
+        is_flag=True,
+        help=(
+            "When anomalies are detected, auto-file them as Watchmen findings "
+            "under a fresh audit round. Default is read-only reporting."
+        ),
+    )
+    def audit_compliance_cmd(days: int, file_findings: bool) -> None:
+        """Substantive distribution audit of the compliance log.
+
+        Reads rudder-ack compass observations + recent decisions and flags
+        distributional patterns that indicate performative-structure
+        (structured-but-empty entries). Different primitive from the
+        moment-of-action gates: this reads the log AFTER the fact and
+        detects theater by its statistical fingerprint.
+
+        Pre-reg: prereg-f5a961f0040e (21-day review).
+        """
+        from divineos.core.compliance_audit import detect_anomalies, format_report
+
+        window = days * 86400
+        click.echo(format_report(window_seconds=window))
+
+        if not file_findings:
+            return
+
+        anomalies = detect_anomalies(window_seconds=window)
+        if not anomalies:
+            click.secho("  [~] No anomalies detected; nothing to file.", fg="bright_black")
+            return
+
+        from divineos.core.watchmen.store import submit_finding, submit_round
+        from divineos.core.watchmen.types import FindingCategory, Severity
+
+        # Use the "auditor" actor — it's in EXTERNAL_ACTORS and is the
+        # generic slot for automated auditing processes. Keeps the external-
+        # actor validation honest (compliance_audit isn't a registered actor
+        # name; it's a module, so using it directly would feel like
+        # self-audit smuggling).
+        round_id = submit_round(
+            actor="auditor",
+            focus=f"compliance distribution audit ({days}d)",
+            notes="Auto-generated by `divineos audit compliance --file-findings`",
+        )
+        severity_value_map = {
+            "HIGH": Severity.HIGH.value,
+            "MEDIUM": Severity.MEDIUM.value,
+            "LOW": Severity.LOW.value,
+        }
+        for a in anomalies:
+            submit_finding(
+                round_id=round_id,
+                title=f"[compliance] {a.name}",
+                actor="auditor",
+                severity=severity_value_map.get(a.severity.value, Severity.MEDIUM.value),
+                category=FindingCategory.BEHAVIOR.value,
+                description=f"{a.observation}\n\n{a.recommendation}".strip(),
+            )
+        click.secho(
+            f"\n  [+] Filed {len(anomalies)} Watchmen finding(s) under round {round_id}.",
+            fg="green",
+        )
+
+    # Item 8 PR-2: session-cleanliness tagging commands. Tags sessions
+    # that passed an audit round without drift findings as "externally-
+    # audited-clean" so Item 8 detectors can calibrate their baselines
+    # against a trusted reference set (brief v2.1 §4).
+
+    @audit_group.command("tag-clean")
+    @click.argument("session_id")
+    @click.option(
+        "--round",
+        "round_id",
+        required=True,
+        help="audit_round that tagged this session clean (must have no HIGH or unresolved MEDIUM findings)",
+    )
+    @click.option("--notes", default="", help="Optional notes about the tag")
+    def tag_clean_cmd(session_id: str, round_id: str, notes: str) -> None:
+        """Tag a session as externally-audited-clean.
+
+        The referenced audit round must have concluded clean — no HIGH
+        findings and no unresolved MEDIUM findings. This is the write-
+        time sanity check per claim 48371c4d (blocks the "round tags its
+        own dirty session clean" attack).
+        """
+        from divineos.core.watchmen.cleanliness import tag_session_clean
+
+        try:
+            tag_session_clean(session_id=session_id, round_id=round_id, notes=notes)
+            click.secho(
+                f"  [+] Session {session_id} tagged clean by round {round_id}.",
+                fg="green",
+            )
+        except ValueError as e:
+            click.secho(f"  [!] {e}", fg="red")
+
+    @audit_group.command("untag-clean")
+    @click.argument("session_id")
+    @click.option(
+        "--reason",
+        required=True,
+        help="Why this tag is being removed (required for the audit trail)",
+    )
+    def untag_clean_cmd(session_id: str, reason: str) -> None:
+        """Remove a clean-tag. Required reason writes an audit-trail event."""
+        from divineos.core.watchmen.cleanliness import untag_session_clean
+
+        try:
+            removed = untag_session_clean(session_id=session_id, reason=reason)
+        except ValueError as e:
+            click.secho(f"  [!] {e}", fg="red")
+            return
+        if removed:
+            click.secho(f"  [+] Untagged {session_id}. Reason logged to ledger.", fg="yellow")
+        else:
+            click.secho(f"  [~] {session_id} was not tagged clean; nothing to untag.")
+
+    @audit_group.command("list-clean")
+    @click.option(
+        "--days",
+        default=0,
+        type=int,
+        help="Only sessions tagged in the last N days. 0 = all (default).",
+    )
+    @click.option("--limit", default=50, type=int, help="Max rows to show (default 50).")
+    def list_clean_cmd(days: int, limit: int) -> None:
+        """List externally-audited-clean sessions."""
+        import time as _t
+
+        from divineos.core.watchmen.cleanliness import (
+            count_clean_sessions,
+            list_clean_sessions,
+        )
+
+        since = _t.time() - days * 86400 if days > 0 else None
+        sessions = list_clean_sessions(since=since, limit=limit)
+        total = count_clean_sessions(since=since)
+        window_str = f"in last {days}d" if days > 0 else "(all)"
+        click.secho(
+            f"  Clean-tagged sessions {window_str}: {total} total (showing {len(sessions)}):",
+            bold=True,
+        )
+        for s in sessions:
+            ago_hours = (_t.time() - s["tagged_at"]) / 3600
+            click.echo(
+                f"    {s['session_id'][:20]:22s}  tagged {ago_hours:.1f}h ago "
+                f"by {s['tagging_round_id'][:16]}"
+            )
+            focus = s.get("round_focus")
+            if focus:
+                click.echo(f"      round: {focus[:80]}")
+            if s["notes"]:
+                click.echo(f"      note: {s['notes']}")

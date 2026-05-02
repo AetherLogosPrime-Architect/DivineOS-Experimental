@@ -35,6 +35,11 @@ CONFIDENCE_VERY_HIGH = 0.9  # Very high — curation threshold
 CONFIDENCE_DEMOTE_CAP = 0.6  # Demoted entries capped at this
 CONFIDENCE_ORPHAN_DEMOTE = 0.5  # Orphan entries demoted to this
 
+# Reaper threshold — entries at or below this that are also noise or temporal
+# get superseded (not just decayed). This breaks the infinite loop where
+# entries hit the decay floor and stay in limbo forever.
+CONFIDENCE_SUPERSEDE_FLOOR = 0.15  # Below this + flagged = supersede
+
 # ─── Decay Rates ────────────────────────────────────────────────────
 # How fast knowledge depreciates when stale, unused, or contradicted.
 
@@ -156,7 +161,9 @@ MAX_PRESCRIPTIVE_SHORT = 12  # Short content (≤ this many words) gets a pass
 
 HYGIENE_MIN_AGE_DAYS = 1.0  # Don't audit entries younger than this
 HYGIENE_STALE_AGE_DAYS = 14.0  # Entries with temporal markers older than this decay
-HYGIENE_ORPHAN_MIN_SESSIONS = 3  # Min sessions before orphan detection
+HYGIENE_ORPHAN_MIN_AGE_DAYS = 7.0  # Don't flag orphans younger than this — give new
+#                                    knowledge a week to earn access/corroboration
+#                                    before judging it unused
 
 # ─── Affect & Praise-Chasing ───────────────────────────────────────
 # Emotional state detection and behavioral feedback.
@@ -240,8 +247,8 @@ COMPASS_SPECTRUMS_HASH = "2921dfc05fa4a532c641a647aa3d7567f6de643f7e52142317bda0
 # no backsliding IS evidence of learning for infrequent triggers.
 
 LESSON_MIN_RESOLUTION_DAYS = 7.0  # Minimum days in 'improving' before resolution
-LESSON_MIN_STIMULUS_SESSIONS = 2  # Min clean sessions with category-relevant events
-LESSON_ABSENCE_DAYS = 14.0  # After this many days with 0 regressions, drop stimulus requirement
+LESSON_MIN_STIMULUS_SESSIONS = 1  # Min clean sessions with category-relevant events
+LESSON_ABSENCE_DAYS = 7.0  # After this many days with 0 regressions, drop stimulus requirement
 
 # ─── Briefing Budget ─────────────────────────────────────────────
 # Total line cap for the briefing. Subsystems compete by priority —
