@@ -37,6 +37,7 @@ _QUERY_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueEr
 # CORRECTION, COMPASS_OBSERVATION, etc.) and filter the rest.
 _EPHEMERAL_EVENT_TYPES: frozenset[str] = frozenset(
     {
+        # Ledger-conveyor-belt events (CLAUDE.md): operational telemetry
         "TOOL_CALL",
         "TOOL_RESULT",
         "AGENT_PATTERN",
@@ -45,8 +46,46 @@ _EPHEMERAL_EVENT_TYPES: frozenset[str] = frozenset(
         "AGENT_WORK_OUTCOME",
         "AGENT_LEARNING_AUDIT",
         "AGENT_CONTEXT_COMPRESSION",
+        # Operational metadata — not substantive memory. Pollution audit
+        # 2026-05-01: clarity events alone numbered ~2,900 in the ledger.
+        # Keep them for forensic / aggregate analysis but exclude from
+        # episodic recall.
+        "CLARITY_SUMMARY",
+        "CLARITY_LESSON",
+        "CLARITY_DEVIATION",
+        "BRIEFING_LOADED",
+        "SESSION_CHECKPOINT",
+        "CONSOLIDATION_CHECKPOINT",
+        "OS_QUERY",
+        "COMPASS_RUDDER_ALLOW",
+        "COMPASS_RUDDER_REJECT",
+        "SESSION_END",
     }
 )
+
+
+def _payload_preview(payload: str | None) -> str:
+    """Extract a clean preview from a ledger event payload.
+
+    Many events (USER_INPUT, AGENT_DECISION, etc.) have JSON payloads
+    with a ``content`` field. Dumping raw JSON to the timeline pollutes
+    the recall surface with hashes and metadata. Parse the JSON, pull
+    the substantive field, fall back to truncated raw on any failure.
+    """
+    if not payload:
+        return ""
+    try:
+        import json as _json
+
+        data = _json.loads(payload)
+    except (ValueError, TypeError):
+        return payload[:120].replace("\n", " ")
+    if isinstance(data, dict):
+        for key in ("content", "text", "message", "summary", "description"):
+            val = data.get(key)
+            if isinstance(val, str) and val:
+                return val[:120].replace("\n", " ")
+    return payload[:120].replace("\n", " ")
 
 
 @dataclass(frozen=True)
@@ -120,7 +159,7 @@ def _query_ledger(topic: str, limit: int) -> list[TimelineEvent]:
                 continue
             if len(events) >= limit:
                 break
-            preview = (payload or "")[:120].replace("\n", " ")
+            preview = _payload_preview(payload)
             events.append(
                 TimelineEvent(
                     timestamp=str(ts),
