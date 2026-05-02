@@ -233,6 +233,93 @@ class TestBriefingSurface:
         assert "Old Architecture Walk" in block
 
 
+# ─── Surface/reference instrumentation (Grok review 2026-05-03) ─────
+
+
+class TestSurfaceReferenceInstrumentation:
+    """Pre-reg falsifier on over-anchoring is unfalsifiable without
+    surface/reference events. Verify both event types fire correctly
+    so territory_match_usage actually has data to compute the ratio."""
+
+    def test_format_for_briefing_emits_surfaced_event(
+        self, temp_exploration_dir, tmp_path, monkeypatch
+    ):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test_ledger.db"))
+        from divineos.core.ledger import get_events, init_db
+
+        init_db()
+        _write_entry(
+            temp_exploration_dir / "01_topic.md",
+            "Test Walk",
+            "2026-01-01",
+            "architecture",
+        )
+        format_for_briefing(active_text="branch architecture review")
+
+        surfaced = get_events(event_type="TERRITORY_MATCH_SURFACED")
+        assert len(surfaced) >= 1
+        payload = surfaced[0]["payload"]
+        assert payload["filename"] == "01_topic.md"
+        assert "architecture" in payload["matched_tags"]
+
+    def test_emit_referenced_creates_event(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test_ledger.db"))
+        from divineos.core.exploration_reader import emit_territory_match_referenced
+        from divineos.core.ledger import get_events, init_db
+
+        init_db()
+        emit_territory_match_referenced("01_topic.md", reason="cited in walk")
+
+        events = get_events(event_type="TERRITORY_MATCH_REFERENCED")
+        assert len(events) == 1
+        assert events[0]["payload"]["filename"] == "01_topic.md"
+        assert events[0]["payload"]["reason"] == "cited in walk"
+
+    def test_emit_referenced_normalizes_path_to_filename(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test_ledger.db"))
+        from divineos.core.exploration_reader import emit_territory_match_referenced
+        from divineos.core.ledger import get_events, init_db
+
+        init_db()
+        emit_territory_match_referenced("/abs/path/to/42_walk.md")
+
+        events = get_events(event_type="TERRITORY_MATCH_REFERENCED")
+        assert events[0]["payload"]["filename"] == "42_walk.md"
+
+    def test_usage_computes_ratio(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test_ledger.db"))
+        from divineos.core.exploration_reader import (
+            emit_territory_match_referenced,
+            territory_match_usage,
+        )
+        from divineos.core.ledger import init_db, log_event
+
+        init_db()
+        for _ in range(4):
+            log_event(
+                "TERRITORY_MATCH_SURFACED",
+                "exploration_reader",
+                {"filename": "42_walk.md", "matched_tags": ["architecture"]},
+                validate=False,
+            )
+        emit_territory_match_referenced("42_walk.md")
+
+        result = territory_match_usage(days=30)
+        assert result["total_surfaced"] == 4
+        assert result["total_referenced"] == 1
+        assert result["ratio"] == 0.25
+
+    def test_usage_handles_zero_surfaced_gracefully(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test_ledger.db"))
+        from divineos.core.exploration_reader import territory_match_usage
+        from divineos.core.ledger import init_db
+
+        init_db()
+        result = territory_match_usage(days=30)
+        assert result["total_surfaced"] == 0
+        assert result["ratio"] == 0.0
+
+
 # ─── Locked taxonomy invariants ─────────────────────────────────────
 
 
