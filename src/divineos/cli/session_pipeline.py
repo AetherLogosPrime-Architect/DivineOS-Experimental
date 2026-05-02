@@ -415,7 +415,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
         # ── Phase 8i: User model signals ────────────────────────
         try:
-            from divineos.core.user_model import record_signal
+            # Lite: divineos.core.user_model stripped — stub the imported symbols.
+            def record_signal(*_a, **_k):
+                return None
 
             corrections = len(analysis.corrections)
             encouragements = len(analysis.encouragements)
@@ -437,7 +439,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
         # ── Phase 8i2: Skill assessment — synthesize accumulated signals ──
         try:
-            from divineos.core.user_model import update_skill_level
+            # Lite: divineos.core.user_model stripped — stub the imported symbols.
+            def update_skill_level(*_a, **_k):
+                return None
 
             update_skill_level()
         except (ImportError, sqlite3.OperationalError, OSError) as e:
@@ -445,8 +449,13 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
         # ── Phase 8j: Communication calibration — detect preference signals ──
         try:
-            from divineos.core.communication_calibration import detect_calibration_signals
-            from divineos.core.user_model import record_signal
+            # Lite: divineos.core.communication_calibration stripped — stub the imported symbols.
+            def detect_calibration_signals(*_a, **_k):
+                return None
+
+            # Lite: divineos.core.user_model stripped — stub the imported symbols.
+            def record_signal(*_a, **_k):
+                return None
 
             # Scan user messages for communication preference signals
             user_text = " ".join(
@@ -468,7 +477,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
         # ── Phase 8k: Advice tracking — surface stale recommendations ──
         try:
-            from divineos.core.advice_tracking import get_stale_advice
+            # Lite: divineos.core.advice_tracking stripped — stub the imported symbols.
+            def get_stale_advice(*_a, **_k):
+                return None
 
             stale = get_stale_advice(days=7)
             if stale:
@@ -498,7 +509,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
             correction_count = len(getattr(analysis, "corrections", []))
             user_msg_count = getattr(analysis, "user_messages", 0)
             if user_msg_count > 0 and frustration_count > 0:
-                from divineos.core.user_model import update_preferences
+                # Lite: divineos.core.user_model stripped — stub the imported symbols.
+                def update_preferences(*_a, **_k):
+                    return None
 
                 frustration_ratio = frustration_count / user_msg_count
                 if frustration_ratio > 0.15:
@@ -517,18 +530,12 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                     )
             elif user_msg_count > 5 and frustration_count == 0 and correction_count <= 1:
                 # Clean session — drift back toward normal if currently restricted
-                from divineos.core.user_model import get_or_create_user
+                # Lite: divineos.core.user_model stripped — stub the imported symbols.
+                def get_or_create_user(*_a, **_k):
+                    return None
 
-                user = get_or_create_user()
-                current_verbosity = user.get("preferences", {}).get("verbosity", "normal")
-                if current_verbosity in ("terse", "concise"):
-                    from divineos.core.user_model import update_preferences as _up
-
-                    _up(verbosity="normal")
-                    click.secho(
-                        "[~] Calibration: clean session — verbosity restored to normal",
-                        fg="cyan",
-                    )
+                # Lite: user_model stripped — verbosity link is a no-op.
+                pass
         except (ImportError, sqlite3.OperationalError, OSError, AttributeError) as e:
             logger.debug(f"Verbosity link failed: {e}")
 
@@ -581,7 +588,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
             # 1. Advice outcomes → opinions about what works
             try:
-                from divineos.core.advice_tracking import get_assessed_advice
+                # Lite: divineos.core.advice_tracking stripped — stub the imported symbols.
+                def get_assessed_advice(*_a, **_k):
+                    return None
 
                 assessed = get_assessed_advice(limit=20)
                 category_outcomes: dict[str, dict[str, int]] = {}
@@ -655,7 +664,9 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
         # ── Phase 8s: Curiosity gap analysis ─────────────────────
         try:
-            from divineos.core.curiosity_engine import generate_curiosities_from_gaps
+            # Lite: divineos.core.curiosity_engine stripped — stub the imported symbols.
+            def generate_curiosities_from_gaps(*_a, **_k):
+                return None
 
             new_curiosities = generate_curiosities_from_gaps(max_questions=3)
             if new_curiosities:

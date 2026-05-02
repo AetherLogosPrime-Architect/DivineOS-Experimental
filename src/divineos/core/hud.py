@@ -31,8 +31,21 @@ from divineos.core.knowledge import get_lessons
 from divineos.core.ledger import get_recent_context
 from divineos.core.memory import get_core
 from divineos.core.memory_journal import journal_count, journal_list
-from divineos.core.planning_commitments import get_pending_commitments
-from divineos.core.self_model import build_self_model, format_self_model
+
+
+# Lite: divineos.core.planning_commitments stripped — stub the imported symbols.
+def get_pending_commitments(*_a, **_k):
+    return None
+
+
+# self_model stripped for Lite — slot returns empty.
+def build_self_model():  # type: ignore[no-untyped-def]
+    return {}
+
+
+def format_self_model(_model):  # type: ignore[no-untyped-def]
+    return ""
+
 
 _HUD_ERRORS = (sqlite3.OperationalError, json.JSONDecodeError, OSError)
 
@@ -893,26 +906,8 @@ def _build_opinions_slot() -> str:
 
 
 def _build_calibration_slot() -> str:
-    """How I should communicate this session — adapted to the user."""
-    try:
-        from divineos.core.communication_calibration import calibrate
-
-        cal = calibrate()
-        # Only show if non-default
-        if cal.verbosity == "normal" and cal.jargon_ok and cal.explanation_depth == "normal":
-            return ""
-
-        lines = ["# Communication Calibration\n"]
-        lines.append(f"  Verbosity: {cal.verbosity}")
-        if not cal.jargon_ok:
-            lines.append("  Jargon: keep it plain — user prefers clear language")
-        lines.append(f"  Depth: {cal.explanation_depth}")
-        if cal.notes:
-            for note in cal.notes[:3]:
-                lines.append(f"  Note: {note}")
-        return "\n".join(lines)
-    except _HUD_ERRORS:
-        return ""
+    """Lite: communication_calibration stripped — slot returns empty."""
+    return ""
 
 
 def _build_knowledge_origin_slot() -> str:
@@ -1022,12 +1017,8 @@ Use these. Don't just code — think, feel, decide, record, reflect. The gates e
 
 def _build_rt_protocol_slot() -> str:
     """RT protocol status — only shows when loaded or active."""
-    try:
-        from divineos.core.resonant_truth import format_rt_status
-
-        return format_rt_status()
-    except _HUD_ERRORS:
-        return ""
+    # Lite: resonant_truth stripped — slot returns empty.
+    return ""
 
 
 def _build_pull_detection_slot() -> str:

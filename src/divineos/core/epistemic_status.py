@@ -55,7 +55,10 @@ def build_epistemic_report() -> dict[str, Any]:
 
     # Get warrants for each entry
     try:
-        from divineos.core.logic.warrants import get_warrants
+        # Lite: divineos.core.logic.warrants stripped
+        def get_warrants(*_a, **_k):
+            return None
+
     except _ES_ERRORS as e:
         logger.debug("Epistemic report failed to import warrants: %s", e)
         # Fall back to source field
@@ -198,7 +201,10 @@ def assess_epistemic_confidence(knowledge_id: str) -> dict[str, Any]:
     """
     try:
         from divineos.core.knowledge import _get_connection
-        from divineos.core.logic.warrants import get_warrants
+
+        # Lite: divineos.core.logic.warrants stripped
+        def get_warrants(*_a, **_k):
+            return None
 
         conn = _get_connection()
         try:

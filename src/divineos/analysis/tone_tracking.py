@@ -14,7 +14,11 @@ from divineos.analysis.session_analyzer import (
     _detect_signals,
     _extract_user_text,
 )
-from divineos.core.tone_texture import classify_tone_rich
+
+
+# Lite: divineos.core.tone_texture stripped — stub the imported symbols.
+def classify_tone_rich(*_a, **_k):
+    return None
 
 
 @dataclass
