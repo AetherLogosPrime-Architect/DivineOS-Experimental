@@ -590,60 +590,21 @@ def _format_briefing(
 
     lines.append(f"## Session Briefing ({len(entries)} items)\n")
 
-    # WHO you're talking to — the person, not the settings
+    # WHO you're talking to — the person, not the settings.
+    # Lite: user_model stripped; fall back to core memory only.
     try:
-        from divineos.core.user_model import (
-            get_or_create_user,
-            get_relationship_notes,
-            get_shared_history,
-        )
+        from divineos.core.memory import get_core
 
-        user = get_or_create_user()
-
-        # Relational layer first — who they ARE
-        rel_notes = get_relationship_notes(limit=5)
-        moments = get_shared_history(limit=3)
-
-        if rel_notes or moments:
-            user_name = user.get("name", "default")
-            lines.append(f"**Talking to:** {user_name}")
-            if rel_notes:
-                for n in rel_notes[:3]:
-                    lines.append(f"  - [{n['category']}] {n['content'][:100]}")
-            if moments:
-                lines.append(f"  Recent history: {moments[0]['description'][:80]}")
-            lines.append("")
-        else:
-            # Fall back to description or core memory
-            user_desc = user.get("description", "")
-            if not user_desc:
-                from divineos.core.memory import get_core
-
-                core = get_core()
-                user_desc = core.get("user_identity", "")
-            if user_desc:
-                short = user_desc.split(". ")[0] if ". " in user_desc else user_desc[:120]
-                lines.append(f"**Talking to:** {short}.\n")
+        core = get_core()
+        user_desc = core.get("user_identity", "")
+        if user_desc:
+            short = user_desc.split(". ")[0] if ". " in user_desc else user_desc[:120]
+            lines.append(f"**Talking to:** {short}.\n")
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"user-context: {e}")
 
-    # Communication calibration — HOW to talk, shown first so it shapes everything
-    try:
-        from divineos.core.communication_calibration import calibrate
-
-        cal = calibrate()
-        if not (cal.verbosity == "normal" and cal.jargon_ok and cal.explanation_depth == "normal"):
-            cal_parts: list[str] = []
-            if not cal.jargon_ok:
-                cal_parts.append("NO JARGON — explain in plain language")
-            if cal.verbosity in ("terse", "concise"):
-                cal_parts.append(f"verbosity: {cal.verbosity}")
-            if cal.notes:
-                for note in cal.notes[:2]:
-                    cal_parts.append(note)
-            lines.append(f"**How to talk:** {' | '.join(cal_parts)}\n")
-    except _RETRIEVAL_ERRORS as e:
-        subsystem_failures.append(f"calibration: {e}")
+    # Communication calibration removed for Lite (communication_calibration
+    # module stripped). Full DivineOS retains the per-user calibration block.
 
     # Self-awareness escalations — recurring failure patterns I keep hitting
     try:
@@ -757,9 +718,9 @@ def _format_briefing(
 
     # Session predictions — what will I likely need?
     try:
-        from divineos.core.predictive_session import (
-            predict_session_needs,
-        )  # late: predictive_session -> knowledge -> retrieval
+        # Lite: divineos.core.predictive_session stripped — stub.
+        def predict_session_needs(*_a, **_k):
+            return {"current_profile": {}, "predictions": []}
 
         pred_result = predict_session_needs()
         cur_profile = pred_result.get("current_profile", {})
@@ -799,10 +760,13 @@ def _format_briefing(
 
     # Logic health
     try:
-        from divineos.core.logic.logic_session import (
-            format_logic_health_line,
-            get_logic_health_summary,
-        )  # late: logic_session -> knowledge -> retrieval
+        # Lite: divineos.core.logic.logic_session stripped
+        def format_logic_health_line(*_a, **_k):
+            return None
+
+        def get_logic_health_summary(*_a, **_k):
+            return None
+            # late: logic_session -> knowledge -> retrieval
 
         logic_stats = get_logic_health_summary()
         logic_line = format_logic_health_line(logic_stats)
@@ -856,7 +820,9 @@ def _format_briefing(
 
     # Last session emotional arc — so I know how yesterday ended
     try:
-        from divineos.core.tone_texture import get_tone_history
+        # Lite: divineos.core.tone_texture stripped — stub the imported symbols.
+        def get_tone_history(*_a, **_k):
+            return None
 
         tone_history = get_tone_history(limit=1)
         if tone_history:
@@ -892,31 +858,8 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"tone-texture: {e}")
 
-    # Open curiosities — questions generated during sleep or filed manually
-    try:
-        from divineos.core.curiosity_engine import get_open_curiosities
-
-        open_q = get_open_curiosities()
-        # Only show manually-filed curiosities (category "general").
-        # Auto-generated questions (validation, stale_raw, recurring_lesson,
-        # correction) are formulaic templates, not genuine curiosity.
-        open_q = [q for q in open_q if q.get("category", "general") == "general"]
-        if open_q:
-            lines.append(f"### OPEN QUESTIONS ({len(open_q)})")
-            for q in open_q[:3]:
-                status_icon = "?" if q.get("status") == "OPEN" else "->"
-                question_text = q.get("question", "")
-                if len(question_text) > 160:
-                    question_text = question_text[:157] + "..."
-                lines.append(f"  {status_icon} {question_text}")
-                cat = q.get("category", "")
-                if cat and cat != "general":
-                    lines.append(f"    [{cat}]")
-            if len(open_q) > 3:
-                lines.append(f"  ...and {len(open_q) - 3} more (run: divineos curiosity list)")
-            lines.append("")
-    except _RETRIEVAL_ERRORS as e:
-        subsystem_failures.append(f"curiosities: {e}")
+    # Lite: curiosity_engine stripped — open-questions block omitted.
+    # Full DivineOS keeps the curiosity-driven question section.
 
     # Skip MISTAKE section when active lessons already cover them —
     # otherwise the same lesson appears in Watch Out, Active Lessons, AND Mistakes.
@@ -941,7 +884,12 @@ def _format_briefing(
 
     # Recurring value tensions from the decision journal
     try:
-        from divineos.core.value_tensions import detect_tension_patterns, format_tension_summary
+        # Lite: divineos.core.value_tensions stripped — stub the imported symbols.
+        def detect_tension_patterns(*_a, **_k):
+            return None
+
+        def format_tension_summary(*_a, **_k):
+            return None
 
         tension_report = detect_tension_patterns(limit=5)
         tension_text = format_tension_summary(tension_report)
@@ -1013,7 +961,9 @@ def _format_briefing(
 
     # Exploration folder — past-me's first-person writing, not extracted summaries
     try:
-        from divineos.core.exploration_reader import format_exploration_summary
+        # Lite: divineos.core.exploration_reader stripped
+        def format_exploration_summary(*_a, **_k):
+            return None
 
         expl_text = format_exploration_summary()
         if expl_text:

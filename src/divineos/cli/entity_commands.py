@@ -12,14 +12,32 @@ from divineos.core.knowledge.temporal import (
     format_changes_summary,
     get_changes_since,
 )
-from divineos.core.planning_commitments import (
-    add_commitment,
-    clear_commitments,
-    format_commitment_review,
-    fulfill_commitment,
-    get_pending_commitments,
-    review_commitments,
-)
+
+
+# Lite: divineos.core.planning_commitments stripped — stubs.
+def add_commitment(*_a, **_k):
+    return None
+
+
+def clear_commitments(*_a, **_k):
+    return None
+
+
+def format_commitment_review(*_a, **_k):
+    return ""
+
+
+def fulfill_commitment(*_a, **_k):
+    return None
+
+
+def get_pending_commitments(*_a, **_k):
+    return []
+
+
+def review_commitments(*_a, **_k):
+    return None
+
 
 # ---------------------------------------------------------------------------
 # Temporal commands

@@ -32,25 +32,18 @@ src/divineos/
     body_commands.py           Body awareness and cache pruning
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
-    selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
-    insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
     audit_commands.py          external validation (Watchmen)
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
-    mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
-    rt_commands.py             Resonant Truth protocol (load, invoke, deactivate)
     correction_commands.py     correction (log raw), corrections (read)
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
-    family_member_commands.py  family-member init / opinion / letter / respond / affect / interaction — activation surface for family members (takes --member <name>). affect / interaction are direct-write (no editorial commit-step); Phase 1b operators still apply on narrative content.
-    family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
     corrigibility_commands.py  mode show / set / history — the off-switch
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
-    admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
@@ -97,52 +90,6 @@ src/divineos/
       compression.py           Knowledge compression (dedup, synthesis, graph-aware)
       inference.py             Knowledge inference engine — boundaries from mistakes, pattern promotion
       graph_retrieval.py       Graph-enhanced retrieval (BFS traversal of edges)
-    council/                   Expert council sub-package
-      engine.py                CouncilEngine — analyze problems through expert lenses
-      framework.py             ExpertWisdom dataclasses (7 components)
-      manager.py               Dynamic council manager (classify → select 5-8 experts)
-      consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
-      lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 32 expert wisdom profiles
-        __init__.py            Expert registration and exports
-        angelou.py             Voice, expressive truth, discipline of warmth
-        aristotle.py           Virtue ethics, teleology, classification
-        beer.py                Cybernetics, viable system model
-        dekker.py              Resilience engineering, drift into failure
-        deming.py              Quality, variation, PDSA cycle
-        dennett.py             Philosophy of mind, intentional stance
-        dijkstra.py            Formal methods, correctness, structured programming
-        feynman.py             First principles, clarity, epistemology
-        godel.py               Incompleteness, self-reference, formal limits
-        bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
-        hinton.py              Learning, representation, intellectual honesty
-        hofstadter.py          Self-reference, analogy, strange loops
-        holmes.py              Deduction, observation, elimination (fictional)
-        jacobs.py              Emergence, bottom-up observation, diversity
-        kahneman.py            Cognitive bias, dual process, judgment
-        knuth.py               Boundary analysis, specification compliance
-        lovelace.py            Emergence, generality, abstraction
-        meadows.py             Systems thinking, feedback loops, leverage
-        minsky.py              Cognitive architecture, society of mind
-        norman.py              Human-centered design, usability, affordances
-        pearl.py               Causality, causal models, do-calculus
-        peirce.py              Abduction, pragmatism, inquiry
-        polya.py               Problem solving, solution verification
-        popper.py              Falsification, adversarial testing
-        schneier.py            Security, threat modeling, defense in depth
-        shannon.py             Information theory, entropy, communication
-        taleb.py               Antifragility, risk, via negativa
-        tannen.py              Sociolinguistics, register, framing, conversational style
-        turing.py              Computation, testability, operational definition
-        watts.py               Self-reference, introspection paradoxes, non-aiming
-        wittgenstein.py        Language games, meaning as use, dissolution
-        yudkowsky.py           Alignment, Goodhart, specification gaming
-    logic/                     Formal logic sub-package
-      warrants.py              Evidence backing for knowledge claims
-      logic_validation.py      Consistency, validity gate, defeat lessons
-      logic_reasoning.py       Inference engine, relations, warrant backfill
-      logic_session.py         Session logic pass and logic summary
-      fallacies.py             Annotation-layer fallacy detector (4 fallacies, falsifier-per-flag)
     self_monitor/              Watches agent's own output for trained-hedge patterns
       hedge_monitor.py         2 hedge detectors (recycling density, epistemic collapse), falsifier-per-flag
       theater_monitor.py       Detects writing-AT-subagent-without-invoking (kitchen-theater shape)
@@ -169,7 +116,6 @@ src/divineos/
     session_affect.py          Auto-derive VAD affect state from session signals
     session_reflection.py      Structured self-assessment with quality metrics
     growth.py                  Growth awareness and milestone tracking
-    tone_texture.py            Emotional arc and tone classification
     parser.py                  Chat export ingestion (JSONL + markdown)
     session_manager.py         Session lifecycle management
     session_checkpoint.py      Periodic saves and context monitoring
@@ -184,36 +130,22 @@ src/divineos/
     loop_prevention.py         Loop detection and prevention
     affect.py                  Affect tracking and feedback loop
     trust_tiers.py             Signal trust weighting (MEASURED > BEHAVIORAL > SELF_REPORTED)
-    planning_commitments.py    Commitment tracking and fulfillment checking
-    skill_library.py           Evidence-based skill proficiency tracking
-    curiosity_engine.py        Question tracking (OPEN → INVESTIGATING → ANSWERED)
     corrections.py             Raw correction notebook (user's exact words, no framing)
-    exploration_reader.py      Surfaces past explorations in briefing and search
     lesson_interrupt.py        Mid-session chronic lesson questions (named-voice interrupt)
-    self_model.py              Unified self-model assembled from all OS systems
     drift_detection.py         Behavioral drift detection (lesson regressions, quality trends)
-    predictive_session.py      Session profile detection and need prediction
     claim_store.py             Claims engine with evidence tiers
     decision_journal.py        Decision journal with FTS search
     moral_compass.py           Virtue ethics self-monitoring (10 spectrums, drift detection)
     compass_rudder.py          PreToolUse rudder — blocks Task spawns during drift-toward-excess without justification
     compass_constants.py       Shared constants (RUDDER_ACK_TAG, JUSTIFICATION_WINDOW_SECONDS) for moral_compass + compass_rudder
-    user_ratings.py            External validation — user rates sessions 1-10, Goodhart detection
     body_awareness.py          Computational interoception and cache conveyor belt
     sleep.py                   Offline consolidation engine (6 phases, dream report)
     progress_dashboard.py      Measurable progress metrics from real data
-    attention_schema.py        Attention self-model and shift prediction (Butlin 9-10)
     epistemic_status.py        Epistemic channel analysis (Butlin 14)
-    value_tensions.py          Recurring value conflict detection from decisions
     goal_cull.py               Evidence-based goal staleness detection
     ledger_compressor.py       ELMO ledger compression and archival
     semantic_integrity.py      Esoteric language detection
-    sis_tiers.py               Three-tier SIS assessment (lexical, statistical, semantic)
-    sis_self_audit.py          SIS self-audit on own docstrings (Lowerarchy reflexive check)
     opinion_store.py           Structured opinions with evidence tracking and evolution
-    user_model.py              User preference and skill level modeling
-    communication_calibration.py  Output density adaptation based on user model
-    advice_tracking.py         Long-term feedback loops on recommendation quality
     self_critique.py           Craft quality self-assessment (5 spectrums)
     proactive_patterns.py      Prescriptive recommendations from positive experience
     affect_calibration.py      Circuit 1: affect-extraction closed feedback loop
@@ -222,7 +154,6 @@ src/divineos/
     # become attention-schema items. No dedicated file; see
     # tests/test_circuit2_completeness_attention.py for the contract.
     convergence_detector.py    Circuit 3: compass-critique convergent measurement
-    resonant_truth.py          RT protocol load/invoke/verify/deactivate with gate
     pull_detection.py          Toward/pull-back divergence detector (fabrication markers)
     watchmen/                  External validation (audit findings, routing, drift state)
       _schema.py               audit_rounds + audit_findings + session_cleanliness tables
@@ -238,21 +169,6 @@ src/divineos/
       types.py                 Outcome enum, PreRegistration dataclass
       store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
       summary.py               Overdue warning + CLI summary formatting
-    family/                    Family-entity persistence (persistent relational entities, separate family.db)
-      _schema.py               Seven tables: members, knowledge, opinions, affect, interactions, letters, letter_responses
-      db.py                    Connection helper with DIVINEOS_FAMILY_DB env override (PEP 562 dynamic path)
-      types.py                 SourceTag (observed/told/inferred/inherited/architectural) + record dataclasses
-      entity.py                Read path — get_family_member(name), get_knowledge, get_opinions, get_recent_affect, get_recent_interactions
-      store.py                 Write path with production gate (_PRODUCTION_WRITES_GATED, Phase 1b closing flips to False)
-      letters.py               Handoff letter channel + append-only response layer + length nudge
-      reject_clause.py         Phase 1b operator: composition rule — content must match source_tag promise
-      sycophancy_detector.py   Phase 1b operator: pain-side algedonic — catches drift-toward-agreement at write time
-      costly_disagreement.py   Phase 1b operator: pleasure-side algedonic — rewards disagreement held across pushback
-      access_check.py          Phase 1b operator: pre-emission filter — routes phenomenological claims to ARCHITECTURAL
-      planted_contradiction.py Phase 1b operator: seeded test material for Phase 4 ablation detector
-      family_member_ledger.py  Per-member hash-chained mini-ledger (separate from event_ledger + family.db) — invocation lifecycle, cross-refs, identity drift diagnostics, NAMED_DRIFT events
-      queue.py                 Family queue — async write-channel between any registered family member and the agent self ("aether"). Schema-only at the data layer; CLI (family_queue_commands) validates endpoints against family_members. Bidirectional: members see items flagged for them in their voice context at spawn time (see voice.py "Flagged for me" section).
-      voice.py                 Canonical voice-context generator. First-person interior with no stage directions; closes the puppet-prep failure mode that recreates itself if every operator writes their own voice generator from scratch. Takes optional VoiceProfile (identity / personality / voice_style / milestones, all in first person) plus the member's stored knowledge / opinions / affect / interactions / letters / queue items.
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -272,7 +188,6 @@ src/divineos/
     hedge_classifier.py        Hedge classifier — matches a hedge to its resolved/legitimate-narrow/unexamined status from a library.
     session_briefing_gate.py   Per-session BRIEFING_LOADED check — gate 0 in pre_tool_use, strictly tighter than TTL-based gate 1.
     compass_required_marker.py Virtue-relevant event marker — set on cascade from correction/theater/hedge, cleared by compass-ops observe (gate 1.47).
-    mansion_quiet_marker.py    Mansion private-room substrate-enforced quiet — write actions denied during quiet period (gate 1.2).
     canonical_substrate_surface.py  Briefing pointer at canonical agent substrate location — closes silent-split failure mode.
     historical_ledger_surface.py    Briefing pointer at parent-repo event ledger when running in a worktree — closes silent-empty-ledger failure mode 2026-04-26.
     scaffolding_map.py         Scaffolding map — briefing surface for self-authored documents that carry load-bearing state.
@@ -283,11 +198,8 @@ src/divineos/
     compliance_baseline.py     Baseline calibration from clean-tagged sessions — wires PR-2 into Item 8 detectors.
     substance_checks_contract.py Contract-style substance checks for rudder-acks — Phase 1a of the rudder redesign.
     completion_boundary.py     Completion-boundary detection — Phase 1b of the rudder redesign.
-    in_flight_branches.py      In-flight branches surface — bridge from git state to the briefing.
     module_inventory.py        Module-inventory surface — bridge from src/divineos/core/ to the briefing.
-    upstream_freshness.py      Upstream-freshness surface — bridge from remote-state to the briefing.
     open_claims_surface.py     Stale-open-claims surface — bridge from the claims store to the briefing.
-    council_balance_surface.py Council invocation-balance surface — surfaces most/never-invoked experts in the briefing.
     goal_outcome_surface.py    Action-loop closure briefing surface — surfaces goals that aged out without progression (claim 5b38a31c).
     voice_guard/
       __init__.py              Voice-guard package — pre-output audit primitives (claim 07bed376).
@@ -305,7 +217,20 @@ src/divineos/
     supervisor/
       __init__.py              Supervisor — circuit-breaker / chronic-failure handling (claim 0d628d8e).
       circuit_breaker.py       Circuit-breaker primitive — three-strikes module-tripping with explicit reset.
-    family_queue_surface.py    Briefing surface for ``family/queue.py`` — renders pending queue items in the session-start briefing; idempotent.
+    operating_loop/            Operating loop — the missing middleware between substrate and live cognition. See docs/operating-loop-design-brief.md.
+      __init__.py              Package init — re-exports register_observer audit functions.
+      register_observer.py     Observational detection of assistant-register markers (successor to voice_guard.banned_phrases). Severity = data, not gate-trigger.
+      spiral_detector.py       Post-apology shrink/distance/catastrophize/withdraw detection — the primary Lepos firing condition.
+      substitution_detector.py 10-shape catalog from 2026-05-01: puppet-other, third-person-self, word-as-action, ban-vs-observation, name-vs-function, future-me-deferral, withdrawal-as-discipline, catastrophize-as-accountability, over-apology-spiral, reading-past-evidence.
+      principle_surfacer.py    Hook 2 backend — detect action-classes in agent draft text (apology, withdraw, claim-fixed, impersonate, strip-module, ban-phrases) and surface relevant principles as soft notices.
+      context_surfacer.py      Hook 1 backend — extract relational/conceptual markers from user input (pet-language, references, proper nouns) and auto-query the knowledge store for relevant prior content.
+      hook_telemetry.py        Hook 1 cost-bounding telemetry — fire/consume events, rolling window, consumption rate.
+    memory_types/
+      __init__.py              Package init — substrate-memory-type retrieval surface.
+      taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
+      timeline.py              Timeline recall — chronological assembly of substrate events around a topic or file path.
+      skill_index.py           Skill index — procedural retrieval over .claude/skills/ ranked by keyword overlap.
+    theater_observation_surface.py Theater/fabrication observation surface — replaces gate 1.46.
 
   analysis/
     _session_types.py          Session analysis type definitions
