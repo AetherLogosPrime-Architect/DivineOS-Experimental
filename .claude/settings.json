@@ -18,6 +18,11 @@
             "type": "command",
             "command": "bash .claude/hooks/detect-correction.sh",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-response-context.sh",
+            "timeout": 10
           }
         ]
       }
@@ -51,6 +56,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/require-goal.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Read|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-tool-context.sh",
             "timeout": 10
           }
         ]
@@ -109,6 +124,11 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/detect-theater.sh",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-response-audit.sh",
             "timeout": 15
           }
         ]

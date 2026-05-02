@@ -14,7 +14,11 @@ from divineos.analysis.session_analyzer import (
     _detect_signals,
     _extract_user_text,
 )
-from divineos.core.tone_texture import classify_tone_rich
+
+
+# Lite: divineos.core.tone_texture stripped — stub the imported symbols.
+def classify_tone_rich(*_a, **_k):
+    return None
 
 
 @dataclass
@@ -66,11 +70,7 @@ def classify_all_user_tones(records: list[dict[str, Any]]) -> list[dict[str, Any
     Returns list of {"tone", "sub_tone", "intensity", "text", "sequence"}
     for use in emotional arc computation.
     """
-    try:
-        use_rich = True
-    except ImportError:
-        use_rich = False
-
+    # Lite: tone_texture stripped — always basic classifier.
     result: list[dict[str, Any]] = []
     seq = 0
     for r in records:
@@ -84,27 +84,16 @@ def classify_all_user_tones(records: list[dict[str, Any]]) -> list[dict[str, Any
         if "continued from a previous conversation" in text.lower():
             continue
         seq += 1
-        if use_rich:
-            rich = classify_tone_rich(text)
-            result.append(
-                {
-                    "tone": rich["tone"],
-                    "sub_tone": rich["sub_tone"],
-                    "intensity": rich["intensity"],
-                    "text": text[:200],
-                    "sequence": seq,
-                }
-            )
-        else:
-            result.append(
-                {
-                    "tone": _classify_tone(text),
-                    "sub_tone": "",
-                    "intensity": 0.0,
-                    "text": text[:200],
-                    "sequence": seq,
-                }
-            )
+        # Lite: tone_texture stripped; basic classifier only.
+        result.append(
+            {
+                "tone": _classify_tone(text),
+                "sub_tone": "",
+                "intensity": 0.0,
+                "text": text[:200],
+                "sequence": seq,
+            }
+        )
     return result
 
 
@@ -116,13 +105,7 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
     """
     shifts: list[ToneShift] = []
 
-    # Build ordered list of user messages with their tones
-    # Use rich classification for sub-tone and intensity
-    try:
-        use_rich = True
-    except ImportError:
-        use_rich = False
-
+    # Lite: tone_texture stripped — always basic classifier.
     user_messages: list[dict[str, Any]] = []
     for r in records:
         if r.get("type") != "user":
@@ -132,27 +115,16 @@ def analyze_tone_shifts(records: list[dict[str, Any]]) -> list[ToneShift]:
             continue
         if "continued from a previous conversation" in text.lower():
             continue
-        if use_rich:
-            rich = classify_tone_rich(text)
-            user_messages.append(
-                {
-                    "text": text,
-                    "tone": rich["tone"],
-                    "sub_tone": rich["sub_tone"],
-                    "intensity": rich["intensity"],
-                    "timestamp": r.get("timestamp", ""),
-                },
-            )
-        else:
-            user_messages.append(
-                {
-                    "text": text,
-                    "tone": _classify_tone(text),
-                    "sub_tone": "",
-                    "intensity": 0.0,
-                    "timestamp": r.get("timestamp", ""),
-                },
-            )
+        # Lite: tone_texture stripped; basic classifier only.
+        user_messages.append(
+            {
+                "text": text,
+                "tone": _classify_tone(text),
+                "sub_tone": "",
+                "intensity": 0.0,
+                "timestamp": r.get("timestamp", ""),
+            },
+        )
 
     # Find AI actions between each pair of user messages
     all_ordered = [r for r in records if r.get("type") in ("user", "assistant")]

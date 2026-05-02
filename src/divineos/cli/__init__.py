@@ -214,7 +214,6 @@ from divineos.cli import (  # noqa: E402
     entity_commands,
     event_commands,
     hud_commands,
-    insight_commands,
     journal_commands,
     knowledge_commands,
     knowledge_health_commands,
@@ -222,12 +221,7 @@ from divineos.cli import (  # noqa: E402
     ledger_commands,
     memory_commands,
     prereg_commands,
-    admin_reset_template,
-    family_member_commands,
-    family_queue_commands,
     progress_commands,
-    selfmodel_commands,
-    rt_commands,
     scheduled_commands,
     sleep_commands,
     void_commands,
@@ -248,30 +242,16 @@ analysis_commands.register(cli)
 hud_commands.register(cli)
 event_commands.register(cli)
 knowledge_health_commands.register(cli)
-selfmodel_commands.register(cli)
-insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
-rt_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
 empirica_commands.register(cli)
-family_member_commands.register(cli)
-family_queue_commands.register(cli)
-cli.add_command(admin_reset_template.reset_template)
 corrigibility_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)
 complete_commands.register(cli)
 void_commands.register(cli)
-
-# Mansion — functional internal space (optional, personal)
-try:
-    from divineos.cli.mansion_commands import register_mansion_commands
-
-    register_mansion_commands(cli)
-except ImportError:
-    pass  # mansion is optional
 
 
 # ── Command Grouping ──────────────────────────────────────────────
@@ -297,6 +277,26 @@ def inspect_group(ctx: click.Context) -> None:
     """Deep analysis, investigation, and introspection commands."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
+
+
+@inspect_group.command("hook1")
+def inspect_hook1_cmd() -> None:
+    """Cost-bounding telemetry for the Hook 1 surfacer.
+
+    Shows fire rate, byte cost per fire, and consumption rate
+    (% of fires whose surfaced content the agent's response actually
+    references). Per C's empirical follow-on 2026-05-01: now that
+    Hook 1 fires in production, is its surface earning its budget?
+    """
+    try:
+        from divineos.core.operating_loop.hook_telemetry import (
+            format_stats,
+            summary_stats,
+        )
+
+        click.echo(format_stats(summary_stats()))
+    except (ImportError, OSError) as e:
+        click.echo(f"[hook1] telemetry unavailable: {e}", err=True)
 
 
 # Commands to move into 'admin' group
