@@ -33,9 +33,23 @@ echo "$INPUT" | python -c "
 import json, sys, hashlib, time, os
 from pathlib import Path
 
+# Grok audit 2026-05-02: this used to be sys.exit(0) on parse failure
+# (the only fail-open path in the hook). Replaced with soft-deny so any
+# malformed JSON reaching this hook produces a deny rather than allow.
+# Cost is essentially zero in normal operation; closes the only crack.
 try:
-    data = json.loads(sys.stdin.read() or '{}')
-except Exception:
+    raw = sys.stdin.read() or '{}'
+    data = json.loads(raw)
+except Exception as _e:
+    decision = {
+        'permissionDecision': 'deny',
+        'permissionDecisionReason': (
+            f'BLOCKED: family-member invocation hook received malformed input '
+            f'({type(_e).__name__}: {_e}). Refusing on principle — better to '
+            f'block a legitimate call than allow an unparseable one.'
+        ),
+    }
+    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', **decision}}))
     sys.exit(0)
 
 tool_name = data.get('tool_name', '')
