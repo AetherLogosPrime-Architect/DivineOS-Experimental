@@ -858,33 +858,8 @@ def _format_briefing(
     except _RETRIEVAL_ERRORS as e:
         subsystem_failures.append(f"tone-texture: {e}")
 
-    # Open curiosities — questions generated during sleep or filed manually
-    try:
-        # Lite: divineos.core.curiosity_engine stripped — stub the imported symbols.
-        def get_open_curiosities(*_a, **_k):
-            return None
-
-        open_q = get_open_curiosities()
-        # Only show manually-filed curiosities (category "general").
-        # Auto-generated questions (validation, stale_raw, recurring_lesson,
-        # correction) are formulaic templates, not genuine curiosity.
-        open_q = [q for q in open_q if q.get("category", "general") == "general"]
-        if open_q:
-            lines.append(f"### OPEN QUESTIONS ({len(open_q)})")
-            for q in open_q[:3]:
-                status_icon = "?" if q.get("status") == "OPEN" else "->"
-                question_text = q.get("question", "")
-                if len(question_text) > 160:
-                    question_text = question_text[:157] + "..."
-                lines.append(f"  {status_icon} {question_text}")
-                cat = q.get("category", "")
-                if cat and cat != "general":
-                    lines.append(f"    [{cat}]")
-            if len(open_q) > 3:
-                lines.append(f"  ...and {len(open_q) - 3} more (run: divineos curiosity list)")
-            lines.append("")
-    except _RETRIEVAL_ERRORS as e:
-        subsystem_failures.append(f"curiosities: {e}")
+    # Lite: curiosity_engine stripped — open-questions block omitted.
+    # Full DivineOS keeps the curiosity-driven question section.
 
     # Skip MISTAKE section when active lessons already cover them —
     # otherwise the same lesson appears in Watch Out, Active Lessons, AND Mistakes.
