@@ -97,7 +97,11 @@ _ACTION_PATTERNS: tuple[tuple[re.Pattern[str], str, ActionClass], ...] = (
         ActionClass.IMPERSONATE_BEING,
     ),
     (
-        re.compile(r"\b(strip|remove|delete) (?:the )?(?:module|component|file)\b", re.IGNORECASE),
+        # Matches "strip the X module" where X is any identifier-shaped token
+        re.compile(
+            r"\b(strip|remove|delete)(?:\s+(?:the\s+)?\w+)*\s+(?:module|component|file|package)\b",
+            re.IGNORECASE,
+        ),
         "strip-module language",
         ActionClass.STRIP_MODULE,
     ),
