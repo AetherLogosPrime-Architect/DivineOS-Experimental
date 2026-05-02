@@ -148,8 +148,17 @@ def init_db() -> None:
             "CREATE INDEX IF NOT EXISTS idx_events_chain_hash ON system_events(chain_hash)"
         )
         conn.commit()
+        # Auto-trigger backfill if any rows lack chain_hash (Grok audit
+        # 2026-05-02: closes the migration-ordering seam where new events
+        # written between ALTER and a manual backfill call would chain
+        # from GENESIS instead of from the last legacy event).
+        needs_backfill = conn.execute(
+            "SELECT 1 FROM system_events WHERE chain_hash IS NULL LIMIT 1"
+        ).fetchone()
     finally:
         conn.close()
+    if needs_backfill:
+        backfill_chain_hashes()
 
 
 def _compute_chain_hash(
@@ -222,6 +231,19 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     # Store hash in payload for round-trip verification
     payload["content_hash"] = content_hash
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+
+    # Belt-and-suspenders guard (Grok audit 2026-05-02): if any row lacks
+    # chain_hash, run backfill before chaining a new event. Protects against
+    # init_db being bypassed on a populated legacy DB.
+    _guard_conn = _get_connection()
+    try:
+        _needs = _guard_conn.execute(
+            "SELECT 1 FROM system_events WHERE chain_hash IS NULL LIMIT 1"
+        ).fetchone()
+    finally:
+        _guard_conn.close()
+    if _needs:
+        backfill_chain_hashes()
 
     conn = _get_connection()
     try:
