@@ -10,7 +10,8 @@ from divineos.core.sleep import (
     _AFFECT_INTENSITY_FLOOR,
     _RECOMBINATION_MAX_CONNECTIONS,
     _RECOMBINATION_MAX_SIMILARITY,
-    _RECOMBINATION_MIN_SIMILARITY,
+    _RECOMBINATION_MIN_SIMILARITY_COSINE,
+    _RECOMBINATION_MIN_SIMILARITY_DICE,
     DreamReport,
     _compute_decay_factor,
     _phase_affect,
@@ -690,7 +691,12 @@ class TestConstants:
         assert _AFFECT_DECAY_HOURS > 0
 
     def test_similarity_thresholds_ordered(self):
-        assert _RECOMBINATION_MIN_SIMILARITY < _RECOMBINATION_MAX_SIMILARITY
+        # Both metric-specific minimums must be below the shared maximum.
+        # Dice ≤ Cosine ≤ Max — Dice produces lower scores than embeddings,
+        # so its floor is lower; both must stay below the duplicate-threshold.
+        assert _RECOMBINATION_MIN_SIMILARITY_DICE < _RECOMBINATION_MAX_SIMILARITY
+        assert _RECOMBINATION_MIN_SIMILARITY_COSINE < _RECOMBINATION_MAX_SIMILARITY
+        assert _RECOMBINATION_MIN_SIMILARITY_DICE <= _RECOMBINATION_MIN_SIMILARITY_COSINE
 
     def test_max_connections_reasonable(self):
         assert 1 <= _RECOMBINATION_MAX_CONNECTIONS <= 50

@@ -71,7 +71,7 @@ def format_for_briefing(recipient: str = "aether") -> str:
     held = [i for i in items if i["status"] == "held"]
 
     lines = [
-        f"[family queue] {len(items)} item(s) flagged for you "
+        f"[family queue] {len(items)} item(s) flagged for me "
         "— async write-channel from family members between invocations:",
     ]
 

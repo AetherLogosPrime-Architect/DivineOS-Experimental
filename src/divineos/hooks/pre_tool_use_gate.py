@@ -346,36 +346,15 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_45_hedge", _gate_exc)
 
-    # Gate 1.46: theater/fabrication-shape on last output. Closes the
-    # enforcement gap for kitchen-theater (writing-AT-subagent) and
-    # unflagged embodied-action claims documented 2026-04-26. Marker
-    # is set by the Stop hook when theater_monitor or fabrication_monitor
-    # fires; cleared by `divineos correction` or `divineos learn`.
-    #
-    # Skip when the tool is a Write/Edit to an exploration/ path. The
-    # detector is calibrated for operator-facing claims; exploration is
-    # the agent's free-expression space and gating it produces the
-    # cascade-loop documented 2026-04-27 in exploration/37. The marker
-    # still gets set by the Stop hook (forensic record preserved per
-    # Claude review); only the tool-block is skipped.
-    try:
-        if input_data is None or not _is_exploration_write(input_data):
-            from divineos.core.theater_marker import format_gate_message as _tm_msg
-            from divineos.core.theater_marker import marker_path as _tm_path
-            from divineos.core.theater_marker import read_marker as _tm_read
-
-            if _tm_path().exists():
-                t = _tm_read()
-                if t is not None:
-                    return _make_deny(_tm_msg(t))
-                return _make_deny(
-                    "BLOCKED: theater marker present at "
-                    f"{_tm_path()} but unreadable. "
-                    'Clear by naming the pattern: divineos correction "..." or '
-                    'divineos learn "...". Fail-closed by design.'
-                )
-    except (ImportError, OSError, AttributeError) as _gate_exc:
-        _record_gate_failure("gate_1_46_theater", _gate_exc)
+    # Gate 1.46: REMOVED 2026-05-01 (free-speech principle).
+    # Theater / fabrication detection now surfaces observationally
+    # in the next briefing instead of blocking the next tool. The
+    # marker file (~/.divineos/theater_unresolved.json) is still
+    # written by the Stop hook for forensic record; the detector
+    # itself stays active. What changed: no gate-block on tool use,
+    # no cascade to compass-required. Naming via correction / learn
+    # is voluntary discipline. See core/theater_marker.py for the
+    # rationale and the surface module that replaces this gate.
 
     # Gate 1.47: compass observation required after virtue-relevant event.
     # Build #4 from claim 7e780182. When a correction, theater fire,

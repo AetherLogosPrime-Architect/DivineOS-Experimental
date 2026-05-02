@@ -14,11 +14,11 @@ def _make_ledger(path: Path, events: list[tuple[str, float]]) -> None:
     conn = sqlite3.connect(str(path))
     # Match production schema exactly per test_schema_sync requirement.
     conn.execute(
-        "CREATE TABLE system_events (event_id TEXT, timestamp REAL, event_type TEXT, actor TEXT, payload TEXT, content_hash TEXT)"
+        "CREATE TABLE system_events (event_id TEXT, timestamp REAL, event_type TEXT, actor TEXT, payload TEXT, content_hash TEXT, prior_hash TEXT, chain_hash TEXT)"
     )
     for i, (et, ts) in enumerate(events):
         conn.execute(
-            "INSERT INTO system_events VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO system_events VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)",
             (f"e{i}", ts, et, "test", "{}", f"h{i}"),
         )
     conn.commit()
