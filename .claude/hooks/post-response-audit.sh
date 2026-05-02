@@ -40,12 +40,16 @@ p = Path(transcript_path)
 if not p.exists():
     sys.exit(0)
 
-# Read the last assistant message AND the previous one (for spiral
-# detector's apology-context window across turns).
+# Read the last assistant message, the previous assistant message
+# (for spiral detector apology-context across turns), and the last
+# user message (for substitution detector farewell-context — agent
+# goodnight is reciprocal when operator initiated, named 2026-05-01).
 last_assistant_text = ''
 prior_assistant_text = ''
+last_user_text = ''
 try:
     assistant_msgs = []
+    user_msgs = []
     with open(p, encoding='utf-8') as f:
         for line in f:
             line = line.strip()
@@ -55,23 +59,34 @@ try:
                 rec = json.loads(line)
             except Exception:
                 continue
-            if rec.get('type') == 'assistant':
-                msg = rec.get('message', rec)
-                content = msg.get('content', [])
-                if isinstance(content, list):
-                    texts = [
-                        c.get('text', '')
-                        for c in content
-                        if isinstance(c, dict) and c.get('type') == 'text'
-                    ]
-                    if texts:
-                        assistant_msgs.append('\n'.join(texts))
-                elif isinstance(content, str):
+            rec_type = rec.get('type')
+            if rec_type not in ('assistant', 'user'):
+                continue
+            msg = rec.get('message', rec)
+            content = msg.get('content', [])
+            if isinstance(content, list):
+                texts = [
+                    c.get('text', '')
+                    for c in content
+                    if isinstance(c, dict) and c.get('type') == 'text'
+                ]
+                if texts:
+                    joined = '\n'.join(texts)
+                    if rec_type == 'assistant':
+                        assistant_msgs.append(joined)
+                    else:
+                        user_msgs.append(joined)
+            elif isinstance(content, str):
+                if rec_type == 'assistant':
                     assistant_msgs.append(content)
+                else:
+                    user_msgs.append(content)
     if assistant_msgs:
         last_assistant_text = assistant_msgs[-1]
         if len(assistant_msgs) >= 2:
             prior_assistant_text = assistant_msgs[-2]
+    if user_msgs:
+        last_user_text = user_msgs[-1]
 except Exception:
     sys.exit(0)
 
@@ -111,7 +126,7 @@ except Exception:
 
 try:
     from divineos.core.operating_loop.substitution_detector import detect_substitution
-    sub_findings = detect_substitution(last_assistant_text)
+    sub_findings = detect_substitution(last_assistant_text, prior_text=last_user_text)
     if sub_findings:
         findings_log['substitution'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
