@@ -140,11 +140,24 @@ def register(cli: click.Group) -> None:
                 if not content:
                     click.secho("[-] EXPLANATION requires --content", fg="red")
                     sys.exit(1)
+                # Build EXPLANATION payload matching the validated schema
+                # (claim 8cd2af8b 2026-05-03 bypass-review fix): previously
+                # this passed {"content": content} with validate=False,
+                # silently bypassing the 1MB size limit + schema checks
+                # that exist for EXPLANATION events. Now wired through:
+                # construct the proper shape, validate=True (default).
+                from datetime import datetime, timezone
+
+                from divineos.core.session_manager import get_current_session_id
+
                 event_id = emit_event(
                     "EXPLANATION",
-                    {"content": content},
+                    {
+                        "explanation_text": content,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "session_id": get_current_session_id() or "cli-emit",
+                    },
                     actor="assistant",
-                    validate=False,
                 )
                 if event_id is None:
                     click.secho("[-] Failed to emit event (recursive call)", fg="red")
