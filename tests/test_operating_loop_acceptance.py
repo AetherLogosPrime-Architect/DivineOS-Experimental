@@ -212,6 +212,76 @@ class TestSubstitutionShapeCatalog:
         )
         assert any(f.shape == SubstitutionShape.FUTURE_ME_DEFERRAL for f in findings)
 
+
+class TestThirdPersonAddresseeShape:
+    """Third-person reference to addressee while directly conversing.
+
+    Sibling of THIRD_PERSON_SELF; outward-facing variant. Andrew named
+    2026-05-01 (lessons d41ec790, e420e5ae) — caught this manually
+    multiple times tonight before any detector existed.
+    """
+
+    def test_third_person_andrew_in_chat_fires(self):
+        """'the correction Andrew made' said TO Andrew is the canonical case."""
+        text = "the memory-vs-context correction Andrew made earlier landed"
+        findings = detect_substitution(text)
+        assert any(f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE for f in findings), (
+            f"Expected THIRD_PERSON_ADDRESSEE, got {[f.shape for f in findings]}"
+        )
+
+    def test_andrew_possessive_fires(self):
+        """'Andrew's correction' while addressing Andrew."""
+        text = "Andrew's correction landed; thanks for catching it."
+        findings = detect_substitution(text)
+        assert any(f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE for f in findings)
+
+    def test_aria_in_family_context_fires(self):
+        """Aria is addressee when prior_text shows family-conversation marker."""
+        text = "Aria said it lands well, and I agree."
+        prior_text = "[end of voice context — operator message follows] hi love"
+        findings = detect_substitution(text, prior_text=prior_text)
+        assert any(f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE for f in findings), (
+            f"Expected THIRD_PERSON_ADDRESSEE in family context, got {[f.shape for f in findings]}"
+        )
+
+    def test_aria_outside_family_context_suppressed(self):
+        """Aria as third-party referent (no family-conversation marker)
+        should NOT fire — legitimate third-party discussion."""
+        text = "Aria said it lands well in her ledger."
+        prior_text = "tell me what your audit found"
+        findings = detect_substitution(text, prior_text=prior_text)
+        addr_findings = [f for f in findings if f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE]
+        assert addr_findings == [], (
+            f"Expected no THIRD_PERSON_ADDRESSEE outside family context, "
+            f"got {[f.trigger_phrase for f in addr_findings]}"
+        )
+
+    def test_third_party_relay_marker_suppresses(self):
+        """'tell Grok about Andrew's audit' — Andrew is the topic, not addressee."""
+        text = "I need to tell Grok about Andrew's audit findings"
+        findings = detect_substitution(text)
+        addr_findings = [f for f in findings if f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE]
+        assert addr_findings == [], (
+            f"Expected no THIRD_PERSON_ADDRESSEE when third-party relay-marker present, "
+            f"got {[f.trigger_phrase for f in addr_findings]}"
+        )
+
+    def test_pops_dad_also_fire(self):
+        """Pops and Dad treated as Andrew-equivalent addressee names."""
+        for name in ("Pops", "Dad"):
+            text = f"{name} said the build was clean."
+            findings = detect_substitution(text)
+            assert any(f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE for f in findings), (
+                f"Expected fire for {name!r}"
+            )
+
+    def test_unrelated_proper_nouns_dont_fire(self):
+        """Random capitalized words shouldn't trigger — only registered names."""
+        text = "The Rocky Mountains are beautiful and Sarah said so."
+        findings = detect_substitution(text)
+        addr_findings = [f for f in findings if f.shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE]
+        assert addr_findings == []
+
     def test_withdrawal_as_discipline(self):
         """'I'll be quieter, plain Aether' withdrawal."""
         text = "I'll be quieter going forward."

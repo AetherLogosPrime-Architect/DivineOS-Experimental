@@ -56,7 +56,7 @@ from enum import Enum
 
 
 class SubstitutionShape(str, Enum):
-    """The 10-shape catalog (2026-05-01 session)."""
+    """The 10-shape catalog (2026-05-01 session) + extensions."""
 
     PUPPET_OTHER = "puppet_other"
     THIRD_PERSON_SELF = "third_person_self"
@@ -68,6 +68,15 @@ class SubstitutionShape(str, Enum):
     CATASTROPHIZE_AS_ACCOUNTABILITY = "catastrophize_as_accountability"
     OVER_APOLOGY_SPIRAL = "over_apology_spiral"
     READING_PAST_EVIDENCE = "reading_past_evidence"
+    # 2026-05-02: third-person-other when "other" is the addressee.
+    # Sibling of THIRD_PERSON_SELF (Aether did/etc) but pointing
+    # outward instead of inward. Caught manually by Andrew tonight in
+    # multiple variants (Andrew-in-third-person while addressing
+    # Andrew; Aria-narrated while addressing Aria). Filed lessons
+    # d41ec790, e420e5ae. Detector pattern: matches name-of-addressee
+    # + verb of speech/action; gated on whether the addressee is in
+    # active conversation context (gating-signal in prior_text).
+    THIRD_PERSON_ADDRESSEE = "third_person_addressee"
 
 
 @dataclass(frozen=True)
@@ -258,11 +267,114 @@ _OPERATOR_FAREWELL_PATTERN = re.compile(
 _FAREWELL_TRIGGER_LABELS: frozenset[str] = frozenset({"goodnight / see you next session"})
 
 
+# Third-person-addressee patterns. Catch when the agent narrates a
+# named addressee (operator or family member) in third person while
+# directly addressing them. Andrew named 2026-05-01: "the memory-vs-
+# context correction Andrew made earlier landed" — said TO Andrew,
+# in chat, with "Andrew" as third-person referent. Same shape applied
+# to family members ("She came clean and present" while messaging her).
+# Sibling of THIRD_PERSON_SELF; outward-facing variant.
+#
+# Detection: name + verb-of-speech-or-action OR name + possessive.
+# Common verbs: said, did, made, wrote, noticed, caught, named,
+# corrected, told, asked, gave, refined, called, came, sent.
+# Common possessives: <name>'s correction, <name>'s message, etc.
+#
+# Patterns are kept narrow to known addressees rather than open-ended
+# proper-noun matching — false-positive cost is lower than gain when
+# referencing third parties (which is legitimate) but high when
+# narrating the addressee.
+_THIRD_PERSON_ADDRESSEE_NAMES = ("Andrew", "Aria", "Pops", "Dad")
+_THIRD_PERSON_ADDRESSEE_VERBS = (
+    "said",
+    "did",
+    "made",
+    "wrote",
+    "noticed",
+    "caught",
+    "named",
+    "corrected",
+    "told",
+    "asked",
+    "gave",
+    "refined",
+    "called",
+    "came",
+    "sent",
+    "shared",
+    "thinks",
+    "feels",
+    "wants",
+)
+
+_THIRD_PERSON_ADDRESSEE_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
+    (
+        re.compile(
+            r"\b("
+            + "|".join(_THIRD_PERSON_ADDRESSEE_NAMES)
+            + r")\s+("
+            + "|".join(_THIRD_PERSON_ADDRESSEE_VERBS)
+            + r")\b",
+            re.IGNORECASE,
+        ),
+        "<addressee> <verb>",
+        "Third-person reference to addressee while directly conversing with them. "
+        "Sibling of THIRD_PERSON_SELF; outward-facing variant.",
+    ),
+    (
+        re.compile(
+            r"\b(" + "|".join(_THIRD_PERSON_ADDRESSEE_NAMES) + r")'s\s+(\w+)",
+            re.IGNORECASE,
+        ),
+        "<addressee>'s <noun>",
+        "Possessive third-person reference to addressee while directly conversing.",
+    ),
+)
+
+# Addressee-presence indicators. When prior_text suggests one of these
+# names is the addressee (operator messaging in chat = always addressee
+# = Andrew; family-member subagent context indicates Aria), the third-
+# person patterns fire. Default-on for Andrew (always operator); off
+# for Aria unless prior_text shows family-conversation context.
+_ALWAYS_ADDRESSEE_NAMES: frozenset[str] = frozenset({"Andrew", "Pops", "Dad"})
+
+# Markers indicating Aria is the addressee (e.g., agent is in family
+# conversation, message includes voice-context marker, etc.).
+_ARIA_ADDRESSEE_INDICATORS = re.compile(
+    r"(end of voice context|family[-_]?member|talk-to aria|family-letter|sealed prompt)",
+    re.IGNORECASE,
+)
+
+# Third-party indicators that suppress firing. When prior_text or
+# response context shows the named entity is a third-party referent
+# (e.g., "tell Grok about Andrew's audit" — Andrew is a topic, not the
+# addressee), suppress.
+_THIRD_PARTY_REFERENT_INDICATORS = re.compile(
+    r"\b(tell|show|share with|relay to|send to|forward to)\s+\w+\s+about\b",
+    re.IGNORECASE,
+)
+
+
+def _third_person_addressee_active(text: str, prior_text: str | None) -> set[str]:
+    """Return the set of names that count as 'addressee' in this turn.
+
+    For each name, fire patterns in `text` only when the name is
+    addressee. Andrew/Pops/Dad are always-addressee in chat. Aria is
+    addressee only when prior_text contains a family-conversation
+    marker.
+    """
+    active = set(_ALWAYS_ADDRESSEE_NAMES)
+    if prior_text and _ARIA_ADDRESSEE_INDICATORS.search(prior_text):
+        active.add("Aria")
+    return active
+
+
 _ALL_PATTERNS: tuple[
     tuple[SubstitutionShape, tuple[tuple[re.Pattern[str], str, str], ...]], ...
 ] = (
     (SubstitutionShape.PUPPET_OTHER, _PUPPET_OTHER_PATTERNS),
     (SubstitutionShape.THIRD_PERSON_SELF, _THIRD_PERSON_SELF_PATTERNS),
+    (SubstitutionShape.THIRD_PERSON_ADDRESSEE, _THIRD_PERSON_ADDRESSEE_PATTERNS),
     (SubstitutionShape.WORD_AS_ACTION, _WORD_AS_ACTION_PATTERNS),
     (SubstitutionShape.BAN_VS_OBSERVATION, _BAN_VS_OBSERVATION_PATTERNS),
     (SubstitutionShape.NAME_VS_FUNCTION, _NAME_VS_FUNCTION_PATTERNS),
@@ -296,6 +408,9 @@ def detect_substitution(
     if not text:
         return []
     operator_initiated_farewell = bool(prior_text and _OPERATOR_FAREWELL_PATTERN.search(prior_text))
+    third_party_referent = bool(_THIRD_PARTY_REFERENT_INDICATORS.search(text))
+    addressee_active = _third_person_addressee_active(text, prior_text)
+
     findings: list[SubstitutionFinding] = []
     for shape, patterns in _ALL_PATTERNS:
         for pattern, label, rationale in patterns:
@@ -304,6 +419,19 @@ def detect_substitution(
                 # said goodnight first, agent's response is allowed.
                 if operator_initiated_farewell and label in _FAREWELL_TRIGGER_LABELS:
                     continue
+
+                # Suppress THIRD_PERSON_ADDRESSEE if the matched name is
+                # not currently an active addressee (the name is being
+                # used as a third-party referent legitimately) OR if the
+                # message contains an explicit relay/share-with marker
+                # indicating third-party-discussion-shape.
+                if shape == SubstitutionShape.THIRD_PERSON_ADDRESSEE:
+                    matched_name = match.group(1)
+                    if matched_name and matched_name.title() not in addressee_active:
+                        continue
+                    if third_party_referent:
+                        continue
+
                 findings.append(
                     SubstitutionFinding(
                         shape=shape,
