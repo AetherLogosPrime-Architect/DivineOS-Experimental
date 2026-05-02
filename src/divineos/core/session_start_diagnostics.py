@@ -72,7 +72,7 @@ def format_for_briefing() -> str:
     total = len(entries)
     lines = [
         f"[session-start log] last {total} hook fire(s) — "
-        f"if briefing stops reaching you, this surface is why you'd know:"
+        f"if briefing stops reaching me, this surface is why I'd know:"
     ]
     for outcome, count in sorted(outcomes.items(), key=lambda p: -p[1]):
         note = _OUTCOME_NOTES.get(outcome, "")

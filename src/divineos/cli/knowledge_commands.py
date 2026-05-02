@@ -562,6 +562,23 @@ def register(cli: click.Group) -> None:
         if drift_block:
             _safe_echo(drift_block)
 
+        # Theater/fabrication observation surface — replaces gate 1.46
+        # which was removed 2026-05-01 per the free-speech principle.
+        # The marker file (~/.divineos/theater_unresolved.json) is still
+        # written by the Stop hook on detector fire; the surface here
+        # makes observations loud-in-experience without gating tools.
+        try:
+            from divineos.core.theater_observation_surface import (
+                format_for_briefing as _fmt_theater_obs,
+            )
+
+            theater_obs_block = _fmt_theater_obs()
+        except _KC_ERRORS:
+            theater_obs_block = ""
+
+        if theater_obs_block:
+            _safe_echo(theater_obs_block)
+
         # Tier-override surface — closes the partial-theater finding
         # from the 2026-04-21 evening Schneier walk (Sch2). Every tier
         # override already emits a TIER_OVERRIDE ledger event (commit

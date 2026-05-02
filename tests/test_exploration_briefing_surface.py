@@ -46,7 +46,7 @@ class TestFormatForBriefing:
     def test_single_entry_produces_block(self, explo_dir):
         _write(explo_dir / "01_topic.md", "Topic One", "2026-04-01", "curiosity")
         block = exploration_reader.format_for_briefing()
-        assert "[your prior writing]" in block
+        assert "[my prior writing]" in block
         assert "Topic One" in block
         assert "1 explorations" in block
         assert "divineos study" in block
