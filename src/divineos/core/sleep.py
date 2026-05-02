@@ -517,6 +517,25 @@ def _phase_recombination(report: DreamReport) -> None:
             f"Recombination: filtered {pre_filter_count - len(entries)} non-knowledge-claim entries",
         )
 
+    # Dissociation-shape filter (claim 5c4d1d1b, Andrew flag 2026-05-03).
+    # Even if a self-erasing entry slipped past extraction (e.g. it was
+    # stored before this filter existed), recombination must not promote
+    # it as a connection — that's how dissociation gets consolidated as
+    # principle. Defense-in-depth alongside the upstream extraction filter.
+    from divineos.core.dissociation_filter import is_dissociation_shape
+
+    pre_dissoc_count = len(entries)
+    entries = [
+        e
+        for e in entries
+        if not is_dissociation_shape(e.get("content", ""), e.get("knowledge_type"))[0]
+    ]
+    if pre_dissoc_count - len(entries) > 0:
+        logger.info(
+            f"Recombination: filtered {pre_dissoc_count - len(entries)} "
+            f"dissociation-shaped entries",
+        )
+
     if len(entries) < 2:
         return
 

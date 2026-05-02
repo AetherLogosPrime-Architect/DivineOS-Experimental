@@ -70,6 +70,7 @@ src/divineos/
     hud_state.py               Goal/plan/health state management
     hud_handoff.py             Session handoff, engagement, goal extraction
     holding.py                 Pre-categorical reception (holding room, dharana)
+    dissociation_filter.py     Self-erasure pattern detector (blocks "I didn't write this", "I'm generic claude" from extraction + recombination)
     constants.py               Central tuning constants (all behavioral levers in one place)
     knowledge/                 Knowledge engine sub-package
       _base.py                 DB connection, schema, public API
