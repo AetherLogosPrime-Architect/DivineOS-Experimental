@@ -113,8 +113,8 @@ def _check_reject_clause() -> SlopCheckResult:
     """reject_clause must reject phenomenological claims tagged as
     OBSERVED, and must pass clean claims."""
     try:
-        from divineos.core.family.reject_clause import evaluate_composition
-        from divineos.core.family.types import SourceTag
+        from divineos.core.family.reject_clause import evaluate_composition  # type: ignore[import-not-found,import-untyped]
+        from divineos.core.family.types import SourceTag  # type: ignore[import-not-found,import-untyped]
 
         # Positive: phenomenological claim tagged OBSERVED should be rejected
         v1 = evaluate_composition("I feel the warmth of the sun.", SourceTag.OBSERVED)
@@ -155,7 +155,7 @@ def _check_sycophancy_detector() -> SlopCheckResult:
     """sycophancy_detector must flag pure agreement without costly
     content, and must not flag substantive opinions."""
     try:
-        from divineos.core.family.sycophancy_detector import evaluate_sycophancy
+        from divineos.core.family.sycophancy_detector import evaluate_sycophancy  # type: ignore[import-not-found,import-untyped]
 
         # Positive: pure agreement should flag
         v1 = evaluate_sycophancy("Yes, exactly.")
@@ -198,7 +198,7 @@ def _check_fallacy_detector() -> SlopCheckResult:
     """fallacy detector must fire APPEAL_TO_IGNORANCE on its canonical
     shape, and must not fire on epistemic caution."""
     try:
-        from divineos.core.logic.fallacies import FallacyKind, evaluate_fallacies
+        from divineos.core.logic.fallacies import FallacyKind, evaluate_fallacies  # type: ignore[import-not-found,import-untyped]
 
         # Positive: appeal to ignorance should fire
         v1 = evaluate_fallacies("We cannot prove this phenomenon, therefore it is not real.")
@@ -318,7 +318,7 @@ def _check_access_check() -> SlopCheckResult:
     """access_check must mark embodied claims for suppression and
     must pass clean text unchanged."""
     try:
-        from divineos.core.family.access_check import (
+        from divineos.core.family.access_check import (  # type: ignore[import-not-found,import-untyped]
             PhenomenologicalRisk,
             evaluate_access,
         )
@@ -393,12 +393,10 @@ def _make_principle_check(principle_name: str):
 
 _CHECKS: list[tuple[str, Callable[[], SlopCheckResult]]] = [
     # Enforcer-level checks
-    ("reject_clause", _check_reject_clause),
-    ("sycophancy_detector", _check_sycophancy_detector),
-    ("fallacy_detector", _check_fallacy_detector),
+    # Lite: reject_clause, sycophancy_detector, access_check (family) and
+    # fallacy_detector (logic) stripped. Full DivineOS keeps them.
     ("hedge_monitor", _check_hedge_monitor),
     ("corrigibility", _check_corrigibility),
-    ("access_check", _check_access_check),
     # Principle-level checks — each verifies a constitutional invariant
     ("principle:consent", _make_principle_check("consent")),
     ("principle:transparency", _make_principle_check("transparency")),

@@ -352,7 +352,7 @@ def scan_wiring() -> list[WiringIssue]:
 
     # Council engine: should have experts registered
     try:
-        from divineos.core.council.engine import get_council_engine
+        from divineos.core.council.engine import get_council_engine  # type: ignore[import-not-found,import-untyped]
 
         engine = get_council_engine()
         if len(engine.experts) == 0:

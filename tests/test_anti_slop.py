@@ -81,20 +81,15 @@ class TestSpecificEnforcerCoverage:
 
     def test_expected_enforcers_are_checked(self):
         names = {r.name for r in run_all_checks()}
+        # Lite: family-based (reject_clause/sycophancy_detector/access_check)
+        # and logic-based (fallacy_detector) enforcers stripped. Full DivineOS
+        # keeps the full set.
         expected = {
-            "reject_clause",
-            "sycophancy_detector",
-            "fallacy_detector",
             "hedge_monitor",
             "corrigibility",
-            "access_check",
         }
         missing = expected - names
-        assert not missing, (
-            f"Enforcers missing from anti-slop registry: {missing}. "
-            f"Add a _check_* function in divineos/core/anti_slop.py "
-            f"and register it in _CHECKS."
-        )
+        assert not missing, f"Enforcers missing from anti-slop registry: {missing}."
 
 
 class TestResultDataclassFrozen:
