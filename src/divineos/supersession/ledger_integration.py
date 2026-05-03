@@ -28,7 +28,15 @@ class LedgerIntegration:
         return self._available
 
     def store_fact(self, fact: Dict[str, Any]) -> Optional[str]:
-        """Store a fact as a FACT_STORED event in the ledger."""
+        """Store a fact as a FACT_STORED event in the ledger.
+
+        validate=False: multi-step provenance. The `fact` dict comes from
+        the caller (supersession engine), which assembles it from
+        knowledge entries that already passed extraction validation. The
+        chain of trust spans modules — call site doesn't re-validate
+        because the upstream layer already did. See ADR-0005 for the
+        decision rule (claim 8cd2af8b audit 2026-05-03).
+        """
         fact_id: Optional[str] = fact.get("id")
         if fact_id is None:
             logger.warning("Cannot store fact without id")
@@ -40,7 +48,11 @@ class LedgerIntegration:
         return fact_id
 
     def store_supersession_event(self, event: Dict[str, Any]) -> Optional[str]:
-        """Store a SUPERSESSION event in the ledger."""
+        """Store a SUPERSESSION event in the ledger.
+
+        validate=False: same multi-step provenance reasoning as store_fact.
+        See ADR-0005.
+        """
         event_id: Optional[str] = event.get("event_id", str(uuid.uuid4()))
         if not self._is_available():
             return event_id
