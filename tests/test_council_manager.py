@@ -19,7 +19,7 @@ from divineos.core.council.manager import (
 
 @pytest.fixture
 def full_engine():
-    """Engine with all 32 experts registered."""
+    """Engine with the full expert roster registered."""
     from divineos.core.council import experts
 
     engine = CouncilEngine()
@@ -28,6 +28,11 @@ def full_engine():
             fn = getattr(experts, name)
             engine.register(fn())
     return engine
+
+
+@pytest.fixture
+def expert_count(full_engine):
+    return len(full_engine.experts)
 
 
 @pytest.fixture
@@ -82,6 +87,8 @@ class TestClassifyProblem:
 
 class TestScoreExperts:
     def test_always_on_get_baseline(self, full_engine):
+        # ALWAYS_ON is empty by default post-v2 (Kahneman/Popper earn
+        # their place every time). The hook still works if populated.
         scored = score_experts("some problem", full_engine.experts)
         score_map = {es.expert_name: es for es in scored}
         for name in ALWAYS_ON:
@@ -122,6 +129,8 @@ class TestSelectExperts:
     def test_always_on_included(self, full_engine):
         selected = select_experts("any problem", full_engine.experts)
         names = {es.expert_name for es in selected}
+        # ALWAYS_ON is empty in v2; this still passes vacuously and
+        # documents the pin-an-expert hook.
         for name in ALWAYS_ON:
             assert name in names
 
@@ -135,8 +144,44 @@ class TestSelectExperts:
             "wrong result regression format width spec",
             full_engine.experts,
             max_experts=8,
+            hard_cap=8,
         )
         assert len(selected) <= 8
+
+    def test_soft_cap_default_is_twelve(self, full_engine):
+        # Broad multi-dimensional problem should pull a wider council
+        # under v2 defaults.
+        selected = select_experts(
+            "security vulnerability injection auth boundary edge case "
+            "wrong result regression format width spec memory leak "
+            "concurrent race deadlock state cleanup design refactor",
+            full_engine.experts,
+        )
+        assert len(selected) <= 15  # never exceed hard cap
+        assert len(selected) >= 5
+
+    def test_family_cap_limits_overlap(self, full_engine):
+        from divineos.core.council.manager import FAMILY_CAP, _family_of
+
+        selected = select_experts(
+            "investigate the wrong result regression downstream cascade",
+            full_engine.experts,
+            max_experts=12,
+        )
+        family_counts: dict[str, int] = {}
+        for es in selected:
+            fam = _family_of(es.expert_name)
+            if fam:
+                family_counts[fam] = family_counts.get(fam, 0) + 1
+        for fam, count in family_counts.items():
+            # Family cap may be exceeded only via family-override, which
+            # is rare and reason-tagged.
+            override_count = sum(
+                1
+                for es in selected
+                if _family_of(es.expert_name) == fam and "family-override" in es.reasons
+            )
+            assert count <= FAMILY_CAP + override_count
 
     def test_focused_problem_gets_fewer_experts(self, full_engine):
         # A very focused problem should select closer to min
@@ -154,11 +199,11 @@ class TestSelectExperts:
 
 
 class TestCouncilManager:
-    def test_convene_returns_managed_result(self, manager):
+    def test_convene_returns_managed_result(self, manager, expert_count):
         result = manager.convene("wrong query results")
         assert isinstance(result, ManagedCouncilResult)
-        assert result.total_experts_available == 32
-        assert len(result.analyses) <= 8
+        assert result.total_experts_available == expert_count
+        assert len(result.analyses) <= 15  # hard cap
         assert len(result.analyses) >= 5
 
     def test_convene_includes_categories(self, manager):
@@ -174,11 +219,11 @@ class TestCouncilManager:
         assert "Shannon" in names
         assert "Godel" in names
 
-    def test_selection_summary_is_readable(self, manager):
+    def test_selection_summary_is_readable(self, manager, expert_count):
         result = manager.convene("wrong result at boundary")
         summary = result.selection_summary()
         assert "Selected" in summary
-        assert "of 32 experts" in summary
+        assert f"of {expert_count} experts" in summary
 
     def test_explain_selection(self, manager):
         explanation = manager.explain_selection("SQL injection in auth middleware")
@@ -186,10 +231,10 @@ class TestCouncilManager:
         assert "security" in explanation.lower()
         assert "Selected" in explanation
 
-    def test_synthesis_comes_from_selected_only(self, manager):
+    def test_synthesis_comes_from_selected_only(self, manager, expert_count):
         result = manager.convene("FITS header field width spec")
         analysis_names = {a.expert_name for a in result.analyses}
-        # Should NOT have all 32 — selection should pick 5-8
-        assert len(analysis_names) < 32
+        # Should NOT pull every expert — selection should bound it.
+        assert len(analysis_names) < expert_count
         # Should have Knuth for this problem
         assert "Knuth" in analysis_names
