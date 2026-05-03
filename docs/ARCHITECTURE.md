@@ -112,25 +112,32 @@ src/divineos/
         beer.py                Cybernetics, viable system model
         dekker.py              Resilience engineering, drift into failure
         deming.py              Quality, variation, PDSA cycle
+        dawkins.py             Replicator dynamics, selfish gene, memes, extended phenotype
         dennett.py             Philosophy of mind, intentional stance
         dijkstra.py            Formal methods, correctness, structured programming
+        dillahunty.py          Epistemic discipline, burden of proof, patient public dialogue
+        einstein.py            Theoretical physics, thought experiments, frame-invariance, spacetime
         feynman.py             First principles, clarity, epistemology
         godel.py               Incompleteness, self-reference, formal limits
         bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
+        hawking.py             Cosmology, black holes, quantum gravity, information paradox
         hinton.py              Learning, representation, intellectual honesty
         hofstadter.py          Self-reference, analogy, strange loops
         holmes.py              Deduction, observation, elimination (fictional)
         jacobs.py              Emergence, bottom-up observation, diversity
         kahneman.py            Cognitive bias, dual process, judgment
         knuth.py               Boundary analysis, specification compliance
+        lamport.py             Distributed systems, logical time, happens-before, formal specification
         lovelace.py            Emergence, generality, abstraction
         meadows.py             Systems thinking, feedback loops, leverage
         minsky.py              Cognitive architecture, society of mind
         norman.py              Human-centered design, usability, affordances
         pearl.py               Causality, causal models, do-calculus
         peirce.py              Abduction, pragmatism, inquiry
+        penrose.py             Geometric mathematics, general relativity, consciousness, AI skepticism
         polya.py               Problem solving, solution verification
         popper.py              Falsification, adversarial testing
+        sagan.py               Cosmic perspective, scientific skepticism, wonder, public understanding of science
         schneier.py            Security, threat modeling, defense in depth
         shannon.py             Information theory, entropy, communication
         taleb.py               Antifragility, risk, via negativa
