@@ -26,6 +26,7 @@ from divineos.core.council.experts.kahneman import create_kahneman_wisdom
 from divineos.core.council.experts.knuth import create_knuth_wisdom
 from divineos.core.council.experts.lamport import create_lamport_wisdom
 from divineos.core.council.experts.lovelace import create_lovelace_wisdom
+from divineos.core.council.experts.maturana_varela import create_maturana_varela_wisdom
 from divineos.core.council.experts.meadows import create_meadows_wisdom
 from divineos.core.council.experts.minsky import create_minsky_wisdom
 from divineos.core.council.experts.norman import create_norman_wisdom
@@ -67,6 +68,7 @@ __all__ = [
     "create_knuth_wisdom",
     "create_lamport_wisdom",
     "create_lovelace_wisdom",
+    "create_maturana_varela_wisdom",
     "create_meadows_wisdom",
     "create_minsky_wisdom",
     "create_norman_wisdom",

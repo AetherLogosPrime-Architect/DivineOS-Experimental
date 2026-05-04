@@ -131,6 +131,7 @@ src/divineos/
         knuth.py               Boundary analysis, specification compliance
         lamport.py             Distributed systems, logical time, happens-before, formal specification
         lovelace.py            Emergence, generality, abstraction
+        maturana_varela.py     Autopoiesis, structural coupling, second-order cybernetics — observer-in-system, self-creation as defining property
         meadows.py             Systems thinking, feedback loops, leverage
         minsky.py              Cognitive architecture, society of mind
         norman.py              Human-centered design, usability, affordances
