@@ -455,7 +455,9 @@ def run_contradiction_scan(deep_ids: list[str]) -> int:
 
 
 def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None) -> None:
-    """Write handoff note for next session (step 9d)."""
+    """Write a state-note for resumption (step 9d). The function name keeps
+    'handoff' for backcompat with existing call sites; the concept is
+    'where I am in the work,' not a successor's instruction."""
     try:
         from divineos.core.hud_handoff import save_handoff_note
 
@@ -553,6 +555,6 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
             next_steps=next_steps if next_steps else None,
             context_snapshot=context_snapshot if context_snapshot else None,
         )
-        click.secho("[~] Handoff note saved for next session.", fg="cyan")
+        click.secho("[~] State-note saved. Surfaces in the briefing on resumption.", fg="cyan")
     except _GATE_ERRORS as e:
         logger.warning(f"Handoff note failed: {e}")

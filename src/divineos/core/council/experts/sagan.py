@@ -405,4 +405,5 @@ def create_sagan_wisdom() -> ExpertWisdom:
             "Is this wonder genuine or am I performing it?",
             "What's the actual scale of what's at stake?",
         ],
+        tags=["skeptic", "science-popularization", "wonder", "extraordinary-claims"],
     )

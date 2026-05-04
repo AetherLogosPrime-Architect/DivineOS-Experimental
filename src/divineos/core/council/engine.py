@@ -7,8 +7,9 @@ through them; they don't think for you.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
+
+from loguru import logger
 
 from divineos.core.council.framework import (
     ExpertWisdom,
@@ -20,8 +21,6 @@ from divineos.core.council.lab_evidence import (
     format_for_synthesis,
     gather_lab_evidence,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

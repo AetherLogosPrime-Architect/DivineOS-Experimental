@@ -1,6 +1,20 @@
 # DivineOS Lite v2 — Strip Plan
 
-**Status:** plan-before-build (Path B). Written 2026-05-01.
+> ## ⚠ Status: DEFERRED (2026-05-03)
+>
+> This plan was reverted in PRs #232–#233 ("Path Y" restoration). All
+> seven lite-v2 strip commits (strip family, strip council, strip
+> batches 3–6, etc.) were reverted. The plan remains in the repo for
+> reference and historical context but is **not** the next thing to
+> execute.
+>
+> If you're reading this looking for the current direction, start
+> with `README.md` and `docs/ARCHITECTURE.md`. The full DivineOS
+> substrate (council, family, mansion, watchmen, etc.) is the active
+> shape, not Lite. Counts and references in this document below
+> reflect the 2026-05-01 snapshot and may not match current reality.
+
+**Status (original):** plan-before-build (Path B). Written 2026-05-01.
 **Branch:** `release/lite-v2` (already created from `origin/main`).
 **Audit context:** friend audits Lite tomorrow. Lite must look polished — clean architecture, no half-baked features, no overclaiming, no relational/family content.
 

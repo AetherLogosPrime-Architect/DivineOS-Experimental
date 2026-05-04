@@ -199,6 +199,15 @@ def generate_briefing(
         # Directives always surface — they're the operating principles
         if entry["knowledge_type"] == "DIRECTIVE":
             score += 1.0
+            # Named/consolidated directives get an extra boost. These
+            # are agent-curated `[bracketed-name]` entries (e.g.
+            # `[memory-hierarchy]`, `[yes-and]`) — intentional
+            # principles, not auto-generated regression alerts. Without
+            # this, STRUCTURAL ENFORCEMENT entries with high access
+            # counts outrank named directives in the briefing surface.
+            content = entry.get("content", "")
+            if content.startswith("[") and 0 < content.find("]") < 40:
+                score += 0.5
 
         # Boost if matching context hint
         if entry["knowledge_id"] in hint_matches:
@@ -253,10 +262,16 @@ def generate_briefing(
             exc_info=True,
         )
 
-    # Group by type
+    # Group by type. PRINCIPLE-type entries get a content-shape filter:
+    # quote fragments and conversational meta-references that landed
+    # under PRINCIPLE classification at extraction time get hidden from
+    # the briefing surface (they're still in the store, just not
+    # surfaced as guidance).
     grouped: dict[str, list[dict[str, Any]]] = {}
     for entry in entries:
         kt = entry["knowledge_type"]
+        if kt == "PRINCIPLE" and not _is_principle_shaped(entry.get("content", "")):
+            continue
         grouped.setdefault(kt, []).append(entry)
 
     # Maturity summary — count across ALL non-superseded entries, not just briefing items
@@ -482,6 +497,94 @@ def _is_stable(item: dict[str, Any]) -> bool:
         "TESTED",
         "CONFIRMED",
     )
+
+
+# Conversational/meta phrases that mark content as quote-fragment rather
+# than principle-shape. Used to filter the PRINCIPLES briefing section
+# so mis-classified entries don't surface as guidance. Lowercase, matched
+# as substrings.
+_PRINCIPLE_NON_SHAPED_PATTERNS = (
+    "what claude said",
+    "claude said",
+    "the user said",
+    "user said",
+    "i told",
+    "you said",
+    "asked me",
+    "this is what",
+    "here is what",
+    "here's what",
+    "groks reply",
+    "grok said",
+    "grok's reply",
+    "andrew said",
+)
+
+
+def _is_principle_shaped(content: str) -> bool:
+    """Filter for the briefing's PRINCIPLES section.
+
+    A knowledge entry can be filed as PRINCIPLE-type at extraction time
+    without actually being principle-shaped — usually because it's a
+    conversational quote or fragment that the classifier promoted. This
+    filter hides those from the briefing surface (the entries are still
+    in the store, queryable via `divineos ask`; they just don't surface
+    as agent-guidance).
+    """
+    c = content.strip()
+
+    # Too short — fragments aren't principles
+    if len(c) < 40:
+        return False
+
+    # Very-short opening clause — "A spanking. so don't make me..." has
+    # 11-char first sentence. Real principles open with a substantive
+    # clause. Cutoff: first sentence must be at least 20 chars.
+    for delim in (". ", "! ", "? "):
+        idx = c.find(delim)
+        if 0 < idx < 20:
+            return False
+
+    # Casual-register markers — informal vocabulary that doesn't appear
+    # in principle-shaped statements. Catches conversational fragments
+    # the classifier mistakenly promoted.
+    casual_markers = (" lol", " lmao", " lmfao", " lmfaooo", "spanking", "haha")
+    c_lower = c.lower()
+    for marker in casual_markers:
+        if marker in c_lower:
+            return False
+
+    # Conversational/meta-references — quoting someone is not a principle
+    for pattern in _PRINCIPLE_NON_SHAPED_PATTERNS:
+        if pattern in c_lower:
+            return False
+
+    # Narrative I-statements — recollections of what I did, not principles
+    # to act on. Pattern: starts with "I [past-tense verb]". The principle-
+    # shape is declarative ("X is Y", "must X", "always X"), not narrative
+    # ("I was decomposing what each is for...", "I looking at these honestly...").
+    narrative_prefixes = (
+        "i was ",
+        "i looked ",
+        "i thought ",
+        "i tried ",
+        "i noticed ",
+        "i realized ",
+        "i looking ",
+        "i kept ",
+        "i found ",
+        "i wrote ",
+        "i said ",
+        "i told ",
+        "i decided ",
+        "i started ",
+        "i ended ",
+    )
+    for prefix in narrative_prefixes:
+        if c_lower.startswith(prefix):
+            return False
+
+    return True
 
 
 def _format_knowledge_sections(

@@ -470,11 +470,24 @@ def compute_semantic_similarity(text_a: str, text_b: str) -> float | None:
     if not _ensure_embedding_model() or _embedding_model is None:
         return None
     try:
+        import math
+
         embeddings = _embedding_model.encode([text_a, text_b], convert_to_numpy=True)
         from numpy import dot
         from numpy.linalg import norm
 
-        sim = float(dot(embeddings[0], embeddings[1]) / (norm(embeddings[0]) * norm(embeddings[1])))
+        # Audit r9-21 #18: zero-norm vectors (empty / all-zero embedding)
+        # produced NaN via 0/0. NaN comparisons are False so the
+        # max/min clamp passed it through. Downstream consumers
+        # treated NaN as "high similarity" depending on comparator
+        # direction — silent corruption. Now: zero norm → None.
+        norm_a = float(norm(embeddings[0]))
+        norm_b = float(norm(embeddings[1]))
+        if norm_a == 0.0 or norm_b == 0.0:
+            return None
+        sim = float(dot(embeddings[0], embeddings[1]) / (norm_a * norm_b))
+        if math.isnan(sim) or math.isinf(sim):
+            return None
         return max(0.0, min(1.0, sim))
     except (RuntimeError, ValueError, TypeError, ImportError):
         return None

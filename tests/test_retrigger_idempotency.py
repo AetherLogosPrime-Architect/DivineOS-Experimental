@@ -19,7 +19,6 @@ protection without each having to reimplement.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -30,7 +29,12 @@ from divineos.cli import cli
 
 
 def _marker_path() -> Path:
-    return Path(os.path.expanduser("~")) / ".divineos" / "auto_session_end_emitted"
+    # Use the same canonical helper the production code uses, so this
+    # test honors the conftest's ``DIVINEOS_HOME`` isolation and
+    # doesn't read/write the real ``~/.divineos/`` directory.
+    from divineos.core.paths import marker_path
+
+    return marker_path("auto_session_end_emitted")
 
 
 @pytest.fixture(autouse=True)

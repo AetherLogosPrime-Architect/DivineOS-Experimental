@@ -20,14 +20,16 @@ pre-migration literal ``"1"``.
 from __future__ import annotations
 
 import json
-import os
 import time
 from pathlib import Path
+
+from divineos.core.atomic_io import atomic_write_text
+from divineos.core.paths import marker_path as _marker_path_under_home
 
 
 def marker_path() -> Path:
     """Absolute path to the extract idempotency marker."""
-    return Path(os.path.expanduser("~")) / ".divineos" / "auto_session_end_emitted"
+    return _marker_path_under_home("auto_session_end_emitted")
 
 
 def write_marker(trigger: str = "manual", session_id: str | None = None) -> None:
@@ -42,7 +44,7 @@ def write_marker(trigger: str = "manual", session_id: str | None = None) -> None
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"trigger": trigger, "ts": time.time(), "session_id": session_id}
-        path.write_text(json.dumps(payload), encoding="utf-8")
+        atomic_write_text(path, json.dumps(payload))
     except OSError:
         pass
 

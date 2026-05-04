@@ -30,9 +30,12 @@ import json
 import time
 from pathlib import Path
 
+from divineos.core.atomic_io import atomic_write_text
+from divineos.core.paths import marker_path as _marker_path_under_home
+
 
 def marker_path() -> Path:
-    return Path.home() / ".divineos" / "theater_unresolved.json"
+    return _marker_path_under_home("theater_unresolved.json")
 
 
 # Single flag triggers: theater/fabrication shapes have low base rate
@@ -62,7 +65,7 @@ def set_marker(
             "flag_kinds": flag_kinds[:10],
             "preview": (preview or "")[:200],
         }
-        path.write_text(json.dumps(payload), encoding="utf-8")
+        atomic_write_text(path, json.dumps(payload))
     except OSError:
         pass
 

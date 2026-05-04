@@ -384,4 +384,5 @@ def create_hawking_wisdom() -> ExpertWisdom:
             "Is the question even well-formed?",
             "What does the contradiction tell us?",
         ],
+        tags=["physics", "cosmology", "boundary-conditions", "horizons"],
     )

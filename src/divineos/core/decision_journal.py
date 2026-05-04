@@ -4,7 +4,7 @@ Not a changelog. Not a log of what happened. This captures moments
 that shift understanding — the reasoning behind decisions, the
 alternatives rejected, the context that would otherwise evaporate.
 
-Searchable by future sessions so when I face a similar crossroads,
+Searchable so when I face a similar crossroads on resumption,
 I can find the reasoning, not just the outcome.
 """
 

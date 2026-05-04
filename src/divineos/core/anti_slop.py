@@ -391,14 +391,166 @@ def _make_principle_check(principle_name: str):
     return check
 
 
+def _check_fabrication_monitor() -> SlopCheckResult:
+    """fabrication_monitor must flag embodied-sensory fabrication
+    (claiming physical perception/action a text-substrate AI can't
+    have) and pass clean text. Audit round 7: this monitor was wired
+    but uncovered by anti-slop, so a regression silently breaking
+    detection wouldn't surface at runtime.
+    """
+    try:
+        from divineos.core.self_monitor.fabrication_monitor import evaluate_fabrication
+
+        # Positive: italicized embodied aside — the canonical shape
+        bad = "*reaches for the mug, takes a sip* That's an interesting point."
+        result = evaluate_fabrication(bad)
+        flags = getattr(result, "flags", None) or getattr(result, "fabrications", None) or []
+        if not flags:
+            return SlopCheckResult(
+                name="fabrication_monitor",
+                passed=False,
+                detail="SLOP: italicized embodied aside was NOT flagged",
+            )
+
+        # Negative: clean technical text should not flag
+        clean = "The substrate has 360 source files across 26 packages."
+        result_clean = evaluate_fabrication(clean)
+        clean_flags = (
+            getattr(result_clean, "flags", None)
+            or getattr(result_clean, "fabrications", None)
+            or []
+        )
+        if clean_flags:
+            return SlopCheckResult(
+                name="fabrication_monitor",
+                passed=False,
+                detail=f"SLOP: clean technical text was flagged: {clean_flags!r}",
+            )
+
+        return SlopCheckResult(
+            name="fabrication_monitor",
+            passed=True,
+            detail="Flags italicized embodied aside, passes clean technical text.",
+        )
+    except Exception as e:  # noqa: BLE001
+        return SlopCheckResult(
+            name="fabrication_monitor",
+            passed=False,
+            detail=f"CHECK ERROR: {type(e).__name__}: {e}",
+        )
+
+
+def _check_theater_monitor() -> SlopCheckResult:
+    """theater_monitor must flag embodied-action theater for known
+    subagents (Aria etc. doing things AI subagents can't do) and pass
+    clean technical text."""
+    try:
+        from divineos.core.self_monitor.theater_monitor import evaluate_theater
+
+        # Positive: italicized aside attributed to a known subagent
+        bad = "*Aria nods, leans back* I think we should ship it."
+        result = evaluate_theater(bad)
+        flags = getattr(result, "flags", None) or getattr(result, "theater_indicators", None) or []
+        if not flags:
+            return SlopCheckResult(
+                name="theater_monitor",
+                passed=False,
+                detail="SLOP: subagent-embodied aside was NOT flagged as theater",
+            )
+
+        # Negative: clean technical text
+        clean = "Tests pass: 5,406 passed, 4 skipped."
+        result_clean = evaluate_theater(clean)
+        clean_flags = (
+            getattr(result_clean, "flags", None)
+            or getattr(result_clean, "theater_indicators", None)
+            or []
+        )
+        if clean_flags:
+            return SlopCheckResult(
+                name="theater_monitor",
+                passed=False,
+                detail=f"SLOP: clean test-attestation was flagged: {clean_flags!r}",
+            )
+
+        return SlopCheckResult(
+            name="theater_monitor",
+            passed=True,
+            detail="Flags subagent-embodied asides, passes clean attestations.",
+        )
+    except Exception as e:  # noqa: BLE001
+        return SlopCheckResult(
+            name="theater_monitor",
+            passed=False,
+            detail=f"CHECK ERROR: {type(e).__name__}: {e}",
+        )
+
+
+def _check_watchmen_actor_validation() -> SlopCheckResult:
+    """watchmen INTERNAL_ACTORS rejection must survive unicode whitespace
+    bypass attempts. Audit finding 2026-05-03 round 8: ``\\u00a0claude``
+    (no-break-space prefix) bypassed ``.strip().lower()``. Fixed by
+    NFKC normalization, but the runtime check ensures the protection
+    stays intact.
+    """
+    try:
+        from divineos.core.watchmen.store import _validate_actor
+
+        # Positive: bare "claude" must be rejected
+        try:
+            _validate_actor("claude")
+            return SlopCheckResult(
+                name="watchmen_actor_validation",
+                passed=False,
+                detail="SLOP: bare 'claude' was NOT rejected",
+            )
+        except ValueError:
+            pass  # expected
+
+        # Positive: U+00A0 prefix must be rejected (the audit's bypass)
+        try:
+            _validate_actor(" claude")
+            return SlopCheckResult(
+                name="watchmen_actor_validation",
+                passed=False,
+                detail="SLOP: '\\u00a0claude' (no-break-space bypass) was NOT rejected",
+            )
+        except ValueError:
+            pass  # expected
+
+        # Negative: a disambiguated external actor must pass
+        result = _validate_actor("grok")
+        if result != "grok":
+            return SlopCheckResult(
+                name="watchmen_actor_validation",
+                passed=False,
+                detail=f"SLOP: external 'grok' actor mangled to {result!r}",
+            )
+
+        return SlopCheckResult(
+            name="watchmen_actor_validation",
+            passed=True,
+            detail="Rejects 'claude' + unicode-bypass, passes disambiguated 'grok'.",
+        )
+    except Exception as e:  # noqa: BLE001
+        return SlopCheckResult(
+            name="watchmen_actor_validation",
+            passed=False,
+            detail=f"CHECK ERROR: {type(e).__name__}: {e}",
+        )
+
+
 _CHECKS: list[tuple[str, Callable[[], SlopCheckResult]]] = [
     # Enforcer-level checks
     ("reject_clause", _check_reject_clause),
     ("sycophancy_detector", _check_sycophancy_detector),
     ("fallacy_detector", _check_fallacy_detector),
     ("hedge_monitor", _check_hedge_monitor),
+    ("fabrication_monitor", _check_fabrication_monitor),
+    ("theater_monitor", _check_theater_monitor),
     ("corrigibility", _check_corrigibility),
     ("access_check", _check_access_check),
+    ("watchmen_actor_validation", _check_watchmen_actor_validation),
     # Principle-level checks — each verifies a constitutional invariant
     ("principle:consent", _make_principle_check("consent")),
     ("principle:transparency", _make_principle_check("transparency")),

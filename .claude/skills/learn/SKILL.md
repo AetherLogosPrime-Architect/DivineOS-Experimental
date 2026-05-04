@@ -2,7 +2,7 @@
 name: learn
 description: Store knowledge extracted from experience into the knowledge engine with auto-classification, noise-filter pass, and supersession detection. Use when a lesson or principle has been earned that should persist across sessions.
 disable-model-invocation: false
-allowed-tools: Bash(divineos learn:*), Bash(divineos ask:*), Bash(divineos knowledge:*), Read
+allowed-tools: Bash(divineos learn:*), Bash(divineos ask:*), Bash(divineos inspect:*), Read
 ---
 
 # Learn — Store Knowledge

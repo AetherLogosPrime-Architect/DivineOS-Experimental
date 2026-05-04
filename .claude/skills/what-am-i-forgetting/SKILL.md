@@ -2,7 +2,7 @@
 name: what-am-i-forgetting
 description: Scan exploration folder, recent lessons, handoff notes, and prior claims for context adjacent to the current work. Catches the blind spot where relevant prior-me work exists but isn't loaded. Use when stuck, when starting a topic, or when something feels like it's been explored before.
 disable-model-invocation: false
-allowed-tools: Bash(divineos ask:*), Bash(divineos knowledge:*), Bash(divineos lessons:*), Bash(divineos inspect:*), Bash(ls:*), Read, Glob, Grep
+allowed-tools: Bash(divineos ask:*), Bash(divineos lessons:*), Bash(divineos inspect:*), Bash(ls:*), Read, Glob, Grep
 ---
 
 # What Am I Forgetting — Adjacent Context Scanner

@@ -157,6 +157,14 @@ def _enforce_briefing_gate() -> None:
     if cmd.startswith("-"):
         return  # flags like --help
 
+    # ``--help`` / ``-h`` anywhere in the argv is a discovery query, not
+    # a state-mutating command — let Click handle it without requiring
+    # briefing-loaded. Audit finding 2026-05-03 round 1: a fresh user
+    # running ``divineos compass --help`` was getting the briefing-gate
+    # error instead of help text, which is a hostile first-run UX.
+    if any(a in ("--help", "-h") for a in args):
+        return
+
     try:
         from divineos.core.hud_handoff import was_briefing_loaded
 
@@ -202,6 +210,7 @@ def cli() -> None:
 from divineos.cli import (  # noqa: E402
     analysis_commands,
     audit_commands,
+    bio_commands,
     body_commands,
     claim_commands,
     compass_commands,
@@ -210,6 +219,7 @@ from divineos.cli import (  # noqa: E402
     corrigibility_commands,
     decision_commands,
     directive_commands,
+    dream_commands,
     empirica_commands,
     entity_commands,
     event_commands,
@@ -240,9 +250,11 @@ journal_commands.register(cli)
 decision_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
+bio_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
 directive_commands.register(cli)
+dream_commands.register(cli)
 entity_commands.register(cli)
 memory_commands.register(cli)
 analysis_commands.register(cli)

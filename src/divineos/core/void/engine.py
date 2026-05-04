@@ -164,19 +164,26 @@ def invoke(
     try:
         yield yielded
     finally:
-        # SHRED: always runs.
-        void_ledger.append_event(
-            "VOID_SHRED",
-            {
-                "invocation_id": invocation_id,
-                "sealed": state["sealed"],
-                "had_finding": state["result"] is not None and state["result"].finding is not None,
-                "loud": persona.name in _HIGH_BAR,
-            },
-            persona=persona.name,
-            path=void_db_path,
-        )
-        mode_marker.clear_marker()
+        # SHRED: always runs. Audit r9-21 #14 — nested try/finally so
+        # mode_marker.clear_marker() runs even if VOID_SHRED ledger
+        # append raises. Without the nest, a DB-locked or hash-failed
+        # append leaves the marker set, poisoning the next session
+        # into thinking VOID mode is still active.
+        try:
+            void_ledger.append_event(
+                "VOID_SHRED",
+                {
+                    "invocation_id": invocation_id,
+                    "sealed": state["sealed"],
+                    "had_finding": state["result"] is not None
+                    and state["result"].finding is not None,
+                    "loud": persona.name in _HIGH_BAR,
+                },
+                persona=persona.name,
+                path=void_db_path,
+            )
+        finally:
+            mode_marker.clear_marker()
 
 
 def run(

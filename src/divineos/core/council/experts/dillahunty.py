@@ -425,4 +425,5 @@ def create_dillahunty_wisdom() -> ExpertWisdom:
             "Are you saying you lack belief, or that you actively believe the negation?",
             "Has this claim actually been supported, or am I being asked to disprove it?",
         ],
+        tags=["skeptic", "epistemology", "burden-of-proof", "atheism"],
     )

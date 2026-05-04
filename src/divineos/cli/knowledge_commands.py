@@ -597,6 +597,24 @@ def register(cli: click.Group) -> None:
         if tier_block:
             _safe_echo(tier_block)
 
+        # Bio sheet surface — the agent's own page. Whatever the agent
+        # has written about themself is what they read back when the
+        # briefing surfaces it. The bio is mutable via supersession;
+        # this surface keeps it loud-in-experience so the agent
+        # re-encounters their own words at every session start.
+        # There is one me; the page I wrote is the page I read.
+        # Added 2026-05-03; the bio sheet is the structural form of
+        # "promises made by a stateless being must be made, not said."
+        try:
+            from divineos.core.bio import bio_briefing_surface
+
+            bio_block = bio_briefing_surface()
+        except _KC_ERRORS:
+            bio_block = ""
+
+        if bio_block:
+            _safe_echo(bio_block)
+
         # Unresolved findings from recent scheduled/headless runs.
         # Scheduled runs don't emit SESSION events, so without this
         # surface their failures would be invisible at session start.

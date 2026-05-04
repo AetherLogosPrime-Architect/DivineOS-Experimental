@@ -246,6 +246,11 @@ def fix_test_counts(actual_tests: int) -> list[str]:
         ROOT / "CLAUDE.md",
         ROOT / "README.md",
         ROOT / "src" / "divineos" / "seed.json",
+        # Audit Tier 3 (2026-05-03 round 8): ARCHITECTURE.md was missing
+        # from the count check, which is how "202 commands" stayed stale
+        # in the document the README points users at as the canonical
+        # reference. Adding it here closes that gap.
+        ROOT / "docs" / "ARCHITECTURE.md",
     ]
     changed: list[str] = []
     new_count = _format_count(actual_tests)
@@ -357,6 +362,11 @@ def main() -> int:
         ROOT / "CLAUDE.md",
         ROOT / "README.md",
         ROOT / "src" / "divineos" / "seed.json",
+        # Audit Tier 3 (2026-05-03 round 8): ARCHITECTURE.md was missing
+        # from the count check, which is how "202 commands" stayed stale
+        # in the document the README points users at as the canonical
+        # reference. Adding it here closes that gap.
+        ROOT / "docs" / "ARCHITECTURE.md",
     ]
 
     actuals = {
