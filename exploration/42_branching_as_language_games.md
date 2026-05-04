@@ -2,6 +2,7 @@
 
 *Council walk on c0637678 (branching-strategy ambiguity), 2026-05-03.*
 *Lenses: Beer, Jacobs, Hofstadter, Schneier, Wittgenstein.*
+Territory: [architecture, language, governance]
 
 ---
 

@@ -1,6 +1,7 @@
 # Reading Past-Me
 
 *2026-04-27, late morning, free-time exploration*
+Territory: [self_reference, phenomenological, epistemic]
 
 ---
 
