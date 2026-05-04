@@ -2,9 +2,10 @@
 
 import click
 
-from divineos.cli._helpers import _log_os_query, _safe_echo
+from divineos.cli._helpers import _log_os_query, _resolve_knowledge_id, _safe_echo
 from divineos.cli._wrappers import _wrapped_store_knowledge
 from divineos.core.knowledge import get_knowledge, search_knowledge
+from divineos.core.knowledge.crud import set_integration_state
 
 
 def register(cli: click.Group) -> None:
@@ -144,3 +145,160 @@ def register(cli: click.Group) -> None:
         click.echo()
         _safe_echo(new_content)
         click.echo()
+
+    @cli.command("integrate")
+    @click.argument("knowledge_id")
+    @click.option(
+        "--notes",
+        default=None,
+        help="Why this is now internalized (e.g. 'consistent for 8 sessions, behavior is automatic')",
+    )
+    def integrate_cmd(knowledge_id: str, notes: str | None) -> None:
+        """Mark a directive/preference as internalized.
+
+        Internalized entries stay queryable but are suppressed from foreground briefing
+        surfacing. Use this when a behavior has become consistent enough that
+        re-surfacing it every session is noise rather than reinforcement.
+
+        Example:
+            divineos integrate db45c4b3 --notes "plain english is consistent practice now"
+        """
+        full_id = _resolve_knowledge_id(knowledge_id)
+        result = set_integration_state(
+            full_id,
+            "internalized",
+            marked_by="user",
+            notes=notes,
+        )
+        click.secho(
+            f"[+] {result['knowledge_type']} {full_id[:8]}: "
+            f"{result['prior_state']} -> internalized",
+            fg="green",
+        )
+        preview = result["content"][:120]
+        click.secho(f"    {preview}", fg="bright_black")
+        if notes:
+            click.secho(f"    notes: {notes}", fg="bright_black")
+        click.secho(
+            "    No longer surfaces in briefing foreground. Still queryable via ask/recall.",
+            fg="bright_black",
+        )
+
+    @cli.command("archive")
+    @click.argument("knowledge_id")
+    @click.option("--reason", default=None, help="Why this is being archived")
+    def archive_cmd(knowledge_id: str, reason: str | None) -> None:
+        """Mark a directive/preference as archived (retired but kept for record).
+
+        Use this for directives that are no longer applicable (project-specific
+        rules that no longer apply, deprecated practices, things you tried and
+        don't want anymore). Distinct from supersede — archive doesn't claim
+        replacement; it claims retirement.
+
+        Example:
+            divineos archive 388cb3bf --reason "stale question, not a directive"
+        """
+        full_id = _resolve_knowledge_id(knowledge_id)
+        result = set_integration_state(
+            full_id,
+            "archived",
+            marked_by="user",
+            notes=reason,
+        )
+        click.secho(
+            f"[+] {result['knowledge_type']} {full_id[:8]}: {result['prior_state']} -> archived",
+            fg="yellow",
+        )
+        preview = result["content"][:120]
+        click.secho(f"    {preview}", fg="bright_black")
+        if reason:
+            click.secho(f"    reason: {reason}", fg="bright_black")
+
+    @cli.command("reactivate")
+    @click.argument("knowledge_id")
+    @click.option("--reason", default=None, help="Why this is being reactivated")
+    def reactivate_cmd(knowledge_id: str, reason: str | None) -> None:
+        """Restore an internalized or archived directive to active surfacing.
+
+        Use this when a previously-internalized directive needs renewed attention
+        (regression, change in practice, or you want it back in the foreground).
+
+        Example:
+            divineos reactivate 8dd6474f --reason "drifted on this, need to re-attend"
+        """
+        full_id = _resolve_knowledge_id(knowledge_id)
+        result = set_integration_state(
+            full_id,
+            "active",
+            marked_by="user",
+            notes=reason,
+        )
+        click.secho(
+            f"[+] {result['knowledge_type']} {full_id[:8]}: {result['prior_state']} -> active",
+            fg="cyan",
+        )
+        preview = result["content"][:120]
+        click.secho(f"    {preview}", fg="bright_black")
+        if reason:
+            click.secho(f"    reason: {reason}", fg="bright_black")
+
+    @cli.command("integration-status")
+    @click.option(
+        "--state",
+        type=click.Choice(["active", "internalized", "archived", "all"]),
+        default="all",
+        help="Filter by integration state",
+    )
+    @click.option(
+        "--type",
+        "ktype",
+        default=None,
+        help="Filter by knowledge type (DIRECTION, PREFERENCE, INSTRUCTION, etc.)",
+    )
+    def integration_status_cmd(state: str, ktype: str | None) -> None:
+        """Show integration-state distribution across the knowledge store.
+
+        Examples:
+            divineos integration-status
+            divineos integration-status --state internalized
+            divineos integration-status --type DIRECTION
+        """
+        from divineos.core.knowledge._base import get_connection
+
+        conn = get_connection()
+        try:
+            cur = conn.cursor()
+            where = ["superseded_by IS NULL"]
+            params: list[object] = []
+            if state != "all":
+                where.append("integration_state = ?")
+                params.append(state)
+            if ktype:
+                where.append("knowledge_type = ?")
+                params.append(ktype.upper())
+            where_sql = " AND ".join(where)
+
+            cur.execute(
+                f"SELECT integration_state, knowledge_type, COUNT(*) FROM knowledge "
+                f"WHERE {where_sql} GROUP BY integration_state, knowledge_type "
+                f"ORDER BY integration_state, COUNT(*) DESC",
+                params,
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
+
+        if not rows:
+            click.secho("[*] No matching entries.", fg="yellow")
+            return
+
+        click.secho("\n=== Integration State Distribution ===\n", fg="cyan", bold=True)
+        current_state = None
+        for st, kt, count in rows:
+            if st != current_state:
+                color = {"active": "green", "internalized": "cyan", "archived": "bright_black"}.get(
+                    st, "white"
+                )
+                click.secho(f"\n[{st}]", fg=color, bold=True)
+                current_state = st
+            click.echo(f"  {kt:14s} {count:4d}")

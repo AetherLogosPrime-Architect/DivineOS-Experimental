@@ -309,7 +309,8 @@ def get_active_memory() -> list[dict[str, Any]]:
                       k.maturity, k.source, k.created_at
                FROM active_memory am
                JOIN knowledge k ON am.knowledge_id = k.knowledge_id
-               WHERE k.superseded_by IS NULL""",
+               WHERE k.superseded_by IS NULL
+                 AND COALESCE(k.integration_state, 'active') = 'active'""",
         ).fetchall()
 
         # Recompute importance from current knowledge state
