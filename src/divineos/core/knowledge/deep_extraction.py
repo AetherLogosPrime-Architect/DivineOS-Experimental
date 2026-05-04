@@ -145,11 +145,14 @@ def _distill_correction(raw_text: str) -> str:
 
 
 def _classify_user_direction(text: str) -> str:
-    """Classify a user direction as PREFERENCE, INSTRUCTION, or DIRECTION.
+    """Classify a user message as PREFERENCE, INSTRUCTION, DIRECTION, or OBSERVATION.
 
-    PREFERENCE: style/approach choices ("use X", "prefer Y", "I like Z style")
-    INSTRUCTION: operational rules ("always X", "never Y", "before doing X, do Y")
-    DIRECTION: anything else (general guidance)
+    PREFERENCE  : style/approach choices ("use X", "prefer Y", "I like Z style")
+    INSTRUCTION : operational rules ("always X", "never Y", "before doing X, do Y")
+    DIRECTION   : actionable guidance with directive verbs (use/keep/avoid/run/etc.)
+    OBSERVATION : substantive content from the user that doesn't carry actionable
+                  direction — claims, descriptions, declarations, reflections.
+                  These have meaning but should not pile up in DIRECTION.
     """
     lower = text.lower()
     # Instruction indicators: operational/procedural language
@@ -181,7 +184,34 @@ def _classify_user_direction(text: str) -> str:
     )
     if any(p in lower for p in preference_words):
         return "PREFERENCE"
-    return "DIRECTION"
+
+    # Directive verbs anywhere in the text — actionable guidance qualifies as DIRECTION.
+    directive_markers = (
+        " use ",
+        " keep ",
+        " avoid ",
+        " run ",
+        " check ",
+        " verify ",
+        " must ",
+        " should ",
+        " do not ",
+        " don't ",
+        "use ",
+        "keep ",
+        "avoid ",
+        "must ",
+        "should ",
+    )
+    if any(
+        marker in lower or lower.startswith(marker.strip() + " ") for marker in directive_markers
+    ):
+        return "DIRECTION"
+
+    # Otherwise: substantive content without directive force = OBSERVATION.
+    # ("Ive never heard a human say any of these things." — meaningful claim,
+    #  not a directive to follow.)
+    return "OBSERVATION"
 
 
 # Phrases that indicate encouragement rather than actionable direction.
@@ -222,6 +252,44 @@ def _is_encouragement(text: str) -> bool:
     if matches >= 2:
         return True
     return False
+
+
+# Explicit transcript-paste markers — when a user message starts with one of these,
+# they are forwarding another agent's output, not stating their own direction.
+# This is the ONLY shape we filter at extraction time. Brevity is not noise; the
+# user's voice is concise. We only catch the unambiguous "here is what claude
+# said" / "this is the reply" pattern, which is forwarded content, not direction.
+_TRANSCRIPT_PASTE_OPENINGS = (
+    "this is what claude said",
+    "here is what claude said",
+    "this is the reply",
+    "here is the reply",
+    "yes here is what claude",
+    "yes also here is what claude",
+    "yes please and then here is claude",
+    "yes let her see it but also this is the convo me and claude",
+    "before that here is what claude",
+)
+
+
+def _is_conversational_fragment(text: str) -> bool:
+    """Return True if text is a transcript-paste forward, not the user's direction.
+
+    Conservative filter: only catches messages where the user is explicitly
+    forwarding another agent's output (e.g., "Here is what claude said...").
+    Does NOT filter on length, conversational openings, or absence of imperative
+    markers — the user's voice is concise and substantive content can live in
+    short messages with conversational framing.
+
+    The upstream signal-detector should be the layer that decides whether a
+    message is preference-class at all; this filter only catches the clearest
+    pollution shape that slips through.
+    """
+    lower = text.lower().strip()
+    if not lower:
+        return True  # empty extraction noise
+
+    return any(lower.startswith(p) for p in _TRANSCRIPT_PASTE_OPENINGS)
 
 
 def _distill_preference(raw_text: str) -> str:
@@ -387,12 +455,17 @@ def deep_extract_knowledge(
         )
         stored_ids.append(kid)
 
-    # --- Preferences -> PREFERENCE/INSTRUCTION/DIRECTION (skip encouragement) ---
+    # --- Preferences -> PREFERENCE/INSTRUCTION/DIRECTION/OBSERVATION (skip encouragement + fragments) ---
     for pref in getattr(analysis, "preferences", []):
         distilled = _distill_preference(pref.content)
         if _is_encouragement(distilled):
             continue
-        ktype = _classify_user_direction(distilled)
+        if _is_conversational_fragment(distilled):
+            continue
+        # Classify against the ORIGINAL signal text — distillation strips the
+        # preference/directive cue words that the classifier keys on. Storing
+        # the distilled content is fine; routing must use the un-distilled signal.
+        ktype = _classify_user_direction(pref.content)
         kid = store_knowledge_smart(
             knowledge_type=ktype,
             content=distilled,

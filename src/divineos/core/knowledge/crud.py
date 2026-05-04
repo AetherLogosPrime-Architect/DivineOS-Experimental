@@ -134,9 +134,16 @@ def get_knowledge(
     min_confidence: float = 0.0,
     tags: list[str] | None = None,
     include_superseded: bool = False,
+    integration_state: str | None = None,
     limit: int = 50,
 ) -> list[dict[str, Any]]:
-    """Query knowledge with optional filters."""
+    """Query knowledge with optional filters.
+
+    integration_state:
+      - None (default): all states — used by ask/recall/search/audit/sleep
+      - "active": foreground only — used by briefing/active-memory surfacers
+      - "internalized" / "archived": filter to that specific state
+    """
     conn = _get_connection()
     try:
         query = f"SELECT {_KNOWLEDGE_COLS} FROM knowledge"  # nosec B608
@@ -156,6 +163,9 @@ def get_knowledge(
             for tag in tags:
                 conditions.append("tags LIKE ?")
                 params.append(f"%{tag}%")
+        if integration_state is not None:
+            conditions.append("COALESCE(integration_state, 'active') = ?")
+            params.append(integration_state)
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -394,6 +404,87 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
             deactivate_relation(rel.relation_id)
     except _CRUD_ERRORS:
         pass  # relation cleanup is best-effort
+
+
+def set_integration_state(
+    knowledge_id: str,
+    state: str,
+    *,
+    marked_by: str = "user",
+    notes: str | None = None,
+) -> dict[str, Any]:
+    """Mark a knowledge entry's integration state.
+
+    States:
+      - active        : currently shaping behavior, surfaces in briefing (default)
+      - internalized  : behavior is now consistent; suppress from foreground but keep queryable
+      - archived      : retired (no longer applicable, deprecated, or replaced)
+
+    Returns the updated row dict.
+    """
+    from divineos.core.knowledge._base import INTEGRATION_STATES
+
+    if state not in INTEGRATION_STATES:
+        raise ValueError(
+            f"Invalid integration_state {state!r}. Must be one of {sorted(INTEGRATION_STATES)}"
+        )
+
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT knowledge_id, knowledge_type, content, integration_state "
+            "FROM knowledge WHERE knowledge_id = ?",
+            (knowledge_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError(f"Knowledge entry {knowledge_id!r} not found")
+
+        prior_state = row[3] or "active"
+        now = time.time()
+
+        conn.execute(
+            "UPDATE knowledge "
+            "SET integration_state = ?, integration_marked_at = ?, "
+            "    integration_marked_by = ?, integration_notes = ?, updated_at = ? "
+            "WHERE knowledge_id = ?",
+            (state, now, marked_by, notes, now, knowledge_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    # Log the state change to the ledger (forensic trail)
+    try:
+        from divineos.core.ledger import log_event
+
+        log_event(
+            "KNOWLEDGE_INTEGRATION_CHANGED",
+            actor=marked_by,
+            payload={
+                "knowledge_id": knowledge_id,
+                "knowledge_type": row[1],
+                "content_preview": row[2][:120],
+                "prior_state": prior_state,
+                "new_state": state,
+                "marked_by": marked_by,
+                "notes": notes,
+            },
+            validate=False,
+        )
+    except (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError, ImportError):
+        # Ledger logging is best-effort; the state change itself already committed.
+        pass
+
+    return {
+        "knowledge_id": knowledge_id,
+        "knowledge_type": row[1],
+        "content": row[2],
+        "prior_state": prior_state,
+        "new_state": state,
+        "marked_by": marked_by,
+        "notes": notes,
+        "marked_at": now,
+    }
 
 
 def record_access(knowledge_id: str) -> None:

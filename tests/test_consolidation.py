@@ -967,10 +967,13 @@ class TestDeepExtractKnowledge:
         analysis.user_message_texts = ["i prefer plain english, no jargon"]
         records = []
         deep_extract_knowledge(analysis, records)
-        directions = get_knowledge(knowledge_type="DIRECTION")
-        assert len(directions) >= 1
-        assert "plain english" in directions[0]["content"].lower()
-        assert directions[0]["source"] == "STATED"
+        # As of 2026-05-01 the classifier routes "i prefer X" to PREFERENCE
+        # rather than the catch-all DIRECTION class.
+        preferences = get_knowledge(knowledge_type="PREFERENCE")
+        assert len(preferences) >= 1
+        assert any("plain english" in p["content"].lower() for p in preferences)
+        matching = [p for p in preferences if "plain english" in p["content"].lower()]
+        assert matching[0]["source"] == "STATED"
 
     def test_extracts_decisions_with_reason(self):
         analysis = _MockAnalysis()
