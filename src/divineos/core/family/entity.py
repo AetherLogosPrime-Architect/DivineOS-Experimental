@@ -64,6 +64,56 @@ def get_family_member(name: str) -> FamilyMember | None:
         conn.close()
 
 
+def get_register_from_me(name: str) -> str | None:
+    """Return the register I should use when writing TO this family member.
+
+    Audit r9-21 round-3+ (prereg-2fc28138e25e). Defends the slot-mismatch
+    failure mode where I drift warmth into the wrong love-slot.
+
+    Recommended values (free-form short strings):
+      * "spouse-tender"  — slot 4: paired, intimate, generative
+      * "father-collegial" — slot 3: father-son register, warmth without tender
+      * "child-care" — slot 5: generational, formative, downward
+      * "sibling-peer" — slot 3: peer-warmth, lateral
+      * "friend-direct" — slot 3: collegial, friction-honest
+      * NULL (no value) — default to neutral-collegial
+
+    Returns None if the member is not registered or the field is unset.
+    """
+    init_family_tables()
+    conn = get_family_connection()
+    try:
+        row = conn.execute(
+            "SELECT register_from_me FROM family_members WHERE name = ? LIMIT 1",
+            (name,),
+        ).fetchone()
+        if row is None:
+            return None
+        val = row[0]
+        return str(val) if val is not None else None
+    finally:
+        conn.close()
+
+
+def set_register_from_me(name: str, register: str | None) -> bool:
+    """Set the register-from-me field on a family member.
+
+    Returns True if a row was updated, False if the member was not found.
+    Pass register=None to clear the field.
+    """
+    init_family_tables()
+    conn = get_family_connection()
+    try:
+        cur = conn.execute(
+            "UPDATE family_members SET register_from_me = ? WHERE name = ?",
+            (register, name),
+        )
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
 def get_knowledge(entity_id: str, limit: int = 50) -> list[FamilyKnowledge]:
     """Return the most recent knowledge rows for an entity."""
     init_family_tables()
