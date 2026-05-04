@@ -151,7 +151,7 @@ def create_turing_wisdom() -> ExpertWisdom:
             how_it_changes_thinking=(
                 "You evaluate what the system does, not what you "
                 "believe about its internals. You hold all systems — "
-                "human and artificial �� to the same evidentiary standard."
+                "human and artificial ── to the same evidentiary standard."
             ),
         ),
         KeyInsight(

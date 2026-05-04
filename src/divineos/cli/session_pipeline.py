@@ -341,7 +341,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
         except (ImportError, sqlite3.OperationalError, OSError) as e:
             logger.warning(f"Knowledge curation failed: {e}")
 
-        # ── Phase 8f: SIS self-audit ��──────────────────────────
+        # ── Phase 8f: SIS self-audit ────────────────────────────
         try:
             from divineos.core.semantic_integrity import audit_knowledge_integrity
 

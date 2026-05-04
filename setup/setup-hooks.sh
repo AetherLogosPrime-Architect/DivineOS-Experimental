@@ -109,32 +109,46 @@ EOF
 chmod +x "$HOOKS_DIR/commit-msg"
 echo "Created commit-msg hook at $HOOKS_DIR/commit-msg"
 
-# Create pre-push hook (branch-freshness check). Blocks pushing branches
-# whose base is stale relative to origin/main — the silent-revert
-# precondition named in claim d3baec5a. Delegates to the standalone
-# scripts/check_branch_freshness.sh so the logic stays testable.
+# Create pre-push hook with two safety checks:
+#   1. branch-freshness: blocks branches whose base is stale relative
+#      to origin/main (silent-revert prevention, claim d3baec5a).
+#   2. force-push-safety: blocks force-pushes that would shrink a
+#      branch's unique-vs-main work below safety thresholds — catches
+#      botched-rebase work-loss (prereg-c1c896a67321, 2026-05-04).
+# Both delegate to standalone scripts so the logic stays testable.
 cat > "$HOOKS_DIR/pre-push" << 'EOF'
 #!/bin/bash
-# pre-push hook for DivineOS — branch-freshness check.
-# Refuses to push a branch whose base is older than origin/main.
-# Set DIVINEOS_SKIP_FRESHNESS_CHECK=1 to bypass.
+# pre-push hook for DivineOS — two safety checks.
+# Bypass: DIVINEOS_SKIP_FRESHNESS_CHECK=1 (freshness)
+#         DIVINEOS_FORCE_PUSH_OK=1 (force-push safety)
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-SCRIPT="$REPO_ROOT/scripts/check_branch_freshness.sh"
+FRESHNESS="$REPO_ROOT/scripts/check_branch_freshness.sh"
+FORCE_SAFETY="$REPO_ROOT/scripts/check_force_push_safety.sh"
 
-if [[ ! -x "$SCRIPT" ]]; then
-    # Script missing or not executable — fail open. The hook should
-    # never block work because of its own infrastructure being broken.
-    exit 0
+# Capture stdin once — force-push-safety needs the ref-update lines
+# but freshness does not read stdin.
+HOOK_STDIN=$(cat)
+
+# 1. Branch freshness.
+if [[ -x "$FRESHNESS" ]]; then
+    "$FRESHNESS" origin main
+    RC=$?
+    if [[ $RC -eq 1 ]]; then
+        # Stale base detected — script already printed instructions.
+        exit 1
+    fi
 fi
 
-"$SCRIPT" origin main
-RC=$?
-if [[ $RC -eq 1 ]]; then
-    # Stale base detected — script already printed instructions.
-    exit 1
+# 2. Force-push safety.
+if [[ -x "$FORCE_SAFETY" ]]; then
+    echo "$HOOK_STDIN" | "$FORCE_SAFETY" "$1"
+    RC=$?
+    if [[ $RC -eq 1 ]]; then
+        exit 1
+    fi
 fi
-# RC=2 (infra error) and RC=0 (green) both proceed.
+
 exit 0
 EOF
 
