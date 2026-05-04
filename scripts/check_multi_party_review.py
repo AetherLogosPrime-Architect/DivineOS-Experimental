@@ -191,12 +191,22 @@ def _fetch_round_and_findings(round_id: str):
 
 
 def _round_description(rnd) -> str:  # type: ignore[no-untyped-def]
-    """Safely pull the text description from an AuditRound object."""
+    """Pull all text fields from an AuditRound object as a single string.
+
+    Returns the concatenation of focus, notes, and description (in that
+    order, space-separated). The hash-binding regexes that consume this
+    string need to find a hash anywhere in the round's text — not just
+    in whichever field happened to be filled in first. The earlier
+    short-circuit-on-first-non-empty implementation meant that hashes
+    placed in `notes` were never seen if `focus` was set (which it
+    always is — it's the round title). Auditor finding 2026-05-04.
+    """
+    parts = []
     for attr in ("focus", "notes", "description"):
         val = getattr(rnd, attr, None)
         if isinstance(val, str) and val:
-            return val
-    return ""
+            parts.append(val)
+    return " ".join(parts)
 
 
 def _round_created_at(rnd) -> float:  # type: ignore[no-untyped-def]

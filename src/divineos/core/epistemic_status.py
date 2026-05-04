@@ -1,4 +1,4 @@
-"""Epistemic Status ��� distinguish what I observed vs inferred vs was told.
+"""Epistemic Status ─ distinguish what I observed vs inferred vs was told.
 
 Butlin et al. (2023) Indicator 14: The system must distinguish between
 internally generated content (inference, imagination) and externally
@@ -26,7 +26,7 @@ from loguru import logger
 _ES_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
-# ─── Epistemic Report ─────────────────���────────────────────────────
+# ─── Epistemic Report ──────────────────────────────────────────────
 
 
 def build_epistemic_report() -> dict[str, Any]:
@@ -161,7 +161,7 @@ def _source_to_channel(source: str) -> str:
     }.get(source, "unwarranted")
 
 
-# ���── Epistemic Confidence ─────��────────────────────────────────────
+# ─── Epistemic Confidence ───────────────────────────────────────────
 
 
 def epistemic_source_modifier(source: str) -> float:
@@ -259,7 +259,7 @@ def assess_epistemic_confidence(knowledge_id: str) -> dict[str, Any]:
         return {"error": str(e)}
 
 
-# ─── Display ──────────────���──────────────��────────────────────────
+# ─── Display ───────────────────────────────────────────────────────
 
 
 def format_epistemic_report(report: dict[str, Any] | None = None) -> str:

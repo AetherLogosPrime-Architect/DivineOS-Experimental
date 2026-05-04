@@ -528,6 +528,13 @@ _CONVERSATIONAL_NOISE = re.compile(
 # Content that is a task-notification XML tag or system artifact
 _SYSTEM_ARTIFACT = re.compile(r"<task-notification|<tool-use-id|<task-id", re.IGNORECASE)
 
+# Session-telemetry tag: "(session XXXXXXXX-XXX)" suffix in extracted
+# content is the giveaway that an auto-generated session statistic was
+# captured as knowledge. UUID-prefix form, 8 hex chars then a hyphen and
+# more hex. Verified zero false positives across all live entries on
+# 2026-05-04.
+_SESSION_ID_SUFFIX = re.compile(r"\(session [a-f0-9]{8}[-a-f0-9]+\)", re.IGNORECASE)
+
 
 def _is_pure_affirmation(stripped_lower: str) -> bool:
     """Check if content is just an affirmation with filler words."""
@@ -778,6 +785,51 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
         return True
 
     if _CONVERSATIONAL_NOISE.match(stripped_lower):
+        return True
+
+    # Templated extraction-tail noise: "[fragment] and the user confirmed
+    # this was the right approach". Auto-extraction has been wrapping
+    # session conversational acks in this suffix and storing them as
+    # PRINCIPLE-typed knowledge. The corroboration_count metric then
+    # self-Goodharts because the same template matches across many
+    # sessions. Discovered 2026-05-04 during TESTED-tier curation:
+    # 18 entries in TESTED, 29 across all maturities, top entry at
+    # corrob=49. No legitimate principle ends in a meta-affirmation
+    # about user agreement; the suffix is a dead giveaway.
+    if "and the user confirmed this was the right approach" in stripped_lower:
+        return True
+
+    # Session-telemetry leakage: any extracted "knowledge" ending in or
+    # containing a "(session XXXXXXXX-XXX)" suffix is auto-generated
+    # session-summary output, not distilled knowledge. Sessions tag their
+    # own statistics ("I showed good X this session", "I retried Y
+    # (session abc12345-678)") and the extractor was filing these as
+    # PATTERN/MISTAKE/EPISODE entries. The session-id form is unambiguous:
+    # 39/39 live entries containing "(session " match this exact regex
+    # with zero false positives. Discovered 2026-05-04 in phase-2
+    # TESTED-tier curation.
+    if _SESSION_ID_SUFFIX.search(stripped):
+        return True
+
+    # Auto-generated user-preference summary template. The extractor was
+    # producing "User expressed N preferences this session. Key signals:
+    # ..." entries and storing them as OBSERVATION-typed knowledge. These
+    # are session-bounded statistics, not transferable observations.
+    # 10 live entries matched 2026-05-04 (3 of them in TESTED).
+    if "user expressed" in stripped_lower and "preferences this session" in stripped_lower:
+        return True
+
+    # Auto-correction-template artifact: extracted "knowledge" of the
+    # shape "I was [conversational fragment], but the correct approach
+    # is: [more conversation]". The extractor was wrapping operator
+    # responses in this fake-correction template and storing them as
+    # PRINCIPLE/BOUNDARY entries — the wrapped content is raw operator
+    # voice, not a distilled correction. 30 live entries matched
+    # 2026-05-04 across PRINCIPLE/BOUNDARY/DIRECTION types in TESTED
+    # and CONFIRMED maturities. The phrase "but the correct approach
+    # is:" never appears in legitimately-distilled knowledge — it is
+    # always the extractor's wrapping artifact.
+    if "but the correct approach is:" in stripped_lower:
         return True
 
     # Questions directed at the AI — prompts, not knowledge

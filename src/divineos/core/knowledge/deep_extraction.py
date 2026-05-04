@@ -436,11 +436,17 @@ def deep_extract_knowledge(
         )
         ktype = "BOUNDARY" if is_boundary else "PRINCIPLE"
 
-        # Store as a clean, actionable insight — not a transcript
+        # Store as a clean, actionable insight — not a transcript.
+        # Format the corrected understanding first (what to do), with the
+        # prior misunderstanding in a parenthetical (context). The earlier
+        # "I was X, but the correct approach is: Y" template collided with
+        # a noise-filter pattern (auditor finding 2026-05-04) — every real
+        # correction was getting flagged as templated noise. Putting the
+        # corrected understanding up front also makes the entry more
+        # useful for retrieval.
         distilled = _distill_correction(correction_text)
         if ai_before:
-            # Include what I was doing wrong for context
-            content = f"I was {ai_before.lower()}, but the correct approach is: {distilled}"
+            content = f"{distilled} (corrected from: {ai_before.lower()})"
         else:
             content = distilled
 

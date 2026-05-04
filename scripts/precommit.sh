@@ -43,6 +43,36 @@ if [ -n "$STAGED_SH" ]; then
     echo "  Normalized and re-staged."
 fi
 
+# 0c. U+FFFD scan. Any staged file containing the UTF-8 replacement-character
+# byte sequence (EF BF BD) is silently corrupted — typically the result of
+# writing non-ASCII via a Bash heredoc on Windows where bytes get re-encoded
+# as cp1252. The corruption commits cleanly, tests pass, and the bug only
+# surfaces months later when the file lands in a context that hits the JSON
+# serializer (which crashes the session). Pre-reg: prereg-5e0c6f492bfa.
+# Discovered live 2026-05-04. See lesson e44c7acd-d7f8-4cbd-a49e-7bf1dfd1eda2.
+echo "=== U+FFFD Scan ==="
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACM)
+FFFD_HITS=""
+if [ -n "$STAGED_ALL" ]; then
+    while IFS= read -r f; do
+        [ -f "$f" ] || continue
+        if grep -Iq $'\xef\xbf\xbd' "$f" 2>/dev/null; then
+            FFFD_HITS="${FFFD_HITS}${f}"$'\n'
+        fi
+    done <<< "$STAGED_ALL"
+fi
+if [ -n "$FFFD_HITS" ]; then
+    echo "  [!] U+FFFD replacement characters found in staged files:"
+    while IFS= read -r line; do
+        [ -n "$line" ] && echo "      $line"
+    done <<< "$FFFD_HITS"
+    echo ""
+    echo "  These bytes (EF BF BD) crash the API JSON serializer when loaded."
+    echo "  Likely cause: non-ASCII written via Bash heredoc on Windows."
+    echo "  Fix: open the file, find the garbled chars, replace using Write tool."
+    ERRORS=$((ERRORS + 1))
+fi
+
 # 1. Auto-format (fix, don't just report)
 if [ -n "$STAGED_PY" ]; then
     echo "=== Format ==="
