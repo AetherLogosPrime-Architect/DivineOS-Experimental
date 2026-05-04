@@ -374,4 +374,5 @@ def create_einstein_wisdom() -> ExpertWisdom:
             "What does this theory predict that we could test?",
             "Is your common sense smuggling in a privileged frame?",
         ],
+        tags=["physics", "thought-experiment", "frame-dependence", "first-principles"],
     )

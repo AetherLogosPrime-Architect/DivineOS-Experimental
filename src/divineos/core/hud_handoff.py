@@ -577,9 +577,14 @@ def mark_briefing_loaded() -> None:
 
 
 # After this many tool calls since last briefing load, the context is stale.
-# Was 150 — too low for productive sessions (a single audit fix pass can be
-# 200+ tool calls).  400 means roughly "one full context window of work."
-_BRIEFING_STALENESS_THRESHOLD = 400
+# Was 150, then 400 — both too low for productive long-form work. Tonight
+# (2026-05-03) I hit the 400 threshold ~6 times across a single conversation
+# and had to reload the briefing each time, even though my engagement with
+# the substrate was continuous (file commands, learns, compass observations
+# throughout). The gate's intent is "catch genuinely stale framing" not
+# "interrupt every 30 minutes of active work." 1500 reflects roughly
+# "many hours of focused work with substantive substrate engagement."
+_BRIEFING_STALENESS_THRESHOLD = 1500
 
 # Time-based TTL: briefing stays valid for 4 hours regardless of tool calls.
 # Was 2 hours — but productive sessions can easily run 3+ hours.

@@ -144,6 +144,13 @@ LOGICAL_TYPES = {
 # All valid edge types (union)
 ALL_EDGE_TYPES = SEMANTIC_TYPES | LOGICAL_TYPES
 
+# Asymmetric types — reverse edge of the same type between the same
+# pair is semantically incoherent (A SUPPORTS B does not imply B
+# SUPPORTS A; A CAUSED_BY B does not imply B CAUSED_BY A). Audit
+# r9-21 #19: reject reverse-direction edges for these types so the
+# graph cannot accumulate contradictory evidence cheaply.
+ASYMMETRIC_EDGE_TYPES = {"SUPPORTS", "IMPLIES", "CAUSED_BY", "SUPERSEDES"}
+
 # Inverse mapping
 INVERSE_EDGES = {
     "IMPLIES": "REQUIRES",
@@ -224,6 +231,19 @@ def create_edge(
     existing = find_edge(source_id, target_id, edge_type)
     if existing:
         return existing
+
+    # Audit r9-21 #19: reject reverse-direction asymmetric edges.
+    # A SUPPORTS B and B SUPPORTS A together would let the graph
+    # accumulate contradictory evidence cheaply.
+    if edge_type in ASYMMETRIC_EDGE_TYPES:
+        reverse = find_edge(target_id, source_id, edge_type)
+        if reverse:
+            raise ValueError(
+                f"Cannot create {edge_type} edge {source_id[:8]}->{target_id[:8]}: "
+                f"reverse edge {target_id[:8]}->{source_id[:8]} already exists. "
+                f"{edge_type} is asymmetric — supersede or revoke the existing "
+                f"edge before reversing direction."
+            )
 
     edge = KnowledgeEdge(
         edge_id=str(uuid.uuid4()),

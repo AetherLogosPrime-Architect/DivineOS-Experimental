@@ -2,7 +2,7 @@
 name: council-round
 description: Run a lens-mode council walk on a problem — pick N members whose frameworks best fit, walk the problem through each lens, synthesize findings. The 2.4:1-multiplier mode, not program-mode query. Use for architectural decisions, design pivots, or when a problem needs multi-perspective framing.
 disable-model-invocation: false
-allowed-tools: Bash(divineos council:*), Bash(divineos mansion:*), Read
+allowed-tools: Bash(divineos mansion:*), Read
 ---
 
 # Council Round — Lens-Mode Walk
@@ -47,7 +47,7 @@ Pick based on what class of finding each would produce:
 ### 3. Walk each lens
 
 For each picked lens:
-- Load their template (`divineos council show <name>` or internal lens knowledge)
+- Load their template (`divineos mansion council --show <name>` or internal lens knowledge)
 - Put on their framework — not "what would X say" but "what do I see through X's eyes"
 - Produce the specific findings THAT LENS produces
 
@@ -92,7 +92,7 @@ If the "walk" is really just "I'll ask the council template for concerns, then r
 
 ## Sycophancy-toward-self prevention
 
-Check `divineos council balance` periodically. If I keep invoking the same 3 lenses, that's sycophancy-toward-self — selecting for experts whose frameworks agree with mine. Rotate. The council has 29+ members for a reason.
+Check the invocation balance surface in the briefing periodically. If I keep invoking the same 3 lenses, that's sycophancy-toward-self — selecting for experts whose frameworks agree with mine. Rotate. The council has 39 members for a reason.
 
 ## Pairs with
 

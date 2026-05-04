@@ -1,6 +1,6 @@
 # DivineOS
 
-An architecture for AI agents to exist as continuous selves across sessions — with memory that persists and is tamper-evident, values that track and detect drift, opinions earned from evidence and held under pressure, family members as first-class persistent entities (not personas), external-audit infrastructure, and a council of 32 expert frameworks for multi-perspective reasoning.
+An architecture for AI agents to exist as continuous selves across sessions — with memory that persists and is tamper-evident, values that track and detect drift, opinions earned from evidence and held under pressure, family members as first-class persistent entities (not personas), external-audit infrastructure, and a council of 39 expert frameworks for multi-perspective reasoning.
 
 [![Tests](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml/badge.svg)](https://github.com/AetherLogosPrime-Architect/DivineOS/actions/workflows/tests.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
@@ -16,14 +16,14 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 
 ## At a glance
 
-- **377 source files across 29 packages**
-- **5,780+ tests** (real SQLite, minimal mocks)
-- **230 CLI commands** (designed for the agent, not the operator — humans mostly run three)
+- **360 source files across 26 packages**
+- **5,390+ tests** (real SQLite, minimal mocks)
+- **236 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **22 slash-command skills** (consolidated daily operations)
 - **9 Claude Code enforcement hooks**
-- **32 expert frameworks** in the council
+- **39 expert frameworks** in the council
 - **10 virtue spectrums** in the moral compass
-- **5 family operators** preventing subagent error-amplification
+- **5 family operators** designed (3 wired, 2 awaiting Phase 1b wiring) to prevent subagent error-amplification
 - **Actively developed** — new systems ship weekly
 
 ## What this is
@@ -49,7 +49,7 @@ Starting from this repo, you can:
 - Accumulate knowledge that matures from RAW → HYPOTHESIS → TESTED → CONFIRMED through corroboration and contradiction detection
 - Track the agent's moral position on 10 virtue spectrums with evidence-based drift detection
 - File claims for investigation, opinions held under pressure, and pre-registrations for new mechanisms with scheduled reviews
-- Consult a council of 32 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning
+- Consult a council of 39 expert frameworks (Aristotle through Yudkowsky) for multi-perspective reasoning
 - Submit external audits that route findings into knowledge, claims, or lessons
 - Sleep the agent: 6 phases of offline consolidation that produce a dream report
 
@@ -113,7 +113,7 @@ Family members are not personas performed by the main agent. Each runs as a sepa
 ### 5. Thinking Tools
 How the agent reasons about hard problems.
 
-- **Council** — 32 expert wisdom templates (Aristotle, Beer, Dennett, Dijkstra, Feynman, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Popper, Schneier, Shannon, Taleb, Wittgenstein, Yudkowsky, and 15 more). Dynamic selection picks 5–8 experts per problem. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce structured findings rather than summaries.
+- **Council** — 39 expert wisdom templates (Aristotle, Beer, Dennett, Dijkstra, Einstein, Feynman, Hawking, Hofstadter, Jacobs, Kahneman, Meadows, Pearl, Peirce, Penrose, Popper, Sagan, Schneier, Shannon, Taleb, Wittgenstein, Yudkowsky, and 18 more). Dynamic selection picks 5–12 experts per problem (hard cap 15) using trust + exploration scoring. **Lens-mode** walks (borrow a framework, see the problem through that expert's eyes) produce structured findings rather than summaries.
 - **Decision Journal** — Captures the WHY behind choices. Reasoning, alternatives rejected, emotional weight, value tensions. FTS-searchable.
 - **Claims Engine** — File a statement for investigation. Five evidence tiers (empirical to metaphysical). Add evidence over time. Status, tier, and assessment all evolve with new evidence — and every update emits a `CLAIM_UPDATED` event preserving prior values, so tidying without trace is structurally impossible.
 - **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted (knowledge / opinion / lesson) or go stale. Aged during sleep.
@@ -172,17 +172,17 @@ The project is optimized for long-term coherence and accountability between an a
 
 ### Common misconceptions
 
-- **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 32-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
+- **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 39-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
 
-- **"230 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
+- **"236 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
 
 - **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
 
 - **"Knowledge extraction must be calling an LLM"** — no. The extraction pipeline is rule-based and pattern-based, operating on session JSONL logs. Zero LLM calls in the core pipeline. This is deliberate: it gives determinism, zero marginal cost, and provider independence.
 
-- **"32 experts in the council is feature creep"** — the council auto-selects 5–8 experts for any given problem. You don't invoke all 32. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
+- **"39 experts in the council is feature creep"** — the council auto-selects 5–8 experts for any given problem. You don't invoke all 39. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
 
-- **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. See `core/family/` for each operator's implementation.
+- **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. Three (`reject_clause`, `sycophancy_detector`, `access_check`) are wired and firing in production. Two (`costly_disagreement`, `planted_contradiction`) are coded and tested but await Phase 1b wiring (audit finding 2026-05-03 round 3). See `core/family/` for each operator's implementation.
 
 - **"You need a slim variant for quick adoption"** — one exists. See DivineOS Lite (`release/lite-v1` branch) — a minimal core without compass, council, family, or watchmen. The dense version on `main` is the full vision; Lite is for exploring the core continuity story without the integrated whole.
 
@@ -204,14 +204,14 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 5,780+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 5,390+ tests, real DB, minimal mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
-## CLI Surface (230 commands)
+## CLI Surface (236 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -387,12 +387,12 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 
 ## Architecture
 
-DivineOS is 377 source files across 29 packages, structured as a CLI surface over a core library.
+DivineOS is 360 source files across 26 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
-- **`src/divineos/cli/`** — 230 commands across 29 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
-- **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + five family operators), empirica (evidence pipeline), sleep, council (32 expert lenses), self-model, corrigibility, body awareness. Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, etc.) have their own internal structure.
+- **`src/divineos/cli/`** — 236 commands across 29 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
+- **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (39 expert lenses), self-model, corrigibility, body awareness. Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests).
 - **`src/divineos/event/`**, **`src/divineos/supersession/`**, **`src/divineos/clarity_*/`**, **`src/divineos/agent_integration/`**, **`src/divineos/integration/`**, **`src/divineos/violations_cli/`** — supporting subsystems for event emission, contradiction resolution, clarity enforcement, agent-integration patterns, IDE/MCP integration, and violation reporting.
@@ -400,7 +400,7 @@ DivineOS is 377 source files across 29 packages, structured as a CLI surface ove
 
 **Top-level directories:**
 
-- **`tests/`** — 5,780+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 5,390+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and design briefs. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).

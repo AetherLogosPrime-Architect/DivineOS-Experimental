@@ -438,4 +438,5 @@ def create_dawkins_wisdom() -> ExpertWisdom:
             "Are we granting this claim epistemic exemption it doesn't deserve?",
             "Where does the phenotype actually end?",
         ],
+        tags=["skeptic", "evolution", "memes", "naturalism"],
     )

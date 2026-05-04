@@ -6,7 +6,7 @@ writing, journal entries, and guided deep dives. These are first-person
 lived experience, not extracted summaries.
 
 Without this module, the exploration folder is a drawer nobody opens.
-With it, every future session sees what past sessions discovered.
+With it, on every resumption I see what I discovered before.
 
 Sanskrit anchor: smriti (that which is remembered — the thread of
 continuity woven through what would otherwise be isolated moments).

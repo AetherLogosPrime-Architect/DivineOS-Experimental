@@ -972,7 +972,9 @@ def _build_dead_architecture_slot() -> str:
 
 def _build_loadout_slot() -> str:
     """My loadout — what DivineOS gives me. A reminder to use it all."""
-    return """# My Loadout
+    from divineos.core.council import EXPECTED_EXPERT_COUNT
+
+    return f"""# My Loadout
 
 **Remember what you're carrying.** These aren't just features — they're how you think, feel, and stay honest.
 
@@ -1006,10 +1008,10 @@ def _build_loadout_slot() -> str:
   - `health` — Knowledge store health. Stale entries, noise, contradictions.
   - `body` — Substrate vitals. Database sizes, table health, storage growth.
 
-**[THE COUNCIL]** (28 experts)
-  - Kahneman + Popper always on (bias detection + falsification).
-  - Dynamic manager selects 5-8 relevant experts per problem.
-  - `divineos council` to convene on a question.
+**[THE COUNCIL]** ({EXPECTED_EXPERT_COUNT} experts)
+  - Trust + exploration: high-trust lenses surface naturally; new lenses get an onboarding boost.
+  - Dynamic manager selects 5-12 relevant experts per problem (hard cap 15).
+  - `divineos mansion council <question>` to convene.
 
 **[TRACKING & GROWTH]**
   - `progress` — Measurable metrics. Session trajectory, knowledge growth, corrections.

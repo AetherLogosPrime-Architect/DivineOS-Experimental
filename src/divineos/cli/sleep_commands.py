@@ -205,6 +205,44 @@ def register(cli: click.Group) -> None:
             report = DreamReport()
             phase_fn(report)
             _safe_echo(report.summary())
+            # Emit a SLEEP_CYCLE event for phase-only runs too, so the
+            # dream-history surface (`divineos dream show`) can find them.
+            # Without this, phase runs do real work (creating edges,
+            # decaying entries) but leave no event trail for review.
+            try:
+                from divineos.event.event_emission import emit_event
+
+                emit_event(
+                    "SLEEP_CYCLE",
+                    {
+                        "phase_only": phase,
+                        "duration_seconds": report.duration_seconds,
+                        "entries_scanned": report.entries_scanned,
+                        "total_promoted": report.total_promoted,
+                        "affect_decayed": report.affect_decayed,
+                        "connections_found": report.connections_found,
+                        "connections_new": report.connections_new,
+                        "connections_already_known": report.connections_already_known,
+                        "phase_errors": list(report.phase_errors.keys()),
+                        "connection_details": report.connection_details,
+                        "connection_details_full_count": getattr(
+                            report,
+                            "connection_details_full_count",
+                            len(report.connection_details),
+                        ),
+                    },
+                    actor="system",
+                    validate=False,
+                )
+            except (
+                ImportError,
+                OSError,
+                sqlite3.OperationalError,
+                KeyError,
+                TypeError,
+                ValueError,
+            ):
+                pass  # Don't fail the phase command over event logging
             return
 
         # Full sleep cycle
@@ -232,9 +270,21 @@ def register(cli: click.Group) -> None:
                     "duration_seconds": report.duration_seconds,
                     "entries_scanned": report.entries_scanned,
                     "total_promoted": report.total_promoted,
+                    "promotions": dict(report.promotions),
+                    "lessons_resolved": list(report.lessons_resolved),
+                    "lessons_dormant": list(report.lessons_dormant),
                     "affect_decayed": report.affect_decayed,
                     "connections_found": report.connections_found,
+                    "connections_new": report.connections_new,
+                    "connections_already_known": report.connections_already_known,
                     "phase_errors": list(report.phase_errors.keys()),
+                    # Full connection details — not just the displayed top-N.
+                    # Lets `divineos dream show` reveal everything the sleep
+                    # actually discovered, not just what fit in the report.
+                    "connection_details": report.connection_details,
+                    "connection_details_full_count": getattr(
+                        report, "connection_details_full_count", len(report.connection_details)
+                    ),
                 },
                 actor="system",
                 validate=False,

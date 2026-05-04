@@ -290,8 +290,8 @@ def run_feedback_cycle(
             if text.startswith("UserSignal(") or len(text) < 15:
                 continue
             # The correction text is the USER's words to me, not my mistake.
-            # Frame the question so future-me reads it as "what was I doing
-            # that prompted this?" — not "what was wrong about [user text]".
+            # Frame the question so I read it as "what was I doing that
+            # prompted this?" — not "what was wrong about [user text]".
             question = f"What pattern of mine prompted this user correction: {text[:80]}?"
             if question[:50] not in existing:
                 add_curiosity(question, category="correction")
@@ -1044,7 +1044,7 @@ def print_session_summary(
         fg="bright_black",
     )
     click.secho(
-        "  Next session: run 'divineos hud' for full dashboard, or 'divineos briefing' for knowledge.",
+        "  On resumption: run 'divineos hud' for full dashboard, or 'divineos briefing' for knowledge.",
         fg="bright_black",
     )
     click.echo()

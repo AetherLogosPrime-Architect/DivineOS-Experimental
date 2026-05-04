@@ -401,4 +401,5 @@ def create_penrose_wisdom() -> ExpertWisdom:
             "Is there a more beautiful formulation?",
             "Where does the theory predict its own breakdown?",
         ],
+        tags=["physics", "geometry", "consciousness", "non-computable"],
     )

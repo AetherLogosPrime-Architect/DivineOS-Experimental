@@ -74,8 +74,57 @@ logger.add(
     level="WARNING",
 )
 
-_LOG_DIR = Path(__file__).parent.parent.parent / "logs"
-_LOG_DIR.mkdir(exist_ok=True)
+
+def _resolve_log_dir() -> Path:
+    """Resolve the log directory with defensive fallback.
+
+    Audit r9-21 finding #5 (round 18): the previous
+    ``Path(__file__).parent.parent.parent / "logs"`` only resolved
+    correctly under ``pip install -e .``. On a non-editable
+    ``pip install .``, the resolved path lands inside the
+    site-packages tree and the ``mkdir`` call at import time
+    runs against a potentially unwritable path → ImportError chain
+    → the CLI is unbootable.
+
+    Resolution order:
+      1. ``_ledger_base.data_dir() / "logs"`` — same project tree
+         the ledger uses; honors DIVINEOS_DB override for tests.
+      2. ``~/.divineos/logs`` — user-writable fallback.
+      3. ``<tempdir>/divineos-logs`` — last-ditch so import always
+         succeeds; corrupted-permissions environment shouldn't
+         brick the CLI.
+
+    Each step uses try/except so a failure cascades to the next.
+    """
+    import tempfile
+
+    try:
+        from divineos.core._ledger_base import data_dir
+
+        candidate = data_dir() / "logs"
+        candidate.mkdir(parents=True, exist_ok=True)
+        return candidate
+    except (OSError, ImportError):
+        pass
+
+    try:
+        from divineos.core.paths import divineos_home
+
+        candidate = divineos_home() / "logs"
+        candidate.mkdir(parents=True, exist_ok=True)
+        return candidate
+    except (OSError, ImportError):
+        pass
+
+    candidate = Path(tempfile.gettempdir()) / "divineos-logs"
+    try:
+        candidate.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return candidate
+
+
+_LOG_DIR = _resolve_log_dir()
 
 # Clean up old rotated logs on startup (loguru retention doesn't always fire on Windows)
 _MAX_LOG_FILES = 3

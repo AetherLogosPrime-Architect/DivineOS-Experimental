@@ -79,14 +79,29 @@ def verify_enforcement() -> dict[str, Any]:
                     if not is_valid:
                         corrupted_events.append(event_id)
 
-            # Generate report
+            # Audit r9-21 #16: gate on capture-rate, not just pair-completeness.
+            # Without this, an enforcement wrapper that silently stopped emitting
+            # TOOL_CALL events would still report "healthy" — pair-completeness
+            # is satisfied vacuously (no calls → no orphans). A non-trivial
+            # session with zero events of a critical capture type is degraded.
+            capture_rates = check_event_capture_rate()
+            capture_failures: list[str] = []
+            total_events = len(all_events)
+            _CAPTURE_FLOOR_EVENT_COUNT = 50  # only gate sessions with real activity
+            if total_events >= _CAPTURE_FLOOR_EVENT_COUNT:
+                for evt_type, rate in capture_rates.items():
+                    if rate == 0.0:
+                        capture_failures.append(evt_type)
+
+            healthy = not missing_events and not corrupted_events and not capture_failures
             report = {
-                "status": "healthy" if not missing_events and not corrupted_events else "degraded",
+                "status": "healthy" if healthy else "degraded",
                 "event_counts": event_counts,
-                "total_events": len(all_events),
+                "total_events": total_events,
                 "missing_events": missing_events,
                 "corrupted_events": corrupted_events,
-                "capture_rates": check_event_capture_rate(),
+                "capture_rates": capture_rates,
+                "capture_failures": capture_failures,
             }
 
             logger.debug(f"Enforcement verification complete: {report['status']}")
@@ -102,6 +117,7 @@ def verify_enforcement() -> dict[str, Any]:
                 "missing_events": [],
                 "corrupted_events": [],
                 "capture_rates": {},
+                "capture_failures": [],
             }
 
 

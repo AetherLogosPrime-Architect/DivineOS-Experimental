@@ -93,8 +93,8 @@ def _find_alternative_in_text(text: str) -> str:
 def _distill_correction(raw_text: str) -> str:
     """Transform a raw correction quote into a clean, actionable insight.
 
-    The goal is to produce something a future session can act on —
-    not a transcript of what the user said.
+    The goal is to produce something I can act on when I read it
+    back — not a transcript of what the user said.
     """
     text = raw_text.strip()[:300]
 

@@ -54,8 +54,35 @@ SECONDS_PER_DAY = 86400
 
 
 def _normalize_actor(actor: str) -> str:
-    """Strip + lowercase an actor name. Empty actor is rejected."""
-    normalized = actor.strip().lower()
+    """Normalize an actor name, defending against unicode bypass.
+
+    Audit finding 2026-05-03 round 12: a plain ``.strip().lower()``
+    does NOT remove U+00A0 (no-break space), U+2009 (thin space),
+    U+202F (narrow no-break space), or other unicode-whitespace
+    variants. An LLM copy-pasting from a formatted document could
+    file as ``"\\u00a0claude"`` — bypassing the INTERNAL_ACTORS
+    frozenset check because the literal string isn't ``"claude"``.
+
+    Verified bypass before fix:
+      record_outcome(prereg_id, actor="\\u200bclaude", outcome=SUCCESS)
+      ...succeeds — agent flips its own pre-reg.
+
+    NFKC normalization folds these compatibility forms to canonical
+    ASCII so ``.strip()`` actually removes them. Same fix shape
+    that landed for ``watchmen.store._validate_actor`` in Tier 1.
+    """
+    import re
+    import unicodedata
+
+    nfkc = unicodedata.normalize("NFKC", actor)
+    # Strip invisible/zero-width characters that NFKC + .strip() leave
+    # alone but which would let "​claude" bypass the frozenset check.
+    # Covers: zero-width space (200B), ZWNJ (200C), ZWJ (200D), LRM/RLM
+    # (200E/200F), ZWNBSP/BOM (FEFF), soft hyphen (00AD).
+    _invisibles = "[" + "​‌‍‎‏﻿­" + "]"
+    invisible_stripped = re.sub(_invisibles, "", nfkc)
+    collapsed = re.sub(r"\s+", " ", invisible_stripped).strip()
+    normalized = collapsed.casefold()
     if not normalized:
         raise ValueError("Actor name cannot be empty")
     return normalized

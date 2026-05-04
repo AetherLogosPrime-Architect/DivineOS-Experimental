@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (202 commands across 28 modules)
+  cli/                         CLI package (236 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -38,6 +38,8 @@ src/divineos/
     event_commands.py          emit, verify-enforcement
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     audit_commands.py          external validation (Watchmen)
+    bio_commands.py            Bio sheet — show, edit, history, write
+    dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
     mansion_commands.py        Functional internal space (8 rooms)
@@ -329,6 +331,9 @@ src/divineos/
       timeline.py              Timeline recall — chronological assembly of substrate events around a topic or file path.
       skill_index.py           Skill index — procedural retrieval over .claude/skills/ ranked by keyword overlap.
     theater_observation_surface.py Theater/fabrication observation surface — replaces gate 1.46.
+    bio.py                     Bio sheet — the agent's own page.
+    atomic_io.py               Atomic file I/O helpers for marker and state files.
+    paths.py                   Centralized ``~/.divineos`` path construction.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -346,16 +351,11 @@ src/divineos/
     tone_tracking.py           Tone shift detection and classification
     feature_storage.py         Feature result DB storage
     audit_classifier.py        Test quality audit (data/assertion/coverage classification)
-  agent_integration/           Agent self-observation: tool-call events → session lessons → pattern feedback. The "observing myself" side. Distinct from integration/ which handles external systems.
+  agent_integration/           Agent self-observation: feedback generation and outcome measurement for the session pipeline.
     types.py                   Type definitions
     outcome_measurement.py     Rework, churn, correction rate, session health
-    learning_cycle.py          Pattern extraction and confidence updates
-    learning_audit_store.py    Learning audit trail storage
-    decision_store.py          Decision persistence
     feedback_system.py         Feedback processing
-    pattern_store.py           Pattern persistence
-    pattern_validation.py      Pattern validation checks
-  clarity_system/              Pre-work/post-work clarity statements (plan → execute → deviation → learning). Work-cycle scope. Distinct from clarity_enforcement/ which is per-tool-call.
+  clarity_system/              Pre-work/post-work clarity statements (plan → execute → deviation → learning). Work-cycle scope.
     base.py                    Clarity system base
     types.py                   Type definitions
     clarity_generator.py       Clarity statement generation
@@ -369,12 +369,6 @@ src/divineos/
     hook_integration.py        Hook execution integration
     learning_extractor.py      Learning extraction from clarity
     ledger_integration.py      Ledger integration
-  clarity_enforcement/         Real-time tool-call clarity gate: BLOCKING / LOGGING / PERMISSIVE modes. Per-call scope. Distinct from clarity_system/ which operates across a full work cycle.
-    config.py                  Clarity configuration
-    enforcer.py                Enforcement engine
-    semantic_analyzer.py       Semantic analysis
-    violation_detector.py      Violation detection
-    violation_logger.py        Violation logging
   event/                       Event types, dispatch, capture
     _event_context.py          Event context management
     event_capture.py           Event capture pipeline
@@ -382,25 +376,16 @@ src/divineos/
     event_emission.py          Event emission API
     event_validation.py        Event payload validation
   hooks/                       Hook integration
-    clarity_enforcement.py     Clarity enforcement hooks
+    clarity_enforcement.py     Clarity enforcement engine (AGENT_RUNTIME — invoked from .claude/hooks/, not from the CLI pipeline)
     pre_tool_use_gate.py       PreToolUse consolidated gate (bypass, briefing, goal, pull, engagement, cadence) — single-process replacement for require-goal.sh Python spawn chain
     post_tool_use_checkpoint.py  PostToolUse consolidated checkpoint (state, counters, warnings, nudges) — single-process replacement for session-checkpoint.sh spawn chain
     targeted_tests.py          PostToolUse targeted test runner — maps edited source file to corresponding test file, runs only that (full suite stays on pre-commit)
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
-  integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper). The "integrating with other systems" side — distinct from agent_integration/ which observes the agent itself.
+  integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-  supersession/                Contradiction detection and resolution
-    clarity_integration.py     Clarity system integration
-    contradiction_detector.py  Contradiction detection
-    event_integration.py       Event system integration
-    ledger_integration.py      Ledger integration
-    query_interface.py         Query API
-    resolution_engine.py       Resolution strategies
-  violations_cli/              Violation reporting CLI
-    violations_command.py      Violation report commands
-tests/                         4,721+ tests (real DB, minimal mocks)
+tests/                         5,400+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

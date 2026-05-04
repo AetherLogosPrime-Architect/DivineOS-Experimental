@@ -8,7 +8,7 @@ calibration, creating a self-regulating circuit.
 The loop:
   1. Affect state -> threshold modifiers -> extraction
   2. Extraction outcomes -> quality signals -> stored correlation
-  3. Future sessions -> query correlation history -> calibrate thresholds
+  3. Subsequent runs -> query correlation history -> calibrate thresholds
 
 An open loop is a sensor. A closed loop is a self-regulating system.
 
@@ -131,9 +131,9 @@ def record_extraction_correlation(
 def get_calibration_adjustment(lookback: int = 10) -> dict[str, Any]:
     """Query correlation history to compute threshold adjustments.
 
-    This is called BEFORE extraction in future sessions. It looks at
-    past affect-extraction correlations to decide: should I tighten
-    or loosen extraction thresholds given my current affect state?
+    This is called BEFORE extraction on each run. It looks at past
+    affect-extraction correlations to decide: should I tighten or
+    loosen extraction thresholds given my current affect state?
 
     Returns:
       - threshold_adjustment: float (-0.1 to +0.2)

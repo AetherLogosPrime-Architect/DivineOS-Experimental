@@ -11,7 +11,6 @@ from typing import Any, cast
 from loguru import logger
 
 from divineos.core.constants import (
-    CONFIDENCE_ACTIVE_MEMORY_FLOOR,
     CONFIDENCE_RELIABLE,
     CONFIDENCE_VERY_HIGH,
     LESSON_ABSENCE_DAYS,
@@ -212,30 +211,19 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
             )
             conn.commit()
 
-            # Corroborate linked knowledge — when a lesson recurs, it means
-            # the pattern was observed again. Find knowledge entries whose
-            # content references this lesson category and boost them.
-            try:
-                # Late import: lessons -> knowledge_maintenance -> logic_validation cycle
-                from divineos.core.knowledge_maintenance import (
-                    increment_corroboration,
-                    promote_maturity,
-                )
-
-                cat_words = category.replace("_", " ")
-                linked = conn.execute(
-                    "SELECT knowledge_id FROM knowledge "
-                    "WHERE superseded_by IS NULL AND confidence >= ? "
-                    "AND (LOWER(content) LIKE ? OR LOWER(content) LIKE ?)",
-                    (CONFIDENCE_ACTIVE_MEMORY_FLOOR, f"%{cat_words}%", f"%{category}%"),
-                ).fetchall()
-                for (kid,) in linked:
-                    increment_corroboration(kid, source_context=f"lesson:{category}")
-                    promote_maturity(kid)
-            except _LESSONS_ERRORS as e:
-                logger.debug(
-                    "Corroboration sweep failed (best-effort, lesson recording unaffected): %s", e
-                )
+            # Audit finding 2026-05-03 round 20: this corroboration sweep
+            # used to boost ``corroboration_count`` and call
+            # ``promote_maturity`` on directives whenever a lesson recurred.
+            # That treats a FAILED directive (the agent ignored "always
+            # read files before editing" 7 times) as POSITIVE evidence
+            # for the directive's correctness — pushing it to CONFIRMED
+            # maturity exactly when it most needs revision. Negative
+            # evidence inflated as positive evidence.
+            #
+            # The sweep is deleted entirely. If we want to track recurrence
+            # frequency separately, add a ``trigger_observation_count``
+            # field on the lesson row — but never contaminate directive
+            # confidence with mere recurrence.
 
             return cast("str", lesson_id)
 

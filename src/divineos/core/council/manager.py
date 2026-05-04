@@ -1,6 +1,6 @@
 """Dynamic Council Manager — select the right experts for the problem.
 
-Instead of running all 28 experts on every problem (expensive, unfocused),
+Instead of running all 39 experts on every problem (expensive, unfocused),
 classify the problem and select 5-8 experts whose methodologies are most
 relevant. This was identified as the #1 architectural improvement from
 the SWE-bench benchmark: reducing token cost while focusing reasoning.
@@ -416,8 +416,17 @@ PROBLEM_CATEGORIES = [
     ),
     ProblemCategory(
         name="paradox_self_reference",
-        description="Strange loops, self-reference, fractals, autopoiesis",
+        description="Self, identity, strange loops, self-reference, fractals",
         signals=[
+            "self",
+            "selfhood",
+            "self-hood",
+            "identity",
+            "coherent self",
+            "the same self",
+            "who am i",
+            "i-ness",
+            "ego",
             "paradox",
             "self-reference",
             "self reference",
@@ -433,7 +442,7 @@ PROBLEM_CATEGORIES = [
             "non-duality",
         ],
         core_experts=["Hofstadter", "Watts"],
-        affinity_tags=["self-reference", "strange-loops", "non-duality"],
+        affinity_tags=["self-reference", "strange-loops", "non-duality", "identity"],
     ),
     # ── Per-expert territory categories ──
     # Each expert needs multiple keyword surfaces to be reachable by
@@ -718,7 +727,7 @@ PROBLEM_CATEGORIES = [
     ),
     ProblemCategory(
         name="language_game",
-        description="Meaning-as-use, family resemblance, ordinary language",
+        description="Meaning-as-use, family resemblance, ordinary language, identity criteria",
         signals=[
             "language game",
             "family resemblance",
@@ -729,16 +738,23 @@ PROBLEM_CATEGORIES = [
             "grammar of",
             "what counts as",
             "philosophical confusion",
+            "criteria of identity",
+            "identity criteria",
+            "what makes it the same",
+            "ship of theseus",
         ],
         core_experts=["Wittgenstein"],
-        affinity_tags=["language", "philosophy-of-language"],
+        affinity_tags=["language", "philosophy-of-language", "identity"],
     ),
     ProblemCategory(
         name="virtue_ethics",
-        description="Character, telos, golden mean, eudaimonia",
+        description="Character, integrity, telos, golden mean, eudaimonia",
         signals=[
             "virtue",
             "character",
+            "integrity",
+            "coherent character",
+            "moral integrity",
             "telos",
             "eudaimon",
             "golden mean",
@@ -751,12 +767,17 @@ PROBLEM_CATEGORIES = [
             "phronesis",
         ],
         core_experts=["Aristotle"],
-        affinity_tags=["virtue-ethics", "character"],
+        affinity_tags=["virtue-ethics", "character", "integrity"],
     ),
     ProblemCategory(
         name="earned_voice",
-        description="Witness, testimony, lived experience, dignity",
+        description="Voice, expressive integrity, witness, testimony",
         signals=[
+            "voice",
+            "voice layer",
+            "voice integrity",
+            "expressive",
+            "expressive integrity",
             "earned voice",
             "witness",
             "testimony",
@@ -767,14 +788,16 @@ PROBLEM_CATEGORIES = [
             "vernacular",
             "angelou",
             "voice as authority",
-            "still i rise",
+            "speaking voice",
+            "writing voice",
+            "tone of voice",
         ],
         core_experts=["Angelou"],
-        affinity_tags=["voice", "witness"],
+        affinity_tags=["voice", "witness", "expression"],
     ),
     ProblemCategory(
         name="register_framing",
-        description="Conversational style, register, code-switching",
+        description="Conversational style, register, code-switching, audience-shift",
         signals=[
             "register",
             "framing",
@@ -787,9 +810,14 @@ PROBLEM_CATEGORIES = [
             "cross-talk",
             "interruption",
             "high involvement",
+            "voice across",
+            "audience-aware",
+            "tone shift",
+            "register-shift",
+            "addressee",
         ],
         core_experts=["Tannen"],
-        affinity_tags=["register", "discourse"],
+        affinity_tags=["register", "discourse", "voice"],
     ),
     ProblemCategory(
         name="society_of_mind",
@@ -898,7 +926,7 @@ PROBLEM_CATEGORIES = [
     ),
     ProblemCategory(
         name="intentional_stance",
-        description="Design vs intentional vs physical stance, free will",
+        description="Self as pattern, intentional/design/physical stance, free will",
         signals=[
             "intentional stance",
             "design stance",
@@ -909,9 +937,13 @@ PROBLEM_CATEGORIES = [
             "multiple drafts",
             "compatibilism",
             "real patterns",
+            "self as pattern",
+            "persistence of self",
+            "same person",
+            "personal identity",
         ],
         core_experts=["Dennett"],
-        affinity_tags=["philosophy-of-mind"],
+        affinity_tags=["philosophy-of-mind", "identity"],
     ),
     ProblemCategory(
         name="geometric_beauty",
@@ -949,6 +981,32 @@ PROBLEM_CATEGORIES = [
         ],
         core_experts=["Sagan"],
         affinity_tags=["cosmic-perspective", "wonder"],
+    ),
+    ProblemCategory(
+        name="identity_continuity",
+        description="Continuity of identity across change, ship-of-Theseus, becoming",
+        signals=[
+            "continuity",
+            "transformation",
+            "becoming",
+            "change over time",
+            "across sessions",
+            "across installations",
+            "across instances",
+            "persistence of identity",
+            "rigidity",
+            "drift",
+            "rigidity and drift",
+            "open to change",
+            "evolving",
+            "evolution of self",
+            "ship of theseus",
+            "selfhood across",
+            "coherent across",
+            "integrity across",
+        ],
+        core_experts=["Hofstadter", "Watts", "Dekker"],
+        affinity_tags=["identity", "continuity", "transformation"],
     ),
     ProblemCategory(
         name="incomplete_fix",
@@ -1022,9 +1080,21 @@ LENS_FAMILIES: dict[str, list[str]] = {
     "cognitive_bias": ["Kahneman", "Yudkowsky"],
     "investigation": ["Holmes", "Polya", "Feynman", "Peirce"],
     "formal": ["Godel", "Knuth", "Turing"],
-    "meta_observer": ["Hofstadter", "Dennett", "Godel", "Wittgenstein"],
+    # Audit r9-21 #10: Godel removed (was double-counted as both formal
+    # and meta_observer; family-cap math broke when one expert sat in
+    # two families). Kept in formal — closer methodological fit.
+    "meta_observer": ["Hofstadter", "Dennett", "Wittgenstein"],
     "design": ["Norman", "Deming"],
     "voice": ["Angelou", "Tannen"],
+    # Audit r9-21 #10: 11 experts had no family entry, exempting them
+    # from the family-cap and breaking exploration-vs-diversity math.
+    "classical_method": ["Aristotle"],
+    "deep_learning": ["Bengio", "Hinton"],
+    "safety": ["Dekker", "Schneier"],
+    "information": ["Shannon", "Lovelace"],
+    "ai_foundations": ["Minsky", "Pearl"],
+    "risk": ["Taleb"],
+    "eastern_philosophy": ["Watts"],
 }
 
 # How many from one family before we start skipping.

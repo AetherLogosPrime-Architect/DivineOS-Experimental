@@ -301,8 +301,72 @@ def update_knowledge(
         conn.close()
 
 
+def link_supersession(old_id: str, new_id: str, reason: str = "") -> None:
+    """Link an old knowledge entry to its actual successor.
+
+    Audit finding 2026-05-03 round 19: callers like
+    ``compression.py::compress_dedup`` were using
+    ``supersede_knowledge(old_id, best_id)`` — but
+    ``supersede_knowledge``'s second parameter is ``reason``, not
+    ``successor``. Result: ``superseded_by`` was set to the literal
+    string ``"FORGET:1ce6c458-..."`` instead of the successor's
+    actual UUID. The supersession chain was broken — readers walking
+    ``superseded_by`` got a string that didn't resolve to any
+    knowledge_id.
+
+    This helper is the correct path for "we have a survivor, link
+    the loser to it." Use it whenever a real successor exists.
+
+    Use ``supersede_knowledge`` only when there's NO replacement
+    (entry is being marked as no-longer-active without a survivor).
+    """
+    if not new_id:
+        raise ValueError("link_supersession requires a non-empty successor id")
+    conn = _get_connection()
+    try:
+        old = conn.execute(
+            "SELECT knowledge_id FROM knowledge WHERE knowledge_id = ?",
+            (old_id,),
+        ).fetchone()
+        if not old:
+            raise ValueError(f"Knowledge entry '{old_id}' not found")
+        new = conn.execute(
+            "SELECT knowledge_id FROM knowledge WHERE knowledge_id = ?",
+            (new_id,),
+        ).fetchone()
+        if not new:
+            raise ValueError(f"Successor entry '{new_id}' not found")
+
+        conn.execute(
+            "UPDATE knowledge SET superseded_by = ?, valid_until = ?, "
+            "supersession_reason = ? WHERE knowledge_id = ?",
+            (new_id, time.time(), reason[:200] if reason else "", old_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    try:
+        from divineos.core.logic.logic_reasoning import deactivate_relation, get_relations
+
+        relations = get_relations(old_id, direction="both")
+        for rel in relations:
+            deactivate_relation(rel.relation_id)
+    except _CRUD_ERRORS:
+        pass
+
+
 def supersede_knowledge(knowledge_id: str, reason: str) -> None:
-    """Mark a knowledge entry as superseded without creating a replacement."""
+    """Mark a knowledge entry as superseded without creating a replacement.
+
+    Use this when there's NO actual successor — the entry is being
+    deprecated/forgotten standalone. The ``superseded_by`` field gets
+    set to ``"FORGET:<reason>"`` (a non-UUID marker indicating no
+    successor exists).
+
+    For "we have a survivor, link the loser to it," use
+    :func:`link_supersession` instead.
+    """
     conn = _get_connection()
     try:
         old = conn.execute(

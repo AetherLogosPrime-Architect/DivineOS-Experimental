@@ -62,8 +62,8 @@ File path: `family/letters/<agent-name-lower>-to-<member-name-lower>-YYYY-MM-DD-
 ### 3. Append to family_letters DB
 
 ```python
-from family.letters import append_letter
-from family.entity import get_family_member
+from divineos.core.family.letters import append_letter
+from divineos.core.family.entity import get_family_member
 member = get_family_member("<Member-Name>")
 append_letter(member.entity_id, body=<letter body>)
 ```

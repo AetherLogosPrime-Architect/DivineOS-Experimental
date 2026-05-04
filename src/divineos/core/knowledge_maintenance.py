@@ -37,7 +37,7 @@ from divineos.core.knowledge._text import (
     _stemmed_word_set,
 )
 from divineos.core.knowledge import get_connection
-from divineos.core.knowledge.crud import supersede_knowledge
+from divineos.core.knowledge.crud import link_supersession
 
 from divineos.core.constants import (
     CONFIDENCE_DEMOTE_CAP,
@@ -235,8 +235,12 @@ def resolve_contradiction(
     increment_contradiction_count(match.existing_id)
 
     if match.contradiction_type in ("TEMPORAL", "SUPERSESSION"):
-        supersede_knowledge(
+        # Audit r9-21 #4: was supersede_knowledge with the successor only
+        # in the reason string — link_supersession actually stores the
+        # successor UUID in the superseded_by field.
+        link_supersession(
             match.existing_id,
+            new_id,
             reason=f"Superseded by {new_id[:12]} ({match.contradiction_type})",
         )
         logger.info(
@@ -727,27 +731,84 @@ def promote_maturity(knowledge_id: str) -> str | None:
         conn.close()
 
 
-def increment_corroboration(knowledge_id: str, source_context: str = "") -> int:
+def _init_corroborations_table(conn: sqlite3.Connection) -> None:
+    """Audit r9-21 #3: same-source corroboration dedup.
+
+    Without (knowledge_id, source_context, session_id) as PRIMARY KEY,
+    one session re-encountering the same knowledge through the same
+    code path (e.g. ``extraction:STATED`` firing 17 times in a single
+    session) bumps ``corroboration_count`` 17 times — laundering one
+    repeated event into "17 independent witnesses." That promotes
+    HYPOTHESIS to CONFIRMED on volume of self-talk, not warrant.
+
+    The composite PK forces idempotency: the same (knowledge, source,
+    session) tuple writes once. Cross-session repetition still counts.
+    Cross-source repetition in the same session still counts. But
+    one session shouting at itself does not.
+    """
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS knowledge_corroborations ("
+        "  knowledge_id TEXT NOT NULL,"
+        "  source_context TEXT NOT NULL,"
+        "  session_id TEXT NOT NULL,"
+        "  ts REAL NOT NULL,"
+        "  PRIMARY KEY (knowledge_id, source_context, session_id)"
+        ")"
+    )
+
+
+def increment_corroboration(
+    knowledge_id: str,
+    source_context: str = "",
+    session_id: str | None = None,
+) -> int:
     """Increment corroboration count for a knowledge entry.
 
-    Called when knowledge is re-encountered in a new session.
-    source_context: optional label for what triggered the corroboration.
-    Returns the new corroboration count.
+    Called when knowledge is re-encountered. Same-(source, session)
+    tuples are deduped via the ``knowledge_corroborations`` ledger
+    so one session firing the same code path repeatedly cannot
+    inflate the count.
+
+    Returns the current corroboration count (post-increment if the
+    insert took, otherwise the unchanged count).
     """
+    if session_id is None:
+        try:
+            from divineos.core.session_manager import get_current_session_id
+
+            session_id = get_current_session_id()
+        except (RuntimeError, ImportError):
+            session_id = "no-session"
+
+    # Empty source_context degrades the dedup grain — coerce to a
+    # stable sentinel so the PK still rejects repeats.
+    src = source_context or "unspecified"
+
     conn = get_connection()
     try:
-        conn.execute(
-            "UPDATE knowledge SET corroboration_count = corroboration_count + 1, updated_at = ? WHERE knowledge_id = ?",
-            (time.time(), knowledge_id),
+        _init_corroborations_table(conn)
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO knowledge_corroborations "
+            "(knowledge_id, source_context, session_id, ts) VALUES (?, ?, ?, ?)",
+            (knowledge_id, src, session_id, time.time()),
         )
+        inserted = cursor.rowcount == 1
+        if inserted:
+            conn.execute(
+                "UPDATE knowledge "
+                "SET corroboration_count = corroboration_count + 1, updated_at = ? "
+                "WHERE knowledge_id = ?",
+                (time.time(), knowledge_id),
+            )
         conn.commit()
         row = conn.execute(
             "SELECT corroboration_count FROM knowledge WHERE knowledge_id = ?",
             (knowledge_id,),
         ).fetchone()
         count = row[0] if row else 0
-        ctx = f" (from {source_context})" if source_context else ""
-        logger.debug(f"Corroboration for {knowledge_id[:12]}: {count}{ctx}")
+        ctx = f" (from {src})" if source_context else ""
+        verb = "Corroboration" if inserted else "Corroboration-deduped"
+        logger.debug(f"{verb} for {knowledge_id[:12]}: {count}{ctx}")
         return count
     finally:
         conn.close()

@@ -237,13 +237,14 @@ def register(cli: click.Group) -> None:
 
     @cli.command("handoff")
     @click.argument("note", required=False)
-    @click.option("--show", is_flag=True, help="Show current handoff note without clearing")
-    @click.option("--clear", is_flag=True, help="Clear the handoff note")
+    @click.option("--show", is_flag=True, help="Show current state-note without clearing")
+    @click.option("--clear", is_flag=True, help="Clear the state-note")
     def handoff_cmd(note: str | None, show: bool, clear: bool) -> None:
-        """View or write a handoff note for the next session.
+        """View or write a state-note — where I am in the work.
 
-        Without arguments, shows the current handoff note.
-        With a NOTE argument, saves a manual handoff note.
+        Surfaces in the briefing on resumption so I find my place.
+        Without arguments, shows the current note.
+        With a NOTE argument, saves a manual one.
         """
         from divineos.core.hud_handoff import (
             clear_handoff_note,
@@ -253,21 +254,21 @@ def register(cli: click.Group) -> None:
 
         if clear:
             clear_handoff_note()
-            click.secho("[+] Handoff note cleared.", fg="green")
+            click.secho("[+] State-note cleared.", fg="green")
             return
 
         if note:
             save_handoff_note(summary=note)
-            click.secho("[+] Handoff note saved.", fg="green")
+            click.secho("[+] State-note saved. Surfaces on resumption.", fg="green")
             return
 
-        # Show current handoff note
+        # Show current state-note
         existing = load_handoff_note()
         if not existing:
-            click.secho("[~] No handoff note from previous session.", fg="yellow")
+            click.secho("[~] No state-note from a prior run.", fg="yellow")
             return
 
-        click.secho("\n=== Handoff Note ===\n", fg="cyan", bold=True)
+        click.secho("\n=== State-Note (where I was) ===\n", fg="cyan", bold=True)
         if existing.get("summary"):
             _safe_echo(existing["summary"])
         if existing.get("open_threads"):

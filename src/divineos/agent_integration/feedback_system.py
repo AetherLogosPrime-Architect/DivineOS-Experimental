@@ -2,7 +2,7 @@
 
 Generates actionable feedback from real session analysis data.
 Identifies tool performance issues, correction patterns, and generates
-recommendations for the next session.
+recommendations to read on resumption.
 """
 
 import sqlite3

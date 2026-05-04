@@ -2,7 +2,7 @@
 name: supersede
 description: Supersede a knowledge entry with a correction or refinement, preserving the lineage. Use when newer evidence shows an older entry is partially or fully wrong. Never deletes; append-only discipline. The old entry stays with a pointer to the successor.
 disable-model-invocation: false
-allowed-tools: Bash(divineos ask:*), Bash(divineos knowledge:*), Bash(divineos forget:*), Bash(divineos learn:*), Read
+allowed-tools: Bash(divineos ask:*), Bash(divineos inspect:*), Bash(divineos forget:*), Bash(divineos learn:*), Read
 ---
 
 # Supersede — Correct Without Deleting
@@ -36,7 +36,7 @@ When I learn I was wrong, the old knowledge doesn't become noise — it becomes 
 
 4. **Verify the chain:**
    ```bash
-   divineos knowledge --id <new-id>
+   divineos inspect knowledge --id <new-id>
    ```
    Confirm the supersession link is stored and the old entry now points to the new.
 

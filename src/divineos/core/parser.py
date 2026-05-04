@@ -12,7 +12,7 @@ Supported formats:
 import json
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -277,7 +277,7 @@ def parse_markdown_chat(file_path: Path) -> ParseResult:
         )
 
     content = file_path.read_text(encoding="utf-8")
-    timestamp = datetime.now().isoformat()
+    timestamp = datetime.now(timezone.utc).isoformat()
 
     current_role = ""
     current_content: list[str] = []

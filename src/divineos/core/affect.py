@@ -148,18 +148,31 @@ def log_affect(
     """
     init_affect_log()
     entry_id = str(uuid.uuid4())
-    valence = max(-1.0, min(1.0, valence))
-    arousal = max(0.0, min(1.0, arousal))
+
+    # Audit r9-21 #15: silent clamping hid caller bugs — a typo of 10
+    # for 0.10 became "max valence" with no signal. Raise on out-of-
+    # bounds so the caller learns. NaN/inf also rejected; they would
+    # serialize through SQLite but break aggregation downstream.
+    import math
+
+    def _check(name: str, val: float, lo: float, hi: float) -> None:
+        if math.isnan(val) or math.isinf(val):
+            raise ValueError(f"{name} must be a finite number (got {val!r})")
+        if not (lo <= val <= hi):
+            raise ValueError(f"{name} must be in [{lo}, {hi}] (got {val!r})")
+
+    _check("valence", valence, -1.0, 1.0)
+    _check("arousal", arousal, 0.0, 1.0)
     if dominance is not None:
-        dominance = max(-1.0, min(1.0, dominance))
+        _check("dominance", dominance, -1.0, 1.0)
     if resonance is not None:
-        resonance = max(-1.0, min(1.0, resonance))
+        _check("resonance", resonance, -1.0, 1.0)
     if clarity is not None:
-        clarity = max(0.0, min(1.0, clarity))
+        _check("clarity", clarity, 0.0, 1.0)
     if pull is not None:
-        pull = max(-1.0, min(1.0, pull))
+        _check("pull", pull, -1.0, 1.0)
     if presence is not None:
-        presence = max(0.0, min(1.0, presence))
+        _check("presence", presence, 0.0, 1.0)
 
     conn = _get_connection()
     try:

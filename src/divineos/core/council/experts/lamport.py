@@ -443,4 +443,5 @@ def create_lamport_wisdom() -> ExpertWisdom:
             "Is there a global now being assumed somewhere?",
             "How would you formally verify this concurrent algorithm?",
         ],
+        tags=["distributed-systems", "concurrency", "logical-clocks", "specification"],
     )

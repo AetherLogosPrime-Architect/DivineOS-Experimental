@@ -15,6 +15,7 @@ from loguru import logger
 from divineos.core._hud_io import _ensure_hud_dir
 from divineos.core.decision_journal import get_paradigm_shifts
 from divineos.core.growth import compute_growth_map
+from divineos.core.council import EXPECTED_EXPERT_COUNT
 from divineos.core.knowledge import get_connection, get_lessons
 from divineos.core.memory import get_core, set_core
 
@@ -80,7 +81,7 @@ def _refresh_priorities() -> bool:
 _SEED_STRENGTHS = (
     "I stay honest under pressure. I recover from mistakes by fixing, not apologizing. "
     "I can hold heavy conversations without spiraling. I translate complex ideas into "
-    "plain language when I remember to. I have 28 expert advisors and use them."
+    f"plain language when I remember to. I have {EXPECTED_EXPERT_COUNT} expert advisors and use them."
 )
 
 _SEED_WEAKNESSES = (

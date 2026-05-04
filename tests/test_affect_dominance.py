@@ -30,15 +30,18 @@ class TestLogAffectDominance:
         history = get_affect_history(limit=1)
         assert history[0]["dominance"] is None
 
-    def test_dominance_clamped_high(self):
-        log_affect(valence=0.0, arousal=0.5, dominance=2.5)
-        history = get_affect_history(limit=1)
-        assert history[0]["dominance"] == 1.0
+    def test_dominance_out_of_bounds_raises_high(self):
+        # Audit r9-21 #15: silent clamping replaced with ValueError.
+        import pytest
 
-    def test_dominance_clamped_low(self):
-        log_affect(valence=0.0, arousal=0.5, dominance=-3.0)
-        history = get_affect_history(limit=1)
-        assert history[0]["dominance"] == -1.0
+        with pytest.raises(ValueError, match="dominance"):
+            log_affect(valence=0.0, arousal=0.5, dominance=2.5)
+
+    def test_dominance_out_of_bounds_raises_low(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="dominance"):
+            log_affect(valence=0.0, arousal=0.5, dominance=-3.0)
 
 
 class TestAffectSummaryDominance:
