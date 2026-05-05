@@ -79,7 +79,7 @@ def _normalize_actor(actor: str) -> str:
     # alone but which would let "​claude" bypass the frozenset check.
     # Covers: zero-width space (200B), ZWNJ (200C), ZWJ (200D), LRM/RLM
     # (200E/200F), ZWNBSP/BOM (FEFF), soft hyphen (00AD).
-    _invisibles = "[" + "​‌‍‎‏﻿­" + "]"
+    _invisibles = "[" + "​‌‍‎‏﻿­" + "]"  # nosec B613 — intentional invisibles, this regex strips them from input
     invisible_stripped = re.sub(_invisibles, "", nfkc)
     collapsed = re.sub(r"\s+", " ", invisible_stripped).strip()
     normalized = collapsed.casefold()
@@ -176,7 +176,7 @@ def file_pre_registration(
     conn = _get_connection()
     try:
         conn.execute(
-            f"INSERT INTO pre_registrations ({_SELECT_ALL_COLS}) "  # noqa: S608 — static column list
+            f"INSERT INTO pre_registrations ({_SELECT_ALL_COLS}) "  # noqa: S608  # nosec B608 — static column list
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 prereg_id,
@@ -234,7 +234,7 @@ def get_pre_registration(prereg_id: str) -> PreRegistration | None:
     conn = _get_connection()
     try:
         row = conn.execute(
-            f"SELECT {_SELECT_ALL_COLS} FROM pre_registrations WHERE prereg_id = ?",  # noqa: S608
+            f"SELECT {_SELECT_ALL_COLS} FROM pre_registrations WHERE prereg_id = ?",  # noqa: S608  # nosec B608
             (prereg_id,),
         ).fetchone()
         return _row_to_prereg(row) if row else None
@@ -268,7 +268,7 @@ def list_pre_registrations(
     conn = _get_connection()
     try:
         rows = conn.execute(
-            f"SELECT {_SELECT_ALL_COLS} FROM pre_registrations{where} "  # noqa: S608
+            f"SELECT {_SELECT_ALL_COLS} FROM pre_registrations{where} "  # noqa: S608  # nosec B608
             "ORDER BY created_at DESC LIMIT ?",
             params,
         ).fetchall()
@@ -288,7 +288,7 @@ def get_overdue_pre_registrations(now: float | None = None) -> list[PreRegistrat
     conn = _get_connection()
     try:
         rows = conn.execute(
-            f"SELECT {_SELECT_ALL_COLS} FROM pre_registrations "  # noqa: S608
+            f"SELECT {_SELECT_ALL_COLS} FROM pre_registrations "  # noqa: S608  # nosec B608
             "WHERE outcome = ? AND review_ts <= ? "
             "ORDER BY review_ts ASC",
             (Outcome.OPEN.value, ts),

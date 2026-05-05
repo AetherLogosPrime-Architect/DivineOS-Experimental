@@ -279,7 +279,7 @@ def register(cli: click.Group) -> None:
             where_sql = " AND ".join(where)
 
             cur.execute(
-                f"SELECT integration_state, knowledge_type, COUNT(*) FROM knowledge "
+                f"SELECT integration_state, knowledge_type, COUNT(*) FROM knowledge "  # nosec B608 — where_sql built from internal validated clauses
                 f"WHERE {where_sql} GROUP BY integration_state, knowledge_type "
                 f"ORDER BY integration_state, COUNT(*) DESC",
                 params,

@@ -192,10 +192,10 @@ def _clear_db_tables(db_path: Path, tables: list[str]) -> dict[str, int]:
     removed: dict[str, int] = {}
     for table in tables:
         try:
-            cur = conn.execute(f"SELECT COUNT(*) FROM {table}")
+            cur = conn.execute(f"SELECT COUNT(*) FROM {table}")  # nosec B608 — table from internal hardcoded loop
             count = cur.fetchone()[0]
             if count > 0:
-                conn.execute(f"DELETE FROM {table}")
+                conn.execute(f"DELETE FROM {table}")  # nosec B608 — table from internal hardcoded loop
                 removed[table] = count
         except sqlite3.OperationalError:
             # Table doesn't exist in this DB; skip.
