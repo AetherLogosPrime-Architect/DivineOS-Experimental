@@ -222,15 +222,68 @@ def increment_contradiction_count(knowledge_id: str) -> None:
         conn.close()
 
 
+# Stickiness gradient: maturity-tier bonuses for evidence-weighted decay.
+# A CONFIRMED entry has stronger evidence than a RAW one and should resist
+# single contradictions proportionally. Pre-reg: prereg-ea92c8aeb142.
+_MATURITY_EVIDENCE_BONUS = {
+    "RAW": 0.0,
+    "HYPOTHESIS": 0.5,
+    "TESTED": 1.0,
+    "CONFIRMED": 2.0,
+}
+
+# Per-corroboration evidence weight contribution (caps the impact of
+# many small corroborations vs a single big maturity tier).
+_CORROBORATION_WEIGHT = 0.1
+
+
+def _evidence_weight(entry_id: str) -> float:
+    """Compute an evidence-strength multiplier for an entry.
+
+    Returns a non-negative float. Higher = better-established. Used to
+    scale contradiction-resolution penalties: well-established entries
+    take smaller hits and need proportionally more contradicting
+    evidence to be overturned.
+
+    Combines two signals:
+      - corroboration_count: cumulative independent confirmations
+      - maturity tier: RAW < HYPOTHESIS < TESTED < CONFIRMED
+
+    The maturity bonus dominates for short-lived entries; the
+    corroboration term grows for long-lived ones. Both contribute.
+    """
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT corroboration_count, maturity FROM knowledge WHERE knowledge_id = ?",
+            (entry_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not row:
+        return 0.0
+
+    corroboration_count = float(row[0] or 0)
+    maturity = (row[1] or "RAW").upper()
+
+    return corroboration_count * _CORROBORATION_WEIGHT + _MATURITY_EVIDENCE_BONUS.get(maturity, 0.0)
+
+
 def resolve_contradiction(
     new_id: str,
     match: ContradictionMatch,
 ) -> None:
     """Resolve a detected contradiction based on its type.
 
-    - TEMPORAL: supersede the old entry (new state replaces old)
-    - DIRECT: flag both, reduce confidence on both
-    - SUPERSESSION: supersede old with new
+    - TEMPORAL: supersede the old entry (new state replaces old).
+      Time genuinely is counter-evidence; no stickiness gradient applied.
+    - DIRECT: flag both, reduce confidence on old. The reduction is
+      *evidence-weighted* — well-established entries (high corroboration,
+      high maturity tier) take proportionally smaller hits, so single
+      contradictions don't wipe out load-bearing knowledge. EWC analog.
+    - SUPERSESSION: supersede old with new. Explicit signal that the
+      new is meant to replace the old; gradient does not apply.
     """
     increment_contradiction_count(match.existing_id)
 
@@ -247,18 +300,27 @@ def resolve_contradiction(
             f"Resolved {match.contradiction_type}: {match.existing_id[:12]} superseded by {new_id[:12]}"
         )
     elif match.contradiction_type == "DIRECT":
-        # Both entries are suspect — reduce confidence on old
+        # Stickiness gradient: scale decay by evidence weight.
+        # decay = DECAY_MODERATE / (1 + evidence_weight)
+        # RAW + corrob=0:  hit = DECAY_MODERATE (no resistance)
+        # CONFIRMED + corrob=10:  hit ≈ DECAY_MODERATE / 4 (quarter-strength)
+        # Pre-reg: prereg-ea92c8aeb142 (review in 30 days).
+        evidence = _evidence_weight(match.existing_id)
+        scaled_decay = DECAY_MODERATE / (1.0 + evidence)
+
         conn = _get_connection()
         try:
             conn.execute(
                 "UPDATE knowledge SET confidence = MAX(?, confidence - ?), updated_at = ? WHERE knowledge_id = ?",
-                (DECAY_FLOOR, DECAY_MODERATE, time.time(), match.existing_id),
+                (DECAY_FLOOR, scaled_decay, time.time(), match.existing_id),
             )
             conn.commit()
         finally:
             conn.close()
         logger.info(
-            f"Resolved DIRECT contradiction: lowered confidence on {match.existing_id[:12]}"
+            f"Resolved DIRECT contradiction: lowered confidence on "
+            f"{match.existing_id[:12]} (evidence={evidence:.2f}, "
+            f"decay={scaled_decay:.3f} vs base {DECAY_MODERATE})"
         )
 
 
