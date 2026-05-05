@@ -71,15 +71,21 @@ except Exception:
     pass
 " 2>/dev/null
 
-# Run briefing and hud in parallel via temp files. Background both,
-# wait for both, then read results. Cuts wall time from briefing+hud
-# to max(briefing,hud).
+# Run mini-briefing and brief-hud in parallel via temp files. The
+# *full* briefing (35KB+) and full HUD (11KB+) used to overflow the
+# additionalContext size limit (~15KB), causing silent fallback to a
+# nudge for every session. The mini briefing (~2KB) and brief HUD
+# (~8KB) total ~10KB — fits with margin and lets the agent actually
+# get auto-injected context on cold-start.
+#
+# The full versions remain available: agent can run `divineos briefing`
+# and `divineos hud` (no flags) for the deep view when needed.
 briefing_file=$(mktemp)
 hud_file=$(mktemp)
 
-divineos briefing > "$briefing_file" 2>/dev/null &
+divineos briefing --mini > "$briefing_file" 2>/dev/null &
 pid_brief=$!
-divineos hud > "$hud_file" 2>/dev/null &
+divineos hud --brief > "$hud_file" 2>/dev/null &
 pid_hud=$!
 
 wait $pid_brief

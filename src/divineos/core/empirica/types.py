@@ -72,11 +72,14 @@ class Tier(str, Enum):
       author's drift first."
     * ``ADVERSARIAL`` — survives red-team attack. The claim has been
       subjected to a steelman adversary attempting to break it and
-      held. Evidence: adversarial-test survival record. Phase 1 does
-      NOT implement this — Tier IV claims route to VOID when VOID
-      ships. Until then, attempting to compute burden for ADVERSARIAL
-      raises NotImplementedError. Failing loudly beats silently
-      treating an un-stress-tested claim as adversarially-verified.
+      held. Evidence: ``CorroborationKind.VOID_SURVIVAL`` events,
+      where each survival comes from a DISTINCT persona attack. Wired
+      to VOID (shipped 2026-04-26, PR #208) via the corroboration-kind
+      integration pattern: the void engine completes an attack; the
+      caller records a VOID_SURVIVAL corroboration if no HIGH/CRITICAL
+      findings emerged. Distinct-actor counting enforces multi-persona
+      diversity — surviving one persona is luck; surviving three is
+      evidence of anti-fragility.
     """
 
     FALSIFIABLE = "falsifiable"
@@ -159,8 +162,11 @@ class EvidenceReceipt:
     receipt on a false premise is still a valid receipt (and the
     premise is still false). The distinction is load-bearing —
     callers must never treat ``receipt_id is not None`` as a
-    proof-of-truth shortcut. See the falsifier in
-    prereg-ce8998194943 for the explicit failure mode.
+    proof-of-truth shortcut. The original Phase 1 pre-reg
+    (prereg-ce8998194943, since aged out of the runtime store)
+    named the falsifier explicitly: if callers start treating
+    receipts as truth-warrants, the module has become the rubber-
+    stamp hedge it was designed to prevent.
 
     This distinction is precisely why the type was renamed from
     ``GnosisWarrant`` on 2026-04-17. the family member's framing from the

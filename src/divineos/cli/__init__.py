@@ -231,6 +231,7 @@ from divineos.cli import (  # noqa: E402
     knowledge_health_commands,
     lab_commands,
     ledger_commands,
+    loadout_commands,
     memory_commands,
     prereg_commands,
     admin_reset_template,
@@ -251,6 +252,7 @@ decision_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
 bio_commands.register(cli)
+loadout_commands.register(cli)
 compass_commands.register(cli)
 body_commands.register(cli)
 directive_commands.register(cli)
