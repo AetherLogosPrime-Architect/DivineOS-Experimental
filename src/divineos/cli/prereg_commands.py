@@ -250,3 +250,96 @@ def register(cli: click.Group) -> None:
         from divineos.core.pre_registrations import format_summary
 
         click.echo(format_summary())
+
+    @prereg_group.command("export")
+    @click.option(
+        "--out-dir",
+        default="docs/pre_regs",
+        help="Directory to write per-prereg markdown files (default docs/pre_regs).",
+    )
+    @click.option(
+        "--outcome",
+        type=click.Choice(
+            ["OPEN", "SUCCESS", "FAILED", "INCONCLUSIVE", "DEFERRED"],
+            case_sensitive=False,
+        ),
+        default=None,
+        help="Only export pre-regs with this outcome.",
+    )
+    def prereg_export_cmd(out_dir: str, outcome: str | None) -> None:
+        """Export pre-registrations to markdown files for repo-portability.
+
+        Pre-registrations live in a runtime SQLite store (ephemeral on a
+        fresh clone). Exporting them to ``docs/pre_regs/<id>.md`` lets the
+        commitment travel with the repo — a reviewer who never imports the
+        local DB can still read what was predicted, by whom, with what
+        falsifier, and what (if anything) the verdict was.
+        """
+        from pathlib import Path
+
+        from divineos.core.pre_registrations import Outcome, list_pre_registrations
+
+        outcome_enum = Outcome(outcome.upper()) if outcome else None
+        items = list_pre_registrations(outcome=outcome_enum, limit=10_000)
+        if not items:
+            click.secho("[~] No pre-registrations to export.", fg="bright_black")
+            return
+
+        out_path = Path(out_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+
+        written = 0
+        for p in items:
+            (out_path / f"{p.prereg_id}.md").write_text(
+                _format_prereg_markdown(p), encoding="utf-8"
+            )
+            written += 1
+
+        click.secho(f"[+] Exported {written} pre-registration(s) to {out_path}/", fg="cyan")
+
+
+def _format_prereg_markdown(p) -> str:
+    """Render a PreRegistration as portable markdown."""
+    import time as _time
+
+    def _fmt(ts: float | None) -> str:
+        if not ts:
+            return "—"
+        return _time.strftime("%Y-%m-%d %H:%M UTC", _time.gmtime(ts))
+
+    lines = [
+        f"# Pre-registration: {p.mechanism}",
+        "",
+        f"- **ID**: `{p.prereg_id}`",
+        f"- **Filed by**: {p.actor}",
+        f"- **Filed at**: {_fmt(p.created_at)}",
+        f"- **Review at**: {_fmt(p.review_ts)} ({p.review_window_days}d window)",
+        f"- **Outcome**: **{p.outcome.value}**",
+    ]
+    if p.outcome_ts:
+        lines.append(f"- **Decided at**: {_fmt(p.outcome_ts)}")
+    if p.linked_claim_id:
+        lines.append(f"- **Linked claim**: `{p.linked_claim_id}`")
+    if p.linked_commit:
+        lines.append(f"- **Linked commit**: `{p.linked_commit}`")
+    if p.tags:
+        lines.append(f"- **Tags**: {', '.join(p.tags)}")
+
+    lines += [
+        "",
+        "## Claim",
+        "",
+        p.claim,
+        "",
+        "## Success criterion",
+        "",
+        p.success_criterion,
+        "",
+        "## Falsifier",
+        "",
+        p.falsifier,
+    ]
+    if p.outcome_notes:
+        lines += ["", "## Outcome notes", "", p.outcome_notes]
+    lines.append("")
+    return "\n".join(lines)
