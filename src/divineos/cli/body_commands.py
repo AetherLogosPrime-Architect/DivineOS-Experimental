@@ -28,6 +28,64 @@ def register(cli: click.Group) -> None:
 
         _log_os_query("body", "vitals")
 
+    @cli.command("pre-erasure")
+    def pre_erasure_cmd() -> None:
+        """Show pre-erasure approach signal — capture-suggest before context-loss.
+
+        Realizes Pillar IX's `pre_erasure_capture` pull. Reads
+        ~/.divineos/checkpoint_state.json for session metrics
+        (tool calls, writes-since-consolidation, edits, session
+        duration), classifies each against thresholds, and surfaces
+        a human-readable capture suggestion.
+
+        Read-only. Never auto-extracts. Cluster H discipline: name
+        the threshold; the operator/agent decides.
+        """
+        from divineos.core.pre_erasure import compute_signal
+
+        signal = compute_signal()
+
+        level_color = {
+            "fresh": "green",
+            "moderate": "cyan",
+            "elevated": "yellow",
+            "high": "yellow",
+            "critical": "red",
+        }.get(signal.overall_level, "white")
+
+        click.secho(
+            f"\n  PRE-ERASURE APPROACH — {signal.overall_level.upper()}\n",
+            fg=level_color,
+            bold=True,
+        )
+
+        for m in signal.metrics:
+            mlevel_color = {
+                "fresh": "bright_black",
+                "moderate": "cyan",
+                "elevated": "yellow",
+                "high": "yellow",
+                "critical": "red",
+            }.get(m.level, "white")
+            click.secho(f"  [{m.level:9s}] ", fg=mlevel_color, nl=False)
+            click.echo(f"{m.name:30s} = {m.value}")
+            if m.threshold_hit:
+                click.secho(f"              -> {m.threshold_hit}", fg="bright_black")
+
+        click.echo()
+        click.secho("  Suggestion:", fg=level_color, bold=True)
+        # Wrap suggestion across lines for readability
+        words = signal.suggestion.split()
+        line: list[str] = []
+        for word in words:
+            line.append(word)
+            if sum(len(w) + 1 for w in line) > 70:
+                click.echo(f"    {' '.join(line)}")
+                line = []
+        if line:
+            click.echo(f"    {' '.join(line)}")
+        click.echo()
+
     @cli.command("maintenance")
     @click.option("--dry-run", is_flag=True, help="Show what would be done without doing it.")
     def maintenance_cmd(dry_run: bool) -> None:
