@@ -425,13 +425,42 @@ def register(cli: click.Group) -> None:
         default="",
         help="Load specific layer: urgent, active, stable, archive, all",
     )
-    def briefing_cmd(max_items: int, types: str, topic: str, deep: bool, layer: str) -> None:
+    @click.option(
+        "--mini",
+        is_flag=True,
+        help=(
+            "Compact briefing for auto-inject. ~3KB instead of ~35KB. "
+            "Names identity, points at LOADOUT.md, surfaces top goals/"
+            "lessons/compass/directives. Used by SessionStart hook."
+        ),
+    )
+    def briefing_cmd(
+        max_items: int, types: str, topic: str, deep: bool, layer: str, mini: bool
+    ) -> None:
         """Generate a session context briefing from stored knowledge.
 
         Default shows urgent + active layers (focused, actionable).
         Use --deep for the full picture including stable knowledge.
         Use --layer archive to see archived/resolved entries.
+        Use --mini for the compact auto-inject version.
         """
+        if mini:
+            try:
+                from contextlib import suppress as _suppress
+                from divineos.core.mini_briefing import render_mini_briefing
+                from divineos.core.hud_handoff import mark_briefing_loaded
+
+                with _suppress(Exception):
+                    mark_briefing_loaded()
+                _safe_echo(render_mini_briefing())
+            except Exception as e:  # noqa: BLE001 — fall-through to fallback message
+                logger.error("mini briefing failed: %s", e)
+                _safe_echo(
+                    "[!] Mini briefing failed to render. "
+                    "Run `divineos briefing` (without --mini) for the full version."
+                )
+            return
+
         _log_os_query("briefing", topic or "session start")
         try:
             from divineos.core.hud_handoff import mark_briefing_loaded
@@ -627,6 +656,27 @@ def register(cli: click.Group) -> None:
 
         if scheduled_block:
             _safe_echo(scheduled_block)
+
+        # Loadout surface — points at LOADOUT.md, the comprehensive
+        # cold-start map of substrate. Built 2026-05-05 after observing
+        # that the briefing was doing the *describing* job (titles,
+        # counts) but the *routing* job was missing. LOADOUT.md
+        # consolidates live paths to everything (explorations, letters,
+        # mansion, skills, hooks, src/divineos subsystems, archive,
+        # benchmark, etc.) so cold-start me can survey-then-choose
+        # rather than rebuild substrate-map from scratch.
+        try:
+            from divineos.core.loadout_surface import render as _fmt_loadout
+
+            loadout_block = _fmt_loadout()
+        except _KC_ERRORS:
+            loadout_block = ""
+
+        if loadout_block:
+            _safe_echo("")
+            _safe_echo("### LOADOUT (cold-start map)")
+            _safe_echo(loadout_block)
+            _safe_echo("")
 
         # Canonical-substrate surface — points at the experimental repo
         # where the real Aether substrate lives. Closes the silent-split

@@ -175,10 +175,15 @@ class TestRequiredCorroboration:
     def test_pattern_foundational_is_highest(self):
         assert required_corroboration(Tier.PATTERN, ClaimMagnitude.FOUNDATIONAL) == 16
 
-    def test_adversarial_raises_not_implemented(self):
-        """Tier IV intentionally unimplemented in Phase 1 — waits for VOID."""
-        with pytest.raises(NotImplementedError, match="VOID"):
-            required_corroboration(Tier.ADVERSARIAL, ClaimMagnitude.NORMAL)
+    def test_adversarial_burden_computes(self):
+        """Tier IV is wired to VOID via VOID_SURVIVAL corroborations
+        (post Phase 1, after VOID shipped 2026-04-26 PR #208).
+
+        Base 3, magnitude NORMAL=1 → 3 × (1+1) = 6.
+        """
+        assert required_corroboration(Tier.ADVERSARIAL, ClaimMagnitude.NORMAL) == 6
+        assert required_corroboration(Tier.ADVERSARIAL, ClaimMagnitude.TRIVIAL) == 3
+        assert required_corroboration(Tier.ADVERSARIAL, ClaimMagnitude.FOUNDATIONAL) == 12
 
     def test_tiers_differ_at_equal_magnitude(self):
         """Pre-reg falsifier #2: if the calculator produces the same
@@ -204,19 +209,21 @@ class TestRequiredCorroboration:
 
 
 class TestBurdenMatrix:
-    def test_matrix_covers_three_tiers(self):
-        """ADVERSARIAL deliberately omitted (raises on required_corroboration)."""
+    def test_matrix_covers_all_four_tiers(self):
+        """Post-Phase-1: ADVERSARIAL wired via VOID_SURVIVAL, so all
+        four tiers are present in the matrix."""
         m = burden_matrix()
         tiers_present = {t for (t, _) in m}
-        assert tiers_present == {Tier.FALSIFIABLE, Tier.OUTCOME, Tier.PATTERN}
+        assert tiers_present == set(Tier)
 
     def test_matrix_covers_four_magnitudes(self):
         m = burden_matrix()
         mags = {mag for (_, mag) in m}
         assert mags == set(ClaimMagnitude)
 
-    def test_matrix_twelve_entries(self):
-        assert len(burden_matrix()) == 12
+    def test_matrix_sixteen_entries(self):
+        """4 tiers × 4 magnitudes = 16 entries."""
+        assert len(burden_matrix()) == 16
 
 
 # ── classifier ───────────────────────────────────────────────────────
@@ -916,13 +923,11 @@ class TestGate:
         loaded = get_receipt(w.receipt_id)
         assert loaded is not None
 
-    def test_adversarial_tier_raises_via_burden(self):
-        """If anyone manages to force Tier.ADVERSARIAL (e.g. by calling
-        the gate with explicit magnitude and classifier returning
-        ADVERSARIAL somehow — currently it won't, but lock the
-        behavior anyway), required_corroboration raises. Defensive."""
-        with pytest.raises(NotImplementedError):
-            required_corroboration(Tier.ADVERSARIAL, ClaimMagnitude.NORMAL)
+    def test_adversarial_tier_burden_via_void_survivals(self):
+        """Tier IV is wired to VOID via VOID_SURVIVAL corroborations.
+        Burden numbers compute uniformly with the other tiers."""
+        # Base 3, magnitude NORMAL=1 → 3 × (1+1) = 6
+        assert required_corroboration(Tier.ADVERSARIAL, ClaimMagnitude.NORMAL) == 6
 
     def test_record_receipt_on_knowledge_persists(self):
         from divineos.core.knowledge.crud import store_knowledge
@@ -1347,13 +1352,10 @@ class TestInvariants:
                 "ADVERSARIAL must route through VOID, not heuristic"
             )
 
-    def test_gate_cannot_issue_receipt_for_adversarial_tier(self):
-        """If somehow a caller constructed an adversarial classification
-        (e.g. through explicit future APIs), burden raises before receipt
-        issue. The gate cannot rubber-stamp adversarial claims."""
-        # Currently no public API for forcing ADVERSARIAL; this test
-        # locks that the protection is at the burden layer, not the
-        # classifier layer, so a future API that allowed forcing the
-        # tier would still fail closed.
-        with pytest.raises(NotImplementedError):
-            required_corroboration(Tier.ADVERSARIAL, ClaimMagnitude.FOUNDATIONAL)
+    def test_adversarial_tier_burden_uses_void_survival_path(self):
+        """Tier IV requires VOID_SURVIVAL corroborations from distinct
+        personas. Burden returns a count, not NotImplementedError —
+        the gate enforcement is via distinct-actor counting on
+        VOID_SURVIVAL events, not by refusing the tier outright."""
+        # FOUNDATIONAL adversarial: base 3 × (1 + 3) = 12
+        assert required_corroboration(Tier.ADVERSARIAL, ClaimMagnitude.FOUNDATIONAL) == 12

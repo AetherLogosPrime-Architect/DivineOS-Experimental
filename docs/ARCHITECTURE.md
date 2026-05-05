@@ -39,6 +39,7 @@ src/divineos/
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     audit_commands.py          external validation (Watchmen)
     bio_commands.py            Bio sheet — show, edit, history, write
+    loadout_commands.py        loadout — show, refresh (cold-start substrate map)
     dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
@@ -335,6 +336,8 @@ src/divineos/
     bio.py                     Bio sheet — the agent's own page.
     atomic_io.py               Atomic file I/O helpers for marker and state files.
     paths.py                   Centralized ``~/.divineos`` path construction.
+    loadout_surface.py         Loadout briefing surface — points every session at LOADOUT.md.
+    mini_briefing.py           Mini briefing — compact session-entry surface that fits under the
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -386,7 +389,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         5,451+ tests (real DB, minimal mocks)
+tests/                         5,513+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

@@ -71,6 +71,7 @@ class CorroborationKind(str, enum.Enum):
     COUNCIL = "council"
     EXTERNAL_AUDIT = "external_audit"
     OUTCOME_VERIFICATION = "outcome_verification"
+    VOID_SURVIVAL = "void_survival"
     ACCESS = "access"
     LEGACY = "legacy"
 
@@ -78,12 +79,21 @@ class CorroborationKind(str, enum.Enum):
 # Kinds that count as real evidence for distinct-actor counting.
 # ACCESS and LEGACY are tracked but excluded — that's the whole
 # point of the provenance split.
+#
+# VOID_SURVIVAL counts as evidential because surviving an adversarial
+# persona attack (no HIGH/CRITICAL findings emerged) is the spec's
+# definition of Tier IV ADVERSARIAL evidence. The integration pattern:
+# the void engine completes an attack; the caller records a
+# VOID_SURVIVAL corroboration if no HIGH/CRITICAL findings were
+# produced on the target claim. EMPIRICA's burden formula counts
+# these like other distinct-actor corroborations.
 _EVIDENTIAL_KINDS = frozenset(
     {
         CorroborationKind.USER,
         CorroborationKind.COUNCIL,
         CorroborationKind.EXTERNAL_AUDIT,
         CorroborationKind.OUTCOME_VERIFICATION,
+        CorroborationKind.VOID_SURVIVAL,
     }
 )
 
