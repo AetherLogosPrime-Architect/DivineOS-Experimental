@@ -395,6 +395,44 @@ def get_edges_batch(
         conn.close()
 
 
+# Hebbian co-occurrence strengthening (prereg-e36b567a6959, 2026-05-04).
+# When sleep recombination re-discovers an existing edge, bump its
+# confidence by this delta. Small enough that confidence accrues
+# slowly over many cycles; large enough that genuinely-recurring
+# structural connections measurably distinguish from one-time edges.
+HEBBIAN_STRENGTHEN_DELTA = 0.02
+
+
+def strengthen_edge(edge_id: str, delta: float = HEBBIAN_STRENGTHEN_DELTA) -> float | None:
+    """Bump an edge's confidence by ``delta``, capped at 1.0.
+
+    Hebbian update: connections that fire together (i.e. get re-discovered
+    by structural-similarity recombination) wire together more strongly.
+    Each re-discovery adds a small confidence increment, so over many
+    sleep cycles real structural connections accumulate to confidence=1.0
+    while one-time spurious matches stay at their initial value.
+
+    Returns the new confidence, or None if the edge was not found.
+    """
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            f"SELECT confidence FROM {_TABLE} WHERE edge_id = ?",  # nosec B608: table name from module constant
+            (edge_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        new_confidence = min(1.0, float(row[0] or 0.0) + delta)
+        conn.execute(
+            f"UPDATE {_TABLE} SET confidence = ? WHERE edge_id = ?",  # nosec B608: table name from module constant
+            (new_confidence, edge_id),
+        )
+        conn.commit()
+        return new_confidence
+    finally:
+        conn.close()
+
+
 def deactivate_edge(edge_id: str) -> bool:
     """Soft-delete an edge by setting status to INACTIVE."""
     conn = get_connection()

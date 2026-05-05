@@ -78,6 +78,9 @@ class DreamReport:
     connections_found: int = 0  # total pairs in similarity band (new + already-known)
     connections_new: int = 0  # pairs with no existing RELATED_TO edge — novel this sleep
     connections_already_known: int = 0  # pairs already in graph from prior sleeps
+    connections_strengthened: int = 0  # already-known edges whose confidence
+    # was bumped via Hebbian update (prereg-e36b567a6959). Subset of
+    # connections_already_known where the edge's confidence had room to grow.
     connection_details: list[dict[str, str]] = field(default_factory=list)
     # 2026-05-03: count of all qualifying new connections found this
     # sleep (may exceed the display cap). connection_details is the
@@ -210,11 +213,21 @@ class DreamReport:
                 )
             for conn in self.connection_details[:5]:
                 lines.append(f"    ~ {conn.get('summary', '?')}")
+            if self.connections_strengthened > 0:
+                lines.append(
+                    f"    Hebbian strengthening: {self.connections_strengthened} "
+                    "re-discovered edge(s) had confidence bumped"
+                )
         elif self.connections_already_known > 0:
             lines.append(
                 f"    No new connections — {self.connections_already_known} "
                 "already-known pairs skipped (similarity space may be saturating)"
             )
+            if self.connections_strengthened > 0:
+                lines.append(
+                    f"    Hebbian strengthening: {self.connections_strengthened} "
+                    "re-discovered edge(s) had confidence bumped"
+                )
         else:
             lines.append("    No connections found in similarity band")
 
@@ -570,6 +583,7 @@ def _phase_recombination(report: DreamReport) -> None:
     types = list(by_type.keys())
     connections: list[dict[str, str]] = []
     already_known_count = 0
+    strengthened_count = 0  # subset of already_known whose confidence grew via Hebbian
     total_band_pairs = 0  # pairs in similarity band regardless of novelty
 
     def _first_sentence(text: str, cap: int = 140) -> str:
@@ -633,6 +647,38 @@ def _phase_recombination(report: DreamReport) -> None:
                                 existing = None
                         if existing is not None:
                             already_known_count += 1
+                            # Hebbian update (prereg-e36b567a6959): bump
+                            # confidence on the re-discovered edge. Edges
+                            # proven by repeated structural similarity
+                            # accumulate evidence weight; one-time matches
+                            # stay at their initial confidence.
+                            try:
+                                from divineos.core.knowledge.edges import strengthen_edge
+
+                                edge_id_attr = getattr(existing, "edge_id", None)
+                                if edge_id_attr:
+                                    new_conf = strengthen_edge(edge_id_attr)
+                                    if new_conf is not None and new_conf > float(
+                                        getattr(existing, "confidence", 0.0) or 0.0
+                                    ):
+                                        strengthened_count += 1
+                            except Exception as exc:  # noqa: BLE001
+                                # Hebbian update is opportunistic; failures
+                                # must never block recombination itself.
+                                # But: log at debug so operational issues
+                                # surface without blocking the path.
+                                # Audit finding 2026-05-04 (auditor 4th
+                                # pass, lesson 37d0ea3b): silent exception
+                                # swallowing was the exact shape audit
+                                # r9-21 round-1 lessons named. Apply the
+                                # discipline here too — opportunistic
+                                # semantics PLUS visibility, not
+                                # opportunistic semantics ALONE.
+                                logger.debug(
+                                    "Hebbian strengthen failed for edge %s: %s",
+                                    edge_id_attr,
+                                    exc,
+                                )
                             continue
 
                         connections.append(
@@ -665,6 +711,7 @@ def _phase_recombination(report: DreamReport) -> None:
     #   HUD/dream-report callers that read this field.
     report.connections_new = len(connections)
     report.connections_already_known = already_known_count
+    report.connections_strengthened = strengthened_count
     report.connections_found = total_band_pairs
     # Sort connections by similarity desc so the display surfaces
     # the strongest pairs at the top. The FULL list is stored on the
