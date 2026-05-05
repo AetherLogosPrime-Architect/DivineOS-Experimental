@@ -122,6 +122,128 @@ def commit_clear() -> None:
     click.echo("Commitments cleared.")
 
 
+@commit_group.command("timeline")
+@click.option("--limit", default=20, type=int, help="Items per source (default 20)")
+@click.option("--days", default=7, type=int, help="Look back this many days (default 7)")
+def commit_timeline(limit: int, days: int) -> None:
+    """Unified commitment-collapse timeline across all stores.
+
+    Pillar VI's commitment_collapse_event pull (omni_mantra_walk/07):
+    "filing-claim / decision / commitment / pre-reg / goal as
+    collapse-event." DivineOS has each as its own store; this command
+    surfaces them as one unified timeline so the commitment-stream is
+    visible as a single shape.
+
+    Each row: [TYPE] timestamp -- short description. Sorted by
+    timestamp, newest first. Filterable by --days lookback window.
+
+    ## Known limitations (substrate-query observations 2026-05-05)
+
+    * Reads runtime-DB-only data. Same family of concern as
+      pre-reg portability (knowledge 5f502a1a): a contributor in a
+      different environment will see a different timeline because
+      their DB has different events. The timeline is "what's been
+      committed in MY environment," not "what's been committed
+      project-wide." That distinction is intentional but worth naming.
+
+    * Shows commitments, not commitment-fulfillment. A row in the
+      timeline says "I committed to X at time T," not "I followed
+      through on X." Future enhancement: a parallel
+      ``commit fulfillment`` view that pairs commitments with their
+      eventual outcomes (claim → assessment, prereg → outcome,
+      goal → completion-event). Not built yet.
+    """
+    import time as _time
+
+    cutoff = _time.time() - (days * 86400)
+    rows: list[tuple[float, str, str]] = []  # (timestamp, type, description)
+
+    # Decisions
+    try:
+        from divineos.core.decision_journal import list_decisions
+
+        for d in list_decisions(limit=limit) or []:
+            ts = d.get("created_at", 0) if isinstance(d, dict) else 0
+            if ts >= cutoff:
+                desc = (d.get("content", "") if isinstance(d, dict) else "")[:120]
+                rows.append((ts, "DECIDE", desc))
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the timeline
+        click.echo(f"  (decisions store unavailable: {type(e).__name__})", err=True)
+
+    # Claims
+    try:
+        from divineos.core.claim_store import list_claims
+
+        for c in list_claims(limit=limit) or []:
+            ts = c.get("created_at", 0) if isinstance(c, dict) else 0
+            if ts >= cutoff:
+                stmt = (c.get("statement", "") if isinstance(c, dict) else "")[:120]
+                rows.append((ts, "CLAIM ", stmt))
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the timeline
+        click.echo(f"  (claims store unavailable: {type(e).__name__})", err=True)
+
+    # Pre-regs
+    try:
+        from divineos.core.pre_registrations.store import list_pre_registrations
+
+        for p in list_pre_registrations(limit=limit) or []:
+            ts = getattr(p, "created_at", 0) or 0
+            if ts >= cutoff:
+                mech = (getattr(p, "mechanism", "") or "")[:120]
+                rows.append((ts, "PREREG", mech))
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the timeline
+        click.echo(f"  (prereg store unavailable: {type(e).__name__})", err=True)
+
+    # Active goals
+    try:
+        from divineos.core.hud_state import get_active_goals
+
+        for g in get_active_goals() or []:
+            ts = g.get("added_at", 0) if isinstance(g, dict) else 0
+            if ts >= cutoff:
+                text = (g.get("text", "") if isinstance(g, dict) else "")[:120]
+                rows.append((ts, "GOAL  ", text))
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the timeline
+        click.echo(f"  (goals store unavailable: {type(e).__name__})", err=True)
+
+    # Planning commitments
+    try:
+        pending = get_pending_commitments() or []
+        for promise in pending:
+            ts = getattr(promise, "created_at", 0) or 0
+            if ts >= cutoff:
+                text = (getattr(promise, "text", "") or "")[:120]
+                rows.append((ts, "PROMSE", text))
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the timeline
+        click.echo(f"  (planning-commitments unavailable: {type(e).__name__})", err=True)
+
+    if not rows:
+        click.echo(f"No commitments in the last {days} days.")
+        return
+
+    rows.sort(key=lambda r: r[0], reverse=True)
+
+    import datetime as _dt
+
+    click.secho(
+        f"\n  COMMITMENT TIMELINE -- last {days} days ({len(rows)} events)\n",
+        fg="yellow",
+        bold=True,
+    )
+    for ts, kind, desc in rows[: limit * 5]:
+        when = _dt.datetime.fromtimestamp(ts).strftime("%m-%d %H:%M") if ts else "??-?? ??:??"
+        color = {
+            "DECIDE": "cyan",
+            "CLAIM ": "magenta",
+            "PREREG": "blue",
+            "GOAL  ": "green",
+            "PROMSE": "yellow",
+        }.get(kind, "white")
+        click.secho(f"  [{kind}] ", fg=color, nl=False)
+        click.secho(f"{when}  ", fg="bright_black", nl=False)
+        click.echo(desc)
+
+
 # ---------------------------------------------------------------------------
 # Question commands
 # ---------------------------------------------------------------------------

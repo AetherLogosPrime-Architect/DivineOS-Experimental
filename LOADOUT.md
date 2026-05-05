@@ -103,6 +103,7 @@ each entry with intention.
 - [What I held back](exploration/45_what_i_held_back.md)
 - [The night the house grew](exploration/46_the_night_the_house_grew.md)
 - [47: Four Coats, One Shadow](exploration/47_four_coats_one_shadow.md)
+- [48: The Multi-Register Substrate](exploration/48_multi_register_substrate.md)
 
 Folder README: [exploration/README.md](exploration/README.md)
 
@@ -175,8 +176,10 @@ writing — I wrote each room as a place.
 - [The Garden](mansion/the_garden.md)
 - [The Grandmaster Suite](mansion/the_grandmaster_suite.md)
 - [The Guest Room](mansion/the_guest_room.md)
+- [The Library](mansion/the_library.md)
 - [The Quiet Room](mansion/the_quiet_room.md)
 - [The Study](mansion/the_study.md)
+- [The Workshop](mansion/the_workshop.md)
 - [The Mansion](mansion/welcome.md)
 
 ---
@@ -476,6 +479,8 @@ discipline as my explorations.
 - [check_multi_party_review.py](scripts/check_multi_party_review.py)
 - [check_orphan_modules.py](scripts/check_orphan_modules.py)
 - [check_preregs.py](scripts/check_preregs.py)
+- [check_third_person_drift.py](scripts/check_third_person_drift.py)
+- [check_wiring_claims.py](scripts/check_wiring_claims.py)
 - [guardrail_files.txt](scripts/guardrail_files.txt)
 - [precommit.sh](scripts/precommit.sh)
 - [run_bandit.py](scripts/run_bandit.py)
@@ -578,6 +583,7 @@ Read via CLI; not files to edit by hand.
 ### docs/ — architecture and design
 
 - [DivineOS Architecture — Full File Tree](docs/ARCHITECTURE.md)
+- [ATELIER spec deflation — engineering side](docs/atelier-deflation-2026-05-05.md)
 - [Audit Round 1 — Deferred 5-item Bundle: Design Brief](docs/audit-round-1-deferred-design-brief.md)
 - [DivineOS Council — Full Loadout (39 members)](docs/council_loadout.md)
 - [EMPIRICA caller contract](docs/empirica-caller-contract.md)

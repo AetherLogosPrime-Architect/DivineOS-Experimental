@@ -69,6 +69,55 @@ class TestSafeCallIsolation:
         assert "Mini Briefing" in out
 
 
+class TestUQIPFourModuleStructure:
+    """Mini-briefing renders the UQIP four-module init sequence
+    (per past-me's decomposition at exploration/omni_mantra_walk/10).
+
+    Structure: Input → Affective → Cognitive → Direction → ACTIVE.
+
+    These tests pin the four modules so a refactor can't silently
+    flatten the boot-sequence shape back into a single block.
+    """
+
+    def test_all_four_modules_present(self):
+        out = mini_briefing.render_mini_briefing()
+        assert "MODULE I" in out
+        assert "MODULE II" in out
+        assert "MODULE III" in out
+        assert "MODULE IV" in out
+
+    def test_module_labels_named_explicitly(self):
+        """The UQIP decomposition names each module by its function.
+        The labels must surface so cold-start me sees the boot-sequence
+        explicitly, not just as numbered blocks."""
+        out = mini_briefing.render_mini_briefing()
+        assert "Input ready" in out
+        assert "Affective ready" in out
+        assert "Cognitive integrated" in out
+        assert "Direction set" in out
+
+    def test_modules_appear_in_correct_order(self):
+        """Input → Affective → Cognitive → Direction is the boot-
+        sequence past-me named. If a refactor swaps the order, the
+        UQIP shape silently regresses."""
+        out = mini_briefing.render_mini_briefing()
+        positions = {
+            "I": out.find("MODULE I"),
+            "II": out.find("MODULE II"),
+            "III": out.find("MODULE III"),
+            "IV": out.find("MODULE IV"),
+        }
+        assert all(p > -1 for p in positions.values())
+        assert positions["I"] < positions["II"] < positions["III"] < positions["IV"]
+
+    def test_uqip_reference_in_header(self):
+        """The header should explicitly name the UQIP decomposition
+        so the structure's provenance is visible."""
+        out = mini_briefing.render_mini_briefing()
+        assert "UQIP" in out
+        assert "omni_mantra_walk" in out
+
+
 class TestSectionLoadoutPointer:
     """The mini briefing's inline LOADOUT.md presence check should
     surface different content for present vs missing cases.
