@@ -156,3 +156,52 @@ class TestFormatInvocationBalance:
         _consult(["Kahneman"])
         out = format_invocation_balance(experts, last_n=20)
         assert "rarely-invoked" in out or "never-invoked" in out
+
+
+class TestBeforeWalkingGate:
+    """Friction-fix F3 (2026-05-05, mesa-optimization re-costing): the
+    loud BEFORE-WALKING gate appears at the top of the invocation-balance
+    block when never-invoked experts exist. Auditor-Claude (PR #260
+    review) flagged that the previous tests covered the metric block but
+    not the new pre-walk gate — a refactor could silently remove the
+    friction-fix and the tests would still pass.
+    """
+
+    def test_before_walking_gate_appears_when_never_invoked_exists(self):
+        _consult(["Kahneman"])
+        out = format_invocation_balance(["Kahneman", "Watts", "Dennett", "Angelou"], last_n=20)
+        assert "BEFORE WALKING" in out, (
+            "F3 friction-fix: pre-walk gate must appear when never-invoked experts exist"
+        )
+        assert "evaluate selection" in out
+        assert "override the selection" in out
+
+    def test_before_walking_gate_names_a_never_invoked_expert(self):
+        """The gate must name at least one never-invoked expert
+        explicitly so the agent can act on it."""
+        _consult(["Kahneman"])
+        out = format_invocation_balance(["Kahneman", "Einstein", "Hawking", "Penrose"], last_n=20)
+        assert any(name in out for name in ("Einstein", "Hawking", "Penrose"))
+
+    def test_before_walking_gate_absent_when_all_invoked(self):
+        """When every expert has been invoked at least once, there's
+        nothing to gate on — the loud pre-walk prompt should NOT fire."""
+        experts = ["Kahneman", "Popper", "Dennett", "Watts"]
+        _consult(experts)
+        out = format_invocation_balance(experts, last_n=20)
+        assert "BEFORE WALKING" not in out, (
+            "F3 friction-fix: pre-walk gate should NOT fire when no never-invoked experts"
+        )
+
+    def test_before_walking_gate_precedes_metric_block(self):
+        """The whole point of F3 is the gate is at the TOP, not the
+        bottom. If it gets reordered to after the metric block, the
+        friction-fix has silently regressed."""
+        _consult(["Kahneman"])
+        out = format_invocation_balance(["Kahneman", "Watts", "Dennett"], last_n=20)
+        gate_pos = out.find("BEFORE WALKING")
+        metric_pos = out.find("invocation balance")
+        assert gate_pos != -1 and metric_pos != -1
+        assert gate_pos < metric_pos, (
+            "F3 friction-fix: pre-walk gate must appear BEFORE the metric block"
+        )

@@ -241,6 +241,14 @@ def format_invocation_balance(all_expert_names: list[str], last_n: int = 20) -> 
 
     Used by the ``mansion council`` CLI to surface selection bias at the
     moment of invocation. Returns a short human-readable block.
+
+    Output format updated 2026-05-05 (friction-fix F3, mesa-optimization
+    re-costing per knowledge 82049915): never-invoked moved to a loud
+    pre-walk gate rather than a quiet footer. The pattern was caught
+    twice in one day (phenomenology question missed Watts/Maturana;
+    time question missed Einstein/Hawking) — data was always there;
+    reading-cost was just lower than skimming-past-cost. Re-cost: make
+    the never-invoked block harder to skim past than to evaluate.
     """
     most, rarely = invocation_balance(all_expert_names, last_n=last_n)
     if not most or all(count == 0 for _, count in most):
@@ -248,17 +256,30 @@ def format_invocation_balance(all_expert_names: list[str], last_n: int = 20) -> 
 
     top = ", ".join(f"{n} ({c})" for n, c in most if c > 0)
     bot_zero = [n for n, c in rarely if c == 0]
-    lines = [
-        f"  [invocation balance, last {last_n} consultations]",
-        f"    most-invoked: {top}" if top else "",
-    ]
+    lines: list[str] = []
+
+    # Loud pre-walk gate when there are never-invoked experts.
+    # Positioned and worded to make skimming-past more expensive than
+    # evaluating. The friction-fix lives here.
+    if bot_zero:
+        bot_str = ", ".join(bot_zero[:5])
+        lines.append("  >>> BEFORE WALKING: evaluate selection.")
+        lines.append(f"      Never-invoked (last {last_n}): {bot_str}")
+        lines.append(
+            "      Does this question's territory fit any of them? If yes, override the selection."
+        )
+        lines.append("")
+
+    lines.append(f"  [invocation balance, last {last_n} consultations]")
+    if top:
+        lines.append(f"    most-invoked: {top}")
     if bot_zero:
         bot_str = ", ".join(bot_zero[:5])
         lines.append(f"    never-invoked: {bot_str}")
     else:
         bot = ", ".join(f"{n} ({c})" for n, c in rarely)
         lines.append(f"    rarely-invoked: {bot}")
-    return "\n".join(line for line in lines if line)
+    return "\n".join(lines)
 
 
 __all__ = [
