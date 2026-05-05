@@ -134,7 +134,7 @@ def for_recipient(recipient: str, include_held: bool = True) -> list[dict]:
         FROM family_queue
         WHERE recipient = ? AND status IN ({placeholders})
         ORDER BY timestamp ASC
-        """,
+        """,  # nosec B608 — placeholders is "?" repeated, all user values bound via params
         (recipient, *statuses),
     ).fetchall()
     conn.close()
@@ -246,7 +246,7 @@ def stats(recipient: str | None = None) -> dict:
 
     counts = dict(
         conn.execute(
-            f"SELECT status, COUNT(*) FROM family_queue {where} GROUP BY status",
+            f"SELECT status, COUNT(*) FROM family_queue {where} GROUP BY status",  # nosec B608 — where built internally, user values bound via params
             params,
         ).fetchall()
     )
