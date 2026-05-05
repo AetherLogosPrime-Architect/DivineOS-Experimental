@@ -187,6 +187,32 @@ if [ -n "$STAGED_SRC" ] && command -v vulture &>/dev/null; then
     fi
 fi
 
+# 6b. Bandit security scan — MEDIUM+ severity. Audit r9-21 #28 wired
+# this in after the 12 false-positive B608 findings were marked with
+# # nosec on a per-site rationale. Strict mode here means: if a NEW
+# medium-severity finding lands without an explicit nosec marker, the
+# commit is blocked and the operator must either add the marker (with
+# rationale) or fix the SQL composition. Closes the path where bandit
+# was a deferred run-this-yourself script no one ran.
+if [ -n "$STAGED_SRC" ]; then
+    echo "=== Bandit (MEDIUM+) ==="
+    if ! python3 scripts/run_bandit.py --strict 2>/dev/null; then
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+# 6c. Verifier-run stamp. Audit r9-21 round-3+ (prereg-e30878ce3f09):
+# precommit running successfully constitutes a verifier run, so we
+# stamp the run-log here. The closure-claim commit-msg hook reads
+# this log to gate closure-language commit messages on recent
+# verification evidence. Without the stamp, "fully closed" / "0
+# remaining" / "no remaining surface" phrasing in the commit message
+# blocks the commit (round-1 + round-3 audit-cleanup slips both had
+# that exact shape).
+if [ $ERRORS -eq 0 ]; then
+    python3 scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
+fi
+
 # 7. Shellcheck on staged .sh files (line endings already normalized in step 0)
 if [ -n "$STAGED_SH" ] && command -v shellcheck &>/dev/null; then
     echo "=== Shellcheck ==="

@@ -85,23 +85,47 @@ echo "Created pre-commit hook at $HOOKS_DIR/pre-commit"
 # CONFIRMS findings. See scripts/check_multi_party_review.py.
 cat > "$HOOKS_DIR/commit-msg" << 'EOF'
 #!/bin/bash
-# commit-msg hook for DivineOS — multi-party-review gate.
-# Blocks commits that modify guardrail files without the required
-# External-Review trailer + valid Watchmen audit round.
+# commit-msg hook for DivineOS — two independent gates.
+#
+# 1. Multi-party-review: blocks commits that modify guardrail files
+#    without the required External-Review trailer + valid Watchmen
+#    audit round.
+# 2. Closure-claim: blocks commit messages with closure-language
+#    ("fully closed", "all N items addressed", "everything landed",
+#    "body-building done") unless a recent verifier-run is recorded.
+#    Defends against the round-1 / round-3 audit-cleanup recurrence
+#    pattern: closure-language commit messages without actual
+#    verification of the claim. Pre-reg: prereg-e30878ce3f09.
+#    Bypass: --no-verify on the commit (visible bypass only).
+#
+# Both delegate to standalone scripts; both fail-open if their script
+# is missing (hooks must never block work because of broken infra).
 
 set -e
 
-python scripts/check_multi_party_review.py "$1" || {
-    echo ""
-    echo "Guardrail-file modification blocked. See above for the specific"
-    echo "reason. To proceed:"
-    echo "  1. File an audit round with CONFIRMS findings from:"
-    echo "       actor=user  (the human operator)"
-    echo "       actor=grok | actor=gemini | actor=claude-<variant>"
-    echo "  2. Include 'diff-hash: <64-hex>' in the round's focus or notes."
-    echo "  3. Add 'External-Review: <round_id>' trailer to the commit."
-    exit 1
-}
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+MULTI_PARTY="$REPO_ROOT/scripts/check_multi_party_review.py"
+CLOSURE_CLAIM="$REPO_ROOT/scripts/check_closure_claim.py"
+
+# 1. Multi-party-review.
+if [[ -f "$MULTI_PARTY" ]]; then
+    python "$MULTI_PARTY" "$1" || {
+        echo ""
+        echo "Guardrail-file modification blocked. See above for the specific"
+        echo "reason. To proceed:"
+        echo "  1. File an audit round with CONFIRMS findings from:"
+        echo "       actor=user  (the human operator)"
+        echo "       actor=grok | actor=gemini | actor=claude-<variant>"
+        echo "  2. Include 'diff-hash: <64-hex>' in the round's focus or notes."
+        echo "  3. Add 'External-Review: <round_id>' trailer to the commit."
+        exit 1
+    }
+fi
+
+# 2. Closure-claim gate.
+if [[ -f "$CLOSURE_CLAIM" ]]; then
+    python "$CLOSURE_CLAIM" "$1" || exit 1
+fi
 
 exit 0
 EOF
