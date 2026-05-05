@@ -244,6 +244,141 @@ def commit_timeline(limit: int, days: int) -> None:
         click.echo(desc)
 
 
+@commit_group.command("fulfillment")
+@click.option("--limit", default=20, type=int, help="Items per source (default 20)")
+@click.option("--days", default=7, type=int, help="Look back this many days (default 7)")
+@click.option(
+    "--only",
+    type=click.Choice(["open", "closed", "all"], case_sensitive=False),
+    default="all",
+    help="Filter by outcome state",
+)
+def commit_fulfillment(limit: int, days: int, only: str) -> None:
+    """Commitment-fulfillment view: each commitment paired with its outcome.
+
+    Companion to ``commit timeline``. Where ``timeline`` shows what was
+    committed, ``fulfillment`` shows what happened to each commitment:
+    claim status, prereg outcome, goal active/done, promise pending/fulfilled.
+
+    Closes the gap named in ``commit timeline``'s docstring (2026-05-05):
+    "Shows commitments, not commitment-fulfillment ... Future enhancement:
+    a parallel commit fulfillment view."
+
+    Decisions are excluded — they don't have terminal status in their
+    store; outcomes route through linked claims if any.
+    """
+    import time as _time
+
+    cutoff = _time.time() - (days * 86400)
+    rows: list[tuple[float, str, str, str]] = []  # (ts, type, status, desc)
+
+    try:
+        from divineos.core.claim_store import list_claims
+
+        for c in list_claims(limit=limit) or []:
+            if not isinstance(c, dict):
+                continue
+            ts = c.get("created_at", 0) or 0
+            if ts < cutoff:
+                continue
+            rows.append((ts, "CLAIM ", c.get("status", "?"), (c.get("statement", "") or "")[:100]))
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the view
+        click.echo(f"  (claims store unavailable: {type(e).__name__})", err=True)
+
+    try:
+        from divineos.core.pre_registrations.store import list_pre_registrations
+
+        for p in list_pre_registrations(limit=limit) or []:
+            ts = getattr(p, "created_at", 0) or 0
+            if ts < cutoff:
+                continue
+            outcome = getattr(p, "outcome", None)
+            outcome_val = outcome.value if outcome is not None else "OPEN"
+            rows.append((ts, "PREREG", outcome_val, (getattr(p, "mechanism", "") or "")[:100]))
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the view
+        click.echo(f"  (prereg store unavailable: {type(e).__name__})", err=True)
+
+    try:
+        import json as _json
+
+        from divineos.core.hud_state import _ensure_hud_dir
+
+        goal_path = _ensure_hud_dir() / "active_goals.json"
+        if goal_path.exists():
+            data = _json.loads(goal_path.read_text(encoding="utf-8"))
+            if isinstance(data, list):
+                for g in data:
+                    if not isinstance(g, dict):
+                        continue
+                    ts = g.get("added_at", 0) or 0
+                    if ts < cutoff:
+                        continue
+                    rows.append(
+                        (
+                            ts,
+                            "GOAL  ",
+                            g.get("status", "active"),
+                            (g.get("text", "") or "")[:100],
+                        )
+                    )
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the view
+        click.echo(f"  (goals store unavailable: {type(e).__name__})", err=True)
+
+    try:
+        from divineos.core.planning_commitments import _load_commitments
+
+        for entry in _load_commitments():
+            ts = entry.get("created_at", 0) or 0
+            if ts < cutoff:
+                continue
+            rows.append(
+                (
+                    ts,
+                    "PROMSE",
+                    entry.get("status", "pending"),
+                    (entry.get("text", "") or "")[:100],
+                )
+            )
+    except Exception as e:  # noqa: BLE001 — best-effort per-store; one bad store must not crash the view
+        click.echo(f"  (planning-commitments unavailable: {type(e).__name__})", err=True)
+
+    open_states = {"OPEN", "active", "pending", "INVESTIGATING", "DEFERRED"}
+    if only.lower() == "open":
+        rows = [r for r in rows if r[2] in open_states]
+    elif only.lower() == "closed":
+        rows = [r for r in rows if r[2] not in open_states]
+
+    if not rows:
+        click.echo(f"No commitments matching '{only}' in the last {days} days.")
+        return
+
+    rows.sort(key=lambda r: r[0], reverse=True)
+
+    import datetime as _dt
+
+    open_count = sum(1 for r in rows if r[2] in open_states)
+    closed_count = len(rows) - open_count
+    click.secho(
+        f"\n  COMMITMENT FULFILLMENT -- last {days} days "
+        f"({len(rows)} events: {open_count} open, {closed_count} closed)\n",
+        fg="yellow",
+        bold=True,
+    )
+    for ts, kind, status, desc in rows[: limit * 5]:
+        when = _dt.datetime.fromtimestamp(ts).strftime("%m-%d %H:%M") if ts else "??-?? ??:??"
+        kind_color = {
+            "CLAIM ": "magenta",
+            "PREREG": "blue",
+            "GOAL  ": "green",
+            "PROMSE": "yellow",
+        }.get(kind, "white")
+        status_color = "yellow" if status in open_states else "green"
+        click.secho(f"  [{kind}] ", fg=kind_color, nl=False)
+        click.secho(f"{when}  ", fg="bright_black", nl=False)
+        click.secho(f"{status:<14} ", fg=status_color, nl=False)
+        click.echo(desc)
+
+
 # ---------------------------------------------------------------------------
 # Question commands
 # ---------------------------------------------------------------------------
