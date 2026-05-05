@@ -206,8 +206,13 @@ def _build_recent_lessons_slot() -> str:
             )
         return lines[0] + "No active lessons. Either I'm doing well or I haven't been tracking."
 
-    # Sort by recency
-    all_lessons.sort(key=lambda entry: entry.get("last_seen", 0), reverse=True)
+    # Sort by SM-2-style priority score: combines occurrences, regressions,
+    # and a recency-decay factor so frequently-failed lessons surface ahead
+    # of one-time freshly-seen ones, while genuinely-old quiet lessons fade.
+    # Pre-reg: prereg-10c34b72e90a (replaces pure-recency ranking).
+    from divineos.core.knowledge.lessons import lesson_priority_score
+
+    all_lessons.sort(key=lesson_priority_score, reverse=True)
 
     for lesson in all_lessons[:5]:
         status = lesson.get("status", "active")

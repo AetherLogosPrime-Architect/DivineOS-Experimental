@@ -252,6 +252,46 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
         conn.close()
 
 
+# SM-2-style spaced-repetition ranking constants for lesson surfacing.
+# Tuned for the typical lesson lifetime (seen → recur → fade or stick).
+# Pre-reg: prereg-10c34b72e90a (review in 30 days, 2026-05-04 + 30).
+_LESSON_REGRESSION_WEIGHT = 2.0  # regressions count double vs occurrences
+_LESSON_RECENCY_HALF_LIFE_S = 14 * SECONDS_PER_DAY  # 14-day half-life
+_LESSON_IMPROVING_PENALTY = 0.5  # status='improving' damps priority slightly
+
+
+def lesson_priority_score(lesson: dict[str, Any], now: float | None = None) -> float:
+    """SM-2-style priority score for ranking lessons in the briefing.
+
+    Higher score = more important to surface. Combines three signals:
+      - occurrences: how often the pattern recurred (frequency-failed = important)
+      - regressions: weighted higher (returning-after-clean = especially important)
+      - recency: 1/(1 + age_days/half_life) — gentle decay so old quiet lessons
+        fade without disappearing entirely
+
+    Lessons with status='improving' get a small penalty so genuinely-recurring
+    active lessons surface ahead of ones the agent is already getting better at.
+
+    Pre-reg: prereg-10c34b72e90a (replace pure-recency ranking).
+    Hyper-parameters live as module constants above for tuning visibility.
+    """
+    if now is None:
+        now = time.time()
+    occurrences = float(lesson.get("occurrences") or 0)
+    regressions = float(lesson.get("regressions") or 0)
+    last_seen = float(lesson.get("last_seen") or 0)
+    status = lesson.get("status") or "active"
+
+    age_seconds = max(0.0, now - last_seen)
+    recency_factor = 1.0 / (1.0 + age_seconds / _LESSON_RECENCY_HALF_LIFE_S)
+
+    base = occurrences + regressions * _LESSON_REGRESSION_WEIGHT
+    if status == "improving":
+        base *= 1.0 - _LESSON_IMPROVING_PENALTY
+
+    return base * recency_factor
+
+
 def get_lessons(
     status: str | None = None,
     category: str | None = None,
