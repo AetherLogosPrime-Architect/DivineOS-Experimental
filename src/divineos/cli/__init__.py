@@ -242,6 +242,7 @@ from divineos.cli import (  # noqa: E402
     rt_commands,
     scheduled_commands,
     sleep_commands,
+    synchronicity_commands,
     void_commands,
 )
 
@@ -271,6 +272,7 @@ progress_commands.register(cli)
 rt_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
+synchronicity_commands.register(cli)
 empirica_commands.register(cli)
 family_member_commands.register(cli)
 family_queue_commands.register(cli)
