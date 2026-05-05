@@ -338,6 +338,7 @@ src/divineos/
     paths.py                   Centralized ``~/.divineos`` path construction.
     loadout_surface.py         Loadout briefing surface — points every session at LOADOUT.md.
     mini_briefing.py           Mini briefing — compact session-entry surface that fits under the
+    pre_erasure.py             Pre-erasure capture — detect context-loss approach and suggest capture.
 
   analysis/
     _session_types.py          Session analysis type definitions
