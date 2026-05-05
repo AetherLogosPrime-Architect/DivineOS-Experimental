@@ -201,6 +201,19 @@ if [ -n "$STAGED_SRC" ]; then
     fi
 fi
 
+# 6d. Test-CLI linkage check. Audit finding 2026-05-05 (PR #264):
+# test file shipped with complete suite for `divineos commitment fulfillment`
+# but the actual subcommand never registered with the CLI. Each test failed
+# at runtime with "Error: No such command 'fulfillment'". This catches
+# the failure mode prospectively — if a staged test invokes a command, the
+# command must register on the CLI.
+if [ -n "$STAGED_PY" ] && echo "$STAGED_PY" | grep -q "^tests/"; then
+    echo "=== Test-CLI Linkage ==="
+    if ! python3 scripts/check_test_cli_linkage.py; then
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
 # 6c. Verifier-run stamp. Audit r9-21 round-3+ (prereg-e30878ce3f09):
 # precommit running successfully constitutes a verifier run, so we
 # stamp the run-log here. The closure-claim commit-msg hook reads
