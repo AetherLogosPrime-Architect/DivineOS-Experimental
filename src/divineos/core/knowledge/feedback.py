@@ -248,10 +248,27 @@ def health_check() -> dict[str, Any]:
             if new_conf is not None:
                 temporal_decay_count += 1
 
-    # 5. High contradiction count — entries contradicted 3+ times are suspect
+    # 5. High contradiction count — entries contradicted past their
+    # evidence-weighted threshold are suspect. Stickiness gradient
+    # (prereg-ea92c8aeb142): a RAW entry flips on 3 contradictions, but
+    # a CONFIRMED entry with corrob=10 needs ~7 to cross threshold.
+    # Threshold = 3 + ceil(evidence_weight * 2) so well-established
+    # entries require proportionally more contradicting evidence.
+    import math as _math
+
     contradiction_flagged = 0
     for entry in all_entries:
-        if entry.get("contradiction_count", 0) >= 3 and entry["confidence"] > CONFIDENCE_LOW:
+        contradictions = entry.get("contradiction_count", 0) or 0
+        if contradictions == 0 or entry["confidence"] <= CONFIDENCE_LOW:
+            continue
+        corroboration = float(entry.get("corroboration_count") or 0)
+        maturity = (entry.get("maturity") or "RAW").upper()
+        maturity_bonus = {"RAW": 0.0, "HYPOTHESIS": 0.5, "TESTED": 1.0, "CONFIRMED": 2.0}.get(
+            maturity, 0.0
+        )
+        evidence = corroboration * 0.1 + maturity_bonus
+        threshold = 3 + _math.ceil(evidence * 2.0)
+        if contradictions >= threshold:
             _adjust_confidence(entry["knowledge_id"], -DECAY_AGGRESSIVE, floor=DECAY_FLOOR)
             contradiction_flagged += 1
 
