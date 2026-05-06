@@ -112,11 +112,12 @@ try:
 except Exception:
     pass
 
-# Run all three detectors
+# Run all four detectors
 findings_log = {
     'register': [],
     'spiral': [],
     'substitution': [],
+    'distancing': [],
 }
 
 try:
@@ -150,6 +151,20 @@ try:
         findings_log['substitution'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
             for f in sub_findings
+        ]
+except Exception:
+    pass
+
+# Distancing-grammar detector: third-person about operator/self while in
+# active dialogue. Recurring failure-mode named by the operator 2026-05-05.
+# F1 CLI script existed but was never wired; this call is the structural fix.
+try:
+    from divineos.core.operating_loop.distancing_detector import detect_distancing
+    dist_findings = detect_distancing(last_assistant_text)
+    if dist_findings:
+        findings_log['distancing'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in dist_findings
         ]
 except Exception:
     pass
