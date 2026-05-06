@@ -83,7 +83,22 @@ def bio_edit(author: str) -> None:
         tmp_path = tf.name
 
     try:
-        subprocess.run([editor, tmp_path], check=True)
+        try:
+            subprocess.run([editor, tmp_path], check=True)
+        except FileNotFoundError:
+            click.echo(
+                f"[!] Editor '{editor}' not found on PATH.\n"
+                "    Set $EDITOR or $VISUAL to a real editor (e.g. 'code', 'notepad', 'vim').\n"
+                "    Example: EDITOR=notepad divineos bio edit",
+                err=True,
+            )
+            sys.exit(1)
+        except subprocess.CalledProcessError as e:
+            click.echo(
+                f"[!] Editor '{editor}' exited with code {e.returncode}. Bio not written.",
+                err=True,
+            )
+            sys.exit(1)
         with open(tmp_path, encoding="utf-8") as f:
             new_content = f.read()
     finally:
