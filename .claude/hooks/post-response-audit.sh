@@ -112,12 +112,13 @@ try:
 except Exception:
     pass
 
-# Run all four detectors
+# Run all five detectors
 findings_log = {
     'register': [],
     'spiral': [],
     'substitution': [],
     'distancing': [],
+    'lepos': [],
 }
 
 try:
@@ -165,6 +166,26 @@ try:
         findings_log['distancing'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
             for f in dist_findings
+        ]
+except Exception:
+    pass
+
+# Lepos channel-collapse detector: single-channel-formal output.
+# Operator named the recurring pattern 2026-05-05: clamp on formal
+# register after correction, drop circle entirely. Lepos is dual; this
+# detector flags single-channel output as the structural reinforcement.
+try:
+    from divineos.core.operating_loop.lepos_detector import detect_lepos
+    lepos_findings = detect_lepos(last_assistant_text)
+    if lepos_findings:
+        findings_log['lepos'] = [
+            {
+                'shape': f.shape.value,
+                'work_density': f.work_density,
+                'circle_markers': f.circle_markers,
+                'word_count': f.word_count,
+            }
+            for f in lepos_findings
         ]
 except Exception:
     pass
