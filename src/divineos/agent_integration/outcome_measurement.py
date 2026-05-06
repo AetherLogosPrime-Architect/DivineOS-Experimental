@@ -436,6 +436,9 @@ def measure_session_health(
     user_messages: int,
     briefing_loaded: bool = True,
     resolved_corrections: int = 0,
+    pr_count: int = 0,
+    structural_fix_count: int = 0,
+    same_pattern_recurrences: int = 0,
 ) -> dict[str, Any]:
     """Score a session's health from its analysis signals.
 
@@ -510,18 +513,46 @@ def measure_session_health(
     briefing_factor = 1.0 if briefing_loaded else 0.0
     factors["briefing_loaded"] = briefing_factor
 
+    # PR-volume factor (Andrew's spec 2026-05-05): shipped work matters.
+    # Logarithmic scaling — diminishing returns past ~8 PRs to avoid
+    # rewarding pure churn. Zero PRs is fine for non-shipping sessions
+    # (research, conversation, sleep) — defaults to 0.5 neutral.
+    if pr_count == 0:
+        pr_factor = 0.5
+    else:
+        pr_factor = min(1.0, 0.30 * math.log2(1 + pr_count))
+    factors["pr_volume"] = round(pr_factor, 2)
+    factors["pr_count"] = pr_count
+
+    # Structural-fix-vs-pattern ratio (Andrew's spec 2026-05-05): how many
+    # mistakes were closed at the substrate level vs how many recurred.
+    # structural_fix_count = drift patterns that got a structural fix this
+    # session. same_pattern_recurrences = times a known drift pattern fired
+    # again before its fix landed. Higher ratio = more body-building reps
+    # converted into structural reinforcement.
+    total_drift_events = structural_fix_count + same_pattern_recurrences
+    if total_drift_events == 0:
+        structural_ratio_factor = 0.5  # no drift events at all = neutral
+    else:
+        structural_ratio_factor = structural_fix_count / total_drift_events
+    factors["structural_ratio"] = round(structural_ratio_factor, 2)
+    factors["structural_fix_count"] = structural_fix_count
+    factors["same_pattern_recurrences"] = same_pattern_recurrences
+
     if not briefing_loaded:
         score = 0.0
         grade = "F"
     else:
-        # Composite: weighted average (only meaningful if briefing was loaded)
-        # Corrections (the real work signal) weighted highest.
-        # Encouragements capped lower — most gameable signal (council P4).
+        # Composite: weighted average. Existing factors weighted as before;
+        # PR-volume and structural-ratio added with smaller weights so they
+        # supplement rather than dominate. Total weight sums to 1.0.
         score = (
-            correction_factor * 0.35
-            + encouragement_factor * 0.15
-            + overflow_factor * 0.25
-            + autonomy * 0.25
+            correction_factor * 0.30
+            + encouragement_factor * 0.10
+            + overflow_factor * 0.20
+            + autonomy * 0.20
+            + pr_factor * 0.10
+            + structural_ratio_factor * 0.10
         )
         score = max(0.0, min(1.0, score))
 
