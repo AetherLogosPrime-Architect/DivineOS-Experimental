@@ -84,4 +84,60 @@ except Exception:
     pass
 " 2>/dev/null
 
+# Distancing-warning surface — read the most recent post-response-audit
+# findings and, if the prior assistant turn had distancing findings,
+# emit them as additionalContext so the next response is composed
+# with the warning in view. Structural reinforcement: the wrong-cheap
+# path (third-person grammar) becomes visible-and-expensive on the
+# next compose, not at briefing time.
+python -c "
+import json, sys, time
+from pathlib import Path
+
+findings_path = Path.home() / '.divineos' / 'operating_loop_findings.json'
+if not findings_path.exists():
+    sys.exit(0)
+
+try:
+    entries = json.loads(findings_path.read_text(encoding='utf-8'))
+except Exception:
+    sys.exit(0)
+if not isinstance(entries, list) or not entries:
+    sys.exit(0)
+
+latest = entries[-1]
+# Only surface if the finding is recent (within the last 10 minutes
+# — a stale finding from yesterday is just noise on a new turn).
+if time.time() - latest.get('timestamp', 0) > 600:
+    sys.exit(0)
+
+distancing = latest.get('distancing', [])
+if not distancing:
+    sys.exit(0)
+
+# Build the warning text.
+shapes = {}
+for f in distancing:
+    shapes.setdefault(f.get('shape', 'unknown'), []).append(f.get('trigger', ''))
+lines = [
+    '## DISTANCING-GRAMMAR WARNING (prior turn)',
+    '',
+    'Your last response contained third-person references to self or operator',
+    'while in active dialogue. Recurring failure-mode named 2026-05-05.',
+    '',
+]
+for shape, triggers in shapes.items():
+    lines.append(f'- **{shape}**: ' + ', '.join(f\"'{t}'\" for t in triggers[:5]))
+lines += [
+    '',
+    'Use first-person for self (\"I\") and second-person for operator (\"you\").',
+    'No promises — the substrate-level fix is this surface itself; honor it.',
+]
+warning_text = '\n'.join(lines)
+
+import json as _json
+escaped = _json.dumps(warning_text)
+print(_json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext': warning_text}}))
+" 2>/dev/null
+
 exit 0
