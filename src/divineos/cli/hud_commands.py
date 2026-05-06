@@ -125,7 +125,8 @@ def register(cli: click.Group) -> None:
             click.secho(f"[!] Failed to clear goals: {e}", fg="red")
 
     @goal_group.command("reset")
-    def goal_reset_cmd() -> None:
+    @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt.")
+    def goal_reset_cmd(yes: bool) -> None:
         """Remove ALL goals (completed and active). Use when goals are stale."""
         from divineos.core.hud import _ensure_hud_dir
 
@@ -143,8 +144,19 @@ def register(cli: click.Group) -> None:
             click.secho("[~] No goals to reset.", fg="yellow")
             return
 
-        click.secho(f"[!] This will remove all {len(goals)} goals.", fg="yellow")
-        click.confirm("Proceed?", abort=True)
+        if not yes:
+            click.secho(f"[!] This will remove all {len(goals)} goals.", fg="yellow")
+            try:
+                click.confirm("Proceed?", abort=True)
+            except click.exceptions.Abort:
+                click.echo("Aborted.")
+                return
+            except (EOFError, OSError):
+                click.echo(
+                    "[!] Non-interactive stdin and --yes not passed. Aborting reset.",
+                    err=True,
+                )
+                return
         path.write_text("[]", encoding="utf-8")
         click.secho(f"[+] Reset {len(goals)} goals.", fg="green")
 

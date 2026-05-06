@@ -116,10 +116,33 @@ def commit_review() -> None:
 
 
 @commit_group.command("clear")
-def commit_clear() -> None:
-    """Clear all commitments (after review)."""
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt.")
+def commit_clear(yes: bool) -> None:
+    """Clear all commitments (after review).
+
+    Destructive: removes the entire planning_commitments store. Requires
+    confirmation unless ``--yes`` is passed (e.g. for scripted use).
+    """
+    pending = get_pending_commitments() or []
+    count = len(pending)
+    if count == 0:
+        click.echo("No commitments to clear.")
+        return
+    if not yes:
+        click.secho(f"[!] This will clear {count} commitment(s).", fg="yellow")
+        try:
+            click.confirm("Proceed?", abort=True)
+        except click.exceptions.Abort:
+            click.echo("Aborted.")
+            return
+        except (EOFError, OSError):
+            click.echo(
+                "[!] Non-interactive stdin and --yes not passed. Aborting clear.",
+                err=True,
+            )
+            return
     clear_commitments()
-    click.echo("Commitments cleared.")
+    click.echo(f"Commitments cleared ({count} removed).")
 
 
 @commit_group.command("timeline")
