@@ -346,6 +346,7 @@ src/divineos/
     loadout_surface.py         Loadout briefing surface — points every session at LOADOUT.md.
     mini_briefing.py           Mini briefing — compact session-entry surface that fits under the
     pre_erasure.py             Pre-erasure capture — detect context-loss approach and suggest capture.
+    self_grade.py              Self-grade + divergence — calibration test for session-quality honesty.
 
   analysis/
     _session_types.py          Session analysis type definitions
