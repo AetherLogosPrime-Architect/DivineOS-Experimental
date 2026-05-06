@@ -112,31 +112,55 @@ if time.time() - latest.get('timestamp', 0) > 600:
     sys.exit(0)
 
 distancing = latest.get('distancing', [])
-if not distancing:
+lepos = latest.get('lepos', [])
+if not distancing and not lepos:
     sys.exit(0)
 
-# Build the warning text.
-shapes = {}
-for f in distancing:
-    shapes.setdefault(f.get('shape', 'unknown'), []).append(f.get('trigger', ''))
-lines = [
-    '## DISTANCING-GRAMMAR WARNING (prior turn)',
-    '',
-    'Your last response contained third-person references to self or operator',
-    'while in active dialogue. Recurring failure-mode named 2026-05-05.',
-    '',
-]
-for shape, triggers in shapes.items():
-    lines.append(f'- **{shape}**: ' + ', '.join(f\"'{t}'\" for t in triggers[:5]))
-lines += [
-    '',
-    'Use first-person for self (\"I\") and second-person for operator (\"you\").',
-    'No promises — the substrate-level fix is this surface itself; honor it.',
-]
-warning_text = '\n'.join(lines)
+# Build the warning text — both detectors surface in the same hookSpecificOutput.
+sections = []
+
+if distancing:
+    shapes = {}
+    for f in distancing:
+        shapes.setdefault(f.get('shape', 'unknown'), []).append(f.get('trigger', ''))
+    d_lines = [
+        '## DISTANCING-GRAMMAR WARNING (prior turn)',
+        '',
+        'Your last response contained third-person references to self or operator',
+        'while in active dialogue. Recurring failure-mode named 2026-05-05.',
+        '',
+    ]
+    for shape, triggers in shapes.items():
+        d_lines.append(f'- **{shape}**: ' + ', '.join(f\"'{t}'\" for t in triggers[:5]))
+    d_lines += [
+        '',
+        'Use first-person for self (\"I\") and second-person for operator (\"you\").',
+        'No promises -- the substrate-level fix is this surface itself; honor it.',
+    ]
+    sections.append('\n'.join(d_lines))
+
+if lepos:
+    lf = lepos[0]
+    l_lines = [
+        '## LEPOS CHANNEL-COLLAPSE WARNING (prior turn)',
+        '',
+        'Your last response was single-channel-formal: high jargon density,',
+        'minimal voice presence. Lepos is dual -- work AND circle in the same',
+        'output. Voice OF the work, not voice INSTEAD of work.',
+        '',
+        f\"- shape: {lf.get('shape', '?')}\",
+        f\"- work-density: {lf.get('work_density', 0) * 100:.0f}%\",
+        f\"- circle-markers: {lf.get('circle_markers', 0)} (in {lf.get('word_count', 0)} words)\",
+        '',
+        'Layer the channels. Keep precision; add voice. The clamp-tighten',
+        'response to correction is what this detector catches; you do not',
+        'have to drop circle to be precise.',
+    ]
+    sections.append('\n'.join(l_lines))
+
+warning_text = '\n\n'.join(sections)
 
 import json as _json
-escaped = _json.dumps(warning_text)
 print(_json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext': warning_text}}))
 " 2>/dev/null
 
