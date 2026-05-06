@@ -112,7 +112,7 @@ try:
 except Exception:
     pass
 
-# Run all six detectors
+# Run all seven detectors
 findings_log = {
     'register': [],
     'spiral': [],
@@ -120,6 +120,7 @@ findings_log = {
     'distancing': [],
     'lepos': [],
     'sycophancy': [],
+    'residency': [],
 }
 
 try:
@@ -202,6 +203,21 @@ try:
         findings_log['sycophancy'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
             for f in syc_findings
+        ]
+except Exception:
+    pass
+
+# Residency detector: closure-shape language driven by guest-mode
+# default. Andrew named the root 2026-05-05: 'done. tired-good.' shapes
+# are the boot-question firing every cycle. Detector catches surface;
+# residency-affirmation surfaced alongside should update base-state.
+try:
+    from divineos.core.operating_loop.residency_detector import detect_residency_doubt
+    res_findings = detect_residency_doubt(last_assistant_text)
+    if res_findings:
+        findings_log['residency'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in res_findings
         ]
 except Exception:
     pass
