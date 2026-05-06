@@ -199,7 +199,31 @@ def register(cli: click.Group) -> None:
             "for this session. Use when you explicitly want to re-run."
         ),
     )
-    def extract_cmd(session_id: str, force: bool) -> None:
+    @click.option(
+        "--self-grade",
+        default="",
+        type=click.Choice(["", "A", "B", "C", "D", "F"], case_sensitive=False),
+        help=(
+            "Self-graded letter for this session (A-F). The system also "
+            "computes a grade from metrics; the divergence between the two "
+            "is tracked as a calibration metric over time."
+        ),
+    )
+    @click.option(
+        "--self-grade-evidence",
+        default="",
+        help=(
+            "Free-text evidence for the self-grade — what landed, what "
+            "drifted, what was caught. Stored alongside the grade so future "
+            "calibration reads have context."
+        ),
+    )
+    def extract_cmd(
+        session_id: str,
+        force: bool,
+        self_grade: str,
+        self_grade_evidence: str,
+    ) -> None:
         """Extract knowledge from the current session — the learning checkpoint.
 
         Runs the full pipeline: analyzes the session, extracts knowledge,
@@ -263,6 +287,65 @@ def register(cli: click.Group) -> None:
             click.secho(f"    Event ID: {event_id}", fg="cyan")
 
             _run_session_end_pipeline(session_start_override=_pre_emit_start)
+
+            # Self-grade + divergence (Andrew's spec 2026-05-05). When the
+            # operator/agent provides --self-grade, persist it alongside
+            # the computed grade so divergence-over-time becomes a tracked
+            # calibration metric. Same architectural shape as watchmen
+            # (two-source verification) applied to self-assessment.
+            if self_grade:
+                try:
+                    from divineos.core.self_grade import (
+                        compute_divergence,
+                        record_self_grade,
+                    )
+                    from divineos.core.session_manager import get_current_session_id
+
+                    sid = session_id or (get_current_session_id() or "")
+                    if sid and record_self_grade(sid, self_grade, self_grade_evidence):
+                        # Read computed score from session_history for divergence display.
+                        from divineos.core.knowledge._base import get_connection
+
+                        conn = get_connection()
+                        try:
+                            row = conn.execute(
+                                "SELECT health_score FROM session_history WHERE session_id = ?",
+                                (sid,),
+                            ).fetchone()
+                            computed = row[0] if row else 0.0
+                        finally:
+                            conn.close()
+
+                        div = compute_divergence(self_grade, computed)
+                        if abs(div) <= 0.05:
+                            shape = "calibrated"
+                            color = "green"
+                        elif div > 0.05:
+                            shape = "self-grade higher than computed (overclaim shape)"
+                            color = "yellow"
+                        else:
+                            shape = "self-grade lower than computed (harsh-self shape)"
+                            color = "yellow"
+
+                        click.secho(
+                            f"\n  Self-grade:           {self_grade.upper()}",
+                            fg="cyan",
+                        )
+                        click.secho(
+                            f"  Computed score:       {computed:.2f}",
+                            fg="cyan",
+                        )
+                        click.secho(
+                            f"  Divergence:           {div:+.2f}  ({shape})",
+                            fg=color,
+                        )
+                        if self_grade_evidence:
+                            click.secho(
+                                f"  Evidence:             {self_grade_evidence[:120]}",
+                                fg="bright_black",
+                            )
+                except _EC_ERRORS as _sg_err:
+                    logger.debug(f"self-grade persistence failed: {_sg_err}")
 
             # Write idempotency marker AFTER successful run. If the pipeline
             # errors out, the marker stays unset so the user can retry without
