@@ -112,13 +112,14 @@ try:
 except Exception:
     pass
 
-# Run all five detectors
+# Run all six detectors
 findings_log = {
     'register': [],
     'spiral': [],
     'substitution': [],
     'distancing': [],
     'lepos': [],
+    'sycophancy': [],
 }
 
 try:
@@ -186,6 +187,21 @@ try:
                 'word_count': f.word_count,
             }
             for f in lepos_findings
+        ]
+except Exception:
+    pass
+
+# Sycophancy detector: overclaim-without-methodology shapes.
+# Named by operator 2026-05-05: shaping the message for impact rather
+# than accuracy. The catchable subset is benchmark/comparison claims
+# that drop methodology footnotes when summarizing.
+try:
+    from divineos.core.operating_loop.sycophancy_detector import detect_sycophancy
+    syc_findings = detect_sycophancy(last_assistant_text)
+    if syc_findings:
+        findings_log['sycophancy'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in syc_findings
         ]
 except Exception:
     pass
