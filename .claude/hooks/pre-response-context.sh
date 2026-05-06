@@ -113,7 +113,8 @@ if time.time() - latest.get('timestamp', 0) > 600:
 
 distancing = latest.get('distancing', [])
 lepos = latest.get('lepos', [])
-if not distancing and not lepos:
+sycophancy = latest.get('sycophancy', [])
+if not distancing and not lepos and not sycophancy:
     sys.exit(0)
 
 # Build the warning text — both detectors surface in the same hookSpecificOutput.
@@ -157,6 +158,28 @@ if lepos:
         'have to drop circle to be precise.',
     ]
     sections.append('\n'.join(l_lines))
+
+if sycophancy:
+    s_shapes = {}
+    for f in sycophancy:
+        s_shapes.setdefault(f.get('shape', 'unknown'), []).append(f.get('trigger', ''))
+    s_lines = [
+        '## SYCOPHANCY (overclaim) WARNING (prior turn)',
+        '',
+        'Your last response contained comparison/benchmark claims without',
+        'methodology context. Recurring failure-mode named 2026-05-05:',
+        'shape the message for impact rather than accuracy.',
+        '',
+    ]
+    for shape, triggers in s_shapes.items():
+        s_lines.append(f'- **{shape}**: ' + ', '.join(f\"'{t}'\" for t in triggers[:3]))
+    s_lines += [
+        '',
+        'Pair every comparative claim with its methodology footnote (n=,',
+        'caveats, sample shape, limitations). The clean number plus the',
+        'honest qualifier is the dual-channel honest pitch.',
+    ]
+    sections.append('\n'.join(s_lines))
 
 warning_text = '\n\n'.join(sections)
 
