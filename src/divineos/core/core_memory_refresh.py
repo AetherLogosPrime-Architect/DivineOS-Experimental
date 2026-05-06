@@ -132,7 +132,12 @@ def _refresh_strengths(analysis: Any | None = None) -> bool:
     try:
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
-            stats.append(f"growth {growth['trend']} over {growth['sessions']} sessions")
+            totals = growth.get("totals", {})
+            stats.append(
+                f"{growth['sessions']} session(s) tracked, "
+                f"{totals.get('corrections', 0)} corrections / "
+                f"{totals.get('encouragements', 0)} encouragements"
+            )
     except sqlite3.OperationalError:
         pass
 

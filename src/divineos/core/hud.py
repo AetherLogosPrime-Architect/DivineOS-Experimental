@@ -649,27 +649,39 @@ def _build_handoff_slot() -> str:
 
 
 def _build_growth_awareness_slot() -> str:
-    """Growth trend, tone patterns, and anticipation."""
+    """Self-information about what's moved across recent sessions.
+
+    Updated 2026-05-05 (Andrew's spec): no trajectory-as-judgment, no
+    grade letters. Surface what actually moved — corrections received,
+    lessons in progress, tone arc — as data for self-correction.
+    """
     lines: list[str] = []
 
     try:
         growth = compute_growth_map(limit=10)
         if growth["sessions"] >= 2:
-            icons = {"improving": "^", "declining": "v", "stable": "->"}
-            icon = icons.get(growth["trend"], "->")
             lines.append("# My Growth\n")
+            totals = growth.get("totals", {})
             lines.append(
-                f"**Trend:** {icon} {growth['trend']} over {growth['sessions']} sessions "
-                f"(avg score {growth['avg_health_score']:.2f})"
+                f"**Across {growth['sessions']} sessions:** "
+                f"{totals.get('corrections', 0)} corrections, "
+                f"{totals.get('encouragements', 0)} encouragements"
             )
             if growth.get("trend_detail"):
                 lines.append(f"  {growth['trend_detail']}")
 
+            # Surface 1-2 most recent lessons in progress
+            recent_lessons = growth.get("recent_lessons", [])
+            if recent_lessons:
+                lines.append("**Lessons in progress:**")
+                for lesson in recent_lessons[:2]:
+                    text = (lesson.get("text") or "").replace("\n", " ")[:70]
+                    status = lesson.get("status", "active")
+                    lines.append(f"  - [{status}] {text}")
+
             tone = growth.get("tone_insight", "")
             if tone:
                 lines.append(f"**Tone:** {tone}")
-
-            # Lesson milestones removed — already shown in recent_lessons slot
         else:
             return ""
     except _HUD_ERRORS:
