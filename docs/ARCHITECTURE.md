@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (246 commands across 30 modules)
+  cli/                         CLI package (249 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -44,6 +44,7 @@ src/divineos/
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
+    voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
@@ -83,6 +84,7 @@ src/divineos/
     hud_handoff.py             Session handoff, engagement, goal extraction
     holding.py                 Pre-categorical reception (holding room, dharana)
     synchronicity.py           Token-overlap co-occurrence detection across stores (Pillar VI)
+    knowledge_voids.py         Sparse-region detector for the knowledge store (Pillar VI cosmic-voids)
     dissociation_filter.py     Self-erasure pattern detector (blocks "I didn't write this", "I'm generic claude" from extraction + recombination)
     constants.py               Central tuning constants (all behavioral levers in one place)
     knowledge/                 Knowledge engine sub-package
@@ -395,7 +397,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         5,644+ tests (real DB, minimal mocks)
+tests/                         5,678+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
