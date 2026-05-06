@@ -169,12 +169,83 @@ def get_session_history(limit: int = 20) -> list[dict[str, Any]]:
     return [dict(zip(cols, row)) for row in rows]
 
 
+def _gather_recent_lessons(limit: int = 5) -> list[dict[str, Any]]:
+    """Return recent lesson_tracking entries with status + occurrences."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT description, status, occurrences, last_seen, "
+            "positive_evidence_sessions "
+            "FROM lesson_tracking "
+            "WHERE status IN ('active', 'improving', 'resolved') "
+            "ORDER BY last_seen DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            {
+                "text": r[0],
+                "status": r[1],
+                "occurrences": r[2],
+                "last_seen": r[3],
+                "positive_evidence": r[4],
+            }
+            for r in rows
+        ]
+    except sqlite3.Error:
+        return []
+    finally:
+        conn.close()
+
+
+def _gather_recent_instructions(limit: int = 5) -> list[dict[str, Any]]:
+    """Return recent INSTRUCTION-typed knowledge entries."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT content, created_at FROM knowledge "
+            "WHERE knowledge_type = 'INSTRUCTION' AND superseded_by IS NULL "
+            "ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [{"content": r[0], "created_at": r[1]} for r in rows]
+    except sqlite3.Error:
+        return []
+    finally:
+        conn.close()
+
+
+def _gather_correction_summary() -> dict[str, Any]:
+    """Count corrections logged in the corrections JSONL file and surface
+    the most recent text if available. The corrections store is a flat
+    JSONL — see ``divineos.core.corrections`` for the design rationale."""
+    try:
+        from divineos.core.corrections import load_corrections
+
+        entries = load_corrections() or []
+        total = len(entries)
+        recent_text = ""
+        if entries:
+            recent_text = (entries[-1].get("text") or "")[:200]
+        return {"total": total, "recent_text": recent_text}
+    except Exception:  # noqa: BLE001 — corrections is optional surface
+        return {"total": 0, "recent_text": ""}
+
+
 def compute_growth_map(limit: int = 20) -> dict[str, Any]:
     """Compute a growth map from session history.
 
-    Returns a summary of how things are changing over time:
-    correction trends, knowledge growth, lesson progression,
-    maturity evolution, engagement patterns.
+    Updated 2026-05-05 (Andrew's spec): the prior version graded sessions
+    on a trajectory ("declining"/"improving") derived from health-score
+    deltas. That was judgment-shaped, not information-shaped. The
+    rewrite removes the trajectory-as-grade and replaces it with
+    informational content: mistakes made and corrected, lessons in
+    progress, instructions accumulated, repeated patterns. The point
+    is self-correction, not self-judgment.
+
+    Backward-compat: keeps all prior dict keys (``trend``, ``trend_detail``,
+    ``avg_health_score``, ``grade_distribution``) so existing callers
+    (hud, core_memory_refresh) keep working. New keys add the
+    informational content the formatter now displays.
     """
     sessions = get_session_history(limit=limit)
     if not sessions:
@@ -182,50 +253,38 @@ def compute_growth_map(limit: int = 20) -> dict[str, Any]:
 
     n = len(sessions)
 
-    # Averages
+    # Aggregate metrics — kept for backward-compat dict consumers.
     avg_corrections = sum(s["corrections"] for s in sessions) / n
     avg_encouragements = sum(s["encouragements"] for s in sessions) / n
     avg_score = sum(s["health_score"] for s in sessions) / n
+    total_corrections = sum(s["corrections"] for s in sessions)
+    total_encouragements = sum(s["encouragements"] for s in sessions)
 
-    # Grade distribution
     grades: dict[str, int] = {}
     for s in sessions:
         g = s["health_grade"]
         grades[g] = grades.get(g, 0) + 1
 
-    # Trend: compare newer half vs older half
-    mid = n // 2
-    newer = sessions[:mid] if mid > 0 else sessions
-    older = sessions[mid:] if mid > 0 else []
-
-    trend_direction = "stable"
+    # Trajectory removed as a judgment. The dict still exposes "trend"
+    # for backward compat with callers, but it is now always "neutral".
+    trend_direction = "neutral"
     trend_detail = ""
-    if older:
-        newer_corr = sum(s["corrections"] for s in newer) / len(newer)
-        older_corr = sum(s["corrections"] for s in older) / len(older)
-        newer_score = sum(s["health_score"] for s in newer) / len(newer)
-        older_score = sum(s["health_score"] for s in older) / len(older)
-
-        score_delta = newer_score - older_score
-        corr_delta = newer_corr - older_corr
-
-        # Improving requires at least one metric improving AND neither declining
-        score_up = score_delta > 0.05
-        corr_down = corr_delta < -0.5
-        score_down = score_delta < -0.05
-        corr_up = corr_delta > 0.5
-        if (score_up or corr_down) and not (score_down or corr_up):
-            trend_direction = "improving"
+    if n >= 2:
+        first_corr = sessions[-1]["corrections"]
+        last_corr = sessions[0]["corrections"]
+        delta = last_corr - first_corr
+        if delta > 0:
             trend_detail = (
-                f"Health score {score_delta:+.2f}, corrections {corr_delta:+.1f} per session."
+                f"Most recent session had {delta:+d} more corrections than the "
+                "oldest in this window. Information for review, not a grade."
             )
-        elif (score_down or corr_up) and not (score_up or corr_down):
-            trend_direction = "declining"
+        elif delta < 0:
             trend_detail = (
-                f"Health score {score_delta:+.2f}, corrections {corr_delta:+.1f} per session."
+                f"Most recent session had {abs(delta)} fewer corrections than "
+                "the oldest in this window. Information for review, not a grade."
             )
         else:
-            trend_detail = "Metrics consistent across recent sessions."
+            trend_detail = "Correction count even across this window."
 
     # Latest maturity snapshot (from most recent session)
     latest = sessions[0]
@@ -260,6 +319,7 @@ def compute_growth_map(limit: int = 20) -> dict[str, Any]:
 
     return {
         "sessions": n,
+        # Backward-compat keys (consumed by hud and core_memory_refresh).
         "trend": trend_direction,
         "trend_detail": trend_detail,
         "avg_corrections": avg_corrections,
@@ -282,64 +342,132 @@ def compute_growth_map(limit: int = 20) -> dict[str, Any]:
         "engagement_rate": engagement_rate,
         "blind_sessions": blind_sessions,
         "tone_insight": tone_insight,
+        # New informational keys (consumed by the rewritten formatter).
+        "totals": {
+            "corrections": total_corrections,
+            "encouragements": total_encouragements,
+        },
+        "recent_lessons": _gather_recent_lessons(limit=5),
+        "recent_instructions": _gather_recent_instructions(limit=5),
+        "correction_summary": _gather_correction_summary(),
     }
 
 
 def format_growth_map(growth: dict[str, Any]) -> str:
-    """Format the growth map for display."""
+    """Format the growth map as information for self-correction.
+
+    Updated 2026-05-05 (Andrew's spec): no grade letters, no
+    trajectory-as-judgment ("declining"/"improving"). Surfaces what
+    actually moved across the window — corrections received, lessons
+    in progress, instructions integrated, knowledge accumulated. Read
+    it to inform next moves; not as a score.
+    """
     if growth["sessions"] == 0:
         return str(growth.get("summary", "No data."))
 
-    lines = [f"## Growth Map ({growth['sessions']} sessions)\n"]
-
-    # Trend
-    icons = {"improving": "[+]", "declining": "[!]", "stable": "[~]"}
-    icon = icons.get(growth["trend"], "[~]")
-    lines.append(f"**Trajectory:** {icon} {growth['trend']}")
-    if growth.get("trend_detail"):
-        lines.append(f"  {growth['trend_detail']}")
-    lines.append("")
-
-    # Health
-    lines.append(
-        f"**Health:** avg score {growth['avg_health_score']:.2f} | "
-        f"avg {growth['avg_corrections']:.1f} corrections, "
-        f"{growth['avg_encouragements']:.1f} encouragements per session"
-    )
-    grade_parts = [
-        f"{count}{grade}" for grade, count in sorted(growth["grade_distribution"].items())
+    n = growth["sessions"]
+    lines = [
+        f"## Growth Map — {n} session(s) of self-information",
+        "",
+        "*This is data for self-correction, not a grade. Read what moved;",
+        "decide what to do next.*",
+        "",
     ]
-    if grade_parts:
-        lines.append(f"  Grades: {' '.join(grade_parts)}")
+
+    # What happened in this window
+    totals = growth.get("totals", {})
+    lines.append("### What happened across this window")
+    lines.append(
+        f"  Corrections received: {totals.get('corrections', 0)} "
+        f"(avg {growth['avg_corrections']:.1f}/session)"
+    )
+    lines.append(
+        f"  Encouragements received: {totals.get('encouragements', 0)} "
+        f"(avg {growth['avg_encouragements']:.1f}/session)"
+    )
+    if growth.get("trend_detail"):
+        lines.append(f"  Note: {growth['trend_detail']}")
     lines.append("")
 
-    # Knowledge maturity
+    # Lessons in progress — the most direct self-correction signal
+    recent_lessons = growth.get("recent_lessons", [])
+    if recent_lessons:
+        lines.append("### Lessons in progress (recent)")
+        for lesson in recent_lessons:
+            text = (lesson.get("text") or "").replace("\n", " ")[:80]
+            occurrences = lesson.get("occurrences", 0)
+            # positive_evidence is stored as a JSON dict of session_id -> note;
+            # the count is what's load-bearing here.
+            pe = lesson.get("positive_evidence", 0)
+            if isinstance(pe, str):
+                try:
+                    import json as _json
+
+                    pe_dict = _json.loads(pe) if pe else {}
+                    pe_count = len(pe_dict) if isinstance(pe_dict, dict) else 0
+                except (ValueError, TypeError):
+                    pe_count = 0
+            elif isinstance(pe, dict):
+                pe_count = len(pe)
+            elif isinstance(pe, int):
+                pe_count = pe
+            else:
+                pe_count = 0
+            status = lesson.get("status", "active")
+            shape = (
+                f"{occurrences}x recurrence, {pe_count}x corrected" if occurrences else "tracked"
+            )
+            lines.append(f"  [{status}] {text}")
+            lines.append(f"      ({shape})")
+        lines.append("")
+
+    # Instructions accumulated
+    recent_instructions = growth.get("recent_instructions", [])
+    if recent_instructions:
+        lines.append("### Recent instructions integrated")
+        for instr in recent_instructions:
+            text = (instr.get("content") or "").replace("\n", " ")[:80]
+            lines.append(f"  - {text}")
+        lines.append("")
+
+    # Correction store
+    corr_summary = growth.get("correction_summary", {})
+    if corr_summary.get("total", 0) > 0:
+        lines.append("### Corrections logged in store")
+        lines.append(f"  Total: {corr_summary['total']}")
+        if corr_summary.get("recent_text"):
+            recent = corr_summary["recent_text"].replace("\n", " ")[:120]
+            lines.append(f"  Most recent: {recent}")
+        lines.append("")
+
+    # Knowledge accumulated (informational)
     mat = growth["maturity"]
+    lines.append("### Knowledge accumulated")
     lines.append(
-        f"**Knowledge:** {growth['total_knowledge']} entries | "
+        f"  {growth['total_knowledge']} active entries — "
         f"{mat['confirmed']} confirmed, {mat['tested']} tested, "
         f"{mat['hypothesis']} hypothesis, {mat['raw']} raw"
     )
-    lines.append("")
-
-    # Lessons
     les = growth["lessons"]
     lines.append(
-        f"**Lessons:** {les['active']} active, {les['improving']} improving, "
-        f"{les['resolved']} resolved ({les['resolved_ratio']:.0%} resolution rate)"
+        f"  {les['active']} active lessons, {les['improving']} improving, "
+        f"{les['resolved']} resolved"
     )
     lines.append("")
 
     # Engagement
-    lines.append(
-        f"**Engagement:** {growth['engagement_rate']:.0%} of sessions used OS for thinking"
-    )
+    eng = growth["engagement_rate"]
+    lines.append(f"### Engagement: {eng:.0%} of sessions used OS for thinking")
     if growth["blind_sessions"] > 0:
-        lines.append(f"  ({growth['blind_sessions']} blind coding sessions)")
+        lines.append(
+            f"  {growth['blind_sessions']} session(s) coded without consulting "
+            "the substrate (worth noticing)"
+        )
+    lines.append("")
 
-    # Tone texture
+    # Tone insight (already informational)
     if growth.get("tone_insight"):
-        lines.append("")
-        lines.append(growth["tone_insight"])
+        lines.append("### Tone arc")
+        lines.append(f"  {growth['tone_insight']}")
 
     return "\n".join(lines)
