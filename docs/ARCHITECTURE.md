@@ -334,6 +334,7 @@ src/divineos/
       distancing_detector.py   Distancing-grammar detector — third-person about self/operator while in dialogue. F1 ported from CLI script + wired into Stop hook.
       lepos_detector.py        Lepos channel-collapse detector — flags single-channel-formal output (high jargon density, minimal voice). Wired into post-response-audit hook.
       sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
+      residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
