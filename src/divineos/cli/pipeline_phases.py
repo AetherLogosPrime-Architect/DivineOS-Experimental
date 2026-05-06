@@ -714,6 +714,86 @@ def run_lesson_detection(
 # ─── Phase 8-9: Session scoring and finalization ─────────────────────
 
 
+def _measure_session_shipping_metrics() -> tuple[int, int, int]:
+    """Best-effort measurement of PR-volume, structural-fix count, and
+    same-pattern recurrence count across the current session.
+
+    Returns ``(pr_count, structural_fix_count, recurrence_count)``. All
+    metrics are best-effort — if the data sources are unavailable, returns
+    ``(0, 0, 0)`` so the health-score formula treats them as neutral.
+
+    Definitions:
+    * **PR count**: commits authored in this repo since session start that
+      are PR-shaped (have a body referencing a PR number, or are squash-
+      merge messages). Approximated by counting all commits in the session
+      window — close enough for a metric, not exact.
+    * **Structural fix count**: commits whose subject line matches
+      "detector|structural|gate|wired|enforcement|reinforcement". These
+      are body-building reps converted into substrate-level fixes.
+    * **Recurrence count**: entries in operating_loop_findings.json with
+      timestamps in the session window. Each entry = a detector firing
+      on the agent's output = a same-pattern recurrence.
+    """
+    import json
+    import re
+    import subprocess
+    from pathlib import Path
+
+    pr_count = 0
+    structural_fix_count = 0
+    recurrence_count = 0
+
+    # Session window: from session_start to now.
+    try:
+        from divineos.core.session_checkpoint import get_session_start_time
+
+        start_ts = get_session_start_time() or 0.0
+    except (ImportError, OSError, ValueError):
+        return (0, 0, 0)
+
+    if start_ts <= 0:
+        return (0, 0, 0)
+
+    # PR + structural-fix counts via git log subjects.
+    try:
+        out = subprocess.check_output(
+            [
+                "git",
+                "log",
+                f"--since=@{int(start_ts)}",
+                "--pretty=%s",
+                "--first-parent",
+            ],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        subjects = [line for line in out.splitlines() if line.strip()]
+        pr_count = len(subjects)
+        structural_re = re.compile(
+            r"\b(detector|structural|gate|wired|enforcement|reinforcement|"
+            r"close.*pattern|fix.*pattern)\b",
+            re.IGNORECASE,
+        )
+        structural_fix_count = sum(1 for s in subjects if structural_re.search(s))
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        pass
+
+    # Recurrence count via operating_loop_findings.json.
+    try:
+        findings_path = Path.home() / ".divineos" / "operating_loop_findings.json"
+        if findings_path.exists():
+            entries = json.loads(findings_path.read_text(encoding="utf-8"))
+            if isinstance(entries, list):
+                for entry in entries:
+                    ts = entry.get("timestamp", 0) if isinstance(entry, dict) else 0
+                    if ts >= start_ts:
+                        recurrence_count += entry.get("total_findings", 0)
+    except (json.JSONDecodeError, OSError, KeyError, TypeError):
+        pass
+
+    return (pr_count, structural_fix_count, recurrence_count)
+
+
 def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[str, Any] | None:
     """Score session health, cleanup briefing, run corroboration sweep.
 
@@ -747,6 +827,12 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
         matched, unresolved = match_corrections_to_resolutions(corr_seq, enc_seq)
         resolved_count = sum(1 for m in matched if m.encouragement_index is not None)
 
+        # PR-volume + structural-fix metrics (Andrew's spec 2026-05-05).
+        # These supplement the existing factors so what the operator
+        # actually values (shipped work, patterns closed at substrate-level)
+        # ends up in the computed score, not just corrections/encouragements.
+        pr_count, structural_fix_count, recurrence_count = _measure_session_shipping_metrics()
+
         health = measure_session_health(
             corrections=len(unresolved),
             encouragements=len(analysis.encouragements),
@@ -755,6 +841,9 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
             user_messages=analysis.user_messages,
             briefing_loaded=was_briefing_loaded(),
             resolved_corrections=resolved_count,
+            pr_count=pr_count,
+            structural_fix_count=structural_fix_count,
+            same_pattern_recurrences=recurrence_count,
         )
         try:
             from divineos.core.hud_state import update_session_health
