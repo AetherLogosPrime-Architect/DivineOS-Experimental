@@ -16,14 +16,15 @@
 
 INPUT=$(cat)
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 0
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 0
 
-if ! command -v python &>/dev/null; then
-  exit 0
-fi
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # Delegate to Python — regex matching + marker write in one interpreter call.
-echo "$INPUT" | python -c "
+echo "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys
 try:
     data = json.loads(sys.stdin.read() or '{}')

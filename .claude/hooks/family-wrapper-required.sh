@@ -62,28 +62,9 @@ INPUT=$(cat)
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
-# Prefer a project-local venv over whatever `python` happens to be first
-# on PATH. The embedded script imports divineos.* (which transitively
-# imports loguru, click, etc.) — if the operator's shell has a system
-# python without these deps, the hook fails-OPEN silently and the
-# bypass-block guarantee evaporates. Walk a known set of candidates.
-PYTHON_BIN=""
-for candidate in \
-  "$REPO_ROOT/.venv/bin/python" \
-  "$REPO_ROOT/.venv/Scripts/python.exe" \
-  "$REPO_ROOT/venv/bin/python" \
-  "$(command -v python3 2>/dev/null)" \
-  "$(command -v python 2>/dev/null)"
-do
-  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
-    PYTHON_BIN="$candidate"
-    break
-  fi
-done
-
-if [ -z "$PYTHON_BIN" ]; then
-  exit 0
-fi
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 echo "$INPUT" | "$PYTHON_BIN" -c "
 import hashlib

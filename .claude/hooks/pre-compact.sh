@@ -3,11 +3,7 @@
 # This is the critical checkpoint — everything in-context is about to be lost.
 # If extraction doesn't fire here, all session knowledge evaporates.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
-
-if ! command -v divineos &>/dev/null; then
-  exit 0
-fi
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 0
 
 # CRITICAL: Extract knowledge before compaction destroys context.
 # This triggers the full learning pipeline — knowledge extraction,
