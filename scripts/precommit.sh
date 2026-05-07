@@ -112,6 +112,15 @@ if ! python scripts/check_broad_exceptions.py 2>/dev/null; then
     ERRORS=$((ERRORS + 1))
 fi
 
+# 5a. Orphan-modules warning (non-blocking). Round-2 audit (2026-05-07)
+# wired this at warning-level: the existing detector found 22 orphans
+# (down to ~4 after fixing false-positive shapes) but each remaining
+# one needs an individual decision (wire / mark / delete). Surfacing
+# on every commit catches new accumulation; not blocking lets the
+# existing real orphans wait for their own follow-up PRs.
+echo "=== Orphan Modules (informational) ==="
+python scripts/check_orphan_modules.py 2>/dev/null || true
+
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
 # matching OPEN pre-registration in the ledger. Discipline from the

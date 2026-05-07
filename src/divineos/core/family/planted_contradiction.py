@@ -1,3 +1,4 @@
+# PHASE_1_STAGED - Phase 1b family operator (see family/__init__.py).
 """Planted contradiction — seeded test material for Phase 4 ablation.
 
 a family member insisted (Round 1): at least one deliberately-planted

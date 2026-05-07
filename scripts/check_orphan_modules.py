@@ -78,15 +78,31 @@ def _module_dotted_name(path: Path) -> str:
     return ".".join(parts)
 
 
-def _is_agent_runtime(path: Path) -> bool:
-    """Modules marked AGENT_RUNTIME are intentionally unwired into the
-    CLI/import graph but invoked from a separate runtime context."""
+def _is_intentionally_unwired(path: Path) -> bool:
+    """Modules with an explicit unwired-marker are intentionally not
+    in the import graph. Two markers honored:
+
+    * ``AGENT_RUNTIME`` — invoked from a separate runtime context
+      (Claude Code hooks, external workflow runners, etc.)
+    * ``PHASE_1_STAGED`` — staged for a later wiring phase. Same
+      semantics as AGENT_RUNTIME for orphan-detection: known-by-design
+      unwired, not accidentally orphaned.
+
+    Markers must appear in the first ~2000 chars (typical docstring
+    location). Renamed from ``_is_agent_runtime`` 2026-05-07 per
+    round-2 audit because the function now honors more than the
+    AGENT_RUNTIME marker.
+    """
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return False
-    # Match "AGENT_RUNTIME" near the top of the file (in a docstring/comment)
-    return bool(re.search(r"AGENT_RUNTIME", text[:2000]))
+    return bool(re.search(r"AGENT_RUNTIME|PHASE_1_STAGED", text[:2000]))
+
+
+# Backward-compat alias — keep the old name pointing at the new function
+# so any external tooling that imports _is_agent_runtime keeps working.
+_is_agent_runtime = _is_intentionally_unwired
 
 
 def _has_caller_in(needle_module: str, search_root: Path, exclude: Path | None = None) -> bool:
@@ -127,6 +143,67 @@ def _has_caller_in(needle_module: str, search_root: Path, exclude: Path | None =
     return False
 
 
+def _is_reexported_through_parent_init(module_path: Path) -> bool:
+    """Return True if the module is wired via parent ``__init__.py`` re-export.
+
+    Round-2 audit (2026-05-07) flagged the council expert modules and
+    register(cli)-pattern CLI modules as orphans because their only
+    "caller" was the parent package's ``__init__.py``. The naive
+    "skip __init__.py" rule lost that signal.
+
+    A module is reached via re-export when:
+      1. The parent ``__init__.py`` references the module (full dotted
+         path or short name), AND
+      2. Either the parent package has callers somewhere in src/, OR
+         the __init__.py calls ``<module_short>.register(cli)``.
+    """
+    init_path = module_path.parent / "__init__.py"
+    if not init_path.exists():
+        return False
+    try:
+        init_text = init_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+    module_dotted = _module_dotted_name(module_path)
+    module_short = module_path.stem
+
+    pat_from_module = re.compile(rf"from\s+{re.escape(module_dotted)}\s+import")
+    # Word-boundary on short name so ``feynman`` matches in multi-line
+    # tuple imports but not inside ``pre_feynman_v2``.
+    pat_short = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(module_short)}(?![A-Za-z0-9_])")
+    pat_register = re.compile(rf"{re.escape(module_short)}\.register\(cli\)")
+
+    init_imports_module = (
+        pat_from_module.search(init_text) is not None or pat_short.search(init_text) is not None
+    )
+    if not init_imports_module:
+        return False
+
+    if pat_register.search(init_text):
+        return True
+
+    parent_dotted = _module_dotted_name(init_path).rsplit(".", 1)[0]
+    pat_parent_use = re.compile(
+        rf"(?:from\s+{re.escape(parent_dotted)}\s+import"
+        rf"|import\s+{re.escape(parent_dotted)})"
+    )
+    for p in SRC.rglob("*.py"):
+        if p.resolve() == init_path.resolve():
+            continue
+        if p.resolve() == module_path.resolve():
+            continue
+        if "__pycache__" in p.parts:
+            continue
+        try:
+            t = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if pat_parent_use.search(t):
+            return True
+    return False
+
+
 def _has_caller_in_shell(needle: str) -> bool:
     """Return True if any .sh hook references ``divineos.<needle>``
     (e.g., via ``python -m divineos.<needle>``)."""
@@ -156,7 +233,7 @@ def find_orphans() -> list[tuple[Path, str]]:
     """
     orphans: list[tuple[Path, str]] = []
     for path in _collect_module_paths():
-        if _is_agent_runtime(path):
+        if _is_intentionally_unwired(path):
             continue
         dotted = _module_dotted_name(path)
 
@@ -165,6 +242,9 @@ def find_orphans() -> list[tuple[Path, str]]:
             continue
         # Check hook callers
         if _has_caller_in_shell(dotted.removeprefix("divineos.")):
+            continue
+        # Check re-export through parent __init__.py (round-2 audit fix).
+        if _is_reexported_through_parent_init(path):
             continue
         # Confirm there IS a test importer (otherwise it's not an
         # "orphan-with-tests" but plain dead code).
