@@ -8,17 +8,18 @@
 #
 # The hook gives the information. The gate forces the action.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 0
 
-if ! command -v divineos &>/dev/null; then
-  exit 0
-fi
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # Reset checkpoint counters for resumed session
 # Use Python expanduser for Windows compatibility (Git Bash $HOME = /c/Users/...)
-DIVINEOS_DIR=$(python -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos'))" 2>/dev/null || echo "$HOME/.divineos")
+DIVINEOS_DIR=$("$PYTHON_BIN" -c "import os; print(os.path.join(os.path.expanduser('~'), '.divineos'))" 2>/dev/null || echo "$HOME/.divineos")
 mkdir -p "$DIVINEOS_DIR"
-python -c "
+"$PYTHON_BIN" -c "
 import json, time, os
 SF = os.path.join(os.path.expanduser('~'), '.divineos', 'checkpoint_state.json')
 json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'session_start':time.time()}, open(SF,'w'), indent=2)
@@ -28,7 +29,7 @@ json.dump({'edits':0,'tool_calls':0,'last_checkpoint':0,'checkpoints_run':0,'ses
 # divineos briefing marks briefing as loaded — we don't want that here.
 # The gate will force the AI to do it deliberately.
 hud=$(divineos hud 2>/dev/null)
-handoff=$(python -c "
+handoff=$("$PYTHON_BIN" -c "
 import json
 from pathlib import Path
 p = Path.home() / '.divineos' / 'hud' / 'handoff_note.json'
@@ -68,7 +69,7 @@ ${hud}
 
 === END SESSION RESUME ==="
 
-  escaped=$(echo "$full_context" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+  escaped=$(echo "$full_context" | "$PYTHON_BIN" -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"
 fi
 

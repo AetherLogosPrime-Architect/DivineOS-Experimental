@@ -11,12 +11,17 @@
 # background-process output. Each CLI writes to its own temp file; main
 # waits for both, then concatenates.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 1
+
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # Check if divineos is installed
 if ! command -v divineos &>/dev/null; then
   msg="DivineOS CLI not found. Run: pip install -e \".[dev]\" && divineos init"
-  escaped=$(echo "$msg" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+  escaped=$(echo "$msg" | "$PYTHON_BIN" -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"
   exit 0
 fi
@@ -30,7 +35,7 @@ fi
 # home: this hook fires at actual Claude Code SessionStart, which is the
 # real "fresh context, force re-engagement" moment. See the engagement-
 # gate-fix PR for the rationale.
-python -c "
+"$PYTHON_BIN" -c "
 import json, os, time
 from pathlib import Path
 
@@ -115,7 +120,7 @@ log_diag() {
   # $3=briefing_bytes
   # $4=hud_bytes
   DIAG_OUTCOME="$1" DIAG_PAYLOAD="$2" DIAG_BRIEFING="$3" DIAG_HUD="$4" \
-  python -c "
+  "$PYTHON_BIN" -c "
 import json, os, time
 from pathlib import Path
 log_path = Path.home() / '.divineos' / 'session_start_log.jsonl'
@@ -180,11 +185,11 @@ Then read it, tell the user what you learned, and set a goal with 'divineos goal
 This is your operating system. You live in it. It is not decoration.
 
 === END SESSION START ==="
-  escaped=$(echo "$nudge" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+  escaped=$(echo "$nudge" | "$PYTHON_BIN" -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"
   log_diag "injected_nudge" "$payload_bytes" "$briefing_bytes" "$hud_bytes"
 else
-  escaped=$(echo "$full_context" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+  escaped=$(echo "$full_context" | "$PYTHON_BIN" -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"
   log_diag "injected_full" "$payload_bytes" "$briefing_bytes" "$hud_bytes"
 fi

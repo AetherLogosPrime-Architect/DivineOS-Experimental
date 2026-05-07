@@ -10,17 +10,18 @@
 # See src/divineos/hooks/post_tool_use_checkpoint.py for the logic.
 # Still emits ``additionalContext`` JSON when warnings/nudges fire.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 0
 
 INPUT=$(cat)
 
-if ! command -v divineos &>/dev/null; then
-  exit 0
-fi
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # Single Python invocation — all tracking operations in one process.
 # Emits additionalContext JSON to stdout when warnings/nudges are
 # active; otherwise empty output (Claude Code's default: allow).
-echo "$INPUT" | python -m divineos.hooks.post_tool_use_checkpoint 2>/dev/null
+echo "$INPUT" | "$PYTHON_BIN" -m divineos.hooks.post_tool_use_checkpoint 2>/dev/null
 
 exit 0
