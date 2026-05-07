@@ -175,6 +175,95 @@ def register(cli: click.Group) -> None:
         _safe_echo(output)
         click.echo()
 
+    @cli.command("pattern-outcome")
+    @click.argument("pattern_id")
+    @click.argument("outcome", type=click.Choice(["success", "failure"]))
+    @click.option(
+        "--source",
+        type=click.Choice(["knowledge", "opinion", "advice", "decision"]),
+        default="knowledge",
+        help="Which substrate the pattern came from. Knowledge and opinion "
+        "have adjustable confidence; advice and decision are tracked-only.",
+    )
+    @click.option(
+        "--context",
+        default="",
+        help="What happened - concrete description of the recommendation's "
+        "outcome. Stored alongside for later review.",
+    )
+    def pattern_outcome_cmd(pattern_id: str, outcome: str, source: str, context: str) -> None:
+        """Record how a proactive recommendation actually played out.
+
+        Closes the feedback loop named in core/proactive_patterns.py: when
+        a pattern's recommendations consistently mislead, weakening its
+        confidence (and eventually archiving) lets the system stop
+        recommending it. Without this command, record_pattern_outcome
+        existed but had no caller - the loop never closed.
+
+        Found by external Claude's round-2 audit (2026-05-07).
+        """
+        from divineos.core.proactive_patterns import record_pattern_outcome
+
+        result = record_pattern_outcome(
+            pattern_id=pattern_id,
+            pattern_source=source,
+            outcome=outcome,
+            context=context,
+        )
+        click.echo()
+        if outcome == "success":
+            click.secho(f"[+] Recorded SUCCESS for pattern {pattern_id[:12]}", fg="green")
+        else:
+            click.secho(f"[~] Recorded FAILURE for pattern {pattern_id[:12]}", fg="yellow")
+        if "adjusted_confidence" in result:
+            click.secho(
+                f"    Adjusted confidence: {result['adjusted_confidence']:.2f}",
+                fg="bright_black",
+            )
+        click.secho(
+            f"    Failures total: {result.get('failures_total', 0)}",
+            fg="bright_black",
+        )
+        if result.get("archived"):
+            click.secho(
+                "    [ARCHIVED] Failure threshold exceeded - pattern will no longer recommend",
+                fg="red",
+                bold=True,
+            )
+        click.echo()
+
+    @cli.command("pattern-stats")
+    @click.argument("pattern_id")
+    def pattern_stats_cmd(pattern_id: str) -> None:
+        """Show outcome statistics for a pattern.
+
+        Reports total successes, total failures, recent context entries.
+        Inspect before deciding whether to follow a pattern's next
+        recommendation.
+        """
+        from divineos.core.proactive_patterns import get_pattern_outcome_stats
+
+        stats = get_pattern_outcome_stats(pattern_id)
+        click.echo()
+        click.secho(
+            f"=== Pattern {pattern_id[:12]} outcome stats ===",
+            fg="cyan",
+            bold=True,
+        )
+        click.secho(f"  Total successes: {stats.get('successes', 0)}", fg="green")
+        click.secho(f"  Total failures:  {stats.get('failures', 0)}", fg="yellow")
+        recent = stats.get("recent", [])
+        if recent:
+            click.echo()
+            click.secho("  Recent outcomes:", fg="bright_black")
+            for entry in recent[:10]:
+                color = "green" if entry.get("outcome") == "success" else "yellow"
+                click.secho(
+                    f"    [{entry.get('outcome', '?')}] {entry.get('context', '')[:80]}",
+                    fg=color,
+                )
+        click.echo()
+
     @cli.command("outcomes")
     @click.option("--days", default=30, type=int, help="Lookback window in days")
     def outcomes_cmd(days: int) -> None:

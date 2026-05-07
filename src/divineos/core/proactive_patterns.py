@@ -450,7 +450,13 @@ def _archive_pattern(pattern_id: str, source: str) -> None:
 
 
 def get_pattern_outcome_stats(pattern_id: str) -> dict[str, Any]:
-    """Get success/failure stats for a pattern."""
+    """Get success/failure stats for a pattern.
+
+    Returns dict with: successes, failures, total, success_rate, and
+    recent (list of dicts with outcome/context/created_at, newest-first,
+    capped at 20). The ``recent`` field was added 2026-05-07 alongside
+    the pattern-outcome CLI wire-up (round-2 audit).
+    """
     try:
         _init_pattern_outcomes_table()
         conn = get_connection()
@@ -467,13 +473,28 @@ def get_pattern_outcome_stats(pattern_id: str) -> dict[str, Any]:
                 else:
                     failures = count
             total = successes + failures
+
+            recent_rows = conn.execute(
+                "SELECT outcome, context, created_at FROM pattern_outcomes "
+                "WHERE pattern_id = ? ORDER BY created_at DESC LIMIT 20",
+                (pattern_id,),
+            ).fetchall()
+            recent = [{"outcome": r[0], "context": r[1], "created_at": r[2]} for r in recent_rows]
+
             return {
                 "successes": successes,
                 "failures": failures,
                 "total": total,
                 "success_rate": successes / total if total > 0 else 0.0,
+                "recent": recent,
             }
         finally:
             conn.close()
     except _PP_ERRORS:
-        return {"successes": 0, "failures": 0, "total": 0, "success_rate": 0.0}
+        return {
+            "successes": 0,
+            "failures": 0,
+            "total": 0,
+            "success_rate": 0.0,
+            "recent": [],
+        }
