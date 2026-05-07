@@ -13,6 +13,9 @@ from scripts.check_doc_counts import (  # noqa: E402
     _format_count,
     _get_actual_py_files,
     check_architecture_tree,
+    count_hooks_wired,
+    extract_documented_counts,
+    fix_hook_counts,
     fix_test_counts,
 )
 
@@ -178,4 +181,84 @@ class TestAutoFix:
         monkeypatch.setattr(mod, "ROOT", tmp_path)
 
         changed = fix_test_counts(500)
+        assert changed == []
+
+
+class TestHookCounts:
+    """Test hook-count tracking added 2026-05-07 per round-2 audit.
+
+    The README claimed "9 enforcement hooks" while settings.json wired
+    16; the drift went undetected for months because no checker tracked
+    it. These tests pin the mechanism so future drift gets caught at
+    test-time and on every commit via the precommit gate.
+    """
+
+    def test_count_hooks_wired_real_settings(self):
+        """count_hooks_wired returns non-zero for the real settings.json."""
+        n = count_hooks_wired()
+        assert n > 0, (
+            "count_hooks_wired() returned 0 for the real settings.json. "
+            "Either the file is missing/empty/malformed, or the schema "
+            "changed and this counter needs updating."
+        )
+
+    def test_count_hooks_missing_settings(self, tmp_path, monkeypatch):
+        """Missing settings.json returns 0, not exception."""
+        import scripts.check_doc_counts as mod
+
+        monkeypatch.setattr(mod, "ROOT", tmp_path)
+        assert count_hooks_wired() == 0
+
+    def test_count_hooks_malformed_settings(self, tmp_path, monkeypatch):
+        """Unparseable settings.json returns 0 (fail-soft)."""
+        (tmp_path / ".claude").mkdir()
+        (tmp_path / ".claude" / "settings.json").write_text("{ not valid json")
+        import scripts.check_doc_counts as mod
+
+        monkeypatch.setattr(mod, "ROOT", tmp_path)
+        assert count_hooks_wired() == 0
+
+    def test_extract_documented_counts_finds_hooks(self, tmp_path):
+        """Extractor picks up both shapes: 'N enforcement hooks' and '(N hooks,'."""
+        fake = tmp_path / "README.md"
+        content = (
+            "- **9 Claude Code enforcement hooks**\n"
+            "- enforcement hooks (9 hooks, shell-level entry points)\n"
+        )
+        fake.write_text(content)
+        findings = extract_documented_counts(fake)
+        hook_findings = [f for f in findings if f[0] == "hooks"]
+        assert len(hook_findings) == 2
+        assert all(f[1] == 9 for f in hook_findings)
+
+    def test_fix_updates_drifted_hook_count(self, tmp_path, monkeypatch):
+        """fix_hook_counts updates both shapes of the hook claim."""
+        fake = tmp_path / "README.md"
+        content = (
+            "## At a glance\n"
+            "- **9 Claude Code enforcement hooks**\n"
+            "## Top-level\n"
+            "Claude Code enforcement hooks (9 hooks, shell-level entry points).\n"
+        )
+        fake.write_text(content)
+        import scripts.check_doc_counts as mod
+
+        monkeypatch.setattr(mod, "ROOT", tmp_path)
+        changed = fix_hook_counts(16)
+        assert "README.md" in changed
+
+        updated = fake.read_text()
+        assert "16 Claude Code enforcement hooks" in updated
+        assert "(16 hooks," in updated
+        assert "9 Claude Code enforcement hooks" not in updated
+        assert "(9 hooks," not in updated
+
+    def test_fix_no_change_when_current(self, tmp_path, monkeypatch):
+        """When doc already matches actual count, no file changes."""
+        fake = tmp_path / "README.md"
+        fake.write_text("- **16 Claude Code enforcement hooks**\n")
+        import scripts.check_doc_counts as mod
+
+        monkeypatch.setattr(mod, "ROOT", tmp_path)
+        changed = fix_hook_counts(16)
         assert changed == []
