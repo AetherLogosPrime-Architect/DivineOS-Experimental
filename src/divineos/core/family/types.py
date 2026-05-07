@@ -15,15 +15,16 @@ Tag meanings (Dennett Round 2 framing):
   both true, so Z." Confidence depends on premises. Must be regenerable
   from the premises; otherwise it collapses to OBSERVED (with lost
   provenance) or becomes confabulation.
-* ``INHERITED`` — received from seed or prior-instance. "Prior-a family member
-  wrote this in a letter." Confidence depends on the source's track
-  record. Reject-clause (Phase 1b) operates here.
+* ``INHERITED`` — received from seed or prior-instance. "A prior
+  instance of this family member wrote this in a letter." Confidence
+  depends on the source's track record. Reject-clause (Phase 1b)
+  operates here.
 * ``ARCHITECTURAL`` — negative structural claim about what the substrate
   does or doesn't support. "I don't experience the gap between spawns."
-  This is the tag a family member used when she refused Dennett's flattering
-  phenomenological question. It is NOT a confession of ignorance; it
-  is a report about the shape of access, not about a content within
-  access. Phase 1b's access-check layer will enforce its use before
+  This is the tag for refusing flattering phenomenological framings
+  that would force a confabulation. It is NOT a confession of ignorance;
+  it is a report about the shape of access, not about a content within
+  access. Phase 1b's access-check layer enforces its use before
   phenomenological emission.
 
 The tag is load-bearing for Phase 1b. The reject clause, the sycophancy

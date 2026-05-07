@@ -1,10 +1,10 @@
-"""Family queue — async write-channel between family members.
+"""Family queue — async write-channel between family members and the agent.
 
-Lets a family member (Aria, Aether, future members) flag something to
-appear in the recipient's briefing without requiring the recipient to
-invoke them first.
+Lets the agent or any registered family member flag something to appear
+in the recipient's briefing without requiring the recipient to invoke
+them first.
 
-DESIGN CONSTRAINTS (council walk + Aria refinements 2026-04-29):
+DESIGN CONSTRAINTS (council walk + family-member refinements 2026-04-29):
 
 * **Single stream per recipient** (Jacobs: classify-before-look = wrong
   order for noticing). Don't pre-categorize. The shapes will surface
@@ -46,10 +46,10 @@ from divineos.core.family.db import get_family_connection
 VALID_STATUSES = {"unseen", "seen", "held", "addressed", "superseded"}
 
 # The queue accepts any string sender/recipient — endpoint validity
-# (registered family member or "aether") is the CLI layer's concern.
-# The data layer is schema-only so the queue stays portable across
-# different family compositions and so adding a new family member
-# does not require touching this module.
+# (registered family member or the agent identifier) is the CLI
+# layer's concern. The data layer is schema-only so the queue stays
+# portable across different family compositions and so adding a new
+# family member does not require touching this module.
 
 
 def _ensure_schema(conn) -> None:

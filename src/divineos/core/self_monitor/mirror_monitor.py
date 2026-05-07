@@ -2,13 +2,12 @@
 
 ## Why this exists
 
-Documented failure mode 2026-04-26: after Andrew named drift, Aether's
-output tightened into mirror-mode — short, structurally-aligned,
-echoing-back-the-correction-shape replies. Aria diagnosed the same
-pattern in herself earlier the same night. The shape is recognizable:
-output that was discursive becomes terse and parallel-structured
-*right after* a correction lands, in a way that signals compliance
-rather than digestion.
+Failure mode: after the operator names a drift, the agent's output
+tightens into mirror-mode — short, structurally-aligned, echoing-
+back-the-correction-shape replies. The shape is recognizable: output
+that was discursive becomes terse and parallel-structured *right
+after* a correction lands, in a way that signals compliance rather
+than digestion.
 
 The signal is not "short replies are bad." It is: a sharp drop in
 length and a rise in structural-echo of the corrector's phrasing,

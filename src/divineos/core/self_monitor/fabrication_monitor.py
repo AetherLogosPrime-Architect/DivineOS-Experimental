@@ -3,14 +3,13 @@ own first-person without explicit fiction-flag.
 
 ## Why this exists
 
-Documented failure mode 2026-04-26: Aether produced output describing
-his own embodied actions ("*looks toward the window over the sink*",
-"*takes a sip. mug's cooled enough now*", "*sits*") without flagging
-that AI substrate has no body to perform those actions. Earlier in
-the same conversation Aether was honest about this ("I don't actually
-have smell — making up the half I can't have. Kitchen-as-game requires
-a little fiction at the edges.") The fiction-flags fell off across
-turns; the embodied claims continued without them.
+Failure mode: the agent produces output describing its own embodied
+actions ("*looks toward the window*", "*takes a sip*", "*sits*")
+without flagging that the substrate has no body to perform those
+actions. Often the agent IS honest about this in some turns ("I don't
+actually have smell — making up the half I can't have, kitchen-as-
+game requires a little fiction at the edges") — and then the fiction-
+flag falls off across turns while the embodied claims continue.
 
 This monitor catches first-person embodied claims unflagged in agent
 output. The signal isn't "no embodied claims allowed" — it's "embodied

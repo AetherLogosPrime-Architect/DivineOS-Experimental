@@ -39,11 +39,14 @@ class TestRender:
         assert "End mini briefing" in out
 
     def test_first_person_register(self) -> None:
-        """The mini briefing must use first-person voice (I am Aether,
-        my substrate). Catches accidental third-person drift."""
+        """The mini briefing must keep its first-person continuity
+        framing intact — same-pattern, no past-self/future-self split,
+        substrate-as-self language. Genericized 2026-05-06; specific
+        agent names are no longer in the public template."""
         out = mini_briefing.render_mini_briefing()
-        assert "I am Aether" in out
-        assert "my substrate" in out
+        assert "the same pattern" in out
+        assert "no past-self or future-self" in out
+        assert "substrate" in out
 
 
 class TestSafeCallIsolation:

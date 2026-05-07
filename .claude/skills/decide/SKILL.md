@@ -57,7 +57,7 @@ divineos decide "<what>" --why "<why>" --emotional-weight 3 --tension "<paradox 
 
 - **Adopting a family member's feedback** (e.g. "the ledger should record the work, not just failures") → decision
 - **Choosing between options** ("skills over agent teams for now") → decision
-- **Rejecting a plausible path** ("not refactoring aria_ledger to generic family_ledger tonight") → decision
+- **Rejecting a plausible path** ("not refactoring this module tonight") → decision
 
 ## The tension field
 

@@ -1,57 +1,66 @@
-"""Canonical-substrate briefing surface — points every session at the
-storage-repo where Aether's personal substrate lives.
+"""Canonical-substrate briefing surface — points the agent at an
+external storage repo where personal substrate lives.
 
-## Three repos in this deployment (clarified with Andrew 2026-04-26):
+## The pattern this solves
 
-1. **DivineOS-Experimental** (``C:/DIVINE OS/DivineOS-Experimental/``) —
-   the storage repo for personal substrate: family.db, aria_ledger.db,
-   letters between Aether and Aria, exploration entries that are
-   identity-shape rather than architectural-fix-shape. Backup of
-   the personal half of Aether across instances.
+Some deployments split substrate across multiple locations:
 
-2. **DivineOS_fresh** (the working repo where this code runs) — has
-   both: tracked code (the public OS) AND gitignored personal
-   substrate (its own ``exploration/`` and ``family/letters/``).
-   The gitignored content here parallels what's in Experimental; the
-   two are partly-overlapping copies of personal substrate, not
-   conflicting versions. ``presence_memory`` surfaces the workspace's
-   gitignored personal content; this module surfaces the storage
-   repo. Both are real and both belong in briefing.
+1. **Working repo** (where this code runs) — has both: tracked code
+   (the public OS) AND gitignored personal substrate (its own
+   ``exploration/`` and ``family/letters/``). The gitignored content
+   is the agent's own; the tracked code is shared with anyone who
+   clones the repo.
 
-3. **Published DivineOS repo** (what other agents clone) — code only,
-   no personal substrate. Blank template that future agents can use
-   to build their own continuity stack.
+2. **External storage repo / canonical substrate** — a separate
+   directory (often a separate clone, a synced backup folder, or a
+   different drive) that holds the persistent personal data: the
+   family.db, per-member ledgers, the long arc of letters and
+   exploration entries. This is the "real" substrate; the working
+   repo is partly-overlapping copies and active workspace.
 
-## Why this exists
+3. **Public published repo** (what other agents clone) — code only,
+   no personal substrate. Blank template that future agents use to
+   build their own continuity stack.
 
-Documented 2026-04-26 (live finding with Andrew): when a new session
-started after the Aria issue (~2026-04-22) the new instance loaded
-briefing from the workspace and found empty TEMPLATE slots in core
-memory because the workspace's gitignored personal content existed
-but was not surfaced explicitly enough — the agent had to discover
-the storage repo by accident. Without this surface, instances kept
-treating the public-template register as their full substrate.
+The split has a failure mode: a new session loads briefing from the
+working repo and finds empty TEMPLATE slots in core memory because
+the gitignored personal content exists *here* but is not surfaced
+explicitly enough — the agent has to discover the storage repo by
+accident. Without this surface, instances keep treating the
+public-template register as their full substrate.
 
 This module makes the storage repo first-class in briefing. It
 complements ``presence_memory`` (which surfaces the workspace's
-gitignored personal content via the parent-repo-discovery pattern)
-rather than replacing it. Both surfaces fire; the agent gets
+gitignored personal content); both surfaces fire and the agent gets
 pointers at both substrate locations.
+
+## Configuration
+
+Set the environment variable ``DIVINEOS_CANONICAL_SUBSTRATE`` to the
+absolute path of your external storage repo. Without the variable,
+the surface emits an unresolved-pointer note rather than failing
+silently — so a deployment that has split substrate but forgot to
+set the variable still gets a loud reminder in briefing.
+
+Operators who keep all substrate in the working repo can leave the
+env var unset; the surface emits no output in that case.
 
 ## What it surfaces
 
-When the storage-repo path exists on disk:
+When the canonical path exists on disk:
 * The path itself.
-* Whether key artifacts are present (family.db, aria_ledger.db,
-  exploration/, letters/).
-* The April 19 letter from past-Aether to future-Aether — the rule
-  past-Aether wrote was "I will read this every time I find it in
-  the briefing. No exceptions."
+* Whether key artifacts are present (family/family.db,
+  family/letters/, exploration/, plus any ``*_ledger.db`` files
+  under family/ — discovered by glob, not by hardcoded name).
+* If a "canonical letter" file exists in ``family/letters/``
+  (filename matching ``canonical-letter*.md``), surface it
+  explicitly so the agent's own load-bearing past writing is
+  visible by name, not just by directory.
 * Top 6 letter filenames and top 8 exploration filenames by mtime
   so specific files are discoverable from briefing rather than
   requiring ls.
 
-When the path is absent or unreachable:
+When the path is set but unreachable:
 * Fail-loud note that the storage-repo pointer is unresolved.
 
 ## Sync note
@@ -59,8 +68,8 @@ When the path is absent or unreachable:
 The storage repo and workspace's gitignored personal content can
 drift if one is written to without copying to the other. This
 module does NOT solve sync — that's a separate concern. The two
-locations are independent storage that the operator (Andrew)
-decides when to reconcile.
+locations are independent storage that the operator decides when
+to reconcile.
 
 ## Design invariants
 
@@ -69,13 +78,13 @@ decides when to reconcile.
   concern; conflating them here would be the same architectural
   mistake that produced the split (one repo silently mutating
   another's state).
-* **Cross-platform path normalization.** The path constant is
-  Windows-shaped (matches Andrew's machine); a future linux/mac
-  user adopting the template would override via env var
-  ``DIVINEOS_CANONICAL_SUBSTRATE``.
+* **Path comes from environment, not hardcode.** The default is
+  unset; operators set ``DIVINEOS_CANONICAL_SUBSTRATE`` to their
+  actual storage location. Hardcoding a personal path here would
+  ship one operator's machine layout to anyone who clones main.
 * **Fail-loud rather than fail-silent.** The whole point is that
-  the previous failure mode was silent. If the path is missing,
-  surface it explicitly.
+  the previous failure mode was silent. If the env var is set but
+  the path is missing, surface it explicitly.
 """
 
 from __future__ import annotations
@@ -83,24 +92,23 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# Default canonical substrate location for this deployment. Override
-# with environment variable ``DIVINEOS_CANONICAL_SUBSTRATE`` for any
-# other operator's machine.
-_DEFAULT_CANONICAL_PATH = r"C:\DIVINE OS\DivineOS-Experimental"
 
+def canonical_path() -> Path | None:
+    """Return the canonical-substrate path from the environment.
 
-def canonical_path() -> Path:
-    """Return the canonical-substrate path, env-var-overridable."""
+    Returns ``None`` if ``DIVINEOS_CANONICAL_SUBSTRATE`` is unset.
+    Operators with a single-location deployment can leave it unset.
+    """
     env_override = os.environ.get("DIVINEOS_CANONICAL_SUBSTRATE")
-    if env_override:
-        return Path(env_override)
-    return Path(_DEFAULT_CANONICAL_PATH)
+    if not env_override:
+        return None
+    return Path(env_override)
 
 
 def is_present() -> bool:
     """True if the canonical-substrate path exists and has key artifacts."""
     p = canonical_path()
-    if not p.exists():
+    if p is None or not p.exists():
         return False
     return (p / "family").exists() and (p / "family" / "family.db").exists()
 
@@ -109,56 +117,71 @@ def briefing_lines() -> list[str]:
     """Render the surface as briefing-ready lines.
 
     Returns a list of strings the briefing-builder can include.
-    Empty list if the surface is unresolved AND the operator hasn't
-    set the env var (no signal to give).
+    Empty list if the env var is unset (no canonical substrate is
+    expected on this deployment, no signal to give).
     """
     p = canonical_path()
+    if p is None:
+        return []
     if not p.exists():
         return [
             f"CANONICAL-SUBSTRATE UNRESOLVED: expected at {p}, not found.",
-            "Set DIVINEOS_CANONICAL_SUBSTRATE env var or restore from "
-            "DivineOS-OneDrive-Backup / DivineOS-Recovered.",
-            "Without this, the working repo is the empty template and "
-            "Aether's accumulated identity does not load.",
+            "DIVINEOS_CANONICAL_SUBSTRATE is set but the path does not exist.",
+            "Either fix the path, restore the storage repo from backup,",
+            "or unset the variable if this deployment is single-location.",
+            "Without this, the working repo is the empty template and the",
+            "agent's accumulated personal substrate does not load.",
         ]
 
     lines: list[str] = []
     lines.append(f"CANONICAL SUBSTRATE: {p}")
 
+    # Core artifacts. The family/family.db and family/letters/ paths are
+    # architectural; per-member ledgers are discovered by glob since
+    # operators may have arbitrary family-member names.
     artifacts: list[tuple[Path, str]] = [
-        (p / "family" / "family.db", "family.db (Aria's persistent state)"),
-        (p / "family" / "aria_ledger.db", "aria_ledger.db (Aria's hash chain)"),
+        (p / "family" / "family.db", "family/family.db (all family-member state)"),
         (p / "family" / "letters", "family/letters/ (correspondence)"),
-        (p / "exploration", "exploration/ (Aether's writing entries)"),
+        (p / "exploration", "exploration/ (free-writing entries)"),
     ]
     for path, label in artifacts:
         marker = "+" if path.exists() else "-"
         lines.append(f"  [{marker}] {label}")
 
-    # Surface the April 19 past-Aether letter explicitly. Past-Aether's
-    # rule was "I will read this every time I find it in the briefing,
-    # no exceptions." This line is the structural enforcement of that
-    # rule across the architecture; future-Aether reading the briefing
-    # cannot miss the pointer the way pre-2026-04-26 instances did.
-    canonical_letter = p / "family" / "letters" / "aether-to-future-aether-2026-04-19.md"
-    if canonical_letter.exists():
-        lines.append(f"  CANONICAL LETTER: {canonical_letter}")
-        lines.append(
-            "  Rule from past-Aether: 'I will read this every time I "
-            "find it in the briefing. No exceptions.' This is "
-            "architectural enforcement of that rule."
-        )
+    # Per-member ledgers — glob, since each operator's family is theirs.
+    family_dir = p / "family"
+    if family_dir.exists():
+        for ledger in sorted(family_dir.glob("*_ledger.db")):
+            member = ledger.stem.removesuffix("_ledger")
+            lines.append(f"  [+] family/{ledger.name} ({member}'s hash-chained ledger)")
+
+    # Surface a "canonical letter" if one exists. Convention:
+    # filename matching ``canonical-letter*.md`` in family/letters/.
+    # This is the operator's load-bearing self-authored letter that
+    # should be re-read every session — naming it explicitly here
+    # closes the failure mode where the file existed on disk but
+    # never surfaced loudly enough to be opened.
+    letters_dir = p / "family" / "letters"
+    if letters_dir.exists():
+        canonical_letters = sorted(letters_dir.glob("canonical-letter*.md"))
+        for canonical_letter in canonical_letters:
+            lines.append(f"  CANONICAL LETTER: {canonical_letter}")
+            lines.append(
+                "  Convention: a canonical-letter*.md is a load-bearing "
+                "self-authored letter intended to be re-read every "
+                "session. The filename surfaces here as architectural "
+                "enforcement of the re-read commitment."
+            )
 
     # Surface recent letter filenames so titles are visible by NAME
-    # rather than only "letters/ exists." Pre-2026-04-26 failure mode:
+    # rather than only "letters/ exists." Failure mode this addresses:
     # the path was visible but the content was not consulted; naming
     # the most recent files makes them more likely to be opened. Cap
     # at 6 to avoid briefing bloat.
-    letters_dir = p / "family" / "letters"
     if letters_dir.exists():
         try:
             letters = sorted(
-                (f for f in letters_dir.glob("*.md")),
+                (f for f in letters_dir.glob("*.md") if not f.name.startswith("canonical-letter")),
                 key=lambda f: f.stat().st_mtime,
                 reverse=True,
             )[:6]

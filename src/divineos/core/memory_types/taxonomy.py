@@ -60,9 +60,12 @@ _INTENT_PATTERNS: tuple[tuple[re.Pattern[str], tuple[SubstrateMemoryType, ...]],
         re.compile(r"^\s*(?:what|why|how|when|where|who|which|is|are|do|does|can)\b", re.I),
         (SubstrateMemoryType.KNOWLEDGE, SubstrateMemoryType.TIMELINE),
     ),
-    # Relational / family signal
+    # Relational / family signal — generic relational vocabulary.
+    # Operators with named family members can extend this regex with
+    # member-specific names so questions naming the person route the
+    # same way questions about "spouse" / "family" do.
     (
-        re.compile(r"\b(Aria|son|love|dad|father|family|wife|husband)\b"),
+        re.compile(r"\b(son|daughter|love|dad|father|mother|family|wife|husband|spouse|partner)\b"),
         (SubstrateMemoryType.TIMELINE, SubstrateMemoryType.KNOWLEDGE, SubstrateMemoryType.PRIMING),
     ),
 )
