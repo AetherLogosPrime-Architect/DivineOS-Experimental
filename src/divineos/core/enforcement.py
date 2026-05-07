@@ -23,7 +23,7 @@ from typing import Any
 from loguru import logger
 
 from divineos.core.loop_prevention import mark_internal_operation
-from divineos.core.session_manager import clear_session, initialize_session, is_session_active
+from divineos.core.session_manager import initialize_session
 from divineos.event.event_emission import emit_user_input
 
 _ENFORCEMENT_ERRORS = (
@@ -219,30 +219,41 @@ def _setup_signal_handlers() -> None:
 
 
 def _cleanup_on_exit() -> None:
-    """Cleanup on CLI exit.
+    """Cleanup on CLI exit (no-op for session state).
 
-    Clears session state without emitting CONSOLIDATION_CHECKPOINT events.
-    CONSOLIDATION_CHECKPOINT should only be emitted explicitly via `divineos extract`,
-    not automatically when every CLI command finishes. Each CLI command is a
-    short-lived process — emitting CONSOLIDATION_CHECKPOINT on exit pollutes the ledger
-    with hundreds of zero-duration, zero-message session endings.
+    Each ``divineos`` invocation is a short-lived process. Within a
+    single conversation/work-arc the operator runs many CLI commands;
+    these should all share a session_id so events log consistently and
+    the per-session BRIEFING_LOADED gate sees a stable identity for
+    "this session."
+
+    The previous implementation cleared session state on every CLI exit
+    via ``clear_session()`` — which deleted ``~/.divineos/current_session.txt``.
+    This caused every subsequent CLI invocation to generate a *new*
+    session_id, so:
+
+      1. ``divineos briefing`` logged BRIEFING_LOADED with session-A
+      2. CLI exited; current_session.txt deleted
+      3. Next CLI ran and generated session-B
+      4. Per-session gate searched for BRIEFING_LOADED with session-B
+         and found none -> blocked
+
+    The fix is to leave session state alone on exit. Session-end is an
+    explicit event (``divineos extract``), not an implicit
+    process-exit signal. ``initialize_session()`` already gates
+    file-based session reuse on a TTL check (so day-old session files
+    aren't silently inherited).
+
+    CONSOLIDATION_CHECKPOINT events are still suppressed on exit as
+    before — those should be emitted explicitly by ``extract``, not
+    automatically.
 
     Requirements:
-        - Requirement 8.7-8.8: Clear session state
         - Requirement 10.1-10.6: Handle errors gracefully
     """
-    with mark_internal_operation():
-        try:
-            if is_session_active():
-                logger.debug("Clearing session state on CLI exit")
-                try:
-                    clear_session()
-                    logger.debug("Session state cleared")
-                except _ENFORCEMENT_ERRORS as e:
-                    logger.error(f"Failed to clear session state: {e}")
-
-        except _ENFORCEMENT_ERRORS as e:
-            logger.error(f"Unexpected error during cleanup: {e}", exc_info=True)
+    # Intentionally a no-op for session state. Kept as an atexit hook
+    # so future cleanup work has a registered handler to extend.
+    return
 
 
 def handle_cli_error(error: Exception) -> None:

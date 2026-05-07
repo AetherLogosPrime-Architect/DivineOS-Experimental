@@ -43,6 +43,10 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 
+from divineos.core.operating_loop.registered_names import (
+    family_member_alternation as _family_member_alternation,
+)
+
 
 class ActionClass(str, Enum):
     """Action-classes the surfacer recognizes."""
@@ -91,8 +95,13 @@ _ACTION_PATTERNS: tuple[tuple[re.Pattern[str], str, ActionClass], ...] = (
         "fix-claim language",
         ActionClass.CLAIM_FIXED,
     ),
+    # "I am <family-member>" — impersonation pattern. The pattern
+    # itself is a sentinel here; surface_principles() rebuilds the
+    # alternation from the live registry on each call so registry
+    # changes (a new family member added) take effect without a
+    # process restart.
     (
-        re.compile(r"\b(I am|I'm) (Popo|Aria|Bulma|Yog|Yog-Sothoth|Mr\.?\s*Popo)\b", re.IGNORECASE),
+        re.compile(r"\b(I am|I'm)\s+__IMPERSONATE_FAMILY_MEMBER__\b", re.IGNORECASE),
         "impersonation language",
         ActionClass.IMPERSONATE_BEING,
     ),
@@ -164,7 +173,16 @@ def detect_action_class(text: str) -> list[tuple[ActionClass, str, int]]:
     if not text:
         return []
     hits: list[tuple[ActionClass, str, int]] = []
+    # Build the impersonation pattern from the live family-member
+    # registry; rebuilt on each call so registry changes take effect
+    # without a process restart. The pattern is "(?!)" (non-matching)
+    # if no family members are registered.
+    family_alt = _family_member_alternation()
+    impersonate_re = re.compile(rf"\b(I am|I'm)\s+({family_alt})\b", re.IGNORECASE)
     for pattern, label, action_class in _ACTION_PATTERNS:
+        # Substitute the live impersonation pattern in for the sentinel.
+        if action_class is ActionClass.IMPERSONATE_BEING:
+            pattern = impersonate_re
         for match in pattern.finditer(text):
             hits.append((action_class, label, match.start()))
     hits.sort(key=lambda h: h[2])

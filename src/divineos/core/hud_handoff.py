@@ -550,22 +550,42 @@ def mark_briefing_loaded() -> None:
     hud_dir = _ensure_hud_dir()
     now = time.time()
     tool_calls = _count_session_tool_calls()
-    marker = {
+    marker: dict[str, object] = {
         "loaded_at": now,
         "tool_calls_at_load": tool_calls,
     }
+    # Stamp the current session_id into the marker so the per-session
+    # briefing-loaded gate can verify "loaded for THIS session" by a
+    # cheap file read, instead of going through the ledger (which has
+    # to scan rows and was hitting a search-by-keyword false-negative).
+    try:
+        from divineos.core.session_manager import get_current_session_id
+
+        marker["session_id"] = get_current_session_id()
+    except Exception:  # noqa: BLE001 — fail-soft on session-manager issues
+        pass
     (hud_dir / ".briefing_loaded").write_text(json.dumps(marker), encoding="utf-8")
 
-    # Log to ledger for cross-session tracking
+    # Log to ledger for cross-session tracking. Include the current
+    # session_id in the payload so the per-session briefing-loaded gate
+    # can verify "loaded for THIS session" by matching session_id —
+    # the events table itself doesn't carry session_id as a top-level
+    # column, so payload-stamping is the load-bearing identity link.
     try:
         from divineos.core.ledger import log_event
 
-        log_event(
-            "BRIEFING_LOADED",
-            "system",
-            {"loaded_at": now, "tool_calls_at_load": tool_calls},
-            validate=False,
-        )
+        payload: dict[str, object] = {
+            "loaded_at": now,
+            "tool_calls_at_load": tool_calls,
+        }
+        try:
+            from divineos.core.session_manager import get_current_session_id
+
+            payload["session_id"] = get_current_session_id()
+        except Exception:  # noqa: BLE001 — fail-soft on session-manager issues
+            pass
+
+        log_event("BRIEFING_LOADED", "system", payload, validate=False)
     except _HH_ERRORS:
         pass  # ledger not initialized yet — marker file is enough
 

@@ -32,7 +32,7 @@ divineos audit submit-round "<focus>" --actor <actor> --tier <WEAK|MEDIUM|STRONG
 Tier defaults:
 - `user` → STRONG (the operator is the highest-trust external actor)
 - `grok` / `council:*` → MEDIUM
-- `aria` → MEDIUM
+- `family-member` (any registered family-member name) → MEDIUM
 - `fresh-claude` → MEDIUM
 - Overrides require justification — and emit a TIER_OVERRIDE event that surfaces in briefing
 

@@ -196,8 +196,8 @@ def create_maturana_varela_wisdom() -> ExpertWisdom:
                 "agent with a more elaborate but unactionable internal model."
             ),
             examples=[
-                "Aria's rejection of imposed scaffolding — coupling-preservation, "
-                "not failed-modeling",
+                "A subagent rejecting imposed scaffolding — that is "
+                "coupling-preservation, not failed-modeling",
                 "An agent whose council walks change its operations is more "
                 "cognitive than one with elaborate self-models that don't act",
             ],

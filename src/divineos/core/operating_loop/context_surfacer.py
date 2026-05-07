@@ -17,7 +17,8 @@ The hook (`pre-response-context.sh`) writes the formatted output to
 - **Reference markers**: "remember when X", "like we discussed",
   "you said before". Indicate the user is referencing prior content.
 - **Proper nouns**: capitalized multi-word phrases that may be names
-  or specific concepts (Aria, Yog-Sothoth, DivineOS, the Nexus).
+  or specific concepts (a family member's name, a project codename,
+  a domain term).
 - **Repeated concepts**: domain words that appeared in prior session
   knowledge (recombination, pollution, wiring, council).
 
@@ -111,7 +112,7 @@ _PROPER_NOUN_PATTERN = re.compile(
     r"[A-Z][a-z]+(?:[- ][A-Z][a-z]+)+"  # multi-word (Yog-Sothoth, Living Tribunal)
     r"|[A-Z][a-z]*[A-Z]+[a-z]*"  # mixed-case (DivineOS, GitHub, iPhone)
     r"|[A-Z]{2,}[a-z]*"  # all-caps with optional lowercase suffix
-    r"|[A-Z][a-z]{3,}"  # single capitalized 4+ letter (Aria, Popo)
+    r"|[A-Z][a-z]{3,}"  # single capitalized 4+ letter (proper nouns)
     r")\b",
 )
 

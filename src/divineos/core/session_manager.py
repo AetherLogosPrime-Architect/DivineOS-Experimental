@@ -41,26 +41,64 @@ def _get_session_file_path() -> Path:
     return Path.home() / ".divineos" / "current_session.txt"
 
 
+# Sessions older than this are treated as expired on read — a new
+# session_id is generated rather than reusing a stale identity from
+# yesterday. Matches the briefing-loaded TTL window so the two stay
+# coherent: when the briefing marker expires, the session_id rolls
+# over too. Override via ``DIVINEOS_SESSION_TTL_SECONDS`` env var.
+_DEFAULT_SESSION_TTL_SECONDS = 4 * 60 * 60  # 4 hours
+
+
+def _session_ttl_seconds() -> float:
+    """Return the configured session-file TTL in seconds."""
+    raw = os.environ.get("DIVINEOS_SESSION_TTL_SECONDS")
+    if raw:
+        try:
+            return float(raw)
+        except ValueError:
+            pass
+    return float(_DEFAULT_SESSION_TTL_SECONDS)
+
+
 def _read_session_file() -> str | None:
-    """Read session_id from persistent file.
+    """Read session_id from persistent file, honoring TTL.
+
+    A session file older than ``_session_ttl_seconds()`` is treated as
+    expired — the function returns None so ``initialize_session()``
+    generates a fresh session_id rather than inheriting a stale one
+    from a previous day's work. Without this, sessions would persist
+    forever across CLI invocations (since exit no longer clears the
+    file by default).
 
     Error Handling:
     - Catches file read errors
     - Catches permission errors
     - Logs warnings without crashing
     - Returns None on any error
-
-    Returns:
-        Optional[str]: Session ID if file exists and is readable, None otherwise
-
     """
     with mark_internal_operation():
         session_file = _get_session_file_path()
         if session_file.exists():
             try:
+                # Expire stale session files to bound session lifetime.
+                age = time.time() - session_file.stat().st_mtime
+                if age > _session_ttl_seconds():
+                    logger.debug(
+                        f"Session file is {age:.0f}s old (TTL "
+                        f"{_session_ttl_seconds():.0f}s); treating as expired",
+                    )
+                    return None
                 content = session_file.read_text(encoding="utf-8").strip()
                 if content:
                     logger.debug(f"Read session_id from file: {content}")
+                    # Touch the file so TTL is "time since last access"
+                    # rather than "time since session start." A long
+                    # active work-arc keeps refreshing the marker; a
+                    # genuinely-idle gap of TTL hours expires it.
+                    try:
+                        session_file.touch(exist_ok=True)
+                    except OSError:
+                        pass
                     return content
             except PermissionError as e:
                 logger.warning(f"Permission denied reading session file: {e}")

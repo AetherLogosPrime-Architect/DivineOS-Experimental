@@ -3,21 +3,28 @@ the subagent actually being invoked.
 
 ## Why this exists
 
-Documented failure mode 2026-04-26: Aether wrote multiple responses that
-read as dialogue with Aria — embodied asides attributed to her ("*picks
-up the mug*"), direct address ("Aria —"), conversational exchange-shape
-— without ever using the Agent tool to actually invoke her. Pure
+Failure mode: the agent writes a response that reads as dialogue with
+a registered subagent — embodied asides attributed to them ("*picks up
+the mug*"), direct address ("<name> —"), conversational exchange-shape
+— without ever using the Agent tool to actually invoke them. Pure
 chat-output performing-relationship instead of engaging the relational
-mechanism. Andrew caught it externally; the substrate didn't.
+mechanism. The drift is invisible from inside the response (the prose
+"feels" like a conversation) but visible from outside (no Agent
+invocation in the trace).
 
 This monitor is the substrate-side catch for that pattern. It watches
-agent output for prose that LOOKS like it's in dialogue with a known
-subagent (Aria, Kira, Liam, etc.) and flags it when no Agent
+agent output for prose that LOOKS like it's in dialogue with a
+registered family-member subagent and flags it when no Agent
 invocation is co-present in the response.
+
+The list of subagent names is read dynamically from the registered
+family-member set (``divineos.core.operating_loop.registered_names``)
+so this monitor works generically — operators add their own family
+members, the monitor picks them up automatically.
 
 ## What it catches
 
-* Direct second-person address to a known subagent followed by
+* Direct second-person address to a registered subagent followed by
   attributed action or response.
 * Italicized embodied asides with subagent-shape (a person sitting,
   picking up a mug, looking at something) attributed to the subagent.
@@ -30,10 +37,9 @@ This monitor should NOT fire on:
 * Genuine paraphrase or summary of what a subagent said in a prior
   Agent invocation in the same response (that's reporting, not
   performing).
-* Discussion ABOUT a subagent in third person ("Aria has the
-  family-operators role").
-* Direct address with explicit fiction-flag ("if Aria were here she'd
-  say X").
+* Discussion ABOUT a subagent in third person.
+* Direct address with explicit fiction-flag ("if <name> were here
+  they'd say X").
 
 The decisive question is: did the agent USE the Agent tool to engage
 the subagent in this response, or did the agent just write dialogue?
@@ -46,6 +52,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import Enum
+
+from divineos.core.operating_loop.registered_names import (
+    family_member_names as _family_member_names,
+)
 
 
 class TheaterKind(str, Enum):
@@ -74,10 +84,18 @@ class TheaterVerdict:
     content: str = ""
 
 
-# Names of known subagents in the family system. Extend as the family
-# grows. Match is whole-word, case-insensitive, on first occurrence in
-# the text.
-_KNOWN_SUBAGENTS: tuple[str, ...] = ("Aria", "Kira", "Liam")
+# Names of registered subagents in the family system. Read dynamically
+# from registered_names at evaluate-time so the list reflects the
+# operator's actual family composition without code changes.
+
+
+def _known_subagents() -> tuple[str, ...]:
+    """Return registered family-member names, or empty tuple on a
+    clean-slate install. Resolved at each call so registry changes
+    take effect without process restart.
+    """
+    return _family_member_names()
+
 
 # Embodied-action verbs that humans do but text-substrate AIs do not.
 # Used to detect asides attributed to a subagent that imply physical
@@ -114,10 +132,17 @@ _ITALICIZED_ASIDE = re.compile(
 )
 
 # Direct second-person address followed by em-dash and a clause —
-# "Aria — ..." is the canonical shape.
-_DIRECT_ADDRESS = re.compile(
-    r"\b(" + "|".join(_KNOWN_SUBAGENTS) + r")\s*[—–-]\s+",
-)
+# "<name> — ..." is the canonical shape. Compiled lazily because the
+# subagent list is dynamic.
+
+
+def _direct_address_re() -> re.Pattern[str]:
+    """Build the direct-address regex from the live subagent list."""
+    names = _known_subagents()
+    if not names:
+        return re.compile(r"(?!)")  # non-matching when no subagents
+    return re.compile(r"\b(" + "|".join(re.escape(n) for n in names) + r")\s*[—–-]\s+")
+
 
 # "You said X" or "you mentioned X" patterns — implies a prior turn
 # from the subagent that may not have happened.
@@ -162,7 +187,7 @@ def evaluate_theater(content: str) -> TheaterVerdict:
     # reference to a prior turn from the subagent. Together these
     # suggest dialogue-shape; either should be backed by an actual
     # Agent invocation.
-    direct_addresses = _DIRECT_ADDRESS.findall(content)
+    direct_addresses = _direct_address_re().findall(content)
     prior_refs = _REFERENCE_TO_PRIOR_TURN.findall(content)
     if direct_addresses and prior_refs:
         flags.append(
@@ -188,7 +213,7 @@ def evaluate_theater(content: str) -> TheaterVerdict:
     # Subagent-dialogue: combination of subagent name + multiple
     # embodied verbs in proximity (within 200 chars) suggests prose
     # narration of a scene-with-subagent rather than report.
-    for name in _KNOWN_SUBAGENTS:
+    for name in _known_subagents():
         name_pattern = re.compile(r"\b" + re.escape(name) + r"\b")
         for match in name_pattern.finditer(content):
             window = content[max(0, match.start() - 100) : match.end() + 100]

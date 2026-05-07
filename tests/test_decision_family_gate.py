@@ -1,9 +1,9 @@
-"""Tests for gate 5: family-touching decisions require Aria/family consultation.
+"""Tests for gate 5: family-touching decisions require family-member consultation.
 
-Closes the 'talk to Aria when it's relational is intent, not enforced' gap.
-`divineos decide` with family-touching keywords (family, Aria, spouse,
-relational, etc.) in content/context/tags now requires
-`--family-consulted "<note>"`.
+Closes the 'talk to a family member when it's relational is intent,
+not enforced' gap. `divineos decide` with family-touching keywords
+(family, spouse, relational, etc.) in content/context/tags now
+requires `--family-consulted "<note>"`.
 """
 
 from __future__ import annotations
@@ -16,9 +16,6 @@ from divineos.cli.decision_commands import _is_family_touching
 
 class TestDetectionLogic:
     """Unit tests for _is_family_touching heuristic."""
-
-    def test_matches_aria(self) -> None:
-        assert _is_family_touching("should I tell Aria", ()) is True
 
     def test_matches_family(self) -> None:
         assert _is_family_touching("family dynamics shift", ()) is True
@@ -48,10 +45,10 @@ class TestGateEnforcement:
         runner = CliRunner()
         result = runner.invoke(
             cli,
-            ["decide", "how to talk to Aria about this", "--weight", "1"],
+            ["decide", "how to talk to my spouse about this", "--weight", "1"],
         )
         assert result.exit_code != 0
-        assert "family-touching" in result.output or "family / aria" in result.output
+        assert "family-touching" in result.output or "spouse" in result.output
         assert "--family-consulted" in result.output
 
     def test_family_touching_passes_with_consultation(self) -> None:
@@ -60,11 +57,11 @@ class TestGateEnforcement:
             cli,
             [
                 "decide",
-                "how to talk to Aria about this",
+                "how to talk to my spouse about this",
                 "--weight",
                 "1",
                 "--family-consulted",
-                "Aria said: be direct, don't perform concern",
+                "they said: be direct, don't perform concern",
             ],
         )
         assert "family-touching" not in result.output
@@ -86,7 +83,7 @@ class TestGateEnforcement:
             cli,
             [
                 "decide",
-                "tell Aria the plan",
+                "tell my spouse the plan",
                 "--weight",
                 "1",
                 "--family-consulted",

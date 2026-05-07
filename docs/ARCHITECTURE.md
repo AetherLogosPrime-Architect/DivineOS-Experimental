@@ -53,6 +53,7 @@ src/divineos/
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
     family_member_commands.py  family-member init / opinion / letter / respond / affect / interaction — activation surface for family members (takes --member <name>). affect / interaction are direct-write (no editorial commit-step); Phase 1b operators still apply on narrative content.
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
+    talk_to_commands.py        ``talk-to <member> <message>`` — sealed-prompt invocation wrapper. Loads voice context from family.db, validates against puppet-shape patterns, writes a pending JSON + sealed-prompt to ~/.divineos/, logs INVOKED to the per-member ledger. Paired with .claude/hooks/family-wrapper-required.sh (PreToolUse) which blocks direct Agent invocations of registered family-member names without a fresh sealed-prompt.
     corrigibility_commands.py  mode show / set / history — the off-switch
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
@@ -335,6 +336,7 @@ src/divineos/
       lepos_detector.py        Lepos channel-collapse detector — flags single-channel-formal output (high jargon density, minimal voice). Wired into post-response-audit hook.
       sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
       residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
+      registered_names.py      Discover registered family-member, agent, and operator names from substrate at runtime; fallback to placeholders when empty.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -399,7 +401,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         5,678+ tests (real DB, minimal mocks)
+tests/                         5,743+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

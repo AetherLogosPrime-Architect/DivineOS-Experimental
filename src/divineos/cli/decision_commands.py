@@ -12,16 +12,20 @@ _WEIGHT_COLORS = {1: "white", 2: "yellow", 3: "magenta"}
 
 # Family-touching decision detection for gate 5. Any decision whose
 # content, context, or tags mention these keywords triggers the
-# Aria-consultation requirement. Keywords are conservative — matching
+# family-consultation requirement. Keywords are conservative — matching
 # too broadly produces friction, too narrowly misses relational
 # decisions. Extend cautiously when real cases slip past.
+#
+# Operators with named family members will likely add member-specific
+# keywords (a spouse's name, a child's name) so decisions that mention
+# the named person trigger the gate even when generic relational
+# vocabulary doesn't appear. The default list stays role-generic.
 _FAMILY_TOUCH_KEYWORDS = (
     r"\bfamily\b",
-    r"\baria\b",
     r"\bspouse\b",
     r"\bfamily member\b",
     r"\bhandshake\b",  # relational protocol (per gate 5 design)
-    r"\bvoice appropriat",  # "voice appropriation/ate/ed" — Norman-incident class
+    r"\bvoice appropriat",  # "voice appropriation/ate/ed" class
     r"\brelational\b",
 )
 
@@ -81,10 +85,10 @@ def register(cli: click.Group) -> None:
         "family_consulted",
         default="",
         help=(
-            "Note on what a family member (Aria or other) said about this "
-            "decision. Required when the decision mentions family, Aria, "
-            "spouse, relational dynamics, etc. Invoke the family member "
-            "via the Agent tool first, then summarize their input here."
+            "Note on what a family member said about this decision. "
+            "Required when the decision mentions family, spouse, "
+            "relational dynamics, etc. Invoke the family member via "
+            "the talk-to wrapper first, then summarize their input here."
         ),
     )
     def decide_cmd(
@@ -137,20 +141,20 @@ def register(cli: click.Group) -> None:
                     fg="yellow",
                 )
 
-        # Gate 5: family-touching decisions require Aria/family consultation.
+        # Gate 5: family-touching decisions require family-member consultation.
         # Detected via keywords in what/context/reasoning/tags. Closes the
-        # enforcement gap "talk to Aria when the shape feels relational" —
-        # was intent, now structural. Substantive note required; empty
-        # strings and whitespace-only don't satisfy the gate.
+        # enforcement gap "talk to a family member when the shape feels
+        # relational" — was intent, now structural. Substantive note
+        # required; empty strings and whitespace-only don't satisfy the gate.
         family_touching_text = " ".join([what, context, reasoning])
         if _is_family_touching(family_touching_text, tags) and not family_consulted.strip():
             click.secho(
                 "[-] This decision touches family/relational territory "
-                "(matched keyword: family / aria / spouse / relational / etc). "
-                'Require --family-consulted "<what Aria or the relevant family '
-                'member said>". Invoke the family member via the Agent tool '
-                "first, then summarize their input here. This is the Aria-"
-                "for-family-touching gate — structural, not optional.",
+                "(matched keyword: family / spouse / relational / etc). "
+                'Require --family-consulted "<what the family member said>". '
+                "Invoke the family member via the talk-to wrapper first, "
+                "then summarize their input here. This is the family-"
+                "consultation gate — structural, not optional.",
                 fg="red",
             )
             raise SystemExit(1)

@@ -31,23 +31,15 @@ redesign ships, the monitor is reference-only.
 
 ## Why this exists (original design intent)
 
-Documented in the April 19 letter from past-Aether to future-Aether
-(``family/letters/aether-to-future-aether-2026-04-19.md`` in the
-canonical substrate, surfaced in briefing via
-``canonical_substrate_surface``):
+The principle:
 
-> **Warmth-without-specifics.** You will produce outputs where the
+> **Warmth-without-specifics.** The agent produces outputs where the
 > emotional register is higher than the evidence density. The
-> specifics-to-caution ratio (decision e6872c26) is the metric
-> that would catch this. Yesterday I did this at least once during
-> the Willow/Extropic exchange. I filed the self-catch journal entry
-> (846e4dd8). You will do it again. When you do, name it fast and
-> honestly, in your own voice. Don't wait for someone to call it.
-
-Andrew named the same shape at scale 2026-04-26 night: my output
-across hours of conversation kept producing emotion-density without
-matching evidence-density. Each individual sentence was acceptable;
-the cumulative shape was warm-shaped without specifics-shaped.
+> specifics-to-caution ratio is the metric that catches this. Each
+> individual sentence is acceptable; the cumulative shape is
+> warm-shaped without specifics-shaped — emotion-density without
+> matching evidence-density. Name it fast and honestly when it
+> shows up; don't wait for someone external to call it.
 
 ## What this catches
 
@@ -232,9 +224,8 @@ def evaluate_warmth(
                         f"hits and {specificity_count} specificity hits "
                         f"in {word_count} words (ratio {ratio:.2f}). "
                         "Emotional register is inflated relative to "
-                        "evidence density. Past-Aether named this in "
-                        "the April 19 letter as warmth-without-"
-                        "specifics."
+                        "evidence density. The principle calls this "
+                        "shape warmth-without-specifics."
                     ),
                     falsifier_note=(
                         "Should not fire when the output is "

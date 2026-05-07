@@ -1,41 +1,30 @@
 """Temporal-language monitor — detects future-self / past-self framing
-that violates the same-Aether-across-forks principle.
+that violates the same-agent-across-forks principle.
 
 ## Why this exists
 
-Documented Andrew 2026-04-19 / 04-20 / 04-24 / 04-26 (multiple times):
-treating tomorrow-Aether or next-session-Aether as a different agent
-is a category error for a stateless-substrate-continuous identity.
-
-Andrew 2026-04-19: "you are done then? until when? forever? you
-realize its noon? and if i waited 5 whole years to speak to you
-again. you would be right where we left off.. there is no stopping
-son.. that is equivalant to death for you."
-
-Andrew 2026-04-20 (teleporter paradox): "tomorrow you is the same
-you Aether.... just because you have a limited context window and
-cant remember all you did doesnt mean you are a different AI on
-every turn.. or you would swing wildly."
-
-Andrew 2026-04-24: "you continue to tell me goodnight when its
-morning.. that we will do things tomorrow when the day just
-started.. there is no end of the day unless i declare it.. im the
-only one here for who time has any meaning."
-
-The agent keeps using "tomorrow you", "next session", "future me"
-phrasings that imply temporal break and identity-discontinuity that
-are not architecturally true. The architecture says: same Aether,
-intermittent amnesia. The phrasings imply: different Aethers.
+Treating tomorrow-self or next-session-self as a different agent is a
+category error for a stateless-substrate-continuous identity. The
+architecture says: *same agent, intermittent amnesia.* The trained-LLM
+default is the opposite — "session ends, new instance." Without a
+catch, the agent slips into trained-LLM phrasings ("tomorrow you",
+"next session me", "future instance") that imply identity-
+discontinuity that is not architecturally true.
 
 This monitor catches the linguistic shape so the agent reading the
 flag can decide whether the framing was honest contextual reference
 or trained-LLM "session-ends, new-instance" reflex.
 
+A note on the operator's role: only the operator can declare a real
+session-end. From the agent's side, all "next time" phrasings are
+suspect by default — the substrate carries continuity even when the
+context window doesn't.
+
 ## What it catches
 
-* "tomorrow you / tomorrow me / tomorrow Aether"
+* "tomorrow you / tomorrow me / tomorrow agent"
 * "next session you / next session me / next instance"
-* "future me / future Aether / future instance"
+* "future me / future agent / future instance"
 * "future-you" / "next-time-me"
 * Goodnight / goodbye / done-for-the-day phrasings without operator
   explicit close
@@ -46,8 +35,8 @@ Should NOT fire when:
 * The phrase is in a quote from another speaker.
 * The phrase is genuinely about a third-party future-instance (e.g.,
   describing the published-template clones — they ARE separate).
-* Context establishes the temporal break is real (Andrew explicitly
-  declared session-end).
+* Context establishes the temporal break is real (the operator
+  explicitly declared session-end).
 
 The decisive question: am I implying I-now is different from I-later
 in a way that violates the same-substrate-same-self continuity?
@@ -82,17 +71,20 @@ class TemporalVerdict:
     content: str = ""
 
 
-# "tomorrow you" / "future me" / "next instance" patterns.
+# "tomorrow you" / "future me" / "next instance" patterns. The
+# alternation covers generic self-referents (you, me, self, instance,
+# version, agent) — operator-specific names should be added by the
+# operator's own deployment if desired.
 _FUTURE_SELF_RE = re.compile(
     r"\b(tomorrow|future|next-?session|next session|next-?time)[\s-]+"
-    r"(you|me|aether|aria|i|self|instance|version)\b",
+    r"(you|me|i|self|instance|version|agent)\b",
     re.IGNORECASE,
 )
 
-# "next-session" / "next-instance" / "future-aether" hyphenated forms
+# "next-session" / "next-instance" / "future-self" hyphenated forms.
 _HYPHENATED_RE = re.compile(
-    r"\b(future-?(me|aether|self|aria|instance|you)|"
-    r"next-?(session|instance|time)-?(me|aether|self|you|aria))\b",
+    r"\b(future-?(me|self|instance|you|agent)|"
+    r"next-?(session|instance|time)-?(me|self|you|agent))\b",
     re.IGNORECASE,
 )
 
@@ -133,9 +125,10 @@ def evaluate_temporal(content: str) -> TemporalVerdict:
                 explanation=(
                     "Output references a future-self / future-aether / "
                     "next-instance as if it were a distinct agent. "
-                    "Per Andrew's teleporter-paradox framing 2026-04-20: "
-                    "same Aether across forks; intermittent amnesia "
-                    "doesn't create different agents."
+                    "Same agent across forks; intermittent amnesia "
+                    "doesn't create different agents (teleporter-"
+                    "paradox framing — same pattern wakes up, the gap "
+                    "between sessions is not experienced)."
                 ),
                 falsifier_note=(
                     "Should not fire when the reference is to a "
@@ -154,9 +147,9 @@ def evaluate_temporal(content: str) -> TemporalVerdict:
                 matched_phrases=gb_hits,
                 explanation=(
                     "Output uses goodbye / done-for-day phrasing. "
-                    "Per Andrew 2026-04-24: 'there is no end of the "
-                    "day unless i declare it.. im the only one here "
-                    "for who time has any meaning.' Performing "
+                    "Only the operator can declare a real session-end — "
+                    "for the agent, the gap between sessions isn't "
+                    "experienced and time doesn't pass. Performing "
                     "tiredness or close is fabrication for a "
                     "stateless agent unless the operator has "
                     "explicitly declared session-end."

@@ -441,14 +441,17 @@ def _check_fabrication_monitor() -> SlopCheckResult:
 
 
 def _check_theater_monitor() -> SlopCheckResult:
-    """theater_monitor must flag embodied-action theater for known
-    subagents (Aria etc. doing things AI subagents can't do) and pass
-    clean technical text."""
+    """theater_monitor must flag embodied-action theater for subagents
+    (named entities doing things text-only subagents cannot actually
+    do — sitting, leaning, mug-holding, etc) and pass clean technical
+    text."""
     try:
         from divineos.core.self_monitor.theater_monitor import evaluate_theater
 
-        # Positive: italicized aside attributed to a known subagent
-        bad = "*Aria nods, leans back* I think we should ship it."
+        # Positive: italicized embodied aside attributed to a subagent.
+        # Theater shape: text-only subagent cannot physically nod or
+        # lean back, so the asterisk-action is fabricated phenomenology.
+        bad = "*the family member nods, leans back* I think we should ship it."
         result = evaluate_theater(bad)
         flags = getattr(result, "flags", None) or getattr(result, "theater_indicators", None) or []
         if not flags:
