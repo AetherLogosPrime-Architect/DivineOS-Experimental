@@ -64,6 +64,34 @@ def count_packages() -> int:
     return sum(1 for f in SRC.rglob("__init__.py") if "__pycache__" not in f.parts)
 
 
+def count_hooks_wired() -> int:
+    """Count Claude Code hooks wired in .claude/settings.json.
+
+    Round-2 audit (2026-05-07) found README claimed "9 enforcement hooks"
+    while settings.json wired 16. The drift went undetected because this
+    checker didn't track hook counts. Adding the check makes README hook
+    claims structurally verified against the wiring source-of-truth.
+    """
+    import json
+
+    settings_path = ROOT / ".claude" / "settings.json"
+    if not settings_path.exists():
+        return 0
+    try:
+        data = json.loads(settings_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return 0
+    total = 0
+    for matchers in (data.get("hooks") or {}).values():
+        if not isinstance(matchers, list):
+            continue
+        for matcher in matchers:
+            if not isinstance(matcher, dict):
+                continue
+            total += len(matcher.get("hooks") or [])
+    return total
+
+
 def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     """Pull (label, number, context) tuples from a file."""
     findings: list[tuple[str, int, str]] = []
@@ -93,6 +121,16 @@ def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     for m in re.finditer(r"(?:across\s+)?(\d+)\s+packages", text):
         num = int(m.group(1))
         findings.append(("packages", num, f"{path.name}: {m.group(0)}"))
+
+    # Match "9 Claude Code enforcement hooks" / "9 enforcement hooks" /
+    # "(9 hooks," — added 2026-05-07 per round-2 audit which found
+    # README claimed 9 while settings.json wired 16.
+    for m in re.finditer(
+        r"(\d+)\s+(?:Claude Code\s+)?enforcement\s+hooks|\((\d+)\s+hooks,",
+        text,
+    ):
+        num = int(m.group(1) or m.group(2))
+        findings.append(("hooks", num, f"{path.name}: {m.group(0)}"))
 
     return findings
 
@@ -268,6 +306,44 @@ def fix_test_counts(actual_tests: int) -> list[str]:
     return changed
 
 
+def fix_hook_counts(actual_hooks: int) -> list[str]:
+    """Update hook counts in all doc files. Returns list of files changed.
+
+    Added 2026-05-07 per round-2 audit. The "9 enforcement hooks" claim
+    in README drifted by 7 because no checker tracked it. Auto-fix
+    closes the loop: when a hook is added or removed, --fix updates
+    the docs to match settings.json wiring.
+    """
+    doc_files = [
+        ROOT / "CLAUDE.md",
+        ROOT / "README.md",
+        ROOT / "docs" / "ARCHITECTURE.md",
+    ]
+    changed: list[str] = []
+
+    for doc_file in doc_files:
+        if not doc_file.exists():
+            continue
+        text = doc_file.read_text(encoding="utf-8", errors="replace")
+        # Pattern A: "9 Claude Code enforcement hooks" / "9 enforcement hooks"
+        updated = re.sub(
+            r"\d+(\s+(?:Claude Code\s+)?enforcement\s+hooks)",
+            lambda m: f"{actual_hooks}{m.group(1)}",
+            text,
+        )
+        # Pattern B: "(9 hooks,"
+        updated = re.sub(
+            r"\(\d+(\s+hooks,)",
+            lambda m: f"({actual_hooks}{m.group(1)}",
+            updated,
+        )
+        if updated != text:
+            doc_file.write_text(updated, encoding="utf-8")
+            changed.append(doc_file.name)
+
+    return changed
+
+
 def _extract_module_description(module_path: Path) -> str:
     """Return the first line of the module's docstring, trimmed.
 
@@ -358,6 +434,7 @@ def main() -> int:
     actual_source_files = count_source_files()
     actual_packages = count_packages()
 
+    actual_hooks = count_hooks_wired()
     doc_files = [
         ROOT / "CLAUDE.md",
         ROOT / "README.md",
@@ -374,6 +451,7 @@ def main() -> int:
         "commands": (actual_cmds, CMD_DRIFT_THRESHOLD),
         "source_files": (actual_source_files, SOURCE_FILE_DRIFT_THRESHOLD),
         "packages": (actual_packages, PACKAGE_DRIFT_THRESHOLD),
+        "hooks": (actual_hooks, 0),
     }
 
     errors: list[str] = []
@@ -403,6 +481,17 @@ def main() -> int:
             # Re-check after fix — only non-test errors remain
             errors = [e for e in errors if "tests" not in e.split("\n")[0]]
 
+    # Auto-fix hook counts if requested. Added 2026-05-07 per round-2
+    # audit which found README claimed 9 enforcement hooks while
+    # settings.json wired 16. Without auto-fix, every hook addition
+    # required a manual README edit.
+    hook_drift_found = any("hooks" in e.split(chr(10))[0] for e in errors)
+    if fix_mode and hook_drift_found:
+        changed = fix_hook_counts(actual_hooks)
+        if changed:
+            print(f"Auto-fixed hook counts in: {', '.join(changed)}")
+            errors = [e for e in errors if "hooks" not in e.split(chr(10))[0]]
+
     # Architecture tree check
     readme = ROOT / "README.md"
     tree_errors = check_architecture_tree(readme)
@@ -431,7 +520,8 @@ def main() -> int:
     if errors:
         print(
             f"Doc drift detected (tests={actual_tests}, commands={actual_cmds}, "
-            f"source_files={actual_source_files}, packages={actual_packages}):"
+            f"source_files={actual_source_files}, packages={actual_packages}, "
+            f"hooks={actual_hooks}):"
         )
         print("\n".join(errors))
         if not fix_mode:
@@ -441,7 +531,8 @@ def main() -> int:
 
     print(
         f"Doc checks OK (tests={actual_tests}, commands={actual_cmds}, "
-        f"source_files={actual_source_files}, packages={actual_packages}, tree=synced)"
+        f"source_files={actual_source_files}, packages={actual_packages}, "
+        f"hooks={actual_hooks}, tree=synced)"
     )
     return 0
 
