@@ -59,13 +59,33 @@
 
 INPUT=$(cat)
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 0
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 0
 
-if ! command -v python &>/dev/null; then
+# Prefer a project-local venv over whatever `python` happens to be first
+# on PATH. The embedded script imports divineos.* (which transitively
+# imports loguru, click, etc.) — if the operator's shell has a system
+# python without these deps, the hook fails-OPEN silently and the
+# bypass-block guarantee evaporates. Walk a known set of candidates.
+PYTHON_BIN=""
+for candidate in \
+  "$REPO_ROOT/.venv/bin/python" \
+  "$REPO_ROOT/.venv/Scripts/python.exe" \
+  "$REPO_ROOT/venv/bin/python" \
+  "$(command -v python3 2>/dev/null)" \
+  "$(command -v python 2>/dev/null)"
+do
+  if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+    PYTHON_BIN="$candidate"
+    break
+  fi
+done
+
+if [ -z "$PYTHON_BIN" ]; then
   exit 0
 fi
 
-echo "$INPUT" | python -c "
+echo "$INPUT" | "$PYTHON_BIN" -c "
 import hashlib
 import json
 import re

@@ -23,6 +23,7 @@ from __future__ import annotations
 import importlib
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -33,7 +34,22 @@ SKILLS_DIR = REPO_ROOT / ".claude" / "skills"
 
 def _real_top_level_commands() -> set[str]:
     """Return the set of top-level commands ``divineos --help`` lists."""
-    out = subprocess.run(["divineos", "--help"], capture_output=True, text=True, check=False)
+    # Use ``sys.executable -m divineos`` rather than ``["divineos", ...]``.
+    # The bare ``divineos`` script may not be on PATH in CI or when pytest
+    # runs through a venv whose bin dir isn't first on PATH; the entry
+    # point is always reachable via -m once the package is installed.
+    out = subprocess.run(
+        [sys.executable, "-m", "divineos", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    # If the help command produced nothing usable, refuse to silently
+    # report every skill reference as broken — surface the underlying
+    # failure instead.
+    assert out.stdout.strip(), (
+        f"`divineos --help` produced no output (rc={out.returncode}). stderr: {out.stderr[:500]}"
+    )
     # Click prints commands as "  <name>  <description>" in the Commands
     # block. Match lines starting with two spaces + a lowercase word.
     return set(re.findall(r"^  ([a-z][a-z0-9_-]+)\b", out.stdout, re.MULTILINE))

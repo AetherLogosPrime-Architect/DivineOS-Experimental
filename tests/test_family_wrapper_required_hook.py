@@ -69,6 +69,17 @@ def _run_hook(payload: dict, fake_home: Path) -> tuple[int, str, str]:
     env["USERPROFILE"] = str(fake_home)
     # Ensure the python on PATH can find the divineos package.
     env["PYTHONPATH"] = str(REPO_ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")
+    # Put the python running pytest first on PATH so the bash hook's
+    # python lookup finds an interpreter with divineos's deps installed
+    # (loguru, click, etc.), not whatever system python happens to be
+    # first. Without this, the hook silently fails-open on ImportError
+    # and the deny-path tests get empty stdout. Defense in depth: the
+    # hook itself also prefers .venv/bin/python via patch 1, but tests
+    # shouldn't rely on the venv layout matching the patch's assumptions.
+    import sys as _sys
+
+    pytest_python_dir = str(Path(_sys.executable).parent)
+    env["PATH"] = pytest_python_dir + os.pathsep + env.get("PATH", "")
 
     proc = subprocess.run(
         [_BASH_PATH, str(HOOK_PATH)],
