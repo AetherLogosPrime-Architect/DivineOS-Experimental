@@ -95,6 +95,55 @@ def register(cli: click.Group) -> None:
         else:
             click.secho(f"[~] No matching goal found for: {text}", fg="yellow")
 
+    @goal_group.command("auto-close")
+    @click.option(
+        "--message",
+        default=None,
+        help="Commit message text. If omitted, reads HEAD's commit message.",
+    )
+    @click.option(
+        "--threshold",
+        default=0.5,
+        type=float,
+        help="Minimum overlap ratio (default 0.5).",
+    )
+    def goal_auto_close_cmd(message: str | None, threshold: float) -> None:
+        """Auto-close active goals whose tokens overlap a commit message.
+
+        Closure-discipline structural fix (operator-named 2026-05-05):
+        right path becomes automatic instead of remembered. When a
+        commit lands with text substantially matching an open goal,
+        the goal auto-closes.
+        """
+        import subprocess
+
+        from divineos.core.goal_auto_close import auto_close_from_message
+
+        if message is None:
+            try:
+                message = subprocess.check_output(
+                    ["git", "log", "-1", "--pretty=%B"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                )
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                click.secho("[-] Could not read HEAD commit message.", fg="red")
+                return
+
+        result = auto_close_from_message(message, threshold=threshold)
+        if not result.closed:
+            click.secho("[~] No goals closed.", fg="bright_black")
+            if result.skipped:
+                click.secho(
+                    f"    {len(result.skipped)} goal(s) considered (below threshold).",
+                    fg="bright_black",
+                )
+            return
+
+        click.secho(f"[+] Auto-closed {len(result.closed)} goal(s):", fg="green")
+        for snippet in result.closed:
+            click.secho(f"    -> {snippet}", fg="green")
+
     @goal_group.command("list")
     def goal_list_cmd() -> None:
         """Show current goals."""
