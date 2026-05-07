@@ -34,7 +34,23 @@ from loguru import logger
 
 from divineos.core.guardrails import GuardrailConfig, GuardrailState
 from divineos.core.loop_prevention import should_capture_tool
-from divineos.event.event_emission import emit_tool_call, emit_tool_result
+from divineos.core.tool_logbook import (
+    emit_tool_call as _logbook_emit_tool_call,
+)
+from divineos.core.tool_logbook import (
+    emit_tool_result as _logbook_emit_tool_result,
+)
+from divineos.core.tool_logbook import (
+    prune_logbook as _logbook_prune,
+)
+
+# Backward-compatible names. Existing tests and external callers mock
+# `divineos.core.tool_wrapper.emit_tool_call` / `emit_tool_result`.
+# Pre-2026-05-05 these resolved to `event_emission.emit_tool_call` (which
+# wrote to the main ledger). Now they resolve to the logbook variants —
+# the wrapper writes to `tool_logbook` instead of `system_events`.
+emit_tool_call = _logbook_emit_tool_call
+emit_tool_result = _logbook_emit_tool_result
 
 # Singleton guardrail state for the session
 _guardrail_state = GuardrailState()
@@ -167,7 +183,10 @@ def wrap_tool_execution(
         # Full args caused 43MB payloads that bloated the DB to 4.7GB.
         tool_input = _summarize_tool_input(args, kwargs)
 
-        # Emit TOOL_CALL event with error handling
+        # Emit TOOL_CALL event to the tool_logbook (NOT system_events).
+        # 2026-05-05: routed out of the main ledger to keep system_events
+        # clean of operational telemetry. The logbook has its own
+        # conveyor-belt prune + cap.
         try:
             logger.debug(f"Emitting TOOL_CALL event for {tool_name}")
             emit_tool_call(
@@ -175,7 +194,7 @@ def wrap_tool_execution(
                 tool_input=tool_input,
                 tool_use_id=use_id,
             )
-            _prune_tool_events()
+            _logbook_prune()
             logger.debug(f"TOOL_CALL event emitted successfully for {tool_name}")
         except ValueError as e:
             logger.error(f"Validation error during TOOL_CALL event emission: {e}")
@@ -202,7 +221,7 @@ def wrap_tool_execution(
             error_message = str(e)
             logger.error(f"Tool {tool_name} failed: {error_message}", exc_info=True)
 
-            # Emit TOOL_RESULT event with error
+            # Emit TOOL_RESULT event with error (to the logbook).
             duration_ms = int((time.time() - start_time) * 1000)
             try:
                 emit_tool_result(
