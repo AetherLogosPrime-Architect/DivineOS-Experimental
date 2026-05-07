@@ -49,6 +49,8 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Final
 
+from loguru import logger
+
 from divineos.core.compass_constants import (
     JUSTIFICATION_WINDOW_SECONDS as _FIRE_VALIDATION_WINDOW_SECONDS,
     RUDDER_ACK_TAG,
@@ -400,8 +402,14 @@ def _emit_dual_run_discrepancy(
             },
             validate=False,
         )
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "moral_compass: CONTRACT_DUAL_RUN_DISCREPANCY emit failed "
+            "(spectrum={}, fire_id={}): {}",
+            spectrum,
+            fire_id,
+            e,
+        )
 
 
 def _emit_rudder_ack_retracted(
@@ -443,8 +451,15 @@ def _emit_rudder_ack_retracted(
             },
             validate=False,
         )
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "moral_compass: RUDDER_ACK_RETRACTED emit failed "
+            "(spectrum={}, fire_id={}, observation_id={}): {}",
+            spectrum,
+            fire_id,
+            observation_id,
+            e,
+        )
 
 
 def _record_fire_id_rejection(
@@ -470,8 +485,13 @@ def _record_fire_id_rejection(
                 "reason": reason[:240],
             },
         )
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            "moral_compass: fire-id rejection record_failure failed (spectrum={}, fire_id={}): {}",
+            spectrum,
+            fire_id,
+            e,
+        )
 
 
 def log_observation(
