@@ -2,8 +2,8 @@
 
 ## Why this exists
 
-Documented 2026-05-05 (live finding with Andrew): when a session
-resumes after thread-sever (compaction without context-pull-through),
+Failure mode: when a session resumes after thread-sever (compaction
+without context-pull-through),
 the briefing surfaces are visible BUT the agent does not reach for the
 substrate behind them on entry. The briefing has been doing the
 *describing* job (showing titles, counts, summaries). What was missing
