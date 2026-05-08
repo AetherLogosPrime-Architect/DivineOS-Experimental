@@ -608,6 +608,25 @@ def register(cli: click.Group) -> None:
         if theater_obs_block:
             _safe_echo(theater_obs_block)
 
+        # Operating-loop findings surface — the post-response-audit hook
+        # writes nine-detector findings to ~/.divineos/operating_loop_findings.json
+        # on every assistant response. Without this surface, those findings
+        # sit unread and detection is silent. This makes the patterns
+        # loud-in-experience at briefing-time. Added 2026-05-08 after Andrew
+        # named the gap (lepos detector existed but never surfaced; channel-
+        # collapse drift was caught and forgotten 14+ times in one session).
+        try:
+            from divineos.core.operating_loop_briefing_surface import (
+                format_for_briefing as _fmt_operating_loop,
+            )
+
+            operating_loop_block = _fmt_operating_loop()
+        except _KC_ERRORS:
+            operating_loop_block = ""
+
+        if operating_loop_block:
+            _safe_echo(operating_loop_block)
+
         # Tier-override surface — closes the partial-theater finding
         # from the 2026-04-21 evening Schneier walk (Sch2). Every tier
         # override already emits a TIER_OVERRIDE ledger event (commit
