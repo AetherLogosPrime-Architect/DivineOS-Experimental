@@ -70,7 +70,18 @@ _KNOWLEDGE_COL_NAMES: list[str] = [
     "related_to",
     "corroboration_sources",
     "memory_kind",
+    "integration_state",
+    "integration_marked_at",
+    "integration_marked_by",
+    "integration_notes",
 ]
+
+
+# Valid integration states for directives/preferences.
+# - active        : currently shaping behavior, surface in briefing
+# - internalized  : behavior is now consistent; keep queryable but suppress from foreground
+# - archived      : retired (no longer applicable, deprecated, or replaced)
+INTEGRATION_STATES = {"active", "internalized", "archived"}
 
 _KNOWLEDGE_COLS = ", ".join(_KNOWLEDGE_COL_NAMES)
 _KNOWLEDGE_COLS_K = ", ".join(f"k.{c}" for c in _KNOWLEDGE_COL_NAMES)
@@ -94,6 +105,10 @@ _KNOWLEDGE_DEFAULTS: dict[str, Any] = {
     "related_to": None,
     "corroboration_sources": [],
     "memory_kind": "UNCLASSIFIED",
+    "integration_state": "active",
+    "integration_marked_at": None,
+    "integration_marked_by": None,
+    "integration_notes": None,
 }
 
 
@@ -241,6 +256,35 @@ def init_knowledge_table() -> None:
             )
         except sqlite3.OperationalError as e:
             logger.debug(f"Column supersession_reason already exists: {e}")
+
+        # Integration lifecycle for directives/preferences:
+        # - active (default): surface in briefing, currently shaping behavior
+        # - internalized: behavior is consistent; keep queryable but suppress from foreground
+        # - archived: retired (no longer applicable, deprecated, or replaced)
+        try:
+            conn.execute(
+                "ALTER TABLE knowledge ADD COLUMN integration_state TEXT NOT NULL DEFAULT 'active'",
+            )
+        except sqlite3.OperationalError as e:
+            logger.debug(f"Column integration_state already exists: {e}")
+
+        for col, col_type in [
+            ("integration_marked_at", "REAL"),
+            ("integration_marked_by", "TEXT"),
+            ("integration_notes", "TEXT"),
+        ]:
+            try:
+                conn.execute(
+                    f"ALTER TABLE knowledge ADD COLUMN {col} {col_type} DEFAULT NULL",
+                )
+            except sqlite3.OperationalError as e:
+                logger.debug(f"Column {col} already exists: {e}")
+
+        # Index on integration_state for fast filtering of active foreground entries
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_knowledge_integration_state
+            ON knowledge(integration_state)
+        """)
 
         # Temporal dimension columns (nullable — NULL means unbounded)
         for col, col_type, default in [

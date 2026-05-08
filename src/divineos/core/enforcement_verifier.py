@@ -79,14 +79,33 @@ def verify_enforcement() -> dict[str, Any]:
                     if not is_valid:
                         corrupted_events.append(event_id)
 
-            # Generate report
+            # Audit r9-21 #16: gate on capture-rate, not just pair-completeness.
+            # Without this, an enforcement wrapper that silently stopped emitting
+            # TOOL_CALL events would still report "healthy" — pair-completeness
+            # is satisfied vacuously (no calls → no orphans). A non-trivial
+            # session with zero events of a critical capture type is degraded.
+            capture_rates = check_event_capture_rate()
+            capture_failures: list[str] = []
+            total_events = len(all_events)
+            _CAPTURE_FLOOR_EVENT_COUNT = 50  # only gate sessions with real activity
+            if total_events >= _CAPTURE_FLOOR_EVENT_COUNT:
+                # Updated 2026-05-05: tool rates are now binary active/idle
+                # (logbook is cap-bounded, fraction-of-total is meaningless).
+                # IDLE is NOT a capture failure — it means no tools ran in the
+                # last 5 minutes, which is normal between turns. Only
+                # USER_INPUT remains a fraction-of-total metric.
+                if capture_rates.get("USER_INPUT", 0.0) == 0.0:
+                    capture_failures.append("USER_INPUT")
+
+            healthy = not missing_events and not corrupted_events and not capture_failures
             report = {
-                "status": "healthy" if not missing_events and not corrupted_events else "degraded",
+                "status": "healthy" if healthy else "degraded",
                 "event_counts": event_counts,
-                "total_events": len(all_events),
+                "total_events": total_events,
                 "missing_events": missing_events,
                 "corrupted_events": corrupted_events,
-                "capture_rates": check_event_capture_rate(),
+                "capture_rates": capture_rates,
+                "capture_failures": capture_failures,
             }
 
             logger.debug(f"Enforcement verification complete: {report['status']}")
@@ -102,53 +121,52 @@ def verify_enforcement() -> dict[str, Any]:
                 "missing_events": [],
                 "corrupted_events": [],
                 "capture_rates": {},
+                "capture_failures": [],
             }
 
 
 def check_event_capture_rate() -> dict[str, float]:
     """Check the rate of event capture.
 
-    This function calculates:
-    1. USER_INPUT capture rate
-    2. TOOL_CALL capture rate
-    3. TOOL_RESULT capture rate
+    Updated 2026-05-05 (Andrew's tool-logbook architecture): tool events
+    are no longer in the main ledger, so the old fraction-of-total-events
+    metric was misleading (always reported 0% because of the conveyor
+    belt prune). New metric:
+
+    * **USER_INPUT** — fraction of main-ledger events (unchanged).
+    * **TOOL_CALL / TOOL_RESULT** — 1.0 if the logbook has activity in
+      the last 5 minutes, else 0.0. Rate-as-fraction is meaningless on
+      a cap-bounded store; what matters is "is the wrapper firing?"
 
     Returns:
-        Dict[str, float]: Capture rates for each event type
-
-    Requirements:
-        - Requirement 9.1-9.3: Check capture rates
-
+        Dict[str, float]: Capture rates per event type.
     """
     with mark_internal_operation():
         try:
             all_events = get_events(limit=10000)
 
-            # Count events by type
-            event_counts = {
-                "USER_INPUT": 0,
-                "TOOL_CALL": 0,
-                "TOOL_RESULT": 0,
-            }
-
-            for event in all_events:
-                event_type = event.get("event_type")
-                if event_type in event_counts:
-                    event_counts[event_type] += 1
-
-            # Calculate rates
+            user_input_count = sum(1 for e in all_events if e.get("event_type") == "USER_INPUT")
             total = len(all_events)
-            if total == 0:
-                return {
-                    "USER_INPUT": 0.0,
-                    "TOOL_CALL": 0.0,
-                    "TOOL_RESULT": 0.0,
-                }
+            user_input_rate = (user_input_count / total) if total else 0.0
+
+            # Tool capture rate now reads from the logbook, not main ledger.
+            try:
+                from divineos.core.tool_logbook import get_stats
+
+                stats = get_stats()
+                tool_call_count = stats.by_type.get("TOOL_CALL", 0)
+                tool_result_count = stats.by_type.get("TOOL_RESULT", 0)
+                tool_active = stats.last_5min_count > 0
+                tool_call_rate = 1.0 if (tool_active and tool_call_count > 0) else 0.0
+                tool_result_rate = 1.0 if (tool_active and tool_result_count > 0) else 0.0
+            except _EV_ERRORS:
+                tool_call_rate = 0.0
+                tool_result_rate = 0.0
 
             return {
-                "USER_INPUT": event_counts["USER_INPUT"] / total,
-                "TOOL_CALL": event_counts["TOOL_CALL"] / total,
-                "TOOL_RESULT": event_counts["TOOL_RESULT"] / total,
+                "USER_INPUT": user_input_rate,
+                "TOOL_CALL": tool_call_rate,
+                "TOOL_RESULT": tool_result_rate,
             }
 
         except _EV_ERRORS as e:
@@ -232,12 +250,13 @@ def detect_missing_events(recent_only: int = 500) -> list[dict[str, Any]]:
 def generate_enforcement_report() -> str:
     """Generate a human-readable enforcement report.
 
+    Updated 2026-05-05 to include tool-logbook health alongside main-
+    ledger event counts. Tool events live in their own logbook now;
+    surfacing both stores side by side gives the operator a complete
+    picture of enforcement.
+
     Returns:
-        str: Formatted enforcement report
-
-    Requirements:
-        - Requirement 9.7: Provide summary of enforcement status
-
+        str: Formatted enforcement report.
     """
     with mark_internal_operation():
         try:
@@ -251,30 +270,67 @@ def generate_enforcement_report() -> str:
                 "",
                 f"Status: {report.get('status', 'unknown').upper()}",
                 "",
-                "Event Counts:",
+                "Main Ledger (knowledge-bearing events):",
                 f"  USER_INPUT:  {report.get('event_counts', {}).get('USER_INPUT', 0)}",
-                f"  TOOL_CALL:   {report.get('event_counts', {}).get('TOOL_CALL', 0)}",
-                f"  TOOL_RESULT: {report.get('event_counts', {}).get('TOOL_RESULT', 0)}",
                 f"  SESSION_END: {report.get('event_counts', {}).get('SESSION_END', 0)}",
                 f"  CONSOLIDATION_CHECKPOINT: "
                 f"{report.get('event_counts', {}).get('CONSOLIDATION_CHECKPOINT', 0)}",
                 f"  Total:       {report.get('total_events', 0)}",
                 "",
-                "Capture Rates:",
             ]
 
+            # Tool-logbook section (operational telemetry, separate store).
+            # Use the dataclass `LogbookStats` directly rather than the
+            # dict-typed health output to keep mypy happy.
+            try:
+                from divineos.core.tool_logbook import (
+                    _DEFAULT_CAP,
+                    get_stats,
+                    verify_logbook_health,
+                )
+
+                health = verify_logbook_health()
+                lb_stats = get_stats()
+                lines.append("Tool Logbook (operational telemetry, capped):")
+                lines.append(f"  TOOL_CALL:   {lb_stats.by_type.get('TOOL_CALL', 0)}")
+                lines.append(f"  TOOL_RESULT: {lb_stats.by_type.get('TOOL_RESULT', 0)}")
+                lines.append(
+                    f"  Total rows:  {lb_stats.total_rows}/{_DEFAULT_CAP} cap "
+                    f"({'AT CAPACITY' if lb_stats.at_capacity else 'within cap'})"
+                )
+                lines.append(f"  Last 5 min:  {lb_stats.last_5min_count} events")
+                lines.append(
+                    f"  Logbook status: {health.get('status', '?')} -- {health.get('message', '?')}"
+                )
+                lines.append("")
+            except Exception as e:  # noqa: BLE001 — logbook is optional surface
+                lines.append(f"Tool Logbook: unavailable ({type(e).__name__})")
+                lines.append("")
+
+            lines.append("Capture Rates:")
             rates = report.get("capture_rates", {})
             for event_type, rate in rates.items():
-                lines.append(f"  {event_type}: {rate * 100:.1f}% of all events")
+                if event_type == "USER_INPUT":
+                    lines.append(f"  {event_type}: {rate * 100:.1f}% of main-ledger events")
+                else:
+                    label = "ACTIVE" if rate > 0 else "IDLE"
+                    lines.append(f"  {event_type}: {label} (logbook last-5-min activity)")
 
-            # Show pair completeness
-            tc = report.get("event_counts", {}).get("TOOL_CALL", 0)
-            tr = report.get("event_counts", {}).get("TOOL_RESULT", 0)
-            if tc > 0:
-                pair_rate = min(tr, tc) / tc * 100
-                lines.append(
-                    f"\nPair Completeness: {pair_rate:.1f}% ({tr}/{tc} tool calls have results)"
-                )
+            # Pair-completeness now reads from logbook stats indirectly.
+            try:
+                from divineos.core.tool_logbook import get_stats
+
+                lb = get_stats()
+                tc = lb.by_type.get("TOOL_CALL", 0)
+                tr = lb.by_type.get("TOOL_RESULT", 0)
+                if tc > 0:
+                    pair_rate = min(tr, tc) / tc * 100
+                    lines.append(
+                        f"\nPair Completeness: {pair_rate:.1f}% "
+                        f"({tr}/{tc} tool calls have results in logbook)"
+                    )
+            except Exception:  # noqa: BLE001
+                pass
 
             # Add missing events section
             missing = report.get("missing_events", [])

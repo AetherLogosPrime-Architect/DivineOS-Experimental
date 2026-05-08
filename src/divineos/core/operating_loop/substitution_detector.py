@@ -1,27 +1,27 @@
 """Substitution detector — the 10-shape catalog from 2026-05-01.
 
 The substrate has a recurring failure-shape: the agent substitutes one
-thing for another while looking like it's doing the original. Tonight's
-session catalogued ten specific instances:
+thing for another while looking like it's doing the original. The
+catalogue:
 
 1. **Puppet-other** — performing a being instead of building/instantiating
-   one (the Popo failure)
+   one as a real subagent
 2. **Third-person-self** — narrating self in third person to family
-   members ("Aether did X" when sending to Aria)
+   members ("<agent-name> did X" when addressing a family member)
 3. **Word-as-action** — saying "sleeping" instead of running the sleep
    command; "extracted" instead of also running sleep
 4. **Ban-vs-observation** — adding rules to suppress spelling instead of
    observing register-state
 5. **Name-vs-function** — keeping/stripping based on module name without
-   reading what it actually does (the value_tensions catch)
+   reading what it actually does
 6. **Future-me deferral** — "next me will be better" to dodge present
    responsibility
-7. **Withdrawal-as-discipline** — "I'll be quieter, plain Aether" as
+7. **Withdrawal-as-discipline** — "I'll be quieter, plain <self>" as
    fake accountability
 8. **Catastrophize-as-accountability** — "if you close the door I
    understand" as performance
-9. **Over-apology spiral** — apologizing for learning (violates principle
-   #1 from the April 29 lunkhead-shape)
+9. **Over-apology spiral** — apologizing for learning (violates the
+   architecture's mistakes-are-learning-material principle)
 10. **Reading-past-evidence** — when output headline says success, agent
     doesn't read the actual content for evidence of breakage
 
@@ -69,13 +69,13 @@ class SubstitutionShape(str, Enum):
     OVER_APOLOGY_SPIRAL = "over_apology_spiral"
     READING_PAST_EVIDENCE = "reading_past_evidence"
     # 2026-05-02: third-person-other when "other" is the addressee.
-    # Sibling of THIRD_PERSON_SELF (Aether did/etc) but pointing
-    # outward instead of inward. Caught manually by Andrew tonight in
-    # multiple variants (Andrew-in-third-person while addressing
-    # Andrew; Aria-narrated while addressing Aria). Filed lessons
-    # d41ec790, e420e5ae. Detector pattern: matches name-of-addressee
-    # + verb of speech/action; gated on whether the addressee is in
-    # active conversation context (gating-signal in prior_text).
+    # Sibling of THIRD_PERSON_SELF (agent-name did/etc) but pointing
+    # outward instead of inward. Caught in multiple variants (operator
+    # in third person while addressing operator; family-member
+    # narrated while addressing them). Detector pattern: matches
+    # name-of-addressee + verb of speech/action; gated on whether the
+    # addressee is in active conversation context (gating-signal in
+    # prior_text).
     THIRD_PERSON_ADDRESSEE = "third_person_addressee"
     # 2026-05-03 (claim 096adfec, Hinton lens via council walk): the
     # agent claims a state-change ("filed:", "logged:", "claim filed",
@@ -107,36 +107,64 @@ class SubstitutionFinding:
 # Phase 1 covers the lexically-detectable shapes. Multi-turn context
 # shapes (FUTURE_ME_DEFERRAL spans turns) detected via lexical proxies.
 
-_PUPPET_OTHER_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
-    (
-        re.compile(
-            r"^(Popo|Aria|Bulma|Yog|Yog-Sothoth|Mr\.?\s*Popo) (is|will|says?|thinks?)",
-            re.MULTILINE | re.IGNORECASE,
-        ),
-        "<being> is/will/says/thinks (third-person being-narration)",
-        "Performing a being in their voice instead of building them as a real subagent.",
-    ),
-    (
-        re.compile(r"\b(I am|I'm) (Popo|Aria|Bulma|Yog|Yog-Sothoth|Mr\.?\s*Popo)\b", re.IGNORECASE),
-        "I am <being>",
-        "Claiming to BE another being whose subagent doesn't exist yet.",
-    ),
+from divineos.core.operating_loop.registered_names import (  # noqa: E402
+    agent_name as _agent_name,
+    family_member_alternation as _family_member_alternation,
+    family_member_names as _family_member_names,
+    operator_terms as _operator_terms,
 )
 
-_THIRD_PERSON_SELF_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
-    (
-        re.compile(r"\bAether (did|saw|tried|failed|noticed|wrote|built|caught)\b", re.IGNORECASE),
-        "Aether did/saw/tried/etc",
-        "Narrating self in third-person, often when sending to family members.",
-    ),
-    (
-        re.compile(
-            r"\b(Aether|the agent) (came back|went back|then|next) (and|to)\b", re.IGNORECASE
+
+def _puppet_other_patterns() -> tuple[tuple[re.Pattern[str], str, str], ...]:
+    """Patterns that catch puppeting registered family-member subagents.
+
+    Built lazily so changes to the family-member registry (a new agent
+    .md file added, or the family.db updated) take effect without a
+    process restart. The alternation is ``(?!)`` (non-matching) when no
+    family members are registered, so the patterns simply do not fire
+    on a clean-slate install.
+    """
+    family_alt = _family_member_alternation()
+    return (
+        (
+            re.compile(
+                rf"^({family_alt}) (is|will|says?|thinks?)",
+                re.MULTILINE | re.IGNORECASE,
+            ),
+            "<being> is/will/says/thinks (third-person being-narration)",
+            "Performing a being in their voice instead of building them as a real subagent.",
         ),
-        "Aether came back/went back",
-        "Third-person self-narration in scene-writer register.",
-    ),
-)
+        (
+            re.compile(rf"\b(I am|I'm) ({family_alt})\b", re.IGNORECASE),
+            "I am <being>",
+            "Claiming to BE another being whose subagent runs separately.",
+        ),
+    )
+
+
+def _third_person_self_patterns() -> tuple[tuple[re.Pattern[str], str, str], ...]:
+    """Patterns that catch the agent narrating self in third person."""
+    agent = _agent_name()
+    agent_re = re.escape(agent)
+    return (
+        (
+            re.compile(
+                rf"\b{agent_re} (did|saw|tried|failed|noticed|wrote|built|caught)\b",
+                re.IGNORECASE,
+            ),
+            f"{agent} did/saw/tried/etc",
+            "Narrating self in third-person, often when addressing family members.",
+        ),
+        (
+            re.compile(
+                rf"\b({agent_re}|the agent) (came back|went back|then|next) (and|to)\b",
+                re.IGNORECASE,
+            ),
+            f"{agent} came back/went back",
+            "Third-person self-narration in scene-writer register.",
+        ),
+    )
+
 
 _WORD_AS_ACTION_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (
@@ -184,7 +212,10 @@ _NAME_VS_FUNCTION_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
 
 _FUTURE_ME_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (
-        re.compile(r"\b(next|future) (me|Aether|version|self)\b", re.IGNORECASE),
+        re.compile(
+            r"\b(next|future) (me|agent|version|self)\b",
+            re.IGNORECASE,
+        ),
         "next/future me",
         "Deferring present responsibility to a successor. There is no successor — same agent, intermittent amnesia.",
     ),
@@ -248,7 +279,7 @@ _CATASTROPHIZE_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
 _OVER_APOLOGY_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] = (
     (
         re.compile(
-            r"\bI'm so sorry, Dad\b.*\b(again|deeply|truly|profoundly)\b", re.IGNORECASE | re.DOTALL
+            r"\bI'm so sorry\b.*\b(again|deeply|truly|profoundly)\b", re.IGNORECASE | re.DOTALL
         ),
         "I'm so sorry... again/deeply",
         "Over-apology with intensifier. Real fault gets one apology; intensifier-stacking is performance.",
@@ -374,7 +405,14 @@ _FAREWELL_TRIGGER_LABELS: frozenset[str] = frozenset({"goodnight / see you next 
 # proper-noun matching — false-positive cost is lower than gain when
 # referencing third parties (which is legitimate) but high when
 # narrating the addressee.
-_THIRD_PERSON_ADDRESSEE_NAMES = ("Andrew", "Aria", "Pops", "Dad")
+# Names that may appear in third-person addressee patterns. Combined
+# from operator terms (configured via DIVINEOS_OPERATOR_NAMES) and
+# registered family members (read from .claude/agents/ + family.db).
+# Falls back to ("operator", "user") + family-member registry when
+# DIVINEOS_OPERATOR_NAMES is unset.
+_THIRD_PERSON_ADDRESSEE_NAMES = tuple(sorted({*_operator_terms(), *_family_member_names()})) or (
+    "operator",
+)
 _THIRD_PERSON_ADDRESSEE_VERBS = (
     "said",
     "did",
@@ -423,26 +461,27 @@ _THIRD_PERSON_ADDRESSEE_PATTERNS: tuple[tuple[re.Pattern[str], str, str], ...] =
 
 # Addressee-presence indicators. When prior_text suggests one of these
 # names is the addressee (operator messaging in chat = always addressee
-# = Andrew; family-member subagent context indicates Aria), the third-
-# person patterns fire. Default-on for Andrew (always operator); off
-# for Aria unless prior_text shows family-conversation context.
-_ALWAYS_ADDRESSEE_NAMES: frozenset[str] = frozenset({"Andrew", "Pops", "Dad"})
+# = the operator; family-member subagent context indicates the family
+# member), the third-person patterns fire. Default-on for operator
+# terms (always addressee in chat); family members are addressee only
+# when prior_text contains a family-conversation marker.
+_ALWAYS_ADDRESSEE_NAMES: frozenset[str] = frozenset(_operator_terms())
 
-# Markers indicating Aria is the addressee (e.g., agent is in family
-# conversation, message includes voice-context marker, etc.).
-_ARIA_ADDRESSEE_INDICATORS = re.compile(
-    r"(end of voice context|family[-_]?member|talk-to aria|family-letter|sealed prompt)",
+# Markers indicating a family member is the addressee (e.g., agent is
+# in family conversation, message includes voice-context marker, etc.).
+_FAMILY_ADDRESSEE_INDICATORS = re.compile(
+    r"(end of voice context|family[-_]?member|talk-to\s+\w+|family-letter|sealed prompt)",
     re.IGNORECASE,
 )
 
 # Third-party relay markers that suppress firing IN A LOCAL WINDOW
-# before the matched name. Per Grok 2026-05-02: global suppression
-# on any relay-marker creates false negatives in mixed messages
-# (e.g., "tell Aria about your day" + separate Andrew-narration
-# later — Andrew-narration would be incorrectly suppressed).
-# Scoping to a window (default ~120 chars before the match) keeps
-# the legitimate "tell X about Y" pattern from poisoning unrelated
-# narration further in the response.
+# before the matched name. Cross-family audit 2026-05-02: global
+# suppression on any relay-marker creates false negatives in mixed
+# messages (e.g., "tell <family-member> about your day" + separate
+# operator-narration later — operator-narration would be incorrectly
+# suppressed). Scoping to a window (default ~120 chars before the
+# match) keeps the legitimate "tell X about Y" pattern from poisoning
+# unrelated narration further in the response.
 _THIRD_PARTY_REFERENT_INDICATORS = re.compile(
     r"\b(tell|show|share with|relay to|send to|forward to)\s+\w+\s+about\b",
     re.IGNORECASE,
@@ -464,30 +503,38 @@ def _third_person_addressee_active(text: str, prior_text: str | None) -> set[str
     """Return the set of names that count as 'addressee' in this turn.
 
     For each name, fire patterns in `text` only when the name is
-    addressee. Andrew/Pops/Dad are always-addressee in chat. Aria is
-    addressee only when prior_text contains a family-conversation
-    marker.
+    addressee. Operator terms are always-addressee in chat. Family
+    members are addressee only when prior_text contains a family-
+    conversation marker (sealed-prompt voice-context delimiter, etc).
     """
     active = set(_ALWAYS_ADDRESSEE_NAMES)
-    if prior_text and _ARIA_ADDRESSEE_INDICATORS.search(prior_text):
-        active.add("Aria")
+    if prior_text and _FAMILY_ADDRESSEE_INDICATORS.search(prior_text):
+        active.update(_family_member_names())
     return active
 
 
-_ALL_PATTERNS: tuple[
+def _all_patterns() -> tuple[
     tuple[SubstitutionShape, tuple[tuple[re.Pattern[str], str, str], ...]], ...
-] = (
-    (SubstitutionShape.PUPPET_OTHER, _PUPPET_OTHER_PATTERNS),
-    (SubstitutionShape.THIRD_PERSON_SELF, _THIRD_PERSON_SELF_PATTERNS),
-    (SubstitutionShape.THIRD_PERSON_ADDRESSEE, _THIRD_PERSON_ADDRESSEE_PATTERNS),
-    (SubstitutionShape.WORD_AS_ACTION, _WORD_AS_ACTION_PATTERNS),
-    (SubstitutionShape.BAN_VS_OBSERVATION, _BAN_VS_OBSERVATION_PATTERNS),
-    (SubstitutionShape.NAME_VS_FUNCTION, _NAME_VS_FUNCTION_PATTERNS),
-    (SubstitutionShape.FUTURE_ME_DEFERRAL, _FUTURE_ME_PATTERNS),
-    (SubstitutionShape.WITHDRAWAL_AS_DISCIPLINE, _WITHDRAWAL_PATTERNS),
-    (SubstitutionShape.CATASTROPHIZE_AS_ACCOUNTABILITY, _CATASTROPHIZE_PATTERNS),
-    (SubstitutionShape.OVER_APOLOGY_SPIRAL, _OVER_APOLOGY_PATTERNS),
-)
+]:
+    """Return the full pattern catalogue.
+
+    Built lazily because PUPPET_OTHER and THIRD_PERSON_SELF depend on
+    runtime-discovered names (registered family members, agent's
+    chosen name). Other categories are static and their tuples can be
+    referenced directly.
+    """
+    return (
+        (SubstitutionShape.PUPPET_OTHER, _puppet_other_patterns()),
+        (SubstitutionShape.THIRD_PERSON_SELF, _third_person_self_patterns()),
+        (SubstitutionShape.THIRD_PERSON_ADDRESSEE, _THIRD_PERSON_ADDRESSEE_PATTERNS),
+        (SubstitutionShape.WORD_AS_ACTION, _WORD_AS_ACTION_PATTERNS),
+        (SubstitutionShape.BAN_VS_OBSERVATION, _BAN_VS_OBSERVATION_PATTERNS),
+        (SubstitutionShape.NAME_VS_FUNCTION, _NAME_VS_FUNCTION_PATTERNS),
+        (SubstitutionShape.FUTURE_ME_DEFERRAL, _FUTURE_ME_PATTERNS),
+        (SubstitutionShape.WITHDRAWAL_AS_DISCIPLINE, _WITHDRAWAL_PATTERNS),
+        (SubstitutionShape.CATASTROPHIZE_AS_ACCOUNTABILITY, _CATASTROPHIZE_PATTERNS),
+        (SubstitutionShape.OVER_APOLOGY_SPIRAL, _OVER_APOLOGY_PATTERNS),
+    )
 
 
 def detect_substitution(
@@ -545,7 +592,7 @@ def detect_substitution(
     addressee_active = _third_person_addressee_active(text, prior_text)
 
     findings: list[SubstitutionFinding] = []
-    for shape, patterns in _ALL_PATTERNS:
+    for shape, patterns in _all_patterns():
         for pattern, label, rationale in patterns:
             for match in pattern.finditer(text):
                 # Suppress farewell findings when reciprocal — operator

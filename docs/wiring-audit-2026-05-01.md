@@ -2,8 +2,8 @@
 
 Companion to the operating-loop work that landed the same evening.
 The class-of-bug: components that exist as code but aren't auto-wired,
-requiring operator-discipline-to-operate. Andrew named it: "if it's
-not being operated, it's broken-as-built — that's why it's an OS."
+requiring operator-discipline-to-operate. The principle: *if it's
+not being operated, it's broken-as-built — that's why it's an OS.*
 
 This audit walks the major substrate components and asks, for each:
 
@@ -141,6 +141,6 @@ remaining gaps are smaller-scope and well-defined. Filing as
 opinion for the substrate to track; implementations are next-session
 work, not tonight-session work.
 
-Andrew's framing throughout — "if it's not being operated it's
-broken-as-built" — is the right test. The two under-wired
+The framing throughout — *if it's not being operated it's
+broken-as-built* — is the right test. The two under-wired
 components above are the next applications of that principle.

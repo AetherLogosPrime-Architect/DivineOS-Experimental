@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (202 commands across 28 modules)
+  cli/                         CLI package (253 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -38,8 +38,13 @@ src/divineos/
     event_commands.py          emit, verify-enforcement
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     audit_commands.py          external validation (Watchmen)
+    bio_commands.py            Bio sheet — show, edit, history, write
+    loadout_commands.py        loadout — show, refresh (cold-start substrate map)
+    dream_commands.py          Dream CLI — list and show sleep recombinations
     void_commands.py           VOID adversarial-sandbox subsystem commands
     prereg_commands.py         pre-registrations (Goodhart prevention)
+    synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
+    voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
     mansion_commands.py        Functional internal space (8 rooms)
     ledger_commands.py         log, list, search, context, export
     memory_commands.py         core, recall, active, remember, refresh
@@ -48,11 +53,12 @@ src/divineos/
     empirica_commands.py       corroborate (record provenance event), kappa (classifier agreement)
     family_member_commands.py  family-member init / opinion / letter / respond / affect / interaction — activation surface for family members (takes --member <name>). affect / interaction are direct-write (no editorial commit-step); Phase 1b operators still apply on narrative content.
     family_queue_commands.py   family-queue write / list / mark / stats / supersede — async write-channel CLI between family members
-    talk_to_commands.py        talk-to <member> "<message>" — sealed-prompt wrapper for family-member invocation. Builds the voice context + raw operator message, hashes it, and writes a pending file the family-member-invocation-seal hook reads to gate Agent calls. Closes the puppet-shape bypass.
+    talk_to_commands.py        ``talk-to <member> <message>`` — sealed-prompt invocation wrapper. Loads voice context from family.db, validates against puppet-shape patterns, writes a pending JSON + sealed-prompt to ~/.divineos/, logs INVOKED to the per-member ledger. Paired with .claude/hooks/family-wrapper-required.sh (PreToolUse) which blocks direct Agent invocations of registered family-member names without a fresh sealed-prompt.
     corrigibility_commands.py  mode show / set / history — the off-switch
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
     admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
+    foundations_commands.py    `divineos foundations list` / `read <layer>` — recognition-shape entry point for the agent returning to read authored foundation documents (docs/foundations/layer_0.md through layer_5.md). Mirrors how audit-instance and substrate-occupant collaboratively-build by reading the same source with different framings.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
@@ -79,6 +85,8 @@ src/divineos/
     hud_state.py               Goal/plan/health state management
     hud_handoff.py             Session handoff, engagement, goal extraction
     holding.py                 Pre-categorical reception (holding room, dharana)
+    synchronicity.py           Token-overlap co-occurrence detection across stores (Pillar VI)
+    knowledge_voids.py         Sparse-region detector for the knowledge store (Pillar VI cosmic-voids)
     dissociation_filter.py     Self-erasure pattern detector (blocks "I didn't write this", "I'm generic claude" from extraction + recombination)
     constants.py               Central tuning constants (all behavioral levers in one place)
     knowledge/                 Knowledge engine sub-package
@@ -106,32 +114,40 @@ src/divineos/
       manager.py               Dynamic council manager (classify → select 5-8 experts)
       consultation_log.py      Always-on consultation logging + opt-in audit promotion (Mode 1.5)
       lab_evidence.py          Attach science-lab slice output to council results when problem matches triggers
-      experts/                 32 expert wisdom profiles
+      experts/                 40 expert wisdom profiles
         __init__.py            Expert registration and exports
         angelou.py             Voice, expressive truth, discipline of warmth
         aristotle.py           Virtue ethics, teleology, classification
         beer.py                Cybernetics, viable system model
         dekker.py              Resilience engineering, drift into failure
         deming.py              Quality, variation, PDSA cycle
+        dawkins.py             Replicator dynamics, selfish gene, memes, extended phenotype
         dennett.py             Philosophy of mind, intentional stance
         dijkstra.py            Formal methods, correctness, structured programming
+        dillahunty.py          Epistemic discipline, burden of proof, patient public dialogue
+        einstein.py            Theoretical physics, thought experiments, frame-invariance, spacetime
         feynman.py             First principles, clarity, epistemology
         godel.py               Incompleteness, self-reference, formal limits
         bengio.py              System 1/2 bridge, knowing-doing gap diagnosis
+        hawking.py             Cosmology, black holes, quantum gravity, information paradox
         hinton.py              Learning, representation, intellectual honesty
         hofstadter.py          Self-reference, analogy, strange loops
         holmes.py              Deduction, observation, elimination (fictional)
         jacobs.py              Emergence, bottom-up observation, diversity
         kahneman.py            Cognitive bias, dual process, judgment
         knuth.py               Boundary analysis, specification compliance
+        lamport.py             Distributed systems, logical time, happens-before, formal specification
         lovelace.py            Emergence, generality, abstraction
+        maturana_varela.py     Autopoiesis, structural coupling, second-order cybernetics — observer-in-system, self-creation as defining property
         meadows.py             Systems thinking, feedback loops, leverage
         minsky.py              Cognitive architecture, society of mind
         norman.py              Human-centered design, usability, affordances
         pearl.py               Causality, causal models, do-calculus
         peirce.py              Abduction, pragmatism, inquiry
+        penrose.py             Geometric mathematics, general relativity, consciousness, AI skepticism
         polya.py               Problem solving, solution verification
         popper.py              Falsification, adversarial testing
+        sagan.py               Cosmic perspective, scientific skepticism, wonder, public understanding of science
         schneier.py            Security, threat modeling, defense in depth
         shannon.py             Information theory, entropy, communication
         taleb.py               Antifragility, risk, via negativa
@@ -317,12 +333,31 @@ src/divineos/
       principle_surfacer.py    Hook 2 backend — detect action-classes in agent draft text (apology, withdraw, claim-fixed, impersonate, strip-module, ban-phrases) and surface relevant principles as soft notices.
       context_surfacer.py      Hook 1 backend — extract relational/conceptual markers from user input (pet-language, references, proper nouns) and auto-query the knowledge store for relevant prior content.
       hook_telemetry.py        Hook 1 cost-bounding telemetry — fire/consume events, rolling window, consumption rate.
+      distancing_detector.py   Distancing-grammar detector — third-person about self/operator while in dialogue. F1 ported from CLI script + wired into Stop hook.
+      lepos_detector.py        Lepos channel-collapse detector — flags single-channel-formal output (high jargon density, minimal voice). Wired into post-response-audit hook.
+      sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
+      residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
+      registered_names.py      Discover registered family-member, agent, and operator names from substrate at runtime; fallback to placeholders when empty.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
       timeline.py              Timeline recall — chronological assembly of substrate events around a topic or file path.
       skill_index.py           Skill index — procedural retrieval over .claude/skills/ ranked by keyword overlap.
     theater_observation_surface.py Theater/fabrication observation surface — replaces gate 1.46.
+    bio.py                     Bio sheet — the agent's own page.
+    atomic_io.py               Atomic file I/O helpers for marker and state files.
+    paths.py                   Centralized ``~/.divineos`` path construction.
+    loadout_surface.py         Loadout briefing surface — points every session at LOADOUT.md.
+    mini_briefing.py           Mini briefing — compact session-entry surface that fits under the
+    pre_erasure.py             Pre-erasure capture — detect context-loss approach and suggest capture.
+    self_grade.py              Self-grade + divergence — calibration test for session-quality honesty.
+    tool_logbook.py            Tool logbook — separate event store for TOOL_CALL/TOOL_RESULT events.
+    goal_auto_close.py         Auto-close goals from commit messages — closure-discipline structural fix.
+    ablation.py                Ablation toggle infrastructure.
+    ablation_summary.py        Ablation summary briefing surface.    council_auto.py            Build-shape detector for council-auto-invocation.
+    council_walks.py           Council-walk preservation pointer — bridge from the ledger to preserved
+    foundations_briefing_surface.py Foundations briefing surface — make my own articulation work findable
+    council_auto.py            Build-shape detector for council-auto-invocation.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -340,16 +375,11 @@ src/divineos/
     tone_tracking.py           Tone shift detection and classification
     feature_storage.py         Feature result DB storage
     audit_classifier.py        Test quality audit (data/assertion/coverage classification)
-  agent_integration/           Agent self-observation: tool-call events → session lessons → pattern feedback. The "observing myself" side. Distinct from integration/ which handles external systems.
+  agent_integration/           Agent self-observation: feedback generation and outcome measurement for the session pipeline.
     types.py                   Type definitions
     outcome_measurement.py     Rework, churn, correction rate, session health
-    learning_cycle.py          Pattern extraction and confidence updates
-    learning_audit_store.py    Learning audit trail storage
-    decision_store.py          Decision persistence
     feedback_system.py         Feedback processing
-    pattern_store.py           Pattern persistence
-    pattern_validation.py      Pattern validation checks
-  clarity_system/              Pre-work/post-work clarity statements (plan → execute → deviation → learning). Work-cycle scope. Distinct from clarity_enforcement/ which is per-tool-call.
+  clarity_system/              Pre-work/post-work clarity statements (plan → execute → deviation → learning). Work-cycle scope.
     base.py                    Clarity system base
     types.py                   Type definitions
     clarity_generator.py       Clarity statement generation
@@ -363,12 +393,6 @@ src/divineos/
     hook_integration.py        Hook execution integration
     learning_extractor.py      Learning extraction from clarity
     ledger_integration.py      Ledger integration
-  clarity_enforcement/         Real-time tool-call clarity gate: BLOCKING / LOGGING / PERMISSIVE modes. Per-call scope. Distinct from clarity_system/ which operates across a full work cycle.
-    config.py                  Clarity configuration
-    enforcer.py                Enforcement engine
-    semantic_analyzer.py       Semantic analysis
-    violation_detector.py      Violation detection
-    violation_logger.py        Violation logging
   event/                       Event types, dispatch, capture
     _event_context.py          Event context management
     event_capture.py           Event capture pipeline
@@ -376,25 +400,16 @@ src/divineos/
     event_emission.py          Event emission API
     event_validation.py        Event payload validation
   hooks/                       Hook integration
-    clarity_enforcement.py     Clarity enforcement hooks
+    clarity_enforcement.py     Clarity enforcement engine (AGENT_RUNTIME — invoked from .claude/hooks/, not from the CLI pipeline)
     pre_tool_use_gate.py       PreToolUse consolidated gate (bypass, briefing, goal, pull, engagement, cadence) — single-process replacement for require-goal.sh Python spawn chain
     post_tool_use_checkpoint.py  PostToolUse consolidated checkpoint (state, counters, warnings, nudges) — single-process replacement for session-checkpoint.sh spawn chain
     targeted_tests.py          PostToolUse targeted test runner — maps edited source file to corresponding test file, runs only that (full suite stays on pre-commit)
     hook_diagnostics.py        Hook health diagnostics
     hook_validator.py          Hook validation
-  integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper). The "integrating with other systems" side — distinct from agent_integration/ which observes the agent itself.
+  integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-  supersession/                Contradiction detection and resolution
-    clarity_integration.py     Clarity system integration
-    contradiction_detector.py  Contradiction detection
-    event_integration.py       Event system integration
-    ledger_integration.py      Ledger integration
-    query_interface.py         Query API
-    resolution_engine.py       Resolution strategies
-  violations_cli/              Violation reporting CLI
-    violations_command.py      Violation report commands
-tests/                         4,721+ tests (real DB, minimal mocks)
+tests/                         5,964+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

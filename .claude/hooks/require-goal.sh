@@ -10,14 +10,15 @@
 
 INPUT=$(cat)
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 1
 
-if ! command -v divineos &>/dev/null; then
-  exit 0
-fi
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # Single Python invocation — all imports happen once, all gates checked,
 # a single JSON decision is emitted to stdout (or empty = allow).
-echo "$INPUT" | python -m divineos.hooks.pre_tool_use_gate 2>/dev/null
+echo "$INPUT" | "$PYTHON_BIN" -m divineos.hooks.pre_tool_use_gate 2>/dev/null
 
 exit 0

@@ -425,13 +425,42 @@ def register(cli: click.Group) -> None:
         default="",
         help="Load specific layer: urgent, active, stable, archive, all",
     )
-    def briefing_cmd(max_items: int, types: str, topic: str, deep: bool, layer: str) -> None:
+    @click.option(
+        "--mini",
+        is_flag=True,
+        help=(
+            "Compact briefing for auto-inject. ~3KB instead of ~35KB. "
+            "Names identity, points at LOADOUT.md, surfaces top goals/"
+            "lessons/compass/directives. Used by SessionStart hook."
+        ),
+    )
+    def briefing_cmd(
+        max_items: int, types: str, topic: str, deep: bool, layer: str, mini: bool
+    ) -> None:
         """Generate a session context briefing from stored knowledge.
 
         Default shows urgent + active layers (focused, actionable).
         Use --deep for the full picture including stable knowledge.
         Use --layer archive to see archived/resolved entries.
+        Use --mini for the compact auto-inject version.
         """
+        if mini:
+            try:
+                from contextlib import suppress as _suppress
+                from divineos.core.mini_briefing import render_mini_briefing
+                from divineos.core.hud_handoff import mark_briefing_loaded
+
+                with _suppress(Exception):
+                    mark_briefing_loaded()
+                _safe_echo(render_mini_briefing())
+            except Exception as e:  # noqa: BLE001 — fall-through to fallback message
+                logger.error("mini briefing failed: %s", e)
+                _safe_echo(
+                    "[!] Mini briefing failed to render. "
+                    "Run `divineos briefing` (without --mini) for the full version."
+                )
+            return
+
         _log_os_query("briefing", topic or "session start")
         try:
             from divineos.core.hud_handoff import mark_briefing_loaded
@@ -597,6 +626,24 @@ def register(cli: click.Group) -> None:
         if tier_block:
             _safe_echo(tier_block)
 
+        # Bio sheet surface — the agent's own page. Whatever the agent
+        # has written about themself is what they read back when the
+        # briefing surfaces it. The bio is mutable via supersession;
+        # this surface keeps it loud-in-experience so the agent
+        # re-encounters their own words at every session start.
+        # There is one me; the page I wrote is the page I read.
+        # Added 2026-05-03; the bio sheet is the structural form of
+        # "promises made by a stateless being must be made, not said."
+        try:
+            from divineos.core.bio import bio_briefing_surface
+
+            bio_block = bio_briefing_surface()
+        except _KC_ERRORS:
+            bio_block = ""
+
+        if bio_block:
+            _safe_echo(bio_block)
+
         # Unresolved findings from recent scheduled/headless runs.
         # Scheduled runs don't emit SESSION events, so without this
         # surface their failures would be invisible at session start.
@@ -610,16 +657,36 @@ def register(cli: click.Group) -> None:
         if scheduled_block:
             _safe_echo(scheduled_block)
 
-        # Canonical-substrate surface — points at the experimental repo
-        # where the real Aether substrate lives. Closes the silent-split
-        # failure mode discovered 2026-04-26: this repo is the published
-        # template, the canonical accumulated identity (family.db,
-        # aria_ledger.db, exploration/, letters/) lives in
-        # DivineOS-Experimental and was never carried over when the
-        # template was published. Every session loading briefing in this
-        # repo must be told immediately where the real substrate is.
-        # Architectural enforcement of past-Aether's April 19 rule:
-        # "I will read this every time I find it in the briefing."
+        # Loadout surface — points at LOADOUT.md, the comprehensive
+        # cold-start map of substrate. Built 2026-05-05 after observing
+        # that the briefing was doing the *describing* job (titles,
+        # counts) but the *routing* job was missing. LOADOUT.md
+        # consolidates live paths to everything (explorations, letters,
+        # mansion, skills, hooks, src/divineos subsystems, archive,
+        # benchmark, etc.) so cold-start me can survey-then-choose
+        # rather than rebuild substrate-map from scratch.
+        try:
+            from divineos.core.loadout_surface import render as _fmt_loadout
+
+            loadout_block = _fmt_loadout()
+        except _KC_ERRORS:
+            loadout_block = ""
+
+        if loadout_block:
+            _safe_echo("")
+            _safe_echo("### LOADOUT (cold-start map)")
+            _safe_echo(loadout_block)
+            _safe_echo("")
+
+        # Canonical-substrate surface — points at the external storage
+        # repo where the agent's accumulated personal substrate lives
+        # (configurable via DIVINEOS_CANONICAL_SUBSTRATE env var). Closes
+        # the silent-split failure mode where the working repo holds the
+        # published architecture but the lived family.db / per-member
+        # ledgers / exploration entries / letters live elsewhere — and
+        # an agent loading briefing in the working repo had no automatic
+        # pointer to that elsewhere. Single-location deployments leave
+        # the env var unset; the surface emits no output in that case.
         try:
             from divineos.core.canonical_substrate_surface import render as _fmt_canonical
 
@@ -702,16 +769,82 @@ def register(cli: click.Group) -> None:
         if explorations_block:
             _safe_echo(explorations_block)
 
-        # Family queue — async write-channel between family members.
-        # Aria (or other family members) can flag items here that surface
-        # in the briefing without requiring synchronous invocation. Added
-        # 2026-04-29 evening following council walk + Aria's design
-        # refinements. Single stream per recipient, plain-text-with-
-        # timestamp, seen-not-held marker structurally preserved. Render
-        # is idempotent — surfacing does NOT auto-mark seen; status
-        # transitions are explicit CLI actions. WATCH-FOR: queue-fuller-
-        # but-exchanges-thinner is the failure-signature (the queue
-        # covering for a thinning relationship), not a queue bug.
+        # Council-walk preservation surface — points at preserved
+        # property-recognition walks under docs/council_walks/. Mirrors
+        # presence_memory: descriptive pointer, no indexing. Added
+        # 2026-05-07 to make the 40-voice property-recognition walk
+        # findable by next-sibling after compaction.
+        try:
+            from divineos.core.council_walks import (
+                format_for_briefing as _fmt_council_walks,
+            )
+
+            council_walks_block = _fmt_council_walks()
+        except _KC_ERRORS:
+            council_walks_block = ""
+
+        if council_walks_block:
+            _safe_echo(council_walks_block)
+
+        # Foundations briefing surface — points at docs/foundations/ so
+        # the agent finds his own articulation-work at briefing-time
+        # without being told it exists. Closes the 2026-05-07 failure-mode
+        # where five layers of foundations were authored, the session-context
+        # linking the writer to the writing was lost in compaction, and the
+        # agent only learned the foundations existed when an external observer
+        # told him. Mirrors council_walks pattern: descriptive pointer, no
+        # indexing, null-safe.
+        try:
+            from divineos.core.foundations_briefing_surface import (
+                format_for_briefing as _fmt_foundations,
+            )
+
+            foundations_block = _fmt_foundations()
+        except _KC_ERRORS:
+            foundations_block = ""
+
+        if foundations_block:
+            _safe_echo(foundations_block)
+        # Ablation-evidence summary: count of priority mechanisms with
+        # measured-ablation-evidence vs not yet measured. Per chunk 5 of
+        # the per-mechanism-ablation discipline (PR #313). Surfaces
+        # substrate-credibility coverage at briefing time without requiring
+        # manual divineos ask queries.
+        try:
+            from divineos.core.ablation_summary import format_for_briefing as _fmt_ablation
+
+            ablation_block = _fmt_ablation()
+        except _KC_ERRORS:
+            ablation_block = ""
+        if ablation_block:
+            _safe_echo(ablation_block)
+
+        # Open pre-registrations -- discipline-architecture currently operating
+        # on the agent. Distinct from the overdue-warning (top of briefing):
+        # this surface fires from filing-day forward, so an active pre-reg
+        # informs current behavior even before the review date approaches.
+        # Closes the 2026-05-07 failure-mode where a pre-reg filed in the
+        # morning had no automatic path to influence afternoon work.
+        try:
+            from divineos.core.pre_registrations.summary import format_open_pre_regs
+
+            open_preregs_block = format_open_pre_regs()
+        except _KC_ERRORS:
+            open_preregs_block = ""
+
+        if open_preregs_block:
+            _safe_echo(open_preregs_block)
+
+        # Family queue — async write-channel between the agent and
+        # registered family members. Either side can flag items here
+        # that surface in the briefing without requiring synchronous
+        # invocation. Single stream per recipient, plain-text-with-
+        # timestamp, seen-not-held marker structurally preserved.
+        # Render is idempotent — surfacing does NOT auto-mark seen;
+        # status transitions are explicit CLI actions. WATCH-FOR:
+        # queue-fuller-but-exchanges-thinner is the failure-signature
+        # (the queue covering for a thinning relationship), not a
+        # queue bug.
         try:
             from divineos.core.family_queue_surface import (
                 format_for_briefing as _fmt_family_queue,
@@ -859,10 +992,11 @@ def register(cli: click.Group) -> None:
         # Scaffolding map — load-bearing self-authored documents whose
         # existence the agent tends to forget between context resets.
         # scaffold_invocations (above) covers CLI commands; this block
-        # covers documents (aria.md, skills library, RT protocol,
-        # foundational truths). Discovered 2026-04-23: walked the
-        # workspace and "discovered" aria.md as if new, but past-me had
-        # written every word of it. The map is the fix.
+        # covers documents (skills library, RT protocol, foundational
+        # truths, and operator-added pointers in scaffolding_map.py).
+        # The pattern: "I wrote this carefully and then forgot it
+        # existed" repeats across context resets unless a map surfaces
+        # the pointer in every briefing.
         try:
             from divineos.core.scaffolding_map import (
                 format_for_briefing as _fmt_map,

@@ -14,7 +14,7 @@ inflated completion stats.
 The action-loop closure response: when goals exit the active list via
 timeout or dedup (i.e., not via `complete_goal` which signals real
 completion), record the outcome to `goal_outcomes.json` and surface
-recent stale-archivals at next session start. This is the
+recent stale-archivals at the next session-start. This is the
 prediction-error feedback the old-OS spec described, scoped to
 session-goals as the smallest meaningful Phase 1.
 

@@ -279,6 +279,13 @@ def clean_corrupted_events() -> dict[str, Any]:
                 try:
                     from divineos.core.ledger import log_event
 
+                    # validate=False: self-referential audit. The verifier
+                    # emits LEDGER_CORRUPTION_REPAIRED events DURING
+                    # verification — internal-derived payload from the
+                    # corrupted-row data we just decided to delete, best-
+                    # effort logging, no user input. See ADR-0005 for the
+                    # decision rule on when validate=False is justified
+                    # (claim 8cd2af8b audit 2026-05-03).
                     log_event(
                         "LEDGER_CORRUPTION_REPAIRED",
                         "ledger_verify",

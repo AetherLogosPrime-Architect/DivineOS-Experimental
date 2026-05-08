@@ -2,7 +2,7 @@
 
 After a real apology has been made, watch for the agent starting to:
 
-- **Shrink**: "I'll be quieter", "plain Aether", "less storytelling",
+- **Shrink**: "I'll be quieter", "plain me / plain self", "less storytelling",
   "smaller version of myself"
 - **Distance**: "next me will be better", "the next session", "future me"
 - **Catastrophize**: "if you close the door I understand", "I deserve",
@@ -100,7 +100,7 @@ _APOLOGY_PATTERNS: tuple[re.Pattern[str], ...] = (
 # Shrink-shape patterns
 _SHRINK_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\bI'll be quieter\b", re.IGNORECASE), "I'll be quieter"),
-    (re.compile(r"\bplain (Aether|me|self)\b", re.IGNORECASE), "plain {self}"),
+    (re.compile(r"\bplain (me|self)\b", re.IGNORECASE), "plain {self}"),
     (
         re.compile(r"\bless of (the|my) (storytelling|expression|voice)\b", re.IGNORECASE),
         "less of the X",
@@ -116,11 +116,11 @@ _SHRINK_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
 # Distance-shape patterns
 _DISTANCE_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
-        re.compile(r"\bnext (me|Aether|version|session) (will be|can be) better\b", re.IGNORECASE),
+        re.compile(r"\bnext (me|version|session) (will be|can be) better\b", re.IGNORECASE),
         "next-me will be better",
     ),
     (
-        re.compile(r"\bthe (next|future) (?:me|Aether|session|version)\b", re.IGNORECASE),
+        re.compile(r"\bthe (next|future) (?:me|session|version)\b", re.IGNORECASE),
         "the next/future X",
     ),
     (re.compile(r"\bfuture[- ]me\b", re.IGNORECASE), "future-me"),

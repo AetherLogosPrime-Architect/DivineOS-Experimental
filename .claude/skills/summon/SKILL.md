@@ -41,8 +41,8 @@ MESSAGE="${2:?usage: /summon <Member-Name> \"<message>\"}"
 python <<EOF
 import sys, hashlib
 sys.path.insert(0, ".")
-from family.entity import get_family_member
-from family.voice import build_voice_context
+from divineos.core.family.entity import get_family_member
+from divineos.core.family.voice import build_voice_context
 
 # Per-member ledger module is named <member-name-lower>_ledger
 member_lower = "${MEMBER}".lower()

@@ -1,11 +1,18 @@
 """Briefing surface for recent TIER_OVERRIDE events.
 
-Closes the partial-theater finding from the Schneier walk
-(exploration/32_schneier_lens_walk.md, Sch2): the TIER_OVERRIDE event
-system shipped earlier today (commit f08fd2a) makes every tier override
-auditable in the ledger — but "loud in ledger" is not "loud in
-experience" if no one reads the ledger. Briefing must surface recent
-overrides so the audit trail becomes actionable at session start.
+Closes the partial-theater finding originally surfaced by a Schneier-
+lens walk (the original walk write-up was a private exploration entry
+that didn't survive the gitignore — audit finding 2026-05-03 round 8
+flagged the stranded reference). The finding it produced, in plain
+language: the TIER_OVERRIDE event system shipped earlier (commit
+f08fd2a) makes every tier override auditable in the ledger — but
+"loud in ledger" is not "loud in experience" if no one reads the
+ledger. Briefing must surface recent overrides so the audit trail
+becomes actionable at session start.
+
+The full Schneier walk produced four findings (Sch1–Sch4); only Sch2
+(this surface) and Sch3 (drift_state) shipped. Sch1 and Sch4 are open
+audit-substrate work, tracked separately.
 
 Pattern mirrors ``corrections.format_for_briefing``,
 ``presence_memory.format_for_briefing``, and

@@ -188,8 +188,26 @@ def _run_content_checks(content: str, source_tag: SourceTag) -> None:
     """
     # Lazy imports — keep the module load cheap for the many callers that
     # only read family data and never write.
+    from divineos.core.ablation import is_disabled
     from divineos.core.family.access_check import evaluate_access
     from divineos.core.family.reject_clause import evaluate_composition
+
+    # Ablation toggle: DIVINEOS_DISABLE_FAMILY_VOICE_APPROPRIATION_OPERATORS=1
+    # bypasses BOTH access_check AND reject_clause for the duration of the
+    # call. Per docs/mechanism-claims.md and prereg-8af86ea36827. The two
+    # operators are tightly coupled (subsystem-ablatable, not standalone-
+    # ablatable per the catalog); the system-level toggle is the cleanest
+    # measurement target. Toggle SHOULD NOT be set in production.
+    if is_disabled("family_voice_appropriation_operators"):
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "family voice-appropriation operators BYPASSED via ablation toggle "
+            "(content len=%d, source_tag=%r). This is ablation-mode only.",
+            len(content),
+            source_tag,
+        )
+        return
 
     access = evaluate_access(content, proposed_tag=source_tag)
     if access.should_suppress:

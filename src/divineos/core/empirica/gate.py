@@ -112,8 +112,9 @@ def evaluate_and_issue(
     * ``convene_fn`` — test-only injection for the council (see
       routing.py for the contract).
 
-    Tier.ADVERSARIAL raises NotImplementedError at the burden step —
-    Phase 1 doesn't implement adversarial gating (waits for VOID).
+    Tier.ADVERSARIAL is gated by ``VOID_SURVIVAL`` corroborations —
+    each survived persona attack on the claim counts as one distinct-
+    actor corroboration. VOID shipped 2026-04-26 (PR #208).
     """
     classification = classify_claim(
         content=content,

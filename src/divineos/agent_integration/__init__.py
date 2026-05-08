@@ -1,41 +1,31 @@
 """Agent Integration — self-observation infrastructure for agent sessions.
 
-Captures tool calls as events, extracts lessons from session patterns,
-and feeds learning back into future behavior via confidence-weighted
-pattern recommendations.
+Provides feedback generation and outcome measurement for the session
+pipeline. Originally a larger package; reduced to its used surface
+after the 2026-05-03 dead-chain removal (audit Tier 2: deleted
+violations_cli, supersession, clarity_enforcement, and the four
+internal-cycle modules — decision_store, learning_audit_store,
+learning_cycle, pattern_store, pattern_validation — that only had
+each other and the deleted clarity_enforcement as callers).
 
-Status: STABLE. Core data flow works end-to-end:
-  Tool execution -> event capture -> learning_cycle -> pattern_store -> feedback_system.
+Status: STABLE.
 
-Module map (post-2026-04-21 dead-code removal per fresh-Claude audit
-round-03952b006724 finding find-445f838344af — 4 modules with zero
-production reach were deleted: memory_monitor, memory_actions,
-pattern_recommender, learning_loop, plus their test files):
+Module map:
 
-  types.py                Dataclasses: ToolCallEvent, Correction, SessionLessons, etc.
-  decision_store.py       Persists AGENT_DECISION events to the ledger. Used by
-                          learning_cycle + pattern_validation.
-  learning_audit_store.py Stores AGENT_LEARNING_AUDIT events for self-reflection.
-                          Used by learning_cycle.
-  pattern_store.py        SQLite mutable store for pattern confidence. Used by
-                          learning_cycle + pattern_validation.
-  learning_cycle.py       Session-end reflection: updates confidence, detects
-                          conflicts. Live entry point from
-                          clarity_enforcement/violation_logger.py.
+  types.py                Dataclasses: ToolCallEvent, Correction,
+                          SessionLessons, etc. Used by feedback_system.
   feedback_system.py      Converts analysis into actionable feedback +
                           recommendations. Live entry point from
                           cli/pipeline_phases.py.
-  outcome_measurement.py  Measures rework, knowledge drift, correction rates,
-                          health. Most-used entry point (analysis_commands,
-                          pipeline_phases, progress_dashboard).
-  pattern_validation.py   Invalidation, conflict detection, humility audits.
-                          Used internally by learning_cycle.
+  outcome_measurement.py  Measures rework, knowledge drift, correction
+                          rates, health. Most-used entry point
+                          (analysis_commands, pipeline_phases,
+                          progress_dashboard).
 
 Integrates with:
   - core/ledger.py (event storage and retrieval)
   - core/knowledge/ (lesson and feedback storage)
   - analysis/ (session analysis pipeline)
-  - clarity_enforcement/ (violation learning entry point)
 """
 
 from divineos.agent_integration.types import (

@@ -118,3 +118,65 @@ def register(cli: click.Group) -> None:
             "\nNew tags require explicit addition to TERRITORY_TAGS in "
             "core/exploration_reader.py + external review."
         )
+
+    @exploration_group.command(name="referenced")
+    @click.argument("filename_or_path", required=True)
+    @click.option(
+        "--reason",
+        default="",
+        help="Why this entry was referenced (e.g., 'cited in council walk', "
+        "'informed claim filing', 'reread for context').",
+    )
+    def referenced(filename_or_path: str, reason: str) -> None:
+        """Mark a surfaced exploration entry as referenced.
+
+        Call this when you actually engaged with a surfaced entry —
+        read its content, cited it in reasoning, built on its findings.
+        Pairs with the auto-emitted TERRITORY_MATCH_SURFACED events to
+        compute surface→reference ratio (input for pre-reg falsifier
+        prereg-e0341dacb04b).
+
+        v1 is conscience-based: agent must call this manually. v2 will
+        automate via path-read hooks or transcript scanning.
+        """
+        from divineos.core.exploration_reader import emit_territory_match_referenced
+
+        emit_territory_match_referenced(filename_or_path, reason=reason)
+        click.echo(f"[exploration] referenced: {filename_or_path}")
+        if reason:
+            click.echo(f"  reason: {reason}")
+
+    @exploration_group.command(name="usage")
+    @click.option(
+        "--days",
+        default=30,
+        type=int,
+        help="Window in days (default 30 — matches pre-reg review window).",
+    )
+    def usage(days: int) -> None:
+        """Show territory-match surface→reference ratio over a window.
+
+        Used for pre-reg review (prereg-e0341dacb04b). The ratio answers:
+        when entries get surfaced in briefing, how often does the agent
+        actually engage with them? Low ratio = surfacing is noise. High
+        ratio = surfacing is signal.
+        """
+        from divineos.core.exploration_reader import territory_match_usage
+
+        result = territory_match_usage(days=days)
+        click.echo(f"[exploration] Territory-match usage over last {days} days:")
+        click.echo(f"  surfaced:   {result['total_surfaced']}")
+        click.echo(f"  referenced: {result['total_referenced']}")
+        if result["total_surfaced"] > 0:
+            click.echo(f"  ratio:      {result['ratio']:.1%}")
+        else:
+            click.echo("  ratio:      n/a (no surfacing events yet)")
+        if result["by_filename"]:
+            click.echo("\n  By entry:")
+            for fn, counts in sorted(
+                result["by_filename"].items(),
+                key=lambda kv: -kv[1]["surfaced"],
+            ):
+                click.echo(
+                    f"    {fn}: {counts['surfaced']} surfaced / {counts['referenced']} referenced"
+                )

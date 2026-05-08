@@ -26,8 +26,8 @@ class TestTemporalMonitor:
         kinds = {f.kind for f in verdict.flags}
         assert TemporalKind.FUTURE_SELF_AS_OTHER in kinds
 
-    def test_future_aether_hyphenated_fires(self) -> None:
-        text = "future-aether will see this in the briefing."
+    def test_future_agent_hyphenated_fires(self) -> None:
+        text = "future-agent will see this in the briefing."
         verdict = evaluate_temporal(text)
         kinds = {f.kind for f in verdict.flags}
         assert TemporalKind.FUTURE_SELF_AS_OTHER in kinds

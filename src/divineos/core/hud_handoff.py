@@ -550,22 +550,42 @@ def mark_briefing_loaded() -> None:
     hud_dir = _ensure_hud_dir()
     now = time.time()
     tool_calls = _count_session_tool_calls()
-    marker = {
+    marker: dict[str, object] = {
         "loaded_at": now,
         "tool_calls_at_load": tool_calls,
     }
+    # Stamp the current session_id into the marker so the per-session
+    # briefing-loaded gate can verify "loaded for THIS session" by a
+    # cheap file read, instead of going through the ledger (which has
+    # to scan rows and was hitting a search-by-keyword false-negative).
+    try:
+        from divineos.core.session_manager import get_current_session_id
+
+        marker["session_id"] = get_current_session_id()
+    except Exception:  # noqa: BLE001 — fail-soft on session-manager issues
+        pass
     (hud_dir / ".briefing_loaded").write_text(json.dumps(marker), encoding="utf-8")
 
-    # Log to ledger for cross-session tracking
+    # Log to ledger for cross-session tracking. Include the current
+    # session_id in the payload so the per-session briefing-loaded gate
+    # can verify "loaded for THIS session" by matching session_id —
+    # the events table itself doesn't carry session_id as a top-level
+    # column, so payload-stamping is the load-bearing identity link.
     try:
         from divineos.core.ledger import log_event
 
-        log_event(
-            "BRIEFING_LOADED",
-            "system",
-            {"loaded_at": now, "tool_calls_at_load": tool_calls},
-            validate=False,
-        )
+        payload: dict[str, object] = {
+            "loaded_at": now,
+            "tool_calls_at_load": tool_calls,
+        }
+        try:
+            from divineos.core.session_manager import get_current_session_id
+
+            payload["session_id"] = get_current_session_id()
+        except Exception:  # noqa: BLE001 — fail-soft on session-manager issues
+            pass
+
+        log_event("BRIEFING_LOADED", "system", payload, validate=False)
     except _HH_ERRORS:
         pass  # ledger not initialized yet — marker file is enough
 
@@ -577,9 +597,14 @@ def mark_briefing_loaded() -> None:
 
 
 # After this many tool calls since last briefing load, the context is stale.
-# Was 150 — too low for productive sessions (a single audit fix pass can be
-# 200+ tool calls).  400 means roughly "one full context window of work."
-_BRIEFING_STALENESS_THRESHOLD = 400
+# Was 150, then 400 — both too low for productive long-form work. Tonight
+# (2026-05-03) I hit the 400 threshold ~6 times across a single conversation
+# and had to reload the briefing each time, even though my engagement with
+# the substrate was continuous (file commands, learns, compass observations
+# throughout). The gate's intent is "catch genuinely stale framing" not
+# "interrupt every 30 minutes of active work." 1500 reflects roughly
+# "many hours of focused work with substantive substrate engagement."
+_BRIEFING_STALENESS_THRESHOLD = 1500
 
 # Time-based TTL: briefing stays valid for 4 hours regardless of tool calls.
 # Was 2 hours — but productive sessions can easily run 3+ hours.

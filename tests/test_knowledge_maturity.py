@@ -153,9 +153,15 @@ class TestIncrementCorroboration:
                 content="Knowledge entries need corroboration tracking for maturity",
                 confidence=0.7,
             )
-            count = increment_corroboration(kid)
+            # Audit r9-21 #3: same (source, session) tuple dedups.
+            # Pass distinct source_context values to exercise the
+            # increment path twice.
+            count = increment_corroboration(kid, source_context="ctx-a")
             assert count == 1
-            count = increment_corroboration(kid)
+            count = increment_corroboration(kid, source_context="ctx-b")
+            assert count == 2
+            # And confirm the dedup: same context again is a no-op.
+            count = increment_corroboration(kid, source_context="ctx-b")
             assert count == 2
         finally:
             os.environ.pop("DIVINEOS_DB", None)

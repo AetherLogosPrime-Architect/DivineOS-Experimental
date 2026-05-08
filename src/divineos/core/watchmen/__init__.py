@@ -1,6 +1,6 @@
 """Watchmen — External Validation as a Native Runtime Capability.
 
-The council audit process (25 experts, structured findings, severity ratings)
+The council audit process (39 experts, structured findings, severity ratings)
 was too valuable to leave as a manual one-off. This module makes it a
 permanent part of the OS: accept structured audit findings, route them to
 knowledge/claims/lessons, and surface unresolved issues in the briefing.

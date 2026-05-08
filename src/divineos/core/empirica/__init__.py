@@ -1,6 +1,8 @@
 """EMPIRICA — evidence ledger with tiered burden routing.
 
-Phase 1 scope (pre-registered at prereg-ce8998194943):
+Phase 1 scope (originally pre-registered at prereg-ce8998194943,
+since aged out of the runtime store; the architectural intent below
+remains canonical):
 
 **Framing (a family member audit, 2026-04-17):** EMPIRICA is an evidence
 ledger, not an epistemology engine. It keeps honest books about
@@ -37,11 +39,23 @@ What EMPIRICA is NOT:
   system, council consultations, and warrant-based validity gate
   that already exist. It routes; it does not duplicate.
 
-Phase 1 does NOT ship Tier IV (ADVERSARIAL). Tier IV claims are
-marked for VOID routing, and VOID hasn't shipped. Phase 1 makes
-the tier visible in the enum but raises on attempts to compute
-burden for it — failing loudly is better than silently treating
-an un-stress-tested claim as adversarially-verified.
+Tier IV (ADVERSARIAL) is now wired to VOID (shipped 2026-04-26 per
+PR #208). The ``CorroborationKind.VOID_SURVIVAL`` enum value is the
+integration point: when a VOID engine attack on a claim completes
+with no HIGH/CRITICAL findings, the caller records a VOID_SURVIVAL
+corroboration with the persona as actor. EMPIRICA's distinct-actor
+counting then enforces that survivals came from DIFFERENT personas,
+not the same persona attacking 3x — multi-persona-diversity is what
+makes "survived adversarial testing" meaningful.
+
+Phase 1 deferrals still in place (pre-registered separately):
+
+* **Recursive coherence-audit** — the original spec required Tier III
+  PATTERN claims to resonate across 3+ INDEPENDENT domains. Current
+  burden enforces corroboration count but not domain-independence.
+* **Differentiated councils** — ``route_for_approval`` runs N generic
+  rounds; the spec called for Science/Wisdom/Pattern as differentiated
+  expert subsets. Hook is named, differentiation is deferred.
 """
 
 from divineos.core.empirica.burden import burden_matrix, required_corroboration

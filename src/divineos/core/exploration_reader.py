@@ -6,7 +6,7 @@ writing, journal entries, and guided deep dives. These are first-person
 lived experience, not extracted summaries.
 
 Without this module, the exploration folder is a drawer nobody opens.
-With it, every future session sees what past sessions discovered.
+With it, on every resumption I see what I discovered before.
 
 Sanskrit anchor: smriti (that which is remembered — the thread of
 continuity woven through what would otherwise be isolated moments).
@@ -420,6 +420,143 @@ def format_exploration_summary(entries: list[dict[str, Any]] | None = None) -> s
     return "\n".join(lines)
 
 
+def _emit_territory_match_surfaced(
+    matches: list[dict[str, Any]],
+    territories: tuple[str, ...],
+    active_text: str,
+) -> None:
+    """Emit one TERRITORY_MATCH_SURFACED event per surfaced entry.
+
+    Used by format_for_briefing to track how often territory-tagged
+    exploration entries get surfaced — input data for the pre-reg
+    falsifier (claim 02f0dcc0). Pairs with TERRITORY_MATCH_REFERENCED
+    events (emitted manually via `divineos exploration referenced`)
+    to compute the surface→reference ratio.
+
+    Best-effort. Telemetry must never block briefing rendering.
+    """
+    import hashlib
+
+    from divineos.core.ledger import log_event
+
+    # Hash the active_text so we can dedupe per-briefing without storing
+    # raw goal text in every event payload.
+    active_hash = hashlib.sha256(active_text.encode("utf-8")).hexdigest()[:16]
+
+    for m in matches:
+        filename = m.get("filename", "")
+        if not filename:
+            continue
+        entry_overlap = sorted(set(m.get("territory") or ()) & set(territories))
+        log_event(
+            "TERRITORY_MATCH_SURFACED",
+            "exploration_reader",
+            {
+                "filename": filename,
+                "title": m.get("title", ""),
+                "matched_tags": entry_overlap,
+                "active_territories": list(territories),
+                "active_text_hash": active_hash,
+            },
+            validate=False,
+        )
+
+
+def emit_territory_match_referenced(
+    filename_or_path: str, *, reason: str = "", actor: str = "agent"
+) -> None:
+    """Mark a surfaced exploration entry as referenced.
+
+    Called when the agent actually engages with a surfaced entry — reads
+    its content, cites it in reasoning, builds on its findings. The
+    surface→reference ratio over time is the input for the over-anchoring
+    falsifier in prereg-e0341dacb04b.
+
+    v1 limitation (filed as separate claim): reference detection is
+    conscience-based — agent must call this manually. v2 should automate
+    via path-read hooks or transcript scanning. Imperfect data still
+    beats zero data for the 30-day pre-reg review.
+    """
+    from pathlib import Path
+
+    from divineos.core.ledger import log_event
+
+    # Normalize: strip path components, keep just the filename.
+    filename = Path(filename_or_path).name
+
+    log_event(
+        "TERRITORY_MATCH_REFERENCED",
+        actor,
+        {
+            "filename": filename,
+            "reason": reason,
+        },
+        validate=False,
+    )
+
+
+def territory_match_usage(days: int = 30) -> dict[str, Any]:
+    """Compute surface→reference ratio over a recent window.
+
+    Returns a dict with surfaced/referenced counts, ratio, and a
+    per-filename breakdown. Used for pre-reg review (prereg-e0341dacb04b)
+    and for `divineos exploration usage`.
+    """
+    import time
+
+    from divineos.core.ledger import _get_connection
+
+    cutoff = time.time() - (days * 24 * 3600)
+    conn = _get_connection()
+    try:
+        rows = list(
+            conn.execute(
+                "SELECT event_type, payload FROM system_events "
+                "WHERE timestamp >= ? AND event_type IN "
+                "('TERRITORY_MATCH_SURFACED', 'TERRITORY_MATCH_REFERENCED') "
+                "ORDER BY timestamp ASC",
+                (cutoff,),
+            )
+        )
+    finally:
+        conn.close()
+
+    surfaced: dict[str, int] = {}
+    referenced: dict[str, int] = {}
+    for event_type, payload_json in rows:
+        try:
+            import json as _json
+
+            payload = _json.loads(payload_json)
+        except (ValueError, TypeError):
+            continue
+        filename = payload.get("filename", "")
+        if not filename:
+            continue
+        if event_type == "TERRITORY_MATCH_SURFACED":
+            surfaced[filename] = surfaced.get(filename, 0) + 1
+        elif event_type == "TERRITORY_MATCH_REFERENCED":
+            referenced[filename] = referenced.get(filename, 0) + 1
+
+    total_surfaced = sum(surfaced.values())
+    total_referenced = sum(referenced.values())
+    ratio = (total_referenced / total_surfaced) if total_surfaced > 0 else 0.0
+
+    return {
+        "days": days,
+        "total_surfaced": total_surfaced,
+        "total_referenced": total_referenced,
+        "ratio": ratio,
+        "by_filename": {
+            fn: {
+                "surfaced": surfaced.get(fn, 0),
+                "referenced": referenced.get(fn, 0),
+            }
+            for fn in set(surfaced) | set(referenced)
+        },
+    }
+
+
 def format_for_briefing(max_recent: int = 5, active_text: str | None = None) -> str:
     """Return a compact briefing block reminding that the folder exists.
 
@@ -497,6 +634,16 @@ def format_for_briefing(max_recent: int = 5, active_text: str | None = None) -> 
                 list(matched_territories), limit=_TERRITORY_MATCH_CAP
             )
     matched_filenames = {m.get("filename") for m in matches}
+
+    # Emit TERRITORY_MATCH_SURFACED events (claim 02f0dcc0 instrumentation,
+    # Grok review 2026-05-03). One event per surfaced entry, so the
+    # surface-vs-reference ratio can be computed at pre-reg review time.
+    # Best-effort — failure to emit must not break the briefing surface.
+    if matches and matched_territories:
+        try:
+            _emit_territory_match_surfaced(matches, matched_territories, active_text or "")
+        except _ER_ERRORS:
+            pass  # Telemetry is best-effort; never block briefing.
 
     lines = [
         f"[my prior writing] {counts_line} — my own first-person work. "

@@ -662,3 +662,98 @@ class TestAuditReviewNoise:
             "I was corrected: always check return values before using them.",
             "PRINCIPLE",
         )
+
+    def test_user_confirmed_template(self):
+        """Auto-extraction was wrapping conversational acks in this exact suffix
+        and storing them as PRINCIPLE-typed knowledge. The corroboration_count
+        metric self-Goodharts because the same template matches across many
+        sessions. Discovered 2026-05-04: 18 entries in TESTED, 29 across all
+        maturities, top entry at corrob=49."""
+        assert _is_extraction_noise(
+            "I fixed and pushed and the user confirmed this was the right approach.",
+            "PRINCIPLE",
+        )
+
+    def test_user_confirmed_template_with_prefix(self):
+        assert _is_extraction_noise(
+            "I burn-in complete and the user confirmed this was the right approach.",
+            "PRINCIPLE",
+        )
+
+    def test_user_confirmed_template_case_insensitive(self):
+        assert _is_extraction_noise(
+            "Setup complete AND THE USER CONFIRMED THIS WAS THE RIGHT APPROACH.",
+            "PRINCIPLE",
+        )
+
+    def test_session_id_suffix_pattern(self):
+        """Auto-generated session telemetry tagged with '(session XXX-XXX)'
+        is not transferable knowledge. 39 live entries matched 2026-05-04
+        across PATTERN/MISTAKE/EPISODE/OBSERVATION types — all noise."""
+        assert _is_extraction_noise(
+            "I showed good honesty this session (session f95a6c6a-034). "
+            "The AI said 'fixed' 263 times.",
+            "PATTERN",
+        )
+
+    def test_session_id_in_mistake_pattern(self):
+        assert _is_extraction_noise(
+            "I retried a failed action 6x without investigating the cause. "
+            "I need to investigate errors, not blindly retry (session c85ad3ce-9cc).",
+            "MISTAKE",
+        )
+
+    def test_session_id_in_observation(self):
+        assert _is_extraction_noise(
+            "The user got upset and said: 'nvm im on the wrong repo' -- "
+            "this happened after AI response (session 49e0393f-036).",
+            "OBSERVATION",
+        )
+
+    def test_user_expressed_preferences_template(self):
+        """Auto-generated session-preference summary leaking into knowledge.
+        10 live entries matched 2026-05-04 (3 in TESTED maturity)."""
+        assert _is_extraction_noise(
+            "User expressed 5 preferences this session. Key signals: "
+            "lets tackle this; understand mythos; absolutely.",
+            "OBSERVATION",
+        )
+
+    def test_real_pattern_without_session_id_passes(self):
+        """A real PATTERN entry without the session-id telltale should
+        still pass through — the filter targets the telemetry shape, not
+        all PATTERN entries."""
+        assert not _is_extraction_noise(
+            "When the noise filter misses a templated extraction tail, "
+            "corroboration_count Goodharts because the same template "
+            "matches across many sessions.",
+            "PATTERN",
+        )
+
+    def test_auto_correction_template(self):
+        """Extractor wraps operator-voice replies in 'I was X, but the
+        correct approach is: Y'. 30 live entries matched 2026-05-04 —
+        the wrapped content is raw operator voice, not distilled."""
+        assert _is_extraction_noise(
+            "I was nine minds each looking at the OS from a different "
+            "angle, but the correct approach is: Not just 9. we could "
+            "add so many more.",
+            "PRINCIPLE",
+        )
+
+    def test_auto_correction_template_in_boundary(self):
+        assert _is_extraction_noise(
+            "I was framing it one way, but the correct approach is: frame it the other way.",
+            "BOUNDARY",
+        )
+
+    def test_real_correction_without_template_passes(self):
+        """A real principle that doesn't use the auto-template phrase
+        still passes through. The filter targets the specific extractor
+        artifact, not all corrections."""
+        assert not _is_extraction_noise(
+            "Defer database connection until first use; do not cache at "
+            "module-import time. DB_PATH overrides depend on lazy "
+            "resolution.",
+            "PRINCIPLE",
+        )

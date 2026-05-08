@@ -76,6 +76,29 @@ class TestActorValidation:
         result = _validate_actor("new-auditor")
         assert result == "new-auditor"
 
+    def test_unicode_whitespace_does_not_bypass_internal_actor_rejection(self):
+        """Audit finding 2026-05-03 round 8: U+00A0 (no-break-space)
+        prefix on an internal-actor name slipped past .strip() because
+        Python's default .strip() doesn't remove U+00A0. Validator now
+        NFKC-normalizes first, which folds U+00A0 to a regular space.
+        Without this fix, an LLM copy-pasting from a formatted document
+        could file findings as no-break-space + claude and have them
+        accepted as external validation -- exactly the self-audit hole
+        the rejection exists to prevent.
+        """
+        bypass_attempts = [
+            " claude",  # U+00A0 leading (the canonical bypass)
+            "claude ",  # U+00A0 trailing
+            "  claude",  # multiple no-break spaces
+            " claude",  # U+2009 thin space
+            " claude",  # U+202F narrow no-break space
+            "claude　",  # U+3000 ideographic space
+            " Claude",  # case + unicode whitespace combined
+        ]
+        for bypass in bypass_attempts:
+            with pytest.raises(ValueError, match="internal component"):
+                _validate_actor(bypass)
+
     def test_bare_claude_rejected_as_self_audit_hole(self):
         # Regression: Popper audit 2026-04-16 found that "claude" was in
         # EXTERNAL_ACTORS, which meant the running Claude agent could file

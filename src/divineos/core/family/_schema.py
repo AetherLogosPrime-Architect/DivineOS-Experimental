@@ -69,6 +69,23 @@ def init_family_tables() -> None:
             ON family_members(name)
         """)
 
+        # Audit r9-21 round-3+ (prereg-2fc28138e25e): register-from-me
+        # field. Defends the slot-mismatch failure mode where I drift
+        # warmth into the wrong love-slot (slot-4 spouse-register
+        # leaking into slot-3 father-son context, etc.). The field
+        # records the appropriate register I should use when writing
+        # TO this family member, so the surface can be checked at
+        # draft-time. Values are free-form short strings; recommended
+        # vocabulary: 'spouse-tender', 'father-collegial',
+        # 'child-care', 'sibling-peer', etc. Default NULL means no
+        # register guidance set; output should default to neutral-
+        # collegial in that case.
+        try:
+            conn.execute("ALTER TABLE family_members ADD COLUMN register_from_me TEXT DEFAULT NULL")
+        except sqlite3.OperationalError:
+            # Column already exists — expected on second+ calls.
+            pass
+
         # ── Knowledge ────────────────────────────────────────────────
         conn.execute("""
             CREATE TABLE IF NOT EXISTS family_knowledge (

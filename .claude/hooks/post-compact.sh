@@ -4,11 +4,12 @@
 # the compacted summary. We only need a short reminder of critical
 # items -- not a full re-dump that wastes thousands of tokens.
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 1
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 0
 
-if ! command -v divineos &>/dev/null; then
-  exit 0
-fi
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
 # Get ONLY the brief HUD (6 essential slots) instead of full dump
 hud_brief=$(divineos hud --brief 2>/dev/null)
@@ -32,7 +33,7 @@ ${lessons}
 
 === END REMINDER ==="
 
-  escaped=$(echo "$full_context" | python -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+  escaped=$(echo "$full_context" | "$PYTHON_BIN" -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
   echo "{\"additionalContext\": ${escaped}}"
 fi
 

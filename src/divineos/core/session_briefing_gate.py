@@ -45,12 +45,17 @@ from typing import Any
 
 
 def briefing_loaded_this_session() -> bool:
-    """True if BRIEFING_LOADED event exists in current session ledger.
+    """True if briefing was loaded with the current session_id.
 
-    Fails open (returns True) if the session manager or ledger are
-    unavailable — that fallback path is the existing time-based gate's
-    responsibility, not this gate's. The point of this gate is to add
-    a tighter check, not to replace the underlying machinery.
+    Reads the ``~/.divineos/hud/.briefing_loaded`` marker file and
+    verifies its stored ``session_id`` matches ``get_current_session_id()``.
+    The marker file is the canonical record of "briefing loaded this
+    session" — it's written by ``mark_briefing_loaded()`` on every
+    briefing run and persists across CLI invocations within a session.
+
+    Fails open (returns True) if the session manager isn't available
+    or the marker file can't be read — the existing TTL-based gate
+    catches those cases and the strict check shouldn't double-deny.
     """
     try:
         from divineos.core.session_manager import get_current_session_id
@@ -64,24 +69,34 @@ def briefing_loaded_this_session() -> bool:
     if not current_session:
         return True
 
+    # Read the marker file directly. Cheap, no DB, no keyword-substring
+    # bug. The marker is written by ``mark_briefing_loaded()`` and
+    # contains the session_id of the briefing-load that wrote it. The
+    # marker lives in the HUD directory (whose location depends on
+    # which DB the install is using), so resolve via _get_hud_dir
+    # rather than hardcoding the path.
+    import json
+
     try:
-        from divineos.core.ledger import search_events
+        from divineos.core._hud_io import _get_hud_dir
     except ImportError:
         return True
 
     try:
-        events = search_events(keyword="BRIEFING_LOADED", limit=50)
-    except (OSError, RuntimeError, TypeError):
+        marker_path = _get_hud_dir() / ".briefing_loaded"
+    except Exception:  # noqa: BLE001 — fail-soft if hud-dir resolution breaks
         return True
 
-    for event in events:
-        if not isinstance(event, dict):
-            continue
-        if event.get("event_type") != "BRIEFING_LOADED":
-            continue
-        if event.get("session_id") == current_session:
-            return True
-    return False
+    if not marker_path.exists():
+        return False
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return True
+    if not isinstance(marker, dict):
+        return True
+
+    return marker.get("session_id") == current_session
 
 
 def gate_message() -> str:

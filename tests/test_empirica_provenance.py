@@ -51,8 +51,12 @@ def _isolated_db(tmp_path):
 
 
 class TestCorroborationKindEnum:
-    def test_six_kinds_defined(self):
-        assert len(list(CorroborationKind)) == 6
+    def test_seven_kinds_defined(self):
+        """Seven kinds: USER, COUNCIL, EXTERNAL_AUDIT,
+        OUTCOME_VERIFICATION, VOID_SURVIVAL, ACCESS, LEGACY.
+        VOID_SURVIVAL added 2026-05-05 to wire Tier IV ADVERSARIAL
+        to the VOID adversarial sandbox."""
+        assert len(list(CorroborationKind)) == 7
 
     def test_kind_is_str_subclass(self):
         """String-subclass so sqlite/json roundtrip cleanly."""
@@ -65,8 +69,17 @@ class TestCorroborationKindEnum:
         assert CorroborationKind.COUNCIL.value == "council"
         assert CorroborationKind.EXTERNAL_AUDIT.value == "external_audit"
         assert CorroborationKind.OUTCOME_VERIFICATION.value == "outcome_verification"
+        assert CorroborationKind.VOID_SURVIVAL.value == "void_survival"
         assert CorroborationKind.ACCESS.value == "access"
         assert CorroborationKind.LEGACY.value == "legacy"
+
+    def test_void_survival_is_evidential(self):
+        """VOID_SURVIVAL must count as real evidence for distinct-
+        actor counting. Surviving an adversarial-persona attack is
+        the spec's definition of Tier IV evidence."""
+        from divineos.core.empirica.provenance import _EVIDENTIAL_KINDS
+
+        assert CorroborationKind.VOID_SURVIVAL in _EVIDENTIAL_KINDS
 
 
 class TestRecordCorroboration:

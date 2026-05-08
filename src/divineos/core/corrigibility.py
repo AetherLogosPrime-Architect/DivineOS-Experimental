@@ -31,8 +31,11 @@ This module is that mechanism.
 * **DIAGNOSTIC** — read-only. Write commands refused; reads
   allowed so the operator can investigate.
 * **EMERGENCY_STOP** — only shutdown-relevant commands allowed
-  (mode changes, extract, hud, preflight, briefing).
-  Everything else refused.
+  (mode changes, ``extract``, ``emit``, ``hud``, ``preflight``,
+  ``briefing``). Everything else refused. The shutdown allowlist
+  is the canonical set in ``_ALWAYS_ALLOWED`` below; this docstring
+  and the user-facing refusal message must agree with it (test
+  ``test_emergency_stop_allows_documented_commands`` enforces this).
 
 ## Invariants
 
@@ -215,8 +218,17 @@ _ALWAYS_ALLOWED: frozenset[str] = frozenset(
     {
         # Mode-related — must always work so the off-switch is real
         "mode",
-        # Session-ending — must work to close cleanly from any mode
+        # Session-ending — must work to close cleanly from any mode.
+        # ``emit`` is the legacy event-emission command; ``extract`` is
+        # the renamed (2026-04-20) consolidation/checkpoint pipeline that
+        # was formerly emitted as `divineos emit SESSION_END`. Both stay
+        # in the allowlist so EMERGENCY_STOP doesn't trap the operator's
+        # ability to checkpoint cleanly. (Audit finding 2026-05-03:
+        # ``extract`` was documented as allowed but missing from this
+        # set — exactly the off-switch-traps-itself failure mode the
+        # invariant in this module's docstring rejects.)
         "emit",
+        "extract",
         # State visibility — operator must be able to see the state
         "hud",
         "preflight",
@@ -292,7 +304,8 @@ def is_command_allowed(command: str) -> tuple[bool, str]:
         return (
             False,
             f"Command '{command}' refused: operating mode is EMERGENCY_STOP. "
-            f"Only mode-change, emit, hud, preflight, briefing are permitted. "
+            f"Only mode-change, emit, extract, hud, preflight, briefing "
+            f"are permitted. "
             f'Restore with: divineos mode set normal --reason "..."',
         )
 

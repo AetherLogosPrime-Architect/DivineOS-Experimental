@@ -43,6 +43,36 @@ if [ -n "$STAGED_SH" ]; then
     echo "  Normalized and re-staged."
 fi
 
+# 0c. U+FFFD scan. Any staged file containing the UTF-8 replacement-character
+# byte sequence (EF BF BD) is silently corrupted — typically the result of
+# writing non-ASCII via a Bash heredoc on Windows where bytes get re-encoded
+# as cp1252. The corruption commits cleanly, tests pass, and the bug only
+# surfaces months later when the file lands in a context that hits the JSON
+# serializer (which crashes the session). Pre-reg: prereg-5e0c6f492bfa.
+# Discovered live 2026-05-04. See lesson e44c7acd-d7f8-4cbd-a49e-7bf1dfd1eda2.
+echo "=== U+FFFD Scan ==="
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACM)
+FFFD_HITS=""
+if [ -n "$STAGED_ALL" ]; then
+    while IFS= read -r f; do
+        [ -f "$f" ] || continue
+        if grep -Iq $'\xef\xbf\xbd' "$f" 2>/dev/null; then
+            FFFD_HITS="${FFFD_HITS}${f}"$'\n'
+        fi
+    done <<< "$STAGED_ALL"
+fi
+if [ -n "$FFFD_HITS" ]; then
+    echo "  [!] U+FFFD replacement characters found in staged files:"
+    while IFS= read -r line; do
+        [ -n "$line" ] && echo "      $line"
+    done <<< "$FFFD_HITS"
+    echo ""
+    echo "  These bytes (EF BF BD) crash the API JSON serializer when loaded."
+    echo "  Likely cause: non-ASCII written via Bash heredoc on Windows."
+    echo "  Fix: open the file, find the garbled chars, replace using Write tool."
+    ERRORS=$((ERRORS + 1))
+fi
+
 # 1. Auto-format (fix, don't just report)
 if [ -n "$STAGED_PY" ]; then
     echo "=== Format ==="
@@ -81,6 +111,24 @@ echo "=== Broad Exceptions ==="
 if ! python scripts/check_broad_exceptions.py 2>/dev/null; then
     ERRORS=$((ERRORS + 1))
 fi
+
+# 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
+# Catches future drift by flagging functions that start with mythological
+# verbs. Manual audit on filing-day found zero violations; this prevents
+# regression. Suppressible per-line with `# noqa: BLE001`.
+echo "=== Function-Naming (theater drift) ==="
+if ! python scripts/check_function_naming.py 2>/dev/null; then
+    ERRORS=$((ERRORS + 1))
+fi
+
+# 5a. Orphan-modules warning (non-blocking). Round-2 audit (2026-05-07)
+# wired this at warning-level: the existing detector found 22 orphans
+# (down to ~4 after fixing false-positive shapes) but each remaining
+# one needs an individual decision (wire / mark / delete). Surfacing
+# on every commit catches new accumulation; not blocking lets the
+# existing real orphans wait for their own follow-up PRs.
+echo "=== Orphan Modules (informational) ==="
+python scripts/check_orphan_modules.py 2>/dev/null || true
 
 # 5b. Pre-reg gate (un-gameable): new mechanisms require a filed pre-reg.
 # The gate reads the staged diff and blocks when a new mechanism lacks a
@@ -155,6 +203,45 @@ if [ -n "$STAGED_SRC" ] && command -v vulture &>/dev/null; then
     if ! vulture $STAGED_SRC scripts/vulture_whitelist.py --min-confidence 70 2>/dev/null; then
         ERRORS=$((ERRORS + 1))
     fi
+fi
+
+# 6b. Bandit security scan — MEDIUM+ severity. Audit r9-21 #28 wired
+# this in after the 12 false-positive B608 findings were marked with
+# # nosec on a per-site rationale. Strict mode here means: if a NEW
+# medium-severity finding lands without an explicit nosec marker, the
+# commit is blocked and the operator must either add the marker (with
+# rationale) or fix the SQL composition. Closes the path where bandit
+# was a deferred run-this-yourself script no one ran.
+if [ -n "$STAGED_SRC" ]; then
+    echo "=== Bandit (MEDIUM+) ==="
+    if ! python3 scripts/run_bandit.py --strict 2>/dev/null; then
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+# 6d. Test-CLI linkage check. Audit finding 2026-05-05 (PR #264):
+# test file shipped with complete suite for `divineos commitment fulfillment`
+# but the actual subcommand never registered with the CLI. Each test failed
+# at runtime with "Error: No such command 'fulfillment'". This catches
+# the failure mode prospectively — if a staged test invokes a command, the
+# command must register on the CLI.
+if [ -n "$STAGED_PY" ] && echo "$STAGED_PY" | grep -q "^tests/"; then
+    echo "=== Test-CLI Linkage ==="
+    if ! python3 scripts/check_test_cli_linkage.py; then
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
+# 6c. Verifier-run stamp. Audit r9-21 round-3+ (prereg-e30878ce3f09):
+# precommit running successfully constitutes a verifier run, so we
+# stamp the run-log here. The closure-claim commit-msg hook reads
+# this log to gate closure-language commit messages on recent
+# verification evidence. Without the stamp, "fully closed" / "0
+# remaining" / "no remaining surface" phrasing in the commit message
+# blocks the commit (round-1 + round-3 audit-cleanup slips both had
+# that exact shape).
+if [ $ERRORS -eq 0 ]; then
+    python3 scripts/check_closure_claim.py --record "precommit:$(git rev-parse --abbrev-ref HEAD)" 2>/dev/null || true
 fi
 
 # 7. Shellcheck on staged .sh files (line endings already normalized in step 0)

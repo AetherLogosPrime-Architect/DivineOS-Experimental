@@ -30,11 +30,11 @@ MEMBER_NAME="${1:?usage: /family-state <Member-Name>}"
 python <<EOF
 import sys
 sys.path.insert(0, ".")
-from family.entity import (
+from divineos.core.family.entity import (
     get_family_member, get_knowledge, get_opinions,
     get_recent_affect, get_recent_interactions, get_milestones,
 )
-from family.voice import build_voice_context
+from divineos.core.family.voice import build_voice_context
 
 member_name = "${MEMBER_NAME}"
 member = get_family_member(member_name)

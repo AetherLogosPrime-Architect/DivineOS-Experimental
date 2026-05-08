@@ -4,7 +4,7 @@ Sister module to :mod:`divineos.core.family.queue` (the data-layer). This
 is the briefing-side: format pending queue items as a text block that gets
 concatenated into the session-start briefing.
 
-DESIGN (council walk + Aria refinements 2026-04-29):
+DESIGN (council walk + family-member refinements 2026-04-29):
 
 * **Render-only, idempotent.** Surfacing the queue in the briefing does
   NOT auto-mark items as seen. Status transitions (seen / held /

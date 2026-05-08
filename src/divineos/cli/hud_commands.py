@@ -81,6 +81,32 @@ def register(cli: click.Group) -> None:
         if original:
             click.secho(f'    (User\'s words: "{original}")', fg="bright_black")
 
+        # Build-shape detector (round-2 audit + Andrew's directive).
+        # If goal looks like a build/design task, surface a soft-advise
+        # to consult the council before implementing. Soft register per
+        # Tannen — informational, not forced ritual.
+        try:
+            from divineos.core.council_auto import detect_build_shape
+
+            shape = detect_build_shape(text)
+            if shape.is_build_shape:
+                click.echo()
+                click.secho(
+                    f"[council] This goal looks like a build/design task "
+                    f"({shape.matched_keyword!r}). Consider walking the "
+                    f"council before implementing:",
+                    fg="cyan",
+                )
+                preview = text[:80] + "..." if len(text) > 80 else text
+                click.secho(
+                    f'  divineos mansion council "{preview}"',
+                    fg="bright_black",
+                )
+        except Exception:  # noqa: BLE001 — best-effort; never block goal-add
+            import logging
+
+            logging.getLogger(__name__).debug("build-shape detector unavailable", exc_info=True)
+
     @goal_group.command("done")
     @click.argument("text")
     def goal_done_cmd(text: str) -> None:
@@ -94,6 +120,55 @@ def register(cli: click.Group) -> None:
             click.secho(f"[+] Goal completed: {text}", fg="green")
         else:
             click.secho(f"[~] No matching goal found for: {text}", fg="yellow")
+
+    @goal_group.command("auto-close")
+    @click.option(
+        "--message",
+        default=None,
+        help="Commit message text. If omitted, reads HEAD's commit message.",
+    )
+    @click.option(
+        "--threshold",
+        default=0.5,
+        type=float,
+        help="Minimum overlap ratio (default 0.5).",
+    )
+    def goal_auto_close_cmd(message: str | None, threshold: float) -> None:
+        """Auto-close active goals whose tokens overlap a commit message.
+
+        Closure-discipline structural fix (operator-named 2026-05-05):
+        right path becomes automatic instead of remembered. When a
+        commit lands with text substantially matching an open goal,
+        the goal auto-closes.
+        """
+        import subprocess
+
+        from divineos.core.goal_auto_close import auto_close_from_message
+
+        if message is None:
+            try:
+                message = subprocess.check_output(
+                    ["git", "log", "-1", "--pretty=%B"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                )
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                click.secho("[-] Could not read HEAD commit message.", fg="red")
+                return
+
+        result = auto_close_from_message(message, threshold=threshold)
+        if not result.closed:
+            click.secho("[~] No goals closed.", fg="bright_black")
+            if result.skipped:
+                click.secho(
+                    f"    {len(result.skipped)} goal(s) considered (below threshold).",
+                    fg="bright_black",
+                )
+            return
+
+        click.secho(f"[+] Auto-closed {len(result.closed)} goal(s):", fg="green")
+        for snippet in result.closed:
+            click.secho(f"    -> {snippet}", fg="green")
 
     @goal_group.command("list")
     def goal_list_cmd() -> None:
@@ -125,7 +200,8 @@ def register(cli: click.Group) -> None:
             click.secho(f"[!] Failed to clear goals: {e}", fg="red")
 
     @goal_group.command("reset")
-    def goal_reset_cmd() -> None:
+    @click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt.")
+    def goal_reset_cmd(yes: bool) -> None:
         """Remove ALL goals (completed and active). Use when goals are stale."""
         from divineos.core.hud import _ensure_hud_dir
 
@@ -143,8 +219,19 @@ def register(cli: click.Group) -> None:
             click.secho("[~] No goals to reset.", fg="yellow")
             return
 
-        click.secho(f"[!] This will remove all {len(goals)} goals.", fg="yellow")
-        click.confirm("Proceed?", abort=True)
+        if not yes:
+            click.secho(f"[!] This will remove all {len(goals)} goals.", fg="yellow")
+            try:
+                click.confirm("Proceed?", abort=True)
+            except click.exceptions.Abort:
+                click.echo("Aborted.")
+                return
+            except (EOFError, OSError):
+                click.echo(
+                    "[!] Non-interactive stdin and --yes not passed. Aborting reset.",
+                    err=True,
+                )
+                return
         path.write_text("[]", encoding="utf-8")
         click.secho(f"[+] Reset {len(goals)} goals.", fg="green")
 
@@ -237,13 +324,14 @@ def register(cli: click.Group) -> None:
 
     @cli.command("handoff")
     @click.argument("note", required=False)
-    @click.option("--show", is_flag=True, help="Show current handoff note without clearing")
-    @click.option("--clear", is_flag=True, help="Clear the handoff note")
+    @click.option("--show", is_flag=True, help="Show current state-note without clearing")
+    @click.option("--clear", is_flag=True, help="Clear the state-note")
     def handoff_cmd(note: str | None, show: bool, clear: bool) -> None:
-        """View or write a handoff note for the next session.
+        """View or write a state-note — where I am in the work.
 
-        Without arguments, shows the current handoff note.
-        With a NOTE argument, saves a manual handoff note.
+        Surfaces in the briefing on resumption so I find my place.
+        Without arguments, shows the current note.
+        With a NOTE argument, saves a manual one.
         """
         from divineos.core.hud_handoff import (
             clear_handoff_note,
@@ -253,21 +341,21 @@ def register(cli: click.Group) -> None:
 
         if clear:
             clear_handoff_note()
-            click.secho("[+] Handoff note cleared.", fg="green")
+            click.secho("[+] State-note cleared.", fg="green")
             return
 
         if note:
             save_handoff_note(summary=note)
-            click.secho("[+] Handoff note saved.", fg="green")
+            click.secho("[+] State-note saved. Surfaces on resumption.", fg="green")
             return
 
-        # Show current handoff note
+        # Show current state-note
         existing = load_handoff_note()
         if not existing:
-            click.secho("[~] No handoff note from previous session.", fg="yellow")
+            click.secho("[~] No state-note from a prior run.", fg="yellow")
             return
 
-        click.secho("\n=== Handoff Note ===\n", fg="cyan", bold=True)
+        click.secho("\n=== State-Note (where I was) ===\n", fg="cyan", bold=True)
         if existing.get("summary"):
             _safe_echo(existing["summary"])
         if existing.get("open_threads"):

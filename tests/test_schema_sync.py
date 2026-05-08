@@ -168,7 +168,15 @@ def _extract_inline_schemas(test_dir: Path) -> dict[str, dict[str, list[str]]]:
             # Extract column names from the CREATE TABLE body
             cols = []
             for line in body.split(","):
-                line = line.strip()
+                # External-review fix: when the inline CREATE TABLE is
+                # built from a multi-line Python string-literal,
+                # comma-split segments can carry leading string-boundary
+                # noise. The shape of the noise is variable —
+                # whitespace, quote, newline, indentation, quote — so a
+                # single strip() doesn't catch it. Use a regex to peel
+                # off any leading run of whitespace/quote chars so the
+                # column-name extractor sees the actual column name.
+                line = re.sub(r'^[\s"]+', "", line).rstrip()
                 if not line:
                     continue
                 # Skip constraints (PRIMARY KEY, FOREIGN KEY, UNIQUE, CHECK)

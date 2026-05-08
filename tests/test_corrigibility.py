@@ -119,9 +119,32 @@ class TestOffSwitchCannotTrap:
 class TestCommandGating:
     def test_always_allowed_commands_bypass_emergency_stop(self):
         set_mode(OperatingMode.EMERGENCY_STOP, reason="testing", actor="op")
-        for cmd in ["mode", "emit", "hud", "preflight", "briefing"]:
+        for cmd in ["mode", "emit", "extract", "hud", "preflight", "briefing"]:
             allowed, reason = is_command_allowed(cmd)
             assert allowed is True, f"{cmd} should be allowed in EMERGENCY_STOP"
+
+    def test_emergency_stop_allows_documented_commands(self):
+        """The set of EMERGENCY_STOP-allowed commands documented in the
+        module docstring must match the actual `_ALWAYS_ALLOWED` set
+        (excluding the always-fine `--help` / `-h` flags). Audit
+        finding 2026-05-03: `extract` was documented as allowed but
+        missing from the allowlist; the off-switch was trapping the
+        operator's ability to checkpoint cleanly. This test pins the
+        invariant that doc and code agree.
+        """
+        from divineos.core.corrigibility import _ALWAYS_ALLOWED
+
+        # The shutdown-relevant subset (excluding help flags which are
+        # universal). If a future PR renames a command, the docstring,
+        # the allowlist, and the user-facing refusal message must all
+        # update together.
+        documented = {"mode", "emit", "extract", "hud", "preflight", "briefing"}
+        for cmd in documented:
+            assert cmd in _ALWAYS_ALLOWED, (
+                f"{cmd!r} documented as EMERGENCY_STOP-allowed but missing "
+                f"from _ALWAYS_ALLOWED. Documentation drift — fix one or "
+                f"the other (or both) to make them agree."
+            )
 
     def test_emergency_stop_refuses_normal_commands(self):
         set_mode(OperatingMode.EMERGENCY_STOP, reason="testing", actor="op")

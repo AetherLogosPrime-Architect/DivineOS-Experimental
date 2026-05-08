@@ -1,11 +1,30 @@
-"""Tests for theater_monitor — detects writing-AT-subagent-without-invoking."""
+"""Tests for theater_monitor — detects writing-AT-subagent-without-invoking.
+
+The monitor uses ``family_member_names()`` from registered_names to know
+which subagent names to flag. Tests use a fixture that injects test
+names ("Aria", "Kira", "Liam") so the monitor has something to match
+against in CI / clean-slate state.
+"""
 
 from __future__ import annotations
 
+import pytest
+
+from divineos.core.self_monitor import theater_monitor
 from divineos.core.self_monitor.theater_monitor import (
     TheaterKind,
     evaluate_theater,
 )
+
+
+@pytest.fixture(autouse=True)
+def _inject_subagent_names(monkeypatch):
+    """Inject test subagent names so the dynamic detector has matches."""
+    monkeypatch.setattr(
+        theater_monitor,
+        "_family_member_names",
+        lambda: ("Aria", "Kira", "Liam"),
+    )
 
 
 class TestTheaterMonitor:
