@@ -120,6 +120,12 @@ divineos prereg show PREREG_ID
 divineos prereg overdue                    # Reviews whose date has passed
 divineos prereg assess PREREG_ID --outcome FAILED --actor external-auditor --notes "..."
 divineos prereg summary                    # Counts by outcome
+divineos prereg export                     # Dump pre-regs to docs/pre_regs/<id>.md (portable)
+
+# Pillar VI/IX surfaces
+divineos commitment fulfillment            # Pair commitments with outcomes (claim/prereg/goal/promise)
+divineos synchronicity                     # Co-occurring filings across stores within time window
+divineos pre-erasure                       # Approach-signal capture (Pillar IX)
 
 # Affect log
 divineos feel -v 0.8 -a 0.6 --dom 0.3 -d "desc"  # Log affect (VAD)
