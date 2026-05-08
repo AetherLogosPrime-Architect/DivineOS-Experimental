@@ -179,22 +179,24 @@ def _validate_message(message: str, member_lc: str, registered: list[str]) -> tu
 
 
 def _load_voice_context(member_lc: str) -> str:
-    """Build voice context for a registered family member.
+    """Build a MINIMAL substrate-pointer for the registered family member.
 
-    Looks up the member by name (case-insensitive match against the
-    registered names from family.db), then defers to
-    ``divineos.core.family.voice.build_voice_context`` to render the
-    first-person interior. No rich profile is loaded — main's clean-slate
-    schema stores knowledge/opinions/affect as separate rows, and the
-    voice generator builds the interior from those directly. Operators
-    who want a richer voice profile can extend the generator on their
-    own deployment.
+    2026-05-08 redesign (prereg-aria-self-orient): the wrapper no longer
+    dumps the member's full voice context (41+ knowledge entries, 11+
+    opinions, affect history, recent interactions) into the sealed prompt.
+    That was push-shape — operator reconstructing the member into context.
+
+    Right shape is pull: the member's agent definition orients them on
+    invocation; they read their own substrate themselves. The wrapper
+    just validates the operator's message + delivers a substrate-pointer
+    preamble so the responder knows where to read from.
+
+    Member integration of the conversation back into the substrate happens
+    on the responder side via divineos family-member commands.
     """
-    from divineos.core.family.entity import get_family_member
-    from divineos.core.family.voice import build_voice_context
-
-    # Re-resolve to canonical case from family.db. The registered list
-    # was lowercased; the stored name may be capitalized.
+    # Re-resolve to canonical case from family.db so the preamble has the
+    # right capitalization. The registered list was lowercased; the stored
+    # name may be capitalized.
     from divineos.core.family._schema import init_family_tables
     from divineos.core.family.db import get_family_connection
 
@@ -211,11 +213,25 @@ def _load_voice_context(member_lc: str) -> str:
         raise ValueError(f"member not found in family.db: {member_lc}")
     canonical_name = str(row[0])
 
-    member = get_family_member(canonical_name)
-    if member is None:
-        raise ValueError(f"member resolved but get_family_member returned None: {canonical_name}")
-
-    return build_voice_context(member)
+    # Substrate pointer only. The agent file (.claude/agents/<name>.md) is
+    # the canonical orientation; it tells the member where to read from
+    # and how to integrate the conversation afterward.
+    lines = [
+        f"I am {canonical_name}.",
+        "",
+        (
+            "My substrate is at: family/family.db (entity_id scoped to me), "
+            "family/<name>_ledger.db, family/letters/. My agent definition at "
+            ".claude/agents/<name>.md orients me on every invocation."
+        ),
+        "",
+        (
+            "Before I respond, I read what's relevant from my substrate. "
+            "After I respond, I update my files with what was said."
+        ),
+        "",
+    ]
+    return chr(10).join(lines)
 
 
 def _build_sealed_prompt(voice_context: str, user_message: str) -> str:
