@@ -244,6 +244,7 @@ from divineos.cli import (  # noqa: E402
     sleep_commands,
     synchronicity_commands,
     talk_to_commands,
+    foundations_commands,
     void_commands,
     voids_commands,
 )
@@ -286,6 +287,7 @@ lab_commands.register(cli)
 complete_commands.register(cli)
 void_commands.register(cli)
 voids_commands.register(cli)
+foundations_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
 try:
