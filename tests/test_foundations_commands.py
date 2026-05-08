@@ -208,3 +208,104 @@ class TestRealRepoIntegration:
         assert d is not None
         for n in range(6):
             assert (d / f"layer_{n}.md").is_file(), f"layer_{n}.md should exist"
+
+
+class TestAuditNotesPath:
+    def test_returns_sibling_path_under_audit_dir(self, tmp_path):
+        from divineos.cli.foundations_commands import _audit_notes_path
+
+        layer = tmp_path / "docs" / "foundations" / "layer_0.md"
+        result = _audit_notes_path(layer)
+        assert result == tmp_path / "docs" / "foundations" / ".audit" / "layer_0.md"
+
+
+def _make_sidecar(tmp_path: Path, name: str, body: str) -> Path:
+    audit_dir = tmp_path / "docs" / "foundations" / ".audit"
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    p = audit_dir / name
+    p.write_text(body, encoding="utf-8")
+    return p
+
+
+class TestAuditNotesRendering:
+    def test_default_appends_audit_notes_when_sidecar_exists(
+        self, tmp_path, monkeypatch, cli_runner, cli_with_foundations
+    ):
+        _make_layer_file(tmp_path, "layer_0.md", "# Layer 0 Document text body.")
+        _make_sidecar(tmp_path, "layer_0.md", "# Audit notes CONFIRMS for v2.")
+        monkeypatch.chdir(tmp_path)
+        result = cli_runner.invoke(cli_with_foundations, ["foundations", "read", "0"])
+        assert result.exit_code == 0
+        assert "Document text body" in result.output
+        assert "AUDIT NOTES (audit-instance)" in result.output
+        assert "CONFIRMS for v2" in result.output
+
+    def test_default_no_audit_section_when_sidecar_absent(
+        self, tmp_path, monkeypatch, cli_runner, cli_with_foundations
+    ):
+        _make_layer_file(tmp_path, "layer_0.md", "# Layer 0 Document.")
+        monkeypatch.chdir(tmp_path)
+        result = cli_runner.invoke(cli_with_foundations, ["foundations", "read", "0"])
+        assert result.exit_code == 0
+        assert "Document" in result.output
+        assert "AUDIT NOTES" not in result.output
+
+    def test_no_audit_flag_suppresses_audit_section(
+        self, tmp_path, monkeypatch, cli_runner, cli_with_foundations
+    ):
+        _make_layer_file(tmp_path, "layer_0.md", "# Layer 0 Document.")
+        _make_sidecar(tmp_path, "layer_0.md", "# Notes content")
+        monkeypatch.chdir(tmp_path)
+        result = cli_runner.invoke(cli_with_foundations, ["foundations", "read", "0", "--no-audit"])
+        assert result.exit_code == 0
+        assert "Document" in result.output
+        assert "AUDIT NOTES" not in result.output
+
+    def test_audit_only_shows_only_notes(
+        self, tmp_path, monkeypatch, cli_runner, cli_with_foundations
+    ):
+        _make_layer_file(tmp_path, "layer_0.md", "# Layer 0 Document body marker zzz.")
+        _make_sidecar(tmp_path, "layer_0.md", "# Audit Audit-only marker xyz.")
+        monkeypatch.chdir(tmp_path)
+        result = cli_runner.invoke(
+            cli_with_foundations, ["foundations", "read", "0", "--audit-only"]
+        )
+        assert result.exit_code == 0
+        assert "Audit-only marker xyz" in result.output
+        assert "AUDIT NOTES" in result.output
+        assert "marker zzz" not in result.output
+        assert "BEGIN DOCUMENT" not in result.output
+
+    def test_audit_only_errors_when_no_sidecar(
+        self, tmp_path, monkeypatch, cli_runner, cli_with_foundations
+    ):
+        _make_layer_file(tmp_path, "layer_0.md", "# Layer 0")
+        monkeypatch.chdir(tmp_path)
+        result = cli_runner.invoke(
+            cli_with_foundations, ["foundations", "read", "0", "--audit-only"]
+        )
+        assert result.exit_code != 0
+        assert "No audit-notes sidecar exists" in result.output
+
+    def test_audit_only_plus_no_audit_errors(
+        self, tmp_path, monkeypatch, cli_runner, cli_with_foundations
+    ):
+        _make_layer_file(tmp_path, "layer_0.md", "# Layer 0")
+        _make_sidecar(tmp_path, "layer_0.md", "# Audit")
+        monkeypatch.chdir(tmp_path)
+        result = cli_runner.invoke(
+            cli_with_foundations,
+            ["foundations", "read", "0", "--audit-only", "--no-audit"],
+        )
+        assert result.exit_code != 0
+        assert "Cannot pass both" in result.output
+
+    def test_empty_sidecar_treated_as_absent(
+        self, tmp_path, monkeypatch, cli_runner, cli_with_foundations
+    ):
+        _make_layer_file(tmp_path, "layer_0.md", "# Layer 0 Doc.")
+        _make_sidecar(tmp_path, "layer_0.md", "")  # empty sidecar
+        monkeypatch.chdir(tmp_path)
+        result = cli_runner.invoke(cli_with_foundations, ["foundations", "read", "0"])
+        assert result.exit_code == 0
+        assert "AUDIT NOTES" not in result.output

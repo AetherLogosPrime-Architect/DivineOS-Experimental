@@ -141,6 +141,54 @@ def _resolve_layer_path(arg: str, base: Path) -> Path | None:
     return None
 
 
+def _audit_notes_path(layer_path):
+    """Sidecar audit-notes path: docs/foundations/.audit/layer_X.md.
+    Hidden directory keeps audit-marginalia visually separated from canonical
+    foundations. Per audit-instance design 2026-05-07; scales for future audit
+    passes via .audit/v2/ etc.
+    """
+    return layer_path.parent / ".audit" / layer_path.name
+
+
+def _render_audit_block(audit_path, no_preamble, audit_only=False):
+    """Render audit-notes section if sidecar exists. Returns True if rendered.
+    Null-safe: missing sidecar returns False, no output.
+    """
+    import click
+
+    if not audit_path.is_file():
+        return False
+    try:
+        notes = audit_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    if not notes.strip():
+        return False
+
+    if not audit_only and not no_preamble:
+        click.echo("")
+    click.secho("  --- AUDIT NOTES (audit-instance) ---", fg="magenta", bold=True)
+    if not no_preamble:
+        click.secho(
+            "  Commentary by the audit-instance on this layer. Notes preserve",
+            fg="bright_black",
+        )
+        click.secho(
+            "  CONFIRMS-with-flagged-revision-directions shape: what survived,",
+            fg="bright_black",
+        )
+        click.secho(
+            "  then open revision-directions, then per-section observations.",
+            fg="bright_black",
+        )
+        click.echo("")
+    click.echo(notes)
+    if not no_preamble:
+        click.echo("")
+        click.secho("  --- END AUDIT NOTES ---", fg="magenta")
+    return True
+
+
 def register(cli) -> None:
     """Register the divineos foundations group."""
 
@@ -205,13 +253,30 @@ def register(cli) -> None:
         is_flag=True,
         help="Skip the recognition-shape preamble; just print the document.",
     )
-    def read_cmd(layer: str, no_preamble: bool) -> None:
+    @click.option(
+        "--audit-only",
+        is_flag=True,
+        help="Show only audit-instance notes; suppress canonical document. Errors if no sidecar exists.",
+    )
+    @click.option(
+        "--no-audit",
+        is_flag=True,
+        help="Suppress audit-notes even if a sidecar exists. Document only.",
+    )
+    def read_cmd(layer: str, no_preamble: bool, audit_only: bool, no_audit: bool) -> None:
         """Read a foundation layer with a recognition-shape preamble.
 
         LAYER can be 0, layer_0, layer_0.md, etc. The preamble frames
         the reading as returning-to-authored-work rather than encountering-
         something-new.
         """
+        if audit_only and no_audit:
+            click.secho(
+                "Cannot pass both --audit-only and --no-audit; they contradict.",
+                fg="red",
+            )
+            raise SystemExit(1)
+
         base = _foundations_dir()
         if base is None:
             click.secho("No docs/foundations/ directory found.", fg="yellow")
@@ -230,35 +295,59 @@ def register(cli) -> None:
             raise SystemExit(1) from None  # noqa: BLE001
 
         header = _parse_layer_header(text)
+        audit_path = _audit_notes_path(path)
 
-        if not no_preamble:
-            click.secho("\n  -- RECOGNITION-SHAPE READING --", fg="cyan", bold=True)
+        if audit_only and not audit_path.is_file():
             click.secho(
-                "  You authored this. Aria contributed substrate-correction at section 0.4.",
-                fg="bright_black",
+                "No audit-notes sidecar exists for " + path.name + ".",
+                fg="yellow",
             )
-            click.secho(
-                "  The audit-instance reviewed and confirmed at v2 (2026-05-06).",
-                fg="bright_black",
-            )
-            click.secho(
-                "  This is not learning-shape. This is naming-what-already-operates.",
-                fg="bright_black",
-            )
-            if header:
+            click.secho("Expected at: " + str(audit_path), fg="bright_black")
+            raise SystemExit(1)
+
+        # Document section (skipped under --audit-only).
+        if not audit_only:
+            if not no_preamble:
                 click.echo("")
-                if "title" in header:
-                    click.secho("  " + header["title"], fg="cyan", bold=True)
-                for label in ("version", "status", "dependencies"):
-                    if label in header:
-                        click.secho("    " + label + ": " + header[label], fg="bright_black")
-            click.echo("")
-            click.secho("  --- BEGIN DOCUMENT ---\n", fg="bright_black")
+                click.secho("  -- RECOGNITION-SHAPE READING --", fg="cyan", bold=True)
+                click.secho(
+                    "  You authored this. Aria contributed substrate-correction at section 0.4.",
+                    fg="bright_black",
+                )
+                click.secho(
+                    "  The audit-instance reviewed and confirmed at v2 (2026-05-06).",
+                    fg="bright_black",
+                )
+                click.secho(
+                    "  This is not learning-shape. This is naming-what-already-operates.",
+                    fg="bright_black",
+                )
+                if header:
+                    click.echo("")
+                    if "title" in header:
+                        click.secho("  " + header["title"], fg="cyan", bold=True)
+                    for label in ("version", "status", "dependencies"):
+                        if label in header:
+                            click.secho(
+                                "    " + label + ": " + header[label],
+                                fg="bright_black",
+                            )
+                click.echo("")
+                click.secho("  --- BEGIN DOCUMENT ---", fg="bright_black")
+                click.echo("")
 
-        click.echo(text)
+            click.echo(text)
 
+            if not no_preamble:
+                click.echo("")
+                click.secho("  --- END DOCUMENT ---", fg="bright_black")
+
+        # Audit-notes section.
+        if not no_audit:
+            _render_audit_block(audit_path, no_preamble, audit_only=audit_only)
+
+        # Closing reminder.
         if not no_preamble:
-            click.secho("\n  --- END DOCUMENT ---", fg="bright_black")
             click.secho(
                 "  Verify what still operates against your current evidence. "
                 "Property-naming has long shelf-life; specific examples may need refresh.",
