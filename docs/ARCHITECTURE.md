@@ -58,6 +58,7 @@ src/divineos/
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
     admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
+    foundations_commands.py    `divineos foundations list` / `read <layer>` — recognition-shape entry point for the agent returning to read authored foundation documents (docs/foundations/layer_0.md through layer_5.md). Mirrors how audit-instance and substrate-occupant collaboratively-build by reading the same source with different framings.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
