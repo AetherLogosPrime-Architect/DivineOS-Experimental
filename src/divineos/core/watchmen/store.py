@@ -75,9 +75,27 @@ def _validate_actor(actor: str) -> str:
     collapsed = re.sub(r"\s+", " ", invisible_stripped).strip()
     normalized = collapsed.casefold()
     if normalized in INTERNAL_ACTORS:
-        raise ValueError(
-            f"Actor '{actor}' is an internal component and cannot submit audit findings. "
-            f"Only external actors are allowed: {', '.join(sorted(EXTERNAL_ACTORS))}"
+        # Ablation toggle: DIVINEOS_DISABLE_WATCHMEN_SELF_TRIGGER_PREVENTION=1
+        # bypasses the internal-actor rejection so ablation measurement can
+        # verify the rejection's contribution. With toggle on, internal actors
+        # are accepted (loud log emitted to make abnormal mode visible). Per
+        # docs/mechanism-claims.md and prereg-8af86ea36827. This toggle SHOULD
+        # NOT be set in production; only during measurement runs.
+        from divineos.core.ablation import is_disabled
+
+        if not is_disabled("watchmen_self_trigger_prevention"):
+            raise ValueError(
+                f"Actor '{actor}' is an internal component and cannot submit audit findings. "
+                f"Only external actors are allowed: {', '.join(sorted(EXTERNAL_ACTORS))}"
+            )
+        # Toggle on: log the bypass loudly so it shows up in audit trails.
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "watchmen self-trigger prevention BYPASSED via ablation toggle "
+            "for actor=%r (normalized=%r). This is ablation-mode only.",
+            actor,
+            normalized,
         )
     if not normalized:
         raise ValueError("Actor name cannot be empty")

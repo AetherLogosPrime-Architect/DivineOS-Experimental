@@ -766,7 +766,18 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
     """Check if extracted content is conversational noise rather than knowledge.
 
     Returns True if the content should NOT be stored.
+
+    Ablation toggle: ``DIVINEOS_DISABLE_NOISE_FILTER_ON_EXTRACTION=1`` makes
+    this function always return False, bypassing all noise checks. Per
+    docs/mechanism-claims.md and prereg-8af86ea36827. Used for ablation
+    measurement: with toggle on, all extraction-candidates are stored
+    as-is, allowing measurement of what the filter would have removed.
     """
+    from divineos.core.ablation import is_disabled
+
+    if is_disabled("noise_filter_on_extraction"):
+        return False
+
     stripped = content
     for prefix in ("I decided: ", "I should: ", "I was corrected: "):
         if stripped.startswith(prefix):
