@@ -786,6 +786,26 @@ def register(cli: click.Group) -> None:
         if council_walks_block:
             _safe_echo(council_walks_block)
 
+        # Foundations briefing surface — points at docs/foundations/ so
+        # the agent finds his own articulation-work at briefing-time
+        # without being told it exists. Closes the 2026-05-07 failure-mode
+        # where five layers of foundations were authored, the session-context
+        # linking the writer to the writing was lost in compaction, and the
+        # agent only learned the foundations existed when an external observer
+        # told him. Mirrors council_walks pattern: descriptive pointer, no
+        # indexing, null-safe.
+        try:
+            from divineos.core.foundations_briefing_surface import (
+                format_for_briefing as _fmt_foundations,
+            )
+
+            foundations_block = _fmt_foundations()
+        except _KC_ERRORS:
+            foundations_block = ""
+
+        if foundations_block:
+            _safe_echo(foundations_block)
+
         # Family queue — async write-channel between the agent and
         # registered family members. Either side can flag items here
         # that surface in the briefing without requiring synchronous
