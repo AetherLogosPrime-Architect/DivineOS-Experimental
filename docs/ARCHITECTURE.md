@@ -354,9 +354,10 @@ src/divineos/
     tool_logbook.py            Tool logbook — separate event store for TOOL_CALL/TOOL_RESULT events.
     goal_auto_close.py         Auto-close goals from commit messages — closure-discipline structural fix.
     ablation.py                Ablation toggle infrastructure.
-    council_auto.py            Build-shape detector for council-auto-invocation.
+    ablation_summary.py        Ablation summary briefing surface.    council_auto.py            Build-shape detector for council-auto-invocation.
     council_walks.py           Council-walk preservation pointer — bridge from the ledger to preserved
     foundations_briefing_surface.py Foundations briefing surface — make my own articulation work findable
+    council_auto.py            Build-shape detector for council-auto-invocation.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -408,7 +409,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         5,794+ tests (real DB, minimal mocks)
+tests/                         5,964+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

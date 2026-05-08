@@ -805,6 +805,19 @@ def register(cli: click.Group) -> None:
 
         if foundations_block:
             _safe_echo(foundations_block)
+        # Ablation-evidence summary: count of priority mechanisms with
+        # measured-ablation-evidence vs not yet measured. Per chunk 5 of
+        # the per-mechanism-ablation discipline (PR #313). Surfaces
+        # substrate-credibility coverage at briefing time without requiring
+        # manual divineos ask queries.
+        try:
+            from divineos.core.ablation_summary import format_for_briefing as _fmt_ablation
+
+            ablation_block = _fmt_ablation()
+        except _KC_ERRORS:
+            ablation_block = ""
+        if ablation_block:
+            _safe_echo(ablation_block)
 
         # Open pre-registrations -- discipline-architecture currently operating
         # on the agent. Distinct from the overdue-warning (top of briefing):
