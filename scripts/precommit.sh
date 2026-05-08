@@ -112,6 +112,15 @@ if ! python scripts/check_broad_exceptions.py 2>/dev/null; then
     ERRORS=$((ERRORS + 1))
 fi
 
+# 5b. Function-naming theater drift (Dijkstra audit-walk 2026-05-07).
+# Catches future drift by flagging functions that start with mythological
+# verbs. Manual audit on filing-day found zero violations; this prevents
+# regression. Suppressible per-line with `# noqa: BLE001`.
+echo "=== Function-Naming (theater drift) ==="
+if ! python scripts/check_function_naming.py 2>/dev/null; then
+    ERRORS=$((ERRORS + 1))
+fi
+
 # 5a. Orphan-modules warning (non-blocking). Round-2 audit (2026-05-07)
 # wired this at warning-level: the existing detector found 22 orphans
 # (down to ~4 after fixing false-positive shapes) but each remaining
