@@ -138,7 +138,7 @@ def register(cli: click.Group) -> None:
         try:
             p = load_by_name(name)
         except KeyError:
-            raise click.ClickException(f"persona {name!r} not found") from None
+            raise click.ClickException(f"persona {name!r} not found") from None  # noqa: BLE001
         _safe_echo(click.style(f"# {p.name}", bold=True))
         _safe_echo(f"  tags: {', '.join(p.tags) or '—'}")
         _safe_echo(f"  severity_default: {p.severity_default.value}")
@@ -165,7 +165,7 @@ def register(cli: click.Group) -> None:
                 allow_high_bar=allow_high_bar,
             )
         except (engine.VoidScopeError, KeyError) as e:
-            raise click.ClickException(str(e)) from None
+            raise click.ClickException(str(e)) from None  # noqa: BLE001
         _print_result(result)
 
     @void.command("test-deep")

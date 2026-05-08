@@ -133,7 +133,7 @@ def register(cli: click.Group) -> None:
                     "Check `divineos mansion council` output for the real consult-XXXX id.",
                     fg="red",
                 )
-                raise SystemExit(1) from None
+                raise SystemExit(1) from None  # noqa: BLE001
             except Exception:  # noqa: BLE001 — fail-open on machinery breakage
                 click.secho(
                     "[!] Consultation-log lookup failed — allowing decision but "
