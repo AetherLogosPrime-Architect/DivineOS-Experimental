@@ -92,6 +92,30 @@ def count_hooks_wired() -> int:
     return total
 
 
+def count_council_experts() -> int:
+    """Count council expert factory functions (``create_*_wisdom``).
+
+    Round-3 audit (2026-05-07, Grok external-review) flagged that README
+    claimed 39 experts while the code had 40. Adding the check makes
+    council-roster claims structurally verified against the experts
+    package. Single-source: every roster member is a ``create_<name>_wisdom``
+    factory in ``core/council/experts/``.
+    """
+    experts_dir = SRC / "core" / "council" / "experts"
+    if not experts_dir.exists():
+        return 0
+    count = 0
+    pat = re.compile(r"^def\s+create_\w+_wisdom\s*\(", re.MULTILINE)
+    for p in experts_dir.glob("*.py"):
+        if p.name == "__init__.py":
+            continue
+        try:
+            count += len(pat.findall(p.read_text(encoding="utf-8", errors="replace")))
+        except OSError:
+            continue
+    return count
+
+
 def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     """Pull (label, number, context) tuples from a file."""
     findings: list[tuple[str, int, str]] = []
@@ -131,6 +155,22 @@ def extract_documented_counts(path: Path) -> list[tuple[str, int, str]]:
     ):
         num = int(m.group(1) or m.group(2))
         findings.append(("hooks", num, f"{path.name}: {m.group(0)}"))
+
+    # Match council-expert claims: "40 expert frameworks" / "council of 40"
+    # / "40-expert council" / "40 expert wisdom templates" / "40 expert lenses"
+    # / "(40 members)". Round-3 (2026-05-07, Grok review).
+    council_patterns = [
+        r"(\d+)\s+expert\s+frameworks?",
+        r"council\s+of\s+(\d+)",
+        r"(\d+)-expert\s+council",
+        r"(\d+)\s+expert\s+wisdom",
+        r"(\d+)\s+expert\s+lenses",
+        r"\((\d+)\s+members\)",
+    ]
+    for pat in council_patterns:
+        for m in re.finditer(pat, text):
+            num = int(m.group(1))
+            findings.append(("council", num, f"{path.name}: {m.group(0)}"))
 
     return findings
 
@@ -452,6 +492,7 @@ def main() -> int:
         "source_files": (actual_source_files, SOURCE_FILE_DRIFT_THRESHOLD),
         "packages": (actual_packages, PACKAGE_DRIFT_THRESHOLD),
         "hooks": (actual_hooks, 0),
+        "council": (count_council_experts(), 0),
     }
 
     errors: list[str] = []
@@ -532,7 +573,7 @@ def main() -> int:
     print(
         f"Doc checks OK (tests={actual_tests}, commands={actual_cmds}, "
         f"source_files={actual_source_files}, packages={actual_packages}, "
-        f"hooks={actual_hooks}, tree=synced)"
+        f"hooks={actual_hooks}, council={count_council_experts()}, tree=synced)"
     )
     return 0
 
