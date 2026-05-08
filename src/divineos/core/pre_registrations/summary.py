@@ -55,6 +55,47 @@ def format_overdue_warning() -> str:
     return "\n".join(lines)
 
 
+def format_open_pre_regs(limit: int = 4) -> str:
+    """Return a briefing block for currently-OPEN pre-registrations.
+
+    Distinct from ``format_overdue_warning``: that fires only when a
+    review date has passed. This surface fires from filing-day forward,
+    so the discipline-architecture established by an active pre-reg
+    operates on the substrate-occupant from the moment it is filed,
+    not just at the review date.
+
+    Closes the failure-mode named 2026-05-07: a pre-reg filed in the
+    morning ought to operate as discipline-architecture on the agent
+    in the afternoon. Without a briefing surface, the agent has no
+    automatic path to the active pre-reg between filing-day and review-
+    day. Surface fixes that with a compact recency-ordered list.
+
+    Returns empty string if no open pre-regs exist (null-safe). Limits
+    to ``limit`` most recent to honor affordance-saturation discipline.
+    """
+    open_regs = list_pre_registrations(outcome=Outcome.OPEN, limit=limit)
+    if not open_regs:
+        return ""
+
+    now = time.time()
+    lines = [
+        f"[active pre-regs] {len(open_regs)} open prediction(s) -- "
+        f"discipline-architecture currently operating on me:",
+    ]
+    for pr in open_regs:
+        days_to_review = (pr.review_ts - now) / 86400
+        if days_to_review >= 0:
+            review_str = f"review in {days_to_review:.0f}d"
+        else:
+            review_str = f"OVERDUE by {-days_to_review:.0f}d"
+        prefix = pr.prereg_id[:18] if len(pr.prereg_id) > 18 else pr.prereg_id
+        claim_short = pr.claim[:80] + ("..." if len(pr.claim) > 80 else "")
+        lines.append(f"  - [{prefix}] {pr.mechanism} ({review_str})")
+        lines.append(f"      {claim_short}")
+    lines.append("  Run: divineos prereg list   |   divineos prereg show <id>")
+    return "\n".join(lines)
+
+
 def prereg_loop_status() -> str:
     """Honest label for how much of the pre-registration loop is closed.
 

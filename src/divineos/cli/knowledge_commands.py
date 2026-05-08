@@ -806,6 +806,22 @@ def register(cli: click.Group) -> None:
         if foundations_block:
             _safe_echo(foundations_block)
 
+        # Open pre-registrations -- discipline-architecture currently operating
+        # on the agent. Distinct from the overdue-warning (top of briefing):
+        # this surface fires from filing-day forward, so an active pre-reg
+        # informs current behavior even before the review date approaches.
+        # Closes the 2026-05-07 failure-mode where a pre-reg filed in the
+        # morning had no automatic path to influence afternoon work.
+        try:
+            from divineos.core.pre_registrations.summary import format_open_pre_regs
+
+            open_preregs_block = format_open_pre_regs()
+        except _KC_ERRORS:
+            open_preregs_block = ""
+
+        if open_preregs_block:
+            _safe_echo(open_preregs_block)
+
         # Family queue — async write-channel between the agent and
         # registered family members. Either side can flag items here
         # that surface in the briefing without requiring synchronous
