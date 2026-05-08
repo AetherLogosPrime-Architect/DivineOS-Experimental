@@ -356,6 +356,7 @@ src/divineos/
     ablation.py                Ablation toggle infrastructure.
     council_auto.py            Build-shape detector for council-auto-invocation.
     council_walks.py           Council-walk preservation pointer — bridge from the ledger to preserved
+    foundations_briefing_surface.py Foundations briefing surface — make my own articulation work findable
 
   analysis/
     _session_types.py          Session analysis type definitions
