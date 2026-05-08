@@ -274,11 +274,14 @@ class TestLogAffect:
         assert entry["trigger"] == "Building something meaningful"
         assert "flow" in entry["tags"]
 
-    def test_clamped(self):
-        log_affect(valence=5.0, arousal=-3.0)
-        entry = get_affect_history(limit=1)[0]
-        assert entry["valence"] == 1.0
-        assert entry["arousal"] == 0.0
+    def test_out_of_bounds_raises(self):
+        # Audit r9-21 #15: silent clamping replaced with ValueError.
+        import pytest
+
+        with pytest.raises(ValueError, match="valence"):
+            log_affect(valence=5.0, arousal=0.5)
+        with pytest.raises(ValueError, match="arousal"):
+            log_affect(valence=0.0, arousal=-3.0)
 
     def test_negative_valence(self):
         log_affect(valence=-0.7, arousal=0.8, description="Dissonance")

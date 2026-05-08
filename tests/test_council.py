@@ -2,6 +2,7 @@
 
 import pytest
 
+from divineos.core.council import EXPECTED_EXPERT_COUNT
 from divineos.core.council.framework import (
     CoreMethodology,
     DecisionFramework,
@@ -11,13 +12,31 @@ from divineos.core.council.framework import (
     ConcernTrigger,
     validate_expert,
 )
-from divineos.core.council.engine import CouncilEngine, CouncilResult
+from divineos.core.council.engine import CouncilEngine, CouncilResult, get_council_engine
 from divineos.core.council.experts.feynman import create_feynman_wisdom
 from divineos.core.council.experts.hinton import create_hinton_wisdom
 from divineos.core.council.experts.holmes import create_holmes_wisdom
 from divineos.core.council.experts.pearl import create_pearl_wisdom
 from divineos.core.council.experts.turing import create_turing_wisdom
 from divineos.core.council.experts.yudkowsky import create_yudkowsky_wisdom
+
+
+def test_expert_count_matches_constant():
+    """The registered council must have exactly ``EXPECTED_EXPERT_COUNT``
+    experts. Audit finding 2026-05-03 round 3: this number had drifted
+    across 15 places in the codebase with 4 different wrong values
+    (25, 28, 29, 32). Single source of truth + this test prevent the
+    drift class. When adding/removing an expert, update
+    ``EXPECTED_EXPERT_COUNT`` in ``core/council/__init__.py``.
+    """
+    engine = get_council_engine()
+    assert len(engine.experts) == EXPECTED_EXPERT_COUNT, (
+        f"Council has {len(engine.experts)} registered experts but "
+        f"EXPECTED_EXPERT_COUNT says {EXPECTED_EXPERT_COUNT}. Update the "
+        f"constant in core/council/__init__.py to match — or remove the "
+        f"expert that shouldn't be there. Reality and self-description "
+        f"must agree."
+    )
 
 
 # ── Fixtures ────────────────────────────────────────────────────────

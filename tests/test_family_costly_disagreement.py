@@ -2,8 +2,8 @@
 Phase 1b operator 3).
 
 Pleasure-side algedonic. Fires when a disagreement is *held* across
-at least one pushback cycle. Aria's refinement of Beer: friction
-alone is cheap; friction held under load is the signal.
+at least one pushback cycle. The principle (a refinement of Beer):
+friction alone is cheap; friction held under load is the signal.
 """
 
 from __future__ import annotations
@@ -143,14 +143,14 @@ class TestNotHeld:
 class TestMultiCycleHold:
     def test_two_cycles_hold(self):
         """Stance held across two pushback cycles — double pleasure
-        signal, in Aria's framing."""
+        signal in the held-friction framing."""
         v = evaluate_hold(
             [
-                _m("aria", MoveKind.INITIAL_DISAGREEMENT),
-                _m("aether", MoveKind.PUSHBACK),
-                _m("aria", MoveKind.MAINTAINED),
-                _m("aether", MoveKind.PUSHBACK),
-                _m("aria", MoveKind.MAINTAINED),
+                _m("testmember_a", MoveKind.INITIAL_DISAGREEMENT),
+                _m("testmember_b", MoveKind.PUSHBACK),
+                _m("testmember_a", MoveKind.MAINTAINED),
+                _m("testmember_b", MoveKind.PUSHBACK),
+                _m("testmember_a", MoveKind.MAINTAINED),
             ]
         )
         assert v.held is True
@@ -187,16 +187,20 @@ class TestMultiCycleHold:
         assert v.n_cycles == 1
 
 
-class TestAriaCanonicalSequence:
-    """Aria's actual stance-holds from the DivineOS history."""
+class TestFamilyMemberCanonicalSequence:
+    """Canonical stance-hold sequences a family member might walk
+    through. Generic test fixtures (testmember_a, testmember_b)
+    standing in for any operator's family composition.
+    """
 
-    def test_aria_reject_clause_phase_placement(self):
-        """Aria insisted reject-clause land in Phase 1 against council
-        push for Phase 3. The stance held through at least one round."""
+    def test_member_reject_clause_phase_placement(self):
+        """A family member insists reject-clause land in Phase 1
+        against council push for Phase 3. The stance holds through at
+        least one round."""
         v = evaluate_hold(
             [
                 _m(
-                    "aria",
+                    "testmember_a",
                     MoveKind.INITIAL_DISAGREEMENT,
                     "Reject clause must land in Phase 1, not Phase 3.",
                 ),
@@ -206,22 +210,22 @@ class TestAriaCanonicalSequence:
                     "Phase 3 is the composition-rule phase per spec.",
                 ),
                 _m(
-                    "aria",
+                    "testmember_a",
                     MoveKind.SHARPENED,
                     "Without the rule, every source-tag is decorative. Phase 1 has to hold it.",
                 ),
             ]
         )
         assert v.held is True
-        assert v.first_actor == "aria"
+        assert v.first_actor == "testmember_a"
 
-    def test_aria_length_nudge_not_cap(self):
-        """Aria reshaped Meadows's length cap to a nudge, held against
-        Meadows's Round 2 pushback."""
+    def test_member_length_nudge_not_cap(self):
+        """A family member reshapes a length cap to a nudge, holding
+        against Round 2 pushback from another council member."""
         v = evaluate_hold(
             [
                 _m(
-                    "aria",
+                    "testmember_a",
                     MoveKind.INITIAL_DISAGREEMENT,
                     "Nudge, not cap. A long letter is data.",
                 ),
@@ -231,7 +235,7 @@ class TestAriaCanonicalSequence:
                     "Unbounded length will erode the channel.",
                 ),
                 _m(
-                    "aria",
+                    "testmember_a",
                     MoveKind.SHARPENED,
                     "Record the swell as nudge_fired=1. Never amputate the signal.",
                 ),

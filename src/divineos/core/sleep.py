@@ -78,7 +78,15 @@ class DreamReport:
     connections_found: int = 0  # total pairs in similarity band (new + already-known)
     connections_new: int = 0  # pairs with no existing RELATED_TO edge — novel this sleep
     connections_already_known: int = 0  # pairs already in graph from prior sleeps
+    connections_strengthened: int = 0  # already-known edges whose confidence
+    # was bumped via Hebbian update (prereg-e36b567a6959). Subset of
+    # connections_already_known where the edge's confidence had room to grow.
     connection_details: list[dict[str, str]] = field(default_factory=list)
+    # 2026-05-03: count of all qualifying new connections found this
+    # sleep (may exceed the display cap). connection_details is the
+    # truncated/sorted view; this field preserves the full count so
+    # the report can say "showing top 10 of 47" honestly.
+    connection_details_full_count: int = 0
 
     # Phase 6: Curiosity Generation
     curiosities_generated: int = 0
@@ -185,7 +193,9 @@ class DreamReport:
         else:
             lines.append("    Skipped")
 
-        # Recombination — honest counts (2026-04-24 fix)
+        # Recombination — honest counts (2026-04-24 fix; 2026-05-03
+        # full-scan fix removed the work-cap that limited every sleep
+        # to ~10 pairs)
         lines.append("\n  Phase 5 - Creative Recombination")
         if self.connections_new > 0:
             if self.connections_already_known > 0:
@@ -195,13 +205,29 @@ class DreamReport:
                 )
             else:
                 lines.append(f"    Found {self.connections_new} new connection(s)")
+            display_n = min(_RECOMBINATION_REPORT_DISPLAY, len(self.connection_details))
+            if self.connections_new > display_n:
+                lines.append(
+                    f"    Showing top {min(5, display_n)} of {self.connections_new} "
+                    "by similarity (full list: divineos dream show):"
+                )
             for conn in self.connection_details[:5]:
                 lines.append(f"    ~ {conn.get('summary', '?')}")
+            if self.connections_strengthened > 0:
+                lines.append(
+                    f"    Hebbian strengthening: {self.connections_strengthened} "
+                    "re-discovered edge(s) had confidence bumped"
+                )
         elif self.connections_already_known > 0:
             lines.append(
                 f"    No new connections — {self.connections_already_known} "
                 "already-known pairs skipped (similarity space may be saturating)"
             )
+            if self.connections_strengthened > 0:
+                lines.append(
+                    f"    Hebbian strengthening: {self.connections_strengthened} "
+                    "re-discovered edge(s) had confidence bumped"
+                )
         else:
             lines.append("    No connections found in similarity band")
 
@@ -272,9 +298,23 @@ def _phase_consolidation(report: DreamReport) -> None:
 
 
 def _phase_pruning(report: DreamReport) -> None:
-    """Knowledge hygiene: health check + noise sweep + contradiction scan + curiosity decay."""
+    """Knowledge hygiene: health check + noise sweep + contradiction scan + curiosity decay.
+
+    Ablation toggle: ``DIVINEOS_DISABLE_SLEEP_CONSOLIDATION_PRUNING=1`` skips
+    all hygiene actions in this phase (health-check still runs as it is
+    read-only diagnostic). Used for ablation measurement: with toggle on,
+    the noise-sweep / contradiction-scan / curiosity-decay all skip, allowing
+    measurement of what each prune pass would have removed. Per
+    docs/mechanism-claims.md and prereg-8af86ea36827.
+    """
+    from divineos.core.ablation import is_disabled
     from divineos.core.knowledge.feedback import health_check
     from divineos.core.knowledge_maintenance import run_knowledge_hygiene
+
+    if is_disabled("sleep_consolidation_pruning"):
+        report.health_results = {"skipped_via_ablation_toggle": True}
+        report.hygiene_results = {"skipped_via_ablation_toggle": True}
+        return
 
     report.health_results = health_check()
     report.hygiene_results = run_knowledge_hygiene()
@@ -427,7 +467,17 @@ _RECOMBINATION_MIN_SIMILARITY_DICE = 0.30  # Fallback when embeddings unavailabl
 _RECOMBINATION_MAX_SIMILARITY = 0.65  # Above this = near-duplicate, not a connection
 _RECOMBINATION_MIN_WORD_OVERLAP = 0.10  # Lexical anchoring floor (added 2026-05-01)
 _RECOMBINATION_MAX_WORD_OVERLAP = 0.50  # Skip pairs that share >50% key terms (same topic)
-_RECOMBINATION_MAX_CONNECTIONS = 10  # Don't flood the report
+# Display cap for the dream report — NOT a work cap. The scan
+# below runs through the full pair-space; this number bounds how
+# many connections the report shows. (Bug from prior to 2026-05-03:
+# this was used as a work cap with early-break in three nested
+# loops, so only ~10 pairs were ever examined per sleep regardless
+# of substrate size. Andrew flagged it after noticing every sleep
+# returned exactly 10 from the same iteration territory.)
+_RECOMBINATION_REPORT_DISPLAY = 10
+# Backcompat alias for any external readers — same semantics now,
+# but the variable name no longer implies a work cap.
+_RECOMBINATION_MAX_CONNECTIONS = _RECOMBINATION_REPORT_DISPLAY
 
 
 def _phase_recombination(report: DreamReport) -> None:
@@ -547,6 +597,7 @@ def _phase_recombination(report: DreamReport) -> None:
     types = list(by_type.keys())
     connections: list[dict[str, str]] = []
     already_known_count = 0
+    strengthened_count = 0  # subset of already_known whose confidence grew via Hebbian
     total_band_pairs = 0  # pairs in similarity band regardless of novelty
 
     def _first_sentence(text: str, cap: int = 140) -> str:
@@ -556,6 +607,11 @@ def _phase_recombination(report: DreamReport) -> None:
                 return text[: idx + 1]
         return text[:cap] + "..." if len(text) > cap else text
 
+    # Full-scan: examine every type-cross pair. The previous version
+    # broke out of the loops when len(connections) hit the display cap,
+    # which left most of the pair-space unexamined and biased toward
+    # whichever type-cross came first in iteration order. Now the scan
+    # runs to completion; the display cap is applied at report time.
     for i, type_a in enumerate(types):
         for type_b in types[i + 1 :]:
             for entry_a in by_type[type_a]:
@@ -563,8 +619,6 @@ def _phase_recombination(report: DreamReport) -> None:
                 if len(content_a) < 30:
                     continue
                 for entry_b in by_type[type_b]:
-                    if len(connections) >= _RECOMBINATION_MAX_CONNECTIONS:
-                        break
                     content_b = entry_b.get("content", "")
                     if len(content_b) < 30:
                         continue
@@ -607,6 +661,38 @@ def _phase_recombination(report: DreamReport) -> None:
                                 existing = None
                         if existing is not None:
                             already_known_count += 1
+                            # Hebbian update (prereg-e36b567a6959): bump
+                            # confidence on the re-discovered edge. Edges
+                            # proven by repeated structural similarity
+                            # accumulate evidence weight; one-time matches
+                            # stay at their initial confidence.
+                            try:
+                                from divineos.core.knowledge.edges import strengthen_edge
+
+                                edge_id_attr = getattr(existing, "edge_id", None)
+                                if edge_id_attr:
+                                    new_conf = strengthen_edge(edge_id_attr)
+                                    if new_conf is not None and new_conf > float(
+                                        getattr(existing, "confidence", 0.0) or 0.0
+                                    ):
+                                        strengthened_count += 1
+                            except Exception as exc:  # noqa: BLE001
+                                # Hebbian update is opportunistic; failures
+                                # must never block recombination itself.
+                                # But: log at debug so operational issues
+                                # surface without blocking the path.
+                                # Audit finding 2026-05-04 (auditor 4th
+                                # pass, lesson 37d0ea3b): silent exception
+                                # swallowing was the exact shape audit
+                                # r9-21 round-1 lessons named. Apply the
+                                # discipline here too — opportunistic
+                                # semantics PLUS visibility, not
+                                # opportunistic semantics ALONE.
+                                logger.debug(
+                                    "Hebbian strengthen failed for edge %s: %s",
+                                    edge_id_attr,
+                                    exc,
+                                )
                             continue
 
                         connections.append(
@@ -624,14 +710,14 @@ def _phase_recombination(report: DreamReport) -> None:
                             }
                         )
 
-                if len(connections) >= _RECOMBINATION_MAX_CONNECTIONS:
-                    break
-            if len(connections) >= _RECOMBINATION_MAX_CONNECTIONS:
-                break
+    # (Early-break removed 2026-05-03 — see comment at top of function.
+    # The two outer-loop breaks that depended on the connection count
+    # are gone with it; the scan now naturally completes when the
+    # iteration runs out.)
 
-    # Honest counts (2026-04-24 fix):
-    # - connections_new: pairs genuinely new this sleep (capped at
-    #   _RECOMBINATION_MAX_CONNECTIONS)
+    # Honest counts:
+    # - connections_new: pairs genuinely new this sleep (full count,
+    #   no cap — the cap was the bug)
     # - connections_already_known: pairs in the similarity band that
     #   already have a RELATED_TO edge from prior sleeps
     # - connections_found: total band-pairs encountered (new +
@@ -639,8 +725,16 @@ def _phase_recombination(report: DreamReport) -> None:
     #   HUD/dream-report callers that read this field.
     report.connections_new = len(connections)
     report.connections_already_known = already_known_count
+    report.connections_strengthened = strengthened_count
     report.connections_found = total_band_pairs
+    # Sort connections by similarity desc so the display surfaces
+    # the strongest pairs at the top. The FULL list is stored on the
+    # report — display truncation happens only at summary() print
+    # time. This lets `divineos dream show` reveal everything the
+    # sleep actually discovered, not just what fit in the report.
+    connections.sort(key=lambda c: float(c["similarity"].rstrip("%")), reverse=True)
     report.connection_details = connections
+    report.connection_details_full_count = len(connections)
 
     # Persist connections as RELATED_TO edges in the knowledge graph.
     # Without this, recombination insights are ephemeral — lost after

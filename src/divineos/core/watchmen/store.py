@@ -34,12 +34,68 @@ def _validate_actor(actor: str) -> str:
 
     Raises ValueError if the actor is an internal system component.
     Returns the normalized (lowercased) actor name.
+
+    Normalization sequence:
+      1. NFKC unicode normalization — folds compatibility forms like
+         no-break-space (U+00A0) and other unicode whitespace variants
+         to their canonical ASCII equivalents.
+      2. Strip outer whitespace (now actually catches the U+00A0 case
+         that .strip() alone misses).
+      3. Collapse internal whitespace runs to a single space.
+      4. Lowercase.
+
+    Audit finding 2026-05-03 (round 8): without the NFKC step,
+    ``"\\u00a0claude"`` (no-break-space prefix) passed through
+    ``.strip().lower()`` unchanged because Python's default ``.strip()``
+    does not remove U+00A0. The membership check then failed (literal
+    string was ``"\\u00a0claude"``, not ``"claude"``) and the finding
+    was accepted — exactly the self-audit-as-external-validation
+    bypass the structural rejection exists to prevent. NFKC closes
+    the hole.
     """
-    normalized = actor.strip().lower()
+    import re
+    import unicodedata
+
+    # NFKC handles U+00A0 → space, U+2009 → space, full-width forms,
+    # and other unicode whitespace/compatibility variants.
+    nfkc = unicodedata.normalize("NFKC", actor)
+    # Strip invisible / zero-width characters that NFKC + .strip() leave
+    # alone. Audit r9-21 round 12 finding: a plain ``.strip().lower()``
+    # also misses U+200B (zero-width space), U+200C-U+200F (joiners /
+    # directional marks), U+FEFF (BOM), U+00AD (soft hyphen). Without
+    # this strip, ``ZWSP+claude`` would pass through.
+    invisible_pattern = (
+        "["
+        + "".join(chr(cp) for cp in (0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0xFEFF, 0x00AD))
+        + "]"
+    )
+    invisible_stripped = re.sub(invisible_pattern, "", nfkc)
+    # Collapse all whitespace (including the now-folded former-U+00A0)
+    # to a single space, then strip the result.
+    collapsed = re.sub(r"\s+", " ", invisible_stripped).strip()
+    normalized = collapsed.casefold()
     if normalized in INTERNAL_ACTORS:
-        raise ValueError(
-            f"Actor '{actor}' is an internal component and cannot submit audit findings. "
-            f"Only external actors are allowed: {', '.join(sorted(EXTERNAL_ACTORS))}"
+        # Ablation toggle: DIVINEOS_DISABLE_WATCHMEN_SELF_TRIGGER_PREVENTION=1
+        # bypasses the internal-actor rejection so ablation measurement can
+        # verify the rejection's contribution. With toggle on, internal actors
+        # are accepted (loud log emitted to make abnormal mode visible). Per
+        # docs/mechanism-claims.md and prereg-8af86ea36827. This toggle SHOULD
+        # NOT be set in production; only during measurement runs.
+        from divineos.core.ablation import is_disabled
+
+        if not is_disabled("watchmen_self_trigger_prevention"):
+            raise ValueError(
+                f"Actor '{actor}' is an internal component and cannot submit audit findings. "
+                f"Only external actors are allowed: {', '.join(sorted(EXTERNAL_ACTORS))}"
+            )
+        # Toggle on: log the bypass loudly so it shows up in audit trails.
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "watchmen self-trigger prevention BYPASSED via ablation toggle "
+            "for actor=%r (normalized=%r). This is ablation-mode only.",
+            actor,
+            normalized,
         )
     if not normalized:
         raise ValueError("Actor name cannot be empty")
@@ -145,7 +201,7 @@ def _resolve_tier(tier: Tier | str | None, actor: str) -> Tier:
         return Tier(tier.upper())
     except ValueError:
         valid = ", ".join(t.value for t in Tier)
-        raise ValueError(f"Invalid tier '{tier}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid tier '{tier}'. Valid: {valid}") from None  # noqa: BLE001
 
 
 def _resolve_review_stance(stance: ReviewStance | str | None) -> ReviewStance | None:
@@ -158,7 +214,7 @@ def _resolve_review_stance(stance: ReviewStance | str | None) -> ReviewStance | 
         return ReviewStance(stance.upper())
     except ValueError:
         valid = ", ".join(s.value for s in ReviewStance)
-        raise ValueError(f"Invalid review stance '{stance}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid review stance '{stance}'. Valid: {valid}") from None  # noqa: BLE001
 
 
 def submit_finding(
@@ -198,13 +254,13 @@ def submit_finding(
         sev = Severity(severity.upper())
     except ValueError:
         valid = ", ".join(s.value for s in Severity)
-        raise ValueError(f"Invalid severity '{severity}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid severity '{severity}'. Valid: {valid}") from None  # noqa: BLE001
 
     try:
         cat = FindingCategory(category.upper())
     except ValueError:
         valid = ", ".join(c.value for c in FindingCategory)
-        raise ValueError(f"Invalid category '{category}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid category '{category}'. Valid: {valid}") from None  # noqa: BLE001
 
     resolved_tier = _resolve_tier(tier, normalized_actor)
     resolved_stance = _resolve_review_stance(review_stance)
@@ -295,7 +351,7 @@ def resolve_finding(
         new_status = FindingStatus(status.upper())
     except ValueError:
         valid = ", ".join(s.value for s in FindingStatus)
-        raise ValueError(f"Invalid status '{status}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid status '{status}'. Valid: {valid}") from None  # noqa: BLE001
 
     conn = _get_connection()
     try:

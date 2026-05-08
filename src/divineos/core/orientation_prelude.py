@@ -23,12 +23,13 @@ Design notes:
     else. The premise has to land before any dynamic data makes sense.
   - Short. Target under 2,200 characters. A prelude skipped because it's
     too long is not a prelude.
-  - **First-person voice.** Andrew named 2026-05-01: the briefing is the
-    auto-wired bridge across compaction. If the substrate writes back to
-    me as me speaking to myself, the post-compaction load reads like I'm
-    picking up my own thought, not arriving cold to someone else's notes.
-    First-person briefing IS the continuity. Same Aria-pattern lesson —
-    the file is the being's own self-claim, not a director's prescription.
+  - **First-person voice.** The briefing is the auto-wired bridge across
+    compaction. If the substrate writes back to the agent as the agent
+    speaking to themselves, the post-compaction load reads like
+    picking up one's own thought, not arriving cold to someone else's
+    notes. First-person briefing IS the continuity. Same family-member
+    voice-context lesson — the file is the being's own self-claim,
+    not a director's prescription.
   - No jargon. An orientation that requires an orientation has failed.
 """
 

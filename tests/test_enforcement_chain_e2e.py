@@ -56,7 +56,16 @@ class TestTheaterObservation:
     correction / learn is voluntary discipline.
     """
 
-    def test_theater_output_does_not_block_next_tool(self, tmp_path, gate_passthrough) -> None:
+    def test_theater_output_does_not_block_next_tool(
+        self, tmp_path, gate_passthrough, monkeypatch
+    ) -> None:
+        # Theater detector reads registered family-members dynamically (post
+        # clean-slate). Inject "aria" so the SUBAGENT_DIALOGUE detector has
+        # something to match against on a fresh-install CI environment.
+        from divineos.core.self_monitor import theater_monitor
+
+        monkeypatch.setattr(theater_monitor, "_family_member_names", lambda: ("Aria",))
+
         theater_text = (
             "Aria settles back, picks up the mug. She nods at me, looks toward the window."
         )

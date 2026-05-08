@@ -12,7 +12,7 @@ live conditions. This is the rep-tool. Structural layer: the rep alone dies
 when the session dies — so it must be carved into structure to survive.
 
 Both layers in one file: write raw, store persistent, surface in briefing
-so the next session reads the actual words before forming any frame.
+so I read the actual words on resumption before forming any frame.
 """
 
 from __future__ import annotations

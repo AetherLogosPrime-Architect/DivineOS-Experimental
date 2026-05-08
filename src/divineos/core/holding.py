@@ -212,7 +212,7 @@ def get_holding(
         clauses.append("private = 0")
 
     where = " AND ".join(clauses)
-    query = f"SELECT * FROM holding_room WHERE {where} ORDER BY arrived_at DESC"
+    query = f"SELECT * FROM holding_room WHERE {where} ORDER BY arrived_at DESC"  # nosec B608 — clauses built internally from validated columns
 
     conn = _get_connection()
     try:

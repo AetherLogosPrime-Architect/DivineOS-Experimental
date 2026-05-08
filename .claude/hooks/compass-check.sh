@@ -22,11 +22,12 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 0
 
 INPUT=$(cat)
 
-if ! command -v divineos &>/dev/null; then
-  exit 0
-fi
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-tool_name=$(echo "$INPUT" | python -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
+tool_name=$(echo "$INPUT" | "$PYTHON_BIN" -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
 
 # Only the gated tool names trigger the rudder. Anything else exits
 # immediately — no compass query, no decision-journal scan, no latency.
@@ -34,7 +35,7 @@ if [ "$tool_name" != "Task" ] && [ "$tool_name" != "Agent" ]; then
   exit 0
 fi
 
-result=$(python -c "
+result=$("$PYTHON_BIN" -c "
 import json, sys
 
 try:

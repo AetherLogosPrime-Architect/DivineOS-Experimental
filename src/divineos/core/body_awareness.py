@@ -329,7 +329,9 @@ def clean_old_logs(dry_run: bool = False, log_dir: Path | None = None) -> dict[s
     import time
 
     if log_dir is None:
-        log_dir = Path(__file__).parent.parent.parent / "logs"
+        from divineos.core.ledger import _LOG_DIR
+
+        log_dir = _LOG_DIR
     if not log_dir.exists():
         return {"removed_count": 0, "freed_mb": 0.0}
 
@@ -642,7 +644,9 @@ def measure_vitals(auto_remediate: bool = True) -> SubstrateVitals:
             vitals.reports_size_mb = round(vitals.reports_size_mb, 2)
 
     # Log files
-    log_dir = Path(__file__).parent.parent.parent / "logs"
+    from divineos.core.ledger import _LOG_DIR
+
+    log_dir = _LOG_DIR
     if log_dir.exists():
         for lf in log_dir.glob("*.log"):
             try:

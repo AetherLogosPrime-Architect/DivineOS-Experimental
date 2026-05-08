@@ -200,7 +200,7 @@ def briefing_lines(start: Path | None = None) -> list[str]:
         )
     lines.append(
         "  To search the historical ledger from this worktree, query "
-        f"directly: sqlite3 '{parent_ledger}' 'SELECT ... FROM system_events ...'"
+        f"directly: sqlite3 '{parent_ledger}' 'SELECT ... FROM system_events ...'"  # nosec B608 — informational message, not executed SQL
     )
     return lines
 

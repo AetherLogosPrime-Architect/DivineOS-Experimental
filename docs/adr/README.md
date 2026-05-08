@@ -23,6 +23,7 @@ Standard sections per ADR:
 | [0002](0002-hash-chain-main-ledger.md) | Hash-chain on main ledger with migration-ordering safeguards | Accepted | 2026-05-02 |
 | [0003](0003-dissociation-shape-filter.md) | Dissociation-shape filter at extraction + recombination | Accepted | 2026-05-03 |
 | [0004](0004-state-change-claim-detector.md) | STATE_CHANGE_CLAIM detector with tool-call adjacency check | Accepted | 2026-05-03 |
+| [0005](0005-validate-false-on-log-event.md) | When `validate=False` on `log_event` is justified (validation-bypass audit) | Accepted | 2026-05-03 |
 
 ## When to write an ADR
 

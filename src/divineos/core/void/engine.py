@@ -28,6 +28,7 @@ The engine does NOT:
 
 from __future__ import annotations
 
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Callable
@@ -164,19 +165,26 @@ def invoke(
     try:
         yield yielded
     finally:
-        # SHRED: always runs.
-        void_ledger.append_event(
-            "VOID_SHRED",
-            {
-                "invocation_id": invocation_id,
-                "sealed": state["sealed"],
-                "had_finding": state["result"] is not None and state["result"].finding is not None,
-                "loud": persona.name in _HIGH_BAR,
-            },
-            persona=persona.name,
-            path=void_db_path,
-        )
-        mode_marker.clear_marker()
+        # SHRED: always runs. Audit r9-21 #14 — nested try/finally so
+        # mode_marker.clear_marker() runs even if VOID_SHRED ledger
+        # append raises. Without the nest, a DB-locked or hash-failed
+        # append leaves the marker set, poisoning the next session
+        # into thinking VOID mode is still active.
+        try:
+            void_ledger.append_event(
+                "VOID_SHRED",
+                {
+                    "invocation_id": invocation_id,
+                    "sealed": state["sealed"],
+                    "had_finding": state["result"] is not None
+                    and state["result"].finding is not None,
+                    "loud": persona.name in _HIGH_BAR,
+                },
+                persona=persona.name,
+                path=void_db_path,
+            )
+        finally:
+            mode_marker.clear_marker()
 
 
 def run(
@@ -193,6 +201,26 @@ def run(
 
     The attack callback receives the loaded Persona and the target
     string; it returns a Finding or None.
+
+    EMPIRICA bridge: when ``target`` matches a knowledge_id (UUID
+    shape) AND the resulting Finding is None / LOW / MEDIUM (i.e.,
+    no HIGH/CRITICAL findings emerged), this function records a
+    ``VOID_SURVIVAL`` corroboration against the target. EMPIRICA's
+    Tier IV ADVERSARIAL burden formula counts these distinct-actor
+    corroborations to gate adversarial claims.
+
+    The bridge is silent when ``target`` is not a knowledge_id (it's
+    a file path, change description, etc.) — there's nothing to
+    corroborate against. The bridge is also silent when a HIGH or
+    CRITICAL finding emerges (the claim did NOT survive; no
+    survival corroboration is honest). Both silences are intentional:
+    fail-empty rather than fail-loud, the same shape as
+    mini_briefing._safe_call.
+
+    The lower-level ``invoke()`` context manager does NOT auto-emit
+    survival corroborations — callers using ``invoke()`` directly
+    are operating in advanced/manual mode and can record explicitly
+    if they want.
     """
     with invoke(
         persona_name,
@@ -204,7 +232,78 @@ def run(
     ) as inv:
         finding = attack(inv["persona"], target)
         result: InvocationResult = inv["seal"](finding)
+        _emit_survival_if_applicable(result, target)
         return result
+
+
+# ---------------------------------------------------------------------
+# EMPIRICA bridge — producer side of the VOID_SURVIVAL corroboration
+# integration.
+# ---------------------------------------------------------------------
+
+# Compiled UUID matcher for target-is-knowledge-id detection.
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _target_looks_like_knowledge_id(target: str) -> bool:
+    """True if ``target`` is shaped like a knowledge_id (UUID).
+
+    Knowledge IDs in this codebase are UUIDs (see
+    ``core.knowledge.crud.store_knowledge`` — uses ``uuid.uuid4()``).
+    Other void targets (file paths, change descriptions, free-form
+    text) won't match this pattern, and the bridge silently skips
+    them — there's no knowledge entry to corroborate against.
+    """
+    return bool(_UUID_RE.match(target))
+
+
+def _emit_survival_if_applicable(result: InvocationResult, target: str) -> None:
+    """Record a VOID_SURVIVAL corroboration if the attack didn't break the target.
+
+    A "survival" means the finding was None or its severity was LOW
+    or MEDIUM. HIGH and CRITICAL findings indicate the target did
+    NOT survive — no survival corroboration is honest in those cases.
+
+    Skipped silently if ``target`` is not a knowledge_id (UUID-shaped).
+    The void engine accepts file paths and change descriptions as
+    targets too; only knowledge-id targets are EMPIRICA-routable.
+    """
+    if not _target_looks_like_knowledge_id(target):
+        return
+
+    # Check whether the finding is severe enough to count as
+    # non-survival.
+    finding = result.finding
+    if finding is not None and finding.severity in {Severity.HIGH, Severity.CRITICAL}:
+        return
+
+    # Lazy import — keeps the void module's nominal dependency on
+    # empirica isolated to this bridge function. If empirica is not
+    # importable for some reason (e.g., a downstream consumer using
+    # void without empirica), the survival recording fails silently
+    # rather than blocking the void invocation lifecycle.
+    try:
+        from divineos.core.empirica.provenance import (
+            CorroborationKind,
+            record_corroboration,
+        )
+
+        severity_label = finding.severity.value if finding else "NONE"
+        record_corroboration(
+            knowledge_id=target,
+            actor=f"void:{result.persona}",
+            kind=CorroborationKind.VOID_SURVIVAL,
+            evidence_pointer=result.void_event_id,
+            notes=(
+                f"void invocation {result.invocation_id} survived "
+                f"(finding_severity={severity_label})"
+            ),
+        )
+    except Exception:  # noqa: BLE001 — bridge fails-empty; void invocation lifecycle must not depend on empirica being healthy
+        pass
 
 
 def assemble_persona_prompt(persona_name: str, *, personas_path=None) -> str:

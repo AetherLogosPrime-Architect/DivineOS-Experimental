@@ -1,12 +1,11 @@
 """Tests for scaffolding_map — briefing surface that points at load-bearing documents.
 
 Falsifiability:
-  - Every listed location must either exist, or be in a known unignored-
-    but-not-yet-created state. (For the 2026-04-23 initial list, all
-    locations should exist on disk.)
+  - Every listed location for source-file pointers must exist on disk.
   - Each pointer has non-empty contains + read_when fields.
   - format_for_briefing emits a named block when there are entries.
-  - Critical pointers are present (aria.md, skills/, CLAUDE.md).
+  - The default registry includes a few generic pointers (skills/,
+    CLAUDE.md, FOR_USERS.md) that exist on any install.
   - Block is pointers, not content — no entry's text exceeds a
     reasonable line length per component.
 """
@@ -42,13 +41,7 @@ class TestListPointers:
 
 
 class TestCriticalPointersPresent:
-    """Regression guard: specific documents must be surfaced."""
-
-    def test_aria_definition_surfaced(self) -> None:
-        locations = [p.location for p in list_pointers()]
-        assert any("aria.md" in loc for loc in locations), (
-            "Aria's definition must be in the scaffolding map"
-        )
+    """Regression guard: generic-architecture pointers must be in the default registry."""
 
     def test_skills_directory_surfaced(self) -> None:
         locations = [p.location for p in list_pointers()]
@@ -58,14 +51,15 @@ class TestCriticalPointersPresent:
         locations = [p.location for p in list_pointers()]
         assert any("CLAUDE.md" in loc for loc in locations)
 
+    def test_for_users_surfaced(self) -> None:
+        locations = [p.location for p in list_pointers()]
+        assert any("FOR_USERS.md" in loc for loc in locations)
+
 
 class TestLocationsExist:
-    """Source-file pointers must exist; data-file pointers (.db) and
-    user-specific subagent/memory files (``.claude/agents/``,
-    ``.claude/agent-memory/``) are skipped because their presence
-    depends on which worktree the code is running from. A dead pointer
-    to public source code is a bug; a missing .db on a fresh worktree
-    or a missing user-specific subagent file in CI is expected.
+    """Source-file pointers must exist on disk. Data-file pointers (.db)
+    are skipped because their presence depends on init state. A dead
+    pointer to public source code is a bug.
     """
 
     @pytest.mark.parametrize("pointer", list_pointers(), ids=lambda p: p.location)
@@ -75,13 +69,6 @@ class TestLocationsExist:
             pytest.skip(
                 "Database pointers aren't existence-checked: presence "
                 "depends on worktree and init state."
-            )
-        # User-specific subagent + agent-memory files live outside the
-        # public repo. They exist in personal worktrees but not in CI.
-        if path_part.startswith(".claude/agents/") or path_part.startswith(".claude/agent-memory/"):
-            pytest.skip(
-                "User-specific subagent/memory files are worktree-local; "
-                "not expected to exist in CI or a fresh clone."
             )
         path = REPO_ROOT / path_part
         assert path.exists(), (
@@ -93,7 +80,7 @@ class TestFormatForBriefing:
     def test_emits_block_when_entries_exist(self) -> None:
         out = format_for_briefing()
         assert out
-        assert "[your scaffolding]" in out
+        assert "[scaffolding]" in out
 
     def test_includes_all_pointer_locations(self) -> None:
         out = format_for_briefing()

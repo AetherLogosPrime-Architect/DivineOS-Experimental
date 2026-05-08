@@ -307,6 +307,55 @@ class EventValidator:
         return True, "Valid"
 
     @staticmethod
+    def validate_explanation_payload(payload: dict[str, Any]) -> tuple[bool, str]:
+        """Validate an EXPLANATION payload.
+
+        EXPLANATION events log free-form prose. Schema mirrors
+        event_capture.py::ExplanationPayload — 1MB limit on the prose,
+        ISO8601 timestamp, non-empty session id.
+
+        Wired in 2026-05-03 (claim 8cd2af8b validation-bypass review):
+        previously the CLI's `divineos emit ... --type EXPLANATION`
+        path passed validate=False because EXPLANATION wasn't in the
+        validate_payload dispatch. The schema existed in
+        event_capture.py but wasn't reachable from log_event. Two
+        parallel validation universes that didn't talk to each other.
+        This method bridges them.
+        """
+        if not isinstance(payload, dict):
+            return False, "Payload must be a dict"
+
+        # Required fields
+        for field in ("explanation_text", "timestamp", "session_id"):
+            if field not in payload:
+                return False, f"Missing required field: {field}"
+
+        # explanation_text: non-empty string, ≤1MB
+        text = payload.get("explanation_text", "")
+        if not isinstance(text, str):
+            return False, "explanation_text must be a string"
+        if not text:
+            return False, "explanation_text cannot be empty"
+        if len(text) > 1_000_000:
+            return False, "explanation_text exceeds maximum length (1MB)"
+
+        # timestamp: ISO8601
+        timestamp = payload.get("timestamp", "")
+        if not isinstance(timestamp, str):
+            return False, "timestamp must be a string"
+        if not EventValidator.is_valid_timestamp(timestamp):
+            return False, f"Invalid timestamp: {timestamp}"
+
+        # session_id: non-empty string
+        session_id = payload.get("session_id", "")
+        if not isinstance(session_id, str):
+            return False, "session_id must be a string"
+        if not session_id:
+            return False, "session_id cannot be empty"
+
+        return True, "Valid"
+
+    @staticmethod
     def validate_payload(event_type: str, payload: dict[str, Any]) -> tuple[bool, str]:
         """Validate a payload based on event type."""
         if event_type == "USER_INPUT":
@@ -317,4 +366,6 @@ class EventValidator:
             return EventValidator.validate_tool_result_payload(payload)
         if event_type in ("SESSION_END", "CONSOLIDATION_CHECKPOINT"):
             return EventValidator.validate_session_end_payload(payload)
+        if event_type == "EXPLANATION":
+            return EventValidator.validate_explanation_payload(payload)
         return False, f"Unknown event type: {event_type}"

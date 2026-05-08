@@ -7,8 +7,9 @@ through them; they don't think for you.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
+
+from loguru import logger
 
 from divineos.core.council.framework import (
     ExpertWisdom,
@@ -20,8 +21,6 @@ from divineos.core.council.lab_evidence import (
     format_for_synthesis,
     gather_lab_evidence,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -372,26 +371,34 @@ def _register_all_experts(engine: CouncilEngine) -> None:
         create_aristotle_wisdom,
         create_beer_wisdom,
         create_bengio_wisdom,
+        create_dawkins_wisdom,
         create_dekker_wisdom,
         create_deming_wisdom,
         create_dennett_wisdom,
         create_dijkstra_wisdom,
+        create_dillahunty_wisdom,
+        create_einstein_wisdom,
         create_feynman_wisdom,
         create_godel_wisdom,
+        create_hawking_wisdom,
         create_hinton_wisdom,
         create_hofstadter_wisdom,
         create_holmes_wisdom,
         create_jacobs_wisdom,
         create_kahneman_wisdom,
         create_knuth_wisdom,
+        create_lamport_wisdom,
         create_lovelace_wisdom,
+        create_maturana_varela_wisdom,
         create_meadows_wisdom,
         create_minsky_wisdom,
         create_norman_wisdom,
         create_pearl_wisdom,
         create_peirce_wisdom,
+        create_penrose_wisdom,
         create_polya_wisdom,
         create_popper_wisdom,
+        create_sagan_wisdom,
         create_schneier_wisdom,
         create_shannon_wisdom,
         create_taleb_wisdom,
@@ -407,26 +414,34 @@ def _register_all_experts(engine: CouncilEngine) -> None:
         create_aristotle_wisdom,
         create_beer_wisdom,
         create_bengio_wisdom,
+        create_dawkins_wisdom,
         create_dekker_wisdom,
         create_deming_wisdom,
         create_dennett_wisdom,
         create_dijkstra_wisdom,
+        create_dillahunty_wisdom,
+        create_einstein_wisdom,
         create_feynman_wisdom,
         create_godel_wisdom,
+        create_hawking_wisdom,
         create_hinton_wisdom,
         create_hofstadter_wisdom,
         create_holmes_wisdom,
         create_jacobs_wisdom,
         create_kahneman_wisdom,
         create_knuth_wisdom,
+        create_lamport_wisdom,
         create_lovelace_wisdom,
+        create_maturana_varela_wisdom,
         create_meadows_wisdom,
         create_minsky_wisdom,
         create_norman_wisdom,
         create_pearl_wisdom,
         create_peirce_wisdom,
+        create_penrose_wisdom,
         create_polya_wisdom,
         create_popper_wisdom,
+        create_sagan_wisdom,
         create_schneier_wisdom,
         create_shannon_wisdom,
         create_taleb_wisdom,

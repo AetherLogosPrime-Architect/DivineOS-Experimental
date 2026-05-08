@@ -118,11 +118,11 @@ def register(cli: click.Group) -> None:
             except subprocess.TimeoutExpired:
                 findings.failures.append(f"{command} timed out after 600s in headless run")
                 click.secho("[-] timed out", fg="red")
-                raise SystemExit(124) from None
+                raise SystemExit(124) from None  # noqa: BLE001
             except OSError as e:  # spawn failure
                 findings.failures.append(f"{command} failed to spawn: {e}")
                 click.secho(f"[-] spawn failed: {e}", fg="red")
-                raise SystemExit(1) from None
+                raise SystemExit(1) from None  # noqa: BLE001
 
             # Echo the child output so cron logs capture it.
             if result.stdout:

@@ -74,8 +74,57 @@ logger.add(
     level="WARNING",
 )
 
-_LOG_DIR = Path(__file__).parent.parent.parent / "logs"
-_LOG_DIR.mkdir(exist_ok=True)
+
+def _resolve_log_dir() -> Path:
+    """Resolve the log directory with defensive fallback.
+
+    Audit r9-21 finding #5 (round 18): the previous
+    ``Path(__file__).parent.parent.parent / "logs"`` only resolved
+    correctly under ``pip install -e .``. On a non-editable
+    ``pip install .``, the resolved path lands inside the
+    site-packages tree and the ``mkdir`` call at import time
+    runs against a potentially unwritable path → ImportError chain
+    → the CLI is unbootable.
+
+    Resolution order:
+      1. ``_ledger_base.data_dir() / "logs"`` — same project tree
+         the ledger uses; honors DIVINEOS_DB override for tests.
+      2. ``~/.divineos/logs`` — user-writable fallback.
+      3. ``<tempdir>/divineos-logs`` — last-ditch so import always
+         succeeds; corrupted-permissions environment shouldn't
+         brick the CLI.
+
+    Each step uses try/except so a failure cascades to the next.
+    """
+    import tempfile
+
+    try:
+        from divineos.core._ledger_base import data_dir
+
+        candidate = data_dir() / "logs"
+        candidate.mkdir(parents=True, exist_ok=True)
+        return candidate
+    except (OSError, ImportError):
+        pass
+
+    try:
+        from divineos.core.paths import divineos_home
+
+        candidate = divineos_home() / "logs"
+        candidate.mkdir(parents=True, exist_ok=True)
+        return candidate
+    except (OSError, ImportError):
+        pass
+
+    candidate = Path(tempfile.gettempdir()) / "divineos-logs"
+    try:
+        candidate.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        pass
+    return candidate
+
+
+_LOG_DIR = _resolve_log_dir()
 
 # Clean up old rotated logs on startup (loguru retention doesn't always fire on Windows)
 _MAX_LOG_FILES = 3
@@ -207,13 +256,20 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
     Validation: Validates payload before storing to prevent corrupted data.
 
     """
-    # Validate payload before storing (only for known event types)
+    # Validate payload before storing (only for known event types).
+    # EXPLANATION added 2026-05-03 (claim 8cd2af8b validation-bypass review):
+    # the schema existed in event_capture.py but wasn't wired through here
+    # or through EventValidator.validate_payload, so the CLI's `divineos
+    # emit ... --type EXPLANATION` path silently bypassed validation. Now
+    # EXPLANATION events get the same schema enforcement as other known
+    # types: explanation_text + timestamp + session_id, ≤1MB on the prose.
     if validate and event_type in [
         "USER_INPUT",
         "TOOL_CALL",
         "TOOL_RESULT",
         "SESSION_END",
         "CONSOLIDATION_CHECKPOINT",
+        "EXPLANATION",
     ]:
         is_valid, validation_msg = EventValidator.validate_payload(event_type, payload)
         if not is_valid:

@@ -113,6 +113,7 @@ def _query_file_touched(file_path: str, limit: int) -> list[TimelineEvent]:
     from divineos.core.ledger import get_connection
 
     events: list[TimelineEvent] = []
+    conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -133,7 +134,10 @@ def _query_file_touched(file_path: str, limit: int) -> list[TimelineEvent]:
                 )
             )
     except _QUERY_ERRORS:
-        return events
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
     return events
 
 
@@ -143,6 +147,7 @@ def _query_ledger(topic: str, limit: int) -> list[TimelineEvent]:
     from divineos.core.ledger import get_connection
 
     events: list[TimelineEvent] = []
+    conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -169,7 +174,10 @@ def _query_ledger(topic: str, limit: int) -> list[TimelineEvent]:
                 )
             )
     except _QUERY_ERRORS:
-        return events
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
     return events
 
 
@@ -179,6 +187,7 @@ def _query_holding(topic: str, limit: int) -> list[TimelineEvent]:
     from divineos.core.ledger import get_connection
 
     events: list[TimelineEvent] = []
+    conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -199,7 +208,10 @@ def _query_holding(topic: str, limit: int) -> list[TimelineEvent]:
                 )
             )
     except _QUERY_ERRORS:
-        return events
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
     return events
 
 
@@ -209,6 +221,7 @@ def _query_decisions(topic: str, limit: int) -> list[TimelineEvent]:
     from divineos.core.ledger import get_connection
 
     events: list[TimelineEvent] = []
+    conn = None
     try:
         conn = get_connection()
         cur = conn.cursor()
@@ -229,7 +242,10 @@ def _query_decisions(topic: str, limit: int) -> list[TimelineEvent]:
                 )
             )
     except _QUERY_ERRORS:
-        return events
+        pass
+    finally:
+        if conn is not None:
+            conn.close()
     return events
 
 

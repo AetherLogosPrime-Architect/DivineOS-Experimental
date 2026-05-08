@@ -77,16 +77,18 @@ _ANTICIPATION_COUNTER_KEY = "anticipation_edit_count"
 
 
 def _state_path() -> Path:
-    """Path to the checkpoint state JSON. Uses expanduser for Windows."""
-    divineos_dir = Path(os.path.expanduser("~")) / ".divineos"
-    divineos_dir.mkdir(exist_ok=True)
-    return divineos_dir / "checkpoint_state.json"
+    """Path to the checkpoint state JSON."""
+    from divineos.core.paths import divineos_home, marker_path
+
+    divineos_home().mkdir(exist_ok=True)
+    return marker_path("checkpoint_state.json")
 
 
 def _auto_emitted_path() -> Path:
     """Path to the auto-emit marker file."""
-    divineos_dir = Path(os.path.expanduser("~")) / ".divineos"
-    return divineos_dir / "auto_session_end_emitted"
+    from divineos.core.paths import marker_path
+
+    return marker_path("auto_session_end_emitted")
 
 
 def _load_state() -> dict[str, Any]:

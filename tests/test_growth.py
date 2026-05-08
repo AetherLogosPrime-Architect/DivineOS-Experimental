@@ -80,7 +80,11 @@ class TestGrowthMap:
         assert growth["avg_corrections"] == 1.0
         assert growth["engagement_rate"] == 1.0
 
-    def test_improving_trend(self):
+    def test_trend_is_neutral_2026_05_05(self):
+        """Updated 2026-05-05 (Andrew's spec): trend is no longer a
+        judgment ('improving'/'declining'). The growth map informs about
+        what moved; it does not grade. Trend stays 'neutral' regardless
+        of score deltas."""
         _setup()
         # Older sessions: more corrections, lower scores
         for i in range(3):
@@ -101,7 +105,10 @@ class TestGrowthMap:
 
         growth = compute_growth_map()
         assert growth["sessions"] == 6
-        assert growth["trend"] == "improving"
+        assert growth["trend"] == "neutral"
+        # The dict still carries information about what moved, just not
+        # framed as a judgment.
+        assert growth.get("totals", {}).get("corrections", 0) == 12  # 3*4 + 3*0
 
     def test_grade_distribution(self):
         _setup()
@@ -144,8 +151,8 @@ class TestFormatGrowthMap:
         growth = compute_growth_map()
         text = format_growth_map(growth)
         assert "Growth Map" in text
-        assert "Trajectory" in text
-        assert "Health" in text
-        assert "Knowledge" in text
-        assert "Lessons" in text
+        # 2026-05-05 rebuild: "Trajectory" replaced with "What happened"
+        # — informational not judgmental.
+        assert "What happened" in text
+        assert "Knowledge accumulated" in text
         assert "Engagement" in text

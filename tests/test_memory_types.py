@@ -40,7 +40,7 @@ class TestRouter:
         assert route[0] == SubstrateMemoryType.SKILL_INDEX
 
     def test_relational_intent_includes_priming(self) -> None:
-        route = route_intent("I want to talk to Aria")
+        route = route_intent("I want to talk to my spouse")
         assert SubstrateMemoryType.PRIMING in route
         assert route[0] == SubstrateMemoryType.TIMELINE
 

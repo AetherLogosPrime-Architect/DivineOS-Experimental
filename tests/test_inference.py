@@ -120,15 +120,25 @@ class TestForwardChain:
         assert len(derivations) == 2
 
     def test_no_cycles(self):
-        """Graph with cycle should not loop forever."""
+        """forward_chain handles cycles without looping forever.
+
+        IMPLIES is now asymmetric at edge-creation (reverse-direction
+        edges are rejected with ValueError), so a 2-node cycle is
+        impossible. A 3-node cycle (a->b->c->a) is still constructible
+        because no individual edge has a reverse twin — the cycle only
+        emerges at chain-traversal time. forward_chain must still
+        terminate on such graphs.
+        """
         a = _insert_knowledge()
         b = _insert_knowledge()
+        c = _insert_knowledge()
         create_relation(a, b, "IMPLIES")
-        create_relation(b, a, "IMPLIES")
+        create_relation(b, c, "IMPLIES")
+        create_relation(c, a, "IMPLIES")
         derivations = forward_chain(a)
-        # Should find b but not loop back to a
-        assert len(derivations) == 1
-        assert derivations[0].target_id == b
+        # Should find b and c without looping back to a
+        target_ids = {d.target_id for d in derivations}
+        assert target_ids == {b, c}
 
     def test_only_follows_implies(self):
         """SUPPORTS and other types are not followed."""

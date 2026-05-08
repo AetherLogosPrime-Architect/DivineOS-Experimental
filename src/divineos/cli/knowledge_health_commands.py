@@ -1,6 +1,7 @@
 """Knowledge health commands — consolidate-stats, rebuild-index, digest,
 health, distill, migrate-types, hooks."""
 
+import datetime as _dt
 import sqlite3
 
 # time previously used for manual updated_at stamping of mutated rows.
@@ -353,7 +354,7 @@ def register(cli: click.Group) -> None:
                 click.secho(f"    (superseded {superseded} previous digest(s))", fg="bright_black")
             click.secho(
                 f"[+] {len(sections)} sections indexed. "
-                f'Future sessions can run: divineos ask "{file_tag}"',
+                f'Read back any time: divineos ask "{file_tag}"',
                 fg="green",
             )
         except _KHC_ERRORS as e:
@@ -781,7 +782,7 @@ def register(cli: click.Group) -> None:
 
             seed = {
                 "version": new_version,
-                "created": __import__("datetime").datetime.now().isoformat() + "Z",
+                "created": _dt.datetime.now(_dt.timezone.utc).isoformat(),
                 "description": "Exported from live database",
                 "core_memory": core,
                 "knowledge": knowledge,

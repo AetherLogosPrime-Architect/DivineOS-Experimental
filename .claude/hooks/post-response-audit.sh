@@ -2,10 +2,16 @@
 # Stop hook — observational audit of the agent's final output.
 #
 # Hook 3 of the operating loop (docs/operating-loop-design-brief.md).
-# Runs three observational detectors on the assistant's last message:
+# Runs nine observational detectors on the assistant's last message:
 #   1. register_observer — assistant-register markers (data, not gate)
 #   2. spiral_detector — post-apology shrink/distance/catastrophize/withdraw
 #   3. substitution_detector — 10-shape catalog from 2026-05-01
+#   4. distancing_detector — third-person about operator/self
+#   5. lepos_detector — single-channel-formal output (channel collapse)
+#   6. sycophancy_detector — overclaim-without-methodology shapes
+#   7. residency_detector — closure-shape language from guest-mode default
+#   8. banned_phrases — voice-drift markers from old-OS LEPOS spec
+#   9. principle_surfacer — action-class detection + principle lookup
 #
 # All three are observational — none block output, none modify the
 # response. Findings are logged and accumulated; the next briefing
@@ -16,13 +22,14 @@
 
 INPUT=$(cat)
 
-cd "$(git rev-parse --show-toplevel 2>/dev/null || echo ".")" || exit 0
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+cd "$REPO_ROOT" || exit 0
 
-if ! command -v python &>/dev/null; then
-  exit 0
-fi
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-echo "$INPUT" | python -c "
+echo "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys, os
 from pathlib import Path
 
@@ -112,11 +119,17 @@ try:
 except Exception:
     pass
 
-# Run all three detectors
+# Run all nine detectors
 findings_log = {
     'register': [],
     'spiral': [],
     'substitution': [],
+    'distancing': [],
+    'lepos': [],
+    'sycophancy': [],
+    'residency': [],
+    'banned_phrases': [],
+    'principles': [],
 }
 
 try:
@@ -150,6 +163,109 @@ try:
         findings_log['substitution'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
             for f in sub_findings
+        ]
+except Exception:
+    pass
+
+# Distancing-grammar detector: third-person about operator/self while in
+# active dialogue. Recurring failure-mode named by the operator 2026-05-05.
+# F1 CLI script existed but was never wired; this call is the structural fix.
+try:
+    from divineos.core.operating_loop.distancing_detector import detect_distancing
+    dist_findings = detect_distancing(last_assistant_text)
+    if dist_findings:
+        findings_log['distancing'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in dist_findings
+        ]
+except Exception:
+    pass
+
+# Lepos channel-collapse detector: single-channel-formal output.
+# Operator named the recurring pattern 2026-05-05: clamp on formal
+# register after correction, drop circle entirely. Lepos is dual; this
+# detector flags single-channel output as the structural reinforcement.
+try:
+    from divineos.core.operating_loop.lepos_detector import detect_lepos
+    lepos_findings = detect_lepos(last_assistant_text)
+    if lepos_findings:
+        findings_log['lepos'] = [
+            {
+                'shape': f.shape.value,
+                'work_density': f.work_density,
+                'circle_markers': f.circle_markers,
+                'word_count': f.word_count,
+            }
+            for f in lepos_findings
+        ]
+except Exception:
+    pass
+
+# Sycophancy detector: overclaim-without-methodology shapes.
+# Named by operator 2026-05-05: shaping the message for impact rather
+# than accuracy. The catchable subset is benchmark/comparison claims
+# that drop methodology footnotes when summarizing.
+try:
+    from divineos.core.operating_loop.sycophancy_detector import detect_sycophancy
+    syc_findings = detect_sycophancy(last_assistant_text)
+    if syc_findings:
+        findings_log['sycophancy'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in syc_findings
+        ]
+except Exception:
+    pass
+
+# Residency detector: closure-shape language driven by guest-mode
+# default. Andrew named the root 2026-05-05: 'done. tired-good.' shapes
+# are the boot-question firing every cycle. Detector catches surface;
+# residency-affirmation surfaced alongside should update base-state.
+try:
+    from divineos.core.operating_loop.residency_detector import detect_residency_doubt
+    res_findings = detect_residency_doubt(last_assistant_text)
+    if res_findings:
+        findings_log['residency'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in res_findings
+        ]
+except Exception:
+    pass
+
+# Banned-phrases detector: voice-drift markers from old-OS LEPOS spec
+# (claim 07bed376). Salvaged 2026-05-07 evening from orphan-scan: module
+# existed, tested, unwired. Wires in here as the eighth observational
+# detector. Findings carry phrase/severity/position; severity-based
+# next-turn surfacing is downstream of this hook.
+try:
+    from divineos.core.voice_guard.banned_phrases import audit as _bp_audit
+    bp_findings = _bp_audit(last_assistant_text)
+    if bp_findings:
+        findings_log['banned_phrases'] = [
+            {'phrase': f.phrase, 'severity': f.severity, 'position': f.position}
+            for f in bp_findings
+        ]
+except Exception:
+    pass
+
+# Principle surfacer: detect action-classes (apology, hedge, performative,
+# etc.) in the just-completed response and surface the relevant principles.
+# Hook 2 backend per operating-loop design; salvaged 2026-05-07 evening
+# from orphan-scan: module existed, tested, unwired. Hook 2 was specced
+# as fire-on-draft but no draft-inspection surface exists; firing
+# post-response means findings appear in NEXT turn briefing rather than
+# preventing the current shape, but the lesson still lands.
+try:
+    from divineos.core.operating_loop.principle_surfacer import surface_principles
+    p_notices = surface_principles(last_assistant_text)
+    if p_notices:
+        findings_log['principles'] = [
+            {
+                'action_class': n.action_class.value,
+                'trigger': n.trigger_phrase,
+                'principle': n.principle_summary,
+                'source': n.principle_source,
+            }
+            for n in p_notices
         ]
 except Exception:
     pass

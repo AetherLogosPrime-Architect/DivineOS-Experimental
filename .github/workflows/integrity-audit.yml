@@ -133,3 +133,34 @@ jobs:
 
           echo ""
           echo "All guardrail-modifying commits in this range carry the External-Review trailer."
+
+  mixed-pattern-merge-check:
+    name: mixed-pattern-merge
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Mixed-pattern-merge gate (claim ec844fcf)
+        run: |
+          set -e
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE_SHA="HEAD~1"
+            HEAD_SHA="HEAD"
+          fi
+
+          # Refuse PRs that contain BOTH file additions AND deletions in
+          # the same src/divineos/core/<subsystem>/ directory. Catches the
+          # PR-#230 shape where strip work bundles with template additions.
+          # See scripts/check_mixed_pattern_merge.py for design rationale.
+          python scripts/check_mixed_pattern_merge.py "$BASE_SHA" "$HEAD_SHA"

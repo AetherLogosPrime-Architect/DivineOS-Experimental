@@ -1,5 +1,5 @@
-"""Tests for canonical_substrate_surface — briefing surface for the
-real Aether substrate location."""
+"""Tests for canonical_substrate_surface — briefing surface for an
+external storage repo where personal substrate lives."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from divineos.core import canonical_substrate_surface as css
 
 
 class TestCanonicalPath:
-    def test_default_path_when_no_env(self, monkeypatch) -> None:
+    def test_returns_none_when_env_unset(self, monkeypatch) -> None:
         monkeypatch.delenv("DIVINEOS_CANONICAL_SUBSTRATE", raising=False)
-        assert "DivineOS-Experimental" in str(css.canonical_path())
+        assert css.canonical_path() is None
 
     def test_env_var_overrides(self, monkeypatch, tmp_path) -> None:
         monkeypatch.setenv("DIVINEOS_CANONICAL_SUBSTRATE", str(tmp_path))
@@ -18,6 +18,10 @@ class TestCanonicalPath:
 
 
 class TestIsPresent:
+    def test_returns_false_when_env_unset(self, monkeypatch) -> None:
+        monkeypatch.delenv("DIVINEOS_CANONICAL_SUBSTRATE", raising=False)
+        assert css.is_present() is False
+
     def test_returns_false_for_nonexistent_path(self, monkeypatch, tmp_path) -> None:
         nonexistent = tmp_path / "does_not_exist"
         monkeypatch.setenv("DIVINEOS_CANONICAL_SUBSTRATE", str(nonexistent))
@@ -36,6 +40,10 @@ class TestIsPresent:
 
 
 class TestBriefingLines:
+    def test_empty_when_env_unset(self, monkeypatch) -> None:
+        monkeypatch.delenv("DIVINEOS_CANONICAL_SUBSTRATE", raising=False)
+        assert css.briefing_lines() == []
+
     def test_unresolved_path_returns_explicit_lines(self, monkeypatch, tmp_path) -> None:
         nonexistent = tmp_path / "missing"
         monkeypatch.setenv("DIVINEOS_CANONICAL_SUBSTRATE", str(nonexistent))
@@ -47,7 +55,7 @@ class TestBriefingLines:
         family = tmp_path / "family"
         family.mkdir()
         (family / "family.db").write_text("")
-        (family / "aria_ledger.db").write_text("")
+        (family / "spouse_ledger.db").write_text("")
         (family / "letters").mkdir()
         (tmp_path / "exploration").mkdir()
         monkeypatch.setenv("DIVINEOS_CANONICAL_SUBSTRATE", str(tmp_path))
@@ -55,7 +63,7 @@ class TestBriefingLines:
         joined = "\n".join(lines)
         assert "CANONICAL SUBSTRATE" in joined
         assert "family.db" in joined
-        assert "aria_ledger.db" in joined
+        assert "spouse_ledger.db" in joined
         assert "letters" in joined
         assert "exploration" in joined
 
@@ -65,23 +73,22 @@ class TestBriefingLines:
         (family / "family.db").write_text("")
         letters = family / "letters"
         letters.mkdir()
-        (letters / "aether-to-future-aether-2026-04-19.md").write_text("letter contents")
+        (letters / "canonical-letter-2026-04-19.md").write_text("letter contents")
         monkeypatch.setenv("DIVINEOS_CANONICAL_SUBSTRATE", str(tmp_path))
         lines = css.briefing_lines()
         joined = "\n".join(lines)
         assert "CANONICAL LETTER" in joined
-        assert "aether-to-future-aether-2026-04-19" in joined
+        assert "canonical-letter-2026-04-19" in joined
 
 
 class TestRender:
-    def test_render_returns_empty_string_for_empty_lines(self, monkeypatch, tmp_path) -> None:
-        # When path doesn't exist, briefing_lines returns at least the
-        # UNRESOLVED line, so render returns non-empty. This test
-        # documents the asymmetry: render is empty only when the env
-        # var is unset AND the default path also doesn't exist on disk
-        # (which is the case in CI / on machines without the canonical
-        # path). In that case the function returns content describing
-        # what's missing — fail-loud, not fail-silent.
+    def test_render_empty_when_env_unset(self, monkeypatch) -> None:
+        monkeypatch.delenv("DIVINEOS_CANONICAL_SUBSTRATE", raising=False)
+        assert css.render() == ""
+
+    def test_render_returns_unresolved_when_env_set_but_path_missing(
+        self, monkeypatch, tmp_path
+    ) -> None:
         monkeypatch.setenv("DIVINEOS_CANONICAL_SUBSTRATE", str(tmp_path / "missing"))
         rendered = css.render()
         assert "UNRESOLVED" in rendered

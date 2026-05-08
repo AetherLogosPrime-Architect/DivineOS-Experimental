@@ -24,8 +24,8 @@ from divineos.core.knowledge._base import _KNOWLEDGE_COLS, _get_connection, _row
 from divineos.core.knowledge._text import _compute_overlap, _normalize_text
 from divineos.core.knowledge.crud import (
     get_knowledge,
+    link_supersession,
     store_knowledge,
-    supersede_knowledge,
 )
 
 # ─── Maturity Ranking ──────────────────────────────────────────────
@@ -129,7 +129,15 @@ def compress_dedup(
         superseded = [e for e in cluster if e["knowledge_id"] != best["knowledge_id"]]
 
         for entry in superseded:
-            supersede_knowledge(entry["knowledge_id"], best["knowledge_id"])
+            # Audit r9-21 #4: was supersede_knowledge(entry_id, best_id)
+            # which mis-stored the second arg as a "FORGET:<id>" reason
+            # instead of as the successor link. link_supersession is the
+            # correct helper for "we have a survivor, link the loser to it."
+            link_supersession(
+                entry["knowledge_id"],
+                best["knowledge_id"],
+                reason="compression dedup",
+            )
 
         actions.append(
             {
@@ -276,10 +284,10 @@ def compress_synthesize(
             source="SYNTHESIZED",
         )
 
-        # Supersede source entries
+        # Link source entries to the synthesized survivor (audit r9-21 #4)
         for kid in result["source_entries"]:
             if kid != new_id:
-                supersede_knowledge(kid, new_id)
+                link_supersession(kid, new_id, reason="compression synthesis")
 
         actions.append(
             {
@@ -445,9 +453,9 @@ def run_compression(
                     tags=compressed["tags"],
                     source="SYNTHESIZED",
                 )
-                # Supersede supports into the compressed entry
+                # Link supports into the compressed survivor (audit r9-21 #4)
                 for sid in compressed["support_ids"]:
-                    supersede_knowledge(sid, new_id)
+                    link_supersession(sid, new_id, reason="compression rollup")
 
                 graph_actions.append(
                     {

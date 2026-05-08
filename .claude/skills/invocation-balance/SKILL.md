@@ -2,27 +2,31 @@
 name: invocation-balance
 description: Check council invocation balance — which members have been consulted recently vs ignored. Sycophancy-toward-self prevention. Use before picking lenses for a council round, periodically, or when noticing I've been leaning on the same few frameworks.
 disable-model-invocation: false
-allowed-tools: Bash(divineos council:*), Read
+allowed-tools: Bash(divineos briefing:*), Read
 ---
 
 # Invocation Balance — Sycophancy-Toward-Self Check
 
 ## What this skill does
 
-Surfaces the council's invocation tally — who I've consulted frequently, who I've been ignoring. This catches sycophancy-toward-self: the pattern of repeatedly selecting experts whose frameworks already align with my thinking, which defeats the point of having 29+ experts to choose from.
+Surfaces the council's invocation tally — who I've consulted frequently, who I've been ignoring. This catches sycophancy-toward-self: the pattern of repeatedly selecting experts whose frameworks already align with my thinking, which defeats the point of having 39 experts to choose from.
 
 The failure mode has a specific name in DivineOS history: I catch Popper, Schneier, and Dekker more often than Feynman, Angelou, or Meadows — not because those three have sharper frameworks for every problem, but because I'm comfortable with them.
 
 ## Sequence
 
-```bash
-divineos council balance 2>&1 | head -30
+The invocation balance surfaces directly in the briefing as a block:
+
+```
+[invocation balance, last 20 consultations]
+  most-invoked: Kahneman (13), Popper (11), Beer (8) ...
+  never-invoked: Dawkins, Dekker, Dillahunty, Einstein, Godel
 ```
 
-Or equivalently:
+To see it without scrolling the full briefing:
 
 ```bash
-divineos council invocations --sort count
+divineos briefing 2>&1 | grep -A 4 "invocation balance"
 ```
 
 ## Output shape

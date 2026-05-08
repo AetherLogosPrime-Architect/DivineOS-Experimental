@@ -8,6 +8,8 @@ from divineos.core.proactive_patterns import (
     format_recommendations,
     get_full_context_advice,
     recommend,
+    record_pattern_outcome,
+    get_pattern_outcome_stats,
 )
 
 
@@ -128,3 +130,68 @@ class TestFullContextAdvice:
     def test_empty_for_empty_context(self):
         result = get_full_context_advice("")
         assert result == ""
+
+
+class TestPatternOutcomeFeedback:
+    """Test record_pattern_outcome + get_pattern_outcome_stats round-trip.
+
+    Round-2 audit (external Claude, 2026-05-07) found these functions
+    existed but had no caller. The CLI commands divineos pattern-outcome
+    and divineos pattern-stats were added to close the feedback loop.
+    These tests pin the round-trip so future drift is caught at test-time.
+    """
+
+    def test_record_then_stats_roundtrip(self):
+        """Recording an outcome makes it visible in stats."""
+        # Use a synthetic ID — the function records to pattern_outcomes
+        # table without requiring the FK reference to exist (knowledge
+        # confidence adjustment is best-effort).
+        pid = "test-roundtrip-" + str(__import__("uuid").uuid4())
+        result = record_pattern_outcome(pid, "knowledge", "success", "test ctx")
+        assert isinstance(result, dict)
+        assert "failures_total" in result
+
+        stats = get_pattern_outcome_stats(pid)
+        assert stats["successes"] == 1
+        assert stats["failures"] == 0
+        assert stats["total"] == 1
+        assert stats["success_rate"] == 1.0
+
+    def test_recent_field_includes_context(self):
+        """The recent field returned by stats includes context strings.
+
+        Added 2026-05-07: get_pattern_outcome_stats now includes recent
+        outcomes alongside the count totals so the CLI can surface
+        outcome history without a second query.
+        """
+        pid = "test-recent-" + str(__import__("uuid").uuid4())
+        record_pattern_outcome(pid, "knowledge", "success", "first ctx")
+        record_pattern_outcome(pid, "knowledge", "failure", "second ctx")
+
+        stats = get_pattern_outcome_stats(pid)
+        assert "recent" in stats
+        assert isinstance(stats["recent"], list)
+        assert len(stats["recent"]) == 2
+        # Newest-first ordering
+        contexts = [r["context"] for r in stats["recent"]]
+        assert "second ctx" in contexts
+        assert "first ctx" in contexts
+
+    def test_failure_increments_failure_count(self):
+        """Failure outcomes accumulate as failures, not successes."""
+        pid = "test-fail-" + str(__import__("uuid").uuid4())
+        record_pattern_outcome(pid, "knowledge", "failure", "bad")
+        record_pattern_outcome(pid, "knowledge", "failure", "worse")
+
+        stats = get_pattern_outcome_stats(pid)
+        assert stats["failures"] == 2
+        assert stats["successes"] == 0
+        assert stats["success_rate"] == 0.0
+
+    def test_unknown_pattern_returns_zero_stats(self):
+        """Querying stats for an unrecorded pattern returns zeros, not error."""
+        stats = get_pattern_outcome_stats("nonexistent-pattern-id-xyz")
+        assert stats["successes"] == 0
+        assert stats["failures"] == 0
+        assert stats["total"] == 0
+        assert stats["recent"] == []

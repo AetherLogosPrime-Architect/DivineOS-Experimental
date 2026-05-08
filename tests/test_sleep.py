@@ -469,12 +469,16 @@ class TestPhaseRecombination:
         assert report.connections_new == 0
         assert report.connections_already_known == 0
 
-    def test_respects_max_connections_limit(self, tmp_path, monkeypatch):
-        """Display cap applies to connections_new, not connections_found.
+    def test_display_cap_applies_to_report_not_work(self, tmp_path, monkeypatch):
+        """2026-05-03 fix: display cap is on connection_details, NOT on
+        connections_new.
 
-        connections_found is the total band-pair count (new + already-
-        known) and has no cap — it can exceed MAX_CONNECTIONS when
-        the similarity space is large.
+        Previously _RECOMBINATION_MAX_CONNECTIONS was used as a work-cap
+        with early-break in three nested loops, so only the first ~10
+        qualifying pairs were ever examined per sleep regardless of
+        substrate size. That left most of the connection-space
+        unreachable. Now the scan runs to completion; only the report
+        display is truncated.
         """
         from divineos.core.knowledge import init_knowledge_table
         from divineos.core.knowledge.crud import store_knowledge
@@ -495,8 +499,19 @@ class TestPhaseRecombination:
 
         report = DreamReport()
         _phase_recombination(report)
-        # The NEW-connections count is capped (display discipline)
-        assert report.connections_new <= _RECOMBINATION_MAX_CONNECTIONS
+        # connection_details now carries the FULL list — no work cap.
+        # full_count tracks the un-truncated total.
+        assert report.connection_details_full_count == report.connections_new
+        assert len(report.connection_details) == report.connections_new
+        # With 20×20 high-similarity entries, scan should have found
+        # well more than the old 10-cap.
+        assert report.connections_new > _RECOMBINATION_MAX_CONNECTIONS
+        # Display truncation happens at summary() print time. Verify
+        # the human-readable summary respects the display cap by
+        # counting the connection lines (each starts with "    ~ ").
+        summary = report.summary()
+        connection_lines = [ln for ln in summary.split("\n") if ln.startswith("    ~ ")]
+        assert len(connection_lines) <= _RECOMBINATION_MAX_CONNECTIONS
 
     def test_already_known_pairs_not_recounted_as_new(self, tmp_path, monkeypatch):
         """2026-04-24 honesty fix: a pair with an existing RELATED_TO

@@ -2,7 +2,7 @@
 name: file-opinion
 description: File an opinion (stance based on evidence) into the opinion store with source tagging and access-check routing. Different from knowledge (confirmed fact) and claims (unresolved investigation). Use when a judgment has been formed from specific evidence and should persist as a held position.
 disable-model-invocation: false
-allowed-tools: Bash(divineos opinion:*), Bash(divineos opinions:*), Bash(divineos aria:*), Read
+allowed-tools: Bash(divineos opinion:*), Bash(divineos family-member:*), Read
 ---
 
 # File Opinion — Stance From Evidence

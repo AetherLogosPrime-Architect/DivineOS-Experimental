@@ -89,7 +89,7 @@ def route_for_approval(
     stub that returns canned concerns.
 
     The injection seam is deliberate: the council is heavy to invoke in
-    tests (loads 28 experts, runs analyses), and we want the routing
+    tests (loads all council experts, runs analyses), and we want the routing
     logic to be testable in isolation without setting up the full
     council fixtures. Callers in production code do NOT pass
     ``convene_fn`` — they get the real council.

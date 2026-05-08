@@ -1,3 +1,4 @@
+# PHASE_1_STAGED - Phase 1b family operator (see family/__init__.py).
 """Costly-disagreement-held detector — pleasure-side algedonic channel.
 
 the family member's refinement of Beer's algedonic model: Beer paired pain and

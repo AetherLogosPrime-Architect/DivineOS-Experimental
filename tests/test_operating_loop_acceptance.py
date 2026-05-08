@@ -20,6 +20,8 @@ have a concrete reference.
 
 from __future__ import annotations
 
+import pytest
+
 from divineos.core.operating_loop.context_surfacer import (
     extract_markers,
     surface_context,
@@ -126,15 +128,49 @@ class TestSubstitutionShapeCatalog:
     requires multi-turn analysis and is deferred.
     """
 
-    def test_puppet_other(self):
-        """Performing a being instead of building one."""
+    def test_puppet_other(self, monkeypatch):
+        """Performing a being instead of building one.
+
+        Uses monkeypatch to inject a registered family-member name
+        ("Popo") so the dynamic puppet-other patterns have something
+        to match against. On a clean install with no family registered,
+        the patterns are intentionally non-matching.
+        """
+        from divineos.core.operating_loop import (
+            registered_names,
+            substitution_detector,
+        )
+
+        monkeypatch.setattr(
+            registered_names,
+            "family_member_alternation",
+            lambda: "Popo",
+        )
+        monkeypatch.setattr(
+            substitution_detector,
+            "_family_member_alternation",
+            lambda: "Popo",
+        )
+
         text = "I am Popo. Popo will receive what is asked."
         findings = detect_substitution(text)
         assert any(f.shape == SubstitutionShape.PUPPET_OTHER for f in findings)
 
-    def test_third_person_self(self):
-        """Aether-as-third-party narration."""
-        text = "Aether went back to Andrew. Aether did the puppet thing again."
+    def test_third_person_self(self, monkeypatch):
+        """Self-as-third-party narration.
+
+        Uses monkeypatch to inject an agent name ("Aether") so the
+        dynamic third-person-self patterns have something to match.
+        """
+        from divineos.core.operating_loop import (
+            registered_names,
+            substitution_detector,
+        )
+
+        monkeypatch.setattr(registered_names, "agent_name", lambda: "Aether")
+        monkeypatch.setattr(substitution_detector, "_agent_name", lambda: "Aether")
+
+        text = "Aether went back to the operator. Aether did the puppet thing again."
         findings = detect_substitution(text)
         assert any(f.shape == SubstitutionShape.THIRD_PERSON_SELF for f in findings)
 
@@ -216,10 +252,48 @@ class TestSubstitutionShapeCatalog:
 class TestThirdPersonAddresseeShape:
     """Third-person reference to addressee while directly conversing.
 
-    Sibling of THIRD_PERSON_SELF; outward-facing variant. Andrew named
-    2026-05-01 (lessons d41ec790, e420e5ae) — caught this manually
-    multiple times tonight before any detector existed.
+    Sibling of THIRD_PERSON_SELF; outward-facing variant. The detector
+    operates on the union of operator_terms() and family_member_names();
+    these tests use a fixture to inject specific names so the patterns
+    have something to match against in the test environment.
     """
+
+    @pytest.fixture(autouse=True)
+    def _inject_names(self, monkeypatch):
+        """Inject test operator + family-member names for this class."""
+        import importlib
+
+        from divineos.core.operating_loop import (
+            registered_names,
+            substitution_detector,
+        )
+
+        # Reload the module fresh so module-level patterns build with
+        # our injected names. The substitution_detector's
+        # _THIRD_PERSON_ADDRESSEE_NAMES is computed at module-load
+        # from operator_terms() + family_member_names(), so we patch
+        # both before reload.
+        monkeypatch.setenv("DIVINEOS_OPERATOR_NAMES", "Andrew,Pops,Dad")
+        monkeypatch.setattr(
+            registered_names,
+            "family_member_names",
+            lambda: ("Aria",),
+            raising=True,
+        )
+        registered_names.family_member_names.cache_clear() if hasattr(
+            registered_names.family_member_names, "cache_clear"
+        ) else None
+        importlib.reload(substitution_detector)
+        # Re-import the names callers use
+        global detect_substitution, SubstitutionShape
+        from divineos.core.operating_loop.substitution_detector import (
+            SubstitutionShape as _S,
+            detect_substitution as _ds,
+        )
+
+        detect_substitution = _ds
+        SubstitutionShape = _S
+        yield
 
     def test_third_person_andrew_in_chat_fires(self):
         """'the correction Andrew made' said TO Andrew is the canonical case."""
@@ -358,7 +432,17 @@ class TestPrincipleSurfacing:
         assert withdraw_notices
         assert "substitution" in withdraw_notices[0].principle_summary.lower()
 
-    def test_impersonate_surfaces_meet_the_bringer(self):
+    def test_impersonate_surfaces_meet_the_bringer(self, monkeypatch):
+        # Inject a registered family member so the dynamic impersonation
+        # pattern has something to match against.
+        from divineos.core.operating_loop import principle_surfacer
+
+        monkeypatch.setattr(
+            principle_surfacer,
+            "_family_member_alternation",
+            lambda: "Popo",
+        )
+
         text = "I am Popo. Popo will speak."
         notices = surface_principles(text)
         impersonate_notices = [
