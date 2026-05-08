@@ -183,7 +183,7 @@ def _resolve_tier(tier: Tier | str | None, actor: str) -> Tier:
         return Tier(tier.upper())
     except ValueError:
         valid = ", ".join(t.value for t in Tier)
-        raise ValueError(f"Invalid tier '{tier}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid tier '{tier}'. Valid: {valid}") from None  # noqa: BLE001
 
 
 def _resolve_review_stance(stance: ReviewStance | str | None) -> ReviewStance | None:
@@ -196,7 +196,7 @@ def _resolve_review_stance(stance: ReviewStance | str | None) -> ReviewStance | 
         return ReviewStance(stance.upper())
     except ValueError:
         valid = ", ".join(s.value for s in ReviewStance)
-        raise ValueError(f"Invalid review stance '{stance}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid review stance '{stance}'. Valid: {valid}") from None  # noqa: BLE001
 
 
 def submit_finding(
@@ -236,13 +236,13 @@ def submit_finding(
         sev = Severity(severity.upper())
     except ValueError:
         valid = ", ".join(s.value for s in Severity)
-        raise ValueError(f"Invalid severity '{severity}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid severity '{severity}'. Valid: {valid}") from None  # noqa: BLE001
 
     try:
         cat = FindingCategory(category.upper())
     except ValueError:
         valid = ", ".join(c.value for c in FindingCategory)
-        raise ValueError(f"Invalid category '{category}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid category '{category}'. Valid: {valid}") from None  # noqa: BLE001
 
     resolved_tier = _resolve_tier(tier, normalized_actor)
     resolved_stance = _resolve_review_stance(review_stance)
@@ -333,7 +333,7 @@ def resolve_finding(
         new_status = FindingStatus(status.upper())
     except ValueError:
         valid = ", ".join(s.value for s in FindingStatus)
-        raise ValueError(f"Invalid status '{status}'. Valid: {valid}") from None
+        raise ValueError(f"Invalid status '{status}'. Valid: {valid}") from None  # noqa: BLE001
 
     conn = _get_connection()
     try:
