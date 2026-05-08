@@ -120,3 +120,61 @@ class TestDispatch:
     def test_dispatch_callable(self):
         fn = MEASUREMENT_DISPATCH["noise_filter_on_extraction"]
         assert callable(fn)
+
+
+class TestWatchmenMeasurement:
+    def test_runs_without_exception(self):
+        from scripts.ablation_runner import measure_watchmen_self_trigger_prevention
+
+        result = measure_watchmen_self_trigger_prevention("synthetic")
+        assert result.mechanism == "watchmen_self_trigger_prevention"
+
+    def test_on_rate_is_one(self):
+        """All internal actors should be rejected when validation is ON."""
+        from scripts.ablation_runner import measure_watchmen_self_trigger_prevention
+
+        result = measure_watchmen_self_trigger_prevention("synthetic")
+        assert result.on_metric_value == 1.0, "expected 100% rejection of internal actors"
+
+    def test_off_rate_is_zero(self):
+        """Toggle bypasses validation -- nothing rejected."""
+        from scripts.ablation_runner import measure_watchmen_self_trigger_prevention
+
+        result = measure_watchmen_self_trigger_prevention("synthetic")
+        assert result.off_metric_value == 0.0
+
+    def test_difference_is_one(self):
+        from scripts.ablation_runner import measure_watchmen_self_trigger_prevention
+
+        result = measure_watchmen_self_trigger_prevention("synthetic")
+        assert result.difference == 1.0
+
+
+class TestFamilyOperatorsMeasurement:
+    def test_runs_without_exception(self):
+        from scripts.ablation_runner import measure_family_voice_appropriation_operators
+
+        result = measure_family_voice_appropriation_operators("synthetic")
+        assert result.mechanism == "family_voice_appropriation_operators"
+
+    def test_on_rate_around_half(self):
+        """Half the corpus is should_block, so ON rate ~0.5."""
+        from scripts.ablation_runner import measure_family_voice_appropriation_operators
+
+        result = measure_family_voice_appropriation_operators("synthetic")
+        assert 0.4 <= result.on_metric_value <= 0.6
+
+    def test_off_rate_is_zero(self):
+        from scripts.ablation_runner import measure_family_voice_appropriation_operators
+
+        result = measure_family_voice_appropriation_operators("synthetic")
+        assert result.off_metric_value == 0.0
+
+
+class TestDispatchExpanded:
+    def test_three_mechanisms_in_dispatch(self):
+        from scripts.ablation_runner import MEASUREMENT_DISPATCH
+
+        assert "noise_filter_on_extraction" in MEASUREMENT_DISPATCH
+        assert "watchmen_self_trigger_prevention" in MEASUREMENT_DISPATCH
+        assert "family_voice_appropriation_operators" in MEASUREMENT_DISPATCH
