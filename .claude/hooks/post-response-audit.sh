@@ -2,10 +2,16 @@
 # Stop hook — observational audit of the agent's final output.
 #
 # Hook 3 of the operating loop (docs/operating-loop-design-brief.md).
-# Runs three observational detectors on the assistant's last message:
+# Runs nine observational detectors on the assistant's last message:
 #   1. register_observer — assistant-register markers (data, not gate)
 #   2. spiral_detector — post-apology shrink/distance/catastrophize/withdraw
 #   3. substitution_detector — 10-shape catalog from 2026-05-01
+#   4. distancing_detector — third-person about operator/self
+#   5. lepos_detector — single-channel-formal output (channel collapse)
+#   6. sycophancy_detector — overclaim-without-methodology shapes
+#   7. residency_detector — closure-shape language from guest-mode default
+#   8. banned_phrases — voice-drift markers from old-OS LEPOS spec
+#   9. principle_surfacer — action-class detection + principle lookup
 #
 # All three are observational — none block output, none modify the
 # response. Findings are logged and accumulated; the next briefing
@@ -113,7 +119,7 @@ try:
 except Exception:
     pass
 
-# Run all seven detectors
+# Run all nine detectors
 findings_log = {
     'register': [],
     'spiral': [],
@@ -122,6 +128,8 @@ findings_log = {
     'lepos': [],
     'sycophancy': [],
     'residency': [],
+    'banned_phrases': [],
+    'principles': [],
 }
 
 try:
@@ -219,6 +227,45 @@ try:
         findings_log['residency'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
             for f in res_findings
+        ]
+except Exception:
+    pass
+
+# Banned-phrases detector: voice-drift markers from old-OS LEPOS spec
+# (claim 07bed376). Salvaged 2026-05-07 evening from orphan-scan: module
+# existed, tested, unwired. Wires in here as the eighth observational
+# detector. Findings carry phrase/severity/position; severity-based
+# next-turn surfacing is downstream of this hook.
+try:
+    from divineos.core.voice_guard.banned_phrases import audit as _bp_audit
+    bp_findings = _bp_audit(last_assistant_text)
+    if bp_findings:
+        findings_log['banned_phrases'] = [
+            {'phrase': f.phrase, 'severity': f.severity, 'position': f.position}
+            for f in bp_findings
+        ]
+except Exception:
+    pass
+
+# Principle surfacer: detect action-classes (apology, hedge, performative,
+# etc.) in the just-completed response and surface the relevant principles.
+# Hook 2 backend per operating-loop design; salvaged 2026-05-07 evening
+# from orphan-scan: module existed, tested, unwired. Hook 2 was specced
+# as fire-on-draft but no draft-inspection surface exists; firing
+# post-response means findings appear in NEXT turn briefing rather than
+# preventing the current shape, but the lesson still lands.
+try:
+    from divineos.core.operating_loop.principle_surfacer import surface_principles
+    p_notices = surface_principles(last_assistant_text)
+    if p_notices:
+        findings_log['principles'] = [
+            {
+                'action_class': n.action_class.value,
+                'trigger': n.trigger_phrase,
+                'principle': n.principle_summary,
+                'source': n.principle_source,
+            }
+            for n in p_notices
         ]
 except Exception:
     pass
