@@ -298,9 +298,23 @@ def _phase_consolidation(report: DreamReport) -> None:
 
 
 def _phase_pruning(report: DreamReport) -> None:
-    """Knowledge hygiene: health check + noise sweep + contradiction scan + curiosity decay."""
+    """Knowledge hygiene: health check + noise sweep + contradiction scan + curiosity decay.
+
+    Ablation toggle: ``DIVINEOS_DISABLE_SLEEP_CONSOLIDATION_PRUNING=1`` skips
+    all hygiene actions in this phase (health-check still runs as it is
+    read-only diagnostic). Used for ablation measurement: with toggle on,
+    the noise-sweep / contradiction-scan / curiosity-decay all skip, allowing
+    measurement of what each prune pass would have removed. Per
+    docs/mechanism-claims.md and prereg-8af86ea36827.
+    """
+    from divineos.core.ablation import is_disabled
     from divineos.core.knowledge.feedback import health_check
     from divineos.core.knowledge_maintenance import run_knowledge_hygiene
+
+    if is_disabled("sleep_consolidation_pruning"):
+        report.health_results = {"skipped_via_ablation_toggle": True}
+        report.hygiene_results = {"skipped_via_ablation_toggle": True}
+        return
 
     report.health_results = health_check()
     report.hygiene_results = run_knowledge_hygiene()

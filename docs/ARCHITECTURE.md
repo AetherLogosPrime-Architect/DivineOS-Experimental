@@ -353,6 +353,7 @@ src/divineos/
     self_grade.py              Self-grade + divergence — calibration test for session-quality honesty.
     tool_logbook.py            Tool logbook — separate event store for TOOL_CALL/TOOL_RESULT events.
     goal_auto_close.py         Auto-close goals from commit messages — closure-discipline structural fix.
+    ablation.py                Ablation toggle infrastructure.
     council_auto.py            Build-shape detector for council-auto-invocation.
     council_walks.py           Council-walk preservation pointer — bridge from the ledger to preserved
 
