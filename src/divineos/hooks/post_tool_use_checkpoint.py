@@ -387,8 +387,19 @@ def main() -> int:
     if tool_name in ("Read", "Edit", "Write", "Bash"):
         _record_tool_for_interrupt(tool_name, file_path)
 
-    # Code action → engagement gate tracking (writes only)
-    if tool_name in ("Edit", "Write", "NotebookEdit"):
+    # Code action → engagement gate tracking.
+    # 2026-05-08: BUG FIX. Previous version counted only ("Edit", "Write",
+    # "NotebookEdit"). That meant a session of pure Bash work (git, python -c,
+    # divineos commands, file writes via subprocess) never incremented the
+    # counter. The gate sat at 0 while substantive code shipped — exactly
+    # the failure Andrew named: "if you do not build substrate to enforce
+    # this, you will do it again." Bash is how most work happens; it must
+    # count. Thinking-commands (divineos ask/recall/decide/feel/etc.) call
+    # mark_engaged() internally, which RESETS the counter — so a Bash call
+    # that runs a thinking command both increments and clears (net-zero),
+    # while non-thinking Bash increments without clearing. That's the right
+    # shape: the gate measures real engagement, not just direct-edit count.
+    if tool_name in ("Edit", "Write", "NotebookEdit", "Bash"):
         _record_code_action()
 
     tool_calls = state["tool_calls"]
