@@ -352,6 +352,12 @@ divineos answer ID "answer"   # Resolve a question
 divineos commitment add "text"    # Record a commitment
 divineos commitment list          # Show pending commitments
 divineos commitment done "text"   # Mark commitment fulfilled
+divineos commitment fulfillment   # Pair commitments with outcomes
+divineos synchronicity            # Co-occurring filings across stores (Pillar VI)
+divineos pre-erasure              # Approach-signal capture (Pillar IX)
+divineos prereg file ...          # File a pre-registration
+divineos prereg list / overdue    # Browse / surface overdue reviews
+divineos prereg export            # Dump pre-regs to docs/pre_regs/<id>.md
 ```
 </details>
 
