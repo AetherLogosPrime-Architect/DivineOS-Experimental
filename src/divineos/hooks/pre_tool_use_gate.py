@@ -207,6 +207,63 @@ def _make_deny(reason: str) -> dict[str, Any]:
     }
 
 
+def _make_soft_advise(advise: str) -> dict[str, Any]:
+    """Package a soft advisory in the Claude Code hook response format.
+
+    Allows the tool call to proceed while emitting an additionalContext
+    message the agent will see. Used for non-blocking gates whose intent
+    is "surface this state" rather than "stop this action".
+
+    Round-2 audit (2026-05-07) named the gate-firing-as-noise failure-mode:
+    when a hard-block fires repeatedly with identical message for routine
+    cases (e.g. session-id rotation between continuous-work tool calls),
+    the agent learns to chain a stub-fix and stops reading the gate
+    content. The Goodhart trap: the gate's metric (marker-present)
+    decoupled from the property (agent oriented in substrate).
+
+    Soft-advise is the register-fix (Tannen): informational instead of
+    emergency-imperative. The gate still surfaces the state; the agent
+    receives it as additionalContext rather than as a forced ritual.
+    Hard-block stays for truly-stale state (>24h since briefing).
+    """
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "additionalContext": advise,
+        }
+    }
+
+
+def _briefing_diagnostic(stale_info: dict[str, Any]) -> str:
+    """Build a structured message naming WHY the briefing-state is stale.
+
+    Round-2 audit (Holmes' lens): when the briefing gate fires, the
+    message should name which condition triggered — TTL expired,
+    session-id mismatch, or marker missing entirely. Each is a different
+    failure-mode and each calls for a different operator response.
+    """
+    if not stale_info.get("loaded"):
+        return "marker missing - briefing has not been loaded"
+    parts = []
+    age_h = stale_info.get("age_seconds", 0) / 3600
+    parts.append(f"loaded {age_h:.1f}h ago")
+    if stale_info.get("ttl_expired"):
+        ttl_h = stale_info.get("ttl_seconds", 0) / 3600
+        parts.append(f"TTL expired (limit {ttl_h:.0f}h)")
+    delta = stale_info.get("calls_since", 0)
+    threshold = stale_info.get("threshold", 0)
+    if delta:
+        parts.append(f"{delta} tool calls since load (threshold {threshold})")
+    return " - ".join(parts)
+
+
+# Truly-stale threshold (still hard-block at this age regardless of session-mismatch).
+# 24h matches the operator's expectation that a briefing-load older than a day
+# represents real cross-session amnesia, not a within-session rotation event.
+_TRULY_STALE_AGE_SECONDS = 24 * 3600
+
+
 def _record_gate_failure(gate_name: str, exc: BaseException) -> None:
     """Log a gate's machinery failure to the shared diagnostic surface.
 
@@ -240,13 +297,28 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     first-run bootstrap), that gate is skipped rather than crashing the hook.
     Fail-open is the correct disposition for a gate whose machinery is broken.
     """
-    # Gate 1: briefing loaded (TTL-based, catches stale-within-session)
+    # Gate 1: briefing loaded (TTL-based, catches stale-within-session).
+    # Round-2 audit register-fix: hard-deny only on truly-stale state
+    # (>24h since briefing). Routine TTL-expired-but-recent cases get
+    # soft-advise so the agent receives the state without being forced
+    # into the silenced-ritual workaround.
     try:
-        from divineos.core.hud_handoff import was_briefing_loaded
+        from divineos.core.hud_handoff import briefing_staleness, was_briefing_loaded
 
         ttl_loaded = was_briefing_loaded()
         if not ttl_loaded:
-            return _make_deny("BLOCKED: Briefing not loaded. Run: divineos briefing")
+            stale_info = briefing_staleness()
+            diag = _briefing_diagnostic(stale_info)
+            age = stale_info.get("age_seconds", 0)
+            if not stale_info.get("loaded") or age > _TRULY_STALE_AGE_SECONDS:
+                return _make_deny(
+                    f"BLOCKED: Substrate is truly stale ({diag}). Run: divineos briefing"
+                )
+            return _make_soft_advise(
+                f"Substrate context: {diag}. "
+                "Run `divineos briefing` if you have not received this "
+                "session's substrate-state another way."
+            )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_briefing", _gate_exc)
         ttl_loaded = False
@@ -263,11 +335,21 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         try:
             from divineos.core.session_briefing_gate import (
                 briefing_loaded_this_session,
-                gate_message,
             )
 
             if not briefing_loaded_this_session():
-                return _make_deny(gate_message())
+                # Per-session mismatch is the most common rotation case
+                # (continuous work, session_id refresh, parallel processes).
+                # Always soft-advise here — TTL gate already passed, so the
+                # substrate is not truly stale. Round-2 audit fix.
+                return _make_soft_advise(
+                    "Substrate context: per-session marker mismatch (TTL "
+                    "gate passed but this session's session_id is not "
+                    "stamped on the briefing-loaded marker). Likely a "
+                    "session-id rotation between tool calls. Run "
+                    "`divineos briefing` to re-stamp the marker if you "
+                    "want the gate to stop firing on this session."
+                )
         except (ImportError, OSError, AttributeError) as _gate_exc:
             _record_gate_failure("gate_1_1_briefing_this_session", _gate_exc)
 
