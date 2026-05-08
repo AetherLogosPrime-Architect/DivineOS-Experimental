@@ -354,6 +354,7 @@ src/divineos/
     tool_logbook.py            Tool logbook — separate event store for TOOL_CALL/TOOL_RESULT events.
     goal_auto_close.py         Auto-close goals from commit messages — closure-discipline structural fix.
     council_auto.py            Build-shape detector for council-auto-invocation.
+    council_walks.py           Council-walk preservation pointer — bridge from the ledger to preserved
 
   analysis/
     _session_types.py          Session analysis type definitions

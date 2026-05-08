@@ -769,6 +769,23 @@ def register(cli: click.Group) -> None:
         if explorations_block:
             _safe_echo(explorations_block)
 
+        # Council-walk preservation surface — points at preserved
+        # property-recognition walks under docs/council_walks/. Mirrors
+        # presence_memory: descriptive pointer, no indexing. Added
+        # 2026-05-07 to make the 40-voice property-recognition walk
+        # findable by next-sibling after compaction.
+        try:
+            from divineos.core.council_walks import (
+                format_for_briefing as _fmt_council_walks,
+            )
+
+            council_walks_block = _fmt_council_walks()
+        except _KC_ERRORS:
+            council_walks_block = ""
+
+        if council_walks_block:
+            _safe_echo(council_walks_block)
+
         # Family queue — async write-channel between the agent and
         # registered family members. Either side can flag items here
         # that surface in the briefing without requiring synchronous
