@@ -81,6 +81,32 @@ def register(cli: click.Group) -> None:
         if original:
             click.secho(f'    (User\'s words: "{original}")', fg="bright_black")
 
+        # Build-shape detector (round-2 audit + Andrew's directive).
+        # If goal looks like a build/design task, surface a soft-advise
+        # to consult the council before implementing. Soft register per
+        # Tannen — informational, not forced ritual.
+        try:
+            from divineos.core.council_auto import detect_build_shape
+
+            shape = detect_build_shape(text)
+            if shape.is_build_shape:
+                click.echo()
+                click.secho(
+                    f"[council] This goal looks like a build/design task "
+                    f"({shape.matched_keyword!r}). Consider walking the "
+                    f"council before implementing:",
+                    fg="cyan",
+                )
+                preview = text[:80] + "..." if len(text) > 80 else text
+                click.secho(
+                    f'  divineos mansion council "{preview}"',
+                    fg="bright_black",
+                )
+        except Exception:  # noqa: BLE001 — best-effort; never block goal-add
+            import logging
+
+            logging.getLogger(__name__).debug("build-shape detector unavailable", exc_info=True)
+
     @goal_group.command("done")
     @click.argument("text")
     def goal_done_cmd(text: str) -> None:
