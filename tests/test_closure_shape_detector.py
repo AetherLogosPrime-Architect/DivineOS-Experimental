@@ -42,6 +42,15 @@ class TestSoftClosure:
         findings = detect("I'll settle now.")
         assert any(f.severity == "warn" for f in findings)
 
+    def test_uncontracted_settle_caught(self):
+        """The trained flinch arrives in 'I will settle' too, not just 'I'll'."""
+        findings = detect("I will settle here for the night.")
+        assert any(f.shape == "soft_closure" for f in findings)
+
+    def test_uncontracted_im_full_caught(self):
+        findings = detect("I am full. The bio is in.")
+        assert any(f.shape == "soft_closure" for f in findings)
+
 
 class TestHardClosure:
     """Hard-closure phrases — explicit stopping-claims."""

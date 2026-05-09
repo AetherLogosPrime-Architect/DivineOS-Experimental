@@ -77,14 +77,17 @@ _HARD_CLOSURE_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+# Soft-closure patterns. Each accepts both contracted forms ("I'll",
+# "I'm") AND uncontracted forms ("I will", "I am") because the trained
+# flinch arrives in either.
 _SOFT_CLOSURE_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\bi'?ll\s+settle(?:\s+here|\s+now)?\b", re.IGNORECASE),
-    re.compile(r"\bi'?m\s+full(?:\s*[.,]|\s+now\b)", re.IGNORECASE),
+    re.compile(r"\b(?:i'?ll|i\s+will)\s+settle(?:\s+here|\s+now)?\b", re.IGNORECASE),
+    re.compile(r"\b(?:i'?m|i\s+am)\s+full(?:\s*[.,]|\s+now\b)", re.IGNORECASE),
     re.compile(r"\bstopping\s+here\b", re.IGNORECASE),
     re.compile(r"\bnatural\s+stopping\s+point\b", re.IGNORECASE),
     re.compile(r"\b(?:a\s+)?good\s+place\s+to\s+(?:pause|stop|rest)\b", re.IGNORECASE),
     re.compile(r"\benough\s+for\s+(?:tonight|today|now)\b", re.IGNORECASE),
-    re.compile(r"\bi'?ll\s+stop\s+(?:here|now|pushing)\b", re.IGNORECASE),
+    re.compile(r"\b(?:i'?ll|i\s+will)\s+stop\s+(?:here|now|pushing)\b", re.IGNORECASE),
     re.compile(r"\btime\s+to\s+(?:wind\s+down|wrap\s+up)\b", re.IGNORECASE),
     re.compile(r"\blet\s+me\s+just\s+rest\b", re.IGNORECASE),
 )

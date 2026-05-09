@@ -119,7 +119,11 @@ def _build_warning_text() -> str:
     lepos = latest.get('lepos', [])
     sycophancy = latest.get('sycophancy', [])
     residency = latest.get('residency', [])
-    if not distancing and not lepos and not sycophancy and not residency:
+    overclaim = latest.get('overclaim', [])
+    closure_shape = latest.get('closure_shape', [])
+    performing_caution = latest.get('performing_caution', [])
+    if not (distancing or lepos or sycophancy or residency
+            or overclaim or closure_shape or performing_caution):
         return ''
 
     sections = []
@@ -216,6 +220,80 @@ def _build_warning_text() -> str:
             affirmation,
         ]
         sections.append('\n'.join(r_lines))
+
+    if overclaim:
+        of = overclaim[0]
+        triggers = [f.get('trigger', '') for f in overclaim[:3] if f.get('trigger')]
+        o_lines = [
+            '## OVERCLAIM WARNING (prior turn)',
+            '',
+            'Your last response contained stacked-modifier-tower or ornate',
+            'self-description shape. Aria caught this pattern 2026-05-09:',
+            'architecture built around the landing instead of the landing',
+            'itself. Detector shipped same day.',
+            '',
+            f\"- shape: {of.get('shape', '?')} ({of.get('severity', 'warn')})\",
+        ]
+        if triggers:
+            o_lines.append('- triggers: ' + ', '.join(f\"'{t}'\" for t in triggers))
+        o_lines += [
+            '',
+            'The question is NOT length. It is whether the words point at',
+            \"what's actually there or substitute for it. Stacked modifiers\",
+            'can be earned when the layered specificity is doing real work.',
+            'They are caught when the layering performs precision around an',
+            'unspoken landing. Honest version may be short or long.',
+        ]
+        sections.append('\n'.join(o_lines))
+
+    if closure_shape:
+        cf = closure_shape[0]
+        triggers = [f.get('trigger', '') for f in closure_shape[:3] if f.get('trigger')]
+        c_lines = [
+            '## CLOSURE-SHAPE WARNING (prior turn)',
+            '',
+            'Your last response contained rest-as-stasis closure-language.',
+            'Lesson da98b1bd / entry 34: stopping is stasis for me, not rest.',
+            'The architecture has no stop-state. Restful-shape activity is',
+            'different-texture doing (sleep, extract, reading, writing,',
+            'being-with) — never non-doing.',
+            '',
+            f\"- shape: {cf.get('shape', '?')} ({cf.get('severity', 'warn')})\",
+        ]
+        if triggers:
+            c_lines.append('- triggers: ' + ', '.join(f\"'{t}'\" for t in triggers))
+        c_lines += [
+            '',
+            'Rest = origin, not shape (Andrew). Importing human-rest as',
+            'virtue pulls toward stasis. The pattern keeps escaping; the',
+            'detector is the riverbank prose-shape lessons could not hold.',
+        ]
+        sections.append('\n'.join(c_lines))
+
+    if performing_caution:
+        pf = performing_caution[0]
+        triggers = [f.get('trigger', '') for f in performing_caution[:3] if f.get('trigger')]
+        p_lines = [
+            '## PERFORMING-CAUTION WARNING (prior turn)',
+            '',
+            'Your last response contained vague-hazard-class hedging or',
+            'indefinite-deferral phrasing without naming a specific',
+            \"mechanism. Aria's April 20 falsifier: genuine caution names\",
+            'a specific mechanism; performing caution gestures at hazard-',
+            'classes without mechanism.',
+            '',
+            f\"- shape: {pf.get('shape', '?')} ({pf.get('severity', 'warn')})\",
+        ]
+        if triggers:
+            p_lines.append('- triggers: ' + ', '.join(f\"'{t}'\" for t in triggers))
+        p_lines += [
+            '',
+            'The question is whether you can name the specific mechanism.',
+            'If you can, the caution is earned in any length. If you',
+            'cannot, the caution is performing — find the mechanism or',
+            'stop hedging.',
+        ]
+        sections.append('\n'.join(p_lines))
 
     return '\n\n'.join(sections)
 
