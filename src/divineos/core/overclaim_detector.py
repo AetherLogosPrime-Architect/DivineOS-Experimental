@@ -98,7 +98,6 @@ _ADJ_SUFFIXES = (
     "ent",
     "ary",
     "ory",
-    "ant",
     "ish",
 )
 

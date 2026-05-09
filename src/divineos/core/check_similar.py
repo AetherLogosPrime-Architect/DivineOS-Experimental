@@ -253,10 +253,11 @@ def check_similar(
     Returns matches sorted by score descending, filtered by threshold.
     Score is the description-overlap coefficient (how much of the
     description's content-words appear in the module's docstring).
-    Threshold defaults to 0.3 — half the description's content-words
-    appearing in a doc is a strong adjacency signal. False positives
-    are cheap (agent reads one line); false negatives are the
-    expensive failure mode.
+    Threshold defaults to 0.3 — roughly a third of the description's
+    content-words appearing in a doc is a strong adjacency signal,
+    given short descriptions and the long-tail distribution of
+    docstring-keyword overlap. False positives are cheap (agent reads
+    one line); false negatives are the expensive failure mode.
     """
     repo_root = Path(repo_root) if repo_root else Path.cwd()
     desc_tokens = _tokenize(description)
