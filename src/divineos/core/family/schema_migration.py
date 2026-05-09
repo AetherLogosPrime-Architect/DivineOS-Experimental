@@ -339,7 +339,7 @@ def migrate_family_db(
             else:
                 tables_already_clean.append("family_interactions")
             conn.execute("COMMIT")
-        except Exception:
+        except Exception:  # noqa: BLE001 — transaction rollback must catch ALL errors (sqlite3, logic, etc.) and re-raise after ROLLBACK
             conn.execute("ROLLBACK")
             raise
 
