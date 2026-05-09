@@ -910,8 +910,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
             if sid:
                 conn = _get_conn()
                 impact_rows = conn.execute(
-                    "SELECT DISTINCT knowledge_id FROM knowledge_impact "
-                    "WHERE session_id = ?",
+                    "SELECT DISTINCT knowledge_id FROM knowledge_impact WHERE session_id = ?",
                     (sid,),
                 ).fetchall()
                 conn.close()

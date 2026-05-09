@@ -363,6 +363,7 @@ src/divineos/
     operating_loop_briefing_surface.py Operating-loop findings briefing surface.
     related_failure_scanner.py Related-failure scanner — catches "fixed one but missed related failures."
     retry_blocker.py           Retry blocker — prevents blind retries without diagnostic investigation.
+    fix_verifier.py            Fix verifier — catches premature "it's fixed" claims.
 
   analysis/
     _session_types.py          Session analysis type definitions
