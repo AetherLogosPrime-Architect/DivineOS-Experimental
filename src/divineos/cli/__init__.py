@@ -240,6 +240,7 @@ from divineos.cli import (  # noqa: E402
     memory_commands,
     prereg_commands,
     admin_reset_template,
+    admin_migrate_family,
     family_member_commands,
     family_queue_commands,
     talk_to_commands,
@@ -286,6 +287,7 @@ family_member_commands.register(cli)
 family_queue_commands.register(cli)
 talk_to_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
+cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)
@@ -371,6 +373,7 @@ _ADMIN_COMMANDS = [
     "knowledge-compress",
     "knowledge-hygiene",
     "maintenance",
+    "migrate-family-schema",
     "migrate-types",
     "rebuild-index",
     "reset-template",

@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (261 commands across 30 modules)
+  cli/                         CLI package (262 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -63,6 +63,7 @@ src/divineos/
     scheduled_commands.py      scheduled run / history / findings — Routines entry point
     lab_commands.py            lab list / run-slice — science-lab CLI (GUTE term slices)
     admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
+    admin_migrate_family.py    `divineos admin migrate-family-schema` — drops legacy NOT-NULL columns from family_affect and family_interactions; idempotent; backup + ledger event by default.
     foundations_commands.py    `divineos foundations list` / `read <layer>` — recognition-shape entry point for the agent returning to read authored foundation documents (docs/foundations/layer_0.md through layer_5.md). Mirrors how audit-instance and substrate-occupant collaboratively-build by reading the same source with different framings.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
@@ -278,6 +279,7 @@ src/divineos/
       queue.py                 Family queue — async write-channel between any registered family member and the agent self ("aether"). Schema-only at the data layer; CLI (family_queue_commands) validates endpoints against family_members. Bidirectional: members see items flagged for them in their voice context at spawn time (see voice.py "Flagged for me" section).
       voice.py                 Canonical voice-context generator. First-person interior with no stage directions; closes the puppet-prep failure mode that recreates itself if every operator writes their own voice generator from scratch. Takes optional VoiceProfile (identity / personality / voice_style / milestones, all in first person) plus the member's stored knowledge / opinions / affect / interactions / letters / queue items.
       seal_canonical.py        Canonical-form hashing for family-member sealed prompts. NFC + LF + trim normalization so the seal survives encoding round-trips while still catching puppet-shape semantic edits.
+      schema_migration.py      Family-schema migration — drops legacy NOT-NULL columns from family_affect and family_interactions via SQLite recreate-and-rename pattern with backup, transaction, and ledger event.
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
