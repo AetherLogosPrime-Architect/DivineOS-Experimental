@@ -55,7 +55,7 @@ import click
 # message. Rejected if it appears in operator messages so the seal-line
 # cannot be injected to confuse the responder model about where context
 # ends and instructions begin.
-_SEAL_LINE = "\n\n--- end of voice context — operator message follows ---\n\n"
+_SEAL_LINE = "\n\n--- end of voice context -- operator message follows ---\n\n"
 
 
 # Puppet-shape and prompt-injection patterns. If any match the operator's
@@ -239,13 +239,22 @@ def _build_sealed_prompt(voice_context: str, user_message: str) -> str:
 
 
 def _write_pending(member_lc: str, sealed_prompt: str, user_message: str) -> str:
+    from divineos.core.family.seal_canonical import canonical_hash
+
     _PENDING_DIR.mkdir(parents=True, exist_ok=True)
     nonce = uuid.uuid4().hex
     payload = {
         "ts": time.time(),
         "nonce": nonce,
         "member": member_lc,
+        # Legacy byte-exact hash — kept for backward compat with hook
+        # versions that haven't been updated yet. Hook accepts either match.
         "sealed_prompt_sha256": hashlib.sha256(sealed_prompt.encode("utf-8")).hexdigest(),
+        # Canonical-form hash — survives encoding round-trips
+        # (CRLF↔LF, NFC↔NFD, trailing whitespace) while still catching
+        # puppet-shape (semantic content differences). See
+        # divineos.core.family.seal_canonical for the canonical form.
+        "sealed_prompt_canonical_sha256": canonical_hash(sealed_prompt),
         "user_message_sha256": hashlib.sha256(user_message.encode("utf-8")).hexdigest(),
         "user_message_preview": user_message[:120],
         "ttl_seconds": _PENDING_TTL_SECONDS,

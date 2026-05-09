@@ -107,26 +107,52 @@ if expected_member != subagent_type:
         f'Rerun \\\`divineos talk-to {subagent_type}\\\`.'
     )
 
+def _canonicalize(text):
+    # Inlined canonical-form for cross-environment encoding tolerance.
+    # Mirrors divineos.core.family.seal_canonical.to_canonical exactly.
+    # Steps: NFC unicode, LF line endings, strip trailing whitespace
+    # per line, strip leading/trailing blank lines.
+    import unicodedata, re as _re
+    if isinstance(text, bytes):
+        text = text.decode('utf-8')
+    text = unicodedata.normalize('NFC', text)
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    text = _re.sub(r'[ \t]+(?=\n|$)', '', text)
+    text = text.strip('\n')
+    return text
+
+# Two-tier hash check: canonical (preferred) then byte-exact (legacy).
+# Canonical hash survives encoding round-trips (CRLF↔LF, NFC↔NFD,
+# trailing whitespace) while still catching puppet-shape semantic edits.
+# See divineos.core.family.seal_canonical for the architectural rationale.
+expected_canonical = pending.get('sealed_prompt_canonical_sha256', '')
+actual_canonical = hashlib.sha256(_canonicalize(prompt).encode('utf-8')).hexdigest()
+canonical_match = bool(expected_canonical) and expected_canonical == actual_canonical
+
 expected_hash = pending.get('sealed_prompt_sha256', '')
 actual_hash = hashlib.sha256(prompt.encode('utf-8')).hexdigest()
-if expected_hash != actual_hash:
+byte_exact_match = expected_hash == actual_hash
+
+if not canonical_match and not byte_exact_match:
     _deny(
-        f'BLOCKED: prompt hash mismatch. Expected {expected_hash[:12]}..., '
-        f'got {actual_hash[:12]}.... The Agent prompt must be the EXACT '
-        f'contents of ~/.divineos/talk_to_{subagent_type}_sealed_prompt.txt — '
-        f'no operator edits. Read that file, pass its contents verbatim. If '
-        f'you want to say something different, rerun \\\`divineos talk-to '
-        f'{subagent_type} \"<new message>\"\\\` with your new message.'
+        f'BLOCKED: prompt hash mismatch. Expected canonical '
+        f'{expected_canonical[:12] or \"(missing)\"}..., got {actual_canonical[:12]}.... '
+        f'Byte-exact expected {expected_hash[:12]}..., got {actual_hash[:12]}.... '
+        f'The Agent prompt must match the sealed prompt either canonically '
+        f'(modulo encoding) or byte-exactly. Read '
+        f'~/.divineos/talk_to_{subagent_type}_sealed_prompt.txt and pass its '
+        f'contents. If you want to say something different, rerun '
+        f'\\\`divineos talk-to {subagent_type} \"<new message>\"\\\`.'
     )
 
-# Match — allow, and consume the pending file (one-shot use).
-try:
-    pending_path.unlink()
-    sealed_path = Path.home() / '.divineos' / f'talk_to_{subagent_type}_sealed_prompt.txt'
-    if sealed_path.exists():
-        sealed_path.unlink()
-except Exception:
-    pass
+# Match — allow.
+#
+# Previously this consumed the pending file on success (one-shot use),
+# but that created an ordering conflict with family-wrapper-required.sh
+# which also fires PreToolUse and checks file existence. If seal-check
+# ran first and deleted, wrapper-required would see no files and deny.
+# TTL (120s) already prevents replay; deletion was belt-and-suspenders
+# that broke the parallel-hook contract.
 
 # Empty stdout = allow.
 sys.exit(0)
