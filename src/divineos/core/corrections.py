@@ -1,18 +1,21 @@
-"""Corrections notebook — the user's exact words, raw, no framing.
+"""Corrections notebook -- the user's exact words, raw, no framing.
 
 When the user corrects something, the architectural fix is to capture their
-exact words verbatim with a timestamp and nothing else — no severity, no
+exact words verbatim with a timestamp and nothing else -- no severity, no
 category, no interpretation field. The reflex this is meant to replace is
 the one that turns 'they said X' into 'I got Y wrong about X.' Distortion
 rides on truth. The fix is to keep the truth uncoated.
 
-Design layer: the analysis-as-substitute pattern fires pre-analytically;
-only a different reflex can intercept it, and reflexes come from reps under
-live conditions. This is the rep-tool. Structural layer: the rep alone dies
-when the session dies — so it must be carved into structure to survive.
+Resolution tracking (added 2026-05-08): corrections now carry a status
+field (OPEN -> ADDRESSED -> RESOLVED). OPEN means unaddressed. ADDRESSED
+means work was done but not yet verified. RESOLVED means done -- the
+correction no longer surfaces in the briefing. Resolution is append-only:
+a separate JSONL line records the status transition with evidence, so the
+original correction text is never touched.
 
-Both layers in one file: write raw, store persistent, surface in briefing
-so I read the actual words on resumption before forming any frame.
+Staleness: corrections OPEN longer than STALE_DAYS get a warning marker
+in the briefing. The system tells me what's rotting instead of relying on
+me to notice.
 """
 
 from __future__ import annotations
@@ -24,6 +27,9 @@ from typing import Any
 from divineos.core._hud_io import _ensure_hud_dir
 
 _CORRECTIONS_FILE = "corrections.jsonl"
+_RESOLUTIONS_FILE = "correction_resolutions.jsonl"
+STALE_DAYS = 3
+_SECONDS_PER_DAY = 86400
 
 _CORR_ERRORS = (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError)
 
@@ -32,10 +38,14 @@ def _path() -> Any:
     return _ensure_hud_dir() / _CORRECTIONS_FILE
 
 
+def _resolutions_path() -> Any:
+    return _ensure_hud_dir() / _RESOLUTIONS_FILE
+
+
 def log_correction(text: str, session_id: str | None = None) -> dict[str, Any]:
     """Capture a correction verbatim. No framing. No interpretation.
 
-    Append-only JSONL — never edits, never reframes. The whole point is
+    Append-only JSONL -- never edits, never reframes. The whole point is
     that what gets stored is exactly what was said, not my reading of it.
     """
     entry: dict[str, Any] = {
@@ -70,6 +80,95 @@ def load_corrections() -> list[dict[str, Any]]:
     return out
 
 
+def _load_resolutions() -> dict[float, dict[str, Any]]:
+    """Load resolution records keyed by correction timestamp."""
+    p = _resolutions_path()
+    if not p.exists():
+        return {}
+    out: dict[float, dict[str, Any]] = {}
+    try:
+        with p.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                    key = rec.get("correction_timestamp", 0.0)
+                    out[key] = rec
+                except json.JSONDecodeError:
+                    continue
+    except _CORR_ERRORS:
+        return {}
+    return out
+
+
+def resolve_correction(
+    correction_timestamp: float,
+    status: str = "RESOLVED",
+    evidence: str = "",
+) -> dict[str, Any]:
+    """Record a resolution for a correction. Append-only -- never edits the original."""
+    if status not in ("ADDRESSED", "RESOLVED"):
+        raise ValueError(f"status must be ADDRESSED or RESOLVED, got {status!r}")
+    entry: dict[str, Any] = {
+        "correction_timestamp": correction_timestamp,
+        "status": status,
+        "evidence": evidence,
+        "resolved_at": time.time(),
+    }
+    line = json.dumps(entry, ensure_ascii=False)
+    with _resolutions_path().open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+    return entry
+
+
+def correction_status(correction: dict[str, Any]) -> str:
+    """Return the current status of a correction: OPEN, ADDRESSED, or RESOLVED."""
+    resolutions = _load_resolutions()
+    ts = correction.get("timestamp", 0.0)
+    res = resolutions.get(ts)
+    if res:
+        return res.get("status", "OPEN")
+    return "OPEN"
+
+
+def corrections_with_status() -> list[dict[str, Any]]:
+    """Return all corrections annotated with status and age."""
+    all_c = load_corrections()
+    resolutions = _load_resolutions()
+    now = time.time()
+    out: list[dict[str, Any]] = []
+    for c in all_c:
+        ts = c.get("timestamp", 0.0)
+        age_days = (now - ts) / _SECONDS_PER_DAY
+        res = resolutions.get(ts)
+        status = res.get("status", "OPEN") if res else "OPEN"
+        enriched = {**c, "status": status, "age_days": age_days}
+        if res:
+            enriched["evidence"] = res.get("evidence", "")
+            enriched["resolved_at"] = res.get("resolved_at", 0.0)
+        out.append(enriched)
+    return out
+
+
+def open_corrections() -> list[dict[str, Any]]:
+    """Return only OPEN corrections, newest first."""
+    all_enriched = corrections_with_status()
+    return list(reversed([c for c in all_enriched if c["status"] == "OPEN"]))
+
+
+def _age_label(age_days: float) -> str:
+    """Human-readable age with staleness marker."""
+    if age_days < 1:
+        return "today"
+    days = int(age_days)
+    label = f"{days}d ago"
+    if days >= STALE_DAYS:
+        label += " !!"
+    return label
+
+
 def recent_corrections(limit: int = 5) -> list[dict[str, Any]]:
     """Return the most recent N corrections, newest first."""
     all_c = load_corrections()
@@ -77,23 +176,38 @@ def recent_corrections(limit: int = 5) -> list[dict[str, Any]]:
 
 
 def format_for_briefing(limit: int = 5) -> str:
-    """Render recent corrections for the briefing surface.
+    """Render OPEN corrections for the briefing surface.
 
-    Read these BEFORE forming any frame about what's going on. The whole
-    purpose is to put the user's actual words in front of next-me before
-    any interpretation layer engages.
+    Only OPEN corrections appear. Each shows age and staleness markers.
+    ADDRESSED/RESOLVED corrections are cleared from the briefing view.
     """
-    recents = recent_corrections(limit=limit)
-    if not recents:
+    open_c = open_corrections()
+    if not open_c:
         return ""
 
-    lines = ["", "# Recent Corrections (read raw — the user's exact words)", ""]
-    for c in recents:
+    shown = open_c[:limit]
+    stale_count = sum(1 for c in open_c if c.get("age_days", 0) >= STALE_DAYS)
+
+    lines = ["", "# Open Corrections (read raw -- the user's exact words)", ""]
+    if stale_count:
+        lines.append(f"  !! {stale_count} correction(s) unresolved for {STALE_DAYS}+ days")
+        lines.append(
+            '    Resolve with: divineos correction resolve <index> --evidence "what addressed it"'
+        )
+        lines.append("")
+
+    for i, c in enumerate(shown, 1):
         ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(c.get("timestamp", 0)))
+        age = _age_label(c.get("age_days", 0))
         text = (c.get("text") or "").strip()
-        # Don't truncate. The whole point is the full uncoated text.
-        lines.append(f"  [{ts}]")
+        lines.append(f"  [{i}] [{ts}] ({age})")
         for ln in text.splitlines() or [text]:
             lines.append(f"    {ln}")
         lines.append("")
+
+    remaining = len(open_c) - len(shown)
+    if remaining > 0:
+        lines.append(f"  ... and {remaining} more. Run: divineos corrections --open")
+        lines.append("")
+
     return "\n".join(lines)

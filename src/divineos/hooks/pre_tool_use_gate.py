@@ -560,27 +560,33 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         _record_gate_failure("gate_4_engagement", _gate_exc)
 
     # Gate 5 removed 2026-04-21 (commit C of tiered-audit redesign).
-    #
-    # The previous wall-clock cadence gate blocked non-bypass commands when
-    # more than 3 days elapsed since the last filed audit_round. That gate
-    # was removed for two reasons:
-    #
-    # 1. Time is relative — the agent has no subjective duration between
-    #    turns, so measuring cadence in wall-clock days measures the
-    #    operator's calendar rather than the agent's drift exposure.
-    # 2. The previous metric was trivially gameable (file a stub round,
-    #    gate clears) AND over-strict (legitimate external review via chat
-    #    didn't count). Both failure modes at once.
-    #
-    # The replacement is informational: ``watchmen.drift_state`` surfaces
-    # operation counts (turns, code actions, rounds, open findings) in the
-    # briefing, and the operator decides whether an audit is warranted.
-    # Data as metric, not threshold as metric. Per council consultation
-    # consult-2760777ef7a3 → audit round round-96a6858fb5e6 (MEDIUM).
-    #
-    # If a narrow blocking variant is needed later (e.g., block when N+
-    # open HIGH findings accumulate), add it here as a new, specific gate
-    # rather than reviving the generic time-based block.
+    # See comment history for rationale. Replaced by informational
+    # drift_state surface in briefing.
+
+    # Gate 6: retry blocker (lesson x11, most repeated behavioral failure).
+    # Catches blind retries — same command re-invoked after failure without
+    # a diagnostic investigation step in between. Diagnostic commands
+    # (Read, Grep, git diff, divineos ask) clear the block automatically.
+    try:
+        from divineos.core.retry_blocker import (
+            check_retry,
+            is_diagnostic_command,
+            mark_investigated,
+        )
+
+        tool_name = (input_data or {}).get("tool_name", "")
+        tool_input = (input_data or {}).get("tool_input", {}) or {}
+
+        # If this IS a diagnostic command, mark all failures as investigated
+        if tool_name and is_diagnostic_command(tool_name, tool_input):
+            mark_investigated()
+        elif tool_name:
+            # Check if this is a blind retry
+            deny_msg = check_retry(tool_name, tool_input)
+            if deny_msg:
+                return _make_deny(deny_msg)
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_6_retry_blocker", _gate_exc)
 
     return None
 

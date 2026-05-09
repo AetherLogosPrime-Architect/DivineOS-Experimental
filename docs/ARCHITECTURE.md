@@ -358,6 +358,11 @@ src/divineos/
     council_walks.py           Council-walk preservation pointer — bridge from the ledger to preserved
     foundations_briefing_surface.py Foundations briefing surface — make my own articulation work findable
     council_auto.py            Build-shape detector for council-auto-invocation.
+    briefing_dashboard.py      Briefing dashboard -- routing table, not scroll.
+    lesson_dedup.py            Lesson deduplication — fuzzy matching to prevent duplicate lesson entries.
+    operating_loop_briefing_surface.py Operating-loop findings briefing surface.
+    related_failure_scanner.py Related-failure scanner — catches "fixed one but missed related failures."
+    retry_blocker.py           Retry blocker — prevents blind retries without diagnostic investigation.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -409,7 +414,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         5,964+ tests (real DB, minimal mocks)
+tests/                         6,025+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

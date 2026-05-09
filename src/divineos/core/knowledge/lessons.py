@@ -237,6 +237,47 @@ def record_lesson(category: str, description: str, session_id: str, agent: str =
 
             return cast("str", lesson_id)
 
+        # Fuzzy dedup: before creating a new lesson, check if an existing
+        # lesson describes the same behavioral pattern with different words.
+        # Catches "retried 2x" vs "retried 11x" vs "retried without investigating"
+        # being filed as separate lessons when they're the same failure.
+        try:
+            from divineos.core.lesson_dedup import find_duplicate
+
+            all_active = conn.execute(
+                "SELECT lesson_id, description, occurrences, sessions, status "
+                "FROM lesson_tracking WHERE status IN (?, ?, ?)",
+                (STATUS_ACTIVE, STATUS_IMPROVING, STATUS_DORMANT),
+            ).fetchall()
+            existing_lessons = [
+                {
+                    "lesson_id": r[0],
+                    "description": r[1],
+                    "occurrences": r[2],
+                    "sessions": r[3],
+                    "status": r[4],
+                }
+                for r in all_active
+            ]
+            fuzzy_match = find_duplicate(description, existing_lessons)
+            if fuzzy_match:
+                # Merge into the existing lesson instead of creating a duplicate
+                match_id = fuzzy_match["lesson_id"]
+                match_sessions = json.loads(fuzzy_match.get("sessions", "[]"))
+                match_occ = fuzzy_match.get("occurrences", 1)
+                is_new = session_id not in match_sessions
+                if is_new:
+                    match_sessions.append(session_id)
+                conn.execute(
+                    "UPDATE lesson_tracking SET occurrences = ?, last_seen = ?, "
+                    "sessions = ?, status = 'active' WHERE lesson_id = ?",
+                    (match_occ + (1 if is_new else 0), now, json.dumps(match_sessions), match_id),
+                )
+                conn.commit()
+                return cast("str", match_id)
+        except (ImportError, Exception):  # noqa: BLE001
+            pass  # Fuzzy dedup is best-effort; fall through to normal insert
+
         lesson_id = str(uuid.uuid4())
         content_hash = compute_hash(f"{category}:{description}")
         conn.execute(

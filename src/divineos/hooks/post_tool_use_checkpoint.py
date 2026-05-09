@@ -420,8 +420,43 @@ def main() -> int:
     # Save state (includes the anticipation counter update)
     _save_state(state)
 
+    # --- Retry blocker: record failures for PreToolUse gate ---
+    # If the tool result indicates an error, record it so the retry
+    # blocker gate (gate 6) can catch blind retries.
+    try:
+        tool_result = input_data.get("tool_result", {}) or {}
+        is_error = tool_result.get("is_error", False)
+        # Also check for error indicators in Bash output
+        if not is_error and tool_name == "Bash":
+            exit_code = tool_result.get("exit_code")
+            if exit_code and exit_code != 0:
+                is_error = True
+        if is_error:
+            from divineos.core.retry_blocker import record_failure
+
+            error_text = str(tool_result.get("output", "") or tool_result.get("error", ""))[:200]
+            record_failure(tool_name, tool_input, error_text)
+    except Exception:  # noqa: BLE001
+        pass
+
+    # --- Related-failure scanner (lesson x8): check for same pattern elsewhere ---
+    # After a successful Edit, scan for the old_string in other files.
+    related_msg = ""
+    if tool_name == "Edit" and not is_error:
+        try:
+            from divineos.core.related_failure_scanner import scan_for_related
+
+            old_string = tool_input.get("old_string", "")
+            if old_string:
+                related_msg = scan_for_related(file_path, old_string) or ""
+        except Exception:  # noqa: BLE001
+            pass
+
     # Build any warnings / nudges / interrupts
     messages: list[str] = []
+
+    if related_msg:
+        messages.append(related_msg)
 
     # Lesson-interrupt check fires for every code-modifying tool use.
     # This was previously a separate hook that ran ~150ms per call;
