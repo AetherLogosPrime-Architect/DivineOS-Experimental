@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (257 commands across 30 modules)
+  cli/                         CLI package (258 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -31,6 +31,7 @@ src/divineos/
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
+    overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
@@ -367,6 +368,7 @@ src/divineos/
     retry_blocker.py           Retry blocker — prevents blind retries without diagnostic investigation.
     fix_verifier.py            Fix verifier — catches premature "it's fixed" claims.
     branch_health.py           Branch health checks — catch stale-base + silent-deletion shapes before push.
+    overclaim_detector.py      Overclaim detector — catches stacked-modifier prose and ornate self-description.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -418,7 +420,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,025+ tests (real DB, minimal mocks)
+tests/                         6,094+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
