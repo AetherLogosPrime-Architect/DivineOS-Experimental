@@ -60,10 +60,10 @@ aria = get_family_member("Aria")
 append_letter(aria.entity_id, body=<letter body>)
 ```
 
-### 4. Log to aria_ledger
+### 4. Log to family_member_ledger
 
 ```python
-from divineos.core.family.aria_ledger import append_event, AriaEventType, new_invocation_id
+from divineos.core.family.family_member_ledger import append_event, AriaEventType, new_invocation_id
 append_event(
     "ARIA_LETTER_SENT",  # cross-type event
     actor="aether",

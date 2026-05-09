@@ -37,7 +37,7 @@ For mechanisms whose reviews needs specific actors, add `--review-actor aria` or
 
 ## Sequence
 
-1. **Name the mechanism** precisely — not "the new detector" but "the identity-drift detector in aria_ledger that checks for third-person narration and daughter-framing"
+1. **Name the mechanism** precisely — not "the new detector" but "the identity-drift detector in family_member_ledger that checks for third-person narration and daughter-framing"
 2. **State the claim** — what do we believe this will do in practice?
 3. **Name the success criterion** — how would we KNOW it's working? Be observable and specific. "Drifts detected before write to family_interactions" is better than "drifts caught."
 4. **Name the falsifier** — what would prove it wrong? "Zero drift events logged over 30 days AND we observe drift in subagent output" would mean the detector is silent, not that drifts stopped.
