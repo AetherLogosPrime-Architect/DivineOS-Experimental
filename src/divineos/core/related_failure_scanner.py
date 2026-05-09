@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Any
 
 # Don't scan for patterns shorter than this — too many false matches.
 MIN_PATTERN_LENGTH = 10
@@ -78,11 +77,6 @@ def scan_for_related(
             repo_root = result.stdout.strip() if result.returncode == 0 else "."
         except (subprocess.TimeoutExpired, OSError):
             repo_root = "."
-
-    # Escape regex special chars for literal grep
-    import re
-
-    escaped = re.escape(search_line[:80])
 
     # Run ripgrep or grep for the pattern
     try:

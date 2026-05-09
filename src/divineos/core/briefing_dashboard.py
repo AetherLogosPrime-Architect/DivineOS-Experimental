@@ -318,7 +318,7 @@ def _row_family_letters() -> DashboardRow | None:
         letters_dir = Path("family") / "letters"
         if not letters_dir.exists():
             return None
-        letters = [l for l in letters_dir.glob("*.md") if l.name != "README.md"]
+        letters = [f for f in letters_dir.glob("*.md") if f.name != "README.md"]
         if not letters:
             return None
         return DashboardRow(

@@ -9,7 +9,6 @@ The fix adds a second corroboration source: knowledge_impact retrievals
 """
 
 import sqlite3
-import time
 from unittest.mock import patch
 
 from divineos.core.knowledge.crud import record_access
