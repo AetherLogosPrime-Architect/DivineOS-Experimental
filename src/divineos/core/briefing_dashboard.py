@@ -15,9 +15,17 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import Any
 
 _SECONDS_PER_DAY = 86400
 _ERRORS = (Exception,)
+
+
+def _safe_get(obj: object, key: str, default: object = None) -> Any:
+    """Get attribute from dict or dataclass — handles both shapes."""
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
 
 
 @dataclass
@@ -104,13 +112,13 @@ def _row_preregs() -> DashboardRow | None:
         from divineos.core.pre_registrations.store import list_pre_registrations
 
         preregs = list_pre_registrations()
-        open_preregs = [p for p in preregs if p.get("outcome", "OPEN") == "OPEN"]
+        open_preregs = [p for p in preregs if _safe_get(p, "outcome", "OPEN") == "OPEN"]
         if not open_preregs:
             return None
         now = time.time()
         overdue = 0
         for p in open_preregs:
-            review_ts = p.get("review_date_ts", 0)
+            review_ts = float(_safe_get(p, "review_date_ts", 0) or 0)
             if review_ts and review_ts < now:
                 overdue += 1
         return DashboardRow(

@@ -129,7 +129,7 @@ def correction_status(correction: dict[str, Any]) -> str:
     ts = correction.get("timestamp", 0.0)
     res = resolutions.get(ts)
     if res:
-        return res.get("status", "OPEN")
+        return str(res.get("status", "OPEN"))
     return "OPEN"
 
 
