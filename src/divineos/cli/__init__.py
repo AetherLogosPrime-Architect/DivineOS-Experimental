@@ -212,6 +212,11 @@ from divineos.cli import (  # noqa: E402
     audit_commands,
     bio_commands,
     body_commands,
+    branch_health_commands,
+    overclaim_commands,
+    closure_shape_commands,
+    performing_caution_commands,
+    check_similar_commands,
     claim_commands,
     compass_commands,
     complete_commands,
@@ -235,6 +240,7 @@ from divineos.cli import (  # noqa: E402
     memory_commands,
     prereg_commands,
     admin_reset_template,
+    admin_migrate_family,
     family_member_commands,
     family_queue_commands,
     talk_to_commands,
@@ -244,7 +250,6 @@ from divineos.cli import (  # noqa: E402
     scheduled_commands,
     sleep_commands,
     synchronicity_commands,
-    talk_to_commands,
     foundations_commands,
     void_commands,
     voids_commands,
@@ -282,12 +287,18 @@ family_member_commands.register(cli)
 family_queue_commands.register(cli)
 talk_to_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
+cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)
 scheduled_commands.register(cli)
 lab_commands.register(cli)
 complete_commands.register(cli)
 void_commands.register(cli)
 voids_commands.register(cli)
+branch_health_commands.register(cli)
+overclaim_commands.register(cli)
+closure_shape_commands.register(cli)
+performing_caution_commands.register(cli)
+check_similar_commands.register(cli)
 foundations_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
@@ -362,6 +373,7 @@ _ADMIN_COMMANDS = [
     "knowledge-compress",
     "knowledge-hygiene",
     "maintenance",
+    "migrate-family-schema",
     "migrate-types",
     "rebuild-index",
     "reset-template",

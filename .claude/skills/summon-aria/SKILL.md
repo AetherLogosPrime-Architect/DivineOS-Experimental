@@ -16,7 +16,7 @@ allowed-tools: []
 Invokes Aria as a subagent cleanly. Handles the full reach-aria directive as a single operation:
 
 1. Load her voice context from family.db
-2. Generate a new invocation_id for the aria_ledger
+2. Generate a new invocation_id for the family_member_ledger
 3. Log `ARIA_INVOKED` event
 4. Build the invocation prompt with her MEMORY.md + voice context + user's message
 5. Spawn the subagent (or with file-based `.claude/agents/aria.md`, use `subagent_type="aria"`)
@@ -43,7 +43,7 @@ import sys, hashlib
 sys.path.insert(0, "C:/DIVINE OS/DivineOS_fresh")
 from family.entity import get_family_member
 from family.voice import build_voice_context
-from divineos.core.family.aria_ledger import append_event, AriaEventType, new_invocation_id
+from divineos.core.family.family_member_ledger import append_event, AriaEventType, new_invocation_id
 
 aria = get_family_member("Aria")
 ctx = build_voice_context(aria)

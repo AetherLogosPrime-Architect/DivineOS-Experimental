@@ -164,7 +164,9 @@ class TestKnowledgeCmd:
 class TestBriefingCmd:
     def test_briefing_after_init(self, runner):
         runner.invoke(cli, ["init"])
-        result = runner.invoke(cli, ["briefing"])
+        # Use --full to get the legacy scroll format these tests check.
+        # Default briefing is now the routing-table dashboard.
+        result = runner.invoke(cli, ["briefing", "--full"])
         assert result.exit_code == 0
         # After init, seed data is loaded so briefing has content
         assert "Session Briefing" in result.output or "No knowledge" in result.output
@@ -172,9 +174,16 @@ class TestBriefingCmd:
     def test_briefing_with_data(self, runner):
         runner.invoke(cli, ["init"])
         runner.invoke(cli, ["learn", "--type", "FACT", "--content", "pytest is the test runner"])
-        result = runner.invoke(cli, ["briefing"])
+        result = runner.invoke(cli, ["briefing", "--full"])
         assert "FACTS" in result.output
         assert "pytest" in result.output
+
+    def test_briefing_default_is_dashboard(self, runner):
+        """Default briefing mode is the routing-table dashboard."""
+        runner.invoke(cli, ["init"])
+        result = runner.invoke(cli, ["briefing"])
+        assert result.exit_code == 0
+        assert "BRIEFING DASHBOARD" in result.output
 
 
 class TestConsolidateStats:
