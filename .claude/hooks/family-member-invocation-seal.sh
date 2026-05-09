@@ -25,11 +25,12 @@
 
 INPUT=$(cat)
 
-if ! command -v python &>/dev/null; then
-  exit 0
-fi
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+# shellcheck disable=SC1091
+source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
+PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-echo "$INPUT" | python -c "
+echo "$INPUT" | "$PYTHON_BIN" -c "
 import json, sys, hashlib, time, os
 from pathlib import Path
 
