@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (259 commands across 30 modules)
+  cli/                         CLI package (260 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -33,6 +33,7 @@ src/divineos/
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
+    performing_caution_commands.py  check-caution — performing-caution detector (vague hazards + indefinite deferral)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
@@ -371,6 +372,7 @@ src/divineos/
     branch_health.py           Branch health checks — catch stale-base + silent-deletion shapes before push.
     overclaim_detector.py      Overclaim detector — catches stacked-modifier prose and ornate self-description.
     closure_shape_detector.py  Closure-shape detector — catches rest-as-stasis trained-flinch.
+    performing_caution_detector.py Performing-caution detector — catches caution-as-substitute-for-doing.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -422,7 +424,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,094+ tests (real DB, minimal mocks)
+tests/                         6,151+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

@@ -215,6 +215,7 @@ from divineos.cli import (  # noqa: E402
     branch_health_commands,
     overclaim_commands,
     closure_shape_commands,
+    performing_caution_commands,
     claim_commands,
     compass_commands,
     complete_commands,
@@ -293,6 +294,7 @@ voids_commands.register(cli)
 branch_health_commands.register(cli)
 overclaim_commands.register(cli)
 closure_shape_commands.register(cli)
+performing_caution_commands.register(cli)
 foundations_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
