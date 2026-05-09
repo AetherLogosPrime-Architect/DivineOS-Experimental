@@ -212,6 +212,7 @@ from divineos.cli import (  # noqa: E402
     audit_commands,
     bio_commands,
     body_commands,
+    branch_health_commands,
     claim_commands,
     compass_commands,
     complete_commands,
@@ -287,6 +288,7 @@ lab_commands.register(cli)
 complete_commands.register(cli)
 void_commands.register(cli)
 voids_commands.register(cli)
+branch_health_commands.register(cli)
 foundations_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)

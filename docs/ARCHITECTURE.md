@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (253 commands across 30 modules)
+  cli/                         CLI package (257 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -30,6 +30,7 @@ src/divineos/
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
+    branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
@@ -364,6 +365,7 @@ src/divineos/
     related_failure_scanner.py Related-failure scanner — catches "fixed one but missed related failures."
     retry_blocker.py           Retry blocker — prevents blind retries without diagnostic investigation.
     fix_verifier.py            Fix verifier — catches premature "it's fixed" claims.
+    branch_health.py           Branch health checks — catch stale-base + silent-deletion shapes before push.
 
   analysis/
     _session_types.py          Session analysis type definitions
