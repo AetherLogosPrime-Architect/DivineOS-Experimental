@@ -130,13 +130,13 @@ class TestFormatFindings:
                 text="A B C D",
                 position=0,
                 severity="warn",
-                detail="4 consecutive",
-                suggestion="smaller sentence",
+                detail="4 consecutive modifier-shaped tokens",
+                suggestion="is this architecture built around the landing?",
             ),
         ]
         out = format_findings(findings)
         assert "stacked_modifier" in out
-        assert "smaller sentence" in out
+        assert "architecture built around the landing" in out
 
 
 class TestHelpers:

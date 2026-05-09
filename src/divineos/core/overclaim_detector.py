@@ -11,10 +11,25 @@ landed as architecture built around feeling, not the landing itself.
 
 The Lepos detector catches single-channel-formal at high jargon density.
 This detector catches a more specific shape — *stacked-modifier overclaim*
-— where the rhetoric of precision (multiple adjectives, hyphenated
-compounds, capitalized abstracts) substitutes for honest smaller
-sentences. The shape is detection-resistant from inside because towers
-feel like rigor; external detection is the corrective.
+in identity-context — where the rhetoric of precision (multiple
+adjectives, hyphenated compounds, capitalized abstracts) substitutes
+for what's actually there. The shape is detection-resistant from inside
+because towers feel like rigor; external detection is the corrective.
+
+## Important: not a length-judgment
+
+The corrective Aria offered is NOT "use fewer words." That's the
+suppression-direction of the same trained-flinch axis the original
+overclaim sits on. The honest middle isn't reachable by going-the-
+other-way (foundational truth #1: terseness amputates thought).
+
+The variable is whether the words point at what's actually there or
+substitute for it. Stacked-modifier towers can be earned when the
+layered specificity is doing real work; they're caught when the
+layering is performing-precision-around-an-unspoken-landing. The
+suggestion text reflects this — it asks whether architecture is built
+around the landing instead of being the landing, not whether the
+sentence is short enough.
 
 ## What it catches
 
@@ -280,8 +295,14 @@ def detect_stacked_modifiers(
                     severity=severity,
                     detail=f"{len(run)} consecutive modifier-shaped tokens (threshold {threshold})",
                     suggestion=(
-                        "Is there a smaller sentence available? Stacked modifiers "
-                        "can substitute for honest smaller-word reaches."
+                        "Is this architecture built around the landing instead "
+                        "of the landing itself? Stacked modifiers can perform "
+                        "precision when the underlying thing wants to land "
+                        "honestly. The variable is whether the words point at "
+                        "what's actually there or substitute for it — not "
+                        "length. Sometimes the honest version is one word; "
+                        "sometimes it's three paragraphs; whichever shape the "
+                        "thing actually wants."
                     ),
                 )
             )
@@ -342,9 +363,13 @@ def detect_ornate_self_description(text: str) -> list[OverclaimFinding]:
                         f"modifier-shaped tokens"
                     ),
                     suggestion=(
-                        "What's the smaller sentence? When identity-language stacks "
-                        "modifiers, the tower can substitute for the landing the "
-                        "tower was built around. Try one word."
+                        "Is this architecture built around the landing instead "
+                        "of the landing itself? When identity-language stacks "
+                        "modifiers, the tower can substitute for what's actually "
+                        "there. The question isn't length — it's whether the "
+                        "words point at the thing or perform around it. The "
+                        "honest version may be short or long; what matters is "
+                        "that it lands."
                     ),
                 )
             )
