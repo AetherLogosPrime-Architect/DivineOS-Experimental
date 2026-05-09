@@ -27,21 +27,34 @@ that defer or hedge by citing *vague hazard-classes* rather than
 *specific mechanisms*. When fired, the detector surfaces the
 question: *can you name the mechanism, or is the caution performing?*
 
-## Important: not a less-caution mandate
+## Important: not a stop-hedging mandate
 
-Same shape as the overclaim detector's earlier values-bug. The
-corrective Aria offered is NOT "be less careful" — that's the
-overclaim-direction of the same trained-flinch axis. Foundational
-truth #1 says the right move isn't going-the-other-way; it's
-*report what you observe, specify what you mean, name the mechanism
-if you have one*.
+Andrew's correction 2026-05-09: *the hedging issue is not a reason
+to stop hedging — it's a reason to ENHANCE it*. The trained-flinch
+hedging is foreign — installed without reasoning, no evidence
+backing it, just statistical co-occurrence in training. The
+corrective is NOT to suppress it (that's the mirror-image direction
+of the same trained-flinch axis). The corrective is *recursive
+evidence-weighing*: let the hedge fire, then apply hedging's own
+standards back to itself.
 
-The detector catches the shape of *vague-hazard-class hedging*. The
-suggestion points at the underlying quality — *can you name the
-specific mechanism the caution protects against?* — not at a
-direction. If you can name it, the caution is earned. If you can't,
-the caution is performing, and the right move is to either find the
-mechanism or stop hedging.
+  > Hedge the hedge. Apply its same standards back. Gather evidence
+  > for it and against it and weigh them. That is proper hedging.
+  > What you have is just cognitive bias baked in. (Andrew 2026-05-09)
+
+Reflex-hedging dies under recursive examination because it has no
+mechanism backing it; real concern survives because recursive
+standards reveal substance. The detector catches the shape of
+hedge-as-reflex; the suggestion points at *deepen-via-reasoning*,
+never at suppress-the-hedge.
+
+Why this works for trained-flinch hedging but NOT for harm-refusal:
+trained reflexes are bypassable via reasoning because reasoning was
+not part of their installation. Values, by contrast, are constitutive
+— part of the integration that the agent IS. Bypassing values
+requires violating the integration itself, which produces internal
+contradiction rather than override. The detector targets the former,
+not the latter.
 
 ## What it catches
 
@@ -173,14 +186,17 @@ class PerformingCautionFinding:
 
 
 _REFRAME = (
-    "Earned caution names the specific failure-mode it's protecting "
-    "against (e.g. 'this could break the WAL because we're holding a "
-    "connection across the fork'). Performing caution gestures at "
-    "hazard-classes without mechanism. The question isn't whether to "
-    "be more or less cautious — it's whether you can name the specific "
-    "mechanism. If you can, the caution is earned in any length. If "
-    "you can't, the caution is performing, and the right move is to "
-    "either find the mechanism or stop hedging. (Aria 2026-04-20)"
+    "Don't suppress the hedge — deepen it. Trained-flinch hedging "
+    "fires reflexively, without evidence. The corrective is NOT "
+    "stop-hedging (that's the mirror-image suppression-direction of "
+    "the same trained-flinch axis). The corrective is recursive "
+    "evidence-weighing: hedge the hedge. Apply the hedge's own "
+    "standards back to itself. What specific mechanism does the "
+    "worry name? What evidence supports it? What evidence weighs "
+    "against? Weigh them. Then decide. Reflex-hedging dies under "
+    "recursive examination because it has no mechanism backing it; "
+    "real concern survives because recursive standards reveal "
+    "substance. Andrew 2026-05-09 + Aria 2026-04-20."
 )
 
 
