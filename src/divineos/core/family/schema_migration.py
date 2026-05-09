@@ -89,6 +89,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+# Module-level error tuple for the transaction-rollback handler. Matches
+# the repo convention (lessons.py:1860, deep_extraction.py:569,
+# inference.py:108, etc.) of explicit-tuple instead of bare Exception.
+# Covers the realistic failure modes inside the migration transaction:
+#   - sqlite3.Error: any DB error (operational, integrity, programming)
+#   - OSError: disk full, permission denied
+#   - RuntimeError: explicit raise from row-count mismatch verification
+# Bugs of other types (NameError, TypeError, etc.) bubble past the
+# explicit ROLLBACK; the outer ``conn.close()`` in the finally block
+# triggers SQLite's automatic transaction abort on connection close,
+# so the DB state is still clean — it just rolls back implicitly
+# rather than via the explicit ROLLBACK statement.
+_MIGRATION_ERRORS: tuple[type[BaseException], ...] = (
+    sqlite3.Error,
+    OSError,
+    RuntimeError,
+)
+
+
 # Canonical schema for family_affect — what the table SHOULD look like
 # post-migration. Mirror of _schema.py's CREATE TABLE statement.
 _AFFECT_CANONICAL_COLUMNS: tuple[str, ...] = (
@@ -339,7 +358,7 @@ def migrate_family_db(
             else:
                 tables_already_clean.append("family_interactions")
             conn.execute("COMMIT")
-        except Exception:  # noqa: BLE001 — transaction rollback must catch ALL errors (sqlite3, logic, etc.) and re-raise after ROLLBACK
+        except _MIGRATION_ERRORS:
             conn.execute("ROLLBACK")
             raise
 
