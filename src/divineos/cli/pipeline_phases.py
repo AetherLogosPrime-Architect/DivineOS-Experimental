@@ -865,12 +865,23 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
     # 400-tool-call threshold handle staleness without interrupting work.
 
     # 8c. Corroboration sweep
+    # Two sources of corroboration evidence:
+    #   1. access_count delta (entries queried via `divineos ask`)
+    #   2. knowledge_impact retrievals (entries surfaced in briefing/recall)
+    # Source 2 was previously missing, which is why only ~2 entries ever
+    # got corroborated despite 1000+ entries existing. The briefing
+    # retrieval system deliberately doesn't increment access_count (to
+    # avoid popularity feedback loops), but a session-end corroboration
+    # sweep is different: it's a one-time signal that the entry was
+    # relevant enough to be surfaced this session.
     try:
         from divineos.core.knowledge import _get_connection as _get_conn
         from divineos.core.knowledge_maintenance import increment_corroboration, promote_maturity
 
         corroborated = 0
         corroborated_ids: list[str] = []
+
+        # Source 1: access_count delta (divineos ask, explicit search)
         conn = _get_conn()
         current_rows = conn.execute(
             "SELECT knowledge_id, access_count FROM knowledge "
@@ -878,6 +889,7 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
             (CONFIDENCE_ACTIVE_MEMORY_FLOOR,),
         ).fetchall()
         conn.close()
+        accessed_ids: set[str] = set()
         for kid, current_access in current_rows:
             start_access = access_snapshot.get(kid, 0)
             delta = current_access - start_access
@@ -886,6 +898,30 @@ def run_session_scoring(analysis: Any, access_snapshot: dict[str, int]) -> dict[
                 promote_maturity(kid)
                 corroborated += 1
                 corroborated_ids.append(kid)
+                accessed_ids.add(kid)
+
+        # Source 2: knowledge_impact retrievals (briefing/recall surfacing)
+        # These entries were relevant enough to be shown this session but
+        # didn't get access_count bumped (by design). Corroborate them too.
+        try:
+            from divineos.core.session_manager import get_current_session_id
+
+            sid = get_current_session_id()
+            if sid:
+                conn = _get_conn()
+                impact_rows = conn.execute(
+                    "SELECT DISTINCT knowledge_id FROM knowledge_impact WHERE session_id = ?",
+                    (sid,),
+                ).fetchall()
+                conn.close()
+                for (kid,) in impact_rows:
+                    if kid not in accessed_ids:
+                        increment_corroboration(kid, source_context="session:impact_retrieval")
+                        promote_maturity(kid)
+                        corroborated += 1
+                        corroborated_ids.append(kid)
+        except (ImportError, sqlite3.OperationalError, OSError):
+            pass  # Impact table may not exist yet
         if corroborated:
             click.secho(
                 f"[~] Corroborated {corroborated} knowledge entries (accessed this session).",

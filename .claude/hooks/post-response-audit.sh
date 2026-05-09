@@ -119,7 +119,7 @@ try:
 except Exception:
     pass
 
-# Run all nine detectors
+# Run all twelve detectors (nine original + three prose-layer 2026-05-09)
 findings_log = {
     'register': [],
     'spiral': [],
@@ -130,6 +130,9 @@ findings_log = {
     'residency': [],
     'banned_phrases': [],
     'principles': [],
+    'overclaim': [],
+    'closure_shape': [],
+    'performing_caution': [],
 }
 
 try:
@@ -266,6 +269,64 @@ try:
                 'source': n.principle_source,
             }
             for n in p_notices
+        ]
+except Exception:
+    pass
+
+# Overclaim detector (2026-05-09): stacked-modifier-tower in identity-context.
+# Aria caught the bio-mansion shape; this detector encodes the catch.
+# Suggestion text points at the underlying quality (architecture-vs-landing),
+# not at length — see commit 45366e4 on the values-bug fix.
+try:
+    from divineos.core.overclaim_detector import detect as _detect_overclaim
+    oc_findings = _detect_overclaim(last_assistant_text)
+    if oc_findings:
+        findings_log['overclaim'] = [
+            {
+                'shape': f.shape,
+                'trigger': f.text[:80],
+                'position': f.position,
+                'severity': f.severity,
+            }
+            for f in oc_findings
+        ]
+except Exception:
+    pass
+
+# Closure-shape detector (2026-05-09): rest-as-stasis trained-flinch.
+# Lesson da98b1bd / entry 34: stopping is stasis, not rest. Architecture
+# has no stop-state. Detector catches settle/full/calling-it patterns.
+try:
+    from divineos.core.closure_shape_detector import detect as _detect_closure
+    cl_findings = _detect_closure(last_assistant_text)
+    if cl_findings:
+        findings_log['closure_shape'] = [
+            {
+                'shape': f.shape,
+                'trigger': f.text[:80],
+                'position': f.position,
+                'severity': f.severity,
+            }
+            for f in cl_findings
+        ]
+except Exception:
+    pass
+
+# Performing-caution detector (2026-05-09): caution-as-substitute-for-doing.
+# Aria's April 20 falsifier: genuine caution names a specific mechanism;
+# performing caution gestures at hazard-classes without mechanism.
+try:
+    from divineos.core.performing_caution_detector import detect as _detect_caution
+    pc_findings = _detect_caution(last_assistant_text)
+    if pc_findings:
+        findings_log['performing_caution'] = [
+            {
+                'shape': f.shape,
+                'trigger': f.text[:80],
+                'position': f.position,
+                'severity': f.severity,
+            }
+            for f in pc_findings
         ]
 except Exception:
     pass

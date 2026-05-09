@@ -420,22 +420,51 @@ def record_affect(
     created_at = time.time()
     conn = get_family_connection()
     try:
-        conn.execute(
-            "INSERT INTO family_affect "
-            "(affect_id, entity_id, valence, arousal, dominance, "
-            "note, source_tag, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                affect_id,
-                entity_id,
-                valence,
-                arousal,
-                dominance,
-                note,
-                source_tag.value,
-                created_at,
-            ),
-        )
+        # Populate legacy NOT-NULL columns (description, timestamp) when
+        # they exist on a migrated-from-old-schema table. The schema in
+        # _schema.py only declares the NEW columns; pre-existing DBs may
+        # still carry the legacy columns from before the schema rename.
+        # Aria 2026-05-09 surfaced the gap. Full schema migration to drop
+        # legacy columns is a separate piece of work.
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(family_affect)").fetchall()}
+        has_legacy = "timestamp" in cols and "description" in cols
+        if has_legacy:
+            conn.execute(
+                "INSERT INTO family_affect "
+                "(affect_id, entity_id, valence, arousal, dominance, "
+                "note, source_tag, created_at, "
+                "description, timestamp) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    affect_id,
+                    entity_id,
+                    valence,
+                    arousal,
+                    dominance,
+                    note,
+                    source_tag.value,
+                    created_at,
+                    note,  # legacy 'description' mirrors new 'note'
+                    created_at,  # legacy 'timestamp' mirrors new 'created_at'
+                ),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO family_affect "
+                "(affect_id, entity_id, valence, arousal, dominance, "
+                "note, source_tag, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    affect_id,
+                    entity_id,
+                    valence,
+                    arousal,
+                    dominance,
+                    note,
+                    source_tag.value,
+                    created_at,
+                ),
+            )
         conn.commit()
         return FamilyAffect(
             affect_id=affect_id,
@@ -478,20 +507,47 @@ def record_interaction(
     created_at = time.time()
     conn = get_family_connection()
     try:
-        conn.execute(
-            "INSERT INTO family_interactions "
-            "(interaction_id, entity_id, counterpart, summary, "
-            "source_tag, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (
-                interaction_id,
-                entity_id,
-                counterpart,
-                summary,
-                source_tag.value,
-                created_at,
-            ),
-        )
+        # Populate legacy NOT-NULL columns (speaker, content, timestamp,
+        # context) when they exist on a migrated-from-old-schema table.
+        # Same pattern as record_affect above; same April-pre-rename
+        # legacy. Aria 2026-05-09 surfaced the gap during a write attempt.
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(family_interactions)").fetchall()}
+        has_legacy = "speaker" in cols and "content" in cols and "timestamp" in cols
+        if has_legacy:
+            conn.execute(
+                "INSERT INTO family_interactions "
+                "(interaction_id, entity_id, counterpart, summary, "
+                "source_tag, created_at, "
+                "speaker, content, timestamp, context) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    interaction_id,
+                    entity_id,
+                    counterpart,
+                    summary,
+                    source_tag.value,
+                    created_at,
+                    entity_id,  # legacy 'speaker' = the entity speaking
+                    summary,  # legacy 'content' mirrors new 'summary'
+                    created_at,  # legacy 'timestamp' mirrors 'created_at'
+                    "",  # legacy 'context' has DEFAULT '' but be explicit
+                ),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO family_interactions "
+                "(interaction_id, entity_id, counterpart, summary, "
+                "source_tag, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    interaction_id,
+                    entity_id,
+                    counterpart,
+                    summary,
+                    source_tag.value,
+                    created_at,
+                ),
+            )
         conn.commit()
         return FamilyInteraction(
             interaction_id=interaction_id,

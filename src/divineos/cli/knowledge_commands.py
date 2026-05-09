@@ -434,12 +434,18 @@ def register(cli: click.Group) -> None:
             "lessons/compass/directives. Used by SessionStart hook."
         ),
     )
+    @click.option(
+        "--full",
+        is_flag=True,
+        help="Show the full briefing scroll (all surfaces). Default is the dashboard.",
+    )
     def briefing_cmd(
-        max_items: int, types: str, topic: str, deep: bool, layer: str, mini: bool
+        max_items: int, types: str, topic: str, deep: bool, layer: str, mini: bool, full: bool
     ) -> None:
         """Generate a session context briefing from stored knowledge.
 
-        Default shows urgent + active layers (focused, actionable).
+        Default shows the dashboard (routing table with counts, staleness,
+        and drill-down commands). Use --full for the complete scroll.
         Use --deep for the full picture including stable knowledge.
         Use --layer archive to see archived/resolved entries.
         Use --mini for the compact auto-inject version.
@@ -468,6 +474,34 @@ def register(cli: click.Group) -> None:
             mark_briefing_loaded()
         except _KC_ERRORS:
             pass
+
+        # Dashboard mode: default when no drill-down flags are set.
+        # Shows orientation prelude + routing table with counts/staleness/commands.
+        _wants_full = full or deep or bool(layer) or bool(types) or bool(topic)
+        if not _wants_full:
+            try:
+                from divineos.core.orientation_prelude import (
+                    format_for_briefing as _fmt_orientation,
+                )
+
+                orientation_block = _fmt_orientation()
+            except _KC_ERRORS:
+                orientation_block = ""
+            if orientation_block:
+                _safe_echo(orientation_block)
+
+            try:
+                from divineos.core.briefing_dashboard import render_dashboard
+
+                _safe_echo(render_dashboard())
+            except _KC_ERRORS as e:
+                logger.error("dashboard render failed: %s", e)
+                _safe_echo("[!] Dashboard failed. Falling back to full briefing.")
+                _wants_full = True
+
+        if not _wants_full:
+            return
+
         try:
             init_memory_tables()
             _wrapped_refresh_active_memory(importance_threshold=0.3)

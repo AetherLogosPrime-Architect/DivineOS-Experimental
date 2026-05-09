@@ -114,7 +114,9 @@ class TestBriefingIntegration:
         # init may warn but should not crash on a fresh dir
         assert init_res.exit_code == 0 or "already" in (init_res.output or "").lower()
 
-        result = runner.invoke(cli, ["briefing"])
+        # Use --full because the scaffold-invocations block lives in the
+        # legacy briefing scroll, not the new routing-table dashboard.
+        result = runner.invoke(cli, ["briefing", "--full"])
         # Briefing should run even if DB is nearly empty.
         assert result.exit_code == 0, f"briefing failed: {result.output}"
         assert "[scaffold invocations]" in result.output, (

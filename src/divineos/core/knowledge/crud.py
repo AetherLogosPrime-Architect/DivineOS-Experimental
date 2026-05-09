@@ -524,6 +524,15 @@ def record_access(knowledge_id: str) -> None:
     finally:
         conn.close()
 
+    # Trigger maturity promotion check after corroboration
+    if new_access % 5 == 0:
+        try:
+            from divineos.core.knowledge_maintenance import promote_maturity
+
+            promote_maturity(knowledge_id)
+        except (ImportError, OSError):
+            pass  # Promotion is best-effort
+
 
 def find_similar(content: str) -> list[dict[str, Any]]:
     """Find non-superseded knowledge with identical content (hash-based)."""
