@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (260 commands across 30 modules)
+  cli/                         CLI package (261 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -34,6 +34,7 @@ src/divineos/
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
     closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
     performing_caution_commands.py  check-caution — performing-caution detector (vague hazards + indefinite deferral)
+    check_similar_commands.py  check-similar — pre-build adjacency search (closes substrate-has-it-reader-doesnt-reach)
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
@@ -373,6 +374,7 @@ src/divineos/
     overclaim_detector.py      Overclaim detector — catches stacked-modifier prose and ornate self-description.
     closure_shape_detector.py  Closure-shape detector — catches rest-as-stasis trained-flinch.
     performing_caution_detector.py Performing-caution detector — catches caution-as-substitute-for-doing.
+    check_similar.py           Check-similar pre-build searcher — closes the substrate-has-it-reader-doesnt-reach pattern.
 
   analysis/
     _session_types.py          Session analysis type definitions
