@@ -10,10 +10,27 @@ from divineos.core.retry_blocker import (
     _tracker_path,
     check_retry,
     clear_all,
+    has_recent_failures,
     is_diagnostic_command,
     mark_investigated,
     record_failure,
 )
+
+
+class TestHasRecentFailures:
+    def test_empty_tracker(self):
+        clear_all()
+        assert has_recent_failures() is False
+
+    def test_with_failure(self):
+        clear_all()
+        record_failure("Bash", {"command": "pytest"}, "ImportError: ...")
+        assert has_recent_failures() is True
+
+    def test_after_clear(self):
+        record_failure("Bash", {"command": "pytest"}, "err")
+        clear_all()
+        assert has_recent_failures() is False
 
 
 @pytest.fixture(autouse=True)

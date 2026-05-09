@@ -325,6 +325,32 @@ def _check_lesson_interrupt(tool_name: str, tool_input: dict[str, Any]) -> str:
         return ""
 
 
+def _record_post_tool_failure(stage: str, exc: BaseException) -> None:
+    """Log a post-tool-use stage's machinery failure to the diagnostic surface.
+
+    Mirrors PreToolUse's ``_record_gate_failure``. The PostToolUse hook
+    intentionally swallows broad exceptions so a broken sub-stage can't
+    take down the whole hook — but silent failure is its own anti-pattern
+    (Aletheia round-10 audit, observation O2). This helper records the
+    failure so the next briefing can surface it.
+
+    Never raises; the diagnostic helper itself catches everything.
+    """
+    try:
+        from divineos.core.failure_diagnostics import record_failure
+
+        record_failure(
+            "post_tool_stage",
+            {
+                "stage": stage,
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:200],
+            },
+        )
+    except Exception:  # noqa: BLE001 — diagnostic helper is last-resort, never amplify failure
+        pass
+
+
 def _run_anticipation(tool_name: str, file_path: str, state: dict[str, Any]) -> str:
     """Run pattern-anticipation on file-edit context. Throttled to every
     Nth edit (_ANTICIPATION_THROTTLE) to avoid repeat noise. Returns
@@ -436,8 +462,8 @@ def main() -> int:
 
             error_text = str(tool_result.get("output", "") or tool_result.get("error", ""))[:200]
             record_failure(tool_name, tool_input, error_text)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _post_exc:  # noqa: BLE001
+        _record_post_tool_failure("retry_blocker_record", _post_exc)
 
     # --- Fix verifier (lesson x4): track fix attempts and verification ---
     # If a failure was recently recorded and now an Edit succeeds, mark
@@ -456,18 +482,17 @@ def main() -> int:
             clear_verification()
         elif tool_name == "Edit" and not is_error:
             # Check if there's a recent failure — this Edit is likely a fix
-            from divineos.core.retry_blocker import _load_tracker
+            from divineos.core.retry_blocker import has_recent_failures
 
-            tracker = _load_tracker()
-            if tracker:
+            if has_recent_failures():
                 mark_fix_attempted(file_path)
         else:
             # Check if agent is moving on without verifying
             advisory = check_verification_needed(tool_name)
             if advisory:
                 fix_verify_msg = advisory
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as _post_exc:  # noqa: BLE001
+        _record_post_tool_failure("fix_verifier", _post_exc)
 
     # --- Related-failure scanner (lesson x8): check for same pattern elsewhere ---
     # After a successful Edit, scan for the old_string in other files.
@@ -479,8 +504,8 @@ def main() -> int:
             old_string = tool_input.get("old_string", "")
             if old_string:
                 related_msg = scan_for_related(file_path, old_string) or ""
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as _post_exc:  # noqa: BLE001
+            _record_post_tool_failure("related_failure_scanner", _post_exc)
 
     # Build any warnings / nudges / interrupts
     messages: list[str] = []

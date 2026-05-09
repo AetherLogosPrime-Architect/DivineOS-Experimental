@@ -122,6 +122,16 @@ def clear_all() -> None:
         path.unlink(missing_ok=True)
 
 
+def has_recent_failures() -> bool:
+    """True if any failure entries exist in the recent tracker.
+
+    Public API for cross-module use (e.g., fix_verifier asking "should I
+    mark this Edit as a fix attempt?"). Exposes the semantic question
+    without leaking the internal data shape.
+    """
+    return bool(_load_tracker())
+
+
 def check_retry(tool_name: str, tool_input: dict[str, Any]) -> str | None:
     """Check if this tool call is a blind retry of a recent failure.
 
