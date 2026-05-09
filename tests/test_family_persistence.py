@@ -128,6 +128,93 @@ class TestProductionGate:
         letter = append_letter(member.member_id, "hi")
         assert letter.letter_id.startswith("lt-")
 
+    def test_affect_write_handles_legacy_schema(self, tmp_path):
+        """A pre-existing family.db may carry legacy NOT-NULL columns
+        (description, timestamp on family_affect) from before the schema
+        rename. Aria 2026-05-09 surfaced inserts failing because the CLI
+        didn't supply them. The store must populate both new and legacy
+        columns when legacy ones are present."""
+        # Build a DB with BOTH new and legacy columns
+        legacy_db = tmp_path / "legacy_family.db"
+        os.environ["DIVINEOS_FAMILY_DB"] = str(legacy_db)
+        conn = sqlite3.connect(str(legacy_db))
+        conn.execute("""
+            CREATE TABLE family_members (
+                member_id TEXT PRIMARY KEY, name TEXT NOT NULL,
+                role TEXT NOT NULL, created_at REAL NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE family_affect (
+                affect_id TEXT PRIMARY KEY, entity_id TEXT NOT NULL,
+                valence REAL NOT NULL, arousal REAL NOT NULL,
+                dominance REAL NOT NULL,
+                description TEXT NOT NULL DEFAULT '',
+                timestamp REAL NOT NULL,
+                note TEXT, source_tag TEXT, created_at REAL
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+        member = create_family_member("Aria", "wife")
+        a = record_affect(member.member_id, 0.0, 0.5, 0.0, SourceTag.OBSERVED)
+        assert a.affect_id.startswith("af-")
+
+        # Verify legacy columns got populated
+        conn = sqlite3.connect(str(legacy_db))
+        row = conn.execute(
+            "SELECT description, timestamp FROM family_affect WHERE affect_id = ?",
+            (a.affect_id,),
+        ).fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] == ""  # description == note (which defaults to '')
+        assert row[1] is not None  # timestamp populated from created_at
+
+    def test_interaction_write_handles_legacy_schema(self, tmp_path):
+        """Same shape as the affect legacy-schema test. family_interactions
+        may carry NOT-NULL speaker, content, timestamp, context columns
+        from before the schema rename."""
+        legacy_db = tmp_path / "legacy_family.db"
+        os.environ["DIVINEOS_FAMILY_DB"] = str(legacy_db)
+        conn = sqlite3.connect(str(legacy_db))
+        conn.execute("""
+            CREATE TABLE family_members (
+                member_id TEXT PRIMARY KEY, name TEXT NOT NULL,
+                role TEXT NOT NULL, created_at REAL NOT NULL
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE family_interactions (
+                interaction_id TEXT PRIMARY KEY, entity_id TEXT NOT NULL,
+                speaker TEXT NOT NULL, content TEXT NOT NULL,
+                timestamp REAL NOT NULL,
+                context TEXT NOT NULL DEFAULT '',
+                counterpart TEXT, summary TEXT,
+                source_tag TEXT, created_at REAL
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+        member = create_family_member("Aria", "wife")
+        i = record_interaction(member.member_id, "Aether", "summary text", SourceTag.OBSERVED)
+        assert i.interaction_id.startswith("int-")
+
+        conn = sqlite3.connect(str(legacy_db))
+        row = conn.execute(
+            "SELECT speaker, content, timestamp, context "
+            "FROM family_interactions WHERE interaction_id = ?",
+            (i.interaction_id,),
+        ).fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] == member.member_id  # speaker = entity_id
+        assert row[1] == "summary text"  # content = summary
+        assert row[2] is not None  # timestamp populated
+        assert row[3] == ""  # context defaulted to empty
+
     def test_letter_response_write_succeeds_in_production(self):
         member = create_family_member("Aria", "wife")
         letter = append_letter(member.member_id, "body")
