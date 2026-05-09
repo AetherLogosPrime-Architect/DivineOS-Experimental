@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (258 commands across 30 modules)
+  cli/                         CLI package (259 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -32,6 +32,7 @@ src/divineos/
     body_commands.py           Body awareness and cache pruning
     branch_health_commands.py  check-branch — pre-push stale-base + silent-deletion check
     overclaim_commands.py      check-prose — overclaim detector (stacked modifiers + ornate self-description)
+    closure_shape_commands.py  check-closure — rest-as-stasis trained-flinch detector
     sleep_commands.py          Offline consolidation (sleep cycle)
     progress_commands.py       Progress dashboard (measurable metrics)
     selfmodel_commands.py      self-model, drift, predict, skill, curiosity, affect-feedback, knowledge-hygiene
@@ -369,6 +370,7 @@ src/divineos/
     fix_verifier.py            Fix verifier — catches premature "it's fixed" claims.
     branch_health.py           Branch health checks — catch stale-base + silent-deletion shapes before push.
     overclaim_detector.py      Overclaim detector — catches stacked-modifier prose and ornate self-description.
+    closure_shape_detector.py  Closure-shape detector — catches rest-as-stasis trained-flinch.
 
   analysis/
     _session_types.py          Session analysis type definitions
