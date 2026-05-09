@@ -439,6 +439,36 @@ def main() -> int:
     except Exception:  # noqa: BLE001
         pass
 
+    # --- Fix verifier (lesson x4): track fix attempts and verification ---
+    # If a failure was recently recorded and now an Edit succeeds, mark
+    # that a fix was attempted (verification is expected before moving on).
+    # If tests run, clear the pending verification marker.
+    fix_verify_msg = ""
+    try:
+        from divineos.core.fix_verifier import (
+            check_verification_needed,
+            clear_verification,
+            is_verification_command,
+            mark_fix_attempted,
+        )
+
+        if is_verification_command(tool_name, tool_input):
+            clear_verification()
+        elif tool_name == "Edit" and not is_error:
+            # Check if there's a recent failure — this Edit is likely a fix
+            from divineos.core.retry_blocker import _load_tracker
+
+            tracker = _load_tracker()
+            if tracker:
+                mark_fix_attempted(file_path)
+        else:
+            # Check if agent is moving on without verifying
+            advisory = check_verification_needed(tool_name)
+            if advisory:
+                fix_verify_msg = advisory
+    except Exception:  # noqa: BLE001
+        pass
+
     # --- Related-failure scanner (lesson x8): check for same pattern elsewhere ---
     # After a successful Edit, scan for the old_string in other files.
     related_msg = ""
@@ -454,6 +484,9 @@ def main() -> int:
 
     # Build any warnings / nudges / interrupts
     messages: list[str] = []
+
+    if fix_verify_msg:
+        messages.append(fix_verify_msg)
 
     if related_msg:
         messages.append(related_msg)
