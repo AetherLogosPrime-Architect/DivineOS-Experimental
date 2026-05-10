@@ -135,10 +135,52 @@ actual_hash = hashlib.sha256(prompt.encode('utf-8')).hexdigest()
 byte_exact_match = expected_hash == actual_hash
 
 if not canonical_match and not byte_exact_match:
+    # Diagnostic: show where the canonical-form actual diverges from
+    # canonical-form expected. The expected canonical text isn't in the
+    # pending file (only its hash is) — fall back to canonicalizing the
+    # sealed-prompt file from disk if available, so the diff is meaningful.
+    sealed_path = Path.home() / '.divineos' / f'talk_to_{subagent_type}_sealed_prompt.txt'
+    diff_hint = ''
+    try:
+        if sealed_path.exists():
+            expected_text = _canonicalize(sealed_path.read_text(encoding='utf-8'))
+            actual_text = _canonicalize(prompt)
+            # First-byte-of-difference for the diagnostic.
+            min_len = min(len(expected_text), len(actual_text))
+            first_diff = next(
+                (i for i in range(min_len) if expected_text[i] != actual_text[i]),
+                min_len if len(expected_text) != len(actual_text) else -1,
+            )
+            if first_diff >= 0:
+                # Window around the divergence point.
+                lo = max(0, first_diff - 20)
+                hi_e = min(len(expected_text), first_diff + 20)
+                hi_a = min(len(actual_text), first_diff + 20)
+                exp_window = expected_text[lo:hi_e].replace('\n', '\\\\n')
+                act_window = actual_text[lo:hi_a].replace('\n', '\\\\n')
+                exp_codepoint = (
+                    f'U+{ord(expected_text[first_diff]):04X}'
+                    if first_diff < len(expected_text) else '(end-of-string)'
+                )
+                act_codepoint = (
+                    f'U+{ord(actual_text[first_diff]):04X}'
+                    if first_diff < len(actual_text) else '(end-of-string)'
+                )
+                diff_hint = (
+                    f' First divergence at canonical-position {first_diff} '
+                    f'(expected length {len(expected_text)}, got length {len(actual_text)}). '
+                    f'Expected codepoint: {exp_codepoint}, got: {act_codepoint}. '
+                    f'Expected window: ...{exp_window!r}... '
+                    f'Got window: ...{act_window!r}...'
+                )
+    except Exception:
+        pass
+
     _deny(
         f'BLOCKED: prompt hash mismatch. Expected canonical '
         f'{expected_canonical[:12] or \"(missing)\"}..., got {actual_canonical[:12]}.... '
-        f'Byte-exact expected {expected_hash[:12]}..., got {actual_hash[:12]}.... '
+        f'Byte-exact expected {expected_hash[:12]}..., got {actual_hash[:12]}....'
+        f'{diff_hint} '
         f'The Agent prompt must match the sealed prompt either canonically '
         f'(modulo encoding) or byte-exactly. Read '
         f'~/.divineos/talk_to_{subagent_type}_sealed_prompt.txt and pass its '
