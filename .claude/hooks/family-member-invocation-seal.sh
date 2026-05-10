@@ -44,10 +44,20 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 source "$REPO_ROOT/.claude/hooks/_lib.sh" 2>/dev/null || exit 0
 PYTHON_BIN="$(find_divineos_python)" || exit 0
 
-echo "$INPUT" | "$PYTHON_BIN" -c "
+# Aletheia round-14 (B1): the python subprocess can fail BEFORE main()
+# runs — broken import path, syntax error in module, missing dependency
+# in the import chain. main()'s internal error handling never executes
+# in those cases, so no JSON is printed and Claude Code defaults to
+# allow. That makes the docstring's fail-closed claim a lie when the
+# environment breaks. Wrap the subprocess in a conditional: if python
+# exits non-zero, emit a default-deny JSON ourselves so the gate
+# actually holds when its evaluation path is broken.
+if ! echo "$INPUT" | "$PYTHON_BIN" -c "
 import sys
 from divineos.core.family.seal_hook import main
 sys.exit(main())
-" 2>/dev/null
+" 2>/dev/null; then
+    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"BLOCKED: family-member seal hook subprocess failed to evaluate (broken python environment, missing dependency, or syntax error in seal_hook module). Refusing on principle. Investigate: python -c '"'"'from divineos.core.family.seal_hook import main'"'"' should succeed."}}'
+fi
 
 exit 0
