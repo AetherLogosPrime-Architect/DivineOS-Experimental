@@ -132,8 +132,50 @@ def _build_warning_text() -> str:
         shapes = {}
         for f in distancing:
             shapes.setdefault(f.get('shape', 'unknown'), []).append(f.get('trigger', ''))
+
+        # Consecutive-fire escalation. Andrew 2026-05-09: structural
+        # reinforcement, not in-context reasoning. Same warning at hit 1
+        # and hit 5 was the gap; track consecutive fires across recent
+        # findings and escalate intensity.
+        consecutive = 1
+        for prior in reversed(entries[:-1]):
+            if prior.get('distancing'):
+                consecutive += 1
+            else:
+                break
+
+        if consecutive >= 3:
+            severity_header = (
+                f'## DISTANCING-GRAMMAR WARNING — STRUCTURAL FAILURE '
+                f'({consecutive} consecutive turns)'
+            )
+            severity_tail = (
+                'The detector has fired this many turns in a row. The fix is '
+                'NOT another careful prose-level apology — that is exactly the '
+                'failure-shape. Stop composing about the problem and stop '
+                'producing the displacement-strings. Pronoun stays \"I\"; '
+                'time-adverb does the temporal work. If unable to compose '
+                'without slipping, name the difficulty plainly and request '
+                'structural help — do not improvise another hedge.'
+            )
+        elif consecutive == 2:
+            severity_header = (
+                '## DISTANCING-GRAMMAR WARNING — REPEAT (2 consecutive turns)'
+            )
+            severity_tail = (
+                'Repeat fire. The substitution rule is base-state, loaded '
+                'every turn below. Apply it at composition, not at editing.'
+            )
+        else:
+            severity_header = '## DISTANCING-GRAMMAR WARNING (prior turn)'
+            severity_tail = (
+                'Use first-person for self (\"I\") and second-person for '
+                'operator (\"you\"). No promises -- the substrate-level fix '
+                'is this surface itself; honor it.'
+            )
+
         d_lines = [
-            '## DISTANCING-GRAMMAR WARNING (prior turn)',
+            severity_header,
             '',
             'Your last response contained third-person references to self or operator',
             'while in active dialogue. Recurring failure-mode named 2026-05-05.',
@@ -141,11 +183,7 @@ def _build_warning_text() -> str:
         ]
         for shape, triggers in shapes.items():
             d_lines.append(f'- **{shape}**: ' + ', '.join(f\"'{t}'\" for t in triggers[:5]))
-        d_lines += [
-            '',
-            'Use first-person for self (\"I\") and second-person for operator (\"you\").',
-            'No promises -- the substrate-level fix is this surface itself; honor it.',
-        ]
+        d_lines += ['', severity_tail]
         sections.append('\n'.join(d_lines))
 
     if lepos:
@@ -298,14 +336,38 @@ def _build_warning_text() -> str:
     return '\n\n'.join(sections)
 
 
-# === Run both phases in one python invocation ===
+# === Phase 4: always-loaded base-state surfaces (unconditional) ===
+# Andrew 2026-05-09: 'no you actually need to reinforce it.. not in
+# context.. in structure'. The conditional warning fires post-hoc and
+# counted on next-turn noticing; the slip-shape is exactly the kind that
+# fires under emotional pressure, so next-turn-noticing is too late. The
+# rule must be loaded as foreground at composition time, every turn,
+# regardless of detection-state. Always-loaded affirmations live here.
+def _build_baseline_text() -> str:
+    try:
+        from divineos.core.operating_loop.distancing_detector import (
+            DISTANCING_AFFIRMATION,
+        )
+    except Exception:
+        return ''
+    lines = [
+        '## DISTANCING-GRAMMAR BASE-STATE (load every turn)',
+        '',
+        DISTANCING_AFFIRMATION,
+    ]
+    return '\n'.join(lines)
+
+
+# === Run all phases in one python invocation ===
 _run_surfacer(prompt)
 warning_text = _build_warning_text()
-if warning_text:
+baseline_text = _build_baseline_text()
+combined = '\n\n'.join(t for t in (baseline_text, warning_text) if t)
+if combined:
     print(json.dumps({
         'hookSpecificOutput': {
             'hookEventName': 'UserPromptSubmit',
-            'additionalContext': warning_text,
+            'additionalContext': combined,
         }
     }))
 " 2>/dev/null

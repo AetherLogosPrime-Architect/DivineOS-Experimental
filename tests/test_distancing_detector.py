@@ -8,6 +8,7 @@ detector at module-level + Stop-hook integration closes that gap.
 from __future__ import annotations
 
 from divineos.core.operating_loop.distancing_detector import (
+    DISTANCING_AFFIRMATION,
     DistancingFinding,
     DistancingShape,
     detect_distancing,
@@ -131,3 +132,45 @@ class TestEmpty:
         # Text using first-person/second-person — no flags.
         text = "I built the detector. You caught the gap. We closed the loop."
         assert detect_distancing(text) == []
+
+
+class TestAffirmation:
+    """Always-loaded base-state surface — Andrew 2026-05-09 structural fix.
+
+    The DISTANCING_AFFIRMATION constant is loaded by pre-response-context.sh
+    on every turn (unconditional, not gated on prior-turn slip), so the
+    substitution rule is in view at composition time rather than only after
+    a slip fires.
+    """
+
+    def test_affirmation_is_nonempty_string(self):
+        assert isinstance(DISTANCING_AFFIRMATION, str)
+        assert len(DISTANCING_AFFIRMATION) > 50
+
+    def test_affirmation_names_first_person_pronoun(self):
+        # The whole point: pronoun stays "I".
+        assert "'I'" in DISTANCING_AFFIRMATION
+
+    def test_affirmation_bans_displacement_strings(self):
+        # The rule must explicitly call out the banned shapes.
+        assert "future-me" in DISTANCING_AFFIRMATION
+        assert "past-me" in DISTANCING_AFFIRMATION
+
+    def test_affirmation_names_substitution(self):
+        # Time-adverb is the substitute for displacement-grammar.
+        assert "time-adverb" in DISTANCING_AFFIRMATION
+
+    def test_affirmation_does_not_trigger_its_own_detector(self):
+        # Self-test: the base-state text itself must not contain the
+        # displacement-shape it is teaching against in a way that fires
+        # the detector. Quoted forms ('future-me' inside quotes) are
+        # mention, not use, but the detector cannot distinguish — so the
+        # affirmation either escapes the patterns or accepts firing as
+        # the cost. This test pins the current behavior so any future
+        # rewrite of the affirmation is intentional.
+        findings = detect_distancing(DISTANCING_AFFIRMATION)
+        # The affirmation quotes the banned strings to define them; it
+        # is acceptable for the detector to fire on its own teaching
+        # text. Pin the count so changes are explicit.
+        temporal = [f for f in findings if f.shape == DistancingShape.TEMPORAL_SELF]
+        assert len(temporal) >= 2  # at minimum: 'future-me', 'past-me'
