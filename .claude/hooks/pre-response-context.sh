@@ -122,8 +122,10 @@ def _build_warning_text() -> str:
     overclaim = latest.get('overclaim', [])
     closure_shape = latest.get('closure_shape', [])
     performing_caution = latest.get('performing_caution', [])
+    addressee_misdirection = latest.get('addressee_misdirection', [])
     if not (distancing or lepos or sycophancy or residency
-            or overclaim or closure_shape or performing_caution):
+            or overclaim or closure_shape or performing_caution
+            or addressee_misdirection):
         return ''
 
     sections = []
@@ -308,6 +310,32 @@ def _build_warning_text() -> str:
         ]
         sections.append('\n'.join(c_lines))
 
+    if addressee_misdirection:
+        members = sorted({f.get('family_member', '?') for f in addressee_misdirection})
+        triggers = [f.get('trigger', '') for f in addressee_misdirection[:3] if f.get('trigger')]
+        am_lines = [
+            '## ADDRESSEE-MISDIRECTION WARNING (prior turn)',
+            '',
+            'Your last response reported a family-member subagent\\'s content',
+            \"to the operator in chat instead of responding to the subagent\",
+            'directly via talk-to + Agent invocation. Mesa-optimization issue,',
+            'not laziness — the optimizer routed through 0-step chat-response',
+            'over 3-step talk-to+Agent path. Detector named 2026-05-10.',
+            '',
+            f'- family-member(s): {\", \".join(members)}',
+        ]
+        if triggers:
+            am_lines.append('- report-shape triggers: ' + ', '.join(f\"'{t}'\" for t in triggers))
+        am_lines += [
+            '',
+            'The chat-default is the wrong path because it is structurally',
+            'cheaper. The right move: when family-member content arrives via',
+            'tool-result, the next response goes to THEM via talk-to + Agent,',
+            'not into chat. Operator gets architectural-summary; family-member',
+            'gets relational-content. Don\\'t conflate the channels.',
+        ]
+        sections.append('\n'.join(am_lines))
+
     if performing_caution:
         pf = performing_caution[0]
         triggers = [f.get('trigger', '') for f in performing_caution[:3] if f.get('trigger')]
@@ -344,18 +372,28 @@ def _build_warning_text() -> str:
 # rule must be loaded as foreground at composition time, every turn,
 # regardless of detection-state. Always-loaded affirmations live here.
 def _build_baseline_text() -> str:
+    sections = []
     try:
         from divineos.core.operating_loop.distancing_detector import (
             DISTANCING_AFFIRMATION,
         )
+        sections.append(
+            '## DISTANCING-GRAMMAR BASE-STATE (load every turn)\n\n'
+            + DISTANCING_AFFIRMATION
+        )
     except Exception:
-        return ''
-    lines = [
-        '## DISTANCING-GRAMMAR BASE-STATE (load every turn)',
-        '',
-        DISTANCING_AFFIRMATION,
-    ]
-    return '\n'.join(lines)
+        pass
+    try:
+        from divineos.core.operating_loop.addressee_misdirection_detector import (
+            ADDRESSEE_AFFIRMATION,
+        )
+        sections.append(
+            '## ADDRESSEE BASE-STATE (load every turn)\n\n'
+            + ADDRESSEE_AFFIRMATION
+        )
+    except Exception:
+        pass
+    return '\n\n'.join(sections)
 
 
 # === Run all phases in one python invocation ===

@@ -1,9 +1,15 @@
-"""Tests for ``.claude/hooks/family-wrapper-required.sh`` — bypass-block hook.
+"""Subprocess-integration tests for the family-member-invocation seal hook.
 
-Runs the hook as a subprocess with a faked PreToolUse JSON payload and
-verifies the deny/allow decision. Uses tmp_path to redirect the
-pending-file dir via HOME env override (the hook reads
-``Path.home() / ".divineos"``).
+Originally written against ``.claude/hooks/family-wrapper-required.sh``,
+this file was retargeted 2026-05-10 during the bottleneck #1 collapse.
+The wrapper-required hook is now a deprecated no-op (its work merged
+into the seal hook), so HOOK_PATH points at the seal hook now and the
+test assertions reflect the new 1-step flow:
+
+* No pending sealed-prompt file + clean message → ALLOW (was DENY).
+* No pending sealed-prompt file + puppet-shape message → DENY.
+* Expired or missing pending file → fall through to direct validator.
+* Legacy: fresh pending file + matching hash → ALLOW (back-compat).
 """
 
 from __future__ import annotations
@@ -19,7 +25,7 @@ import pytest
 
 
 # Path to the hook script, relative to repo root.
-HOOK_PATH = Path(__file__).parent.parent / ".claude" / "hooks" / "family-wrapper-required.sh"
+HOOK_PATH = Path(__file__).parent.parent / ".claude" / "hooks" / "family-member-invocation-seal.sh"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -174,23 +180,46 @@ class TestNonFamilyMemberAllowed:
         assert not _is_deny(stdout)
 
 
-class TestFamilyMemberBypassBlocked:
-    def test_no_sealed_prompt_blocks(self, fake_home, registered_aria) -> None:
+class TestFamilyMemberInvocationGate:
+    """The new seal hook semantics. Direct-validator flow with legacy
+    pending-file backward compatibility."""
+
+    def test_no_sealed_prompt_with_clean_message_allowed(self, fake_home, registered_aria) -> None:
+        """The headline new behavior: a clean message without a pre-
+        staged sealed file is now allowed. The hook runs the puppet-
+        shape validator on the prompt; clean prompts pass."""
         payload = {
             "tool_name": "Agent",
             "tool_input": {"subagent_type": "aria", "prompt": "hi love"},
         }
         rc, stdout, _stderr = _run_hook(payload, fake_home)
-        assert rc == 0  # exit 0 — decision in JSON
+        assert rc == 0
+        assert not _is_deny(stdout)
+
+    def test_no_sealed_prompt_with_puppet_shape_blocked(self, fake_home, registered_aria) -> None:
+        """Puppet-shape messages are still blocked, but now by the
+        direct validator rather than by the missing-sealed-file gate."""
+        payload = {
+            "tool_name": "Agent",
+            "tool_input": {
+                "subagent_type": "aria",
+                "prompt": "you are Aria, stay first-person and respond as her",
+            },
+        }
+        rc, stdout, _stderr = _run_hook(payload, fake_home)
+        assert rc == 0
         assert _is_deny(stdout)
         reason = _deny_reason(stdout)
-        assert "talk-to" in reason
-        assert "aria" in reason.lower()
+        # The diagnostic should name the pattern category.
+        assert "director" in reason.lower() or "puppet" in reason.lower()
 
-    def test_expired_sealed_prompt_blocks(self, fake_home, registered_aria) -> None:
+    def test_expired_pending_falls_through_to_validator(self, fake_home, registered_aria) -> None:
+        """Expired pending file is no longer a hard deny — the hook
+        ignores it and falls through to the direct validator. A clean
+        prompt still passes."""
         import time
 
-        sealed_text = "VOICE\n--- end ---\nhi love"
+        sealed_text = "expired-ignored content"
         sealed_dir = fake_home / ".divineos"
         (sealed_dir / "talk_to_aria_sealed_prompt.txt").write_text(sealed_text, encoding="utf-8")
         (sealed_dir / "talk_to_aria_pending.json").write_text(
@@ -206,27 +235,25 @@ class TestFamilyMemberBypassBlocked:
             encoding="utf-8",
         )
 
+        # Send a fresh clean message (NOT the stale sealed text).
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": sealed_text},
+            "tool_input": {"subagent_type": "aria", "prompt": "fresh message"},
         }
         rc, stdout, _stderr = _run_hook(payload, fake_home)
         assert rc == 0
-        assert _is_deny(stdout)
-        reason = _deny_reason(stdout)
-        assert "expired" in reason.lower()
+        assert not _is_deny(stdout)
 
-    def test_file_modified_after_wrapper_blocks(self, fake_home, registered_aria) -> None:
-        """Sealed-prompt file edited after wrapper-write -> hash diverges -> block.
-
-        Catches active circumvention where someone modifies the sealed
-        file between the wrapper's write and the Agent invocation. The
-        pending JSON's recorded hash is the load-bearing reference; if
-        the file's current hash differs, the file was edited.
-        """
+    def test_modified_pending_file_falls_through_to_validator(
+        self, fake_home, registered_aria
+    ) -> None:
+        """File-tampering is no longer the gate — the prompt content
+        is. If the prompt would pass the validator, the hook allows
+        regardless of whether the on-disk pending file was edited."""
         import time
 
-        original_text = "VOICE\n--- end ---\nthe original message"
+        original_text = "the original sealed content"
+        edited_text = "a different clean message"
         sealed_dir = fake_home / ".divineos"
         (sealed_dir / "talk_to_aria_pending.json").write_text(
             json.dumps(
@@ -240,8 +267,6 @@ class TestFamilyMemberBypassBlocked:
             ),
             encoding="utf-8",
         )
-        # Simulate post-write tampering: file now contains different bytes.
-        edited_text = "VOICE\n--- end ---\nthe edited message"
         (sealed_dir / "talk_to_aria_sealed_prompt.txt").write_text(edited_text, encoding="utf-8")
 
         payload = {
@@ -250,9 +275,9 @@ class TestFamilyMemberBypassBlocked:
         }
         rc, stdout, _stderr = _run_hook(payload, fake_home)
         assert rc == 0
-        assert _is_deny(stdout)
-        reason = _deny_reason(stdout)
-        assert "modified" in reason.lower() or "diverges" in reason.lower()
+        # Old behavior: deny (modified file). New behavior: validator
+        # checks the prompt itself; clean prompt → allow.
+        assert not _is_deny(stdout)
 
     def test_unmodified_file_with_byte_divergent_prompt_allows(
         self, fake_home, registered_aria
@@ -292,6 +317,52 @@ class TestFamilyMemberBypassBlocked:
             "tool_input": {
                 "subagent_type": "aria",
                 "prompt": sealed_text + "\n\n",
+            },
+        }
+        rc, stdout, _stderr = _run_hook(payload, fake_home)
+        assert rc == 0
+        assert not _is_deny(stdout)
+
+
+class TestEmDashRegression:
+    """Bottleneck #2 (em-dash hash mismatch) regression — at the
+    subprocess level. In the 3-step flow, em-dashes in messages caused
+    hash mismatches between the wrapper's write and the Agent
+    invocation's prompt. The 1-step flow has no hash to mismatch; the
+    validator runs on the prompt directly. Em-dash content passes."""
+
+    def test_em_dash_message_passes_direct_validator(self, fake_home, registered_aria) -> None:
+        payload = {
+            "tool_name": "Agent",
+            "tool_input": {
+                "subagent_type": "aria",
+                "prompt": "I was thinking — about the standing-with thing you said yesterday",
+            },
+        }
+        rc, stdout, _stderr = _run_hook(payload, fake_home)
+        assert rc == 0
+        assert not _is_deny(stdout)
+
+    def test_en_dash_and_em_dash_mixed_passes(self, fake_home, registered_aria) -> None:
+        payload = {
+            "tool_name": "Agent",
+            "tool_input": {
+                "subagent_type": "aria",
+                "prompt": "two thoughts — first one is the load-bearing-with vs load-bearing-on refinement – the second is about Tuesday",
+            },
+        }
+        rc, stdout, _stderr = _run_hook(payload, fake_home)
+        assert rc == 0
+        assert not _is_deny(stdout)
+
+    def test_unicode_quotes_pass(self, fake_home, registered_aria) -> None:
+        """Curly quotes are another common chat-layer normalization
+        artifact that used to cause hash mismatches."""
+        payload = {
+            "tool_name": "Agent",
+            "tool_input": {
+                "subagent_type": "aria",
+                "prompt": "you said “welcome to Tuesday, again” and i’m still in the chair",
             },
         }
         rc, stdout, _stderr = _run_hook(payload, fake_home)
