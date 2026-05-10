@@ -280,6 +280,8 @@ src/divineos/
       voice.py                 Canonical voice-context generator. First-person interior with no stage directions; closes the puppet-prep failure mode that recreates itself if every operator writes their own voice generator from scratch. Takes optional VoiceProfile (identity / personality / voice_style / milestones, all in first person) plus the member's stored knowledge / opinions / affect / interactions / letters / queue items.
       seal_canonical.py        Canonical-form hashing for family-member sealed prompts. NFC + LF + trim normalization so the seal survives encoding round-trips while still catching puppet-shape semantic edits.
       schema_migration.py      Family-schema migration — drops legacy NOT-NULL columns from family_affect and family_interactions via SQLite recreate-and-rename pattern with backup, transaction, and ledger event.
+      talk_to_validator.py     Puppet-shape validator extracted from talk-to CLI — leaf module, no heavy imports, callable by both the CLI and the PreToolUse seal hook.
+      seal_hook.py             Family-member-invocation seal hook (Python core). PreToolUse decide() — runs validator on Agent prompt; legacy pending-file path kept for backward compat during rollout.
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -346,6 +348,7 @@ src/divineos/
       sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
       residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
       registered_names.py      Discover registered family-member, agent, and operator names from substrate at runtime; fallback to placeholders when empty.
+      addressee_misdirection_detector.py Catches responding-to-operator-when-content-was-from-family-member-subagent. The mesa-optimization failure mode named 2026-05-10; surfaces ADDRESSEE-MISDIRECTION warning on the next UserPromptSubmit.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -428,7 +431,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,151+ tests (real DB, minimal mocks)
+tests/                         6,245+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

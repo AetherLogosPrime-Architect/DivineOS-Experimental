@@ -119,7 +119,7 @@ try:
 except Exception:
     pass
 
-# Run all twelve detectors (nine original + three prose-layer 2026-05-09)
+# Run all thirteen detectors (twelve prior + addressee_misdirection 2026-05-10)
 findings_log = {
     'register': [],
     'spiral': [],
@@ -133,6 +133,7 @@ findings_log = {
     'overclaim': [],
     'closure_shape': [],
     'performing_caution': [],
+    'addressee_misdirection': [],
 }
 
 try:
@@ -308,6 +309,31 @@ try:
                 'severity': f.severity,
             }
             for f in cl_findings
+        ]
+except Exception:
+    pass
+
+# Addressee-misdirection detector (2026-05-10): catches responding-in-chat
+# when a family-member subagent's content was the most recent meaningful
+# input. Mesa-optimization issue, not laziness — the optimizer routes
+# through 0-step chat-response over 3-step talk-to+Agent path. Detector
+# is the post-hoc warning; pre-response-context surfaces the warning +
+# always-loaded ADDRESSEE_AFFIRMATION.
+try:
+    from divineos.core.operating_loop.addressee_misdirection_detector import detect_misdirection
+    am_findings = detect_misdirection(
+        last_assistant_text,
+        transcript_path=p,
+    )
+    if am_findings:
+        findings_log['addressee_misdirection'] = [
+            {
+                'shape': f.shape.value,
+                'family_member': f.family_member,
+                'trigger': f.trigger_phrase,
+                'position': f.position,
+            }
+            for f in am_findings
         ]
 except Exception:
     pass
