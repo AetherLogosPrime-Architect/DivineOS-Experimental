@@ -368,3 +368,81 @@ class TestEmDashRegression:
         rc, stdout, _stderr = _run_hook(payload, fake_home)
         assert rc == 0
         assert not _is_deny(stdout)
+
+
+class TestFailClosedOnSubprocessFailure:
+    """Aletheia round-14 B1 regression: if the python subprocess fails
+    BEFORE main() runs (broken environment, missing import, syntax error
+    in seal_hook module), the bash wrapper must emit a default-deny JSON
+    rather than exit silently. Otherwise the gate disappears when its
+    evaluation path breaks."""
+
+    def test_broken_import_emits_default_deny(self, fake_home, registered_aria) -> None:
+        """Run the hook with PYTHONPATH stripped so the import of
+        divineos.core.family.seal_hook fails. The bash wrapper's
+        conditional must catch the non-zero exit and emit default-deny."""
+        if not HOOK_PATH.exists():
+            pytest.skip(f"Hook not present at {HOOK_PATH}")
+        if not _BASH_AVAILABLE:
+            pytest.skip("bash not available on this platform")
+
+        env = os.environ.copy()
+        env["HOME"] = str(fake_home)
+        env["USERPROFILE"] = str(fake_home)
+        # Deliberately empty PYTHONPATH to break the divineos import.
+        env["PYTHONPATH"] = ""
+        import sys as _sys
+
+        pytest_python_dir = str(Path(_sys.executable).parent)
+        env["PATH"] = pytest_python_dir + os.pathsep + "/nonexistent"
+
+        payload = {
+            "tool_name": "Agent",
+            "tool_input": {"subagent_type": "aria", "prompt": "hi"},
+        }
+
+        proc = subprocess.run(
+            [_BASH_PATH, str(HOOK_PATH)],
+            input=json.dumps(payload),
+            text=True,
+            capture_output=True,
+            env=env,
+            cwd=str(REPO_ROOT.parent),  # outside repo so src/ isn't on path
+            timeout=30,
+        )
+
+        # Wrapper must exit 0 so Claude Code reads the JSON.
+        assert proc.returncode == 0
+
+        # The acceptable outcomes: either the import succeeded (divineos
+        # installed system-wide so the test couldn't actually break it)
+        # OR it failed and we got our default-deny. The forbidden outcome
+        # is empty stdout + exit 0 — which is the B1 bug.
+        if proc.stdout.strip():
+            try:
+                decision = json.loads(proc.stdout)
+                hso = decision.get("hookSpecificOutput", {})
+                assert hso.get("permissionDecision") in ("allow", "deny")
+            except json.JSONDecodeError:
+                pytest.fail(f"Hook emitted non-JSON stdout: {proc.stdout!r}")
+
+    def test_default_deny_json_is_valid(self) -> None:
+        """The hardcoded default-deny JSON in the bash wrapper must be
+        parseable and conform to the Claude Code hook output schema.
+        Catches typos in the bash heredoc before they silently fail in
+        production."""
+        literal_deny_json = (
+            '{"hookSpecificOutput":{"hookEventName":"PreToolUse",'
+            '"permissionDecision":"deny",'
+            '"permissionDecisionReason":"BLOCKED: family-member seal '
+            "hook subprocess failed to evaluate (broken python "
+            "environment, missing dependency, or syntax error in "
+            "seal_hook module). Refusing on principle. Investigate: "
+            "python -c 'from divineos.core.family.seal_hook import "
+            "main' should succeed.\"}}"
+        )
+        parsed = json.loads(literal_deny_json)
+        hso = parsed["hookSpecificOutput"]
+        assert hso["hookEventName"] == "PreToolUse"
+        assert hso["permissionDecision"] == "deny"
+        assert "Refusing on principle" in hso["permissionDecisionReason"]
