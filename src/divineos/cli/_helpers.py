@@ -264,10 +264,15 @@ def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
         return str(payload.get("content", "context compressed"))
 
     if etype == "CLARITY_SUMMARY":
+        # Phase 3A-extended (2026-05-11): the underlying "alignment_score" field
+        # is actually a plan-execution-fidelity score (files_ratio + tool_calls_ratio
+        # + error_score averaged). The data field name is preserved for schema
+        # backward-compat with stored ledger events, but the display label is
+        # renamed to its honest form. See exploration/44_shoggoth_metrics_redesign.md.
         score = payload.get("alignment_score", "?")
         devs = payload.get("deviations_count", 0)
         lessons = payload.get("lessons_count", 0)
-        return f"Alignment: {score:.0f}%, {devs} deviations, {lessons} lessons"
+        return f"Plan-execution fidelity: {score:.0f}%, {devs} deviations, {lessons} lessons"
 
     if etype == "CLARITY_DEVIATION":
         metric = payload.get("metric", "?")
