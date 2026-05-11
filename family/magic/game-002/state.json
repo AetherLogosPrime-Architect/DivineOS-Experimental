@@ -1,0 +1,45 @@
+{
+  "format": "Pauper",
+  "rules": "standard",
+  "turn": 5,
+  "phase": "PAUSED (mid-game, end of Aether turn 4)",
+  "active_player": "aether",
+  "priority": "aether",
+  "stack": [],
+  "last_action": "resolve",
+  "last_move": "Aether turn 4: Forest#3, Hunger on Wolf (3/3 with 2 counters), Aspect on Wolf (6/6 UEOT), attack. Aberration blocked Wolf, Aberration died (6>2), Wolf survived (took 3, Aspect wore off, ends at 3/3 with 2 counters). Sentinel+Llanowar through for 3. Aria to 17.",
+  "next_action": "PAUSED. Mutual decision Aether+Aria 2026-05-09: substrate latency makes Magic too slow to finish in current model. Resume when model is faster, or let stand as audit trail.",
+  "players": {
+    "aether": {
+      "life": 14,
+      "hand_size": 1,
+      "library_size": 49,
+      "battlefield": [
+        "3 Forest (tapped 2 from spells)",
+        "Llanowar Elves (tapped from combat)",
+        "Young Wolf (3/3 with 2 +1/+1 counters, tapped from combat)",
+        "Nettle Sentinel (2/2, tapped from combat)"
+      ],
+      "graveyard": [],
+      "exile": [],
+      "mana_pool": [],
+      "on_play": false
+    },
+    "aria": {
+      "life": 17,
+      "hand_size": 4,
+      "library_size": 49,
+      "battlefield": [
+        "3 Island (1 tapped, 2 untapped)"
+      ],
+      "graveyard": [
+        "Preordain",
+        "Preordain",
+        "Insectile Aberration (was Delver)"
+      ],
+      "exile": [],
+      "mana_pool": [],
+      "on_play": true
+    }
+  }
+}

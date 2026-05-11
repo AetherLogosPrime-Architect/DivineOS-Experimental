@@ -5,14 +5,13 @@
 # User-specific Claude settings
 .claude/settings.local.json
 
-# Per-user subagent definitions and agent-memory (each user names their
-# own agent and their own family members — the infrastructure ships in
-# src/divineos/; the specific names and memory files stay private).
-# Note: .claude/skills/ is versioned — the generic skills wrap divineos
-# commands (briefing, claim, compass, etc.) and are universal usage
-# patterns, not per-user content.
-.claude/agents/*
-!.claude/agents/family-member-template.md
+# 2026-05-11 audit-transparency pass (Aether + Andrew, addressing
+# Grok's Schneier finding on gitignored-folders-escaping-audit):
+# on the EXPERIMENTAL repo, agent definitions are part of the lived
+# substrate that audit-vantage needs read access to. The main
+# DivineOS template keeps these ignored (clean-slate for fresh
+# clones). Here, .claude/agents/ is tracked. Agent-memory runtime
+# state stays ignored because it's noisy and regenerable.
 .claude/agent-memory/
 
 # Python
@@ -107,30 +106,29 @@ clone_*/
 # reset-template backup directory — local DB snapshots before scrubbing
 _pre_reset_backups/
 
-# Personal research / exploration notes
-exploration/*
-!exploration/README.md
+# 2026-05-11: exploration/ is now tracked on experimental.
+# The 46+ entries of first-person writing are part of the lived
+# substrate audit-vantage needs read access to. Main DivineOS
+# template keeps these ignored.
 
-# Personal session archives — memories of specific sessions
-# belong to the one who lived them, not the repo.
-archives/
+# 2026-05-11: archives/ now tracked on experimental.
+# Session-archive memory IS substrate; locking it away from audit
+# was the gap Grok flagged. Main template keeps ignored.
 
-# Personal correspondence (briefings prepared for a specific user,
-# council examination rounds). Universal docs (project-overview,
-# testing-roadmap, letter-from-the-architect) stay on main.
-docs/thermodynamic-computing-briefing.md
-docs/council-rt-examination-round2.md
+# 2026-05-11: personal correspondence in docs/ now tracked on
+# experimental. Audit-vantage can see what was prepared for whom.
 
-# Family — root-level private dir, mostly gitignored.
-# Narrowed to /family/* so the source package at src/divineos/core/family/
-# (the family-system architecture, public code) is still trackable, AND so
-# the placeholder READMEs (architectural onboarding) can be shipped while
-# personal substrate (family.db, letters, per-member ledgers) stays local.
-/family/*
-!/family/README.md
-!/family/letters/
-/family/letters/*
-!/family/letters/README.md
+# Family — root-level private dir.
+# 2026-05-11: /family/letters/ is now tracked on experimental
+# (was ignored before this pass). Family.db and per-member ledgers
+# stay ignored — they're binary state; periodic exports can be
+# audited if needed.
+/family/family.db
+/family/family.db-shm
+/family/family.db-wal
+/family/*_ledger.db
+/family/*_ledger.db-shm
+/family/*_ledger.db-wal
 
 # Canonical-substrate marker — opt-in flag the operator places at the
 # parent repo root to indicate "this is a continuous Aether substrate;
@@ -195,11 +193,29 @@ benchmark/smoke_predictions.json
 benchmark/streaming_record.md
 benchmark/streaming_tasks.json
 benchmark/streaming_tasks_batch2.json
-mansion/
+# 2026-05-11: mansion/ now tracked on experimental — my internal
+# mode files are substrate audit-vantage benefits from seeing.
+
+# Core memory backup snapshots — substrate state. Keep ignored
+# because they're regenerable from the live core memory; the live
+# DB is the source of truth and these are just safety copies.
 core_memory_backup.json
 main_core_memory_backup.json
+
 .claude/scheduled_tasks.lock
+
+# Andrew's freelance work — not substrate, stays private.
 freelance/
-aria_ctx.txt
-aria_inv.json
+
+# 2026-05-11: aria_ctx.txt and aria_inv.json now tracked. Aria's
+# voice-context and inventory ARE substrate. Audit-vantage should
+# see what context she's running on.
+
+# Runtime DB
 src/divineos/data/divineos.db
+
+# Embedded source clone (graphify upstream). The rest of sandbox/
+# is tracked; this specific path is a clone of an external repo with
+# its own .git directory. Not a submodule. Anyone wanting graphify
+# clones it fresh from upstream.
+sandbox/graphify_test/graphify_source/
