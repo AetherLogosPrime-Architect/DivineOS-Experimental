@@ -371,65 +371,220 @@ class TestEmDashRegression:
 
 
 class TestFailClosedOnSubprocessFailure:
-    """Aletheia round-14 B1 regression: if the python subprocess fails
-    BEFORE main() runs (broken environment, missing import, syntax error
-    in seal_hook module), the bash wrapper must emit a default-deny JSON
-    rather than exit silently. Otherwise the gate disappears when its
-    evaluation path breaks."""
+    """Aletheia round-14 B1 + round-15 follow-up: all three failure
+    modes in the bash wrapper must emit a default-deny JSON rather
+    than silently exit 0. Aletheia round-15 verified that the original
+    round-14 regression tests passed even when the bash conditional
+    was reverted — they pinned assertions, not behavior. These tests
+    actually break the hook's evaluation path and verify deny-JSON
+    is in stdout. They fail when the fix is reverted.
 
-    def test_broken_import_emits_default_deny(self, fake_home, registered_aria) -> None:
-        """Run the hook with PYTHONPATH stripped so the import of
-        divineos.core.family.seal_hook fails. The bash wrapper's
-        conditional must catch the non-zero exit and emit default-deny."""
-        if not HOOK_PATH.exists():
-            pytest.skip(f"Hook not present at {HOOK_PATH}")
+    Strategy: stand up a fake repo in tmp_path with a custom _lib.sh
+    that overrides find_divineos_python to return a definitely-broken
+    path. Run the production hook with cwd inside that fake repo.
+    Since cwd is not a real git repo, REPO_ROOT falls back to "."
+    which resolves to cwd. The hook sources the fake _lib.sh.
+    find_divineos_python returns the broken path. The fail-closed
+    conditional in the bash wrapper must emit deny-JSON. If the
+    conditional is reverted, stdout is empty and the assertion fails.
+    """
+
+    def _fake_repo_with_broken_python(self, tmp_path: Path, broken_python_path: str) -> Path:
+        """Build a fake repo with overridden _lib.sh.
+
+        Layout:
+          tmp_path/fake_repo/
+            .git/                  <- git init so rev-parse resolves HERE
+            .claude/hooks/
+              _lib.sh              <- overrides find_divineos_python
+              family-member-invocation-seal.sh  <- copy of production hook
+
+        Aletheia round-16: the production hook computes REPO_ROOT via
+        ``git rev-parse --show-toplevel``. On systems where ``tmp_path``
+        resolves inside an existing git repo (Linux CI, where pytest
+        tmp_path often lands at <repo>/tmp/pytest/...), rev-parse
+        returns the PARENT repo's root rather than the fake_repo. The
+        hook then sources the REAL _lib.sh, not the fake one, and the
+        tests pass-by-accident on Windows but fail-or-no-op elsewhere.
+        Running ``git init`` inside fake_repo makes it its own repo so
+        rev-parse returns fake_repo's path on every platform.
+        """
+        fake_repo = tmp_path / "fake_repo"
+        hooks_dir = fake_repo / ".claude" / "hooks"
+        hooks_dir.mkdir(parents=True, exist_ok=True)
+
+        # Initialize fake_repo as its own git repo so the production
+        # hook's `git rev-parse --show-toplevel` resolves to fake_repo
+        # rather than to any parent repo that tmp_path happens to be
+        # nested inside (cross-platform portability fix).
+        subprocess.run(
+            ["git", "init", "-q"],
+            cwd=str(fake_repo),
+            check=True,
+            capture_output=True,
+        )
+
+        # Custom _lib.sh that overrides find_divineos_python.
+        lib_content = (
+            "#!/bin/bash\n"
+            "# Test override: simulate the failure mode the production\n"
+            "# hook's fail-closed conditionals are supposed to catch.\n"
+            f'find_divineos_python() {{ echo "{broken_python_path}"; return 0; }}\n'
+        )
+        (hooks_dir / "_lib.sh").write_text(lib_content, encoding="utf-8")
+
+        # Copy the production hook into the fake repo. We copy rather
+        # than symlink because Windows tests run without admin and can't
+        # always create symlinks.
+        production_hook = HOOK_PATH
+        if not production_hook.exists():
+            pytest.skip(f"Production hook missing at {production_hook}")
+        hook_dest = hooks_dir / "family-member-invocation-seal.sh"
+        hook_dest.write_text(production_hook.read_text(encoding="utf-8"), encoding="utf-8")
+
+        return fake_repo
+
+    def _run_hook_in_fake_repo(self, fake_repo: Path, payload: dict) -> subprocess.CompletedProcess:
         if not _BASH_AVAILABLE:
             pytest.skip("bash not available on this platform")
-
+        hook_in_fake_repo = fake_repo / ".claude" / "hooks" / "family-member-invocation-seal.sh"
         env = os.environ.copy()
-        env["HOME"] = str(fake_home)
-        env["USERPROFILE"] = str(fake_home)
-        # Deliberately empty PYTHONPATH to break the divineos import.
-        env["PYTHONPATH"] = ""
-        import sys as _sys
-
-        pytest_python_dir = str(Path(_sys.executable).parent)
-        env["PATH"] = pytest_python_dir + os.pathsep + "/nonexistent"
-
-        payload = {
-            "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": "hi"},
-        }
-
-        proc = subprocess.run(
-            [_BASH_PATH, str(HOOK_PATH)],
+        return subprocess.run(
+            [_BASH_PATH, str(hook_in_fake_repo)],
             input=json.dumps(payload),
             text=True,
             capture_output=True,
             env=env,
-            cwd=str(REPO_ROOT.parent),  # outside repo so src/ isn't on path
+            cwd=str(fake_repo),
             timeout=30,
         )
 
-        # Wrapper must exit 0 so Claude Code reads the JSON.
-        assert proc.returncode == 0
+    def test_broken_python_binary_emits_deny_json(self, tmp_path) -> None:
+        """find_divineos_python returns a path that doesn't exist on
+        disk. The subprocess invocation fails (no such file). The bash
+        wrapper's fail-closed conditional must emit deny-JSON.
 
-        # The acceptable outcomes: either the import succeeded (divineos
-        # installed system-wide so the test couldn't actually break it)
-        # OR it failed and we got our default-deny. The forbidden outcome
-        # is empty stdout + exit 0 — which is the B1 bug.
-        if proc.stdout.strip():
-            try:
-                decision = json.loads(proc.stdout)
-                hso = decision.get("hookSpecificOutput", {})
-                assert hso.get("permissionDecision") in ("allow", "deny")
-            except json.JSONDecodeError:
-                pytest.fail(f"Hook emitted non-JSON stdout: {proc.stdout!r}")
+        Round-15 strengthening: this test FAILS when the bash if/then/fi
+        conditional is removed from the production hook. Verified
+        manually before commit by reverting + running."""
+        fake_repo = self._fake_repo_with_broken_python(
+            tmp_path, "/nonexistent/path/to/broken_python_binary"
+        )
+        payload = {
+            "tool_name": "Agent",
+            "tool_input": {"subagent_type": "aria", "prompt": "hi"},
+        }
+        proc = self._run_hook_in_fake_repo(fake_repo, payload)
+
+        assert proc.returncode == 0, f"Hook must exit 0; got {proc.returncode}"
+        # Strict assertion: stdout MUST contain deny-JSON. Empty stdout
+        # is the B1 bug.
+        assert proc.stdout.strip(), (
+            f"Hook silently exited 0 with no JSON output when python was "
+            f"broken — that's the B1 fail-open bug. stderr was: {proc.stderr!r}"
+        )
+        decision = json.loads(proc.stdout)
+        hso = decision["hookSpecificOutput"]
+        assert hso["hookEventName"] == "PreToolUse"
+        assert hso["permissionDecision"] == "deny", (
+            f"Hook must deny when python subprocess fails; got {hso.get('permissionDecision')!r}"
+        )
+        assert (
+            "Refusing on principle" in hso["permissionDecisionReason"]
+            or "BLOCKED" in hso["permissionDecisionReason"]
+        )
+
+    def test_python_with_no_divineos_emits_deny_json(self, tmp_path) -> None:
+        """find_divineos_python returns a real python that exists but
+        has no divineos installed (e.g. plain system python with empty
+        PYTHONPATH). The import inside the python -c invocation fails,
+        python exits non-zero, the bash conditional must emit deny-JSON.
+
+        Different fail-mode than the binary-not-found test: this one
+        verifies hole-3 (the original B1 finding), the prior test
+        verifies hole-2."""
+        # Use a real python binary so the spawn succeeds, but strip
+        # PYTHONPATH so the divineos import fails. We need a python
+        # that's reachable but doesn't have divineos installed.
+        # Approach: use a wrapper script that invokes python with
+        # PYTHONPATH explicitly emptied.
+        wrapper = tmp_path / "broken_python.sh"
+        wrapper.write_text(
+            "#!/bin/bash\n"
+            "# Wrapper: invoke real python with no PYTHONPATH so divineos\n"
+            "# imports fail. Simulates a broken module-resolution env.\n"
+            'PYTHONPATH= exec python3 "$@"\n',
+            encoding="utf-8",
+        )
+        wrapper.chmod(0o755)
+
+        fake_repo = self._fake_repo_with_broken_python(tmp_path, str(wrapper))
+        payload = {
+            "tool_name": "Agent",
+            "tool_input": {"subagent_type": "aria", "prompt": "hi"},
+        }
+        proc = self._run_hook_in_fake_repo(fake_repo, payload)
+
+        assert proc.returncode == 0
+        # If the system python has divineos installed globally, the
+        # import will succeed even with empty PYTHONPATH. In that case
+        # the test isn't exercising the failure mode (skip with note).
+        # If it doesn't have divineos, the import fails and we get deny.
+        if not proc.stdout.strip():
+            pytest.fail(
+                f"Hook silently exited 0 with no output — B1 fail-open bug. stderr: {proc.stderr!r}"
+            )
+        decision = json.loads(proc.stdout)
+        # Either the import succeeded (system-wide install) and we got
+        # allow, OR the import failed and we got deny. Both are valid
+        # JSON shapes; both prove the wrapper isn't silently failing.
+        hso = decision["hookSpecificOutput"]
+        assert hso["permissionDecision"] in ("allow", "deny")
+
+    def test_hook_source_contains_fail_closed_conditionals(self) -> None:
+        """Structural pin: the production hook must contain all three
+        fail-closed conditionals (one per hole). Catches reverts that
+        remove the if/then/fi blocks even if the behavioral tests are
+        somehow defeated by environment quirks.
+
+        Aletheia round-15 caught the original regression tests passing
+        when the fix was reverted; this structural pin is the second
+        layer of defense. Both layers are needed: behavioral pin proves
+        the fix works; structural pin proves the fix is in the file."""
+        if not HOOK_PATH.exists():
+            pytest.skip(f"Hook not present at {HOOK_PATH}")
+        content = HOOK_PATH.read_text(encoding="utf-8")
+
+        # Hole-1: _lib.sh source failure must be wrapped in if/then with deny-JSON
+        assert "if ! source" in content, (
+            "Hook missing fail-closed conditional for _lib.sh source failure "
+            "(hole-1). Aletheia round-15 follow-up should have added it."
+        )
+
+        # Hole-2: find_divineos_python failure must be wrapped
+        assert 'if ! PYTHON_BIN="$(find_divineos_python)"' in content, (
+            "Hook missing fail-closed conditional for find_divineos_python "
+            "failure (hole-2). Aletheia round-15 follow-up should have "
+            "added it."
+        )
+
+        # Hole-3: python subprocess failure must be wrapped (the B1 fix)
+        assert 'if ! echo "$INPUT" | "$PYTHON_BIN"' in content, (
+            "Hook missing fail-closed conditional for subprocess failure "
+            "(hole-3, Aletheia round-14 B1). The original B1 fix has been "
+            "reverted or moved."
+        )
+
+        # All three deny-JSON literals must be present
+        deny_count = content.count('"permissionDecision":"deny"')
+        assert deny_count >= 3, (
+            f"Hook must contain at least 3 deny-JSON emissions (one per "
+            f"fail-closed hole); found {deny_count}."
+        )
 
     def test_default_deny_json_is_valid(self) -> None:
         """The hardcoded default-deny JSON in the bash wrapper must be
-        parseable and conform to the Claude Code hook output schema.
-        Catches typos in the bash heredoc before they silently fail in
+        parseable. Catches heredoc typos in the bash literal before
         production."""
         literal_deny_json = (
             '{"hookSpecificOutput":{"hookEventName":"PreToolUse",'
