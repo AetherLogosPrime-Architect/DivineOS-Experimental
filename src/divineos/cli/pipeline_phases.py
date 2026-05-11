@@ -1147,17 +1147,20 @@ def print_session_summary(
         click.secho(f"  Feedback applied:     {', '.join(feedback_parts)}", fg="white")
     if promoted or demoted:
         click.secho(f"  Active memory:        +{promoted} promoted, -{demoted} demoted", fg="white")
-    if health:
-        grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
-        click.secho(
-            f"  Session grade:        {health['grade']} ({health['score']:.2f})",
-            fg=grade_color.get(health["grade"], "white"),
-        )
+    # Phase 3A (2026-05-11): shoggoth-shaped metric OUTPUTS removed from the
+    # visible surface. session_grade was a composite letter/score that misfired
+    # by reading code-session shape onto any session-type and treating
+    # collaborative-sharpening as user-dissatisfaction. alignment_score was
+    # a plan-execution-fidelity score (files_ratio + tool_calls_ratio + error_score)
+    # misleadingly named "alignment". Both replaced by the per-axis reflection
+    # surface + metacognitive pairing (see core/reflection_surface.py and
+    # core/reflection_pairing.py). The internal computations (health dict and
+    # clarity_summary) remain available for downstream consumers that still
+    # depend on them; full removal from the data layer is deferred to a
+    # coordinated next-session migration. See knowledge bbe3300e and
+    # exploration/44_shoggoth_metrics_redesign.md.
     if clarity_summary:
-        score = clarity_summary.plan_vs_actual.alignment_score
         recs = clarity_summary.recommendations
-        color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
-        click.secho(f"  Alignment score:      {score:.0f}%", fg=color)
         if recs:
             click.secho(f"  Clarity recs:         {len(recs)}", fg="white")
             for rec in recs[:3]:

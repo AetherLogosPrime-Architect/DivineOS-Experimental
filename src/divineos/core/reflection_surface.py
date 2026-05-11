@@ -184,12 +184,18 @@ def format_reflection_surface(
     footer = [
         "",
         "=" * 60,
-        "After reflecting on each axis: the alignment check (Phase 2C)",
-        "will compare your reflection against measured patterns.",
-        "Divergence is honesty-calibration signal, not failure judgment.",
+        "Reflection workflow:",
         "",
-        'To save a reflection: divineos reflect-ops save <axis> "<text>"',
-        '  -e <type>:<id>:"<label>" (repeatable for evidence pointers)',
+        '  1. Save reflections per axis: divineos reflect-ops save <axis> "<text>"',
+        '     -e <type>:<id>:"<label>" (repeatable evidence pointers)',
+        "",
+        "  2. Pair with substrate observations: divineos reflect-ops review",
+        "     Lays your reflection side-by-side with substrate observations",
+        "     on the same spectrum. The check IS the metacognitive comparison —",
+        "     words and reasoning, not numerical divergence.",
+        "",
+        "  3. Save deepened reflection after the pairing, backed by evidence",
+        "     from both sources (your reflection + substrate observations).",
         "=" * 60,
     ]
 
