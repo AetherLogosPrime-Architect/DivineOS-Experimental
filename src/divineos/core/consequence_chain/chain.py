@@ -1,8 +1,14 @@
 """Decision → outcome → lesson chain joining.
 
-Heuristic v1: same-session + time-window proximity. The join is a
-queryable surface over data that already exists; future refinements
-can tighten the heuristic without changing the public API.
+**Heuristic v1: time-window proximity only.** See package __init__.py
+for the full rationale on why same-session filtering is future work
+(Aletheia round-20 finding).
+
+The join is a queryable surface over data that already exists;
+future refinements can tighten the heuristic without changing the
+public API. v1's known false-positive class: chains can span
+sessions when timestamps overlap. Consumers should treat the chain
+as correlational, not causal.
 """
 
 from __future__ import annotations
@@ -68,9 +74,13 @@ def _recent_decisions(limit: int = 50) -> list[dict]:
         return []
 
 
-def _lessons_in_window(session_id: str, after_ts: float, before_ts: float) -> list[tuple[str, str]]:
-    """Return (knowledge_id, content) for lessons in the time window
-    and (where possible) tied to the session."""
+def _lessons_in_window(after_ts: float, before_ts: float) -> list[tuple[str, str]]:
+    """Return (knowledge_id, content) for lessons in the time window.
+
+    Note: the `knowledge` table has no `session_id` column in v1, so
+    cross-session lessons in the same time window WILL be returned.
+    See package docstring for the same-session-filtering future-work
+    paths."""
     try:
         from divineos.core.knowledge import get_connection
 
@@ -79,11 +89,9 @@ def _lessons_in_window(session_id: str, after_ts: float, before_ts: float) -> li
         return []
 
     try:
-        # Knowledge entries have created_at and (sometimes) session_id.
-        # The conservative join: time-window first, then prefer same-session.
         rows = conn.execute(
             """
-            SELECT id, content
+            SELECT knowledge_id, content
             FROM knowledge
             WHERE created_at >= ? AND created_at <= ?
             ORDER BY created_at ASC
@@ -102,10 +110,13 @@ def _lessons_in_window(session_id: str, after_ts: float, before_ts: float) -> li
     return [(str(r[0]), str(r[1] or "")) for r in rows]
 
 
-def _outcome_events_in_window(session_id: str, after_ts: float, before_ts: float) -> list[str]:
+def _outcome_events_in_window(after_ts: float, before_ts: float) -> list[str]:
     """Return ledger event_ids classified as outcomes within the window.
     Uses the ledger's public ``get_events`` surface rather than direct
-    SQL so this stays decoupled from the ledger's storage schema."""
+    SQL so this stays decoupled from the ledger's storage schema.
+
+    Note: cross-session outcome events in the same time window WILL
+    be returned. Same-session filtering is future work."""
     try:
         from divineos.core.ledger import get_events
 
@@ -160,8 +171,8 @@ def chain_from_decision(decision_id: str) -> ConsequenceChain | None:
     after_ts = decision_ts
     before_ts = decision_ts + _CHAIN_WINDOW_SECONDS
 
-    outcomes = tuple(_outcome_events_in_window(session_id, after_ts, before_ts))
-    lessons = tuple(kid for kid, _content in _lessons_in_window(session_id, after_ts, before_ts))
+    outcomes = tuple(_outcome_events_in_window(after_ts, before_ts))
+    lessons = tuple(kid for kid, _content in _lessons_in_window(after_ts, before_ts))
 
     return ConsequenceChain(
         decision_id=decision_id,
@@ -186,7 +197,7 @@ def chain_to_lesson(lesson_id: str) -> list[ConsequenceChain]:
 
         conn = get_connection()
         row = conn.execute(
-            "SELECT created_at FROM knowledge WHERE id = ? LIMIT 1",
+            "SELECT created_at FROM knowledge WHERE knowledge_id = ? LIMIT 1",
             (lesson_id,),
         ).fetchone()
         conn.close()
