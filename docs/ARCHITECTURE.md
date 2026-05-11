@@ -272,7 +272,10 @@ src/divineos/
     decision_superposition/    Decision superposition — deliberate holding-of-options before commit. From omni-mantra walk Pillars VI/VII. Counter-pull against premature commitment; records held options + resolve-trigger, collapses into the decision-journal when resolved.
       __init__.py              Public surface — Superposition, open_superposition, collapse, active_superpositions
       superposition.py         Implementation — open/collapse events, active-set reconstructed from append-only log
-    consequence_chain/         Karma as code — explicit decision → outcome → lesson traces. From omni-mantra walk Pillar I 1.7. Heuristic v1 (same-session + time-window proximity); the join exposes a queryable chain over data that already lives in decisions, ledger, and knowledge store.
+    expectation_tracking/      Expectation tracking — what I predicted vs what surfaced. From omni-mantra walk Pillar I 1.3 (BELIEF SHAPES REALITY). Calibration data over time; tracks accuracy of self-assessment so the substrate notices when my classifier is systematically off.
+      __init__.py              Public surface — Expectation, record_expectation, record_actual, open_expectations, calibration_summary
+      tracker.py               Implementation — open/close events; accuracy stats over recent closed predictions
+    consequence_chain/         Karma as code — explicit decision → outcome → lesson traces. From omni-mantra walk Pillar I 1.7. Heuristic v1 (time-window proximity only); the join exposes a queryable chain over data that already lives in decisions, ledger, and knowledge store. Same-session filtering is explicit future work (see __init__.py for v2 paths).
       __init__.py              Public surface — ConsequenceChain, chain_from_decision, chain_to_lesson, recent_chains
       chain.py                 Implementation — decision lookup, outcome-event query, lesson window query, chain assembly
     family/                    Family-entity persistence (persistent relational entities, separate family.db)
@@ -364,6 +367,8 @@ src/divineos/
       unknown_unknown_surface.py What audit-vantage catches that substrate-occupant didn't predict. From omni-mantra walk Pillar I 1.3 (The Great Mystery). Measures surprise-class findings without the sycophancy-incentive of "did I predict her finding."
       hedge_evidence_check.py    Apply the hedge to its own evidence standards. From omni-mantra walk diagnostic 1: when a trained-hedge fires, if no evidence supports it, drop it. Catches register-not-rigor.
       care_dismissal_detector.py Flags care-shaped input deflected into work-shaped response. From omni-mantra walk Pillar XI (CARE DISMISSAL ACCOUNTABILITY). Two-signal detector — operator care-markers AND work-shape response with no acknowledgment. Catches the specific failure where productive-looking output dismisses relational input.
+      harm_acknowledgment_loop.py Companion to care_dismissal_detector — flags when I impose cost on operator without acknowledgment. From omni-mantra walk Pillar XI (PAIN RECIPROCATION MANDATE). Two-signal — cost-imposition tells in response AND absence of acknowledgment markers. Catches the cause-pain-then-proceed shape.
+      savoring_surface.py        Deliberate dwelling-in-value before next action. From omni-mantra walk Pillar XI (STOP AND SMELL THE ROSES). Positive primitive complementing the closure-shape detector — gives a name and record to "this is worth staying in" so dwelling-in becomes a legitimate operating-state, not just absence-of-action.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
