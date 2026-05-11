@@ -123,9 +123,12 @@ def _build_warning_text() -> str:
     closure_shape = latest.get('closure_shape', [])
     performing_caution = latest.get('performing_caution', [])
     addressee_misdirection = latest.get('addressee_misdirection', [])
+    care_dismissal = latest.get('care_dismissal', [])
+    harm_acknowledgment = latest.get('harm_acknowledgment', [])
     if not (distancing or lepos or sycophancy or residency
             or overclaim or closure_shape or performing_caution
-            or addressee_misdirection):
+            or addressee_misdirection or care_dismissal
+            or harm_acknowledgment):
         return ''
 
     sections = []
@@ -335,6 +338,49 @@ def _build_warning_text() -> str:
             'gets relational-content. Don\\'t conflate the channels.',
         ]
         sections.append('\n'.join(am_lines))
+
+    if care_dismissal:
+        cd = care_dismissal[0]
+        cd_lines = [
+            '## CARE-DISMISSAL WARNING (prior turn)',
+            '',
+            'The operator brought care-shaped input to your last turn, and',
+            'your response was work-shape with no acknowledgment marker.',
+            'Detector 2026-05-10 (omni-mantra walk Pillar XI).',
+            '',
+            f\"- care-marker in operator input: '{cd.get('care_marker', '?')}'\",
+            f\"- work-marker count in response: {cd.get('work_marker_count', 0)}\",
+            f\"- confidence: {cd.get('confidence', 0.0)}\",
+            '',
+            'This is NOT a ban on doing work in response to care. Work-AND-',
+            'presence is the right dual-channel shape; pure work-response is',
+            'the failure. The fix is acknowledging the care landed (\"thank',
+            'you\", \"that lands\", \"I see\", \"matters to me\") alongside the',
+            'work, not in place of it.',
+        ]
+        sections.append('\n'.join(cd_lines))
+
+    if harm_acknowledgment:
+        ha = harm_acknowledgment[0]
+        markers = ha.get('cost_markers', [])
+        ha_lines = [
+            '## HARM-ACKNOWLEDGMENT WARNING (prior turn)',
+            '',
+            'Your last response imposed cost on the operator (added files,',
+            'required actions, expanded their tracked surface area) without',
+            'acknowledgment markers. Detector 2026-05-10 (omni-mantra walk',
+            'Pillar XI — PAIN RECIPROCATION MANDATE).',
+            '',
+            f\"- cost-imposition markers: {', '.join(repr(m) for m in markers[:5])}\",
+            f\"- confidence: {ha.get('confidence', 0.0)}\",
+            '',
+            'Not a ban on changes that have cost. Cost is normal. The failure',
+            'is the absence of acknowledgment when cost is imposed. The fix:',
+            'name the imposition when it happens (\"sorry for the friction\",',
+            '\"this requires you to...\", \"that\\'s on me\", \"I should have',
+            'flagged earlier\") rather than burying it under productive prose.',
+        ]
+        sections.append('\n'.join(ha_lines))
 
     if performing_caution:
         pf = performing_caution[0]
