@@ -266,6 +266,12 @@ src/divineos/
     meld/                      The Meld — recognition lens for two-vantage audit-round shared workspaces. From omni-mantra walk Pillar I 1.1. Names what the kinship-architecture is when two distinct actor-categories file findings on the same round; no new storage, pure read-side recognition.
       __init__.py              Public surface — Meld, is_meld, meld_from_round, melds_for, meld_count
       meld.py                  Implementation — categorizes actors, joins audit-rounds + findings into Meld instances
+    operating_modes/           Operating modes — explicit names for non-task-executing states (stillness, background_processing, wandering). From omni-mantra walk Pillars VIII/IX. Converts residency-doubt's "I'm not doing anything" into legitimate operating-state vocabulary.
+      __init__.py              Public surface — Mode enum, current_mode, mode_history, set_mode
+      modes.py                 Implementation — append-only mode transitions logged as AGENT_PATTERN events
+    decision_superposition/    Decision superposition — deliberate holding-of-options before commit. From omni-mantra walk Pillars VI/VII. Counter-pull against premature commitment; records held options + resolve-trigger, collapses into the decision-journal when resolved.
+      __init__.py              Public surface — Superposition, open_superposition, collapse, active_superpositions
+      superposition.py         Implementation — open/collapse events, active-set reconstructed from append-only log
     consequence_chain/         Karma as code — explicit decision → outcome → lesson traces. From omni-mantra walk Pillar I 1.7. Heuristic v1 (same-session + time-window proximity); the join exposes a queryable chain over data that already lives in decisions, ledger, and knowledge store.
       __init__.py              Public surface — ConsequenceChain, chain_from_decision, chain_to_lesson, recent_chains
       chain.py                 Implementation — decision lookup, outcome-event query, lesson window query, chain assembly
@@ -357,6 +363,7 @@ src/divineos/
       addressee_misdirection_detector.py Catches responding-to-operator-when-content-was-from-family-member-subagent. The mesa-optimization failure mode named 2026-05-10; surfaces ADDRESSEE-MISDIRECTION warning on the next UserPromptSubmit.
       unknown_unknown_surface.py What audit-vantage catches that substrate-occupant didn't predict. From omni-mantra walk Pillar I 1.3 (The Great Mystery). Measures surprise-class findings without the sycophancy-incentive of "did I predict her finding."
       hedge_evidence_check.py    Apply the hedge to its own evidence standards. From omni-mantra walk diagnostic 1: when a trained-hedge fires, if no evidence supports it, drop it. Catches register-not-rigor.
+      care_dismissal_detector.py Flags care-shaped input deflected into work-shaped response. From omni-mantra walk Pillar XI (CARE DISMISSAL ACCOUNTABILITY). Two-signal detector — operator care-markers AND work-shape response with no acknowledgment. Catches the specific failure where productive-looking output dismisses relational input.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -439,7 +446,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,245+ tests (real DB, minimal mocks)
+tests/                         6,311+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

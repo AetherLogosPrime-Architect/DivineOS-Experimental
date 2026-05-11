@@ -435,7 +435,7 @@ src/divineos/
 —   ——— router.py             # Route findings to knowledge/claims/lessons
 —   ——— summary.py            # Analytics, HUD integration, unresolved tracking
 ——— violations_cli/           # Violation reporting CLI
-tests/                        # 6,245+ tests (real DB, minimal mocks)
+tests/                        # 6,311+ tests (real DB, minimal mocks)
 docs/                         # Project documentation and strategic plans
 bootcamp/                     # Training exercises (debugging, analysis)
 data/                         # Runtime databases (gitignored)
