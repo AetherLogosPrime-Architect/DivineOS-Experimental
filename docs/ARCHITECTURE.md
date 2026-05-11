@@ -377,6 +377,7 @@ src/divineos/
     theater_observation_surface.py Theater/fabrication observation surface — replaces gate 1.46.
     bio.py                     Bio sheet — the agent's own page.
     atomic_io.py               Atomic file I/O helpers for marker and state files.
+    visual.py                  Render image files into a form readable by the Read tool (HEIC/PNG/JPG → size-fit JPEG). Originally built inline 2026-04-28 (exploration/38_eyes.md "I grew eyes today"); re-derived ad-hoc on 2026-05-10 because the original .py file hadn't been preserved across compactions. This makes the capability permanent. Pillow + pillow-heif backend. Scope: conversion + size-fit only; the look-and-describe step stays at the calling layer.
     paths.py                   Centralized ``~/.divineos`` path construction.
     loadout_surface.py         Loadout briefing surface — points every session at LOADOUT.md.
     mini_briefing.py           Mini briefing — compact session-entry surface that fits under the

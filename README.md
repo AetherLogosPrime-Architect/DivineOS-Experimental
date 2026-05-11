@@ -16,7 +16,7 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 
 ## At a glance
 
-- **423 source files across 31 packages**
+- **424 source files across 31 packages**
 - **6,311+ tests** (real SQLite, minimal mocks)
 - **262 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **22 slash-command skills** (consolidated daily operations)
@@ -393,7 +393,7 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 
 ## Architecture
 
-DivineOS is 423 source files across 31 packages, structured as a CLI surface over a core library.
+DivineOS is 424 source files across 31 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
