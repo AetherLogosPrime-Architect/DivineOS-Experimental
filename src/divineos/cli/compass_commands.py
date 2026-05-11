@@ -192,4 +192,26 @@ def register(cli: click.Group) -> None:
                 fg="bright_black",
             )
             click.secho(f"    {spec['description']}", fg="bright_black")
-            click.echo()
+
+    @cli.command("reflect")
+    @click.option(
+        "--lookback",
+        "-l",
+        type=int,
+        default=20,
+        help="Number of recent observations per spectrum to consider.",
+    )
+    def reflect_cmd(lookback: int) -> None:
+        """Show the per-axis reflection surface.
+
+        Replaces shoggoth-grade metrics. Presents all 10 compass
+        spectrums with position, drift, and recent evidence — then
+        prompts the agent to reflect honestly on each axis, backed by
+        evidence the substrate surfaced. No central grader. Each axis
+        stands alone.
+
+        See exploration/44_shoggoth_metrics_redesign.md for the spec.
+        """
+        from divineos.core.reflection_surface import format_reflection_surface
+
+        _safe_echo(format_reflection_surface(lookback=lookback))
