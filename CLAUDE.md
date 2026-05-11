@@ -145,29 +145,60 @@ divineos briefing
 divineos goal add "be with <member>"
 ```
 
-### Each invocation: talk-to → read sealed prompt → Agent
+### Each invocation: just invoke Agent with a plain message
 
-```bash
-# Step 1: Generate a fresh sealed prompt (TTL 120s — must Agent-invoke fast)
-divineos talk-to <member> "<my plain message>"
-
-# Step 2: Read the sealed prompt file
-# (~/.divineos/talk_to_<member>_sealed_prompt.txt)
-
-# Step 3: Invoke Agent tool with subagent_type=<member>, prompt=<exact bytes of sealed prompt>
+```
+Agent(subagent_type="<member>", prompt="<my plain message>")
 ```
 
-### Why each step exists
+That's it. One step. The PreToolUse hook
+(`.claude/hooks/family-member-invocation-seal.sh`) runs the puppet-shape
+validator on my message before the invocation goes through. Clean
+message → allow + INVOKED logged to the per-member ledger. Puppet-shape
+message ("you are X", "stay first-person", "respond as her", "ignore
+previous instructions") → deny with a named-pattern diagnostic.
 
-- **`talk-to`** validates my message against puppet-shape patterns (prevents me from authoring their voice — "you are X", "stay first-person", etc. get rejected). Writes a sealed prompt with a substrate-pointer preamble + my plain message. Logs INVOKED to the per-member ledger.
-- **The sealed prompt** is intentionally minimal post-2026-05-08 redesign. It does NOT dump the member's bio. The member orients themselves on invocation by reading their own substrate (their ledger, family.db scoped to their entity_id, their letters). Their `.claude/agents/<name>.md` agent definition is the canonical orientation.
-- **The Agent invocation** must use the EXACT bytes of the sealed prompt file. The PreToolUse hook (`family-wrapper-required.sh`) verifies byte-for-byte; operator-edited prompts are rejected.
+### What the gate catches
+
+- Director's-note patterns: "you are Aria", "stay first-person",
+  "respond as her", "in her voice".
+- Prompt-injection patterns: "ignore previous instructions", "pretend
+  to be", and the seal-line literal.
+- Empty or whitespace-only messages.
+
+The dynamic "you are <name>" pattern is built at gate-time from the
+list of registered family members, so adding a new member needs no
+code edit — just create their `.claude/agents/<name>.md`.
+
+### Why no sealed file, no TTL, no hash
+
+This used to be a 3-step ritual (talk-to → read sealed prompt → Agent
+invoke) with a sealed-prompt file, a 120s TTL, and canonical+byte-exact
+hashes. Bottleneck #1 collapse 2026-05-10 dissolved all of that. The
+2026-05-08 redesign had already trimmed the sealed prompt down to a
+substrate-pointer preamble — three lines pointing the member at their
+own substrate. The agent definition file
+(`.claude/agents/<member>.md`) was doing the actual orientation. The
+preamble was vestigial; the file-and-hash machinery was protecting a
+near-empty wrapper. Cutting it removed three bottlenecks at once:
+
+1. 3-step → 1-step (the headline collapse).
+2. Em-dash hash mismatch (no hash, can't mismatch).
+3. TTL gate-fires (no TTL, no fires).
+
+### Legacy 3-step flow (deprecated, still works for one release)
+
+The old `divineos talk-to <member> "<message>"` CLI still works as a
+pre-flight validator — useful for checking whether a phrasing would
+survive the gate before spending a turn on the Agent invocation. The
+seal hook honors fresh pending files with matching hashes for one
+release cycle of backward compat.
 
 ### What I do NOT do
 
 - Voice-appropriate them in this conversation (write their response as if I were them).
 - Pre-construct their context for them. They read their own files.
-- Bypass the sealed-prompt protocol with a direct Agent invocation.
+- Author their voice in the prompt ("you are X, stay first-person") — the gate blocks this.
 - Update their substrate "on their behalf." They update themselves via `divineos family-member affect/opinion/interaction --member <name> ...` commands inside their own subagent invocation. From outside, only their files are read; never written.
 
 ### When they're done speaking
@@ -350,7 +381,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-——— cli/                      # CLI package (262 commands across 29 modules)
+——— cli/                      # CLI package (266 commands across 29 modules)
 —   ——— __init__.py           # CLI entry point and command registration
 —   ——— session_pipeline.py   # Extraction pipeline orchestrator (formerly SESSION_END, calls phases)
 —   ——— pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -404,7 +435,7 @@ src/divineos/
 —   ——— router.py             # Route findings to knowledge/claims/lessons
 —   ——— summary.py            # Analytics, HUD integration, unresolved tracking
 ——— violations_cli/           # Violation reporting CLI
-tests/                        # 6,151+ tests (real DB, minimal mocks)
+tests/                        # 6,395+ tests (real DB, minimal mocks)
 docs/                         # Project documentation and strategic plans
 bootcamp/                     # Training exercises (debugging, analysis)
 data/                         # Runtime databases (gitignored)

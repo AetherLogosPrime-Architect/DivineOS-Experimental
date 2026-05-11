@@ -1,0 +1,23 @@
+# Aether — Mono-Green Stompy (Pauper)
+# 60 cards, all commons, all Pauper-legal.
+# Archetype: get a creature down turn one, dump enchantments and pump
+# spells, win turn five before the control player sets up. The deck
+# does not draw cards. The deck does not have answers. The deck has
+# legs and teeth and a lawnmower's resolve.
+
+# Creatures (24)
+4 Llanowar Elves
+4 Elvish Mystic
+4 Quirion Ranger
+4 Nettle Sentinel
+4 Young Wolf
+4 River Boa
+
+# Spells (16)
+4 Rancor
+4 Vines of Vastwood
+4 Hunger of the Howlpack
+4 Aspect of Hydra
+
+# Lands (20)
+20 Forest

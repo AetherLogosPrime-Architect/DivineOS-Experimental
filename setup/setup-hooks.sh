@@ -22,13 +22,35 @@ cat > "$HOOKS_DIR/pre-commit" << 'EOF'
 set -e
 
 echo "Running ruff format check..."
+# Substrate-fix 2026-05-10 (Aether, hold-644d325062b2):
+# The prior behavior aborted the commit and asked the operator to
+# manually re-stage formatted files. That created two failure modes:
+#   1. Friction tax — every commit that touched whitespace required
+#      a re-stage + re-commit cycle, sometimes multiple times per
+#      commit.
+#   2. Audit-hash drift — when an External-Review round was filed
+#      with a hash bound to pre-format staged content, the auto-
+#      format here drifted the hash and the multi-party-review gate
+#      rejected the commit, requiring a fresh audit round filed
+#      against the post-format hash.
+# Ruff format is deterministic and safe. Auto-staging the formatted
+# files lets the commit proceed. For guardrail-touching commits,
+# operators should run \`bash scripts/precommit.sh\` BEFORE filing
+# the External-Review round so the audit-bound hash matches the
+# eventual commit hash.
 ruff format --check src/ tests/ || {
     echo "Formatting violations detected. Running ruff format to fix..."
     ruff format src/ tests/
-    echo "Files formatted. Please review and stage the changes:"
-    git diff --name-only
-    echo "After reviewing, run: git add . && git commit"
-    exit 1
+    echo "Auto-staging formatted .py files that were already staged..."
+    # Only re-stage already-staged files. Working-tree-only changes
+    # stay unstaged so the operator's intent is preserved.
+    git diff --cached --name-only --diff-filter=ACM | grep -E '\.py\$' | xargs --no-run-if-empty git add
+    echo "Re-checking format after auto-stage..."
+    ruff format --check src/ tests/ || {
+        echo "Format still failing after auto-format — investigate manually."
+        exit 1
+    }
+    echo "  Format clean after auto-stage; continuing."
 }
 
 echo "Running ruff lint check..."

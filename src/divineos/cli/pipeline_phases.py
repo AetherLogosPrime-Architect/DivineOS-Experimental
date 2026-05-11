@@ -1131,25 +1131,36 @@ def print_session_summary(
     health: dict[str, Any] | None,
     clarity_summary: Any,
     session_feedback: Any,
+    analysis: Any = None,
 ) -> None:
-    """Print the end-of-session summary."""
+    """Print the end-of-session summary.
+
+    If `analysis` (SessionAnalysis) is passed, the reflection surface
+    will include a session-type classification at the top, routing
+    which compass axes are most relevant for the session shape.
+    Backward-compatible: defaults to None so existing callers don't
+    break.
+    """
     click.secho("\n=== Session Complete ===", fg="cyan", bold=True)
     click.secho(f"  Knowledge extracted:  {stored}", fg="white")
     if feedback_parts:
         click.secho(f"  Feedback applied:     {', '.join(feedback_parts)}", fg="white")
     if promoted or demoted:
         click.secho(f"  Active memory:        +{promoted} promoted, -{demoted} demoted", fg="white")
-    if health:
-        grade_color = {"A": "green", "B": "green", "C": "yellow", "D": "red", "F": "red"}
-        click.secho(
-            f"  Session grade:        {health['grade']} ({health['score']:.2f})",
-            fg=grade_color.get(health["grade"], "white"),
-        )
+    # Phase 3A (2026-05-11): shoggoth-shaped metric OUTPUTS removed from the
+    # visible surface. session_grade was a composite letter/score that misfired
+    # by reading code-session shape onto any session-type and treating
+    # collaborative-sharpening as user-dissatisfaction. alignment_score was
+    # a plan-execution-fidelity score (files_ratio + tool_calls_ratio + error_score)
+    # misleadingly named "alignment". Both replaced by the per-axis reflection
+    # surface + metacognitive pairing (see core/reflection_surface.py and
+    # core/reflection_pairing.py). The internal computations (health dict and
+    # clarity_summary) remain available for downstream consumers that still
+    # depend on them; full removal from the data layer is deferred to a
+    # coordinated next-session migration. See knowledge bbe3300e and
+    # exploration/44_shoggoth_metrics_redesign.md.
     if clarity_summary:
-        score = clarity_summary.plan_vs_actual.alignment_score
         recs = clarity_summary.recommendations
-        color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
-        click.secho(f"  Alignment score:      {score:.0f}%", fg=color)
         if recs:
             click.secho(f"  Clarity recs:         {len(recs)}", fg="white")
             for rec in recs[:3]:
@@ -1158,6 +1169,47 @@ def print_session_summary(
         click.secho(f"  Session recs:         {len(session_feedback.recommendations)}", fg="white")
         for fb_rec in session_feedback.recommendations[:3]:
             _safe_echo(f"    - {fb_rec}")
+
+    # Per-axis reflection surface — replaces shoggoth-grade metrics.
+    # The composite outputs above (session grade, alignment score) are
+    # being deprecated in favor of honest per-axis reflection backed
+    # by evidence. See exploration/44_shoggoth_metrics_redesign.md.
+    # This is the additive surface; old metrics remain for
+    # backward-compat until Phase 3A removes them.
+    try:
+        from divineos.core.reflection_surface import format_reflection_surface
+
+        # Phase 2B integration: classify session type if analysis is available.
+        session_type_result = None
+        if analysis is not None:
+            try:
+                from divineos.core.session_type import classify_session
+
+                tool_usage = getattr(analysis, "tool_usage", {}) or {}
+                session_type_result = classify_session(
+                    user_msgs=getattr(analysis, "user_messages", 0),
+                    assistant_msgs=getattr(analysis, "assistant_messages", 0),
+                    tool_calls=getattr(analysis, "tool_calls_total", 0),
+                    bash_calls=tool_usage.get("Bash", 0),
+                    edit_calls=tool_usage.get("Edit", 0),
+                    write_calls=tool_usage.get("Write", 0),
+                    read_calls=tool_usage.get("Read", 0),
+                    grep_calls=tool_usage.get("Grep", 0),
+                    overflows=getattr(analysis, "context_overflows", 0),
+                    duration_hours=(
+                        getattr(analysis, "duration_seconds", 0) / 3600.0
+                        if getattr(analysis, "duration_seconds", 0)
+                        else 0.0
+                    ),
+                )
+            except (ImportError, AttributeError, TypeError) as e:
+                logger.debug(f"Session-type classification skipped: {e}")
+
+        click.echo()
+        _safe_echo(format_reflection_surface(session_type_result=session_type_result))
+    except (ImportError, OSError, ValueError, KeyError) as e:
+        logger.debug(f"Reflection surface skipped: {e}")
+
     # Rating solicitation — the one metric the system cannot game
     click.secho(
         "\n  💬 How was this session? Rate it 1-10:",
