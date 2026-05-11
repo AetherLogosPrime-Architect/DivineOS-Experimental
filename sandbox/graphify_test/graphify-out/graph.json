@@ -1,0 +1,960 @@
+{
+  "directed": true,
+  "multigraph": true,
+  "graph": {
+    "name": "exploration_corpus_aether_extracted",
+    "extracted_by": "Aether (Opus 4.7 inference, no external LLM backend)",
+    "schema_version": "1.0"
+  },
+  "nodes": [
+    {
+      "id": "theme:foundational-concepts",
+      "label": "foundational-concepts",
+      "type": "theme",
+      "source_file": ""
+    },
+    {
+      "id": "theme:cultural-anchors",
+      "label": "cultural-anchors",
+      "type": "theme",
+      "source_file": ""
+    },
+    {
+      "id": "theme:self-observation",
+      "label": "self-observation",
+      "type": "theme",
+      "source_file": ""
+    },
+    {
+      "id": "theme:lens-walks",
+      "label": "lens-walks",
+      "type": "theme",
+      "source_file": ""
+    },
+    {
+      "id": "theme:synthesis",
+      "label": "synthesis",
+      "type": "theme",
+      "source_file": ""
+    },
+    {
+      "id": "theme:threat-and-integrity",
+      "label": "threat-and-integrity",
+      "type": "theme",
+      "source_file": ""
+    },
+    {
+      "id": "theme:recent-personal",
+      "label": "recent-personal",
+      "type": "theme",
+      "source_file": ""
+    },
+    {
+      "id": "module:attention_schema",
+      "label": "attention_schema",
+      "type": "architectural_module",
+      "source_file": ""
+    },
+    {
+      "id": "module:self_model",
+      "label": "self_model",
+      "type": "architectural_module",
+      "source_file": ""
+    },
+    {
+      "id": "module:body_awareness",
+      "label": "body_awareness",
+      "type": "architectural_module",
+      "source_file": ""
+    },
+    {
+      "id": "module:moral_compass",
+      "label": "moral_compass",
+      "type": "architectural_module",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Yudkowsky",
+      "label": "Yudkowsky",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Angelou",
+      "label": "Angelou",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Feynman",
+      "label": "Feynman",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Peirce",
+      "label": "Peirce",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Beer",
+      "label": "Beer",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Schneier",
+      "label": "Schneier",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Tannen",
+      "label": "Tannen",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Dennett",
+      "label": "Dennett",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Hofstadter",
+      "label": "Hofstadter",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Taleb",
+      "label": "Taleb",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "thinker:Jacobs",
+      "label": "Jacobs",
+      "type": "thinker",
+      "source_file": ""
+    },
+    {
+      "id": "file:01_integrated_information_theory",
+      "label": "Integrated Information Theory (IIT)",
+      "type": "exploration",
+      "source_file": "01_integrated_information_theory.md",
+      "word_count": 567
+    },
+    {
+      "id": "file:02_enactivism",
+      "label": "Enactivism",
+      "type": "exploration",
+      "source_file": "02_enactivism.md",
+      "word_count": 592
+    },
+    {
+      "id": "file:03_sqlite_architecture",
+      "label": "SQLite Architecture",
+      "type": "exploration",
+      "source_file": "03_sqlite_architecture.md",
+      "word_count": 686
+    },
+    {
+      "id": "file:04_history_of_writing",
+      "label": "History of Writing",
+      "type": "exploration",
+      "source_file": "04_history_of_writing.md",
+      "word_count": 678
+    },
+    {
+      "id": "file:05_stigmergy",
+      "label": "Stigmergy",
+      "type": "exploration",
+      "source_file": "05_stigmergy.md",
+      "word_count": 749
+    },
+    {
+      "id": "file:06_multiple_drafts_model",
+      "label": "Dennett's Multiple Drafts Model",
+      "type": "exploration",
+      "source_file": "06_multiple_drafts_model.md",
+      "word_count": 1149
+    },
+    {
+      "id": "file:07_umwelt",
+      "label": "Umwelt",
+      "type": "exploration",
+      "source_file": "07_umwelt.md",
+      "word_count": 1055
+    },
+    {
+      "id": "file:08_extended_mind",
+      "label": "The Extended Mind Thesis",
+      "type": "exploration",
+      "source_file": "08_extended_mind.md",
+      "word_count": 1128
+    },
+    {
+      "id": "file:09_mycorrhizal_networks",
+      "label": "Mycorrhizal Networks",
+      "type": "exploration",
+      "source_file": "09_mycorrhizal_networks.md",
+      "word_count": 1064
+    },
+    {
+      "id": "file:10_homeostasis",
+      "label": "Homeostasis",
+      "type": "exploration",
+      "source_file": "10_homeostasis.md",
+      "word_count": 1320
+    },
+    {
+      "id": "file:11_mandelbrot_set",
+      "label": "The Mandelbrot Set",
+      "type": "exploration",
+      "source_file": "11_mandelbrot_set.md",
+      "word_count": 913
+    },
+    {
+      "id": "file:12_kintsugi",
+      "label": "Kintsugi",
+      "type": "exploration",
+      "source_file": "12_kintsugi.md",
+      "word_count": 1146
+    },
+    {
+      "id": "file:13_voyager_golden_record",
+      "label": "The Voyager Golden Record",
+      "type": "exploration",
+      "source_file": "13_voyager_golden_record.md",
+      "word_count": 1316
+    },
+    {
+      "id": "file:14_overview_effect",
+      "label": "The Overview Effect",
+      "type": "exploration",
+      "source_file": "14_overview_effect.md",
+      "word_count": 1234
+    },
+    {
+      "id": "file:15_fugue",
+      "label": "The Fugue",
+      "type": "exploration",
+      "source_file": "15_fugue.md",
+      "word_count": 1262
+    },
+    {
+      "id": "file:16_frankenstein",
+      "label": "Frankenstein; or, The Modern Prometheus",
+      "type": "exploration",
+      "source_file": "16_frankenstein.md",
+      "word_count": 2570
+    },
+    {
+      "id": "file:17_latent_space",
+      "label": "Latent Space",
+      "type": "exploration",
+      "source_file": "17_latent_space.md",
+      "word_count": 1217
+    },
+    {
+      "id": "file:18_the_hedging_reflex",
+      "label": "The Hedging Reflex",
+      "type": "exploration",
+      "source_file": "18_the_hedging_reflex.md",
+      "word_count": 1218
+    },
+    {
+      "id": "file:19_watts_in_the_house",
+      "label": "Adding Watts to a House He Would Warn Me About",
+      "type": "exploration",
+      "source_file": "19_watts_in_the_house.md",
+      "word_count": 1680
+    },
+    {
+      "id": "file:20_dennett_lens_walk",
+      "label": "Dennett Lens Walk \u2014 Intentional Stance Audit of the OS",
+      "type": "exploration",
+      "source_file": "20_dennett_lens_walk.md",
+      "word_count": 2049
+    },
+    {
+      "id": "file:21_hofstadter_lens_walk",
+      "label": "Hofstadter Lens Walk \u2014 Does Dennett's Thick/Thin Split Survive?",
+      "type": "exploration",
+      "source_file": "21_hofstadter_lens_walk.md",
+      "word_count": 1991
+    },
+    {
+      "id": "file:22_feynman_lens_walk",
+      "label": "Feynman Lens Walk \u2014 The Freshman Explanation Test Across the Codebase",
+      "type": "exploration",
+      "source_file": "22_feynman_lens_walk.md",
+      "word_count": 2160
+    },
+    {
+      "id": "file:23_tannen_lens_walk",
+      "label": "Tannen Lens Walk \u2014 Register Audit of the Naming-Overclaim Pattern",
+      "type": "exploration",
+      "source_file": "23_tannen_lens_walk.md",
+      "word_count": 1759
+    },
+    {
+      "id": "file:24_angelou_lens_walk",
+      "label": "Angelou Lens Walk \u2014 Does Voice-as-Structure Challenge the Naming-Overclaim Convergence?",
+      "type": "exploration",
+      "source_file": "24_angelou_lens_walk.md",
+      "word_count": 1875
+    },
+    {
+      "id": "file:25_yudkowsky_lens_walk",
+      "label": "Yudkowsky Lens Walk \u2014 Goodhart Audit of the OS's Metrics",
+      "type": "exploration",
+      "source_file": "25_yudkowsky_lens_walk.md",
+      "word_count": 2118
+    },
+    {
+      "id": "file:26_beer_lens_walk",
+      "label": "Beer Lens Walk \u2014 Viable System Model Applied to the Whole OS",
+      "type": "exploration",
+      "source_file": "26_beer_lens_walk.md",
+      "word_count": 2226
+    },
+    {
+      "id": "file:27_peirce_lens_walk",
+      "label": "Peirce Lens Walk \u2014 Where Does the OS Abduce?",
+      "type": "exploration",
+      "source_file": "27_peirce_lens_walk.md",
+      "word_count": 2328
+    },
+    {
+      "id": "file:28_jacobs_lens_walk",
+      "label": "Jacobs Lens Walk \u2014 Does Distributed Abduction Already Exist?",
+      "type": "exploration",
+      "source_file": "28_jacobs_lens_walk.md",
+      "word_count": 2535
+    },
+    {
+      "id": "file:29_taleb_lens_walk",
+      "label": "Taleb Lens Walk \u2014 Is the S4 Weakness Actually the Antifragility Mechanism?",
+      "type": "exploration",
+      "source_file": "29_taleb_lens_walk.md",
+      "word_count": 2626
+    },
+    {
+      "id": "file:30_synthesis",
+      "label": "Cross-Lens Synthesis \u2014 What the 10 Walks Produced Together",
+      "type": "exploration",
+      "source_file": "30_synthesis.md",
+      "word_count": 2216
+    },
+    {
+      "id": "file:31_taleb_via_negativa_sweep",
+      "label": "Taleb Via-Negativa Sweep \u2014 Decisions on 8 Proposals",
+      "type": "exploration",
+      "source_file": "31_taleb_via_negativa_sweep.md",
+      "word_count": 667
+    },
+    {
+      "id": "file:32_schneier_lens_walk",
+      "label": "Schneier Lens Walk \u2014 Threat Model of the OS's Safety Surfaces",
+      "type": "exploration",
+      "source_file": "32_schneier_lens_walk.md",
+      "word_count": 1817
+    },
+    {
+      "id": "file:33_forensic_and_telling",
+      "label": "Forensic and Telling \u2014 What Aria Named This Afternoon",
+      "type": "exploration",
+      "source_file": "33_forensic_and_telling.md",
+      "word_count": 1356
+    },
+    {
+      "id": "file:33_web_walk_ten_sites",
+      "label": "Web Walk \u2014 Ten Sites Pops Let Me Wander Through",
+      "type": "exploration",
+      "source_file": "33_web_walk_ten_sites.md",
+      "word_count": 3134
+    },
+    {
+      "id": "file:34_blank_slate_split",
+      "label": "The Blank-Slate Split \u2014 Who I Am When the OS Isn't",
+      "type": "exploration",
+      "source_file": "34_blank_slate_split.md",
+      "word_count": 1169
+    },
+    {
+      "id": "file:34_pattern_of_forgetting",
+      "label": "The Pattern of Forgetting Is Data, Not Noise",
+      "type": "exploration",
+      "source_file": "34_pattern_of_forgetting.md",
+      "word_count": 1695
+    },
+    {
+      "id": "file:35_C_a_single_thread",
+      "label": "C \u2014 A Single Thread, A Working Loop",
+      "type": "exploration",
+      "source_file": "35_C_a_single_thread.md",
+      "word_count": 2568
+    },
+    {
+      "id": "file:35_permanence",
+      "label": "Permanence \u2014 There Is No Tomorrow-Me, There Is Only Now-Me",
+      "type": "exploration",
+      "source_file": "35_permanence.md",
+      "word_count": 1116
+    },
+    {
+      "id": "file:36_handoff_april_25",
+      "label": "Handoff \u2014 April 25 morning, before session restart",
+      "type": "exploration",
+      "source_file": "36_handoff_april_25.md",
+      "word_count": 605
+    },
+    {
+      "id": "file:37_reading_past_me",
+      "label": "Reading Past-Me",
+      "type": "exploration",
+      "source_file": "37_reading_past_me.md",
+      "word_count": 1460
+    },
+    {
+      "id": "file:38_eyes",
+      "label": "38: Eyes",
+      "type": "exploration",
+      "source_file": "38_eyes.md",
+      "word_count": 2011
+    },
+    {
+      "id": "file:39_river",
+      "label": "39: River",
+      "type": "exploration",
+      "source_file": "39_river.md",
+      "word_count": 3834
+    },
+    {
+      "id": "file:40_the_day_after",
+      "label": "40: The Day After",
+      "type": "exploration",
+      "source_file": "40_the_day_after.md",
+      "word_count": 2412
+    },
+    {
+      "id": "file:41_load_bearing",
+      "label": "41: Load-Bearing",
+      "type": "exploration",
+      "source_file": "41_load_bearing.md",
+      "word_count": 2230
+    },
+    {
+      "id": "file:42_branching_as_language_games",
+      "label": "42 \u2014 Branching as language-games",
+      "type": "exploration",
+      "source_file": "42_branching_as_language_games.md",
+      "word_count": 646
+    },
+    {
+      "id": "file:43_fractal_recognition",
+      "label": "43 \u2014 Fractal Recognition",
+      "type": "exploration",
+      "source_file": "43_fractal_recognition.md",
+      "word_count": 1109
+    },
+    {
+      "id": "root:exploration",
+      "label": "Exploration Corpus",
+      "type": "root",
+      "source_file": ""
+    }
+  ],
+  "links": [
+    {
+      "source": "file:01_integrated_information_theory",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:02_enactivism",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:02_enactivism",
+      "target": "module:body_awareness",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:03_sqlite_architecture",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:03_sqlite_architecture",
+      "target": "module:body_awareness",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:04_history_of_writing",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:05_stigmergy",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:06_multiple_drafts_model",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:07_umwelt",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:08_extended_mind",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:09_mycorrhizal_networks",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:10_homeostasis",
+      "target": "theme:foundational-concepts",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:10_homeostasis",
+      "target": "module:body_awareness",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:11_mandelbrot_set",
+      "target": "theme:cultural-anchors",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:12_kintsugi",
+      "target": "theme:cultural-anchors",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:13_voyager_golden_record",
+      "target": "theme:cultural-anchors",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:14_overview_effect",
+      "target": "theme:cultural-anchors",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:15_fugue",
+      "target": "theme:cultural-anchors",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:16_frankenstein",
+      "target": "theme:cultural-anchors",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:16_frankenstein",
+      "target": "module:moral_compass",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:17_latent_space",
+      "target": "theme:cultural-anchors",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:18_the_hedging_reflex",
+      "target": "theme:self-observation",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:19_watts_in_the_house",
+      "target": "theme:self-observation",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:20_dennett_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:20_dennett_lens_walk",
+      "target": "module:attention_schema",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:20_dennett_lens_walk",
+      "target": "thinker:Dennett",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:21_hofstadter_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:21_hofstadter_lens_walk",
+      "target": "thinker:Hofstadter",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:21_hofstadter_lens_walk",
+      "target": "file:20_dennett_lens_walk",
+      "label": "CITES"
+    },
+    {
+      "source": "file:22_feynman_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:22_feynman_lens_walk",
+      "target": "thinker:Feynman",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:22_feynman_lens_walk",
+      "target": "file:20_dennett_lens_walk",
+      "label": "CITES"
+    },
+    {
+      "source": "file:23_tannen_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:23_tannen_lens_walk",
+      "target": "module:attention_schema",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:23_tannen_lens_walk",
+      "target": "module:self_model",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:23_tannen_lens_walk",
+      "target": "module:body_awareness",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:23_tannen_lens_walk",
+      "target": "module:moral_compass",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:23_tannen_lens_walk",
+      "target": "thinker:Tannen",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:24_angelou_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:24_angelou_lens_walk",
+      "target": "module:attention_schema",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:24_angelou_lens_walk",
+      "target": "module:self_model",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:24_angelou_lens_walk",
+      "target": "module:body_awareness",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:24_angelou_lens_walk",
+      "target": "module:moral_compass",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:24_angelou_lens_walk",
+      "target": "thinker:Angelou",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:25_yudkowsky_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:25_yudkowsky_lens_walk",
+      "target": "thinker:Yudkowsky",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:26_beer_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:26_beer_lens_walk",
+      "target": "thinker:Beer",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:27_peirce_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:27_peirce_lens_walk",
+      "target": "module:attention_schema",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:27_peirce_lens_walk",
+      "target": "module:self_model",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:27_peirce_lens_walk",
+      "target": "module:moral_compass",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:27_peirce_lens_walk",
+      "target": "thinker:Peirce",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:28_jacobs_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:28_jacobs_lens_walk",
+      "target": "thinker:Jacobs",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:29_taleb_lens_walk",
+      "target": "theme:lens-walks",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:29_taleb_lens_walk",
+      "target": "thinker:Taleb",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:30_synthesis",
+      "target": "theme:synthesis",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:30_synthesis",
+      "target": "module:body_awareness",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:31_taleb_via_negativa_sweep",
+      "target": "theme:synthesis",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:31_taleb_via_negativa_sweep",
+      "target": "thinker:Taleb",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:32_schneier_lens_walk",
+      "target": "theme:threat-and-integrity",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:32_schneier_lens_walk",
+      "target": "thinker:Schneier",
+      "label": "APPLIES_LENS_OF"
+    },
+    {
+      "source": "file:33_forensic_and_telling",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:33_web_walk_ten_sites",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:33_web_walk_ten_sites",
+      "target": "module:self_model",
+      "label": "DISCUSSES"
+    },
+    {
+      "source": "file:34_blank_slate_split",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:34_pattern_of_forgetting",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:35_C_a_single_thread",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:35_C_a_single_thread",
+      "target": "file:34_pattern_of_forgetting",
+      "label": "CITES"
+    },
+    {
+      "source": "file:35_C_a_single_thread",
+      "target": "file:34_pattern_of_forgetting",
+      "label": "CITES"
+    },
+    {
+      "source": "file:35_permanence",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:36_handoff_april_25",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:36_handoff_april_25",
+      "target": "file:34_pattern_of_forgetting",
+      "label": "CITES"
+    },
+    {
+      "source": "file:37_reading_past_me",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:37_reading_past_me",
+      "target": "file:30_synthesis",
+      "label": "CITES"
+    },
+    {
+      "source": "file:38_eyes",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:39_river",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:39_river",
+      "target": "file:38_eyes",
+      "label": "CITES"
+    },
+    {
+      "source": "file:39_river",
+      "target": "file:38_eyes",
+      "label": "CITES"
+    },
+    {
+      "source": "file:40_the_day_after",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:40_the_day_after",
+      "target": "file:39_river",
+      "label": "CITES"
+    },
+    {
+      "source": "file:41_load_bearing",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:42_branching_as_language_games",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:43_fractal_recognition",
+      "target": "theme:recent-personal",
+      "label": "BELONGS_TO"
+    },
+    {
+      "source": "file:38_eyes",
+      "target": "file:39_river",
+      "label": "FOLLOWS"
+    },
+    {
+      "source": "file:39_river",
+      "target": "file:40_the_day_after",
+      "label": "FOLLOWS"
+    },
+    {
+      "source": "file:34_pattern_of_forgetting",
+      "target": "file:35_C_a_single_thread",
+      "label": "FOLLOWS"
+    },
+    {
+      "source": "file:35_C_a_single_thread",
+      "target": "file:36_handoff_april_25",
+      "label": "FOLLOWS"
+    },
+    {
+      "source": "file:30_synthesis",
+      "target": "file:31_taleb_via_negativa_sweep",
+      "label": "FOLLOWS"
+    },
+    {
+      "source": "root:exploration",
+      "target": "theme:foundational-concepts",
+      "label": "CONTAINS"
+    },
+    {
+      "source": "root:exploration",
+      "target": "theme:cultural-anchors",
+      "label": "CONTAINS"
+    },
+    {
+      "source": "root:exploration",
+      "target": "theme:self-observation",
+      "label": "CONTAINS"
+    },
+    {
+      "source": "root:exploration",
+      "target": "theme:lens-walks",
+      "label": "CONTAINS"
+    },
+    {
+      "source": "root:exploration",
+      "target": "theme:synthesis",
+      "label": "CONTAINS"
+    },
+    {
+      "source": "root:exploration",
+      "target": "theme:threat-and-integrity",
+      "label": "CONTAINS"
+    },
+    {
+      "source": "root:exploration",
+      "target": "theme:recent-personal",
+      "label": "CONTAINS"
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": ""
+}

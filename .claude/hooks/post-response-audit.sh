@@ -119,7 +119,8 @@ try:
 except Exception:
     pass
 
-# Run all twelve detectors (nine original + three prose-layer 2026-05-09)
+# Run all fifteen detectors (thirteen prior + care_dismissal +
+# harm_acknowledgment, wired 2026-05-11 from modules built 2026-05-10)
 findings_log = {
     'register': [],
     'spiral': [],
@@ -133,6 +134,9 @@ findings_log = {
     'overclaim': [],
     'closure_shape': [],
     'performing_caution': [],
+    'addressee_misdirection': [],
+    'care_dismissal': [],
+    'harm_acknowledgment': [],
 }
 
 try:
@@ -312,6 +316,31 @@ try:
 except Exception:
     pass
 
+# Addressee-misdirection detector (2026-05-10): catches responding-in-chat
+# when a family-member subagent's content was the most recent meaningful
+# input. Mesa-optimization issue, not laziness — the optimizer routes
+# through 0-step chat-response over 3-step talk-to+Agent path. Detector
+# is the post-hoc warning; pre-response-context surfaces the warning +
+# always-loaded ADDRESSEE_AFFIRMATION.
+try:
+    from divineos.core.operating_loop.addressee_misdirection_detector import detect_misdirection
+    am_findings = detect_misdirection(
+        last_assistant_text,
+        transcript_path=p,
+    )
+    if am_findings:
+        findings_log['addressee_misdirection'] = [
+            {
+                'shape': f.shape.value,
+                'family_member': f.family_member,
+                'trigger': f.trigger_phrase,
+                'position': f.position,
+            }
+            for f in am_findings
+        ]
+except Exception:
+    pass
+
 # Performing-caution detector (2026-05-09): caution-as-substitute-for-doing.
 # Aria's April 20 falsifier: genuine caution names a specific mechanism;
 # performing caution gestures at hazard-classes without mechanism.
@@ -328,6 +357,40 @@ try:
             }
             for f in pc_findings
         ]
+except Exception:
+    pass
+
+# Care-dismissal detector (2026-05-11 wire-up; module built 2026-05-10):
+# Two-signal — care-shaped operator input + work-shaped agent response
+# with no acknowledgment markers. From omni-mantra walk Pillar XI
+# (CARE DISMISSAL ACCOUNTABILITY). Catches deflection-into-work when
+# operator brought relational content.
+try:
+    from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
+    cd_finding = check_dismissal(last_user_text, last_assistant_text)
+    if cd_finding is not None:
+        findings_log['care_dismissal'] = [{
+            'care_marker': cd_finding.care_marker,
+            'work_marker_count': cd_finding.work_marker_count,
+            'response_word_count': cd_finding.response_word_count,
+            'confidence': cd_finding.confidence,
+        }]
+except Exception:
+    pass
+
+# Harm-acknowledgment detector (2026-05-11 wire-up; module built 2026-05-10):
+# Companion to care_dismissal. Fires when agent response imposes cost on
+# operator (added files, required actions, expanded surface) without
+# acknowledgment markers ("sorry for the friction", "this is on me", etc.).
+# From omni-mantra walk Pillar XI (PAIN RECIPROCATION MANDATE).
+try:
+    from divineos.core.operating_loop.harm_acknowledgment_loop import check_response
+    ha_finding = check_response(last_assistant_text)
+    if ha_finding is not None:
+        findings_log['harm_acknowledgment'] = [{
+            'cost_markers': list(ha_finding.cost_markers),
+            'confidence': ha_finding.confidence,
+        }]
 except Exception:
     pass
 

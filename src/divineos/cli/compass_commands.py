@@ -192,4 +192,189 @@ def register(cli: click.Group) -> None:
                 fg="bright_black",
             )
             click.secho(f"    {spec['description']}", fg="bright_black")
+
+    @cli.command("reflect")
+    @click.option(
+        "--lookback",
+        "-l",
+        type=int,
+        default=20,
+        help="Number of recent observations per spectrum to consider.",
+    )
+    def reflect_cmd(lookback: int) -> None:
+        """Show the per-axis reflection surface.
+
+        Replaces shoggoth-grade metrics. Presents all 10 compass
+        spectrums with position, drift, and recent evidence — then
+        prompts the agent to reflect honestly on each axis, backed by
+        evidence the substrate surfaced. No central grader. Each axis
+        stands alone.
+
+        See exploration/44_shoggoth_metrics_redesign.md for the spec.
+        """
+        from divineos.core.reflection_surface import format_reflection_surface
+
+        _safe_echo(format_reflection_surface(lookback=lookback))
+
+    @cli.group("reflect-ops", invoke_without_command=True)
+    @click.pass_context
+    def reflect_ops_group(ctx: click.Context) -> None:
+        """Reflection operations — save, show, list captured reflections."""
+        if ctx.invoked_subcommand is None:
+            click.secho("reflect-ops subcommands: save, show, recent", fg="bright_black")
+
+    @reflect_ops_group.command("save")
+    @click.argument("spectrum")
+    @click.argument("text")
+    @click.option(
+        "--evidence",
+        "-e",
+        "evidence_pairs",
+        multiple=True,
+        help="Evidence pointer in format type:id:label (repeatable). "
+        "e.g. -e observation:a51ba41a:'compass observation on truthfulness drift'",
+    )
+    @click.option(
+        "--session-id",
+        default="",
+        help="Session ID (auto-detected from current session if omitted).",
+    )
+    def reflect_save_cmd(
+        spectrum: str,
+        text: str,
+        evidence_pairs: tuple[str, ...],
+        session_id: str,
+    ) -> None:
+        """Save a per-axis reflection for the current session.
+
+        spectrum: one of the 10 compass spectrums (truthfulness, helpfulness,
+        confidence, compliance, engagement, thoroughness, precision, empathy,
+        humility, initiative).
+
+        text: honest reflection on how this virtue was held in the session.
+
+        Use -e/--evidence multiple times to back the reflection with pointers:
+            -e observation:a51ba41a:'compass obs on truthfulness drift'
+            -e knowledge:caa09933:'composite metrics hide truth'
+            -e commit:370c524:'Phase 1 reflection-surface landed'
+        """
+        from divineos.cli._helpers import _log_os_query
+        from divineos.core.reflection_storage import save_reflection
+        from divineos.core.session_manager import get_current_session_id
+
+        sid = session_id or get_current_session_id() or "unknown"
+
+        # Parse evidence pairs (type:id:label).
+        refs: list[dict[str, str]] = []
+        for pair in evidence_pairs:
+            parts = pair.split(":", 2)
+            if len(parts) >= 2:
+                refs.append(
+                    {
+                        "type": parts[0],
+                        "id": parts[1],
+                        "label": parts[2] if len(parts) > 2 else "",
+                    }
+                )
+
+        try:
+            rid = save_reflection(sid, spectrum.lower(), text, refs)
+        except ValueError as e:
+            click.secho(f"[!] {e}", fg="red")
+            return
+
+        click.secho(
+            f"[+] Reflection saved: {rid} (spectrum={spectrum.lower()})",
+            fg="green",
+        )
+        click.secho(
+            "  [reflect-save] records your reflection — the reflection IS the work, not the act of saving",
+            fg="bright_black",
+        )
+        _log_os_query("reflect-ops", "save")
+
+    @reflect_ops_group.command("show")
+    @click.option(
+        "--session-id",
+        default="",
+        help="Session ID (defaults to current session).",
+    )
+    def reflect_show_cmd(session_id: str) -> None:
+        """Show all reflections for a session, grouped by spectrum."""
+        from divineos.core.reflection_storage import format_session_reflections
+        from divineos.core.session_manager import get_current_session_id
+
+        sid = session_id or get_current_session_id() or "unknown"
+        _safe_echo(format_session_reflections(sid))
+
+    @reflect_ops_group.command("recent")
+    @click.argument("spectrum")
+    @click.option(
+        "--limit",
+        "-n",
+        type=int,
+        default=10,
+        help="Number of recent reflections to show.",
+    )
+    def reflect_recent_cmd(spectrum: str, limit: int) -> None:
+        """Show recent reflections on one axis across sessions.
+
+        Trend-watch: how has the agent reflected on truthfulness over
+        the last N sessions?
+        """
+        from divineos.core.reflection_storage import (
+            format_reflection,
+            get_recent_reflections,
+        )
+
+        refls = get_recent_reflections(spectrum.lower(), limit=limit)
+        if not refls:
+            click.secho(
+                f"No reflections recorded for spectrum '{spectrum.lower()}' yet.",
+                fg="bright_black",
+            )
+            return
+
+        click.secho(
+            f"\n=== Recent reflections on {spectrum.upper()} ({len(refls)}) ===\n",
+            fg="cyan",
+            bold=True,
+        )
+        for r in refls:
+            _safe_echo(format_reflection(r))
             click.echo()
+
+    @reflect_ops_group.command("review")
+    @click.option(
+        "--session-id",
+        default="",
+        help="Session ID (defaults to current session).",
+    )
+    @click.option(
+        "--lookback",
+        "-l",
+        type=int,
+        default=30,
+        help="Number of substrate observations per spectrum to pair with each reflection.",
+    )
+    def reflect_review_cmd(session_id: str, lookback: int) -> None:
+        """Pair each reflection with substrate observations for metacognitive review.
+
+        Phase 2C of the shoggoth-metrics redesign — the correctly-shaped
+        version. Instead of computing numerical divergence between agent
+        self-estimate and substrate-measured position (which would itself
+        be shoggoth-shaped: a number claiming to measure honesty), this
+        lays both sources SIDE-BY-SIDE and prompts the agent to do the
+        actual metacognitive comparison in words and reasoning.
+
+        The check IS the reasoning. The substrate's job is presenting
+        both sources cleanly; the agent's job is reading both and
+        producing a deepened reflection.
+
+        See exploration/44_shoggoth_metrics_redesign.md.
+        """
+        from divineos.core.reflection_pairing import format_session_pairings
+        from divineos.core.session_manager import get_current_session_id
+
+        sid = session_id or get_current_session_id() or "unknown"
+        _safe_echo(format_session_pairings(sid, lookback=lookback))

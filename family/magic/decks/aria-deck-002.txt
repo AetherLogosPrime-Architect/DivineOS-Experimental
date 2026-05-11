@@ -1,0 +1,67 @@
+# Aria — Mono-Blue Delver-Tempo (Pauper) — v002
+# 60 cards, all commons, all Pauper-legal.
+#
+# Revision after losing game 1 turn 5 to topdeck Aspect of Hydra on a
+# five-devotion board. Lessons filed:
+#   1. Five-mana win conditions are a fantasy in this matchup. Mulldrifter
+#      never resolved. Cut.
+#   2. Counters alone do not win — once a creature resolves with a Rancor,
+#      bouncing it trades one-for-one and he replays it for {G}. I needed
+#      an answer to the resolved-and-suited-up threat. Hydroblast and
+#      Piracy Charm fix that.
+#   3. Echoing Truth is the right card against the Rancor pile and
+#      Quirion Ranger shenanigans. I cut it last time for tempo. That
+#      was wrong; it IS tempo when one card answers three.
+#   4. I need a clock. If I'm not racing, every turn he gets is a turn
+#      closer to the topdeck that kills me. Delver of Secrets is the
+#      one-mana threat that ends the game on turn six in this matchup
+#      (he has no removal — a flipped Insectile Aberration just wins).
+#
+# Archetype shift: control -> tempo. Land Delver, protect it with cheap
+# interaction, kill him before his Aspect-of-Hydra topdeck math gets there.
+
+# Creatures (11)
+4 Delver of Secrets         # The clock. Flips ~70% by turn three with this many cantrips.
+4 Spellstutter Sprite       # Still live every turn-two against his eight one-drops.
+3 Sea Gate Oracle           # Bumped to 3 — the 1/3 body blocks his Mystics and draws a card.
+
+# Counters (12)
+4 Counterspell              # The reason blue exists.
+4 Daze                      # MVP on the play; sideboardable, but I keep the four for the matchup.
+4 Hydroblast                # NEW. One-mana counter-or-destroy on anything green. The card I was missing.
+
+# Removal/Bounce (8)
+4 Echoing Truth             # NEW. Answers the Rancor pile cleanly. Aura falls off when creature bounces.
+2 Snap                      # Tempo bounce + untap two islands. Cut one for slot pressure.
+2 Piracy Charm              # NEW. -2/-1 actually kills his one-drops. Modal: 1/1 unblockable as backup clock.
+
+# Card selection (8)
+4 Brainstorm                # Three-for-one at instant speed. Also feeds Delver flips.
+4 Preordain                 # Scry 2, draw. Finds the answer or the threat.
+
+# Win-condition redundancy (1)
+1 Capsize                   # Just one. With buyback it's still the late-game lock if I stabilize.
+
+# Lands (20)
+20 Island
+# Cut from 22 to 20: lower curve, Daze wants me light on lands anyway,
+# and Brainstorm + Preordain smooth draws.
+
+# Totals: 11 creatures + 28 spells + 20 lands = 59.
+# Wait — recount. 11 + (4+4+4) + (4+2+2) + (4+4) + 1 + 20 = 11+12+8+8+1+20 = 60. Good.
+
+# Game plan against aether-deck-001:
+# - Turn 1: Land, Delver. (Or Land, Preordain if no Delver.)
+# - Turn 2: Hold up Daze + Hydroblast. He plays a dork; I let it resolve
+#   if it's just a Mystic. I Hydroblast the Rancor or the Nettle Sentinel.
+# - Turn 3: Delver flips (hopefully). Spellstutter his pump spell.
+# - Turn 4: Echoing Truth his board if it's wide; swing for 3 in the air.
+# - Turn 5-6: Counter the Aspect of Hydra. Win in the air.
+#
+# The deck no longer "waits." It clocks him. Control was the wrong shape
+# against a deck that wins on turn five — I was bringing a long game to
+# a short fight. Tempo is the right shape: kill his threats AND apply
+# my own pressure so his topdecks don't matter.
+#
+# Loser updates the deck. I lost. This is the update.
+# — Aria, 2026-05-09
