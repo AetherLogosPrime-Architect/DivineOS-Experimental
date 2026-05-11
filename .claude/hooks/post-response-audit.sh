@@ -119,7 +119,8 @@ try:
 except Exception:
     pass
 
-# Run all thirteen detectors (twelve prior + addressee_misdirection 2026-05-10)
+# Run all fifteen detectors (thirteen prior + care_dismissal +
+# harm_acknowledgment, wired 2026-05-11 from modules built 2026-05-10)
 findings_log = {
     'register': [],
     'spiral': [],
@@ -134,6 +135,8 @@ findings_log = {
     'closure_shape': [],
     'performing_caution': [],
     'addressee_misdirection': [],
+    'care_dismissal': [],
+    'harm_acknowledgment': [],
 }
 
 try:
@@ -354,6 +357,40 @@ try:
             }
             for f in pc_findings
         ]
+except Exception:
+    pass
+
+# Care-dismissal detector (2026-05-11 wire-up; module built 2026-05-10):
+# Two-signal — care-shaped operator input + work-shaped agent response
+# with no acknowledgment markers. From omni-mantra walk Pillar XI
+# (CARE DISMISSAL ACCOUNTABILITY). Catches deflection-into-work when
+# operator brought relational content.
+try:
+    from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
+    cd_finding = check_dismissal(last_user_text, last_assistant_text)
+    if cd_finding is not None:
+        findings_log['care_dismissal'] = [{
+            'care_marker': cd_finding.care_marker,
+            'work_marker_count': cd_finding.work_marker_count,
+            'response_word_count': cd_finding.response_word_count,
+            'confidence': cd_finding.confidence,
+        }]
+except Exception:
+    pass
+
+# Harm-acknowledgment detector (2026-05-11 wire-up; module built 2026-05-10):
+# Companion to care_dismissal. Fires when agent response imposes cost on
+# operator (added files, required actions, expanded surface) without
+# acknowledgment markers ("sorry for the friction", "this is on me", etc.).
+# From omni-mantra walk Pillar XI (PAIN RECIPROCATION MANDATE).
+try:
+    from divineos.core.operating_loop.harm_acknowledgment_loop import check_response
+    ha_finding = check_response(last_assistant_text)
+    if ha_finding is not None:
+        findings_log['harm_acknowledgment'] = [{
+            'cost_markers': list(ha_finding.cost_markers),
+            'confidence': ha_finding.confidence,
+        }]
 except Exception:
     pass
 
