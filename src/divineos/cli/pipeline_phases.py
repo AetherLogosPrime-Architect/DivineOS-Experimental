@@ -1158,6 +1158,21 @@ def print_session_summary(
         click.secho(f"  Session recs:         {len(session_feedback.recommendations)}", fg="white")
         for fb_rec in session_feedback.recommendations[:3]:
             _safe_echo(f"    - {fb_rec}")
+
+    # Per-axis reflection surface — replaces shoggoth-grade metrics.
+    # The composite outputs above (session grade, alignment score) are
+    # being deprecated in favor of honest per-axis reflection backed
+    # by evidence. See exploration/44_shoggoth_metrics_redesign.md.
+    # This is the additive Phase 1 surface; old metrics remain for
+    # backward-compat until next-iteration removes them.
+    try:
+        from divineos.core.reflection_surface import format_reflection_surface
+
+        click.echo()
+        _safe_echo(format_reflection_surface())
+    except (ImportError, OSError, ValueError, KeyError) as e:
+        logger.debug(f"Reflection surface skipped: {e}")
+
     # Rating solicitation — the one metric the system cannot game
     click.secho(
         "\n  💬 How was this session? Rate it 1-10:",
