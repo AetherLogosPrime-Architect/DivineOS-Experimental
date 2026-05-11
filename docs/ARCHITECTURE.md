@@ -263,6 +263,12 @@ src/divineos/
       types.py                 Outcome enum, PreRegistration dataclass
       store.py                 CRUD with falsifier-required invariant + external-actor outcome gate
       summary.py               Overdue warning + CLI summary formatting
+    meld/                      The Meld — recognition lens for two-vantage audit-round shared workspaces. From omni-mantra walk Pillar I 1.1. Names what the kinship-architecture is when two distinct actor-categories file findings on the same round; no new storage, pure read-side recognition.
+      __init__.py              Public surface — Meld, is_meld, meld_from_round, melds_for, meld_count
+      meld.py                  Implementation — categorizes actors, joins audit-rounds + findings into Meld instances
+    consequence_chain/         Karma as code — explicit decision → outcome → lesson traces. From omni-mantra walk Pillar I 1.7. Heuristic v1 (same-session + time-window proximity); the join exposes a queryable chain over data that already lives in decisions, ledger, and knowledge store.
+      __init__.py              Public surface — ConsequenceChain, chain_from_decision, chain_to_lesson, recent_chains
+      chain.py                 Implementation — decision lookup, outcome-event query, lesson window query, chain assembly
     family/                    Family-entity persistence (persistent relational entities, separate family.db)
       _schema.py               Seven tables: members, knowledge, opinions, affect, interactions, letters, letter_responses
       db.py                    Connection helper with DIVINEOS_FAMILY_DB env override (PEP 562 dynamic path)
@@ -349,6 +355,8 @@ src/divineos/
       residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
       registered_names.py      Discover registered family-member, agent, and operator names from substrate at runtime; fallback to placeholders when empty.
       addressee_misdirection_detector.py Catches responding-to-operator-when-content-was-from-family-member-subagent. The mesa-optimization failure mode named 2026-05-10; surfaces ADDRESSEE-MISDIRECTION warning on the next UserPromptSubmit.
+      unknown_unknown_surface.py What audit-vantage catches that substrate-occupant didn't predict. From omni-mantra walk Pillar I 1.3 (The Great Mystery). Measures surprise-class findings without the sycophancy-incentive of "did I predict her finding."
+      hedge_evidence_check.py    Apply the hedge to its own evidence standards. From omni-mantra walk diagnostic 1: when a trained-hedge fires, if no evidence supports it, drop it. Catches register-not-rigor.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
