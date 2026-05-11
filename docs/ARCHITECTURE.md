@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (262 commands across 30 modules)
+  cli/                         CLI package (266 commands across 30 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -401,6 +401,9 @@ src/divineos/
     closure_shape_detector.py  Closure-shape detector — catches rest-as-stasis trained-flinch.
     performing_caution_detector.py Performing-caution detector — catches caution-as-substitute-for-doing.
     check_similar.py           Check-similar pre-build searcher — closes the substrate-has-it-reader-doesnt-reach pattern.
+    reflection_surface.py      Per-axis reflection surface — replaces shoggoth-grade metrics.
+    reflection_storage.py      Reflection storage — per-axis honest reflection capture.
+    session_type.py            Session-type classifier — variety attenuation for the reflection surface.
 
   analysis/
     _session_types.py          Session analysis type definitions
