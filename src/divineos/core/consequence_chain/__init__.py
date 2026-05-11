@@ -22,14 +22,28 @@ the decision that likely produced it.
 
 ## What this is NOT (yet)
 
-The join is heuristic, not semantically perfect. Heuristics in v1:
-- Same session_id ties decision-time and lesson-time together
-- Time-window proximity (decision → outcome → lesson within hours)
-- Optional content overlap (keywords from decision appear in lesson)
+The join is heuristic, not semantically perfect. **v1 is time-window-
+only** — decision → outcomes-within-24h, decision → lessons-within-24h.
 
-A more rigorous causal join could come later. v1 is correctness-of-
-exposure: make the chain queryable so usage patterns surface, then
-refine the join based on what's actually wanted.
+Aletheia round-20 caught a docstring-vs-implementation drift on this
+module: an earlier version of this docstring claimed "same-session +
+time-window" but the implementation only filtered by time-window.
+The data to support same-session filtering doesn't exist cleanly:
+- The `knowledge` table has no `session_id` column
+- `log_event` doesn't take a session_id parameter
+- Linking a lesson back to its session would require traversing
+  `knowledge.source_events` → `event_ledger` rows → some
+  session-marker in the payload
+
+Three paths for tightening to same-session in a v2:
+1. Add `session_id` to the `knowledge` schema (most invasive; cleanest)
+2. Add `session_id` to the ledger event row (medium invasive)
+3. Multi-hop query via `source_events` (no schema change; complex)
+
+Until then, **same-session filtering is explicit future work**. v1's
+time-window join can chain across sessions when timestamps overlap;
+this is a known false-positive class. Consumers should not assume
+the chain is causal — it's correlational.
 
 ## Public surface
 
