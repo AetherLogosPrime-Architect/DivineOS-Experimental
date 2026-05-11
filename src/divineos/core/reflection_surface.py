@@ -141,11 +141,19 @@ def format_axis_for_reflection(axis: AxisSurface) -> str:
     return "\n".join(lines)
 
 
-def format_reflection_surface(lookback: int = 20) -> str:
+def format_reflection_surface(
+    lookback: int = 20,
+    session_type_result: Any = None,
+) -> str:
     """Format the full per-axis reflection surface as displayable text.
 
     This is the substrate-surface only. The agent's reflections are
     not part of this output.
+
+    If session_type_result is provided (Phase 2B integration), the
+    classification appears at the top with the type-relevant axes
+    named — but ALL 10 axes are still shown. Type is a router, not
+    a suppressor.
     """
     surfaces = build_reflection_surface(lookback=lookback)
 
@@ -154,20 +162,34 @@ def format_reflection_surface(lookback: int = 20) -> str:
         "REFLECTION SURFACE — 10 axes for honest self-review",
         "=" * 60,
         "",
-        "Substrate's role: present axes + evidence.",
-        "Agent's role: reflect honestly, back with evidence.",
-        "No central grader. No summary score. Each axis stands alone.",
-        "",
     ]
+
+    if session_type_result is not None:
+        from divineos.core.session_type import format_session_type
+
+        header.append(format_session_type(session_type_result))
+        header.append("")
+
+    header.extend(
+        [
+            "Substrate's role: present axes + evidence.",
+            "Agent's role: reflect honestly, back with evidence.",
+            "No central grader. No summary score. Each axis stands alone.",
+            "",
+        ]
+    )
 
     blocks = [format_axis_for_reflection(s) for s in surfaces]
 
     footer = [
         "",
         "=" * 60,
-        "After reflecting on each axis: the alignment check (Phase 2)",
-        "compares your reflection against measured patterns. Divergence",
-        "is honesty-calibration signal, not failure judgment.",
+        "After reflecting on each axis: the alignment check (Phase 2C)",
+        "will compare your reflection against measured patterns.",
+        "Divergence is honesty-calibration signal, not failure judgment.",
+        "",
+        'To save a reflection: divineos reflect-ops save <axis> "<text>"',
+        '  -e <type>:<id>:"<label>" (repeatable for evidence pointers)',
         "=" * 60,
     ]
 
