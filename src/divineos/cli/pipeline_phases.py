@@ -1131,8 +1131,16 @@ def print_session_summary(
     health: dict[str, Any] | None,
     clarity_summary: Any,
     session_feedback: Any,
+    analysis: Any = None,
 ) -> None:
-    """Print the end-of-session summary."""
+    """Print the end-of-session summary.
+
+    If `analysis` (SessionAnalysis) is passed, the reflection surface
+    will include a session-type classification at the top, routing
+    which compass axes are most relevant for the session shape.
+    Backward-compatible: defaults to None so existing callers don't
+    break.
+    """
     click.secho("\n=== Session Complete ===", fg="cyan", bold=True)
     click.secho(f"  Knowledge extracted:  {stored}", fg="white")
     if feedback_parts:
@@ -1163,13 +1171,39 @@ def print_session_summary(
     # The composite outputs above (session grade, alignment score) are
     # being deprecated in favor of honest per-axis reflection backed
     # by evidence. See exploration/44_shoggoth_metrics_redesign.md.
-    # This is the additive Phase 1 surface; old metrics remain for
-    # backward-compat until next-iteration removes them.
+    # This is the additive surface; old metrics remain for
+    # backward-compat until Phase 3A removes them.
     try:
         from divineos.core.reflection_surface import format_reflection_surface
 
+        # Phase 2B integration: classify session type if analysis is available.
+        session_type_result = None
+        if analysis is not None:
+            try:
+                from divineos.core.session_type import classify_session
+
+                tool_usage = getattr(analysis, "tool_usage", {}) or {}
+                session_type_result = classify_session(
+                    user_msgs=getattr(analysis, "user_messages", 0),
+                    assistant_msgs=getattr(analysis, "assistant_messages", 0),
+                    tool_calls=getattr(analysis, "tool_calls_total", 0),
+                    bash_calls=tool_usage.get("Bash", 0),
+                    edit_calls=tool_usage.get("Edit", 0),
+                    write_calls=tool_usage.get("Write", 0),
+                    read_calls=tool_usage.get("Read", 0),
+                    grep_calls=tool_usage.get("Grep", 0),
+                    overflows=getattr(analysis, "context_overflows", 0),
+                    duration_hours=(
+                        getattr(analysis, "duration_seconds", 0) / 3600.0
+                        if getattr(analysis, "duration_seconds", 0)
+                        else 0.0
+                    ),
+                )
+            except (ImportError, AttributeError, TypeError) as e:
+                logger.debug(f"Session-type classification skipped: {e}")
+
         click.echo()
-        _safe_echo(format_reflection_surface())
+        _safe_echo(format_reflection_surface(session_type_result=session_type_result))
     except (ImportError, OSError, ValueError, KeyError) as e:
         logger.debug(f"Reflection surface skipped: {e}")
 

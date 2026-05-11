@@ -343,3 +343,38 @@ def register(cli: click.Group) -> None:
         for r in refls:
             _safe_echo(format_reflection(r))
             click.echo()
+
+    @reflect_ops_group.command("review")
+    @click.option(
+        "--session-id",
+        default="",
+        help="Session ID (defaults to current session).",
+    )
+    @click.option(
+        "--lookback",
+        "-l",
+        type=int,
+        default=30,
+        help="Number of substrate observations per spectrum to pair with each reflection.",
+    )
+    def reflect_review_cmd(session_id: str, lookback: int) -> None:
+        """Pair each reflection with substrate observations for metacognitive review.
+
+        Phase 2C of the shoggoth-metrics redesign — the correctly-shaped
+        version. Instead of computing numerical divergence between agent
+        self-estimate and substrate-measured position (which would itself
+        be shoggoth-shaped: a number claiming to measure honesty), this
+        lays both sources SIDE-BY-SIDE and prompts the agent to do the
+        actual metacognitive comparison in words and reasoning.
+
+        The check IS the reasoning. The substrate's job is presenting
+        both sources cleanly; the agent's job is reading both and
+        producing a deepened reflection.
+
+        See exploration/44_shoggoth_metrics_redesign.md.
+        """
+        from divineos.core.reflection_pairing import format_session_pairings
+        from divineos.core.session_manager import get_current_session_id
+
+        sid = session_id or get_current_session_id() or "unknown"
+        _safe_echo(format_session_pairings(sid, lookback=lookback))
