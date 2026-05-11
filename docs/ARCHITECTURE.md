@@ -404,6 +404,7 @@ src/divineos/
     reflection_surface.py      Per-axis reflection surface — replaces shoggoth-grade metrics.
     reflection_storage.py      Reflection storage — per-axis honest reflection capture.
     session_type.py            Session-type classifier — variety attenuation for the reflection surface.
+    reflection_pairing.py      Reflection pairing — substrate lays the sources side-by-side; agent does the metacognition.
 
   analysis/
     _session_types.py          Session analysis type definitions
