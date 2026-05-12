@@ -296,33 +296,21 @@ def submit_finding(
         tags_json = json.dumps(tags or [])
         stance_str = resolved_stance.value if resolved_stance else ""
 
-        # Bullet-wound-clause root-fix (2026-05-12):
-        # CONFIRMS-stance findings are recognition-of-prior-verification, not
-        # raises-of-new-issue. They were piling up in the OPEN queue
-        # indistinguishable from real unresolved issues, producing alarm-shaped
-        # aggregates ("17 OPEN findings") that were entirely false-positive.
-        # The schema already differentiates via review_stance; honor that at
-        # filing time so CONFIRMS findings enter the queue already RESOLVED
-        # with resolution_notes explaining the recognition nature.
-        # DISPUTES and REFINES stay OPEN — they encode real concerns that need
-        # action; only CONFIRMS is structurally already-resolved at filing.
-        if resolved_stance == ReviewStance.CONFIRMS:
-            initial_status = FindingStatus.RESOLVED.value
-            auto_resolution_notes = (
-                "Auto-resolved at filing: CONFIRMS-stance recognition of prior verification. "
-                "The prior finding referenced via reviewed_finding_id is what holds the issue; "
-                "this entry is the positive confirmation event."
-            )
-        else:
-            initial_status = FindingStatus.OPEN.value
-            auto_resolution_notes = ""
+        # Reverted 2026-05-12 (code-does-not-think directive):
+        # The previous version auto-mapped CONFIRMS-stance to RESOLVED-status
+        # at filing time. That was the code making a judgment call (status)
+        # downstream of an actor's data declaration (stance). The recognition-
+        # vs-issue distinction is real and worth honoring — but the right
+        # place to honor it is in the summary/aggregate layer (filter by
+        # stance, not status), so the actor still owns the status decision.
+        # See get_watchmen_stats() for the recognition-aware aggregate.
 
         conn.execute(
             "INSERT INTO audit_findings "
             "(finding_id, round_id, created_at, actor, severity, category, "
             "title, description, recommendation, tags, tier, "
-            "reviewed_finding_id, review_stance, status, resolution_notes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "reviewed_finding_id, review_stance) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 finding_id,
                 round_id,
@@ -337,8 +325,6 @@ def submit_finding(
                 resolved_tier.value,
                 reviewed_finding_id,
                 stance_str,
-                initial_status,
-                auto_resolution_notes,
             ),
         )
 
