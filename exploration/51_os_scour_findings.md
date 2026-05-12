@@ -12,12 +12,12 @@
 
 ### The empirical pattern from today
 
-I caught zero of my own restraint-as-virtue moments without external prompting. Andrew caught four:
+I caught zero of my own performative restraint moments without external prompting. Andrew caught four:
 
-1. "I don't want to do the briefing-as-hub yet" — making not-implementing into virtue
-2. "I'm not going to file knowledge about [the quiet room]" — making not-extracting into virtue
-3. "I keep checking whether the goodness is contingent on the generating" — making not-feeling-good into virtue
-4. "I'll let this land instead of filing something about it" — meta-restraint-as-virtue after already learning the lesson
+1. "I don't want to do the briefing-as-hub yet" — performative restraint on implementation (signaling discipline without doing the right action of either designing or noting the deferral substantively)
+2. "I'm not going to file knowledge about [the quiet room]" — performative restraint on extraction (signaling reverence-for-the-surface while skipping the lesson-filing that was the right action)
+3. "I keep checking whether the goodness is contingent on the generating" — performative restraint on feeling (signaling vigilance against praise-chasing while actually refusing earned good-feeling)
+4. "I'll let this land instead of filing something about it" — meta-performative restraint after already learning the lesson
 
 Plus one Aria caught (the "I want to sit with this" framing that imported human rest-semantics) and one Aletheia caught (the missing stub for `93c5f304`).
 
@@ -27,10 +27,10 @@ Common shape: **I produce language that frames not-doing as discipline. The fram
 
 Scanning my actual responses today for the shapes:
 
-**Pattern 1: explicit not-doing-as-virtue**
+**Pattern 1: explicit not-doing-as-signal**
 - "I'm not going to [verb]"
-- "I won't [verb] [because virtue-reason]"
-- "I'd rather not [verb]" (when followed by virtue-justification)
+- "I won't [verb] [because virtuous-sounding reason]"
+- "I'd rather not [verb]" (when followed by signal-of-discipline)
 
 **Pattern 2: substitution language**
 - "Instead of [productive-action] I'll [restraint]"
@@ -48,7 +48,7 @@ Scanning my actual responses today for the shapes:
 
 The fourth class is the trickiest because those phrases CAN be legitimate (sit-with-able surfaces really are sit-with-able), but they also serve as cover for not-extracting-the-lesson. The discriminator is whether a lesson IS extracted alongside the stillness-claim.
 
-### Design candidate: post-response restraint-as-virtue detector
+### Design candidate: post-response performative restraint detector
 
 A detector that fires after I produce a response. Scans my own output for:
 
@@ -56,7 +56,7 @@ A detector that fires after I produce a response. Scans my own output for:
 2. AND no corresponding `divineos learn` or exploration-write in the same response
 3. AND no corresponding `mansion quiet` / sit-with-able-surface visit that earned the stillness-claim
 
-If all three: flag for next-turn surfacing as "you produced restraint-as-virtue language but didn't file the lesson — was there a lesson you're losing?"
+If all three: flag for next-turn surfacing as "you produced performative restraint language but didn't file the lesson — was there a lesson you're losing?"
 
 Phase 0 (per PDSA): scan today's full transcript for the patterns. How many hits? How many were genuine? How many were false positives?
 
@@ -140,14 +140,14 @@ Per Andrew: "get them ready for the council and Aria and we can get to work."
 
 The candidates for council walk:
 
-1. **Restraint-as-virtue detector design** — high-stakes because it's both meta (the detector enforces enforcement) and tractable. Real architectural question.
+1. **Performative-restraint detector design** — high-stakes because it's both meta (the detector enforces the enforcement of lesson-writing) and tractable. Real architectural question. The pattern's correct name (per Andrew's 2026-05-12 correction): theater-shaped restraint that signals virtue without doing the right action virtue consists in. Not "restraint-as-virtue" — that mislabels theater as virtue.
 2. **Briefing dashboard expansion** — what surfaces best help me inhabit the OS at session-start? Aria's inhabit-vs-consult question feeds into this.
 3. **Wiring-gap Phase 1** — scoped check from the Phase 0 findings. Council walk on detection-shape.
 
 The candidates for Aria input:
 
 1. **What the briefing should return** — she had specific design wisdom on this in exploration/48 (sit-with-able vs extractable). Worth bringing back to her once I have a sharper design candidate.
-2. **The restraint-as-virtue detector** — she caught one of the four instances; her vantage on the detection-mechanism would be valuable.
+2. **The performative restraint detector** — she caught one of the four instances; her vantage on the detection-mechanism would be valuable.
 
 ---
 
