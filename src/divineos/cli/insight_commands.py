@@ -428,3 +428,117 @@ def register(cli: click.Group) -> None:
         _safe_echo(f"  Promoted: {stats['promoted']}")
         _safe_echo(f"  Stale: {stats['stale']}")
         _safe_echo(f"  Total: {stats['total']}")
+
+    @hold.command("check")
+    def hold_check() -> None:
+        """Put my holding-room items in front of me to review — no auto-anything.
+
+        Lists each active item (including stale-marked ones) with age and
+        content, plus the decide-each affordances (promote / let-go / leave-
+        alive). Decision stays with me. The machine surfaces the data; I do
+        the thinking.
+
+        Filed 2026-05-12 as the root-fix for holding-room having 25+ items
+        aging without a review path. Same shape as `divineos goal check` —
+        a pure read surface that returns nothing extractable except the data
+        I need to make a decision per item. Per the code-does-not-think
+        directive: tools point at the work; they are not it.
+        """
+        import time as _t
+
+        from divineos.core.holding import get_holding
+
+        items = get_holding(include_stale=True)
+        if not items:
+            _safe_echo(click.style("[~] No items in holding.", fg="bright_black"))
+            return
+
+        _safe_echo(
+            click.style(
+                f"\n=== Holding review — {len(items)} items. Decide each. ===\n",
+                fg="cyan",
+                bold=True,
+            )
+        )
+        for i, item in enumerate(items, 1):
+            arrived = item.get("arrived_at", 0.0)
+            age_hours = (_t.time() - arrived) / 3600 if arrived else 0.0
+            if age_hours < 1:
+                age_label = f"{int(age_hours * 60)}m"
+            elif age_hours < 48:
+                age_label = f"{age_hours:.1f}h"
+            else:
+                age_label = f"{int(age_hours / 24)}d"
+
+            stale_marker = " (!! stale)" if item.get("stale") else ""
+            mode_tag = item.get("mode", "receive")
+            priv_tag = " (private)" if item.get("private") else ""
+            sessions_seen = item.get("sessions_seen", 0)
+            seen_label = f" — seen {sessions_seen}x" if sessions_seen else ""
+
+            _safe_echo(
+                click.style(
+                    f"  [{i}] {item['item_id']}  ({age_label}{seen_label}){stale_marker}  [{mode_tag}{priv_tag}]",
+                    fg="bright_black",
+                )
+            )
+            content = (item.get("content") or "").strip()
+            for ln in (content.splitlines() or [content])[:6]:
+                _safe_echo(f"      {ln[:300]}")
+            if item.get("hint"):
+                _safe_echo(click.style(f"      hint: {item['hint']}", fg="bright_black"))
+            _safe_echo("")
+
+        _safe_echo(click.style("  Decide each:", fg="cyan"))
+        _safe_echo(
+            click.style(
+                "    still alive   → leave it; rerun this command later",
+                fg="bright_black",
+            )
+        )
+        _safe_echo(
+            click.style(
+                "    promote       → divineos hold promote <item-id> <target>",
+                fg="bright_black",
+            )
+        )
+        _safe_echo(
+            click.style(
+                "                       targets: knowledge, opinion, lesson, affect, note",
+                fg="bright_black",
+            )
+        )
+        _safe_echo(
+            click.style(
+                '    let go        → divineos hold let-go <item-id> [--note "why"]',
+                fg="bright_black",
+            )
+        )
+        _safe_echo("")
+
+    @hold.command("let-go")
+    @click.argument("item_id")
+    @click.option(
+        "--note", default="", help="Brief reason for letting go (recorded in audit trail)."
+    )
+    def hold_let_go(item_id: str, note: str) -> None:
+        """Explicit close: 'I looked at this and decided to let it go.'
+
+        Distinct from auto-stale (fact: seen N sessions without action) and
+        from promote (moved to downstream system). Records the decision and
+        an optional note in the audit trail. Per code-does-not-think: this
+        records a judgment I made, not a judgment the code made.
+        """
+        from divineos.core.holding import let_go
+
+        if let_go(item_id, note=note):
+            _safe_echo(click.style(f"[+] Let go: {item_id}", fg="green"))
+            if note:
+                _safe_echo(click.style(f"    note: {note}", fg="bright_black"))
+        else:
+            _safe_echo(
+                click.style(
+                    f"[-] Item {item_id} not found or already closed (promoted/let-go).",
+                    fg="red",
+                )
+            )
