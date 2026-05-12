@@ -526,12 +526,13 @@ def register(cli: click.Group) -> None:
             click.echo(f"    Success rate:   {m.success_rate:.0%}")
             click.echo()
 
-            # Phase 3A-extended (2026-05-11): the underlying "alignment_score"
-            # field is a plan-execution-fidelity score (files/tool-calls/error-count
-            # match to estimates). Data field name preserved for backward-compat;
-            # display label corrected to its honest form. See
-            # exploration/44_shoggoth_metrics_redesign.md.
-            score = result["alignment_score"]
+            # 2026-05-11 honest-naming: reads new key first, falls back to
+            # legacy "alignment_score" for results assembled before the rename.
+            # See docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md.
+            score = result.get(
+                "plan_execution_fidelity",
+                result.get("alignment_score", 0.0),
+            )
             color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
             click.secho(f"  PLAN-EXECUTION FIDELITY: {score:.0f}%", fg=color, bold=True)
             click.echo()
