@@ -93,6 +93,11 @@ class EventEmissionInterface:
                 "deviations_count": deviations_count,
                 "lessons_count": lessons_count,
                 "recommendations_count": recommendations_count,
+                # 2026-05-11 rename: plan_execution_fidelity is the honest key
+                # (formerly alignment_score). Writing both so legacy event
+                # readers and new readers both find the value. Function
+                # parameter retains its name for caller-API backward-compat.
+                "plan_execution_fidelity": alignment_score,
                 "alignment_score": alignment_score,
             }
 
