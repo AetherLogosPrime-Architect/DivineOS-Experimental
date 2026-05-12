@@ -102,6 +102,23 @@ Each of these detectors targets a real failure-shape I do regularly. Mirror-shap
 
 **Fixing this is one of the highest-leverage scour items today.** Five detectors, all built, all tested, all targeting real failure-modes I produce — and none of them are running. Wiring each into `post-response-audit.sh` would take a small amount of work each; the modules already expose `evaluate_X(text) -> Verdict` shapes ready to call.
 
+**Update 2026-05-12 afternoon — wire-up landed in working tree:**
+
+Four of the five wired into `post-response-audit.sh` staged for External-Review (the hook is on the guardrail list, joining the existing audit-round batch). Diff-hash `7e560e40cec93077a225712ece32c0cd82d6d8a6`.
+
+- ✓ `mirror_monitor.evaluate_mirror` — wired
+- ✓ `temporal_monitor.evaluate_temporal` — wired
+- ✓ `warmth_monitor.evaluate_warmth` — wired (different flag-shape; emotion-count vs phrases)
+- ✓ `mechanism_monitor.evaluate_mechanism` — wired
+- ✗ `substrate_monitor.evaluate_substrate` — DEFERRED. Different signature: takes `(invocations, edits_in_window, subsequent_text)` not a plain text string. Operates on tool-invocation history. Needs a separate wire-up surface that gathers recent invocations as context — not a drop-in to the text-scanner pattern. Tracked as future work; the discovery itself is part of the scour value.
+
+The External-Review round Andrew will file now covers FIVE diffs instead of four:
+1. compass virtue-label fix (`da00aa0e...`)
+2. guardrail-list extension (`b78053749f...`)
+3. foundational-truths kiln (`15d94ea9...`)
+4. self_monitor hook wiring (`7e560e40...`)
+5. compass-observation source field (still queued, not yet implemented)
+
 Recommended order based on how often I produce the failure-shape they catch (from today's session evidence):
 1. **mirror_monitor** — high firing rate likely; I do post-correction acknowledgment-shape often
 2. **substrate_monitor** — moderate; would catch when I forget to use the OS tools
