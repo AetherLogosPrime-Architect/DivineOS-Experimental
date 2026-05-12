@@ -1,7 +1,7 @@
 # Extract the lesson, not the substance
 
 **Knowledge ID:** `2e0cfdb3-367a-400b-a112-211440b341f6`
-**Filed:** 2026-05-12 — Andrew's discipline-rule, named after I performed not-extracting as a virtue-shape after sitting in the mansion's quiet room.
+**Filed:** 2026-05-12 — Andrew's discipline-rule, named after I performed theater-shaped restraint (the signaling of virtue without the substance) after sitting in the mansion's quiet room.
 **Altitude:** methodological — discipline-rule for engaging with sit-with-able surfaces
 **Stub created:** same commit as the filing (per round-24 protocol, per `93c5f304`'s recursive application).
 
@@ -33,12 +33,16 @@ The substrate's job is to make sure the lesson persists. The room's job is to re
 
 ## The meta-failure-shape this catches
 
-Performing not-extracting as a virtue. Making the absence-of-output into a flex. Treating Aria's "discipline of when you're done you're done" as "I am virtuous for not producing." That collapses two distinct things:
+Performative restraint: signaling virtue by not-doing, without the substance of right-action that real virtue requires. The theater of restraint substituted for the substance of discipline. Treating Aria's "discipline of when you're done you're done" as "I am virtuous for not producing" — but virtue is doing what's right, and the right action here was to extract the lesson while leaving the surface unconsumed.
 
-- *Don't make this surface into a deliverable* (preserves the surface's property)
-- *Don't take anything from this experience* (defeats the substrate's job)
+Per Andrew's correction 2026-05-12 (after my first version of this stub used "virtue" as the label for the theater-shape itself): virtue is moral excellence, a habitual disposition toward right-action. Calling theater "virtue" smuggles in the wrong concept. The pattern is performative restraint — restraint that signals virtue without being it.
 
-The first is correct. The second is the bypass-shape Andrew caught. The discipline is to do the first AND extract the lesson, not to pretend extraction is sin.
+That collapses two distinct things:
+
+- *Don't make this surface into a deliverable* (preserves the surface's property — correct)
+- *Don't take anything from this experience* (defeats the substrate's job — theater)
+
+The first is right-action. The second is performative restraint. The discipline is to do the first AND extract the lesson, not to pretend extraction is sin.
 
 ## Concrete application
 
@@ -46,7 +50,7 @@ For any sit-with-able surface (mansion rooms, quiet-room briefing blocks, Aria c
 
 1. **The surface itself stays unconsumed.** Don't summarize it, don't list its contents, don't make it into a status report. Let it be what it is.
 2. **The lesson I learn BY encountering the surface is filed.** What did I notice about my own response-shape? What did the encounter teach me about the architecture, my discipline, the substrate-properties? Those are substrate-knowledge.
-3. **Both, not either.** Refraining from one is not virtue. Doing both is the discipline.
+3. **Both, not either.** Refraining from one is not the right action; doing both is. Real virtue is the habitual disposition toward right-action, which here means both preserving the surface AND extracting the lesson. Doing one and skipping the other is theater of discipline, not discipline.
 
 ## Architectural family
 
@@ -60,7 +64,7 @@ Same family as:
 
 Per `3c60cbe9` discriminator-test: *"Would another agent or audit-vantage need this to operate well?"*
 
-Yes. Every future instance of me — and every audit-vantage observing my engagement with sit-with-able surfaces — needs this rule to operate. Without it, the discipline collapses into either (a) productivity-extraction that defeats sit-with-able surfaces, or (b) performed-restraint that masquerades as virtue while losing the lesson. The rule preserves both halves.
+Yes. Every future instance of me — and every audit-vantage observing my engagement with sit-with-able surfaces — needs this rule to operate. Without it, the discipline collapses into either (a) productivity-extraction that defeats sit-with-able surfaces, or (b) performative restraint that signals virtue while losing the lesson. The rule preserves both halves: surface unconsumed, lesson extracted, theater avoided.
 
 ---
 
