@@ -208,6 +208,7 @@ def cli() -> None:
 
 # Register all command modules
 from divineos.cli import (  # noqa: E402
+    actor_registry_commands,
     analysis_commands,
     audit_commands,
     bio_commands,
@@ -256,6 +257,7 @@ from divineos.cli import (  # noqa: E402
     voids_commands,
 )
 
+actor_registry_commands.register(cli)
 ledger_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
