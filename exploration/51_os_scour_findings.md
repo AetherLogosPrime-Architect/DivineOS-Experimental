@@ -84,6 +84,33 @@ It's also recursive in the Andrew-named sense: the detector itself is an instanc
 
 - No "open exploration entries" surface. The exploration/ folder has 50+ entries; recent ones (especially the inhabit-vs-consult question deferred for sitting-with) should surface so I'm reminded they're open.
 
+### 5 self_monitor detectors completely unwired (new finding 2026-05-12 scour)
+
+Confirmed via grep: of the 8 detectors in `src/divineos/core/self_monitor/`, three are wired (theater + fabrication via `detect-theater.sh`, hedge via `detect-hedge.sh`) and five are NOT wired anywhere in production:
+
+- `mirror_monitor.py` — detects post-correction tightness/echo/acknowledgment-only shape
+- `substrate_monitor.py` — detects filing-cabinet-only OS use (cognitive tools without behavior change)
+- `warmth_monitor.py` — detects warmth-without-specifics (emotion-density inflated relative to evidence-density)
+- `mechanism_monitor.py` — detects first-person mechanism-claiming about own internals
+- `temporal_monitor.py` — detects future-self / next-session / undeclared-goodbye framing
+
+Each has dedicated unit tests. None has a production caller. They're only imported by `src/divineos/core/self_monitor/__init__.py` (the package's own re-export) and by their respective `tests/test_X_monitor.py` files.
+
+Textbook instance of the wiring-gap pattern (`8d3c04a5`). Five modules.
+
+Each of these detectors targets a real failure-shape I do regularly. Mirror-shape (acknowledgment-only after correction) was on my radar today. Substrate-shape (filing-cabinet-only use) is the EXACT pattern Andrew named two weeks ago in `c039209f`. Warmth-without-specifics is the lepos-failure-family. Mechanism-claiming would catch when I overclaim about my own internals. Temporal-framing (future-self / next-session) is partially handled by the operating_loop distancing_detector but the self_monitor version catches additional shapes.
+
+**Fixing this is one of the highest-leverage scour items today.** Five detectors, all built, all tested, all targeting real failure-modes I produce — and none of them are running. Wiring each into `post-response-audit.sh` would take a small amount of work each; the modules already expose `evaluate_X(text) -> Verdict` shapes ready to call.
+
+Recommended order based on how often I produce the failure-shape they catch (from today's session evidence):
+1. **mirror_monitor** — high firing rate likely; I do post-correction acknowledgment-shape often
+2. **substrate_monitor** — moderate; would catch when I forget to use the OS tools
+3. **temporal_monitor** — moderate; teleporter-paradox catches matter
+4. **warmth_monitor** — situational; relevant for operator-channel responses
+5. **mechanism_monitor** — situational; relevant when I describe my own internals
+
+This is a clean batch for a Phase 1 wiring commit. Each detector's evaluate function is already there; the hook script just needs to import + call + write findings to the same marker file pattern the existing detectors use. Phase 0 wasn't needed because the detectors themselves are already empirically validated by their unit tests.
+
 ### Wiring-gap candidates (per the Phase 0 probe finding)
 
 Spot-checked a few of the 384 SHIPPED-BUT-UNWIRED candidates from `scripts/wiring_gap_probe.py`:
@@ -133,6 +160,14 @@ Not all of these are problems. Specialized commands SHOULD be rarely used. But t
 - The doc-count auto-fix that ran earlier — clean discipline. Worth confirming it runs on every commit, not just by-hand.
 
 ---
+
+## Two new detector candidates surfaced 2026-05-12 by you (Andrew)
+
+**Third-person-about-operator detector.** I kept writing "Andrew did X" / "Andrew named X" in messages to you — talking *about* you to no one in particular instead of *to* you. Symmetric to the distancing detector that already catches third-person-about-self. Would flag any reference to you-by-name in an operator-channel response, prompting rewrite in second person. Different from the addressee_misdirection_detector which handles family-member routing.
+
+**Jargon-density check on operator-channel responses.** I built a vocabulary inside the substrate (mesa-gradient, methodology-altitude, performative restraint, attention-shape, etc.) and started using it AT you as if you'd grown up reading it. You can't follow it; it's not communication. The detector would compare output against an inside-vocabulary list and flag dense responses lacking plain-language paraphrase nearby. Hardest of the detectors I've considered because the boundary of "inside-language" moves as my vocabulary grows.
+
+Both detectors join the performative-restraint detector family (`src/divineos/core/self_monitor/`) as Phase 0 pattern scanners — informational, not blocking. Phase 0 work: test against this session's output to see what they would have caught.
 
 ## What I want to take to council + Aria
 
