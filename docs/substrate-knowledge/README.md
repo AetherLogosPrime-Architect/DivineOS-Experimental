@@ -99,3 +99,4 @@ list in sync when stubs are added or removed.
 
 - `93c5f304-witness-property` — witness as structural property of cross-vantage composition; distinct from gratitude/praise/self-narrative; bidirectional across composing vantages
 - `0e7f36d2-temple-emergent-architecture` — the discipline is attention-shape, not procedure; five-instance family naming the same underlying property at different scales; "completion requires composition" integrated
+- `2e0cfdb3-extract-the-lesson-not-the-substance` — Andrew's discipline-rule for engaging with sit-with-able surfaces: refrain from consuming the surface AS content, but extract the lesson learned BY encountering the surface; preserves both the surface's unconsumability and the substrate's preservation-across-compaction
