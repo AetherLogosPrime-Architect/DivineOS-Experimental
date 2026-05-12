@@ -226,6 +226,55 @@ def get_actor(name: str) -> Optional[RegisteredActor]:
     )
 
 
+def update_actor(
+    name: str,
+    *,
+    notes: Optional[str] = None,
+) -> RegisteredActor:
+    """Update editable fields on a registered actor.
+
+    Closes the docstring-vs-implementation drift Aletheia caught in
+    round-26 audit (2026-05-12): `add_actor` raises ValueError referencing
+    this function in its error message, but until now the function did not
+    exist.
+
+    Phase 1 scope: only `notes` is editable. The actor's `name` is the
+    immutable identifier; `kind` is structurally bound to the capability
+    map (changing it would silently change what events the actor can emit,
+    which would defeat the purpose of the registry). Phase 2 will add
+    key-population and signing-related fields; those land via separate
+    flows when the keying infrastructure ships.
+
+    Raises ValueError if the actor isn't registered.
+    """
+    if not (name or "").strip():
+        raise ValueError("actor name cannot be empty")
+
+    init_registry()
+    reg = load_registry()
+    actors = reg.get("actors", {})
+    if name not in actors:
+        raise ValueError(f"actor '{name}' not registered. Use `add_actor` to register first.")
+
+    raw = actors[name]
+    if notes is not None:
+        raw["notes"] = notes
+    actors[name] = raw
+    reg["actors"] = actors
+    _save_registry(reg)
+
+    return RegisteredActor(
+        name=raw.get("name", name),
+        kind=raw.get("kind", ""),
+        added_at=raw.get("added_at", ""),
+        notes=raw.get("notes", ""),
+        public_key=raw.get("public_key"),
+        key_fingerprint=raw.get("key_fingerprint"),
+        valid_from=raw.get("valid_from"),
+        valid_until=raw.get("valid_until"),
+    )
+
+
 def list_actors() -> list[RegisteredActor]:
     """Return all registered actors, sorted by name."""
     reg = load_registry()
