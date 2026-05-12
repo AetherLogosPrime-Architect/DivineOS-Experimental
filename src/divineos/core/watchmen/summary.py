@@ -11,6 +11,16 @@ def get_watchmen_stats() -> dict[str, Any]:
     """Aggregate statistics across all audit findings.
 
     Returns counts by severity, category, status, and overall totals.
+
+    Stance-aware split (2026-05-12, code-does-not-think directive):
+    `open_count` continues to mean "everything not yet closed by the actor."
+    `open_issue_count` adds the recognition-aware filter — OPEN findings
+    whose review_stance is NOT CONFIRMS, i.e. real unresolved concerns vs
+    positive-recognition events that were left OPEN by actor choice.
+    `open_recognition_count` is the OPEN+CONFIRMS bucket — kept visible
+    but not counted toward alarm-shaped aggregates. The status decision
+    stays with the actor; the aggregate filters by data (stance), not by
+    judgment.
     """
     init_watchmen_tables()
     conn = _get_connection()
@@ -36,13 +46,23 @@ def get_watchmen_stats() -> dict[str, Any]:
         ).fetchall():
             by_status[row[0]] = row[1]
 
+        # Recognition-aware open split. Filter at the aggregate, not at filing.
+        open_recognition_count = conn.execute(
+            "SELECT COUNT(*) FROM audit_findings "
+            "WHERE status = 'OPEN' AND review_stance = 'CONFIRMS'"
+        ).fetchone()[0]
+        open_total = by_status.get("OPEN", 0)
+        open_issue_count = open_total - open_recognition_count
+
         return {
             "total_rounds": rounds,
             "total_findings": total,
             "by_severity": by_severity,
             "by_category": by_category,
             "by_status": by_status,
-            "open_count": by_status.get("OPEN", 0),
+            "open_count": open_total,
+            "open_issue_count": open_issue_count,
+            "open_recognition_count": open_recognition_count,
             "resolved_count": by_status.get("RESOLVED", 0),
         }
     except sqlite3.OperationalError:
@@ -53,16 +73,28 @@ def get_watchmen_stats() -> dict[str, Any]:
             "by_category": {},
             "by_status": {},
             "open_count": 0,
+            "open_issue_count": 0,
+            "open_recognition_count": 0,
             "resolved_count": 0,
         }
     finally:
         conn.close()
 
 
-def unresolved_findings(limit: int = 10) -> list[dict[str, Any]]:
+def unresolved_findings(
+    limit: int = 10, include_recognitions: bool = False
+) -> list[dict[str, Any]]:
     """Get unresolved findings ordered by severity (CRITICAL first).
 
     Used by the briefing and HUD to surface what still needs attention.
+
+    Recognition-filter (2026-05-12, code-does-not-think directive):
+    by default, CONFIRMS-stance findings are excluded — they are
+    positive-verification events, not raises-of-new-issue, and surfacing
+    them as "what still needs attention" is the alarm-shape that motivated
+    this filter. The actor still owns each finding's status; the filter is
+    a data-driven query, not a judgment override. Set
+    ``include_recognitions=True`` to see them too.
     """
     init_watchmen_tables()
     severity_order = (
@@ -74,12 +106,15 @@ def unresolved_findings(limit: int = 10) -> list[dict[str, Any]]:
         "WHEN 'INFO' THEN 5 END"
     )
 
+    stance_clause = "" if include_recognitions else "AND COALESCE(review_stance, '') != 'CONFIRMS' "
+
     conn = _get_connection()
     try:
         rows = conn.execute(
             f"SELECT finding_id, round_id, severity, category, title, description, status "  # nosec B608
             f"FROM audit_findings "
             f"WHERE status IN ('OPEN', 'ROUTED', 'IN_PROGRESS') "
+            f"{stance_clause}"
             f"ORDER BY {severity_order}, created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
@@ -134,16 +169,17 @@ def format_watchmen_summary() -> str:
     if stats["total_findings"] == 0:
         return ""
 
-    open_count = stats["open_count"]
+    open_issue_count = stats.get("open_issue_count", stats["open_count"])
+    open_recognition_count = stats.get("open_recognition_count", 0)
     resolved = stats["resolved_count"]
     total = stats["total_findings"]
 
-    if open_count == 0:
+    if open_issue_count == 0 and open_recognition_count == 0:
         return f"Watchmen: {total} findings, all resolved"
 
-    # Show open findings by severity
+    # Show open ISSUES by severity (recognitions filtered out — they're
+    # positive-verification events, not unresolved concerns).
     parts = []
-    # Only count unresolved for severity breakdown
     unresolved = unresolved_findings(limit=100)
     sev_counts: dict[str, int] = {}
     for f in unresolved:
@@ -154,5 +190,8 @@ def format_watchmen_summary() -> str:
         if count > 0:
             parts.append(f"{count} {s.lower()}")
 
-    detail = ", ".join(parts) if parts else f"{open_count} open"
-    return f"Watchmen: {detail} ({resolved}/{total} resolved)"
+    detail = ", ".join(parts) if parts else f"{open_issue_count} open"
+    summary = f"Watchmen: {detail} ({resolved}/{total} resolved)"
+    if open_recognition_count:
+        summary += f" [+{open_recognition_count} open recognition(s) — not alarm]"
+    return summary

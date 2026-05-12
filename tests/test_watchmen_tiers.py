@@ -517,18 +517,19 @@ class TestChainTierComputation:
         assert chain_tier_for_finding("find-does-not-exist") == Tier.WEAK
 
 
-class TestConfirmsAutoResolve:
-    """Bullet-wound-clause root-fix (2026-05-12): CONFIRMS-stance findings are
-    recognition-of-prior-verification, not raises-of-new-issue. They were
-    piling up in the OPEN queue indistinguishable from real unresolved issues.
-    The schema already differentiates via review_stance; honor that at filing
-    time so CONFIRMS findings enter the queue already RESOLVED.
+class TestConfirmsStanceStatus:
+    """Code-does-not-think directive (2026-05-12): stance is data the actor
+    sets; status is judgment the actor makes. Earlier code auto-mapped
+    CONFIRMS-stance to RESOLVED-status at filing time — that was code making
+    a judgment call downstream of an actor's data declaration. Reverted in
+    favor of stance-aware aggregates (see TestRecognitionAwareAggregate).
 
-    Pins the new behavior so a future revert would fail the test, per the
-    'structural-support-in-substrate' clause of the bullet-wound directive.
+    This class pins that CONFIRMS findings default to OPEN like every other
+    stance — the status decision stays with the actor. A regression that
+    re-introduces auto-resolve fails the first test here.
     """
 
-    def test_confirms_finding_auto_resolves_at_filing(self, tmp_db):
+    def test_confirms_finding_does_not_auto_resolve(self, tmp_db):
         from divineos.core.watchmen.types import FindingStatus
 
         round_id = submit_round(actor="user", focus="f")
@@ -551,8 +552,11 @@ class TestConfirmsAutoResolve:
             review_stance=ReviewStance.CONFIRMS,
         )
         f = get_finding(confirms)
-        assert f.status == FindingStatus.RESOLVED
-        assert "CONFIRMS" in f.resolution_notes
+        # Status stays at OPEN — the actor owns this decision, not the code.
+        assert f.status == FindingStatus.OPEN
+        # No auto-populated resolution notes either; the code doesn't put
+        # words in the actor's mouth.
+        assert f.resolution_notes == ""
 
     def test_disputes_finding_stays_open(self, tmp_db):
         from divineos.core.watchmen.types import FindingStatus
@@ -621,3 +625,118 @@ class TestConfirmsAutoResolve:
         )
         f = get_finding(fid)
         assert f.status == FindingStatus.OPEN
+
+
+class TestRecognitionAwareAggregate:
+    """Code-does-not-think directive (2026-05-12): the recognition-vs-issue
+    distinction is real and worth honoring at the aggregate layer — that's
+    a data-driven query, not a judgment call. CONFIRMS-stance findings
+    filtered out of unresolved-aggregates and out of alarm-shaped surfaces
+    even when status is OPEN. The actor still owns each finding's status;
+    the filter operates on stance (data the actor explicitly set).
+    """
+
+    def test_get_watchmen_stats_splits_open_into_issue_and_recognition(self, tmp_db):
+        from divineos.core.watchmen.summary import get_watchmen_stats
+
+        round_id = submit_round(actor="user", focus="f")
+        parent = submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="real-issue",
+            description="needs fixing",
+        )
+        # One CONFIRMS finding — should count as recognition, not issue
+        submit_finding(
+            round_id=round_id,
+            actor="grok",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="external CONFIRMS",
+            description="verified",
+            reviewed_finding_id=parent,
+            review_stance=ReviewStance.CONFIRMS,
+        )
+        # One DISPUTES finding — should count as issue
+        submit_finding(
+            round_id=round_id,
+            actor="grok",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="external DISPUTES",
+            description="reads differently",
+            reviewed_finding_id=parent,
+            review_stance=ReviewStance.DISPUTES,
+        )
+
+        stats = get_watchmen_stats()
+        # All three are OPEN
+        assert stats["open_count"] == 3
+        # But the split: 2 issues (parent + disputes), 1 recognition (confirms)
+        assert stats["open_issue_count"] == 2
+        assert stats["open_recognition_count"] == 1
+
+    def test_unresolved_findings_filters_recognitions_by_default(self, tmp_db):
+        from divineos.core.watchmen.summary import unresolved_findings
+
+        round_id = submit_round(actor="user", focus="f")
+        parent = submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity="HIGH",
+            category="BEHAVIOR",
+            title="real-issue",
+            description="needs fixing",
+        )
+        confirms = submit_finding(
+            round_id=round_id,
+            actor="grok",
+            severity="HIGH",
+            category="BEHAVIOR",
+            title="external CONFIRMS",
+            description="verified",
+            reviewed_finding_id=parent,
+            review_stance=ReviewStance.CONFIRMS,
+        )
+
+        # Default: recognitions filtered out
+        results = unresolved_findings(limit=10)
+        ids = [r["finding_id"] for r in results]
+        assert parent in ids
+        assert confirms not in ids
+
+        # Opt-in: include recognitions
+        results_all = unresolved_findings(limit=10, include_recognitions=True)
+        ids_all = [r["finding_id"] for r in results_all]
+        assert parent in ids_all
+        assert confirms in ids_all
+
+    def test_summary_string_separates_issues_from_recognitions(self, tmp_db):
+        from divineos.core.watchmen.summary import format_watchmen_summary
+
+        round_id = submit_round(actor="user", focus="f")
+        parent = submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="real-issue",
+            description="d",
+        )
+        submit_finding(
+            round_id=round_id,
+            actor="grok",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="CONFIRMS",
+            description="d",
+            reviewed_finding_id=parent,
+            review_stance=ReviewStance.CONFIRMS,
+        )
+
+        summary = format_watchmen_summary()
+        # Real issue should drive the alarm-shape; recognition labeled separately
+        assert "1 low" in summary.lower() or "1 open" in summary.lower()
+        assert "recognition" in summary.lower()
