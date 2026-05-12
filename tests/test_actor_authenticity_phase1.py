@@ -126,6 +126,62 @@ class TestRegistryCRUD:
         with pytest.raises(ValueError, match="already registered"):
             add_actor("aether", "agent")
 
+    def test_update_actor_changes_notes(self, isolated_registry):
+        """Closes Aletheia round-26 finding (2026-05-12): add_actor's error
+        message referenced update_actor which didn't exist."""
+        from divineos.core.actor_registry import add_actor, update_actor, get_actor
+
+        add_actor("aether", "agent", notes="original")
+        updated = update_actor("aether", notes="revised")
+        assert updated.notes == "revised"
+        # Roundtrip via get_actor confirms persistence
+        roundtripped = get_actor("aether")
+        assert roundtripped is not None
+        assert roundtripped.notes == "revised"
+
+    def test_update_actor_preserves_kind_and_added_at(self, isolated_registry):
+        """Updating notes must NOT change the immutable identity fields.
+        Kind is structurally bound to capability-map; changing it silently
+        would defeat the registry's purpose."""
+        from divineos.core.actor_registry import add_actor, update_actor, get_actor
+
+        add_actor("aether", "agent", notes="first")
+        original = get_actor("aether")
+        assert original is not None
+
+        update_actor("aether", notes="second")
+        updated = get_actor("aether")
+        assert updated is not None
+        assert updated.kind == original.kind
+        assert updated.added_at == original.added_at
+        assert updated.name == original.name
+
+    def test_update_actor_rejects_unknown(self, isolated_registry):
+        from divineos.core.actor_registry import update_actor
+
+        with pytest.raises(ValueError, match="not registered"):
+            update_actor("never_added", notes="anything")
+
+    def test_update_actor_rejects_empty_name(self, isolated_registry):
+        from divineos.core.actor_registry import update_actor
+
+        with pytest.raises(ValueError, match="empty"):
+            update_actor("", notes="anything")
+
+    def test_add_actor_error_message_now_actionable(self, isolated_registry):
+        """The error message in add_actor references update_actor; the
+        function now exists. A regression that removes update_actor would
+        also need to update this error message — these change together."""
+        from divineos.core.actor_registry import add_actor, update_actor  # noqa: F401
+
+        add_actor("aether", "agent")
+        try:
+            add_actor("aether", "agent")
+        except ValueError as exc:
+            # The error message mentions update_actor; importing it succeeded
+            # above, so the suggestion is valid (not a broken docstring).
+            assert "update_actor" in str(exc)
+
     def test_get_actor_returns_none_for_unknown(self, isolated_registry):
         from divineos.core.actor_registry import get_actor
 
