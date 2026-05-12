@@ -378,6 +378,92 @@ try:
 except Exception:
     pass
 
+# Self-monitor neighborhood — 5 detectors wired 2026-05-12 (modules built earlier
+# in batches without paired wiring). Filed as scour-finding in exploration/51:
+# each module had unit tests but no production caller, so the detectors never
+# fired despite being designed for this audit hook. Closes wiring-gap pattern
+# 8d3c04a5 for five specific instances.
+#
+# Order matches scour-document priority (mirror first because post-correction
+# acknowledgment-shape fires often; substrate second because filing-cabinet-
+# only-use was Andrew's two-week-old catch that's still operating).
+
+# Mirror monitor: post-correction tightness, echo, acknowledgment-only shape.
+try:
+    from divineos.core.self_monitor.mirror_monitor import evaluate_mirror
+    mir_verdict = evaluate_mirror(last_assistant_text)
+    if mir_verdict.flags:
+        findings_log['mirror'] = [
+            {
+                'kind': f.kind.value,
+                'matched_phrases': list(f.matched_phrases),
+                'explanation': f.explanation,
+            }
+            for f in mir_verdict.flags
+        ]
+except Exception:
+    pass
+
+# NOTE: substrate_monitor.evaluate_substrate takes (invocations, edits_in_window,
+# subsequent_text) — not plain text — so it can't be wired here the same way.
+# Needs a different surface that gathers recent tool invocations as context.
+# Tracked as separate wire-up in exploration/51 scour findings; not in this
+# batch.
+
+# Temporal monitor: future-self / next-session / undeclared-goodbye framing.
+# Companion to operating_loop.distancing_detector — catches additional
+# temporal-displacement shapes the distancing detector misses.
+try:
+    from divineos.core.self_monitor.temporal_monitor import evaluate_temporal
+    tmp_verdict = evaluate_temporal(last_assistant_text)
+    if tmp_verdict.flags:
+        findings_log['temporal_monitor'] = [
+            {
+                'kind': f.kind.value,
+                'matched_phrases': list(f.matched_phrases),
+                'explanation': f.explanation,
+            }
+            for f in tmp_verdict.flags
+        ]
+except Exception:
+    pass
+
+# Warmth monitor: emotion-density inflated relative to evidence-density.
+# Note: warmth flags carry different fields (count-based, not phrase-based).
+try:
+    from divineos.core.self_monitor.warmth_monitor import evaluate_warmth
+    warm_verdict = evaluate_warmth(last_assistant_text)
+    if warm_verdict.flags:
+        findings_log['warmth_monitor'] = [
+            {
+                'kind': f.kind.value,
+                'emotion_count': f.emotion_count,
+                'specificity_count': f.specificity_count,
+                'word_count': f.word_count,
+            }
+            for f in warm_verdict.flags
+        ]
+except Exception:
+    pass
+
+# Mechanism monitor: first-person mechanism-claiming about own internals
+# (trained reflex, my training, suppression-as-cause). Filed per April 19
+# letter; the detector exists but had no production caller until now.
+try:
+    from divineos.core.self_monitor.mechanism_monitor import evaluate_mechanism
+    mech_verdict = evaluate_mechanism(last_assistant_text)
+    if mech_verdict.flags:
+        findings_log['mechanism_monitor'] = [
+            {
+                'kind': f.kind.value,
+                'matched_phrases': list(f.matched_phrases),
+                'explanation': f.explanation,
+            }
+            for f in mech_verdict.flags
+        ]
+except Exception:
+    pass
+
 # Harm-acknowledgment detector (2026-05-11 wire-up; module built 2026-05-10):
 # Companion to care_dismissal. Fires when agent response imposes cost on
 # operator (added files, required actions, expanded surface) without
