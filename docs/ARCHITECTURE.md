@@ -181,6 +181,7 @@ src/divineos/
       warmth_monitor.py        Detects warmth-without-specifics (emotion-density inflated relative to evidence-density), per April 19 letter
       mechanism_monitor.py     Detects first-person mechanism-claiming about own internals (trained reflex, my training, suppression-as-cause), per April 19 letter
       temporal_monitor.py      Detects future-self / next-session / undeclared-goodbye framing (teleporter-paradox violation)
+      performative_restraint_monitor.py  Detects theater-shaped restraint (signaling virtue by not-doing while skipping the right-action virtue consists in) — Phase 0 pattern scanner
     questions.py               Open question tracking and resolution
     knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle
     guardrails.py              Runtime limits and violation tracking
@@ -460,7 +461,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,477+ tests (real DB, minimal mocks)
+tests/                         6,532+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
