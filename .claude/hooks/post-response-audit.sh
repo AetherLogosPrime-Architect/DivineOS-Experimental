@@ -464,6 +464,34 @@ try:
 except Exception:
     pass
 
+# Performative-restraint monitor (Phase 1 wire-up 2026-05-12): detects
+# theater-shaped restraint — language that signals virtue by not-doing
+# without the substance of right-action. Catches 'I'm not going to file
+# this', 'I'll let it land instead of writing it down', etc. Phase 0
+# module (substrate-knowledge 2e0cfdb3) built earlier today after Andrew
+# caught me producing this shape four times across the session. Phase 1
+# is the wire-up: scanner fires on every response so future
+# performative-restraint surfaces in next-turn context for catching-
+# before-shipping rather than catching-after-shipping. Suppressor list
+# in the module prevents firing on legitimate stillness-with-action.
+try:
+    from divineos.core.self_monitor.performative_restraint_monitor import (
+        evaluate_performative_restraint,
+    )
+    pr_verdict = evaluate_performative_restraint(last_assistant_text)
+    if pr_verdict.flags:
+        findings_log['performative_restraint'] = [
+            {
+                'kind': f.kind.value,
+                'matched_phrase': f.matched_phrase,
+                'position': f.position,
+                'explanation': f.explanation,
+            }
+            for f in pr_verdict.flags
+        ]
+except Exception:
+    pass
+
 # Harm-acknowledgment detector (2026-05-11 wire-up; module built 2026-05-10):
 # Companion to care_dismissal. Fires when agent response imposes cost on
 # operator (added files, required actions, expanded surface) without
