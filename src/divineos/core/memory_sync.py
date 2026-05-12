@@ -78,23 +78,30 @@ def _sync_project_state(memory_dir: Path) -> bool:
     """Write current project stats to auto_project_state.md."""
     parts: list[str] = []
 
-    # Test count
-    try:
-        import subprocess
+    # Test count — skip when running under pytest to prevent recursive
+    # pytest invocations from deadlocking. The substrate test-count is
+    # not meaningful during a test run (the suite running this code IS
+    # the suite being counted), and the subprocess.run hangs because
+    # the outer pytest holds resources the inner pytest would need.
+    # See substrate-knowledge 4a5bef20 (pre-existing flake filed
+    # 2026-05-11 during the shoggoth-metric redesign; fixed in this commit).
+    if not os.environ.get("PYTEST_CURRENT_TEST"):
+        try:
+            import subprocess
 
-        result = subprocess.run(
-            ["python", "-m", "pytest", "tests/", "--collect-only", "-q"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            cwd=_find_project_root(),
-        )
-        for line in result.stdout.splitlines():
-            if "test" in line and "selected" in line:
-                parts.append(f"Tests: {line.strip()}")
-                break
-    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
-        pass
+            result = subprocess.run(
+                ["python", "-m", "pytest", "tests/", "--collect-only", "-q"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=_find_project_root(),
+            )
+            for line in result.stdout.splitlines():
+                if "test" in line and "selected" in line:
+                    parts.append(f"Tests: {line.strip()}")
+                    break
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            pass
 
     # Knowledge store stats
     try:
