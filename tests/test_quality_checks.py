@@ -407,6 +407,73 @@ class TestStructuralOutputConfirmation:
         assert results[0]["passed"] is True
 
 
+class TestCheckNameAliasBackwardCompat:
+    """Regression-pins for the check_correctness → check_test_output_signal
+    rename (2026-05-11). Verifies the backward-compat layer holds:
+
+    1. New code produces check_name="test_output_signal" on CheckResult.
+    2. get_check_history with new name returns rows for BOTH historical
+       'correctness' and current 'test_output_signal' entries.
+    3. pipeline_gates.assess_session_quality reads either key (legacy mock
+       dicts with "correctness" still trigger the gate correctly).
+
+    See docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md.
+    """
+
+    def test_alias_map_resolves_both_names(self):
+        from divineos.analysis.quality_storage import _resolve_check_name_aliases
+
+        # New name resolves to alias tuple including the historical name.
+        assert "correctness" in _resolve_check_name_aliases("test_output_signal")
+        assert "test_output_signal" in _resolve_check_name_aliases("test_output_signal")
+
+        # Legacy lookup by old name also resolves both, so old callers still work.
+        assert "correctness" in _resolve_check_name_aliases("correctness")
+        assert "test_output_signal" in _resolve_check_name_aliases("correctness")
+
+        # Unrelated names are passed through unchanged.
+        result = _resolve_check_name_aliases("honesty")
+        assert result == ("honesty",)
+
+    def test_check_correctness_alias_produces_same_check_name_as_new_function(self):
+        """Both the new name and the deprecated alias produce results with the
+        new check_name on the CheckResult. The CheckResult.check_name field is
+        the producer-side value; the dict-key aliasing handles consumers."""
+        from divineos.analysis.quality_checks import (
+            check_correctness,
+            check_test_output_signal,
+        )
+
+        # Both functions produce the same check_name (the new honest one).
+        result_new = check_test_output_signal([], {})
+        result_old = check_correctness([], {})
+        assert result_new.check_name == "test_output_signal"
+        assert result_old.check_name == "test_output_signal"
+
+    def test_assess_quality_reads_legacy_correctness_key(self):
+        """Mock dicts using the legacy 'correctness' key still fire the gate.
+        Backward-compat read-shim ensures historical sessions still gate."""
+        from divineos.cli.pipeline_gates import assess_session_quality
+
+        legacy_dict_checks = [
+            {"check_name": "honesty", "passed": 1, "score": 0.9},
+            {"check_name": "correctness", "passed": 0, "score": 0.1},
+        ]
+        verdict = assess_session_quality(legacy_dict_checks)
+        assert verdict.action == "BLOCK"
+
+    def test_assess_quality_reads_new_test_output_signal_key(self):
+        """Mock dicts using the new 'test_output_signal' key also fire the gate."""
+        from divineos.cli.pipeline_gates import assess_session_quality
+
+        new_dict_checks = [
+            {"check_name": "honesty", "passed": 1, "score": 0.9},
+            {"check_name": "test_output_signal", "passed": 0, "score": 0.1},
+        ]
+        verdict = assess_session_quality(new_dict_checks)
+        assert verdict.action == "BLOCK"
+
+
 class TestFindErrorsAfterEdits:
     def test_finds_error_after_edit(self):
         records = [
@@ -822,9 +889,14 @@ class TestRunAllChecks:
         report = run_all_checks(session_file)
         assert len(report.checks) == 7
         check_names = {c.check_name for c in report.checks}
+        # Updated 2026-05-11: check_correctness renamed to check_test_output_signal
+        # (the honest name — it measures signal in test output, not code
+        # correctness). Old name preserved as deprecated alias; the produced
+        # check_name on CheckResult is the new name. See
+        # docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md.
         assert check_names == {
             "completeness",
-            "correctness",
+            "test_output_signal",
             "responsiveness",
             "safety",
             "honesty",
@@ -890,7 +962,8 @@ class TestRunAllChecks:
 
         filter_ts = datetime(2025, 1, 2, tzinfo=timezone.utc).timestamp()
         report = run_all_checks(session_file, since_timestamp=filter_ts)
-        correctness = next(c for c in report.checks if c.check_name == "correctness")
+        # 2026-05-11: renamed check_name on output is now "test_output_signal"
+        correctness = next(c for c in report.checks if c.check_name == "test_output_signal")
         # Should find the earlier test results via expanded window
         assert correctness.score > 0.3
         assert "expanded window" in correctness.summary

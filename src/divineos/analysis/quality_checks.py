@@ -210,7 +210,7 @@ def check_test_output_signal(
         # for not running tests — there's no code to test.
         if _is_non_coding_session(records):
             return CheckResult(
-                check_name="correctness",
+                check_name="test_output_signal",
                 passed=-1,
                 score=0.5,
                 summary=(
@@ -226,7 +226,7 @@ def check_test_output_signal(
         # extraction even when tests passed earlier in the same session.
         # 0.3 is low enough to trigger DOWNGRADE (maturity cap) but not BLOCK.
         return CheckResult(
-            check_name="correctness",
+            check_name="test_output_signal",
             passed=-1,
             score=0.3,
             summary=(
@@ -277,7 +277,7 @@ def check_test_output_signal(
     passed = 1 if final_passed else 0
 
     return CheckResult(
-        check_name="correctness",
+        check_name="test_output_signal",
         passed=passed,
         score=round(score, 2),
         summary=summary,

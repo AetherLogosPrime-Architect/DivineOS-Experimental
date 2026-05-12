@@ -82,15 +82,50 @@ def get_report(session_id: str) -> SessionReport | None:
         conn.close()
 
 
+# Backward-compat alias map for check_name lookups (2026-05-11 shoggoth-rename).
+# When a check is renamed, historical rows still carry the old check_name in
+# the check_result table. Queries by the new name expand to include all
+# aliased names so historical data remains reachable without a database
+# migration. Producers write the new (honest) name going forward; consumers
+# read all aliases transparently.
+#
+# Safe-migration pattern (substrate-knowledge 75238005): old names preserved
+# in the alias map; new code uses new names; the migration is lossless.
+_CHECK_NAME_ALIASES: dict[str, tuple[str, ...]] = {
+    # New name → tuple of all names (new + historical) that should resolve.
+    "test_output_signal": ("test_output_signal", "correctness"),
+    # Legacy lookups by old name still work — same alias set.
+    "correctness": ("test_output_signal", "correctness"),
+}
+
+
+def _resolve_check_name_aliases(check_name: str) -> tuple[str, ...]:
+    """Return the tuple of check_name values that should resolve for a query.
+
+    If check_name has registered aliases, returns the full alias tuple; else
+    returns just the single name. Used by get_check_history to read both
+    new and historical names transparently.
+    """
+    return _CHECK_NAME_ALIASES.get(check_name, (check_name,))
+
+
 def get_check_history(check_name: str, limit: int = 20) -> list[dict[str, Any]]:
-    """Get results for one check across sessions (for cross-session patterns)."""
+    """Get results for one check across sessions (for cross-session patterns).
+
+    Handles check_name aliases transparently — a query by the new name
+    (e.g. "test_output_signal") returns both new and historical rows
+    (rows still carrying the old "correctness" name).
+    """
+    aliases = _resolve_check_name_aliases(check_name)
+    placeholders = ",".join("?" * len(aliases))
     conn = _get_connection()
     try:
         rows = conn.execute(
-            "SELECT cr.session_id, cr.passed, cr.score, cr.summary, sr.created_at "
-            "FROM check_result cr JOIN session_report sr ON cr.session_id = sr.session_id "
-            "WHERE cr.check_name = ? ORDER BY sr.created_at DESC LIMIT ?",
-            (check_name, limit),
+            f"SELECT cr.session_id, cr.passed, cr.score, cr.summary, sr.created_at "
+            f"FROM check_result cr JOIN session_report sr ON cr.session_id = sr.session_id "
+            f"WHERE cr.check_name IN ({placeholders}) "
+            f"ORDER BY sr.created_at DESC LIMIT ?",
+            (*aliases, limit),
         ).fetchall()
         return [
             {
