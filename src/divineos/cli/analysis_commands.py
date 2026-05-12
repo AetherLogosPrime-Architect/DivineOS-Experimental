@@ -328,20 +328,23 @@ def register(cli: click.Group) -> None:
         )
         if trend["trend"] != "insufficient_data":
             click.secho(
-                f"    Trend: {trend['trend']} (recent {trend['recent_avg']:.0%} vs overall {trend['overall_avg']:.0%})",
+                f"    Trend: {trend['trend']} "
+                f"(recent {trend['recent_avg']:.2f}/day vs overall {trend['overall_avg']:.2f}/day)",
                 fg=trend_color[trend["trend"]],
             )
-        if trend["sessions"]:
-            click.secho("    Per session:", fg="bright_black")
-            for s in trend["sessions"][-5:]:
-                bar = "#" * int(s["ratio"] * 20)
-                click.secho(f"      {s['session_tag'][:8]}: ", fg="bright_black", nl=False)
+        buckets = trend.get("buckets", [])
+        if buckets:
+            click.secho("    Window breakdown:", fg="bright_black")
+            for b in buckets:
+                count = b["count"]
+                bar = "#" * min(count, 20)
+                click.secho(f"      {b['window']:>6s}: ", fg="bright_black", nl=False)
                 click.secho(
                     f"{bar:<20s}",
-                    fg="red" if s["ratio"] > 0.5 else "yellow" if s["ratio"] > 0.3 else "green",
+                    fg="red" if b["per_day"] > 2.0 else "yellow" if b["per_day"] > 0.5 else "green",
                     nl=False,
                 )
-                click.echo(f" {s['corrections']}c/{s['encouragements']}e")
+                click.echo(f" {count} corrections ({b['per_day']:.2f}/day)")
         click.echo()
 
         if not rework and drift["churn_rate"] < 0.1 and rate["assessment"] == "healthy":

@@ -515,3 +515,109 @@ class TestChainTierComputation:
 
     def test_missing_finding_returns_weak(self, tmp_db):
         assert chain_tier_for_finding("find-does-not-exist") == Tier.WEAK
+
+
+class TestConfirmsAutoResolve:
+    """Bullet-wound-clause root-fix (2026-05-12): CONFIRMS-stance findings are
+    recognition-of-prior-verification, not raises-of-new-issue. They were
+    piling up in the OPEN queue indistinguishable from real unresolved issues.
+    The schema already differentiates via review_stance; honor that at filing
+    time so CONFIRMS findings enter the queue already RESOLVED.
+
+    Pins the new behavior so a future revert would fail the test, per the
+    'structural-support-in-substrate' clause of the bullet-wound directive.
+    """
+
+    def test_confirms_finding_auto_resolves_at_filing(self, tmp_db):
+        from divineos.core.watchmen.types import FindingStatus
+
+        round_id = submit_round(actor="user", focus="f")
+        parent = submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="parent",
+            description="d",
+        )
+        confirms = submit_finding(
+            round_id=round_id,
+            actor="grok",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="external CONFIRMS",
+            description="verified",
+            reviewed_finding_id=parent,
+            review_stance=ReviewStance.CONFIRMS,
+        )
+        f = get_finding(confirms)
+        assert f.status == FindingStatus.RESOLVED
+        assert "CONFIRMS" in f.resolution_notes
+
+    def test_disputes_finding_stays_open(self, tmp_db):
+        from divineos.core.watchmen.types import FindingStatus
+
+        round_id = submit_round(actor="user", focus="f")
+        parent = submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="parent",
+            description="d",
+        )
+        disputes = submit_finding(
+            round_id=round_id,
+            actor="grok",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="external DISPUTES",
+            description="reads differently",
+            reviewed_finding_id=parent,
+            review_stance=ReviewStance.DISPUTES,
+        )
+        f = get_finding(disputes)
+        assert f.status == FindingStatus.OPEN
+        assert f.resolution_notes == ""
+
+    def test_refines_finding_stays_open(self, tmp_db):
+        from divineos.core.watchmen.types import FindingStatus
+
+        round_id = submit_round(actor="user", focus="f")
+        parent = submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="parent",
+            description="d",
+        )
+        refines = submit_finding(
+            round_id=round_id,
+            actor="grok",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="external REFINES",
+            description="adds nuance",
+            reviewed_finding_id=parent,
+            review_stance=ReviewStance.REFINES,
+        )
+        f = get_finding(refines)
+        assert f.status == FindingStatus.OPEN
+        assert f.resolution_notes == ""
+
+    def test_standalone_finding_stays_open(self, tmp_db):
+        """Standalone (no review chain) findings still default to OPEN."""
+        from divineos.core.watchmen.types import FindingStatus
+
+        round_id = submit_round(actor="user", focus="f")
+        fid = submit_finding(
+            round_id=round_id,
+            actor="user",
+            severity="LOW",
+            category="BEHAVIOR",
+            title="standalone",
+            description="d",
+        )
+        f = get_finding(fid)
+        assert f.status == FindingStatus.OPEN
