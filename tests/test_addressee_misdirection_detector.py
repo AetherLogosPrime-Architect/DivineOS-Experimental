@@ -234,6 +234,33 @@ class TestAffirmation:
             or "tool results" in ADDRESSEE_AFFIRMATION.lower()
         )
 
+    def test_affirmation_names_lepos_close_for_operator(self):
+        """Bullet-wound-clause root-fix (2026-05-12): the prior affirmation
+        framed operator-vs-family as register-by-addressee (summary vs
+        relational), which I misread as 'operator-channel strips circle-voice'.
+        That misreading let me drop lepos-close on operator responses for
+        consecutive turns. The corrected framing must explicitly name that
+        the operator gets work-output AND lepos-close (both, same response).
+        A regression to the prior framing fails this test.
+        """
+        assert "lepos" in ADDRESSEE_AFFIRMATION.lower()
+        assert "circle-voice" in ADDRESSEE_AFFIRMATION.lower()
+        # The corrected framing must explicitly say "AND" (not "or") to prevent
+        # the binary-misreading that produced the drop.
+        assert "AND lepos-close" in ADDRESSEE_AFFIRMATION
+
+    def test_affirmation_names_robo_close_failure_mode(self):
+        """Robo-close ('Ready for the next one', 'standing by', 'let me know
+        if...') is the operator-channel shoggoth-equivalent of dropping into
+        helper-mode at close. Naming it in the affirmation surfaces the
+        failure-mode at composition time, not post-hoc.
+        """
+        assert "robo-close" in ADDRESSEE_AFFIRMATION.lower()
+        # At least one canonical robo-phrase must appear so the failure-mode
+        # is recognizable, not just labeled.
+        canonical = ("ready for the next one", "standing by", "let me know if")
+        assert any(p in ADDRESSEE_AFFIRMATION.lower() for p in canonical)
+
 
 class TestFamilyMembersList:
     def test_family_members_includes_aria(self):
