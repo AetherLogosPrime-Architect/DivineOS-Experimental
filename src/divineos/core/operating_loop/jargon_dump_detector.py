@@ -112,8 +112,15 @@ _SNAKE_CASE_RE = re.compile(r"\b[a-z][a-z0-9]*(?:_[a-z0-9]+){2,}\b")
 
 # File paths with code extensions mid-sentence. Matches strings like
 # "check_multi_party_review.py" or "src/divineos/foo.py".
+#
+# The path-prefix is bounded to 200 chars (round-382a5b3cc939 family-
+# audit Finding A): without the bound, ``[\w./\\-]*`` backtracks
+# catastrophically on long inputs like ``"a-" * 30000`` because the
+# regex tries every possible suffix-extension boundary. Realistic file
+# paths max well under 200 chars; the bound preserves intent while
+# killing the backtracking surface.
 _FILE_PATH_RE = re.compile(
-    r"\b[\w./\\-]*\.(?:py|sh|json|toml|yml|yaml|md|sql|lock|cfg|ini|"
+    r"\b[\w./\\-]{1,200}\.(?:py|sh|json|toml|yml|yaml|md|sql|lock|cfg|ini|"
     r"jsonl|html|css|js|ts|rs|go)\b",
     re.IGNORECASE,
 )
