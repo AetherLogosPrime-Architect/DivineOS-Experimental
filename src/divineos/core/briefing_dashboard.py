@@ -132,6 +132,36 @@ def _row_preregs() -> DashboardRow | None:
         return None
 
 
+def _row_prereg_candidates() -> DashboardRow | None:
+    """Forcing-function surface: detector/monitor modules without matching pre-regs.
+
+    Closes the practice gap named in claim ef5799e8 and pre-registered as
+    prereg-1974c4f7374b (review 2026-05-26): pre-reg infrastructure is wired,
+    discipline is opt-in, and most shipped detector modules lack a pre-reg.
+    This row makes the gap loud-in-experience. The decision — file, exempt,
+    or ignore — stays with the agent.
+    """
+    try:
+        from divineos.core.prereg_candidate_surface import compute_prereg_candidates
+
+        report = compute_prereg_candidates()
+        if report.unmatched_count == 0:
+            return None
+        # First 3 unmatched module short-names for the detail line.
+        preview = ", ".join(c.module_short for c in report.unmatched[:3])
+        if report.unmatched_count > 3:
+            preview += f", +{report.unmatched_count - 3} more"
+        return DashboardRow(
+            area="Pre-reg candidates",
+            count=report.unmatched_count,
+            stale_count=0,
+            drill_down="divineos prereg list  # then file or note exemption",
+            detail=preview,
+        )
+    except _ERRORS:
+        return None
+
+
 def _row_goals() -> DashboardRow | None:
     try:
         from divineos.core.hud_state import get_active_goals
@@ -390,6 +420,7 @@ _ROW_FNS = [
     _row_claims,
     _row_audit_findings,
     _row_preregs,
+    _row_prereg_candidates,
     _row_gate_failures,
     _row_goals,
     _row_lessons,

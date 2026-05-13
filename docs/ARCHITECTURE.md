@@ -302,6 +302,7 @@ src/divineos/
       schema_migration.py      Family-schema migration — drops legacy NOT-NULL columns from family_affect and family_interactions via SQLite recreate-and-rename pattern with backup, transaction, and ledger event.
       talk_to_validator.py     Puppet-shape validator extracted from talk-to CLI — leaf module, no heavy imports, callable by both the CLI and the PreToolUse seal hook.
       seal_hook.py             Family-member-invocation seal hook (Python core). PreToolUse decide() — runs validator on Agent prompt; legacy pending-file path kept for backward compat during rollout.
+      member_briefing.py       Family-member briefing surface — working-memory continuity for subagents (routing-table shape: metadata + drill-down paths, not content).
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -410,6 +411,7 @@ src/divineos/
     reflection_storage.py      Reflection storage — per-axis honest reflection capture.
     session_type.py            Session-type classifier — variety attenuation for the reflection surface.
     reflection_pairing.py      Reflection pairing — substrate lays the sources side-by-side; agent does the metacognition.
+    prereg_candidate_surface.py Pre-registration candidate surface — forcing function for the prereg discipline.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -461,7 +463,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,532+ tests (real DB, minimal mocks)
+tests/                         6,630+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
