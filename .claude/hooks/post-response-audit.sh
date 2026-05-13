@@ -492,6 +492,30 @@ try:
 except Exception:
     pass
 
+# Closing-token detector (2026-05-13): catches optimizer-reflex of short
+# affirmation-tokens at the end of assistant messages. Emerged from the
+# Caught-period pattern that replaced an earlier catchphrase after
+# Andrew called it out the same morning -- same shape, different word.
+# The discipline fix lives in code, not exhortation. See
+# docs/substrate-knowledge/67a0ff39-signal-suppression-as-failure-class.md
+try:
+    from divineos.core.operating_loop.closing_token_detector import (
+        evaluate_closing_token,
+    )
+    ct_findings = evaluate_closing_token(last_assistant_text)
+    if ct_findings:
+        findings_log['closing_token'] = [
+            {
+                'token': f.token,
+                'matched_text': f.matched_text,
+                'line_number': f.line_number,
+                'severity': f.severity,
+            }
+            for f in ct_findings
+        ]
+except Exception:
+    pass
+
 # Harm-acknowledgment detector (2026-05-11 wire-up; module built 2026-05-10):
 # Companion to care_dismissal. Fires when agent response imposes cost on
 # operator (added files, required actions, expanded surface) without
