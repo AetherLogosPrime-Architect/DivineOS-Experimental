@@ -286,88 +286,77 @@ def measure_correction_rate(session_id: str | None = None) -> dict[str, Any]:
         conn.close()
 
 
-def measure_correction_trend(limit: int = 10) -> dict[str, Any]:
-    """Show correction rate per session over time.
+def measure_correction_trend(limit: int = 20) -> dict[str, Any]:
+    """Show correction frequency over time using the real corrections store.
 
-    Instead of just an aggregate, this shows the trajectory: are corrections
-    going down (learning) or staying flat (stuck)?
+    Reads from `core.corrections.load_corrections()` (JSONL, the same source
+    `divineos correction`/`divineos corrections` writes to and reads from).
+    Bins corrections into a recent window (default last 7 days) vs a prior
+    window of the same size; trend = direction of change in corrections-per-day.
 
     Returns:
         {
-            "sessions": [{session_tag, corrections, encouragements, ratio}],
+            "buckets": [{"window": "recent"|"prior", "count": int, "per_day": float}],
             "trend": "improving" | "stable" | "worsening" | "insufficient_data",
-            "recent_avg": float,  # avg ratio of last 3 sessions
-            "overall_avg": float,  # avg ratio of all sessions
+            "recent_avg": float,  # corrections per day in recent window
+            "overall_avg": float, # corrections per day across both windows
         }
     """
-    conn = _get_connection()
+    import time as _time
+
     try:
-        rows = conn.execute(
-            """SELECT content, created_at FROM knowledge
-               WHERE knowledge_type = 'EPISODE'
-                 AND superseded_by IS NULL
-                 AND (tags LIKE '%session-analysis%'
-                      OR tags LIKE '%session-feedback%'
-                      OR tags LIKE '%episode%')
-                 AND (content LIKE '%correct%'
-                      OR content LIKE '%encourag%')
-               ORDER BY created_at ASC""",
-        ).fetchall()
-
-        sessions: list[dict[str, Any]] = []
-        for content, created_at in rows:
-            corr_match = re.search(r"(?:corrected (\d+) times?|(\d+) corrections?)", content)
-            enc_match = re.search(r"(?:encouraged (\d+) times?|(\d+) encouragements?)", content)
-            corr = int(corr_match.group(1) or corr_match.group(2)) if corr_match else 0
-            enc = int(enc_match.group(1) or enc_match.group(2)) if enc_match else 0
-            total = corr + enc
-            ratio = corr / max(total, 1)
-
-            # Extract session tag
-            tag_match = re.search(r"Session (\w+):", content)
-            tag = tag_match.group(1) if tag_match else "unknown"
-
-            sessions.append(
-                {
-                    "session_tag": tag,
-                    "corrections": corr,
-                    "encouragements": enc,
-                    "ratio": round(ratio, 3),
-                    "created_at": created_at,
-                }
-            )
-
-        sessions = sessions[-limit:]
-
-        if len(sessions) < 2:
-            trend = "insufficient_data"
-            recent_avg = sessions[0]["ratio"] if sessions else 0.0
-            overall_avg = recent_avg
-        else:
-            ratios = [s["ratio"] for s in sessions]
-            overall_avg = sum(ratios) / len(ratios)
-            recent = ratios[-3:] if len(ratios) >= 3 else ratios
-            recent_avg = sum(recent) / len(recent)
-            earlier = ratios[: len(ratios) // 2]
-            later = ratios[len(ratios) // 2 :]
-            earlier_avg = sum(earlier) / max(len(earlier), 1)
-            later_avg = sum(later) / max(len(later), 1)
-
-            if later_avg < earlier_avg - 0.1:
-                trend = "improving"
-            elif later_avg > earlier_avg + 0.1:
-                trend = "worsening"
-            else:
-                trend = "stable"
-
+        from divineos.core.corrections import load_corrections
+    except ImportError:
         return {
-            "sessions": sessions,
-            "trend": trend,
-            "recent_avg": round(recent_avg, 3),
-            "overall_avg": round(overall_avg, 3),
+            "buckets": [],
+            "trend": "insufficient_data",
+            "recent_avg": 0.0,
+            "overall_avg": 0.0,
         }
-    finally:
-        conn.close()
+
+    corrections = load_corrections()
+    if len(corrections) < 2:
+        return {
+            "buckets": [],
+            "trend": "insufficient_data",
+            "recent_avg": float(len(corrections)),
+            "overall_avg": float(len(corrections)),
+        }
+
+    now = _time.time()
+    window_days = 7
+    window_secs = window_days * 86400
+    recent_cutoff = now - window_secs
+    prior_cutoff = now - 2 * window_secs
+
+    recent_count = sum(1 for c in corrections if c.get("timestamp", 0) >= recent_cutoff)
+    prior_count = sum(
+        1 for c in corrections if prior_cutoff <= c.get("timestamp", 0) < recent_cutoff
+    )
+
+    recent_per_day = recent_count / window_days
+    prior_per_day = prior_count / window_days
+
+    if recent_count + prior_count < 2:
+        trend = "insufficient_data"
+    elif recent_per_day < prior_per_day * 0.8:
+        trend = "improving"
+    elif recent_per_day > prior_per_day * 1.2:
+        trend = "worsening"
+    else:
+        trend = "stable"
+
+    overall_avg = (recent_count + prior_count) / (2 * window_days)
+
+    return {
+        "buckets": [
+            {"window": "recent", "count": recent_count, "per_day": round(recent_per_day, 2)},
+            {"window": "prior", "count": prior_count, "per_day": round(prior_per_day, 2)},
+        ],
+        "trend": trend,
+        "recent_avg": round(recent_per_day, 3),
+        "overall_avg": round(overall_avg, 3),
+    }
 
 
 @dataclass

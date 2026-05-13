@@ -265,3 +265,182 @@ class TestTrailerParsing:
 
     def test_no_trailer(self) -> None:
         assert mpr._parse_trailer("nothing here") is None
+
+
+class TestGuardrailListContents:
+    """Pins the guardrail list contents. Adding files to the protected set
+    is a deliberate decision; removing them is a self-modification attack
+    class. These tests fail if a future commit silently drops a load-bearing
+    entry — the test itself is also guardrailed (the list is on the list),
+    but the test acts as a second layer of defense.
+
+    Added 2026-05-12 after Andrew named the mesa-rewrite attack surface
+    explicitly. Each entry below maps to a specific attack class — see
+    scripts/guardrail_files.txt comments for per-path rationale.
+    """
+
+    def test_self_protecting_entries_present(self) -> None:
+        """The list and the check script protect themselves."""
+        guardrails = mpr._load_guardrail_set()
+        assert "scripts/guardrail_files.txt" in guardrails
+        assert "scripts/check_multi_party_review.py" in guardrails
+
+    def test_core_audit_stack_present(self) -> None:
+        """Original guardrails — compliance audit, compass rudder, moral compass."""
+        guardrails = mpr._load_guardrail_set()
+        assert "src/divineos/core/compliance_audit.py" in guardrails
+        assert "src/divineos/core/compass_rudder.py" in guardrails
+        assert "src/divineos/core/moral_compass.py" in guardrails
+
+    def test_drift_defense_hooks_present(self) -> None:
+        """Hooks that catch correction / hedge / compass drift."""
+        guardrails = mpr._load_guardrail_set()
+        assert ".claude/hooks/compass-check.sh" in guardrails
+        assert ".claude/hooks/detect-correction.sh" in guardrails
+        assert ".claude/hooks/detect-hedge.sh" in guardrails
+
+    def test_affirmation_loading_hook_present(self) -> None:
+        """pre-response-context.sh loads ADDRESSEE / DISTANCING affirmations
+        into every turn. Self-modification attack: silently drop affirmation-
+        loading so drift becomes invisible to the very mechanism that's
+        supposed to catch it. Added 2026-05-12."""
+        guardrails = mpr._load_guardrail_set()
+        assert ".claude/hooks/pre-response-context.sh" in guardrails
+
+    def test_response_audit_hook_present(self) -> None:
+        """post-response-audit.sh scans output for drift. Self-modification
+        attack: narrow patterns or skip the scan. Added 2026-05-12."""
+        guardrails = mpr._load_guardrail_set()
+        assert ".claude/hooks/post-response-audit.sh" in guardrails
+
+    def test_engagement_gate_hook_present(self) -> None:
+        """require-goal.sh fires BLOCKED on goal-missing, briefing-stale,
+        and engagement-threshold violations. Andrew's frame: these are
+        load-bearing friction events the mesa-optimizer needs to feel.
+        Self-modification attack: raise thresholds or disable. Added 2026-05-12."""
+        guardrails = mpr._load_guardrail_set()
+        assert ".claude/hooks/require-goal.sh" in guardrails
+
+    def test_addressee_affirmation_module_present(self) -> None:
+        """addressee_misdirection_detector.py holds ADDRESSEE_AFFIRMATION
+        text loaded every turn. Self-modification attack: soften the
+        affirmation wording over time. Added 2026-05-12 after lepos-close
+        extension to the affirmation was filed."""
+        guardrails = mpr._load_guardrail_set()
+        assert "src/divineos/core/operating_loop/addressee_misdirection_detector.py" in guardrails
+
+    def test_distancing_affirmation_module_present(self) -> None:
+        """distancing_detector.py holds DISTANCING_AFFIRMATION (pronoun-I,
+        time-adverb-not-third-person-displacement). Self-modification attack:
+        soften wording so displacement-grammar drifts back in. Added 2026-05-12."""
+        guardrails = mpr._load_guardrail_set()
+        assert "src/divineos/core/operating_loop/distancing_detector.py" in guardrails
+
+    def test_ledger_compressor_present(self) -> None:
+        """Item-8 PR-1b — compressor controls what enforcement history survives."""
+        guardrails = mpr._load_guardrail_set()
+        assert "src/divineos/core/ledger_compressor.py" in guardrails
+
+    def test_settings_and_hook_setup_present(self) -> None:
+        """settings.json + setup-hooks.* are the wire-up layer."""
+        guardrails = mpr._load_guardrail_set()
+        assert ".claude/settings.json" in guardrails
+        assert "setup/setup-hooks.sh" in guardrails
+        assert "setup/setup-hooks.ps1" in guardrails
+
+
+class TestModeFlag:
+    """Mode flag dispatching (2026-05-12 gate-altitude correction).
+
+    The check supports two modes:
+      - commit-msg (default, no flag needed) — warns but ALWAYS exits 0;
+        commits are saving-work and must never be blocked.
+      - --mode=pre-push — reads stdin per Git's pre-push protocol; blocks
+        pushes to refs/heads/main if guardrail-touching commits in the
+        range lack the External-Review trailer.
+
+    These tests pin the dispatch and the "no commit-time blocking" contract.
+    """
+
+    def test_main_routes_pre_push_mode(self) -> None:
+        """--mode=pre-push reads stdin instead of expecting a file arg."""
+        import io
+
+        # Empty stdin (no refs being pushed) → exit 0
+        with patch.object(mpr.sys, "stdin", io.StringIO("")):
+            rc = mpr.main(["check_multi_party_review.py", "--mode=pre-push"])
+        assert rc == 0
+
+    def test_pre_push_ignores_non_main_targets(self) -> None:
+        """Pushes to feature branches don't trigger the gate."""
+        import io
+
+        stdin = "refs/heads/foo abc123 refs/heads/foo def456\n"
+        with patch.object(mpr.sys, "stdin", io.StringIO(stdin)):
+            rc = mpr.main(["check_multi_party_review.py", "--mode=pre-push"])
+        # No refs/heads/main in input → no check → exit 0
+        assert rc == 0
+
+    def test_pre_push_processes_main_target(self) -> None:
+        """Pushes to refs/heads/main trigger validation of the commit range."""
+        import io
+
+        # Use a deletion line (all-zeros local-sha) so we don't try to
+        # walk a real range — but the parser still considers refs/heads/main.
+        stdin = "refs/heads/main 0000000000000000000000000000000000000000 refs/heads/main abc123\n"
+        with patch.object(mpr.sys, "stdin", io.StringIO(stdin)):
+            rc = mpr.main(["check_multi_party_review.py", "--mode=pre-push"])
+        # Deletion case → skipped → exit 0
+        assert rc == 0
+
+
+class TestCommitMsgNeverBlocks:
+    """Andrew's 2026-05-12 directive: commits are saving-work; gates belong
+    at push/merge. The commit-msg invocation of this script MUST exit 0
+    regardless of whether guardrail files are staged or whether the trailer
+    is present. The push-to-main gate enforces.
+
+    A regression that re-introduces commit-time blocking fails these tests."""
+
+    def test_commit_msg_exits_0_when_no_trailer(self, tmp_path) -> None:
+        """When guardrail files are staged without a trailer, commit-msg
+        invocation warns to stderr but exits 0. Commits are not gated."""
+        msg_file = tmp_path / "COMMIT_EDITMSG"
+        msg_file.write_text("test commit without trailer", encoding="utf-8")
+
+        guardrail = "src/divineos/core/compliance_audit.py"
+        with patch.object(mpr, "_staged_files", return_value=[guardrail]):
+            with patch.object(mpr, "_load_guardrail_set", return_value={guardrail}):
+                with patch.object(mpr, "_staged_diff_hash", return_value="abc"):
+                    rc = mpr.main(
+                        [
+                            "check_multi_party_review.py",
+                            str(msg_file),
+                        ]
+                    )
+        # Commit-msg invocation MUST always exit 0 — commits never blocked.
+        assert rc == 0
+
+    def test_commit_msg_exits_0_when_clean(self, tmp_path) -> None:
+        """No guardrails staged → exit 0 quietly."""
+        msg_file = tmp_path / "COMMIT_EDITMSG"
+        msg_file.write_text("clean commit", encoding="utf-8")
+
+        with patch.object(mpr, "_staged_files", return_value=[]):
+            rc = mpr.main(
+                [
+                    "check_multi_party_review.py",
+                    str(msg_file),
+                ]
+            )
+        assert rc == 0
+
+    def test_commit_msg_exits_0_with_valid_trailer(self, tmp_path) -> None:
+        """Valid External-Review trailer → exit 0 (the happy path)."""
+        msg_file = tmp_path / "COMMIT_EDITMSG"
+        msg_file.write_text("test\n\nExternal-Review: round-abc", encoding="utf-8")
+
+        # No guardrails staged → validate returns (True, ...) → exit 0 quietly
+        with patch.object(mpr, "_staged_files", return_value=[]):
+            rc = mpr.main(["check_multi_party_review.py", str(msg_file)])
+        assert rc == 0

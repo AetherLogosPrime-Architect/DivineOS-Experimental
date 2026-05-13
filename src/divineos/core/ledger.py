@@ -276,6 +276,39 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
             logger.error(f"Event validation failed for {event_type}: {validation_msg}")
             raise ValueError(f"Invalid event payload: {validation_msg}")
 
+    # Actor authenticity Phase 1 (2026-05-11, exploration/45_actor_authenticity_design.md):
+    # WARN if the actor is not registered. Phase 1 does NOT block emission —
+    # the warn is informational so legitimate operations continue while
+    # surfacing typos and unrecognized actors for review. Phase 2 will add
+    # signature verification + capability enforcement.
+    #
+    # Several actor names are exempt from the warning because they are
+    # produced by ephemeral or pre-registry-bootstrap paths:
+    # - "" / "unknown" — empty/default actor strings from upstream code that
+    #   doesn't yet care about authenticity
+    # - "system" / "substrate" — substrate-internal emissions
+    # - "user" / "assistant" — Claude Code transcript-replay events
+    # The exemption list shrinks in Phase 2 as more paths get migrated.
+    _ACTOR_AUTHENTICITY_EXEMPT = frozenset(
+        {"", "unknown", "system", "substrate", "user", "assistant", "test", "anonymous"}
+    )
+    if validate and actor and actor.strip() not in _ACTOR_AUTHENTICITY_EXEMPT:
+        try:
+            from divineos.core.actor_registry import is_registered
+
+            if not is_registered(actor):
+                logger.warning(
+                    f"Phase-1 actor-authenticity: event type {event_type} "
+                    f"emitted with unregistered actor {actor!r}. Register via "
+                    f"`divineos actor-registry add {actor} --kind <kind>` "
+                    f"or treat as substrate-internal. Phase 1 warns only; "
+                    f"Phase 2 will block."
+                )
+        except ImportError:
+            # actor_registry module not available — pre-bootstrap state.
+            # Don't crash the emission path; just skip the warning.
+            pass
+
     event_id = str(uuid.uuid4())
     timestamp = time.time()
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)

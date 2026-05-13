@@ -52,8 +52,11 @@ ignore = [
     "PLR0913", # Too many arguments is acceptable for complex operations
     "PLR0911", # Too many return statements is acceptable
     "PLR0915", # Too many statements is acceptable
-    "ARG001",  # Unused arguments are acceptable for callbacks
-    "ARG002",  # Unused arguments are acceptable for callbacks
+    # ARG001/ARG002 removed 2026-05-13 (Cluster A, stone-cold audit HIGH-1).
+    # Global suppression hid 18 dead parameters. Restore lint visibility;
+    # legitimate callback-uniform-signature uses get per-line
+    # `# noqa: ARG001 — orchestrator-callback signature` annotations so the
+    # reason lives at the call site, not silently at the global scope.
     "E501",    # Formatter targets 100; remaining long lines are strings/SQL that can't auto-wrap
     "FBT001",  # Boolean-typed positional arguments are acceptable
     "FBT002",  # Boolean default positional arguments are acceptable

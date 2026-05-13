@@ -22,8 +22,8 @@ from divineos.core.open_claims_surface import (
 
 
 @pytest.fixture(autouse=True)
-def _isolated_db(tmp_path):
-    os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
+def _isolated_db(tmp_path, monkeypatch):
+    monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
     try:
         from divineos.core.ledger import init_db
 

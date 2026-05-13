@@ -21,7 +21,6 @@ Coverage:
 
 from __future__ import annotations
 
-import os
 from dataclasses import replace
 
 import pytest
@@ -56,18 +55,19 @@ from divineos.core.empirica.receipt import (
 
 
 @pytest.fixture(autouse=True)
-def _isolated_db(tmp_path):
-    os.environ["DIVINEOS_DB"] = str(tmp_path / "empirica-test.db")
-    try:
-        from divineos.core.knowledge import init_knowledge_table
-        from divineos.core.ledger import init_db
+def _isolated_db(tmp_path, monkeypatch):
+    """Canonical fixture pattern (Cluster D from audits/stone_cold/2026-05-12_gameplan.md):
+    use monkeypatch.setenv so prior env values are restored on teardown,
+    not just unset. The raw-environ approach this replaced silently dropped
+    pre-test DIVINEOS_DB values."""
+    monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "empirica-test.db"))
+    from divineos.core.knowledge import init_knowledge_table
+    from divineos.core.ledger import init_db
 
-        init_db()
-        init_knowledge_table()
-        init_receipt_table()
-        yield
-    finally:
-        os.environ.pop("DIVINEOS_DB", None)
+    init_db()
+    init_knowledge_table()
+    init_receipt_table()
+    yield
 
 
 # ── types ────────────────────────────────────────────────────────────

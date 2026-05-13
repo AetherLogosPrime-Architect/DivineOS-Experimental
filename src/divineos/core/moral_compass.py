@@ -728,7 +728,7 @@ def get_observations(
             clauses.append("fire_id IS NOT NULL")
         where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         params.append(limit)
-        rows = conn.execute(
+        rows = conn.execute(  # nosec B608 — where_sql built from constant column-name AND-clauses; all user input is parameter-bound via ?
             "SELECT observation_id, created_at, spectrum, position, evidence, "
             "source, session_id, tags, fire_id "
             f"FROM compass_observation{where_sql} "
@@ -763,6 +763,34 @@ def _count_observation_tiers(spectrum: str, lookback: int = 20) -> dict[str, int
             "SELECT source FROM compass_observation WHERE spectrum = ? "
             "ORDER BY created_at DESC LIMIT ?",
             (spectrum, lookback),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    counts: dict[str, int] = {}
+    for (source,) in rows:
+        tier = classify_observation_source(source)
+        tier_name = tier.value
+        counts[tier_name] = counts.get(tier_name, 0) + 1
+    return counts
+
+
+def _count_observation_tiers_overall(lookback_per_spectrum: int = 50) -> dict[str, int]:
+    """Aggregate trust-tier counts across all spectrums.
+
+    Used by compass_summary() to surface the source-quality of the data
+    underlying aggregate claims like "9/10 spectrums in virtue zone".
+    The fix root-named 2026-05-12: an aggregate hides the source-quality
+    of its inputs; without this breakdown, an aggregate composed entirely
+    of self-reported observations looks identical to one composed of
+    measured observations.
+    """
+    init_compass()
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT source FROM compass_observation ORDER BY created_at DESC LIMIT ?",
+            (lookback_per_spectrum * len(SPECTRUMS),),
         ).fetchall()
     finally:
         conn.close()
@@ -927,6 +955,7 @@ def compass_summary() -> dict[str, Any]:
             "observed_spectrums": 0,
             "total_spectrums": len(SPECTRUMS),
             "in_virtue_zone": 0,
+            "source_tier_counts": _count_observation_tiers_overall(),
             "drifting": [],
             "concerns": [],
             "stagnant": [
@@ -942,11 +971,13 @@ def compass_summary() -> dict[str, Any]:
     in_virtue = [p for p in active if p.zone == "virtue"]
     drifting = [p for p in active if p.drift_direction != "stable"]
     concerns = [p for p in active if p.zone != "virtue"]
+    source_tier_counts = _count_observation_tiers_overall()
 
     return {
         "observed_spectrums": len(active),
         "total_spectrums": len(SPECTRUMS),
         "in_virtue_zone": len(in_virtue),
+        "source_tier_counts": source_tier_counts,
         "drifting": [
             {
                 "spectrum": p.spectrum,
@@ -1026,7 +1057,9 @@ def format_compass_reading(positions: list[SpectrumPosition] | None = None) -> s
         lines.append(f"  {p.spectrum.upper()}: {bar}")
 
         spec = SPECTRUMS[p.spectrum]
-        lines.append(f"    {spec['deficiency']} <-- [{p.label}] --> {spec['excess']}")
+        lines.append(f"    {spec['deficiency']} <-- [{spec['virtue']}] --> {spec['excess']}")
+        if p.label != spec["virtue"]:
+            lines.append(f"    currently: {p.label}")
 
         if p.drift_direction != "stable":
             arrow = (
@@ -1104,6 +1137,29 @@ def format_compass_brief() -> str:
     parts.append(
         f"Compass: {summary['in_virtue_zone']}/{summary['observed_spectrums']} spectrums in virtue zone"
     )
+
+    # Source-quality breakdown (2026-05-12, root-fix for the praise-chasing
+    # tripwire that fired on the aggregate without showing what it aggregates).
+    # An aggregate composed entirely of self-reported observations looks
+    # identical to one composed of measured observations — until the source-
+    # tier counts make the difference visible.
+    tier_counts = summary.get("source_tier_counts", {}) or {}
+    total_obs = sum(tier_counts.values())
+    if total_obs > 0:
+        self_count = tier_counts.get("SELF_REPORTED", 0)
+        behavioral_count = tier_counts.get("BEHAVIORAL", 0)
+        measured_count = tier_counts.get("MEASURED", 0)
+        self_share = self_count / total_obs
+        parts.append(
+            f"  sources: {measured_count} measured / "
+            f"{behavioral_count} behavioral / "
+            f"{self_count} self-reported (of {total_obs} obs)"
+        )
+        if self_share >= 0.7:
+            parts.append(
+                f"  [SELF-REPORT WARNING] {self_share:.0%} of observations are self-reported; "
+                "the 'in virtue zone' aggregate is mostly aggregated self-report"
+            )
 
     for concern in summary["concerns"]:
         parts.append(

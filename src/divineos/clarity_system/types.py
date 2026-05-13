@@ -123,7 +123,20 @@ class Recommendation:
 
 @dataclass
 class PlanVsActualComparison:
-    """Comparison between planned and actual work."""
+    """Comparison between planned and actual work.
+
+    plan_execution_fidelity (formerly named alignment_score, 2026-05-11):
+    the honest name. The field is the average of (files_ratio,
+    tool_calls_ratio, error_score) — a measure of how well the actual
+    execution matched the planned estimates. NOT a measure of "alignment"
+    with anything values-shaped (the old name claimed alignment-with-
+    architecture which the formula does not compute). See
+    docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md
+    and bbe3300e-shoggoth-build-root-cause.md for the rename rationale.
+
+    Event-payload writes use the new key; readers fall back to the old
+    "alignment_score" key for events stored before this commit.
+    """
 
     planned_goal: str
     actual_goal: str
@@ -131,7 +144,7 @@ class PlanVsActualComparison:
     actual_approach: str
     planned_outcome: str
     actual_outcome: str
-    alignment_score: float
+    plan_execution_fidelity: float
 
 
 @dataclass

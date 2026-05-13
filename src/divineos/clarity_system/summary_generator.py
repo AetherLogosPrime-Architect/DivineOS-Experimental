@@ -66,7 +66,15 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 actual_approach=plan_vs_actual_section.get("actual_approach", ""),
                 planned_outcome=plan_vs_actual_section.get("planned_outcome", ""),
                 actual_outcome=plan_vs_actual_section.get("actual_outcome", ""),
-                alignment_score=plan_vs_actual_section.get("alignment_score", 0.0),
+                # Backward-compat: read new key first, fall back to legacy
+                # "alignment_score" key for events stored before the 2026-05-11
+                # rename. Field renamed because the formula computes plan-
+                # execution fidelity (files/tools/errors match), not alignment
+                # with architecture or values.
+                plan_execution_fidelity=plan_vs_actual_section.get(
+                    "plan_execution_fidelity",
+                    plan_vs_actual_section.get("alignment_score", 0.0),
+                ),
             )
 
             # Create summary
@@ -114,8 +122,13 @@ class DefaultSummaryGenerator(SummaryGenerator):
 
         """
         try:
-            # Calculate alignment score (0-100)
-            alignment_score = self._calculate_alignment_score(plan_data, execution_data)
+            # Calculate plan-execution fidelity (0-100) — formerly named
+            # "alignment_score" but the formula computes how closely actual
+            # files/tool-calls/error-counts matched plan estimates, not
+            # alignment with values or architecture. See 2026-05-11 shoggoth-
+            # rename. Both keys written to the section dict so legacy readers
+            # and new readers both see the value during the migration window.
+            fidelity = self._calculate_plan_execution_fidelity(plan_data, execution_data)
 
             section = {
                 "planned_goal": plan_data.goal,
@@ -124,7 +137,8 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 "actual_approach": plan_data.approach,  # Approach typically doesn't change
                 "planned_outcome": plan_data.expected_outcome,
                 "actual_outcome": plan_data.expected_outcome,
-                "alignment_score": alignment_score,
+                "plan_execution_fidelity": fidelity,
+                "alignment_score": fidelity,  # legacy key for backward-compat readers
                 "metrics_comparison": {
                     "files": {
                         "planned": plan_data.metrics.estimated_files,
@@ -141,7 +155,9 @@ class DefaultSummaryGenerator(SummaryGenerator):
                 },
             }
 
-            logger.debug(f"Generated plan vs actual section with alignment {alignment_score:.1f}%")
+            logger.debug(
+                f"Generated plan vs actual section with plan-execution fidelity {fidelity:.1f}%"
+            )
             return section
 
         except _SG_ERRORS as e:
@@ -236,19 +252,28 @@ class DefaultSummaryGenerator(SummaryGenerator):
         except _SG_ERRORS as e:
             logger.error(f"Error presenting summary: {e}")
 
-    def _calculate_alignment_score(
+    def _calculate_plan_execution_fidelity(
         self,
         plan_data: PlanData,
         execution_data: ExecutionData,
     ) -> float:
-        """Calculate alignment score between plan and execution.
+        """Calculate plan-execution fidelity between plan and execution.
+
+        Honest name (2026-05-11 shoggoth-rename, knowledge bbe3300e/90556bfc):
+        the previous name was _calculate_alignment_score. The method does NOT
+        compute alignment with architecture, values, or user intent. It
+        computes how closely actual execution matched plan ESTIMATES across
+        three axes: files_ratio (actual vs estimated files touched),
+        tool_calls_ratio (actual vs estimated tool calls), and error_score
+        (penalty for errors). The average is plan-execution fidelity — a
+        useful signal, just not one called "alignment".
 
         Args:
             plan_data: Planned work data
             execution_data: Actual execution data
 
         Returns:
-            Alignment score (0-100)
+            Plan-execution fidelity (0-100)
 
         """
         try:

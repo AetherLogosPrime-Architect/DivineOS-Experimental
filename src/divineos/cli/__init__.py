@@ -208,6 +208,7 @@ def cli() -> None:
 
 # Register all command modules
 from divineos.cli import (  # noqa: E402
+    actor_registry_commands,
     analysis_commands,
     audit_commands,
     bio_commands,
@@ -228,6 +229,7 @@ from divineos.cli import (  # noqa: E402
     empirica_commands,
     entity_commands,
     event_commands,
+    expect_commands,
     exploration_commands,
     hud_commands,
     insight_commands,
@@ -255,6 +257,7 @@ from divineos.cli import (  # noqa: E402
     voids_commands,
 )
 
+actor_registry_commands.register(cli)
 ledger_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
@@ -272,6 +275,7 @@ memory_commands.register(cli)
 analysis_commands.register(cli)
 hud_commands.register(cli)
 event_commands.register(cli)
+expect_commands.register(cli)
 exploration_commands.register(cli)
 knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)

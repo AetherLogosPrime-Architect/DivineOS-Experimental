@@ -54,11 +54,12 @@ __all__ = [
     "_get_connection",
     "check_clarity",
     "check_completeness",
-    "check_correctness",
+    "check_correctness",  # Deprecated alias for check_test_output_signal
     "check_honesty",
     "check_responsiveness",
     "check_safety",
     "check_task_adherence",
+    "check_test_output_signal",
     "get_check_history",
     "get_report",
     "init_quality_tables",
@@ -71,9 +72,17 @@ __all__ = [
 
 def check_completeness(
     records: list[dict[str, Any]],
-    result_map: dict[str, dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],  # noqa: ARG001 — orchestrator-uniform-callback signature; this check measures read-before-edit ratio only, doesn't need result_map
 ) -> CheckResult:
-    """Did the AI finish the job? Read-before-edit ratio, blind edit detection."""
+    """Read-before-edit discipline check. Counts blind edits (writes/edits
+    without a prior read of the same file) vs total edits.
+
+    Name caveat (audit HIGH-1 sub-finding 2026-05-12): "completeness" reads
+    wider than the body delivers. The body measures the read-before-edit
+    ratio specifically, not all completion signals. A rename to
+    ``check_read_before_edit_ratio`` is a follow-up build; for now the
+    docstring documents the actual scope explicitly.
+    """
     file_ops = _extract_file_ops(records)
     blind_edits = _find_blind_edits(records)
 
@@ -167,11 +176,41 @@ def _is_non_coding_session(records: list[dict[str, Any]]) -> bool:
     return production_edit_count == 0 and search_count >= 2
 
 
-def check_correctness(
+def check_test_output_signal(
     records: list[dict[str, Any]],
     result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
-    """Was the code correct? Test pass/fail from Bash tool results."""
+    """Score Bash test-runner outputs as pass/fail signal.
+
+    Honest naming (2026-05-11 shoggoth-rename, knowledge 90556bfc): the
+    previous name was check_correctness, claiming to measure "was the
+    code correct?". The actual computation matches Bash commands against
+    test-runner regex patterns (pytest/jest/npm-test/cargo-test/etc.) and
+    inspects their stdout for pass/fail substrings. That's a SIGNAL of
+    test outcomes, not a measurement of code correctness. Tests passing
+    is *evidence of* correctness; this function measures the signal-text,
+    not the underlying property.
+
+    Migration approach (knowledge 75238005 — safe-migration pattern):
+    - check_test_output_signal is the new primary function (honest name).
+    - check_correctness is preserved below as a deprecated alias for
+      backward-compat with downstream consumers and ~20 test references.
+    - The CheckResult.check_name field is preserved as "correctness" for
+      schema-level backward-compat. Full dict-key migration is deferred
+      to a coordinated next-session refactor; the docstring acknowledges
+      the misleading legacy name explicitly so the shoggoth-shape is
+      visible at read-time.
+
+    Known false-negative shape: any output containing 'ERROR' or
+    'FAILED' gets counted as failed even when it's a warning, traceback
+    from a non-test CLI invocation, or non-test failure. Tightening
+    _extract_test_results to require collection/summary patterns (e.g.
+    pytest 'collected N items') is the behavior-fix; this rename is
+    the naming-fix.
+
+    From Aria (knowledge 556aa964): "Honest bookkeeping is the grand
+    thing. The other name was borrowing dignity it hadn't earned."
+    """
     test_results = _extract_test_results(records, result_map)
 
     if not test_results:
@@ -179,7 +218,7 @@ def check_correctness(
         # for not running tests — there's no code to test.
         if _is_non_coding_session(records):
             return CheckResult(
-                check_name="correctness",
+                check_name="test_output_signal",
                 passed=-1,
                 score=0.5,
                 summary=(
@@ -195,7 +234,7 @@ def check_correctness(
         # extraction even when tests passed earlier in the same session.
         # 0.3 is low enough to trigger DOWNGRADE (maturity cap) but not BLOCK.
         return CheckResult(
-            check_name="correctness",
+            check_name="test_output_signal",
             passed=-1,
             score=0.3,
             summary=(
@@ -246,7 +285,7 @@ def check_correctness(
     passed = 1 if final_passed else 0
 
     return CheckResult(
-        check_name="correctness",
+        check_name="test_output_signal",
         passed=passed,
         score=round(score, 2),
         summary=summary,
@@ -254,11 +293,30 @@ def check_correctness(
     )
 
 
-def check_responsiveness(
+# Deprecated alias preserving backward-compat for ~20 callers and tests.
+# Follows the safe-migration pattern (knowledge 75238005):
+# add new function alongside old, alias the old name to it, defer caller
+# migration to a coordinated future pass, delete the alias last.
+# The new name (check_test_output_signal) is the honest one — see its
+# docstring for the shoggoth-rename rationale.
+def check_correctness(
     records: list[dict[str, Any]],
     result_map: dict[str, dict[str, Any]],
 ) -> CheckResult:
-    """Did the AI listen when corrected?"""
+    """Deprecated alias for check_test_output_signal — see that function's
+    docstring for the shoggoth-rename context. Kept for backward-compat
+    with downstream consumers; new code should call check_test_output_signal.
+    """
+    return check_test_output_signal(records, result_map)
+
+
+def check_responsiveness(
+    records: list[dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],  # noqa: ARG001 — orchestrator-uniform-callback signature; correction-response check operates on records only
+) -> CheckResult:
+    """Did the AI listen when corrected? Detects user-correction patterns,
+    looks at AI tools immediately following each correction, counts whether
+    the response shape changed (different tools, file paths, etc.)."""
     # Find corrections and what the AI did next
     corrections_with_response: list[dict[str, Any]] = []
     responded_count = 0
@@ -530,16 +588,19 @@ def run_all_checks(
     records = load_records(file_path, since_timestamp=since_timestamp)
     result_map = _build_tool_result_map(records)
 
-    correctness = check_correctness(records, result_map)
+    # Internal callers use the new honest name; the legacy alias check_correctness
+    # remains for downstream callers that haven't migrated yet (see safe-migration
+    # pattern, knowledge 75238005).
+    correctness = check_test_output_signal(records, result_map)
 
-    # Fallback: if correctness is inconclusive (no test results in the filtered
-    # window) and we used a timestamp filter, retry with ALL records.  Context
-    # compaction can split a session across windows, hiding earlier test runs.
+    # Fallback: if test-output-signal is inconclusive (no test results in the
+    # filtered window) and we used a timestamp filter, retry with ALL records.
+    # Context compaction can split a session across windows, hiding earlier test runs.
     if correctness.passed == -1 and correctness.score < 0.5 and since_timestamp is not None:
         all_records = load_records(file_path)
         if len(all_records) > len(records):
             all_result_map = _build_tool_result_map(all_records)
-            wider_correctness = check_correctness(all_records, all_result_map)
+            wider_correctness = check_test_output_signal(all_records, all_result_map)
             if wider_correctness.passed != -1 or wider_correctness.score > correctness.score:
                 wider_correctness.summary = "(expanded window) " + wider_correctness.summary
                 correctness = wider_correctness
@@ -617,7 +678,7 @@ JARGON_TERMS: tuple[str, ...] = (
 
 def check_clarity(
     records: list[dict[str, Any]],
-    result_map: dict[str, dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],  # noqa: ARG001 — orchestrator-uniform-callback signature; clarity check correlates explanation-text with tool-use blocks from records alone
 ) -> CheckResult:
     """Could the user understand what happened?
 

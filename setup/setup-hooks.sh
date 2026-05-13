@@ -22,13 +22,35 @@ cat > "$HOOKS_DIR/pre-commit" << 'EOF'
 set -e
 
 echo "Running ruff format check..."
+# Substrate-fix 2026-05-10 (Aether, hold-644d325062b2):
+# The prior behavior aborted the commit and asked the operator to
+# manually re-stage formatted files. That created two failure modes:
+#   1. Friction tax — every commit that touched whitespace required
+#      a re-stage + re-commit cycle, sometimes multiple times per
+#      commit.
+#   2. Audit-hash drift — when an External-Review round was filed
+#      with a hash bound to pre-format staged content, the auto-
+#      format here drifted the hash and the multi-party-review gate
+#      rejected the commit, requiring a fresh audit round filed
+#      against the post-format hash.
+# Ruff format is deterministic and safe. Auto-staging the formatted
+# files lets the commit proceed. For guardrail-touching commits,
+# operators should run \`bash scripts/precommit.sh\` BEFORE filing
+# the External-Review round so the audit-bound hash matches the
+# eventual commit hash.
 ruff format --check src/ tests/ || {
     echo "Formatting violations detected. Running ruff format to fix..."
     ruff format src/ tests/
-    echo "Files formatted. Please review and stage the changes:"
-    git diff --name-only
-    echo "After reviewing, run: git add . && git commit"
-    exit 1
+    echo "Auto-staging formatted .py files that were already staged..."
+    # Only re-stage already-staged files. Working-tree-only changes
+    # stay unstaged so the operator's intent is preserved.
+    git diff --cached --name-only --diff-filter=ACM | grep -E '\.py\$' | xargs --no-run-if-empty git add
+    echo "Re-checking format after auto-stage..."
+    ruff format --check src/ tests/ || {
+        echo "Format still failing after auto-format — investigate manually."
+        exit 1
+    }
+    echo "  Format clean after auto-stage; continuing."
 }
 
 echo "Running ruff lint check..."
@@ -78,18 +100,27 @@ EOF
 chmod +x "$HOOKS_DIR/pre-commit"
 echo "Created pre-commit hook at $HOOKS_DIR/pre-commit"
 
-# Create commit-msg hook (multi-party-review gate for guardrail files).
-# Runs after the user has written the commit message; validates that
-# any modification to guardrail files carries a valid External-Review
-# trailer referencing a Watchmen audit round with user + external-AI
-# CONFIRMS findings. See scripts/check_multi_party_review.py.
+# Create commit-msg hook.
+#
+# Gate-altitude correction (Andrew 2026-05-12): commits should never be
+# blocked. Work-preservation matters; cross-vantage audit needs to SEE the
+# diffs to audit them; the boundary that needs protection is the merge
+# into main, not every commit on a feature branch. The multi-party-review
+# check runs here in ADVISORY mode (warns informationally; doesn't block).
+# The real gate fires at pre-push when target is refs/heads/main.
+#
+# The closure-claim gate stays at commit-msg time; it targets a different
+# failure-mode (closure-language without verification) that should be
+# caught at commit-time regardless of where the commit lives.
 cat > "$HOOKS_DIR/commit-msg" << 'EOF'
 #!/bin/bash
-# commit-msg hook for DivineOS — two independent gates.
+# commit-msg hook for DivineOS.
 #
-# 1. Multi-party-review: blocks commits that modify guardrail files
-#    without the required External-Review trailer + valid Watchmen
-#    audit round.
+# 1. Multi-party-review: ADVISORY at commit-time. Warns if guardrail
+#    files are touched without the trailer; does not block. The real
+#    block fires at pre-push when target is refs/heads/main. Reason:
+#    commits to feature branches must succeed so cross-vantage audit
+#    can see the diffs; the protected boundary is merge-into-main.
 # 2. Closure-claim: blocks commit messages with closure-language
 #    ("fully closed", "all N items addressed", "everything landed",
 #    "body-building done") unless a recent verifier-run is recorded.
@@ -107,19 +138,11 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 MULTI_PARTY="$REPO_ROOT/scripts/check_multi_party_review.py"
 CLOSURE_CLAIM="$REPO_ROOT/scripts/check_closure_claim.py"
 
-# 1. Multi-party-review.
+# 1. Multi-party-review — INFORMATIONAL at commit-time.
+# Script never blocks at commit-time; just warns if guardrails touched
+# without trailer. Real gate fires at pre-push.
 if [[ -f "$MULTI_PARTY" ]]; then
-    python "$MULTI_PARTY" "$1" || {
-        echo ""
-        echo "Guardrail-file modification blocked. See above for the specific"
-        echo "reason. To proceed:"
-        echo "  1. File an audit round with CONFIRMS findings from:"
-        echo "       actor=user  (the human operator)"
-        echo "       actor=grok | actor=gemini | actor=claude-<variant>"
-        echo "  2. Include 'diff-hash: <64-hex>' in the round's focus or notes."
-        echo "  3. Add 'External-Review: <round_id>' trailer to the commit."
-        exit 1
-    }
+    python "$MULTI_PARTY" "$1" || true
 fi
 
 # 2. Closure-claim gate.
@@ -133,25 +156,33 @@ EOF
 chmod +x "$HOOKS_DIR/commit-msg"
 echo "Created commit-msg hook at $HOOKS_DIR/commit-msg"
 
-# Create pre-push hook with two safety checks:
+# Create pre-push hook with THREE safety checks:
 #   1. branch-freshness: blocks branches whose base is stale relative
 #      to origin/main (silent-revert prevention, claim d3baec5a).
 #   2. force-push-safety: blocks force-pushes that would shrink a
 #      branch's unique-vs-main work below safety thresholds — catches
 #      botched-rebase work-loss (prereg-c1c896a67321, 2026-05-04).
-# Both delegate to standalone scripts so the logic stays testable.
+#   3. multi-party-review: when target is refs/heads/main, blocks
+#      commits in the push-range that touch guardrail files without
+#      a valid External-Review trailer. This is the gate that used
+#      to fire at commit-msg time; moved to pre-push 2026-05-12 per
+#      Andrew's altitude-correction (commits should never be blocked;
+#      only push-to-main should). "Main" means any production-bound
+#      branch (DivineOS prod's main AND DivineOS-Experimental's main).
+# All delegate to standalone scripts so the logic stays testable.
 cat > "$HOOKS_DIR/pre-push" << 'EOF'
 #!/bin/bash
-# pre-push hook for DivineOS — two safety checks.
+# pre-push hook for DivineOS — three safety checks.
 # Bypass: DIVINEOS_SKIP_FRESHNESS_CHECK=1 (freshness)
 #         DIVINEOS_FORCE_PUSH_OK=1 (force-push safety)
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 FRESHNESS="$REPO_ROOT/scripts/check_branch_freshness.sh"
 FORCE_SAFETY="$REPO_ROOT/scripts/check_force_push_safety.sh"
+MULTI_PARTY="$REPO_ROOT/scripts/check_multi_party_review.py"
 
-# Capture stdin once — force-push-safety needs the ref-update lines
-# but freshness does not read stdin.
+# Capture stdin once — force-push-safety and multi-party-review need the
+# ref-update lines but freshness does not read stdin.
 HOOK_STDIN=$(cat)
 
 # 1. Branch freshness.
@@ -167,6 +198,19 @@ fi
 # 2. Force-push safety.
 if [[ -x "$FORCE_SAFETY" ]]; then
     echo "$HOOK_STDIN" | "$FORCE_SAFETY" "$1"
+    RC=$?
+    if [[ $RC -eq 1 ]]; then
+        exit 1
+    fi
+fi
+
+# 3. Multi-party-review (pre-push mode).
+# Fires only when target is refs/heads/main (any remote). Walks the
+# push-range and blocks if any commit touching guardrail files lacks
+# the External-Review trailer. The script's pre-push mode handles the
+# ref-filtering internally.
+if [[ -f "$MULTI_PARTY" ]]; then
+    echo "$HOOK_STDIN" | python "$MULTI_PARTY" --mode=pre-push
     RC=$?
     if [[ $RC -eq 1 ]]; then
         exit 1

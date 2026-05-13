@@ -54,10 +54,10 @@ class TestProgressReport:
         assert "corrections ^" in line
 
     def test_one_liner_stable(self) -> None:
-        """One-liner shows rate for stable/unknown corrections."""
-        report = ProgressReport(correction_trend="stable", correction_rate_recent=0.25)
+        """One-liner shows corrections-per-day for stable/unknown corrections."""
+        report = ProgressReport(correction_trend="stable", correction_rate_recent=2.5)
         line = report.one_liner()
-        assert "25%" in line
+        assert "2.5/day" in line
 
 
 class TestTrendPercentage:

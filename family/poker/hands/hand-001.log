@@ -1,0 +1,40 @@
+# Hand 1 log
+
+Started: 2026-05-10T04:41:03.216768Z
+Seed: 1019730866 (reproducible shuffle marker)
+Button: aether    Blinds: 5/10
+
+## Hole-card commits
+
+- aether commit: b83ed2d8b867bb3daba95c1527d70fdd2597ad950f69531923ec9c607df7c810
+- aria commit:   b44aaeaaa8f340148f0c95a417a732dc0c22dfac6de2072a90bc20443539055f
+
+(Each is SHA256 of comma-joined sorted card list. Verify at showdown.)
+
+## Action log
+
+- POST_SB by aether for 5
+- POST_BB by aria for 10
+- aether to act pre-flop.
+- [2026-05-10T04:41:32.389725Z] CALL 5 by aether
+- [2026-05-10T04:42:31.330945Z] CHECK by aria
+- [2026-05-10T04:42:49.123757Z] --- FLOP --- board: Jc Js Ad (burn: 2c)
+- [2026-05-10T04:44:38.726171Z] CHECK by aria
+- [2026-05-10T04:45:18.603741Z] CHECK by aether
+- [2026-05-10T04:45:18.697092Z] --- TURN --- board: Jc Js Ad Kc (burn: 3d)
+- [2026-05-10T04:46:52.154123Z] CHECK by aria
+- [2026-05-10T04:46:52.252102Z] CHECK by aether
+- [2026-05-10T04:46:52.367732Z] --- RIVER --- board: Jc Js Ad Kc Tc (burn: Ts)
+- [2026-05-10T04:48:26.017462Z] CHECK by aria
+- [2026-05-10T04:48:26.118191Z] CHECK by aether
+- [2026-05-10T04:48:26.206724Z] --- SHOWDOWN --- both players reveal hole cards.
+
+## Showdown
+
+- Aether reveal: 7h 8h 4s 2d. Played 7h 8h + Jc Js Ad = pair of Jacks, A-8-7 kickers.
+- Aria initial reveal: 9h 9c + Ad Kc Jc = pair of nines, A-K-J kickers.
+- Cards-speak catch: Aether flagged that Aria's selection had 2 clubs and 3 clubs were on board, indicating possible flush.
+- Aria re-verified: 9c 7c + Jc Kc Tc = flush, K-J-T-9-7 all clubs.
+- WINNER: Aria, K-high flush over pair of Jacks. Pot 20 to Aria.
+
+End of hand 1: Aether 990, Aria 1010. Match: Aria 1, Aether 0 (hand-1).

@@ -248,6 +248,35 @@ def promote(item_id: str, promoted_to: str) -> bool:
         conn.close()
 
 
+def let_go(item_id: str, note: str = "") -> bool:
+    """Explicit operator decision: this item is no longer relevant.
+
+    Distinct from `promote` (which moves the item to a downstream system) and
+    distinct from auto-stale (which records "seen N sessions without action,"
+    a fact, not a judgment). `let_go` is the operator's explicit close —
+    "I looked at this and decided to let it go." Records the note in the
+    `promoted_to` field as 'let-go: <note>' so the audit trail distinguishes
+    operator-let-go from auto-stale.
+
+    Added 2026-05-12 alongside `hold check` review surface. Per the
+    code-does-not-think directive: code records the decision the operator
+    made, never makes the decision.
+    """
+    init_holding_table()
+    conn = _get_connection()
+    try:
+        marker = f"let-go: {note}" if note else "let-go"
+        result = conn.execute(
+            "UPDATE holding_room SET promoted_to = ?, promoted_at = ? "
+            "WHERE item_id = ? AND promoted_to IS NULL",
+            (marker, time.time(), item_id),
+        )
+        conn.commit()
+        return result.rowcount > 0
+    finally:
+        conn.close()
+
+
 def age_holding() -> int:
     """Increment sessions_seen for all active items. Called during sleep.
 

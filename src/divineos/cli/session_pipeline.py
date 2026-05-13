@@ -718,7 +718,14 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
 
         # ── Phase 10: Summary ────────────────────────────────────
         print_session_summary(
-            stored, feedback_parts, promoted, demoted, health, clarity_summary, session_feedback
+            stored,
+            feedback_parts,
+            promoted,
+            demoted,
+            health,
+            clarity_summary,
+            session_feedback,
+            analysis=analysis,
         )
 
     except (

@@ -220,16 +220,80 @@ def _extract_file_ops(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return ops
 
 
+# Test-runner command patterns — necessary but NOT sufficient signal.
+# A command containing "pytest" or "jest" only proves the operator typed the
+# string; it does not prove a test-framework actually ran.
+_TEST_COMMAND_PATTERNS = re.compile(
+    r"\b(pytest|py\.test|npm\s+test|cargo\s+test|go\s+test|make\s+test|"
+    r"python\s+-m\s+pytest|npx\s+jest|jest|mocha|rspec|unittest)\b",
+    re.IGNORECASE,
+)
+
+# Test-framework output confirmation — STRUCTURAL signal that a real test
+# run produced this output, not just text containing the framework's name
+# or words like "ERROR" or "FAILED" that incidentally appeared.
+#
+# Filed 2026-05-11 as the behavior-fix paired with the check_correctness
+# naming-fix (knowledge 90556bfc / docs/substrate-knowledge/90556bfc-*).
+# The shoggoth-shape: command-string match alone matched IndentationError
+# tracebacks from non-test CLI invocations (e.g., `divineos reflect` smoke-
+# tests) that happened to include "pytest" elsewhere, counting them as
+# failed test runs and blocking extraction.
+#
+# Per-framework confirmation patterns:
+#   pytest:      "collected N items" / "test session starts" / "N passed"
+#                / "N failed" / "= ERRORS =" / "rootdir:" / "platform "
+#   jest:        "Tests:" line / "Test Suites:" / "PASS " path / "FAIL " path
+#   cargo test:  "test result:" / "running N tests"
+#   go test:     "--- PASS:" / "--- FAIL:" / "ok  \t" / "FAIL\t"
+#   mocha:       "passing" / "failing" with counts / "✓" / "✗"
+#   rspec:       "examples," + "failures"
+#   unittest:    "Ran N test"
+#
+# If none of these structural signals appear, the entry is skipped — the
+# command-string match alone is treated as insufficient evidence that a
+# test framework actually ran.
+_TEST_OUTPUT_CONFIRMATION = re.compile(
+    r"(collected\s+\d+\s+items?|"  # pytest collection
+    r"test\s+session\s+starts|"  # pytest session header
+    r"rootdir:\s|"  # pytest rootdir
+    r"platform\s+\w+\s+--\s+Python|"  # pytest platform line
+    r"\b\d+\s+(?:passed|failed|skipped|error)|"  # pytest/jest/etc. count summaries
+    r"=+\s*(?:ERRORS|FAILURES|PASSES|short test summary)\s*=+|"  # pytest sections
+    r"^Tests:\s|"  # jest "Tests:" line
+    r"Test\s+Suites:\s|"  # jest suites line
+    r"^(?:PASS|FAIL)\s+\S+\.(?:js|ts|tsx)|"  # jest per-file results
+    r"test\s+result:\s+(?:ok|FAILED)|"  # cargo test result line
+    r"running\s+\d+\s+tests?|"  # cargo / go test running line
+    r"^---\s+(?:PASS|FAIL):|"  # go subtest results
+    r"^(?:ok|FAIL)\s+\S+\s+\d+\.\d+s|"  # go package result line
+    r"\b\d+\s+(?:passing|failing|pending)\b|"  # mocha
+    r"\d+\s+examples?,\s+\d+\s+failures?|"  # rspec
+    r"Ran\s+\d+\s+tests?\s+in)",  # python unittest
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
 def _extract_test_results(
     records: list[dict[str, Any]],
     result_map: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Find shell tool calls that look like test runs and extract pass/fail."""
-    test_patterns = re.compile(
-        r"\b(pytest|py\.test|npm\s+test|cargo\s+test|go\s+test|make\s+test|"
-        r"python\s+-m\s+pytest|npx\s+jest|jest|mocha|rspec|unittest)\b",
-        re.IGNORECASE,
-    )
+    """Find shell tool calls that produced real test-framework output.
+
+    Two-gate filter:
+      1. Command-string matches a test-runner pattern (pytest, jest, etc.).
+      2. Output contains a STRUCTURAL test-framework signal (collection
+         line, summary line, per-test result line) — proves a framework
+         actually ran, not just that the command string mentioned one.
+
+    Entries that pass gate 1 but fail gate 2 are skipped entirely. This
+    closes the shoggoth-shape where IndentationError tracebacks from
+    non-test CLI invocations got counted as failed tests because the
+    command string happened to contain "pytest".
+
+    See docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md
+    for the design context.
+    """
     results: list[dict[str, Any]] = []
 
     for r in records:
@@ -240,14 +304,21 @@ def _extract_test_results(
             if tool["name"] not in ("Bash", "executePwsh"):
                 continue
             command = tool["input"].get("command", "")
-            if not test_patterns.search(command):
+            if not _TEST_COMMAND_PATTERNS.search(command):
                 continue
 
             tool_result = result_map.get(tool["id"], {})
             output = tool_result.get("content", "")
             is_error = tool_result.get("is_error", False)
 
-            # Determine pass/fail from output
+            # Gate 2: require structural test-framework output signal.
+            # If the output doesn't have one, the command string alone is
+            # insufficient evidence a test framework actually ran. Skip.
+            if not _TEST_OUTPUT_CONFIRMATION.search(output):
+                continue
+
+            # Determine pass/fail from output (only reached if a real test
+            # framework produced structural output).
             passed = None
             if is_error:
                 passed = False
