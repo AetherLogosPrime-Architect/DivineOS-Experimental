@@ -43,18 +43,6 @@ jobs:
         run: |
           set -e
 
-          if [ ! -f scripts/guardrail_files.txt ]; then
-            echo "No scripts/guardrail_files.txt in this repo; nothing to guard."
-            exit 0
-          fi
-
-          # Load guardrail list (skip comments + blanks)
-          GUARDRAIL_LIST=$(grep -v '^[[:space:]]*#' scripts/guardrail_files.txt | grep -v '^[[:space:]]*$' || true)
-          if [ -z "$GUARDRAIL_LIST" ]; then
-            echo "Guardrail list is empty."
-            exit 0
-          fi
-
           # Determine the commit range to check.
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
@@ -84,16 +72,49 @@ jobs:
             exit 0
           fi
 
+          # Point-in-time guardrail-list resolution (2026-05-12 fix).
+          # Each commit is evaluated against the guardrail list AS IT
+          # EXISTED at that commit, not against today's list. Otherwise
+          # adding a file to the guardrail list retroactively invalidates
+          # every prior commit that ever touched that file — which is
+          # backward-incompatible and creates false positives like
+          # fa4325eaa07: that commit touched
+          # addressee_misdirection_detector.py BEFORE the file was added
+          # to the guardrail list. Under today's-list-check it gets
+          # flagged; under point-in-time-check it doesn't because the
+          # file wasn't guardrailed when the commit landed.
+          load_guardrail_list_at() {
+            local commit="$1"
+            # Show the file content as it was at $commit. If the file
+            # didn't exist (early history), git show fails → empty list.
+            git show "$commit:scripts/guardrail_files.txt" 2>/dev/null \
+              | grep -v '^[[:space:]]*#' \
+              | grep -v '^[[:space:]]*$' \
+              || true
+          }
+
           BLOCKED_COMMITS=""
           for commit in $COMMITS; do
+            # Load guardrail list AS IT WAS at this commit. Use the
+            # parent's view so a commit that itself adds a file to the
+            # guardrail list isn't gated by its own addition (the addition
+            # protects FUTURE commits, not the commit that adds it).
+            PARENT=$(git rev-parse "$commit^" 2>/dev/null || echo "$commit")
+            COMMIT_GUARDRAIL_LIST=$(load_guardrail_list_at "$PARENT")
+            if [ -z "$COMMIT_GUARDRAIL_LIST" ]; then
+              # Empty list at this commit's parent → nothing to guard
+              continue
+            fi
+
             # Files touched by THIS commit only
             FILES=$(git show --name-only --pretty=format: "$commit" 2>/dev/null || true)
 
-            # Does this commit touch any guardrail file?
+            # Does this commit touch any file that was guardrailed AT THE
+            # TIME of this commit?
             TOUCHES_GUARDRAIL=""
             while IFS= read -r f; do
               [ -z "$f" ] && continue
-              if echo "$GUARDRAIL_LIST" | grep -Fxq "$f"; then
+              if echo "$COMMIT_GUARDRAIL_LIST" | grep -Fxq "$f"; then
                 TOUCHES_GUARDRAIL="yes"
                 break
               fi
@@ -115,19 +136,22 @@ jobs:
 
           if [ -n "$BLOCKED_COMMITS" ]; then
             echo ""
-            echo "=== Multi-Party-Review Gate (server-side) ==="
+            echo "=== Multi-Party-Review Gate (server-side, point-in-time) ==="
             echo "BLOCKED. Commits modifying guardrail files without External-Review trailer:"
             for c in $BLOCKED_COMMITS; do
               echo "  $c"
             done
             echo ""
             echo "Every commit that modifies a file in scripts/guardrail_files.txt"
-            echo "must carry an 'External-Review: <audit_round_id>' trailer in its"
-            echo "commit message. The referenced audit round should contain CONFIRMS"
-            echo "findings from both actor=user and an external AI actor."
+            echo "AS IT WAS at that commit must carry an 'External-Review: <id>'"
+            echo "trailer in its commit message. The referenced audit round should"
+            echo "contain CONFIRMS findings from both actor=user and an external"
+            echo "AI actor."
             echo ""
-            echo "The local pre-commit hook enforces this but can be bypassed with"
-            echo "--no-verify. This server-side check cannot be bypassed."
+            echo "This server-side check uses point-in-time guardrail-list lookup:"
+            echo "a file getting added to the guardrail list later does NOT make"
+            echo "prior commits that touched it retroactively-invalid. Adding to"
+            echo "the guardrail list protects future commits."
             exit 1
           fi
 

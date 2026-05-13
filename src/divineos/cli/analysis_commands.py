@@ -328,20 +328,23 @@ def register(cli: click.Group) -> None:
         )
         if trend["trend"] != "insufficient_data":
             click.secho(
-                f"    Trend: {trend['trend']} (recent {trend['recent_avg']:.0%} vs overall {trend['overall_avg']:.0%})",
+                f"    Trend: {trend['trend']} "
+                f"(recent {trend['recent_avg']:.2f}/day vs overall {trend['overall_avg']:.2f}/day)",
                 fg=trend_color[trend["trend"]],
             )
-        if trend["sessions"]:
-            click.secho("    Per session:", fg="bright_black")
-            for s in trend["sessions"][-5:]:
-                bar = "#" * int(s["ratio"] * 20)
-                click.secho(f"      {s['session_tag'][:8]}: ", fg="bright_black", nl=False)
+        buckets = trend.get("buckets", [])
+        if buckets:
+            click.secho("    Window breakdown:", fg="bright_black")
+            for b in buckets:
+                count = b["count"]
+                bar = "#" * min(count, 20)
+                click.secho(f"      {b['window']:>6s}: ", fg="bright_black", nl=False)
                 click.secho(
                     f"{bar:<20s}",
-                    fg="red" if s["ratio"] > 0.5 else "yellow" if s["ratio"] > 0.3 else "green",
+                    fg="red" if b["per_day"] > 2.0 else "yellow" if b["per_day"] > 0.5 else "green",
                     nl=False,
                 )
-                click.echo(f" {s['corrections']}c/{s['encouragements']}e")
+                click.echo(f" {count} corrections ({b['per_day']:.2f}/day)")
         click.echo()
 
         if not rework and drift["churn_rate"] < 0.1 and rate["assessment"] == "healthy":
@@ -526,12 +529,13 @@ def register(cli: click.Group) -> None:
             click.echo(f"    Success rate:   {m.success_rate:.0%}")
             click.echo()
 
-            # Phase 3A-extended (2026-05-11): the underlying "alignment_score"
-            # field is a plan-execution-fidelity score (files/tool-calls/error-count
-            # match to estimates). Data field name preserved for backward-compat;
-            # display label corrected to its honest form. See
-            # exploration/44_shoggoth_metrics_redesign.md.
-            score = result["alignment_score"]
+            # 2026-05-11 honest-naming: reads new key first, falls back to
+            # legacy "alignment_score" for results assembled before the rename.
+            # See docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md.
+            score = result.get(
+                "plan_execution_fidelity",
+                result.get("alignment_score", 0.0),
+            )
             color = "green" if score >= 80 else "yellow" if score >= 50 else "red"
             click.secho(f"  PLAN-EXECUTION FIDELITY: {score:.0f}%", fg=color, bold=True)
             click.echo()

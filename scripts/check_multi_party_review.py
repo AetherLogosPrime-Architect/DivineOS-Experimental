@@ -38,11 +38,32 @@ v1 honest limits (per Beer's lens — claim vs. do):
 
 Invocation:
   python scripts/check_multi_party_review.py <commit_msg_file>
+      → Advisory mode (the only commit-time mode after Andrew's 2026-05-12
+        correction). Validates ONE commit message; prints a warning if
+        guardrail files are staged without the trailer; ALWAYS EXITS 0.
+        Commits are work-preservation; they must never be blocked. The
+        real gate fires at push.
+
+  python scripts/check_multi_party_review.py --mode=pre-push
+      → Pre-push mode. Reads stdin lines per Git's pre-push protocol
+        (`<local-ref> <local-sha> <remote-ref> <remote-sha>`). For each
+        line where remote-ref is `refs/heads/main`, walks the commits in
+        `<remote-sha>..<local-sha>` and verifies each commit touching
+        guardrail files has the External-Review trailer. Blocks on
+        first failure.
+
+Gate altitude (Andrew's 2026-05-12 correction): commits should never be
+blocked. They're saving-work; they can be edited, amended, rebased. The
+audit-vantage needs to SEE the diffs to audit them; the real boundary is
+the merge into main. Commit-time invocation produces only a warning
+(informational); push-time-to-main is the gate. "Main" means any
+production-bound branch in any repo — DivineOS prod's main AND DivineOS-
+Experimental's main both count.
 
 Exit codes:
-  0 — no guardrail files staged, OR all gates pass
-  1 — guardrail files staged and the review trailer is missing or invalid
-  2 — infrastructure error (conservatively blocks; see docstring)
+  0 — commit-time invocation (always), OR pre-push when all gates pass
+  1 — pre-push: guardrail-touching commit lacks the trailer
+  2 — infrastructure error
 """
 
 from __future__ import annotations
@@ -356,14 +377,155 @@ def validate(commit_msg: str, now: float | None = None) -> tuple[bool, str]:
     )
 
 
-def main(argv: list[str]) -> int:
-    if len(argv) < 2:
+def _commit_msg_for_sha(sha: str) -> str:
+    """Read commit message for a sha. Returns empty string on failure."""
+    try:
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%B", sha],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return result.stdout
+    except OSError:
+        pass
+    return ""
+
+
+def _commits_touch_guardrails_in_range(base_sha: str, head_sha: str) -> list[tuple[str, set[str]]]:
+    """Walk commits in `base_sha..head_sha` and return [(sha, touched_guardrails)]
+    for each commit that modifies any guardrail file. Empty list if no
+    commits in range touch guardrails.
+    """
+    guardrails = _load_guardrail_set()
+    if not guardrails:
+        return []
+
+    try:
+        log = subprocess.run(
+            ["git", "log", "--name-only", "--format=%H", f"{base_sha}..{head_sha}"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if log.returncode != 0:
+            return []
+    except OSError:
+        return []
+
+    out: list[tuple[str, set[str]]] = []
+    current_sha: str | None = None
+    current_files: set[str] = set()
+    for line in log.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            if current_sha and current_files:
+                hits = current_files & guardrails
+                if hits:
+                    out.append((current_sha, hits))
+            current_sha = None
+            current_files = set()
+        elif current_sha is None:
+            current_sha = line
+        else:
+            current_files.add(line)
+    if current_sha and current_files:
+        hits = current_files & guardrails
+        if hits:
+            out.append((current_sha, hits))
+    return out
+
+
+def _run_pre_push(stdin_text: str) -> int:
+    """Pre-push mode: validate guardrail-touching commits in pushes-to-main.
+
+    Reads Git's pre-push stdin protocol:
+      `<local-ref> <local-sha> <remote-ref> <remote-sha>`
+    one line per ref being pushed.
+
+    For each line where `remote-ref == refs/heads/main`, walks the commit
+    range and validates each commit that touches guardrail files.
+
+    "Main" here is literal `refs/heads/main` — applies to whichever remote
+    is being pushed to (origin, upstream, prod, experimental — any).
+    """
+    failures: list[str] = []
+    for line in stdin_text.splitlines():
+        parts = line.strip().split()
+        if len(parts) != 4:
+            continue
+        local_ref, local_sha, remote_ref, remote_sha = parts
+        if remote_ref != "refs/heads/main":
+            continue
+        # Deletion (local_sha all zeros) — nothing to validate
+        if set(local_sha) == {"0"}:
+            continue
+        # New branch creation (remote_sha all zeros) — validate from empty tree
+        base = remote_sha if set(remote_sha) != {"0"} else _empty_tree_sha()
+
+        for sha, hits in _commits_touch_guardrails_in_range(base, local_sha):
+            msg = _commit_msg_for_sha(sha)
+            ok, detail = validate(msg)
+            if not ok:
+                hit_list = ", ".join(sorted(hits))
+                failures.append(
+                    f"  - commit {sha[:8]} touches {hit_list}:\n"
+                    f"      {detail.strip().splitlines()[0] if detail.strip() else 'gate-failure'}"
+                )
+
+    if failures:
+        print("\n=== Multi-Party Review Gate (pre-push, target: main) ===", file=sys.stderr)
+        print("BLOCKED — guardrail-touching commits without valid External-Review:\n", file=sys.stderr)
+        for f in failures:
+            print(f, file=sys.stderr)
         print(
-            "usage: check_multi_party_review.py <commit_msg_file>",
+            "\nTo proceed:\n"
+            "  1. File an audit round with CONFIRMS findings from user + external AI.\n"
+            "  2. Amend each blocked commit message to add 'External-Review: <round_id>'.\n"
+            "  3. Re-push.\n"
+            "\nNote: commits on feature branches are NOT blocked by this gate.\n"
+            "      Push them to feature branches freely so audit-vantage can review.\n"
+            "      Only push-to-main is gated.",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
+
+
+def _empty_tree_sha() -> str:
+    """Git's empty-tree object SHA (well-known constant)."""
+    return "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+
+def main(argv: list[str]) -> int:
+    """Dispatch: --mode=pre-push reads stdin; otherwise commit-msg advisory.
+
+    Gate-altitude correction (Andrew 2026-05-12): commits are saving-work;
+    they must never be blocked by this check. The commit-time invocation
+    is purely informational — it prints a warning if guardrail files are
+    staged without the trailer, then exits 0. The real gate runs at
+    pre-push when the target is refs/heads/main.
+    """
+    args = argv[1:]
+    if args and args[0].startswith("--mode="):
+        mode = args[0].split("=", 1)[1]
+        args = args[1:]
+    else:
+        mode = "commit-msg"
+
+    if mode == "pre-push":
+        stdin_text = sys.stdin.read()
+        return _run_pre_push(stdin_text)
+
+    # commit-msg: validate single commit message. ALWAYS exit 0.
+    if not args:
+        print(
+            "usage: check_multi_party_review.py [--mode=pre-push] [<commit_msg_file>]",
             file=sys.stderr,
         )
         return 2
-    msg_path = Path(argv[1])
+    msg_path = Path(args[0])
     try:
         message = msg_path.read_text(encoding="utf-8", errors="replace")
     except OSError as e:
@@ -374,11 +536,18 @@ def main(argv: list[str]) -> int:
     if ok:
         print(f"[multi-party-review] {detail}")
         return 0
-    print("\n=== Multi-Party Review Gate ===", file=sys.stderr)
-    print("BLOCKED.\n", file=sys.stderr)
+
+    # Guardrails touched without valid trailer — WARN but do not block.
+    # The push-to-main gate enforces; commits are saving-work and stay free.
+    print("\n=== Multi-Party Review Notice (commit allowed) ===", file=sys.stderr)
+    print("Guardrail-touching commit without External-Review trailer.", file=sys.stderr)
+    print(
+        "Commits are saving-work — not blocked. The push-to-main gate will",
+        file=sys.stderr,
+    )
+    print("enforce this when the branch is merged. Details:\n", file=sys.stderr)
     print(detail, file=sys.stderr)
-    print("", file=sys.stderr)
-    return 1
+    return 0
 
 
 if __name__ == "__main__":

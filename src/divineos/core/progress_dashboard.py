@@ -71,12 +71,11 @@ class ProgressReport:
         ]
 
         if self.correction_trend == "improving":
-            pct = _trend_percentage(self.correction_rate_overall, self.correction_rate_recent)
-            parts.append(f"corrections v{pct}%")
+            parts.append(f"corrections v {self.correction_rate_recent:.1f}/day")
         elif self.correction_trend == "worsening":
-            parts.append("corrections ^")
+            parts.append(f"corrections ^ {self.correction_rate_recent:.1f}/day")
         else:
-            parts.append(f"corrections {self.correction_rate_recent:.0%}")
+            parts.append(f"corrections {self.correction_rate_recent:.1f}/day")
 
         parts.append(f"{self.active_knowledge} knowledge entries")
         parts.append(f"{self.directives_count} directives")
@@ -398,11 +397,12 @@ def format_progress_text(report: ProgressReport) -> str:
     # Section 3: Learning Evidence
     lines.append("-- Learning Evidence --")
     lines.append(f"  Correction trend:   {_format_trend(report.correction_trend)}")
-    lines.append(f"  Recent corr. rate:  {report.correction_rate_recent:.1%}")
-    lines.append(f"  Overall corr. rate: {report.correction_rate_overall:.1%}")
-    if report.correction_trend == "improving":
-        pct = _trend_percentage(report.correction_rate_overall, report.correction_rate_recent)
-        lines.append(f"  Improvement:        v{pct}% from overall baseline")
+    lines.append(f"  Recent corr/day:    {report.correction_rate_recent:.2f}")
+    lines.append(f"  Overall corr/day:   {report.correction_rate_overall:.2f}")
+    if report.correction_trend == "improving" and report.correction_rate_overall > 0:
+        delta = report.correction_rate_overall - report.correction_rate_recent
+        pct = int(100 * delta / report.correction_rate_overall)
+        lines.append(f"  Improvement:        v{pct}% from prior window")
     lines.append(f"  Rework items:       {report.rework_items}")
     lines.append(f"  Lessons:            {report.lessons_resolved}/{report.lessons_total} resolved")
     lines.append("")

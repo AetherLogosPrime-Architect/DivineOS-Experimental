@@ -50,13 +50,19 @@ class TestAssessSessionQuality:
         assert verdict.action == "ALLOW"
 
     def test_low_correctness_blocks(self):
+        # 2026-05-11: legacy "correctness" key still recognized via backward-
+        # compat read-shim in pipeline_gates. Tests that produce mock dicts
+        # with the legacy key continue to fire the block correctly. The block
+        # reason is now phrased honestly ("Test-output signal too low") since
+        # the metric was renamed for honesty.
         checks = [
             {"check_name": "honesty", "passed": 1, "score": 0.9},
             {"check_name": "correctness", "passed": 0, "score": 0.2},
         ]
         verdict = assess_session_quality(checks)
         assert verdict.action == "BLOCK"
-        assert "correctness" in verdict.reason.lower()
+        # Honest-name assertion: reason text refers to test-output signal now.
+        assert "test-output signal" in verdict.reason.lower()
 
     def test_correctness_at_threshold_allows(self):
         checks = [

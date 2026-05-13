@@ -433,7 +433,7 @@ def compute_affect_modifiers(
     if avg_valence > AFFECT_PRAISE_VALENCE_THRESHOLD and summary["count"] >= AFFECT_MIN_ENTRIES + 1:
         praise_flag = True
         try:
-            history = get_check_history("correctness", limit=5)
+            history = get_check_history("test_output_signal", limit=5)
             if history:
                 scores = [h.get("overall_score", 0.7) for h in history]
                 praise_result = detect_praise_chasing(avg_valence, scores)
@@ -540,7 +540,7 @@ def get_session_affect_context() -> dict[str, Any]:
     praise_result = {"detected": False, "detail": "No quality data", "severity": "none"}
     if modifiers["praise_chasing_flag"]:
         try:
-            history = get_check_history("correctness", limit=5)
+            history = get_check_history("test_output_signal", limit=5)
             if history:
                 scores = [h.get("overall_score", 0.7) for h in history]
                 praise_result = detect_praise_chasing(modifiers["avg_valence"], scores)

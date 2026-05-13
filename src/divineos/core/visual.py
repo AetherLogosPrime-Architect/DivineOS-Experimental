@@ -71,8 +71,15 @@ def _ensure_heif_opener() -> bool:
 
 
 def _default_dst(src: Path) -> Path:
-    """Default output path: /tmp/visual/<stem>.jpg."""
-    out_dir = Path("/tmp/visual")
+    """Default output path: cross-platform tempdir / divineos_visual / <stem>.jpg.
+
+    Fixed 2026-05-13 (Cluster B from audits/stone_cold/2026-05-12_gameplan.md):
+    was hardcoded ``/tmp/visual`` which doesn't exist on Windows. tempfile
+    resolves to the platform-appropriate location.
+    """
+    import tempfile
+
+    out_dir = Path(tempfile.gettempdir()) / "divineos_visual"
     return out_dir / f"{src.stem}.jpg"
 
 

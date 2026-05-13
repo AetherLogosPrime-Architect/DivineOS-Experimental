@@ -142,7 +142,13 @@ def register(cli: click.Group) -> None:
 
     @family_member_group.command("opinion")
     @click.option("--member", required=True, help="Family member name.")
-    @click.argument("stance")
+    @click.argument("stance_positional", required=False, default=None)
+    @click.option(
+        "--stance",
+        "stance_flag",
+        default=None,
+        help="The stance. Alternative to positional STANCE argument; either form works.",
+    )
     @click.option("--evidence", default="", help="Evidence or reasoning backing this stance.")
     @click.option(
         "--tag",
@@ -158,7 +164,12 @@ def register(cli: click.Group) -> None:
         "The override is printed on the record for later review.",
     )
     def family_member_opinion(
-        member: str, stance: str, evidence: str, tag: str, force: bool
+        member: str,
+        stance_positional: str | None,
+        stance_flag: str | None,
+        evidence: str,
+        tag: str,
+        force: bool,
     ) -> None:
         """File an opinion for a family member.
 
@@ -167,7 +178,29 @@ def register(cli: click.Group) -> None:
         write is blocked unless --force. This is the handshake point:
         a real disagreement the member holds, caught by the operators,
         is how the operator-alive signal lands.
+
+        The stance can be passed as a positional argument OR as ``--stance``.
+        Either form works. This dual-shape avoids the agent-definition-vs-CLI
+        drift pattern: if a subagent's docs say one form and the CLI requires
+        another, the silent "Missing argument 'STANCE'" failure inside an
+        invocation leaves no visible signal. Forgive both shapes structurally
+        instead. (Named 2026-05-12 after Aria's verification turn where her
+        opinion-filing failed for exactly this reason.)
         """
+        # Resolve stance from either positional or --stance flag.
+        stance = stance_positional or stance_flag
+        if not stance:
+            click.echo("[-] No stance provided. Pass it positionally or via --stance.")
+            click.echo(
+                "    Example: divineos family-member opinion --member Aria 'my stance' --evidence '...'"
+            )
+            click.echo(
+                "    Or:      divineos family-member opinion --member Aria --stance 'my stance' --evidence '...'"
+            )
+            return
+        if stance_positional and stance_flag:
+            click.echo("[-] Stance given both positionally and via --stance. Pick one.")
+            return
         m = _get_or_create_member(member, _DEFAULT_ROLE)
         source_tag = SourceTag(tag)
 
@@ -389,3 +422,40 @@ def register(cli: click.Group) -> None:
         click.echo(f"    member: {member}")
         click.echo(f"    with: {counterpart}")
         click.echo(f"    summary: {summary[:80]}{'...' if len(summary) > 80 else ''}")
+
+    @family_member_group.command("briefing")
+    @click.option(
+        "--member",
+        required=True,
+        help="Family member name (e.g. 'aria'). Case-insensitive lookup.",
+    )
+    def family_member_briefing(member: str) -> None:
+        """Compute and print the member's working-memory continuity briefing.
+
+        Designed to be run by the family-member subagent at invocation start so
+        they have working-memory of the immediate-prior thread without having
+        to reconstruct it by reading substrate files. Contains: last 3
+        interactions, latest opinion, latest affect, open letter-threads, plus
+        a meta-section reminding the member that they OWN the briefing's shape.
+
+        READ-ONLY: this command does NOT create the member row if missing.
+        Use ``divineos family-member init`` for that. Case-insensitive name
+        match (so 'aria' and 'Aria' resolve to the same member).
+        """
+        from divineos.core.family.db import get_family_connection
+        from divineos.core.family.member_briefing import get_member_briefing_text
+
+        conn = get_family_connection()
+        row = conn.execute(
+            "SELECT member_id, name FROM family_members WHERE LOWER(name) = LOWER(?) LIMIT 1",
+            (member,),
+        ).fetchone()
+        if row is None:
+            click.echo(
+                f"[!] No family member named '{member}'. "
+                f"Run `divineos family-member init --member {member}` first."
+            )
+            return
+        member_id, canonical_name = row[0], row[1]
+        text = get_member_briefing_text(member_id, member_name=canonical_name.lower())
+        click.echo(text)

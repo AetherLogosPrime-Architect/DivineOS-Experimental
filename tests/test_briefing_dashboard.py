@@ -66,3 +66,81 @@ class TestRenderDashboard:
         resolve_correction(entry["timestamp"], evidence="done")
         output = render_dashboard()
         assert "Corrections" not in output
+
+
+class TestDirectivesRow:
+    """Pins that the briefing dashboard surfaces filed directives.
+
+    Andrew named the structural gap 2026-05-12: directives existed in DB
+    but never surfaced at session-start, so laws established in one
+    session evaporated at compaction. The fix surfaces existence with a
+    drill-down (recognition act stays with me, per code-does-not-think).
+
+    A regression that drops the directives row fails these tests.
+    """
+
+    def test_directives_row_appears_when_directives_exist(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.knowledge import store_knowledge
+        from divineos.core.memory import init_memory_tables
+
+        init_memory_tables()
+        store_knowledge(
+            knowledge_type="DIRECTIVE",
+            content="[test-directive]\n  1. some link.",
+            tags=["test"],
+        )
+        output = render_dashboard()
+        assert "Directives" in output
+        assert "divineos directives" in output
+
+    def test_directives_row_calls_out_law_count(self, tmp_path, monkeypatch):
+        """Law-tagged directives are recognition-not-derive — the count is
+        called out separately so they're visible at session-start."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.knowledge import store_knowledge
+        from divineos.core.memory import init_memory_tables
+
+        init_memory_tables()
+        # Two law-tagged + one non-law
+        store_knowledge(
+            knowledge_type="DIRECTIVE",
+            content="[law-1] established truth",
+            tags=["law", "established"],
+        )
+        store_knowledge(
+            knowledge_type="DIRECTIVE",
+            content="[law-2] another truth",
+            tags=["law"],
+        )
+        store_knowledge(
+            knowledge_type="DIRECTIVE",
+            content="[procedure] do the thing",
+            tags=["procedure"],
+        )
+        output = render_dashboard()
+        assert "Directives: 3" in output
+        assert "2 law" in output
+
+    def test_directives_row_omitted_when_no_directives(self, tmp_path, monkeypatch):
+        """Empty state suppresses the row (consistent with other dashboard rows)."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        output = render_dashboard()
+        # Other surfaces also missing in tmp_db; just confirm no Directives line
+        assert "Directives:" not in output
+
+    def test_directives_row_law_count_omitted_when_zero(self, tmp_path, monkeypatch):
+        """If no directives have the 'law' tag, the 'N law' suffix is omitted."""
+        monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "test.db"))
+        from divineos.core.knowledge import store_knowledge
+        from divineos.core.memory import init_memory_tables
+
+        init_memory_tables()
+        store_knowledge(
+            knowledge_type="DIRECTIVE",
+            content="[procedure] step one",
+            tags=["procedure"],
+        )
+        output = render_dashboard()
+        assert "Directives: 1" in output
+        assert "law" not in output.split("Directives:")[1].split("\n")[0]
