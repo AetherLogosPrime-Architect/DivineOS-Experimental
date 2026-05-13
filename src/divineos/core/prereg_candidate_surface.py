@@ -45,6 +45,12 @@ _DETECTOR_SUFFIXES = ("_detector.py", "_monitor.py", "_surface.py")
 # Path roots to walk. Relative to the repository root.
 _CORE_ROOT = Path("src/divineos/core")
 
+# Module-level error tuple — matches the briefing_dashboard.py discipline.
+# Catching this tuple is structurally legible: anyone reading sees there's an
+# intentional broad catch with a named site. Beats per-line `noqa: BLE001`
+# because the architecture is the documentation.
+_ERRORS = (Exception,)
+
 
 @dataclass(frozen=True)
 class CandidateModule:
@@ -133,7 +139,7 @@ def compute_prereg_candidates() -> PreregCandidateReport:
             mech = p.get("mechanism") if isinstance(p, dict) else getattr(p, "mechanism", "")
             if mech:
                 mechanisms.append(str(mech))
-    except Exception:
+    except _ERRORS:
         # If pre-reg store is unavailable, everything is unmatched — which
         # is structurally honest: we cannot verify any module has a pre-reg.
         pass

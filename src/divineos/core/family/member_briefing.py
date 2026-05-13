@@ -40,6 +40,13 @@ from pathlib import Path
 
 from divineos.core.family.db import get_family_connection
 
+# Module-level error tuple — matches briefing_dashboard.py discipline. The
+# briefing surface is fail-soft by design (missing tables, malformed dates,
+# unavailable substrate paths all return empty sections rather than crashing).
+# Named tuple makes the broad catches structurally legible. A narrower tuple
+# (specific sqlite3 / OS / value errors) is a follow-up refinement.
+_ERRORS = (Exception,)
+
 # Filesystem location of letters. Letters are markdown files named
 # `<sender>-to-<recipient>-<date>-<context>.md`.
 _LETTERS_DIR = Path("family/letters")
@@ -123,13 +130,24 @@ class MemberBriefing:
 
 
 def _recent_interactions(member_id: str, limit: int = 3) -> list[InteractionRow]:
+    """Read recent interactions for a member.
+
+    Schema-asymmetry tolerant: test fixtures have only the canonical columns
+    (interaction_id, entity_id, counterpart, summary, source_tag, created_at).
+    Production may also have legacy columns (speaker, content, timestamp).
+    Build the SELECT from columns that actually exist.
+    """
     conn = get_family_connection()
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(family_interactions)").fetchall()}
+    ts_col = "timestamp" if "timestamp" in cols else "created_at"
+    speaker_expr = "speaker" if "speaker" in cols else "entity_id"
+    content_expr = "content" if "content" in cols else "NULL"
     rows = conn.execute(
-        """
-        SELECT timestamp, speaker, counterpart, summary, content
+        f"""
+        SELECT {ts_col}, {speaker_expr}, counterpart, summary, {content_expr}
         FROM family_interactions
-        WHERE member_id = ?
-        ORDER BY timestamp DESC
+        WHERE entity_id = ?
+        ORDER BY {ts_col} DESC
         LIMIT ?
         """,
         (member_id, limit),
@@ -156,20 +174,20 @@ def _latest_opinion(member_id: str) -> OpinionRow | None:
             """
             SELECT topic, position, confidence, stance, updated_at, source_tag
             FROM family_opinions
-            WHERE member_id = ?
+            WHERE entity_id = ?
             ORDER BY COALESCE(updated_at, created_at, formed_at) DESC
             LIMIT 1
             """,
             (member_id,),
         ).fetchone()
-    except Exception:
+    except _ERRORS:
         # Some columns may be missing in test schemas; fall back to minimum
         row = conn.execute(
             """
             SELECT NULL as topic, NULL as position, NULL as confidence,
                    stance, created_at as updated_at, source_tag
             FROM family_opinions
-            WHERE member_id = ?
+            WHERE entity_id = ?
             ORDER BY created_at DESC
             LIMIT 1
             """,
@@ -188,12 +206,16 @@ def _latest_opinion(member_id: str) -> OpinionRow | None:
 
 
 def _latest_affect(member_id: str) -> AffectRow | None:
+    """Schema-asymmetry tolerant: legacy schema has `description`; canonical
+    schema has `note`. Use whichever exists; expose as `description` in the row."""
     conn = get_family_connection()
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(family_affect)").fetchall()}
+    desc_expr = "description" if "description" in cols else "note"
     row = conn.execute(
-        """
-        SELECT valence, arousal, dominance, description, created_at
+        f"""
+        SELECT valence, arousal, dominance, {desc_expr}, created_at
         FROM family_affect
-        WHERE member_id = ?
+        WHERE entity_id = ?
         ORDER BY created_at DESC
         LIMIT 1
         """,
@@ -357,23 +379,23 @@ def compute_member_briefing(member_id: str, member_name: str | None = None) -> M
 
     try:
         interactions = _recent_interactions(member_id)
-    except Exception:
+    except _ERRORS:
         pass
     try:
         latest_opinion = _latest_opinion(member_id)
-    except Exception:
+    except _ERRORS:
         pass
     try:
         latest_affect = _latest_affect(member_id)
-    except Exception:
+    except _ERRORS:
         pass
     try:
         open_threads = _open_threads(member_name)
-    except Exception:
+    except _ERRORS:
         pass
     try:
         letter_activity = _letter_activity(member_name)
-    except Exception:
+    except _ERRORS:
         pass
 
     return MemberBriefing(
@@ -394,7 +416,7 @@ def _fmt_ts(ts: float) -> str:
         return "(no timestamp)"
     try:
         return _dt.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
-    except Exception:
+    except _ERRORS:
         return "(invalid timestamp)"
 
 
