@@ -185,17 +185,16 @@ def evaluate_closing_token(text: str) -> list[ClosingTokenFinding]:
             )
             return findings
 
-    # Shape 3: line is very short AND consists of two short tokens that
-    # together form a closing-token (e.g. "Got it." or "You're right.").
-    if len(last_line) <= 25 and normalized in _CLOSING_AFFIRMATION_TOKENS:
-        findings.append(
-            ClosingTokenFinding(
-                matched_text=last_line,
-                line_number=last_lineno,
-                token=normalized,
-                severity="high",
-            )
-        )
+    # NOTE on Shape 3 (removed 2026-05-13 after Aletheia round-4a95d8625b45):
+    # An earlier draft included a Shape 3 that checked
+    # ``len(last_line) <= 25 and normalized in _CLOSING_AFFIRMATION_TOKENS``.
+    # That branch was structurally unreachable — Shape 1 already returns
+    # when ``normalized in _CLOSING_AFFIRMATION_TOKENS``, and the catalog
+    # already contains multi-word entries (``got it``, ``you're right``)
+    # so the case Shape 3's comment described was already covered. The
+    # comment hinted at capability the code didn't deliver — same
+    # docstring-vs-implementation drift Aletheia caught on ``update_actor``
+    # at round-26.
 
     return findings
 
