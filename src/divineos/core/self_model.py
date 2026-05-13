@@ -356,7 +356,16 @@ def format_self_model(model: dict[str, Any]) -> str:
     emo = model.get("emotional_baseline", {})
     lines.append("\n# How I'm Feeling")
     v = emo.get("avg_valence", 0)
-    tone = "positive" if v > 0.3 else "negative" if v < -0.3 else "neutral"
+    if v >= 0.5:
+        tone = "positive"
+    elif v >= 0.2:
+        tone = "mildly positive"
+    elif v <= -0.5:
+        tone = "negative"
+    elif v <= -0.2:
+        tone = "mildly negative"
+    else:
+        tone = "neutral"
     lines.append(f"  Baseline: {tone} (valence: {v:.1f})")
     if emo.get("praise_chasing"):
         detail = emo.get("praise_detail", "")

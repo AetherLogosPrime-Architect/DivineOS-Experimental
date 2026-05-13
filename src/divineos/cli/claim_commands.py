@@ -89,6 +89,110 @@ def register(cli: click.Group) -> None:
         for entry in entries:
             _display_claim(entry)
 
+    @claims_group.command("check")
+    @click.option("--limit", default=30, type=int, help="Max claims to show.")
+    @click.option(
+        "--all",
+        "include_settled",
+        is_flag=True,
+        help="Include SUPPORTED/REFUTED claims (default: only OPEN/INVESTIGATING/CONTESTED).",
+    )
+    def claims_check_cmd(limit: int, include_settled: bool) -> None:
+        """Put my open claims in front of me to review — no auto-anything.
+
+        Lists active claims (default: OPEN/INVESTIGATING/CONTESTED) with id,
+        statement, tier, status, confidence, evidence count, and age. Sorted
+        with zero-evidence claims first because those are the most likely
+        candidates for assessment — but the surface does not pre-judge which
+        claims warrant attention. The decision stays with me.
+
+        Filed 2026-05-12 as the root-fix for claims-engine showing 77/109
+        claims at zero evidence (default-confidence 0.5 stuck). Same pattern
+        as `goal check` and `hold check`: machine surfaces the data; the
+        cognition (investigate-by-adding-evidence, update-assessment, or
+        let-stand) stays with me. Per code-does-not-think.
+        """
+        import time as _t
+        from divineos.core.claim_store import _get_connection, init_claim_tables
+
+        init_claim_tables()
+        conn = _get_connection()
+        try:
+            # SQL: include evidence_count subquery so we can sort and display.
+            base = (
+                "SELECT c.claim_id, c.created_at, c.statement, c.tier, c.status, "
+                "c.confidence, "
+                "(SELECT COUNT(*) FROM claim_evidence ce WHERE ce.claim_id = c.claim_id) "
+                "AS ev_count "
+                "FROM claims c "
+            )
+            if include_settled:
+                where = ""
+            else:
+                where = "WHERE c.status IN ('OPEN', 'INVESTIGATING', 'CONTESTED') "
+            order = "ORDER BY ev_count ASC, c.created_at DESC "
+            rows = conn.execute(base + where + order + "LIMIT ?", (limit,)).fetchall()
+        finally:
+            conn.close()
+
+        if not rows:
+            scope = "any status" if include_settled else "OPEN/INVESTIGATING/CONTESTED"
+            click.secho(f"[~] No claims under {scope}.", fg="bright_black")
+            return
+
+        scope_label = "all statuses" if include_settled else "open/investigating/contested"
+        click.secho(
+            f"\n=== Claims review — {len(rows)} {scope_label}. Decide each. ===\n",
+            fg="cyan",
+            bold=True,
+        )
+        now = _t.time()
+        for i, (cid, created_at, statement, tier, status, conf, ev) in enumerate(rows, 1):
+            age_days = (now - created_at) / 86400 if created_at else 0.0
+            if age_days < 1:
+                age_label = f"{age_days * 24:.1f}h"
+            elif age_days < 14:
+                age_label = f"{age_days:.1f}d"
+            else:
+                age_label = f"{int(age_days)}d (!! aged)"
+
+            ev_marker = (
+                click.style("  no-evidence", fg="yellow")
+                if ev == 0
+                else click.style(f"  {ev} evidence", fg="bright_black")
+            )
+
+            click.secho(
+                f"  [{i}] {cid[:8]}  T{tier} {status}  conf={conf:.2f}  age={age_label}",
+                fg="bright_black",
+                nl=False,
+            )
+            click.echo(ev_marker)
+            preview = (statement or "").strip().replace("\n", " ")
+            if len(preview) > 200:
+                preview = preview[:200] + "..."
+            _safe_echo(f"      {preview}")
+            click.echo()
+
+        click.secho("  Decide each:", fg="cyan")
+        click.secho(
+            "    let stand           → leave it; revisit later",
+            fg="bright_black",
+        )
+        click.secho(
+            '    investigate         → divineos claims evidence <id> "<finding>" --stance supports|contradicts|neutral',
+            fg="bright_black",
+        )
+        click.secho(
+            "                            (adding evidence triggers confidence recalculation)",
+            fg="bright_black",
+        )
+        click.secho(
+            '    update assessment   → divineos claims assess <id> "<note>" [--status ...] [--tier ...]',
+            fg="bright_black",
+        )
+        click.echo()
+
     @claims_group.command("show")
     @click.argument("claim_id")
     def claims_show_cmd(claim_id: str) -> None:

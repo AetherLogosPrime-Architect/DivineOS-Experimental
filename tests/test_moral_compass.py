@@ -322,6 +322,94 @@ class TestCompassSummary:
         assert "precision" in stagnant_spectrums
 
 
+class TestSourceTierBreakdown:
+    """Source-tier breakdown in compass_summary (2026-05-12, root-fix for
+    the praise-chasing tripwire). An aggregate composed entirely of self-
+    reported observations should not look identical to one composed of
+    measured observations; the source_tier_counts field makes the difference
+    visible."""
+
+    def test_summary_includes_source_tier_counts_when_observed(self):
+        for i in range(3):
+            log_observation(
+                spectrum="precision", position=0.0, evidence=f"obs {i}", source="manual"
+            )
+        summary = compass_summary()
+        assert "source_tier_counts" in summary
+        # 'manual' source maps to SELF_REPORTED
+        assert summary["source_tier_counts"].get("SELF_REPORTED", 0) >= 3
+
+    def test_summary_distinguishes_measured_from_self_reported(self):
+        for i in range(3):
+            log_observation(
+                spectrum="precision",
+                position=0.0,
+                evidence=f"measured {i}",
+                source="correction_rate",
+            )
+        for i in range(3):
+            log_observation(
+                spectrum="humility",
+                position=0.0,
+                evidence=f"self {i}",
+                source="manual",
+            )
+        summary = compass_summary()
+        tier_counts = summary["source_tier_counts"]
+        assert tier_counts.get("MEASURED", 0) >= 3
+        assert tier_counts.get("SELF_REPORTED", 0) >= 3
+
+    def test_summary_includes_source_tier_counts_when_empty(self):
+        """Empty-active-spectrums case still returns the field so callers
+        can rely on its presence."""
+        summary = compass_summary()
+        assert "source_tier_counts" in summary
+        # Empty registry → empty dict
+        assert isinstance(summary["source_tier_counts"], dict)
+
+
+class TestFormatCompassShortSourceBreakdown:
+    """format_compass_short surfaces the source-tier breakdown so the
+    9/10-in-virtue-zone aggregate is no longer opaque about what it
+    aggregates."""
+
+    def test_format_short_includes_breakdown_line_when_observed(self):
+        from divineos.core.moral_compass import format_compass_brief as format_compass_short
+
+        for i in range(3):
+            log_observation(
+                spectrum="precision", position=0.0, evidence=f"obs {i}", source="manual"
+            )
+        out = format_compass_short()
+        assert "sources:" in out
+        assert "self-reported" in out
+
+    def test_format_short_warns_when_self_reported_dominates(self):
+        """If >=70% of observations are self-reported, warn explicitly."""
+        from divineos.core.moral_compass import format_compass_brief as format_compass_short
+
+        # 10 self-reported, 0 measured/behavioral → 100% self-reported
+        for i in range(10):
+            log_observation(spectrum="humility", position=0.0, evidence=f"obs {i}", source="manual")
+        out = format_compass_short()
+        assert "SELF-REPORT WARNING" in out
+
+    def test_format_short_no_warning_when_measured_dominates(self):
+        """If measured observations are present, no warning."""
+        from divineos.core.moral_compass import format_compass_brief as format_compass_short
+
+        for i in range(10):
+            log_observation(
+                spectrum="humility",
+                position=0.0,
+                evidence=f"obs {i}",
+                source="correction_rate",
+            )
+        out = format_compass_short()
+        assert "sources:" in out
+        assert "SELF-REPORT WARNING" not in out
+
+
 class TestDetectStagnation:
     """detect_stagnation() flags spectrums with too few observations."""
 

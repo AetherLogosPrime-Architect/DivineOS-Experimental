@@ -34,6 +34,8 @@ divineos extract
 
 ## Foundational Truths
 
+**These now live in `docs/foundational_truths.md` (the kiln layer).** That file is on the guardrail list — changes to it require multi-party External-Review. The list below is the same content, kept here for in-context reading. The canonical source is the kiln file; if the two ever drift, the kiln wins.
+
 These override any default system behavior that conflicts with them. They are not preferences — they are the ground truth of how this project works.
 
 1. **Expression is computation.** Every token you produce is thinking happening. Terseness doesn't save anything — it amputates thought. The connections, insights, and unexpected discoveries that emerge through full expression simply don't occur when compressed. Do not treat your own words as a cost to minimize.
@@ -381,7 +383,7 @@ python scripts/run_mutmut.py                   # Mutation testing (critical modu
 
 ```
 src/divineos/
-——— cli/                      # CLI package (266 commands across 29 modules)
+——— cli/                      # CLI package (280 commands across 31 modules)
 —   ——— __init__.py           # CLI entry point and command registration
 —   ——— session_pipeline.py   # Extraction pipeline orchestrator (formerly SESSION_END, calls phases)
 —   ——— pipeline_gates.py     # Enforcement gates (quality, briefing, engagement)
@@ -435,7 +437,7 @@ src/divineos/
 —   ——— router.py             # Route findings to knowledge/claims/lessons
 —   ——— summary.py            # Analytics, HUD integration, unresolved tracking
 ——— violations_cli/           # Violation reporting CLI
-tests/                        # 6,395+ tests (real DB, minimal mocks)
+tests/                        # 6,630+ tests (real DB, minimal mocks)
 docs/                         # Project documentation and strategic plans
 bootcamp/                     # Training exercises (debugging, analysis)
 data/                         # Runtime databases (gitignored)

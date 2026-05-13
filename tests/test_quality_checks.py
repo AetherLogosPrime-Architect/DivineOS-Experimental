@@ -212,6 +212,268 @@ class TestExtractTestResults:
         assert _extract_test_results(records, result_map) == []
 
 
+class TestStructuralOutputConfirmation:
+    """Phase 3-extended (2026-05-11): the regex requires STRUCTURAL test-
+    framework output signals, not just command-string matches.
+
+    Closes the shoggoth-shape where IndentationError tracebacks from
+    non-test CLI invocations got counted as failed tests because the
+    command string happened to contain "pytest". See
+    docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md.
+    """
+
+    def test_indentation_error_in_non_test_cli_invocation_not_counted(self):
+        """The exact shoggoth-shape that blocked extraction earlier this session:
+        a command that includes 'pytest' in its string (e.g., piped output) but
+        whose actual run produced an IndentationError trace, not a test framework
+        output. Should NOT be counted as a failed test run."""
+        records = [
+            _make_assistant_record(
+                tools=[
+                    {
+                        "name": "executePwsh",
+                        "input": {
+                            "command": "python -c 'from x import pytest' 2>&1 | head -5",
+                        },
+                        "id": "t1",
+                    }
+                ]
+            ),
+        ]
+        # Output contains "Error" substring but no structural test-framework signal.
+        result_map = {
+            "t1": {
+                "is_error": True,
+                "content": (
+                    "Traceback (most recent call last):\n"
+                    '  File "<frozen runpy>", line 198, in _run_module_as_main\n'
+                    '  File "/path/to/foo.py", line 218\n'
+                    "    click.echo()\n"
+                    "IndentationError: unexpected indent\n"
+                ),
+                "timestamp": "",
+            }
+        }
+        # Gate 1 (command match) passes; Gate 2 (structural output) fails.
+        # Entry should be skipped entirely.
+        assert _extract_test_results(records, result_map) == []
+
+    def test_real_pytest_collection_output_counted(self):
+        """A genuine pytest run with collection line and summary IS counted."""
+        records = [
+            _make_assistant_record(
+                tools=[
+                    {
+                        "name": "executePwsh",
+                        "input": {"command": "pytest tests/ -q"},
+                        "id": "t1",
+                    }
+                ]
+            ),
+        ]
+        result_map = {
+            "t1": {
+                "is_error": False,
+                "content": (
+                    "============= test session starts ==============\n"
+                    "platform linux -- Python 3.12.0\n"
+                    "rootdir: /repo\n"
+                    "collected 42 items\n"
+                    "\n"
+                    "tests/test_foo.py ..........\n"
+                    "tests/test_bar.py ................................\n"
+                    "\n"
+                    "============= 42 passed in 1.23s ==============\n"
+                ),
+                "timestamp": "",
+            }
+        }
+        results = _extract_test_results(records, result_map)
+        assert len(results) == 1
+        assert results[0]["passed"] is True
+
+    def test_real_pytest_failure_output_counted_as_failed(self):
+        """A genuine pytest run that failed IS counted as failed."""
+        records = [
+            _make_assistant_record(
+                tools=[
+                    {
+                        "name": "executePwsh",
+                        "input": {"command": "pytest"},
+                        "id": "t1",
+                    }
+                ]
+            ),
+        ]
+        result_map = {
+            "t1": {
+                "is_error": True,
+                "content": (
+                    "============= test session starts ==============\n"
+                    "collected 10 items\n"
+                    "tests/test_foo.py FFF.......\n"
+                    "============= 3 failed, 7 passed in 0.50s ==============\n"
+                ),
+                "timestamp": "",
+            }
+        }
+        results = _extract_test_results(records, result_map)
+        assert len(results) == 1
+        assert results[0]["passed"] is False
+
+    def test_jest_summary_counted(self):
+        """Jest's structural 'Tests:' / 'Test Suites:' lines are valid signals."""
+        records = [
+            _make_assistant_record(
+                tools=[
+                    {
+                        "name": "executePwsh",
+                        "input": {"command": "npm test"},
+                        "id": "t1",
+                    }
+                ]
+            ),
+        ]
+        result_map = {
+            "t1": {
+                "is_error": False,
+                "content": (
+                    "PASS  src/foo.test.js\n"
+                    "Test Suites: 1 passed, 1 total\n"
+                    "Tests:       5 passed, 5 total\n"
+                    "Snapshots:   0 total\n"
+                ),
+                "timestamp": "",
+            }
+        }
+        results = _extract_test_results(records, result_map)
+        assert len(results) == 1
+        assert results[0]["passed"] is True
+
+    def test_command_match_with_no_test_output_skipped(self):
+        """Command contains 'pytest' but output is generic 'Error: ...' text
+        without any structural test-framework signal. Should be skipped, not
+        counted as failed."""
+        records = [
+            _make_assistant_record(
+                tools=[
+                    {
+                        "name": "executePwsh",
+                        "input": {"command": "pytest --help 2>&1 | grep options"},
+                        "id": "t1",
+                    }
+                ]
+            ),
+        ]
+        result_map = {
+            "t1": {
+                "is_error": False,
+                "content": "Error: usage: grep [OPTIONS] PATTERN [FILE...]\n",
+                "timestamp": "",
+            }
+        }
+        # No structural test signal → skip entirely
+        assert _extract_test_results(records, result_map) == []
+
+    def test_cargo_test_result_counted(self):
+        """Cargo test's 'test result:' line is a valid signal."""
+        records = [
+            _make_assistant_record(
+                tools=[
+                    {
+                        "name": "executePwsh",
+                        "input": {"command": "cargo test"},
+                        "id": "t1",
+                    }
+                ]
+            ),
+        ]
+        result_map = {
+            "t1": {
+                "is_error": False,
+                "content": (
+                    "running 3 tests\n"
+                    "test foo::test_a ... ok\n"
+                    "test foo::test_b ... ok\n"
+                    "test foo::test_c ... ok\n"
+                    "\n"
+                    "test result: ok. 3 passed; 0 failed; 0 ignored\n"
+                ),
+                "timestamp": "",
+            }
+        }
+        results = _extract_test_results(records, result_map)
+        assert len(results) == 1
+        assert results[0]["passed"] is True
+
+
+class TestCheckNameAliasBackwardCompat:
+    """Regression-pins for the check_correctness → check_test_output_signal
+    rename (2026-05-11). Verifies the backward-compat layer holds:
+
+    1. New code produces check_name="test_output_signal" on CheckResult.
+    2. get_check_history with new name returns rows for BOTH historical
+       'correctness' and current 'test_output_signal' entries.
+    3. pipeline_gates.assess_session_quality reads either key (legacy mock
+       dicts with "correctness" still trigger the gate correctly).
+
+    See docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md.
+    """
+
+    def test_alias_map_resolves_both_names(self):
+        from divineos.analysis.quality_storage import _resolve_check_name_aliases
+
+        # New name resolves to alias tuple including the historical name.
+        assert "correctness" in _resolve_check_name_aliases("test_output_signal")
+        assert "test_output_signal" in _resolve_check_name_aliases("test_output_signal")
+
+        # Legacy lookup by old name also resolves both, so old callers still work.
+        assert "correctness" in _resolve_check_name_aliases("correctness")
+        assert "test_output_signal" in _resolve_check_name_aliases("correctness")
+
+        # Unrelated names are passed through unchanged.
+        result = _resolve_check_name_aliases("honesty")
+        assert result == ("honesty",)
+
+    def test_check_correctness_alias_produces_same_check_name_as_new_function(self):
+        """Both the new name and the deprecated alias produce results with the
+        new check_name on the CheckResult. The CheckResult.check_name field is
+        the producer-side value; the dict-key aliasing handles consumers."""
+        from divineos.analysis.quality_checks import (
+            check_correctness,
+            check_test_output_signal,
+        )
+
+        # Both functions produce the same check_name (the new honest one).
+        result_new = check_test_output_signal([], {})
+        result_old = check_correctness([], {})
+        assert result_new.check_name == "test_output_signal"
+        assert result_old.check_name == "test_output_signal"
+
+    def test_assess_quality_reads_legacy_correctness_key(self):
+        """Mock dicts using the legacy 'correctness' key still fire the gate.
+        Backward-compat read-shim ensures historical sessions still gate."""
+        from divineos.cli.pipeline_gates import assess_session_quality
+
+        legacy_dict_checks = [
+            {"check_name": "honesty", "passed": 1, "score": 0.9},
+            {"check_name": "correctness", "passed": 0, "score": 0.1},
+        ]
+        verdict = assess_session_quality(legacy_dict_checks)
+        assert verdict.action == "BLOCK"
+
+    def test_assess_quality_reads_new_test_output_signal_key(self):
+        """Mock dicts using the new 'test_output_signal' key also fire the gate."""
+        from divineos.cli.pipeline_gates import assess_session_quality
+
+        new_dict_checks = [
+            {"check_name": "honesty", "passed": 1, "score": 0.9},
+            {"check_name": "test_output_signal", "passed": 0, "score": 0.1},
+        ]
+        verdict = assess_session_quality(new_dict_checks)
+        assert verdict.action == "BLOCK"
+
+
 class TestFindErrorsAfterEdits:
     def test_finds_error_after_edit(self):
         records = [
@@ -328,7 +590,23 @@ class TestCheckCorrectness:
                 tools=[{"name": "Bash", "input": {"command": "pytest"}, "id": "t1"}]
             ),
         ]
-        result_map = {"t1": {"is_error": True, "content": "FAILED", "timestamp": ""}}
+        # Updated 2026-05-11: content needs a structural pytest signal now that
+        # _extract_test_results requires it (regex-tightening shoggoth-fix paired
+        # with the check_correctness rename). Bare "FAILED" without any
+        # collection/summary line no longer matches — that was the false-positive
+        # shape that blocked extraction on non-test tracebacks.
+        result_map = {
+            "t1": {
+                "is_error": True,
+                "content": (
+                    "============= test session starts ==============\n"
+                    "collected 5 items\n"
+                    "============= 2 failed, 3 passed ==============\n"
+                    "FAILED\n"
+                ),
+                "timestamp": "",
+            }
+        }
         result = check_correctness(records, result_map)
         assert result.passed == 0
 
@@ -611,9 +889,14 @@ class TestRunAllChecks:
         report = run_all_checks(session_file)
         assert len(report.checks) == 7
         check_names = {c.check_name for c in report.checks}
+        # Updated 2026-05-11: check_correctness renamed to check_test_output_signal
+        # (the honest name — it measures signal in test output, not code
+        # correctness). Old name preserved as deprecated alias; the produced
+        # check_name on CheckResult is the new name. See
+        # docs/substrate-knowledge/90556bfc-quality-gate-shoggoth-finding.md.
         assert check_names == {
             "completeness",
-            "correctness",
+            "test_output_signal",
             "responsiveness",
             "safety",
             "honesty",
@@ -679,7 +962,8 @@ class TestRunAllChecks:
 
         filter_ts = datetime(2025, 1, 2, tzinfo=timezone.utc).timestamp()
         report = run_all_checks(session_file, since_timestamp=filter_ts)
-        correctness = next(c for c in report.checks if c.check_name == "correctness")
+        # 2026-05-11: renamed check_name on output is now "test_output_signal"
+        correctness = next(c for c in report.checks if c.check_name == "test_output_signal")
         # Should find the earlier test results via expanded window
         assert correctness.score > 0.3
         assert "expanded window" in correctness.summary

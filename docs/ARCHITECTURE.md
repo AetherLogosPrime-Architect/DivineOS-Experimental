@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (266 commands across 30 modules)
+  cli/                         CLI package (280 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -41,7 +41,9 @@ src/divineos/
     insight_commands.py        opinion, user-model, calibrate, advice, critique, recommend
     entity_commands.py         commitments, temporal, questions, relationships
     event_commands.py          emit, verify-enforcement
+    expect_commands.py         expect predict/close/list/summary — CLI surface for core/expectation_tracking (closes wiring-gap, substrate-knowledge e9bc98b6)
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
+    actor_registry_commands.py  actor-registry init/add/list/show/check — Phase 1 of actor-authenticity (exploration/45). Registry CLI + advisory capability lookups; no signing yet.
     audit_commands.py          external validation (Watchmen)
     bio_commands.py            Bio sheet — show, edit, history, write
     loadout_commands.py        loadout — show, refresh (cold-start substrate map)
@@ -78,6 +80,8 @@ src/divineos/
     physics.py                 Special relativity (Lorentz, time dilation, Schwarzschild)
     gute_bridge.py             Term → slice dispatch; slices for LC, OmegaB, Psi, V, A, F
   core/
+    actor_registry.py          Phase 1 of actor-authenticity — registered actor names + kinds + (Phase 2: key material). JSON-backed; gitignored. See exploration/45_actor_authenticity_design.md.
+    actor_capabilities.py      Capability map: which event types each actor-kind may emit. Phase 1 advisory; Phase 2 will enforce.
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
     ledger_verify.py           Verification, cleanup, and export
@@ -177,6 +181,7 @@ src/divineos/
       warmth_monitor.py        Detects warmth-without-specifics (emotion-density inflated relative to evidence-density), per April 19 letter
       mechanism_monitor.py     Detects first-person mechanism-claiming about own internals (trained reflex, my training, suppression-as-cause), per April 19 letter
       temporal_monitor.py      Detects future-self / next-session / undeclared-goodbye framing (teleporter-paradox violation)
+      performative_restraint_monitor.py  Detects theater-shaped restraint (signaling virtue by not-doing while skipping the right-action virtue consists in) — Phase 0 pattern scanner
     questions.py               Open question tracking and resolution
     knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle
     guardrails.py              Runtime limits and violation tracking
@@ -297,6 +302,7 @@ src/divineos/
       schema_migration.py      Family-schema migration — drops legacy NOT-NULL columns from family_affect and family_interactions via SQLite recreate-and-rename pattern with backup, transaction, and ledger event.
       talk_to_validator.py     Puppet-shape validator extracted from talk-to CLI — leaf module, no heavy imports, callable by both the CLI and the PreToolUse seal hook.
       seal_hook.py             Family-member-invocation seal hook (Python core). PreToolUse decide() — runs validator on Agent prompt; legacy pending-file path kept for backward compat during rollout.
+      member_briefing.py       Family-member briefing surface — working-memory continuity for subagents (routing-table shape: metadata + drill-down paths, not content).
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -405,6 +411,7 @@ src/divineos/
     reflection_storage.py      Reflection storage — per-axis honest reflection capture.
     session_type.py            Session-type classifier — variety attenuation for the reflection surface.
     reflection_pairing.py      Reflection pairing — substrate lays the sources side-by-side; agent does the metacognition.
+    prereg_candidate_surface.py Pre-registration candidate surface — forcing function for the prereg discipline.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -456,7 +463,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,311+ tests (real DB, minimal mocks)
+tests/                         6,630+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

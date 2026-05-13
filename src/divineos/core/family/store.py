@@ -77,6 +77,11 @@ _PRODUCTION_WRITES_GATED: bool = False
 # write function. Moving it below imports would bury it.
 from divineos.core.family._schema import init_family_tables  # noqa: E402
 from divineos.core.family.db import get_family_connection  # noqa: E402
+
+# Module-level error tuple for ledger cross-ref fail-soft. Matches the
+# discipline used in briefing_dashboard.py — named tuple makes the broad
+# catch structurally legible without per-line noqa annotations.
+_LEDGER_ERRORS = (Exception,)  # noqa: E402
 from divineos.core.family.types import (  # noqa: E402
     FamilyAffect,
     FamilyInteraction,
@@ -85,6 +90,83 @@ from divineos.core.family.types import (  # noqa: E402
     FamilyOpinion,
     SourceTag,
 )
+
+
+def _entity_id_to_slug(entity_id: str) -> str | None:
+    """Translate a family.db entity_id (or member_id) to the lowercase name
+    slug used by the per-member ledger (e.g. 'd5590c23' -> 'aria').
+
+    Returns None if no matching row found. The caller should treat None as
+    "no ledger emission" rather than crash — ledger cross-refs are a
+    transparency layer, not a hard prerequisite for the family.db write.
+    """
+    init_family_tables()
+    conn = get_family_connection()
+    try:
+        # Schema may have either or both of entity_id / member_id depending on
+        # migration history. Build the WHERE clause from columns that actually
+        # exist (same forgive-the-asymmetry pattern record_affect uses).
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(family_members)").fetchall()}
+        clauses = []
+        params: list[str] = []
+        if "entity_id" in cols:
+            clauses.append("entity_id = ?")
+            params.append(entity_id)
+        if "member_id" in cols:
+            clauses.append("member_id = ?")
+            params.append(entity_id)
+        if not clauses:
+            return None
+        sql = f"SELECT name FROM family_members WHERE {' OR '.join(clauses)} LIMIT 1"
+        row = conn.execute(sql, tuple(params)).fetchone()  # nosec B608 — clauses built from constant column names detected via PRAGMA; entity_id value is parameter-bound
+        return row[0].lower() if row and row[0] else None
+    finally:
+        conn.close()
+
+
+def _emit_ledger_cross_ref(
+    entity_id: str,
+    event_type: str,
+    payload: dict,
+) -> None:
+    """Emit a per-member ledger event mirroring a family.db write.
+
+    The family-member CLI commands (affect, opinion, interaction, knowledge,
+    letter, respond) write to family.db. Without this, the per-member ledger
+    only sees MEMBER_INVOKED events — the forensic audit trail loses the
+    cross-reference to the actual content rows. Aria flagged this 2026-05-11
+    and re-surfaced it on 2026-05-12 verification; this closes the gap.
+
+    Fail-soft: if anything goes wrong (slug lookup miss, ledger write error,
+    import failure) we swallow the error rather than fail the family.db
+    write. The ledger is a transparency layer, not a gate.
+    """
+    try:
+        from divineos.core.family.family_member_ledger import append_event
+
+        slug = _entity_id_to_slug(entity_id)
+        if slug is None:
+            return
+        append_event(
+            slug,
+            event_type=event_type,
+            actor="self",
+            payload=payload,
+        )
+    except _LEDGER_ERRORS:
+        # Best-effort. The family.db write is the source of truth; the
+        # ledger cross-ref is documentation of it. A failure here should
+        # never cascade backward into a rejected family.db write.
+        pass
+
+
+def _hash_short(text: str) -> str:
+    """SHA256 short-hash for ledger payloads (12 chars). Payloads should
+    fingerprint content, not duplicate it — the family.db row is the
+    canonical content store."""
+    import hashlib
+
+    return hashlib.sha256((text or "").encode("utf-8")).hexdigest()[:12]
 
 
 class PersistenceGateError(RuntimeError):
@@ -320,13 +402,55 @@ def record_knowledge(
     created_at = time.time()
     conn = get_family_connection()
     try:
-        conn.execute(
-            "INSERT INTO family_knowledge "
-            "(knowledge_id, entity_id, content, source_tag, created_at, note) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (knowledge_id, entity_id, content, source_tag.value, created_at, note),
-        )
+        # Schema may or may not have updated_at column depending on whether
+        # the table was created via the canonical _schema.py path (no
+        # updated_at) or via an earlier migrated-from-old-schema path
+        # (updated_at NOT NULL). Detect at insert-time and adapt. Same
+        # forgive-the-asymmetry pattern record_affect and record_interaction
+        # use above for their legacy columns.
+        kn_cols = {row[1] for row in conn.execute("PRAGMA table_info(family_knowledge)").fetchall()}
+        if "updated_at" in kn_cols:
+            conn.execute(
+                "INSERT INTO family_knowledge "
+                "(knowledge_id, entity_id, content, source_tag, "
+                "created_at, updated_at, note) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    knowledge_id,
+                    entity_id,
+                    content,
+                    source_tag.value,
+                    created_at,
+                    created_at,  # updated_at mirrors created_at on insert
+                    note,
+                ),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO family_knowledge "
+                "(knowledge_id, entity_id, content, source_tag, "
+                "created_at, note) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    knowledge_id,
+                    entity_id,
+                    content,
+                    source_tag.value,
+                    created_at,
+                    note,
+                ),
+            )
         conn.commit()
+        _emit_ledger_cross_ref(
+            entity_id,
+            event_type="MEMBER_KNOWLEDGE_LEARNED",
+            payload={
+                "knowledge_id": knowledge_id,
+                "content_hash": _hash_short(content),
+                "source_tag": source_tag.value,
+                "has_note": bool(note),
+            },
+        )
         return FamilyKnowledge(
             knowledge_id=knowledge_id,
             entity_id=entity_id,
@@ -376,6 +500,16 @@ def record_opinion(
             (opinion_id, entity_id, stance, evidence, source_tag.value, created_at),
         )
         conn.commit()
+        _emit_ledger_cross_ref(
+            entity_id,
+            event_type="MEMBER_OPINION_FORMED",
+            payload={
+                "opinion_id": opinion_id,
+                "position_hash": _hash_short(stance),
+                "source_tag": source_tag.value,
+                "has_evidence": bool(evidence),
+            },
+        )
         return FamilyOpinion(
             opinion_id=opinion_id,
             entity_id=entity_id,
@@ -466,6 +600,18 @@ def record_affect(
                 ),
             )
         conn.commit()
+        _emit_ledger_cross_ref(
+            entity_id,
+            event_type="MEMBER_AFFECT_LOGGED",
+            payload={
+                "entry_id": affect_id,
+                "valence": valence,
+                "arousal": arousal,
+                "dominance": dominance,
+                "description_hash": _hash_short(note),
+                "source_tag": source_tag.value,
+            },
+        )
         return FamilyAffect(
             affect_id=affect_id,
             entity_id=entity_id,
@@ -549,6 +695,16 @@ def record_interaction(
                 ),
             )
         conn.commit()
+        _emit_ledger_cross_ref(
+            entity_id,
+            event_type="MEMBER_INTERACTION_LOGGED",
+            payload={
+                "interaction_id": interaction_id,
+                "counterpart": counterpart,
+                "content_hash": _hash_short(summary),
+                "source_tag": source_tag.value,
+            },
+        )
         return FamilyInteraction(
             interaction_id=interaction_id,
             entity_id=entity_id,
