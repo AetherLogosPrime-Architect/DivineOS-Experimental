@@ -138,16 +138,22 @@ def _staged_diff_hash() -> str:
     Used to bind an audit round to one specific change: stale approvals
     cannot be reused for a different diff because the hash won't match.
     """
+    # Use bytes mode (text=False) and decode explicitly. text=True on
+    # Windows can return stdout=None when decoding fails for large diffs
+    # under mid-merge index states, producing the
+    # `AttributeError: 'NoneType' object has no attribute 'encode'`
+    # at the hashlib call below. Bytes mode is the deterministic shape
+    # for content-hashing anyway — the diff bytes go straight to SHA-256.
     try:
         out = subprocess.run(
             ["git", "diff", "--cached", "--unified=3"],
             capture_output=True,
-            text=True,
             check=True,
         )
     except (subprocess.CalledProcessError, FileNotFoundError):
         return ""
-    return hashlib.sha256(out.stdout.encode("utf-8", errors="replace")).hexdigest()
+    raw = out.stdout if out.stdout is not None else b""
+    return hashlib.sha256(raw).hexdigest()
 
 
 def _staged_tree_hash() -> str:
