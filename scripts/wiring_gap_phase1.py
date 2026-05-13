@@ -65,19 +65,31 @@ def _is_public(name: str) -> bool:
     return not name.startswith("_")
 
 
-def _git(*args: str) -> str:
+def _git(*args: str, allow_failure: bool = False) -> str:
+    """Run git. Returns stdout, or empty string on failure when allow_failure=True.
+
+    The CLI entry point uses allow_failure=False (exits on bad input);
+    library callers (e.g. tests that pass a range that may not exist in a
+    shallow clone) use allow_failure=True.
+    """
     result = subprocess.run(
         ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True
     )
     if result.returncode != 0:
+        if allow_failure:
+            return ""
         print(f"git {' '.join(args)} failed: {result.stderr}", file=sys.stderr)
         sys.exit(2)
     return result.stdout
 
 
 def _commits_in_range(rev_range: str) -> list[tuple[str, str]]:
-    """Return [(short_sha, subject), ...] in oldest-first order."""
-    out = _git("log", "--reverse", "--format=%h%x09%s", rev_range)
+    """Return [(short_sha, subject), ...] in oldest-first order.
+
+    Returns empty list when the range is invalid (e.g. shallow clone without
+    enough history). Callers can decide whether to error or skip.
+    """
+    out = _git("log", "--reverse", "--format=%h%x09%s", rev_range, allow_failure=True)
     rows: list[tuple[str, str]] = []
     for line in out.splitlines():
         if not line.strip():
