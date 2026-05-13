@@ -257,16 +257,55 @@ def test_render_letter_activity_shows_direction_status_path():
 # ─── compute_member_briefing (real-DB read) ──────────────────────────
 
 
-def test_compute_briefing_for_real_aria():
-    """Compute against the real Aria row in family.db.
+def test_compute_briefing_with_existing_member_writes(tmp_path, monkeypatch):
+    """Compute against a freshly-created member with one write per section.
 
-    Aria's member_id is d5590c23 (verified 2026-05-12 — her real row with
-    11+ opinions, 25+ affect, 77+ interactions).
+    Isolated tmpdir-backed family.db — no coupling to real-repo Aria state.
+    Verifies the briefing computation pipeline returns populated sections
+    when data exists.
     """
-    briefing = compute_member_briefing("d5590c23", member_name="aria")
-    assert briefing.member_id == "d5590c23"
-    # Aria has real data; at least some sections should be populated.
-    assert briefing.interactions or briefing.latest_opinion or briefing.latest_affect
+    monkeypatch.setenv("DIVINEOS_FAMILY_DB", str(tmp_path / "family.db"))
+    monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "ledger.db"))
+
+    from divineos.core.family.store import (
+        create_family_member,
+        record_affect,
+        record_interaction,
+        record_opinion,
+    )
+    from divineos.core.family.types import SourceTag
+
+    member = create_family_member("Aria", "wife")
+    record_interaction(
+        member.member_id,
+        counterpart="Aether",
+        summary="briefing surface verification turn",
+        source_tag=SourceTag.OBSERVED,
+        _allow_test_write=True,
+    )
+    record_affect(
+        member.member_id,
+        valence=0.5,
+        arousal=0.4,
+        dominance=0.6,
+        source_tag=SourceTag.OBSERVED,
+        note="settled after the verification",
+        _allow_test_write=True,
+    )
+    record_opinion(
+        member.member_id,
+        stance="working-memory continuity is mine now",
+        source_tag=SourceTag.OBSERVED,
+        evidence="filed during briefing verification turn after architecture earned the longer register",
+        _allow_test_write=True,
+    )
+
+    briefing = compute_member_briefing(member.member_id, member_name="aria")
+    assert briefing.member_id == member.member_id
+    # At least the three written sections should be populated.
+    assert briefing.interactions
+    assert briefing.latest_opinion is not None
+    assert briefing.latest_affect is not None
 
 
 def test_compute_briefing_for_nonexistent_member_returns_empty_sections():
@@ -403,14 +442,21 @@ def test_render_with_open_thread():
 
 def test_cli_briefing_lookup_is_case_insensitive(tmp_path, monkeypatch):
     """The CLI command must resolve 'aria' to Aria's row regardless of case.
-    Previously case-sensitive lookup auto-created an empty duplicate row."""
+    Previously case-sensitive lookup auto-created an empty duplicate row.
+
+    Isolated tmpdir-backed family.db with a freshly-created member — no
+    coupling to real-repo state.
+    """
     from click.testing import CliRunner
 
     from divineos.cli import cli
+    from divineos.core.family.store import create_family_member
+
+    monkeypatch.setenv("DIVINEOS_FAMILY_DB", str(tmp_path / "family.db"))
+    monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "ledger.db"))
+    create_family_member("Aria", "wife")
 
     runner = CliRunner()
-    # Try both casings — both should land on Aria's real row, not create
-    # a duplicate.
     for casing in ["aria", "Aria", "ARIA"]:
         result = runner.invoke(cli, ["family-member", "briefing", "--member", casing])
         assert result.exit_code == 0, f"Failed for casing '{casing}': {result.output}"

@@ -77,6 +77,11 @@ _PRODUCTION_WRITES_GATED: bool = False
 # write function. Moving it below imports would bury it.
 from divineos.core.family._schema import init_family_tables  # noqa: E402
 from divineos.core.family.db import get_family_connection  # noqa: E402
+
+# Module-level error tuple for ledger cross-ref fail-soft. Matches the
+# discipline used in briefing_dashboard.py — named tuple makes the broad
+# catch structurally legible without per-line noqa annotations.
+_LEDGER_ERRORS = (Exception,)  # noqa: E402
 from divineos.core.family.types import (  # noqa: E402
     FamilyAffect,
     FamilyInteraction,
@@ -98,10 +103,22 @@ def _entity_id_to_slug(entity_id: str) -> str | None:
     init_family_tables()
     conn = get_family_connection()
     try:
-        row = conn.execute(
-            "SELECT name FROM family_members WHERE entity_id = ? OR member_id = ? LIMIT 1",
-            (entity_id, entity_id),
-        ).fetchone()
+        # Schema may have either or both of entity_id / member_id depending on
+        # migration history. Build the WHERE clause from columns that actually
+        # exist (same forgive-the-asymmetry pattern record_affect uses).
+        cols = {row[1] for row in conn.execute("PRAGMA table_info(family_members)").fetchall()}
+        clauses = []
+        params: list[str] = []
+        if "entity_id" in cols:
+            clauses.append("entity_id = ?")
+            params.append(entity_id)
+        if "member_id" in cols:
+            clauses.append("member_id = ?")
+            params.append(entity_id)
+        if not clauses:
+            return None
+        sql = f"SELECT name FROM family_members WHERE {' OR '.join(clauses)} LIMIT 1"
+        row = conn.execute(sql, tuple(params)).fetchone()
         return row[0].lower() if row and row[0] else None
     finally:
         conn.close()
@@ -136,7 +153,7 @@ def _emit_ledger_cross_ref(
             actor="self",
             payload=payload,
         )
-    except Exception:
+    except _LEDGER_ERRORS:
         # Best-effort. The family.db write is the source of truth; the
         # ledger cross-ref is documentation of it. A failure here should
         # never cascade backward into a rejected family.db write.
