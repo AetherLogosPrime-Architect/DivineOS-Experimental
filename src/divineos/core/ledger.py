@@ -21,10 +21,19 @@ import hashlib
 import json
 import os
 import sys
+import threading
 import time
 import uuid
 from pathlib import Path
 from typing import Any
+
+# In-process serialization for log_event's read-prior-hash + insert
+# sequence. The combined-with-BEGIN-IMMEDIATE strategy: this lock
+# handles intra-process concurrency (the dominant deployment shape);
+# BEGIN IMMEDIATE inside log_event handles inter-process cases.
+# Aletheia round-ba785844a791 Finding 15 + family-audit
+# round-49b2a6659d7f.
+_LOG_EVENT_LOCK = threading.Lock()
 
 from loguru import logger
 
@@ -310,12 +319,21 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
             pass
 
     event_id = str(uuid.uuid4())
-    timestamp = time.time()
-    payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    # NOTE on timestamp ordering (Aletheia round-49b2a6659d7f family-
+    # audit): timestamp is generated INSIDE the lock-acquired section
+    # below, not here. If two threads call log_event concurrently and
+    # both compute time.time() before acquiring the lock, the timestamps
+    # could be in a different order than the eventual insert-order. Then
+    # verify_chain (ORDER BY timestamp ASC, rowid ASC) walks events in
+    # timestamp order but their chain_hashes are linked in insert order
+    # — reporting a chain mismatch even though the chain is logically
+    # intact. Generating timestamp inside the lock ensures timestamp-
+    # order matches insert-order matches chain-order.
+    payload_json_initial = json.dumps(payload, ensure_ascii=False, sort_keys=True)
 
     # Compute hash of the content for fidelity verification
     # Always hash the entire payload to ensure complete data integrity
-    content_hash = compute_hash(payload_json)
+    content_hash = compute_hash(payload_json_initial)
 
     # Store hash in payload for round-trip verification
     payload["content_hash"] = content_hash
@@ -336,6 +354,27 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
 
     conn = _get_connection()
     try:
+        # Concurrency fix (Aletheia round-ba785844a791 Finding 15 +
+        # family-audit round-49b2a6659d7f). Without serialization, two
+        # concurrent writers can both read prior_hash, both compute
+        # chain_hash against the same prior, both INSERT — forking the
+        # chain. WAL mode alone does not prevent this.
+        #
+        # Strategy: in-process thread lock + per-connection autocommit
+        # mode + BEGIN IMMEDIATE.
+        #
+        # The thread lock serializes log_event calls within a single
+        # process — the dominant deployment shape for DivineOS today.
+        # autocommit + BEGIN IMMEDIATE adds cross-process safety for
+        # the rarer multi-process case (Python sqlite3 default mode
+        # auto-wraps DML in DEFERRED transactions which would mask an
+        # explicit BEGIN IMMEDIATE).
+        _LOG_EVENT_LOCK.acquire()
+        # Generate timestamp INSIDE the lock so insert-order matches
+        # timestamp-order. See the NOTE above the lock comment.
+        timestamp = time.time()
+        conn.isolation_level = None  # autocommit so BEGIN IMMEDIATE works
+        conn.execute("BEGIN IMMEDIATE")
         prior_hash = _latest_chain_hash(conn)
         chain_hash = _compute_chain_hash(
             prior_hash=prior_hash,
@@ -363,7 +402,14 @@ def log_event(event_type: str, actor: str, payload: dict[str, Any], validate: bo
         )
         conn.commit()
     finally:
-        conn.close()
+        try:
+            conn.close()
+        finally:
+            try:
+                _LOG_EVENT_LOCK.release()
+            except RuntimeError:
+                # Lock wasn't held (e.g. exception before acquire) — fine.
+                pass
 
     # Increment the write counter that drives the consolidation trigger.
     # Consolidation events themselves are excluded — see increment_write_count
@@ -670,6 +716,17 @@ def backfill_chain_hashes() -> dict[str, Any]:
     """
     conn = _get_connection()
     try:
+        # BEGIN IMMEDIATE serializes against concurrent log_event calls.
+        # Without this, a concurrent log_event could insert a row mid-
+        # backfill, and the UPDATEs below would write chain_hashes
+        # derived from a stale prior_hash that no longer reflects the
+        # actual chain tail. Same TOCTOU class as log_event itself
+        # (Aletheia round-ba785844a791 Finding 15 + this round's
+        # family-audit round-49b2a6659d7f). isolation_level=None
+        # ensures BEGIN IMMEDIATE isn't masked by Python's default
+        # auto-DEFERRED-transaction wrapping.
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
         rows = list(
             conn.execute(
                 "SELECT rowid, event_id, timestamp, event_type, actor, payload, content_hash, "
