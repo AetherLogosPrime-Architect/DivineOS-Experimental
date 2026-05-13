@@ -261,6 +261,37 @@ def test_long_input_does_not_catastrophically_backtrack() -> None:
     )
 
 
+def test_kebab_long_input_does_not_catastrophically_backtrack() -> None:
+    """Regression-pin for the SECOND catastrophic backtracker found
+    during the family-audit (round-382a5b3cc939 Finding A): the
+    original _FILE_PATH_RE pattern ``[\\w./\\\\-]*\\.(?:py|...)``
+    backtracked catastrophically on inputs like ``("a-" * 30000) + "z"``
+    — same class of vulnerability as Finding 14 but in a different
+    regex in the same file. Fix: bound the path-prefix to 200 chars.
+
+    This test was added during the family-level audit prompted by
+    Andrew's correction: "are you addressing all of these at the root
+    level?" The answer initially was no — only the one regex had been
+    bounded. The family-survey caught this second instance.
+
+    If this test starts timing out, the bound on _FILE_PATH_RE has
+    been relaxed. Restore the {1,200} cap on the path-prefix."""
+    import time
+
+    # Pattern designed to trigger the FILE_PATH regex backtracking:
+    # repeated path-character sequence with no matching extension at
+    # the end. The engine tries every possible boundary.
+    pathological = ("a-" * 30_000) + "z"
+    start = time.monotonic()
+    detect_jargon_dump(pathological)
+    elapsed = time.monotonic() - start
+    assert elapsed < 1.0, (
+        f"jargon_dump_detector took {elapsed:.2f}s on adversarial "
+        "kebab-input — _FILE_PATH_RE has regressed to unbounded form. "
+        "Restore the {1,200} bound on the path-prefix."
+    )
+
+
 def test_format_finding_includes_diagnostics() -> None:
     """The formatter must surface noise count, translation count, and
     samples for the post-response audit log."""
