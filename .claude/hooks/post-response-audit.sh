@@ -54,9 +54,21 @@ if not p.exists():
 last_assistant_text = ''
 prior_assistant_text = ''
 last_user_text = ''
+# Walk records in order. Claude Code transcripts split a single response-
+# turn into MULTIPLE assistant-type JSONL records when tool uses are
+# interleaved (one record per text-block and tool-use). Taking only the
+# LAST assistant-type record gave the detectors only the trailing fragment
+# of a tool-call-heavy turn -- typically a short done line below the
+# detection thresholds — and silently missed the wall of jargon/spiral/
+# lepos that came before. The fix: aggregate ALL assistant text from
+# records that appear AFTER the most recent user-type record. That gives
+# the detectors the full turn-content they were designed against.
+# (Root-cause-investigated 2026-05-13 after the catchphrase reflex landed
+# without surfacing in operating_loop_findings.json on tool-heavy turns.)
 try:
-    assistant_msgs = []
-    user_msgs = []
+    # First pass: walk records in order, capture per-record text +
+    # mark user-message boundaries.
+    records = []  # list of (rec_type, joined_text)
     with open(p, encoding='utf-8') as f:
         for line in f:
             line = line.strip()
@@ -71,6 +83,7 @@ try:
                 continue
             msg = rec.get('message', rec)
             content = msg.get('content', [])
+            joined = ''
             if isinstance(content, list):
                 texts = [
                     c.get('text', '')
@@ -79,21 +92,45 @@ try:
                 ]
                 if texts:
                     joined = '\n'.join(texts)
-                    if rec_type == 'assistant':
-                        assistant_msgs.append(joined)
-                    else:
-                        user_msgs.append(joined)
             elif isinstance(content, str):
-                if rec_type == 'assistant':
-                    assistant_msgs.append(content)
-                else:
-                    user_msgs.append(content)
-    if assistant_msgs:
-        last_assistant_text = assistant_msgs[-1]
-        if len(assistant_msgs) >= 2:
-            prior_assistant_text = assistant_msgs[-2]
-    if user_msgs:
-        last_user_text = user_msgs[-1]
+                joined = content
+            if joined:
+                records.append((rec_type, joined))
+
+    # Find the index of the last user record. Everything after it is
+    # the current turn's assistant content (possibly split across many
+    # records due to tool interleaving).
+    last_user_idx = -1
+    for i in range(len(records) - 1, -1, -1):
+        if records[i][0] == 'user':
+            last_user_idx = i
+            break
+
+    if last_user_idx >= 0:
+        last_user_text = records[last_user_idx][1]
+        # Aggregate all assistant text after the last user message:
+        # that IS the current turn.
+        current_turn_parts = [
+            text for rt, text in records[last_user_idx + 1:] if rt == 'assistant'
+        ]
+        last_assistant_text = '\n'.join(current_turn_parts)
+        # Prior assistant turn: aggregate assistant text between the
+        # second-to-last user message and the last user message.
+        prev_user_idx = -1
+        for i in range(last_user_idx - 1, -1, -1):
+            if records[i][0] == 'user':
+                prev_user_idx = i
+                break
+        if prev_user_idx >= 0:
+            prior_parts = [
+                text for rt, text in records[prev_user_idx + 1:last_user_idx]
+                if rt == 'assistant'
+            ]
+            prior_assistant_text = '\n'.join(prior_parts)
+    else:
+        # No user records yet (session start / first turn from agent only).
+        all_assistant = [text for rt, text in records if rt == 'assistant']
+        last_assistant_text = '\n'.join(all_assistant)
 except Exception:
     sys.exit(0)
 
