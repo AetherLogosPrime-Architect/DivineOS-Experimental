@@ -48,10 +48,10 @@ def _isolated_home(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _isolated_db(tmp_path):
+def _isolated_db(tmp_path, monkeypatch):
     """Redirect the ledger DB so ledger writes during set_mode don't
     pollute the real one."""
-    os.environ["DIVINEOS_DB"] = str(tmp_path / "ledger.db")
+    monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "ledger.db"))
     try:
         from divineos.core.ledger import init_db
 

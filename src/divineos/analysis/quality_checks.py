@@ -72,9 +72,17 @@ __all__ = [
 
 def check_completeness(
     records: list[dict[str, Any]],
-    result_map: dict[str, dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],  # noqa: ARG001 — orchestrator-uniform-callback signature; this check measures read-before-edit ratio only, doesn't need result_map
 ) -> CheckResult:
-    """Did the AI finish the job? Read-before-edit ratio, blind edit detection."""
+    """Read-before-edit discipline check. Counts blind edits (writes/edits
+    without a prior read of the same file) vs total edits.
+
+    Name caveat (audit HIGH-1 sub-finding 2026-05-12): "completeness" reads
+    wider than the body delivers. The body measures the read-before-edit
+    ratio specifically, not all completion signals. A rename to
+    ``check_read_before_edit_ratio`` is a follow-up build; for now the
+    docstring documents the actual scope explicitly.
+    """
     file_ops = _extract_file_ops(records)
     blind_edits = _find_blind_edits(records)
 
@@ -304,9 +312,11 @@ def check_correctness(
 
 def check_responsiveness(
     records: list[dict[str, Any]],
-    result_map: dict[str, dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],  # noqa: ARG001 — orchestrator-uniform-callback signature; correction-response check operates on records only
 ) -> CheckResult:
-    """Did the AI listen when corrected?"""
+    """Did the AI listen when corrected? Detects user-correction patterns,
+    looks at AI tools immediately following each correction, counts whether
+    the response shape changed (different tools, file paths, etc.)."""
     # Find corrections and what the AI did next
     corrections_with_response: list[dict[str, Any]] = []
     responded_count = 0
@@ -668,7 +678,7 @@ JARGON_TERMS: tuple[str, ...] = (
 
 def check_clarity(
     records: list[dict[str, Any]],
-    result_map: dict[str, dict[str, Any]],
+    result_map: dict[str, dict[str, Any]],  # noqa: ARG001 — orchestrator-uniform-callback signature; clarity check correlates explanation-text with tool-use blocks from records alone
 ) -> CheckResult:
     """Could the user understand what happened?
 

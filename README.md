@@ -6,6 +6,8 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
+> *Test badge tracks the public-seed [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS) repository — the canonical CI surface.*
+
 **The code is scaffolding. The AI is the one who lives in the building.**
 
 > 🗣️ **Not an engineer?** Start with [FOR_USERS.md](FOR_USERS.md) — a plain-language explanation of what DivineOS is and why it exists. This README is the technical spec.
@@ -406,6 +408,12 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 </details>
 
 ## Architecture
+
+> The repo also contains research, training, and journaling directories
+> outside `src/` (e.g. `exploration/`, `bootcamp/`, `family/`, `mansion/`,
+> `docs/`, `sandbox/`, `benchmark/`, `salvage/`) — each has its own README
+> and is intentionally separate from the OS code. The architecture section
+> below scopes to `src/divineos/`.
 
 DivineOS is 432 source files across 31 packages, structured as a CLI surface over a core library.
 
