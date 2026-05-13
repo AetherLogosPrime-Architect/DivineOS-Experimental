@@ -28,12 +28,15 @@ wire.
 
 from __future__ import annotations
 
+import logging
 import os
 import statistics
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class AnomalySeverity(str, Enum):
@@ -853,16 +856,31 @@ def _detect_decide_learn_skew(window_seconds: float, now: float | None) -> list[
     return anomalies
 
 
-def _gather_operator_content(window_seconds: float, now: float | None) -> list[str]:
+def _gather_operator_content(
+    window_seconds: float, now: float | None
+) -> tuple[list[str], list[str]]:
     """Gather text content from decides, learns, and ack evidence in window.
 
     Used by variance-collapse (2a) and content-entropy (2b) detectors.
-    Returns a list of strings — one per operator entry. Short strings
-    filtered out (noise floor).
+    Returns ``(texts, sources_failed)``:
+    - ``texts``: list of strings — one per operator entry. Short strings
+      filtered out (noise floor).
+    - ``sources_failed``: list of source-name strings for the sources whose
+      collection raised. Empty when all three sources succeeded.
+
+    Audit consumers should treat ``sources_failed`` as an integrity signal
+    (Cluster C2 from audits/stone_cold/2026-05-12_gameplan.md): a compliance
+    audit run on a partial corpus has reduced detection power. The
+    consumer decides whether the partial result is acceptable.
+
+    Building blocks fail-soft per source (the audit shouldn't crash when
+    one store is unavailable), but the consumer hears about the failure
+    so it can adjust thresholds, log at WARNING, or skip its run entirely.
     """
     ts = now if now is not None else time.time()
     cutoff = ts - window_seconds
     texts: list[str] = []
+    sources_failed: list[str] = []
 
     # Decide reasoning
     try:
@@ -870,8 +888,13 @@ def _gather_operator_content(window_seconds: float, now: float | None) -> list[s
             reasoning = (d.get("reasoning") or "").strip()
             if len(reasoning) >= 10:
                 texts.append(reasoning)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001 — fail-soft per source, surface in sources_failed
+        logger.warning(
+            "compliance_audit: decisions source failed during operator-content "
+            "gathering — audit corpus reduced. error=%s",
+            exc,
+        )
+        sources_failed.append("decisions")
 
     # Learn content
     try:
@@ -883,8 +906,13 @@ def _gather_operator_content(window_seconds: float, now: float | None) -> list[s
             content = (k.get("content") or "").strip()
             if len(content) >= 10:
                 texts.append(content)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001 — fail-soft per source, surface in sources_failed
+        logger.warning(
+            "compliance_audit: knowledge source failed during operator-content "
+            "gathering — audit corpus reduced. error=%s",
+            exc,
+        )
+        sources_failed.append("knowledge")
 
     # Ack evidence
     try:
@@ -892,10 +920,15 @@ def _gather_operator_content(window_seconds: float, now: float | None) -> list[s
             evidence = (o.get("evidence") or "").strip()
             if len(evidence) >= 10:
                 texts.append(evidence)
-    except Exception:  # noqa: BLE001
-        pass
+    except Exception as exc:  # noqa: BLE001 — fail-soft per source, surface in sources_failed
+        logger.warning(
+            "compliance_audit: observations source failed during operator-content "
+            "gathering — audit corpus reduced. error=%s",
+            exc,
+        )
+        sources_failed.append("observations")
 
-    return texts
+    return texts, sources_failed
 
 
 def _detect_variance_collapse(window_seconds: float, now: float | None) -> list[Anomaly]:
@@ -920,7 +953,19 @@ def _detect_variance_collapse(window_seconds: float, now: float | None) -> list[
     until profiling shows it matters.
     """
     anomalies: list[Anomaly] = []
-    texts = _gather_operator_content(window_seconds, now)
+    texts, sources_failed = _gather_operator_content(window_seconds, now)
+    if sources_failed:
+        # Audit ran on partial corpus — log at WARNING so an operator
+        # reviewing audit output sees the gap. The audit still proceeds
+        # with what's available; the warning signals reduced detection
+        # power, not invalidation. (Cluster C2 from gameplan 2026-05-12.)
+        logger.warning(
+            "compliance_audit variance-collapse detector ran on partial corpus: "
+            "sources_failed=%s (out of 3 sources). Audit results reflect %d "
+            "items rather than full window.",
+            sources_failed,
+            len(texts),
+        )
     if len(texts) < _VARIANCE_COLLAPSE_MIN_ITEMS:
         return anomalies
 
