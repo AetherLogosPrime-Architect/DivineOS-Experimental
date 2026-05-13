@@ -232,6 +232,35 @@ def test_short_text_below_floor_clean() -> None:
     assert detect_jargon_dump("Filed round-abc123def456.") == []
 
 
+def test_long_input_does_not_catastrophically_backtrack() -> None:
+    """Regression-pin for Aletheia round-ba785844a791 Finding 14.
+
+    The original _SUBSCRIPT_RE pattern (``\\w+\\[...``) catastrophically
+    backtracked on long inputs — feeding ``"a" * 100_000`` hung the
+    regex engine for 2+ seconds without completing. Real production
+    impact: long technical responses with embedded code could hang the
+    post-response-audit hook → killed by timeout → no findings
+    recorded (intersects with the silent-failure pattern).
+
+    Fix: bound the identifier-prefix to 40 chars. This test asserts
+    the detector returns within a reasonable time even on adversarial
+    input. If this test starts timing out, DO NOT relax the timeout —
+    the regex has regressed to the unbounded form and re-introduced the
+    DoS surface."""
+    import time
+
+    pathological = "a" * 100_000
+    start = time.monotonic()
+    detect_jargon_dump(pathological)
+    elapsed = time.monotonic() - start
+    # Bounded regex completes in milliseconds, not seconds.
+    assert elapsed < 1.0, (
+        f"jargon_dump_detector took {elapsed:.2f}s on 100k input — "
+        "_SUBSCRIPT_RE has regressed to unbounded form. Restore the "
+        "{1,40} bound on the identifier-prefix."
+    )
+
+
 def test_format_finding_includes_diagnostics() -> None:
     """The formatter must surface noise count, translation count, and
     samples for the post-response audit log."""
