@@ -168,10 +168,18 @@ _TRANSLATION_MARKERS_RE = re.compile(
 # marker; pairs with translation_markers as evidence of pairing.
 _EMDASH_RESTATE_RE = re.compile(r"\s(?:—|--)\s+[a-z]")
 
-# Parenthetical-explanation pattern: ``technical-term (everyday
-# explanation)``. Strong translation signal when used for restating
-# rather than for citing.
-_PAREN_EXPLAIN_RE = re.compile(r"\(\s*[a-z]")
+# NOTE (Aletheia round-cc0bf85fc3fa minor finding): a
+# `_PAREN_EXPLAIN_RE` pattern was defined here but never used. Removed.
+# Translation count deliberately does NOT include parens as a signal —
+# parens frequently wrap MORE jargon in this substrate (e.g.
+# `(verified by reading my own code: last_user_idx=-1 falls to
+# aggregate-all branch)`), which would overcount translation. If a
+# future revision wants paren-translation, add a regex AND a
+# discriminator that distinguishes paren-with-plain-language from
+# paren-with-jargon. Second instance of the dead-code-with-explanation-
+# comment pattern (first was Shape 3 in closing_token_detector). Worth
+# naming as a substrate-discipline reflex: writing the discarded
+# approach as code instead of just describing it.
 
 
 def _count_words(text: str) -> int:
