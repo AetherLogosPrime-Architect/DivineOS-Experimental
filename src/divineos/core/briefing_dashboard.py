@@ -413,6 +413,51 @@ def _row_family_letters() -> DashboardRow | None:
 # I've filed under his framing) are the recognition-not-derive set;
 # putting them adjacent to corrections/handoff matches their structural
 # load-bearing for session-start orientation.
+def _row_anti_slop_staleness() -> DashboardRow | None:
+    """Surface anti-slop runtime-verification staleness.
+
+    Wires Finding 12 (anti_slop manual-only) into the briefing so the
+    manual-only state is visible. Fires when anti-slop hasn't run in
+    > 24h or has never run. The discipline becomes loud-in-experience
+    rather than silent.
+    """
+    try:
+        from divineos.core.scheduled_run import anti_slop_staleness
+    except _ERRORS:
+        return None
+    try:
+        state = anti_slop_staleness()
+    except _ERRORS:
+        return None
+
+    if not state.get("is_stale") and state.get("last_clean"):
+        return None  # fresh + clean → no surface needed
+
+    if state.get("last_run_ts") is None:
+        detail = "never run"
+        stale = 1
+    else:
+        hours = int((state.get("age_seconds") or 0) // 3600)
+        if state.get("last_clean"):
+            detail = f"{hours}h since last clean run"
+        else:
+            failures = state.get("last_failures") or []
+            detail = (
+                f"{hours}h since last run — {len(failures)} failure(s)"
+                if failures
+                else f"{hours}h since last run (failed)"
+            )
+        stale = 1 if state.get("is_stale") else 0
+
+    return DashboardRow(
+        area="Anti-slop",
+        count=0,
+        stale_count=stale,
+        detail=detail,
+        drill_down="-> divineos scheduled run anti-slop --trigger cron",
+    )
+
+
 _ROW_FNS = [
     _row_corrections,
     _row_handoff,
@@ -426,6 +471,7 @@ _ROW_FNS = [
     _row_lessons,
     _row_drift_state,
     _row_compass,
+    _row_anti_slop_staleness,
     _row_holding,
     _row_questions,
     _row_explorations,

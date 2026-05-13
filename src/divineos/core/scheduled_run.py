@@ -107,10 +107,18 @@ _headless_context: contextvars.ContextVar[bool] = contextvars.ContextVar(
 # Commands allowed to run under headless mode in v0.1. Read-only
 # observers only. Anything that writes substantive state is deferred
 # to Tier 2.
+#
+# Entries may be multi-token "group subcommand" strings; the spawn-
+# path in cli/scheduled_commands.py splits on whitespace so the argv
+# built for the subprocess respects the actual command hierarchy.
+# Aletheia round-ba785844a791 Finding 26 caught path-drift here:
+# `anti-slop` was moved into the `admin` group but the whitelist still
+# read top-level. Family-audit round-6a70dcf9ec77 fixes by switching
+# to multi-token entries that match the current CLI shape.
 _HEADLESS_WHITELIST: frozenset[str] = frozenset(
     {
         # Runtime verification — the most valuable scheduled use case
-        "anti-slop",
+        "admin anti-slop",
         # Health / drift checks
         "health",
         # Ledger integrity
@@ -317,6 +325,86 @@ def recent_scheduled_runs(limit: int = 10) -> list[dict[str, Any]]:
             }
         )
     return results
+
+
+def anti_slop_staleness() -> dict[str, Any]:
+    """Return staleness state for the anti-slop runtime-verification check.
+
+    Wires Finding 12 (anti_slop manual-only) into the briefing surface
+    so the manual-only state becomes loud-in-experience rather than
+    silent. Without this surface, anti_slop sits as built-but-not-
+    scheduled — the discipline lives in code but operates only when
+    the operator remembers to invoke it.
+
+    Returns:
+        dict with keys:
+          - ``last_run_ts``: timestamp of most recent SCHEDULED_RUN_END
+            with command=anti-slop, or None if never run.
+          - ``age_seconds``: seconds since last run, or None.
+          - ``last_clean``: bool — was the last run clean? None if never.
+          - ``last_failures``: list of failure descriptions from the
+            most recent run.
+          - ``is_stale``: True if last run was >24h ago OR never run.
+    """
+    try:
+        from divineos.core.ledger import get_connection
+    except ImportError:
+        return {
+            "last_run_ts": None,
+            "age_seconds": None,
+            "last_clean": None,
+            "last_failures": [],
+            "is_stale": True,
+        }
+
+    import json as _json
+    import time as _time
+
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT timestamp, payload FROM system_events "
+            "WHERE event_type = ? "
+            "ORDER BY timestamp DESC LIMIT 50",
+            (EVENT_SCHEDULED_RUN_END,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    # Filter to anti-slop runs specifically. Match both the legacy
+    # top-level name ("anti-slop") and the current grouped form
+    # ("admin anti-slop") so historical events still register as
+    # anti-slop runs after the Finding 26 path-fix.
+    anti_slop_runs: list[tuple[float, dict[str, Any]]] = []
+    for ts, payload in row:
+        try:
+            data = _json.loads(payload) if isinstance(payload, str) else (payload or {})
+        except (ValueError, TypeError):
+            continue
+        cmd = data.get("command", "")
+        if cmd in ("anti-slop", "admin anti-slop") or "anti-slop" in cmd.split():
+            anti_slop_runs.append((float(ts), data))
+
+    if not anti_slop_runs:
+        return {
+            "last_run_ts": None,
+            "age_seconds": None,
+            "last_clean": None,
+            "last_failures": [],
+            "is_stale": True,
+        }
+
+    last_ts, last_data = anti_slop_runs[0]
+    age_seconds = _time.time() - last_ts
+    is_stale = age_seconds > 24 * 3600
+
+    return {
+        "last_run_ts": last_ts,
+        "age_seconds": age_seconds,
+        "last_clean": bool(last_data.get("clean", True)),
+        "last_failures": list(last_data.get("failures") or []),
+        "is_stale": is_stale,
+    }
 
 
 def unresolved_findings_summary() -> str:
