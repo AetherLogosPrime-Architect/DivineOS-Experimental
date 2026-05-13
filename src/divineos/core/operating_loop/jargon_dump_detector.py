@@ -133,7 +133,14 @@ _CALL_EXPR_RE = re.compile(r"\b\w+(?:\.\w+)*\([^)\n]+\)")
 _EQUALITY_OP_RE = re.compile(r"\s(?:==|!=|>=|<=)\s")
 
 # Code-in-prose: subscripts. ``assistant_msgs[-1]``, ``items['key']``.
-_SUBSCRIPT_RE = re.compile(r"\w+\[(?:-?\d+|['\"][^\]\n]+['\"])\]")
+# The identifier-prefix is bounded to 40 chars to prevent catastrophic
+# backtracking on long inputs. Without the bound, ``\w+\[`` causes
+# the regex engine to try matching ``\w+`` at every position, hanging
+# on 100k-character inputs (Aletheia round-ba785844a791 Finding 14).
+# Real production impact: long technical responses with embedded code
+# could hang the post-response-audit hook → killed by timeout →
+# no findings recorded (intersects with the silent-failure pattern).
+_SUBSCRIPT_RE = re.compile(r"\w{1,40}\[(?:-?\d+|['\"][^\]\n]{1,80}['\"])\]")
 
 # Long kebab-case compounds (4+ segments). Engineer-style compound
 # names like ``first-turn-no-user-record`` that get coined for
