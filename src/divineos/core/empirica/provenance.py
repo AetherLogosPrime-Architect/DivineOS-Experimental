@@ -220,6 +220,34 @@ def record_corroboration(
     finally:
         conn.close()
 
+    # Bridge to the denormalized counter on knowledge.corroboration_count
+    # so CLI-driven corroborations drive maturity-promotion (Aletheia
+    # round-ba785844a791 Finding 16 + round-d5d2a48e1478). Without this
+    # bridge, the new empirica framework writes to corroboration_events
+    # but the older maturity-promotion code (which reads the
+    # corroboration_count counter) doesn't see CLI corroborations —
+    # 'divineos corroborate' silently fails to advance maturity.
+    #
+    # Idempotency: the SQL is an atomic SET = SET + 1, so concurrent
+    # bridge calls are safe (no read-modify-write race). Fail-soft on
+    # any error — the corroboration_events insert is the source-of-truth;
+    # the counter is a derived view that backfill_from_legacy_counter
+    # can rebuild if it drifts.
+    try:
+        bridge_conn = _get_ledger_conn()
+        try:
+            bridge_conn.execute(
+                "UPDATE knowledge SET corroboration_count = corroboration_count + 1, "
+                "updated_at = ? WHERE knowledge_id = ?",
+                (recorded_at, knowledge_id),
+            )
+            bridge_conn.commit()
+        finally:
+            bridge_conn.close()
+    except Exception as e:  # noqa: BLE001 — bridge is best-effort; primary
+        # write succeeded; counter desync recoverable via backfill.
+        logger.debug(f"Corroboration-count bridge failed (recoverable): {e}")
+
     logger.debug(
         "Corroboration recorded: {} by {} ({}) for {}",
         event_id,
