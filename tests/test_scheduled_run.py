@@ -69,10 +69,27 @@ class TestHeadlessContext:
 
 class TestWhitelist:
     def test_whitelisted_commands_allowed(self):
-        for cmd in ("anti-slop", "health", "verify", "inspect", "audit", "progress"):
+        # "admin anti-slop" not "anti-slop" — Aletheia round-ba785844a791
+        # Finding 26: anti-slop was moved into the admin group; the
+        # whitelist now uses the multi-token form to match the actual
+        # CLI hierarchy.
+        for cmd in ("admin anti-slop", "health", "verify", "inspect", "audit", "progress"):
             allowed, reason = is_command_allowed_headless(cmd)
             assert allowed, f"{cmd} should be allowed: {reason}"
             assert reason == ""
+
+    def test_legacy_anti_slop_alone_refused(self):
+        """Regression-pin for Finding 26: 'anti-slop' alone (without
+        the 'admin' prefix) must NOT be in the whitelist. If this test
+        fails, someone re-added the legacy top-level path and the
+        spawn-path will fail silently at subprocess-invocation time."""
+        allowed, reason = is_command_allowed_headless("anti-slop")
+        assert not allowed, (
+            "'anti-slop' alone should NOT be in the whitelist after "
+            "Finding 26 fix. The correct entry is 'admin anti-slop' "
+            "because the CLI moved the command into the admin group."
+        )
+        assert "not in headless whitelist" in reason
 
     def test_non_whitelisted_refused(self):
         for cmd in ("learn", "emit", "forget", "mode", "briefing"):

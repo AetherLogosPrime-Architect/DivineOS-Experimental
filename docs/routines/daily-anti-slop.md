@@ -15,9 +15,11 @@ actually enforce what they claim. It's the immune system's self-test.
 
 Task:
 
-1. Run `divineos scheduled run anti-slop --trigger cron`. This wraps
-   `divineos anti-slop` in the safe headless entry-point: whitelist
-   gating, corrigibility pass-through, structured findings capture.
+1. Run `divineos scheduled run "admin anti-slop" --trigger cron`. This
+   wraps `divineos admin anti-slop` in the safe headless entry-point:
+   whitelist gating, corrigibility pass-through, structured findings
+   capture. (Quotes are required because the command name contains a
+   space — it's `admin` group + `anti-slop` subcommand.)
 
 2. Read the CLI output. Anti-slop prints a line per check with pass
    (OK) or fail (FAIL) plus a detail string. The process exits 0 if
