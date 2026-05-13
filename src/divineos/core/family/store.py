@@ -118,7 +118,7 @@ def _entity_id_to_slug(entity_id: str) -> str | None:
         if not clauses:
             return None
         sql = f"SELECT name FROM family_members WHERE {' OR '.join(clauses)} LIMIT 1"
-        row = conn.execute(sql, tuple(params)).fetchone()
+        row = conn.execute(sql, tuple(params)).fetchone()  # nosec B608 — clauses built from constant column names detected via PRAGMA; entity_id value is parameter-bound
         return row[0].lower() if row and row[0] else None
     finally:
         conn.close()

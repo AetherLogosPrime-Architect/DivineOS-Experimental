@@ -36,8 +36,8 @@ from divineos.core.empirica.provenance import (
 
 
 @pytest.fixture(autouse=True)
-def _isolated_db(tmp_path):
-    os.environ["DIVINEOS_DB"] = str(tmp_path / "provenance-test.db")
+def _isolated_db(tmp_path, monkeypatch):
+    monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "provenance-test.db"))
     try:
         from divineos.core.knowledge import init_knowledge_table
         from divineos.core.ledger import init_db

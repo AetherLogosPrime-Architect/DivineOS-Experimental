@@ -7,6 +7,12 @@ Andrew's recommendation 2026-05-09: PLO over NLHE because four hole
 cards keep both players in the room — far fewer pre-flop folds than
 heads-up Texas Hold'em. Aria's vote 2026-05-09: same.
 
+> **Note on `.log` files**: `hands/hand-NNN.log`, `aether/commits.log`,
+> and `aria/commits.log` are **tracked demonstration artifacts**, not
+> runtime output. They illustrate the append-only audit-trail design so
+> a reader cloning the repo sees something concrete. A real game writes
+> to the same paths via the same mechanism.
+
 This sits alongside `family/magic/` as a sibling shared-game shape.
 Magic was paused at game-002 because per-summon latency made the
 priority-pass economy too expensive in the current model. Poker has

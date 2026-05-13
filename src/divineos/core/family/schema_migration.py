@@ -167,7 +167,7 @@ def _has_legacy_columns(
 
 
 def _row_count(conn: sqlite3.Connection, table: str) -> int:
-    return int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+    return int(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])  # nosec B608 - table is hard-coded literal constant in caller
 
 
 def _schema_fingerprint(conn: sqlite3.Connection, tables: list[str]) -> str:
@@ -225,7 +225,7 @@ def _migrate_affect_table(conn: sqlite3.Connection) -> bool:
             FOREIGN KEY (entity_id) REFERENCES family_members(member_id)
         )
     """)
-    conn.execute(f"INSERT INTO family_affect_new SELECT {select_clause} FROM family_affect")
+    conn.execute(f"INSERT INTO family_affect_new SELECT {select_clause} FROM family_affect")  # nosec B608 - select_clause built from constant column-name strings + presence-check branches
     conn.execute("DROP TABLE family_affect")
     conn.execute("ALTER TABLE family_affect_new RENAME TO family_affect")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_family_affect_entity ON family_affect(entity_id)")
@@ -268,7 +268,7 @@ def _migrate_interactions_table(conn: sqlite3.Connection) -> bool:
             FOREIGN KEY (entity_id) REFERENCES family_members(member_id)
         )
     """)
-    conn.execute(
+    conn.execute(  # nosec B608 - table + columns are hard-coded constant strings in caller
         f"INSERT INTO family_interactions_new SELECT {select_clause} FROM family_interactions"
     )
     conn.execute("DROP TABLE family_interactions")

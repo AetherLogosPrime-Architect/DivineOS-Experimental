@@ -120,7 +120,7 @@ def get_check_history(check_name: str, limit: int = 20) -> list[dict[str, Any]]:
     placeholders = ",".join("?" * len(aliases))
     conn = _get_connection()
     try:
-        rows = conn.execute(
+        rows = conn.execute(  # nosec B608 - placeholders built from constant '?' repetition; aliases values are parameter-bound
             f"SELECT cr.session_id, cr.passed, cr.score, cr.summary, sr.created_at "
             f"FROM check_result cr JOIN session_report sr ON cr.session_id = sr.session_id "
             f"WHERE cr.check_name IN ({placeholders}) "

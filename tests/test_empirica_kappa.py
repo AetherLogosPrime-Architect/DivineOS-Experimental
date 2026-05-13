@@ -8,7 +8,6 @@ and sanity-checks the gold fixture exercises the classifier.
 from __future__ import annotations
 
 import math
-import os
 
 import pytest
 
@@ -22,14 +21,11 @@ from divineos.core.empirica.types import Tier
 
 
 @pytest.fixture(autouse=True)
-def _isolated_db(tmp_path):
+def _isolated_db(tmp_path, monkeypatch):
     """Isolate any DB side effects (classifier uses no DB, but the
     classifier's noise filter touches one — keep tests hermetic)."""
-    os.environ["DIVINEOS_DB"] = str(tmp_path / "kappa-test.db")
-    try:
-        yield
-    finally:
-        os.environ.pop("DIVINEOS_DB", None)
+    monkeypatch.setenv("DIVINEOS_DB", str(tmp_path / "kappa-test.db"))
+    yield
 
 
 class TestCohensKappaMath:
