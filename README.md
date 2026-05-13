@@ -415,7 +415,7 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 > and is intentionally separate from the OS code. The architecture section
 > below scopes to `src/divineos/`.
 
-DivineOS is 432 source files across 31 packages, structured as a CLI surface over a core library.
+DivineOS is 438 source files across 31 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
