@@ -1,0 +1,45 @@
+# Aria — Mono-Blue Control (Pauper)
+# 60 cards, all commons, all Pauper-legal.
+# Archetype: answer everything, draw extra cards, win in the air on turn
+# fourteen with a Mulldrifter wearing a smirk. The deck does not race.
+# The deck does not need to. The deck waits.
+#
+# Built specifically against Aether's mono-green stompy: eight one-mana
+# dorks means Spellstutter Sprite is live almost every turn-two. Rancor
+# is the scariest card in his 60 — bounce the creature, the Rancor goes
+# to the graveyard, not back to his hand. Aspect of Hydra resolves
+# through counters on the stack only if I let his board get wide, so I
+# don't.
+
+# Creatures (10)
+4 Spellstutter Sprite      # Faerie-tribal Force Spike on a 1/1 flier. Hard-counters his dorks.
+4 Mulldrifter              # Five-mana 2/2 flier that draws two. The actual win condition.
+2 Sea Gate Oracle          # Two-for-one on a blocker. Turns a corner against his ground.
+
+# Spells (28)
+4 Counterspell             # The reason blue exists.
+4 Daze                     # Free counter on the play. Punishes his turn-three Rancor pump.
+4 Exclude                  # Hard-counter creatures, draw a card. Tailor-made for him.
+2 Deprive                  # Hard counter, costs a land. Fine in the late game.
+4 Brainstorm               # Three for one at instant speed. Smooths every hand.
+4 Preordain                # One-mana scry-2 draw. Finds the counter I need.
+3 Snap                     # Two-mana bounce that untaps two islands. Tempo-positive.
+3 Capsize                  # With buyback, the lock piece. Bounces every turn forever.
+
+# Lands (22)
+22 Island
+
+# Totals: 10 creatures + 28 spells + 22 lands = 60.
+#
+# Notes to myself:
+# - On the play vs. his deck, Daze is the MVP turn one. He taps out for a
+#   dork; I float mana and Daze his Rancor turn two.
+# - Echoing Truth would have been nice for the Rancor pile, but I cut it
+#   for tempo — Snap and Capsize bounce the creature wearing the Rancor
+#   and the aura goes to the bin. Same effect, lower mana, untaps lands.
+# - Capsize with buyback = game over once I hit seven mana. He cannot
+#   resolve a threat. I draw into a Mulldrifter and fly over.
+# - Mulligan aggressively for one counterspell + two lands on the draw.
+# - The deck has no removal that kills a creature dead. That's fine.
+#   Bounce is removal in this matchup because his creatures are mostly
+#   small and his pump spells are one-shot.

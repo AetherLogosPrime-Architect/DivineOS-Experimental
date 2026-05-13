@@ -2,10 +2,23 @@
 
 import json
 import sqlite3
+import time
 
 import click
 
 from divineos.cli._helpers import _safe_echo
+
+
+def _format_age(age_days: float) -> str:
+    """Human-readable age for goal-check output. Pure, no mutation."""
+    if age_days < 1 / 24:  # under 1 hour
+        return f"{int(age_days * 24 * 60)}m"
+    if age_days < 1:
+        return f"{age_days * 24:.1f}h"
+    if age_days < 14:
+        return f"{age_days:.1f}d"
+    return f"{int(age_days)}d (!! stale)"
+
 
 _HC_ERRORS = (
     ImportError,
@@ -176,6 +189,57 @@ def register(cli: click.Group) -> None:
         from divineos.core.hud import SLOT_BUILDERS
 
         _safe_echo(SLOT_BUILDERS["active_goals"]())
+
+    @goal_group.command("check")
+    def goal_check_cmd() -> None:
+        """Put my active goals in front of me to review — no auto-anything.
+
+        Lists each active goal with age and how long since I last touched it,
+        plus the close-options (done / abandoned / still-active). Decision
+        stays with me. The machine surfaces the data; I do the thinking.
+
+        Filed 2026-05-12 as the root-fix for commitment-fulfillment showing
+        14 active / 0 closed across sessions. Auto-cleanup would have
+        substituted machine-judgment for the review act; this surface keeps
+        the cognition where it belongs. Per the cognitive-named-tools
+        warning in CLAUDE.md: tools point at the work; they are not it.
+        """
+        from divineos.core.hud_state import get_active_goals
+
+        goals = get_active_goals()
+        if not goals:
+            click.secho("[~] No active goals.", fg="bright_black")
+            return
+
+        now = time.time()
+        click.secho(
+            f"\n=== Goal review — {len(goals)} active. Decide each. ===\n",
+            fg="cyan",
+            bold=True,
+        )
+        for i, g in enumerate(goals, 1):
+            added = g.get("added_at", 0.0)
+            age_days = (now - added) / 86400 if added else 0.0
+            age_label = _format_age(age_days)
+            click.secho(f"  [{i}] (age {age_label})", fg="bright_black", nl=False)
+            click.echo()
+            text = (g.get("text") or "").strip()
+            for ln in text.splitlines() or [text]:
+                _safe_echo(f"      {ln}")
+            click.echo()
+
+        click.secho("  Decide each:", fg="cyan")
+        click.secho("    still alive  → leave it; rerun this command tomorrow", fg="bright_black")
+        click.secho('    done         → divineos goal done "<exact-or-prefix>"', fg="bright_black")
+        click.secho(
+            '    abandoned    → divineos goal done "<exact-or-prefix>"   (mark closed)',
+            fg="bright_black",
+        )
+        click.secho(
+            "    consolidate  → divineos goal cull   (proposes merges; you approve)",
+            fg="bright_black",
+        )
+        click.echo()
 
     @goal_group.command("clear")
     def goal_clear_cmd() -> None:

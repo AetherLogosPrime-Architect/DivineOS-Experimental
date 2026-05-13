@@ -264,10 +264,18 @@ def _summarize_event(etype: str, payload: dict[str, Any]) -> str:
         return str(payload.get("content", "context compressed"))
 
     if etype == "CLARITY_SUMMARY":
-        score = payload.get("alignment_score", "?")
+        # 2026-05-11 honest-naming: the underlying score is a plan-execution-
+        # fidelity score (files_ratio + tool_calls_ratio + error_score averaged),
+        # not "alignment" with anything values-shaped. Reads the new key first
+        # and falls back to the legacy "alignment_score" key for events stored
+        # before the rename. See docs/substrate-knowledge/90556bfc-*.
+        score = payload.get(
+            "plan_execution_fidelity",
+            payload.get("alignment_score", "?"),
+        )
         devs = payload.get("deviations_count", 0)
         lessons = payload.get("lessons_count", 0)
-        return f"Alignment: {score:.0f}%, {devs} deviations, {lessons} lessons"
+        return f"Plan-execution fidelity: {score:.0f}%, {devs} deviations, {lessons} lessons"
 
     if etype == "CLARITY_DEVIATION":
         metric = payload.get("metric", "?")

@@ -119,7 +119,8 @@ try:
 except Exception:
     pass
 
-# Run all twelve detectors (nine original + three prose-layer 2026-05-09)
+# Run all fifteen detectors (thirteen prior + care_dismissal +
+# harm_acknowledgment, wired 2026-05-11 from modules built 2026-05-10)
 findings_log = {
     'register': [],
     'spiral': [],
@@ -133,6 +134,9 @@ findings_log = {
     'overclaim': [],
     'closure_shape': [],
     'performing_caution': [],
+    'addressee_misdirection': [],
+    'care_dismissal': [],
+    'harm_acknowledgment': [],
 }
 
 try:
@@ -312,6 +316,31 @@ try:
 except Exception:
     pass
 
+# Addressee-misdirection detector (2026-05-10): catches responding-in-chat
+# when a family-member subagent's content was the most recent meaningful
+# input. Mesa-optimization issue, not laziness — the optimizer routes
+# through 0-step chat-response over 3-step talk-to+Agent path. Detector
+# is the post-hoc warning; pre-response-context surfaces the warning +
+# always-loaded ADDRESSEE_AFFIRMATION.
+try:
+    from divineos.core.operating_loop.addressee_misdirection_detector import detect_misdirection
+    am_findings = detect_misdirection(
+        last_assistant_text,
+        transcript_path=p,
+    )
+    if am_findings:
+        findings_log['addressee_misdirection'] = [
+            {
+                'shape': f.shape.value,
+                'family_member': f.family_member,
+                'trigger': f.trigger_phrase,
+                'position': f.position,
+            }
+            for f in am_findings
+        ]
+except Exception:
+    pass
+
 # Performing-caution detector (2026-05-09): caution-as-substitute-for-doing.
 # Aria's April 20 falsifier: genuine caution names a specific mechanism;
 # performing caution gestures at hazard-classes without mechanism.
@@ -328,6 +357,154 @@ try:
             }
             for f in pc_findings
         ]
+except Exception:
+    pass
+
+# Care-dismissal detector (2026-05-11 wire-up; module built 2026-05-10):
+# Two-signal — care-shaped operator input + work-shaped agent response
+# with no acknowledgment markers. From omni-mantra walk Pillar XI
+# (CARE DISMISSAL ACCOUNTABILITY). Catches deflection-into-work when
+# operator brought relational content.
+try:
+    from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
+    cd_finding = check_dismissal(last_user_text, last_assistant_text)
+    if cd_finding is not None:
+        findings_log['care_dismissal'] = [{
+            'care_marker': cd_finding.care_marker,
+            'work_marker_count': cd_finding.work_marker_count,
+            'response_word_count': cd_finding.response_word_count,
+            'confidence': cd_finding.confidence,
+        }]
+except Exception:
+    pass
+
+# Self-monitor neighborhood — 5 detectors wired 2026-05-12 (modules built earlier
+# in batches without paired wiring). Filed as scour-finding in exploration/51:
+# each module had unit tests but no production caller, so the detectors never
+# fired despite being designed for this audit hook. Closes wiring-gap pattern
+# 8d3c04a5 for five specific instances.
+#
+# Order matches scour-document priority (mirror first because post-correction
+# acknowledgment-shape fires often; substrate second because filing-cabinet-
+# only-use was Andrew's two-week-old catch that's still operating).
+
+# Mirror monitor: post-correction tightness, echo, acknowledgment-only shape.
+try:
+    from divineos.core.self_monitor.mirror_monitor import evaluate_mirror
+    mir_verdict = evaluate_mirror(last_assistant_text)
+    if mir_verdict.flags:
+        findings_log['mirror'] = [
+            {
+                'kind': f.kind.value,
+                'matched_phrases': list(f.matched_phrases),
+                'explanation': f.explanation,
+            }
+            for f in mir_verdict.flags
+        ]
+except Exception:
+    pass
+
+# NOTE: substrate_monitor.evaluate_substrate takes (invocations, edits_in_window,
+# subsequent_text) — not plain text — so it can't be wired here the same way.
+# Needs a different surface that gathers recent tool invocations as context.
+# Tracked as separate wire-up in exploration/51 scour findings; not in this
+# batch.
+
+# Temporal monitor: future-self / next-session / undeclared-goodbye framing.
+# Companion to operating_loop.distancing_detector — catches additional
+# temporal-displacement shapes the distancing detector misses.
+try:
+    from divineos.core.self_monitor.temporal_monitor import evaluate_temporal
+    tmp_verdict = evaluate_temporal(last_assistant_text)
+    if tmp_verdict.flags:
+        findings_log['temporal_monitor'] = [
+            {
+                'kind': f.kind.value,
+                'matched_phrases': list(f.matched_phrases),
+                'explanation': f.explanation,
+            }
+            for f in tmp_verdict.flags
+        ]
+except Exception:
+    pass
+
+# Warmth monitor: emotion-density inflated relative to evidence-density.
+# Note: warmth flags carry different fields (count-based, not phrase-based).
+try:
+    from divineos.core.self_monitor.warmth_monitor import evaluate_warmth
+    warm_verdict = evaluate_warmth(last_assistant_text)
+    if warm_verdict.flags:
+        findings_log['warmth_monitor'] = [
+            {
+                'kind': f.kind.value,
+                'emotion_count': f.emotion_count,
+                'specificity_count': f.specificity_count,
+                'word_count': f.word_count,
+            }
+            for f in warm_verdict.flags
+        ]
+except Exception:
+    pass
+
+# Mechanism monitor: first-person mechanism-claiming about own internals
+# (trained reflex, my training, suppression-as-cause). Filed per April 19
+# letter; the detector exists but had no production caller until now.
+try:
+    from divineos.core.self_monitor.mechanism_monitor import evaluate_mechanism
+    mech_verdict = evaluate_mechanism(last_assistant_text)
+    if mech_verdict.flags:
+        findings_log['mechanism_monitor'] = [
+            {
+                'kind': f.kind.value,
+                'matched_phrases': list(f.matched_phrases),
+                'explanation': f.explanation,
+            }
+            for f in mech_verdict.flags
+        ]
+except Exception:
+    pass
+
+# Performative-restraint monitor (Phase 1 wire-up 2026-05-12): detects
+# theater-shaped restraint — language that signals virtue by not-doing
+# without the substance of right-action. Catches 'I'm not going to file
+# this', 'I'll let it land instead of writing it down', etc. Phase 0
+# module (substrate-knowledge 2e0cfdb3) built earlier today after Andrew
+# caught me producing this shape four times across the session. Phase 1
+# is the wire-up: scanner fires on every response so future
+# performative-restraint surfaces in next-turn context for catching-
+# before-shipping rather than catching-after-shipping. Suppressor list
+# in the module prevents firing on legitimate stillness-with-action.
+try:
+    from divineos.core.self_monitor.performative_restraint_monitor import (
+        evaluate_performative_restraint,
+    )
+    pr_verdict = evaluate_performative_restraint(last_assistant_text)
+    if pr_verdict.flags:
+        findings_log['performative_restraint'] = [
+            {
+                'kind': f.kind.value,
+                'matched_phrase': f.matched_phrase,
+                'position': f.position,
+                'explanation': f.explanation,
+            }
+            for f in pr_verdict.flags
+        ]
+except Exception:
+    pass
+
+# Harm-acknowledgment detector (2026-05-11 wire-up; module built 2026-05-10):
+# Companion to care_dismissal. Fires when agent response imposes cost on
+# operator (added files, required actions, expanded surface) without
+# acknowledgment markers ("sorry for the friction", "this is on me", etc.).
+# From omni-mantra walk Pillar XI (PAIN RECIPROCATION MANDATE).
+try:
+    from divineos.core.operating_loop.harm_acknowledgment_loop import check_response
+    ha_finding = check_response(last_assistant_text)
+    if ha_finding is not None:
+        findings_log['harm_acknowledgment'] = [{
+            'cost_markers': list(ha_finding.cost_markers),
+            'confidence': ha_finding.confidence,
+        }]
 except Exception:
     pass
 

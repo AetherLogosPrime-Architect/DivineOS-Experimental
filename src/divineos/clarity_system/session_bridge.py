@@ -177,7 +177,11 @@ def run_clarity_analysis(analysis: object) -> dict:
         "deviations": deviations,
         "lessons": lessons,
         "recommendations": recommendations,
-        "alignment_score": summary.plan_vs_actual.alignment_score,
+        # 2026-05-11 rename: plan_execution_fidelity is the honest field name;
+        # alignment_score key retained for backward-compat with legacy callers
+        # reading from this return dict.
+        "plan_execution_fidelity": summary.plan_vs_actual.plan_execution_fidelity,
+        "alignment_score": summary.plan_vs_actual.plan_execution_fidelity,
     }
 
 
@@ -186,14 +190,16 @@ def _emit_clarity_events(session_id, summary, deviations, lessons):
     try:
         from .event_integration import EventEmissionInterface
 
-        # Emit summary event
+        # Emit summary event. Parameter name on emit_summary_event remains
+        # 'alignment_score' for caller-API backward-compat; the value is
+        # now read from plan_execution_fidelity (the honest dataclass field).
         EventEmissionInterface.emit_summary_event(
             session_id=session_id,
             summary_id=summary.id,
             deviations_count=len(deviations),
             lessons_count=len(lessons),
             recommendations_count=len(summary.recommendations),
-            alignment_score=summary.plan_vs_actual.alignment_score,
+            alignment_score=summary.plan_vs_actual.plan_execution_fidelity,
         )
 
         # Emit individual deviation events (high severity only)

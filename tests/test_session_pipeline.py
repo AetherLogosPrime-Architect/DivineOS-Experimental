@@ -175,7 +175,10 @@ class TestQualityGateAssessment:
         ]
         verdict = assess_session_quality(checks)
         assert verdict.action == "BLOCK"
-        assert "correctness" in verdict.reason.lower()
+        # 2026-05-11 rename: block-reason text now refers to test-output signal
+        # (the honest name); legacy "correctness" key still recognized via
+        # backward-compat read-shim.
+        assert "test-output signal" in verdict.reason.lower()
 
     def test_downgrade_on_multiple_failures(self):
         from divineos.cli.pipeline_gates import assess_session_quality

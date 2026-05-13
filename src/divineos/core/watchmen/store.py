@@ -296,6 +296,15 @@ def submit_finding(
         tags_json = json.dumps(tags or [])
         stance_str = resolved_stance.value if resolved_stance else ""
 
+        # Reverted 2026-05-12 (code-does-not-think directive):
+        # The previous version auto-mapped CONFIRMS-stance to RESOLVED-status
+        # at filing time. That was the code making a judgment call (status)
+        # downstream of an actor's data declaration (stance). The recognition-
+        # vs-issue distinction is real and worth honoring — but the right
+        # place to honor it is in the summary/aggregate layer (filter by
+        # stance, not status), so the actor still owns the status decision.
+        # See get_watchmen_stats() for the recognition-aware aggregate.
+
         conn.execute(
             "INSERT INTO audit_findings "
             "(finding_id, round_id, created_at, actor, severity, category, "

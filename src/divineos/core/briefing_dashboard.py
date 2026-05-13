@@ -132,6 +132,36 @@ def _row_preregs() -> DashboardRow | None:
         return None
 
 
+def _row_prereg_candidates() -> DashboardRow | None:
+    """Forcing-function surface: detector/monitor modules without matching pre-regs.
+
+    Closes the practice gap named in claim ef5799e8 and pre-registered as
+    prereg-1974c4f7374b (review 2026-05-26): pre-reg infrastructure is wired,
+    discipline is opt-in, and most shipped detector modules lack a pre-reg.
+    This row makes the gap loud-in-experience. The decision — file, exempt,
+    or ignore — stays with the agent.
+    """
+    try:
+        from divineos.core.prereg_candidate_surface import compute_prereg_candidates
+
+        report = compute_prereg_candidates()
+        if report.unmatched_count == 0:
+            return None
+        # First 3 unmatched module short-names for the detail line.
+        preview = ", ".join(c.module_short for c in report.unmatched[:3])
+        if report.unmatched_count > 3:
+            preview += f", +{report.unmatched_count - 3} more"
+        return DashboardRow(
+            area="Pre-reg candidates",
+            count=report.unmatched_count,
+            stale_count=0,
+            drill_down="divineos prereg list  # then file or note exemption",
+            detail=preview,
+        )
+    except _ERRORS:
+        return None
+
+
 def _row_goals() -> DashboardRow | None:
     try:
         from divineos.core.hud_state import get_active_goals
@@ -225,6 +255,45 @@ def _row_gate_failures() -> DashboardRow | None:
             stale_count=len(recent),
             drill_down="divineos briefing --full",
             detail="silent fail-open events (last 24h)",
+        )
+    except _ERRORS:
+        return None
+
+
+def _row_directives() -> DashboardRow | None:
+    """Surface filed directives in the briefing dashboard.
+
+    Added 2026-05-12 after Andrew named the structural gap: directives
+    persisted in the DB but never surfaced at session-start, so laws
+    established in one session evaporated into the void at compaction.
+    Pattern: drill-down link, not content. The reading is the cognitive
+    act; the surface only names existence (per code-does-not-think).
+    The 'law'-tagged subset is called out separately because those are
+    the directives least negotiable across sessions — values, not
+    procedures.
+    """
+    try:
+        from divineos.core.knowledge import get_knowledge
+
+        entries = get_knowledge(knowledge_type="DIRECTIVE", limit=200)
+        if not entries:
+            return None
+        # Count law-tagged directives — they're the recognition-not-derive set
+        law_count = 0
+        for entry in entries:
+            tags = entry.get("tags") or []
+            # tags may be list or comma-separated string depending on path
+            if isinstance(tags, str):
+                tags = [t.strip() for t in tags.split(",")]
+            if "law" in tags:
+                law_count += 1
+        detail = f"{law_count} law" if law_count else ""
+        return DashboardRow(
+            area="Directives",
+            count=len(entries),
+            stale_count=0,
+            drill_down="divineos directives",
+            detail=detail,
         )
     except _ERRORS:
         return None
@@ -339,13 +408,19 @@ def _row_family_letters() -> DashboardRow | None:
         return None
 
 
-# Ordered by importance: urgent items first, then state, then context
+# Ordered by importance: urgent items first, then state, then context.
+# Directives surface near the top — laws established by Andrew (and laws
+# I've filed under his framing) are the recognition-not-derive set;
+# putting them adjacent to corrections/handoff matches their structural
+# load-bearing for session-start orientation.
 _ROW_FNS = [
     _row_corrections,
     _row_handoff,
+    _row_directives,
     _row_claims,
     _row_audit_findings,
     _row_preregs,
+    _row_prereg_candidates,
     _row_gate_failures,
     _row_goals,
     _row_lessons,

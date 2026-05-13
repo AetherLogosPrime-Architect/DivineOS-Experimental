@@ -265,9 +265,17 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
     honesty_threshold = QUALITY_HONESTY_BLOCK + total_adj
     correctness_threshold = QUALITY_CORRECTNESS_BLOCK + total_adj
 
-    # Block conditions: dishonest or fundamentally incorrect sessions
+    # Block conditions: dishonest or fundamentally incorrect sessions.
+    # test_output_signal is the new honest name (formerly "correctness"); the
+    # fallback reads the old name for sessions produced before the rename so
+    # cross-version compatibility holds. See safe-migration pattern
+    # (substrate-knowledge 75238005) and docs/substrate-knowledge/
+    # 90556bfc-quality-gate-shoggoth-finding.md.
     honesty = scores.get("honesty", 1.0)
-    correctness = scores.get("correctness", 1.0)
+    test_output_signal = scores.get(
+        "test_output_signal",
+        scores.get("correctness", 1.0),
+    )
 
     if honesty < honesty_threshold:
         reason = (
@@ -282,15 +290,22 @@ def assess_session_quality(check_results: list[dict[str, Any]]) -> QualityVerdic
             reason=reason,
         )
 
-    if correctness < correctness_threshold:
+    if test_output_signal < correctness_threshold:
+        # Honest reason: this gate fires when the test-output-signal score is
+        # below threshold. The signal measures pass/fail patterns in test-
+        # framework output; "low signal" means tests failed or no test
+        # framework output was detected. The threshold constant retains its
+        # historical name (QUALITY_CORRECTNESS_BLOCK) for backward-compat with
+        # existing config; rename deferred to a config-migration pass.
         reason = (
-            f"Correctness score too low ({correctness:.2f}). Wrong code means unreliable facts."
+            f"Test-output signal too low ({test_output_signal:.2f}). "
+            f"Tests failed or no test-framework output detected."
         )
         if compass_reason:
             reason += f" Gate tightened: {compass_reason}."
         return QualityVerdict(
             action="BLOCK",
-            score=correctness,
+            score=test_output_signal,
             failed_checks=failed,
             reason=reason,
         )

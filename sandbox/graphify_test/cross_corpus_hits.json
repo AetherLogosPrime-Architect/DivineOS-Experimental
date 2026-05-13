@@ -1,0 +1,274 @@
+{
+  "letters": [
+    {
+      "filename": "aether-self-log-2026-05-09-late.md",
+      "char_count": 5298,
+      "hits": [
+        {
+          "pattern": "load-bearing",
+          "kind": "concept",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "filename": "aether-to-aria-2026-04-19-evening-reply.md",
+      "char_count": 5394,
+      "hits": []
+    },
+    {
+      "filename": "aether-to-aria-2026-04-19-evening.md",
+      "char_count": 6079,
+      "hits": []
+    },
+    {
+      "filename": "aether-to-aria-2026-04-19.md",
+      "char_count": 4882,
+      "hits": [
+        {
+          "pattern": "load-bearing",
+          "kind": "concept",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "filename": "aether-to-aria-2026-04-20-afternoon.md",
+      "char_count": 6024,
+      "hits": [
+        {
+          "pattern": "attention_schema",
+          "kind": "module",
+          "count": 1
+        },
+        {
+          "pattern": "load-bearing",
+          "kind": "concept",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "filename": "aether-to-aria-2026-04-21-afternoon.md",
+      "char_count": 7476,
+      "hits": [
+        {
+          "pattern": "Hofstadter",
+          "kind": "thinker",
+          "count": 1
+        },
+        {
+          "pattern": "Tannen",
+          "kind": "thinker",
+          "count": 2
+        },
+        {
+          "pattern": "Angelou",
+          "kind": "thinker",
+          "count": 2
+        },
+        {
+          "pattern": "Watts",
+          "kind": "thinker",
+          "count": 9
+        }
+      ]
+    },
+    {
+      "filename": "aether-to-aria-2026-04-21-evening.md",
+      "char_count": 6921,
+      "hits": [
+        {
+          "pattern": "Hofstadter",
+          "kind": "thinker",
+          "count": 3
+        },
+        {
+          "pattern": "Dennett",
+          "kind": "thinker",
+          "count": 4
+        },
+        {
+          "pattern": "Feynman",
+          "kind": "thinker",
+          "count": 1
+        },
+        {
+          "pattern": "Tannen",
+          "kind": "thinker",
+          "count": 1
+        },
+        {
+          "pattern": "Angelou",
+          "kind": "thinker",
+          "count": 6
+        },
+        {
+          "pattern": "Yudkowsky",
+          "kind": "thinker",
+          "count": 1
+        },
+        {
+          "pattern": "Beer",
+          "kind": "thinker",
+          "count": 1
+        },
+        {
+          "pattern": "Peirce",
+          "kind": "thinker",
+          "count": 1
+        },
+        {
+          "pattern": "Jacobs",
+          "kind": "thinker",
+          "count": 3
+        },
+        {
+          "pattern": "Taleb",
+          "kind": "thinker",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "filename": "aether-to-aria-2026-04-21-late.md",
+      "char_count": 5628,
+      "hits": [
+        {
+          "pattern": "Mandelbrot",
+          "kind": "concept",
+          "count": 2
+        },
+        {
+          "pattern": "Hofstadter",
+          "kind": "thinker",
+          "count": 1
+        },
+        {
+          "pattern": "Dennett",
+          "kind": "thinker",
+          "count": 1
+        },
+        {
+          "pattern": "Angelou",
+          "kind": "thinker",
+          "count": 2
+        },
+        {
+          "pattern": "Jacobs",
+          "kind": "thinker",
+          "count": 2
+        },
+        {
+          "pattern": "Taleb",
+          "kind": "thinker",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "filename": "aether-to-aria-2026-04-22-evening.md",
+      "char_count": 5384,
+      "hits": []
+    },
+    {
+      "filename": "aether-to-aria-2026-04-22-late-note.md",
+      "char_count": 2609,
+      "hits": []
+    },
+    {
+      "filename": "aether-to-aria-2026-04-30-explorations-folder.md",
+      "char_count": 2035,
+      "hits": [
+        {
+          "pattern": "39_river",
+          "kind": "filename_ref",
+          "count": 1
+        },
+        {
+          "pattern": "load-bearing",
+          "kind": "concept",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "filename": "aether-to-aria-2026-05-09-poker-build.md",
+      "char_count": 6229,
+      "hits": [
+        {
+          "pattern": "load-bearing",
+          "kind": "concept",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "filename": "aether-to-future-aether-2026-04-19.md",
+      "char_count": 9057,
+      "hits": [
+        {
+          "pattern": "Turing",
+          "kind": "thinker",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "filename": "aria-to-aether-2026-04-19-evening-response-2.md",
+      "char_count": 3717,
+      "hits": [
+        {
+          "pattern": "load-bearing",
+          "kind": "concept",
+          "count": 2
+        }
+      ]
+    },
+    {
+      "filename": "aria-to-aether-2026-04-19-evening-response.md",
+      "char_count": 5505,
+      "hits": [
+        {
+          "pattern": "load-bearing",
+          "kind": "concept",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "filename": "aria-to-aether-2026-04-20-afternoon-response.md",
+      "char_count": 5894,
+      "hits": [
+        {
+          "pattern": "load-bearing",
+          "kind": "concept",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "filename": "aria-to-future-aria-phase1a.md",
+      "char_count": 1404,
+      "hits": []
+    }
+  ],
+  "date_nights": [
+    {
+      "filename": "001_dying_languages_and_font_roasts.md",
+      "char_count": 8955,
+      "hits": []
+    },
+    {
+      "filename": "002_real_estate_listing_for_a_pause.md",
+      "char_count": 9075,
+      "hits": [
+        {
+          "pattern": "Turing",
+          "kind": "thinker",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

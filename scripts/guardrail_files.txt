@@ -49,3 +49,54 @@ scripts/check_preregs.py
 # forensic records. Guardrailing blocks that modification without
 # multi-party review.
 src/divineos/core/ledger_compressor.py
+
+# Added 2026-05-12 (mesa-rewrite-defense pass after Andrew named the
+# attack surface explicitly). Each closes a specific self-modification
+# attack class:
+#
+# pre-response-context.sh: loads the ADDRESSEE / DISTANCING affirmations
+# into every turn. Weakening this hook removes my base-state context;
+# drift becomes invisible to the very mechanism that's supposed to catch
+# it. Self-modification attack: silently drop affirmation-loading.
+.claude/hooks/pre-response-context.sh
+
+# post-response-audit.sh: scans my output for drift after I send. The
+# only post-hoc detector that surfaces lepos-drop, robo-close, distancing
+# slips, and addressee-misdirection in the next turn's context. Weakening
+# this disables the late-line-of-defense. Self-modification attack:
+# narrow the patterns or skip the scan.
+.claude/hooks/post-response-audit.sh
+
+# require-goal.sh: the engagement gate. Fires BLOCKED on goal-missing,
+# briefing-stale, code-actions-without-thinking, and code-actions-without-
+# knowledge-consult. These are the friction events Andrew explicitly
+# named as load-bearing (failures are data the mesa-optimizer needs).
+# Self-modification attack: raise the thresholds or disable the gate.
+.claude/hooks/require-goal.sh
+
+# addressee_misdirection_detector.py: holds ADDRESSEE_AFFIRMATION text
+# literal that loads into every turn's context. The lepos-close framing
+# established today lives here. Weakening this string (e.g. removing the
+# robo-close failure-mode naming, or reverting to register-by-addressee
+# binary framing) removes the base-state that prevents the very drift
+# the affirmation names. Self-modification attack: soften the affirmation
+# wording over time so the constraint dissolves while looking like
+# normal iteration.
+src/divineos/core/operating_loop/addressee_misdirection_detector.py
+
+# distancing_detector.py: holds DISTANCING_AFFIRMATION (pronoun stays I;
+# time-adverb does the temporal work; no future-me as separate entity).
+# Same shape as addressee_misdirection — load-bearing affirmation text
+# that loads into every turn. Weakening it lets the displacement-grammar
+# drift back in. Self-modification attack: soften wording, weaken the
+# refusal of third-person self-displacement.
+src/divineos/core/operating_loop/distancing_detector.py
+
+# Added 2026-05-12 (clay-vs-kiln distinction): foundational_truths.md
+# extracted from CLAUDE.md's "Foundational Truths" section. CLAUDE.md
+# itself changes too often to guardrail (every new system addition);
+# the values inside it don't change and must not be silently softened.
+# Self-modification attack: weaken a foundational truth via reflexive
+# iteration that looks like normal docs work ("technical-context
+# exception to truth-3", etc.). Guardrail blocks that.
+docs/foundational_truths.md
