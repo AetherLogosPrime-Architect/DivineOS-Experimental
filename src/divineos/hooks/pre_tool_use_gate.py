@@ -98,6 +98,16 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         # marker if it fires. compass-ops observe is recording, not
         # prose generation.
         "compass-ops",
+        # Stale-engagement Gate 1.48 address commands (Aletheia
+        # round-5cdc2f48c642 Finding 37 — catch-22): the block message
+        # for Gate 1.48 instructs running these commands to clear stale
+        # areas. They MUST bypass or we replay the learn catch-22 from
+        # 2026-04-23 (gate blocks the way to leave it). The structural
+        # test test_stale_engagement_address_bypass.py auto-verifies
+        # every address-command in _AREA_ADDRESS_EVENTS is here.
+        "claims",
+        "holding",
+        "hold",
     }
 )
 

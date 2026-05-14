@@ -72,3 +72,43 @@ def test_reorder_preserves_all_rows() -> None:
     out = _reorder_u_shape(rows)
     assert len(out) == len(rows)
     assert {r.area for r in out} == {r.area for r in rows}
+
+
+def test_reorder_preserves_canonical_order_when_all_stale_counts_zero() -> None:
+    """Aletheia round-5cdc2f48c642 Finding 39: when stale-count is
+    uniform across all rows (especially the all-fresh case), the
+    reorder has no signal to amplify and would scramble canonical
+    _ROW_FNS order based on sort stability — burying orientation
+    rows (directives, project-purpose) in the middle of the U.
+    Skip the reorder."""
+    rows = [
+        _row("directives", 0),
+        _row("compass", 0),
+        _row("project-purpose", 0),
+        _row("family-letters", 0),
+        _row("explorations", 0),
+        _row("holding", 0),
+    ]
+    out = _reorder_u_shape(rows)
+    assert out == rows, (
+        "All-stale-zero case must preserve canonical order; "
+        "Finding-39 regression — fresh orientation rows would be "
+        "scrambled into the middle of the U with no semantic basis."
+    )
+
+
+def test_reorder_preserves_canonical_order_when_all_stale_counts_uniform() -> None:
+    """Same guard for the all-equal-nonzero case: signal is uniform
+    so the U-shape has nothing to amplify."""
+    rows = [
+        _row("a", 5),
+        _row("b", 5),
+        _row("c", 5),
+        _row("d", 5),
+        _row("e", 5),
+    ]
+    out = _reorder_u_shape(rows)
+    assert out == rows, (
+        "Uniform-nonzero-stale case must preserve canonical order; "
+        "reordering with no signal differential is pure scramble."
+    )

@@ -131,17 +131,40 @@ def _learns_since(since_ts: float) -> list[dict]:
     return out
 
 
+_STEM_SUFFIXES = ("ings", "ing", "ed", "es", "s", "ly")
+
+
+def _stem(token: str) -> str:
+    """Crude stemming — strip a single common suffix if the remainder
+    is still 3+ chars. Calibration per Aletheia round-5cdc2f48c642
+    Finding 38: 'ignored' / 'ignore' / 'patterns' / 'pattern' missed
+    in v1; stemming closes the easy paraphrase shape without an NLP
+    dependency.
+    """
+    for suf in _STEM_SUFFIXES:
+        if len(token) >= len(suf) + 3 and token.endswith(suf):
+            return token[: -len(suf)]
+    return token
+
+
 def unacknowledged_warnings(session_id: str | None = None) -> list[dict]:
     """Return warnings surfaced this session with no acknowledging
     learn entry filed afterward.
 
-    Acknowledgment heuristic — minimal but real:
-      * Warning is acknowledged if any LEARN event filed AFTER the
-        SURFACED_WARNING contains the warning_id in its content, OR
-        contains 3+ tokens (length >= 4) overlapping the warning text.
+    Acknowledgment heuristic — minimal but real (revised after
+    Aletheia round-5cdc2f48c642 Finding 38: v1 over-flagged paraphrase
+    acks, which trains 'ignore the dream report' — the exact failure-
+    mode this exists to prevent):
 
-    Errs toward FLAGGING unacknowledged. Over-surfacing the load-
-    bearing failure-mode is the right side of the trade.
+      * Warning is acknowledged if any LEARN event filed AFTER the
+        SURFACED_WARNING contains the warning_id, OR contains 2+
+        STEMMED tokens (length >= 4) overlapping the warning text.
+
+    v1 used >=3 raw tokens with no stemming. v2 uses >=2 stemmed
+    tokens — catches typical paraphrase ('ignored' / 'ignore' /
+    'patterns' / 'pattern' now match) without becoming hair-trigger.
+
+    Still errs toward FLAGGING unacknowledged; just less aggressively.
     """
     sid = session_id or _current_session_id() or "unknown"
 
@@ -154,10 +177,16 @@ def unacknowledged_warnings(session_id: str | None = None) -> list[dict]:
     # Learn events store their content inside the payload (no top-level
     # content field on get_events rows). Concatenate payload['content']
     # across all learns this session into a single search blob.
-    learn_blob = " ".join(
+    learn_blob_raw = " ".join(
         ((_coerce_payload(l.get("payload")).get("content") or "")[:500]).lower()
         for l in learns
     )
+    # Stemmed token set across all this-session learns. Each learn-blob
+    # token of length >= 4 contributes its stem; comparisons are
+    # stem-vs-stem to catch paraphrase acks (Finding 38).
+    learn_stems = {
+        _stem(tok) for tok in learn_blob_raw.split() if len(tok) >= 4
+    }
 
     unack: list[dict] = []
     for s in surfaced:
@@ -165,12 +194,16 @@ def unacknowledged_warnings(session_id: str | None = None) -> list[dict]:
         wid = (payload.get("warning_id") or "").lower()
         wtext = (payload.get("text") or "").lower()
 
-        if wid and wid != "unknown" and wid in learn_blob:
+        if wid and wid != "unknown" and wid in learn_blob_raw:
             continue
 
-        tokens = [t for t in wtext.split() if len(t) >= 4]
-        overlap = sum(1 for t in tokens if t in learn_blob)
-        if overlap >= 3:
+        # Stem-overlap acknowledgment: count distinct stemmed warning
+        # tokens that also appear (stemmed) in any this-session learn.
+        warning_stems = {
+            _stem(tok) for tok in wtext.split() if len(tok) >= 4
+        }
+        overlap = len(warning_stems & learn_stems)
+        if overlap >= 2:
             continue
 
         unack.append(s)

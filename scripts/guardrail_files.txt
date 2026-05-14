@@ -100,3 +100,16 @@ src/divineos/core/operating_loop/distancing_detector.py
 # iteration that looks like normal docs work ("technical-context
 # exception to truth-3", etc.). Guardrail blocks that.
 docs/foundational_truths.md
+
+# Added 2026-05-14 (Aletheia round-5cdc2f48c642 Finding 41 — meta-
+# protection on the gate file): pre_tool_use_gate.py contains the
+# entire deny-chain logic AND _BYPASS_DIVINEOS_SUBCOMMANDS. The .sh
+# wrapper above (require-goal.sh) only delegates to this module —
+# guardrailing the .sh alone is leaky because the load-bearing logic
+# lives here. Specifically: adding a subcommand to the bypass list
+# silently neutralizes every gate for that subcommand — that is the
+# self-modification attack the guardrail discipline exists to prevent.
+# Symmetry with the detector affirmations above: load-bearing
+# enforcement text + structure should not be modifiable without
+# external co-sign.
+src/divineos/hooks/pre_tool_use_gate.py
