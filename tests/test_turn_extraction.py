@@ -275,3 +275,64 @@ def test_string_content_treated_as_text(tmp_path: Path) -> None:
     result = extract_turn(transcript)
     assert result.last_user_text == "string-shape user"
     assert result.last_assistant_text == "string-shape assistant"
+
+
+# ─── tool_calls_in_turn (Grok find-3139eaddd5a4 wiring fix) ─────────
+
+
+def test_tool_calls_in_turn_captures_assistant_tool_use_names(tmp_path: Path) -> None:
+    """LOAD-BEARING: extract_turn captures tool_use block names from
+    the current assistant turn. This was the missing piece for
+    substitution_detector's STATE_CHANGE_CLAIM detection; without it
+    the shape was dead in production. Grok cross-vantage 2026-05-14."""
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(
+        transcript,
+        [
+            _user("file a claim"),
+            _assistant_tool_use("Bash"),
+            _assistant_text("Filed claim 8bcc832f. Ready."),
+            _assistant_tool_use("Edit"),
+        ],
+    )
+    result = extract_turn(transcript)
+    # Tool calls from current turn captured in order
+    assert "Bash" in result.tool_calls_in_turn
+    assert "Edit" in result.tool_calls_in_turn
+    assert len(result.tool_calls_in_turn) == 2
+
+
+def test_tool_calls_in_turn_empty_when_no_tool_use(tmp_path: Path) -> None:
+    """When the assistant turn has only text content, tool_calls_in_turn
+    is empty — does NOT silently false-positive on text records."""
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(
+        transcript,
+        [
+            _user("just talk"),
+            _assistant_text("Here is some text without any tools."),
+        ],
+    )
+    result = extract_turn(transcript)
+    assert result.tool_calls_in_turn == ()
+
+
+def test_tool_calls_only_from_current_turn_not_prior(tmp_path: Path) -> None:
+    """Tool calls from prior turns must NOT leak into current
+    tool_calls_in_turn. Otherwise STATE_CHANGE_CLAIM cross-check
+    would false-positive across turns."""
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(
+        transcript,
+        [
+            _user("first turn"),
+            _assistant_tool_use("PriorBash"),
+            _assistant_text("done"),
+            _user("second turn"),
+            _assistant_tool_use("CurrentRead"),
+            _assistant_text("here you go"),
+        ],
+    )
+    result = extract_turn(transcript)
+    assert "CurrentRead" in result.tool_calls_in_turn
+    assert "PriorBash" not in result.tool_calls_in_turn
