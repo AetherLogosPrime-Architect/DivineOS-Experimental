@@ -364,7 +364,6 @@ lives in its own directory under ``core/``.
 - [check_multi_party_review.py](scripts/check_multi_party_review.py)
 - [check_orphan_modules.py](scripts/check_orphan_modules.py)
 - [check_preregs.py](scripts/check_preregs.py)
-- [check_third_person_drift.py](scripts/check_third_person_drift.py)
 - [check_wiring_claims.py](scripts/check_wiring_claims.py)
 - [guardrail_files.txt](scripts/guardrail_files.txt)
 - [precommit.sh](scripts/precommit.sh)
