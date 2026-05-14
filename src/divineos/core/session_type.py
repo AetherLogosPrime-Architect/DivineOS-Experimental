@@ -104,10 +104,28 @@ def classify_session(
 
     # CRISIS: many errors or overflows dominate
     if errors >= 5 or overflows >= 3:
+        # Duration shapes how confident the CRISIS read should be.
+        # A long session with errors/overflows is more clearly stuck
+        # in CRISIS; a very short session is more likely a brief
+        # recovered-from glitch. Wired here as the simplest meaningful
+        # use of duration_hours (Aletheia round-ba785844a791
+        # Finding 13 family-audit round-6443432a2410).
+        base_conf = min(1.0, (errors / 5.0 + overflows / 3.0) / 2)
+        if duration_hours and duration_hours >= 1.0:
+            # Sustained CRISIS — higher confidence.
+            confidence = min(1.0, base_conf * (1.0 + 0.1 * min(duration_hours, 4.0)))
+        elif duration_hours and duration_hours < 0.25:
+            # Brief CRISIS — lower confidence (probably recovered).
+            confidence = base_conf * 0.7
+        else:
+            confidence = base_conf
+        rationale = f"{errors} errors, {overflows} overflows — recovering rather than progressing"
+        if duration_hours:
+            rationale += f" (over {duration_hours:.1f}h)"
         return SessionTypeResult(
             type="CRISIS",
-            confidence=min(1.0, (errors / 5.0 + overflows / 3.0) / 2),
-            rationale=f"{errors} errors, {overflows} overflows — recovering rather than progressing",
+            confidence=confidence,
+            rationale=rationale,
             contributing_types=[],
         )
 
