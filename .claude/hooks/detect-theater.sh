@@ -129,7 +129,9 @@ try:
                 ],
             }
             existing.append(entry)
-            existing = existing[-50:]
+            # Rolling window 50 -> 200 (2026-05-14 find-1505d70db349):
+            # two hooks share this file; keep both visible.
+            existing = existing[-200:]
             findings_path.write_text(json.dumps(existing, indent=2), encoding='utf-8')
         except Exception:
             pass
