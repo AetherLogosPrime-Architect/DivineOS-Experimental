@@ -47,32 +47,50 @@ def test_inventory_includes_subgroup_commands() -> None:
     )
 
 
-def test_format_inventory_renders_count_column() -> None:
-    """Render output must include the engagement count column header."""
+def test_format_inventory_renders_both_columns() -> None:
+    """Render output must include both engagement columns: invk (broad,
+    USER_INPUT) and thnk (narrow, OS_QUERY)."""
     rows = inventory()[:5]
     rendered = format_inventory(rows)
-    assert "count" in rendered
+    assert "invk" in rendered
+    assert "thnk" in rendered
     assert "group" in rendered
     assert "description" in rendered
 
 
 def test_format_inventory_min_count_filter() -> None:
-    """min_count filter must restrict to rows at or below threshold."""
+    """min_count filter restricts on invocation_count (the broad signal)."""
     rows = [
-        CommandRow(name="a", group="top", description="", os_query_count=0, has_help=True),
-        CommandRow(name="b", group="top", description="", os_query_count=10, has_help=True),
+        CommandRow(
+            name="a", group="top", description="",
+            os_query_count=0, invocation_count=0, has_help=True,
+        ),
+        CommandRow(
+            name="b", group="top", description="",
+            os_query_count=10, invocation_count=10, has_help=True,
+        ),
     ]
     rendered = format_inventory(rows, min_count=0)
-    assert "a" in rendered
-    assert " b " not in rendered  # b filtered out
+    assert " a " in rendered or "a   " in rendered
+    assert " b " not in rendered  # b filtered out by invocation_count > 0
 
 
-def test_inventory_sort_by_engagement_low_first() -> None:
-    """The default sort surfaces low-engagement commands first so the
-    audit walks them in priority order."""
+def test_inventory_sort_by_engagement_invocation_first_then_thought() -> None:
+    """The default sort orders by invocation_count ascending, then
+    os_query_count ascending — so the genuinely-never-invoked
+    commands surface first."""
     rows = inventory(by="engagement")
-    counts = [r.os_query_count for r in rows]
+    # First key dominates; check that invocation_count is monotone non-decreasing
+    counts = [r.invocation_count for r in rows]
     assert counts == sorted(counts), (
-        "Inventory not sorted ascending by engagement; audit-priority "
-        "order has regressed."
+        "Inventory not sorted ascending by invocation_count; "
+        "audit-priority order regressed."
     )
+
+
+def test_row_has_invocation_count_field() -> None:
+    """LOAD-BEARING: the broader signal must be present on every row."""
+    rows = inventory()
+    for r in rows:
+        assert hasattr(r, "invocation_count")
+        assert isinstance(r.invocation_count, int)
