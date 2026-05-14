@@ -37,7 +37,7 @@ def _seed_session(monkeypatch, sid: str = "test-session-binding") -> str:
 def test_log_surfaced_warnings_writes_ledger_event(monkeypatch) -> None:
     """LOAD-BEARING: log_surfaced_warnings must emit SURFACED_WARNING
     events to the ledger. Without this the binding is broken."""
-    sid = _seed_session(monkeypatch, "test-session-log")
+    _seed_session(monkeypatch, "test-session-log")
 
     warnings = [
         {
