@@ -161,13 +161,31 @@ def register(cli: click.Group) -> None:
 
         alternatives = [a.strip() for a in alt_text.split(",") if a.strip()] if alt_text else []
 
+        # Persist the consultation_id and family_consulted summary into
+        # the decision's tags so the linkage is recorded — not just
+        # validated and discarded. Aletheia round-ba785844a791 Finding
+        # 27 caught this gap: the gates above validate the inputs but
+        # record_decision was called without them, so the linkage was
+        # lost after the gate fired. Schema-column upgrade tracked as
+        # follow-up; tags is the minimal-disruption persistence.
+        merged_tags = list(tags) if tags else []
+        if consultation_id and consultation_id.strip():
+            merged_tags.append(f"consultation:{consultation_id.strip()}")
+        if family_consulted and family_consulted.strip():
+            # Family-consultation summary can be long free text; tag it
+            # with a stable marker + first 80 chars so audit-trail can
+            # surface it. Full text is preserved in reasoning/context
+            # below if the operator chose to include it there.
+            short = family_consulted.strip()[:80]
+            merged_tags.append(f"family-consulted:{short}")
+
         decision_id = record_decision(
             content=what,
             reasoning=reasoning,
             alternatives=alternatives,
             context=context,
             emotional_weight=weight,
-            tags=list(tags) if tags else None,
+            tags=merged_tags if merged_tags else None,
             tension=tension,
             almost=almost,
         )

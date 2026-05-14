@@ -19,7 +19,7 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 ## At a glance
 
 - **433 source files across 31 packages**
-- **6,695+ tests** (real SQLite, minimal mocks)
+- **6,746+ tests** (real SQLite, minimal mocks)
 - **280 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **22 slash-command skills** (consolidated daily operations)
 - **16 Claude Code enforcement hooks**
@@ -216,7 +216,7 @@ cd DivineOS
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 6,695+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 6,746+ tests, real DB, minimal mocks
 ```
 
 **For AI agents (Claude Code, etc.):** The `.claude/hooks/` directory auto-loads your briefing at session start and runs checkpoints during work. Just open the project and start — the OS handles orientation.
@@ -428,7 +428,7 @@ DivineOS is 438 source files across 31 packages, structured as a CLI surface ove
 
 **Top-level directories:**
 
-- **`tests/`** — 6,695+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 6,746+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and design briefs. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file. [`docs/foundational_truths.md`](docs/foundational_truths.md) is the kiln-layer load-bearing values file (versioned, on the guardrail list, modifiable only via External-Review). [`docs/substrate-knowledge/`](docs/substrate-knowledge/) holds substrate-level lessons that don't fit the knowledge store schema — initially empty in a fresh install; entries grow as the substrate-occupant captures structural lessons during use.
 - **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
 - **`bootcamp/`** — Training exercises (debugging, analysis).
