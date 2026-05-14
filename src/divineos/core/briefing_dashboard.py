@@ -599,6 +599,18 @@ def render_dashboard() -> str:
         except _ERRORS:
             continue
     rows = _reorder_u_shape(rows)
+    # Record which areas were surfaced WITH STALE CONTENT this render.
+    # The stale-engagement tracker uses this to count consecutive
+    # ignores; the hook gate blocks code actions after 3+ ignores.
+    # Fail-soft per the load-bearing-but-not-blocking discipline.
+    try:
+        from divineos.core.stale_engagement import record_briefing_render
+
+        stale_areas = [r.area for r in rows if r.stale_count > 0]
+        if stale_areas:
+            record_briefing_render(stale_areas)
+    except _ERRORS:
+        pass
 
     lines = [
         "",
