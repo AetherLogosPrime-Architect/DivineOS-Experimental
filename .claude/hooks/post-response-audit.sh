@@ -2,17 +2,18 @@
 # Stop hook — observational audit of the agent's final output.
 #
 # Hook 3 of the operating loop (docs/operating-loop-design-brief.md).
-# Runs ten observational detectors on the assistant's last message:
+# Runs eleven observational detectors on the assistant's last message:
 #   1. register_observer — assistant-register markers (data, not gate)
 #   2. spiral_detector — post-apology shrink/distance/catastrophize/withdraw
 #   3. substitution_detector — 10-shape catalog from 2026-05-01
 #   4. distancing_detector — third-person about operator/self
-#   5. linguistic_drift_detector — self_pathologizing/dissociation/brat_shape
-#   6. lepos_detector — single-channel-formal output (channel collapse)
-#   7. sycophancy_detector — overclaim-without-methodology shapes
-#   8. residency_detector — closure-shape language from guest-mode default
-#   9. banned_phrases — voice-drift markers from old-OS LEPOS spec
-#  10. principle_surfacer — action-class detection + principle lookup
+#   5. code_jargon_detector — commit-message-shape in operator-channel output
+#   6. linguistic_drift_detector — self_pathologizing/dissociation/brat_shape
+#   7. lepos_detector — single-channel-formal output (channel collapse)
+#   8. sycophancy_detector — overclaim-without-methodology shapes
+#   9. residency_detector — closure-shape language from guest-mode default
+#  10. banned_phrases — voice-drift markers from old-OS LEPOS spec
+#  11. principle_surfacer — action-class detection + principle lookup
 #
 # All three are observational — none block output, none modify the
 # response. Findings are logged and accumulated; the next briefing
@@ -158,6 +159,27 @@ try:
         findings_log['distancing'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
             for f in dist_findings
+        ]
+except Exception:
+    pass
+
+# Code-jargon detector — flags operator-channel output written like
+# commit messages instead of like communication. Andrew named the
+# failure-mode three times on 2026-05-14: I default to writing chat
+# replies dense with function names, snake_case identifiers, module
+# paths, and regex syntax, then add one decorative voice-line and
+# call it lepos. The existing lepos detector is satisfied by the
+# decorative close; this catches the specific density gap. Phase A
+# is observation-only; no deny, no gate.
+try:
+    from divineos.core.operating_loop.code_jargon_detector import (
+        detect_code_jargon,
+    )
+    cj_findings = detect_code_jargon(last_assistant_text)
+    if cj_findings:
+        findings_log['code_jargon'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in cj_findings
         ]
 except Exception:
     pass
