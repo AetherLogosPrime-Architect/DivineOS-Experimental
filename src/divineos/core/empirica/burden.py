@@ -1,8 +1,19 @@
-"""Proportional burden — (tier × magnitude) → required corroboration.
+"""Proportional burden — (evidence-kind × magnitude) → required corroboration.
 
 The sharpest idea in the original EMPIRICA spec, restated in plain
 code: the evidence threshold a claim must cross is a function of both
-what KIND of claim it is (tier) and how LOAD-BEARING it is (magnitude).
+what KIND of claim it is and how LOAD-BEARING it is (magnitude).
+
+## On the word "tier"
+
+The class name ``Tier`` and historical references to "Tier I / II /
+III / IV" date from a framing that implied ordinal ranking. The
+burden bases (2, 3, 4, 3) do NOT implement that hierarchy —
+ADVERSARIAL shares its base with OUTCOME, not above PATTERN. The
+four values are calibrated kinds of evidence, not ranks. Andrew +
+Grok + Aether cross-vantage 2026-05-14 (find-58b2121bbb47) named
+this. The class name stays for backwards-compat; the framing going
+forward is "four kinds of evidentiary burden," not "four ranks."
 
 A falsifiable claim about a CLI truncation bug (TRIVIAL magnitude) needs
 less evidence than a pattern claim about cross-session recurrence
@@ -25,11 +36,11 @@ Magnitudes multiply: TRIVIAL=1×, NORMAL=2×, LOAD_BEARING=3×, FOUNDATIONAL=4×
 
 Worked examples:
 
-* Tier I FALSIFIABLE + TRIVIAL = 2×1 = **2** corroborations
-* Tier I FALSIFIABLE + NORMAL = 2×2 = **4**
-* Tier III PATTERN + NORMAL = 4×2 = **8**
-* Tier III PATTERN + FOUNDATIONAL = 4×4 = **16**
-* Tier III PATTERN + TRIVIAL = 4×1 = **4** (same as FALSIFIABLE NORMAL —
+* FALSIFIABLE + TRIVIAL = 2×1 = **2** corroborations
+* FALSIFIABLE + NORMAL = 2×2 = **4**
+* PATTERN + NORMAL = 4×2 = **8**
+* PATTERN + FOUNDATIONAL = 4×4 = **16**
+* PATTERN + TRIVIAL = 4×1 = **4** (same as FALSIFIABLE NORMAL —
   pattern is inherently more demanding than falsifiable at equal
   magnitude, which reflects the epistemological reality)
 
@@ -37,7 +48,7 @@ Worked examples:
 
 Honest answer: they are my best Phase 1 guess, not derived values.
 The original Phase 1 pre-reg (prereg-ce8998194943) named the
-falsifier — if after 30 days of real-world use, Tier I vs Tier III
+falsifier — if after 30 days of real-world use, FALSIFIABLE vs PATTERN
 claims produce the same empirical rejection rate, the numbers are
 wrong and the calculator is decorative. That pre-reg has aged out
 of the runtime store; the falsifier still applies as a standing
@@ -51,15 +62,15 @@ review schedule (default: 30 days). At that point, the review
 looks at real EMPIRICA usage and tunes the BASE values per these
 signals (in order of decreasing confidence in the signal):
 
-1. **Rejection rate parity.** If Tier I and Tier III claims show
+1. **Rejection rate parity.** If FALSIFIABLE and PATTERN claims show
    the same empirical rejection rate in the validity gate,
    proportional burden isn't doing differential work — equalize
    burden is a symptom of undifferentiated thresholds. Action:
    widen the spread (e.g. FALSIFIABLE base=2, PATTERN base=6).
 
 2. **Supersession rate of receipted claims.** If claims that
-   passed EMPIRICA at Tier I get superseded at a higher rate
-   than Tier III claims that passed, the FALSIFIABLE bar is too
+   passed EMPIRICA at FALSIFIABLE get superseded at a higher rate
+   than PATTERN claims that passed, the FALSIFIABLE bar is too
    low. Action: raise FALSIFIABLE base.
 
 3. **Caller complaint pattern.** If callers consistently report
@@ -130,7 +141,7 @@ def required_corroboration(tier: Tier, magnitude: ClaimMagnitude) -> int:
     4x the base of the same tier — the architecture is built on them,
     so mistakes propagate and the threshold should reflect that.
 
-    Tier IV ADVERSARIAL: the corroborations counted here are
+    ADVERSARIAL kind: the corroborations counted here are
     ``VOID_SURVIVAL`` events recorded against the claim. The integration
     pattern: a void engine attack completes; if no HIGH/CRITICAL
     findings emerged on the target claim, the caller records a

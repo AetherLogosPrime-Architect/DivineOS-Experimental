@@ -39,7 +39,7 @@ What EMPIRICA is NOT:
   system, council consultations, and warrant-based validity gate
   that already exist. It routes; it does not duplicate.
 
-Tier IV (ADVERSARIAL) is now wired to VOID (shipped 2026-04-26 per
+ADVERSARIAL-kind is now wired to VOID (shipped 2026-04-26 per
 PR #208). The ``CorroborationKind.VOID_SURVIVAL`` enum value is the
 integration point: when a VOID engine attack on a claim completes
 with no HIGH/CRITICAL findings, the caller records a VOID_SURVIVAL
@@ -50,8 +50,8 @@ makes "survived adversarial testing" meaningful.
 
 Phase 1 deferrals still in place (pre-registered separately):
 
-* **Recursive coherence-audit** — the original spec required Tier III
-  PATTERN claims to resonate across 3+ INDEPENDENT domains. Current
+* **Recursive coherence-audit** — the original spec required
+  PATTERN-kind claims to resonate across 3+ INDEPENDENT domains. Current
   burden enforces corroboration count but not domain-independence.
 * **Differentiated councils** — ``route_for_approval`` runs N generic
   rounds; the spec called for Science/Wisdom/Pattern as differentiated

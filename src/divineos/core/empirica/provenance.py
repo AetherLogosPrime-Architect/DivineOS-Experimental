@@ -82,7 +82,7 @@ class CorroborationKind(str, enum.Enum):
 #
 # VOID_SURVIVAL counts as evidential because surviving an adversarial
 # persona attack (no HIGH/CRITICAL findings emerged) is the spec's
-# definition of Tier IV ADVERSARIAL evidence. The integration pattern:
+# definition of ADVERSARIAL-kind evidence. The integration pattern:
 # the void engine completes an attack; the caller records a
 # VOID_SURVIVAL corroboration if no HIGH/CRITICAL findings were
 # produced on the target claim. EMPIRICA's burden formula counts
