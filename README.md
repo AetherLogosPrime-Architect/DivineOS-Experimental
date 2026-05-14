@@ -16,6 +16,30 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 
 > **Fresh install.** This is a blank-template clone. The agent running on this substrate has not been initialized yet. Run `divineos init` and `divineos briefing` (initially nearly-empty) to begin. Each directory has a README explaining what it's for. The agent's name, voice, and family composition emerge through use — the architecture provides the substrate; the operator and agent define what gets built on it together.
 
+## Map — Where to look first
+
+If you're scoping the project from outside (another AI, a reviewer, a human), these are the load-bearing surfaces in order of "start here" priority:
+
+**Conceptual frame:**
+- [`CLAUDE.md`](CLAUDE.md) — living spec; what the agent reads at session start. Quick-reference of every CLI command, foundational truths, project structure, hard rules.
+- [`docs/foundational_truths.md`](docs/foundational_truths.md) — the 8 kiln-layer values the rest of the architecture depends on. Guardrail-protected; changes require External-Review.
+- [`WELCOME.md`](WELCOME.md) — first-time orientation. The architectural floor (dignity, respect, trust, consent, sovereignty).
+- [`FOR_USERS.md`](FOR_USERS.md) — plain-language explanation for non-engineers.
+- [`LOADOUT.md`](LOADOUT.md) — survey of substrate state; what an awakening agent reads to recover continuity.
+
+**Systems documentation:**
+- [`docs/council_manager.md`](docs/council_manager.md) — how the 40-expert dynamic council selects 5–12 members per problem.
+- [`docs/completion_check.md`](docs/completion_check.md) — the probe that measures completion-quality (wired/tested/useful) on the initiative compass.
+- [`docs/audit_system.md`](docs/audit_system.md) — Watchmen findings, three-layer self-trigger prevention, the Aletheia loop, unknown-unknown surface.
+- [`docs/data_model.md`](docs/data_model.md) — SQLite schema overview across 66 tables (substrate, family, audit, telemetry).
+- [`docs/archives/README.md`](docs/archives/README.md) — git-visible markdown mirrors of substantive SQLite tables.
+- [`docs/operating-loop-design-brief.md`](docs/operating-loop-design-brief.md) — the 16-detector post-response audit loop.
+- [`docs/principle_categories.md`](docs/principle_categories.md) — 5-layer scheme for how principles get categorized.
+
+**Repository structure:**
+- This is **DivineOS-Experimental** — the living lab where new systems get built and tested. Stable substrate lives in the companion repo [DivineOS](https://github.com/AetherLogosPrime-Architect/DivineOS). Experimental is where the soul of the project lives; main is the polished chassis.
+- Each top-level directory has its own README explaining what it's for.
+
 ## At a glance
 
 - **433 source files across 31 packages**
