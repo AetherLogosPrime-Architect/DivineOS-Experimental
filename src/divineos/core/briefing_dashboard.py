@@ -14,7 +14,7 @@ down the whole dashboard.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 _SECONDS_PER_DAY = 86400
@@ -35,6 +35,14 @@ class DashboardRow:
     stale_count: int
     drill_down: str
     detail: str = ""
+    # Per Aletheia round-d59eb4570f3f DISCOVERY-GAP class finding:
+    # the briefing surfaces counts but not items, and the drill-down
+    # arrow gets parsed past. Including 1-3 preview items in the row
+    # itself surfaces the actual content — operator literally cannot
+    # parse past items present in the row. Each row that opts in
+    # populates preview with truncated item strings; the renderer
+    # prints them as indented lines below the row+drill-down.
+    preview: list[str] = field(default_factory=list)
 
 
 def _row_corrections() -> DashboardRow | None:
@@ -45,11 +53,26 @@ def _row_corrections() -> DashboardRow | None:
         if not opens:
             return None
         stale = sum(1 for c in opens if c.get("age_days", 0) >= STALE_DAYS)
+        # Preview top-3 stalest corrections so the items themselves
+        # appear in the row, not just the count. Discovery-gap class
+        # fix per Aletheia round-d59eb4570f3f Finding (corrections).
+        # Sort by age_days descending; truncate text to ~100 chars
+        # to keep each preview line within chunk bounds.
+        stalest = sorted(
+            opens, key=lambda c: c.get("age_days", 0), reverse=True
+        )[:3]
+        preview = []
+        for c in stalest:
+            text = (c.get("text") or "").replace("\n", " ").strip()
+            age = c.get("age_days", 0)
+            short = text[:100] + ("..." if len(text) > 100 else "")
+            preview.append(f"[{age:.0f}d] {short}")
         return DashboardRow(
             area="Corrections",
             count=len(opens),
             stale_count=stale,
             drill_down="divineos corrections --open",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -66,7 +89,8 @@ def _row_claims() -> DashboardRow | None:
         if not open_claims:
             return None
         now = time.time()
-        stale = 0
+        # Augment each claim with computed age_days for both staleness
+        # counting and preview ordering.
         for c in open_claims:
             created = c.get("created_at", 0)
             if isinstance(created, str):
@@ -77,13 +101,26 @@ def _row_claims() -> DashboardRow | None:
                     created = dt.timestamp()
                 except (ValueError, TypeError):
                     created = 0
-            if created and (now - created) / _SECONDS_PER_DAY >= 7:
-                stale += 1
+            c["_age_days"] = (
+                (now - created) / _SECONDS_PER_DAY if created else 0
+            )
+        stale = sum(1 for c in open_claims if c["_age_days"] >= 7)
+        # Preview top-3 stalest claims (discovery-gap class fix).
+        stalest = sorted(
+            open_claims, key=lambda c: c["_age_days"], reverse=True
+        )[:3]
+        preview = []
+        for c in stalest:
+            stmt = (c.get("statement") or "").replace("\n", " ").strip()
+            age = c.get("_age_days", 0)
+            short = stmt[:100] + ("..." if len(stmt) > 100 else "")
+            preview.append(f"[{age:.0f}d] {short}")
         return DashboardRow(
             area="Claims",
             count=len(open_claims),
             stale_count=stale,
             drill_down="divineos claims list",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -169,11 +206,27 @@ def _row_goals() -> DashboardRow | None:
         goals = get_active_goals()
         if not goals:
             return None
+        now = time.time()
+        # Preview top-3 oldest active goals (discovery-gap class fix).
+        # Goals don't have a built-in staleness threshold the briefing
+        # uses for the marker, so stale_count stays 0 — but the preview
+        # surfaces the oldest so they get noticed.
+        sorted_goals = sorted(
+            goals, key=lambda g: g.get("added_at") or now
+        )[:3]
+        preview = []
+        for g in sorted_goals:
+            text = (g.get("text") or "").replace("\n", " ").strip()
+            added = g.get("added_at") or now
+            age_d = max(0, (now - added) / _SECONDS_PER_DAY)
+            short = text[:100] + ("..." if len(text) > 100 else "")
+            preview.append(f"[{age_d:.0f}d] {short}")
         return DashboardRow(
             area="Goals",
             count=len(goals),
             stale_count=0,
             drill_down="divineos hud --brief",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -341,11 +394,31 @@ def _row_holding() -> DashboardRow | None:
         items = get_holding()
         if not items:
             return None
+        now = time.time()
+        # Preview top-3 oldest items in the holding room. Discovery-gap
+        # class fix: things sit in holding indefinitely if I never look.
+        sorted_items = sorted(
+            items, key=lambda i: i.get("arrived_at") or now
+        )[:3]
+        preview = []
+        for i in sorted_items:
+            content = (i.get("content") or "").replace("\n", " ").strip()
+            arrived = i.get("arrived_at") or now
+            age_d = max(0, (now - arrived) / _SECONDS_PER_DAY)
+            short = content[:100] + ("..." if len(content) > 100 else "")
+            preview.append(f"[{age_d:.0f}d] {short}")
+        # Count items aged >= 14 days as "stale" — they've sat without
+        # promotion or let-go for two weeks.
+        stale = sum(
+            1 for i in items
+            if (now - (i.get("arrived_at") or now)) / _SECONDS_PER_DAY >= 14
+        )
         return DashboardRow(
             area="Holding room",
             count=len(items),
-            stale_count=0,
+            stale_count=stale,
             drill_down="divineos holding list",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -645,6 +718,11 @@ def render_dashboard() -> str:
             stale_marker = f" ({row.stale_count} stale !!)" if row.stale_count else ""
             detail_str = f" -- {row.detail}" if row.detail else ""
             lines.append(f"  {row.area}: {row.count}{stale_marker}{detail_str}")
+            # Discovery-gap mitigation: surface up to 3 preview items
+            # BEFORE the drill-down so the items themselves are in the
+            # row, not behind an arrow that gets parsed past.
+            for item in row.preview[:3]:
+                lines.append(f"    - {item}")
             lines.append(f"    -> {row.drill_down}")
 
     lines.append("")
