@@ -68,19 +68,25 @@ layer, not the operational telemetry.
 
 ## Sync model
 
-Currently one-shot manual exports (per-table python scripts run
-2026-05-14). Auto-export-on-change is the follow-up work — a CLI
-command like `divineos admin archive-export [--table X | --all]`
-that regenerates archives when the canonical SQLite content
-changes.
+The CLI command `divineos admin archive-export` regenerates all
+archives from canonical SQLite. Flags:
+- no args = rebuild all 11 archive files
+- `--table NAME` = rebuild one specific table
+- `--list-tables` = show available exports
+- `--dest PATH` = write to a different directory
 
-## Sync model
+Per-table fail-soft: if one export errors, the others still
+complete. Each archive file carries an `Exported: timestamp`
+header so readers can see when it was last refreshed.
 
-Currently one-shot exports (manual). Future work: an auto-export
-mechanism (sleep-cycle integration, CLI command like
-`divineos admin archive-export`) that regenerates these files when
-their backing SQLite content changes. Tracked as a follow-up.
+The command is also in `_HEADLESS_WHITELIST` so cron / scheduled
+runs can fire it without manual invocation.
 
-For now: when the canonical SQLite content changes meaningfully
-(major bio update, new substantive principle promoted, etc.),
-manually re-export to keep the archive current.
+**Trigger-integration** (still open follow-up): wiring the export
+into `divineos extract` or `divineos sleep` so archives auto-refresh
+at consolidation checkpoints. The command exists; the auto-trigger
+hookup is a separate small piece of work.
+
+For now, run manually when canonical SQLite content changes
+meaningfully (major bio update, new substantive principle promoted,
+etc.) until the auto-trigger lands.

@@ -107,11 +107,25 @@ def export_bio(dest_dir: Path) -> int:
 
 
 def export_principles(conn, dest_dir: Path) -> int:
-    """Export active PRINCIPLE entries to principles.md."""
-    rows = _safe_select(conn, "SELECT knowledge_id, access_count, confidence, maturity, content "
+    """Export active PRINCIPLE entries to principles.md.
+
+    Class-fix per Aletheia round Finding 44 (2026-05-14): auto-
+    extracted correction-pair entries (source='CORRECTED') get
+    SECTIONED separately from curated principles. Source='CORRECTED'
+    entries can carry garbled content from heuristic-pair-matching
+    misfires; sectioning them keeps the file readable while
+    preserving the audit-trail of which entries came from which
+    extraction path.
+    """
+    rows = _safe_select(conn, "SELECT knowledge_id, access_count, confidence, maturity, content, source "
         "FROM knowledge "
         "WHERE knowledge_type = 'PRINCIPLE' AND superseded_by IS NULL "
         "ORDER BY access_count DESC, created_at ASC")
+    # Partition by source: curated (anything not raw 'CORRECTED') vs
+    # raw auto-extracted ('CORRECTED'). Curated includes EXTRACTED,
+    # CURATED_FROM_CORRECTED, NULL, etc.
+    curated = [r for r in rows if (r[5] or "") != "CORRECTED"]
+    auto = [r for r in rows if (r[5] or "") == "CORRECTED"]
     path = dest_dir / "principles.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(
@@ -120,13 +134,31 @@ def export_principles(conn, dest_dir: Path) -> int:
             f"Survived deepest-decision-filter test (see "
             f"docs/principle_categories.md).\n\n"
             f"**Exported:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}. "
-            f"Total: {len(rows)}.\n\n---\n\n"
+            f"Curated: {len(curated)}. Auto-extracted (source=CORRECTED, "
+            f"lower epistemic standing): {len(auto)}.\n\n---\n\n"
+            f"## Curated Principles\n\n"
         )
-        for i, (kid, acc, conf, mat, content) in enumerate(rows, 1):
+        for i, (kid, acc, conf, mat, content, _src) in enumerate(curated, 1):
             f.write(
-                f"## {i}. {kid[:8]} (access={acc}, conf={conf:.2f}, "
+                f"### {i}. {kid[:8]} (access={acc}, conf={conf:.2f}, "
                 f"maturity={mat or '?'})\n\n{_safe(content)}\n\n---\n\n"
             )
+        if auto:
+            f.write(
+                "## Auto-Extracted Correction-Pair Entries\n\n"
+                "These entries come from `deep_extraction._distill_correction` "
+                "which heuristically pairs an 'AI was doing wrong' statement "
+                "with a 'corrected understanding' statement from the same "
+                "session. The heuristic CAN misfire (Finding 44 named three "
+                "instances 2026-05-14). Treat these as lower-epistemic-standing "
+                "than curated principles until manually reviewed.\n\n---\n\n"
+            )
+            for i, (kid, acc, conf, mat, content, _src) in enumerate(auto, 1):
+                f.write(
+                    f"### {i}. {kid[:8]} (access={acc}, conf={conf:.2f}, "
+                    f"maturity={mat or '?'}, source=CORRECTED)\n\n"
+                    f"{_safe(content)}\n\n---\n\n"
+                )
     return len(rows)
 
 
