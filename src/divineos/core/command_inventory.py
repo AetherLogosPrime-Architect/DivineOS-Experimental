@@ -49,12 +49,13 @@ class CommandRow:
     name: str
     group: str  # "top" / "admin" / "inspect" / subgroup name
     description: str
-    os_query_count: int
+    os_query_count: int  # narrow signal: thinking-shape commands only
+    invocation_count: int  # broad signal: any invocation via USER_INPUT
     has_help: bool
 
 
 def _os_query_counts() -> Counter:
-    """Count OS_QUERY events per tool name across the ledger."""
+    """Count OS_QUERY events per tool name (thinking-engagement signal)."""
     from divineos.core.ledger import get_events
 
     counts: Counter[str] = Counter()
@@ -70,11 +71,40 @@ def _os_query_counts() -> Counter:
     return counts
 
 
+def _invocation_counts() -> Counter:
+    """Count any-invocation events per command name via USER_INPUT.
+
+    Every `divineos <cmd> ...` CLI call writes a USER_INPUT event with
+    payload['content'] = the full input string. The first whitespace-
+    separated token is the command name. This signal is broader than
+    OS_QUERY: covers write commands, hook-triggered commands,
+    scheduled-task invocations — anything that enters the CLI.
+    """
+    from divineos.core.ledger import get_events
+
+    counts: Counter[str] = Counter()
+    for e in get_events(limit=10000, event_type="USER_INPUT"):
+        payload = e.get("payload") or {}
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:  # noqa: BLE001
+                payload = {}
+        content = (
+            payload.get("content", "") if isinstance(payload, dict) else ""
+        )
+        if isinstance(content, str) and content.strip():
+            first = content.strip().split()[0]
+            counts[first] += 1
+    return counts
+
+
 def _walk_cli() -> list[CommandRow]:
     """Walk the divineos CLI tree and emit one CommandRow per command."""
     from divineos.cli import cli
 
-    counts = _os_query_counts()
+    oq = _os_query_counts()
+    inv = _invocation_counts()
     rows: list[CommandRow] = []
 
     def _walk(group, group_name: str) -> None:
@@ -87,7 +117,8 @@ def _walk_cli() -> list[CommandRow]:
                     name=name,
                     group=group_name,
                     description=description,
-                    os_query_count=counts.get(name, 0),
+                    os_query_count=oq.get(name, 0),
+                    invocation_count=inv.get(name, 0),
                     has_help=has_help,
                 )
             )
@@ -101,12 +132,15 @@ def _walk_cli() -> list[CommandRow]:
 def inventory(by: str = "engagement") -> list[CommandRow]:
     """Return all CLI commands sorted by the chosen key.
 
-    by="engagement" sorts low-engagement first (audit-priority order).
+    by="engagement" sorts ascending by invocation_count then os_query_count
+    so the lowest-engagement commands appear FIRST (audit-priority order).
     by="alphabetical" sorts by group then name.
     """
     rows = _walk_cli()
     if by == "engagement":
-        rows.sort(key=lambda r: (r.os_query_count, r.group, r.name))
+        rows.sort(
+            key=lambda r: (r.invocation_count, r.os_query_count, r.group, r.name)
+        )
     else:
         rows.sort(key=lambda r: (r.group, r.name))
     return rows
@@ -115,26 +149,29 @@ def inventory(by: str = "engagement") -> list[CommandRow]:
 def format_inventory(rows: list[CommandRow], min_count: int | None = None) -> str:
     """Render the inventory as a readable table.
 
-    If min_count is provided, only rows with os_query_count <= min_count
-    are shown — useful for surfacing the never-engaged commands first.
+    If min_count is given, only rows with invocation_count <= min_count
+    are shown — the audit-priority lens (commands rarely or never invoked).
     """
     if min_count is not None:
-        rows = [r for r in rows if r.os_query_count <= min_count]
+        rows = [r for r in rows if r.invocation_count <= min_count]
     if not rows:
         return "[inventory] no rows."
 
     total = len(rows)
-    tracked = sum(1 for r in rows if r.os_query_count > 0)
+    invoked = sum(1 for r in rows if r.invocation_count > 0)
+    thought = sum(1 for r in rows if r.os_query_count > 0)
 
     lines = [
-        f"=== CLI Inventory ({total} commands, {tracked} with engagement signal) ===",
-        f"{'count':>5}  {'group':12}  {'name':30}  description",
-        "  ".join(["-" * 5, "-" * 12, "-" * 30, "-" * 40]),
+        f"=== CLI Inventory ({total} commands; {invoked} ever invoked; "
+        f"{thought} also thinking-tracked) ===",
+        f"{'invk':>5}  {'thnk':>5}  {'group':12}  {'name':30}  description",
+        "  ".join(["-" * 5, "-" * 5, "-" * 12, "-" * 30, "-" * 40]),
     ]
     for r in rows:
         flag = " " if r.has_help else "?"  # missing help is its own smell
         lines.append(
-            f"{r.os_query_count:5d}  {r.group[:12]:12}  {flag}{r.name[:29]:29}  "
+            f"{r.invocation_count:5d}  {r.os_query_count:5d}  "
+            f"{r.group[:12]:12}  {flag}{r.name[:29]:29}  "
             f"{r.description[:80]}"
         )
     return "\n".join(lines)
