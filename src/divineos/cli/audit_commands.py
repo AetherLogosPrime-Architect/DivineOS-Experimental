@@ -437,6 +437,124 @@ def register(cli: click.Group) -> None:
                 click.echo(f"    {click.style(f['severity'], fg=sev_color)} {f['title']}")
         click.echo()
 
+    @audit_group.command("predict")
+    @click.option("--round", "round_id", required=True, help="Audit round ID")
+    @click.option(
+        "--topics",
+        required=True,
+        help="Comma-separated topics I'm self-predicting will be in the audit",
+    )
+    def audit_predict_cmd(round_id: str, topics: str) -> None:
+        """Record self-audit prediction BEFORE the audit lands.
+
+        From omni-mantra Pillar I, 1.3 — The Great Mystery: what the
+        agent doesn't know it doesn't know. Recording predictions
+        before the audit lets `audit surprises` compute the unknown-
+        unknown rate later — patterns the auditor caught that I
+        couldn't even mark as a possibility.
+
+        Goodhart-protected: closing the surprise-rate requires
+        expanding attention surface, not better-predicting the
+        auditor (sycophancy-toward-expected-audit).
+        """
+        from divineos.core.operating_loop.unknown_unknown_surface import (
+            record_self_audit_prediction,
+        )
+
+        topic_list = [t.strip() for t in topics.split(",") if t.strip()]
+        if not topic_list:
+            click.secho("[-] No topics provided.", fg="yellow")
+            return
+        ev_id = record_self_audit_prediction(round_id, topic_list)
+        if ev_id.startswith("error:"):
+            click.secho(f"[-] Failed to record: {ev_id}", fg="red")
+            return
+        click.secho(
+            f"[+] Recorded {len(topic_list)} predicted topics for round {round_id}",
+            fg="green",
+        )
+        for t in topic_list:
+            click.secho(f"    - {t}", fg="bright_black")
+
+    @audit_group.command("surprises")
+    @click.option("--round", "round_id", required=True, help="Audit round ID")
+    def audit_surprises_cmd(round_id: str) -> None:
+        """Show audit findings the substrate-occupant didn't predict.
+
+        Compares the recorded `audit predict` topics for the round
+        against the actual findings filed; surfaces the surprise-
+        class catches. These are the maturity signal — tighter
+        substrate shows fewer over time.
+        """
+        from divineos.core.operating_loop.unknown_unknown_surface import (
+            _load_predictions_for_round,
+            surprises_in_round,
+        )
+
+        preds = _load_predictions_for_round(round_id)
+        if not preds:
+            click.secho(
+                f"[~] No predictions recorded for round {round_id}. "
+                f"Use `divineos audit predict` before the audit.",
+                fg="yellow",
+            )
+            return
+        surprises = surprises_in_round(round_id, preds)
+        click.secho(
+            f"\n=== Round {round_id}: predicted vs caught ===\n",
+            fg="cyan",
+            bold=True,
+        )
+        click.echo(f"  Predicted topics ({len(preds)}):")
+        for t in preds:
+            click.secho(f"    - {t}", fg="bright_black")
+        click.echo()
+        if not surprises:
+            click.secho(
+                "  No surprises — every finding matched a predicted topic.",
+                fg="green",
+            )
+            return
+        click.secho(
+            f"  Unknown-unknowns ({len(surprises)}) — findings outside my attention surface:",
+            fg="yellow",
+        )
+        for u in surprises:
+            click.echo(f"    [{u.finding_id[:12]}] {u.title}")
+
+    @audit_group.command("unknown-unknown-rate")
+    @click.option(
+        "--limit",
+        default=20,
+        type=int,
+        help="Max recent rounds (with recorded predictions) to examine",
+    )
+    def audit_uu_rate_cmd(limit: int) -> None:
+        """Rolling proportion of audit findings that were unpredicted.
+
+        Trend signal: tighter substrate -> rate trends down. Drifting
+        substrate -> rate trends up. Rounds without recorded
+        predictions are skipped.
+        """
+        from divineos.core.operating_loop.unknown_unknown_surface import (
+            unknown_unknown_rate,
+        )
+
+        stats = unknown_unknown_rate(recent_round_limit=limit)
+        click.secho("\n=== Unknown-Unknown Rate ===\n", fg="cyan", bold=True)
+        click.echo(f"  Rounds examined:  {stats['rounds_examined']}")
+        click.echo(f"  Total findings:   {stats['total_findings']}")
+        click.echo(f"  Surprises:        {stats['surprise_count']}")
+        rate_pct = stats["rate"] * 100
+        color = "green" if rate_pct < 20 else ("yellow" if rate_pct < 40 else "red")
+        click.secho(f"  Rate:             {rate_pct:.1f}%", fg=color)
+        if stats["rounds_examined"] == 0:
+            click.secho(
+                "\n  No rounds with recorded predictions yet. Use "
+                "`divineos audit predict` before audits to start the metric.",
+                fg="bright_black",
+            )
+
     @audit_group.command("compliance")
     @click.option(
         "--days",
