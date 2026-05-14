@@ -33,7 +33,7 @@ from __future__ import annotations
 import datetime
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 
 def _safe_select(conn, sql: str, params: tuple = ()) -> list:
@@ -44,7 +44,10 @@ def _safe_select(conn, sql: str, params: tuple = ()) -> list:
     still raise — only the missing-table case is swallowed.
     """
     try:
-        return conn.execute(sql, params).fetchall()
+        # sqlite3 fetchall() returns list[Any] in stubs; the explicit list()
+        # cast satisfies mypy's no-any-return narrowing without changing
+        # runtime behavior (fetchall is already returning a list).
+        return list(conn.execute(sql, params).fetchall())
     except sqlite3.OperationalError as e:
         if "no such table" in str(e):
             return []
@@ -330,9 +333,11 @@ def export_observations(conn, dest_dir: Path) -> int:
     return len(rows)
 
 
-# Registry of all exports — name → callable. The bio uses a different
-# signature (no conn arg, uses bio_current); wrap it to match.
-_EXPORTS: dict[str, Any] = {
+# Registry of all exports — name → callable returning row count.
+# The bio uses a different signature (no conn arg, uses bio_current);
+# wrap it to match. Typed as Callable[..., int] so callers get a
+# properly-narrowed int return rather than Any.
+_EXPORTS: dict[str, Callable[..., int]] = {
     "bio": lambda conn, d: export_bio(d),
     "principles": export_principles,
     "directives": export_directives,
