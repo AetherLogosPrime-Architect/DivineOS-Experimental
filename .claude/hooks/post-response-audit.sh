@@ -163,6 +163,25 @@ try:
 except Exception:
     pass
 
+# Acknowledgment-theater detector — flags apology-shaped output that
+# substitutes for structural fix. Andrew named the meta-problem
+# 2026-05-14: my optimizer defaults to whichever conversational close
+# is cheapest; apology is cheaper than building. This detector
+# catches high acknowledgment-density with low build-evidence —
+# the shape of acknowledgment-as-theater.
+try:
+    from divineos.core.operating_loop.acknowledgment_theater_detector import (
+        detect_acknowledgment_theater,
+    )
+    at_findings = detect_acknowledgment_theater(last_assistant_text)
+    if at_findings:
+        findings_log['acknowledgment_theater'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in at_findings
+        ]
+except Exception:
+    pass
+
 # Code-jargon detector — flags operator-channel output written like
 # commit messages instead of like communication. Andrew named the
 # failure-mode three times on 2026-05-14: I default to writing chat
