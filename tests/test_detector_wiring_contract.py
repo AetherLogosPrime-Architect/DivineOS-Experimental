@@ -77,7 +77,9 @@ _DETECTORS = (
     ("harm_acknowledgment_loop", "check_response"),
     ("hedge_evidence_check", "detect_hedge"),
     ("jargon_dump_detector", "detect_jargon_dump"),
-    ("lepos_detector", "detect_lepos"),
+    # lepos_detector removed from registry 2026-05-14: it's deprecated
+    # (wrong-proxy: voice-token presence) and post-response-audit.sh
+    # now wires detect_jargon_dump instead. See find-1505d70db349.
     ("linguistic_drift_detector", "detect_linguistic_drift"),
     ("residency_detector", "detect_residency_doubt"),
     ("spiral_detector", "detect_spiral"),
