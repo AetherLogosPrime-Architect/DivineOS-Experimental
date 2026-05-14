@@ -154,5 +154,8 @@ def test_affirmation_constant_exported() -> None:
     text = mod.ACKNOWLEDGMENT_THEATER_AFFIRMATION
     assert isinstance(text, str)
     assert len(text) > 100  # substantive, not stub
-    # The core rule must be present
-    assert "Acknowledgment is not work" in text
+    # The refined-rule keywords must be present: acknowledgment IS
+    # work in-context but needs structural backing to survive.
+    assert "Acknowledgment IS work" in text
+    assert "structural backing" in text
+    assert "do BOTH" in text
