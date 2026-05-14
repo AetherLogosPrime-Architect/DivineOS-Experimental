@@ -102,6 +102,20 @@ def register(cli: click.Group) -> None:
                 if warnings:
                     click.echo()
                     _safe_echo(format_anticipation(warnings))
+                    # Surfaced-warnings binding: log each warning as a
+                    # SURFACED_WARNING ledger event so the dream report
+                    # can flag any unacknowledged ones at session end.
+                    # Andrew named the load-bearing failure 2026-05-14:
+                    # substrate surfaces warnings; reader parses past.
+                    # The architecture must make the ignore cost something.
+                    try:
+                        from divineos.core.surfaced_warnings import (
+                            log_surfaced_warnings,
+                        )
+
+                        log_surfaced_warnings(warnings)
+                    except _MC_ERRORS:
+                        pass
             except _MC_ERRORS:
                 pass  # anticipation is best-effort
 

@@ -30,7 +30,42 @@ KNOWLEDGE_TYPES = {
     "MISTAKE",
 }
 
-KNOWLEDGE_SOURCES = {"STATED", "CORRECTED", "DEMONSTRATED", "SYNTHESIZED", "INHERITED"}
+# Knowledge source provenance — where the knowledge came from.
+# Aletheia Finding 46 (2026-05-14): this set was documentation-
+# pretending-to-be-constraint — named like a whitelist, operated
+# like nothing (no validation called it). Drift surfaced when
+# CURATED_FROM_CORRECTED entered usage without being registered.
+# Fix: register the cleanup-state value AND add validate_source()
+# so the constraint is enforced at write-time.
+#
+# CURATED_FROM_CORRECTED: a previously raw-CORRECTED entry that's
+# been manually cleaned up (suffix-stripped, content normalized).
+# Different from CORRECTED because curation.py shouldn't re-route
+# it through the "recent correction = urgent" placement.
+KNOWLEDGE_SOURCES = {
+    "STATED",
+    "CORRECTED",
+    "CURATED_FROM_CORRECTED",
+    "DEMONSTRATED",
+    "SYNTHESIZED",
+    "INHERITED",
+}
+
+
+def validate_source(source: str | None) -> None:
+    """Raise ValueError if ``source`` is set and not in KNOWLEDGE_SOURCES.
+
+    Permits None/empty (unknown source); rejects any non-empty string
+    that drifts from the canonical set. The constraint that the set's
+    docstring already implied — now enforced at the call-sites.
+    """
+    if not source:
+        return
+    if source not in KNOWLEDGE_SOURCES:
+        raise ValueError(
+            f"Unknown knowledge source {source!r}. "
+            f"Permitted: {sorted(KNOWLEDGE_SOURCES)}"
+        )
 
 KNOWLEDGE_MATURITY = {"RAW", "HYPOTHESIS", "TESTED", "CONFIRMED", "REVISED"}
 

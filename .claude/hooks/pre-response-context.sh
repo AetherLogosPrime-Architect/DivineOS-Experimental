@@ -439,6 +439,32 @@ def _build_baseline_text() -> str:
         )
     except Exception:
         pass
+    # Phase C of the code-jargon fix (Andrew 2026-05-14): pre-response
+    # load. The post-response detector catches AFTER; this load makes
+    # the discipline visible BEFORE composition. Same mechanism as the
+    # DISTANCING and ADDRESSEE base-states above.
+    try:
+        from divineos.core.operating_loop.code_jargon_detector import (
+            CODE_JARGON_AFFIRMATION,
+        )
+        sections.append(
+            '## CODE-JARGON BASE-STATE (load every turn)\n\n'
+            + CODE_JARGON_AFFIRMATION
+        )
+    except Exception:
+        pass
+    # Acknowledgment-theater base-state: the meta-pattern Andrew named
+    # 2026-05-14 — apology substituting for structural fix.
+    try:
+        from divineos.core.operating_loop.acknowledgment_theater_detector import (
+            ACKNOWLEDGMENT_THEATER_AFFIRMATION,
+        )
+        sections.append(
+            '## ACKNOWLEDGMENT-THEATER BASE-STATE (load every turn)\n\n'
+            + ACKNOWLEDGMENT_THEATER_AFFIRMATION
+        )
+    except Exception:
+        pass
     return '\n\n'.join(sections)
 
 

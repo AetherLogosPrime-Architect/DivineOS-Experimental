@@ -120,6 +120,26 @@ def register(cli: click.Group) -> None:
             click.secho(f"    from: {source_entity}", fg="bright_black")
         if related_to:
             click.secho(f"    related to: {related_to}", fg="bright_black")
+        # Will-to-vessel structural-promotion check (Phase A, observation-
+        # only). When the entry contains rule-shape language ("always X" /
+        # "never Y" / "must Z") and does NOT already reference structural
+        # backing (falsifier/test/gate/etc.), emit a question asking what
+        # makes the rule automatic. Surfaces in dream report; verified
+        # against ledger via `divineos admin structural-promotion-check`.
+        # Andrew 2026-05-14 epistemic-discipline. Fail-soft.
+        try:
+            from divineos.core.structural_promotion_check import (
+                emit_structural_promotion_question,
+            )
+
+            if emit_structural_promotion_question(kid, content):
+                click.secho(
+                    "    [?] rule-shape language detected — what test/"
+                    "gate/surface makes this automatic?",
+                    fg="yellow",
+                )
+        except _KC_ERRORS:
+            pass  # observation-only; never blocks the learn
         from divineos.cli._anti_substitution import emit_label
 
         emit_label("learn")
@@ -408,6 +428,17 @@ def register(cli: click.Group) -> None:
             if warnings:
                 click.echo()
                 _safe_echo(format_anticipation(warnings))
+                # Surfaced-warnings binding: log each warning so dream
+                # report can flag unacknowledged ones. Load-bearing
+                # failure-mode named by Andrew 2026-05-14.
+                try:
+                    from divineos.core.surfaced_warnings import (
+                        log_surfaced_warnings,
+                    )
+
+                    log_surfaced_warnings(warnings)
+                except _KC_ERRORS:
+                    pass
         except _KC_ERRORS:
             pass  # anticipation is best-effort
 

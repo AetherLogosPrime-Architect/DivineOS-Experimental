@@ -33,7 +33,7 @@ _CRUD_ERRORS = (
 def store_knowledge(
     knowledge_type: str,
     content: str,
-    confidence: float = 1.0,
+    confidence: float = 0.5,
     source_events: list[str] | None = None,
     tags: list[str] | None = None,
     source: str = "STATED",
@@ -50,11 +50,27 @@ def store_knowledge(
     memory_kind is the orthogonal diagnostic dimension
     (EPISODIC / SEMANTIC / PROCEDURAL / UNCLASSIFIED). If None, runs the
     heuristic classifier on content. See memory_kind.classify_kind.
+
+    Default confidence is 0.5 (Aletheia round-ba785844a791 Finding 31,
+    family-audit round-335aaeeffc26 default-value-drift class). The
+    prior default of 1.0 meant any caller that forgot to pass
+    confidence got MAX confidence silently — bias toward over-confident
+    knowledge entries that would advance maturity faster than warranted.
+    0.5 matches the CLI's --confidence default; both paths now err
+    toward needing more evidence before high-confidence claims.
     """
     if knowledge_type not in KNOWLEDGE_TYPES:
         raise ValueError(
             f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}",
         )
+
+    # Source provenance validation — Aletheia Finding 46 (2026-05-14):
+    # KNOWLEDGE_SOURCES was documented-as-whitelist but not enforced.
+    # Now any source string passed in must be in the canonical set
+    # (or empty for "unknown").
+    from divineos.core.knowledge._base import validate_source
+
+    validate_source(source)
 
     if memory_kind is None:
         from divineos.core.knowledge.memory_kind import classify_kind

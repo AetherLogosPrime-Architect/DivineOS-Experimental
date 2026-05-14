@@ -231,6 +231,7 @@ from divineos.cli import (  # noqa: E402
     event_commands,
     expect_commands,
     exploration_commands,
+    rest_commands,
     hud_commands,
     insight_commands,
     journal_commands,
@@ -249,6 +250,7 @@ from divineos.cli import (  # noqa: E402
     progress_commands,
     selfmodel_commands,
     rt_commands,
+    savor_commands,
     scheduled_commands,
     sleep_commands,
     synchronicity_commands,
@@ -277,12 +279,14 @@ hud_commands.register(cli)
 event_commands.register(cli)
 expect_commands.register(cli)
 exploration_commands.register(cli)
+rest_commands.register(cli)
 knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)
 insight_commands.register(cli)
 sleep_commands.register(cli)
 progress_commands.register(cli)
 rt_commands.register(cli)
+savor_commands.register(cli)
 correction_commands.register(cli)
 prereg_commands.register(cli)
 synchronicity_commands.register(cli)
@@ -362,7 +366,11 @@ def inspect_hook1_cmd() -> None:
 # Commands to move into 'admin' group
 _ADMIN_COMMANDS = [
     "anti-slop",
+    "archive-export",
     "backfill-warrants",
+    "check-correction-pairing",
+    "inventory",
+    "structural-promotion-check",
     "clean",
     "clear-lessons",
     "compress",

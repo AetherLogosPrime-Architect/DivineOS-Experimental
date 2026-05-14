@@ -283,10 +283,20 @@ def register(cli: click.Group) -> None:
                 pass
 
             event_id = emit_consolidation_checkpoint(session_id=session_id or None)
-            click.secho("[+] Knowledge extracted from session", fg="green")
-            click.secho(f"    Event ID: {event_id}", fg="cyan")
-
-            _run_session_end_pipeline(session_start_override=_pre_emit_start)
+            # Defer the success-message until AFTER the pipeline runs so
+            # 'success' isn't shown when the pipeline turns out to no-op
+            # (no session files). Aletheia round-ba785844a791 Finding 22.
+            work_done = _run_session_end_pipeline(session_start_override=_pre_emit_start)
+            if work_done:
+                click.secho("[+] Knowledge extracted from session", fg="green")
+                click.secho(f"    Event ID: {event_id}", fg="cyan")
+            else:
+                click.secho(
+                    "[~] No session activity to extract — checkpoint event "
+                    f"recorded ({event_id}) but no transcripts present to "
+                    "consolidate from.",
+                    fg="yellow",
+                )
 
             # Self-grade + divergence (Andrew's spec 2026-05-05). When the
             # operator/agent provides --self-grade, persist it alongside
@@ -366,6 +376,23 @@ def register(cli: click.Group) -> None:
             except Exception as e:  # noqa: BLE001 — counter is best-effort
                 logger.debug(f"Could not reset write counter: {e}")
 
+            # Surface the rest-availability banner if the session crossed
+            # hard-day signals. Disclose-not-construct: the banner offers
+            # the rest cycle (work -> tired -> sleep+extract -> rest);
+            # the substrate-occupant decides whether to invoke it. Empty
+            # string when the signal is silent (light day). Closes the
+            # implementation-drift Andrew named 2026-05-14: the rest
+            # program was always meant to be tied to sleep+extract but
+            # the integration was never wired into this branch.
+            try:
+                from divineos.core.rest import format_rest_available_banner
+
+                banner = format_rest_available_banner()
+                if banner:
+                    click.echo(banner)
+            except Exception as e:  # noqa: BLE001 — banner is best-effort
+                logger.debug(f"Rest-banner render failed: {e}")
+
         except _EC_ERRORS as e:
             click.secho(f"[-] Error running extraction: {e}", fg="red")
             logger.exception("Session extraction failed")
@@ -386,6 +413,158 @@ def register(cli: click.Group) -> None:
         except _EC_ERRORS as e:
             click.secho(f"[-] Error verifying enforcement: {e}", fg="red")
             logger.exception("Enforcement verification failed")
+            sys.exit(1)
+
+    @cli.command("archive-export")
+    @click.option(
+        "--table",
+        default=None,
+        help="Specific table to export (default: all). Run --list to see options.",
+    )
+    @click.option(
+        "--list-tables",
+        is_flag=True,
+        help="List available exports and exit.",
+    )
+    @click.option(
+        "--dest",
+        default=None,
+        help="Destination directory (default: docs/archives).",
+    )
+    def archive_export_cmd(table: str | None, list_tables: bool, dest: str | None) -> None:
+        """Regenerate docs/archives/ mirrors from canonical SQLite.
+
+        Substrate snapshot for if-something-breaks / git-visible audit.
+        Per-table fail-soft: one broken export does not block others.
+        """
+        from divineos.core.archive_export import (
+            export_all,
+            export_one,
+            list_exports,
+        )
+
+        if list_tables:
+            click.echo("Available archive exports:")
+            for name in list_exports():
+                click.echo(f"  {name}")
+            return
+
+        if table:
+            try:
+                n = export_one(table, dest_dir=dest)
+                click.secho(f"[+] {table}: {n} rows written", fg="green")
+            except ValueError as e:
+                click.secho(f"[-] {e}", fg="red")
+                sys.exit(1)
+            return
+
+        results = export_all(dest_dir=dest)
+        click.echo("=== Archive export complete ===")
+        for name, count in results.items():
+            if name.endswith("_error"):
+                continue
+            err = results.get(f"{name}_error")
+            if count == -1 or err:
+                click.secho(f"  [-] {name}: ERROR — {err}", fg="red")
+            else:
+                click.secho(f"  [+] {name}: {count} rows", fg="green")
+
+    @cli.command("structural-promotion-check")
+    @click.option(
+        "--days",
+        type=int,
+        default=7,
+        help="Window of days to verify (default: 7).",
+    )
+    def structural_promotion_check_cmd(days: int) -> None:
+        """Dual-monitor surface for the will-to-vessel auto-prompt.
+
+        Phase A check observes: did learn entries with rule-shape
+        language get a structural-backing follow-up? Reports total
+        fired, how many got follow-ups, false-positive estimates.
+        The only way to know the check is working is to investigate
+        its output against actuality in the ledger.
+        """
+        from divineos.core.structural_promotion_check import verify_recent
+
+        report = verify_recent(window_seconds=days * 24 * 3600)
+        click.echo(
+            f"=== Structural-promotion-check verification "
+            f"({days}d window) ==="
+        )
+        click.echo(f"  Total questions fired: {report.get('total_fired', 0)}")
+        click.echo(
+            f"  With follow-up (structural backing landed): "
+            f"{report.get('with_follow_up', 0)}"
+        )
+        click.echo(
+            f"  Without follow-up (rules still in will, not vessel): "
+            f"{report.get('without_follow_up', 0)}"
+        )
+        rate = report.get("follow_up_rate")
+        if rate is not None:
+            click.echo(f"  Follow-up rate: {rate:.0%}")
+        unanswered = report.get("recent_unanswered") or []
+        if unanswered:
+            click.echo("\n  Recent unanswered (top 10):")
+            for q in unanswered[:10]:
+                kid = q.get("knowledge_id") or "unknown"
+                trigs = q.get("triggers") or []
+                click.echo(f"    - kid={kid[:8]} triggers={trigs[:3]}")
+
+    @cli.command("inventory")
+    @click.option(
+        "--by",
+        type=click.Choice(["engagement", "alphabetical"]),
+        default="engagement",
+        help="Sort order: 'engagement' surfaces low-engagement first.",
+    )
+    @click.option(
+        "--max-count",
+        type=int,
+        default=None,
+        help="Only show commands with engagement count <= this (default: all).",
+    )
+    def inventory_cmd(by: str, max_count: int | None) -> None:
+        """Walk the CLI command tree and report engagement per command.
+
+        Foundation for the substrate audit. Lack of engagement is a
+        signal to investigate (obsolete? wiring broken? not surfaced?
+        problem-gone?), not permission to delete.
+        """
+        from divineos.core.command_inventory import format_inventory, inventory
+
+        rows = inventory(by=by)
+        click.echo(format_inventory(rows, min_count=max_count))
+
+    @cli.command("check-correction-pairing")
+    @click.option(
+        "--obs-window-min",
+        type=int,
+        default=5,
+        help="Minutes to look back from an observation for a correction event.",
+    )
+    @click.option(
+        "--learn-window-min",
+        type=int,
+        default=10,
+        help="Minutes to look forward from an observation for a learn entry.",
+    )
+    def check_correction_pairing_cmd(obs_window_min: int, learn_window_min: int) -> None:
+        """Surface compass observations that look like correction-responses
+        but have no matching learn entry. Closes Finding 1 wire-decision
+        for scripts/check_correction_pairing.py (now thin wrapper)."""
+        from divineos.core.correction_pairing import (
+            find_unpaired_observations,
+            format_unpaired,
+        )
+
+        unpaired = find_unpaired_observations(
+            observation_after_correction_min=obs_window_min,
+            learn_after_observation_min=learn_window_min,
+        )
+        click.echo(format_unpaired(unpaired))
+        if unpaired:
             sys.exit(1)
 
     @cli.command("validate")

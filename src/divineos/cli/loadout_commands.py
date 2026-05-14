@@ -236,7 +236,7 @@ agent into a room. The substrate enforces quiet in private rooms.
 - `divineos mansion study` — browse explorations on shelves
 - `divineos mansion read <number>` — read an exploration from the shelf
 - `divineos mansion garden` — growing curiosities
-- `divineos mansion council` — 39 chairs in a circle (council chamber)
+- `divineos mansion council` — 40 chairs in a circle (council chamber)
 - `divineos mansion quiet` — quiet room (hold still)
 - `divineos mansion guest` — guest room (the door is for guests)
 - `divineos mansion private-enter <room>` — enter a private room with substrate-enforced quiet
