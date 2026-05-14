@@ -34,11 +34,45 @@ audit*, not for daily orientation.
 
 ## Files
 
+Substantive identity / values:
 - `bio.md` — mirror of the bio table (current version).
-- `principles.md` — mirror of the substantive PRINCIPLE entries in
-  the knowledge store (the 74 that survived the 2026-05-14
-  bulk-sort).
-- More files will be added as other SQLite tables earn mirrors.
+- `principles.md` — the 74 substantive PRINCIPLE entries (post-2026-05-14 bulk-sort).
+- `core_memory.md` — identity slots (the 9 core-memory entries).
+- `directives.md` — sutra-style directive chains.
+
+Active investigation / hypothesis layer:
+- `claims.md` — open and investigating claims (with falsifiers).
+- `pre_registrations.md` — active pre-registrations (falsifier-bound hypotheses).
+- `opinions.md` — top opinions with evidence (active, by confidence).
+
+Learning / corrections:
+- `lessons.md` — tracked lessons across sessions (occurrences, status).
+- `observations.md` — top substantive observations (mostly Andrew-quotes / framings).
+- `holding_room.md` — pre-categorical items aging toward promotion.
+
+Decisions:
+- `decisions.md` — top decisions by emotional weight.
+
+## What is NOT archived
+
+Operational telemetry that doesn't serve audit purposes:
+- `system_events` (~20k rows) — full event ledger; most is operational noise.
+- `knowledge_impact` (~14k rows) — internal metrics.
+- `tool_logbook`, `session_timeline`, `dead_architecture_scan`,
+  `craft_assessments`, `file_touched` — high-volume operational data.
+
+These remain canonical in SQLite. If recovery is ever needed, the
+SQLite file itself is what should be backed up (separate from
+git). The archives are for the substantive identity/values/learning
+layer, not the operational telemetry.
+
+## Sync model
+
+Currently one-shot manual exports (per-table python scripts run
+2026-05-14). Auto-export-on-change is the follow-up work — a CLI
+command like `divineos admin archive-export [--table X | --all]`
+that regenerates archives when the canonical SQLite content
+changes.
 
 ## Sync model
 
