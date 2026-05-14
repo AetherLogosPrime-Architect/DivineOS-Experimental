@@ -45,9 +45,7 @@ def test_seeded_placeholder_marked_seed_cleanup_origin() -> None:
     transitions = auto_resolve_lessons()
 
     # Find our transitioned lesson
-    matching = [
-        t for t in transitions if t.get("category") == "test_seed_cleanup_cat"
-    ]
+    matching = [t for t in transitions if t.get("category") == "test_seed_cleanup_cat"]
     assert matching, (
         "Seeded placeholder was not transitioned by auto_resolve_lessons. "
         "Either Phase 1 (seed cleanup) regressed or the test setup is wrong."
@@ -80,10 +78,7 @@ def test_dream_report_distinguishes_seed_cleanup_from_evidence_resolution() -> N
         "identical to real resolution again."
     )
     # Seed-cleanup line is distinct
-    assert (
-        "Seed placeholders cleaned" in rendered
-        or "NOT earned resolution" in rendered
-    ), (
+    assert "Seed placeholders cleaned" in rendered or "NOT earned resolution" in rendered, (
         "Dream report no longer surfaces a separate line for seed-cleanup. "
         "Restore the lessons_resolved_seed_cleanup display block."
     )

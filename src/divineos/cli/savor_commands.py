@@ -65,14 +65,12 @@ def register(cli: click.Group) -> None:
         savors = recent_savors(limit=limit)
         if not savors:
             click.secho(
-                "[~] No savors recorded yet. Mark one with `divineos savor \"...\"`.",
+                '[~] No savors recorded yet. Mark one with `divineos savor "..."`.',
                 fg="bright_black",
             )
             return
 
-        click.secho(
-            f"\n=== Recent savors ({len(savors)}) ===\n", fg="cyan", bold=True
-        )
+        click.secho(f"\n=== Recent savors ({len(savors)}) ===\n", fg="cyan", bold=True)
         for s in savors:
             dt = datetime.datetime.fromtimestamp(s.ts, tz=datetime.timezone.utc)
             date_str = dt.strftime("%Y-%m-%d %H:%M")

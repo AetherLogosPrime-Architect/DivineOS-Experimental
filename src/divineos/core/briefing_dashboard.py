@@ -58,9 +58,7 @@ def _row_corrections() -> DashboardRow | None:
         # fix per Aletheia round-d59eb4570f3f Finding (corrections).
         # Sort by age_days descending; truncate text to ~100 chars
         # to keep each preview line within chunk bounds.
-        stalest = sorted(
-            opens, key=lambda c: c.get("age_days", 0), reverse=True
-        )[:3]
+        stalest = sorted(opens, key=lambda c: c.get("age_days", 0), reverse=True)[:3]
         preview = []
         for c in stalest:
             text = (c.get("text") or "").replace("\n", " ").strip()
@@ -101,14 +99,10 @@ def _row_claims() -> DashboardRow | None:
                     created = dt.timestamp()
                 except (ValueError, TypeError):
                     created = 0
-            c["_age_days"] = (
-                (now - created) / _SECONDS_PER_DAY if created else 0
-            )
+            c["_age_days"] = (now - created) / _SECONDS_PER_DAY if created else 0
         stale = sum(1 for c in open_claims if c["_age_days"] >= 7)
         # Preview top-3 stalest claims (discovery-gap class fix).
-        stalest = sorted(
-            open_claims, key=lambda c: c["_age_days"], reverse=True
-        )[:3]
+        stalest = sorted(open_claims, key=lambda c: c["_age_days"], reverse=True)[:3]
         preview = []
         for c in stalest:
             stmt = (c.get("statement") or "").replace("\n", " ").strip()
@@ -151,9 +145,7 @@ def _row_audit_findings() -> DashboardRow | None:
         )[:3]
         preview: list[str] = []
         for f in sorted_findings:
-            sev = (
-                f.severity.value if hasattr(f.severity, "value") else str(f.severity)
-            )
+            sev = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
             title = (f.title or f.description or "").replace("\n", " ").strip()
             short = title[:90] + ("..." if len(title) > 90 else "")
             preview.append(f"[{sev}] {short}")
@@ -183,8 +175,7 @@ def _row_preregs() -> DashboardRow | None:
             # review_ts is the canonical attribute on PreRegistration;
             # fall back to review_date_ts for dict-shaped rows.
             review_ts = float(
-                _safe_get(p, "review_ts", _safe_get(p, "review_date_ts", 0) or 0)
-                or 0
+                _safe_get(p, "review_ts", _safe_get(p, "review_date_ts", 0) or 0) or 0
             )
             if review_ts and review_ts < now:
                 overdue.append((p, review_ts))
@@ -203,9 +194,7 @@ def _row_preregs() -> DashboardRow | None:
         if remaining > 0:
             for p, rts in sorted(upcoming, key=lambda pr: pr[1] or now)[:remaining]:
                 mech = _safe_get(p, "mechanism", "") or "?"
-                days_until = (
-                    (rts - now) / _SECONDS_PER_DAY if rts else None
-                )
+                days_until = (rts - now) / _SECONDS_PER_DAY if rts else None
                 tag = (
                     f"due in {days_until:.0f}d"
                     if days_until is not None and days_until > 0
@@ -267,9 +256,7 @@ def _row_goals() -> DashboardRow | None:
         # Goals don't have a built-in staleness threshold the briefing
         # uses for the marker, so stale_count stays 0 — but the preview
         # surfaces the oldest so they get noticed.
-        sorted_goals = sorted(
-            goals, key=lambda g: g.get("added_at") or now
-        )[:3]
+        sorted_goals = sorted(goals, key=lambda g: g.get("added_at") or now)[:3]
         preview = []
         for g in sorted_goals:
             text = (g.get("text") or "").replace("\n", " ").strip()
@@ -344,17 +331,13 @@ def _row_compass() -> DashboardRow | None:
                 zone = c.get("zone") or "?"
                 label = c.get("label") or ""
                 pos = c.get("position", 0.0)
-                preview.append(
-                    f"[concern] {spec}: {label or zone} @ pos={pos:+.2f}"
-                )
+                preview.append(f"[concern] {spec}: {label or zone} @ pos={pos:+.2f}")
             remaining = 3 - len(preview)
             for d in drifting[:remaining]:
                 spec = d.get("spectrum") or "?"
                 direction = d.get("direction") or "?"
                 drift = d.get("drift", 0.0)
-                preview.append(
-                    f"[drifting] {spec} -> {direction} (drift={drift:+.2f})"
-                )
+                preview.append(f"[drifting] {spec} -> {direction} (drift={drift:+.2f})")
             return DashboardRow(
                 area="Compass",
                 count=observed,
@@ -476,9 +459,7 @@ def _row_holding() -> DashboardRow | None:
         now = time.time()
         # Preview top-3 oldest items in the holding room. Discovery-gap
         # class fix: things sit in holding indefinitely if I never look.
-        sorted_items = sorted(
-            items, key=lambda i: i.get("arrived_at") or now
-        )[:3]
+        sorted_items = sorted(items, key=lambda i: i.get("arrived_at") or now)[:3]
         preview = []
         for i in sorted_items:
             content = (i.get("content") or "").replace("\n", " ").strip()
@@ -489,8 +470,7 @@ def _row_holding() -> DashboardRow | None:
         # Count items aged >= 14 days as "stale" — they've sat without
         # promotion or let-go for two weeks.
         stale = sum(
-            1 for i in items
-            if (now - (i.get("arrived_at") or now)) / _SECONDS_PER_DAY >= 14
+            1 for i in items if (now - (i.get("arrived_at") or now)) / _SECONDS_PER_DAY >= 14
         )
         return DashboardRow(
             area="Holding room",
@@ -595,9 +575,7 @@ def _row_ablation_active() -> DashboardRow | None:
         stale_count=len(disabled),  # any active ablation is "stale" relative to production
         detail=f"active toggles: {', '.join(disabled[:3])}"
         + (f" (+{len(disabled) - 3} more)" if len(disabled) > 3 else ""),
-        drill_down=(
-            "-> unset DIVINEOS_DISABLE_<MECHANISM> env vars when measurement run is done"
-        ),
+        drill_down=("-> unset DIVINEOS_DISABLE_<MECHANISM> env vars when measurement run is done"),
     )
 
 
@@ -647,8 +625,7 @@ def _row_maintenance_staleness() -> DashboardRow | None:
             overrun_h = age_h - cadence_h
             clean_marker = "" if s.get("last_clean") else " [failed]"
             preview.append(
-                f"[+{overrun_h:.0f}h overdue, cadence {cadence_h:.0f}h] "
-                f"{cmd}{clean_marker}"
+                f"[+{overrun_h:.0f}h overdue, cadence {cadence_h:.0f}h] {cmd}{clean_marker}"
             )
 
     return DashboardRow(
@@ -657,9 +634,7 @@ def _row_maintenance_staleness() -> DashboardRow | None:
         stale_count=len(stale_states),
         detail=f"{len(stale_states)}/{len(states)} stale",
         preview=preview,
-        drill_down=(
-            "divineos scheduled run <command> --trigger cron"
-        ),
+        drill_down=("divineos scheduled run <command> --trigger cron"),
     )
 
 
@@ -734,9 +709,8 @@ def _row_correction_pairing() -> DashboardRow | None:
     # truncated evidence so the row is informative-at-a-glance.
     first = unpaired[0]
     evidence_preview = (first.get("evidence") or "")[:60]
-    detail = (
-        f"spectrum={first.get('spectrum', '?')}: {evidence_preview}"
-        + (f" (+{len(unpaired) - 1} more)" if len(unpaired) > 1 else "")
+    detail = f"spectrum={first.get('spectrum', '?')}: {evidence_preview}" + (
+        f" (+{len(unpaired) - 1} more)" if len(unpaired) > 1 else ""
     )
     return DashboardRow(
         area="Correction pairing",

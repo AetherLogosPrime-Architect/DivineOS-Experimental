@@ -73,8 +73,7 @@ def test_high_density_jargon_fires() -> None:
     findings = detect_code_jargon(text)
     shapes = {f.shape for f in findings}
     assert CodeJargonShape.DENSITY_THRESHOLD_CROSSED in shapes, (
-        f"High-jargon chat reply did not trigger the density signal. "
-        f"Got shapes: {shapes}"
+        f"High-jargon chat reply did not trigger the density signal. Got shapes: {shapes}"
     )
 
 
@@ -164,6 +163,5 @@ def test_my_recent_pattern_fires() -> None:
     findings = detect_code_jargon(text)
     shapes = {f.shape for f in findings}
     assert CodeJargonShape.DENSITY_THRESHOLD_CROSSED in shapes, (
-        "My own pattern was not caught — the detector failed at the "
-        "first job it was built for."
+        "My own pattern was not caught — the detector failed at the first job it was built for."
     )

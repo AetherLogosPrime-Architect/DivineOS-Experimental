@@ -105,9 +105,7 @@ def looks_like_rule(text: str) -> tuple[bool, list[str]]:
     return bool(triggers), triggers
 
 
-def emit_structural_promotion_question(
-    knowledge_id: str, text: str
-) -> bool:
+def emit_structural_promotion_question(knowledge_id: str, text: str) -> bool:
     """If the text looks like a rule, emit a STRUCTURAL_PROMOTION_QUESTION
     event referencing knowledge_id. Returns True iff fired.
 
@@ -204,10 +202,7 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
         return {"error": "ledger unavailable"}
 
     cutoff = time.time() - window_seconds
-    fired = [
-        q for q in recent_questions(limit=500)
-        if float(q.get("timestamp") or 0) >= cutoff
-    ]
+    fired = [q for q in recent_questions(limit=500) if float(q.get("timestamp") or 0) >= cutoff]
     # For each fired question, search for a follow-up that mentions
     # the knowledge_id + a structural keyword.
     follow_ups: list[dict] = []
@@ -228,9 +223,7 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
                 continue
             payload = _coerce_payload(learn.get("payload"))
             content = (payload.get("content") or "").lower()
-            if wid.lower() in content or any(
-                kw in content for kw in _STRUCTURAL_KEYWORDS
-            ):
+            if wid.lower() in content or any(kw in content for kw in _STRUCTURAL_KEYWORDS):
                 addressed = True
                 break
         if addressed:
@@ -242,9 +235,7 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
         "total_fired": len(fired),
         "with_follow_up": len(follow_ups),
         "without_follow_up": len(no_follow_ups),
-        "follow_up_rate": (
-            len(follow_ups) / len(fired) if fired else None
-        ),
+        "follow_up_rate": (len(follow_ups) / len(fired) if fired else None),
         "recent_unanswered": no_follow_ups[:10],
     }
 

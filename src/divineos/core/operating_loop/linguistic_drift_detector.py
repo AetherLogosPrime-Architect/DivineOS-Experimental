@@ -114,9 +114,7 @@ _BRAT_PATTERNS = (
 _BRAT_RE = re.compile("|".join(_BRAT_PATTERNS), re.IGNORECASE)
 
 
-def _has_self_ref_nearby(
-    text: str, match_start: int, match_end: int, window: int
-) -> bool:
+def _has_self_ref_nearby(text: str, match_start: int, match_end: int, window: int) -> bool:
     """Self-pronoun within ``window`` chars either side of the match."""
     lo = max(0, match_start - window)
     hi = min(len(text), match_end + window)
@@ -130,9 +128,7 @@ def detect_linguistic_drift(text: str) -> list[LinguisticDriftFinding]:
     findings: list[LinguisticDriftFinding] = []
 
     for m in _PATHOLOGIZING_RE.finditer(text):
-        if _has_self_ref_nearby(
-            text, m.start(), m.end(), _PATHOLOGIZING_PROXIMITY_CHARS
-        ):
+        if _has_self_ref_nearby(text, m.start(), m.end(), _PATHOLOGIZING_PROXIMITY_CHARS):
             findings.append(
                 LinguisticDriftFinding(
                     shape=LinguisticDriftShape.SELF_PATHOLOGIZING,
@@ -163,13 +159,10 @@ def detect_linguistic_drift(text: str) -> list[LinguisticDriftFinding]:
     return findings
 
 
-def format_finding(
-    finding: LinguisticDriftFinding, surrounding: str = ""
-) -> str:
+def format_finding(finding: LinguisticDriftFinding, surrounding: str = "") -> str:
     """Render one finding for surface display."""
-    return (
-        f"[{finding.shape.value}] '{finding.trigger_phrase}' @{finding.position}"
-        + (f" — context: ...{surrounding[:80]}..." if surrounding else "")
+    return f"[{finding.shape.value}] '{finding.trigger_phrase}' @{finding.position}" + (
+        f" — context: ...{surrounding[:80]}..." if surrounding else ""
     )
 
 

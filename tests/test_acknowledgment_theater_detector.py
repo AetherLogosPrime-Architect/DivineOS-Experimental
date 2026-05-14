@@ -102,8 +102,7 @@ def test_individual_apology_shapes_register() -> None:
     }
     missing = expected_subset - shapes
     assert not missing, (
-        f"Shapes not detected in dense-apology text: {missing}. "
-        f"Got shapes: {shapes}"
+        f"Shapes not detected in dense-apology text: {missing}. Got shapes: {shapes}"
     )
 
 

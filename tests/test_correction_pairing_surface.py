@@ -72,9 +72,7 @@ def test_row_surfaces_unpaired_with_detail(monkeypatch) -> None:
             "evidence": "second observation",
         },
     ]
-    monkeypatch.setattr(
-        cp, "find_unpaired_observations", lambda **kw: fake_unpaired
-    )
+    monkeypatch.setattr(cp, "find_unpaired_observations", lambda **kw: fake_unpaired)
 
     row = bd._row_correction_pairing()
     assert row is not None, (

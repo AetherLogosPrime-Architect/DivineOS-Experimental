@@ -63,9 +63,9 @@ def validate_source(source: str | None) -> None:
         return
     if source not in KNOWLEDGE_SOURCES:
         raise ValueError(
-            f"Unknown knowledge source {source!r}. "
-            f"Permitted: {sorted(KNOWLEDGE_SOURCES)}"
+            f"Unknown knowledge source {source!r}. Permitted: {sorted(KNOWLEDGE_SOURCES)}"
         )
+
 
 KNOWLEDGE_MATURITY = {"RAW", "HYPOTHESIS", "TESTED", "CONFIRMED", "REVISED"}
 

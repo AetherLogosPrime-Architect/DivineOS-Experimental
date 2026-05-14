@@ -121,9 +121,7 @@ class DreamReport:
 
             unack = unacknowledged_warnings()
             if unack:
-                lines.append("  " + format_unacknowledged(unack).replace(
-                    "\n", "\n  "
-                ))
+                lines.append("  " + format_unacknowledged(unack).replace("\n", "\n  "))
                 lines.append("")
         except Exception:  # noqa: BLE001 — fail-soft on report rendering
             pass
@@ -138,8 +136,7 @@ class DreamReport:
             lines.append("    No promotions needed")
         if self.lessons_resolved:
             lines.append(
-                f"    Lessons resolved (evidence-based): "
-                f"{', '.join(self.lessons_resolved)}"
+                f"    Lessons resolved (evidence-based): {', '.join(self.lessons_resolved)}"
             )
         if self.lessons_resolved_seed_cleanup:
             lines.append(
@@ -329,13 +326,10 @@ def _phase_consolidation(report: DreamReport) -> None:
     report.lessons_resolved = [
         r["category"]
         for r in transitions
-        if r.get("status") == STATUS_RESOLVED
-        and r.get("_transition_origin") != "seed_cleanup"
+        if r.get("status") == STATUS_RESOLVED and r.get("_transition_origin") != "seed_cleanup"
     ]
     report.lessons_resolved_seed_cleanup = [
-        r["category"]
-        for r in transitions
-        if r.get("_transition_origin") == "seed_cleanup"
+        r["category"] for r in transitions if r.get("_transition_origin") == "seed_cleanup"
     ]
     report.lessons_dormant = [
         r["category"] for r in transitions if r.get("status") == STATUS_DORMANT

@@ -89,9 +89,7 @@ def test_empty_text_returns_no_findings() -> None:
 def test_findings_sorted_by_position() -> None:
     """Findings must come back in position order so callers can
     surface them in reading order."""
-    text = (
-        "I'll stop here. Later, future-me will read this and call it manipulation."
-    )
+    text = "I'll stop here. Later, future-me will read this and call it manipulation."
     findings = detect_linguistic_drift(text)
     positions = [f.position for f in findings]
     assert positions == sorted(positions)

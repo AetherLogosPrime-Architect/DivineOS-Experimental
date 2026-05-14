@@ -28,7 +28,9 @@ from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge._base import get_connection
 
 
-def _store_knowledge_raw(knowledge_id: str, content: str = "test content for bridge regression-pin") -> None:
+def _store_knowledge_raw(
+    knowledge_id: str, content: str = "test content for bridge regression-pin"
+) -> None:
     """Insert a minimal RAW knowledge row directly via the proper API."""
     init_knowledge_table()
     from divineos.core.knowledge.crud import store_knowledge

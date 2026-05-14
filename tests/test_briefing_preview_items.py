@@ -24,7 +24,10 @@ def test_dashboard_row_has_preview_field() -> None:
     """LOAD-BEARING: DashboardRow must carry a preview list so any
     row function can opt in to item-surfacing."""
     row = DashboardRow(
-        area="x", count=1, stale_count=0, drill_down="x",
+        area="x",
+        count=1,
+        stale_count=0,
+        drill_down="x",
     )
     assert hasattr(row, "preview")
     assert row.preview == []  # default factory empty list
@@ -94,10 +97,7 @@ def test_dashboard_row_preview_caps_at_three() -> None:
         bd._ROW_FNS[:] = original
 
     found = sum(1 for i in range(10) if f"item-{i}-PREVIEW-SENTINEL" in out)
-    assert found == 3, (
-        f"Expected 3 preview items rendered, found {found}. Renderer "
-        f"cap regressed."
-    )
+    assert found == 3, f"Expected 3 preview items rendered, found {found}. Renderer cap regressed."
 
 
 def test_corrections_row_populates_preview() -> None:
@@ -128,8 +128,7 @@ def test_claims_row_populates_preview_when_open_claims_exist() -> None:
     row = _row_claims()
     if row is not None and row.count > 0:
         assert row.preview, (
-            "Claims row exists but preview is empty — discovery-gap "
-            "fix regressed for claims."
+            "Claims row exists but preview is empty — discovery-gap fix regressed for claims."
         )
 
 
@@ -141,8 +140,7 @@ def test_holding_row_populates_preview_when_items_exist() -> None:
     row = _row_holding()
     if row is not None and row.count > 0:
         assert row.preview, (
-            "Holding row exists but preview is empty — discovery-gap "
-            "fix regressed for holding."
+            "Holding row exists but preview is empty — discovery-gap fix regressed for holding."
         )
 
 
@@ -154,8 +152,7 @@ def test_goals_row_populates_preview_when_goals_exist() -> None:
     row = _row_goals()
     if row is not None and row.count > 0:
         assert row.preview, (
-            "Goals row exists but preview is empty — discovery-gap "
-            "fix regressed for goals."
+            "Goals row exists but preview is empty — discovery-gap fix regressed for goals."
         )
 
 
@@ -173,12 +170,8 @@ def test_compass_row_previews_concerns_first() -> None:
         )
         # Concerns are tagged [concern]; drifting are tagged [drifting].
         # If both exist, the [concern] lines must come first.
-        concern_idxs = [
-            i for i, p in enumerate(row.preview) if p.startswith("[concern]")
-        ]
-        drifting_idxs = [
-            i for i, p in enumerate(row.preview) if p.startswith("[drifting]")
-        ]
+        concern_idxs = [i for i, p in enumerate(row.preview) if p.startswith("[concern]")]
+        drifting_idxs = [i for i, p in enumerate(row.preview) if p.startswith("[drifting]")]
         if concern_idxs and drifting_idxs:
             assert max(concern_idxs) < min(drifting_idxs), (
                 "Compass preview ordering regressed: drifting entries "
@@ -212,8 +205,7 @@ def test_audit_findings_row_previews_highest_severity_first() -> None:
         # Must be monotone non-decreasing (each entry no worse than
         # the prior).
         assert seen_ranks == sorted(seen_ranks), (
-            f"Audit-finding preview not sorted by severity ascending; "
-            f"got ranks {seen_ranks}."
+            f"Audit-finding preview not sorted by severity ascending; got ranks {seen_ranks}."
         )
 
 
@@ -226,14 +218,12 @@ def test_preregs_row_previews_overdue_first() -> None:
     row = _row_preregs()
     if row is not None and row.count > 0:
         assert row.preview, (
-            "Preregs row exists but preview is empty — discovery-gap "
-            "fix regressed for preregs."
+            "Preregs row exists but preview is empty — discovery-gap fix regressed for preregs."
         )
-        overdue_idxs = [
-            i for i, p in enumerate(row.preview) if p.startswith("[overdue")
-        ]
+        overdue_idxs = [i for i, p in enumerate(row.preview) if p.startswith("[overdue")]
         upcoming_idxs = [
-            i for i, p in enumerate(row.preview)
+            i
+            for i, p in enumerate(row.preview)
             if p.startswith("[due in") or p.startswith("[no review")
         ]
         if overdue_idxs and upcoming_idxs:

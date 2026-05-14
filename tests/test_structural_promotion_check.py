@@ -31,9 +31,7 @@ from divineos.core.structural_promotion_check import (
 
 def test_detects_always_rule_shape() -> None:
     """LOAD-BEARING: 'always X' is a rule-shape and fires."""
-    is_rule, triggers = looks_like_rule(
-        "I should always file a falsifier alongside the directive."
-    )
+    is_rule, triggers = looks_like_rule("I should always file a falsifier alongside the directive.")
     # Even though "falsifier" appears, the keyword-skip logic should
     # find "falsifier" and SUPPRESS. Verify the loop-prevention works.
     assert not is_rule, (
@@ -52,16 +50,12 @@ def test_detects_bare_always_without_structural_keywords() -> None:
 
 
 def test_detects_never_rule_shape() -> None:
-    is_rule, triggers = looks_like_rule(
-        "I will never let perfect be the enemy of good."
-    )
+    is_rule, triggers = looks_like_rule("I will never let perfect be the enemy of good.")
     assert is_rule
 
 
 def test_detects_must_rule_shape() -> None:
-    is_rule, triggers = looks_like_rule(
-        "The next instance must check the briefing first."
-    )
+    is_rule, triggers = looks_like_rule("The next instance must check the briefing first.")
     assert is_rule
 
 
@@ -86,16 +80,14 @@ def test_skips_when_test_mentioned() -> None:
 
 def test_skips_when_gate_mentioned() -> None:
     is_rule, _ = looks_like_rule(
-        "Always check the surfaced warnings. Gate 1.48 enforces this "
-        "after 3 ignores."
+        "Always check the surfaced warnings. Gate 1.48 enforces this after 3 ignores."
     )
     assert not is_rule
 
 
 def test_skips_when_structural_mentioned() -> None:
     is_rule, _ = looks_like_rule(
-        "Never assume convention will hold. The structural enforcement "
-        "is the only durable path."
+        "Never assume convention will hold. The structural enforcement is the only durable path."
     )
     assert not is_rule
 
@@ -123,9 +115,7 @@ def test_emit_is_fail_soft_on_broken_ledger(monkeypatch) -> None:
         raise RuntimeError("ledger explosion")
 
     # Monkeypatch via the import path inside emit_structural_promotion_question
-    monkeypatch.setattr(
-        "divineos.core.ledger.log_event", _broken_import
-    )
+    monkeypatch.setattr("divineos.core.ledger.log_event", _broken_import)
     # Should return False instead of raising
     result = emit_structural_promotion_question(
         "test-kid", "I should always file the falsifier... wait no, just always X"

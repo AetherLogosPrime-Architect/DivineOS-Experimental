@@ -184,9 +184,7 @@ def unacknowledged_warnings(session_id: str | None = None) -> list[dict]:
     # Stemmed token set across all this-session learns. Each learn-blob
     # token of length >= 4 contributes its stem; comparisons are
     # stem-vs-stem to catch paraphrase acks (Finding 38).
-    learn_stems = {
-        _stem(tok) for tok in learn_blob_raw.split() if len(tok) >= 4
-    }
+    learn_stems = {_stem(tok) for tok in learn_blob_raw.split() if len(tok) >= 4}
 
     unack: list[dict] = []
     for s in surfaced:
@@ -199,9 +197,7 @@ def unacknowledged_warnings(session_id: str | None = None) -> list[dict]:
 
         # Stem-overlap acknowledgment: count distinct stemmed warning
         # tokens that also appear (stemmed) in any this-session learn.
-        warning_stems = {
-            _stem(tok) for tok in wtext.split() if len(tok) >= 4
-        }
+        warning_stems = {_stem(tok) for tok in wtext.split() if len(tok) >= 4}
         overlap = len(warning_stems & learn_stems)
         if overlap >= 2:
             continue
@@ -215,8 +211,7 @@ def format_unacknowledged(unack: list[dict]) -> str:
     if not unack:
         return ""
     lines = [
-        f"!! {len(unack)} surfaced warning(s) from this session "
-        "with NO acknowledging learn entry:"
+        f"!! {len(unack)} surfaced warning(s) from this session with NO acknowledging learn entry:"
     ]
     for s in unack:
         payload = s.get("_payload") or {}

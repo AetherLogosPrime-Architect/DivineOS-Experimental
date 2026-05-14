@@ -460,9 +460,7 @@ def _command_last_run(command: str) -> tuple[float | None, dict[str, Any]]:
     target_tokens = command.split()
     for ts, payload in rows:
         try:
-            data = (
-                _json.loads(payload) if isinstance(payload, str) else (payload or {})
-            )
+            data = _json.loads(payload) if isinstance(payload, str) else (payload or {})
         except (ValueError, TypeError):
             continue
         cmd = data.get("command", "")

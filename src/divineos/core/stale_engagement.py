@@ -49,9 +49,7 @@ _AREA_ADDRESS_EVENTS: dict[str, tuple[str, ...]] = {
         "HOLDING_RELEASED",
         "HOLDING_LET_GO",
     ),
-    "compass": (
-        "COMPASS_OBSERVATION",
-    ),
+    "compass": ("COMPASS_OBSERVATION",),
     "audit findings": (
         "AUDIT_FINDING_RESOLVED",
         "AUDIT_RESOLVE",
@@ -161,10 +159,7 @@ def should_block(area: str, threshold: int = DEFAULT_BLOCK_THRESHOLD) -> bool:
 
 def blocked_areas(threshold: int = DEFAULT_BLOCK_THRESHOLD) -> list[str]:
     """Return all areas currently at or above the block threshold."""
-    return [
-        area for area in _AREA_ADDRESS_EVENTS
-        if consecutive_ignores(area) >= threshold
-    ]
+    return [area for area in _AREA_ADDRESS_EVENTS if consecutive_ignores(area) >= threshold]
 
 
 def block_message(areas: list[str]) -> str:

@@ -24,9 +24,7 @@ def test_setup_hooks_sh_references_check_wiring_claims() -> None:
     """LOAD-BEARING: setup/setup-hooks.sh must include a call to
     check_wiring_claims.py inside the commit-msg installer block."""
     repo_root = Path(__file__).resolve().parents[1]
-    setup = (repo_root / "setup" / "setup-hooks.sh").read_text(
-        encoding="utf-8", errors="replace"
-    )
+    setup = (repo_root / "setup" / "setup-hooks.sh").read_text(encoding="utf-8", errors="replace")
     assert "check_wiring_claims.py" in setup, (
         "setup-hooks.sh no longer installs the wiring-claims commit-msg "
         "gate. Finding 1 wire-decision for this script has regressed."

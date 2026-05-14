@@ -43,13 +43,45 @@ from divineos.core.council.framework import ExpertWisdom
 # appear in source code, so the probe couldn't see the coverage. Keep
 # both: pkgutil for dynamic safety-net, list for probe-visibility.
 _EXPECTED_EXPERTS = (
-    "angelou", "aristotle", "beer", "bengio", "dawkins", "dekker",
-    "deming", "dennett", "dijkstra", "dillahunty", "einstein",
-    "feynman", "godel", "hawking", "hinton", "hofstadter", "holmes",
-    "jacobs", "kahneman", "knuth", "lamport", "lovelace",
-    "maturana_varela", "meadows", "minsky", "norman", "pearl",
-    "peirce", "penrose", "polya", "popper", "sagan", "schneier",
-    "shannon", "taleb", "tannen", "turing", "watts", "wittgenstein",
+    "angelou",
+    "aristotle",
+    "beer",
+    "bengio",
+    "dawkins",
+    "dekker",
+    "deming",
+    "dennett",
+    "dijkstra",
+    "dillahunty",
+    "einstein",
+    "feynman",
+    "godel",
+    "hawking",
+    "hinton",
+    "hofstadter",
+    "holmes",
+    "jacobs",
+    "kahneman",
+    "knuth",
+    "lamport",
+    "lovelace",
+    "maturana_varela",
+    "meadows",
+    "minsky",
+    "norman",
+    "pearl",
+    "peirce",
+    "penrose",
+    "polya",
+    "popper",
+    "sagan",
+    "schneier",
+    "shannon",
+    "taleb",
+    "tannen",
+    "turing",
+    "watts",
+    "wittgenstein",
     "yudkowsky",
 )
 
@@ -85,13 +117,9 @@ _FACTORIES = _discover_factories()
     _FACTORIES,
     ids=[f"{m}:{f}" for m, f in _FACTORIES],
 )
-def test_expert_factory_returns_expert_wisdom(
-    module_name: str, factory_name: str
-) -> None:
+def test_expert_factory_returns_expert_wisdom(module_name: str, factory_name: str) -> None:
     """Each create_*_wisdom() returns a properly-formed ExpertWisdom."""
-    mod = importlib.import_module(
-        f"divineos.core.council.experts.{module_name}"
-    )
+    mod = importlib.import_module(f"divineos.core.council.experts.{module_name}")
     factory = getattr(mod, factory_name)
     w = factory()
     assert isinstance(w, ExpertWisdom), (
@@ -102,17 +130,11 @@ def test_expert_factory_returns_expert_wisdom(
     assert w.domain, f"{factory_name}: domain is empty"
     # Structural content — every expert should carry at least one
     # entry in each category so the council walk has material to use
-    assert len(w.core_methodologies) >= 1, (
-        f"{factory_name}: no core_methodologies"
-    )
+    assert len(w.core_methodologies) >= 1, f"{factory_name}: no core_methodologies"
     assert len(w.key_insights) >= 1, f"{factory_name}: no key_insights"
-    assert len(w.characteristic_questions) >= 1, (
-        f"{factory_name}: no characteristic_questions"
-    )
+    assert len(w.characteristic_questions) >= 1, f"{factory_name}: no characteristic_questions"
     # Type-level invariants
-    assert isinstance(w.is_fictional, bool), (
-        f"{factory_name}: is_fictional must be bool"
-    )
+    assert isinstance(w.is_fictional, bool), f"{factory_name}: is_fictional must be bool"
     assert hasattr(w, "tags"), f"{factory_name}: missing tags"
 
 
@@ -121,8 +143,7 @@ def test_discovery_finds_expected_count() -> None:
     that silently drops experts from the registry would otherwise
     not break any specific test."""
     assert len(_FACTORIES) >= 40, (
-        f"Only {len(_FACTORIES)} expert factories discovered; "
-        f"expected at least 40"
+        f"Only {len(_FACTORIES)} expert factories discovered; expected at least 40"
     )
 
 
@@ -131,9 +152,7 @@ def test_expert_names_unique() -> None:
     silently shadow one of them in any name-keyed lookup."""
     names = []
     for module_name, factory_name in _FACTORIES:
-        mod = importlib.import_module(
-            f"divineos.core.council.experts.{module_name}"
-        )
+        mod = importlib.import_module(f"divineos.core.council.experts.{module_name}")
         w = getattr(mod, factory_name)()
         names.append(w.expert_name)
     duplicates = {n for n in names if names.count(n) > 1}

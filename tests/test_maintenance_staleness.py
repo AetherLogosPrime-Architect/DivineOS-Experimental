@@ -54,8 +54,7 @@ def test_all_maintenance_commands_have_cadence() -> None:
     no threshold to compare against."""
     missing = _EXPECTED_MAINTENANCE_COMMANDS - set(_MAINTENANCE_CADENCE.keys())
     assert not missing, (
-        f"Maintenance commands missing from _MAINTENANCE_CADENCE: "
-        f"{sorted(missing)}."
+        f"Maintenance commands missing from _MAINTENANCE_CADENCE: {sorted(missing)}."
     )
 
 
@@ -92,9 +91,7 @@ def test_never_run_commands_report_stale() -> None:
     states = maintenance_staleness()
     for s in states:
         if s["last_run_ts"] is None:
-            assert s["is_stale"] is True, (
-                f"Command {s['command']!r} never ran but is_stale=False"
-            )
+            assert s["is_stale"] is True, f"Command {s['command']!r} never ran but is_stale=False"
 
 
 def test_row_maintenance_staleness_in_briefing_routing() -> None:
@@ -133,8 +130,7 @@ def test_row_hides_when_all_maintenance_fresh(monkeypatch) -> None:
     monkeypatch.setattr(sr, "maintenance_staleness", lambda: fresh_states)
     row = bd._row_maintenance_staleness()
     assert row is None, (
-        "Maintenance row surfaced when all commands fresh — "
-        "should be silent on clean state."
+        "Maintenance row surfaced when all commands fresh — should be silent on clean state."
     )
 
 
