@@ -415,6 +415,49 @@ def register(cli: click.Group) -> None:
             logger.exception("Enforcement verification failed")
             sys.exit(1)
 
+    @cli.command("structural-promotion-check")
+    @click.option(
+        "--days",
+        type=int,
+        default=7,
+        help="Window of days to verify (default: 7).",
+    )
+    def structural_promotion_check_cmd(days: int) -> None:
+        """Dual-monitor surface for the will-to-vessel auto-prompt.
+
+        Phase A check observes: did learn entries with rule-shape
+        language get a structural-backing follow-up? Reports total
+        fired, how many got follow-ups, false-positive estimates.
+        The only way to know the check is working is to investigate
+        its output against actuality in the ledger.
+        """
+        from divineos.core.structural_promotion_check import verify_recent
+
+        report = verify_recent(window_seconds=days * 24 * 3600)
+        click.echo(
+            f"=== Structural-promotion-check verification "
+            f"({days}d window) ==="
+        )
+        click.echo(f"  Total questions fired: {report.get('total_fired', 0)}")
+        click.echo(
+            f"  With follow-up (structural backing landed): "
+            f"{report.get('with_follow_up', 0)}"
+        )
+        click.echo(
+            f"  Without follow-up (rules still in will, not vessel): "
+            f"{report.get('without_follow_up', 0)}"
+        )
+        rate = report.get("follow_up_rate")
+        if rate is not None:
+            click.echo(f"  Follow-up rate: {rate:.0%}")
+        unanswered = report.get("recent_unanswered") or []
+        if unanswered:
+            click.echo("\n  Recent unanswered (top 10):")
+            for q in unanswered[:10]:
+                kid = q.get("knowledge_id") or "unknown"
+                trigs = q.get("triggers") or []
+                click.echo(f"    - kid={kid[:8]} triggers={trigs[:3]}")
+
     @cli.command("inventory")
     @click.option(
         "--by",
