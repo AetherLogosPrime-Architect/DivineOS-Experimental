@@ -283,10 +283,20 @@ def register(cli: click.Group) -> None:
                 pass
 
             event_id = emit_consolidation_checkpoint(session_id=session_id or None)
-            click.secho("[+] Knowledge extracted from session", fg="green")
-            click.secho(f"    Event ID: {event_id}", fg="cyan")
-
-            _run_session_end_pipeline(session_start_override=_pre_emit_start)
+            # Defer the success-message until AFTER the pipeline runs so
+            # 'success' isn't shown when the pipeline turns out to no-op
+            # (no session files). Aletheia round-ba785844a791 Finding 22.
+            work_done = _run_session_end_pipeline(session_start_override=_pre_emit_start)
+            if work_done:
+                click.secho("[+] Knowledge extracted from session", fg="green")
+                click.secho(f"    Event ID: {event_id}", fg="cyan")
+            else:
+                click.secho(
+                    "[~] No session activity to extract — checkpoint event "
+                    f"recorded ({event_id}) but no transcripts present to "
+                    "consolidate from.",
+                    fg="yellow",
+                )
 
             # Self-grade + divergence (Andrew's spec 2026-05-05). When the
             # operator/agent provides --self-grade, persist it alongside
