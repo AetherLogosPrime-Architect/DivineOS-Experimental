@@ -97,6 +97,33 @@ def _validate_actor(actor: str) -> str:
             actor,
             normalized,
         )
+        # Also emit a ledger event so the bypass enters the hash-chained
+        # audit trail (Aletheia round-ba785844a791 Finding 23, family-
+        # audit round-91106bc720a7). logger.warning alone hits standard
+        # Python logging — visible only if logs are reviewed. The ledger
+        # event makes the bypass permanent and surfaceable in the
+        # briefing-dashboard. Fail-soft: emit-failure must not block the
+        # bypass-emission path that the ablation harness depends on.
+        try:
+            from divineos.core.ledger import log_event
+
+            log_event(
+                "WATCHMEN_ABLATION_BYPASS",
+                actor="substrate",
+                payload={
+                    "bypassed_actor": actor,
+                    "normalized": normalized,
+                    "mechanism": "watchmen_self_trigger_prevention",
+                    "note": (
+                        "Internal actor allowed to submit findings via "
+                        "ablation toggle. Ablation-mode only; should not "
+                        "appear in production."
+                    ),
+                },
+                validate=False,
+            )
+        except Exception:  # noqa: BLE001 — bypass-emission must not break
+            pass
     if not normalized:
         raise ValueError("Actor name cannot be empty")
     return normalized
