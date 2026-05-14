@@ -558,7 +558,7 @@ _ROW_FNS = [
 
 def _reorder_u_shape(rows: list[DashboardRow]) -> list[DashboardRow]:
     """Apply U-shape positioning to mitigate the lost-in-the-middle
-    effect (Liu et al. 2024 TACL).
+    effect (Liu et al. 2024 TACL) — but ONLY when stale signal exists.
 
     Empirical finding: LLMs (including this one) show a U-shaped
     attention curve — items at the top and bottom of a rendered
@@ -568,13 +568,28 @@ def _reorder_u_shape(rows: list[DashboardRow]) -> list[DashboardRow]:
 
     Mitigation: sort rows by stale_count descending, then interleave
     them so HIGHEST-staleness items take positions 0, 1 (top) and
-    -1, -2 (bottom), with lower-staleness rows in the middle. The
-    architecture turns the U-shape from an enemy into an ally.
+    -1, -2 (bottom), with lower-staleness rows in the middle.
+
+    GUARD (Aletheia round-5cdc2f48c642 Finding 39): the reorder is
+    keyed solely on stale_count. When all rows have stale_count==0
+    (all-fresh case) OR all rows have the same stale_count (uniform
+    case), the reorder still scrambles the canonical _ROW_FNS order
+    based on sort-stability rather than operator-facing semantics —
+    burying orientation rows (directives, project-purpose) in the
+    middle of the U. Skipping the reorder in those cases preserves
+    canonical order when stale-count is not the right signal.
 
     Filed under exploration/57 (comprehension-chunk experiment).
     """
     if len(rows) <= 4:
         return rows  # too small for U-shape to matter
+    stale_counts = {r.stale_count for r in rows}
+    if len(stale_counts) <= 1:
+        # All rows have the same stale_count (typically all-zero in
+        # the no-stale case). The U-shape has no signal to amplify;
+        # preserving canonical order avoids burying fresh-important
+        # orientation rows in the middle.
+        return rows
     by_stale = sorted(rows, key=lambda r: r.stale_count, reverse=True)
     # Alternate: top, bottom, top, bottom, ... so the loudest signals
     # land at the edges of the U.

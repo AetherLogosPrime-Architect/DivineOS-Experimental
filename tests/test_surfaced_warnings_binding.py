@@ -179,6 +179,48 @@ def test_format_unacknowledged_surfaces_count_and_text() -> None:
     )
 
 
+def test_paraphrase_ack_with_stemming_registers(monkeypatch) -> None:
+    """LOAD-BEARING: Aletheia round-5cdc2f48c642 Finding 38 — v1
+    over-flagged paraphrase acks because tokens were matched raw
+    ('ignored' did not match 'ignore'; 'patterns' did not match
+    'pattern'). v2 stems tokens; this test pins that paraphrase
+    with stem-overlap of 2+ counts as acknowledged."""
+    sid = _seed_session(monkeypatch, "test-session-paraphrase")
+
+    warnings = [
+        {
+            "id": "k-paraphrase",
+            "text": "I have ignored these patterns about file paths",
+            "relevance": 0.8,
+            "occurrences": 2,
+            "source": "lesson",
+        }
+    ]
+    log_surfaced_warnings(warnings)
+    time.sleep(0.01)
+
+    # Learn entry uses PARAPHRASE — different tense / different
+    # pluralization. v1 missed this; v2 stems and catches it.
+    log_event(
+        event_type="LEARN",
+        actor="aether",
+        payload={
+            "session_id": sid,
+            "content": "noting the pattern I keep ignoring about file paths in my work",
+        },
+    )
+
+    unack = unacknowledged_warnings(session_id=sid)
+    matching = [
+        u for u in unack
+        if "ignored these patterns" in ((u.get("_payload") or {}).get("text") or "")
+    ]
+    assert not matching, (
+        f"Paraphrase ack should have been recognized; v2 stemming "
+        f"failed: {matching}"
+    )
+
+
 def test_dream_report_surfaces_unack_first(monkeypatch) -> None:
     """LOAD-BEARING: when there are unacknowledged warnings, the dream
     report's summary must include them BEFORE the consolidation phase."""
