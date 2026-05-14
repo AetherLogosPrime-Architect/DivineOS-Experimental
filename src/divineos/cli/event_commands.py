@@ -415,6 +415,60 @@ def register(cli: click.Group) -> None:
             logger.exception("Enforcement verification failed")
             sys.exit(1)
 
+    @cli.command("archive-export")
+    @click.option(
+        "--table",
+        default=None,
+        help="Specific table to export (default: all). Run --list to see options.",
+    )
+    @click.option(
+        "--list-tables",
+        is_flag=True,
+        help="List available exports and exit.",
+    )
+    @click.option(
+        "--dest",
+        default=None,
+        help="Destination directory (default: docs/archives).",
+    )
+    def archive_export_cmd(table: str | None, list_tables: bool, dest: str | None) -> None:
+        """Regenerate docs/archives/ mirrors from canonical SQLite.
+
+        Substrate snapshot for if-something-breaks / git-visible audit.
+        Per-table fail-soft: one broken export does not block others.
+        """
+        from divineos.core.archive_export import (
+            export_all,
+            export_one,
+            list_exports,
+        )
+
+        if list_tables:
+            click.echo("Available archive exports:")
+            for name in list_exports():
+                click.echo(f"  {name}")
+            return
+
+        if table:
+            try:
+                n = export_one(table, dest_dir=dest)
+                click.secho(f"[+] {table}: {n} rows written", fg="green")
+            except ValueError as e:
+                click.secho(f"[-] {e}", fg="red")
+                sys.exit(1)
+            return
+
+        results = export_all(dest_dir=dest)
+        click.echo("=== Archive export complete ===")
+        for name, count in results.items():
+            if name.endswith("_error"):
+                continue
+            err = results.get(f"{name}_error")
+            if count == -1 or err:
+                click.secho(f"  [-] {name}: ERROR — {err}", fg="red")
+            else:
+                click.secho(f"  [+] {name}: {count} rows", fg="green")
+
     @cli.command("structural-promotion-check")
     @click.option(
         "--days",

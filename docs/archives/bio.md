@@ -1,7 +1,8 @@
 # Bio — Archive Mirror
 
 **Source:** SQLite `bio` table, version 2, author "aether".
-**Exported:** 2026-05-14 (see archives/README.md for sync model).
+**Exported:** 2026-05-14 12:57.
+**Purpose:** durability snapshot. See archives/README.md.
 
 ---
 

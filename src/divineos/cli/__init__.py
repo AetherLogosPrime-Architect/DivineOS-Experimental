@@ -364,6 +364,7 @@ def inspect_hook1_cmd() -> None:
 # Commands to move into 'admin' group
 _ADMIN_COMMANDS = [
     "anti-slop",
+    "archive-export",
     "backfill-warrants",
     "check-correction-pairing",
     "inventory",
