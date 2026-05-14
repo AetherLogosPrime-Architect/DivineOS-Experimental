@@ -230,8 +230,8 @@ except Exception:
 # after completion-check probe surfaced it as built-but-never-
 # connected — exact failure-mode Andrew named.
 try:
-    from divineos.core.operating_loop.hedge_evidence_check import check_hedge
-    hedge_findings = check_hedge(last_assistant_text)
+    from divineos.core.operating_loop.hedge_evidence_check import detect_hedge
+    hedge_findings = detect_hedge(last_assistant_text)
     # Only surface findings flagged as factual — non-factual hedges
     # (e.g. opinion-signaling) are honest, not register-not-rigor.
     factual_hedges = [f for f in hedge_findings if f.likely_factual]

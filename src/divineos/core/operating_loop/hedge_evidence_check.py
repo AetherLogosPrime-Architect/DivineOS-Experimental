@@ -134,10 +134,17 @@ def _split_sentences(text: str) -> list[tuple[int, str]]:
     return out
 
 
-def check_hedge(text: str) -> list[HedgeFinding]:
+def detect_hedge(text: str) -> list[HedgeFinding]:
     """Return one HedgeFinding per hedge-word occurrence in the text.
+
     Each finding carries a sentence-level evidence-shape classification
-    and a prompt to surface to the operator/agent."""
+    and a prompt to surface to the operator/agent.
+
+    Conforms to the ResponseOnlyDetector protocol. Renamed from
+    check_hedge 2026-05-14 per Grok Finding 7c6cd00bc81c — the verb
+    `check_` implies a single-result gate; this returns a list and so
+    is properly `detect_`. The old name remains as a backwards-compat
+    alias to avoid breaking external callers."""
     findings: list[HedgeFinding] = []
     for start_pos, sentence in _split_sentences(text):
         for m in _HEDGE_PATTERN.finditer(sentence):
@@ -168,8 +175,14 @@ def check_hedge(text: str) -> list[HedgeFinding]:
     return findings
 
 
+# Backwards-compat alias — kept for any external caller still using
+# the old name. Remove after one release cycle.
+check_hedge = detect_hedge
+
+
 __all__ = [
     "HEDGE_WORDS",
     "HedgeFinding",
-    "check_hedge",
+    "check_hedge",  # deprecated alias
+    "detect_hedge",
 ]
