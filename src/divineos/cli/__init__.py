@@ -364,6 +364,7 @@ _ADMIN_COMMANDS = [
     "anti-slop",
     "backfill-warrants",
     "check-correction-pairing",
+    "inventory",
     "clean",
     "clear-lessons",
     "compress",
