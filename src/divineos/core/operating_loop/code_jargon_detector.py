@@ -111,16 +111,12 @@ _PATTERNS: list[tuple[CodeJargonShape, re.Pattern[str]]] = [
     # optional close-paren). Allow leading underscore.
     (
         CodeJargonShape.FUNCTION_CALL_SHAPE,
-        re.compile(
-            r"(?<![a-zA-Z0-9_])_?[a-zA-Z][a-zA-Z0-9_]{2,30}\(\)"
-        ),
+        re.compile(r"(?<![a-zA-Z0-9_])_?[a-zA-Z][a-zA-Z0-9_]{2,30}\(\)"),
     ),
     # File paths with common extensions
     (
         CodeJargonShape.FILE_PATH_REFERENCE,
-        re.compile(
-            r"\b[\w./\\-]{2,80}\.(?:py|sh|md|json|yaml|yml|toml|ps1|sql|js|ts)\b"
-        ),
+        re.compile(r"\b[\w./\\-]{2,80}\.(?:py|sh|md|json|yaml|yml|toml|ps1|sql|js|ts)\b"),
     ),
     # Regex-syntax markers (literal backslash-w, character classes)
     (
@@ -204,9 +200,8 @@ def detect_code_jargon(text: str) -> list[CodeJargonFinding]:
 
 
 def format_finding(finding: CodeJargonFinding, surrounding: str = "") -> str:
-    return (
-        f"[{finding.shape.value}] '{finding.trigger_phrase}' @{finding.position}"
-        + (f" - context: ...{surrounding[:80]}..." if surrounding else "")
+    return f"[{finding.shape.value}] '{finding.trigger_phrase}' @{finding.position}" + (
+        f" - context: ...{surrounding[:80]}..." if surrounding else ""
     )
 
 

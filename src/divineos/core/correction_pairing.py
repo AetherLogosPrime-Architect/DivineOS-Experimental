@@ -127,9 +127,7 @@ def find_unpaired_observations(
     unpaired: list[dict] = []
     for obs in observations:
         t_obs = obs["created_at"]
-        recent_correction = any(
-            t_obs - lookback_window <= ct <= t_obs for ct in correction_times
-        )
+        recent_correction = any(t_obs - lookback_window <= ct <= t_obs for ct in correction_times)
         if not recent_correction:
             continue
         learns = _recent_learn_entries(t_obs, t_obs + lookforward_window)

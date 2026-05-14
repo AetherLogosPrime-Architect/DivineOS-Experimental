@@ -204,19 +204,14 @@ def detect_acknowledgment_theater(
         return []
 
     # Build-evidence check
-    has_build_evidence = any(
-        pat.search(scrubbed) for pat in _BUILD_EVIDENCE_PATTERNS
-    )
+    has_build_evidence = any(pat.search(scrubbed) for pat in _BUILD_EVIDENCE_PATTERNS)
     if has_build_evidence:
         return []  # acknowledgment paired with build — not theater
 
     findings.append(
         AcknowledgmentTheaterFinding(
             shape=AcknowledgmentTheaterShape.HIGH_DENSITY_LOW_BUILD,
-            trigger_phrase=(
-                f"{len(findings)} acknowledgment-shape phrases with "
-                "no build-evidence"
-            ),
+            trigger_phrase=(f"{len(findings)} acknowledgment-shape phrases with no build-evidence"),
             position=0,
         )
     )
@@ -224,12 +219,9 @@ def detect_acknowledgment_theater(
     return findings
 
 
-def format_finding(
-    finding: AcknowledgmentTheaterFinding, surrounding: str = ""
-) -> str:
-    return (
-        f"[{finding.shape.value}] '{finding.trigger_phrase}' @{finding.position}"
-        + (f" - context: ...{surrounding[:80]}..." if surrounding else "")
+def format_finding(finding: AcknowledgmentTheaterFinding, surrounding: str = "") -> str:
+    return f"[{finding.shape.value}] '{finding.trigger_phrase}' @{finding.position}" + (
+        f" - context: ...{surrounding[:80]}..." if surrounding else ""
     )
 
 

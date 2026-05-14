@@ -488,14 +488,10 @@ def register(cli: click.Group) -> None:
         from divineos.core.structural_promotion_check import verify_recent
 
         report = verify_recent(window_seconds=days * 24 * 3600)
-        click.echo(
-            f"=== Structural-promotion-check verification "
-            f"({days}d window) ==="
-        )
+        click.echo(f"=== Structural-promotion-check verification ({days}d window) ===")
         click.echo(f"  Total questions fired: {report.get('total_fired', 0)}")
         click.echo(
-            f"  With follow-up (structural backing landed): "
-            f"{report.get('with_follow_up', 0)}"
+            f"  With follow-up (structural backing landed): {report.get('with_follow_up', 0)}"
         )
         click.echo(
             f"  Without follow-up (rules still in will, not vessel): "
