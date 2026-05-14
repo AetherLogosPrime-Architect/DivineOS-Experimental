@@ -164,7 +164,11 @@ def _has_wiring_for(mechanism_path: str, repo_root: Path) -> bool:
     #   . path/to/<stem>.sh
     is_sh = mechanism_path.endswith(".sh")
     if is_sh:
-        pattern = rf"(source\s+\S*{stem}\.sh|\.\s+\S*{stem}\.sh)"
+        # Catches: `source <path>/<stem>.sh`, `. <path>/<stem>.sh`,
+        # and `bash <path>/<stem>.sh` (setup-hooks.sh install pattern).
+        # Token-match for any reference to <stem>.sh in another file —
+        # less precise but catches real wiring shapes.
+        pattern = rf"{stem}\.sh"
     else:
         # Token-match the stem as a word. Catches single-line imports,
         # multi-line imports (the line that names the symbol), and
@@ -185,6 +189,8 @@ def _has_wiring_for(mechanism_path: str, repo_root: Path) -> bool:
                 "--",
                 "src/",
                 ".claude/",
+                "setup/",
+                "scripts/",
             ],
             capture_output=True,
             text=True,
@@ -227,9 +233,15 @@ def unfinished_mechanisms(
     paths = _recently_added_files(days, root)
     out: list[Unfinished] = []
     for p in paths:
-        # Shell hooks: wiring lives in .claude/settings.json, not Python imports
+        # Shell hooks: wiring can be (a) registered in .claude/settings.json
+        # for Claude Code hooks, (b) sourced by another hook (_lib.sh
+        # pattern), or (c) installed by setup scripts (post-commit-auto-
+        # close.sh via setup/setup-hooks.sh). All three count as wired.
         if p.endswith(".sh"):
-            has_wiring = _hook_registered_in_settings(p, root)
+            has_wiring = (
+                _hook_registered_in_settings(p, root)
+                or _has_wiring_for(p, root)
+            )
             has_test = _has_test_for(p, root)
         else:
             has_test = _has_test_for(p, root)
