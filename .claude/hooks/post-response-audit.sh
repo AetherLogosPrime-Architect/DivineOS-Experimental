@@ -222,6 +222,31 @@ try:
 except Exception:
     pass
 
+# Hedge-evidence check: flag hedges that fire from register rather
+# than from evidence. From the omni-mantra walk diagnostics
+# (2026-04-30, Diagnostic 1): apply the hedge to its own standards.
+# If evidence does not support the hedge, the hedge was register-
+# not-rigor and should be dropped. Orphan-module wired 2026-05-14
+# after completion-check probe surfaced it as built-but-never-
+# connected — exact failure-mode Andrew named.
+try:
+    from divineos.core.operating_loop.hedge_evidence_check import check_hedge
+    hedge_findings = check_hedge(last_assistant_text)
+    # Only surface findings flagged as factual — non-factual hedges
+    # (e.g. opinion-signaling) are honest, not register-not-rigor.
+    factual_hedges = [f for f in hedge_findings if f.likely_factual]
+    if factual_hedges:
+        findings_log['hedge_evidence'] = [
+            {
+                'hedge': f.hedge_phrase,
+                'position': f.position,
+                'sentence': f.sentence[:120],
+            }
+            for f in factual_hedges
+        ]
+except Exception:
+    pass
+
 # Lepos channel-collapse detector: single-channel-formal output.
 # Operator named the recurring pattern 2026-05-05: clamp on formal
 # register after correction, drop circle entirely. Lepos is dual; this
