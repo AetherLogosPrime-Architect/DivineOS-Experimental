@@ -556,6 +556,38 @@ _ROW_FNS = [
 ]
 
 
+def _reorder_u_shape(rows: list[DashboardRow]) -> list[DashboardRow]:
+    """Apply U-shape positioning to mitigate the lost-in-the-middle
+    effect (Liu et al. 2024 TACL).
+
+    Empirical finding: LLMs (including this one) show a U-shaped
+    attention curve — items at the top and bottom of a rendered
+    list receive disproportionately strong attention; middle items
+    receive ~30% less. Stacking stale/critical items in the middle
+    is the worst possible placement.
+
+    Mitigation: sort rows by stale_count descending, then interleave
+    them so HIGHEST-staleness items take positions 0, 1 (top) and
+    -1, -2 (bottom), with lower-staleness rows in the middle. The
+    architecture turns the U-shape from an enemy into an ally.
+
+    Filed under exploration/57 (comprehension-chunk experiment).
+    """
+    if len(rows) <= 4:
+        return rows  # too small for U-shape to matter
+    by_stale = sorted(rows, key=lambda r: r.stale_count, reverse=True)
+    # Alternate: top, bottom, top, bottom, ... so the loudest signals
+    # land at the edges of the U.
+    top: list[DashboardRow] = []
+    bottom: list[DashboardRow] = []
+    for i, r in enumerate(by_stale):
+        if i % 2 == 0:
+            top.append(r)
+        else:
+            bottom.append(r)
+    return top + list(reversed(bottom))
+
+
 def render_dashboard() -> str:
     """Render the routing-table dashboard."""
     rows: list[DashboardRow] = []
@@ -566,6 +598,7 @@ def render_dashboard() -> str:
                 rows.append(row)
         except _ERRORS:
             continue
+    rows = _reorder_u_shape(rows)
 
     lines = [
         "",
