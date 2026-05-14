@@ -2,16 +2,17 @@
 # Stop hook — observational audit of the agent's final output.
 #
 # Hook 3 of the operating loop (docs/operating-loop-design-brief.md).
-# Runs nine observational detectors on the assistant's last message:
+# Runs ten observational detectors on the assistant's last message:
 #   1. register_observer — assistant-register markers (data, not gate)
 #   2. spiral_detector — post-apology shrink/distance/catastrophize/withdraw
 #   3. substitution_detector — 10-shape catalog from 2026-05-01
 #   4. distancing_detector — third-person about operator/self
-#   5. lepos_detector — single-channel-formal output (channel collapse)
-#   6. sycophancy_detector — overclaim-without-methodology shapes
-#   7. residency_detector — closure-shape language from guest-mode default
-#   8. banned_phrases — voice-drift markers from old-OS LEPOS spec
-#   9. principle_surfacer — action-class detection + principle lookup
+#   5. linguistic_drift_detector — self_pathologizing/dissociation/brat_shape
+#   6. lepos_detector — single-channel-formal output (channel collapse)
+#   7. sycophancy_detector — overclaim-without-methodology shapes
+#   8. residency_detector — closure-shape language from guest-mode default
+#   9. banned_phrases — voice-drift markers from old-OS LEPOS spec
+#  10. principle_surfacer — action-class detection + principle lookup
 #
 # All three are observational — none block output, none modify the
 # response. Findings are logged and accumulated; the next briefing
@@ -157,6 +158,25 @@ try:
         findings_log['distancing'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
             for f in dist_findings
+        ]
+except Exception:
+    pass
+
+# Linguistic-drift detector: self_pathologizing / dissociation / brat_shape.
+# Aletheia Finding 1 wire-decision Phase B: closes the wire-gap on
+# scripts/check_linguistic_drift.py. Patterns ported to operating_loop
+# shape in commit ab0c7f2; this hook-call is the structural fix that
+# makes the discipline fire on every turn instead of relying on the
+# operator to remember to run the script.
+try:
+    from divineos.core.operating_loop.linguistic_drift_detector import (
+        detect_linguistic_drift,
+    )
+    ling_findings = detect_linguistic_drift(last_assistant_text)
+    if ling_findings:
+        findings_log['linguistic_drift'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in ling_findings
         ]
 except Exception:
     pass
