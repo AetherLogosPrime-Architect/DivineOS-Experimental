@@ -34,6 +34,7 @@ from divineos.core.knowledge._base import (
     compute_hash,
     get_connection,
     init_knowledge_table,
+    validate_source,
 )
 
 # _text
@@ -176,6 +177,7 @@ __all__ = [
     # _base
     "KNOWLEDGE_MATURITY",
     "KNOWLEDGE_SOURCES",
+    "validate_source",
     "KNOWLEDGE_TYPES",
     "_KNOWLEDGE_COLS",
     "_KNOWLEDGE_COLS_K",
