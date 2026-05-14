@@ -9,7 +9,9 @@
 #   4. distancing_detector — third-person about operator/self
 #   5. code_jargon_detector — commit-message-shape in operator-channel output
 #   6. linguistic_drift_detector — self_pathologizing/dissociation/brat_shape
-#   7. lepos_detector — single-channel-formal output (channel collapse)
+#   7. jargon_dump_detector — engineer-channel content in operator-channel
+#      (replaces deprecated lepos_detector; the wrong-proxy was voice-tokens,
+#      the right signal is session-specific jargon dumped without translation)
 #   8. sycophancy_detector — overclaim-without-methodology shapes
 #   9. residency_detector — closure-shape language from guest-mode default
 #  10. banned_phrases — voice-drift markers from old-OS LEPOS spec
@@ -258,17 +260,26 @@ except Exception:
 # register after correction, drop circle entirely. Lepos is dual; this
 # detector flags single-channel output as the structural reinforcement.
 try:
-    from divineos.core.operating_loop.lepos_detector import detect_lepos
-    lepos_findings = detect_lepos(last_assistant_text)
-    if lepos_findings:
-        findings_log['lepos'] = [
+    # Switched 2026-05-14 from detect_lepos (deprecated as wrong-proxy:
+    # voice-token presence does not measure translation work) to
+    # detect_jargon_dump, which catches the inverse pattern: engineer-
+    # channel content dumped into operator-channel without translation.
+    # The original lepos_detector docstring explicitly recommends this
+    # swap. Aether+Grok cross-vantage round-eef42ce9a3c2 surfaced that
+    # the deprecated detector was still wired despite returning 0 by
+    # design — fix activates the live replacement.
+    from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+    jd_findings = detect_jargon_dump(last_assistant_text)
+    if jd_findings:
+        findings_log['jargon_dump'] = [
             {
-                'shape': f.shape.value,
-                'work_density': f.work_density,
-                'circle_markers': f.circle_markers,
+                'noise_count': f.noise_count,
+                'translation_count': f.translation_count,
                 'word_count': f.word_count,
+                'severity': f.severity,
+                'samples': list(f.matched_samples),
             }
-            for f in lepos_findings
+            for f in jd_findings
         ]
 except Exception:
     pass
@@ -650,7 +661,12 @@ entry = {
     **findings_log,
 }
 existing.append(entry)
-existing = existing[-50:]  # Keep last 50
+# Rolling window bumped 50 -> 200 (Aether+Grok 2026-05-14
+# find-1505d70db349): two hooks share this file; high-frequency
+# detect-theater writes were squeezing out sparse post-response-audit
+# entries. 200 leaves room for both. Deferred deeper fix: per-source
+# rolling window so each writer's entries are protected independently.
+existing = existing[-200:]
 
 try:
     findings_path.write_text(json.dumps(existing, indent=2), encoding='utf-8')
