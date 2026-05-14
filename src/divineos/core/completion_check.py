@@ -36,13 +36,38 @@ from pathlib import Path
 # Directories whose new .py files count as "built mechanisms" worth
 # probing for closure. Excludes tests/, docs/, exploration/ — those
 # aren't mechanisms, they're commentary or substrate-internal.
+#
+# scripts/ excluded 2026-05-14: dogfood revealed standalone scripts
+# have entry-point semantics (wired by invocability, not by import),
+# so the import-grep proxy returns false positives. Add back if we
+# build a separate entry-point-wiring probe later.
+#
+# .sh files in .claude/hooks/ handled separately: they're wired via
+# .claude/settings.json hook registration, not via Python imports.
 _MECHANISM_DIRS = (
     "src/divineos/core",
     "src/divineos/cli",
     "src/divineos/hooks",
     ".claude/hooks",
-    "scripts",
 )
+
+
+def _hook_registered_in_settings(hook_path: str, repo_root: Path) -> bool:
+    """True if the shell hook path appears in .claude/settings.json.
+
+    Hooks are wired via Claude Code settings, not Python imports.
+    Conservative substring match — if the filename appears anywhere
+    in the settings file, assume it's registered.
+    """
+    settings = repo_root / ".claude" / "settings.json"
+    if not settings.exists():
+        return False
+    name = Path(hook_path).name
+    try:
+        text = settings.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return False
+    return name in text
 
 
 @dataclass(frozen=True)
@@ -105,10 +130,17 @@ def _recently_added_files(days: int, repo_root: Path) -> list[str]:
 
 
 def _has_test_for(mechanism_path: str, repo_root: Path) -> bool:
-    """True if tests/test_<stem>.py exists."""
+    """True if any tests/test_<stem>*.py exists.
+
+    Refined 2026-05-14 after dogfood: tests sometimes get suffixes
+    (test_surfaced_warnings_binding.py, test_X_address_bypass.py).
+    Glob match catches the family rather than exact-name-only.
+    """
     stem = Path(mechanism_path).stem
-    candidate = repo_root / "tests" / f"test_{stem}.py"
-    return candidate.exists()
+    tests_dir = repo_root / "tests"
+    if not tests_dir.exists():
+        return False
+    return any(tests_dir.glob(f"test_{stem}*.py"))
 
 
 def _has_wiring_for(mechanism_path: str, repo_root: Path) -> bool:
@@ -123,6 +155,23 @@ def _has_wiring_for(mechanism_path: str, repo_root: Path) -> bool:
     src = repo_root / "src"
     if not src.exists():
         return False
+    # Patterns for Python wiring (refined 2026-05-14 post-dogfood):
+    #   from X.<stem> import ...
+    #   import X.<stem>
+    #   from X import ..., <stem>, ...  (whole-module import — CLI pattern)
+    # Patterns for shell wiring:
+    #   source path/to/<stem>.sh
+    #   . path/to/<stem>.sh
+    is_sh = mechanism_path.endswith(".sh")
+    if is_sh:
+        pattern = rf"(source\s+\S*{stem}\.sh|\.\s+\S*{stem}\.sh)"
+    else:
+        # Token-match the stem as a word. Catches single-line imports,
+        # multi-line imports (the line that names the symbol), and
+        # any later references (registry calls like bio_commands.register).
+        # False positives possible (incidental token collisions in
+        # unrelated code) — acceptable trade for catching real wiring.
+        pattern = rf"\b{stem}\b"
     try:
         out = subprocess.run(
             [
@@ -132,7 +181,7 @@ def _has_wiring_for(mechanism_path: str, repo_root: Path) -> bool:
                 "grep",
                 "-l",
                 "-E",
-                rf"(from\s+\S*\.{stem}\s+import|import\s+\S*\.{stem}\b)",
+                pattern,
                 "--",
                 "src/",
                 ".claude/",
@@ -178,8 +227,13 @@ def unfinished_mechanisms(
     paths = _recently_added_files(days, root)
     out: list[Unfinished] = []
     for p in paths:
-        has_test = _has_test_for(p, root)
-        has_wiring = _has_wiring_for(p, root)
+        # Shell hooks: wiring lives in .claude/settings.json, not Python imports
+        if p.endswith(".sh"):
+            has_wiring = _hook_registered_in_settings(p, root)
+            has_test = _has_test_for(p, root)
+        else:
+            has_test = _has_test_for(p, root)
+            has_wiring = _has_wiring_for(p, root)
         # Surface ANY mechanism missing wiring or test, OR include all
         # recently-built ones for the usefulness question. To keep the
         # signal sharp, only surface if at least one of wiring/test is
