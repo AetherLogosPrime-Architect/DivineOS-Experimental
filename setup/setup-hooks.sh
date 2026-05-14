@@ -248,6 +248,27 @@ EOF
 chmod +x "$HOOKS_DIR/pre-push"
 echo "Created pre-push hook at $HOOKS_DIR/pre-push"
 
+# Install post-commit hook — delegates to .claude/hooks/post-commit-auto-close.sh
+# Aletheia round-919009d7f6f6 Finding 29: the auto-close hook existed
+# but was never installed. Wire half of the wire-or-delete decision.
+cat > "$HOOKS_DIR/post-commit" << 'EOF'
+#!/bin/bash
+# Post-commit hook — delegates to .claude/hooks/post-commit-auto-close.sh
+# which auto-closes goals whose tokens overlap the just-landed commit
+# message. Fail-open: any error exits 0 silently.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+if [ -x "$REPO_ROOT/.claude/hooks/post-commit-auto-close.sh" ]; then
+    bash "$REPO_ROOT/.claude/hooks/post-commit-auto-close.sh" || true
+fi
+exit 0
+EOF
+
+chmod +x "$HOOKS_DIR/post-commit"
+echo "Created post-commit hook at $HOOKS_DIR/post-commit"
+
 echo ""
 echo "Git hooks setup complete!"
 echo ""
