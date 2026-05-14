@@ -138,6 +138,10 @@ _HEADLESS_WHITELIST: frozenset[str] = frozenset(
         "admin knowledge-compress",
         "admin knowledge-hygiene",
         "admin distill",
+        # Archive export — regenerates docs/archives/*.md mirrors of
+        # canonical SQLite tables. Andrew 2026-05-14: archives must
+        # stay in sync without manual re-export.
+        "admin archive-export",
     }
 )
 
