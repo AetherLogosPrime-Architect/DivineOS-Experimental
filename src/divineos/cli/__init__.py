@@ -367,6 +367,7 @@ _ADMIN_COMMANDS = [
     "backfill-warrants",
     "check-correction-pairing",
     "inventory",
+    "structural-promotion-check",
     "clean",
     "clear-lessons",
     "compress",
