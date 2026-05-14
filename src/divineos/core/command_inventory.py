@@ -75,10 +75,16 @@ def _invocation_counts() -> Counter:
     """Count any-invocation events per command name via USER_INPUT.
 
     Every `divineos <cmd> ...` CLI call writes a USER_INPUT event with
-    payload['content'] = the full input string. The first whitespace-
-    separated token is the command name. This signal is broader than
-    OS_QUERY: covers write commands, hook-triggered commands,
-    scheduled-task invocations — anything that enters the CLI.
+    payload['content'] = the full input string. We track BOTH the
+    first token (top-level command or group name) AND the first-two
+    tokens joined ("audit submit", "claims assess", etc.) so subgroup
+    commands get proper attribution. Otherwise an invocation of
+    `audit submit` counts only against `audit` and the subcommand
+    looks dead when it is the most-used path through the group.
+
+    This signal is broader than OS_QUERY: covers write commands,
+    hook-triggered commands, scheduled-task invocations — anything
+    that enters the CLI.
     """
     from divineos.core.ledger import get_events
 
@@ -93,9 +99,19 @@ def _invocation_counts() -> Counter:
         content = (
             payload.get("content", "") if isinstance(payload, dict) else ""
         )
-        if isinstance(content, str) and content.strip():
-            first = content.strip().split()[0]
-            counts[first] += 1
+        if not (isinstance(content, str) and content.strip()):
+            continue
+        tokens = content.strip().split()
+        if not tokens:
+            continue
+        # Always credit the first token (parent/group).
+        counts[tokens[0]] += 1
+        # Credit the second token if it is a subcommand (no leading
+        # dash and not a flag). This gives subgroup-subcommand
+        # attribution under the bare name, which is how _walk_cli
+        # surfaces subcommands.
+        if len(tokens) >= 2 and not tokens[1].startswith("-"):
+            counts[tokens[1]] += 1
     return counts
 
 
