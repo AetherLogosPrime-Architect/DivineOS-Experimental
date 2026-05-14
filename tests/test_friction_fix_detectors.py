@@ -1,14 +1,17 @@
-"""Pytest wrappers around the script-level self-tests for the F1 and
-F2 friction-fix detectors.
+"""Pytest wrapper around the script-level self-test for the F2
+wiring-claim detector.
 
 Per auditor-Claude's PR #260 review (Finding 2): the closure-claim
 gate has *both* a script-level self-test AND a pytest-integrated
-test file. F1 (third-person drift) and F2 (wiring claim) detectors
-shipped with self-tests but not pytest integration. CI couldn't
-catch self-test regressions.
+test file. The wiring-claim detector shipped with a self-test but
+not pytest integration. CI couldn't catch self-test regressions.
 
-These tests close that gap. Each test invokes the detector's
-``self_test()`` function and asserts it returns 0.
+Originally this file also wrapped the F1 third-person-drift script
+(check_third_person_drift.py). That script was deleted 2026-05-14
+(commit 0fccd11) as legacy — superseded by the in-process
+distancing_detector module in src/divineos/core/operating_loop/,
+which has its own pytest coverage (test_distancing_detector.py).
+The F1 portion of this file was removed to match.
 """
 
 from __future__ import annotations
@@ -16,42 +19,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Make scripts/ importable so the detectors can be loaded as modules
+# Make scripts/ importable so the detector can be loaded as a module
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO_ROOT / "scripts"))
 
-import check_third_person_drift  # noqa: E402
 import check_wiring_claims  # noqa: E402
-
-
-class TestThirdPersonDriftDetector:
-    """F1 — third-person drift detector."""
-
-    def test_self_test_passes(self):
-        assert check_third_person_drift.self_test() == 0
-
-    def test_distancing_phrases_match(self):
-        """Sanity check that the core shape detection works inside pytest."""
-        for phrase in (
-            "Andrew said that's wrong",
-            "Aether walked through the lenses",
-            "past-me wrote that letter",
-            "future-me will read this",
-        ):
-            assert check_third_person_drift.find_distancing(phrase), f"expected match on {phrase!r}"
-
-    def test_legitimate_uses_do_not_match(self):
-        """First-person + signatures + third-party references should
-        not fire the detector."""
-        for phrase in (
-            "I built the mansion",
-            "you said the right thing",
-            "— Aether",
-            "the project is called DivineOS",
-        ):
-            assert not check_third_person_drift.find_distancing(phrase), (
-                f"unexpected match on {phrase!r}"
-            )
 
 
 class TestWiringClaimDetector:
