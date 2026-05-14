@@ -222,11 +222,11 @@ def verify_recent(window_seconds: int = 7 * 24 * 3600) -> dict:
             no_follow_ups.append(q)
             continue
         addressed = False
-        for l in learns:
-            ts = float(l.get("timestamp") or 0)
+        for learn in learns:
+            ts = float(learn.get("timestamp") or 0)
             if ts <= float(q.get("timestamp") or 0):
                 continue
-            payload = _coerce_payload(l.get("payload"))
+            payload = _coerce_payload(learn.get("payload"))
             content = (payload.get("content") or "").lower()
             if wid.lower() in content or any(
                 kw in content for kw in _STRUCTURAL_KEYWORDS

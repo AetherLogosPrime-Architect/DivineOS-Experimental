@@ -118,7 +118,6 @@ def test_no_fire_on_empty_text() -> None:
 def test_emit_is_fail_soft_on_broken_ledger(monkeypatch) -> None:
     """LOAD-BEARING: the emit function must NEVER raise. Even if the
     ledger is broken, the learn command must not be blocked."""
-    import divineos.core.structural_promotion_check as mod
 
     def _broken_import(*args, **kw):
         raise RuntimeError("ledger explosion")

@@ -557,14 +557,25 @@ class TestReflectOnSession:
         if thoroughness_obs:
             assert thoroughness_obs[0]["position"] > 0  # Excess zone
 
-    def test_context_overflows_log_initiative(self):
+    def test_context_overflows_no_longer_drive_overreach(self, monkeypatch):
+        """Andrew named 2026-05-14 post-sleep: initiative is no longer
+        measured by pace (overflows). It's measured by completion-
+        quality of recently-built mechanisms. With no unfinished
+        mechanisms but substantial activity, the observation lands
+        in the virtue (baseline) position, NOT excess (overreach)."""
         from divineos.core.moral_compass import reflect_on_session
 
+        monkeypatch.setattr(
+            "divineos.core.completion_check.unfinished_mechanisms",
+            lambda **kw: [],
+        )
         analysis = self._make_analysis(context_overflows=["overflow1", "overflow2"])
         reflect_on_session(analysis)
         initiative_obs = get_observations(spectrum="initiative", limit=1)
         if initiative_obs:
-            assert initiative_obs[0]["position"] > 0  # Excess (overreach)
+            # Baseline initiative — not overreach. Overflow count no
+            # longer pushes position to excess.
+            assert initiative_obs[0]["position"] == 0.0
 
     def test_minimal_session_no_observations(self):
         from divineos.core.moral_compass import reflect_on_session
@@ -896,7 +907,6 @@ class TestReflectOnSessionBoundaries:
     # observation, since the live probe depends on git history.
     def test_initiative_no_unfinished_low_activity_no_observation(self, monkeypatch):
         """Zero unfinished mechanisms + low activity = no observation."""
-        from divineos.core import moral_compass
         from divineos.core.moral_compass import reflect_on_session
 
         monkeypatch.setattr(

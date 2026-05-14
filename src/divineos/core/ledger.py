@@ -35,24 +35,27 @@ from typing import Any
 # round-49b2a6659d7f.
 _LOG_EVENT_LOCK = threading.Lock()
 
-from loguru import logger
+# Imports below the module-level _LOG_EVENT_LOCK = threading.Lock()
+# declaration are intentional — the lock must be defined before any
+# function in this module can reference it. Suppress E402 on each.
+from loguru import logger  # noqa: E402
 
-from divineos.core._ledger_base import (
+from divineos.core._ledger_base import (  # noqa: E402
     DB_PATH as DB_PATH,
 )
-from divineos.core._ledger_base import (
+from divineos.core._ledger_base import (  # noqa: E402
     _get_db_path as _get_db_path,
 )
-from divineos.core._ledger_base import (
+from divineos.core._ledger_base import (  # noqa: E402
     compute_hash as compute_hash,
 )
-from divineos.core._ledger_base import (
+from divineos.core._ledger_base import (  # noqa: E402
     get_connection as get_connection,
 )
-from divineos.core._ledger_base import (
+from divineos.core._ledger_base import (  # noqa: E402
     get_connection_fk as get_connection_fk,
 )
-from divineos.event.event_validation import EventValidator
+from divineos.event.event_validation import EventValidator  # noqa: E402
 
 # Chain genesis — used as prior_hash for the first event.
 _CHAIN_GENESIS = "0" * 64
