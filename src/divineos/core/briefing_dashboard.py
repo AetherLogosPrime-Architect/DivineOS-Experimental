@@ -134,11 +134,35 @@ def _row_audit_findings() -> DashboardRow | None:
         unresolved = [f for f in findings if f.status.value not in ("RESOLVED", "DISMISSED")]
         if not unresolved:
             return None
+        # Severity rank for sorting: HIGH > MEDIUM > LOW > INFO.
+        _SEVERITY_RANK = {"HIGH": 0, "MEDIUM": 1, "LOW": 2, "INFO": 3}
+        # Preview top-3 highest-severity, oldest-first as tiebreaker.
+        # Discovery-gap class fix: high-severity unresolved findings
+        # should be in the row, not behind a drill-down arrow.
+        sorted_findings = sorted(
+            unresolved,
+            key=lambda f: (
+                _SEVERITY_RANK.get(
+                    f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                    9,
+                ),
+                f.created_at if isinstance(f.created_at, (int, float)) else 0,
+            ),
+        )[:3]
+        preview: list[str] = []
+        for f in sorted_findings:
+            sev = (
+                f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+            )
+            title = (f.title or f.description or "").replace("\n", " ").strip()
+            short = title[:90] + ("..." if len(title) > 90 else "")
+            preview.append(f"[{sev}] {short}")
         return DashboardRow(
             area="Audit findings",
             count=len(unresolved),
             stale_count=0,
             drill_down="divineos audit list",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -153,17 +177,49 @@ def _row_preregs() -> DashboardRow | None:
         if not open_preregs:
             return None
         now = time.time()
-        overdue = 0
+        overdue: list = []
+        upcoming: list = []
         for p in open_preregs:
-            review_ts = float(_safe_get(p, "review_date_ts", 0) or 0)
+            # review_ts is the canonical attribute on PreRegistration;
+            # fall back to review_date_ts for dict-shaped rows.
+            review_ts = float(
+                _safe_get(p, "review_ts", _safe_get(p, "review_date_ts", 0) or 0)
+                or 0
+            )
             if review_ts and review_ts < now:
-                overdue += 1
+                overdue.append((p, review_ts))
+            else:
+                upcoming.append((p, review_ts))
+        # Preview overdue first (load-bearing — these are reviews
+        # whose deadline has passed), oldest first.
+        preview: list[str] = []
+        for p, rts in sorted(overdue, key=lambda pr: pr[1])[:3]:
+            mech = _safe_get(p, "mechanism", "") or "?"
+            age_d = (now - rts) / _SECONDS_PER_DAY if rts else 0
+            short = str(mech)[:90]
+            preview.append(f"[overdue {age_d:.0f}d] {short}")
+        # Fill remaining slots with soonest-upcoming.
+        remaining = 3 - len(preview)
+        if remaining > 0:
+            for p, rts in sorted(upcoming, key=lambda pr: pr[1] or now)[:remaining]:
+                mech = _safe_get(p, "mechanism", "") or "?"
+                days_until = (
+                    (rts - now) / _SECONDS_PER_DAY if rts else None
+                )
+                tag = (
+                    f"due in {days_until:.0f}d"
+                    if days_until is not None and days_until > 0
+                    else "no review date"
+                )
+                short = str(mech)[:90]
+                preview.append(f"[{tag}] {short}")
         return DashboardRow(
             area="Pre-registrations",
             count=len(open_preregs),
-            stale_count=overdue,
+            stale_count=len(overdue),
             drill_down="divineos prereg list",
             detail="overdue" if overdue else "",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -277,12 +333,35 @@ def _row_compass() -> DashboardRow | None:
                 detail=f"{unobserved}/{total} spectrums unobserved",
             )
         if drift_count > 0:
+            # Preview up to 3 spectrums by importance: concerns first
+            # (already in a virtue-deficient or excess zone), then
+            # drifting (moving but not yet in concern). Discovery-gap
+            # class fix: spectrums-with-drift become visible in the
+            # row, not just a count.
+            preview: list[str] = []
+            for c in concerns[:3]:
+                spec = c.get("spectrum") or "?"
+                zone = c.get("zone") or "?"
+                label = c.get("label") or ""
+                pos = c.get("position", 0.0)
+                preview.append(
+                    f"[concern] {spec}: {label or zone} @ pos={pos:+.2f}"
+                )
+            remaining = 3 - len(preview)
+            for d in drifting[:remaining]:
+                spec = d.get("spectrum") or "?"
+                direction = d.get("direction") or "?"
+                drift = d.get("drift", 0.0)
+                preview.append(
+                    f"[drifting] {spec} -> {direction} (drift={drift:+.2f})"
+                )
             return DashboardRow(
                 area="Compass",
                 count=observed,
                 stale_count=drift_count,
                 drill_down="divineos compass",
                 detail=f"{drift_count} drift/concern(s)",
+                preview=preview,
             )
         return None
     except _ERRORS:

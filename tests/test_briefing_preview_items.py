@@ -157,3 +157,87 @@ def test_goals_row_populates_preview_when_goals_exist() -> None:
             "Goals row exists but preview is empty — discovery-gap "
             "fix regressed for goals."
         )
+
+
+def test_compass_row_previews_concerns_first() -> None:
+    """LOAD-BEARING: _row_compass populates preview when drift/concerns
+    exist; concerns come BEFORE drifting in the preview order because
+    concerns are already in a virtue-deficient/excess zone."""
+    from divineos.core.briefing_dashboard import _row_compass
+
+    row = _row_compass()
+    if row is not None and row.stale_count > 0:
+        assert row.preview, (
+            "Compass row exists with drift but preview is empty — "
+            "discovery-gap fix regressed for compass."
+        )
+        # Concerns are tagged [concern]; drifting are tagged [drifting].
+        # If both exist, the [concern] lines must come first.
+        concern_idxs = [
+            i for i, p in enumerate(row.preview) if p.startswith("[concern]")
+        ]
+        drifting_idxs = [
+            i for i, p in enumerate(row.preview) if p.startswith("[drifting]")
+        ]
+        if concern_idxs and drifting_idxs:
+            assert max(concern_idxs) < min(drifting_idxs), (
+                "Compass preview ordering regressed: drifting entries "
+                "appeared before concern entries, but concerns should "
+                "always come first (already in zone vs trending into "
+                "zone)."
+            )
+
+
+def test_audit_findings_row_previews_highest_severity_first() -> None:
+    """LOAD-BEARING: _row_audit_findings populates preview when
+    unresolved findings exist; HIGH-severity findings appear before
+    LOW-severity ones."""
+    from divineos.core.briefing_dashboard import _row_audit_findings
+
+    row = _row_audit_findings()
+    if row is not None and row.count > 0:
+        assert row.preview, (
+            "Audit findings row exists but preview is empty — "
+            "discovery-gap fix regressed for audit findings."
+        )
+        # Each preview line is tagged with [SEVERITY]. The severity
+        # ordering is HIGH > MEDIUM > LOW > INFO.
+        sev_rank = {"[HIGH]": 0, "[MEDIUM]": 1, "[LOW]": 2, "[INFO]": 3}
+        seen_ranks: list[int] = []
+        for p in row.preview:
+            for tag, rank in sev_rank.items():
+                if p.startswith(tag):
+                    seen_ranks.append(rank)
+                    break
+        # Must be monotone non-decreasing (each entry no worse than
+        # the prior).
+        assert seen_ranks == sorted(seen_ranks), (
+            f"Audit-finding preview not sorted by severity ascending; "
+            f"got ranks {seen_ranks}."
+        )
+
+
+def test_preregs_row_previews_overdue_first() -> None:
+    """LOAD-BEARING: _row_preregs populates preview when open
+    pre-registrations exist; overdue ones appear before upcoming
+    ones in the preview."""
+    from divineos.core.briefing_dashboard import _row_preregs
+
+    row = _row_preregs()
+    if row is not None and row.count > 0:
+        assert row.preview, (
+            "Preregs row exists but preview is empty — discovery-gap "
+            "fix regressed for preregs."
+        )
+        overdue_idxs = [
+            i for i, p in enumerate(row.preview) if p.startswith("[overdue")
+        ]
+        upcoming_idxs = [
+            i for i, p in enumerate(row.preview)
+            if p.startswith("[due in") or p.startswith("[no review")
+        ]
+        if overdue_idxs and upcoming_idxs:
+            assert max(overdue_idxs) < min(upcoming_idxs), (
+                "Prereg preview ordering regressed: upcoming entries "
+                "appeared before overdue entries."
+            )
