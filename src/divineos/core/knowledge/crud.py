@@ -64,6 +64,14 @@ def store_knowledge(
             f"Invalid knowledge_type '{knowledge_type}'. Must be one of: {KNOWLEDGE_TYPES}",
         )
 
+    # Source provenance validation — Aletheia Finding 46 (2026-05-14):
+    # KNOWLEDGE_SOURCES was documented-as-whitelist but not enforced.
+    # Now any source string passed in must be in the canonical set
+    # (or empty for "unknown").
+    from divineos.core.knowledge._base import validate_source
+
+    validate_source(source)
+
     if memory_kind is None:
         from divineos.core.knowledge.memory_kind import classify_kind
 
