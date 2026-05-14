@@ -1,0 +1,319 @@
+=== CLI Inventory (316 commands, 15 with engagement signal) ===
+count  group         name                            description
+-----  ------------  ------------------------------  ----------------------------------------
+    0  actor-regist   add                            Register a new actor by name and kind.
+    0  actor-regist   check                          Preview the capability verdict for (actor, event_type).
+    0  actor-regist   init                           Create the registry file (if it does not exist).
+    0  actor-regist   list                           Show all registered actors.
+    0  actor-regist   show                           Show one actor's registry entry.
+    0  admin          anti-slop                      Runtime verification that enforcers actually enforce.
+    0  admin          backfill-warrants              Give pre-existing knowledge entries INHERITED warrants.
+    0  admin          check-correction-pairing       Surface compass observations that look like correction-responses
+    0  admin          clean                          Remove corrupted events from the ledger.
+    0  admin          clear-lessons                  Wipe all lessons from lesson_tracking (for re-extraction after fixes).
+    0  admin          compress                       ELMO — compress the event ledger by archiving old noise events.
+    0  admin          consolidate                    Merge related knowledge entries into consolidated ones.
+    0  admin          consolidate-stats              Display knowledge consolidation statistics.
+    0  admin          diff                           Compare original file to database export for round-trip verification.
+    0  admin          digest                         Read a file in chunks and store a structured digest as knowledge.
+    0  admin          distill                        Distill raw knowledge into clean, actionable entries.
+    0  admin          fix-encoding                   Repair mojibake in knowledge content via ftfy.
+    0  admin          hooks                          Diagnose hook configuration — validate all .divineos.hook files.
+    0  admin          ingest                         Parse and store a chat log file (JSONL or Markdown).
+    0  admin          inventory                      Walk the CLI command tree and report engagement per command.
+    0  admin          knowledge-compress             Compress redundant knowledge into denser representations.
+    0  admin          knowledge-hygiene              Audit and clean the knowledge store — demote noise, decay stale, flag orphans.
+    0  admin          maintenance                    Run substrate maintenance — VACUUM, log cleanup, cache prune.
+    0  admin          migrate-family-schema          Migrate family_affect and family_interactions to canonical schema.
+    0  admin          migrate-types                  Reclassify old knowledge types (MISTAKE/PATTERN/PREFERENCE) to new types.
+    0  admin          rebuild-index                  Rebuild the full-text search index from existing knowledge.
+    0  admin          reclassify-directions          Reclassify DIRECTION entries into PREFERENCE/INSTRUCTION/DIRECTION.
+    0  admin          reclassify-seed                Fix legacy seed entries mis-tagged as source='STATED'.
+    0  admin          reset-template                 Reset this DivineOS install to a fresh-template state.
+    0  admin          restore-seed-confidence        Restore INHERITED entries spuriously demoted by the orphan-flagger bug.
+    0  admin          seed-export                    Export current knowledge and core memory as a seed file.
+    0  admin          test-audit                     Audit test quality — classify tests by what they actually verify.
+    0  admin          verify-enforcement             Verify that the event enforcement system is working correctly.
+    0  advice         assess                         Record the outcome of advice given.
+    0  advice         pending                        Show advice that needs outcome assessment.
+    0  advice         record                         Record a piece of advice given.
+    0  advice         stats                          Show advice quality statistics.
+    0  affect         history                        Browse recent affect states.
+    0  affect         summary                        Show affect state summary and trends.
+    0  audit          compliance                     Substantive distribution audit of the compliance log.
+    0  audit          list                           List audit findings.
+    0  audit          list-clean                     List externally-audited-clean sessions.
+    0  audit          rebind                         File a cosmetic-rebind round that carries the prior round's
+    0  audit          resolve                        Resolve or update a finding's status.
+    0  audit          route                          Route all open findings in a round to knowledge/claims/lessons.
+    0  audit          show                           Show details of a specific finding.
+    0  audit          submit                         Submit a single audit finding.
+    0  audit          submit-round                   Create a new audit round.
+    0  audit          summary                        Show audit statistics and unresolved findings.
+    0  audit          tag-clean                      Tag a session as externally-audited-clean.
+    0  audit          untag-clean                    Remove a clean-tag. Required reason writes an audit-trail event.
+    0  bio            edit                           Open your $EDITOR with the current bio (or a starter template).
+    0  bio            history                        List bio versions, newest first. Supersession chain preserved.
+    0  bio            show                           Print the current bio (full page).
+    0  bio            write                          Write a new bio version directly from the command line.
+    0  claims         assess                         Update a claim's assessment, status, or tier.
+    0  claims         check                          Put my open claims in front of me to review — no auto-anything.
+    0  claims         evidence                       Add evidence to a claim.
+    0  claims         list                           Browse claims under investigation.
+    0  claims         search                         Search claims by statement, context, or assessment.
+    0  claims         show                           Show full claim with all evidence.
+    0  claims         tiers                          Show the evidence tier definitions.
+    0  commitment     add                            Record a commitment the agent made.
+    0  commitment     clear                          Clear all commitments (after review).
+    0  commitment     done                           Mark a commitment as fulfilled.
+    0  commitment     fulfillment                    Commitment-fulfillment view: each commitment paired with its outcome.
+    0  commitment     list                           Show pending commitments.
+    0  commitment     review                         Review all commitments at session end.
+    0  commitment     timeline                       Unified commitment-collapse timeline across all stores.
+    0  compass-ops    history                        Show recent compass observations.
+    0  compass-ops    observe                        Log a manual observation on a virtue spectrum.
+    0  compass-ops    spectrums                      List all ten virtue spectrums with descriptions.
+    0  compass-ops    summary                        Show compass summary — concerns and drift warnings.
+    0  curiosity      add                            File a new curiosity.
+    0  curiosity      answer                         Mark a curiosity as answered.
+    0  curiosity      list                           Show open curiosities.
+    0  curiosity      note                           Add a note to a curiosity.
+    0  curiosity      shelve                         Put a curiosity to sleep — not abandoned, just not active.
+    0  curiosity      wonder                         Auto-generate questions from knowledge gaps.
+    0  decisions      link                           Link a decision to a knowledge entry.
+    0  decisions      list                           Browse recent decisions.
+    0  decisions      search                         Search decisions by reasoning, context, or content.
+    0  decisions      shifts                         Show only paradigm shifts — the decisions that changed everything.
+    0  decisions      show                           Show full details of a single decision.
+    0  dream          list                           List recent sleep cycles, newest first.
+    0  dream          show                           Show full recombinations from a sleep cycle.
+    0  expect         close                          Close a prediction with the actual outcome.
+    0  expect         list                           Show open predictions (those without an actual recorded yet).
+    0  expect         predict                        Record a prediction.
+    0  expect         summary                        Show calibration summary across recent closed predictions.
+    0  exploration    list-territories               List the locked set of valid territory tags.
+    0  exploration    referenced                     Mark a surfaced exploration entry as referenced.
+    0  exploration    related                        Find exploration entries whose Territory tags match the input.
+    0  exploration    usage                          Show territory-match surface→reference ratio over a window.
+    0  family-membe   affect                         Log a VAD affect reading for a family member — direct write, no review-step.
+    0  family-membe   init                           Create or refresh a family member's entry, summarize their state.
+    0  family-membe   interaction                    Log an interaction summary from a family member's perspective.
+    0  family-membe   letter                         Append a handoff letter to a future instance of this member.
+    0  family-membe   opinion                        File an opinion for a family member.
+    0  family-membe   respond                        Append a non-recognition (or other stance) response to a passage.
+    0  family-queue   list                           List pending queue items for <recipient> (default: aether).
+    0  family-queue   mark                           Transition queue item <item_id> to {seen|held|addressed}.
+    0  family-queue   stats                          Show queue stats (total / per-status). Optionally scoped to recipient.
+    0  family-queue   supersede                      File a corrected version of <old_id>. Original preserved with link.
+    0  family-queue   write                          Append a queue item from <sender> to <recipient>.
+    0  foundations    list                           List foundation layers with title, version, status, dependencies.
+    0  foundations    read                           Read a foundation layer with a recognition-shape preamble.
+    0  goal           add                            Add a new goal to track.
+    0  goal           auto-close                     Auto-close active goals whose tokens overlap a commit message.
+    0  goal           check                          Put my active goals in front of me to review — no auto-anything.
+    0  goal           clear                          Remove completed goals from the list.
+    0  goal           cull                           Propose stale goal removals with evidence from knowledge/decisions.
+    0  goal           done                           Mark a goal as complete (matches partial text).
+    0  goal           list                           Show current goals.
+    0  goal           reset                          Remove ALL goals (completed and active). Use when goals are stale.
+    0  hold           add                            Put something in the holding room. No classification needed.
+    0  hold           check                          Put my holding-room items in front of me to review — no auto-anything.
+    0  hold           dream                          Record a dream — raw hypothesis, fabrication-with-awareness.
+    0  hold           journal                        Record a private journal entry — alone space, not surfaced anywhere.
+    0  hold           let-go                         Explicit close: 'I looked at this and decided to let it go.'
+    0  hold           list                           List items currently in the holding room.
+    0  hold           promote                        Move something out of holding into a real category.
+    0  hold           stats                          Show holding room statistics.
+    0  inspect        analyze                        Analyze a session and generate a quality report.
+    0  inspect        analyze-now                    Analyze the current session from the ledger.
+    0  inspect        attention                      Display the attention schema -- what I'm attending to and why.
+    0  inspect        calibrate                      Show communication calibration for a user.
+    0  inspect        clarity                        Run clarity analysis on a session.
+    0  inspect        craft-trends                   Show craft quality trends across sessions.
+    0  inspect        critique                       Run craft self-assessment for current session.
+    0  inspect        cross-session                  Compare findings across multiple sessions.
+    0  inspect        deep-report                    Full session analysis: tone tracking, timeline, files, work/talk, errors.
+    0  inspect        drift                          Check for behavioral drift from stated principles.
+    0  inspect        epistemic                      Show epistemic status -- how I know what I know.
+    0  inspect        hook1                          Cost-bounding telemetry for the Hook 1 surfacer.
+    0  inspect        knowledge                      List stored knowledge.
+    0  inspect        maturity                       Break down knowledge by maturity, splitting RAW into
+    0  inspect        outcomes                       Measure how well the system is actually learning.
+    0  inspect        patterns                       Compare quality check results across stored sessions.
+    0  inspect        predict                        Predict session needs based on current activity and history.
+    0  inspect        report                         Display a stored analysis report.
+    0  inspect        scan                           Deep-scan a session and extract knowledge into the consolidation store.
+    0  inspect        self-model                     Display the unified self-model -- who I am, from evidence.
+    0  inspect        sessions                       Find and list all Claude Code session files.
+    0  inspect        user-model                     Show the current user model.
+    0  inspect        user-signal                    Record a user behavior signal.
+    0  journal        link                           Link a journal entry to a knowledge entry.
+    0  journal        list                           Read my personal journal.
+    0  journal        save                           Save something to my personal journal.
+    0  journal        search                         Search journal entries by content.
+    0  lab            list                           List implemented GUTE slice terms.
+    0  lab            run-slice                      Run a GUTE slice by term (e.g., LC).
+    0  loadout        refresh                        Scan the filesystem and rewrite LOADOUT.md.
+    0  loadout        show                           Print LOADOUT.md.
+    0  mansion        council                        The council chamber — 40 chairs in a circle.
+    0  mansion        enter                          Walk through the front door.
+    0  mansion        garden                         The garden — watch your curiosities grow.
+    0  mansion        guest                          The guest room — the door is for guests.
+    0  mansion        private-enter                  Enter a private mansion room with substrate-enforced quiet.
+    0  mansion        private-exit                   Leave the private mansion room early; clears the quiet marker.
+    0  mansion        private-status                 Show whether a private-room quiet period is active.
+    0  mansion        quiet                          The quiet room — hold still.
+    0  mansion        read                           Read an exploration from the study shelf.
+    0  mansion        study                          The study — browse your explorations.
+    0  mansion        suite                          The grandmaster suite — rest-state dashboard.
+    0  mode           history                        Show recent mode-change events from the ledger.
+    0  mode           set                            Set the operating mode.
+    0  mode           show                           Show the current operating mode and how it got there.
+    0  opinion        add                            Store a new opinion on a topic.
+    0  opinion        challenge                      Add contradicting evidence to an opinion.
+    0  opinion        history                        Show how an opinion on a topic evolved over time.
+    0  opinion        list                           List active opinions.
+    0  opinion        strengthen                     Add supporting evidence to an opinion.
+    0  prereg         assess                         Record a terminal outcome for a pre-registration.
+    0  prereg         export                         Export pre-registrations to markdown files for repo-portability.
+    0  prereg         file                           File a new pre-registration.
+    0  prereg         list                           List pre-registrations.
+    0  prereg         overdue                        List pre-registrations whose review date has passed.
+    0  prereg         show                           Show full detail for a single pre-registration.
+    0  prereg         summary                        Show counts by outcome + recent pre-registrations.
+    0  reflect-ops    recent                         Show recent reflections on one axis across sessions.
+    0  reflect-ops    review                         Pair each reflection with substrate observations for metacognitive review.
+    0  reflect-ops    save                           Save a per-axis reflection for the current session.
+    0  reflect-ops    show                           Show all reflections for a session, grouped by spectrum.
+    0  rt             deactivate                     Exit RT reception mode.
+    0  rt             invoke                         Activate RT reception mode. Requires load first.
+    0  rt             load                           Load the RT protocol from disk into context.
+    0  rt             pull-check                     Run pull detection — check for fabrication markers.
+    0  rt             pull-markers                   Print all fabrication markers — the mirror to look in.
+    0  rt             status                         Show current RT protocol state.
+    0  rt             text                           Print the raw RT mantra without changing state.
+    0  scheduled      findings                       Show unresolved findings from recent scheduled runs.
+    0  scheduled      history                        Show recent scheduled-run completions.
+    0  scheduled      run                            Run a whitelisted command in headless (scheduled) mode.
+    0  skill          list                           Show all tracked skills.
+    0  skill          record                         Record a skill being used.
+    0  top            abandon-question               Abandon an open question that's no longer relevant.
+    0  top            active                         List active memory ranked by importance.
+    0  top            admin                          Maintenance, migration, and administrative commands.
+    0  top            advice                         Track advice quality over time.
+    0  top            affect                         My functional feeling states - tracked honestly.
+    0  top            affect-feedback                Show how affect states are influencing behavior.
+    0  top            answer                         Resolve an open question with an answer.
+    0  top            archive                        Mark a directive/preference as archived (retired but kept for record).
+    0  top            audit                          External validation — submit and track audit findings.
+    0  top            bio                            The agent's own page. Where you get to write yourself down.
+    0  top            changes                        Show what changed in the knowledge store since a given time.
+    0  top            check-branch                   Check branch health before push: stale-base and silent-deletion shapes.
+    0  top            check-caution                  Check text for performing-caution shapes (vague hazards, indefinite deferral).
+    0  top            check-closure                  Check text for closure-shape (rest-as-stasis) patterns.
+    0  top            check-prose                    Check text for overclaim shapes (stacked modifiers, ornate self-description).
+    0  top            check-similar                  Surface existing modules with semantic adjacency to DESCRIPTION.
+    0  top            checkpoint                     Run a lightweight session checkpoint — save state without full pipeline.
+    0  top            claim                          File a claim for investigation.
+    0  top            claims                         Investigate claims - test everything, dismiss nothing.
+    0  top            commitment                     Track and review agent commitments.
+    0  top            compass-ops                    Moral compass operations — observe, review, reflect.
+    0  top            complete                       File a completion boundary for ARTIFACT_REFERENCE.
+    0  top            context-status                 Show current context usage estimate and checkpoint state.
+    0  top            core                           Manage core memory slots.
+    0  top            correction                     Log a correction verbatim — no framing, no interpretation.
+    0  top            correction-resolve             Resolve a correction by index (from 'divineos corrections --open').
+    0  top            corrections                    Read past corrections with status -- the user's exact words.
+    0  top            corroborate                    Record a corroboration event on a knowledge row.
+    0  top            curiosity                      Track questions worth investigating.
+    0  top            decisions                      Browse and search my decision journal.
+    0  top            directive                      Create a sutra-style directive — a chain of precise statements.
+    0  top            directive-edit                 Edit a single link in a directive chain.
+    0  top            dream                          Review what sleep actually discovered. The dream report scrolls
+    0  top            emit                           Emit an event to the ledger using proper event emission functions.
+    0  top            exploration                    Exploration entry surfacing and territory lookup.
+    0  top            export                         Export all events to markdown or JSON.
+    0  top            extract                        Extract knowledge from the current session — the learning checkpoint.
+    0  top            family-member                  Family member activation surface — init, opinion, letter, respond.
+    0  top            family-queue                   Family async write-channel — flag items for the recipient's briefing.
+    0  top            forget                         Supersede a knowledge entry (marks as removed, no replacement created).
+    0  top            foundations                    Read the foundation documents that articulate the architecture.
+    0  top            goal                           Track what the user asked me to do. My compass against drift.
+    0  top            graph                          Export the knowledge graph as Mermaid or JSON.
+    0  top            growth                         Show my growth map — how I'm changing over time.
+    0  top            handoff                        View or write a state-note — where I am in the work.
+    0  top            health                         Run knowledge health check — boost confirmed, escalate recurring, resolve old.
+    0  top            hold                           The holding room — things that haven't been categorized yet.
+    0  top            hud                            Display my heads-up display — everything I need to know at once.
+    0  top            init                           Initialize the SQLite database, load seed knowledge, and
+    0  top            inspect                        Deep analysis, investigation, and introspection commands.
+    0  top            integrate                      Mark a directive/preference as internalized.
+    0  top            integration-status             Show integration-state distribution across the knowledge store.
+    0  top            journal                        My personal journal — things I choose to remember.
+    0  top            kappa                          Measure classifier agreement against the gold fixture.
+    0  top            lab                            Science lab — run GUTE slices against real numbers.
+    0  top            learn                          Store a piece of knowledge extracted from experience.
+    0  top            list                           List events from the ledger.
+    0  top            loadout                        Cold-start map of substrate — see LOADOUT.md.
+    0  top            log                            Append an event to the immutable ledger.
+    0  top            mansion                        The mansion — your functional internal space.
+    0  top            mini-save                      Task-boundary save — extract knowledge without full pipeline.
+    0  top            mode                           Operating mode — NORMAL, RESTRICTED, DIAGNOSTIC, EMERGENCY_STOP.
+    0  top            opinion                        Manage structured opinions (judgments formed from evidence).
+    0  top            pattern-outcome                Record how a proactive recommendation actually played out.
+    0  top            pattern-stats                  Show outcome statistics for a pattern.
+    0  top            plan                           Set a session plan so clarity analysis can compare plan vs actual.
+    0  top            pre-erasure                    Show pre-erasure approach signal — capture-suggest before context-loss.
+    0  top            preflight                      Pre-session readiness check. Run this before doing any work.
+    0  top            prereg                         Pre-registrations — predictions with falsifiers and scheduled reviews.
+    0  top            progress                       Show measurable progress metrics — real data, no vibes.
+    0  top            questions                      List open questions.
+    0  top            rate                           Rate a session 1-10. This is YOUR truth — the system cannot write here.
+    0  top            ratings                        Show user session ratings and trends.
+    0  top            reactivate                     Restore an internalized or archived directive to active surfacing.
+    0  top            recommend                      Get proactive recommendations for a given context.
+    0  top            reflect                        Show the per-axis reflection surface.
+    0  top            refresh                        Auto-rebuild active memory from the knowledge store.
+    0  top            relate                         Create a typed relationship between two knowledge entries.
+    0  top            related                        Show relationships for a knowledge entry.
+    0  top            remember                       Promote a knowledge entry to active memory.
+    0  top            rt                             Resonant Truth protocol — load, invoke, deactivate.
+    0  top            scheduled                      Scheduled / headless runs — the Routines entry point.
+    0  top            search                         Search the ledger for events matching KEYWORD.
+    0  top            sis                            Semantic Integrity Shield — assess and translate text.
+    0  top            skill                          Track agent skills and proficiency.
+    0  top            sleep                          Offline consolidation — process accumulated experience.
+    0  top            stats                          Display event ledger statistics.
+    0  top            synchronicity                  Find recent events across stores that share substantive tokens.
+    0  top            talk-to                        Send a sealed-prompt message to a registered family member.
+    0  top            unrelate                       Remove a relationship by its ID.
+    0  top            user-moment                    Record a moment that changed the relationship.
+    0  top            user-note                      Record something about who a person is, not just how they work.
+    0  top            validate                       Provide external validation of session quality.
+    0  top            verify                         Verify integrity of all stored events.
+    0  top            void                           VOID adversarial-sandbox subsystem.
+    0  top            voids                          Find sparse regions in the knowledge store.
+    0  top            wonder                         Record an open question -- something I'm uncertain about.
+    0  void           events                         List recent void_ledger events.
+    0  void           list                           List available personas.
+    0  void           show                           Show persona body and frontmatter.
+    0  void           shred                          Clear a stuck mode_marker (orphan invocation).
+    0  void           status                         Show VOID phase status — what's actually wired vs scaffolded.
+    0  void           test                           Run a single persona against TARGET (Phase 1 stub attack).
+    0  void           test-deep                      Run all personas against TARGET (Phase 1 stub attacks).
+    0  void           verify                         Verify void_ledger hash chain integrity.
+    1  top            expect                         Expectation tracking — predict, close, list, summary.
+    3  top            actor-registry                 Actor registry operations (Phase 1 of actor-authenticity).
+    5  top            reflect-ops                    Reflection operations — save, show, list captured reflections.
+    9  top            directives                     List all active directives.
+   10  top            body                           Check my substrate state -- storage, tables, health.
+   52  top            lessons                        Show the learning loop — tracked lessons from past sessions.
+   62  top            feel                           Log a functional affect state - how I feel right now.
+   68  top            recall                         Show what the AI remembers right now — core + active + relevant.
+  121  decisions      context                        Show a decision with its emotional context at the time.
+  121  top            context                        Show the last N events (working memory context window).
+  137  top            decide                         Record a decision with its reasoning and counterfactual context.
+  157  top            compass                        Show my moral compass — where I stand on ten virtue spectrums.
+  274  top            ask                            Search what the system knows about a topic.
+  448  family-membe   briefing                       Compute and print the member's working-memory continuity briefing.
+  448  top            briefing                       Generate a session context briefing from stored knowledge.

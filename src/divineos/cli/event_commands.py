@@ -398,6 +398,31 @@ def register(cli: click.Group) -> None:
             logger.exception("Enforcement verification failed")
             sys.exit(1)
 
+    @cli.command("inventory")
+    @click.option(
+        "--by",
+        type=click.Choice(["engagement", "alphabetical"]),
+        default="engagement",
+        help="Sort order: 'engagement' surfaces low-engagement first.",
+    )
+    @click.option(
+        "--max-count",
+        type=int,
+        default=None,
+        help="Only show commands with engagement count <= this (default: all).",
+    )
+    def inventory_cmd(by: str, max_count: int | None) -> None:
+        """Walk the CLI command tree and report engagement per command.
+
+        Foundation for the substrate audit. Lack of engagement is a
+        signal to investigate (obsolete? wiring broken? not surfaced?
+        problem-gone?), not permission to delete.
+        """
+        from divineos.core.command_inventory import format_inventory, inventory
+
+        rows = inventory(by=by)
+        click.echo(format_inventory(rows, min_count=max_count))
+
     @cli.command("check-correction-pairing")
     @click.option(
         "--obs-window-min",
