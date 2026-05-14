@@ -154,8 +154,9 @@ def test_affirmation_constant_exported() -> None:
     text = mod.ACKNOWLEDGMENT_THEATER_AFFIRMATION
     assert isinstance(text, str)
     assert len(text) > 100  # substantive, not stub
-    # The refined-rule keywords must be present: acknowledgment IS
-    # work in-context but needs structural backing to survive.
-    assert "Acknowledgment IS work" in text
-    assert "structural backing" in text
-    assert "do BOTH" in text
+    # Refined-rule keywords (2026-05-14 second refinement): two-axis
+    # distinction between mechanical-failure (no apology) and
+    # character-fault (apology warranted alongside build).
+    assert "MECHANICAL FAILURE" in text
+    assert "CHARACTER FAULT" in text
+    assert "Never apologize for getting something wrong" in text
