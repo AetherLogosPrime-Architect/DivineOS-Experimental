@@ -10,11 +10,20 @@ the books settle the question of truth, we've overclaimed.
 
 Four pieces:
 
-* ``Tier`` — the four tiers of evidentiary burden. A claim's tier
-  determines WHICH KIND of evidence counts. Falsifiable claims need
+* ``Tier`` — the four KINDS of evidentiary burden. NOT a monotonic
+  ranking (Andrew + Grok + Aether cross-vantage 2026-05-14, finding
+  find-58b2121bbb47): the values FALSIFIABLE/OUTCOME/PATTERN/
+  ADVERSARIAL are different evidentiary shapes with calibrated
+  per-unit-strength thresholds, not ranked levels. The classifier-
+  era Roman numerals (Tier I/II/III/IV) and the historical word
+  "tier" implied ordinal hierarchy that the burden math (bases
+  2,3,4,3 — ADVERSARIAL=OUTCOME=3) does not implement. A claim's
+  kind determines WHICH evidence counts: falsifiable claims need
   repeatable tests; outcome claims need observed effects; pattern
   claims need recurrence across contexts; adversarial claims need
-  survival against a steelman attacker.
+  survival against a steelman attacker. The class name ``Tier`` is
+  kept for backwards-compat with existing callers; the framing
+  going forward is "four kinds," not "four ranks."
 * ``ClaimMagnitude`` — how load-bearing the claim is. Determines
   HOW MUCH of the tier-appropriate evidence is required. A trivial
   bug-fix hypothesis is magnitude TRIVIAL. A structural claim like
@@ -48,7 +57,21 @@ from enum import Enum
 
 
 class Tier(str, Enum):
-    """The four tiers of evidentiary burden.
+    """The four KINDS of evidentiary burden — different shapes of
+    evidence, NOT a monotonic ranking.
+
+    Andrew + Grok + Aether cross-vantage review 2026-05-14
+    (find-58b2121bbb47): the prior framing as "four tiers" with
+    Roman-numeral usage implied ordinal hierarchy. The burden math
+    (FALSIFIABLE=2, OUTCOME=3, PATTERN=4, ADVERSARIAL=3) does not
+    implement that hierarchy — ADVERSARIAL shares its base with
+    OUTCOME, not above PATTERN. Each base reflects per-unit evidence
+    strength for that kind (a repeatable test is strong per unit;
+    a pattern instance is weak per unit and needs more to rule out
+    coincidence). The values are calibrated, not ranked.
+
+    Class name kept as `Tier` for backwards-compat; readers should
+    understand the four values as kinds, not levels.
 
     Values are strings so they serialize cleanly to SQLite and JSON
     without needing explicit (de)serialization in every call site.

@@ -206,7 +206,7 @@ def run(
     shape) AND the resulting Finding is None / LOW / MEDIUM (i.e.,
     no HIGH/CRITICAL findings emerged), this function records a
     ``VOID_SURVIVAL`` corroboration against the target. EMPIRICA's
-    Tier IV ADVERSARIAL burden formula counts these distinct-actor
+    ADVERSARIAL-kind burden formula counts these distinct-actor
     corroborations to gate adversarial claims.
 
     The bridge is silent when ``target`` is not a knowledge_id (it's
