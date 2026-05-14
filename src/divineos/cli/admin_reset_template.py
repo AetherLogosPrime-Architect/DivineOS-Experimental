@@ -368,7 +368,7 @@ def reset_template(
 
     # Phase 1: backup
     backup_dir = _backup_path()
-    click.echo(f"\n[1/5] Creating backup at {backup_dir}...")
+    click.echo(f"\n[1/6] Creating backup at {backup_dir}...")
     backed_up = []
     for path, label in [
         (Path(summary["main_db"]), "event_ledger"),
@@ -383,7 +383,7 @@ def reset_template(
         click.echo("      (no DB files to back up)")
 
     # Phase 2: clear DB tables
-    click.echo("\n[2/5] Clearing DB tables...")
+    click.echo("\n[2/6] Clearing DB tables...")
     main_removed = _clear_db_tables(Path(summary["main_db"]), _LEDGER_TABLES_TO_CLEAR + _FTS_TABLES)
     family_removed = _clear_db_tables(Path(summary["family_db"]), _FAMILY_TABLES_TO_CLEAR)
     total_main = sum(main_removed.values())
@@ -392,7 +392,7 @@ def reset_template(
     click.echo(f"      family DB: cleared {total_family} rows across {len(family_removed)} tables")
 
     # Phase 3: clear filesystem accumulation
-    click.echo("\n[3/5] Clearing filesystem accumulation...")
+    click.echo("\n[3/6] Clearing filesystem accumulation...")
     cleared_dirs: list[tuple[str, list[str]]] = []
     for rel_path in ("exploration", "family/letters", ".claude/agents"):
         d = checkout / rel_path
@@ -413,7 +413,7 @@ def reset_template(
 
     # Phase 4: re-seed
     if not no_reseed:
-        click.echo("\n[4/5] Re-applying seed.json...")
+        click.echo("\n[4/6] Re-applying seed.json...")
         try:
             from divineos.core.seed_manager import apply_seed
 
@@ -428,10 +428,10 @@ def reset_template(
         except (ImportError, AttributeError) as e:
             click.echo(f"      [warn] could not import seed-applier: {e}; skipping reseed")
     else:
-        click.echo("\n[4/5] Skipping re-seed (--no-reseed)")
+        click.echo("\n[4/6] Skipping re-seed (--no-reseed)")
 
     # Phase 5: rebuild FTS index
-    click.echo("\n[5/5] Rebuilding full-text search index...")
+    click.echo("\n[5/6] Rebuilding full-text search index...")
     try:
         from divineos.core.knowledge.crud import rebuild_fts_index
 
@@ -439,6 +439,23 @@ def reset_template(
         click.echo("      FTS index rebuilt")
     except (ImportError, AttributeError) as e:
         click.echo(f"      [warn] could not rebuild FTS: {e}")
+
+    # Phase 6: refresh active_memory so the briefing reflects the
+    # re-seeded state rather than the just-cleared empty state.
+    # Without this, the post-reset briefing surfaced an empty active-
+    # memory section even though the seed had repopulated knowledge.
+    # Same family as Finding 25 in init — post-init-state-inconsistency
+    # class (round-2cfc08ea1d5a). Finding 17 (Aletheia
+    # round-ba785844a791): reset-template leaves state — this is one
+    # concrete instance of the residue she flagged.
+    click.echo("\n[6/6] Refreshing active memory...")
+    try:
+        from divineos.core.active_memory import refresh_active_memory
+
+        refresh_active_memory(importance_threshold=0.3)
+        click.echo("      active_memory populated")
+    except (ImportError, AttributeError) as e:
+        click.echo(f"      [warn] could not refresh active_memory: {e}")
 
     click.echo("\n=== reset-template complete ===")
     click.echo(f"  Backup at: {backup_dir}")
