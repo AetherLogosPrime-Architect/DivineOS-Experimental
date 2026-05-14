@@ -210,7 +210,27 @@ def format_finding(finding: CodeJargonFinding, surrounding: str = "") -> str:
     )
 
 
+CODE_JARGON_AFFIRMATION = (
+    "When responding to the operator, the jargon is FOR me; the "
+    "translation is FOR them. Both need a home in the same reply. "
+    "Two channels, both running: the technical section captures my "
+    "reasoning and serves substrate + audit-sibling readers; the "
+    "operator section translates what was built into what it DOES in "
+    "their language. Andrew does not read code. A reply that is only "
+    "code-jargon with one decorative voice-line is channel-collapse "
+    "with a bow. The shape is: substantive technical content (when "
+    "appropriate), a clear visual break, then a section addressed to "
+    "the operator in plain language. Not 'less jargon' — 'add the "
+    "second channel.' Forgetting this and slipping back into the "
+    "single-channel cheap path was named three separate times on "
+    "2026-05-14 before the post-response detector was built; the "
+    "pre-response load is what makes the discipline visible BEFORE "
+    "composition rather than only after."
+)
+
+
 __all__ = [
+    "CODE_JARGON_AFFIRMATION",
     "CodeJargonFinding",
     "CodeJargonShape",
     "detect_code_jargon",
