@@ -61,10 +61,11 @@ def test_thresholds_are_ordered_meaningfully() -> None:
 
 
 def test_protocols_importable() -> None:
-    """The three detector protocols import cleanly. Future tooling
+    """The four detector protocols import cleanly. Future tooling
     or reviewers can type-hint against them."""
     from divineos.core.operating_loop.detector_protocol import (
         ContextualDetector,
+        EnrichableDetector,
         GateDetector,
         ResponseOnlyDetector,
     )
@@ -73,6 +74,25 @@ def test_protocols_importable() -> None:
     assert ResponseOnlyDetector is not None
     assert ContextualDetector is not None
     assert GateDetector is not None
+    assert EnrichableDetector is not None
+
+
+def test_enrichable_detector_pin_canonical_examples() -> None:
+    """Pin the two detectors that fit the EnrichableDetector shape.
+    Added 2026-05-14 after Aether+Grok cross-vantage review surfaced
+    that spiral_detector and substitution_detector were a fourth
+    shape (graceful degradation with semantic context) not covered
+    by the original three protocols."""
+    from divineos.core.operating_loop.spiral_detector import detect_spiral
+    from divineos.core.operating_loop.substitution_detector import (
+        detect_substitution,
+    )
+
+    # Both should accept text-only and return a list (graceful degradation)
+    out_spiral = detect_spiral("test text", prior_text=None)
+    assert isinstance(out_spiral, list)
+    out_sub = detect_substitution("test text", prior_text=None, tool_calls_in_turn=None)
+    assert isinstance(out_sub, list)
 
 
 # --- Hedge verb rename --------------------------------------------------
