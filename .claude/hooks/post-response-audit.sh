@@ -56,6 +56,7 @@ if not p.exists():
 last_assistant_text = ''
 prior_assistant_text = ''
 last_user_text = ''
+tool_calls_in_turn = ()
 # Aggregation lives in divineos.core.operating_loop.turn_extraction with
 # 13 regression-pin tests (test_turn_extraction.py). Centralizing the
 # logic prevents a future refactor from silently reverting to the
@@ -69,6 +70,7 @@ try:
     last_assistant_text = _texts.last_assistant_text
     prior_assistant_text = _texts.prior_assistant_text
     last_user_text = _texts.last_user_text
+    tool_calls_in_turn = _texts.tool_calls_in_turn
 except Exception:
     sys.exit(0)
 
@@ -140,7 +142,11 @@ except Exception:
 
 try:
     from divineos.core.operating_loop.substitution_detector import detect_substitution
-    sub_findings = detect_substitution(last_assistant_text, prior_text=last_user_text)
+    sub_findings = detect_substitution(
+        last_assistant_text,
+        prior_text=last_user_text,
+        tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
+    )
     if sub_findings:
         findings_log['substitution'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
