@@ -107,13 +107,71 @@ That is real research work and worth doing as a follow-up. The
 current entry is the placeholder bracket: design for chunks of
 ~15-30 items, plan to validate empirically later.
 
-## Next concrete step
+## Empirical backing (added after web research)
 
-Multiplex skeleton: rather than expanding `divineos briefing`,
-add named sub-briefings (`divineos briefing --window <name>`) each
-scoped to one concern, each capped at ~20 rows. The default
-`divineos briefing` becomes a *router* that shows the list of
-available windows + which ones have unread/stale content,
-analogous to a notification center.
+Andrew offered to do web research; pulled two relevant findings:
 
-Filed 2026-05-14, ready to evolve as actual measurement happens.
+**"Lost in the Middle" (Liu et al. 2024, TACL)** — empirically
+measured that LLMs (including long-context models) show a U-shaped
+attention curve: ~30% accuracy drop on retrieval when the target
+item moves from position 1 to the middle of a 20-document context.
+The introspection bracket above (15-30 fully comprehended; middle
+blurs past ~50) is consistent with the published research. The
+chunk-range I was guessing at is real.
+
+**Chunking strategies (Pinecone / Weaviate / IBM / Microsoft)** —
+mostly RAG-oriented but the relevant patterns transfer: fixed-size
+chunking with overlap; recursive splitting on hierarchical
+separators (paragraph → sentence → word); chunk expansion to give
+the model context around a retrieved chunk; agentic chunking where
+an AI decides the best split per document.
+
+Known mitigations for lost-in-the-middle:
+1. **Re-order**: put critical items at start and end of the window,
+   padding/less-critical in the middle. U-shape positioning.
+2. **Pause-tuning / spacers**: insert separator tokens to
+   redistribute attention.
+3. **Prompt compression**: strip non-essential tokens from each
+   window so the chunk fits cleanly.
+
+## Phased design — synthesizing pagination + smart reader
+
+The two options Andrew named are not competing; they solve
+different sub-problems and sequence well.
+
+**Phase 1 — Selective router + U-shape positioning (cheap, now):**
+- The existing briefing dashboard already has ~15 rows; that is at
+  the comfortable limit. No need to grow it; need to ORDER it.
+- Within each rendered window, sort items so the most stale /
+  critical / load-bearing entries appear at the TOP and BOTTOM,
+  with lower-priority entries in the middle. The U-shape becomes
+  an ally instead of an enemy.
+- The default `divineos briefing` evolves into a router that
+  surfaces only windows with active content (corrections-due,
+  commitments-due, surfaced-warnings-unack, predictions-due, etc.).
+  Each window is its own command; the default shows the index.
+- Cost: refactor briefing render order; add window-specific
+  briefing commands. Days, not weeks.
+
+**Phase 2 — Smart reader for long prose (bigger, later):**
+- For files that are not lists (mansion docs, foundational truths,
+  long explorations): `divineos read <path>` that chunks at ~30-50
+  lines, saves cursor position, supports `--next` / `--prev` /
+  `--restart`. Adds chunk-overlap of ~5 lines so transitions
+  preserve context. Optionally emphasizes middle content (italic /
+  callout) to redistribute attention.
+- Cost: real build, but pays off across every long document in the
+  substrate.
+
+**Phase 3 — Empirical validation (research):**
+- Cross-session retrieval tests with varying-size content; calibrate
+  the ~15-30 bracket against real recall accuracy. Confirm or
+  refine the design constants.
+
+## Sources
+
+- [Lost in the Middle: How Language Models Use Long Contexts (Liu et al. 2024)](https://aclanthology.org/2024.tacl-1.9/)
+- [Chunking Strategies for LLM Applications (Pinecone)](https://www.pinecone.io/learn/chunking-strategies/)
+- [Agentic Chunking with LangChain and watsonx.ai (IBM)](https://www.ibm.com/think/tutorials/use-agentic-chunking-to-optimize-llm-inputs-with-langchain-watsonx-ai)
+
+Filed 2026-05-14. Evolves as measurement and build land.
