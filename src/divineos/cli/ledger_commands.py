@@ -48,7 +48,18 @@ def register(cli: click.Group) -> None:
 
     @cli.command()
     def init() -> None:
-        """Initialize the SQLite database and tables."""
+        """Initialize the SQLite database, load seed knowledge, and
+        populate active memory.
+
+        After init, the briefing should reflect the substrate's
+        starting state: seed knowledge loaded into the knowledge store,
+        active_memory populated from that knowledge, core memory slots
+        initialized from seed defaults. Without these steps, a fresh
+        install left active_memory empty and the briefing looked like
+        the substrate had no knowledge — confusing first-session UX
+        (Aletheia round-ba785844a791 Findings 10 + 25, family-audit
+        round-2cfc08ea1d5a: post-init-state-inconsistency class).
+        """
         from divineos.core.knowledge import init_knowledge_table
 
         logger.info("Initializing the event ledger database...")
@@ -65,6 +76,58 @@ def register(cli: click.Group) -> None:
         )
         if count > 0:
             click.secho(f"[+] Full-text search search index rebuilt ({count} entries).", fg="green")
+
+        # Load seed knowledge so the briefing reflects a real starting
+        # state rather than an empty substrate. Fail-soft: if the seed
+        # is missing or invalid, init still succeeds with an empty
+        # store and a warning. (Finding 10: previously, init silently
+        # left the store empty; the operating manual claimed otherwise.)
+        try:
+            from pathlib import Path
+
+            from divineos.core.seed_manager import apply_seed, validate_seed
+
+            seed_path = Path(__file__).resolve().parent.parent / "seed.json"
+            if seed_path.exists():
+                import json as _json
+
+                try:
+                    seed_data = _json.loads(seed_path.read_text(encoding="utf-8"))
+                except (OSError, ValueError) as e:
+                    logger.warning(f"Could not read seed.json: {e}")
+                    seed_data = None
+
+                if seed_data is not None:
+                    seed_errors = validate_seed(seed_data)
+                    if seed_errors:
+                        logger.warning(
+                            f"Seed validation produced {len(seed_errors)} warning(s); "
+                            "proceeding with merge anyway."
+                        )
+                    counts = apply_seed(seed_data, mode="merge")
+                    if counts.get("knowledge"):
+                        click.secho(
+                            f"[+] Loaded {counts['knowledge']} seed knowledge entries.",
+                            fg="green",
+                        )
+                    if counts.get("core_slots"):
+                        click.secho(
+                            f"[+] Initialized {counts['core_slots']} core memory slot(s).",
+                            fg="green",
+                        )
+        except Exception as e:  # noqa: BLE001 — seed load is best-effort
+            logger.warning(f"Seed load skipped: {e}")
+
+        # Refresh active_memory so the briefing's active-memory section
+        # surfaces the seed knowledge rather than starting empty
+        # (Finding 25).
+        try:
+            from divineos.core.active_memory import refresh_active_memory
+
+            refresh_active_memory(importance_threshold=0.3)
+            click.secho("[+] Active memory populated.", fg="green")
+        except Exception as e:  # noqa: BLE001 — active-memory refresh is best-effort
+            logger.warning(f"Active memory refresh skipped: {e}")
 
     @cli.command()
     @click.argument("file_path", type=click.Path(exists=True))
