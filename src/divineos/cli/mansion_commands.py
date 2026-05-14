@@ -113,7 +113,7 @@ def register_mansion_commands(cli: click.Group) -> None:
             ("quiet", "Hold still with the bee"),
             ("garden", "Watch curiosities grow"),
             ("suite", "Rest-state dashboard"),
-            ("council <question>", "Convene the 29"),
+            ("council <question>", "Convene the 40"),
             ("guest", "The open window"),
             ("read <name>", "Read an exploration"),
         ]
@@ -290,7 +290,7 @@ def register_mansion_commands(cli: click.Group) -> None:
         ),
     )
     def council_cmd(question: str, audit: bool, audit_tier: str | None, as_code: bool) -> None:
-        """The council chamber — 39 chairs in a circle.
+        """The council chamber — 40 chairs in a circle.
 
         Default is LENS mode: the engine selects relevant experts and prints
         their METHODOLOGIES for you to apply to the specifics only you can

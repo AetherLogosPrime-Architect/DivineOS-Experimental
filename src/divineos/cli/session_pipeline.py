@@ -396,7 +396,7 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> bo
             logger.debug(f"Self-critique failed: {e}")
 
         # ── Phase 8h1b: Council review on significant sessions ───
-        # The council is a thinking tool — 28 expert lenses that force
+        # The council is a thinking tool — 40 expert lenses that force
         # multi-angle analysis. Without enforcement, it never gets used.
         # Fire it on sessions with corrections or significant code work.
         try:
