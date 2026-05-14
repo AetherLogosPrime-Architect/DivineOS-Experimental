@@ -138,6 +138,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 MULTI_PARTY="$REPO_ROOT/scripts/check_multi_party_review.py"
 CLOSURE_CLAIM="$REPO_ROOT/scripts/check_closure_claim.py"
 ROOT_CAUSE_AUDIT="$REPO_ROOT/scripts/check_root_cause_audit.py"
+WIRING_CLAIMS="$REPO_ROOT/scripts/check_wiring_claims.py"
 
 # 1. Multi-party-review — INFORMATIONAL at commit-time.
 # Script never blocks at commit-time; just warns if guardrails touched
@@ -159,6 +160,15 @@ fi
 # discipline structural rather than advisory.
 if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
     python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --commit-msg-file "$1" || true
+fi
+
+# 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
+# "bridge", "integrate", "connect", "end-to-end", "close the gap"
+# language and reminds the operator to verify both sides exercised.
+# Closes Aletheia Finding 1 wire-decision for check_wiring_claims.py.
+# Never blocks; always exits 0. Operator reads the warning, decides.
+if [[ -f "$WIRING_CLAIMS" ]]; then
+    python "$WIRING_CLAIMS" "$1" || true
 fi
 
 exit 0
