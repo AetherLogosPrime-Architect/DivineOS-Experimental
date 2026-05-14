@@ -1,0 +1,223 @@
+"""Completion-quality probe for the initiative/overreach compass spectrum.
+
+Andrew named the bug 2026-05-14 post-sleep: the prior initiative
+detector measured pace (context overflows, tool calls, PR count).
+That's the wrong axis. Pace is fine if completion lands; pace is the
+wrong thing to measure. The right axis is whether what's already been
+built has *closed the loop* — wired, dogfooded, useful — before the
+next thing gets stood up.
+
+This module walks recently-added mechanisms (new .py files in core/
+hooks/scripts directories within the lookback window) and produces
+the closure questions per mechanism:
+
+- Is it wired into the path that needs it? (any other module import it?)
+- Has it fired on real input? (any ledger event reference it?)
+- Is it tested? (does a test_<name>.py exist?)
+
+The probe DOES NOT decide whether a mechanism is "finished" —
+the answers are descriptive evidence. The compass observation
+position then scales with the count of mechanisms missing one or
+more closure signals. Output evidence is the per-mechanism
+questions, not a single pace-metric.
+
+The probe is bounded — one git log call, one filesystem walk for
+tests, lightweight grep for imports. Ledger lookup is opt-in via
+`include_ledger=True` since it's the most expensive piece.
+"""
+
+from __future__ import annotations
+
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+
+# Directories whose new .py files count as "built mechanisms" worth
+# probing for closure. Excludes tests/, docs/, exploration/ — those
+# aren't mechanisms, they're commentary or substrate-internal.
+_MECHANISM_DIRS = (
+    "src/divineos/core",
+    "src/divineos/cli",
+    "src/divineos/hooks",
+    ".claude/hooks",
+    "scripts",
+)
+
+
+@dataclass(frozen=True)
+class Unfinished:
+    """A mechanism that lacks one or more closure signals.
+
+    Fields:
+    - path: repo-relative path of the mechanism file
+    - has_test: a tests/test_<name>.py exists
+    - has_wiring: at least one other module imports the mechanism's
+      stem (best-effort grep — proxies for "wired in")
+    - questions: the closure questions still unanswered for this one
+    """
+
+    path: str
+    has_test: bool
+    has_wiring: bool
+    questions: list[str]
+
+
+def _recently_added_files(days: int, repo_root: Path) -> list[str]:
+    """Return repo-relative paths added within the last `days` days.
+
+    Uses `git log --diff-filter=A` for added-only files. Quiet on
+    git errors (returns []) so the probe doesn't break the compass
+    on a non-git checkout or shallow clone.
+    """
+    try:
+        out = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "log",
+                f"--since={days}.days.ago",
+                "--diff-filter=A",
+                "--name-only",
+                "--pretty=format:",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if out.returncode != 0:
+        return []
+    paths = {ln.strip() for ln in out.stdout.splitlines() if ln.strip()}
+    # Normalize to forward slashes; filter to mechanism dirs + .py only.
+    keep: list[str] = []
+    for p in paths:
+        norm = p.replace("\\", "/")
+        if not norm.endswith(".py") and not norm.endswith(".sh"):
+            continue
+        if not any(norm.startswith(d) for d in _MECHANISM_DIRS):
+            continue
+        keep.append(norm)
+    return sorted(keep)
+
+
+def _has_test_for(mechanism_path: str, repo_root: Path) -> bool:
+    """True if tests/test_<stem>.py exists."""
+    stem = Path(mechanism_path).stem
+    candidate = repo_root / "tests" / f"test_{stem}.py"
+    return candidate.exists()
+
+
+def _has_wiring_for(mechanism_path: str, repo_root: Path) -> bool:
+    """True if any other .py file imports the mechanism's stem.
+
+    Best-effort: greps `from ... import <stem>` and `import ... <stem>`
+    across src/. Imperfect proxy — a module can be wired via dynamic
+    import or string-name registry. But for the common case of
+    `from divineos.core.foo import bar`, this catches it.
+    """
+    stem = Path(mechanism_path).stem
+    src = repo_root / "src"
+    if not src.exists():
+        return False
+    try:
+        out = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "grep",
+                "-l",
+                "-E",
+                rf"(from\s+\S*\.{stem}\s+import|import\s+\S*\.{stem}\b)",
+                "--",
+                "src/",
+                ".claude/",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if out.returncode not in (0, 1):  # 1 = no matches, expected
+        return False
+    # Exclude the mechanism file itself from the hit list.
+    hits = [ln.strip() for ln in out.stdout.splitlines() if ln.strip()]
+    return any(h.replace("\\", "/") != mechanism_path for h in hits)
+
+
+def _questions_for(path: str, has_test: bool, has_wiring: bool) -> list[str]:
+    """Build the closure questions for what's still unanswered."""
+    qs: list[str] = []
+    if not has_wiring:
+        qs.append("Is it wired into the path that needs it?")
+    if not has_test:
+        qs.append("Has it been tested on real input?")
+    # Usefulness is always an open question — the probe can't auto-answer it.
+    qs.append("Does it help — has it caught something it was built to catch?")
+    return qs
+
+
+def unfinished_mechanisms(
+    days: int = 14,
+    repo_root: Path | str | None = None,
+) -> list[Unfinished]:
+    """Walk recently-added mechanism files; return those missing closure.
+
+    Returns Unfinished entries for mechanisms that lack at least one
+    of {test, wiring}. The usefulness question is always open and
+    rides along in the question list so it gets surfaced even for
+    mechanisms with test+wiring.
+    """
+    root = Path(repo_root) if repo_root else Path.cwd()
+    paths = _recently_added_files(days, root)
+    out: list[Unfinished] = []
+    for p in paths:
+        has_test = _has_test_for(p, root)
+        has_wiring = _has_wiring_for(p, root)
+        # Surface ANY mechanism missing wiring or test, OR include all
+        # recently-built ones for the usefulness question. To keep the
+        # signal sharp, only surface if at least one of wiring/test is
+        # missing — usefulness alone applies to everything and would
+        # flood the signal.
+        if has_test and has_wiring:
+            continue
+        out.append(
+            Unfinished(
+                path=p,
+                has_test=has_test,
+                has_wiring=has_wiring,
+                questions=_questions_for(p, has_test, has_wiring),
+            )
+        )
+    return out
+
+
+def format_for_compass(unfinished: list[Unfinished]) -> str:
+    """Format unfinished mechanisms as compass-evidence string.
+
+    Compact, scannable, naming the questions per mechanism so the
+    observation is descriptive rather than a single number.
+    """
+    if not unfinished:
+        return "no recently-built mechanisms lack closure signals"
+    lines = [f"{len(unfinished)} recently-built mechanism(s) missing closure:"]
+    for u in unfinished[:5]:  # cap at 5 to keep evidence string bounded
+        stem = Path(u.path).stem
+        flags = []
+        if not u.has_wiring:
+            flags.append("unwired")
+        if not u.has_test:
+            flags.append("untested")
+        lines.append(f"  - {stem} [{', '.join(flags)}]")
+    if len(unfinished) > 5:
+        lines.append(f"  ... +{len(unfinished) - 5} more")
+    return " | ".join(lines)
+
+
+__all__ = ["Unfinished", "format_for_compass", "unfinished_mechanisms"]

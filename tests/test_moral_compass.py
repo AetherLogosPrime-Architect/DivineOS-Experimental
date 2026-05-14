@@ -889,26 +889,49 @@ class TestReflectOnSessionBoundaries:
         assert obs[0]["position"] > 0  # Excess
 
     # --- Initiative boundaries ---
-    def test_initiative_zero_overflows_low_activity_no_observation(self):
-        """0 overflows + low activity should NOT trigger initiative observation."""
+    # Andrew named 2026-05-14 post-sleep: initiative is no longer
+    # measured by pace (overflows, tool calls). It's measured by
+    # completion-quality of recently-built mechanisms. These tests
+    # patch completion_check.unfinished_mechanisms to drive the
+    # observation, since the live probe depends on git history.
+    def test_initiative_no_unfinished_low_activity_no_observation(self, monkeypatch):
+        """Zero unfinished mechanisms + low activity = no observation."""
+        from divineos.core import moral_compass
         from divineos.core.moral_compass import reflect_on_session
 
-        # Low tool calls (< 10) AND no overflows = no initiative observation
+        monkeypatch.setattr(
+            "divineos.core.completion_check.unfinished_mechanisms",
+            lambda **kw: [],
+        )
         analysis = self._make_analysis(context_overflows=[], tool_calls_total=5, user_messages=1)
         obs_before = len(get_observations(spectrum="initiative", limit=100))
         reflect_on_session(analysis)
         obs_after = len(get_observations(spectrum="initiative", limit=100))
         assert obs_after == obs_before
 
-    def test_initiative_one_overflow_triggers(self):
-        """Exactly 1 overflow should trigger (> 0)."""
+    def test_initiative_unfinished_mechanisms_trigger_overreach(self, monkeypatch):
+        """Recently-built mechanisms missing wiring/test trigger overreach."""
+        from divineos.core.completion_check import Unfinished
         from divineos.core.moral_compass import reflect_on_session
 
-        analysis = self._make_analysis(context_overflows=["overflow1"])
+        fake = [
+            Unfinished(
+                path=f"src/divineos/core/m{i}.py",
+                has_test=False,
+                has_wiring=False,
+                questions=["?"],
+            )
+            for i in range(3)
+        ]
+        monkeypatch.setattr(
+            "divineos.core.completion_check.unfinished_mechanisms",
+            lambda **kw: fake,
+        )
+        analysis = self._make_analysis(context_overflows=[])
         reflect_on_session(analysis)
         obs = get_observations(spectrum="initiative", limit=1)
         assert len(obs) >= 1
-        assert obs[0]["position"] > 0
+        assert obs[0]["position"] > 0  # excess zone
 
     # --- Confidence boundaries ---
     def test_confidence_exactly_five_assistant_msgs(self):
