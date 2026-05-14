@@ -111,8 +111,46 @@ class GateDetector(Protocol[F]):
     def __call__(self, *args: str) -> F | None: ...
 
 
+class EnrichableDetector(Protocol[F]):
+    """A detector that works text-only but produces additional patterns
+    when given optional context. The contract is "graceful degradation":
+    findings reflect honestly which patterns ran given which inputs.
+
+    Added 2026-05-14 after Aether+Grok cross-vantage review found the
+    original three protocols (ResponseOnlyDetector, ContextualDetector,
+    GateDetector) didn't cover the actual shape used by spiral_detector
+    and substitution_detector. Both take ``text`` as primary input and
+    accept optional context kwargs that enable additional patterns —
+    not "ResponseOnly with knobs" and not "Contextual requiring two
+    args." A fourth shape.
+
+    Examples conforming to this protocol:
+    - detect_spiral(text, *, prior_text=None, require_apology_context=True)
+      -> list[SpiralFinding]
+    - detect_substitution(text, *, prior_text=None, tool_calls_in_turn=None,
+      require_tool_context=False) -> list[SubstitutionFinding]
+
+    The semantics: without the optional context, the detector still
+    runs and produces findings for patterns it can detect text-only.
+    Patterns requiring context are skipped (not silently false-
+    negated) — the detector's docstring explicitly names which
+    patterns require which context. Honesty is in the docs, not just
+    the signature.
+
+    Distinguishing this from ResponseOnly with tuning knobs: the
+    optional args carry SEMANTIC CONTEXT (prior turn content, tool
+    calls in turn), not THRESHOLD TUNING (min_words, noise_threshold).
+    A ResponseOnly detector with tuning knobs still computes the same
+    output shape regardless of knob values; an EnrichableDetector
+    produces strictly-more findings with strictly-more context.
+    """
+
+    def __call__(self, text: str, /, **enrichment: object) -> list[F]: ...
+
+
 __all__ = [
     "ContextualDetector",
+    "EnrichableDetector",
     "GateDetector",
     "ResponseOnlyDetector",
 ]
