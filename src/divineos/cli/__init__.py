@@ -363,6 +363,7 @@ def inspect_hook1_cmd() -> None:
 _ADMIN_COMMANDS = [
     "anti-slop",
     "backfill-warrants",
+    "check-correction-pairing",
     "clean",
     "clear-lessons",
     "compress",

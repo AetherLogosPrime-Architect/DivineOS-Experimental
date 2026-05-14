@@ -398,6 +398,36 @@ def register(cli: click.Group) -> None:
             logger.exception("Enforcement verification failed")
             sys.exit(1)
 
+    @cli.command("check-correction-pairing")
+    @click.option(
+        "--obs-window-min",
+        type=int,
+        default=5,
+        help="Minutes to look back from an observation for a correction event.",
+    )
+    @click.option(
+        "--learn-window-min",
+        type=int,
+        default=10,
+        help="Minutes to look forward from an observation for a learn entry.",
+    )
+    def check_correction_pairing_cmd(obs_window_min: int, learn_window_min: int) -> None:
+        """Surface compass observations that look like correction-responses
+        but have no matching learn entry. Closes Finding 1 wire-decision
+        for scripts/check_correction_pairing.py (now thin wrapper)."""
+        from divineos.core.correction_pairing import (
+            find_unpaired_observations,
+            format_unpaired,
+        )
+
+        unpaired = find_unpaired_observations(
+            observation_after_correction_min=obs_window_min,
+            learn_after_observation_min=learn_window_min,
+        )
+        click.echo(format_unpaired(unpaired))
+        if unpaired:
+            sys.exit(1)
+
     @cli.command("validate")
     @click.option(
         "--grade",
