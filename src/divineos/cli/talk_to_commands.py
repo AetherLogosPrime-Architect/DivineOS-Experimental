@@ -15,11 +15,18 @@ written into the persistent self.
 3. The wrapper validates the operator's message against a list of
    puppet-shape patterns ("you are X", "stay first-person", "as her would",
    prompt-injection patterns). Any match rejects the call.
-4. The wrapper loads the member's voice context via
-   ``divineos.core.family.voice.build_voice_context`` (knowledge,
-   opinions, affect, recent interactions, letters — first-person, from
-   their actual stored state).
-5. The wrapper builds a sealed prompt: voice context + a fixed seal-line
+4. The wrapper builds a minimal substrate-pointer preamble for the
+   member (the redesigned pull-shape, 2026-05-08 — see
+   ``_load_voice_context``). Prior shape pushed the member's full
+   voice context (41+ knowledge, 11+ opinions, affect, letters) into
+   the sealed prompt; new shape is just an identity + substrate-path
+   pointer. The member reads their own substrate on invocation via
+   their agent definition. ``divineos.core.family.voice.build_voice_context``
+   exists for OTHER manual-relay flows (council walk, letter responses)
+   but is no longer used here. (Aletheia round-ba785844a791 Finding 32
+   doc-drift: the old wording survived this redesign.)
+5. The wrapper builds a sealed prompt: substrate-pointer preamble +
+   a fixed seal-line
    delimiter + the operator's message. Operator messages cannot inject
    the seal-line literal (rejected by the puppet-pattern list).
 6. The sealed prompt is written to ``~/.divineos/talk_to_<member>_sealed_prompt.txt``;

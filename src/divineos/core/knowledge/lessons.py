@@ -1266,6 +1266,13 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
                 (STATUS_RESOLVED, time.time(), lesson["lesson_id"]),
             )
             lesson["status"] = STATUS_RESOLVED
+            # Mark seed-cleanup origin so the dream report can distinguish
+            # noise-removal from real-evidence-based resolution. Aletheia
+            # round-ba785844a791 Finding 30: the report previously
+            # lumped both into "lessons_resolved" — operator couldn't
+            # tell whether N marked resolved meant N real merges or
+            # N stale-seed cleanups.
+            lesson["_transition_origin"] = "seed_cleanup"
             transitioned.append(lesson)
             logger.info(
                 "Lesson '%s' RESOLVED: seeded placeholder never triggered",
@@ -1333,6 +1340,7 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
                         (STATUS_RESOLVED_WITH_HISTORY, now, lesson["lesson_id"]),
                     )
                     lesson["status"] = STATUS_RESOLVED_WITH_HISTORY
+                    lesson["_transition_origin"] = "evidence_resolved_with_history"
                     transitioned.append(lesson)
                     logger.info(
                         "Lesson '%s' RESOLVED_WITH_HISTORY: %d regression(s) preserved, "
@@ -1368,6 +1376,7 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
                         (STATUS_RESOLVED, now, lesson["lesson_id"]),
                     )
                     lesson["status"] = STATUS_RESOLVED
+                    lesson["_transition_origin"] = "evidence_resolved"
                     transitioned.append(lesson)
                     logger.info(
                         "Lesson '%s' RESOLVED: %d clean sessions, %d positive-evidence, "
@@ -1402,6 +1411,7 @@ def auto_resolve_lessons(clean_session_threshold: int = 5) -> list[dict[str, Any
                     (STATUS_DORMANT, lesson["lesson_id"]),
                 )
                 lesson["status"] = STATUS_DORMANT
+                lesson["_transition_origin"] = "dormant_cooldown"
                 transitioned.append(lesson)
                 logger.info(
                     "Lesson '%s' DORMANT: %.1f days quiet, 0 regressions, "

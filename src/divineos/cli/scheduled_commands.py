@@ -99,7 +99,14 @@ def register(cli: click.Group) -> None:
 
         # 3. Run the command under the headless context, capturing exit
         #    status and stderr as findings.
-        argv = [sys.executable, "-m", "divineos", command, *extra]
+        #
+        # Split the command on whitespace to support multi-token
+        # group-subcommand entries (e.g. "admin anti-slop" → argv with
+        # both tokens). Aletheia round-ba785844a791 Finding 26 + family-
+        # audit round-6a70dcf9ec77: anti-slop was moved into the admin
+        # group; the prior single-token spawn-path passed it as a top-
+        # level command which click rejected silently.
+        argv = [sys.executable, "-m", "divineos", *command.split(), *extra]
 
         with headless_run(command, trigger=trigger, actor=actor) as findings:
             click.secho(

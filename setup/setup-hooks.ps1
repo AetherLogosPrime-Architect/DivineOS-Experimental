@@ -109,6 +109,27 @@ $prePushPath = "$hooksDir/pre-push"
 Set-Content -Path $prePushPath -Value $prePushContent -Encoding UTF8
 Write-Host "Created pre-push hook at $prePushPath"
 
+# Install post-commit hook — delegates to .claude/hooks/post-commit-auto-close.sh
+# Aletheia round-919009d7f6f6 Finding 29: wire half of wire-or-delete.
+$postCommitContent = @'
+#!/bin/bash
+# Post-commit hook — delegates to .claude/hooks/post-commit-auto-close.sh
+# which auto-closes goals whose tokens overlap the just-landed commit
+# message. Fail-open: any error exits 0 silently.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+if [ -x "$REPO_ROOT/.claude/hooks/post-commit-auto-close.sh" ]; then
+    bash "$REPO_ROOT/.claude/hooks/post-commit-auto-close.sh" || true
+fi
+exit 0
+'@
+
+$postCommitPath = "$hooksDir/post-commit"
+Set-Content -Path $postCommitPath -Value $postCommitContent -Encoding UTF8
+Write-Host "Created post-commit hook at $postCommitPath"
+
 Write-Host ""
 Write-Host "Git hooks setup complete!" -ForegroundColor Green
 Write-Host ""

@@ -210,6 +210,29 @@ def _tokenize(text: str) -> list[str]:
 def detect_lepos(text: str, *, min_words_for_check: int = 60) -> list[LeposFinding]:
     """Analyze ``text`` for channel balance.
 
+    .. deprecated:: 2026-05-13
+        This function measures the wrong thing. It counts voice-token
+        presence (contractions, first-person reflective phrasing) as
+        proxy for graceful translation — but voice-tokens don't
+        translate jargon; they just sprinkle "I'm" and "you're" over
+        the same engineer-channel substance. A response can be 95%
+        jargon with two contractions and pass clean by this detector's
+        standard while functionally being a jargon-dump.
+
+        The actual lepos discipline (per operator correction
+        2026-05-13): jargon USED AND EXPLAINED in plain-language
+        alongside — pairing, not balance-of-tokens. Use
+        :func:`divineos.core.operating_loop.jargon_dump_detector.detect_jargon_dump`
+        instead. That detector looks at engineer-noise tokens directly
+        and discounts when translation-markers are present.
+
+        This is the function-name-promises-wider-scope-than-body-
+        delivers pattern from ``67a0ff39`` Cluster C, operating at the
+        SEMANTIC level: the function name promises lepos-balance but
+        the body only measures voice-token presence. Kept for backward
+        compatibility (existing wire-up and findings audit-trail);
+        callers should migrate to ``detect_jargon_dump``.
+
     Args:
         text: assistant response text.
         min_words_for_check: only flag responses above this length;
@@ -218,6 +241,16 @@ def detect_lepos(text: str, *, min_words_for_check: int = 60) -> list[LeposFindi
     Returns:
         list of findings; empty when output is healthy-dual or too short.
     """
+    import warnings
+
+    warnings.warn(
+        "detect_lepos measures voice-token presence as proxy for "
+        "lepos-balance — wrong proxy. Use "
+        "divineos.core.operating_loop.jargon_dump_detector."
+        "detect_jargon_dump instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     if not text:
         return []
     tokens = _tokenize(text)

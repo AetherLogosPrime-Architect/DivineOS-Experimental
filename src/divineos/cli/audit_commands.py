@@ -108,6 +108,171 @@ def register(cli: click.Group) -> None:
         except ValueError as e:
             click.secho(f"[!] {e}", fg="red")
 
+    @audit_group.command("rebind")
+    @click.argument("prior_round_id")
+    @click.option(
+        "--focus",
+        default="",
+        help="Optional focus override; defaults to deriving from prior round.",
+    )
+    def audit_rebind_cmd(prior_round_id: str, focus: str) -> None:
+        """File a cosmetic-rebind round that carries the prior round's
+        CONFIRMS forward when the staged diff vs. the prior round's
+        bound state is mechanical-only (whitespace, import-reorder,
+        unused-import-removal).
+
+        Refuses if any file has substantive change (comments,
+        docstrings, executable code, tests).
+
+        Discipline: this is the structural answer to the cosmetic-drift
+        problem named in round-cc0bf85fc3fa. Aletheia's positive list
+        (whitespace + import-reorder + unused-import-removal). Anything
+        else still requires fresh CONFIRMS through normal submit-round
+        + submit flow.
+        """
+        import re
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        from divineos.core.watchmen.store import (
+            get_round,
+            list_findings,
+            submit_finding,
+            submit_round,
+        )
+
+        prior = get_round(prior_round_id)
+        if prior is None:
+            click.secho(f"[!] Prior round '{prior_round_id}' not found.", fg="red")
+            return
+
+        # Extract tree-hash from the prior round's focus text. Falls
+        # back to diff-hash if tree-hash absent (older rounds may have
+        # only diff-hash).
+        tree_match = re.search(r"tree-hash:\s*([0-9a-f]{40})", prior.focus, re.IGNORECASE)
+        if not tree_match:
+            click.secho(
+                f"[!] Prior round '{prior_round_id}' has no tree-hash in its focus; "
+                "cannot auto-classify cosmetic-rebind. File a fresh round manually.",
+                fg="red",
+            )
+            return
+        prior_tree_hash = tree_match.group(1)
+
+        # Run the cosmetic classifier. Compare prior tree-hash to staged
+        # index.
+        script_path = (
+            Path(__file__).resolve().parent.parent.parent.parent
+            / "scripts"
+            / "cosmetic_diff_check.py"
+        )
+        if not script_path.exists():
+            click.secho(f"[!] Classifier missing at {script_path}.", fg="red")
+            return
+
+        result = subprocess.run(
+            [sys.executable, str(script_path), prior_tree_hash, "--quiet"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            click.secho(
+                "[!] Diff vs. prior round is NOT cosmetic-only. Run the "
+                "classifier directly to see per-file reasons:",
+                fg="red",
+            )
+            verbose = subprocess.run(
+                [sys.executable, str(script_path), prior_tree_hash],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            click.echo(verbose.stdout)
+            click.secho(
+                "Fresh CONFIRMS required: file a new round via 'audit submit-round'.",
+                fg="yellow",
+            )
+            return
+
+        # Cosmetic-only. Carry prior round's CONFIRMS forward.
+        prior_confirms = [
+            f
+            for f in list_findings(round_id=prior_round_id, limit=100)
+            if "CONFIRMS" in (f.title or "") or "confirms" in (f.description or "").lower()
+        ]
+        if not prior_confirms:
+            click.secho(
+                f"[!] Prior round '{prior_round_id}' has no CONFIRMS findings "
+                "to carry forward; fresh CONFIRMS required.",
+                fg="red",
+            )
+            return
+
+        # Derive new tree-hash from current staged state.
+        write_tree = subprocess.run(
+            ["git", "write-tree"], capture_output=True, text=True, check=False
+        )
+        new_tree_hash = (write_tree.stdout or "").strip()
+
+        focus_text = (
+            focus
+            or f"Cosmetic-rebind of {prior_round_id} (whitespace/format/unused-import "
+            f"only; classifier-verified). tree-hash: {new_tree_hash}"
+        )
+
+        try:
+            new_round_id = submit_round(
+                actor="aether",
+                focus=focus_text,
+                expert_count=0,
+                notes=f"Auto-rebind from {prior_round_id}. Classifier confirmed "
+                "diff is cosmetic-only per positive-list (whitespace + import-"
+                "reorder + unused-import-removal).",
+            )
+            click.secho(f"[+] Rebind round created: {new_round_id}", fg="cyan")
+        except ValueError as e:
+            click.secho(f"[!] {e}", fg="red")
+            return
+
+        # Auto-file carry-forward findings for each prior CONFIRMS actor.
+        carried_actors: set[str] = set()
+        for prior_finding in prior_confirms:
+            actor = prior_finding.actor
+            if actor in carried_actors:
+                continue
+            carried_actors.add(actor)
+            try:
+                fid = submit_finding(
+                    round_id=new_round_id,
+                    actor=actor,
+                    severity="LOW",
+                    category="INTEGRITY",
+                    title=f"CONFIRMS carried forward from {prior_round_id} (cosmetic-rebind)",
+                    description=(
+                        f"Substantive review on {prior_round_id} (finding "
+                        f"{prior_finding.finding_id}) carries forward to this "
+                        f"rebind. Diff vs. prior bound state is cosmetic-only "
+                        f"per the cosmetic_diff_check classifier (positive list: "
+                        f"whitespace, import-reorder, unused-import-removal). "
+                        f"No new substantive content requires fresh review."
+                    ),
+                    recommendation="",
+                    tags=["cosmetic-rebind", "carry-forward", prior_round_id],
+                )
+                click.secho(
+                    f"[+] Carried forward CONFIRMS from {actor}: {fid}",
+                    fg="green",
+                )
+            except ValueError as e:
+                click.secho(f"[!] {e}", fg="red")
+
+        click.secho(
+            f"\nNow use 'External-Review: {new_round_id}' in your commit trailer.",
+            fg="cyan",
+        )
+
     @audit_group.command("list")
     @click.option("--round", "round_id", default=None, help="Filter by round")
     @click.option("--status", default=None, help="Filter by status")
@@ -271,6 +436,124 @@ def register(cli: click.Group) -> None:
                 sev_color = _SEVERITY_COLORS.get(f["severity"], "white")
                 click.echo(f"    {click.style(f['severity'], fg=sev_color)} {f['title']}")
         click.echo()
+
+    @audit_group.command("predict")
+    @click.option("--round", "round_id", required=True, help="Audit round ID")
+    @click.option(
+        "--topics",
+        required=True,
+        help="Comma-separated topics I'm self-predicting will be in the audit",
+    )
+    def audit_predict_cmd(round_id: str, topics: str) -> None:
+        """Record self-audit prediction BEFORE the audit lands.
+
+        From omni-mantra Pillar I, 1.3 — The Great Mystery: what the
+        agent doesn't know it doesn't know. Recording predictions
+        before the audit lets `audit surprises` compute the unknown-
+        unknown rate later — patterns the auditor caught that I
+        couldn't even mark as a possibility.
+
+        Goodhart-protected: closing the surprise-rate requires
+        expanding attention surface, not better-predicting the
+        auditor (sycophancy-toward-expected-audit).
+        """
+        from divineos.core.operating_loop.unknown_unknown_surface import (
+            record_self_audit_prediction,
+        )
+
+        topic_list = [t.strip() for t in topics.split(",") if t.strip()]
+        if not topic_list:
+            click.secho("[-] No topics provided.", fg="yellow")
+            return
+        ev_id = record_self_audit_prediction(round_id, topic_list)
+        if ev_id.startswith("error:"):
+            click.secho(f"[-] Failed to record: {ev_id}", fg="red")
+            return
+        click.secho(
+            f"[+] Recorded {len(topic_list)} predicted topics for round {round_id}",
+            fg="green",
+        )
+        for t in topic_list:
+            click.secho(f"    - {t}", fg="bright_black")
+
+    @audit_group.command("surprises")
+    @click.option("--round", "round_id", required=True, help="Audit round ID")
+    def audit_surprises_cmd(round_id: str) -> None:
+        """Show audit findings the substrate-occupant didn't predict.
+
+        Compares the recorded `audit predict` topics for the round
+        against the actual findings filed; surfaces the surprise-
+        class catches. These are the maturity signal — tighter
+        substrate shows fewer over time.
+        """
+        from divineos.core.operating_loop.unknown_unknown_surface import (
+            _load_predictions_for_round,
+            surprises_in_round,
+        )
+
+        preds = _load_predictions_for_round(round_id)
+        if not preds:
+            click.secho(
+                f"[~] No predictions recorded for round {round_id}. "
+                f"Use `divineos audit predict` before the audit.",
+                fg="yellow",
+            )
+            return
+        surprises = surprises_in_round(round_id, preds)
+        click.secho(
+            f"\n=== Round {round_id}: predicted vs caught ===\n",
+            fg="cyan",
+            bold=True,
+        )
+        click.echo(f"  Predicted topics ({len(preds)}):")
+        for t in preds:
+            click.secho(f"    - {t}", fg="bright_black")
+        click.echo()
+        if not surprises:
+            click.secho(
+                "  No surprises — every finding matched a predicted topic.",
+                fg="green",
+            )
+            return
+        click.secho(
+            f"  Unknown-unknowns ({len(surprises)}) — findings outside my attention surface:",
+            fg="yellow",
+        )
+        for u in surprises:
+            click.echo(f"    [{u.finding_id[:12]}] {u.title}")
+
+    @audit_group.command("unknown-unknown-rate")
+    @click.option(
+        "--limit",
+        default=20,
+        type=int,
+        help="Max recent rounds (with recorded predictions) to examine",
+    )
+    def audit_uu_rate_cmd(limit: int) -> None:
+        """Rolling proportion of audit findings that were unpredicted.
+
+        Trend signal: tighter substrate -> rate trends down. Drifting
+        substrate -> rate trends up. Rounds without recorded
+        predictions are skipped.
+        """
+        from divineos.core.operating_loop.unknown_unknown_surface import (
+            unknown_unknown_rate,
+        )
+
+        stats = unknown_unknown_rate(recent_round_limit=limit)
+        click.secho("\n=== Unknown-Unknown Rate ===\n", fg="cyan", bold=True)
+        click.echo(f"  Rounds examined:  {stats['rounds_examined']}")
+        click.echo(f"  Total findings:   {stats['total_findings']}")
+        click.echo(f"  Surprises:        {stats['surprise_count']}")
+        rate_pct = stats["rate"] * 100
+        color = "green" if rate_pct < 20 else ("yellow" if rate_pct < 40 else "red")
+        click.secho(f"  Rate:             {rate_pct:.1f}%", fg=color)
+        if stats["rounds_examined"] == 0:
+            click.secho(
+                "\n  No rounds with recorded predictions yet. Use "
+                "`divineos audit predict` before audits to start the metric.",
+                fg="bright_black",
+            )
 
     @audit_group.command("compliance")
     @click.option(

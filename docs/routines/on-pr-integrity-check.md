@@ -18,7 +18,7 @@ Task:
 
 1. The PR branch is already checked out. Run the following, in order:
 
-   a. `divineos scheduled run anti-slop --trigger github-webhook`
+   a. `divineos scheduled run "admin anti-slop" --trigger github-webhook`
       (enforcer verification)
    b. `divineos scheduled run verify --trigger github-webhook`
       (ledger integrity)

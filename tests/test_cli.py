@@ -155,10 +155,26 @@ class TestLearn:
 
 
 class TestKnowledgeCmd:
-    def test_knowledge_empty(self, runner):
+    def test_knowledge_after_init_loads_seed(self, runner):
+        """After `divineos init`, knowledge is NOT empty — init now
+        loads the seed.json entries (19 by default). Original test
+        was 'test_knowledge_empty' asserting 'No knowledge' in output,
+        which has been stale since seed-loading was added to init
+        (Aletheia round-ba785844a791 Finding 10). Now asserts that
+        inspect knowledge surfaces SOMETHING — either seed entries or
+        a non-empty listing — but specifically NOT the 'No knowledge'
+        state which would mean init is not running."""
         runner.invoke(cli, ["init"])
         result = runner.invoke(cli, ["inspect", "knowledge"])
-        assert "No knowledge" in result.output
+        # Post-init, "No knowledge" would indicate init didn't load
+        # the seed. The actual expected state is that some entries
+        # were loaded.
+        assert "No knowledge" not in result.output, (
+            "After 'divineos init' the knowledge store should contain "
+            "seed entries. Seeing 'No knowledge' means init is not "
+            "loading the seed correctly — regression of the seed-on-"
+            "init behavior."
+        )
 
 
 class TestBriefingCmd:

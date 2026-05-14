@@ -98,6 +98,16 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         # marker if it fires. compass-ops observe is recording, not
         # prose generation.
         "compass-ops",
+        # Stale-engagement Gate 1.48 address commands (Aletheia
+        # round-5cdc2f48c642 Finding 37 — catch-22): the block message
+        # for Gate 1.48 instructs running these commands to clear stale
+        # areas. They MUST bypass or we replay the learn catch-22 from
+        # 2026-04-23 (gate blocks the way to leave it). The structural
+        # test test_stale_engagement_address_bypass.py auto-verifies
+        # every address-command in _AREA_ADDRESS_EVENTS is here.
+        "claims",
+        "holding",
+        "hold",
     }
 )
 
@@ -471,6 +481,27 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                 )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_47_compass_required", _gate_exc)
+
+    # Gate 1.48: stale-engagement block.
+    # Andrew named this gate 2026-05-14: the briefing should warn on
+    # ignored stale entries; after the third ignoring, BLOCK the next
+    # code action until they're addressed. Friction is the source of
+    # flow. The tracker lives in core/stale_engagement.py:
+    # render_dashboard records STALE_SURFACED events; address commands
+    # fire area-specific close events; this gate counts the gap and
+    # denies when any area has been surfaced 3+ times without being
+    # addressed.
+    try:
+        from divineos.core.stale_engagement import (
+            block_message,
+            blocked_areas,
+        )
+
+        offenders = blocked_areas()
+        if offenders:
+            return _make_deny(block_message(offenders))
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_1_48_stale_engagement", _gate_exc)
 
     # Gate 1.5: correction detected but not logged.
     # Closes ChatGPT audit claim-964493 (theater-learning bypass) by making

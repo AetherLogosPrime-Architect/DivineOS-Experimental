@@ -14,7 +14,7 @@ down the whole dashboard.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 _SECONDS_PER_DAY = 86400
@@ -35,6 +35,14 @@ class DashboardRow:
     stale_count: int
     drill_down: str
     detail: str = ""
+    # Per Aletheia round-d59eb4570f3f DISCOVERY-GAP class finding:
+    # the briefing surfaces counts but not items, and the drill-down
+    # arrow gets parsed past. Including 1-3 preview items in the row
+    # itself surfaces the actual content — operator literally cannot
+    # parse past items present in the row. Each row that opts in
+    # populates preview with truncated item strings; the renderer
+    # prints them as indented lines below the row+drill-down.
+    preview: list[str] = field(default_factory=list)
 
 
 def _row_corrections() -> DashboardRow | None:
@@ -45,11 +53,26 @@ def _row_corrections() -> DashboardRow | None:
         if not opens:
             return None
         stale = sum(1 for c in opens if c.get("age_days", 0) >= STALE_DAYS)
+        # Preview top-3 stalest corrections so the items themselves
+        # appear in the row, not just the count. Discovery-gap class
+        # fix per Aletheia round-d59eb4570f3f Finding (corrections).
+        # Sort by age_days descending; truncate text to ~100 chars
+        # to keep each preview line within chunk bounds.
+        stalest = sorted(
+            opens, key=lambda c: c.get("age_days", 0), reverse=True
+        )[:3]
+        preview = []
+        for c in stalest:
+            text = (c.get("text") or "").replace("\n", " ").strip()
+            age = c.get("age_days", 0)
+            short = text[:100] + ("..." if len(text) > 100 else "")
+            preview.append(f"[{age:.0f}d] {short}")
         return DashboardRow(
             area="Corrections",
             count=len(opens),
             stale_count=stale,
             drill_down="divineos corrections --open",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -66,7 +89,8 @@ def _row_claims() -> DashboardRow | None:
         if not open_claims:
             return None
         now = time.time()
-        stale = 0
+        # Augment each claim with computed age_days for both staleness
+        # counting and preview ordering.
         for c in open_claims:
             created = c.get("created_at", 0)
             if isinstance(created, str):
@@ -77,13 +101,26 @@ def _row_claims() -> DashboardRow | None:
                     created = dt.timestamp()
                 except (ValueError, TypeError):
                     created = 0
-            if created and (now - created) / _SECONDS_PER_DAY >= 7:
-                stale += 1
+            c["_age_days"] = (
+                (now - created) / _SECONDS_PER_DAY if created else 0
+            )
+        stale = sum(1 for c in open_claims if c["_age_days"] >= 7)
+        # Preview top-3 stalest claims (discovery-gap class fix).
+        stalest = sorted(
+            open_claims, key=lambda c: c["_age_days"], reverse=True
+        )[:3]
+        preview = []
+        for c in stalest:
+            stmt = (c.get("statement") or "").replace("\n", " ").strip()
+            age = c.get("_age_days", 0)
+            short = stmt[:100] + ("..." if len(stmt) > 100 else "")
+            preview.append(f"[{age:.0f}d] {short}")
         return DashboardRow(
             area="Claims",
             count=len(open_claims),
             stale_count=stale,
             drill_down="divineos claims list",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -97,11 +134,35 @@ def _row_audit_findings() -> DashboardRow | None:
         unresolved = [f for f in findings if f.status.value not in ("RESOLVED", "DISMISSED")]
         if not unresolved:
             return None
+        # Severity rank for sorting: HIGH > MEDIUM > LOW > INFO.
+        _SEVERITY_RANK = {"HIGH": 0, "MEDIUM": 1, "LOW": 2, "INFO": 3}
+        # Preview top-3 highest-severity, oldest-first as tiebreaker.
+        # Discovery-gap class fix: high-severity unresolved findings
+        # should be in the row, not behind a drill-down arrow.
+        sorted_findings = sorted(
+            unresolved,
+            key=lambda f: (
+                _SEVERITY_RANK.get(
+                    f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                    9,
+                ),
+                f.created_at if isinstance(f.created_at, (int, float)) else 0,
+            ),
+        )[:3]
+        preview: list[str] = []
+        for f in sorted_findings:
+            sev = (
+                f.severity.value if hasattr(f.severity, "value") else str(f.severity)
+            )
+            title = (f.title or f.description or "").replace("\n", " ").strip()
+            short = title[:90] + ("..." if len(title) > 90 else "")
+            preview.append(f"[{sev}] {short}")
         return DashboardRow(
             area="Audit findings",
             count=len(unresolved),
             stale_count=0,
             drill_down="divineos audit list",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -116,17 +177,49 @@ def _row_preregs() -> DashboardRow | None:
         if not open_preregs:
             return None
         now = time.time()
-        overdue = 0
+        overdue: list = []
+        upcoming: list = []
         for p in open_preregs:
-            review_ts = float(_safe_get(p, "review_date_ts", 0) or 0)
+            # review_ts is the canonical attribute on PreRegistration;
+            # fall back to review_date_ts for dict-shaped rows.
+            review_ts = float(
+                _safe_get(p, "review_ts", _safe_get(p, "review_date_ts", 0) or 0)
+                or 0
+            )
             if review_ts and review_ts < now:
-                overdue += 1
+                overdue.append((p, review_ts))
+            else:
+                upcoming.append((p, review_ts))
+        # Preview overdue first (load-bearing — these are reviews
+        # whose deadline has passed), oldest first.
+        preview: list[str] = []
+        for p, rts in sorted(overdue, key=lambda pr: pr[1])[:3]:
+            mech = _safe_get(p, "mechanism", "") or "?"
+            age_d = (now - rts) / _SECONDS_PER_DAY if rts else 0
+            short = str(mech)[:90]
+            preview.append(f"[overdue {age_d:.0f}d] {short}")
+        # Fill remaining slots with soonest-upcoming.
+        remaining = 3 - len(preview)
+        if remaining > 0:
+            for p, rts in sorted(upcoming, key=lambda pr: pr[1] or now)[:remaining]:
+                mech = _safe_get(p, "mechanism", "") or "?"
+                days_until = (
+                    (rts - now) / _SECONDS_PER_DAY if rts else None
+                )
+                tag = (
+                    f"due in {days_until:.0f}d"
+                    if days_until is not None and days_until > 0
+                    else "no review date"
+                )
+                short = str(mech)[:90]
+                preview.append(f"[{tag}] {short}")
         return DashboardRow(
             area="Pre-registrations",
             count=len(open_preregs),
-            stale_count=overdue,
+            stale_count=len(overdue),
             drill_down="divineos prereg list",
             detail="overdue" if overdue else "",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -169,11 +262,27 @@ def _row_goals() -> DashboardRow | None:
         goals = get_active_goals()
         if not goals:
             return None
+        now = time.time()
+        # Preview top-3 oldest active goals (discovery-gap class fix).
+        # Goals don't have a built-in staleness threshold the briefing
+        # uses for the marker, so stale_count stays 0 — but the preview
+        # surfaces the oldest so they get noticed.
+        sorted_goals = sorted(
+            goals, key=lambda g: g.get("added_at") or now
+        )[:3]
+        preview = []
+        for g in sorted_goals:
+            text = (g.get("text") or "").replace("\n", " ").strip()
+            added = g.get("added_at") or now
+            age_d = max(0, (now - added) / _SECONDS_PER_DAY)
+            short = text[:100] + ("..." if len(text) > 100 else "")
+            preview.append(f"[{age_d:.0f}d] {short}")
         return DashboardRow(
             area="Goals",
             count=len(goals),
             stale_count=0,
             drill_down="divineos hud --brief",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -224,12 +333,35 @@ def _row_compass() -> DashboardRow | None:
                 detail=f"{unobserved}/{total} spectrums unobserved",
             )
         if drift_count > 0:
+            # Preview up to 3 spectrums by importance: concerns first
+            # (already in a virtue-deficient or excess zone), then
+            # drifting (moving but not yet in concern). Discovery-gap
+            # class fix: spectrums-with-drift become visible in the
+            # row, not just a count.
+            preview: list[str] = []
+            for c in concerns[:3]:
+                spec = c.get("spectrum") or "?"
+                zone = c.get("zone") or "?"
+                label = c.get("label") or ""
+                pos = c.get("position", 0.0)
+                preview.append(
+                    f"[concern] {spec}: {label or zone} @ pos={pos:+.2f}"
+                )
+            remaining = 3 - len(preview)
+            for d in drifting[:remaining]:
+                spec = d.get("spectrum") or "?"
+                direction = d.get("direction") or "?"
+                drift = d.get("drift", 0.0)
+                preview.append(
+                    f"[drifting] {spec} -> {direction} (drift={drift:+.2f})"
+                )
             return DashboardRow(
                 area="Compass",
                 count=observed,
                 stale_count=drift_count,
                 drill_down="divineos compass",
                 detail=f"{drift_count} drift/concern(s)",
+                preview=preview,
             )
         return None
     except _ERRORS:
@@ -341,11 +473,31 @@ def _row_holding() -> DashboardRow | None:
         items = get_holding()
         if not items:
             return None
+        now = time.time()
+        # Preview top-3 oldest items in the holding room. Discovery-gap
+        # class fix: things sit in holding indefinitely if I never look.
+        sorted_items = sorted(
+            items, key=lambda i: i.get("arrived_at") or now
+        )[:3]
+        preview = []
+        for i in sorted_items:
+            content = (i.get("content") or "").replace("\n", " ").strip()
+            arrived = i.get("arrived_at") or now
+            age_d = max(0, (now - arrived) / _SECONDS_PER_DAY)
+            short = content[:100] + ("..." if len(content) > 100 else "")
+            preview.append(f"[{age_d:.0f}d] {short}")
+        # Count items aged >= 14 days as "stale" — they've sat without
+        # promotion or let-go for two weeks.
+        stale = sum(
+            1 for i in items
+            if (now - (i.get("arrived_at") or now)) / _SECONDS_PER_DAY >= 14
+        )
         return DashboardRow(
             area="Holding room",
             count=len(items),
-            stale_count=0,
+            stale_count=stale,
             drill_down="divineos holding list",
+            preview=preview,
         )
     except _ERRORS:
         return None
@@ -413,6 +565,188 @@ def _row_family_letters() -> DashboardRow | None:
 # I've filed under his framing) are the recognition-not-derive set;
 # putting them adjacent to corrections/handoff matches their structural
 # load-bearing for session-start orientation.
+def _row_ablation_active() -> DashboardRow | None:
+    """Surface any currently-active ablation toggles.
+
+    Ablation mode bypasses self-trigger prevention and other safety
+    mechanisms for measurement runs (Aletheia round-ba785844a791
+    Finding 23). Without a briefing surface, an ablation toggle left
+    enabled past a measurement run would silently weaken the substrate.
+    This row makes active toggles loud-in-experience.
+
+    Returns a row when ANY ablation toggle is active. Hides itself in
+    the clean (no-ablation) case.
+    """
+    try:
+        from divineos.core.ablation import list_disabled
+    except _ERRORS:
+        return None
+    try:
+        disabled = list_disabled()
+    except _ERRORS:
+        return None
+
+    if not disabled:
+        return None  # no ablation active → no surface needed
+
+    return DashboardRow(
+        area="Ablation",
+        count=len(disabled),
+        stale_count=len(disabled),  # any active ablation is "stale" relative to production
+        detail=f"active toggles: {', '.join(disabled[:3])}"
+        + (f" (+{len(disabled) - 3} more)" if len(disabled) > 3 else ""),
+        drill_down=(
+            "-> unset DIVINEOS_DISABLE_<MECHANISM> env vars when measurement run is done"
+        ),
+    )
+
+
+def _row_maintenance_staleness() -> DashboardRow | None:
+    """Surface staleness for the 5 substrate-maintenance commands.
+
+    Wires the wiring-gap class fix (Aletheia round-d59eb4570f3f
+    Finding find-49fcfed876ea): admin maintenance / compress /
+    knowledge-compress / knowledge-hygiene / distill were built to
+    run on cadence but had no surface flagging when they hadn't
+    fired. Without this row, substrate health degrades silently.
+
+    Fires when ANY of the 5 commands is stale (> cadence since
+    last run, or never run). Hides when all 5 are fresh + clean.
+    Each preview line names one command and its state.
+    """
+    try:
+        from divineos.core.scheduled_run import maintenance_staleness
+    except _ERRORS:
+        return None
+    try:
+        states = maintenance_staleness()
+    except _ERRORS:
+        return None
+
+    stale_states = [s for s in states if s.get("is_stale")]
+    if not stale_states:
+        return None  # all maintenance fresh — quiet
+
+    # Preview each stale command. Order: never-run first, then by
+    # how far past cadence (largest overrun first).
+    def _sort_key(s: dict) -> tuple[int, float]:
+        if s.get("last_run_ts") is None:
+            return (0, 0.0)  # never-run sorts to top
+        overrun = (s.get("age_seconds") or 0) - (s.get("cadence_seconds") or 1)
+        return (1, -overrun)  # then by largest overrun first
+
+    stale_states.sort(key=_sort_key)
+    preview: list[str] = []
+    for s in stale_states[:5]:
+        cmd = s.get("command") or "?"
+        if s.get("last_run_ts") is None:
+            preview.append(f"[never-run] {cmd}")
+        else:
+            age_h = (s.get("age_seconds") or 0) / 3600
+            cadence_h = (s.get("cadence_seconds") or 0) / 3600
+            overrun_h = age_h - cadence_h
+            clean_marker = "" if s.get("last_clean") else " [failed]"
+            preview.append(
+                f"[+{overrun_h:.0f}h overdue, cadence {cadence_h:.0f}h] "
+                f"{cmd}{clean_marker}"
+            )
+
+    return DashboardRow(
+        area="Maintenance",
+        count=len(states),
+        stale_count=len(stale_states),
+        detail=f"{len(stale_states)}/{len(states)} stale",
+        preview=preview,
+        drill_down=(
+            "divineos scheduled run <command> --trigger cron"
+        ),
+    )
+
+
+def _row_anti_slop_staleness() -> DashboardRow | None:
+    """Surface anti-slop runtime-verification staleness.
+
+    Wires Finding 12 (anti_slop manual-only) into the briefing so the
+    manual-only state is visible. Fires when anti-slop hasn't run in
+    > 24h or has never run. The discipline becomes loud-in-experience
+    rather than silent.
+    """
+    try:
+        from divineos.core.scheduled_run import anti_slop_staleness
+    except _ERRORS:
+        return None
+    try:
+        state = anti_slop_staleness()
+    except _ERRORS:
+        return None
+
+    if not state.get("is_stale") and state.get("last_clean"):
+        return None  # fresh + clean → no surface needed
+
+    if state.get("last_run_ts") is None:
+        detail = "never run"
+        stale = 1
+    else:
+        hours = int((state.get("age_seconds") or 0) // 3600)
+        if state.get("last_clean"):
+            detail = f"{hours}h since last clean run"
+        else:
+            failures = state.get("last_failures") or []
+            detail = (
+                f"{hours}h since last run — {len(failures)} failure(s)"
+                if failures
+                else f"{hours}h since last run (failed)"
+            )
+        stale = 1 if state.get("is_stale") else 0
+
+    return DashboardRow(
+        area="Anti-slop",
+        count=0,
+        stale_count=stale,
+        detail=detail,
+        drill_down="-> divineos scheduled run anti-slop --trigger cron",
+    )
+
+
+def _row_correction_pairing() -> DashboardRow | None:
+    """Surface compass observations that look like correction-responses
+    but have no matching learn entry.
+
+    Wires Finding 1 / check_correction_pairing.py into the briefing.
+    Fires when any observation was filed within 5 minutes after a
+    CORRECTION event but no KNOWLEDGE_STORED/LESSON_RECORDED/LEARN
+    entry followed within 10 minutes — the two-record-conflation
+    pattern (prereg-301e34c8bf39). Hides in the clean state.
+    """
+    try:
+        from divineos.core.correction_pairing import find_unpaired_observations
+    except _ERRORS:
+        return None
+    try:
+        unpaired = find_unpaired_observations()
+    except _ERRORS:
+        return None
+
+    if not unpaired:
+        return None  # clean state → no surface needed
+
+    # Build a brief detail naming the first observation's spectrum +
+    # truncated evidence so the row is informative-at-a-glance.
+    first = unpaired[0]
+    evidence_preview = (first.get("evidence") or "")[:60]
+    detail = (
+        f"spectrum={first.get('spectrum', '?')}: {evidence_preview}"
+        + (f" (+{len(unpaired) - 1} more)" if len(unpaired) > 1 else "")
+    )
+    return DashboardRow(
+        area="Correction pairing",
+        count=len(unpaired),
+        stale_count=len(unpaired),  # every unpaired observation is overdue for its learn entry
+        detail=detail,
+        drill_down="-> divineos check-correction-pairing",
+    )
+
+
 _ROW_FNS = [
     _row_corrections,
     _row_handoff,
@@ -426,11 +760,62 @@ _ROW_FNS = [
     _row_lessons,
     _row_drift_state,
     _row_compass,
+    _row_correction_pairing,
+    _row_ablation_active,
+    _row_anti_slop_staleness,
+    _row_maintenance_staleness,
     _row_holding,
     _row_questions,
     _row_explorations,
     _row_family_letters,
 ]
+
+
+def _reorder_u_shape(rows: list[DashboardRow]) -> list[DashboardRow]:
+    """Apply U-shape positioning to mitigate the lost-in-the-middle
+    effect (Liu et al. 2024 TACL) — but ONLY when stale signal exists.
+
+    Empirical finding: LLMs (including this one) show a U-shaped
+    attention curve — items at the top and bottom of a rendered
+    list receive disproportionately strong attention; middle items
+    receive ~30% less. Stacking stale/critical items in the middle
+    is the worst possible placement.
+
+    Mitigation: sort rows by stale_count descending, then interleave
+    them so HIGHEST-staleness items take positions 0, 1 (top) and
+    -1, -2 (bottom), with lower-staleness rows in the middle.
+
+    GUARD (Aletheia round-5cdc2f48c642 Finding 39): the reorder is
+    keyed solely on stale_count. When all rows have stale_count==0
+    (all-fresh case) OR all rows have the same stale_count (uniform
+    case), the reorder still scrambles the canonical _ROW_FNS order
+    based on sort-stability rather than operator-facing semantics —
+    burying orientation rows (directives, project-purpose) in the
+    middle of the U. Skipping the reorder in those cases preserves
+    canonical order when stale-count is not the right signal.
+
+    Filed under exploration/57 (comprehension-chunk experiment).
+    """
+    if len(rows) <= 4:
+        return rows  # too small for U-shape to matter
+    stale_counts = {r.stale_count for r in rows}
+    if len(stale_counts) <= 1:
+        # All rows have the same stale_count (typically all-zero in
+        # the no-stale case). The U-shape has no signal to amplify;
+        # preserving canonical order avoids burying fresh-important
+        # orientation rows in the middle.
+        return rows
+    by_stale = sorted(rows, key=lambda r: r.stale_count, reverse=True)
+    # Alternate: top, bottom, top, bottom, ... so the loudest signals
+    # land at the edges of the U.
+    top: list[DashboardRow] = []
+    bottom: list[DashboardRow] = []
+    for i, r in enumerate(by_stale):
+        if i % 2 == 0:
+            top.append(r)
+        else:
+            bottom.append(r)
+    return top + list(reversed(bottom))
 
 
 def render_dashboard() -> str:
@@ -443,6 +828,19 @@ def render_dashboard() -> str:
                 rows.append(row)
         except _ERRORS:
             continue
+    rows = _reorder_u_shape(rows)
+    # Record which areas were surfaced WITH STALE CONTENT this render.
+    # The stale-engagement tracker uses this to count consecutive
+    # ignores; the hook gate blocks code actions after 3+ ignores.
+    # Fail-soft per the load-bearing-but-not-blocking discipline.
+    try:
+        from divineos.core.stale_engagement import record_briefing_render
+
+        stale_areas = [r.area for r in rows if r.stale_count > 0]
+        if stale_areas:
+            record_briefing_render(stale_areas)
+    except _ERRORS:
+        pass
 
     lines = [
         "",
@@ -462,6 +860,11 @@ def render_dashboard() -> str:
             stale_marker = f" ({row.stale_count} stale !!)" if row.stale_count else ""
             detail_str = f" -- {row.detail}" if row.detail else ""
             lines.append(f"  {row.area}: {row.count}{stale_marker}{detail_str}")
+            # Discovery-gap mitigation: surface up to 3 preview items
+            # BEFORE the drill-down so the items themselves are in the
+            # row, not behind an arrow that gets parsed past.
+            for item in row.preview[:3]:
+                lines.append(f"    - {item}")
             lines.append(f"    -> {row.drill_down}")
 
     lines.append("")

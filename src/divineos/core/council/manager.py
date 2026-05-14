@@ -1,6 +1,6 @@
 """Dynamic Council Manager — select the right experts for the problem.
 
-Instead of running all 39 experts on every problem (expensive, unfocused),
+Instead of running all 40 experts on every problem (expensive, unfocused),
 classify the problem and select 5-8 experts whose methodologies are most
 relevant. This was identified as the #1 architectural improvement from
 the SWE-bench benchmark: reducing token cost while focusing reasoning.
@@ -448,7 +448,7 @@ PROBLEM_CATEGORIES = [
     # Each expert needs multiple keyword surfaces to be reachable by
     # the classifier. Without them, even high-trust lenses are
     # invisible on territory they uniquely cover. These 25 categories
-    # ensure every member of the 39-expert roster has at least one
+    # ensure every member of the 40-expert roster has at least one
     # territory tab where they're a core pick.
     ProblemCategory(
         name="falsifiability",

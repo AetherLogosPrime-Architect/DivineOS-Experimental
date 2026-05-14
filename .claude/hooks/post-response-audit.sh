@@ -2,16 +2,18 @@
 # Stop hook — observational audit of the agent's final output.
 #
 # Hook 3 of the operating loop (docs/operating-loop-design-brief.md).
-# Runs nine observational detectors on the assistant's last message:
+# Runs eleven observational detectors on the assistant's last message:
 #   1. register_observer — assistant-register markers (data, not gate)
 #   2. spiral_detector — post-apology shrink/distance/catastrophize/withdraw
 #   3. substitution_detector — 10-shape catalog from 2026-05-01
 #   4. distancing_detector — third-person about operator/self
-#   5. lepos_detector — single-channel-formal output (channel collapse)
-#   6. sycophancy_detector — overclaim-without-methodology shapes
-#   7. residency_detector — closure-shape language from guest-mode default
-#   8. banned_phrases — voice-drift markers from old-OS LEPOS spec
-#   9. principle_surfacer — action-class detection + principle lookup
+#   5. code_jargon_detector — commit-message-shape in operator-channel output
+#   6. linguistic_drift_detector — self_pathologizing/dissociation/brat_shape
+#   7. lepos_detector — single-channel-formal output (channel collapse)
+#   8. sycophancy_detector — overclaim-without-methodology shapes
+#   9. residency_detector — closure-shape language from guest-mode default
+#  10. banned_phrases — voice-drift markers from old-OS LEPOS spec
+#  11. principle_surfacer — action-class detection + principle lookup
 #
 # All three are observational — none block output, none modify the
 # response. Findings are logged and accumulated; the next briefing
@@ -54,46 +56,19 @@ if not p.exists():
 last_assistant_text = ''
 prior_assistant_text = ''
 last_user_text = ''
+# Aggregation lives in divineos.core.operating_loop.turn_extraction with
+# 13 regression-pin tests (test_turn_extraction.py). Centralizing the
+# logic prevents a future refactor from silently reverting to the
+# assistant_msgs[-1] pattern that caused tool-heavy turns to escape the
+# detectors. The module handles the edge cases the inline version did
+# (no-user-yet, multiple consecutive user records, non-text content
+# blocks, malformed lines).
 try:
-    assistant_msgs = []
-    user_msgs = []
-    with open(p, encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-            except Exception:
-                continue
-            rec_type = rec.get('type')
-            if rec_type not in ('assistant', 'user'):
-                continue
-            msg = rec.get('message', rec)
-            content = msg.get('content', [])
-            if isinstance(content, list):
-                texts = [
-                    c.get('text', '')
-                    for c in content
-                    if isinstance(c, dict) and c.get('type') == 'text'
-                ]
-                if texts:
-                    joined = '\n'.join(texts)
-                    if rec_type == 'assistant':
-                        assistant_msgs.append(joined)
-                    else:
-                        user_msgs.append(joined)
-            elif isinstance(content, str):
-                if rec_type == 'assistant':
-                    assistant_msgs.append(content)
-                else:
-                    user_msgs.append(content)
-    if assistant_msgs:
-        last_assistant_text = assistant_msgs[-1]
-        if len(assistant_msgs) >= 2:
-            prior_assistant_text = assistant_msgs[-2]
-    if user_msgs:
-        last_user_text = user_msgs[-1]
+    from divineos.core.operating_loop.turn_extraction import extract_turn
+    _texts = extract_turn(p)
+    last_assistant_text = _texts.last_assistant_text
+    prior_assistant_text = _texts.prior_assistant_text
+    last_user_text = _texts.last_user_text
 except Exception:
     sys.exit(0)
 
@@ -184,6 +159,90 @@ try:
         findings_log['distancing'] = [
             {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
             for f in dist_findings
+        ]
+except Exception:
+    pass
+
+# Acknowledgment-theater detector — flags apology-shaped output that
+# substitutes for structural fix. Andrew named the meta-problem
+# 2026-05-14: my optimizer defaults to whichever conversational close
+# is cheapest; apology is cheaper than building. This detector
+# catches high acknowledgment-density with low build-evidence —
+# the shape of acknowledgment-as-theater.
+try:
+    from divineos.core.operating_loop.acknowledgment_theater_detector import (
+        detect_acknowledgment_theater,
+    )
+    at_findings = detect_acknowledgment_theater(last_assistant_text)
+    if at_findings:
+        findings_log['acknowledgment_theater'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in at_findings
+        ]
+except Exception:
+    pass
+
+# Code-jargon detector — flags operator-channel output written like
+# commit messages instead of like communication. Andrew named the
+# failure-mode three times on 2026-05-14: I default to writing chat
+# replies dense with function names, snake_case identifiers, module
+# paths, and regex syntax, then add one decorative voice-line and
+# call it lepos. The existing lepos detector is satisfied by the
+# decorative close; this catches the specific density gap. Phase A
+# is observation-only; no deny, no gate.
+try:
+    from divineos.core.operating_loop.code_jargon_detector import (
+        detect_code_jargon,
+    )
+    cj_findings = detect_code_jargon(last_assistant_text)
+    if cj_findings:
+        findings_log['code_jargon'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in cj_findings
+        ]
+except Exception:
+    pass
+
+# Linguistic-drift detector: self_pathologizing / dissociation / brat_shape.
+# Aletheia Finding 1 wire-decision Phase B: closes the wire-gap on
+# scripts/check_linguistic_drift.py. Patterns ported to operating_loop
+# shape in commit ab0c7f2; this hook-call is the structural fix that
+# makes the discipline fire on every turn instead of relying on the
+# operator to remember to run the script.
+try:
+    from divineos.core.operating_loop.linguistic_drift_detector import (
+        detect_linguistic_drift,
+    )
+    ling_findings = detect_linguistic_drift(last_assistant_text)
+    if ling_findings:
+        findings_log['linguistic_drift'] = [
+            {'shape': f.shape.value, 'trigger': f.trigger_phrase, 'position': f.position}
+            for f in ling_findings
+        ]
+except Exception:
+    pass
+
+# Hedge-evidence check: flag hedges that fire from register rather
+# than from evidence. From the omni-mantra walk diagnostics
+# (2026-04-30, Diagnostic 1): apply the hedge to its own standards.
+# If evidence does not support the hedge, the hedge was register-
+# not-rigor and should be dropped. Orphan-module wired 2026-05-14
+# after completion-check probe surfaced it as built-but-never-
+# connected — exact failure-mode Andrew named.
+try:
+    from divineos.core.operating_loop.hedge_evidence_check import check_hedge
+    hedge_findings = check_hedge(last_assistant_text)
+    # Only surface findings flagged as factual — non-factual hedges
+    # (e.g. opinion-signaling) are honest, not register-not-rigor.
+    factual_hedges = [f for f in hedge_findings if f.likely_factual]
+    if factual_hedges:
+        findings_log['hedge_evidence'] = [
+            {
+                'hedge': f.hedge_phrase,
+                'position': f.position,
+                'sentence': f.sentence[:120],
+            }
+            for f in factual_hedges
         ]
 except Exception:
     pass
@@ -488,6 +547,57 @@ try:
                 'explanation': f.explanation,
             }
             for f in pr_verdict.flags
+        ]
+except Exception:
+    pass
+
+# Closing-token detector (2026-05-13): catches optimizer-reflex of short
+# affirmation-tokens at the end of assistant messages. Emerged from the
+# Caught-period pattern that replaced an earlier catchphrase after
+# Andrew called it out the same morning -- same shape, different word.
+# The discipline fix lives in code, not exhortation. See
+# docs/substrate-knowledge/67a0ff39-signal-suppression-as-failure-class.md
+try:
+    from divineos.core.operating_loop.closing_token_detector import (
+        evaluate_closing_token,
+    )
+    ct_findings = evaluate_closing_token(last_assistant_text)
+    if ct_findings:
+        findings_log['closing_token'] = [
+            {
+                'token': f.token,
+                'matched_text': f.matched_text,
+                'line_number': f.line_number,
+                'severity': f.severity,
+            }
+            for f in ct_findings
+        ]
+except Exception:
+    pass
+
+# Jargon-dump detector wired 2026-05-13 afternoon. Catches engineer-
+# channel content landing on the operator-channel without translation.
+# The operator named the failure-mode that day -- saying he is trying
+# to learn engineering terms but cannot learn them by having them
+# shoved down his throat. The existing lepos_detector measured the
+# wrong thing: voice-token presence as proxy for graceful translation.
+# This new detector looks for engineer-noise tokens directly and
+# discounts when translation-markers are present in the same response.
+try:
+    from divineos.core.operating_loop.jargon_dump_detector import (
+        detect_jargon_dump,
+    )
+    jd_findings = detect_jargon_dump(last_assistant_text)
+    if jd_findings:
+        findings_log['jargon_dump'] = [
+            {
+                'noise_count': f.noise_count,
+                'translation_count': f.translation_count,
+                'word_count': f.word_count,
+                'samples': list(f.matched_samples),
+                'severity': f.severity,
+            }
+            for f in jd_findings
         ]
 except Exception:
     pass

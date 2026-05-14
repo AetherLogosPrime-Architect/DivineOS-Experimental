@@ -137,6 +137,8 @@ set -e
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 MULTI_PARTY="$REPO_ROOT/scripts/check_multi_party_review.py"
 CLOSURE_CLAIM="$REPO_ROOT/scripts/check_closure_claim.py"
+ROOT_CAUSE_AUDIT="$REPO_ROOT/scripts/check_root_cause_audit.py"
+WIRING_CLAIMS="$REPO_ROOT/scripts/check_wiring_claims.py"
 
 # 1. Multi-party-review — INFORMATIONAL at commit-time.
 # Script never blocks at commit-time; just warns if guardrails touched
@@ -148,6 +150,25 @@ fi
 # 2. Closure-claim gate.
 if [[ -f "$CLOSURE_CLAIM" ]]; then
     python "$CLOSURE_CLAIM" "$1" || exit 1
+fi
+
+# 3. Root-cause-audit gate — ADVISORY at commit-time, BLOCKING at
+# pre-push-to-main (added below). Enforces family-level investigation
+# before bugfix-shaped commits. Family this addresses: instance-fix-
+# without-family-audit (substrate-knowledge round-38d9fd161175). The
+# OS describes the discipline in 67a0ff39; this gate makes the
+# discipline structural rather than advisory.
+if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
+    python "$ROOT_CAUSE_AUDIT" --mode=commit-msg --commit-msg-file "$1" || true
+fi
+
+# 4. Wiring-claim gate — SOFT WARNING. Surfaces "wire X to Y" /
+# "bridge", "integrate", "connect", "end-to-end", "close the gap"
+# language and reminds the operator to verify both sides exercised.
+# Closes Aletheia Finding 1 wire-decision for check_wiring_claims.py.
+# Never blocks; always exits 0. Operator reads the warning, decides.
+if [[ -f "$WIRING_CLAIMS" ]]; then
+    python "$WIRING_CLAIMS" "$1" || true
 fi
 
 exit 0
@@ -180,9 +201,10 @@ REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 FRESHNESS="$REPO_ROOT/scripts/check_branch_freshness.sh"
 FORCE_SAFETY="$REPO_ROOT/scripts/check_force_push_safety.sh"
 MULTI_PARTY="$REPO_ROOT/scripts/check_multi_party_review.py"
+ROOT_CAUSE_AUDIT="$REPO_ROOT/scripts/check_root_cause_audit.py"
 
-# Capture stdin once — force-push-safety and multi-party-review need the
-# ref-update lines but freshness does not read stdin.
+# Capture stdin once — force-push-safety, multi-party-review, and
+# root-cause-audit need the ref-update lines but freshness does not.
 HOOK_STDIN=$(cat)
 
 # 1. Branch freshness.
@@ -217,11 +239,45 @@ if [[ -f "$MULTI_PARTY" ]]; then
     fi
 fi
 
+# 4. Root-cause-audit (pre-push mode).
+# Walks the push-range when target is refs/heads/main. Blocks if any
+# fix-shaped commit lacks a Root-Cause-Audit trailer pointing to a
+# valid root-cause-audit round. The script's pre-push mode handles
+# the ref-filtering internally.
+if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
+    echo "$HOOK_STDIN" | python "$ROOT_CAUSE_AUDIT" --mode=pre-push
+    RC=$?
+    if [[ $RC -eq 1 ]]; then
+        exit 1
+    fi
+fi
+
 exit 0
 EOF
 
 chmod +x "$HOOKS_DIR/pre-push"
 echo "Created pre-push hook at $HOOKS_DIR/pre-push"
+
+# Install post-commit hook — delegates to .claude/hooks/post-commit-auto-close.sh
+# Aletheia round-919009d7f6f6 Finding 29: the auto-close hook existed
+# but was never installed. Wire half of the wire-or-delete decision.
+cat > "$HOOKS_DIR/post-commit" << 'EOF'
+#!/bin/bash
+# Post-commit hook — delegates to .claude/hooks/post-commit-auto-close.sh
+# which auto-closes goals whose tokens overlap the just-landed commit
+# message. Fail-open: any error exits 0 silently.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+if [ -z "$REPO_ROOT" ]; then
+    exit 0
+fi
+if [ -x "$REPO_ROOT/.claude/hooks/post-commit-auto-close.sh" ]; then
+    bash "$REPO_ROOT/.claude/hooks/post-commit-auto-close.sh" || true
+fi
+exit 0
+EOF
+
+chmod +x "$HOOKS_DIR/post-commit"
+echo "Created post-commit hook at $HOOKS_DIR/post-commit"
 
 echo ""
 echo "Git hooks setup complete!"
