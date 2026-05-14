@@ -408,6 +408,17 @@ def register(cli: click.Group) -> None:
             if warnings:
                 click.echo()
                 _safe_echo(format_anticipation(warnings))
+                # Surfaced-warnings binding: log each warning so dream
+                # report can flag unacknowledged ones. Load-bearing
+                # failure-mode named by Andrew 2026-05-14.
+                try:
+                    from divineos.core.surfaced_warnings import (
+                        log_surfaced_warnings,
+                    )
+
+                    log_surfaced_warnings(warnings)
+                except _KC_ERRORS:
+                    pass
         except _KC_ERRORS:
             pass  # anticipation is best-effort
 

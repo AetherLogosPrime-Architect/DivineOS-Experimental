@@ -107,6 +107,27 @@ class DreamReport:
         lines.append("=== Dream Report ===")
         lines.append(f"  Slept for {self.duration_seconds:.1f}s\n")
 
+        # Surfaced-warnings binding: any [!] warnings shown via recall/
+        # ask/briefing this session with NO acknowledging learn entry
+        # surface here FIRST, before consolidation stats. The load-
+        # bearing failure-mode (substrate surfaces warnings; reader
+        # parses past) needs a loud, unmissable post-session flag.
+        # Andrew named this 2026-05-14.
+        try:
+            from divineos.core.surfaced_warnings import (
+                format_unacknowledged,
+                unacknowledged_warnings,
+            )
+
+            unack = unacknowledged_warnings()
+            if unack:
+                lines.append("  " + format_unacknowledged(unack).replace(
+                    "\n", "\n  "
+                ))
+                lines.append("")
+        except Exception:  # noqa: BLE001 — fail-soft on report rendering
+            pass
+
         # Consolidation
         lines.append("  Phase 1 - Knowledge Consolidation")
         lines.append(f"    Scanned {self.entries_scanned} entries")
