@@ -37,7 +37,7 @@ from divineos.cli.pipeline_phases import (
 from divineos.core.constants import CONFIDENCE_RELIABLE
 
 
-def _run_session_end_pipeline(session_start_override: float | None = None) -> None:
+def _run_session_end_pipeline(session_start_override: float | None = None) -> bool:
     """Post-SESSION_END learning pipeline — analyze, extract, consolidate, refresh.
 
     Args:
@@ -46,11 +46,20 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
             event is emitted BEFORE this pipeline runs — so querying the ledger for
             the most recent SESSION_END would return the one we just wrote, not the
             previous session boundary.
+
+    Returns:
+        True if the pipeline ran against a real session (work was done),
+        False if no transcripts were found (no-op). Aletheia
+        round-ba785844a791 Finding 22: the caller previously printed
+        "[+] Knowledge extracted from session" BEFORE calling this
+        function unconditionally — operator saw success-shape output
+        even when no transcripts existed. Returning bool lets the
+        caller condition its success message on work-done.
     """
     session_files = _discovery_mod.find_sessions()
     if not session_files:
         click.secho("[~] No session files found for auto-scan.", fg="bright_black")
-        return
+        return False
 
     latest = session_files[0]
     click.secho(f"\n[~] Auto-scanning session: {latest.stem[:16]}...", fg="cyan")
@@ -128,7 +137,10 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
                     )
             except (ImportError, OSError) as e:
                 logger.warning("Goal cleanup failed after quality gate block: %s", e)
-            return
+            # Gate-blocked extract still represents work — analysis ran,
+            # bookkeeping fired, gate verdict was substantive. Only the
+            # extraction step itself was suppressed.
+            return True
 
         # ── Phase 1b: Structured self-assessment ────────────────
         records = _analyzer_mod.load_records(latest, since_timestamp=session_start, slim=True)
@@ -738,6 +750,12 @@ def _run_session_end_pipeline(session_start_override: float | None = None) -> No
     ) as e:
         click.secho(f"[!] Auto-scan failed: {e}", fg="yellow")
         logger.warning(f"Auto-scan failed: {e}")
+        # Partial run with error — still ran against a real session,
+        # so return True. The error message above is its own surface;
+        # the caller's success-message gating is about no-op vs work-done.
+        return True
+
+    return True
 
     # NOTE (2026-04-20): The reset_state() call that used to live here in a
     # finally block has been removed. That reset wiped session_start every
