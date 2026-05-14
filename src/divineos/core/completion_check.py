@@ -130,17 +130,49 @@ def _recently_added_files(days: int, repo_root: Path) -> list[str]:
 
 
 def _has_test_for(mechanism_path: str, repo_root: Path) -> bool:
-    """True if any tests/test_<stem>*.py exists.
+    """True if any test exercises the mechanism.
 
-    Refined 2026-05-14 after dogfood: tests sometimes get suffixes
-    (test_surfaced_warnings_binding.py, test_X_address_bypass.py).
-    Glob match catches the family rather than exact-name-only.
+    Two checks:
+    1. Glob: tests/test_<stem>*.py exists (matches suffix-style names
+       like test_X_binding.py or test_X_address_bypass.py).
+    2. Grep: the stem is token-referenced from any file under tests/.
+       Catches parametrized test files that cover many modules (e.g.
+       a single test_all_council_experts.py exercising 41 experts).
+
+    Refined 2026-05-14 dogfood pass-4: tested-ness is about whether
+    a test exercises the module, not whether a same-named file exists.
     """
     stem = Path(mechanism_path).stem
     tests_dir = repo_root / "tests"
     if not tests_dir.exists():
         return False
-    return any(tests_dir.glob(f"test_{stem}*.py"))
+    # Filename heuristic first (cheap)
+    if any(tests_dir.glob(f"test_{stem}*.py")):
+        return True
+    # Fallback: token-match the stem in any test file
+    try:
+        out = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(repo_root),
+                "grep",
+                "-l",
+                "-E",
+                rf"\b{stem}\b",
+                "--",
+                "tests/",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if out.returncode not in (0, 1):
+        return False
+    return bool(out.stdout.strip())
 
 
 def _has_wiring_for(mechanism_path: str, repo_root: Path) -> bool:
