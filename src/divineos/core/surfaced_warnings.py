@@ -178,8 +178,8 @@ def unacknowledged_warnings(session_id: str | None = None) -> list[dict]:
     # content field on get_events rows). Concatenate payload['content']
     # across all learns this session into a single search blob.
     learn_blob_raw = " ".join(
-        ((_coerce_payload(l.get("payload")).get("content") or "")[:500]).lower()
-        for l in learns
+        ((_coerce_payload(learn.get("payload")).get("content") or "")[:500]).lower()
+        for learn in learns
     )
     # Stemmed token set across all this-session learns. Each learn-blob
     # token of length >= 4 contributes its stem; comparisons are

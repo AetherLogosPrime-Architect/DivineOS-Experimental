@@ -20,11 +20,9 @@ resolution.
 
 from __future__ import annotations
 
-import time
 
 from divineos.core.knowledge import init_knowledge_table
 from divineos.core.knowledge.lessons import (
-    STATUS_ACTIVE,
     auto_resolve_lessons,
     record_lesson,
 )
