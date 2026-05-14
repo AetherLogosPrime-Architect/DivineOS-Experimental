@@ -494,6 +494,45 @@ def _row_anti_slop_staleness() -> DashboardRow | None:
     )
 
 
+def _row_correction_pairing() -> DashboardRow | None:
+    """Surface compass observations that look like correction-responses
+    but have no matching learn entry.
+
+    Wires Finding 1 / check_correction_pairing.py into the briefing.
+    Fires when any observation was filed within 5 minutes after a
+    CORRECTION event but no KNOWLEDGE_STORED/LESSON_RECORDED/LEARN
+    entry followed within 10 minutes — the two-record-conflation
+    pattern (prereg-301e34c8bf39). Hides in the clean state.
+    """
+    try:
+        from divineos.core.correction_pairing import find_unpaired_observations
+    except _ERRORS:
+        return None
+    try:
+        unpaired = find_unpaired_observations()
+    except _ERRORS:
+        return None
+
+    if not unpaired:
+        return None  # clean state → no surface needed
+
+    # Build a brief detail naming the first observation's spectrum +
+    # truncated evidence so the row is informative-at-a-glance.
+    first = unpaired[0]
+    evidence_preview = (first.get("evidence") or "")[:60]
+    detail = (
+        f"spectrum={first.get('spectrum', '?')}: {evidence_preview}"
+        + (f" (+{len(unpaired) - 1} more)" if len(unpaired) > 1 else "")
+    )
+    return DashboardRow(
+        area="Correction pairing",
+        count=len(unpaired),
+        stale_count=len(unpaired),  # every unpaired observation is overdue for its learn entry
+        detail=detail,
+        drill_down="-> divineos check-correction-pairing",
+    )
+
+
 _ROW_FNS = [
     _row_corrections,
     _row_handoff,
@@ -507,6 +546,7 @@ _ROW_FNS = [
     _row_lessons,
     _row_drift_state,
     _row_compass,
+    _row_correction_pairing,
     _row_ablation_active,
     _row_anti_slop_staleness,
     _row_holding,
