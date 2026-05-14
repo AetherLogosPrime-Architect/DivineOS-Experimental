@@ -22,8 +22,7 @@ def test_inventory_returns_rows() -> None:
     set of CLI commands; if this drops to zero the walker is broken."""
     rows = inventory()
     assert len(rows) >= 50, (
-        f"Inventory only enumerated {len(rows)} commands. "
-        "The CLI has ~150+. Walker has regressed."
+        f"Inventory only enumerated {len(rows)} commands. The CLI has ~150+. Walker has regressed."
     )
 
 
@@ -42,8 +41,7 @@ def test_inventory_includes_subgroup_commands() -> None:
     names = {r.name for r in rows}
     # `seed-export` lives under the admin subgroup
     assert "seed-export" in names, (
-        "Inventory did not descend into the admin subgroup. "
-        "Subgroup walker has regressed."
+        "Inventory did not descend into the admin subgroup. Subgroup walker has regressed."
     )
 
 
@@ -62,12 +60,20 @@ def test_format_inventory_min_count_filter() -> None:
     """min_count filter restricts on invocation_count (the broad signal)."""
     rows = [
         CommandRow(
-            name="a", group="top", description="",
-            os_query_count=0, invocation_count=0, has_help=True,
+            name="a",
+            group="top",
+            description="",
+            os_query_count=0,
+            invocation_count=0,
+            has_help=True,
         ),
         CommandRow(
-            name="b", group="top", description="",
-            os_query_count=10, invocation_count=10, has_help=True,
+            name="b",
+            group="top",
+            description="",
+            os_query_count=10,
+            invocation_count=10,
+            has_help=True,
         ),
     ]
     rendered = format_inventory(rows, min_count=0)
@@ -83,8 +89,7 @@ def test_inventory_sort_by_engagement_invocation_first_then_thought() -> None:
     # First key dominates; check that invocation_count is monotone non-decreasing
     counts = [r.invocation_count for r in rows]
     assert counts == sorted(counts), (
-        "Inventory not sorted ascending by invocation_count; "
-        "audit-priority order regressed."
+        "Inventory not sorted ascending by invocation_count; audit-priority order regressed."
     )
 
 

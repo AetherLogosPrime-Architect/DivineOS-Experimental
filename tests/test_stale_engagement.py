@@ -54,9 +54,7 @@ def test_record_render_increments_count() -> None:
         record_briefing_render([area])
         time.sleep(0.01)
         after = consecutive_ignores(area)
-        assert after >= starting + 2, (
-            f"Expected at least 2 more ignores, got {after - starting}"
-        )
+        assert after >= starting + 2, f"Expected at least 2 more ignores, got {after - starting}"
     finally:
         se._AREA_ADDRESS_EVENTS.clear()
         se._AREA_ADDRESS_EVENTS.update(original)
@@ -85,9 +83,7 @@ def test_addressing_resets_count() -> None:
         )
         time.sleep(0.01)
         after = consecutive_ignores(area)
-        assert after == 0, (
-            f"Addressing should have reset the counter; got {after}"
-        )
+        assert after == 0, f"Addressing should have reset the counter; got {after}"
     finally:
         se._AREA_ADDRESS_EVENTS.clear()
         se._AREA_ADDRESS_EVENTS.update(original)

@@ -97,7 +97,7 @@ def export_bio(dest_dir: Path) -> int:
     with open(path, "w", encoding="utf-8") as f:
         f.write(
             f"# Bio — Archive Mirror\n\n"
-            f"**Source:** SQLite `bio` table, version {version}, author \"{author}\".\n"
+            f'**Source:** SQLite `bio` table, version {version}, author "{author}".\n'
             f"**Exported:** {now}.\n"
             f"**Purpose:** durability snapshot. See archives/README.md.\n\n"
             f"---\n\n{content}\n"
@@ -116,10 +116,13 @@ def export_principles(conn, dest_dir: Path) -> int:
     preserving the audit-trail of which entries came from which
     extraction path.
     """
-    rows = _safe_select(conn, "SELECT knowledge_id, access_count, confidence, maturity, content, source "
+    rows = _safe_select(
+        conn,
+        "SELECT knowledge_id, access_count, confidence, maturity, content, source "
         "FROM knowledge "
         "WHERE knowledge_type = 'PRINCIPLE' AND superseded_by IS NULL "
-        "ORDER BY access_count DESC, created_at ASC")
+        "ORDER BY access_count DESC, created_at ASC",
+    )
     # Partition by source: curated (anything not raw 'CORRECTED') vs
     # raw auto-extracted ('CORRECTED'). Curated includes EXTRACTED,
     # CURATED_FROM_CORRECTED, NULL, etc.
@@ -162,10 +165,13 @@ def export_principles(conn, dest_dir: Path) -> int:
 
 
 def export_directives(conn, dest_dir: Path) -> int:
-    rows = _safe_select(conn, "SELECT knowledge_id, content, access_count "
+    rows = _safe_select(
+        conn,
+        "SELECT knowledge_id, content, access_count "
         "FROM knowledge "
         "WHERE knowledge_type = 'DIRECTIVE' AND superseded_by IS NULL "
-        "ORDER BY access_count DESC")
+        "ORDER BY access_count DESC",
+    )
     path = dest_dir / "directives.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(_header("Directives", len(rows)))
@@ -185,10 +191,13 @@ def export_core_memory(conn, dest_dir: Path) -> int:
 
 
 def export_claims(conn, dest_dir: Path) -> int:
-    rows = _safe_select(conn, "SELECT claim_id, statement, tier, status, confidence, context, assessment "
+    rows = _safe_select(
+        conn,
+        "SELECT claim_id, statement, tier, status, confidence, context, assessment "
         "FROM claims "
         "WHERE status IN ('OPEN', 'INVESTIGATING') "
-        "ORDER BY created_at DESC LIMIT 100")
+        "ORDER BY created_at DESC LIMIT 100",
+    )
     path = dest_dir / "claims.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(_header("Claims (open/investigating)", len(rows)))
@@ -206,8 +215,11 @@ def export_claims(conn, dest_dir: Path) -> int:
 
 
 def export_lessons(conn, dest_dir: Path) -> int:
-    rows = _safe_select(conn, "SELECT lesson_id, category, description, status, occurrences "
-        "FROM lesson_tracking ORDER BY occurrences DESC")
+    rows = _safe_select(
+        conn,
+        "SELECT lesson_id, category, description, status, occurrences "
+        "FROM lesson_tracking ORDER BY occurrences DESC",
+    )
     path = dest_dir / "lessons.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(_header("Lessons (tracked)", len(rows)))
@@ -220,8 +232,11 @@ def export_lessons(conn, dest_dir: Path) -> int:
 
 
 def export_holding_room(conn, dest_dir: Path) -> int:
-    rows = _safe_select(conn, "SELECT item_id, content, hint, source, sessions_seen, stale "
-        "FROM holding_room ORDER BY arrived_at DESC")
+    rows = _safe_select(
+        conn,
+        "SELECT item_id, content, hint, source, sessions_seen, stale "
+        "FROM holding_room ORDER BY arrived_at DESC",
+    )
     path = dest_dir / "holding_room.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(_header("Holding Room", len(rows)))
@@ -237,9 +252,12 @@ def export_holding_room(conn, dest_dir: Path) -> int:
 
 
 def export_opinions(conn, dest_dir: Path) -> int:
-    rows = _safe_select(conn, "SELECT opinion_id, topic, position, confidence "
+    rows = _safe_select(
+        conn,
+        "SELECT opinion_id, topic, position, confidence "
         "FROM opinions WHERE superseded_by IS NULL "
-        "ORDER BY confidence DESC LIMIT 100")
+        "ORDER BY confidence DESC LIMIT 100",
+    )
     path = dest_dir / "opinions.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(_header("Opinions (top 100 active)", len(rows)))
@@ -253,8 +271,11 @@ def export_opinions(conn, dest_dir: Path) -> int:
 
 
 def export_pre_registrations(conn, dest_dir: Path) -> int:
-    rows = _safe_select(conn, "SELECT prereg_id, mechanism, claim, success_criterion, falsifier, outcome "
-        "FROM pre_registrations")
+    rows = _safe_select(
+        conn,
+        "SELECT prereg_id, mechanism, claim, success_criterion, falsifier, outcome "
+        "FROM pre_registrations",
+    )
     path = dest_dir / "pre_registrations.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(_header("Pre-Registrations", len(rows)))
@@ -270,16 +291,18 @@ def export_pre_registrations(conn, dest_dir: Path) -> int:
 
 
 def export_decisions(conn, dest_dir: Path) -> int:
-    rows = _safe_select(conn, "SELECT decision_id, content, reasoning, tension, almost, emotional_weight "
+    rows = _safe_select(
+        conn,
+        "SELECT decision_id, content, reasoning, tension, almost, emotional_weight "
         "FROM decision_journal "
-        "ORDER BY emotional_weight DESC, created_at DESC LIMIT 50")
+        "ORDER BY emotional_weight DESC, created_at DESC LIMIT 50",
+    )
     path = dest_dir / "decisions.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(_header("Decisions (top 50 by emotional weight)", len(rows)))
         for did, content, reasoning, tension, almost, weight in rows:
             f.write(
-                f"## {did[:8]} weight={weight or 0}\n\n"
-                f"**Decision:** {_safe(content)[:400]}\n\n"
+                f"## {did[:8]} weight={weight or 0}\n\n**Decision:** {_safe(content)[:400]}\n\n"
             )
             if reasoning:
                 f.write(f"**Reasoning:** {_safe(reasoning)[:400]}\n\n")
@@ -292,10 +315,13 @@ def export_decisions(conn, dest_dir: Path) -> int:
 
 
 def export_observations(conn, dest_dir: Path) -> int:
-    rows = _safe_select(conn, "SELECT knowledge_id, content, access_count FROM knowledge "
+    rows = _safe_select(
+        conn,
+        "SELECT knowledge_id, content, access_count FROM knowledge "
         "WHERE knowledge_type = 'OBSERVATION' AND superseded_by IS NULL "
         "AND length(content) > 80 "
-        "ORDER BY access_count DESC LIMIT 100")
+        "ORDER BY access_count DESC LIMIT 100",
+    )
     path = dest_dir / "observations.md"
     with open(path, "w", encoding="utf-8") as f:
         f.write(_header("Observations (top 100 substantive)", len(rows)))
@@ -332,9 +358,7 @@ def export_one(name: str, dest_dir: Path | str | None = None) -> int:
     Raises ValueError if name not registered.
     """
     if name not in _EXPORTS:
-        raise ValueError(
-            f"Unknown export '{name}'. Available: {sorted(_EXPORTS.keys())}"
-        )
+        raise ValueError(f"Unknown export '{name}'. Available: {sorted(_EXPORTS.keys())}")
     dest = Path(dest_dir) if dest_dir else Path("docs/archives")
     dest.mkdir(parents=True, exist_ok=True)
     from divineos.core.knowledge._base import get_connection

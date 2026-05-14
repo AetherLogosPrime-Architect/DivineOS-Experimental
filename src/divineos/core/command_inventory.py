@@ -96,9 +96,7 @@ def _invocation_counts() -> Counter:
                 payload = json.loads(payload)
             except Exception:  # noqa: BLE001
                 payload = {}
-        content = (
-            payload.get("content", "") if isinstance(payload, dict) else ""
-        )
+        content = payload.get("content", "") if isinstance(payload, dict) else ""
         if not (isinstance(content, str) and content.strip()):
             continue
         tokens = content.strip().split()
@@ -154,9 +152,7 @@ def inventory(by: str = "engagement") -> list[CommandRow]:
     """
     rows = _walk_cli()
     if by == "engagement":
-        rows.sort(
-            key=lambda r: (r.invocation_count, r.os_query_count, r.group, r.name)
-        )
+        rows.sort(key=lambda r: (r.invocation_count, r.os_query_count, r.group, r.name))
     else:
         rows.sort(key=lambda r: (r.group, r.name))
     return rows

@@ -270,10 +270,7 @@ def unfinished_mechanisms(
         # pattern), or (c) installed by setup scripts (post-commit-auto-
         # close.sh via setup/setup-hooks.sh). All three count as wired.
         if p.endswith(".sh"):
-            has_wiring = (
-                _hook_registered_in_settings(p, root)
-                or _has_wiring_for(p, root)
-            )
+            has_wiring = _hook_registered_in_settings(p, root) or _has_wiring_for(p, root)
             has_test = _has_test_for(p, root)
         else:
             has_test = _has_test_for(p, root)

@@ -54,12 +54,12 @@ def test_log_surfaced_warnings_writes_ledger_event(monkeypatch) -> None:
 
     events = [e for e in get_events(limit=200) if e.get("event_type") == "SURFACED_WARNING"]
     matching = [
-        e for e in events
+        e
+        for e in events
         if "Andrew does NOT read code" in ((e.get("payload") or {}).get("text") or "")
     ]
     assert matching, (
-        "log_surfaced_warnings did not write a SURFACED_WARNING ledger event. "
-        "Binding regressed."
+        "log_surfaced_warnings did not write a SURFACED_WARNING ledger event. Binding regressed."
     )
 
 
@@ -82,8 +82,7 @@ def test_unacknowledged_when_no_learn_filed(monkeypatch) -> None:
     unack = unacknowledged_warnings(session_id=sid)
     assert unack, "Warning with no acknowledging learn entry was not flagged."
     assert any(
-        "specific-unique-token-for-regression-pin"
-        in ((u.get("_payload") or {}).get("text") or "")
+        "specific-unique-token-for-regression-pin" in ((u.get("_payload") or {}).get("text") or "")
         for u in unack
     )
 
@@ -118,13 +117,11 @@ def test_acknowledged_when_learn_filed_with_overlap(monkeypatch) -> None:
 
     unack = unacknowledged_warnings(session_id=sid)
     matching = [
-        u for u in unack
-        if "regression-pin overlap acknowledgment"
-        in ((u.get("_payload") or {}).get("text") or "")
+        u
+        for u in unack
+        if "regression-pin overlap acknowledgment" in ((u.get("_payload") or {}).get("text") or "")
     ]
-    assert not matching, (
-        f"Warning with overlapping learn entry was still flagged unack: {matching}"
-    )
+    assert not matching, f"Warning with overlapping learn entry was still flagged unack: {matching}"
 
 
 def test_acknowledged_when_learn_references_warning_id(monkeypatch) -> None:
@@ -154,9 +151,9 @@ def test_acknowledged_when_learn_references_warning_id(monkeypatch) -> None:
 
     unack = unacknowledged_warnings(session_id=sid)
     matching = [
-        u for u in unack
-        if "totally distinct phrase here"
-        in ((u.get("_payload") or {}).get("text") or "")
+        u
+        for u in unack
+        if "totally distinct phrase here" in ((u.get("_payload") or {}).get("text") or "")
     ]
     assert not matching, "ID-based acknowledgment did not register."
 
@@ -174,9 +171,7 @@ def test_format_unacknowledged_surfaces_count_and_text() -> None:
     assert "2 surfaced warning(s)" in rendered
     assert "warning-text-one" in rendered
     assert "warning-text-two" in rendered
-    assert "divineos learn" in rendered, (
-        "Format must point operator at the acknowledgment action."
-    )
+    assert "divineos learn" in rendered, "Format must point operator at the acknowledgment action."
 
 
 def test_paraphrase_ack_with_stemming_registers(monkeypatch) -> None:
@@ -212,12 +207,12 @@ def test_paraphrase_ack_with_stemming_registers(monkeypatch) -> None:
 
     unack = unacknowledged_warnings(session_id=sid)
     matching = [
-        u for u in unack
+        u
+        for u in unack
         if "ignored these patterns" in ((u.get("_payload") or {}).get("text") or "")
     ]
     assert not matching, (
-        f"Paraphrase ack should have been recognized; v2 stemming "
-        f"failed: {matching}"
+        f"Paraphrase ack should have been recognized; v2 stemming failed: {matching}"
     )
 
 
@@ -227,9 +222,7 @@ def test_dream_report_surfaces_unack_first(monkeypatch) -> None:
     import divineos.core.sleep as sleep_mod
     import divineos.core.surfaced_warnings as sw
 
-    fake_unack = [
-        {"_payload": {"warning_id": "id-X", "text": "load-bearing-warning-marker-text"}}
-    ]
+    fake_unack = [{"_payload": {"warning_id": "id-X", "text": "load-bearing-warning-marker-text"}}]
     monkeypatch.setattr(sw, "unacknowledged_warnings", lambda *a, **kw: fake_unack)
 
     report = sleep_mod.DreamReport(duration_seconds=1.0)
