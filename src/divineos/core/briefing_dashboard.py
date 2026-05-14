@@ -413,6 +413,42 @@ def _row_family_letters() -> DashboardRow | None:
 # I've filed under his framing) are the recognition-not-derive set;
 # putting them adjacent to corrections/handoff matches their structural
 # load-bearing for session-start orientation.
+def _row_ablation_active() -> DashboardRow | None:
+    """Surface any currently-active ablation toggles.
+
+    Ablation mode bypasses self-trigger prevention and other safety
+    mechanisms for measurement runs (Aletheia round-ba785844a791
+    Finding 23). Without a briefing surface, an ablation toggle left
+    enabled past a measurement run would silently weaken the substrate.
+    This row makes active toggles loud-in-experience.
+
+    Returns a row when ANY ablation toggle is active. Hides itself in
+    the clean (no-ablation) case.
+    """
+    try:
+        from divineos.core.ablation import list_disabled
+    except _ERRORS:
+        return None
+    try:
+        disabled = list_disabled()
+    except _ERRORS:
+        return None
+
+    if not disabled:
+        return None  # no ablation active → no surface needed
+
+    return DashboardRow(
+        area="Ablation",
+        count=len(disabled),
+        stale_count=len(disabled),  # any active ablation is "stale" relative to production
+        detail=f"active toggles: {', '.join(disabled[:3])}"
+        + (f" (+{len(disabled) - 3} more)" if len(disabled) > 3 else ""),
+        drill_down=(
+            "-> unset DIVINEOS_DISABLE_<MECHANISM> env vars when measurement run is done"
+        ),
+    )
+
+
 def _row_anti_slop_staleness() -> DashboardRow | None:
     """Surface anti-slop runtime-verification staleness.
 
@@ -471,6 +507,7 @@ _ROW_FNS = [
     _row_lessons,
     _row_drift_state,
     _row_compass,
+    _row_ablation_active,
     _row_anti_slop_staleness,
     _row_holding,
     _row_questions,
