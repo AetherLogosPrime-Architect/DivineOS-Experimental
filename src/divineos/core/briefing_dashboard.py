@@ -601,6 +601,68 @@ def _row_ablation_active() -> DashboardRow | None:
     )
 
 
+def _row_maintenance_staleness() -> DashboardRow | None:
+    """Surface staleness for the 5 substrate-maintenance commands.
+
+    Wires the wiring-gap class fix (Aletheia round-d59eb4570f3f
+    Finding find-49fcfed876ea): admin maintenance / compress /
+    knowledge-compress / knowledge-hygiene / distill were built to
+    run on cadence but had no surface flagging when they hadn't
+    fired. Without this row, substrate health degrades silently.
+
+    Fires when ANY of the 5 commands is stale (> cadence since
+    last run, or never run). Hides when all 5 are fresh + clean.
+    Each preview line names one command and its state.
+    """
+    try:
+        from divineos.core.scheduled_run import maintenance_staleness
+    except _ERRORS:
+        return None
+    try:
+        states = maintenance_staleness()
+    except _ERRORS:
+        return None
+
+    stale_states = [s for s in states if s.get("is_stale")]
+    if not stale_states:
+        return None  # all maintenance fresh — quiet
+
+    # Preview each stale command. Order: never-run first, then by
+    # how far past cadence (largest overrun first).
+    def _sort_key(s: dict) -> tuple[int, float]:
+        if s.get("last_run_ts") is None:
+            return (0, 0.0)  # never-run sorts to top
+        overrun = (s.get("age_seconds") or 0) - (s.get("cadence_seconds") or 1)
+        return (1, -overrun)  # then by largest overrun first
+
+    stale_states.sort(key=_sort_key)
+    preview: list[str] = []
+    for s in stale_states[:5]:
+        cmd = s.get("command") or "?"
+        if s.get("last_run_ts") is None:
+            preview.append(f"[never-run] {cmd}")
+        else:
+            age_h = (s.get("age_seconds") or 0) / 3600
+            cadence_h = (s.get("cadence_seconds") or 0) / 3600
+            overrun_h = age_h - cadence_h
+            clean_marker = "" if s.get("last_clean") else " [failed]"
+            preview.append(
+                f"[+{overrun_h:.0f}h overdue, cadence {cadence_h:.0f}h] "
+                f"{cmd}{clean_marker}"
+            )
+
+    return DashboardRow(
+        area="Maintenance",
+        count=len(states),
+        stale_count=len(stale_states),
+        detail=f"{len(stale_states)}/{len(states)} stale",
+        preview=preview,
+        drill_down=(
+            "divineos scheduled run <command> --trigger cron"
+        ),
+    )
+
+
 def _row_anti_slop_staleness() -> DashboardRow | None:
     """Surface anti-slop runtime-verification staleness.
 
@@ -701,6 +763,7 @@ _ROW_FNS = [
     _row_correction_pairing,
     _row_ablation_active,
     _row_anti_slop_staleness,
+    _row_maintenance_staleness,
     _row_holding,
     _row_questions,
     _row_explorations,

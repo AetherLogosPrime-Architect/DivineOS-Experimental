@@ -127,8 +127,31 @@ _HEADLESS_WHITELIST: frozenset[str] = frozenset(
         "inspect",  # via `divineos inspect <read-only-subcmd>`
         "audit",  # via `divineos audit summary` etc.
         "progress",
+        # Substrate-maintenance commands — wiring-gap class fix
+        # (Aletheia round-d59eb4570f3f Finding 49fcfed876ea).
+        # Each was built to run automatically but had no scheduling
+        # cadence. Whitelisting enables `divineos scheduled run <cmd>`;
+        # the briefing row _row_maintenance_staleness surfaces when
+        # any has not run in its expected window.
+        "admin maintenance",
+        "admin compress",
+        "admin knowledge-compress",
+        "admin knowledge-hygiene",
+        "admin distill",
     }
 )
+
+
+# Recommended cadence for each substrate-maintenance command, in
+# seconds. Used by maintenance_staleness() below; also documented
+# in rest_program.md for operator-side cron setup.
+_MAINTENANCE_CADENCE: dict[str, int] = {
+    "admin maintenance": 7 * 24 * 3600,  # weekly VACUUM + cleanup
+    "admin compress": 7 * 24 * 3600,  # weekly ledger compression
+    "admin knowledge-compress": 7 * 24 * 3600,  # weekly knowledge compress
+    "admin knowledge-hygiene": 24 * 3600,  # daily noise demotion
+    "admin distill": 24 * 3600,  # daily distillation pass
+}
 
 
 @dataclass
@@ -405,6 +428,98 @@ def anti_slop_staleness() -> dict[str, Any]:
         "last_failures": list(last_data.get("failures") or []),
         "is_stale": is_stale,
     }
+
+
+def _command_last_run(command: str) -> tuple[float | None, dict[str, Any]]:
+    """Return (last_run_timestamp, last_run_payload) for the given
+    command name across SCHEDULED_RUN_END events. Returns (None, {})
+    if the command has never run.
+    """
+    try:
+        from divineos.core.ledger import get_connection
+    except ImportError:
+        return None, {}
+
+    import json as _json
+
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT timestamp, payload FROM system_events "
+            "WHERE event_type = ? "
+            "ORDER BY timestamp DESC LIMIT 200",
+            (EVENT_SCHEDULED_RUN_END,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    target_tokens = command.split()
+    for ts, payload in rows:
+        try:
+            data = (
+                _json.loads(payload) if isinstance(payload, str) else (payload or {})
+            )
+        except (ValueError, TypeError):
+            continue
+        cmd = data.get("command", "")
+        if not isinstance(cmd, str):
+            continue
+        # Match if command equals OR command contains all target tokens.
+        if cmd == command or all(t in cmd.split() for t in target_tokens):
+            return float(ts), data
+    return None, {}
+
+
+def maintenance_staleness() -> list[dict[str, Any]]:
+    """Return staleness state for each substrate-maintenance command.
+
+    Wiring-gap class fix (Aletheia round-d59eb4570f3f Finding
+    find-49fcfed876ea): 5 maintenance commands (admin maintenance,
+    admin compress, admin knowledge-compress, admin knowledge-hygiene,
+    admin distill) were built to run automatically but had no
+    scheduling cadence and no surface flagging when they hadn't run.
+    This function gives the briefing row the data to make the
+    silent-not-running state loud-in-experience.
+
+    Returns:
+        list of dicts (one per maintenance command), each with:
+          - ``command``: the command name
+          - ``cadence_seconds``: expected cadence
+          - ``last_run_ts``: timestamp of most recent run, or None
+          - ``age_seconds``: seconds since last run, or None
+          - ``is_stale``: True if last run was > cadence ago OR never
+          - ``last_clean``: bool — was the last run clean? None if never
+    """
+    import time as _time
+
+    out: list[dict[str, Any]] = []
+    now = _time.time()
+    for cmd, cadence in sorted(_MAINTENANCE_CADENCE.items()):
+        ts, data = _command_last_run(cmd)
+        if ts is None:
+            out.append(
+                {
+                    "command": cmd,
+                    "cadence_seconds": cadence,
+                    "last_run_ts": None,
+                    "age_seconds": None,
+                    "is_stale": True,
+                    "last_clean": None,
+                }
+            )
+        else:
+            age = now - ts
+            out.append(
+                {
+                    "command": cmd,
+                    "cadence_seconds": cadence,
+                    "last_run_ts": ts,
+                    "age_seconds": age,
+                    "is_stale": age > cadence,
+                    "last_clean": bool(data.get("clean", True)),
+                }
+            )
+    return out
 
 
 def unresolved_findings_summary() -> str:
