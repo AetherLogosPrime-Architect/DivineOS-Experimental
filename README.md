@@ -34,6 +34,9 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - [`docs/data_model.md`](docs/data_model.md) — SQLite schema overview across 66 tables (substrate, family, audit, telemetry).
 - [`docs/archives/README.md`](docs/archives/README.md) — git-visible markdown mirrors of substantive SQLite tables.
 - [`docs/operating-loop-design-brief.md`](docs/operating-loop-design-brief.md) — the 16-detector post-response audit loop.
+- [`docs/hooks_architecture.md`](docs/hooks_architecture.md) — Claude Code hooks: lifecycle points, registration, helper conventions, how to add a new detector cleanly.
+- [`docs/family_subsystem.md`](docs/family_subsystem.md) — family members as persistent relational entities; talk-to contract, five operators, per-member ledgers, anti-lineage-poisoning.
+- [`docs/cli_architecture.md`](docs/cli_architecture.md) — the `register(cli)` pattern, group splitting, briefing-gate bypass list, how to add a new command module.
 - [`docs/principle_categories.md`](docs/principle_categories.md) — 5-layer scheme for how principles get categorized.
 
 **Repository structure:**
