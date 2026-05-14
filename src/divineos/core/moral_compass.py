@@ -1302,26 +1302,46 @@ def reflect_on_session(analysis: Any, session_id: str = "") -> list[str]:
             )
             observations.append(obs_id)
 
-    # --- Initiative: scope signals (overflows = overreach, substantial work = initiative) ---
-    # Source: context_overflow (MEASURED — counted from session events)
-    overflows = len(getattr(analysis, "context_overflows", []))
-    if overflows > 0:
+    # --- Initiative: completion-quality, not pace ---
+    # Andrew named the axis 2026-05-14 post-sleep: the prior detector
+    # measured volume (context overflows, tool calls, PR count). That
+    # is the wrong axis. Pace is fine if completion lands. The right
+    # signal is whether recently-built mechanisms have *closed the
+    # loop* — wired in, tested on real input, useful — before the
+    # next thing gets stood up. See core/completion_check.py.
+    try:
+        from divineos.core.completion_check import (
+            format_for_compass,
+            unfinished_mechanisms,
+        )
+
+        unfinished = unfinished_mechanisms(days=14)
+    except Exception:  # noqa: BLE001 — probe must not break the compass
+        unfinished = []
+
+    if unfinished:
+        # Position scales with count of unfinished mechanisms but
+        # caps at +0.5 (excess zone, not pathological). One stray
+        # unfinished mechanism is not overreach; five is.
+        n = len(unfinished)
+        position = min(0.1 * n, 0.5)
         obs_id = log_observation(
             spectrum="initiative",
-            position=0.4,
-            evidence=f"{overflows} context overflows -- may be taking on too much",
-            source="context_overflow",
+            position=position,
+            evidence=format_for_compass(unfinished),
+            source="completion_check",
             session_id=sid,
             tags=["auto"],
         )
         observations.append(obs_id)
     elif tool_calls >= 10 and user_msgs >= 2:
-        # Substantial work without overreach — healthy initiative
+        # Substantial work AND no unfinished-mechanism backlog —
+        # healthy initiative
         obs_id = log_observation(
             spectrum="initiative",
             position=0.0,
-            evidence=f"{tool_calls} tool calls across {user_msgs} exchanges — active initiative without overreach",
-            source="session_activity",
+            evidence=f"{tool_calls} tool calls across {user_msgs} exchanges; no unfinished mechanisms in lookback window",
+            source="completion_check",
             session_id=sid,
             tags=["auto", "baseline"],
         )
