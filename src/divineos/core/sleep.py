@@ -54,6 +54,11 @@ class DreamReport:
     # Lessons that transitioned improving → dormant this cycle (quiet but
     # unproven — distinct from resolved, per the 2026-04-16 Popper audit).
     lessons_dormant: list[str] = field(default_factory=list)
+    # Seeded-placeholder lessons that never fired (noise cleanup, NOT
+    # earned resolution). Tracked separately from lessons_resolved so
+    # the dream report doesn't claim resolution it didn't earn.
+    # Aletheia round-ba785844a791 Finding 30.
+    lessons_resolved_seed_cleanup: list[str] = field(default_factory=list)
 
     # Phase 2: Pruning
     health_results: dict[str, Any] = field(default_factory=dict)
@@ -111,7 +116,15 @@ class DreamReport:
         else:
             lines.append("    No promotions needed")
         if self.lessons_resolved:
-            lines.append(f"    Lessons resolved: {', '.join(self.lessons_resolved)}")
+            lines.append(
+                f"    Lessons resolved (evidence-based): "
+                f"{', '.join(self.lessons_resolved)}"
+            )
+        if self.lessons_resolved_seed_cleanup:
+            lines.append(
+                f"    Seed placeholders cleaned (never fired, NOT earned "
+                f"resolution): {', '.join(self.lessons_resolved_seed_cleanup)}"
+            )
         if self.lessons_dormant:
             lines.append(
                 f"    Lessons dormant (quiet, not proven): {', '.join(self.lessons_dormant)}"
@@ -286,8 +299,22 @@ def _phase_consolidation(report: DreamReport) -> None:
     # Split them in the dream report so the summary doesn't claim resolution
     # it didn't earn.
     transitions = auto_resolve_lessons()
+    # Split seed-cleanup from real evidence-based resolution so the dream
+    # report doesn't claim resolution it didn't earn. Aletheia
+    # round-ba785844a791 Finding 30: the previous combined list lumped
+    # "(seeded) placeholder never fired" entries (noise removal) in
+    # with real merges (evidence-based resolution). Same Cluster-C
+    # shape: label promises one thing, content delivers another.
     report.lessons_resolved = [
-        r["category"] for r in transitions if r.get("status") == STATUS_RESOLVED
+        r["category"]
+        for r in transitions
+        if r.get("status") == STATUS_RESOLVED
+        and r.get("_transition_origin") != "seed_cleanup"
+    ]
+    report.lessons_resolved_seed_cleanup = [
+        r["category"]
+        for r in transitions
+        if r.get("_transition_origin") == "seed_cleanup"
     ]
     report.lessons_dormant = [
         r["category"] for r in transitions if r.get("status") == STATUS_DORMANT
