@@ -468,6 +468,17 @@ def _build_baseline_text() -> str:
     return '\n\n'.join(sections)
 
 
+# Increment the briefing-freshness prompt counter. The actual gating
+# happens in a separate PreToolUse hook (require-briefing.sh) — that
+# hook refuses tool calls when briefing has gone stale. This hook
+# only tracks the counter; the OS itself (divineos briefing) does
+# the rendering work. The hook is the doorman, the OS is the work.
+try:
+    from divineos.core.briefing_freshness import increment_prompt_count
+    increment_prompt_count()
+except Exception:
+    pass
+
 # === Run all phases in one python invocation ===
 _run_surfacer(prompt)
 warning_text = _build_warning_text()
