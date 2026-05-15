@@ -82,10 +82,27 @@ def register(cli: click.Group) -> None:
 
     @triage_group.command("summary")
     def triage_summary() -> None:
-        """Show counts by current status — the honest 'what else is broken' number."""
+        """Show counts by current status — the honest 'what else is broken' number.
+
+        Per Aletheia Finding 52, the VERIFIED count is broken down to
+        distinguish legitimate (with test_path) from suspect-shaped
+        (without test_path).
+        """
         from divineos.core.claim_triage import summary
 
         counts = summary()
-        click.echo(f"  VERIFIED: {counts['VERIFIED']}")
+        v_with = counts.get("VERIFIED_with_test", 0)
+        v_without = counts.get("VERIFIED_without_test", 0)
+        click.secho(
+            f"  VERIFIED: {counts['VERIFIED']}  "
+            f"(with-test: {v_with}, without-test: {v_without})",
+            fg="green" if v_without == 0 else "yellow",
+        )
+        if v_without > 0:
+            click.secho(
+                f"  [!] {v_without} VERIFIED entries lack a test_path — "
+                "those are suspect-shaped, not legitimate VERIFIED.",
+                fg="yellow",
+            )
         click.secho(f"  SUSPECT:  {counts['SUSPECT']}", fg="yellow")
         click.echo(f"  REMOVED:  {counts['REMOVED']}")

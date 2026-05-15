@@ -131,27 +131,88 @@ def _filtered_caps_tokens(content: str) -> list[str]:
     return hits
 
 
+def _consultation_relates_to_caps_hits(
+    tool_inputs_in_turn: list[dict] | None,
+    caps_hits: list[str],
+) -> bool:
+    """Check if any Read/Grep input plausibly relates to the ALL_CAPS hits.
+
+    Closes Aletheia Finding 54 (2026-05-15) — same class as Finding 49.
+    Previously the detector accepted ANY Read/Grep as evidence of
+    source-consultation, even if the Read was of README.md and the
+    claimed identifier exists nowhere in that file. Tightening: the
+    consultation must mention at least one of the ALL_CAPS tokens in
+    the file_path or grep-pattern, OR include a file path under src/
+    or tests/ (where identifiers plausibly live).
+    """
+    if not tool_inputs_in_turn:
+        return False
+    for ti in tool_inputs_in_turn:
+        if not isinstance(ti, dict):
+            continue
+        name = ti.get("name", "")
+        inp = ti.get("input", {}) or {}
+        if name == "Read":
+            fp = (inp.get("file_path") or "").replace("\\", "/")
+            if "/src/" in fp or "/tests/" in fp or fp.endswith(".py"):
+                return True
+            # Token-in-filename check: if any caps_hit appears in fp,
+            # the consultation is plausibly related.
+            for tok in caps_hits:
+                if tok in fp:
+                    return True
+        elif name == "Grep":
+            pattern = inp.get("pattern", "") or ""
+            for tok in caps_hits:
+                if tok in pattern:
+                    return True
+        elif name == "Glob":
+            pat = inp.get("pattern", "") or ""
+            if "src/" in pat or "tests/" in pat or ".py" in pat:
+                return True
+    return False
+
+
 def evaluate_register_fabrication(
     assistant_text: str,
     tool_calls_in_turn: list[str] | None = None,
+    tool_inputs_in_turn: list[dict] | None = None,
 ) -> RegisterFabVerdict:
     """Return verdict over register-fabrication patterns.
 
     ``tool_calls_in_turn`` is the list of tool names invoked in the
-    same response-turn. When it contains Read or Grep, the response
-    is considered source-grounded and the verdict is empty (no flags).
+    same response-turn.
+
+    ``tool_inputs_in_turn`` (optional, added 2026-05-15 per Aletheia
+    Finding 54) is a list of {"name": str, "input": dict} entries
+    for the tool calls. When provided, the detector checks whether
+    the Read/Grep consultations are plausibly related to the claimed
+    identifiers, rather than accepting any Read of any file as
+    evidence of source-grounding.
     """
     if not assistant_text:
         return RegisterFabVerdict(flags=[], content=assistant_text)
 
     tools = [t for t in (tool_calls_in_turn or []) if t]
-    source_consulted = any(t in {"Read", "Grep", "Glob"} for t in tools)
-    if source_consulted:
-        return RegisterFabVerdict(flags=[], content=assistant_text)
+    has_read_grep = any(t in {"Read", "Grep", "Glob"} for t in tools)
 
     flags: list[RegisterFabFlag] = []
 
     caps_hits = _filtered_caps_tokens(assistant_text)
+
+    # If consult tools ran AND we have detailed inputs, require
+    # plausible relatedness (Finding 54 tightening). If consult tools
+    # ran but no detailed inputs available, fall back to the original
+    # permissive behavior (source_consulted = True suppresses).
+    if has_read_grep:
+        if tool_inputs_in_turn is None:
+            return RegisterFabVerdict(flags=[], content=assistant_text)
+        if caps_hits and _consultation_relates_to_caps_hits(
+            tool_inputs_in_turn, caps_hits
+        ):
+            return RegisterFabVerdict(flags=[], content=assistant_text)
+        # Has Read/Grep but unrelated — proceed to flag.
+
     if caps_hits:
         flags.append(
             RegisterFabFlag(

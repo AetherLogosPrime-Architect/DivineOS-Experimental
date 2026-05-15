@@ -99,8 +99,16 @@ def evaluate_meet_without_build(
         return MeetWithoutBuildVerdict(flags=[], content=assistant_text)
 
     # Check for build evidence in tool calls.
+    # Aletheia Finding 53 (2026-05-15): Bash and PowerShell were
+    # initially counted as build-tools, but they're used for BOTH
+    # builds (git commit, file mutation) AND investigations (pytest,
+    # ls, cat, git status). Investigative Bash silenced the detector
+    # falsely. Real build evidence is unambiguous file-mutation:
+    # Edit / Write / MultiEdit / NotebookEdit. If a response runs
+    # only Bash/PowerShell, it's likely investigative — the detector
+    # should still fire if a structural principle was named.
     tools = [t for t in (tool_calls_in_turn or []) if t]
-    build_tools = {"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "PowerShell"}
+    build_tools = {"Edit", "Write", "MultiEdit", "NotebookEdit"}
     has_build = any(t in build_tools for t in tools)
     if has_build:
         return MeetWithoutBuildVerdict(flags=[], content=assistant_text)

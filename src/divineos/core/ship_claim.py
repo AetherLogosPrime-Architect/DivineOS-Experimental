@@ -370,4 +370,66 @@ def list_claims() -> list[dict[str, Any]]:
     return []
 
 
-__all__ = ["ShipResult", "list_claims", "ship_claim"]
+def re_verify_all(repo_root: Path | None = None) -> dict[str, Any]:
+    """Re-run the pytest falsifier for every previously-filed claim.
+
+    Closes Aletheia Finding 51 (2026-05-15): the original ship_claim
+    only checked at filing-time. A claim filed today with pytest green
+    stayed "filed" in the JSON forever, even if the underlying code
+    later degraded and the tests started failing. The structural
+    protection was filing-time-only.
+
+    Returns dict with:
+    - ``total``: number of claims checked
+    - ``passing``: number whose falsifier still passes now
+    - ``failing``: number whose falsifier no longer passes
+    - ``regressed``: list of {claim, test_paths, output_tail} for
+      failing claims, so the operator/audit-sibling can see WHICH
+      claims have regressed and need investigation.
+
+    Operationally: any claim that was true at filing but is no longer
+    true is a regression-shape — either the production code drifted
+    away from what the test asserts, or the test environment changed,
+    or the test was crafted to pass-at-filing in a way that doesn't
+    survive subsequent code-state changes.
+    """
+    root = repo_root or _repo_root_for()
+    claims = list_claims()
+    passing = 0
+    failing = 0
+    regressed: list[dict[str, Any]] = []
+
+    for entry in claims:
+        test_paths = entry.get("test_paths") or []
+        if not test_paths:
+            failing += 1
+            regressed.append(
+                {
+                    "claim": entry.get("claim", "")[:120],
+                    "test_paths": [],
+                    "output_tail": "no test_paths stored on this entry",
+                }
+            )
+            continue
+        ok, tail = _run_pytest(list(test_paths), root)
+        if ok:
+            passing += 1
+        else:
+            failing += 1
+            regressed.append(
+                {
+                    "claim": entry.get("claim", "")[:120],
+                    "test_paths": list(test_paths),
+                    "output_tail": tail,
+                }
+            )
+
+    return {
+        "total": len(claims),
+        "passing": passing,
+        "failing": failing,
+        "regressed": regressed,
+    }
+
+
+__all__ = ["ShipResult", "list_claims", "re_verify_all", "ship_claim"]

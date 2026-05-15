@@ -108,10 +108,48 @@ def register(cli: click.Group) -> None:
             click.echo("No shipped claims filed yet.")
             return
         for e in entries[-50:]:
+            actor = e.get("actor", "?")
             click.echo(
-                f"[{e.get('git_sha', '?')}] {e.get('claim', '')[:100]}"
+                f"[{e.get('git_sha', '?')}] (by {actor}) "
+                f"{e.get('claim', '')[:100]}"
             )
             for t in e.get("test_paths", []):
                 click.echo(f"    test: {t}")
             for x in e.get("executes", []):
                 click.echo(f"    exec: {x}")
+
+    @cli.command("ship-claims-reverify")
+    def ship_claims_reverify_cmd() -> None:
+        """Re-run the falsifier for every previously-filed claim.
+
+        Closes Aletheia Finding 51: filing-time-only verification meant
+        a claim filed today with pytest green stayed 'filed' forever,
+        even if the production code later regressed. This command
+        surfaces claims whose falsifier no longer passes.
+        """
+        from divineos.core.ship_claim import re_verify_all
+
+        click.secho(
+            "[~] Re-verifying all filed ship-claims... this re-runs "
+            "every claim's pytest falsifier and may take a while.",
+            fg="cyan",
+        )
+        result = re_verify_all()
+        click.echo()
+        click.echo(f"  Total filed:  {result['total']}")
+        click.secho(f"  Still passing: {result['passing']}", fg="green")
+        if result["failing"]:
+            click.secho(
+                f"  REGRESSED:    {result['failing']}", fg="red", bold=True
+            )
+            click.echo()
+            click.secho("Claims whose falsifier no longer passes:", fg="red")
+            for r in result["regressed"][:10]:
+                click.secho(f"  - {r['claim']}", fg="red")
+                for t in r.get("test_paths") or []:
+                    click.echo(f"      test: {t}")
+                tail = (r.get("output_tail") or "")[:200]
+                if tail:
+                    click.echo(f"      tail: {tail}")
+        else:
+            click.secho("  All filed claims still verify green.", fg="green")

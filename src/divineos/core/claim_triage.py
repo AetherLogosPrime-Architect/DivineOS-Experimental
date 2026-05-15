@@ -190,15 +190,39 @@ def list_entries(status: TriageStatus | None = None) -> list[dict[str, Any]]:
 
 
 def summary() -> dict[str, int]:
-    """Return counts by current status (latest per claim)."""
+    """Return counts by current status (latest per claim).
+
+    Closes Aletheia Finding 52 (2026-05-15): the summary used to
+    flatten VERIFIED into one count. A gamed VERIFIED (no test_path,
+    no real falsifier) was visually identical to a legitimate VERIFIED.
+    The fix surfaces the distinction:
+
+    - ``VERIFIED``: total VERIFIED count (kept for backward compat)
+    - ``VERIFIED_with_test``: legitimate — entry has a test_path
+    - ``VERIFIED_without_test``: suspect-shaped — entry marked VERIFIED
+      but no falsifier-path recorded. Visible as its own count creates
+      social cost for the manipulation.
+    """
     entries = _load()
     latest: dict[str, dict[str, Any]] = {}
     for e in entries:
         latest[e.get("claim", "")] = e
-    counts = {"VERIFIED": 0, "SUSPECT": 0, "REMOVED": 0}
+    counts: dict[str, int] = {
+        "VERIFIED": 0,
+        "VERIFIED_with_test": 0,
+        "VERIFIED_without_test": 0,
+        "SUSPECT": 0,
+        "REMOVED": 0,
+    }
     for e in latest.values():
         status = e.get("status", "")
-        if status in counts:
+        if status == "VERIFIED":
+            counts["VERIFIED"] += 1
+            if (e.get("test_path") or "").strip():
+                counts["VERIFIED_with_test"] += 1
+            else:
+                counts["VERIFIED_without_test"] += 1
+        elif status in ("SUSPECT", "REMOVED"):
             counts[status] += 1
     return counts
 
