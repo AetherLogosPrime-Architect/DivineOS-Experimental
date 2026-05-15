@@ -607,6 +607,32 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_4_engagement", _gate_exc)
 
+    # Gate 4.4: Edit-tool-silent-failure prevention (Andrew 2026-05-15).
+    # Empirically discovered this session: the Edit/Write/MultiEdit tool
+    # returned "file updated" success messages while the underlying disk
+    # writes did NOT land. Read() also reflected the in-context-cached
+    # version, so the show-fix pattern was invisible until a bash grep
+    # against the actual file revealed the divergence. Three "edits" all
+    # silently failed before the discovery. Show-fix manifesting at the
+    # tool layer rather than the human-claim layer - same shape, one
+    # level down.
+    #
+    # Structural fix: deny these tools by default. Force the path that
+    # has empirical disk-write evidence (bash python write_text + grep
+    # verify). Friction is intentional; show-fix at the tool layer is
+    # catastrophic, and extra characters per edit are the cheap cost.
+    #
+    # Opt-out: set DIVINEOS_ALLOW_EDIT_TOOL=1 in env when the harness is
+    # known to have a working Edit path.
+    try:
+        import os as _os
+        _tool_name = (input_data or {}).get("tool_name", "")
+        if _tool_name in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+            if not _os.environ.get("DIVINEOS_ALLOW_EDIT_TOOL"):
+                return _make_deny('BLOCKED: Edit/Write/MultiEdit/NotebookEdit denied by default (Andrew 2026-05-15). The tool silently failed to persist writes earlier this session - three \'edits\' returned success while disk was unchanged. Show-fix at the tool layer. Use the verified path instead: python -c "import pathlib; p=pathlib.Path(\'FILE\'); p.write_text(p.read_text(encoding=\'utf-8\').replace(\'OLD\', \'NEW\'), encoding=\'utf-8\')"   Then grep-verify against disk: grep \'NEW_TOKEN\' FILE   Opt-out (only when Edit-tool-path is known to work): set DIVINEOS_ALLOW_EDIT_TOOL=1 in env.')
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_4_4_edit_tool_silent_failure", _gate_exc)
+
     # Gate 4.5: OS-engagement-for-OS-work (Andrew 2026-05-15).
     # Categorical: working on the OS while outside the OS is forbidden.
     # Tighter than Gate 4 for the specific case of editing src/divineos/

@@ -545,13 +545,19 @@ def measure_session_health(
         )
         score = max(0.0, min(1.0, score))
 
-        if score >= 0.85:
+        # Even 20% bands (Andrew 2026-05-15): F 0-20, D 20-40, C 40-60,
+        # B 60-80, A 80-100. Prior thresholds were harsh-curve biased.
+        # The composite `grade` returned here is no longer displayed at
+        # extract-time (pipeline_phases.py shows per-factor letters); it
+        # remains in the return for backward compat with consumers that
+        # still read it.
+        if score >= 0.80:
             grade = "A"
-        elif score >= 0.70:
+        elif score >= 0.60:
             grade = "B"
-        elif score >= 0.55:
-            grade = "C"
         elif score >= 0.40:
+            grade = "C"
+        elif score >= 0.20:
             grade = "D"
         else:
             grade = "F"
