@@ -43,6 +43,10 @@ the participant-in-the-dialogue:
 
 from __future__ import annotations
 
+# Module-level guardrail marker — Aletheia Finding 48 class-fix
+# 2026-05-14. CI test enforces marker-vs-guardrail-list consistency.
+__guardrail_required__ = True
+
 import re
 from dataclasses import dataclass
 from enum import Enum
