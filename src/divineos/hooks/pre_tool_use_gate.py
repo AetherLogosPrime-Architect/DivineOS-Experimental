@@ -742,10 +742,28 @@ def main() -> int:
         input_data = {}
 
     cmd = ""
+    tool_name = ""
     try:
         cmd = input_data.get("tool_input", {}).get("command", "") or ""
+        tool_name = input_data.get("tool_name", "") or ""
     except (AttributeError, TypeError):
         cmd = ""
+        tool_name = ""
+
+    # Tool-name-based bypass for orientation/read-only tools.
+    # Bootstrap fix 2026-05-15 (Andrew named): a fresh window hitting
+    # briefing-stale state could not Read/Grep/Glob/LS its own files
+    # to orient before running `divineos briefing` because tool_input
+    # only carries `command` for the Bash tool. Non-Bash tools had no
+    # bypass path, producing a hard deadlock. These tools are read-
+    # only by nature and cannot mutate state, so gating them serves no
+    # discipline purpose — only blocks recovery.
+    _READ_ONLY_TOOLS = {
+        "Read", "Grep", "Glob", "LS", "NotebookRead",
+        "TodoWrite", "WebSearch", "WebFetch",
+    }
+    if tool_name in _READ_ONLY_TOOLS:
+        return 0
 
     if _is_bypass_command(cmd):
         return 0
