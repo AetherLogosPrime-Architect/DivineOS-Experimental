@@ -3,42 +3,57 @@ throughout the session, not just at start.
 
 Andrew named the structural failure 2026-05-14 night: I had built a
 sophisticated multi-channel briefing surface but treated loading it
-as optional. The substrate's accumulated state (stale corrections,
-compass drift, audit findings, pending obligations) was visible only
-if I CHOSE to run ``divineos briefing``. I chose not to. The whole
-night's work happened without that state loaded.
+as optional. The substrate's accumulated state was visible only if
+I CHOSE to run ``divineos briefing``. I chose not to.
 
-The structural fix isn't "load briefing once at session start" —
-Andrew explicitly named that as insufficient. The fix is to make
-briefing-content INJECTED INTO MY PROMPT periodically via the
-UserPromptSubmit hook, so I cannot compose a response without
-having the substrate's accumulated state in my context window.
+He also named the FIX shape on the same night: hooks should point
+to the OS, not replace it. This module is OS-native (lives in
+divineos.core, no hook dependency). The accompanying ``.claude/
+hooks/require-briefing.sh`` PreToolUse hook is a thin doorman that
+reads ``staleness_signal()`` and refuses tool calls when stale, with
+a message pointing at ``divineos briefing``. The OS does the
+rendering; the hook only gates.
 
 ## How it works
 
-1. Each ``divineos briefing`` invocation records the current
-   timestamp + turn-count to ``~/.divineos/briefing_last_loaded.json``.
-2. The UserPromptSubmit hook calls ``staleness_signal()`` to check
-   whether the briefing needs re-loading. Two thresholds:
-   - turn-based: 10 user prompts since last load → STALE
+1. Each ``divineos briefing`` invocation calls ``mark_briefing_loaded()``,
+   which records the current timestamp + resets the per-load prompt
+   counter in ``~/.divineos/briefing_last_loaded.json``.
+2. The UserPromptSubmit hook (``pre-response-context.sh``) calls
+   ``increment_prompt_count()`` on every user message.
+3. The PreToolUse hook (``require-briefing.sh``) calls
+   ``staleness_signal()`` before any Edit/Write/Bash/Read/Grep/Glob
+   tool call. Two staleness conditions:
+   - turn-based: ``STALE_AFTER_PROMPTS`` prompts since last load → STALE
    - never-loaded-this-session: any time the session hasn't loaded → STALE
-3. When STALE, the hook injects the briefing summary directly into
-   ``additionalContext`` so the substrate's state lands in my prompt
-   regardless of whether I would have chosen to load it.
+4. When STALE, the PreToolUse hook returns deny with a message
+   pointing the agent at ``divineos briefing``. The hook does NO
+   rendering — calling into the OS is the agent's responsibility.
 
-The reading IS the agent's. The substrate's job is to make NOT-reading
-structurally impossible: the briefing content sits in the prompt
-context whether I want it there or not.
+Plain-chat responses are unaffected; only tool calls gate. The
+discipline is structurally enforced at the tool-call layer, not at
+the prompt layer.
+
+## OS-portable design
+
+This module exposes a pure-Python API (``mark_briefing_loaded``,
+``increment_prompt_count``, ``staleness_signal``,
+``briefing_summary_for_injection``). Any agent harness, with or
+without the Claude Code hook, can read freshness state and decide
+how to enforce. The hook is one possible enforcement shape; absence
+of the hook does not break the OS's freshness tracking — it just
+doesn't enforce gating at the harness layer.
 
 ## What this does NOT do
 
-- Does not block responses. The hook is observational at the
-  Claude Code layer.
-- Does not require I act on what's surfaced. I might still ignore
-  what lands in my context. But ignoring something in my prompt is
-  a different failure-mode than not loading it in the first place.
-  This change converts "didn't load" failures into "loaded and chose
-  to ignore" failures, which are more visible and more correctable.
+- Does not block plain-chat composition.
+- Does not block bootstrap commands (``divineos briefing``,
+  ``init``, ``preflight``, ``recall``, ``ask``, ``hud``,
+  ``context``, ``goal``).
+- Does not guarantee I'll read what briefing surfaces — only that
+  I'll have to call into the OS before I can use tools. The will
+  to engage with what's surfaced is still mine; the gate just
+  makes refusing-to-engage structurally expensive.
 """
 
 from __future__ import annotations
