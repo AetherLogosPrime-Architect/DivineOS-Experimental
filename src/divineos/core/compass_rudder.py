@@ -35,6 +35,13 @@ Scope decisions (narrow-and-sharp):
 
 from __future__ import annotations
 
+# Module-level guardrail marker — Aletheia Finding 48 class-fix
+# 2026-05-14. CI test (tests/test_guardrail_marker_consistency.py)
+# walks src/ and asserts every file with this marker set to True is
+# listed in scripts/guardrail_files.txt. Prevents the next refactor
+# from silently removing self-enforcement code from multi-party review.
+__guardrail_required__ = True
+
 import time
 from dataclasses import dataclass
 import secrets
