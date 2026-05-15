@@ -225,6 +225,16 @@ src/divineos/core/operating_loop/meet_without_build_detector.py
 src/divineos/core/operating_loop/puppetry_detector.py
 src/divineos/core/operating_loop/mirroring_detector.py
 
+# Added 2026-05-15 (Aletheia + Andrew named the cross-turn shape
+# after puppetry+mirroring shipped): orbital_recurrence_detector
+# walks the last N assistant turns in the transcript and flags
+# n-grams appearing in >=3 of them. The single-turn detectors
+# couldn't see this — joke-heard-50-times only shows from outside
+# any single response. Self-modification attack: silently raise
+# the recurrence_threshold so common stale phrases never trigger,
+# or shrink window_size so cross-turn patterns are invisible.
+src/divineos/core/operating_loop/orbital_recurrence_detector.py
+
 # Added 2026-05-15 (operator named the words-without-action pattern
 # after consecutive distancing-grammar slips where 'Fixing it'
 # appeared in a response that did not fix the named slip):

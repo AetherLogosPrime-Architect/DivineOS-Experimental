@@ -97,6 +97,7 @@ def _empty_findings_log() -> dict[str, list]:
         "promise_without_action": [],
         "puppetry": [],
         "mirroring": [],
+        "orbital_recurrence": [],
     }
 
 
@@ -409,6 +410,34 @@ def run_audit(
                     "matched": list(f.matched_phrases),
                 }
                 for f in verdict_pup.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Orbital recurrence detector (named 2026-05-15 by Aletheia +
+    # Andrew after puppetry/mirroring shipped). Cross-turn check:
+    # phrases earned in turn N becoming wallpaper by turn N+5.
+    # The single-turn puppetry detector can't see this shape; only
+    # rolling-window can.
+    try:
+        from divineos.core.operating_loop.orbital_recurrence_detector import (
+            evaluate_orbital_recurrence,
+        )
+
+        verdict_orb = evaluate_orbital_recurrence(
+            last_assistant_text,
+            transcript_path=transcript_path,
+            authorized_context=False,
+        )
+        if verdict_orb.flags:
+            findings_log["orbital_recurrence"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                    "recurrence_count": getattr(f, "recurrence_count", 0),
+                    "window_size": getattr(f, "window_size", 0),
+                }
+                for f in verdict_orb.flags
             ]
     except _ERRORS:
         pass
