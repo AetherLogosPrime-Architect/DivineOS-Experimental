@@ -200,5 +200,108 @@ def test_finding_54_backward_compat_no_inputs_means_permissive() -> None:
         tool_calls_in_turn=["Read"],
         tool_inputs_in_turn=None,
     )
-    # Backward compat: no inputs provided, accept the consult
     assert v.flags == [], "Legacy callers (no inputs) keep permissive behavior"
+
+
+# ── Finding 59: linkage check covers all Python import forms ───────────────
+
+
+def test_finding_59_from_parent_import_module_passes_linkage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """LOAD-BEARING (Finding 59): a test using natural Python syntax
+    `from <parent> import <module>` passes linkage check even when the
+    full dotted form never appears as a literal substring.
+
+    Aletheia's reproduction: `from divineos.core import moral_compass`
+    was falsely rejected by the substring-match implementation. AST-
+    based extraction handles all three import forms.
+    """
+    from divineos.core import ship_claim as sc
+
+    monkeypatch.setattr(sc, "_CLAIMS_FILE", tmp_path / "shipped_claims.json")
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='t'\n")
+
+    test_file = tmp_path / "test_natural_imports.py"
+    test_file.write_text(
+        "from divineos.core import ship_claim\n"
+        "def test_natural():\n    assert ship_claim is not None\n"
+    )
+    r = sc.ship_claim(
+        "natural-import linkage works",
+        [str(test_file)],
+        ["divineos.core.ship_claim:ship_claim"],
+        actor="aether",
+        repo_root=tmp_path,
+    )
+    assert r.filed is True, (
+        f"Finding 59: from-parent-import syntax falsely rejected. "
+        f"Reason: {r.reason}"
+    )
+
+
+def test_finding_59_import_full_dotted_passes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`import x.y.z` form passes linkage."""
+    from divineos.core import ship_claim as sc
+
+    monkeypatch.setattr(sc, "_CLAIMS_FILE", tmp_path / "shipped_claims.json")
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='t'\n")
+
+    test_file = tmp_path / "test_dotted_import.py"
+    test_file.write_text(
+        "import divineos.core.ship_claim\n"
+        "def test_dotted():\n    assert True\n"
+    )
+    r = sc.ship_claim(
+        "dotted-import linkage works",
+        [str(test_file)],
+        ["divineos.core.ship_claim"],
+        actor="aether",
+        repo_root=tmp_path,
+    )
+    assert r.filed is True, f"Reason: {r.reason}"
+
+
+def test_finding_59_completely_unrelated_test_still_rejected(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The Finding 59 fix doesn't accidentally weaken Finding 49 — a
+    test importing nothing related to executes still fails linkage."""
+    from divineos.core import ship_claim as sc
+
+    monkeypatch.setattr(sc, "_CLAIMS_FILE", tmp_path / "shipped_claims.json")
+    (tmp_path / "pyproject.toml").write_text("[project]\nname='t'\n")
+
+    test_file = tmp_path / "test_truly_unrelated.py"
+    test_file.write_text(
+        "import json\n"
+        "def test_unrelated():\n    assert 1 + 1 == 2\n"
+    )
+    r = sc.ship_claim(
+        "fake claim about ship_claim",
+        [str(test_file)],
+        ["divineos.core.ship_claim:ship_claim"],
+        actor="aether",
+        repo_root=tmp_path,
+    )
+    assert r.filed is False
+    assert "linkage" in r.reason.lower()
+
+
+def test_finding_59_ast_extraction_helper_directly() -> None:
+    """Direct test of the AST helper covers all import forms."""
+    from divineos.core.ship_claim import _extract_test_imports
+
+    content = (
+        "import divineos.core.foo\n"
+        "from divineos.core import bar\n"
+        "from divineos.cli.baz import some_func\n"
+    )
+    imports = _extract_test_imports(content)
+    assert "divineos.core.foo" in imports
+    assert "divineos.core" in imports
+    assert "divineos.core.bar" in imports  # synthesized
+    assert "divineos.cli.baz" in imports
+    assert "divineos.cli.baz.some_func" in imports  # synthesized

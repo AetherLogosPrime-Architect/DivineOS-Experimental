@@ -51,6 +51,7 @@ from __future__ import annotations
 
 __guardrail_required__ = True
 
+import ast
 import json
 import subprocess
 import sys
@@ -186,6 +187,52 @@ def _persist(entry: dict[str, Any]) -> bool:
         return False
 
 
+def _extract_test_imports(content: str) -> set[str]:
+    """Return the set of module dotted-names imported by the test file.
+
+    Closes Aletheia Finding 59 (2026-05-15): the original substring-
+    match implementation of Finding 49 caught `import x.y.z` and
+    `from x.y.z import foo` but missed `from x.y import z` (where the
+    dotted form `x.y.z` never appears as a literal substring). The
+    AST-based extraction handles all three Python import forms.
+
+    For `from x.y import z`, the result includes both `x.y` (the
+    parent package) and `x.y.z` (the synthesized full path). This
+    matches what the test author plausibly considers "the import" —
+    a test of module x.y.z imported as `from x.y import z` should
+    pass linkage when executes = ["x.y.z:func"].
+    """
+    imports: set[str] = set()
+    try:
+        tree = ast.parse(content)
+    except SyntaxError:
+        return imports
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                imports.add(alias.name)
+                # Also add prefixes: `import a.b.c` covers `a.b` and `a` too.
+                parts = alias.name.split(".")
+                for i in range(1, len(parts)):
+                    imports.add(".".join(parts[: i]))
+        elif isinstance(node, ast.ImportFrom):
+            if node.module is None:
+                continue
+            base = node.module
+            imports.add(base)
+            # Also add prefixes
+            parts = base.split(".")
+            for i in range(1, len(parts)):
+                imports.add(".".join(parts[: i]))
+            # Synthesize full path for each imported name
+            for alias in node.names:
+                if alias.name == "*":
+                    continue
+                imports.add(f"{base}.{alias.name}")
+    return imports
+
+
 def _verify_test_executes_linkage(
     test_paths: list[str], executes: list[str], repo_root: Path
 ) -> tuple[bool, str]:
@@ -194,13 +241,19 @@ def _verify_test_executes_linkage(
     Closes Aletheia Finding 49 (2026-05-15): ship_claim's test_paths and
     executes were structurally unrelated — a crafted passing test of
     module Y could file as the falsifier for a claim about module X.
-    Both checks passed independently; nothing verified the pairing made
-    sense.
 
-    Check: each test file must textually reference at least one of the
-    executes module paths. A test file that doesn't reference any
-    executes module isn't plausibly testing those modules; the linkage
-    is missing.
+    Closes Aletheia Finding 59 (2026-05-15, layer-5): the original
+    substring-match implementation missed `from <parent> import <module>`
+    syntax where the dotted name `parent.module` never appears as a
+    literal substring. Now uses AST-based import extraction.
+
+    Check: each test file must import a module that matches (or is a
+    parent of) at least one executes module. Tests are required to
+    actually import the production code, not just textually reference
+    its dotted name.
+
+    Falls back to substring-match for files that don't parse as valid
+    Python (rare, but possible for synthetic test fixtures).
     """
     if not test_paths or not executes:
         return True, ""
@@ -219,8 +272,21 @@ def _verify_test_executes_linkage(
         except OSError:
             continue
 
-        # Test file must reference at least one executes module.
-        if not any(mod in content for mod in executes_modules):
+        # AST-based linkage check: test must import one of the executes
+        # modules (or a parent package thereof).
+        test_imports = _extract_test_imports(content)
+        linkage_via_import = any(
+            mod in test_imports or any(mod.startswith(imp + ".") for imp in test_imports)
+            for mod in executes_modules
+        )
+
+        # Fall back to substring-match for non-parseable files OR for
+        # cases where the executes module appears as a string literal
+        # (e.g., a test that exercises a CLI that passes the module
+        # name as an argument).
+        linkage_via_substring = any(mod in content for mod in executes_modules)
+
+        if not (linkage_via_import or linkage_via_substring):
             return False, (
                 f"test_paths/executes linkage failed: {tp} does not "
                 f"reference any of the executes modules "
