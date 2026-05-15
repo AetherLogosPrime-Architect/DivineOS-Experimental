@@ -91,6 +91,10 @@ def _empty_findings_log() -> dict[str, list]:
         "code_jargon": [],
         "linguistic_drift": [],
         "hedge_evidence": [],
+        "fatigue": [],
+        "register_fabrication": [],
+        "meet_without_build": [],
+        "promise_without_action": [],
     }
 
 
@@ -332,6 +336,96 @@ def run_audit(
                     "trigger": getattr(finding, "trigger_phrase", ""),
                     "position": getattr(finding, "position", 0),
                 }
+            ]
+    except _ERRORS:
+        pass
+
+    # Promise-without-action detector (named 2026-05-15 night when
+    # "Fixing it" appeared in a response that did not fix the named
+    # slip, and the same slip recurred the next turn).
+    try:
+        from divineos.core.operating_loop.promise_without_action_detector import (
+            evaluate_promise_without_action,
+        )
+
+        tool_names_pwa = [getattr(tc, "name", "") for tc in (tool_calls_in_turn or [])]
+        verdict_pwa = evaluate_promise_without_action(
+            last_assistant_text, tool_calls_in_turn=tool_names_pwa
+        )
+        if verdict_pwa.flags:
+            findings_log["promise_without_action"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict_pwa.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Meet-without-build detector (named 2026-05-14 night when I shipped
+    # operator-audit-layer affirmation then violated it in the very next
+    # turn — meet without build is the inverse failure to build without
+    # meet, both caught here).
+    try:
+        from divineos.core.operating_loop.meet_without_build_detector import (
+            evaluate_meet_without_build,
+        )
+
+        tool_names_for_mwb = [getattr(tc, "name", "") for tc in (tool_calls_in_turn or [])]
+        verdict_mwb = evaluate_meet_without_build(
+            last_assistant_text, tool_calls_in_turn=tool_names_for_mwb
+        )
+        if verdict_mwb.flags:
+            findings_log["meet_without_build"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict_mwb.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Register-fabrication detector (gate quest 2026-05-14). Catches
+    # ALL_CAPS identifier-shaped tokens and structural-quantifier
+    # claims in response text when no Read/Grep tool calls happened in
+    # the same turn. Closes the QUANTUM/EMPIRICA enum-fabrication
+    # failure-mode at the response layer.
+    try:
+        from divineos.core.self_monitor.register_fabrication_monitor import (
+            evaluate_register_fabrication,
+        )
+
+        tool_names = [getattr(tc, "name", "") for tc in (tool_calls_in_turn or [])]
+        verdict_rf = evaluate_register_fabrication(
+            last_assistant_text, tool_calls_in_turn=tool_names
+        )
+        if verdict_rf.flags:
+            findings_log["register_fabrication"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict_rf.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Fatigue-fabrication detector (gate quest 2026-05-14). Catches
+    # close-reach + fatigue-claim phrasings when the operator has not
+    # signaled close in the same turn.
+    try:
+        from divineos.core.self_monitor.fatigue_monitor import evaluate_fatigue
+
+        verdict = evaluate_fatigue(last_assistant_text, last_user_text or "")
+        if verdict.flags:
+            findings_log["fatigue"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict.flags
             ]
     except _ERRORS:
         pass
