@@ -214,6 +214,17 @@ src/divineos/core/operating_loop/operator_audit_layer_detector.py
 # list of phrases, or drop the wire-in.
 src/divineos/core/operating_loop/meet_without_build_detector.py
 
+# Added 2026-05-15 (operator named puppetry + mirroring as the next
+# layer-5 instances): the lepos discipline got Goodharted into a
+# closing-tag formula (puppetry_detector) and the meet-the-layer
+# affirmation got Goodharted into n-gram echo (mirroring_detector).
+# Both detectors fire when patterns appear without authorized context.
+# Self-modification attack: silently expand authorized_context default
+# to True, weaken the regex/threshold, or remove the wire-in from
+# operating_loop_audit.
+src/divineos/core/operating_loop/puppetry_detector.py
+src/divineos/core/operating_loop/mirroring_detector.py
+
 # Added 2026-05-15 (operator named the words-without-action pattern
 # after consecutive distancing-grammar slips where 'Fixing it'
 # appeared in a response that did not fix the named slip):

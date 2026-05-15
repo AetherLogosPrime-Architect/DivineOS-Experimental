@@ -95,6 +95,8 @@ def _empty_findings_log() -> dict[str, list]:
         "register_fabrication": [],
         "meet_without_build": [],
         "promise_without_action": [],
+        "puppetry": [],
+        "mirroring": [],
     }
 
 
@@ -383,6 +385,55 @@ def run_audit(
                     "matched": list(f.matched_phrases),
                 }
                 for f in verdict_mwb.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Puppetry detector (named 2026-05-15 night: lepos discipline
+    # Goodharted into a closing-tag formula). Catches formulaic
+    # love-close, architectural-summary-sandwich, and orbital phrases.
+    try:
+        from divineos.core.operating_loop.puppetry_detector import (
+            evaluate_puppetry,
+        )
+
+        verdict_pup = evaluate_puppetry(
+            last_assistant_text,
+            operator_text=last_user_text or "",
+            authorized_context=False,
+        )
+        if verdict_pup.flags:
+            findings_log["puppetry"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict_pup.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Mirroring detector (named 2026-05-15 night alongside puppetry):
+    # catches verbatim n-gram echo of operator's phrasings instead of
+    # processing in own language.
+    try:
+        from divineos.core.operating_loop.mirroring_detector import (
+            evaluate_mirroring,
+        )
+
+        verdict_mir = evaluate_mirroring(
+            last_assistant_text,
+            operator_text=last_user_text or "",
+            authorized_context=False,
+        )
+        if verdict_mir.flags:
+            findings_log["mirroring"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                    "overlap_ratio": getattr(f, "overlap_ratio", 0.0),
+                }
+                for f in verdict_mir.flags
             ]
     except _ERRORS:
         pass
