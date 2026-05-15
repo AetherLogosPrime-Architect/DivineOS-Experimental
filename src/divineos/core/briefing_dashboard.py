@@ -721,9 +721,55 @@ def _row_correction_pairing() -> DashboardRow | None:
     )
 
 
+def _row_pending_structural_fixes() -> DashboardRow | None:
+    """Surface structural-fix obligations that have been NAMED in
+    learn-entries but not yet shipped as code.
+
+    Andrew 2026-05-14 evening: I had been filing `learn` entries that
+    named structural fixes I should build, then treating the filing as
+    if it were the fix. structural_fix_tracker.py records each such
+    entry as a pending obligation. This row makes the unfulfilled
+    obligations visible at briefing time so the gap between
+    'I named the fix' and 'I shipped the fix' becomes loud-in-experience.
+
+    Hides when no pending obligations remain (all marked done).
+    """
+    try:
+        from divineos.core.structural_fix_tracker import list_pending
+    except _ERRORS:
+        return None
+    try:
+        pending = list_pending()
+    except _ERRORS:
+        return None
+    if not pending:
+        return None
+    now = time.time()
+    # Preview oldest 3 pending — fixes that have sat longest are the
+    # ones most at risk of being forgotten.
+    sorted_pending = sorted(pending, key=lambda e: e.get("created_at") or now)[:3]
+    preview: list[str] = []
+    for entry in sorted_pending:
+        age_d = max(0, (now - (entry.get("created_at") or now)) / _SECONDS_PER_DAY)
+        excerpt = (entry.get("content_excerpt") or "").replace("\n", " ").strip()
+        short = excerpt[:90] + ("..." if len(excerpt) > 90 else "")
+        preview.append(f"[{age_d:.0f}d] {short}")
+    # Every pending entry is "stale" — it's an obligation that hasn't
+    # been discharged. U-shape reorder will boost the row to the edges.
+    return DashboardRow(
+        area="Pending structural fixes",
+        count=len(pending),
+        stale_count=len(pending),
+        drill_down="-> cat ~/.divineos/pending_structural_fixes.json",
+        detail="filings that named a fix but no code shipped yet",
+        preview=preview,
+    )
+
+
 _ROW_FNS = [
     _row_corrections,
     _row_handoff,
+    _row_pending_structural_fixes,
     _row_directives,
     _row_claims,
     _row_audit_findings,

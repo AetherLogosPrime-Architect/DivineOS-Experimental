@@ -140,6 +140,39 @@ def register(cli: click.Group) -> None:
                 )
         except _KC_ERRORS:
             pass  # observation-only; never blocks the learn
+
+        # Structural-fix-tracker (Andrew 2026-05-14 evening):
+        # learn-entries that NAME a structural fix the agent should build
+        # were being treated as if the filing itself were the fix. The
+        # structural fix is a code change; the learn entry is a record.
+        # The optimizer routed to `learn` as cheap-close, satisfying the
+        # conversational requirement without doing the engineering. This
+        # check writes a parallel pending entry to
+        # ~/.divineos/pending_structural_fixes.json when structural-fix-
+        # shape language is detected (e.g. "structural fix:", "should
+        # build", "to prevent recurrence"). The briefing dashboard
+        # surfaces unfulfilled pending entries so the named fix becomes
+        # a visible obligation, not a passive record. Marking done via
+        # core.structural_fix_tracker.mark_done(psf_id) when the code
+        # change ships. Fail-soft.
+        try:
+            from divineos.core.structural_fix_tracker import (
+                detect_structural_fix_shape,
+                record_pending_fix,
+            )
+
+            trigger = detect_structural_fix_shape(content)
+            if trigger:
+                psf_id = record_pending_fix(content, lesson_id=kid, trigger=trigger)
+                if psf_id:
+                    click.secho(
+                        f"    [!] structural-fix-shape detected ({trigger!r}); "
+                        f"pending obligation {psf_id} filed — surfaces in briefing "
+                        f"until marked done",
+                        fg="yellow",
+                    )
+        except _KC_ERRORS:
+            pass  # observation-only; never blocks the learn
         from divineos.cli._anti_substitution import emit_label
 
         emit_label("learn")
