@@ -97,18 +97,69 @@ def _save(entries: list[dict[str, Any]]) -> bool:
         return False
 
 
+# Self-actor names that cannot mark VERIFIED. The running agent IS
+# aether, so allowing aether-VERIFIED would be the self-audit-as-
+# external-validation hole Aletheia named (gap 2).
+_SELF_ACTOR_NAMES = frozenset({"aether", "aether-substrate", "aether-running"})
+
+
+def _validate_actor_for_status(actor: str, status: TriageStatus) -> tuple[bool, str]:
+    """Validate the actor can transition to this status.
+
+    Closes Aletheia Finding 50 + gap 2 (2026-05-15):
+    - actor is required (no entries without recorded filer)
+    - VERIFIED requires non-internal AND non-self actor
+    - SUSPECT and REMOVED accept any non-internal actor
+
+    Aether can mark SUSPECT or REMOVED on his own work. VERIFIED
+    requires external co-sign (aletheia, grok, user, council).
+    """
+    if not actor or not actor.strip():
+        return False, (
+            "actor parameter required — every triage entry must record "
+            "who filed it. Use --actor=<name> on the CLI."
+        )
+    try:
+        from divineos.core.watchmen.store import _validate_actor as _w_validate
+        _w_validate(actor)
+    except ValueError as e:
+        return False, str(e)
+    except Exception:
+        pass
+
+    if status == TriageStatus.VERIFIED:
+        normalized = actor.strip().lower()
+        if normalized in _SELF_ACTOR_NAMES:
+            return False, (
+                f"Actor '{actor}' cannot mark status=VERIFIED on its own "
+                f"work — self-audit-as-external-validation hole. VERIFIED "
+                f"requires external co-sign (aletheia, grok, user, "
+                f"council, etc.). Aether can mark SUSPECT or REMOVED."
+            )
+    return True, ""
+
+
 def add_entry(
     claim: str,
     status: TriageStatus,
+    actor: str = "",
     notes: str = "",
     test_path: str = "",
 ) -> dict[str, Any]:
-    """Append a triage entry. Returns the entry dict."""
+    """Append a triage entry. Returns the entry dict.
+
+    Raises ValueError on validation failure (empty claim, missing actor,
+    or actor not authorized for the requested status).
+    """
     if not claim.strip():
         raise ValueError("claim text required")
+    ok, why = _validate_actor_for_status(actor, status)
+    if not ok:
+        raise ValueError(why)
     entry: dict[str, Any] = {
         "claim": claim.strip(),
         "status": status.value if isinstance(status, TriageStatus) else str(status),
+        "actor": actor.strip(),  # Aletheia Finding 50
         "notes": notes.strip(),
         "test_path": test_path.strip(),
         "timestamp": time.time(),

@@ -24,16 +24,33 @@ def register(cli: click.Group) -> None:
     )
     @click.option("--notes", default="", help="Evidence / reasoning for the status.")
     @click.option("--test", "test_path", default="", help="Falsifier test path (VERIFIED only).")
-    def triage_add(claim: str, status: str, notes: str, test_path: str) -> None:
+    @click.option(
+        "--actor",
+        default="aether",
+        help=(
+            "Who is filing this triage entry (Aletheia Finding 50). "
+            "VERIFIED requires external actor (aletheia, grok, user, "
+            "council) — aether cannot self-mark VERIFIED on own work "
+            "(Aletheia gap 2)."
+        ),
+    )
+    def triage_add(
+        claim: str, status: str, notes: str, test_path: str, actor: str
+    ) -> None:
         """Record a claim's triage status."""
         from divineos.core.claim_triage import TriageStatus, add_entry
 
-        entry = add_entry(
-            claim=claim,
-            status=TriageStatus(status.upper()),
-            notes=notes,
-            test_path=test_path,
-        )
+        try:
+            entry = add_entry(
+                claim=claim,
+                status=TriageStatus(status.upper()),
+                actor=actor,
+                notes=notes,
+                test_path=test_path,
+            )
+        except ValueError as e:
+            click.secho(f"[!] Triage entry refused: {e}", fg="red")
+            raise SystemExit(1)
         click.secho(f"[+] Triage entry: {entry['status']} — {entry['claim'][:80]}", fg="cyan")
         _safe_echo(
             "  [triage] records a status — VERIFIED means the falsifier "

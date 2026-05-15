@@ -41,11 +41,22 @@ def register(cli: click.Group) -> None:
         default="",
         help="Optional shell command that must exit 0 for the claim to file.",
     )
+    @click.option(
+        "--actor",
+        default="aether",
+        help=(
+            "Who is filing this claim. Required for the audit trail "
+            "(Aletheia Finding 50). Defaults to 'aether' for self-"
+            "filings. External actors (aletheia, grok, user) pass "
+            "their own name."
+        ),
+    )
     def ship_claim_cmd(
         claim: str,
         test_paths: tuple[str, ...],
         executes: tuple[str, ...],
         cross_check: str,
+        actor: str,
     ) -> None:
         """File a 'shipped' claim, enforced by its falsifier.
 
@@ -62,6 +73,7 @@ def register(cli: click.Group) -> None:
             claim=claim,
             test_paths=list(test_paths),
             executes=list(executes),
+            actor=actor,
             cross_check=cross_check or None,
         )
         if result.filed:

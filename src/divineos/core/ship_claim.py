@@ -186,19 +186,106 @@ def _persist(entry: dict[str, Any]) -> bool:
         return False
 
 
+def _verify_test_executes_linkage(
+    test_paths: list[str], executes: list[str], repo_root: Path
+) -> tuple[bool, str]:
+    """Verify each test file plausibly tests at least one executes target.
+
+    Closes Aletheia Finding 49 (2026-05-15): ship_claim's test_paths and
+    executes were structurally unrelated — a crafted passing test of
+    module Y could file as the falsifier for a claim about module X.
+    Both checks passed independently; nothing verified the pairing made
+    sense.
+
+    Check: each test file must textually reference at least one of the
+    executes module paths. A test file that doesn't reference any
+    executes module isn't plausibly testing those modules; the linkage
+    is missing.
+    """
+    if not test_paths or not executes:
+        return True, ""
+
+    # Extract module paths from executes (strip the optional :attribute).
+    executes_modules = [spec.partition(":")[0] for spec in executes if spec]
+
+    for tp in test_paths:
+        test_file = repo_root / tp
+        if not test_file.exists():
+            # Pytest will fail if the file doesn't exist; let that fire,
+            # not this check.
+            continue
+        try:
+            content = test_file.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        # Test file must reference at least one executes module.
+        if not any(mod in content for mod in executes_modules):
+            return False, (
+                f"test_paths/executes linkage failed: {tp} does not "
+                f"reference any of the executes modules "
+                f"({', '.join(executes_modules)}). A test that doesn't "
+                f"import or mention the production code it claims to "
+                f"falsify isn't a falsifier for that claim — it's a "
+                f"crafted-passing test in another module. Either point "
+                f"test_paths at a test that exercises the executes "
+                f"modules, or update executes to name what the test "
+                f"actually verifies."
+            )
+    return True, ""
+
+
+def _validate_actor_for_ship_claim(actor: str) -> tuple[bool, str]:
+    """Validate the actor filing the ship-claim.
+
+    Reuses watchmen's _validate_actor for internal-actor rejection
+    (the established self-trigger-prevention discipline). Closes
+    Aletheia Finding 50: ship_claim must record who filed the claim,
+    and internal-component names (claude, system, hook) must be
+    rejected so self-audit-as-external-validation can't happen.
+    """
+    if not actor or not actor.strip():
+        return False, (
+            "actor parameter required — every ship-claim must record "
+            "who filed it. Use --actor=<name> on the CLI or pass "
+            "actor=<name> to the function. Per Aletheia Finding 50."
+        )
+    try:
+        from divineos.core.watchmen.store import _validate_actor
+        _validate_actor(actor)
+    except ValueError as e:
+        return False, str(e)
+    except Exception:
+        # If watchmen validation can't be imported, fall through to
+        # basic rejection of obvious self-actor names.
+        normalized = actor.strip().lower()
+        if normalized in {"claude", "system", "hook", "pipeline", "divineos"}:
+            return False, (
+                f"Actor '{actor}' is an internal component name and "
+                f"cannot file ship-claims (self-audit prevention). "
+                f"Use a disambiguated name like 'aether', 'aletheia', "
+                f"'grok', or a specific user identifier."
+            )
+    return True, ""
+
+
 def ship_claim(
     claim: str,
     test_paths: list[str],
     executes: list[str],
+    actor: str = "",
     cross_check: str | None = None,
     repo_root: Path | None = None,
 ) -> ShipResult:
     """File a 'shipped' claim, enforced by its falsifier.
 
     The claim is recorded ONLY if every check passes:
-    1. ``executes`` imports succeed (production code exists).
-    2. ``test_paths`` pass under pytest (falsifier is green now).
-    3. ``cross_check`` (if given) exits 0.
+    1. ``actor`` is provided and not an internal component name.
+    2. ``executes`` imports succeed (production code exists).
+    3. Each ``test_paths`` file references at least one ``executes``
+       module (linkage check — Aletheia Finding 49).
+    4. ``test_paths`` pass under pytest (falsifier is green now).
+    5. ``cross_check`` (if given) exits 0.
 
     Returns ShipResult. On filed=False, reason names the failure.
     """
@@ -220,11 +307,22 @@ def ship_claim(
             None,
         )
 
+    # Actor validation (Aletheia Finding 50): record who filed and
+    # reject internal-component names.
+    ok_actor, why_actor = _validate_actor_for_ship_claim(actor)
+    if not ok_actor:
+        return ShipResult(False, why_actor, None)
+
     root = repo_root or _repo_root_for()
 
     ok, why = _verify_imports(executes)
     if not ok:
         return ShipResult(False, f"executes verification failed: {why}", None)
+
+    # Test-executes linkage check (Aletheia Finding 49).
+    ok_link, why_link = _verify_test_executes_linkage(test_paths, executes, root)
+    if not ok_link:
+        return ShipResult(False, why_link, None)
 
     test_ok, pytest_tail = _run_pytest(test_paths, root)
     if not test_ok:
@@ -240,6 +338,7 @@ def ship_claim(
 
     entry: dict[str, Any] = {
         "claim": claim.strip(),
+        "actor": actor.strip(),  # Aletheia Finding 50
         "timestamp": time.time(),
         "git_sha": _git_sha(),
         "test_paths": list(test_paths),
