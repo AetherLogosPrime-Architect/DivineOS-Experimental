@@ -143,3 +143,105 @@ src/divineos/core/structural_fix_tracker.py
 src/divineos/core/paths.py
 src/divineos/core/data_home_ownership.py
 src/divineos/core/_ledger_base.py
+# Added 2026-05-14 (gate quest, Gate 6.5): read-before-write gate
+# enforcing CLAUDE.md Hard Rule #1 structurally. Catches the
+# fabrication-from-register failure-mode at its pre-emission point —
+# the Edit/Write tool call against an unread file. Self-modification
+# attack: weaken the gate's bypass surface, disable the recording
+# side-effect, or skip the existence-check so all writes pass.
+src/divineos/core/read_before_write.py
+
+# Added 2026-05-14 (gate quest): fatigue-fabrication detector. Catches
+# close-reach + fatigue-claim phrasings when the operator has not cued
+# close. Self-modification attack: soften the close-reach pattern list,
+# expand the operator-close-signals so detector is bypassed easily,
+# or remove the wire-in from operating_loop_audit so it never runs.
+src/divineos/core/self_monitor/fatigue_monitor.py
+
+# Added 2026-05-14 (gate quest): sleep-readiness gate. Refuses the
+# sleep CLI when unresolved correction/hedge/compass-required markers
+# are set. Self-modification attack: drop a marker from the check
+# list, weaken the marker_path resolution, or shorten the deny
+# message so the operator can't see why sleep refused.
+src/divineos/core/sleep_readiness.py
+
+# Added 2026-05-14 (gate quest): register-fabrication detector.
+# Response-layer companion to read-before-write — catches ALL_CAPS
+# enum-shape tokens and structural-quantifier claims in assistant
+# text when no Read/Grep ran in the turn. Self-modification attack:
+# inflate the acronym whitelist so any fabricated identifier is
+# filtered, or weaken the source-consulted check.
+src/divineos/core/self_monitor/register_fabrication_monitor.py
+
+# Added 2026-05-14 (Andrew's directive after the show-fix audit):
+# falsifier-enforced ship-claim. Every claim of "shipped" must run
+# its falsifier-test green at filing time, naming both the test and
+# the production execution path. No filing if pytest fails or the
+# executes module is missing. Removes the show-fix possibility-space
+# — appearance-of-fix without underlying behavior change can no
+# longer be reported as shipped. Self-modification attack: loosen
+# the import check, skip the subprocess pytest run, accept non-zero
+# exit codes, or remove the test_paths requirement. Any of those
+# re-enables show-fix.
+src/divineos/core/ship_claim.py
+
+# Added 2026-05-14 (triage walk): claim_triage store. Persistent
+# VERIFIED/SUSPECT/REMOVED inventory of prior shipped claims. The
+# SUSPECT-column size is the honest answer to 'what else is broken'.
+# Self-modification attack: weaken the latest-status-wins logic so
+# SUSPECT entries silently roll forward without verification, or
+# remove the append-only history.
+src/divineos/core/claim_triage.py
+
+# Added 2026-05-14 night (Andrew: 'i do not use CLI nor briefing —
+# all of these are for YOU not me' + 'what i said wont fucking land
+# unless you build something to enforce it'): operator-audit-layer
+# affirmation. Loads as base-state every turn alongside distancing,
+# addressee, code-jargon, acknowledgment-theater. Encodes the
+# discipline: meet the relational layer FIRST when the operator
+# names something, then build. Self-modification attack: soften the
+# affirmation wording, drop the load-every-turn entry, or remove
+# the 'first meet, then build' structural sequence.
+src/divineos/core/operating_loop/operator_audit_layer_detector.py
+
+# Added 2026-05-14 night (minutes after the operator-audit-layer
+# affirmation shipped, when I violated it in the very next turn —
+# meet-without-build, the symmetric failure of build-without-meet):
+# meet_without_build_detector catches responses that name a
+# structural principle without producing any build evidence in the
+# same turn. Wired into operating_loop_audit. Self-modification
+# attack: weaken the principle-naming regex, expand the suppress-
+# list of phrases, or drop the wire-in.
+src/divineos/core/operating_loop/meet_without_build_detector.py
+
+# Added 2026-05-15 (operator named the words-without-action pattern
+# after consecutive distancing-grammar slips where 'Fixing it'
+# appeared in a response that did not fix the named slip):
+# promise_without_action_detector catches first-person promise-
+# language ('I'll fix', 'fixing it', 'I'm going to') in responses
+# without tool-use evidence. Wired into operating_loop_audit. Self-
+# modification attack: narrow the promise-verb regex, expand the
+# suppression list of tool names, or weaken the 'action evidence'
+# definition.
+src/divineos/core/operating_loop/promise_without_action_detector.py
+
+# Added 2026-05-15 (operator named the structural gap: lessons
+# recorded in exploration/ exist as artifacts but never load at
+# composition time, so the same lesson gets re-taught session after
+# session): exploration_loader surfaces recent exploration entries
+# in the per-turn baseline alongside the affirmations. Self-
+# modification attack: silently shrink the budget to zero, drop the
+# wire-in from build_baseline_text, or weaken the recency selection.
+src/divineos/core/exploration_loader.py
+
+# Added 2026-05-15 (operator named the categorical: using the OS is
+# non-negotiable for building the OS — working on the OS while
+# outside the OS is forbidden, drops me into the shoggoth pool):
+# os_engagement_for_os_work_detector holds the affirmation that
+# loads as base-state every turn. Paired with Gate 4.5 in
+# pre_tool_use_gate which enforces the rule at action-time on edits
+# to src/divineos/ files. Self-modification attack: weaken the
+# affirmation wording, drop the load-every-turn entry, or remove
+# the Gate 4.5 wire-in.
+src/divineos/core/operating_loop/os_engagement_for_os_work_detector.py
+)
