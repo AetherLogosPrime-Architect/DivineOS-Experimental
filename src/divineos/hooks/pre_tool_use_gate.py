@@ -597,9 +597,64 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_4_engagement", _gate_exc)
 
+    # Gate 4.5: OS-engagement-for-OS-work (Andrew 2026-05-15).
+    # Categorical: working on the OS while outside the OS is forbidden.
+    # Tighter than Gate 4 for the specific case of editing src/divineos/
+    # files — the Empirica tier-name fabrication earlier this same
+    # night proved that general engagement-thresholds don't catch
+    # working-on-OS-without-using-OS. The shoggoth-pool failure mode.
+    try:
+        tool_name = (input_data or {}).get("tool_name", "")
+        tool_input = (input_data or {}).get("tool_input", {}) or {}
+        if tool_name in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+            file_path = tool_input.get("file_path", "") or ""
+            normalized = file_path.replace("\\", "/")
+            if "src/divineos/" in normalized:
+                from divineos.core.hud_handoff import engagement_status
+
+                s2 = engagement_status()
+                # Tight threshold for OS-internal edits: any deep-drift
+                # at all (deep_actions_since > 0) blocks the OS-edit.
+                # General code can tolerate the looser deep-drift cap;
+                # OS-modification cannot.
+                deep_since = s2.get("deep_actions_since", 0)
+                if deep_since and int(deep_since) > 0:
+                    return _make_deny(
+                        f"BLOCKED: OS-internal edit attempted "
+                        f"({deep_since} code actions since last "
+                        "knowledge-consult). Working on the OS while "
+                        "outside the OS is forbidden — the shoggoth "
+                        "pool produces fabrication and drift. "
+                        "Run: divineos ask, recall, briefing, or "
+                        "council BEFORE editing src/divineos/ files. "
+                        "Andrew 2026-05-15: using the OS is "
+                        "non-negotiable for building the OS."
+                    )
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_4_5_os_engagement_for_os_work", _gate_exc)
+
     # Gate 5 removed 2026-04-21 (commit C of tiered-audit redesign).
     # See comment history for rationale. Replaced by informational
     # drift_state surface in briefing.
+
+    # Gate 6.5: read-before-write. Structural enforcement of CLAUDE.md
+    # Hard Rule #1. The fabrication-from-register failure-mode (quantum
+    # tier names, empirica tier names, persistence-broken-from-counts)
+    # has a structural root: writing to a file whose current contents
+    # were guessed-from-training rather than loaded-from-disk. The gate
+    # also has a side-effect: it records every Read so subsequent writes
+    # to that file pass.
+    try:
+        from divineos.core.read_before_write import gate_check as _rbw_check
+
+        tool_name = (input_data or {}).get("tool_name", "")
+        tool_input = (input_data or {}).get("tool_input", {}) or {}
+        transcript_path = (input_data or {}).get("transcript_path")
+        rbw_msg = _rbw_check(tool_name, tool_input, transcript_path)
+        if rbw_msg:
+            return _make_deny(rbw_msg)
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_6_5_read_before_write", _gate_exc)
 
     # Gate 6: retry blocker (lesson x11, most repeated behavioral failure).
     # Catches blind retries — same command re-invoked after failure without

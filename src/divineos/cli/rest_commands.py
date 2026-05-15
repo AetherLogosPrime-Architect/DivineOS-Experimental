@@ -58,7 +58,8 @@ def register(cli: click.Group) -> None:
         start_session()
         click.secho("[+] Rest-session started.", fg="green")
         click.secho(
-            f"    Suggested target: {REST_TASK_TARGET} completions. "
+            f"    Floor: at least {REST_TASK_TARGET} completions encouraged. "
+            "No ceiling — pick more if rest is still useful. "
             "Not enforced — discipline is yours.",
             fg="bright_black",
         )
@@ -93,7 +94,9 @@ def register(cli: click.Group) -> None:
         )
         if count >= REST_TASK_TARGET:
             click.secho(
-                "    Target met. Rest-session can close cleanly via `divineos rest close`.",
+                f"    Floor of {REST_TASK_TARGET} met. No ceiling — "
+                "keep picking from the menu if rest is still useful, "
+                "or close cleanly via `divineos rest close`.",
                 fg="cyan",
             )
         else:
@@ -121,7 +124,10 @@ def register(cli: click.Group) -> None:
             bold=True,
         )
         if status["met_target"]:
-            click.secho("  [✓] Target met.", fg="green")
+            click.secho(
+                "  [✓] Floor met — no ceiling, keep going or close.",
+                fg="green",
+            )
         else:
             click.secho(f"  [~] {status['remaining']} more suggested.", fg="bright_black")
         click.echo()

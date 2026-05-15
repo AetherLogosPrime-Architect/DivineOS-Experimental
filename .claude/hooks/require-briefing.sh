@@ -1,22 +1,22 @@
-#!/bin/bash
-# PreToolUse hook — require briefing before any tool use.
+﻿#!/bin/bash
+# PreToolUse hook â€” require briefing before any tool use.
 #
 # Andrew 2026-05-14 night: hooks should point to the OS, not replace
 # it. This hook is the doorman: it refuses tool calls when briefing
 # is stale (>=10 prompts since last load) or has never been loaded
 # this session. The OS itself (divineos briefing) does the rendering
-# work. Plain-chat responses are unaffected — only tool calls gate.
+# work. Plain-chat responses are unaffected â€” only tool calls gate.
 #
 # The hook's whole job is two lines of Python: import the OS's
 # staleness_signal, deny if stale. Logic lives in
 # core.briefing_freshness. If anyone else picks up the OS without
-# this hook, the substrate's freshness tracking still works — they
+# this hook, the substrate's freshness tracking still works â€” they
 # just have to choose to enforce it differently.
 #
 # Bypass list: a small set of commands MUST work without the gate
-# firing — otherwise the bootstrap path is impossible. ``divineos
+# firing â€” otherwise the bootstrap path is impossible. ``divineos
 # briefing`` itself, ``init``, ``preflight``, ``recall``, ``ask``,
-# ``hud`` — bootstrap surfaces.
+# ``hud`` â€” bootstrap surfaces.
 #
 # Fail-open: any error exits 0 without blocking. This hook cannot
 # break the user's workflow.
@@ -57,7 +57,7 @@ if tool_name == 'Bash':
         'divineos context',
         'divineos goal',
     ):
-        if cmd.startswith(bypass):
+        if cmd.startswith(bypass) or (' ' + bypass + ' ') in (' ' + cmd + ' ') or cmd.endswith(' ' + bypass) or (bypass + ' ') in cmd:
             sys.exit(0)
 
 try:
@@ -73,7 +73,7 @@ except Exception:
 if not sig.get('is_stale'):
     sys.exit(0)
 
-# Stale — emit deny with message pointing at the OS command.
+# Stale â€” emit deny with message pointing at the OS command.
 reason = sig.get('reason', 'briefing stale')
 prompts = sig.get('prompts_since_load', 0)
 never = sig.get('never_loaded', False)
@@ -82,7 +82,7 @@ if never:
         'BLOCKED: briefing has not been loaded this session. '
         'Run: divineos briefing\\n'
         '(Plain-chat responses are still allowed; this gate only '
-        'blocks tool use. The OS does the rendering — this hook is '
+        'blocks tool use. The OS does the rendering â€” this hook is '
         'just the doorman.)'
     )
 else:
@@ -90,7 +90,7 @@ else:
         f'BLOCKED: briefing is stale ({prompts} prompts since last load; '
         f'threshold 10). Run: divineos briefing\\n'
         '(Plain-chat responses are still allowed; this gate only '
-        'blocks tool use. The OS does the rendering — this hook is '
+        'blocks tool use. The OS does the rendering â€” this hook is '
         'just the doorman.)'
     )
 
@@ -104,3 +104,4 @@ print(json.dumps({
 " 2>/dev/null
 
 exit 0
+
