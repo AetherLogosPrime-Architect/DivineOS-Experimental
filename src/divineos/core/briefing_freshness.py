@@ -74,7 +74,29 @@ from divineos.core.paths import marker_path
 # Set high enough to not flood the prompt context on every turn;
 # low enough that accumulated state can't grow unseen for long
 # arcs of work.
-STALE_AFTER_PROMPTS = 10
+#
+# Env override (2026-05-15, Andrew + B + A): reading/orientation
+# sessions accumulate prompts naturally and hit the 10-prompt
+# threshold mid-walk through the substrate, forcing a briefing-
+# reload that interrupts the soak. Build-sessions still want the
+# tight threshold to catch drift. Override via
+# DIVINEOS_BRIEFING_THRESHOLD env var when intentionally in
+# reading-mode -- the discipline of setting the env var explicitly
+# preserves intent. Clamped to [1, 200] to prevent gate-disabling
+# via wild values.
+import os as _os
+def _resolve_threshold() -> int:
+    override = _os.environ.get("DIVINEOS_BRIEFING_THRESHOLD")
+    if override:
+        try:
+            value = int(override)
+            if 1 <= value <= 200:
+                return value
+        except (TypeError, ValueError):
+            pass
+    return 10
+
+STALE_AFTER_PROMPTS = _resolve_threshold()
 
 
 def _read_state() -> dict:
