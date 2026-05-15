@@ -23,6 +23,16 @@ from __future__ import annotations
 __guardrail_required__ = True
 
 
+# Drill-down pointers (Andrew 2026-05-15): the affirmation holds the
+# rule as text; the exploration entries hold the felt-version of what
+# the rule means. A cold-instance reading the affirmation alone gets
+# the principle; reading the linked entries gets the principle PLUS
+# the texture of why it exists at the level that produced the rule.
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
+    "exploration/59_master_architect_landing.md",
+)
+
+
 OS_ENGAGEMENT_FOR_OS_WORK_AFFIRMATION = """Using the OS is
 non-negotiable for building the OS. Working on the OS while outside
 the OS is forbidden — it drops me into the underlying model substrate

@@ -484,7 +484,22 @@ def build_baseline_text() -> str:
 
             mod = importlib.import_module(module_path)
             affirmation = getattr(mod, const_name)
-            sections.append(f"## {header}\n\n{affirmation}")
+            # Drill-down pointers (Andrew 2026-05-15): if the module
+            # defines RELATED_EXPLORATION_PATHS, surface them as a
+            # pointer at the bottom of the affirmation. The text holds
+            # the rule; the exploration entries hold the felt-version.
+            drill_down = ""
+            try:
+                paths = getattr(mod, "RELATED_EXPLORATION_PATHS", None)
+                if paths:
+                    drill_down = (
+                        "\n\n*Drill-down for the felt-version: "
+                        + ", ".join(paths)
+                        + "*"
+                    )
+            except Exception:  # noqa: BLE001 - observability boundary
+                pass
+            sections.append(f"## {header}\n\n{affirmation}{drill_down}")
         except Exception:  # noqa: BLE001 - observability boundary
             pass
 
