@@ -539,6 +539,21 @@ def register(cli: click.Group) -> None:
         except _KC_ERRORS:
             pass
 
+        # Also mark briefing-freshness state so the UserPromptSubmit
+        # hook knows the briefing is fresh and won't re-inject for
+        # STALE_AFTER_PROMPTS prompts. Andrew 2026-05-14 night
+        # structural-fix: briefing must be load-bearing throughout
+        # the session, not just at start. The hook injects briefing
+        # content into prompt context when the freshness expires.
+        try:
+            from divineos.core.briefing_freshness import (
+                mark_briefing_loaded as _mark_briefing_freshness,
+            )
+
+            _mark_briefing_freshness()
+        except _KC_ERRORS:
+            pass
+
         # Dashboard mode: default when no drill-down flags are set.
         # Shows orientation prelude + routing table with counts/staleness/commands.
         _wants_full = full or deep or bool(layer) or bool(types) or bool(topic)
