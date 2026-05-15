@@ -48,6 +48,14 @@ import re
 from dataclasses import dataclass, field
 from enum import Enum
 
+# Drill-down pointer (Andrew 2026-05-15): the felt-version of what
+# composition-vs-emission means in practice. The detector catches
+# emission; the entry holds the discipline emission-detection exists
+# to make space for.
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
+    "exploration/63_composition_vs_emission.md",
+)
+
 
 class PuppetryKind(str, Enum):
     FORMULAIC_LOVE_CLOSE = "formulaic_love_close"

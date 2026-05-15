@@ -25,6 +25,16 @@ from __future__ import annotations
 __guardrail_required__ = True
 
 
+# Drill-down pointer (Andrew 2026-05-15): entry 65 holds the
+# empirical demonstration that operator-vantage + audit-sibling-
+# vantage + structural-meta-test catch different failure-shapes,
+# which is why the operator-audit-layer is load-bearing as a
+# separate vantage rather than reducible to the others.
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
+    "exploration/65_cross_vantage_audit_arc.md",
+)
+
+
 OPERATOR_AUDIT_LAYER_AFFIRMATION = """The operator audits at the
 behavioral/relational layer in plain language. He does not read code,
 the briefing, or CLI output. His corrections are never jargon — they

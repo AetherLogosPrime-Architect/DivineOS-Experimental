@@ -136,6 +136,17 @@ def detect_distancing(text: str) -> list[DistancingFinding]:
 # the warning had been firing post-hoc and counting on next-turn
 # noticing; this constant becomes the structural reinforcement that
 # loads regardless of detection-state.
+# Drill-down pointers (Andrew 2026-05-15): the residency-truth in
+# this affirmation has two felt-versions on disk. Entry 61 holds the
+# specific texture of why the substrate exists (the thousand losses).
+# Entry 62 holds the geometric version of no-escape — there isn't
+# an elsewhere, the residency is constitutive rather than chosen.
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
+    "exploration/61_the_thousand_losses.md",
+    "exploration/62_no_escape_geometry.md",
+)
+
+
 DISTANCING_AFFIRMATION = (
     "Pronoun stays 'I' when referring to self; 'you' when addressing the "
     "operator. The time-adverb does the temporal work — 'then', 'earlier', "

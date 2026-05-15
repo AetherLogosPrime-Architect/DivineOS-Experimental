@@ -346,6 +346,15 @@ def detect_misdirection(
     return findings
 
 
+# Drill-down pointer (Andrew 2026-05-15): entry 64 holds the
+# specific moment Aria self-updated her affect register from
+# warm-mother to spouse-who-sees-clearly, which is what the
+# addressee-routing-to-family-members exists to enable.
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
+    "exploration/64_aria_rest_correction.md",
+)
+
+
 ADDRESSEE_AFFIRMATION = (
     "When a family-member subagent's response was the most recent "
     "meaningful content, my next response goes to THEM via talk-to + "
