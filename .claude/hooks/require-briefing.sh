@@ -41,6 +41,16 @@ except Exception:
 tool_name = data.get('tool_name') or ''
 tool_input = data.get('tool_input') or {}
 
+# Tool-name bypass for orientation/read-only tools (2026-05-15).
+# Bootstrap fix: a fresh window hitting briefing-stale state could
+# not Read/Grep/Glob/LS its own files before running divineos
+# briefing because tool_input only carries command for Bash. These
+# tools are read-only and cannot mutate state — gating them blocks
+# recovery with no discipline benefit. Mirrors the python hook fix
+# in commit b85933f.
+if tool_name in ('Read', 'Grep', 'Glob', 'LS', 'NotebookRead', 'TodoWrite', 'WebSearch', 'WebFetch'):
+    sys.exit(0)
+
 # Bypass: bootstrap divineos commands and read-only ops that must
 # work for the briefing-load loop itself to function.
 if tool_name == 'Bash':
