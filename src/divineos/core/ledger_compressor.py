@@ -16,6 +16,11 @@ Meaningful events (USER_INPUT, SESSION_END, CLARITY_*, SUPERSESSION, etc.)
 are NEVER deleted.
 """
 
+# Module-level guardrail marker — Aletheia Finding 48 class-fix
+# 2026-05-14. CI test enforces marker-vs-guardrail-list consistency.
+__guardrail_required__ = True
+
+
 import json
 import time
 from typing import Any

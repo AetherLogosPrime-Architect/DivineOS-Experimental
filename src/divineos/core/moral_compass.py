@@ -40,6 +40,11 @@ Architecture: Aristotle's golden mean as continuous spectrums.
 Sanskrit anchor: dharma (right action aligned with nature and duty).
 """
 
+# Module-level guardrail marker — Aletheia Finding 48 class-fix
+# 2026-05-14. CI test enforces marker-vs-guardrail-list consistency.
+__guardrail_required__ = True
+
+
 import hashlib
 import json
 import sqlite3

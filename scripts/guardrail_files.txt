@@ -113,3 +113,24 @@ docs/foundational_truths.md
 # enforcement text + structure should not be modifiable without
 # external co-sign.
 src/divineos/hooks/pre_tool_use_gate.py
+
+# Added 2026-05-14 (Aletheia round Finding 48): the thin-doorman
+# refactor moved substantive enforcement logic out of guardrailed
+# .claude/hooks/*.sh wrappers into these OS-native Python modules.
+# The architectural move is sound (OS-portable, testable) but the
+# guardrail discipline did not follow the logic across the file
+# migration — same class-failure as Finding 41 but at broader scope.
+# Adversary modifying these modules could silently disable post-
+# response detection, suppress affirmations, neutralize hedge /
+# theater / acknowledgment-theater filtering, etc., without any
+# co-sign. The class-fix below (__guardrail_required__ marker + CI
+# test test_guardrail_marker_consistency) prevents the next refactor
+# from repeating this leak; these explicit entries close the
+# immediate gap.
+src/divineos/core/operating_loop_audit.py
+src/divineos/core/pre_response_context.py
+src/divineos/core/theater_audit.py
+src/divineos/core/hedge_audit.py
+src/divineos/core/session_start.py
+src/divineos/core/briefing_freshness.py
+src/divineos/core/structural_fix_tracker.py
