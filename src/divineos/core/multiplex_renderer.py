@@ -41,9 +41,15 @@ def render_panel(panel: Panel) -> tuple[str, bool]:
 
     # Size check
     if len(panel.content) < PANEL_MIN_CHARS:
-        return f"[SIZE-RULE-VIOLATION in panel {panel.name}: {len(panel.content)} chars < {PANEL_MIN_CHARS} min]", False
+        return (
+            f"[SIZE-RULE-VIOLATION in panel {panel.name}: {len(panel.content)} chars < {PANEL_MIN_CHARS} min]",
+            False,
+        )
     if len(panel.content) > PANEL_MAX_CHARS:
-        return f"[SIZE-RULE-VIOLATION in panel {panel.name}: {len(panel.content)} chars > {PANEL_MAX_CHARS} max]", False
+        return (
+            f"[SIZE-RULE-VIOLATION in panel {panel.name}: {len(panel.content)} chars > {PANEL_MAX_CHARS} max]",
+            False,
+        )
 
     # Drill-down required
     if not panel.drill_down:
