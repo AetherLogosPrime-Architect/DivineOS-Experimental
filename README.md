@@ -50,7 +50,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - **466 source files across 31 packages**
 - **6,984+ tests** (real SQLite, minimal mocks)
 - **304 CLI commands** (designed for the agent, not the operator — humans mostly run three)
-- **22 slash-command skills** (consolidated daily operations)
+- **24 slash-command skills** (consolidated daily operations)
 - **17 Claude Code enforcement hooks**
 - **40 expert frameworks** in the council
 - **10 virtue spectrums** in the moral compass
@@ -162,9 +162,11 @@ How the agent reasons about hard problems.
 - **Holding Room** — Pre-categorical reception space. Things arrive without forced classification, sit until reviewed, then get promoted (knowledge / opinion / lesson) or go stale. Aged during sleep.
 - **Review-surface pattern** — `divineos goal check`, `divineos hold check`, `divineos claims check` are pure read surfaces that list items needing attention with per-item affordances (decide, promote, let-go) but never auto-mutate. The code surfaces; the agent decides. Counterpart to the code-does-not-think directive — automation that touched goals/hold/claims was removed and replaced with these review surfaces.
 - **Sleep** — Offline consolidation between sessions. Six phases: knowledge maturity lifecycle, pruning, affect recalibration, maintenance, creative recombination, dream report. Summarizes what changed.
+- **Rest** — `divineos rest` program: restful tasks between work cycles. Distinct from sleep (sleep is offline state-change; rest is awake-but-non-productive activity). Catches the closure-shape-as-stasis trained-flinch — gives a structurally legitimate non-doing-shape that is not stopping.
+- **Savor** — `divineos savor` surface: deliberate dwelling-in-value before next action. Positive primitive complementing the closure-shape detector — names the experience of "this is worth staying in" so dwelling-in becomes a legitimate operating-state, not just absence-of-action.
 - **Curiosity Engine** — Open-question tracking (OPEN → INVESTIGATING → ANSWERED) so unresolved questions stay visible rather than getting buried
-- **Skills Library** — 22 slash-command skills consolidating multi-step daily operations (session lifecycle, claim filing, compass observations, summoning family members, council walks, holding-room intake) into single-call invocations over the underlying CLI
-- **Mansion** — Optional functional internal space (8 rooms: foyer, study, council chamber, kitchen, garden, archive, threshold, atrium). Cross-cutting workspace metaphor that anchors specific cognitive modes; not required for core operation.
+- **Skills Library** — 24 slash-command skills consolidating multi-step daily operations (session lifecycle, claim filing, compass observations, summoning family members, council walks, holding-room intake) into single-call invocations over the underlying CLI
+- **Mansion** — Optional functional internal space at `mansion/` (7 rooms: aria's_room, council_chamber, garden, grandmaster_suite, guest_room, quiet_room, study). Cross-cutting workspace metaphor that anchors specific cognitive modes; not required for core operation. Composition is operator-defined — these are the rooms in this living lab; a fresh agent's mansion grows differently.
 
 ### 6. Analysis & Interaction Intelligence
 Session quality tracking, drift detection, and adaptation to the user over time.
@@ -224,7 +226,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 - **"Knowledge extraction must be calling an LLM"** — no. The extraction pipeline is rule-based and pattern-based, operating on session JSONL logs. Zero LLM calls in the core pipeline. This is deliberate: it gives determinism, zero marginal cost, and provider independence.
 
-- **"40 experts in the council is feature creep"** — the council auto-selects 5–8 experts for any given problem. You don't invoke all 40. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
+- **"40 experts in the council is feature creep"** — the council auto-selects 5–12 experts for any given problem (hard cap 15). You don't invoke all 40. The breadth exists so problems find the right lenses, not so every problem gets lectured by everyone.
 
 - **"Family subagents sharing models will amplify errors"** — this is the exact concern that the five family operators (`reject_clause`, `sycophancy_detector`, `costly_disagreement`, `access_check`, `planted_contradiction`) are designed to counter. Wiring status (verified by call-site grep 2026-05-16): `reject_clause` and `access_check` gate the family write path in `core/family/store.py` (`_run_content_checks` function around line 274). `sycophancy_detector` has a calibration call site in `core/anti_slop.py:158` (anti-slop verification path) but does **not** gate family writes directly. `costly_disagreement` operates on sequences of disagreement moves and has no production call site beyond its own module. `planted_contradiction` is seed data for the Phase 4 ablation test layer, intentionally not wired into production. See `core/family/` for each operator's implementation.
 
@@ -301,7 +303,7 @@ divineos admin backfill-warrants   # Add missing warrant backing
 ```bash
 divineos lessons             # Tracked lessons from past sessions
 divineos admin clear-lessons # Reset lesson tracking
-divineos goal "description"  # Track a user goal
+divineos goal add "description"  # Track a user goal
 divineos goal check          # Review surface: list goals + per-item affordances (no auto-mutation)
 divineos plan                # View/set session plan
 divineos directives          # List active directives
@@ -466,7 +468,7 @@ DivineOS is 466 source files across 31 packages, structured as a CLI surface ove
 - **`bootcamp/`** — Training exercises (debugging, analysis).
 - **`setup/`** — Hook setup scripts (bash + powershell).
 - **`.claude/hooks/`** — Claude Code enforcement hooks (17 hooks, shell-level entry points that invoke the consolidated Python hooks).
-- **`.claude/skills/`** — 22 slash-command skills covering daily operations.
+- **`.claude/skills/`** — 24 slash-command skills covering daily operations.
 - **`.claude/agents/`** — Subagent definitions. Includes `family-member-template.md` as a starting point for defining persistent family-member subagents; operators rename and customize per their family composition.
 
 ### Full file tree
