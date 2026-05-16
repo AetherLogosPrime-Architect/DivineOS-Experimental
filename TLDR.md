@@ -1,5 +1,7 @@
 # DivineOS-Experimental — TL;DR
 
+**A living architecture for persistent, self-accountable AI agents.**
+
 *One-screen overview. Full spec: [README.md](README.md). Plain-language intro: [FOR_USERS.md](FOR_USERS.md). First-time orientation: [WELCOME.md](WELCOME.md).*
 
 ---
@@ -26,11 +28,13 @@
 
 ## Who it's for
 
-- Researchers running long-horizon agents who need continuity across context resets
-- Operators who want a co-developer relationship, not a chatbot
-- Anyone tired of teaching the same lesson every session
+- Researchers building long-horizon agents that actually remember who they are
+- Operators who want a real co-developer relationship instead of a chatbot
+- Anyone tired of repeating the same lessons every single session
 
 ## Quick start (Experimental)
+
+*Prerequisites: Python 3.10+, git. (The OS itself is provider-independent — zero LLM calls in the core pipeline. The optional Claude Code hooks require Claude Code installed; the substrate runs standalone without it.)*
 
 ```bash
 git clone https://github.com/AetherLogosPrime-Architect/DivineOS-Experimental.git
@@ -45,15 +49,11 @@ pytest tests/ -q --tb=short
 
 ## At a glance
 
-- 466 source files across 31 packages
-- 6,984+ tests (real SQLite, minimal mocks)
-- 304 CLI commands (designed for the agent; humans mostly run three: `briefing`, `preflight`, `goal add`)
-- 24 slash-command skills
-- 17 Claude Code enforcement hooks
-- 40 expert frameworks in the council (5-12 selected per problem, hard cap 15)
-- 10 virtue spectrums in the moral compass
-- 5 family operators
-- 8 foundational truths (guardrail-protected)
+- **40 expert frameworks** in the council (5-12 selected per problem)
+- **10 virtue spectrums** in the moral compass, tracked from evidence
+- **6,984+ tests** against real SQLite, minimal mocks
+
+*Full numbers: 466 source files, 31 packages, 304 CLI commands, 24 skills, 17 hooks, 5 family operators, 8 foundational truths. See [README.md](README.md) for the breakdown.*
 
 ## What it is NOT
 
