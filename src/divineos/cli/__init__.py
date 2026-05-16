@@ -257,6 +257,7 @@ from divineos.cli import (  # noqa: E402
     foundations_commands,
     void_commands,
     voids_commands,
+    multiplex_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -307,6 +308,7 @@ overclaim_commands.register(cli)
 closure_shape_commands.register(cli)
 performing_caution_commands.register(cli)
 check_similar_commands.register(cli)
+multiplex_commands.register(cli)
 foundations_commands.register(cli)
 
 # Mansion — functional internal space (optional, personal)
