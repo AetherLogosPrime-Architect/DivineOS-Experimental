@@ -89,11 +89,17 @@ if [ -n "$STAGED_PY" ]; then
     fi
 fi
 
-# 3. Mypy (src only)
+# 3. Mypy (whole src/divineos — matches CI exactly)
+# Andrew 2026-05-15: previous version ran mypy only on staged src files,
+# missing cross-file type errors that emerge from interactions between
+# changed and unchanged files. CI ran whole-src and caught those (4
+# errors landed and broke main this week). Local precommit now matches
+# CI exactly so anything passing here passes CI. Stderr kept visible so
+# the actual error messages reach the user instead of getting suppressed.
 STAGED_SRC=$(echo "$STAGED_PY" | grep '^src/' || true)
 if [ -n "$STAGED_SRC" ]; then
-    echo "=== Mypy ==="
-    if ! echo "$STAGED_SRC" | xargs mypy --ignore-missing-imports 2>/dev/null; then
+    echo "=== Mypy (whole src/divineos) ==="
+    if ! mypy src/divineos --ignore-missing-imports; then
         ERRORS=$((ERRORS + 1))
     fi
 fi
