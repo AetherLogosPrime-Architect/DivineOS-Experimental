@@ -39,15 +39,13 @@ def get_context() -> str:
     ctx = data.get("context", _DEFAULT_CONTEXT)
     if ctx not in KNOWN_CONTEXTS:
         return _DEFAULT_CONTEXT
-    return ctx
+    return str(ctx)
 
 
 def set_context(context: str) -> None:
     """Set current context. Raises ValueError if unknown."""
     if context not in KNOWN_CONTEXTS:
-        raise ValueError(
-            f"Unknown context: {context}. Known: {list(KNOWN_CONTEXTS)}"
-        )
+        raise ValueError(f"Unknown context: {context}. Known: {list(KNOWN_CONTEXTS)}")
     path = _state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(

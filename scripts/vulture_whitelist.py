@@ -12,3 +12,13 @@ Usage:  vulture src/divineos/ scripts/vulture_whitelist.py --min-confidence 70
 # some_function  # mark as used
 
 # Add false positives here as needed
+
+# Protocol __call__ signature parameters in operating_loop/detector_protocol.py.
+# Vulture flags Protocol method params as unused because Protocols have no body;
+# the names document the contract (primary/secondary args, enrichment kwargs).
+from divineos.core.operating_loop.detector_protocol import ContextualDetector, EnrichableDetector
+_ = ContextualDetector
+_ = EnrichableDetector
+primary  # detector_protocol.py Protocol __call__ param
+secondary  # detector_protocol.py Protocol __call__ param
+enrichment  # detector_protocol.py Protocol __call__ param

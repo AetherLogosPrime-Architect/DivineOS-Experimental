@@ -75,7 +75,7 @@ def check_voice(text: str) -> ViolationReport:
     # Rule 1: forbidden subject tokens
     for pattern in _FORBIDDEN_SUBJECTS:
         for match in pattern.finditer(text):
-            snippet = text[match.start():match.start() + 60]
+            snippet = text[match.start() : match.start() + 60]
             report.rule_1_violations.append(snippet)
 
     # Rule 2: label-colon-value pattern

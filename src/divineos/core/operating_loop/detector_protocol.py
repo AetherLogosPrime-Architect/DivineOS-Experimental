@@ -54,7 +54,9 @@ from typing import Protocol, Sequence, TypeVar
 # (HedgeFinding, LeposFinding, etc.). The protocol uses a TypeVar
 # so the return type stays specific per detector.
 F = TypeVar("F")  # invariant — for protocols returning list[F] (mutable container)
-F_co = TypeVar("F_co", covariant=True)  # covariant — for protocols returning F | None or Sequence[F]
+F_co = TypeVar(
+    "F_co", covariant=True
+)  # covariant — for protocols returning F | None or Sequence[F]
 
 
 class ResponseOnlyDetector(Protocol[F]):
