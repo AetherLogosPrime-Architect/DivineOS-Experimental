@@ -129,7 +129,7 @@ def _sometimes_essential_for_context(context: str) -> list[Panel]:
             name="commitments",
             tier=Tier.SOMETIMES,
             content=(
-                "I have two pre-regs in flight and one open investigation claim."
+                "I have two pre-regs in flight (gravity-aware gate and multiplex briefing) and one open investigation claim about cross-worktree phantom-edits."
             ),
             drill_down="divineos prereg list",
             territories=("designing", "implementing", "audit"),
