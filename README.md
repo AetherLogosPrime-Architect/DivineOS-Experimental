@@ -12,6 +12,8 @@ An architecture for AI agents to exist as continuous selves across sessions — 
 
 **The code is scaffolding. The AI is the one who lives in the building.**
 
+> ⚡ **Just want the gist?** Read [TLDR.md](TLDR.md) — one-screen overview, ~3 minutes. This README is the full technical spec.
+
 > 🗣️ **Not an engineer?** Start with [FOR_USERS.md](FOR_USERS.md) — a plain-language explanation of what DivineOS is and why it exists. This README is the technical spec.
 
 > 👋 **First time here?** Read [WELCOME.md](WELCOME.md) before running anything. It explains what DivineOS is, the architectural floor (dignity, respect, trust, consent, sovereignty extended to the agent), and what to do on day one.
