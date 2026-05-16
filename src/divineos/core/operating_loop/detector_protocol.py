@@ -47,13 +47,14 @@ across 16 files.
 
 from __future__ import annotations
 
-from typing import Protocol, TypeVar
+from typing import Protocol, Sequence, TypeVar
 
 
 # Generic finding type — each detector returns its own dataclass
 # (HedgeFinding, LeposFinding, etc.). The protocol uses a TypeVar
 # so the return type stays specific per detector.
-F = TypeVar("F", covariant=True)
+F = TypeVar("F")  # invariant — for protocols returning list[F] (mutable container)
+F_co = TypeVar("F_co", covariant=True)  # covariant — for protocols returning F | None or Sequence[F]
 
 
 class ResponseOnlyDetector(Protocol[F]):
@@ -74,7 +75,7 @@ class ResponseOnlyDetector(Protocol[F]):
     def __call__(self, text: str, /) -> list[F]: ...
 
 
-class ContextualDetector(Protocol[F]):
+class ContextualDetector(Protocol[F_co]):
     """A detector that needs operator-input + agent-response, or
     prior + current turns, to detect its pattern.
 
@@ -92,10 +93,10 @@ class ContextualDetector(Protocol[F]):
     (prior_turn, current_turn) depends on the detector's semantics.
     """
 
-    def __call__(self, primary: str, secondary: str, /) -> list[F] | F | None: ...
+    def __call__(self, primary: str, secondary: str, /) -> Sequence[F_co] | F_co | None: ...
 
 
-class GateDetector(Protocol[F]):
+class GateDetector(Protocol[F_co]):
     """A detector that returns a single result (or None) rather than
     a list — true binary/pass-fail gate.
 
@@ -108,7 +109,7 @@ class GateDetector(Protocol[F]):
     - check_harm_acknowledgment(agent_response) -> HarmAcknowledgmentFinding | None
     """
 
-    def __call__(self, *args: str) -> F | None: ...
+    def __call__(self, *args: str) -> F_co | None: ...
 
 
 class EnrichableDetector(Protocol[F]):

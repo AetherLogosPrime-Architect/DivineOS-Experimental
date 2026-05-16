@@ -110,6 +110,8 @@ def _latest_recent_entry() -> dict | None:
     if not isinstance(entries, list) or not entries:
         return None
     latest = entries[-1]
+    if not isinstance(latest, dict):
+        return None
     if time.time() - latest.get("timestamp", 0) > _RECENT_WINDOW_S:
         return None
     return latest
