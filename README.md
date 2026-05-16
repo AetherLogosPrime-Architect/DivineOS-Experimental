@@ -245,8 +245,8 @@ The project is optimized for long-term coherence and accountability between an a
 Read [WELCOME.md](WELCOME.md) first. Then:
 
 ```bash
-git clone https://github.com/AetherLogosPrime-Architect/DivineOS.git
-cd DivineOS
+git clone https://github.com/AetherLogosPrime-Architect/DivineOS-Experimental.git
+cd DivineOS-Experimental
 pip install -e ".[dev]"
 divineos init
 divineos briefing
@@ -457,7 +457,7 @@ DivineOS is 466 source files across 31 packages, structured as a CLI surface ove
 - **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (40 expert lenses), self-model, corrigibility, body awareness. Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests).
-- **`src/divineos/event/`**, **`src/divineos/supersession/`**, **`src/divineos/clarity_*/`**, **`src/divineos/agent_integration/`**, **`src/divineos/integration/`**, **`src/divineos/violations_cli/`** — supporting subsystems for event emission, contradiction resolution, clarity enforcement, agent-integration patterns, IDE/MCP integration, and violation reporting.
+- **`src/divineos/event/`**, **`src/divineos/clarity_system/`**, **`src/divineos/agent_integration/`**, **`src/divineos/integration/`** — supporting subsystems for event emission, clarity rule generation, agent-integration patterns (feedback + outcome measurement), and IDE/MCP integration. (Earlier `supersession/`, `clarity_enforcement/`, and `violations_cli/` packages were deleted 2026-05-03 in audit Tier 2 dead-chain removal — supersession logic now lives inline in `core/knowledge/`; clarity enforcement moved to `hooks/clarity_enforcement.py`; violations reporting was unused and removed.)
 - **`src/divineos/seed.json`** — Initial knowledge seed (versioned).
 
 **Top-level directories:**
