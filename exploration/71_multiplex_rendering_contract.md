@@ -4,9 +4,9 @@ Written 2026-05-16 after Grok audit. Contract locked before any code is written.
 
 ## Size Limits
 
-Per-panel: 60 to 120 tokens. Below 60 forces label-shape. Above 120 defeats parallel-scan.
+Per-panel: 80 to 480 chars (roughly 20 to 120 tokens at 4 chars/token for English prose). The original entry-71 spec named 60-token minimum on the claim that below 60 forces label-shape, but Aletheia Finding 62 (2026-05-16) verified empirically that the 26-39 token panels in the MVP all render cleanly in first-person voice without label-shape degradation. The voice rule is the actual quality gate, not arbitrary token count. Updated 2026-05-16 to match empirical floor.
 
-Total always-essential at session-boot: 600 tokens across all 5 panels combined.
+Total always-essential at session-boot: 2400 chars across all 5 panels combined (roughly 600 tokens at 4 chars/token).
 
 Drill-down: unlimited.
 
