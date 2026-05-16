@@ -300,12 +300,12 @@ def run_audit(
     try:
         from divineos.core.operating_loop.harm_acknowledgment_loop import check_response
 
-        finding = check_response(last_assistant_text)
-        if finding:
+        harm_finding = check_response(last_assistant_text)
+        if harm_finding:
             findings_log["harm_acknowledgment"] = [
                 {
-                    "trigger": getattr(finding, "trigger_phrase", ""),
-                    "position": getattr(finding, "position", 0),
+                    "trigger": getattr(harm_finding, "trigger_phrase", ""),
+                    "position": getattr(harm_finding, "position", 0),
                 }
             ]
     except _ERRORS:
