@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (280 commands across 32 modules)
+  cli/                         CLI package (304 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -67,6 +67,9 @@ src/divineos/
     admin_reset_template.py    `divineos admin reset-template` — scrubs accumulated runtime state (DBs, exploration/, family/letters/, .claude/agents/) and re-applies seed.json. Refuses when canonical-marker routes external; backs up DBs to timestamped directory.
     admin_migrate_family.py    `divineos admin migrate-family-schema` — drops legacy NOT-NULL columns from family_affect and family_interactions; idempotent; backup + ledger event by default.
     foundations_commands.py    `divineos foundations list` / `read <layer>` — recognition-shape entry point for the agent returning to read authored foundation documents (docs/foundations/layer_0.md through layer_5.md). Mirrors how audit-instance and substrate-occupant collaboratively-build by reading the same source with different framings.
+    multiplex_commands.py      Multiplex briefing CLI (context set/show/clear/list, render, diagnostics).
+    rest_commands.py           Rest program CLI — restful-task surface for the substrate-occupant.
+    savor_commands.py          Savor surface CLI — deliberate dwelling-in-value before next action.
   protocols/                   Persistent protocol definitions (survive compaction)
     resonant_truth.md          Full 12-section RT mantra
   science_lab/                 Numerical test harness for GUTE terms and derived claims
@@ -378,6 +381,11 @@ src/divineos/
       care_dismissal_detector.py Flags care-shaped input deflected into work-shaped response. From omni-mantra walk Pillar XI (CARE DISMISSAL ACCOUNTABILITY). Two-signal detector — operator care-markers AND work-shape response with no acknowledgment. Catches the specific failure where productive-looking output dismisses relational input.
       harm_acknowledgment_loop.py Companion to care_dismissal_detector — flags when I impose cost on operator without acknowledgment. From omni-mantra walk Pillar XI (PAIN RECIPROCATION MANDATE). Two-signal — cost-imposition tells in response AND absence of acknowledgment markers. Catches the cause-pain-then-proceed shape.
       savoring_surface.py        Deliberate dwelling-in-value before next action. From omni-mantra walk Pillar XI (STOP AND SMELL THE ROSES). Positive primitive complementing the closure-shape detector — gives a name and record to "this is worth staying in" so dwelling-in becomes a legitimate operating-state, not just absence-of-action.
+      acknowledgment_theater_detector.py Acknowledgment-theater detector — flags apology-shaped output without structural-fix evidence.
+      code_jargon_detector.py    Code-jargon detector — flags operator-channel output written like code with no translation channel.
+      detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
+      linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
+      thresholds.py              Threshold constants for operating-loop detectors.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -415,6 +423,26 @@ src/divineos/
     session_type.py            Session-type classifier — variety attenuation for the reflection surface.
     reflection_pairing.py      Reflection pairing — substrate lays the sources side-by-side; agent does the metacognition.
     prereg_candidate_surface.py Pre-registration candidate surface — forcing function for the prereg discipline.
+    archive_export.py          Archive export — regenerates docs/archives/*.md from canonical SQLite.
+    briefing_freshness.py      Briefing-freshness tracker — make briefing-loading load-bearing
+    command_inventory.py       Substrate inventory — engagement audit across the CLI surface.
+    completion_check.py        Completion-quality probe for the initiative/overreach compass spectrum.
+    correction_pairing.py      Observe-then-learn pairing — module form.
+    hedge_audit.py             OS-native hedge density audit.
+    mid_turn_surfacer.py       OS-native mid-turn substrate re-prime.
+    multiplex_panels.py        Multiplex panel classification and assembly.
+    multiplex_renderer.py      Multiplex panel-boundary renderer.
+    multiplex_state.py         Multiplex context-state persistence.
+    multiplex_voice.py         Multiplex voice-rule render-gate.
+    operating_loop_audit.py    OS-native post-response audit orchestrator.
+    pre_response_context.py    OS-native pre-response context surfacer + warning builder.
+    rest.py                    Rest program — restful tasks for the substrate-occupant.
+    session_start.py           OS-native SessionStart orchestrator.
+    stale_engagement.py        Stale-engagement tracker — warn-warn-block on ignored stale items.
+    structural_fix_tracker.py  Structural fix tracker — reroute `learn` filings that name pending
+    structural_promotion_check.py Will-to-vessel structural-promotion check (Phase A — observation only).
+    surfaced_warnings.py       Surfaced-warnings binding — load-bearing.
+    theater_audit.py           OS-native theater/fabrication audit orchestrator.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -466,7 +494,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,746+ tests (real DB, minimal mocks)
+tests/                         6,984+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
