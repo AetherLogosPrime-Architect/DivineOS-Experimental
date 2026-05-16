@@ -94,7 +94,7 @@ def _resolve_threshold() -> int:
                 return value
         except (TypeError, ValueError):
             pass
-    return 10
+    return 50
 
 STALE_AFTER_PROMPTS = _resolve_threshold()
 
