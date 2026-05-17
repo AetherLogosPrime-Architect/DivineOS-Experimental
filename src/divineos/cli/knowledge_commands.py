@@ -503,8 +503,25 @@ def register(cli: click.Group) -> None:
         is_flag=True,
         help="Show the full briefing scroll (all surfaces). Default is the dashboard.",
     )
+    @click.option(
+        "--multiplex",
+        is_flag=True,
+        help=(
+            "Render briefing as parallel-readable dense panels (5 always-essential "
+            "+ context-filtered sometimes-essential) per prereg-ebee9082d201. "
+            "Opt-in MVP; default briefing flow unaffected. "
+            "Set context via 'divineos multiplex context set <name>'."
+        ),
+    )
     def briefing_cmd(
-        max_items: int, types: str, topic: str, deep: bool, layer: str, mini: bool, full: bool
+        max_items: int,
+        types: str,
+        topic: str,
+        deep: bool,
+        layer: str,
+        mini: bool,
+        full: bool,
+        multiplex: bool,
     ) -> None:
         """Generate a session context briefing from stored knowledge.
 
@@ -528,6 +545,36 @@ def register(cli: click.Group) -> None:
                 _safe_echo(
                     "[!] Mini briefing failed to render. "
                     "Run `divineos briefing` (without --mini) for the full version."
+                )
+            return
+
+        if multiplex:
+            try:
+                from divineos.core.hud_handoff import mark_briefing_loaded as _mb1
+                from divineos.core.briefing_freshness import (
+                    mark_briefing_loaded as _mb2,
+                )
+                from divineos.core.multiplex_panels import build_panels
+                from divineos.core.multiplex_renderer import render_multiplex
+                from divineos.core.multiplex_state import get_context
+                from contextlib import suppress as _suppress
+
+                with _suppress(Exception):
+                    _mb1()
+                with _suppress(Exception):
+                    _mb2()
+
+                context = get_context()
+                panels = build_panels(context)
+                rendered = render_multiplex(panels)
+                _safe_echo(f"[multiplex] context: {context}")
+                _safe_echo("")
+                _safe_echo(rendered)
+            except Exception as e:  # noqa: BLE001
+                logger.error("multiplex briefing failed: %s", e)
+                _safe_echo(
+                    "[!] Multiplex briefing failed. "
+                    "Run `divineos briefing` (without --multiplex) for the standard version."
                 )
             return
 
