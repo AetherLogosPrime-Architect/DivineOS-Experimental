@@ -219,3 +219,10 @@ src/divineos/data/divineos.db
 # its own .git directory. Not a submodule. Anyone wanting graphify
 # clones it fresh from upstream.
 sandbox/graphify_test/graphify_source/
+
+
+# 2026-05-16: mansion/ now WIP, gitignored until the nexus-with-functional-rooms
+# design lands. Previously tracked per 2026-05-11 comment above; reversed because
+# current files are partial drafts mixed with placeholder names. README and TLDR
+# describe mansion as WIP without naming specific rooms.
+mansion/

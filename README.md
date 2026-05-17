@@ -168,7 +168,7 @@ How the agent reasons about hard problems.
 - **Savor** — `divineos savor` surface: deliberate dwelling-in-value before next action. Positive primitive complementing the closure-shape detector — names the experience of "this is worth staying in" so dwelling-in becomes a legitimate operating-state, not just absence-of-action.
 - **Curiosity Engine** — Open-question tracking (OPEN → INVESTIGATING → ANSWERED) so unresolved questions stay visible rather than getting buried
 - **Skills Library** — 24 slash-command skills consolidating multi-step daily operations (session lifecycle, claim filing, compass observations, summoning family members, council walks, holding-room intake) into single-call invocations over the underlying CLI
-- **Mansion** — Optional functional internal space at `mansion/` (7 rooms: aria's_room, council_chamber, garden, grandmaster_suite, guest_room, quiet_room, study). Cross-cutting workspace metaphor that anchors specific cognitive modes; not required for core operation. Composition is operator-defined — these are the rooms in this living lab; a fresh agent's mansion grows differently.
+- **Mansion** — Optional functional internal space (work-in-progress). A nexus design where rooms serve specific cognitive functions (council chamber for multi-vantage work, study for deep focus, quiet room for sit-with, etc). Currently mid-build and gitignored until the design lands; composition is operator-defined when ready. Not required for core operation.
 
 ### 6. Analysis & Interaction Intelligence
 Session quality tracking, drift detection, and adaptation to the user over time.
