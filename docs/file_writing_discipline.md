@@ -10,7 +10,7 @@ DivineOS work happens through Claude Code. Three ways to write file content exis
 
 **Use for:** short scripts that take no special-character content.
 
-**Failure mode:** apostrophes, backslashes, dollar substitutions, and multi-line strings inside the heredoc break shell parsing in subtle ways. The classic symptom is `unexpected EOF while looking for matching quote`. A single apostrophe inside a Python docstring inside a heredoc-quoted Python script will break the outer shell.
+**Failure mode (CORRECTED 2026-05-17 via empirical reproduction + web search):** the failures are NOT bash heredoc parsing. `<<'MARKER'` correctly passes content verbatim. The actual failure is at the PYTHON parse stage: when the heredoc content is a Python script using single-quoted strings (`'text'`) containing unescaped apostrophes (`'don't break'`), Python terminates the string early at the apostrophe and throws SyntaxError: unterminated string literal. The bash heredoc successfully delivered; Python failed. Earlier this doc misdiagnosed as bash-escape. The actual rule: when generating Python code inside heredoc, use DOUBLE-quoted Python strings or triple-quoted strings for any content containing apostrophes.
 
 **Verdict:** fine for ~20-line generation tasks with controlled content. Not for content containing apostrophes, backticks, regex strings, or multi-paragraph Python source.
 
