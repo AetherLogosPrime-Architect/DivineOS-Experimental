@@ -15,6 +15,13 @@ attribute (resolved dynamically via PEP 562 ``__getattr__``) and
   correctness risk Dijkstra flagged in his 2026-04-16 audit.
 """
 
+# Module-level guardrail marker — Aletheia Finding 69 (2026-05-17).
+# This file is on the multi-party-review list (scripts/guardrail_files.txt).
+# CI test test_guardrail_marker_consistency walks src/ and asserts every
+# guardrail-listed module sets this marker to True. Prevents the next
+# refactor from silently removing self-enforcement code from review.
+__guardrail_required__ = True
+
 import hashlib
 import sqlite3
 from pathlib import Path

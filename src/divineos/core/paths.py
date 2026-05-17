@@ -42,6 +42,14 @@ import order and test isolation remain simple.
 
 from __future__ import annotations
 
+# Module-level guardrail marker — Aletheia Finding 69 (2026-05-17).
+# This file is on the multi-party-review list (scripts/guardrail_files.txt).
+# CI test test_guardrail_marker_consistency walks src/ and asserts every
+# guardrail-listed module sets this marker to True. Prevents the next
+# refactor from silently removing self-enforcement code from review.
+__guardrail_required__ = True
+
+
 import os
 from pathlib import Path
 
