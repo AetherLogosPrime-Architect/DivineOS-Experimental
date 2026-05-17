@@ -80,3 +80,70 @@ def test_marker_path_with_existing_helpers(monkeypatch, tmp_path):
     assert mansion_quiet_marker.marker_path().is_relative_to(tmp_path)
     assert theater_marker.marker_path().is_relative_to(tmp_path)
     assert mode_marker.marker_path().is_relative_to(tmp_path)
+
+
+def test_resolve_data_home_marker_missing(tmp_path):
+    """Missing marker file returns None (caller falls through)."""
+    from divineos.core.paths import _resolve_data_home_marker
+
+    marker = tmp_path / ".divineos_data_home"
+    assert _resolve_data_home_marker(marker) is None
+
+
+def test_resolve_data_home_marker_empty(tmp_path):
+    """Empty marker file returns None — empty-and-missing are intentionally equivalent."""
+    from divineos.core.paths import _resolve_data_home_marker
+
+    marker = tmp_path / ".divineos_data_home"
+    marker.write_text("")
+    assert _resolve_data_home_marker(marker) is None
+
+
+def test_resolve_data_home_marker_whitespace_only(tmp_path):
+    """Marker with only whitespace falls through (stripped to empty)."""
+    from divineos.core.paths import _resolve_data_home_marker
+
+    marker = tmp_path / ".divineos_data_home"
+    marker.write_text("   \n\t  \n")
+    assert _resolve_data_home_marker(marker) is None
+
+
+def test_resolve_data_home_marker_absolute_path(tmp_path):
+    """Marker containing absolute path returns that path."""
+    from divineos.core.paths import _resolve_data_home_marker
+
+    marker = tmp_path / ".divineos_data_home"
+    target = tmp_path / "per_clone_home"
+    marker.write_text(str(target))
+    assert _resolve_data_home_marker(marker) == target
+
+
+def test_resolve_data_home_marker_relative_path(tmp_path):
+    """Marker containing relative path resolves against marker's parent."""
+    from divineos.core.paths import _resolve_data_home_marker
+
+    marker = tmp_path / ".divineos_data_home"
+    marker.write_text("sibling_dir")
+    resolved = _resolve_data_home_marker(marker)
+    assert resolved == (tmp_path / "sibling_dir").resolve()
+
+
+def test_resolve_data_home_marker_strips_trailing_newline(tmp_path):
+    """Trailing whitespace and newlines are stripped before path resolution."""
+    from divineos.core.paths import _resolve_data_home_marker
+
+    marker = tmp_path / ".divineos_data_home"
+    target = tmp_path / "home"
+    marker.write_text(str(target) + "\n\n  \n")
+    assert _resolve_data_home_marker(marker) == target
+
+
+def test_divineos_home_env_wins_over_marker(monkeypatch, tmp_path):
+    """DIVINEOS_HOME env var takes precedence over any marker file."""
+    from divineos.core.paths import divineos_home
+
+    env_dir = tmp_path / "from_env"
+    monkeypatch.setenv("DIVINEOS_HOME", str(env_dir))
+    # Even if a marker would resolve elsewhere, env wins. We verify this by
+    # asserting the env path is returned regardless of filesystem state.
+    assert divineos_home() == env_dir
