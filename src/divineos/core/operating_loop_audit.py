@@ -48,12 +48,12 @@ import json
 import time
 from pathlib import Path
 from typing import Any
+from divineos.core.paths import marker_path
 
 # All exception types the detector chain may raise — caught at the
 # per-detector level so one detector's failure never propagates.
 _ERRORS = (Exception,)  # broad by design at the orchestrator boundary
 
-_FINDINGS_FILE = Path.home() / ".divineos" / "operating_loop_findings.json"
 _ROLLING_WINDOW = 200
 
 
@@ -168,7 +168,7 @@ def run_audit(
     try:
         from divineos.core.operating_loop.hook_telemetry import record_consumption
 
-        surface_path = Path.home() / ".divineos" / "surfaced_context.md"
+        surface_path = marker_path("surfaced_context.md")
         if surface_path.exists():
             try:
                 surface_text = surface_path.read_text(encoding="utf-8")
@@ -327,14 +327,16 @@ def _persist_findings(findings_log: dict[str, list], total: int) -> bool:
     """Append an entry to the rolling-window findings file. Returns
     True on success, False on any I/O error (fail-soft)."""
     try:
-        _FINDINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        marker_path("operating_loop_findings.json").parent.mkdir(parents=True, exist_ok=True)
     except OSError:
         return False
 
     existing: list = []
-    if _FINDINGS_FILE.exists():
+    if marker_path("operating_loop_findings.json").exists():
         try:
-            data = json.loads(_FINDINGS_FILE.read_text(encoding="utf-8"))
+            data = json.loads(
+                marker_path("operating_loop_findings.json").read_text(encoding="utf-8")
+            )
             if isinstance(data, list):
                 existing = data
         except (OSError, json.JSONDecodeError, ValueError):
@@ -349,7 +351,9 @@ def _persist_findings(findings_log: dict[str, list], total: int) -> bool:
     existing = existing[-_ROLLING_WINDOW:]
 
     try:
-        _FINDINGS_FILE.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        marker_path("operating_loop_findings.json").write_text(
+            json.dumps(existing, indent=2), encoding="utf-8"
+        )
         return True
     except OSError:
         return False

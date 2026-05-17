@@ -40,11 +40,9 @@ __guardrail_required__ = True
 
 import json
 import time
-from pathlib import Path
+from divineos.core.paths import divineos_home, marker_path
 
-_FINDINGS_FILE = Path.home() / ".divineos" / "operating_loop_findings.json"
-_SURFACE_DIR = Path.home() / ".divineos"
-_SURFACE_FILE = _SURFACE_DIR / "surfaced_context.md"
+_SURFACE_FILE = divineos_home() / "surfaced_context.md"
 _RECENT_WINDOW_S = 600  # only surface findings from the last 10 minutes
 
 
@@ -79,7 +77,7 @@ def run_surfacer(prompt: str) -> None:
         return
 
     try:
-        _SURFACE_DIR.mkdir(exist_ok=True)
+        divineos_home().mkdir(exist_ok=True)
         surface_text = format_surface(entries)
         _SURFACE_FILE.write_text(surface_text, encoding="utf-8")
     except Exception:
@@ -101,10 +99,12 @@ def run_surfacer(prompt: str) -> None:
 
 def _latest_recent_entry() -> dict | None:
     """Return the latest findings entry if within the recent window."""
-    if not _FINDINGS_FILE.exists():
+    if not marker_path("operating_loop_findings.json").exists():
         return None
     try:
-        entries = json.loads(_FINDINGS_FILE.read_text(encoding="utf-8"))
+        entries = json.loads(
+            marker_path("operating_loop_findings.json").read_text(encoding="utf-8")
+        )
     except Exception:
         return None
     if not isinstance(entries, list) or not entries:
@@ -120,10 +120,12 @@ def _latest_recent_entry() -> dict | None:
 def _count_consecutive_fires(detector_key: str) -> int:
     """Count consecutive turns where the given detector fired,
     walking back from the latest entry."""
-    if not _FINDINGS_FILE.exists():
+    if not marker_path("operating_loop_findings.json").exists():
         return 1
     try:
-        entries = json.loads(_FINDINGS_FILE.read_text(encoding="utf-8"))
+        entries = json.loads(
+            marker_path("operating_loop_findings.json").read_text(encoding="utf-8")
+        )
     except Exception:
         return 1
     if not isinstance(entries, list) or not entries:

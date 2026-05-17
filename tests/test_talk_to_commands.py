@@ -23,7 +23,7 @@ def isolated_pending_dir(monkeypatch, tmp_path):
     """Redirect the wrapper's pending-file dir to a tmp_path."""
     fake_dir = tmp_path / ".divineos"
     fake_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(ttc, "_PENDING_DIR", fake_dir)
+    monkeypatch.setenv("DIVINEOS_HOME", str(fake_dir))
     return fake_dir
 
 

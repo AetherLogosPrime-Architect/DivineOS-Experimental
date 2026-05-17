@@ -60,6 +60,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+from divineos.core.paths import marker_path
 
 # Heuristic thresholds. Tunable; will be reviewed against real session
 # data. Initial values picked from observation of typical session
@@ -104,7 +105,7 @@ class ApproachSignal:
 
 def _state_path() -> Path:
     """Where post_tool_use_checkpoint writes its JSON."""
-    return Path.home() / ".divineos" / "checkpoint_state.json"
+    return marker_path("checkpoint_state.json")
 
 
 def _load_state() -> dict:

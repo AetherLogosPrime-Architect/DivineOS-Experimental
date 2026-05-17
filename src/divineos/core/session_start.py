@@ -40,13 +40,12 @@ __guardrail_required__ = True
 import json
 import os
 import time
-from pathlib import Path
 from typing import Any
+from divineos.core.paths import divineos_home
 
-_DIVINEOS_DIR = Path.home() / ".divineos"
-_CHECKPOINT_STATE = _DIVINEOS_DIR / "checkpoint_state.json"
-_AUTO_SESSION_END_MARKER = _DIVINEOS_DIR / "auto_session_end_emitted"
-_SESSION_START_LOG = _DIVINEOS_DIR / "session_start_log.jsonl"
+_CHECKPOINT_STATE = divineos_home() / "checkpoint_state.json"
+_AUTO_SESSION_END_MARKER = divineos_home() / "auto_session_end_emitted"
+_SESSION_START_LOG = divineos_home() / "session_start_log.jsonl"
 
 # Default size threshold for the full-context injection. Claude Code
 # may silently drop additionalContext above this; falling back to a
@@ -93,7 +92,7 @@ def reset_session_state() -> None:
     on every operation so a single failure does not block the rest.
     """
     try:
-        _DIVINEOS_DIR.mkdir(exist_ok=True)
+        divineos_home().mkdir(exist_ok=True)
     except OSError:
         return
 

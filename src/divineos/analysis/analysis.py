@@ -22,6 +22,7 @@ from divineos.core.ledger import get_connection as _get_connection
 from divineos.core.ledger import get_verified_events
 from divineos.core.parser import parse_jsonl
 from divineos.core.session_manager import get_session_tracker
+from divineos.core.paths import marker_path
 
 
 def analyze_session(file_path: Path) -> AnalysisResult:
@@ -234,7 +235,7 @@ def export_current_session_to_jsonl(limit: int = 100) -> Path:
 
     # If no events in database, try to read from persistent file (current session)
     if not current_session_id:
-        session_file = Path.home() / ".divineos" / "current_session.txt"
+        session_file = marker_path("current_session.txt")
         if session_file.exists():
             try:
                 current_session_id = session_file.read_text(encoding="utf-8").strip()

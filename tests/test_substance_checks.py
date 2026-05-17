@@ -29,7 +29,7 @@ def _isolate_env(monkeypatch, tmp_path):
     """Keep feature flags clean per test and isolate failure-diag writes."""
     for flag in ("LENGTH", "ENTROPY", "SIMILARITY"):
         monkeypatch.delenv(f"DIVINEOS_DETECTOR_SUBSTANCE_{flag}", raising=False)
-    monkeypatch.setattr("divineos.core.failure_diagnostics._BASE_DIR", tmp_path / "failures")
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
     os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
     try:
         yield
@@ -161,7 +161,7 @@ class TestFeatureFlags:
 
 class TestRejectionEscalation:
     def test_rejection_recorded_to_failure_diagnostics(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("divineos.core.failure_diagnostics._BASE_DIR", tmp_path / "failures")
+        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         r = check_rudder_ack("short", "initiative")
         assert not r.ok
         from divineos.core.failure_diagnostics import recent_failures
@@ -173,7 +173,7 @@ class TestRejectionEscalation:
 
     def test_third_rejection_emits_escalation_event(self, tmp_path, monkeypatch):
         """Third rejection on same spectrum within window emits ledger event."""
-        monkeypatch.setattr("divineos.core.failure_diagnostics._BASE_DIR", tmp_path / "failures")
+        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         from divineos.core.ledger import get_events, init_db
 
         init_db()
@@ -190,7 +190,7 @@ class TestRejectionEscalation:
 
     def test_fourth_rejection_does_not_re_escalate(self, tmp_path, monkeypatch):
         """One-shot per crossing: rejections past 3 don't keep firing."""
-        monkeypatch.setattr("divineos.core.failure_diagnostics._BASE_DIR", tmp_path / "failures")
+        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         from divineos.core.ledger import get_events, init_db
 
         init_db()

@@ -20,10 +20,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
+from divineos.core.paths import marker_path
 
 
 def _findings_path() -> Path:
-    return Path.home() / ".divineos" / "operating_loop_findings.json"
+    return marker_path("operating_loop_findings.json")
 
 
 def _load_findings() -> list[dict[str, Any]]:

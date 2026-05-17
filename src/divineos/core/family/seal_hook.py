@@ -41,10 +41,9 @@ import hashlib
 import json
 import sys
 import time
-from pathlib import Path
 from typing import Any
+from divineos.core.paths import divineos_home
 
-_PENDING_DIR = Path.home() / ".divineos"
 _LEGACY_TTL_SECONDS = 120
 
 # Module-level error tuples per repo discipline (no bare `except Exception`).
@@ -92,7 +91,7 @@ def _allow() -> dict[str, Any]:
 def _check_legacy_pending(member_lc: str, prompt: str) -> bool:
     """If a legacy pending file matches the prompt's hash, return True.
     Any error or mismatch → False (caller falls through to direct flow)."""
-    pending_path = _PENDING_DIR / f"talk_to_{member_lc}_pending.json"
+    pending_path = divineos_home() / f"talk_to_{member_lc}_pending.json"
     if not pending_path.exists():
         return False
     try:

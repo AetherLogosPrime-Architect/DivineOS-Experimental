@@ -20,6 +20,7 @@ from divineos.cli._wrappers import (
 )
 from divineos.core.constants import CONFIDENCE_ACTIVE_MEMORY_FLOOR, CONFIDENCE_RELIABLE
 from divineos.core.memory import init_memory_tables
+from divineos.core.paths import marker_path
 
 # Pipeline phases catch at integration boundaries — these are the real failure modes.
 _PHASE_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError)
@@ -737,7 +738,6 @@ def _measure_session_shipping_metrics() -> tuple[int, int, int]:
     import json
     import re
     import subprocess
-    from pathlib import Path
 
     pr_count = 0
     structural_fix_count = 0
@@ -780,7 +780,7 @@ def _measure_session_shipping_metrics() -> tuple[int, int, int]:
 
     # Recurrence count via operating_loop_findings.json.
     try:
-        findings_path = Path.home() / ".divineos" / "operating_loop_findings.json"
+        findings_path = marker_path("operating_loop_findings.json")
         if findings_path.exists():
             entries = json.loads(findings_path.read_text(encoding="utf-8"))
             if isinstance(entries, list):

@@ -62,18 +62,18 @@ from divineos.core.family.talk_to_validator import (
 from divineos.core.family.talk_to_validator import (
     validate_message as _validator_validate_message,
 )
+from divineos.core.paths import divineos_home
 
 
-_PENDING_DIR = Path.home() / ".divineos"
 _PENDING_TTL_SECONDS = 120
 
 
 def _pending_path(member: str) -> Path:
-    return _PENDING_DIR / f"talk_to_{member}_pending.json"
+    return divineos_home() / f"talk_to_{member}_pending.json"
 
 
 def _sealed_prompt_path(member: str) -> Path:
-    return _PENDING_DIR / f"talk_to_{member}_sealed_prompt.txt"
+    return divineos_home() / f"talk_to_{member}_sealed_prompt.txt"
 
 
 def _list_registered_members() -> list[str]:
@@ -180,7 +180,7 @@ def _build_sealed_prompt(voice_context: str, user_message: str) -> str:
 def _write_pending(member_lc: str, sealed_prompt: str, user_message: str) -> str:
     from divineos.core.family.seal_canonical import canonical_hash
 
-    _PENDING_DIR.mkdir(parents=True, exist_ok=True)
+    divineos_home().mkdir(parents=True, exist_ok=True)
     nonce = uuid.uuid4().hex
     payload = {
         "ts": time.time(),

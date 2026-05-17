@@ -56,6 +56,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from divineos.core.paths import divineos_home
 
 
 class OperatingMode(str, Enum):
@@ -100,7 +101,7 @@ _MODE_FILENAME = "operating_mode.txt"
 
 def _mode_file_path() -> Path:
     """Return the path to the mode persistence file."""
-    return Path.home() / ".divineos" / _MODE_FILENAME
+    return divineos_home() / _MODE_FILENAME
 
 
 def _default_state() -> ModeState:

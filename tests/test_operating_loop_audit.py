@@ -89,7 +89,7 @@ def test_run_audit_write_false_does_not_persist(tmp_path: Path) -> None:
             _assistant_text("substantial response text " * 20),
         ],
     )
-    with patch("divineos.core.operating_loop_audit._FINDINGS_FILE", findings_file):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(findings_file.parent)}):
         result = run_audit(transcript, write=False)
         assert result["persisted"] is False
         assert not findings_file.exists()

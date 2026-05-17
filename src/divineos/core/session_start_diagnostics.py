@@ -23,18 +23,19 @@ everything is fine we stay silent.
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from divineos.core.paths import marker_path
 
-_LOG_PATH = Path.home() / ".divineos" / "session_start_log.jsonl"
 _WINDOW = 10
 
 
 def _read_recent_entries() -> list[dict]:
     """Return the last _WINDOW entries from the log, or [] if unreadable."""
-    if not _LOG_PATH.exists():
+    if not marker_path("session_start_log.jsonl").exists():
         return []
     try:
-        lines = _LOG_PATH.read_text(encoding="utf-8").strip().split("\n")
+        lines = (
+            marker_path("session_start_log.jsonl").read_text(encoding="utf-8").strip().split("\n")
+        )
     except (OSError, UnicodeError):
         return []
     entries: list[dict] = []

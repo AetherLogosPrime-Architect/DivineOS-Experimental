@@ -30,6 +30,7 @@ from pathlib import Path
 from loguru import logger
 
 from divineos.core.loop_prevention import mark_internal_operation
+from divineos.core.paths import marker_path
 
 # Global session state
 _current_session_id: str | None = None
@@ -38,7 +39,7 @@ _session_start_time: float | None = None
 
 def _get_session_file_path() -> Path:
     """Get the path to the persistent session file."""
-    return Path.home() / ".divineos" / "current_session.txt"
+    return marker_path("current_session.txt")
 
 
 # Sessions older than this are treated as expired on read — a new
