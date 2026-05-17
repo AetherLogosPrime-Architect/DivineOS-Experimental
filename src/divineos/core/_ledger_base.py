@@ -126,6 +126,24 @@ def _get_db_path() -> Path:
     if env_path:
         return Path(env_path)
 
+    # CWD-based marker: when divineos is installed editable from one clone
+    # but invoked from another, the install-time __file__ path won't find
+    # that other clone's .divineos_canonical. Walk up from CWD checking
+    # for the marker so per-clone routing works without per-clone
+    # pip-install. Mirrors core/paths.divineos_home() CWD resolution.
+    try:
+        cwd = Path.cwd().resolve()
+        for ancestor in (cwd, *cwd.parents):
+            cwd_marker = _resolve_canonical_marker(ancestor / ".divineos_canonical")
+            if cwd_marker is not None:
+                return cwd_marker
+            # Stop walking past a real .git directory (canonical repo root).
+            git = ancestor / ".git"
+            if git.is_dir():
+                break
+    except (OSError, ValueError):
+        pass
+
     # Default location for this checkout.
     default_db = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
 

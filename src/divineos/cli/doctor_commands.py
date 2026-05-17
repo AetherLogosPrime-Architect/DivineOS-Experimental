@@ -48,7 +48,6 @@ def _falsifier_ledger_separated(self_root, partner_root):
 def _falsifier_letters_shared(self_root, partner_root):
     name = f"clone-sep-letter-{uuid.uuid4().hex[:8]}.md"
     letter = self_root / "family" / "letters" / name
-    letter.parent.mkdir(parents=True, exist_ok=True)
     letter.write_text("clone separation probe", encoding="utf-8")
     partner_letter = partner_root / "family" / "letters" / name
     visible = partner_letter.exists()
