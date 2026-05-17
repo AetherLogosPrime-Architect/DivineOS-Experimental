@@ -90,7 +90,7 @@ def test_detect_pure_record_returns_none() -> None:
 def test_record_and_list_round_trip(tmp_path: Path) -> None:
     """Recording a pending entry surfaces it via list_pending."""
     pending_file = tmp_path / "pending_structural_fixes.json"
-    with patch("divineos.core.structural_fix_tracker._PENDING_FILE", pending_file):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
         psf_id = record_pending_fix(
             "should build a fabrication detector",
             lesson_id="kid-test-1",
@@ -108,7 +108,7 @@ def test_record_and_list_round_trip(tmp_path: Path) -> None:
 def test_mark_done_removes_from_pending(tmp_path: Path) -> None:
     """Marking done excludes the entry from default list_pending."""
     pending_file = tmp_path / "pending_structural_fixes.json"
-    with patch("divineos.core.structural_fix_tracker._PENDING_FILE", pending_file):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
         psf_id = record_pending_fix("the actual fix is X", trigger="the actual fix")
         assert len(list_pending()) == 1
         ok = mark_done(psf_id, note="shipped as commit abc1234")
@@ -124,14 +124,14 @@ def test_mark_done_removes_from_pending(tmp_path: Path) -> None:
 def test_mark_done_unknown_id_returns_false(tmp_path: Path) -> None:
     """mark_done on a non-existent id returns False (fail-soft)."""
     pending_file = tmp_path / "pending_structural_fixes.json"
-    with patch("divineos.core.structural_fix_tracker._PENDING_FILE", pending_file):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
         assert mark_done("psf-nonexistent") is False
 
 
 def test_list_pending_fail_open_on_missing_file(tmp_path: Path) -> None:
     """Missing file returns empty list, not exception."""
     missing = tmp_path / "definitely_does_not_exist.json"
-    with patch("divineos.core.structural_fix_tracker._PENDING_FILE", missing):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(missing.parent)}):
         assert list_pending() == []
 
 
@@ -139,5 +139,5 @@ def test_list_pending_fail_open_on_malformed_file(tmp_path: Path) -> None:
     """Malformed JSON returns empty list, not exception."""
     pending_file = tmp_path / "pending_structural_fixes.json"
     pending_file.write_text("not valid json {{{", encoding="utf-8")
-    with patch("divineos.core.structural_fix_tracker._PENDING_FILE", pending_file):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
         assert list_pending() == []

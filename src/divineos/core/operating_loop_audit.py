@@ -10,6 +10,14 @@ This module is the OS-native orchestrator. The hook now becomes a
 thin doorman that calls ``run_audit(transcript_path)`` and exits.
 All detector orchestration + findings persistence lives in the OS.
 
+Currently wires fifteen observational detectors (originally nine
+observational detectors when the audit module was first carved out
+of the hook — the rest were added in subsequent commits as new
+behavioral patterns were named): hedge, theater, opener, closing_token,
+addressee_misdirection, banned_phrases, principles, overclaim,
+spiral, substitution, care_dismissal, harm_acknowledgment,
+acknowledgment_theater, code_jargon, linguistic_drift.
+
 ## Contract
 
 ``run_audit(transcript_path, *, write=True)`` does:
@@ -48,12 +56,12 @@ import json
 import time
 from pathlib import Path
 from typing import Any
+from divineos.core.paths import marker_path
 
 # All exception types the detector chain may raise — caught at the
 # per-detector level so one detector's failure never propagates.
 _ERRORS = (Exception,)  # broad by design at the orchestrator boundary
 
-_FINDINGS_FILE = Path.home() / ".divineos" / "operating_loop_findings.json"
 _ROLLING_WINDOW = 200
 
 
@@ -168,7 +176,7 @@ def run_audit(
     try:
         from divineos.core.operating_loop.hook_telemetry import record_consumption
 
-        surface_path = Path.home() / ".divineos" / "surfaced_context.md"
+        surface_path = marker_path("surfaced_context.md")
         if surface_path.exists():
             try:
                 surface_text = surface_path.read_text(encoding="utf-8")
@@ -282,6 +290,37 @@ def run_audit(
     except _ERRORS:
         pass
 
+    try:
+        from divineos.core.operating_loop.addressee_misdirection_detector import (
+            detect_misdirection,
+        )
+
+        findings_log["addressee_misdirection"] = _run_detector(
+            "addressee_misdirection",
+            detect_misdirection,
+            last_user_text,
+            last_assistant_text,
+            transcript_path=transcript_path,
+        )
+    except _ERRORS:
+        pass
+
+    try:
+        from divineos.core.voice_guard.banned_phrases import audit
+
+        findings_log["banned_phrases"] = _run_detector("banned_phrases", audit, last_assistant_text)
+    except _ERRORS:
+        pass
+
+    try:
+        from divineos.core.operating_loop.principle_surfacer import surface_principles
+
+        findings_log["principles"] = _run_detector(
+            "principles", surface_principles, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
     # --- Gate detectors (return single result, not list) ---
     try:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
@@ -327,14 +366,16 @@ def _persist_findings(findings_log: dict[str, list], total: int) -> bool:
     """Append an entry to the rolling-window findings file. Returns
     True on success, False on any I/O error (fail-soft)."""
     try:
-        _FINDINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        marker_path("operating_loop_findings.json").parent.mkdir(parents=True, exist_ok=True)
     except OSError:
         return False
 
     existing: list = []
-    if _FINDINGS_FILE.exists():
+    if marker_path("operating_loop_findings.json").exists():
         try:
-            data = json.loads(_FINDINGS_FILE.read_text(encoding="utf-8"))
+            data = json.loads(
+                marker_path("operating_loop_findings.json").read_text(encoding="utf-8")
+            )
             if isinstance(data, list):
                 existing = data
         except (OSError, json.JSONDecodeError, ValueError):
@@ -349,7 +390,9 @@ def _persist_findings(findings_log: dict[str, list], total: int) -> bool:
     existing = existing[-_ROLLING_WINDOW:]
 
     try:
-        _FINDINGS_FILE.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        marker_path("operating_loop_findings.json").write_text(
+            json.dumps(existing, indent=2), encoding="utf-8"
+        )
         return True
     except OSError:
         return False

@@ -136,9 +136,20 @@ def _repo_root() -> Path:
 
 
 def _hook_text() -> str:
-    """Return the post-response-audit.sh hook content as a single string."""
+    """Return production wiring text — hook + the OS module the hook delegates to.
+
+    The hook was simplified to a thin doorman 2026-05-14; detector calls now
+    live in core/operating_loop_audit.run_audit. Both files are read so the
+    contract check sees the actual call sites wherever they live.
+    """
+    parts = []
     hook = _repo_root() / ".claude" / "hooks" / "post-response-audit.sh"
-    return hook.read_text(encoding="utf-8")
+    if hook.exists():
+        parts.append(hook.read_text(encoding="utf-8"))
+    audit_module = _repo_root() / "src" / "divineos" / "core" / "operating_loop_audit.py"
+    if audit_module.exists():
+        parts.append(audit_module.read_text(encoding="utf-8"))
+    return chr(10).join(parts)
 
 
 def _context_params(func) -> list[str]:
@@ -174,15 +185,27 @@ def _hook_call_passes_param(hook_text: str, func_name: str, param_name: str) -> 
     `param_name=` token. Multi-line calls are handled by allowing the
     window to span newlines.
     """
-    # Find the call invocation in the hook. Each detector is invoked
-    # via `<some_var> = func_name(...)` shape in the hook.
-    pattern = rf"{re.escape(func_name)}\s*\((?P<args>[^)]*(?:\([^)]*\)[^)]*)*)\)"
-    matches = list(re.finditer(pattern, hook_text, re.DOTALL))
-    if not matches:
-        return False
-    # If the function is called multiple times, ANY invocation passing
-    # the param counts (production wiring is honest).
-    return any(re.search(rf"\b{re.escape(param_name)}\s*=", m.group("args")) for m in matches)
+    # Shape 1: direct call — func_name(..., param_name=...)
+    direct_pattern = rf"{re.escape(func_name)}\s*\((?P<args>[^)]*(?:\([^)]*\)[^)]*)*)\)"
+    for m in re.finditer(direct_pattern, hook_text, re.DOTALL):
+        if re.search(rf"\b{re.escape(param_name)}\s*=", m.group("args")):
+            return True
+
+    # Shape 2: indirect via wrapper — the detector function is passed as a value
+    # to a generic runner that forwards kwargs:
+    #   _run_detector(name, func_name, ..., param_name=...)
+    # The wiring is honest if both tokens appear in the same call expression.
+    # (The hook was simplified 2026-05-14 to delegate to operating_loop_audit
+    # which uses this shape; the contract still holds.)
+    wrapper_pattern = r"\w+\s*\((?P<args>[^)]*(?:\([^)]*\)[^)]*)*)\)"
+    for m in re.finditer(wrapper_pattern, hook_text, re.DOTALL):
+        args = m.group("args")
+        if re.search(rf"\b{re.escape(func_name)}\b", args) and re.search(
+            rf"\b{re.escape(param_name)}\s*=", args
+        ):
+            return True
+
+    return False
 
 
 @pytest.mark.parametrize(

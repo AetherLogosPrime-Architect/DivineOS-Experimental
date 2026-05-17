@@ -33,10 +33,9 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from pathlib import Path
+from divineos.core.paths import marker_path
 
 _FS_ERRORS = (OSError, json.JSONDecodeError, UnicodeDecodeError)
-_LOG_PATH = Path.home() / ".divineos" / "hook1_telemetry.jsonl"
 _ROLLING_WINDOW = 200
 
 
@@ -54,17 +53,17 @@ class Hook1Stats:
 
 def _ensure_log_dir() -> None:
     try:
-        _LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        marker_path("hook1_telemetry.jsonl").parent.mkdir(parents=True, exist_ok=True)
     except _FS_ERRORS:
         pass
 
 
 def _read_log() -> list[dict]:
-    if not _LOG_PATH.exists():
+    if not marker_path("hook1_telemetry.jsonl").exists():
         return []
     entries: list[dict] = []
     try:
-        with open(_LOG_PATH, encoding="utf-8") as f:
+        with open(marker_path("hook1_telemetry.jsonl"), encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -81,7 +80,7 @@ def _read_log() -> list[dict]:
 def _write_log(entries: list[dict]) -> None:
     _ensure_log_dir()
     try:
-        with open(_LOG_PATH, "w", encoding="utf-8") as f:
+        with open(marker_path("hook1_telemetry.jsonl"), "w", encoding="utf-8") as f:
             for e in entries:
                 f.write(json.dumps(e) + "\n")
     except _FS_ERRORS:

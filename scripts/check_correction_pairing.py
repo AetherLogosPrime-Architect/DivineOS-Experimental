@@ -40,6 +40,10 @@ from divineos.core.correction_pairing import (  # noqa: E402
     format_unpaired,
 )
 
+# Backward-compat alias for callers (tests, briefing-dashboard) that
+# expect the shorter name. The canonical name is find_unpaired_observations.
+find_unpaired = find_unpaired_observations
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)

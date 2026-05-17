@@ -29,7 +29,7 @@ import json
 import re
 import time
 import uuid
-from pathlib import Path
+from divineos.core.paths import marker_path
 
 # Patterns that name structural-fix-shape language. Order matters:
 # more specific intent-of-building patterns ("should build", "the
@@ -69,15 +69,12 @@ _STRUCTURAL_FIX_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
-_PENDING_FILE = Path.home() / ".divineos" / "pending_structural_fixes.json"
-
-
 def _read_pending() -> list[dict]:
     """Read the current pending list. Fail-open on missing/malformed."""
-    if not _PENDING_FILE.exists():
+    if not marker_path("pending_structural_fixes.json").exists():
         return []
     try:
-        data = json.loads(_PENDING_FILE.read_text(encoding="utf-8"))
+        data = json.loads(marker_path("pending_structural_fixes.json").read_text(encoding="utf-8"))
         if isinstance(data, list):
             return data
         return []
@@ -88,8 +85,10 @@ def _read_pending() -> list[dict]:
 def _write_pending(entries: list[dict]) -> None:
     """Write the pending list back. Fail-open on I/O error."""
     try:
-        _PENDING_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _PENDING_FILE.write_text(json.dumps(entries, indent=2), encoding="utf-8")
+        marker_path("pending_structural_fixes.json").parent.mkdir(parents=True, exist_ok=True)
+        marker_path("pending_structural_fixes.json").write_text(
+            json.dumps(entries, indent=2), encoding="utf-8"
+        )
     except OSError:
         pass
 

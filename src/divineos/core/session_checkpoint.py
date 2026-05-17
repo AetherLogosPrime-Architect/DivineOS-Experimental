@@ -28,6 +28,7 @@ from loguru import logger
 from divineos.core.hud import save_hud_snapshot
 from divineos.core.hud_handoff import save_handoff_note
 from divineos.core.hud_state import _ensure_hud_dir
+from divineos.core.paths import divineos_home
 from divineos.event.event_emission import emit_event
 
 _CP_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
@@ -45,7 +46,7 @@ def _counter_path() -> Path:
     import os
 
     home_override = os.environ.get("DIVINEOS_HOME")
-    p = Path(home_override) if home_override else Path.home() / ".divineos"
+    p = Path(home_override) if home_override else divineos_home()
     p.mkdir(parents=True, exist_ok=True)
     return p / "checkpoint_state.json"
 

@@ -394,7 +394,6 @@ class TestExportCurrentSessionWithVerification:
         import json
         import os
         import sqlite3
-        from pathlib import Path
 
         from divineos.analysis.analysis import export_current_session_to_jsonl
         from divineos.event.event_capture import get_session_tracker
@@ -403,7 +402,8 @@ class TestExportCurrentSessionWithVerification:
         session_id = get_session_tracker().get_current_session_id()
 
         # Write session_id to persistent file so export_current_session_to_jsonl can find it
-        session_file = Path.home() / ".divineos" / "current_session.txt"
+        _marker_path = __import__("divineos.core.paths", fromlist=["marker_path"]).marker_path
+        session_file = _marker_path("current_session.txt")
         session_file.parent.mkdir(parents=True, exist_ok=True)
         session_file.write_text(session_id)
 
@@ -448,7 +448,6 @@ class TestExportCurrentSessionWithVerification:
     def test_exports_all_valid_events(self):
         """Test that all valid events are exported."""
         import json
-        from pathlib import Path
 
         from divineos.analysis.analysis import export_current_session_to_jsonl
         from divineos.event.event_capture import get_session_tracker
@@ -457,7 +456,8 @@ class TestExportCurrentSessionWithVerification:
         session_id = get_session_tracker().get_current_session_id()
 
         # Write session_id to persistent file so export_current_session_to_jsonl can find it
-        session_file = Path.home() / ".divineos" / "current_session.txt"
+        _marker_path = __import__("divineos.core.paths", fromlist=["marker_path"]).marker_path
+        session_file = _marker_path("current_session.txt")
         session_file.parent.mkdir(parents=True, exist_ok=True)
         session_file.write_text(session_id)
 

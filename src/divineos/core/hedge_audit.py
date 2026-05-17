@@ -48,7 +48,7 @@ def run_hedge_audit(transcript_path: str | Path) -> dict[str, Any]:
         from divineos.core.operating_loop.turn_extraction import extract_turn
 
         texts = extract_turn(transcript_path)
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flag_count": 0, "threshold": 0, "marker_set": False, "kinds": []}
 
     last_assistant_text = texts.last_assistant_text
@@ -58,18 +58,18 @@ def run_hedge_audit(transcript_path: str | Path) -> dict[str, Any]:
     try:
         from divineos.core.self_monitor.hedge_monitor import evaluate_hedge
         from divineos.core.hedge_marker import set_marker, threshold
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flag_count": 0, "threshold": 0, "marker_set": False, "kinds": []}
 
     try:
         verdict = evaluate_hedge(last_assistant_text)
         flags = list(getattr(verdict, "flags", []) or [])
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flag_count": 0, "threshold": 0, "marker_set": False, "kinds": []}
 
     try:
         thresh = int(threshold())
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         thresh = 2  # safe default matching pre-refactor behavior
 
     if len(flags) < thresh:
@@ -95,7 +95,7 @@ def run_hedge_audit(transcript_path: str | Path) -> dict[str, Any]:
     try:
         set_marker(len(flags), kinds, last_assistant_text[:300])
         marker_set = True
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
 
     return {

@@ -31,10 +31,10 @@ import json
 import time
 from pathlib import Path
 from typing import Any
+from divineos.core.paths import state_dir
 
 # One file per surface under ~/.divineos/failures/. Keep the per-surface
 # split so one noisy surface can't drown out another in the briefing.
-_BASE_DIR = Path.home() / ".divineos" / "failures"
 
 # Max retained entries per surface. Log is append-only until a write
 # sees the line count exceed this, at which point the oldest lines are
@@ -46,7 +46,7 @@ _MAX_ENTRIES_PER_SURFACE = 100
 def _log_path(surface: str) -> Path:
     """File path for a surface's JSONL log. Parent dir auto-created."""
     safe = "".join(c for c in surface if c.isalnum() or c in "-_")
-    return _BASE_DIR / f"{safe or 'unknown'}.jsonl"
+    return state_dir("failures") / f"{safe or 'unknown'}.jsonl"
 
 
 def record_failure(surface: str, payload: dict[str, Any]) -> None:
@@ -63,7 +63,7 @@ def record_failure(surface: str, payload: dict[str, Any]) -> None:
     cascading the failure it was trying to record.
     """
     try:
-        _BASE_DIR.mkdir(parents=True, exist_ok=True)
+        state_dir("failures").mkdir(parents=True, exist_ok=True)
         path = _log_path(surface)
         entry = {"timestamp": time.time(), **payload}
         line = json.dumps(entry, default=str)

@@ -45,6 +45,7 @@ src/divineos/
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     actor_registry_commands.py  actor-registry init/add/list/show/check — Phase 1 of actor-authenticity (exploration/45). Registry CLI + advisory capability lookups; no signing yet.
     audit_commands.py          external validation (Watchmen)
+    doctor_commands.py         diagnostic verification (clone separation)
     bio_commands.py            Bio sheet — show, edit, history, write
     loadout_commands.py        loadout — show, refresh (cold-start substrate map)
     dream_commands.py          Dream CLI — list and show sleep recombinations
@@ -443,6 +444,7 @@ src/divineos/
     structural_promotion_check.py Will-to-vessel structural-promotion check (Phase A — observation only).
     surfaced_warnings.py       Surfaced-warnings binding — load-bearing.
     theater_audit.py           OS-native theater/fabrication audit orchestrator.
+    data_home_ownership.py     Bidirectional ownership verification for ~/.divineos data-home.
 
   analysis/
     _session_types.py          Session analysis type definitions

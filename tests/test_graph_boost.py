@@ -27,7 +27,7 @@ class TestGraphBoost:
             knowledge_type="OBSERVATION",
             content="Unverified assumptions led to three rework cycles",
             confidence=0.5,
-            source="OBSERVED",
+            source="DEMONSTRATED",
         )
         assert kid_a and kid_b
         create_edge(kid_a, kid_b, "SUPPORTS")
@@ -69,7 +69,7 @@ class TestGraphBoost:
             knowledge_type="OBSERVATION",
             content="Untested changes caused three production issues last week",
             confidence=0.4,
-            source="OBSERVED",
+            source="DEMONSTRATED",
         )
         kid_c = store_knowledge(
             knowledge_type="FACT",

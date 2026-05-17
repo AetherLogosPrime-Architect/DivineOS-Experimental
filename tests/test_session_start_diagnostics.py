@@ -24,7 +24,7 @@ def _write_entries(tmp_path, entries):
 class TestSilence:
     def test_no_log_returns_empty(self, tmp_path) -> None:
         missing = tmp_path / "does_not_exist.jsonl"
-        with patch.object(session_start_diagnostics, "_LOG_PATH", missing):
+        with patch.dict("os.environ", {"DIVINEOS_HOME": str(missing.parent)}):
             assert session_start_diagnostics.format_for_briefing() == ""
 
     def test_all_full_injections_returns_empty(self, tmp_path) -> None:
@@ -32,7 +32,7 @@ class TestSilence:
             tmp_path,
             [{"outcome": "injected_full", "payload_bytes": 12000} for _ in range(5)],
         )
-        with patch.object(session_start_diagnostics, "_LOG_PATH", log):
+        with patch.dict("os.environ", {"DIVINEOS_HOME": str(log.parent)}):
             assert session_start_diagnostics.format_for_briefing() == ""
 
 
@@ -46,7 +46,7 @@ class TestSurfacing:
                 {"outcome": "injected_nudge", "payload_bytes": 35000},
             ],
         )
-        with patch.object(session_start_diagnostics, "_LOG_PATH", log):
+        with patch.dict("os.environ", {"DIVINEOS_HOME": str(log.parent)}):
             out = session_start_diagnostics.format_for_briefing()
             assert out
             assert "session-start log" in out
@@ -55,24 +55,24 @@ class TestSurfacing:
 
     def test_empty_briefing_fires_the_block(self, tmp_path) -> None:
         log = _write_entries(tmp_path, [{"outcome": "empty_briefing", "payload_bytes": 0}])
-        with patch.object(session_start_diagnostics, "_LOG_PATH", log):
+        with patch.dict("os.environ", {"DIVINEOS_HOME": str(log.parent)}):
             out = session_start_diagnostics.format_for_briefing()
             assert out
             assert "empty_briefing" in out
 
     def test_no_cli_fires_the_block(self, tmp_path) -> None:
         log = _write_entries(tmp_path, [{"outcome": "no_cli", "payload_bytes": 0}])
-        with patch.object(session_start_diagnostics, "_LOG_PATH", log):
+        with patch.dict("os.environ", {"DIVINEOS_HOME": str(log.parent)}):
             out = session_start_diagnostics.format_for_briefing()
             assert out
             assert "no_cli" in out
 
     def test_malformed_lines_are_skipped(self, tmp_path) -> None:
-        log = tmp_path / "log.jsonl"
+        log = tmp_path / "session_start_log.jsonl"
         log.write_text(
             'not json\n{"outcome": "injected_nudge"}\n{incomplete\n',
             encoding="utf-8",
         )
-        with patch.object(session_start_diagnostics, "_LOG_PATH", log):
+        with patch.dict("os.environ", {"DIVINEOS_HOME": str(log.parent)}):
             out = session_start_diagnostics.format_for_briefing()
             assert "injected_nudge" in out

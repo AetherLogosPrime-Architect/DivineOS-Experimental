@@ -319,6 +319,11 @@ try:
 except ImportError:
     pass  # mansion is optional
 
+# Doctor - diagnostic verification commands (clone separation, etc.)
+from divineos.cli.doctor_commands import register_doctor_commands  # noqa: E402
+
+register_doctor_commands(cli)
+
 
 # ── Command Grouping ──────────────────────────────────────────────
 # Move rarely-used commands into subgroups to reduce top-level noise.

@@ -24,7 +24,7 @@ def test_reset_session_state_creates_checkpoint_file(tmp_path: Path) -> None:
     zero counters. Pins the per-session state shape."""
     checkpoint = tmp_path / "checkpoint_state.json"
     with (
-        patch("divineos.core.session_start._DIVINEOS_DIR", tmp_path),
+        patch.dict("os.environ", {"DIVINEOS_HOME": str(tmp_path)}),
         patch("divineos.core.session_start._CHECKPOINT_STATE", checkpoint),
     ):
         reset_session_state()
@@ -41,7 +41,7 @@ def test_reset_session_state_clears_auto_session_end_marker(tmp_path: Path) -> N
     marker = tmp_path / "auto_session_end_emitted"
     marker.write_text("stale", encoding="utf-8")
     with (
-        patch("divineos.core.session_start._DIVINEOS_DIR", tmp_path),
+        patch.dict("os.environ", {"DIVINEOS_HOME": str(tmp_path)}),
         patch("divineos.core.session_start._AUTO_SESSION_END_MARKER", marker),
     ):
         reset_session_state()

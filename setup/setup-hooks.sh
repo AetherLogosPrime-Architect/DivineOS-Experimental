@@ -193,18 +193,22 @@ echo "Created commit-msg hook at $HOOKS_DIR/commit-msg"
 # All delegate to standalone scripts so the logic stays testable.
 cat > "$HOOKS_DIR/pre-push" << 'EOF'
 #!/bin/bash
-# pre-push hook for DivineOS — three safety checks.
-# Bypass: DIVINEOS_SKIP_FRESHNESS_CHECK=1 (freshness)
-#         DIVINEOS_FORCE_PUSH_OK=1 (force-push safety)
+# pre-push hook for DivineOS — five safety checks.
+# Bypass env vars (use sparingly; explain in commit message):
+#   DIVINEOS_SKIP_FRESHNESS_CHECK=1   — bypass freshness
+#   DIVINEOS_FORCE_PUSH_OK=1          — bypass force-push safety
+#   DIVINEOS_SKIP_TESTS=1             — bypass local pytest (push-readiness)
+#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1  — bypass External-Review trailer check
+#   DIVINEOS_EMERGENCY_PUSH=1         — bypass push-readiness entirely
 
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 FRESHNESS="$REPO_ROOT/scripts/check_branch_freshness.sh"
 FORCE_SAFETY="$REPO_ROOT/scripts/check_force_push_safety.sh"
 MULTI_PARTY="$REPO_ROOT/scripts/check_multi_party_review.py"
 ROOT_CAUSE_AUDIT="$REPO_ROOT/scripts/check_root_cause_audit.py"
+PUSH_READINESS="$REPO_ROOT/scripts/check_push_readiness.sh"
 
-# Capture stdin once — force-push-safety, multi-party-review, and
-# root-cause-audit need the ref-update lines but freshness does not.
+# Capture stdin once — every gate that reads ref-update lines uses it.
 HOOK_STDIN=$(cat)
 
 # 1. Branch freshness.
@@ -226,11 +230,11 @@ if [[ -x "$FORCE_SAFETY" ]]; then
     fi
 fi
 
-# 3. Multi-party-review (pre-push mode).
-# Fires only when target is refs/heads/main (any remote). Walks the
-# push-range and blocks if any commit touching guardrail files lacks
-# the External-Review trailer. The script's pre-push mode handles the
-# ref-filtering internally.
+# 3. Multi-party-review (pre-push mode, target=main only).
+# Walks the push-range and blocks if any commit touching guardrail
+# files lacks the External-Review trailer. Default mode filters to
+# refs/heads/main; the push-readiness gate below also runs --strict
+# which catches feature-branch pushes that will fail CI.
 if [[ -f "$MULTI_PARTY" ]]; then
     echo "$HOOK_STDIN" | python "$MULTI_PARTY" --mode=pre-push
     RC=$?
@@ -249,6 +253,19 @@ if [[ -f "$ROOT_CAUSE_AUDIT" ]]; then
     RC=$?
     if [[ $RC -eq 1 ]]; then
         exit 1
+    fi
+fi
+
+# 5. Push readiness (NEW, added 2026-05-17 after Andrew named the
+# "red badges on public activity feed" failure mode). Runs the full
+# pytest suite + multi-party-review --strict so feature-branch pushes
+# that would fail CI get caught BEFORE leaving the developer machine.
+# The bugs aren't the showstopper; the public-visibility of red runs is.
+if [[ -x "$PUSH_READINESS" ]]; then
+    echo "$HOOK_STDIN" | "$PUSH_READINESS"
+    RC=$?
+    if [[ $RC -ne 0 ]]; then
+        exit $RC
     fi
 fi
 
