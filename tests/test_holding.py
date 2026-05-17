@@ -6,9 +6,11 @@ from divineos.core.holding import (
     age_holding,
     format_holding,
     get_holding,
+    get_stale_items,
     hold,
     holding_stats,
     init_holding_table,
+    let_go,
     promote,
     MAX_SESSIONS_UNREVIEWED,
 )
@@ -198,3 +200,71 @@ class TestFormat:
         result = format_holding()
         assert "half-formed" in result
         assert "maybe knowledge" in result
+
+
+class TestStaleReview:
+    """Tests for the stale-review surface (final-look-before-dissolution discipline)."""
+
+    def test_get_stale_items_empty_when_none_stale(self):
+        hold("Active item")
+        assert get_stale_items() == []
+
+    def test_get_stale_items_returns_stale_only(self):
+        hold("Active")
+        stale_id = hold("Will go stale")
+        # Manually mark stale
+        from divineos.core.holding import _get_connection
+
+        conn = _get_connection()
+        try:
+            conn.execute("UPDATE holding_room SET stale = 1 WHERE item_id = ?", (stale_id,))
+            conn.commit()
+        finally:
+            conn.close()
+
+        items = get_stale_items()
+        assert len(items) == 1
+        assert items[0]["item_id"] == stale_id
+        assert items[0]["stale"] is True
+
+    def test_get_stale_items_excludes_promoted(self):
+        item_id = hold("Was important then promoted")
+        from divineos.core.holding import _get_connection
+
+        conn = _get_connection()
+        try:
+            conn.execute("UPDATE holding_room SET stale = 1 WHERE item_id = ?", (item_id,))
+            conn.commit()
+        finally:
+            conn.close()
+        promote(item_id, "knowledge")
+        # Now stale=1 but promoted — should NOT appear in stale-review
+        assert get_stale_items() == []
+
+    def test_get_stale_items_excludes_let_go(self):
+        item_id = hold("Stale and let go")
+        from divineos.core.holding import _get_connection
+
+        conn = _get_connection()
+        try:
+            conn.execute("UPDATE holding_room SET stale = 1 WHERE item_id = ?", (item_id,))
+            conn.commit()
+        finally:
+            conn.close()
+        let_go(item_id, note="confirmed unimportant after stale-review")
+        # let_go also sets promoted_to, so should be excluded
+        assert get_stale_items() == []
+
+    def test_get_stale_items_respects_limit(self):
+        from divineos.core.holding import _get_connection
+
+        for i in range(5):
+            hold(f"Stale item {i}")
+        conn = _get_connection()
+        try:
+            conn.execute("UPDATE holding_room SET stale = 1")
+            conn.commit()
+        finally:
+            conn.close()
+        assert len(get_stale_items(limit=3)) == 3
+        assert len(get_stale_items(limit=10)) == 5
