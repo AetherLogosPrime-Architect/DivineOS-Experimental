@@ -94,6 +94,19 @@ def divineos_home() -> Path:
     if override:
         return Path(override)
 
+    # CWD-based marker: when divineos is installed editable from one checkout
+    # but invoked from a different checkout, the install-time __file__ path
+    # won't find that other checkout's marker. Walk up from CWD checking for
+    # a marker so per-clone routing works without per-clone pip-install.
+    try:
+        cwd = Path.cwd()
+        for ancestor in (cwd, *cwd.parents):
+            cwd_marker = _resolve_data_home_marker(ancestor / ".divineos_data_home")
+            if cwd_marker is not None:
+                return cwd_marker
+    except (OSError, ValueError):
+        pass
+
     own_root = Path(__file__).parent.parent.parent.parent
     own_marker = _resolve_data_home_marker(own_root / ".divineos_data_home")
     if own_marker is not None:
