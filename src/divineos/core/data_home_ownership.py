@@ -43,10 +43,27 @@ class DataHomeOwnershipError(RuntimeError):
 def _checkout_root() -> Path:
     """Return the absolute path of the running checkout's root directory.
 
-    The running checkout is the directory containing the src/divineos
-    package — four parents up from this file: core/, divineos/, src/, root.
+    The running checkout is normally the dir containing src/divineos — four
+    parents up from this file. BUT if the running checkout is a git worktree
+    (``.git`` is a file pointing at the parent's gitdir), the running checkout
+    INHERITS the parent's ownership. Worktrees share the parent's data-home
+    by design (they share the .divineos_canonical mechanism too). Otherwise
+    every worktree of the main repo would fail the ownership check the first
+    time it ran preflight against the parent's data-home.
     """
-    return Path(__file__).parent.parent.parent.parent.resolve()
+    own = Path(__file__).parent.parent.parent.parent.resolve()
+    git_marker = own / ".git"
+    if git_marker.is_file():
+        try:
+            text = git_marker.read_text(encoding="utf-8").strip()
+            if text.startswith("gitdir:"):
+                gitdir = Path(text[len("gitdir:") :].strip()).resolve()
+                # gitdir is .../parent/.git/worktrees/<name>; parents[2] is parent's working tree.
+                if len(gitdir.parents) >= 3:
+                    return gitdir.parents[2].resolve()
+        except (OSError, ValueError):
+            pass
+    return own
 
 
 def verify_data_home_ownership(checkout_root: Path | None = None) -> dict[str, object]:
