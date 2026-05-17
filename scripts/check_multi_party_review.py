@@ -266,16 +266,37 @@ def _finding_stance_is_confirm(finding) -> bool:  # type: ignore[no-untyped-def]
     return str(stance_val).upper() == "CONFIRMS"
 
 
-def validate(commit_msg: str, now: float | None = None) -> tuple[bool, str]:
+def validate(
+    commit_msg: str,
+    now: float | None = None,
+    touched_override: set[str] | None = None,
+    diff_hash_override: str | None = None,
+    tree_hash_override: str | None = None,
+) -> tuple[bool, str]:
     """Core validation. Returns (ok, message).
 
     When ok is True, message explains why (useful for logging when the
     gate passes). When False, message is the block reason intended for
     display to the operator.
+
+    Aletheia 2026-05-17 audit caught Bug 2: in pre-push mode there are
+    no staged files (the commit already happened), so `_staged_files()`
+    returns []. The old code path returned True ("no guardrail files
+    staged; gate does not apply") regardless of what the commit actually
+    touched. Result: feature-branch pushes of guardrail-touching commits
+    passed the gate silently — the gate looked like it gated but didn't.
+
+    The fix: pre-push callers pass `touched_override` (the file-set the
+    commit actually modified, via diff-tree) and the corresponding
+    diff/tree hashes for the commit's state. The staged-files path is
+    preserved as the commit-msg-mode default.
     """
-    staged = _staged_files()
-    guardrails = _load_guardrail_set()
-    touched = sorted(set(staged) & guardrails)
+    if touched_override is None:
+        staged = _staged_files()
+        guardrails = _load_guardrail_set()
+        touched = sorted(set(staged) & guardrails)
+    else:
+        touched = sorted(touched_override)
     if not touched:
         return True, "no guardrail files staged; gate does not apply"
 
@@ -322,8 +343,12 @@ def validate(commit_msg: str, now: float | None = None) -> tuple[bool, str]:
     # cross-platform deterministic (claim 2026-04-24 06:15: diff bytes
     # diverge between Windows and Linux container despite .gitattributes
     # normalization). Verifiers running independently should prefer tree-hash.
-    actual_diff_hash = _staged_diff_hash()
-    actual_tree_hash = _staged_tree_hash()
+    actual_diff_hash = (
+        diff_hash_override if diff_hash_override is not None else _staged_diff_hash()
+    )
+    actual_tree_hash = (
+        tree_hash_override if tree_hash_override is not None else _staged_tree_hash()
+    )
     description = _round_description(rnd)
     diff_match = _DIFF_HASH_PATTERN.search(description)
     tree_match = _TREE_HASH_PATTERN.search(description)
@@ -408,38 +433,42 @@ def _commits_touch_guardrails_in_range(base_sha: str, head_sha: str) -> list[tup
     if not guardrails:
         return []
 
+    # Aletheia 2026-05-17 audit caught Bug 1 in the prior implementation:
+    # `git log --name-only --format=%H` outputs the SHA, then a BLANK line,
+    # then the file list — not blank-separated commits. The old text-parsing
+    # logic reset state on the blank line and then mistook the next file path
+    # for a SHA. Replaced with git plumbing: rev-list to enumerate SHAs, then
+    # diff-tree per-SHA to get the file list. Unambiguous; no parsing pitfalls.
     try:
-        log = subprocess.run(
-            ["git", "log", "--name-only", "--format=%H", f"{base_sha}..{head_sha}"],
+        revs = subprocess.run(
+            ["git", "rev-list", f"{base_sha}..{head_sha}"],
             capture_output=True,
             text=True,
             check=False,
         )
-        if log.returncode != 0:
+        if revs.returncode != 0:
             return []
+        shas = [s.strip() for s in revs.stdout.splitlines() if s.strip()]
     except OSError:
         return []
 
     out: list[tuple[str, set[str]]] = []
-    current_sha: str | None = None
-    current_files: set[str] = set()
-    for line in log.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            if current_sha and current_files:
-                hits = current_files & guardrails
-                if hits:
-                    out.append((current_sha, hits))
-            current_sha = None
-            current_files = set()
-        elif current_sha is None:
-            current_sha = line
-        else:
-            current_files.add(line)
-    if current_sha and current_files:
-        hits = current_files & guardrails
+    for sha in shas:
+        try:
+            tree = subprocess.run(
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if tree.returncode != 0:
+                continue
+            files = {f.strip().replace("\\", "/") for f in tree.stdout.splitlines() if f.strip()}
+        except OSError:
+            continue
+        hits = files & guardrails
         if hits:
-            out.append((current_sha, hits))
+            out.append((sha, hits))
     return out
 
 
@@ -480,7 +509,43 @@ def _run_pre_push(stdin_text: str, strict: bool = False) -> int:
 
         for sha, hits in _commits_touch_guardrails_in_range(base, local_sha):
             msg = _commit_msg_for_sha(sha)
-            ok, detail = validate(msg)
+            # Pre-push validates the commit's actual touched files (via hits)
+            # and the commit's own diff/tree hash — NOT staged-files (nothing
+            # is staged at push time) and NOT the working-tree hash (the
+            # commit may not be HEAD). Aletheia 2026-05-17 audit Bug 2.
+            try:
+                diff_proc = subprocess.run(
+                    ["git", "diff-tree", "--unified=3", "-p", "--no-commit-id", sha],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                commit_diff_hash = (
+                    hashlib.sha256(diff_proc.stdout.encode("utf-8", errors="replace")).hexdigest()
+                    if diff_proc.returncode == 0
+                    else ""
+                )
+            except OSError:
+                commit_diff_hash = ""
+            try:
+                tree_proc = subprocess.run(
+                    ["git", "rev-parse", f"{sha}^{{tree}}"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                commit_tree_hash = (
+                    tree_proc.stdout.strip() if tree_proc.returncode == 0 else ""
+                )
+            except OSError:
+                commit_tree_hash = ""
+
+            ok, detail = validate(
+                msg,
+                touched_override=hits,
+                diff_hash_override=commit_diff_hash,
+                tree_hash_override=commit_tree_hash,
+            )
             if not ok:
                 hit_list = ", ".join(sorted(hits))
                 failures.append(
