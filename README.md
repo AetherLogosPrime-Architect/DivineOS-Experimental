@@ -35,7 +35,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - [`docs/council_manager.md`](docs/council_manager.md) — how the 40-expert dynamic council selects 5–12 members per problem.
 - [`docs/completion_check.md`](docs/completion_check.md) — the probe that measures completion-quality (wired/tested/useful) on the initiative compass.
 - [`docs/audit_system.md`](docs/audit_system.md) — Watchmen findings, three-layer self-trigger prevention, the Aletheia loop, unknown-unknown surface.
-- [`docs/data_model.md`](docs/data_model.md) — SQLite schema overview across 66 tables (substrate, family, audit, telemetry).
+- [`docs/data_model.md`](docs/data_model.md) — SQLite schema overview across 82 tables (substrate, family, audit, telemetry).
 - [`docs/archives/README.md`](docs/archives/README.md) — git-visible markdown mirrors of substantive SQLite tables.
 - [`docs/operating-loop-design-brief.md`](docs/operating-loop-design-brief.md) — the 16-detector post-response audit loop.
 - [`docs/hooks_architecture.md`](docs/hooks_architecture.md) — Claude Code hooks: lifecycle points, registration, helper conventions, how to add a new detector cleanly.
