@@ -443,15 +443,23 @@ def _commits_touch_guardrails_in_range(base_sha: str, head_sha: str) -> list[tup
     return out
 
 
-def _run_pre_push(stdin_text: str) -> int:
-    """Pre-push mode: validate guardrail-touching commits in pushes-to-main.
+def _run_pre_push(stdin_text: str, strict: bool = False) -> int:
+    """Pre-push mode: validate guardrail-touching commits in pushes.
 
     Reads Git's pre-push stdin protocol:
       `<local-ref> <local-sha> <remote-ref> <remote-sha>`
     one line per ref being pushed.
 
-    For each line where `remote-ref == refs/heads/main`, walks the commit
-    range and validates each commit that touches guardrail files.
+    Default mode: validates only pushes targeting `refs/heads/main`.
+    Feature-branch pushes pass freely so audit-vantage can review WIP.
+
+    Strict mode (``--strict``): validates ALL pushes, including feature
+    branches. Use this when feature branches are visible to the public
+    (PRs against a public-facing repo) and red CI on feature pushes
+    creates a "bad-look" trajectory — Andrew named this 2026-05-17 when
+    iterative feature-branch pushes spammed red badges on the public
+    activity feed. The discipline: get the External-Review trailer
+    BEFORE any push, not after CI yells at you.
 
     "Main" here is literal `refs/heads/main` — applies to whichever remote
     is being pushed to (origin, upstream, prod, experimental — any).
@@ -462,7 +470,7 @@ def _run_pre_push(stdin_text: str) -> int:
         if len(parts) != 4:
             continue
         local_ref, local_sha, remote_ref, remote_sha = parts
-        if remote_ref != "refs/heads/main":
+        if not strict and remote_ref != "refs/heads/main":
             continue
         # Deletion (local_sha all zeros) — nothing to validate
         if set(local_sha) == {"0"}:
@@ -521,8 +529,9 @@ def main(argv: list[str]) -> int:
         mode = "commit-msg"
 
     if mode == "pre-push":
+        strict = "--strict" in args
         stdin_text = sys.stdin.read()
-        return _run_pre_push(stdin_text)
+        return _run_pre_push(stdin_text, strict=strict)
 
     # commit-msg: validate single commit message. ALWAYS exit 0.
     if not args:
