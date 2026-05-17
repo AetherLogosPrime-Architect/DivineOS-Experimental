@@ -310,6 +310,99 @@ def check_architecture_tree(readme_path: Path, arch_doc_path: Path | None = None
     return errors
 
 
+# Audit Tier 4 (2026-05-16): semantic file-path verification.
+# Catches the "claims a file/branch/path exists when it doesn't" class
+# of doc drift — e.g. mansion-room name fabrication, stale package list
+# (supersession/clarity_enforcement/violations_cli still listed after
+# deletion), Lite-branch reference that doesn't exist. Numeric drift
+# was caught by check_*_counts; the semantic-existence class was not.
+# Andrew named the gap 2026-05-16 after the README audit caught 16+
+# fact-errors in cited paths and names.
+
+_CITED_PATH_PATTERNS = [
+    # Backticked path-like strings: `foo/bar.py`, `core/family/`
+    re.compile(r"`((?:[a-zA-Z_][\w\-.]*/)+[a-zA-Z_][\w\-.]*(?:\.[a-zA-Z]+)?)(?::\d+)?`"),
+    # Markdown link href to a relative file: [label](path/to/file.ext)
+    re.compile(r"\]\(((?:\./|(?!https?:|mailto:|#))[a-zA-Z_][\w\-./]*\.(?:py|md|sh|json|yml|yaml|toml|txt|cfg))\)"),
+]
+
+# Extensions / patterns to verify on disk. Paths without these are skipped
+# (they may be CLI command names, package names, or other non-file refs).
+_VERIFIABLE_EXTENSIONS = (".py", ".md", ".sh", ".json", ".yml", ".yaml", ".toml", ".txt", ".cfg")
+
+# Paths to skip even if matched (known non-disk references, environment
+# variables, placeholders, common false-positives from prose).
+_SKIP_PATHS = {
+    # Common variable-style references that look like paths
+    "./", "../",
+}
+
+
+def _extract_cited_paths(doc_path: Path) -> set[str]:
+    """Pull out file-path-like strings cited in a documentation file."""
+    if not doc_path.exists():
+        return set()
+    text = doc_path.read_text(encoding="utf-8", errors="replace")
+    cited: set[str] = set()
+    for pat in _CITED_PATH_PATTERNS:
+        for match in pat.finditer(text):
+            path = match.group(1)
+            # Strip line-number suffix (foo.py:123 -> foo.py)
+            if ":" in path and path.rsplit(":", 1)[1].isdigit():
+                path = path.rsplit(":", 1)[0]
+            # Strip trailing slash for directory checks
+            stripped = path.rstrip("/")
+            # Only keep paths with verifiable extension OR clearly-directory paths
+            if path.endswith("/") or any(stripped.endswith(ext) for ext in _VERIFIABLE_EXTENSIONS):
+                if path not in _SKIP_PATHS:
+                    cited.add(path)
+    return cited
+
+
+def _resolve_cited_path(path: str) -> Path | None:
+    """Try multiple resolution conventions. Return existing path or None.
+
+    The docs use multiple conventions: repo-root-relative (tests/foo.py),
+    src/divineos-relative (core/foo.py meaning src/divineos/core/foo.py),
+    or full paths (src/divineos/core/foo.py). Try each.
+    """
+    stripped = path.rstrip("/")
+    candidates = [
+        ROOT / stripped,
+        ROOT / "src" / "divineos" / stripped,
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
+def check_cited_paths(doc_paths: list[Path]) -> list[str]:
+    """Verify file/directory paths cited in docs actually exist on disk.
+
+    Returns list of error strings (empty = all good). Each error names
+    the missing path and the doc that cited it.
+
+    Catches the fact-error class: "doc claims X exists when it doesn'''t"
+    (fabricated mansion rooms, deleted packages still listed, stale
+    branch references, wrong file paths in operator-readable docs).
+
+    Resolution tries both repo-root-relative and src/divineos-relative
+    paths since the docs use both conventions.
+    """
+    errors: list[str] = []
+    for doc in doc_paths:
+        if not doc.exists():
+            continue
+        cited = _extract_cited_paths(doc)
+        for path in sorted(cited):
+            if _resolve_cited_path(path) is None:
+                rel_doc = doc.relative_to(ROOT) if ROOT in doc.parents else doc.name
+                errors.append(f"  MISSING-CITED-PATH: {path} (cited in {rel_doc} but not found on disk)")
+    return errors
+
+
+
 # ── Auto-fix ──────────────────────────────────────────────────────────
 
 
@@ -557,6 +650,19 @@ def main() -> int:
     if tree_errors:
         errors.append("Architecture tree drift:")
         errors.extend(tree_errors)
+
+    # Audit Tier 4 (2026-05-16): semantic file-path verification.
+    # Catches "doc cites X but X does not exist on disk" — the
+    # fabricated-mansion-room / stale-package-list / wrong-file-path
+    # class that numeric drift checks cannot catch.
+    cited_path_errors = check_cited_paths([
+        ROOT / "README.md",
+        ROOT / "CLAUDE.md",
+        ROOT / "TLDR.md",
+    ])
+    if cited_path_errors:
+        errors.append("Cited paths in docs that do not exist on disk:")
+        errors.extend(cited_path_errors)
 
     if errors:
         print(
