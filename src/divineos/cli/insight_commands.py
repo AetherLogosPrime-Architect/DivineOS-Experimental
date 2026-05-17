@@ -516,6 +516,85 @@ def register(cli: click.Group) -> None:
         )
         _safe_echo("")
 
+    @hold.command("stale-review")
+    def hold_stale_review() -> None:
+        """Final-look pass on items that have gone stale (about to fade from attention).
+
+        Per Andrew 2026-05-16: items go stale when sessions_seen >= MAX_SESSIONS_UNREVIEWED
+        without action — but that may mean "we were busy," not "it was unimportant."
+        This surface brings stale items forward for one deliberate review before they
+        fade from default attention. Each item gets promote / let-go / leave-alive
+        affordances. The discipline: don't let items dissolve unmarked.
+
+        Distinct from `hold check`: that surfaces ALL items (active + stale). This
+        surfaces ONLY stale items so the final look is focused. Per code-does-not-think:
+        decision stays with me; this just surfaces the data.
+
+        Pre-reg: prereg-4b5918f3b9fb. Filed 2026-05-16.
+        """
+        import time as _t
+
+        from divineos.core.holding import get_stale_items
+
+        items = get_stale_items()
+        if not items:
+            _safe_echo(click.style("[~] No stale items needing final review.", fg="bright_black"))
+            return
+
+        _safe_echo("")
+        _safe_echo(
+            click.style(
+                f"=== Stale review — {len(items)} item(s). Final look before they fade. ===",
+                fg="yellow",
+                bold=True,
+            )
+        )
+        _safe_echo("")
+        for i, item in enumerate(items, 1):
+            arrived = item.get("arrived_at", 0.0)
+            age_hours = (_t.time() - arrived) / 3600 if arrived else 0.0
+            if age_hours < 48:
+                age_label = f"{age_hours:.1f}h"
+            else:
+                age_label = f"{int(age_hours / 24)}d"
+
+            sessions_seen = item.get("sessions_seen", 0)
+            mode_tag = item.get("mode", "receive")
+
+            _safe_echo(
+                click.style(
+                    f"  [{i}] {item['item_id']}  (age {age_label}, seen {sessions_seen}x without action)  [{mode_tag}]",
+                    fg="bright_black",
+                )
+            )
+            content = (item.get("content") or "").strip()
+            for ln in (content.splitlines() or [content])[:6]:
+                _safe_echo(f"      {ln[:300]}")
+            if item.get("hint"):
+                _safe_echo(click.style(f"      hint: {item['hint']}", fg="bright_black"))
+            _safe_echo("")
+
+        _safe_echo(click.style("  This is the final look. Decide:", fg="yellow"))
+        _safe_echo(
+            click.style(
+                "    promote       → divineos hold promote <item-id> <target>  (it was actually important)",
+                fg="bright_black",
+            )
+        )
+        _safe_echo(
+            click.style(
+                '    let go        → divineos hold let-go <item-id> --note "..."  (confirmed unimportant)',
+                fg="bright_black",
+            )
+        )
+        _safe_echo(
+            click.style(
+                "    keep aging    → leave it; rerun this command later if context shifts",
+                fg="bright_black",
+            )
+        )
+        _safe_echo("")
+
     @hold.command("let-go")
     @click.argument("item_id")
     @click.option(

@@ -277,6 +277,48 @@ def let_go(item_id: str, note: str = "") -> bool:
         conn.close()
 
 
+def get_stale_items(limit: int = 50) -> list[dict[str, Any]]:
+    """Retrieve items currently in stale state (auto-aged out, not yet promoted/let-go).
+
+    Per Andrew 2026-05-16: items that go stale may have been unused because
+    we were busy, not because they were genuinely unimportant. The final-look
+    discipline says these get one deliberate review before they fade from
+    attention entirely. This function exposes the stale-but-not-closed subset
+    for that review.
+
+    Distinct from get_holding(include_stale=True), which mixes stale and
+    active items. This returns ONLY stale items so the review can focus.
+
+    Pre-reg: prereg-4b5918f3b9fb. Claim 801fe949.
+    """
+    init_holding_table()
+    conn = _get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT item_id, content, hint, source, arrived_at, sessions_seen, "
+            "mode, private FROM holding_room "
+            "WHERE stale = 1 AND promoted_to IS NULL "
+            "ORDER BY arrived_at ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        return [
+            {
+                "item_id": r[0],
+                "content": r[1],
+                "hint": r[2],
+                "source": r[3],
+                "arrived_at": r[4],
+                "sessions_seen": r[5],
+                "mode": r[6],
+                "private": bool(r[7]),
+                "stale": True,
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
 def age_holding() -> int:
     """Increment sessions_seen for all active items. Called during sleep.
 
