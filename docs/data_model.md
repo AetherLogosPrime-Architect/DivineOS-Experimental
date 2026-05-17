@@ -2,7 +2,7 @@
 
 DivineOS uses SQLite as the canonical store for everything substantive: memory, knowledge, values, opinions, decisions, family state, audit findings, claims, and operational telemetry. This document is a navigational map of the schema — not a complete column-by-column reference (the source code is the canonical place for that) but enough to orient an external reader.
 
-The schema spans **66 tables across three databases**:
+The schema spans **82 tables across three databases** (verified 2026-05-16: 71 in event_ledger, 9 in family, 2 in per-member-ledger):
 
 ```
 data/ledger.db    # event ledger, knowledge, memory, decisions, claims, audit
