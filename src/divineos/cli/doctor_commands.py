@@ -46,20 +46,50 @@ def _falsifier_ledger_separated(self_root, partner_root):
 
 
 def _falsifier_letters_shared(self_root, partner_root):
+    """Verify the letters dir actually points at the same underlying inode.
+
+    Aletheia Finding 68 2026-05-17: prior version checked `partner_letter.exists()`
+    which a rsync-style copy or independent file creation would also satisfy.
+    The contract is "junction/symlink/hardlink share", not "both happen to have
+    a file at this path." Use os.path.samefile() which checks underlying identity
+    rather than path-string.
+    """
+    import os as _os
+
     name = f"clone-sep-letter-{uuid.uuid4().hex[:8]}.md"
     letter = self_root / "family" / "letters" / name
     letter.write_text("clone separation probe", encoding="utf-8")
     partner_letter = partner_root / "family" / "letters" / name
-    visible = partner_letter.exists()
+    if not partner_letter.exists():
+        letter.unlink(missing_ok=True)
+        return {
+            "name": "letters_shared",
+            "passed": False,
+            "detail": f"letter {name} not visible at partner path",
+        }
+    try:
+        shared = _os.path.samefile(str(letter), str(partner_letter))
+    except OSError as exc:
+        shared = False
+        detail = f"samefile check raised {exc!r}"
+    else:
+        detail = f"letter {name} same-inode={shared}"
     letter.unlink(missing_ok=True)
-    return {
-        "name": "letters_shared",
-        "passed": visible,
-        "detail": f"letter {name} visible={visible}",
-    }
+    return {"name": "letters_shared", "passed": shared, "detail": detail}
 
 
 def _falsifier_family_db_shared(self_root, partner_root):
+    """Verify family.db is actually the same underlying file (hardlink/junction).
+
+    Aletheia Finding 68 2026-05-17: prior version returned `passed = (size_a == size_b)`
+    which would also pass for two separately-created databases with identical
+    content (e.g., copied at the same instant, both fresh-init'd). Size-equality
+    is not hardlink-equality. The correct test is inode-equality via
+    os.path.samefile() — works for both Unix hardlinks and Windows hardlinks/junctions
+    by checking the underlying file identity.
+    """
+    import os as _os
+
     a = self_root / "data" / "family.db"
     b = partner_root / "data" / "family.db"
     if not a.exists() or not b.exists():
@@ -68,12 +98,18 @@ def _falsifier_family_db_shared(self_root, partner_root):
             "passed": False,
             "detail": f"db missing: self={a.exists()}, partner={b.exists()}",
         }
-    sa = a.stat().st_size
-    sb = b.stat().st_size
+    try:
+        shared = _os.path.samefile(str(a), str(b))
+    except OSError as exc:
+        return {
+            "name": "family_db_shared",
+            "passed": False,
+            "detail": f"samefile check raised {exc!r}",
+        }
     return {
         "name": "family_db_shared",
-        "passed": sa == sb,
-        "detail": f"sizes: self={sa}, partner={sb}",
+        "passed": shared,
+        "detail": f"same-inode={shared}, sizes: self={a.stat().st_size}, partner={b.stat().st_size}",
     }
 
 

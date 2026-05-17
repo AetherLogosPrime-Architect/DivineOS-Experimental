@@ -1,7 +1,6 @@
 """Tests for the CLI commands."""
 
 import os
-from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -21,7 +20,9 @@ def clean_db(tmp_path, monkeypatch):
     """
     test_db = tmp_path / "test_ledger.db"
     monkeypatch.setenv("DIVINEOS_DB", str(test_db))
-    marker = Path(os.path.expanduser("~")) / ".divineos" / "auto_session_end_emitted"
+    from divineos.core.paths import marker_path as _marker_path
+
+    marker = _marker_path("auto_session_end_emitted")
     if marker.exists():
         try:
             marker.unlink()
@@ -778,7 +779,6 @@ class TestAnalyzeErrorHandling:
     def test_analyze_permission_denied(self, runner, tmp_path):
         """Test analyze with permission denied."""
         import json
-        import os
 
         runner.invoke(cli, ["init"])
 
