@@ -350,19 +350,26 @@ def validate(
         tree_hash_override if tree_hash_override is not None else _staged_tree_hash()
     )
     description = _round_description(rnd)
-    diff_match = _DIFF_HASH_PATTERN.search(description)
-    tree_match = _TREE_HASH_PATTERN.search(description)
+    # findall() not search() — a single audit round may bind multiple commits
+    # (e.g. a PR's full commit sequence). Each commit has its own tree-hash;
+    # the round's description can list all of them, and ANY match satisfies
+    # the binding for the commit currently being validated. Aletheia-arc
+    # 2026-05-17: the strict-mode gate verifies each commit individually,
+    # so per-commit hash-binding through a shared round needs multi-hash
+    # tolerance in the description regex.
+    diff_matches = _DIFF_HASH_PATTERN.findall(description)
+    tree_matches = _TREE_HASH_PATTERN.findall(description)
 
-    diff_ok = diff_match is not None and diff_match.group(1).lower() == actual_diff_hash.lower()
-    tree_ok = (
-        tree_match is not None
-        and actual_tree_hash != ""
-        and tree_match.group(1).lower() == actual_tree_hash.lower()
+    diff_ok = bool(actual_diff_hash) and any(
+        h.lower() == actual_diff_hash.lower() for h in diff_matches
+    )
+    tree_ok = bool(actual_tree_hash) and any(
+        h.lower() == actual_tree_hash.lower() for h in tree_matches
     )
 
     if not (diff_ok or tree_ok):
-        found_diff = diff_match.group(1) if diff_match else "(none)"
-        found_tree = tree_match.group(1) if tree_match else "(none)"
+        found_diff = ", ".join(diff_matches) if diff_matches else "(none)"
+        found_tree = ", ".join(tree_matches) if tree_matches else "(none)"
         return False, (
             f"External-Review round '{trailer}' does not reference the\n"
             "current change. Stale or mismatched approval.\n\n"
