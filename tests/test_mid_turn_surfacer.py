@@ -42,7 +42,7 @@ def test_surface_mid_turn_throttles_repeated_calls(tmp_path: Path) -> None:
     state_dir = tmp_path
 
     with (
-        patch("divineos.core.mid_turn_surfacer._STATE_DIR", state_dir),
+        patch.dict("os.environ", {"DIVINEOS_HOME": str(state_dir)}),
         patch("divineos.core.mid_turn_surfacer._THROTTLE_FILE", throttle_file),
     ):
         # Pre-populate throttle with a recent timestamp for this file

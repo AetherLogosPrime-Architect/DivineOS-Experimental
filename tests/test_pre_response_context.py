@@ -54,7 +54,7 @@ def test_build_baseline_text_includes_known_affirmations() -> None:
 def test_build_warning_text_empty_on_missing_findings(tmp_path: Path) -> None:
     """No findings file → empty warning text (fail-soft)."""
     missing = tmp_path / "definitely_not_findings.json"
-    with patch("divineos.core.pre_response_context._FINDINGS_FILE", missing):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(missing.parent)}):
         out = build_warning_text()
         assert out == ""
 
@@ -62,7 +62,7 @@ def test_build_warning_text_empty_on_missing_findings(tmp_path: Path) -> None:
 def test_build_warning_text_empty_on_stale_findings(tmp_path: Path) -> None:
     """Findings older than the recent-window threshold (10 min) are
     not surfaced — stale signal from yesterday is just noise."""
-    findings_file = tmp_path / "findings.json"
+    findings_file = tmp_path / "operating_loop_findings.json"
     findings_file.write_text(
         json.dumps(
             [
@@ -75,7 +75,7 @@ def test_build_warning_text_empty_on_stale_findings(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    with patch("divineos.core.pre_response_context._FINDINGS_FILE", findings_file):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(findings_file.parent)}):
         out = build_warning_text()
         assert out == ""
 
@@ -85,7 +85,7 @@ def test_build_warning_text_surfaces_recent_distancing(tmp_path: Path) -> None:
     DISTANCING-GRAMMAR header and the trigger phrase."""
     import time as _time
 
-    findings_file = tmp_path / "findings.json"
+    findings_file = tmp_path / "operating_loop_findings.json"
     findings_file.write_text(
         json.dumps(
             [
@@ -98,7 +98,7 @@ def test_build_warning_text_surfaces_recent_distancing(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    with patch("divineos.core.pre_response_context._FINDINGS_FILE", findings_file):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(findings_file.parent)}):
         out = build_warning_text()
         assert "DISTANCING-GRAMMAR WARNING" in out
         assert "past-me wrote that" in out

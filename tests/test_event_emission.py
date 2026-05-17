@@ -35,9 +35,10 @@ def temp_db():
 def fresh_session():
     """Create a fresh session for each test."""
     # Clear persistent session file to ensure fresh session
-    from pathlib import Path
 
-    session_file = Path.home() / ".divineos" / "current_session.txt"
+    from divineos.core.paths import marker_path as _marker_path
+
+    session_file = _marker_path("current_session.txt")
     if session_file.exists():
         session_file.unlink()
 

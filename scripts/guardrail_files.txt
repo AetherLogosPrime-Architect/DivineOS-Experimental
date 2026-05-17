@@ -134,3 +134,12 @@ src/divineos/core/hedge_audit.py
 src/divineos/core/session_start.py
 src/divineos/core/briefing_freshness.py
 src/divineos/core/structural_fix_tracker.py
+
+# Substrate routing & ownership — load-bearing for per-clone separation.
+# Aletheia Finding 69 (2026-05-17): the PR demonstrated the gap empirically —
+# 9 commits modified paths.py without the multi-party-review gate firing.
+# These three files are the rotation point of the per-clone substrate
+# architecture; changes to them affect every clone simultaneously.
+src/divineos/core/paths.py
+src/divineos/core/data_home_ownership.py
+src/divineos/core/_ledger_base.py

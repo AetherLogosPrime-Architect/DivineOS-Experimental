@@ -31,7 +31,7 @@ the open thread.
 
 from __future__ import annotations
 
-from pathlib import Path
+from divineos.core.paths import marker_path
 
 
 def _current_session_id() -> str:
@@ -41,7 +41,7 @@ def _current_session_id() -> str:
     session file exists (e.g. fresh install) rather than raising.
     """
     try:
-        p = Path.home() / ".divineos" / "current_session.txt"
+        p = marker_path("current_session.txt")
         if p.exists():
             return p.read_text(encoding="utf-8").strip()
     except Exception:  # noqa: BLE001

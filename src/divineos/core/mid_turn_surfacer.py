@@ -29,10 +29,10 @@ import json
 import time
 from pathlib import Path
 from typing import Any
+from divineos.core.paths import divineos_home
 
-_STATE_DIR = Path.home() / ".divineos"
-_THROTTLE_FILE = _STATE_DIR / "mid_turn_throttle.json"
-_SURFACE_FILE = _STATE_DIR / "mid_turn_context.md"
+_THROTTLE_FILE = divineos_home() / "mid_turn_throttle.json"
+_SURFACE_FILE = divineos_home() / "mid_turn_context.md"
 _THROTTLE_SECONDS = 60
 _THROTTLE_MAX_ENTRIES = 50
 
@@ -71,7 +71,7 @@ def _read_throttle() -> dict[str, float]:
 def _write_throttle(throttle: dict[str, float]) -> None:
     """Write the throttle state. Fail-soft on I/O error."""
     try:
-        _STATE_DIR.mkdir(exist_ok=True)
+        divineos_home().mkdir(exist_ok=True)
         _THROTTLE_FILE.write_text(json.dumps(throttle), encoding="utf-8")
     except OSError:
         pass
@@ -130,7 +130,7 @@ def surface_mid_turn(tool_name: str, file_path: str) -> dict[str, Any]:
     # Fetch timeline
     try:
         from divineos.core.memory_types import format_timeline, recall_timeline
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {
             "surfaced": False,
             "throttled": False,
@@ -146,7 +146,7 @@ def surface_mid_turn(tool_name: str, file_path: str) -> dict[str, Any]:
             per_source_limit=3,
             total_limit=8,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {
             "surfaced": False,
             "throttled": False,
@@ -169,7 +169,7 @@ def surface_mid_turn(tool_name: str, file_path: str) -> dict[str, Any]:
         f"how to handle this file._\n\n"
     )
     try:
-        _STATE_DIR.mkdir(exist_ok=True)
+        divineos_home().mkdir(exist_ok=True)
         _SURFACE_FILE.write_text(header + format_timeline(events), encoding="utf-8")
     except OSError:
         return {"surfaced": False, "throttled": False, "no_events": False, "reason": "write_failed"}

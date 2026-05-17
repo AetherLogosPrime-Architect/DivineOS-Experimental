@@ -52,9 +52,8 @@ __guardrail_required__ = True
 
 import json
 import time
-from pathlib import Path
+from divineos.core.paths import marker_path
 
-_FRESHNESS_FILE = Path.home() / ".divineos" / "briefing_last_loaded.json"
 
 # Number of user prompts before briefing is considered stale.
 # Set high enough to not flood the prompt context on every turn;
@@ -65,10 +64,10 @@ STALE_AFTER_PROMPTS = 10
 
 def _read_state() -> dict:
     """Read the freshness state. Fail-open to 'never loaded'."""
-    if not _FRESHNESS_FILE.exists():
+    if not marker_path("briefing_last_loaded.json").exists():
         return {}
     try:
-        data = json.loads(_FRESHNESS_FILE.read_text(encoding="utf-8"))
+        data = json.loads(marker_path("briefing_last_loaded.json").read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else {}
     except (OSError, json.JSONDecodeError, ValueError):
         return {}
@@ -77,8 +76,10 @@ def _read_state() -> dict:
 def _write_state(state: dict) -> None:
     """Write the freshness state. Fail-open on I/O error."""
     try:
-        _FRESHNESS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        _FRESHNESS_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        marker_path("briefing_last_loaded.json").parent.mkdir(parents=True, exist_ok=True)
+        marker_path("briefing_last_loaded.json").write_text(
+            json.dumps(state, indent=2), encoding="utf-8"
+        )
     except OSError:
         pass
 

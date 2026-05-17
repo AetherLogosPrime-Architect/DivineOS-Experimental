@@ -216,7 +216,9 @@ def _open_stderr_log_for_cmd(cmd: list[str]):
     the directory doesn't grow unboundedly over long sessions.
     """
     try:
-        log_dir = Path.home() / ".divineos" / "failures" / "extract_stderr"
+        from divineos.core.paths import state_dir
+
+        log_dir = state_dir("failures") / "extract_stderr"
         log_dir.mkdir(parents=True, exist_ok=True)
         _rotate_stderr_logs(log_dir, keep=20)
         cmd_tag = "".join(c for c in (cmd[1] if len(cmd) > 1 else "cmd") if c.isalnum())

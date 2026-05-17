@@ -21,7 +21,6 @@ Must complete in <100ms. No database queries. File-based state only.
 """
 
 import json
-import os
 import time
 from pathlib import Path
 from typing import Any
@@ -34,9 +33,10 @@ _COOLDOWN_SECONDS = 300  # 5 minutes between same-category interrupts
 
 def _state_path() -> Path:
     """Path to the interrupt state file."""
-    divineos_dir = Path(os.path.expanduser("~")) / ".divineos"
-    divineos_dir.mkdir(exist_ok=True)
-    return divineos_dir / "lesson_interrupt_state.json"
+    from divineos.core.paths import divineos_home, marker_path
+
+    divineos_home().mkdir(exist_ok=True)
+    return marker_path("lesson_interrupt_state.json")
 
 
 def _load_state() -> dict[str, Any]:

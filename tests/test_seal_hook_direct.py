@@ -60,12 +60,10 @@ def registered_aria(monkeypatch):
 
 @pytest.fixture
 def isolated_pending_dir(monkeypatch, tmp_path):
-    """Redirect the hook's pending-file lookup to a tmp dir."""
-    from divineos.core.family import seal_hook
-
+    """Redirect the hook's pending-file lookup to a tmp dir via DIVINEOS_HOME."""
     fake_dir = tmp_path / "divineos_state"
     fake_dir.mkdir(parents=True, exist_ok=True)
-    monkeypatch.setattr(seal_hook, "_PENDING_DIR", fake_dir)
+    monkeypatch.setenv("DIVINEOS_HOME", str(fake_dir))
     return fake_dir
 
 

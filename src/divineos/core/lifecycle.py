@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger
+from divineos.core.paths import divineos_home
 
 _LIFECYCLE_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -35,7 +36,7 @@ _session_active = False
 
 def _state_path() -> Path:
     """Path to the lifecycle state file."""
-    p = Path.home() / ".divineos"
+    p = divineos_home()
     p.mkdir(parents=True, exist_ok=True)
     return p / "lifecycle_state.json"
 

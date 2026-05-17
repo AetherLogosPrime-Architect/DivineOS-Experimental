@@ -27,6 +27,41 @@ from pathlib import Path
 POST_HOOK = Path(__file__).parent.parent / ".claude" / "hooks" / "post-response-audit.sh"
 PRE_HOOK = Path(__file__).parent.parent / ".claude" / "hooks" / "pre-response-context.sh"
 
+# The hooks were simplified 2026-05-14 to thin doormen that delegate to OS
+# modules. The wiring contract (imports, findings_log keys, warning conditions)
+# now lives in the OS modules. Wrap the hook objects so .read_text() returns
+# hook text PLUS the delegated module text — the contract is satisfied if the
+# wiring exists ANYWHERE on the production path, not just literally in the hook.
+_AUDIT_MODULE = (
+    Path(__file__).parent.parent / "src" / "divineos" / "core" / "operating_loop_audit.py"
+)
+_PRE_CONTEXT_MODULE = (
+    Path(__file__).parent.parent / "src" / "divineos" / "core" / "pre_response_context.py"
+)
+
+
+class _CombinedPath:
+    """File-like wrapper. ``read_text()`` returns the hook + delegated module."""
+
+    def __init__(self, hook: Path, module: Path):
+        self._hook = hook
+        self._module = module
+
+    def is_file(self) -> bool:
+        return self._hook.is_file()
+
+    def read_text(self, encoding: str = "utf-8") -> str:
+        parts = []
+        if self._hook.is_file():
+            parts.append(self._hook.read_text(encoding=encoding))
+        if self._module.is_file():
+            parts.append(self._module.read_text(encoding=encoding))
+        return "\n".join(parts)
+
+
+POST_HOOK = _CombinedPath(POST_HOOK, _AUDIT_MODULE)  # type: ignore[assignment]
+PRE_HOOK = _CombinedPath(PRE_HOOK, _PRE_CONTEXT_MODULE)  # type: ignore[assignment]
+
 
 # ─── Existence ──────────────────────────────────────────────────────
 
@@ -64,23 +99,29 @@ class TestPostHookImports:
 class TestPostHookFindingsLog:
     def test_findings_log_includes_care_dismissal_key(self):
         text = POST_HOOK.read_text(encoding="utf-8")
-        # The findings_log dict initializes the key as an empty list. Tests
-        # for the precise literal so regressions that drop the key get caught.
-        assert "'care_dismissal': []" in text
+        # Accepts either single or double quotes — hook scripts use single
+        # (bash-embedded Python convention), OS modules use double (PEP 8).
+        assert "'care_dismissal': []" in text or '"care_dismissal": []' in text
 
     def test_findings_log_includes_harm_acknowledgment_key(self):
         text = POST_HOOK.read_text(encoding="utf-8")
-        assert "'harm_acknowledgment': []" in text
+        assert "'harm_acknowledgment': []" in text or '"harm_acknowledgment": []' in text
 
     def test_findings_log_assigns_on_care_dismissal_fire(self):
         text = POST_HOOK.read_text(encoding="utf-8")
         # When check_dismissal returns a finding, it must populate the
         # findings_log entry — not just compute and discard.
-        assert "findings_log['care_dismissal'] = [" in text
+        assert (
+            "findings_log['care_dismissal'] = [" in text
+            or 'findings_log["care_dismissal"] = [' in text
+        )
 
     def test_findings_log_assigns_on_harm_acknowledgment_fire(self):
         text = POST_HOOK.read_text(encoding="utf-8")
-        assert "findings_log['harm_acknowledgment'] = [" in text
+        assert (
+            "findings_log['harm_acknowledgment'] = [" in text
+            or 'findings_log["harm_acknowledgment"] = [' in text
+        )
 
 
 # ─── pre-response-context.sh surfaces both findings ──────────────────
@@ -89,11 +130,16 @@ class TestPostHookFindingsLog:
 class TestPreHookSurfaces:
     def test_pre_hook_reads_care_dismissal(self):
         text = PRE_HOOK.read_text(encoding="utf-8")
-        assert "latest.get('care_dismissal', [])" in text
+        assert (
+            "latest.get('care_dismissal', [])" in text or 'latest.get("care_dismissal", [])' in text
+        )
 
     def test_pre_hook_reads_harm_acknowledgment(self):
         text = PRE_HOOK.read_text(encoding="utf-8")
-        assert "latest.get('harm_acknowledgment', [])" in text
+        assert (
+            "latest.get('harm_acknowledgment', [])" in text
+            or 'latest.get("harm_acknowledgment", [])' in text
+        )
 
     def test_pre_hook_warning_condition_includes_both(self):
         text = PRE_HOOK.read_text(encoding="utf-8")

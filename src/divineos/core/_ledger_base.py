@@ -15,6 +15,13 @@ attribute (resolved dynamically via PEP 562 ``__getattr__``) and
   correctness risk Dijkstra flagged in his 2026-04-16 audit.
 """
 
+# Module-level guardrail marker — Aletheia Finding 69 (2026-05-17).
+# This file is on the multi-party-review list (scripts/guardrail_files.txt).
+# CI test test_guardrail_marker_consistency walks src/ and asserts every
+# guardrail-listed module sets this marker to True. Prevents the next
+# refactor from silently removing self-enforcement code from review.
+__guardrail_required__ = True
+
 import hashlib
 import sqlite3
 from pathlib import Path
@@ -150,6 +157,30 @@ def _get_db_path() -> Path:
                     parent_marker = _resolve_canonical_marker(parent_root / ".divineos_canonical")
                     if parent_marker is not None:
                         return parent_marker
+        except (OSError, ValueError):
+            pass
+
+    # CWD-based marker (fallback after __file__-based resolution):
+    # When divineos is installed editable from one clone but invoked from
+    # another, the install-time __file__ path won't find the running clone's
+    # .divineos_canonical. Walk up from CWD as a final fallback.
+    #
+    # Skipped under pytest: unit tests patch __file__ to a tmp dir to simulate
+    # different checkout layouts, but cwd stays at the real repo root. A CWD
+    # walk would find the real .divineos_canonical and override the patched-
+    # __file__ default that tests expect. Tests exercising CWD-walk behavior
+    # set DIVINEOS_FORCE_CWD_WALK=1 to opt in.
+    if "PYTEST_CURRENT_TEST" not in os.environ or os.environ.get("DIVINEOS_FORCE_CWD_WALK") == "1":
+        try:
+            cwd = Path.cwd().resolve()
+            for ancestor in (cwd, *cwd.parents):
+                cwd_marker = _resolve_canonical_marker(ancestor / ".divineos_canonical")
+                if cwd_marker is not None:
+                    return cwd_marker
+                # Stop walking past a real .git directory (canonical repo root).
+                git = ancestor / ".git"
+                if git.is_dir():
+                    break
         except (OSError, ValueError):
             pass
 

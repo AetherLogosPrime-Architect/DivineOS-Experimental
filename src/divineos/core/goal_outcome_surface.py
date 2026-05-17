@@ -55,6 +55,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from divineos.core.paths import state_dir
 
 # Window for which stale-archivals are surfaced. Older entries fall off.
 # 7 days matches open_claims_surface staleness threshold.
@@ -75,7 +76,7 @@ def _outcomes_path() -> Path:
     # Match _ensure_hud_dir() in hud_state.py — keep the path resolution
     # local so this module doesn't import from hud_state (avoids
     # circular-import risk).
-    return Path.home() / ".divineos" / "hud" / "goal_outcomes.json"
+    return state_dir("hud") / "goal_outcomes.json"
 
 
 def _format_age(seconds: float) -> str:
