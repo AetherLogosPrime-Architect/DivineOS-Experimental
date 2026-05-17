@@ -39,8 +39,8 @@ import json
 import time
 from pathlib import Path
 from typing import Any
+from divineos.core.paths import marker_path
 
-_FINDINGS_FILE = Path.home() / ".divineos" / "operating_loop_findings.json"
 _ROLLING_WINDOW = 200
 
 
@@ -58,7 +58,7 @@ def run_theater_audit(transcript_path: str | Path) -> dict[str, Any]:
         from divineos.core.operating_loop.turn_extraction import extract_turn
 
         texts = extract_turn(transcript_path)
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flags": [], "monitors": [], "persisted": False, "marker_set": False}
 
     last_assistant_text = texts.last_assistant_text
@@ -68,7 +68,7 @@ def run_theater_audit(transcript_path: str | Path) -> dict[str, Any]:
     try:
         from divineos.core.self_monitor.theater_monitor import evaluate_theater
         from divineos.core.self_monitor.fabrication_monitor import evaluate_fabrication
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flags": [], "monitors": [], "persisted": False, "marker_set": False}
 
     try:
@@ -76,7 +76,7 @@ def run_theater_audit(transcript_path: str | Path) -> dict[str, Any]:
         f_result = evaluate_fabrication(last_assistant_text)
         t_flags = list(getattr(t_result, "flags", []) or [])
         f_flags = list(getattr(f_result, "flags", []) or [])
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flags": [], "monitors": [], "persisted": False, "marker_set": False}
 
     monitors: list[str] = []
@@ -107,7 +107,7 @@ def run_theater_audit(transcript_path: str | Path) -> dict[str, Any]:
 
         set_marker(",".join(monitors), kinds, last_assistant_text[:300])
         marker_set = True
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
 
     # Append a findings entry to operating_loop_findings.json so the
@@ -127,14 +127,16 @@ def _persist_findings(monitors: list[str], kinds: list[str], total_flags: int) -
     """Append a theater/fabrication entry to operating_loop_findings.json.
     Returns True on success, False on any I/O error (fail-soft)."""
     try:
-        _FINDINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        marker_path("operating_loop_findings.json").parent.mkdir(parents=True, exist_ok=True)
     except OSError:
         return False
 
     existing: list = []
-    if _FINDINGS_FILE.exists():
+    if marker_path("operating_loop_findings.json").exists():
         try:
-            data = json.loads(_FINDINGS_FILE.read_text(encoding="utf-8"))
+            data = json.loads(
+                marker_path("operating_loop_findings.json").read_text(encoding="utf-8")
+            )
             if isinstance(data, list):
                 existing = data
         except (OSError, json.JSONDecodeError, ValueError):
@@ -149,7 +151,9 @@ def _persist_findings(monitors: list[str], kinds: list[str], total_flags: int) -
     existing = existing[-_ROLLING_WINDOW:]
 
     try:
-        _FINDINGS_FILE.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+        marker_path("operating_loop_findings.json").write_text(
+            json.dumps(existing, indent=2), encoding="utf-8"
+        )
         return True
     except OSError:
         return False

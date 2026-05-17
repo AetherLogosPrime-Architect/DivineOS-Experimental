@@ -40,7 +40,7 @@ from divineos.core.moral_compass import (
 def _fresh_db(tmp_path, monkeypatch):
     """Isolated DB + failure-diag dir per test."""
     os.environ["DIVINEOS_DB"] = str(tmp_path / "test.db")
-    monkeypatch.setattr("divineos.core.failure_diagnostics._BASE_DIR", tmp_path / "failures")
+    monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
     # Disable Item 7 substance checks for this suite — we're testing
     # fire-ID mechanics, not substance-check mechanics. Tests that
     # care about substance checks are in test_substance_checks.py.
@@ -244,7 +244,7 @@ class TestFireIdValidation:
 
 class TestFireIdRejectionLogging:
     def test_fabricated_fire_logged_to_failure_diagnostics(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("divineos.core.failure_diagnostics._BASE_DIR", tmp_path / "failures")
+        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         _seed_drift("initiative")
         with pytest.raises(ValueError):
             log_observation(
@@ -261,7 +261,7 @@ class TestFireIdRejectionLogging:
         assert any(e.get("stage") == "fire_id" for e in entries)
 
     def test_consumed_fire_logged_to_failure_diagnostics(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("divineos.core.failure_diagnostics._BASE_DIR", tmp_path / "failures")
+        monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
         fire_id = _trigger_fire("initiative")
         log_observation(
             spectrum="initiative",

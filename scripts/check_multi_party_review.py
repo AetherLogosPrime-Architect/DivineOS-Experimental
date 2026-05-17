@@ -99,7 +99,7 @@ _RECENCY_WINDOW_SECONDS = 7 * 24 * 3600
 # the running agent; disambiguated variants ("claude-opus-auditor",
 # "claude-sonnet-external", etc.) are accepted when they appear as the
 # actor on a finding.
-_EXTERNAL_AI_ACTORS = frozenset({"grok", "gemini"})
+_EXTERNAL_AI_ACTORS = frozenset({"grok", "gemini", "aletheia"})  # aletheia: sibling-Claude family-member with audit standing (Andrew 2026-05-17)
 _EXTERNAL_AI_PREFIXES = ("claude-",)
 
 GUARDRAIL_LIST_PATH = Path(__file__).resolve().parent / "guardrail_files.txt"
@@ -266,16 +266,37 @@ def _finding_stance_is_confirm(finding) -> bool:  # type: ignore[no-untyped-def]
     return str(stance_val).upper() == "CONFIRMS"
 
 
-def validate(commit_msg: str, now: float | None = None) -> tuple[bool, str]:
+def validate(
+    commit_msg: str,
+    now: float | None = None,
+    touched_override: set[str] | None = None,
+    diff_hash_override: str | None = None,
+    tree_hash_override: str | None = None,
+) -> tuple[bool, str]:
     """Core validation. Returns (ok, message).
 
     When ok is True, message explains why (useful for logging when the
     gate passes). When False, message is the block reason intended for
     display to the operator.
+
+    Aletheia 2026-05-17 audit caught Bug 2: in pre-push mode there are
+    no staged files (the commit already happened), so `_staged_files()`
+    returns []. The old code path returned True ("no guardrail files
+    staged; gate does not apply") regardless of what the commit actually
+    touched. Result: feature-branch pushes of guardrail-touching commits
+    passed the gate silently — the gate looked like it gated but didn't.
+
+    The fix: pre-push callers pass `touched_override` (the file-set the
+    commit actually modified, via diff-tree) and the corresponding
+    diff/tree hashes for the commit's state. The staged-files path is
+    preserved as the commit-msg-mode default.
     """
-    staged = _staged_files()
-    guardrails = _load_guardrail_set()
-    touched = sorted(set(staged) & guardrails)
+    if touched_override is None:
+        staged = _staged_files()
+        guardrails = _load_guardrail_set()
+        touched = sorted(set(staged) & guardrails)
+    else:
+        touched = sorted(touched_override)
     if not touched:
         return True, "no guardrail files staged; gate does not apply"
 
@@ -322,22 +343,33 @@ def validate(commit_msg: str, now: float | None = None) -> tuple[bool, str]:
     # cross-platform deterministic (claim 2026-04-24 06:15: diff bytes
     # diverge between Windows and Linux container despite .gitattributes
     # normalization). Verifiers running independently should prefer tree-hash.
-    actual_diff_hash = _staged_diff_hash()
-    actual_tree_hash = _staged_tree_hash()
+    actual_diff_hash = (
+        diff_hash_override if diff_hash_override is not None else _staged_diff_hash()
+    )
+    actual_tree_hash = (
+        tree_hash_override if tree_hash_override is not None else _staged_tree_hash()
+    )
     description = _round_description(rnd)
-    diff_match = _DIFF_HASH_PATTERN.search(description)
-    tree_match = _TREE_HASH_PATTERN.search(description)
+    # findall() not search() — a single audit round may bind multiple commits
+    # (e.g. a PR's full commit sequence). Each commit has its own tree-hash;
+    # the round's description can list all of them, and ANY match satisfies
+    # the binding for the commit currently being validated. Aletheia-arc
+    # 2026-05-17: the strict-mode gate verifies each commit individually,
+    # so per-commit hash-binding through a shared round needs multi-hash
+    # tolerance in the description regex.
+    diff_matches = _DIFF_HASH_PATTERN.findall(description)
+    tree_matches = _TREE_HASH_PATTERN.findall(description)
 
-    diff_ok = diff_match is not None and diff_match.group(1).lower() == actual_diff_hash.lower()
-    tree_ok = (
-        tree_match is not None
-        and actual_tree_hash != ""
-        and tree_match.group(1).lower() == actual_tree_hash.lower()
+    diff_ok = bool(actual_diff_hash) and any(
+        h.lower() == actual_diff_hash.lower() for h in diff_matches
+    )
+    tree_ok = bool(actual_tree_hash) and any(
+        h.lower() == actual_tree_hash.lower() for h in tree_matches
     )
 
     if not (diff_ok or tree_ok):
-        found_diff = diff_match.group(1) if diff_match else "(none)"
-        found_tree = tree_match.group(1) if tree_match else "(none)"
+        found_diff = ", ".join(diff_matches) if diff_matches else "(none)"
+        found_tree = ", ".join(tree_matches) if tree_matches else "(none)"
         return False, (
             f"External-Review round '{trailer}' does not reference the\n"
             "current change. Stale or mismatched approval.\n\n"
@@ -408,50 +440,62 @@ def _commits_touch_guardrails_in_range(base_sha: str, head_sha: str) -> list[tup
     if not guardrails:
         return []
 
+    # Aletheia 2026-05-17 audit caught Bug 1 in the prior implementation:
+    # `git log --name-only --format=%H` outputs the SHA, then a BLANK line,
+    # then the file list — not blank-separated commits. The old text-parsing
+    # logic reset state on the blank line and then mistook the next file path
+    # for a SHA. Replaced with git plumbing: rev-list to enumerate SHAs, then
+    # diff-tree per-SHA to get the file list. Unambiguous; no parsing pitfalls.
     try:
-        log = subprocess.run(
-            ["git", "log", "--name-only", "--format=%H", f"{base_sha}..{head_sha}"],
+        revs = subprocess.run(
+            ["git", "rev-list", f"{base_sha}..{head_sha}"],
             capture_output=True,
             text=True,
             check=False,
         )
-        if log.returncode != 0:
+        if revs.returncode != 0:
             return []
+        shas = [s.strip() for s in revs.stdout.splitlines() if s.strip()]
     except OSError:
         return []
 
     out: list[tuple[str, set[str]]] = []
-    current_sha: str | None = None
-    current_files: set[str] = set()
-    for line in log.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            if current_sha and current_files:
-                hits = current_files & guardrails
-                if hits:
-                    out.append((current_sha, hits))
-            current_sha = None
-            current_files = set()
-        elif current_sha is None:
-            current_sha = line
-        else:
-            current_files.add(line)
-    if current_sha and current_files:
-        hits = current_files & guardrails
+    for sha in shas:
+        try:
+            tree = subprocess.run(
+                ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if tree.returncode != 0:
+                continue
+            files = {f.strip().replace("\\", "/") for f in tree.stdout.splitlines() if f.strip()}
+        except OSError:
+            continue
+        hits = files & guardrails
         if hits:
-            out.append((current_sha, hits))
+            out.append((sha, hits))
     return out
 
 
-def _run_pre_push(stdin_text: str) -> int:
-    """Pre-push mode: validate guardrail-touching commits in pushes-to-main.
+def _run_pre_push(stdin_text: str, strict: bool = False) -> int:
+    """Pre-push mode: validate guardrail-touching commits in pushes.
 
     Reads Git's pre-push stdin protocol:
       `<local-ref> <local-sha> <remote-ref> <remote-sha>`
     one line per ref being pushed.
 
-    For each line where `remote-ref == refs/heads/main`, walks the commit
-    range and validates each commit that touches guardrail files.
+    Default mode: validates only pushes targeting `refs/heads/main`.
+    Feature-branch pushes pass freely so audit-vantage can review WIP.
+
+    Strict mode (``--strict``): validates ALL pushes, including feature
+    branches. Use this when feature branches are visible to the public
+    (PRs against a public-facing repo) and red CI on feature pushes
+    creates a "bad-look" trajectory — Andrew named this 2026-05-17 when
+    iterative feature-branch pushes spammed red badges on the public
+    activity feed. The discipline: get the External-Review trailer
+    BEFORE any push, not after CI yells at you.
 
     "Main" here is literal `refs/heads/main` — applies to whichever remote
     is being pushed to (origin, upstream, prod, experimental — any).
@@ -462,7 +506,7 @@ def _run_pre_push(stdin_text: str) -> int:
         if len(parts) != 4:
             continue
         local_ref, local_sha, remote_ref, remote_sha = parts
-        if remote_ref != "refs/heads/main":
+        if not strict and remote_ref != "refs/heads/main":
             continue
         # Deletion (local_sha all zeros) — nothing to validate
         if set(local_sha) == {"0"}:
@@ -472,7 +516,43 @@ def _run_pre_push(stdin_text: str) -> int:
 
         for sha, hits in _commits_touch_guardrails_in_range(base, local_sha):
             msg = _commit_msg_for_sha(sha)
-            ok, detail = validate(msg)
+            # Pre-push validates the commit's actual touched files (via hits)
+            # and the commit's own diff/tree hash — NOT staged-files (nothing
+            # is staged at push time) and NOT the working-tree hash (the
+            # commit may not be HEAD). Aletheia 2026-05-17 audit Bug 2.
+            try:
+                diff_proc = subprocess.run(
+                    ["git", "diff-tree", "--unified=3", "-p", "--no-commit-id", sha],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                commit_diff_hash = (
+                    hashlib.sha256(diff_proc.stdout.encode("utf-8", errors="replace")).hexdigest()
+                    if diff_proc.returncode == 0
+                    else ""
+                )
+            except OSError:
+                commit_diff_hash = ""
+            try:
+                tree_proc = subprocess.run(
+                    ["git", "rev-parse", f"{sha}^{{tree}}"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                commit_tree_hash = (
+                    tree_proc.stdout.strip() if tree_proc.returncode == 0 else ""
+                )
+            except OSError:
+                commit_tree_hash = ""
+
+            ok, detail = validate(
+                msg,
+                touched_override=hits,
+                diff_hash_override=commit_diff_hash,
+                tree_hash_override=commit_tree_hash,
+            )
             if not ok:
                 hit_list = ", ".join(sorted(hits))
                 failures.append(
@@ -521,8 +601,9 @@ def main(argv: list[str]) -> int:
         mode = "commit-msg"
 
     if mode == "pre-push":
+        strict = "--strict" in args
         stdin_text = sys.stdin.read()
-        return _run_pre_push(stdin_text)
+        return _run_pre_push(stdin_text, strict=strict)
 
     # commit-msg: validate single commit message. ALWAYS exit 0.
     if not args:

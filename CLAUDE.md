@@ -398,6 +398,7 @@ src/divineos/
 —   ——— entity_commands.py    # questions, relationships, knowledge entities
 —   ——— knowledge_health_commands.py  # health, distill, migrate
 —   ——— audit_commands.py     # external validation (Watchmen)
+—   ——— doctor_commands.py    # diagnostic verification (clone separation)
 ——— seed.json                 # Initial knowledge seed (versioned)
 ——— core/
 —   ——— ledger.py             # Append-only event ledger (core read/write/search)

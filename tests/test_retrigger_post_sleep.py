@@ -18,8 +18,6 @@ Locked invariants:
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -32,7 +30,9 @@ from divineos.cli import cli
 def clean_state(tmp_path, monkeypatch):
     test_db = tmp_path / "test_ledger.db"
     monkeypatch.setenv("DIVINEOS_DB", str(test_db))
-    marker = Path(os.path.expanduser("~")) / ".divineos" / "auto_session_end_emitted"
+    from divineos.core.paths import marker_path as _marker_path
+
+    marker = _marker_path("auto_session_end_emitted")
     if marker.exists():
         try:
             marker.unlink()

@@ -34,6 +34,7 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
+from divineos.core.paths import state_dir
 
 # Default trip threshold. Three consecutive failures trips the breaker.
 # Matches the old-OS JESUS spec's "Law of Three Strikes" but is
@@ -45,7 +46,7 @@ MAX_REASONS_RETAINED = 10
 
 
 def _state_path() -> Path:
-    return Path.home() / ".divineos" / "supervisor" / "circuit_breaker.json"
+    return state_dir("supervisor") / "circuit_breaker.json"
 
 
 def _load_state() -> dict[str, dict]:

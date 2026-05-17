@@ -789,6 +789,32 @@ def preflight_check() -> dict[str, Any]:
     """
     checks: list[dict[str, Any]] = []
 
+    # 0. Data-home ownership — does the resolved ~/.divineos belong to this checkout?
+    # Fires first because every other check reads/writes data under data-home; if
+    # ownership is wrong, the rest of preflight is reading the wrong dir.
+    try:
+        from divineos.core.data_home_ownership import (
+            DataHomeOwnershipError,
+            verify_data_home_ownership,
+        )
+
+        ownership = verify_data_home_ownership()
+        ownership_ok = True
+        ownership_detail = f"Data-home owned by this checkout ({ownership['status']})"
+    except DataHomeOwnershipError as exc:
+        ownership_ok = False
+        ownership_detail = str(exc)
+    except (ImportError, OSError) as exc:
+        ownership_ok = True  # don't block if module unavailable
+        ownership_detail = f"Ownership check skipped: {exc}"
+    checks.append(
+        {
+            "name": "data_home_ownership",
+            "passed": ownership_ok,
+            "detail": ownership_detail,
+        }
+    )
+
     # 1. Briefing loaded?
     briefing_ok = was_briefing_loaded()
     checks.append(

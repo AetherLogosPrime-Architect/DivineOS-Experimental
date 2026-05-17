@@ -9,7 +9,7 @@ from divineos.core.operating_loop import hook_telemetry
 
 def test_no_fires_returns_zero_stats(tmp_path):
     log_path = tmp_path / "tel.jsonl"
-    with patch.object(hook_telemetry, "_LOG_PATH", log_path):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(log_path.parent)}):
         stats = hook_telemetry.summary_stats()
         assert stats.fires == 0
         assert stats.consumed == 0
@@ -18,7 +18,7 @@ def test_no_fires_returns_zero_stats(tmp_path):
 
 def test_fire_then_consumption_records(tmp_path):
     log_path = tmp_path / "tel.jsonl"
-    with patch.object(hook_telemetry, "_LOG_PATH", log_path):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(log_path.parent)}):
         hook_telemetry.record_fire(
             surface_text="Surfaced: lunkhead principle - never apologize for learning",
             surfaced_ids=["abc123"],
@@ -38,7 +38,7 @@ def test_fire_then_consumption_records(tmp_path):
 
 def test_fire_then_unrelated_response_records_no_consumption(tmp_path):
     log_path = tmp_path / "tel.jsonl"
-    with patch.object(hook_telemetry, "_LOG_PATH", log_path):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(log_path.parent)}):
         hook_telemetry.record_fire(
             surface_text="Surfaced: zucchini quaternion telemetry handler",
             surfaced_ids=["xyz789"],
@@ -57,14 +57,14 @@ def test_fire_then_unrelated_response_records_no_consumption(tmp_path):
 
 def test_format_stats_with_no_fires(tmp_path):
     log_path = tmp_path / "tel.jsonl"
-    with patch.object(hook_telemetry, "_LOG_PATH", log_path):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(log_path.parent)}):
         out = hook_telemetry.format_stats(hook_telemetry.summary_stats())
         assert "No fires" in out
 
 
 def test_rolling_window_caps_log(tmp_path):
     log_path = tmp_path / "tel.jsonl"
-    with patch.object(hook_telemetry, "_LOG_PATH", log_path):
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(log_path.parent)}):
         with patch.object(hook_telemetry, "_ROLLING_WINDOW", 5):
             for i in range(10):
                 hook_telemetry.record_fire(
