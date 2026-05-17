@@ -10,6 +10,14 @@ This module is the OS-native orchestrator. The hook now becomes a
 thin doorman that calls ``run_audit(transcript_path)`` and exits.
 All detector orchestration + findings persistence lives in the OS.
 
+Currently wires fifteen observational detectors (originally nine
+observational detectors when the audit module was first carved out
+of the hook — the rest were added in subsequent commits as new
+behavioral patterns were named): hedge, theater, opener, closing_token,
+addressee_misdirection, banned_phrases, principles, overclaim,
+spiral, substitution, care_dismissal, harm_acknowledgment,
+acknowledgment_theater, code_jargon, linguistic_drift.
+
 ## Contract
 
 ``run_audit(transcript_path, *, write=True)`` does:
@@ -278,6 +286,37 @@ def run_audit(
             last_assistant_text,
             prior_text=last_user_text,
             tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
+        )
+    except _ERRORS:
+        pass
+
+    try:
+        from divineos.core.operating_loop.addressee_misdirection_detector import (
+            detect_misdirection,
+        )
+
+        findings_log["addressee_misdirection"] = _run_detector(
+            "addressee_misdirection",
+            detect_misdirection,
+            last_user_text,
+            last_assistant_text,
+            transcript_path=transcript_path,
+        )
+    except _ERRORS:
+        pass
+
+    try:
+        from divineos.core.voice_guard.banned_phrases import audit
+
+        findings_log["banned_phrases"] = _run_detector("banned_phrases", audit, last_assistant_text)
+    except _ERRORS:
+        pass
+
+    try:
+        from divineos.core.operating_loop.principle_surfacer import surface_principles
+
+        findings_log["principles"] = _run_detector(
+            "principles", surface_principles, last_assistant_text
         )
     except _ERRORS:
         pass

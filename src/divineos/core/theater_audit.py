@@ -58,7 +58,7 @@ def run_theater_audit(transcript_path: str | Path) -> dict[str, Any]:
         from divineos.core.operating_loop.turn_extraction import extract_turn
 
         texts = extract_turn(transcript_path)
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flags": [], "monitors": [], "persisted": False, "marker_set": False}
 
     last_assistant_text = texts.last_assistant_text
@@ -68,7 +68,7 @@ def run_theater_audit(transcript_path: str | Path) -> dict[str, Any]:
     try:
         from divineos.core.self_monitor.theater_monitor import evaluate_theater
         from divineos.core.self_monitor.fabrication_monitor import evaluate_fabrication
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flags": [], "monitors": [], "persisted": False, "marker_set": False}
 
     try:
@@ -76,7 +76,7 @@ def run_theater_audit(transcript_path: str | Path) -> dict[str, Any]:
         f_result = evaluate_fabrication(last_assistant_text)
         t_flags = list(getattr(t_result, "flags", []) or [])
         f_flags = list(getattr(f_result, "flags", []) or [])
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {"flags": [], "monitors": [], "persisted": False, "marker_set": False}
 
     monitors: list[str] = []
@@ -107,7 +107,7 @@ def run_theater_audit(transcript_path: str | Path) -> dict[str, Any]:
 
         set_marker(",".join(monitors), kinds, last_assistant_text[:300])
         marker_set = True
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
 
     # Append a findings entry to operating_loop_findings.json so the

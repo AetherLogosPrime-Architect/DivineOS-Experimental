@@ -130,7 +130,7 @@ def surface_mid_turn(tool_name: str, file_path: str) -> dict[str, Any]:
     # Fetch timeline
     try:
         from divineos.core.memory_types import format_timeline, recall_timeline
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {
             "surfaced": False,
             "throttled": False,
@@ -146,7 +146,7 @@ def surface_mid_turn(tool_name: str, file_path: str) -> dict[str, Any]:
             per_source_limit=3,
             total_limit=8,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {
             "surfaced": False,
             "throttled": False,

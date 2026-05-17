@@ -27,7 +27,16 @@ import pytest
 
 
 def _seed_minimal_knowledge_db(conn: sqlite3.Connection) -> None:
-    """Create a knowledge table with the columns export_principles reads."""
+    """Create a knowledge table matching what ``export_principles`` reads.
+
+    NOTE: ``archive_export.export_principles`` reads columns ``maturity``
+    and ``source`` which are NOT in the current production ``knowledge``
+    schema (filed as schema-drift claim). This test reflects the schema
+    export_principles SELECTs from, not the production-canonical shape.
+    Schema-sync drift between archive_export and the live schema is a
+    separate concern — see schema-sync-test-exemption comments below.
+    """
+    # schema-sync-test-exemption: archive-export reads legacy columns
     conn.execute(
         """
         CREATE TABLE knowledge (

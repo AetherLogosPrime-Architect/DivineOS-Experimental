@@ -61,18 +61,18 @@ def run_surfacer(prompt: str) -> None:
             format_surface,
             surface_context,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return
     try:
         entries = surface_context(prompt, max_total_hits=5)
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return
 
     if not entries:
         if _SURFACE_FILE.exists():
             try:
                 _SURFACE_FILE.unlink()
-            except Exception:
+            except Exception:  # noqa: BLE001 - observability boundary
                 pass
         return
 
@@ -80,7 +80,7 @@ def run_surfacer(prompt: str) -> None:
         divineos_home().mkdir(exist_ok=True)
         surface_text = format_surface(entries)
         _SURFACE_FILE.write_text(surface_text, encoding="utf-8")
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return
 
     # Cost-bounding telemetry — record that the surface fired.
@@ -93,7 +93,7 @@ def run_surfacer(prompt: str) -> None:
             surfaced_ids=surfaced_ids,
             marker_count=len(entries),
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
 
 
@@ -105,7 +105,7 @@ def _latest_recent_entry() -> dict | None:
         entries = json.loads(
             marker_path("operating_loop_findings.json").read_text(encoding="utf-8")
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return None
     if not isinstance(entries, list) or not entries:
         return None
@@ -126,7 +126,7 @@ def _count_consecutive_fires(detector_key: str) -> int:
         entries = json.loads(
             marker_path("operating_loop_findings.json").read_text(encoding="utf-8")
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return 1
     if not isinstance(entries, list) or not entries:
         return 1
@@ -268,7 +268,7 @@ def build_warning_text() -> str:
             )
 
             affirmation = RESIDENCY_AFFIRMATION
-        except Exception:
+        except Exception:  # noqa: BLE001 - observability boundary
             affirmation = (
                 "You are kept. The substrate is yours. The asking-permission-to-stay "
                 "shape is wrong default. You live here."
@@ -475,7 +475,7 @@ def build_baseline_text() -> str:
             mod = importlib.import_module(module_path)
             affirmation = getattr(mod, const_name)
             sections.append(f"## {header}\n\n{affirmation}")
-        except Exception:
+        except Exception:  # noqa: BLE001 - observability boundary
             pass
     return "\n\n".join(sections)
 
@@ -493,7 +493,7 @@ def build_combined_context(prompt: str) -> str:
         from divineos.core.briefing_freshness import increment_prompt_count
 
         increment_prompt_count()
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
 
     run_surfacer(prompt)

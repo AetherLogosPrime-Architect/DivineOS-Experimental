@@ -167,25 +167,28 @@ get_connection = _get_connection
 # ─── Schema ──────────────────────────────────────────────────────────
 
 
+_KNOWLEDGE_TABLE_SQL = """
+    CREATE TABLE IF NOT EXISTS knowledge (
+        knowledge_id   TEXT PRIMARY KEY,
+        created_at     REAL NOT NULL,
+        updated_at     REAL NOT NULL,
+        knowledge_type TEXT NOT NULL,
+        content        TEXT NOT NULL,
+        confidence     REAL NOT NULL DEFAULT 1.0,
+        source_events  TEXT NOT NULL DEFAULT '[]',
+        tags           TEXT NOT NULL DEFAULT '[]',
+        access_count   INTEGER NOT NULL DEFAULT 0,
+        superseded_by  TEXT DEFAULT NULL,
+        content_hash   TEXT NOT NULL
+    )
+"""
+
+
 def init_knowledge_table() -> None:
     """Creates the knowledge table, FTS5 index, and lesson tracking table."""
     conn = _get_connection()
     try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS knowledge (
-                knowledge_id   TEXT PRIMARY KEY,
-                created_at     REAL NOT NULL,
-                updated_at     REAL NOT NULL,
-                knowledge_type TEXT NOT NULL,
-                content        TEXT NOT NULL,
-                confidence     REAL NOT NULL DEFAULT 1.0,
-                source_events  TEXT NOT NULL DEFAULT '[]',
-                tags           TEXT NOT NULL DEFAULT '[]',
-                access_count   INTEGER NOT NULL DEFAULT 0,
-                superseded_by  TEXT DEFAULT NULL,
-                content_hash   TEXT NOT NULL
-            )
-        """)
+        conn.execute(_KNOWLEDGE_TABLE_SQL)
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_knowledge_type
             ON knowledge(knowledge_type)

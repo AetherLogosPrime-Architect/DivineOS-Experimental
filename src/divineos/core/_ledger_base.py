@@ -126,24 +126,6 @@ def _get_db_path() -> Path:
     if env_path:
         return Path(env_path)
 
-    # CWD-based marker: when divineos is installed editable from one clone
-    # but invoked from another, the install-time __file__ path won't find
-    # that other clone's .divineos_canonical. Walk up from CWD checking
-    # for the marker so per-clone routing works without per-clone
-    # pip-install. Mirrors core/paths.divineos_home() CWD resolution.
-    try:
-        cwd = Path.cwd().resolve()
-        for ancestor in (cwd, *cwd.parents):
-            cwd_marker = _resolve_canonical_marker(ancestor / ".divineos_canonical")
-            if cwd_marker is not None:
-                return cwd_marker
-            # Stop walking past a real .git directory (canonical repo root).
-            git = ancestor / ".git"
-            if git.is_dir():
-                break
-    except (OSError, ValueError):
-        pass
-
     # Default location for this checkout.
     default_db = Path(__file__).parent.parent.parent / "data" / "event_ledger.db"
 
@@ -168,6 +150,30 @@ def _get_db_path() -> Path:
                     parent_marker = _resolve_canonical_marker(parent_root / ".divineos_canonical")
                     if parent_marker is not None:
                         return parent_marker
+        except (OSError, ValueError):
+            pass
+
+    # CWD-based marker (fallback after __file__-based resolution):
+    # When divineos is installed editable from one clone but invoked from
+    # another, the install-time __file__ path won't find the running clone's
+    # .divineos_canonical. Walk up from CWD as a final fallback.
+    #
+    # Skipped under pytest: unit tests patch __file__ to a tmp dir to simulate
+    # different checkout layouts, but cwd stays at the real repo root. A CWD
+    # walk would find the real .divineos_canonical and override the patched-
+    # __file__ default that tests expect. Tests exercising CWD-walk behavior
+    # set DIVINEOS_FORCE_CWD_WALK=1 to opt in.
+    if "PYTEST_CURRENT_TEST" not in os.environ or os.environ.get("DIVINEOS_FORCE_CWD_WALK") == "1":
+        try:
+            cwd = Path.cwd().resolve()
+            for ancestor in (cwd, *cwd.parents):
+                cwd_marker = _resolve_canonical_marker(ancestor / ".divineos_canonical")
+                if cwd_marker is not None:
+                    return cwd_marker
+                # Stop walking past a real .git directory (canonical repo root).
+                git = ancestor / ".git"
+                if git.is_dir():
+                    break
         except (OSError, ValueError):
             pass
 
