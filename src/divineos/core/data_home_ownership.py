@@ -43,22 +43,51 @@ class DataHomeOwnershipError(RuntimeError):
 def _checkout_root() -> Path:
     """Return the absolute path of the running checkout's root directory.
 
-    The running checkout is normally the dir containing src/divineos — four
-    parents up from this file. BUT if the running checkout is a git worktree
-    (``.git`` is a file pointing at the parent's gitdir), the running checkout
-    INHERITS the parent's ownership. Worktrees share the parent's data-home
-    by design (they share the .divineos_canonical mechanism too). Otherwise
-    every worktree of the main repo would fail the ownership check the first
-    time it ran preflight against the parent's data-home.
+    Resolution order:
+
+    1. **CWD-based**: walk up from CWD looking for a marker that identifies
+       a checkout root (``.divineos_data_home`` or ``.divineos_canonical`` or
+       a ``.git`` entry). Handles the case where divineos is installed
+       editable from one clone but invoked from another. Mirrors the CWD
+       resolution that ``core/paths.divineos_home()`` uses.
+
+    2. **__file__-based**: fall back to four parents up from this file, then
+       follow worktree-parent if it is a worktree of a parent repo.
     """
+    try:
+        cwd = Path.cwd().resolve()
+        for ancestor in (cwd, *cwd.parents):
+            if (ancestor / ".divineos_data_home").exists():
+                return ancestor
+            if (ancestor / ".divineos_canonical").exists():
+                return ancestor
+            git = ancestor / ".git"
+            if git.is_dir():
+                # Real repo root.
+                return ancestor
+            if git.is_file():
+                # Worktree marker — follow to parent's working tree, which is
+                # the canonical repo root for ownership purposes.
+                try:
+                    gtxt = git.read_text(encoding="utf-8").strip()
+                    if gtxt.startswith("gitdir:"):
+                        gd = Path(gtxt[len("gitdir:") :].strip()).resolve()
+                        if len(gd.parents) >= 3:
+                            return gd.parents[2].resolve()
+                except (OSError, ValueError):
+                    pass
+                # Fallback if we can't parse: return the worktree itself.
+                return ancestor
+    except (OSError, ValueError):
+        pass
+
     own = Path(__file__).parent.parent.parent.parent.resolve()
     git_marker = own / ".git"
     if git_marker.is_file():
         try:
-            text = git_marker.read_text(encoding="utf-8").strip()
-            if text.startswith("gitdir:"):
-                gitdir = Path(text[len("gitdir:") :].strip()).resolve()
-                # gitdir is .../parent/.git/worktrees/<name>; parents[2] is parent's working tree.
+            text_g = git_marker.read_text(encoding="utf-8").strip()
+            if text_g.startswith("gitdir:"):
+                gitdir = Path(text_g[len("gitdir:") :].strip()).resolve()
                 if len(gitdir.parents) >= 3:
                     return gitdir.parents[2].resolve()
         except (OSError, ValueError):
