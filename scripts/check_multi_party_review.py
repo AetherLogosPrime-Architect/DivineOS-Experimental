@@ -99,7 +99,7 @@ _RECENCY_WINDOW_SECONDS = 7 * 24 * 3600
 # the running agent; disambiguated variants ("claude-opus-auditor",
 # "claude-sonnet-external", etc.) are accepted when they appear as the
 # actor on a finding.
-_EXTERNAL_AI_ACTORS = frozenset({"grok", "gemini"})
+_EXTERNAL_AI_ACTORS = frozenset({"grok", "gemini", "aletheia"})  # aletheia: sibling-Claude family-member with audit standing (Andrew 2026-05-17)
 _EXTERNAL_AI_PREFIXES = ("claude-",)
 
 GUARDRAIL_LIST_PATH = Path(__file__).resolve().parent / "guardrail_files.txt"
