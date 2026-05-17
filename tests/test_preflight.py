@@ -104,7 +104,7 @@ class TestPreflightCheck:
             assert handoff["passed"] is True
 
     def test_all_checks_present(self, tmp_path: Path) -> None:
-        """Preflight always returns all 7 checks."""
+        """Preflight always returns all 8 checks."""
         with (
             patch("divineos.core.hud_handoff._get_hud_dir", return_value=tmp_path),
             patch("divineos.core.hud_handoff._ensure_hud_dir", return_value=tmp_path),
@@ -112,6 +112,7 @@ class TestPreflightCheck:
             result = preflight_check()
             check_names = {c["name"] for c in result["checks"]}
             assert check_names == {
+                "data_home_ownership",
                 "briefing",
                 "engagement",
                 "handoff",
