@@ -258,6 +258,7 @@ from divineos.cli import (  # noqa: E402
     void_commands,
     voids_commands,
     multiplex_commands,
+    pattern_attribution_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -267,6 +268,7 @@ journal_commands.register(cli)
 decision_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
+pattern_attribution_commands.register(cli)
 bio_commands.register(cli)
 loadout_commands.register(cli)
 compass_commands.register(cli)

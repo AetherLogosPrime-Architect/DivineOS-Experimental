@@ -53,7 +53,7 @@ pytest tests/ -q --tb=short
 - **10 virtue spectrums** in the moral compass, tracked from evidence
 - **6,984+ tests** against real SQLite, minimal mocks
 
-*Full numbers: 466 source files, 31 packages, 304 CLI commands, 24 skills, 17 hooks, 5 family operators, 8 foundational truths. See [README.md](README.md) for the breakdown.*
+*Full numbers: 470 source files, 31 packages, 311 CLI commands, 24 skills, 17 hooks, 5 family operators, 8 foundational truths. See [README.md](README.md) for the breakdown.*
 
 ## What it is NOT
 
