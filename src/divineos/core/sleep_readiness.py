@@ -52,7 +52,7 @@ def _marker_blocker(
             return None
         if path.exists():
             return f"{label} marker present at {path} — {address_hint}"
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return None
     return None
 

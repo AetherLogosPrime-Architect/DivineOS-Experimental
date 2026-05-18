@@ -86,7 +86,7 @@ def _current_session_id() -> str:
         sid = get_current_session_id()
         if sid:
             return str(sid)
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
     # Fallback: per-process token. Worst case the gate scope is process-
     # lifetime rather than session-lifetime, which is still useful.

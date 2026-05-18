@@ -321,7 +321,7 @@ def _validate_actor_for_ship_claim(actor: str) -> tuple[bool, str]:
         _validate_actor(actor)
     except ValueError as e:
         return False, str(e)
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         # If watchmen validation can't be imported, fall through to
         # basic rejection of obvious self-actor names.
         normalized = actor.strip().lower()

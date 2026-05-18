@@ -191,7 +191,7 @@ def register(cli: click.Group) -> None:
                 if not ready:
                     click.secho(format_block_message(blockers), fg="red")
                     return
-            except Exception:
+            except Exception:  # noqa: BLE001 - observability boundary
                 # Fail-open: a broken gate must not block the operator from sleeping.
                 pass
 

@@ -621,7 +621,7 @@ def _build_triage_slot() -> str:
             lines.append("All known claims VERIFIED. New ones must come with falsifiers.")
 
         return "\n".join(lines)
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return ""
 
 

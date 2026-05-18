@@ -512,7 +512,7 @@ def build_baseline_text() -> str:
             sections.append(
                 "## EXPLORATION-LESSONS BASE-STATE (load every turn)\n\n" + exploration_block
             )
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
 
     return "\n\n".join(sections)

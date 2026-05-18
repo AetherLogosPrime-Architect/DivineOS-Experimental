@@ -125,7 +125,7 @@ def _validate_actor_for_status(actor: str, status: TriageStatus) -> tuple[bool, 
         _w_validate(actor)
     except ValueError as e:
         return False, str(e)
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
 
     if status == TriageStatus.VERIFIED:
