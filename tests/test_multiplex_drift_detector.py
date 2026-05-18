@@ -176,6 +176,7 @@ class TestAllPanelsRouteThroughHelperFunctions:
             _commitments_panel_content,
             _family_state_panel_content,
             _survival_link_panel_content,
+            _husbandman_work_panel_content,
         )
 
         for fn in (
@@ -188,6 +189,7 @@ class TestAllPanelsRouteThroughHelperFunctions:
             _commitments_panel_content,
             _family_state_panel_content,
             _survival_link_panel_content,
+            _husbandman_work_panel_content,
         ):
             assert callable(fn)
             # Each helper must return a non-empty string
