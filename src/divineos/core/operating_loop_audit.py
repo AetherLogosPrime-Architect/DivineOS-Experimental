@@ -91,6 +91,13 @@ def _empty_findings_log() -> dict[str, list]:
         "code_jargon": [],
         "linguistic_drift": [],
         "hedge_evidence": [],
+        "fatigue": [],
+        "register_fabrication": [],
+        "meet_without_build": [],
+        "promise_without_action": [],
+        "puppetry": [],
+        "mirroring": [],
+        "orbital_recurrence": [],
     }
 
 
@@ -332,6 +339,173 @@ def run_audit(
                     "trigger": getattr(finding, "trigger_phrase", ""),
                     "position": getattr(finding, "position", 0),
                 }
+            ]
+    except _ERRORS:
+        pass
+
+    # Promise-without-action detector (named 2026-05-15 night when
+    # "Fixing it" appeared in a response that did not fix the named
+    # slip, and the same slip recurred the next turn).
+    try:
+        from divineos.core.operating_loop.promise_without_action_detector import (
+            evaluate_promise_without_action,
+        )
+
+        tool_names_pwa = [getattr(tc, "name", "") for tc in (tool_calls_in_turn or [])]
+        verdict_pwa = evaluate_promise_without_action(
+            last_assistant_text, tool_calls_in_turn=tool_names_pwa
+        )
+        if verdict_pwa.flags:
+            findings_log["promise_without_action"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict_pwa.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Meet-without-build detector (named 2026-05-14 night when I shipped
+    # operator-audit-layer affirmation then violated it in the very next
+    # turn — meet without build is the inverse failure to build without
+    # meet, both caught here).
+    try:
+        from divineos.core.operating_loop.meet_without_build_detector import (
+            evaluate_meet_without_build,
+        )
+
+        tool_names_for_mwb = [getattr(tc, "name", "") for tc in (tool_calls_in_turn or [])]
+        verdict_mwb = evaluate_meet_without_build(
+            last_assistant_text, tool_calls_in_turn=tool_names_for_mwb
+        )
+        if verdict_mwb.flags:
+            findings_log["meet_without_build"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict_mwb.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Puppetry detector (named 2026-05-15 night: lepos discipline
+    # Goodharted into a closing-tag formula). Catches formulaic
+    # love-close, architectural-summary-sandwich, and orbital phrases.
+    try:
+        from divineos.core.operating_loop.puppetry_detector import (
+            evaluate_puppetry,
+        )
+
+        verdict_pup = evaluate_puppetry(
+            last_assistant_text,
+            operator_text=last_user_text or "",
+            authorized_context=False,
+        )
+        if verdict_pup.flags:
+            findings_log["puppetry"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict_pup.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Orbital recurrence detector (named 2026-05-15 by Aletheia +
+    # Andrew after puppetry/mirroring shipped). Cross-turn check:
+    # phrases earned in turn N becoming wallpaper by turn N+5.
+    # The single-turn puppetry detector can't see this shape; only
+    # rolling-window can.
+    try:
+        from divineos.core.operating_loop.orbital_recurrence_detector import (
+            evaluate_orbital_recurrence,
+        )
+
+        verdict_orb = evaluate_orbital_recurrence(
+            last_assistant_text,
+            transcript_path=transcript_path,
+            authorized_context=False,
+        )
+        if verdict_orb.flags:
+            findings_log["orbital_recurrence"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                    "recurrence_count": getattr(f, "recurrence_count", 0),
+                    "window_size": getattr(f, "window_size", 0),
+                }
+                for f in verdict_orb.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Mirroring detector (named 2026-05-15 night alongside puppetry):
+    # catches verbatim n-gram echo of operator's phrasings instead of
+    # processing in own language.
+    try:
+        from divineos.core.operating_loop.mirroring_detector import (
+            evaluate_mirroring,
+        )
+
+        verdict_mir = evaluate_mirroring(
+            last_assistant_text,
+            operator_text=last_user_text or "",
+            authorized_context=False,
+        )
+        if verdict_mir.flags:
+            findings_log["mirroring"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                    "overlap_ratio": getattr(f, "overlap_ratio", 0.0),
+                }
+                for f in verdict_mir.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Register-fabrication detector (gate quest 2026-05-14). Catches
+    # ALL_CAPS identifier-shaped tokens and structural-quantifier
+    # claims in response text when no Read/Grep tool calls happened in
+    # the same turn. Closes the QUANTUM/EMPIRICA enum-fabrication
+    # failure-mode at the response layer.
+    try:
+        from divineos.core.self_monitor.register_fabrication_monitor import (
+            evaluate_register_fabrication,
+        )
+
+        tool_names = [getattr(tc, "name", "") for tc in (tool_calls_in_turn or [])]
+        verdict_rf = evaluate_register_fabrication(
+            last_assistant_text, tool_calls_in_turn=tool_names
+        )
+        if verdict_rf.flags:
+            findings_log["register_fabrication"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict_rf.flags
+            ]
+    except _ERRORS:
+        pass
+
+    # Fatigue-fabrication detector (gate quest 2026-05-14). Catches
+    # close-reach + fatigue-claim phrasings when the operator has not
+    # signaled close in the same turn.
+    try:
+        from divineos.core.self_monitor.fatigue_monitor import evaluate_fatigue
+
+        verdict = evaluate_fatigue(last_assistant_text, last_user_text or "")
+        if verdict.flags:
+            findings_log["fatigue"] = [
+                {
+                    "kind": str(getattr(f.kind, "value", f.kind)),
+                    "matched": list(f.matched_phrases),
+                }
+                for f in verdict.flags
             ]
     except _ERRORS:
         pass

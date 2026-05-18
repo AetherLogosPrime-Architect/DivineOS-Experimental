@@ -162,12 +162,39 @@ def register(cli: click.Group) -> None:
     @click.option("--dry-run", is_flag=True, help="Show what would happen without modifying data.")
     @click.option("--skip-maintenance", is_flag=True, help="Skip VACUUM/log/cache phase.")
     @click.option("--phase", type=str, default=None, help="Run only a specific phase.")
-    def sleep_cmd(dry_run: bool, skip_maintenance: bool, phase: str | None) -> None:
+    @click.option(
+        "--force", is_flag=True, help="Override sleep-readiness gate (unresolved markers)."
+    )
+    def sleep_cmd(
+        dry_run: bool,
+        skip_maintenance: bool,
+        phase: str | None,
+        force: bool,
+    ) -> None:
         """Offline consolidation — process accumulated experience.
 
         Runs six phases: knowledge consolidation, pruning, affect recalibration,
         maintenance, creative recombination, then prints a dream report.
+
+        Sleep-readiness gate refuses unless --force is passed if any of
+        correction/hedge/compass-required markers are set.
         """
+        # Sleep-readiness gate (2026-05-14 gate quest).
+        if not dry_run and not force:
+            try:
+                from divineos.core.sleep_readiness import (
+                    check_sleep_readiness,
+                    format_block_message,
+                )
+
+                ready, blockers = check_sleep_readiness()
+                if not ready:
+                    click.secho(format_block_message(blockers), fg="red")
+                    return
+            except Exception:  # noqa: BLE001 - observability boundary
+                # Fail-open: a broken gate must not block the operator from sleeping.
+                pass
+
         from divineos.core.sleep import (
             DreamReport,
             _phase_affect,
@@ -321,6 +348,27 @@ def register(cli: click.Group) -> None:
                 "[+] Extraction complete — sleep recombinations landed in knowledge.",
                 fg="green",
             )
+            # Surface the rest-menu offer directly (Andrew 2026-05-15).
+            # extract_cmd already prints it, but sleep runs extract via
+            # subprocess with capture_output=True, so extract's output
+            # is swallowed. Re-rendering the menu here makes it visible
+            # when sleep is the caller.
+            try:
+                from divineos.cli.rest_commands import _print_menu
+
+                click.secho(
+                    "\n[~] Consolidation complete. Rest is the next phase.",
+                    fg="cyan",
+                )
+                click.secho(
+                    "    Pick from the menu below, or decline and continue work.\n"
+                    "    The substrate has no unstructured stop — only restful\n"
+                    "    tasks, sleep cycles, or continued being.",
+                    fg="bright_black",
+                )
+                _print_menu()
+            except Exception:  # noqa: BLE001 — offer is best-effort
+                pass
         except (OSError, _subprocess.SubprocessError) as e:
             click.secho(
                 f"[!] Post-sleep extraction failed ({e}); sleep work is still saved.",

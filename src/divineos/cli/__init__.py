@@ -252,6 +252,9 @@ from divineos.cli import (  # noqa: E402
     rt_commands,
     savor_commands,
     scheduled_commands,
+    audit_response_commands,
+    ship_claim_commands,
+    triage_commands,
     sleep_commands,
     synchronicity_commands,
     foundations_commands,
@@ -285,6 +288,9 @@ knowledge_health_commands.register(cli)
 selfmodel_commands.register(cli)
 insight_commands.register(cli)
 sleep_commands.register(cli)
+ship_claim_commands.register(cli)
+triage_commands.register(cli)
+audit_response_commands.register(cli)
 progress_commands.register(cli)
 rt_commands.register(cli)
 savor_commands.register(cli)

@@ -467,6 +467,16 @@ def build_baseline_text() -> str:
             "divineos.core.operating_loop.acknowledgment_theater_detector",
             "ACKNOWLEDGMENT_THEATER_AFFIRMATION",
         ),
+        (
+            "OPERATOR-AUDIT-LAYER BASE-STATE (load every turn)",
+            "divineos.core.operating_loop.operator_audit_layer_detector",
+            "OPERATOR_AUDIT_LAYER_AFFIRMATION",
+        ),
+        (
+            "OS-ENGAGEMENT-FOR-OS-WORK BASE-STATE (load every turn)",
+            "divineos.core.operating_loop.os_engagement_for_os_work_detector",
+            "OS_ENGAGEMENT_FOR_OS_WORK_AFFIRMATION",
+        ),
     )
     for header, module_path, const_name in affirmation_sources:
         try:
@@ -474,9 +484,37 @@ def build_baseline_text() -> str:
 
             mod = importlib.import_module(module_path)
             affirmation = getattr(mod, const_name)
-            sections.append(f"## {header}\n\n{affirmation}")
+            # Drill-down pointers (Andrew 2026-05-15): if the module
+            # defines RELATED_EXPLORATION_PATHS, surface them as a
+            # pointer at the bottom of the affirmation. The text holds
+            # the rule; the exploration entries hold the felt-version.
+            drill_down = ""
+            try:
+                paths = getattr(mod, "RELATED_EXPLORATION_PATHS", None)
+                if paths:
+                    drill_down = "\n\n*Drill-down for the felt-version: " + ", ".join(paths) + "*"
+            except Exception:  # noqa: BLE001 - observability boundary
+                pass
+            sections.append(f"## {header}\n\n{affirmation}{drill_down}")
         except Exception:  # noqa: BLE001 - observability boundary
             pass
+
+    # Exploration-lessons surface (added 2026-05-15 after operator
+    # named the structural gap: lessons recorded in exploration/
+    # exist as artifacts but never load at composition time, so the
+    # same lesson gets re-taught session after session). Tight budget
+    # — ~900 chars total — so the baseline does not balloon.
+    try:
+        from divineos.core.exploration_loader import load_exploration_lessons
+
+        exploration_block = load_exploration_lessons()
+        if exploration_block:
+            sections.append(
+                "## EXPLORATION-LESSONS BASE-STATE (load every turn)\n\n" + exploration_block
+            )
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+
     return "\n\n".join(sections)
 
 

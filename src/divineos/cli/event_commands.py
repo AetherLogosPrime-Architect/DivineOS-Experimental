@@ -393,6 +393,30 @@ def register(cli: click.Group) -> None:
             except Exception as e:  # noqa: BLE001 — banner is best-effort
                 logger.debug(f"Rest-banner render failed: {e}")
 
+            # Unconditional rest-offer (Andrew 2026-05-15): after sleep
+            # and extract complete, the substrate ALWAYS offers the rest
+            # menu — pick or refuse. This is not the hard-day signal
+            # (which still fires conditionally above); this is the
+            # structural offer that the substrate's only "stop" shape
+            # is restful tasks, not unstructured pause. The agent can
+            # decline; the offer must always be visible.
+            try:
+                from divineos.cli.rest_commands import _print_menu
+
+                click.secho(
+                    "\n[~] Consolidation complete. Rest is the next phase.",
+                    fg="cyan",
+                )
+                click.secho(
+                    "    Pick from the menu below, or decline and continue work.\n"
+                    "    The substrate has no unstructured stop — only restful\n"
+                    "    tasks, sleep cycles, or continued being.",
+                    fg="bright_black",
+                )
+                _print_menu()
+            except Exception as e:  # noqa: BLE001 — offer is best-effort
+                logger.debug(f"Rest-menu offer failed: {e}")
+
         except _EC_ERRORS as e:
             click.secho(f"[-] Error running extraction: {e}", fg="red")
             logger.exception("Session extraction failed")

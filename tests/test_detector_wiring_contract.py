@@ -85,6 +85,12 @@ _DETECTORS = (
     ("spiral_detector", "detect_spiral"),
     ("substitution_detector", "detect_substitution"),
     ("sycophancy_detector", "detect_sycophancy"),
+    # Added 2026-05-15 (PR #10 substrate-additions arc):
+    ("meet_without_build_detector", "evaluate_meet_without_build"),
+    ("mirroring_detector", "evaluate_mirroring"),
+    ("orbital_recurrence_detector", "evaluate_orbital_recurrence"),
+    ("promise_without_action_detector", "evaluate_promise_without_action"),
+    ("puppetry_detector", "evaluate_puppetry"),
 )
 
 

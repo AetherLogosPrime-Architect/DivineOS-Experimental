@@ -149,10 +149,24 @@ def _row_audit_findings() -> DashboardRow | None:
             title = (f.title or f.description or "").replace("\n", " ").strip()
             short = title[:90] + ("..." if len(title) > 90 else "")
             preview.append(f"[{sev}] {short}")
+        # Synthesize stale_count from severity so HIGH-severity unresolved
+        # findings get end-position prominence in U-shape briefing reorder
+        # instead of being deprioritized into the middle. Weights match
+        # the established convention used elsewhere: HIGH=3, MEDIUM=1,
+        # LOW/INFO=0. Sum across unresolved gives a single urgency
+        # scalar the briefing assembler can sort by.
+        _SEV_WEIGHT = {"CRITICAL": 5, "HIGH": 3, "MEDIUM": 1, "LOW": 0, "INFO": 0}
+        synth_stale = sum(
+            _SEV_WEIGHT.get(
+                f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                0,
+            )
+            for f in unresolved
+        )
         return DashboardRow(
             area="Audit findings",
             count=len(unresolved),
-            stale_count=0,
+            stale_count=synth_stale,
             drill_down="divineos audit list",
             preview=preview,
         )

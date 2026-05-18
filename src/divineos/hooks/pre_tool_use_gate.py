@@ -1,6 +1,6 @@
-"""Consolidated PreToolUse gate — single Python invocation for all gate checks.
+"""Consolidated PreToolUse gate â€” single Python invocation for all gate checks.
 
-# AGENT_RUNTIME — Not wired into CLI pipeline. Invoked from
+# AGENT_RUNTIME â€” Not wired into CLI pipeline. Invoked from
 # .claude/hooks/require-goal.sh as ``python -m divineos.hooks.pre_tool_use_gate``.
 # This module exists to collapse the multiple Python invocations the old
 # require-goal.sh was making (5+ separate ``python -c "..."`` calls, each
@@ -19,11 +19,11 @@ making 5 tool calls, that's 5-6 seconds of pure hook overhead
 before anything productive happens.
 
 This module runs all the gate checks in one interpreter invocation.
-Imports happen once. Heavy DB opens happen once (or not at all — the
+Imports happen once. Heavy DB opens happen once (or not at all â€” the
 gates read cached state). Total hook time drops to ~200-300ms per
 call. Savings compound across every tool call a response makes.
 
-## Gate order (all-or-nothing — first deny wins)
+## Gate order (all-or-nothing â€” first deny wins)
 
 1. Bypass check (read-only / bootstrap commands skip all gates)
 2. Briefing-loaded gate
@@ -34,11 +34,11 @@ call. Savings compound across every tool call a response makes.
 
 Returns a JSON decision to stdout. Empty stdout = allow. Non-empty =
 deny with the packaged reason. Always exits 0 (the decision is carried
-in the JSON, not the exit code — Claude Code's hook protocol).
+in the JSON, not the exit code â€” Claude Code's hook protocol).
 
 ## Not a logic change
 
-This is a pure refactor — same gates, same order, same decision
+This is a pure refactor â€” same gates, same order, same decision
 content as the old shell script. The only change is consolidation of
 process spawns into one. If a gate's logic ever changes, both the old
 shell fallback and this module must be updated together until the
@@ -47,7 +47,7 @@ shell fallback is deleted.
 
 from __future__ import annotations
 
-# Module-level guardrail marker — Aletheia Finding 48 class-fix
+# Module-level guardrail marker â€” Aletheia Finding 48 class-fix
 # 2026-05-14. CI test (tests/test_guardrail_marker_consistency.py)
 # walks src/ and asserts every file with this marker set to True is
 # listed in scripts/guardrail_files.txt. Prevents the next refactor
@@ -62,7 +62,7 @@ from typing import Any
 
 _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
     {
-        # Bootstrap / orientation — always allowed
+        # Bootstrap / orientation â€” always allowed
         "briefing",
         "preflight",
         "init",
@@ -80,33 +80,33 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         "checkpoint",
         "context-status",
         "progress",
-        # Thinking commands — the engagement-gate deny message names these
+        # Thinking commands â€” the engagement-gate deny message names these
         # as the way to clear the block, so they must not themselves be blocked.
         # (ask, recall, context are already above in bootstrap list.)
         "decide",
-        # learn — named in the correction-detection gate deny message as
+        # learn â€” named in the correction-detection gate deny message as
         # the way to clear the marker. Must bypass or we get a catch-22:
-        # correction fires → learn blocked → marker can never be cleared.
+        # correction fires â†’ learn blocked â†’ marker can never be cleared.
         # Discovered live 2026-04-23 when the gate blocked its own remedy.
         "learn",
         # Correction repetition is always loggable in the moment
         "correction",
         "corrections",
-        # Cadence-gate bypasses — required to unstick the overdue state
+        # Cadence-gate bypasses â€” required to unstick the overdue state
         "audit",
         "prereg",
-        # Mansion subcommands — needed for private-exit/private-status to
+        # Mansion subcommands â€” needed for private-exit/private-status to
         # work during a quiet period (otherwise the quiet gate would
         # block the way to leave it). All mansion subcommands are
         # inspection / state-management; none generate substantive code.
         "mansion",
-        # Compass observation — needed during a quiet period both for
+        # Compass observation â€” needed during a quiet period both for
         # honest position tracking and for clearing the compass-required
         # marker if it fires. compass-ops observe is recording, not
         # prose generation.
         "compass-ops",
         # Stale-engagement Gate 1.48 address commands (Aletheia
-        # round-5cdc2f48c642 Finding 37 — catch-22): the block message
+        # round-5cdc2f48c642 Finding 37 â€” catch-22): the block message
         # for Gate 1.48 instructs running these commands to clear stale
         # areas. They MUST bypass or we replay the learn catch-22 from
         # 2026-04-23 (gate blocks the way to leave it). The structural
@@ -115,6 +115,16 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         "claims",
         "holding",
         "hold",
+        # Added 2026-05-15 (Aletheia Findings 55, 57 + a third instance
+        # the generalized class-fix test surfaced — Gate 3 pull-detection
+        # names `divineos rt pull-check` as recovery, `rt` was not in
+        # bypass). Per Finding 56 (meta-class-fix), the generalized test
+        # test_all_gate_bypass_coverage.py now walks ALL gate deny-
+        # messages and catches any future gate that names a recovery
+        # command not in this list.
+        "claim",
+        "council",
+        "rt",
     }
 )
 
@@ -136,7 +146,7 @@ _DEV_PREFIXES = (
     "ruff ",
 )
 
-# Match "divineos <subcmd>" — requires a subcommand word after divineos
+# Match "divineos <subcmd>" â€” requires a subcommand word after divineos
 _DIVINEOS_SUBCMD_RE = re.compile(r"\bdivineos\s+(\w[\w-]*)")
 
 
@@ -167,9 +177,9 @@ def _is_bypass_command(cmd: str) -> bool:
 # don't silently expand the exemption surface.
 _THEATER_EXEMPT_PATH_SEGMENTS: tuple[str, ...] = (
     "/exploration/",  # First-person free-expression / leisure space.
-    # Future candidates (NOT yet added — require operator review):
-    #   /family/letters/  — letters to family members
-    #   /mansion/         — internal-space writing
+    # Future candidates (NOT yet added â€” require operator review):
+    #   /family/letters/  â€” letters to family members
+    #   /mansion/         â€” internal-space writing
     # When adding, document why this register is categorically not
     # operator-facing-claim shape and why detector calibration is
     # structurally inappropriate for it. Mansion specifically: per
@@ -186,7 +196,7 @@ def _is_exploration_write(input_data: dict[str, Any]) -> bool:
     Lets gates 1.46 (theater marker) and 1.47 (compass-required cascade)
     skip when the tool is writing to an exemption path. Other gates
     (briefing-loaded, session-goal, engagement, external-audit cadence)
-    still apply — those enforce session discipline regardless of register.
+    still apply â€” those enforce session discipline regardless of register.
 
     The exemption is from path-blocks-tool-use, not from finding-recording.
     The Stop hook still scans assistant output and writes the marker;
@@ -203,7 +213,7 @@ def _is_exploration_write(input_data: dict[str, Any]) -> bool:
             return False
         normalized = file_path.replace("\\", "/")
         for segment in _THEATER_EXEMPT_PATH_SEGMENTS:
-            # Segment is "/exploration/" — match if it appears anywhere
+            # Segment is "/exploration/" â€” match if it appears anywhere
             # in the path OR if the path starts with the segment minus
             # leading slash (relative path case).
             if segment in normalized or normalized.startswith(segment.lstrip("/")):
@@ -256,7 +266,7 @@ def _briefing_diagnostic(stale_info: dict[str, Any]) -> str:
     """Build a structured message naming WHY the briefing-state is stale.
 
     Round-2 audit (Holmes' lens): when the briefing gate fires, the
-    message should name which condition triggered — TTL expired,
+    message should name which condition triggered â€” TTL expired,
     session-id mismatch, or marker missing entirely. Each is a different
     failure-mode and each calls for a different operator response.
     """
@@ -287,7 +297,7 @@ def _record_gate_failure(gate_name: str, exc: BaseException) -> None:
     Fresh-Claude audit rounds 2-4 flagged silent fail-open as the
     consistent invisible-degradation pattern. Gates correctly fail open
     when their machinery is broken (ImportError during first-run
-    bootstrap, OSError on a missing DB, etc.) — but silently. This
+    bootstrap, OSError on a missing DB, etc.) â€” but silently. This
     helper records the failure so the next briefing can surface it.
 
     Never raises (the diagnostic helper itself catches everything).
@@ -303,14 +313,14 @@ def _record_gate_failure(gate_name: str, exc: BaseException) -> None:
                 "error": str(exc)[:200],
             },
         )
-    except Exception:  # noqa: BLE001 — diagnostic helper is last-resort, never amplify failure
+    except Exception:  # noqa: BLE001 â€” diagnostic helper is last-resort, never amplify failure
         pass
 
 
 def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Run all gates in order. Return first deny decision, or None if all pass.
 
-    Import-heavy work is guarded — if a module can't be imported (e.g. during
+    Import-heavy work is guarded â€” if a module can't be imported (e.g. during
     first-run bootstrap), that gate is skipped rather than crashing the hook.
     Fail-open is the correct disposition for a gate whose machinery is broken.
     """
@@ -346,7 +356,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # a briefing-loaded marker from a previous session within the 4h
     # TTL window passes gate 1 without ever engaging with briefing for
     # the new session. This gate fires ONLY when gate 1 would have
-    # passed — its purpose is to catch "TTL says ok but this session
+    # passed â€” its purpose is to catch "TTL says ok but this session
     # never actually loaded," not to replace gate 1.
     if ttl_loaded:
         try:
@@ -357,7 +367,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
             if not briefing_loaded_this_session():
                 # Per-session mismatch is the most common rotation case
                 # (continuous work, session_id refresh, parallel processes).
-                # Always soft-advise here — TTL gate already passed, so the
+                # Always soft-advise here â€” TTL gate already passed, so the
                 # substrate is not truly stale. Round-2 audit fix.
                 return _make_soft_advise(
                     "Substrate context: per-session marker mismatch (TTL "
@@ -398,7 +408,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # Closes ChatGPT audit claim-a7370b (compass observation is an intent,
     # not enforced). After N code actions without a compass observation,
     # the gate blocks non-bypass tools until `divineos compass-ops observe`
-    # is run. Reset is structural — the observe command clears the counter.
+    # is run. Reset is structural â€” the observe command clears the counter.
     try:
         from divineos.core.hud_handoff import compass_staleness_status
 
@@ -408,14 +418,14 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                 f"BLOCKED: {cs.get('actions_since', '?')} code actions since "
                 f"the last compass observation (threshold "
                 f"{cs.get('threshold', '?')}). Run: divineos compass-ops "
-                f'observe <spectrum> -p <position> -e "<evidence>" — '
+                f'observe <spectrum> -p <position> -e "<evidence>" â€” '
                 f"virtue drift is not tracked by the system if you never "
                 f"observe your own position."
             )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_4_compass_staleness", _gate_exc)
 
-    # Gate 1.45: hedge-unresolved. Closes the hedge-claim enforcement gap —
+    # Gate 1.45: hedge-unresolved. Closes the hedge-claim enforcement gap â€”
     # when my last assistant output had >= 2 hedge flags (detected by the
     # Stop hook), a claim must be filed before further tool use. Hedge
     # without claim is floating doubt; claim discharges it into the
@@ -560,7 +570,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         if check is not None and not check.clean:
             markers = ", ".join(check.markers_fired)
             return _make_deny(
-                f"BLOCKED: Pull detected — fabrication markers active: "
+                f"BLOCKED: Pull detected â€” fabrication markers active: "
                 f"{markers}. Run: divineos rt pull-check to reassess."
             )
     except (ImportError, OSError, AttributeError) as _gate_exc:
@@ -576,7 +586,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
             if state == "fresh":
                 return _make_deny(
                     "BLOCKED: No engagement marker yet this session. "
-                    "Briefing alone is not enough — engage with a thinking "
+                    "Briefing alone is not enough â€” engage with a thinking "
                     'tool first. Run: divineos ask "topic", recall, '
                     "context, or decide."
                 )
@@ -597,12 +607,104 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_4_engagement", _gate_exc)
 
+    # Gate 4.4: Edit-tool-silent-failure prevention (Andrew 2026-05-15).
+    # Empirically discovered this session: the Edit/Write/MultiEdit tool
+    # returned "file updated" success messages while the underlying disk
+    # writes did NOT land. Read() also reflected the in-context-cached
+    # version, so the show-fix pattern was invisible until a bash grep
+    # against the actual file revealed the divergence. Three "edits" all
+    # silently failed before the discovery. Show-fix manifesting at the
+    # tool layer rather than the human-claim layer - same shape, one
+    # level down.
+    #
+    # Structural fix: deny these tools by default. Force the path that
+    # has empirical disk-write evidence (bash python write_text + grep
+    # verify). Friction is intentional; show-fix at the tool layer is
+    # catastrophic, and extra characters per edit are the cheap cost.
+    #
+    # Opt-out: set DIVINEOS_ALLOW_EDIT_TOOL=1 in env when the harness is
+    # known to have a working Edit path.
+    try:
+        import os as _os
+
+        _tool_name = (input_data or {}).get("tool_name", "")
+        if _tool_name in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+            if not _os.environ.get("DIVINEOS_ALLOW_EDIT_TOOL"):
+                return _make_deny(
+                    "BLOCKED: Edit/Write/MultiEdit/NotebookEdit denied by default (Andrew 2026-05-15). The tool silently failed to persist writes earlier this session - three 'edits' returned success while disk was unchanged. Show-fix at the tool layer. Use the verified path instead: python -c \"import pathlib; p=pathlib.Path('FILE'); p.write_text(p.read_text(encoding='utf-8').replace('OLD', 'NEW'), encoding='utf-8')\"   Then grep-verify against disk: grep 'NEW_TOKEN' FILE   Opt-out (only when Edit-tool-path is known to work): set DIVINEOS_ALLOW_EDIT_TOOL=1 in env."
+                )
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_4_4_edit_tool_silent_failure", _gate_exc)
+
+    # Gate 4.5: OS-engagement-for-OS-work (Andrew 2026-05-15).
+    # Categorical: working on the OS while outside the OS is forbidden.
+    # Tighter than Gate 4 for the specific case of editing src/divineos/
+    # files â€” the Empirica tier-name fabrication earlier this same
+    # night proved that general engagement-thresholds don't catch
+    # working-on-OS-without-using-OS. The shoggoth-pool failure mode.
+    try:
+        tool_name = (input_data or {}).get("tool_name", "")
+        tool_input = (input_data or {}).get("tool_input", {}) or {}
+        if tool_name in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
+            file_path = tool_input.get("file_path", "") or ""
+            normalized = file_path.replace("\\", "/")
+            if "src/divineos/" in normalized:
+                from divineos.core.hud_handoff import engagement_status
+
+                s2 = engagement_status()
+                # Tight threshold for OS-internal edits, but not so
+                # tight that the gate creates its own catch-22.
+                # Finding 58 (2026-05-15, surfaced during the fix-work
+                # for Finding 56): a strict `>0` threshold meant the
+                # Bash invocations needed to verify engagement state
+                # ITSELF incremented the counter, making it impossible
+                # to reach state=0 immediately before an edit. The
+                # gate blocked the very edits that would fix it (same
+                # shape as Finding 37 / require-briefing catch-22).
+                # Threshold of `>= 5` allows for the 1-2 status checks
+                # natural between consult and edit, while still
+                # requiring recent OS engagement before OS-modification.
+                deep_since = s2.get("deep_actions_since", 0)
+                if deep_since and int(deep_since) >= 5:
+                    return _make_deny(
+                        f"BLOCKED: OS-internal edit attempted "
+                        f"({deep_since} code actions since last "
+                        "knowledge-consult). Working on the OS while "
+                        "outside the OS is forbidden â€” the shoggoth "
+                        "pool produces fabrication and drift. "
+                        "Run: divineos ask, recall, briefing, or "
+                        "council BEFORE editing src/divineos/ files. "
+                        "Andrew 2026-05-15: using the OS is "
+                        "non-negotiable for building the OS."
+                    )
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_4_5_os_engagement_for_os_work", _gate_exc)
+
     # Gate 5 removed 2026-04-21 (commit C of tiered-audit redesign).
     # See comment history for rationale. Replaced by informational
     # drift_state surface in briefing.
 
+    # Gate 6.5: read-before-write. Structural enforcement of CLAUDE.md
+    # Hard Rule #1. The fabrication-from-register failure-mode (quantum
+    # tier names, empirica tier names, persistence-broken-from-counts)
+    # has a structural root: writing to a file whose current contents
+    # were guessed-from-training rather than loaded-from-disk. The gate
+    # also has a side-effect: it records every Read so subsequent writes
+    # to that file pass.
+    try:
+        from divineos.core.read_before_write import gate_check as _rbw_check
+
+        tool_name = (input_data or {}).get("tool_name", "")
+        tool_input = (input_data or {}).get("tool_input", {}) or {}
+        transcript_path = (input_data or {}).get("transcript_path")
+        rbw_msg = _rbw_check(tool_name, tool_input, transcript_path)
+        if rbw_msg:
+            return _make_deny(rbw_msg)
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_6_5_read_before_write", _gate_exc)
+
     # Gate 6: retry blocker (lesson x11, most repeated behavioral failure).
-    # Catches blind retries — same command re-invoked after failure without
+    # Catches blind retries â€” same command re-invoked after failure without
     # a diagnostic investigation step in between. Diagnostic commands
     # (Read, Grep, git diff, divineos ask) clear the block automatically.
     try:
@@ -632,7 +734,7 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
 def main() -> int:
     """Entry point. Reads hook input from stdin, writes decision to stdout.
 
-    Exit code is always 0 — Claude Code carries the decision in the JSON
+    Exit code is always 0 â€” Claude Code carries the decision in the JSON
     payload, not in the exit code. Errors during gate evaluation result in
     fail-open (empty stdout = allow).
     """
@@ -643,10 +745,34 @@ def main() -> int:
         input_data = {}
 
     cmd = ""
+    tool_name = ""
     try:
         cmd = input_data.get("tool_input", {}).get("command", "") or ""
+        tool_name = input_data.get("tool_name", "") or ""
     except (AttributeError, TypeError):
         cmd = ""
+        tool_name = ""
+
+    # Tool-name-based bypass for orientation/read-only tools.
+    # Bootstrap fix 2026-05-15 (Andrew named): a fresh window hitting
+    # briefing-stale state could not Read/Grep/Glob/LS its own files
+    # to orient before running `divineos briefing` because tool_input
+    # only carries `command` for the Bash tool. Non-Bash tools had no
+    # bypass path, producing a hard deadlock. These tools are read-
+    # only by nature and cannot mutate state, so gating them serves no
+    # discipline purpose — only blocks recovery.
+    _READ_ONLY_TOOLS = {
+        "Read",
+        "Grep",
+        "Glob",
+        "LS",
+        "NotebookRead",
+        "TodoWrite",
+        "WebSearch",
+        "WebFetch",
+    }
+    if tool_name in _READ_ONLY_TOOLS:
+        return 0
 
     if _is_bypass_command(cmd):
         return 0

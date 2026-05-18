@@ -50,14 +50,14 @@ from divineos.core.knowledge._base import get_connection
 _VALID_GRADES = ("A", "B", "C", "D", "F")
 
 # Grade-letter → score-midpoint mapping. Used for divergence calculation.
-# Conservative midpoints: A=0.90 (range 0.85-1.0), B=0.75 (0.70-0.85),
-# C=0.62 (0.55-0.70), D=0.47 (0.40-0.55), F=0.20 (0.0-0.40).
+# Even 20%% bands (Andrew 2026-05-15): F 0.00-0.20, D 0.20-0.40, C 0.40-0.60,
+# B 0.60-0.80, A 0.80-1.00. Midpoints below are the band centers.
 _GRADE_TO_SCORE = {
     "A": 0.90,
-    "B": 0.75,
-    "C": 0.62,
-    "D": 0.47,
-    "F": 0.20,
+    "B": 0.70,
+    "C": 0.50,
+    "D": 0.30,
+    "F": 0.10,
 }
 
 

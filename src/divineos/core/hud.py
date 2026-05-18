@@ -49,6 +49,7 @@ SLOT_ORDER = [
     "my_state",  # growth + affect merged — how I'm doing + nudges
     "os_engagement",  # am I using the OS to think?
     "self_awareness",  # critical escalation warnings
+    "triage",  # show-fix triage SUSPECT count — loud-in-experience
     # ── CONDITIONAL: only when actionable ──
     "task_state",  # only when populated
     "commitments",  # only when promises pending
@@ -582,6 +583,48 @@ def _build_claims_slot() -> str:
         return ""
 
 
+def _build_triage_slot() -> str:
+    """Show-fix triage state: SUSPECT count and a few unwalked entries.
+
+    Channel-shape (Andrew 2026-05-14): make the unwalked column loud
+    every session so the cheap close of 'it's fine now' becomes
+    expensive. The number is the honest answer to 'what else is
+    broken' — surfaced in briefing so neither the operator nor I can
+    forget it. Slot omits cleanly when SUSPECT count is zero.
+    """
+    try:
+        from divineos.core.claim_triage import TriageStatus, list_entries, summary
+
+        counts = summary()
+        suspect = counts.get("SUSPECT", 0)
+        if suspect == 0 and counts.get("VERIFIED", 0) == 0:
+            return ""  # no triage activity yet
+
+        lines = [
+            f"# Show-Fix Triage ({counts['VERIFIED']} verified, "
+            f"{suspect} SUSPECT, {counts['REMOVED']} removed)\n"
+        ]
+        if suspect > 0:
+            lines.append("**SUSPECT entries — prior claims not yet verified by falsifier:**")
+            entries = list_entries(TriageStatus.SUSPECT)
+            for e in entries[:5]:
+                claim = e.get("claim", "")[:110]
+                lines.append(f"  - {claim}")
+            if len(entries) > 5:
+                lines.append(f"  ... +{len(entries) - 5} more")
+            lines.append(
+                "\n*Right path is cheap:* `divineos triage list --status SUSPECT` "
+                "to see the full list. Verify one and run "
+                "`divineos triage add ... --status VERIFIED --test <path>`."
+            )
+        else:
+            lines.append("All known claims VERIFIED. New ones must come with falsifiers.")
+
+        return "\n".join(lines)
+    except Exception:  # noqa: BLE001 - observability boundary
+        return ""
+
+
 def _build_decision_journal_slot() -> str:
     """Recent decisions and paradigm shifts for continuity."""
     try:
@@ -1100,6 +1143,7 @@ SLOT_BUILDERS = {
     "decision_journal": _build_decision_journal_slot,
     "affect": _build_affect_slot,  # legacy — merged into my_state
     "claims": _build_claims_slot,
+    "triage": _build_triage_slot,
     "opinions": _build_opinions_slot,
     "compass": _build_compass_slot,
     "calibration": _build_calibration_slot,

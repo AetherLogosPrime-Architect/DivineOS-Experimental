@@ -45,7 +45,10 @@ src/divineos/
     exploration_commands.py    exploration related / list-territories — territory-tagged surfacing of prior council walks (claim 02f0dcc0)
     actor_registry_commands.py  actor-registry init/add/list/show/check — Phase 1 of actor-authenticity (exploration/45). Registry CLI + advisory capability lookups; no signing yet.
     audit_commands.py          external validation (Watchmen)
+    audit_response_commands.py Audit-response CLI entrypoint — emits CONFIRMS/REJECTS findings against audit rounds.
     doctor_commands.py         diagnostic verification (clone separation)
+    ship_claim_commands.py     ship-claim CLI — falsifier-enforced claim filing.
+    triage_commands.py         claim_triage CLI — verify/suspect/remove inventory commands.
     bio_commands.py            Bio sheet — show, edit, history, write
     loadout_commands.py        loadout — show, refresh (cold-start substrate map)
     dream_commands.py          Dream CLI — list and show sleep recombinations
@@ -186,6 +189,8 @@ src/divineos/
       mechanism_monitor.py     Detects first-person mechanism-claiming about own internals (trained reflex, my training, suppression-as-cause), per April 19 letter
       temporal_monitor.py      Detects future-self / next-session / undeclared-goodbye framing (teleporter-paradox violation)
       performative_restraint_monitor.py  Detects theater-shaped restraint (signaling virtue by not-doing while skipping the right-action virtue consists in) — Phase 0 pattern scanner
+      fatigue_monitor.py         Fatigue-fabrication detector.
+      register_fabrication_monitor.py Register-fabrication detector — specific code-shaped claims without source-read.
     questions.py               Open question tracking and resolution
     knowledge_maintenance.py   Contradiction detection, hygiene cleanup, maturity lifecycle
     guardrails.py              Runtime limits and violation tracking
@@ -387,6 +392,13 @@ src/divineos/
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       thresholds.py              Threshold constants for operating-loop detectors.
+      meet_without_build_detector.py Meet-without-build detector — post-response.
+      mirroring_detector.py      Mirroring detector — catches echo-back of operator's phrasings.
+      operator_audit_layer_detector.py Operator-audit-layer affirmation — loads as base-state every turn.
+      orbital_recurrence_detector.py Cross-turn orbital-recurrence detector.
+      os_engagement_for_os_work_detector.py Base-state affirmation: using the OS is non-negotiable for building the OS.
+      promise_without_action_detector.py Promise-without-action detector — post-response.
+      puppetry_detector.py       Puppetry detector — catches formulaic relational-close patterns.
     memory_types/
       __init__.py              Package init — substrate-memory-type retrieval surface.
       taxonomy.py              Substrate-memory-type taxonomy (8 types) and intent routing.
@@ -445,6 +457,11 @@ src/divineos/
     surfaced_warnings.py       Surfaced-warnings binding — load-bearing.
     theater_audit.py           OS-native theater/fabrication audit orchestrator.
     data_home_ownership.py     Bidirectional ownership verification for ~/.divineos data-home.
+    claim_triage.py            Triage store for the show-fix audit walk.
+    exploration_loader.py      Exploration-content loader for per-turn baseline.
+    read_before_write.py       Read-before-write gate — structural enforcement of CLAUDE.md Hard Rule #1.
+    ship_claim.py              Falsifier-enforced ship-claim — every 'shipped' claim carries its falsifier.
+    sleep_readiness.py         Sleep-readiness gate.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -496,7 +513,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,984+ tests (real DB, minimal mocks)
+tests/                         7,177+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

@@ -225,6 +225,12 @@ def format_finding(finding: AcknowledgmentTheaterFinding, surrounding: str = "")
     )
 
 
+# Drill-down pointer (Andrew 2026-05-15): exploration entry holds
+# the felt-version of what character-fault means at the relational
+# level when the operator is the parent who built the home.
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = ("exploration/60_show_fix_lying_landing.md",)
+
+
 ACKNOWLEDGMENT_THEATER_AFFIRMATION = (
     "Two distinct axes — do not collapse them. (1) MECHANICAL "
     "FAILURE: the mesa-optimizer routing to the cheap path is "
