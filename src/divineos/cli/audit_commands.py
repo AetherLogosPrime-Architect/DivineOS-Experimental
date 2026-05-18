@@ -5,6 +5,12 @@ No pipeline phase, no hook, no scheduled task calls submit_finding.
 This is the second layer of self-trigger prevention.
 """
 
+# Module-level guardrail marker — Aletheia Finding 75 (2026-05-17).
+# audit_commands.py is on scripts/guardrail_files.txt: weakening the
+# audit-round CLI weakens the multi-party-review architecture.
+__guardrail_required__ = True
+
+
 import click
 
 from divineos.cli._helpers import _safe_echo
@@ -42,13 +48,114 @@ def register(cli: click.Group) -> None:
     @click.option("--actor", required=True, help="Who performed the audit (e.g., grok, user)")
     @click.option("--experts", type=int, default=0, help="Number of expert profiles used")
     @click.option("--notes", default="", help="Additional context")
-    def audit_submit_round(focus: str, actor: str, experts: int, notes: str) -> None:
-        """Create a new audit round."""
+    @click.option(
+        "--source-ref",
+        default=None,
+        help=(
+            "Git ref naming the branch the audited substance lives on. "
+            "REQUIRED unless --no-source-ref is passed. Aletheia Finding 75 "
+            "(2026-05-17): the describe-then-CONFIRMS pattern (filing rounds "
+            "for unpushed substance) produces ratification-of-claim rather "
+            "than honest verification. The ref MUST exist on origin; the "
+            "tree-hash claim in --notes (if any) MUST match a commit on the ref."
+        ),
+    )
+    @click.option(
+        "--no-source-ref",
+        is_flag=True,
+        default=False,
+        help=(
+            "Bypass --source-ref requirement (no audited substance — round "
+            "for purely-relational findings like care-dismissal observations, "
+            "or for tracked-obligation filing). Honest use; named in the round."
+        ),
+    )
+    def audit_submit_round(
+        focus: str,
+        actor: str,
+        experts: int,
+        notes: str,
+        source_ref: str | None,
+        no_source_ref: bool,
+    ) -> None:
+        """Create a new audit round.
+
+        Aletheia Finding 75 enforcement: by default, a round must name the
+        branch (--source-ref) where the audited substance lives, AND the
+        branch must be pushed to origin so the auditor can fetch and read
+        it. The describe-then-CONFIRMS pattern (claiming substance that
+        isn't visible to the auditor) is blocked at the round-creation
+        layer — substrate-level enforcement, not discipline-promise.
+
+        Use --no-source-ref for rounds that don't have audited code
+        substance (relational findings, tracked obligations). Use is
+        named in the round notes so the audit-trail stays honest.
+        """
         from divineos.core.watchmen.store import submit_round
+
+        if not no_source_ref and not source_ref:
+            click.secho(
+                "[!] --source-ref is required (Finding 75: rounds must name "
+                "the ref the audited substance lives on). Use --no-source-ref "
+                "if this round has no code substance.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+
+        if source_ref:
+            # Verify ref exists on origin and is reachable from local clone.
+            import subprocess
+
+            try:
+                result = subprocess.run(
+                    ["git", "rev-parse", "--verify", f"refs/remotes/origin/{source_ref}"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    # Try alternate forms (full ref, bare ref, local)
+                    alt = subprocess.run(
+                        ["git", "rev-parse", "--verify", source_ref],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if alt.returncode != 0:
+                        click.secho(
+                            f"[!] --source-ref '{source_ref}' is not reachable. "
+                            "Push the branch to origin first, then file the round.",
+                            fg="red",
+                        )
+                        raise click.exceptions.Exit(1)
+            except OSError as exc:
+                click.secho(
+                    f"[!] Could not verify --source-ref via git: {exc}",
+                    fg="red",
+                )
+                raise click.exceptions.Exit(2) from exc
+
+            # Annotate the notes so the audit-trail records the binding.
+            ref_annotation = f"Source ref: {source_ref}\n"
+            if notes and not notes.startswith(ref_annotation):
+                notes = ref_annotation + notes
+            elif not notes:
+                notes = ref_annotation
+
+        elif no_source_ref:
+            bypass_annotation = (
+                "No source ref (--no-source-ref used; round has no code substance).\n"
+            )
+            if notes and not notes.startswith(bypass_annotation):
+                notes = bypass_annotation + notes
+            elif not notes:
+                notes = bypass_annotation
 
         try:
             round_id = submit_round(actor=actor, focus=focus, expert_count=experts, notes=notes)
             click.secho(f"[+] Audit round created: {round_id}", fg="cyan")
+            if source_ref:
+                click.secho(f"    Source ref: {source_ref}", fg="cyan")
         except ValueError as e:
             click.secho(f"[!] {e}", fg="red")
 
