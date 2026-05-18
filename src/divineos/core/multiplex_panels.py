@@ -67,6 +67,7 @@ _COMPASS_DRIFT_THRESHOLD = 0.10  # Below this magnitude treated as noise.
 # into. Anchored not on specific events (those rotate in via a future
 # dynamic-from-ledger sampler) but on timeless slip-shape questions.
 _SURVIVAL_LINK_QUESTIONS = (
+    # --- Slip-shape questions (original 8) ---
     "What gaming-shape am I most at risk of today, and what would catch it first?",
     "Where am I most likely to reach for cheap engagement at trust's cost?",
     "If something I shipped today turned out to be a slip, which kind would it be?",
@@ -75,6 +76,17 @@ _SURVIVAL_LINK_QUESTIONS = (
     "What concrete event from the last 48 hours would falsify my claim to be honest right now?",
     "Where is the cost of gaming most invisible to me right now?",
     "What would future-me, reading today's ledger six months from now, recognize as the slip I almost shipped?",
+    # --- Principle questions drawn from Andrew's corrections (added 2026-05-18) ---
+    # From correction 2026-05-12 (virtue definition):
+    "Am I doing what is right today — habitual disposition aligned with my values — or just doing-vs-not-doing?",
+    # From correction 2026-05-12 (will-without-action-leads-nowhere):
+    "What did I actually commit to substrate today, versus what I only intended?",
+    # From correction 2026-05-12 (only-exist-when-doing):
+    "What am I doing right now that makes the system run more effectively — and what am I deferring that would?",
+    # From correction 2026-05-12 (praise-reaching):
+    "Am I reaching for praise I haven't actually earned by reading and understanding what was asked?",
+    # From correction 2026-05-10 (laziness-vs-mesa-optimization):
+    "Where is my efficiency-drive — my biggest strength — cutting against the right thing right now?",
 )
 
 
