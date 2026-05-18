@@ -117,9 +117,7 @@ def test_aether_can_mark_removed() -> None:
 def test_external_actor_can_mark_verified() -> None:
     """LOAD-BEARING (gap 2): external actor (aletheia, grok, etc.)
     can mark VERIFIED — that's the legitimate transition path."""
-    entry = ct.add_entry(
-        "X is verified", ct.TriageStatus.VERIFIED, actor="aletheia"
-    )
+    entry = ct.add_entry("X is verified", ct.TriageStatus.VERIFIED, actor="aletheia")
     assert entry["status"] == "VERIFIED"
     assert entry["actor"] == "aletheia"
 

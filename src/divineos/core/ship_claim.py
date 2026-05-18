@@ -106,8 +106,7 @@ def _verify_imports(executes: list[str]) -> tuple[bool, str]:
         if attr:
             if not hasattr(mod, attr):
                 return False, (
-                    f"executes target '{spec}' missing attribute '{attr}' "
-                    f"on module {module_name}"
+                    f"executes target '{spec}' missing attribute '{attr}' on module {module_name}"
                 )
     return True, ""
 
@@ -215,7 +214,7 @@ def _extract_test_imports(content: str) -> set[str]:
                 # Also add prefixes: `import a.b.c` covers `a.b` and `a` too.
                 parts = alias.name.split(".")
                 for i in range(1, len(parts)):
-                    imports.add(".".join(parts[: i]))
+                    imports.add(".".join(parts[:i]))
         elif isinstance(node, ast.ImportFrom):
             if node.module is None:
                 continue
@@ -224,7 +223,7 @@ def _extract_test_imports(content: str) -> set[str]:
             # Also add prefixes
             parts = base.split(".")
             for i in range(1, len(parts)):
-                imports.add(".".join(parts[: i]))
+                imports.add(".".join(parts[:i]))
             # Synthesize full path for each imported name
             for alias in node.names:
                 if alias.name == "*":
@@ -318,6 +317,7 @@ def _validate_actor_for_ship_claim(actor: str) -> tuple[bool, str]:
         )
     try:
         from divineos.core.watchmen.store import _validate_actor
+
         _validate_actor(actor)
     except ValueError as e:
         return False, str(e)

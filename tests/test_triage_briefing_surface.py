@@ -27,6 +27,7 @@ def test_triage_in_slot_order() -> None:
     # Find the slot-builder map. It's the dict at module level mapping
     # slot names to _build_* functions.
     import inspect
+
     for name, obj in inspect.getmembers(hud):
         if isinstance(obj, dict) and "claims" in obj and callable(obj.get("claims")):
             assert "triage" in obj, "triage slot not registered in builder map"

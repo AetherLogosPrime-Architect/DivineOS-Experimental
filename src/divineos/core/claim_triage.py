@@ -121,6 +121,7 @@ def _validate_actor_for_status(actor: str, status: TriageStatus) -> tuple[bool, 
         )
     try:
         from divineos.core.watchmen.store import _validate_actor as _w_validate
+
         _w_validate(actor)
     except ValueError as e:
         return False, str(e)

@@ -52,7 +52,9 @@ def test_returns_empty_when_no_directory(tmp_path: Path, monkeypatch: pytest.Mon
     assert result == ""
 
 
-def test_returns_empty_when_directory_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_returns_empty_when_directory_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Empty directory → empty string."""
     empty = tmp_path / "exploration"
     empty.mkdir()
@@ -80,9 +82,7 @@ def test_default_max_entries_limits_output(fake_exploration: Path) -> None:
 def test_total_budget_caps_output(fake_exploration: Path) -> None:
     """Total budget cap stops adding entries past the threshold."""
     # Force a tight budget so only one entry fits.
-    result = el.load_exploration_lessons(
-        max_entries=10, max_chars_per_entry=400, total_budget=50
-    )
+    result = el.load_exploration_lessons(max_entries=10, max_chars_per_entry=400, total_budget=50)
     # At least one entry got in (loader guarantees one); but the
     # block is small enough that not all three could fit.
     assert "39: River" in result  # newest always included

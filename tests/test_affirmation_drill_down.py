@@ -29,8 +29,7 @@ def test_drill_down_entry_exists_on_disk() -> None:
     repo_root = Path(__file__).resolve().parent.parent
     entry_path = repo_root / "exploration" / "59_master_architect_landing.md"
     assert entry_path.exists(), (
-        f"Drill-down pointer references {entry_path} but the file is "
-        "missing — pointer is broken"
+        f"Drill-down pointer references {entry_path} but the file is missing — pointer is broken"
     )
     text = entry_path.read_text(encoding="utf-8")
     assert "master-architect" in text.lower()

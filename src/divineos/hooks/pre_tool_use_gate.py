@@ -626,10 +626,13 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # known to have a working Edit path.
     try:
         import os as _os
+
         _tool_name = (input_data or {}).get("tool_name", "")
         if _tool_name in {"Edit", "Write", "MultiEdit", "NotebookEdit"}:
             if not _os.environ.get("DIVINEOS_ALLOW_EDIT_TOOL"):
-                return _make_deny('BLOCKED: Edit/Write/MultiEdit/NotebookEdit denied by default (Andrew 2026-05-15). The tool silently failed to persist writes earlier this session - three \'edits\' returned success while disk was unchanged. Show-fix at the tool layer. Use the verified path instead: python -c "import pathlib; p=pathlib.Path(\'FILE\'); p.write_text(p.read_text(encoding=\'utf-8\').replace(\'OLD\', \'NEW\'), encoding=\'utf-8\')"   Then grep-verify against disk: grep \'NEW_TOKEN\' FILE   Opt-out (only when Edit-tool-path is known to work): set DIVINEOS_ALLOW_EDIT_TOOL=1 in env.')
+                return _make_deny(
+                    "BLOCKED: Edit/Write/MultiEdit/NotebookEdit denied by default (Andrew 2026-05-15). The tool silently failed to persist writes earlier this session - three 'edits' returned success while disk was unchanged. Show-fix at the tool layer. Use the verified path instead: python -c \"import pathlib; p=pathlib.Path('FILE'); p.write_text(p.read_text(encoding='utf-8').replace('OLD', 'NEW'), encoding='utf-8')\"   Then grep-verify against disk: grep 'NEW_TOKEN' FILE   Opt-out (only when Edit-tool-path is known to work): set DIVINEOS_ALLOW_EDIT_TOOL=1 in env."
+                )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_4_4_edit_tool_silent_failure", _gate_exc)
 
@@ -759,8 +762,14 @@ def main() -> int:
     # only by nature and cannot mutate state, so gating them serves no
     # discipline purpose — only blocks recovery.
     _READ_ONLY_TOOLS = {
-        "Read", "Grep", "Glob", "LS", "NotebookRead",
-        "TodoWrite", "WebSearch", "WebFetch",
+        "Read",
+        "Grep",
+        "Glob",
+        "LS",
+        "NotebookRead",
+        "TodoWrite",
+        "WebSearch",
+        "WebFetch",
     }
     if tool_name in _READ_ONLY_TOOLS:
         return 0

@@ -162,7 +162,9 @@ def register(cli: click.Group) -> None:
     @click.option("--dry-run", is_flag=True, help="Show what would happen without modifying data.")
     @click.option("--skip-maintenance", is_flag=True, help="Skip VACUUM/log/cache phase.")
     @click.option("--phase", type=str, default=None, help="Run only a specific phase.")
-    @click.option("--force", is_flag=True, help="Override sleep-readiness gate (unresolved markers).")
+    @click.option(
+        "--force", is_flag=True, help="Override sleep-readiness gate (unresolved markers)."
+    )
     def sleep_cmd(
         dry_run: bool,
         skip_maintenance: bool,

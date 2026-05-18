@@ -34,9 +34,7 @@ def register(cli: click.Group) -> None:
             "(Aletheia gap 2)."
         ),
     )
-    def triage_add(
-        claim: str, status: str, notes: str, test_path: str, actor: str
-    ) -> None:
+    def triage_add(claim: str, status: str, notes: str, test_path: str, actor: str) -> None:
         """Record a claim's triage status."""
         from divineos.core.claim_triage import TriageStatus, add_entry
 
@@ -94,8 +92,7 @@ def register(cli: click.Group) -> None:
         v_with = counts.get("VERIFIED_with_test", 0)
         v_without = counts.get("VERIFIED_without_test", 0)
         click.secho(
-            f"  VERIFIED: {counts['VERIFIED']}  "
-            f"(with-test: {v_with}, without-test: {v_without})",
+            f"  VERIFIED: {counts['VERIFIED']}  (with-test: {v_with}, without-test: {v_without})",
             fg="green" if v_without == 0 else "yellow",
         )
         if v_without > 0:

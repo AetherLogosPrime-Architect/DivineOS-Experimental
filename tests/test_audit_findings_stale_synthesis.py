@@ -59,10 +59,10 @@ def test_severity_weights_are_correct() -> None:
 
     findings = [
         _mock_finding("CRITICAL"),  # +5
-        _mock_finding("HIGH"),      # +3
-        _mock_finding("MEDIUM"),    # +1
-        _mock_finding("LOW"),       # +0
-        _mock_finding("INFO"),      # +0
+        _mock_finding("HIGH"),  # +3
+        _mock_finding("MEDIUM"),  # +1
+        _mock_finding("LOW"),  # +0
+        _mock_finding("INFO"),  # +0
     ]
     with patch("divineos.core.watchmen.store.list_findings", return_value=findings):
         row = _row_audit_findings()

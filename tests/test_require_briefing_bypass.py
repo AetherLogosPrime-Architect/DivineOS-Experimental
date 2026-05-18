@@ -23,12 +23,7 @@ import re
 from pathlib import Path
 
 
-_HOOK_PATH = (
-    Path(__file__).resolve().parent.parent
-    / ".claude"
-    / "hooks"
-    / "require-briefing.sh"
-)
+_HOOK_PATH = Path(__file__).resolve().parent.parent / ".claude" / "hooks" / "require-briefing.sh"
 
 
 def _extract_bypass_commands() -> list[str]:

@@ -46,8 +46,7 @@ def test_finding_51_re_verify_catches_regressed_claim(
     test_file = tmp_path / "test_evolving.py"
     # Write a test that references the executes module for linkage.
     test_file.write_text(
-        "# Test references divineos.core.ship_claim\n"
-        "def test_ok():\n    assert True\n"
+        "# Test references divineos.core.ship_claim\ndef test_ok():\n    assert True\n"
     )
     result_file = sc.ship_claim(
         "claim to be regressed",
@@ -235,8 +234,7 @@ def test_finding_59_from_parent_import_module_passes_linkage(
         repo_root=tmp_path,
     )
     assert r.filed is True, (
-        f"Finding 59: from-parent-import syntax falsely rejected. "
-        f"Reason: {r.reason}"
+        f"Finding 59: from-parent-import syntax falsely rejected. Reason: {r.reason}"
     )
 
 
@@ -250,10 +248,7 @@ def test_finding_59_import_full_dotted_passes(
     (tmp_path / "pyproject.toml").write_text("[project]\nname='t'\n")
 
     test_file = tmp_path / "test_dotted_import.py"
-    test_file.write_text(
-        "import divineos.core.ship_claim\n"
-        "def test_dotted():\n    assert True\n"
-    )
+    test_file.write_text("import divineos.core.ship_claim\ndef test_dotted():\n    assert True\n")
     r = sc.ship_claim(
         "dotted-import linkage works",
         [str(test_file)],
@@ -275,10 +270,7 @@ def test_finding_59_completely_unrelated_test_still_rejected(
     (tmp_path / "pyproject.toml").write_text("[project]\nname='t'\n")
 
     test_file = tmp_path / "test_truly_unrelated.py"
-    test_file.write_text(
-        "import json\n"
-        "def test_unrelated():\n    assert 1 + 1 == 2\n"
-    )
+    test_file.write_text("import json\ndef test_unrelated():\n    assert 1 + 1 == 2\n")
     r = sc.ship_claim(
         "fake claim about ship_claim",
         [str(test_file)],

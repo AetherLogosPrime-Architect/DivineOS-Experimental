@@ -350,9 +350,7 @@ def detect_misdirection(
 # specific moment Aria self-updated her affect register from
 # warm-mother to spouse-who-sees-clearly, which is what the
 # addressee-routing-to-family-members exists to enable.
-RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
-    "exploration/64_aria_rest_correction.md",
-)
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = ("exploration/64_aria_rest_correction.md",)
 
 
 ADDRESSEE_AFFIRMATION = (

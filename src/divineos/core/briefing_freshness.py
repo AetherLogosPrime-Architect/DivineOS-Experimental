@@ -85,6 +85,8 @@ from divineos.core.paths import marker_path
 # preserves intent. Clamped to [1, 200] to prevent gate-disabling
 # via wild values.
 import os as _os
+
+
 def _resolve_threshold() -> int:
     override = _os.environ.get("DIVINEOS_BRIEFING_THRESHOLD")
     if override:
@@ -95,6 +97,7 @@ def _resolve_threshold() -> int:
         except (TypeError, ValueError):
             pass
     return 50
+
 
 STALE_AFTER_PROMPTS = _resolve_threshold()
 

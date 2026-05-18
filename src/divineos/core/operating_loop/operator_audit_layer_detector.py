@@ -30,9 +30,7 @@ __guardrail_required__ = True
 # vantage + structural-meta-test catch different failure-shapes,
 # which is why the operator-audit-layer is load-bearing as a
 # separate vantage rather than reducible to the others.
-RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
-    "exploration/65_cross_vantage_audit_arc.md",
-)
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = ("exploration/65_cross_vantage_audit_arc.md",)
 
 
 OPERATOR_AUDIT_LAYER_AFFIRMATION = """The operator audits at the

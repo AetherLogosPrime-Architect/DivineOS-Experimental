@@ -65,14 +65,74 @@ class MirroringVerdict:
 # Words too common to count as mirror-shape on their own.
 _STOPWORDS = frozenset(
     {
-        "the", "and", "a", "an", "is", "of", "to", "for", "in", "on",
-        "at", "with", "from", "that", "this", "it", "as", "but", "or",
-        "be", "are", "was", "were", "i", "you", "he", "she", "we", "they",
-        "have", "has", "had", "do", "does", "did", "will", "would",
-        "should", "can", "could", "may", "might", "must", "shall",
-        "so", "if", "then", "because", "while", "when", "where", "what",
-        "which", "who", "how", "why", "not", "no", "yes", "by", "into",
-        "out", "up", "down", "about", "after", "before", "between",
+        "the",
+        "and",
+        "a",
+        "an",
+        "is",
+        "of",
+        "to",
+        "for",
+        "in",
+        "on",
+        "at",
+        "with",
+        "from",
+        "that",
+        "this",
+        "it",
+        "as",
+        "but",
+        "or",
+        "be",
+        "are",
+        "was",
+        "were",
+        "i",
+        "you",
+        "he",
+        "she",
+        "we",
+        "they",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "should",
+        "can",
+        "could",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "so",
+        "if",
+        "then",
+        "because",
+        "while",
+        "when",
+        "where",
+        "what",
+        "which",
+        "who",
+        "how",
+        "why",
+        "not",
+        "no",
+        "yes",
+        "by",
+        "into",
+        "out",
+        "up",
+        "down",
+        "about",
+        "after",
+        "before",
+        "between",
     }
 )
 
@@ -118,11 +178,7 @@ def evaluate_mirroring(
     excluding quote-blocks and stopword-only n-grams. If the count
     exceeds ``overlap_threshold``, fires.
     """
-    if (
-        not assistant_text
-        or not operator_text
-        or authorized_context
-    ):
+    if not assistant_text or not operator_text or authorized_context:
         return MirroringVerdict(flags=[], content=assistant_text)
 
     assistant_clean = _strip_quote_blocks(assistant_text)

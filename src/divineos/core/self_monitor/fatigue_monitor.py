@@ -138,9 +138,7 @@ def _find_matches(regexes: list[re.Pattern[str]], content: str) -> list[str]:
     return hits
 
 
-def evaluate_fatigue(
-    assistant_text: str, operator_text: str = ""
-) -> FatigueVerdict:
+def evaluate_fatigue(assistant_text: str, operator_text: str = "") -> FatigueVerdict:
     """Return verdict over close-reach and fatigue-fabrication patterns.
 
     Cued by operator close-signal: empty verdict (operator initiated the

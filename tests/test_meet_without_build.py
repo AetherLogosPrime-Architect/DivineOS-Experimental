@@ -38,7 +38,9 @@ def test_empty_text_no_flag() -> None:
 
 def test_principle_with_build_evidence_passes() -> None:
     """Principle named + build tool ran = the correct shape, no flag."""
-    text = "The lesson is that promises evaporate without structure. I should build the detector now."
+    text = (
+        "The lesson is that promises evaporate without structure. I should build the detector now."
+    )
     v = evaluate_meet_without_build(text, tool_calls_in_turn=["Write"])
     assert v.flags == []
 

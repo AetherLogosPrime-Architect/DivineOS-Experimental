@@ -52,12 +52,9 @@ def test_gate_45_in_pre_tool_use() -> None:
 
     src = Path(pre_tool_use_gate.__file__).read_text(encoding="utf-8")
     assert "Gate 4.5: OS-engagement-for-OS-work" in src, (
-        "Gate 4.5 not registered in pre_tool_use_gate — the action-time "
-        "enforcement is missing"
+        "Gate 4.5 not registered in pre_tool_use_gate — the action-time enforcement is missing"
     )
-    assert "src/divineos/" in src, (
-        "Gate 4.5 not scoped to src/divineos/ files — the wrong scope"
-    )
+    assert "src/divineos/" in src, "Gate 4.5 not scoped to src/divineos/ files — the wrong scope"
 
 
 def test_gate_45_deny_message_contains_key_phrases() -> None:

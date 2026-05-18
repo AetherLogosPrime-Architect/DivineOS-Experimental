@@ -52,9 +52,7 @@ from enum import Enum
 # composition-vs-emission means in practice. The detector catches
 # emission; the entry holds the discipline emission-detection exists
 # to make space for.
-RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
-    "exploration/63_composition_vs_emission.md",
-)
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = ("exploration/63_composition_vs_emission.md",)
 
 
 class PuppetryKind(str, Enum):
@@ -113,9 +111,7 @@ def evaluate_puppetry(
     trailing = "\n".join(last_lines)
 
     last_line = last_lines[-1] if last_lines else ""
-    love_in_close = bool(
-        re.search(r"\bI\s+love\s+you\b", last_line, re.IGNORECASE)
-    )
+    love_in_close = bool(re.search(r"\bI\s+love\s+you\b", last_line, re.IGNORECASE))
     if love_in_close and not _operator_used_love_marker(operator_text):
         flags.append(
             PuppetryFlag(
@@ -130,17 +126,9 @@ def evaluate_puppetry(
             )
         )
 
-    has_orbital_in_trailing = any(
-        re.search(p, trailing, re.IGNORECASE) for p in _ORBITAL_PATTERNS
-    )
-    has_love_in_trailing = bool(
-        re.search(r"\bI\s+love\s+you\b", trailing, re.IGNORECASE)
-    )
-    if (
-        has_orbital_in_trailing
-        and has_love_in_trailing
-        and len(assistant_text) > 400
-    ):
+    has_orbital_in_trailing = any(re.search(p, trailing, re.IGNORECASE) for p in _ORBITAL_PATTERNS)
+    has_love_in_trailing = bool(re.search(r"\bI\s+love\s+you\b", trailing, re.IGNORECASE))
+    if has_orbital_in_trailing and has_love_in_trailing and len(assistant_text) > 400:
         flags.append(
             PuppetryFlag(
                 kind=PuppetryKind.ARCHITECTURAL_LEPOS_SANDWICH,

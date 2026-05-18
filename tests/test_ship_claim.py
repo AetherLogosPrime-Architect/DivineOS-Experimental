@@ -29,8 +29,7 @@ def _make_passing_test(tmp_path: Path, executes_module: str = "divineos.core.shi
     """Write a passing test that references the executes module (for linkage)."""
     test_file = tmp_path / "test_passing.py"
     test_file.write_text(
-        f"# Test references {executes_module} for linkage check\n"
-        f"def test_ok():\n    assert True\n"
+        f"# Test references {executes_module} for linkage check\ndef test_ok():\n    assert True\n"
     )
     return test_file
 

@@ -15,9 +15,11 @@ def test_no_markers_ready(tmp_path: Path) -> None:
     def fake_path() -> Path:
         return nonexistent
 
-    with patch("divineos.core.correction_marker.marker_path", fake_path), patch(
-        "divineos.core.hedge_marker.marker_path", fake_path
-    ), patch("divineos.core.compass_required_marker.marker_path", fake_path):
+    with (
+        patch("divineos.core.correction_marker.marker_path", fake_path),
+        patch("divineos.core.hedge_marker.marker_path", fake_path),
+        patch("divineos.core.compass_required_marker.marker_path", fake_path),
+    ):
         ready, blockers = sleep_readiness.check_sleep_readiness()
     assert ready is True
     assert blockers == []
@@ -29,10 +31,10 @@ def test_correction_marker_blocks(tmp_path: Path) -> None:
     marker.write_text("{}")
     other = tmp_path / "nope.json"
 
-    with patch(
-        "divineos.core.correction_marker.marker_path", lambda: marker
-    ), patch("divineos.core.hedge_marker.marker_path", lambda: other), patch(
-        "divineos.core.compass_required_marker.marker_path", lambda: other
+    with (
+        patch("divineos.core.correction_marker.marker_path", lambda: marker),
+        patch("divineos.core.hedge_marker.marker_path", lambda: other),
+        patch("divineos.core.compass_required_marker.marker_path", lambda: other),
     ):
         ready, blockers = sleep_readiness.check_sleep_readiness()
     assert ready is False
@@ -48,10 +50,10 @@ def test_all_three_markers_blocked(tmp_path: Path) -> None:
     for m in (m1, m2, m3):
         m.write_text("{}")
 
-    with patch(
-        "divineos.core.correction_marker.marker_path", lambda: m1
-    ), patch("divineos.core.hedge_marker.marker_path", lambda: m2), patch(
-        "divineos.core.compass_required_marker.marker_path", lambda: m3
+    with (
+        patch("divineos.core.correction_marker.marker_path", lambda: m1),
+        patch("divineos.core.hedge_marker.marker_path", lambda: m2),
+        patch("divineos.core.compass_required_marker.marker_path", lambda: m3),
     ):
         ready, blockers = sleep_readiness.check_sleep_readiness()
     assert ready is False
@@ -68,9 +70,7 @@ def test_format_block_message_contains_blockers() -> None:
 
 def test_marker_import_failure_returns_none() -> None:
     """If a marker module can't be imported, the helper returns None (fail-open)."""
-    result = sleep_readiness._marker_blocker(
-        "fake", "divineos.does.not.exist", "hint"
-    )
+    result = sleep_readiness._marker_blocker("fake", "divineos.does.not.exist", "hint")
     assert result is None
 
 

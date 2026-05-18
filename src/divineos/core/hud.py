@@ -605,9 +605,7 @@ def _build_triage_slot() -> str:
             f"{suspect} SUSPECT, {counts['REMOVED']} removed)\n"
         ]
         if suspect > 0:
-            lines.append(
-                "**SUSPECT entries — prior claims not yet verified by falsifier:**"
-            )
+            lines.append("**SUSPECT entries — prior claims not yet verified by falsifier:**")
             entries = list_entries(TriageStatus.SUSPECT)
             for e in entries[:5]:
                 claim = e.get("claim", "")[:110]

@@ -12,7 +12,6 @@ import json
 from pathlib import Path
 
 
-
 def _build_transcript(path: Path, assistant_turns: list[str]) -> None:
     """Write a minimal JSONL transcript with the given assistant turns."""
     records: list[dict] = []
@@ -145,15 +144,12 @@ def test_window_size_respected(tmp_path: Path) -> None:
 
     transcript = tmp_path / "session.jsonl"
     # 10 old turns with the phrase, then 4 turns without
-    prior_turns = (
-        ["temple stands tighter old"] * 10
-        + [
-            "completely different one",
-            "completely different two",
-            "completely different three",
-            "completely different four",
-        ]
-    )
+    prior_turns = ["temple stands tighter old"] * 10 + [
+        "completely different one",
+        "completely different two",
+        "completely different three",
+        "completely different four",
+    ]
     _build_transcript(transcript, prior_turns)
     v = evaluate_orbital_recurrence(
         "current response without the old phrase",

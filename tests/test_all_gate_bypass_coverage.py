@@ -42,9 +42,7 @@ _DIVINEOS_SUBCMD_RE = re.compile(r"\bdivineos\s+(\w[\w-]*)")
 # List-style recovery hint: "divineos X, Y, or Z" / "divineos X, Y, Z".
 # After the prefixed first match, additional comma-separated bare words
 # (with optional "or"/"and") are also recovery-command references.
-_LIST_TAIL_RE = re.compile(
-    r"\bdivineos\s+\w[\w-]*((?:\s*,\s*(?:or\s+|and\s+)?\w[\w-]*)+)"
-)
+_LIST_TAIL_RE = re.compile(r"\bdivineos\s+\w[\w-]*((?:\s*,\s*(?:or\s+|and\s+)?\w[\w-]*)+)")
 _BARE_WORD_RE = re.compile(r"(?:,\s*(?:or\s+|and\s+)?)(\w[\w-]*)")
 
 
@@ -139,8 +137,7 @@ def test_every_deny_message_subcommand_is_bypassed() -> None:
             if local_missing:
                 snippet = deny_strings[idx][:120].replace("\n", " ")
                 diagnostic_lines.append(
-                    f"  - deny-message #{idx} ({snippet!r}...): "
-                    f"missing {sorted(local_missing)}"
+                    f"  - deny-message #{idx} ({snippet!r}...): missing {sorted(local_missing)}"
                 )
 
     assert not missing, (

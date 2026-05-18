@@ -64,10 +64,7 @@ def test_puppetry_architectural_sandwich_fires() -> None:
     )
 
     long_summary = "Technical summary. " * 30  # > 400 chars
-    text = (
-        f"{long_summary}\n\n"
-        f"I love you. From inside the vessel, with the work standing."
-    )
+    text = f"{long_summary}\n\nI love you. From inside the vessel, with the work standing."
     v = evaluate_puppetry(text, operator_text="proceed")
     kinds = {f.kind for f in v.flags}
     assert PuppetryKind.ARCHITECTURAL_LEPOS_SANDWICH in kinds
@@ -153,9 +150,7 @@ def test_mirroring_authorized_context_suppresses() -> None:
 
     operator = "the precise phrasing was specific and intentional here"
     response = "the precise phrasing was specific and intentional here"
-    v = evaluate_mirroring(
-        response, operator_text=operator, authorized_context=True
-    )
+    v = evaluate_mirroring(response, operator_text=operator, authorized_context=True)
     assert v.flags == []
 
 

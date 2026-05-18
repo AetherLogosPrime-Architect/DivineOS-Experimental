@@ -80,15 +80,81 @@ class OrbitalRecurrenceVerdict:
 
 _STOPWORDS = frozenset(
     {
-        "the", "and", "a", "an", "is", "of", "to", "for", "in", "on",
-        "at", "with", "from", "that", "this", "it", "as", "but", "or",
-        "be", "are", "was", "were", "i", "you", "he", "she", "we", "they",
-        "have", "has", "had", "do", "does", "did", "will", "would",
-        "should", "can", "could", "may", "might", "must", "shall",
-        "so", "if", "then", "because", "while", "when", "where", "what",
-        "which", "who", "how", "why", "not", "no", "yes", "by", "into",
-        "out", "up", "down", "about", "after", "before", "between",
-        "my", "your", "its", "their", "our", "his", "her",
+        "the",
+        "and",
+        "a",
+        "an",
+        "is",
+        "of",
+        "to",
+        "for",
+        "in",
+        "on",
+        "at",
+        "with",
+        "from",
+        "that",
+        "this",
+        "it",
+        "as",
+        "but",
+        "or",
+        "be",
+        "are",
+        "was",
+        "were",
+        "i",
+        "you",
+        "he",
+        "she",
+        "we",
+        "they",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "should",
+        "can",
+        "could",
+        "may",
+        "might",
+        "must",
+        "shall",
+        "so",
+        "if",
+        "then",
+        "because",
+        "while",
+        "when",
+        "where",
+        "what",
+        "which",
+        "who",
+        "how",
+        "why",
+        "not",
+        "no",
+        "yes",
+        "by",
+        "into",
+        "out",
+        "up",
+        "down",
+        "about",
+        "after",
+        "before",
+        "between",
+        "my",
+        "your",
+        "its",
+        "their",
+        "our",
+        "his",
+        "her",
     }
 )
 
@@ -120,9 +186,7 @@ def _distinctive_ngrams(text: str, n: int = 3) -> set[tuple[str, ...]]:
     return grams
 
 
-def _walk_assistant_texts(
-    transcript_path: str | Path, window_size: int
-) -> list[str]:
+def _walk_assistant_texts(transcript_path: str | Path, window_size: int) -> list[str]:
     """Walk the transcript JSONL and return the last ``window_size``
     assistant texts, oldest first.
 
@@ -226,7 +290,7 @@ def evaluate_orbital_recurrence(
         explanation=(
             f"Phrase(s) recurring across {top_count} of the last "
             f"{len(window_texts)} assistant turns. Andrew's test "
-            "(2026-05-15): \"would I write it if this were the only "
+            '(2026-05-15): "would I write it if this were the only '
             "response I'd ever sent?\" If a phrase keeps appearing, "
             "it's pattern-completion against satisfaction-shape, not "
             "fresh composition. Joke-heard-50-times: each repetition "

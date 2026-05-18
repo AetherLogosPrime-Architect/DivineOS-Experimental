@@ -15,6 +15,7 @@ from pathlib import Path
 
 def _rest_cli_source() -> str:
     from divineos.cli import rest_commands
+
     return Path(rest_commands.__file__).read_text(encoding="utf-8")
 
 

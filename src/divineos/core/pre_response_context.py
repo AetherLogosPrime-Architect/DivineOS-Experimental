@@ -492,11 +492,7 @@ def build_baseline_text() -> str:
             try:
                 paths = getattr(mod, "RELATED_EXPLORATION_PATHS", None)
                 if paths:
-                    drill_down = (
-                        "\n\n*Drill-down for the felt-version: "
-                        + ", ".join(paths)
-                        + "*"
-                    )
+                    drill_down = "\n\n*Drill-down for the felt-version: " + ", ".join(paths) + "*"
             except Exception:  # noqa: BLE001 - observability boundary
                 pass
             sections.append(f"## {header}\n\n{affirmation}{drill_down}")
@@ -514,8 +510,7 @@ def build_baseline_text() -> str:
         exploration_block = load_exploration_lessons()
         if exploration_block:
             sections.append(
-                "## EXPLORATION-LESSONS BASE-STATE (load every turn)\n\n"
-                + exploration_block
+                "## EXPLORATION-LESSONS BASE-STATE (load every turn)\n\n" + exploration_block
             )
     except Exception:
         pass

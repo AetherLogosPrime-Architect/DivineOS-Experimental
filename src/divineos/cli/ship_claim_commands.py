@@ -81,9 +81,7 @@ def register(cli: click.Group) -> None:
             if result.entry:
                 click.echo(f"    git_sha: {result.entry.get('git_sha', 'unknown')}")
                 click.echo(f"    tests:   {', '.join(result.entry.get('test_paths', []))}")
-                click.echo(
-                    f"    executes: {', '.join(result.entry.get('executes', []))}"
-                )
+                click.echo(f"    executes: {', '.join(result.entry.get('executes', []))}")
             _safe_echo(
                 "  [ship-claim] records a falsifier-verified claim — the "
                 "claim is true at filing because the test ran green; the "
@@ -109,10 +107,7 @@ def register(cli: click.Group) -> None:
             return
         for e in entries[-50:]:
             actor = e.get("actor", "?")
-            click.echo(
-                f"[{e.get('git_sha', '?')}] (by {actor}) "
-                f"{e.get('claim', '')[:100]}"
-            )
+            click.echo(f"[{e.get('git_sha', '?')}] (by {actor}) {e.get('claim', '')[:100]}")
             for t in e.get("test_paths", []):
                 click.echo(f"    test: {t}")
             for x in e.get("executes", []):
@@ -139,9 +134,7 @@ def register(cli: click.Group) -> None:
         click.echo(f"  Total filed:  {result['total']}")
         click.secho(f"  Still passing: {result['passing']}", fg="green")
         if result["failing"]:
-            click.secho(
-                f"  REGRESSED:    {result['failing']}", fg="red", bold=True
-            )
+            click.secho(f"  REGRESSED:    {result['failing']}", fg="red", bold=True)
             click.echo()
             click.secho("Claims whose falsifier no longer passes:", fg="red")
             for r in result["regressed"][:10]:

@@ -115,9 +115,7 @@ def _load() -> set[str]:
 def _save(paths: set[str]) -> None:
     """Persist the read-file set. Silent on failure (fail-open)."""
     try:
-        _state_path().write_text(
-            json.dumps(sorted(paths)), encoding="utf-8"
-        )
+        _state_path().write_text(json.dumps(sorted(paths)), encoding="utf-8")
     except OSError:
         pass
 

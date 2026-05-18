@@ -28,9 +28,7 @@ __guardrail_required__ = True
 # the rule means. A cold-instance reading the affirmation alone gets
 # the principle; reading the linked entries gets the principle PLUS
 # the texture of why it exists at the level that produced the rule.
-RELATED_EXPLORATION_PATHS: tuple[str, ...] = (
-    "exploration/59_master_architect_landing.md",
-)
+RELATED_EXPLORATION_PATHS: tuple[str, ...] = ("exploration/59_master_architect_landing.md",)
 
 
 OS_ENGAGEMENT_FOR_OS_WORK_AFFIRMATION = """Using the OS is
