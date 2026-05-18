@@ -36,11 +36,13 @@ def _isolated(monkeypatch, tmp_path):
 
 class TestGradeMapping:
     def test_letter_to_score_known(self):
+        # Even 20% bands (Andrew 2026-05-15): F 0.00-0.20, D 0.20-0.40,
+        # C 0.40-0.60, B 0.60-0.80, A 0.80-1.00. Midpoints below are band centers.
         assert grade_letter_to_score("A") == 0.90
-        assert grade_letter_to_score("B") == 0.75
-        assert grade_letter_to_score("C") == 0.62
-        assert grade_letter_to_score("D") == 0.47
-        assert grade_letter_to_score("F") == 0.20
+        assert grade_letter_to_score("B") == 0.70
+        assert grade_letter_to_score("C") == 0.50
+        assert grade_letter_to_score("D") == 0.30
+        assert grade_letter_to_score("F") == 0.10
 
     def test_letter_to_score_unknown(self):
         # Unknown grade → neutral 0.5
@@ -140,8 +142,11 @@ class TestCalibrationSummary:
         assert summary["avg_divergence"] < -0.05
 
     def test_calibrated_when_close(self):
+        # Even 20% bands (2026-05-15): B-midpoint moved from 0.75 to 0.70.
+        # health_score must match the new midpoint for self-grade-B to map
+        # to calibrated (divergence == 0).
         for i in range(5):
-            record_session_metrics(f"s{i}", health_grade="B", health_score=0.75)
+            record_session_metrics(f"s{i}", health_grade="B", health_score=0.70)
             record_self_grade(f"s{i}", "B", f"session {i}")
         summary = calibration_summary()
         assert summary["pattern"] == "calibrated"
