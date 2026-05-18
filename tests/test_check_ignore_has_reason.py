@@ -24,9 +24,7 @@ class TestPytestInvocationDetection:
         assert _looks_like_pytest_invocation("pytest --ignore=tests/foo.py")
 
     def test_matches_python_module_invocation(self):
-        assert _looks_like_pytest_invocation(
-            "python -m pytest tests/ --ignore=tests/foo.py"
-        )
+        assert _looks_like_pytest_invocation("python -m pytest tests/ --ignore=tests/foo.py")
 
     def test_matches_py_dot_test_legacy(self):
         assert _looks_like_pytest_invocation("py.test --ignore=tests/foo.py")
@@ -64,10 +62,7 @@ class TestCheckFile:
         assert violations == []
 
     def test_invocation_without_reason_fails(self, tmp_path):
-        content = (
-            "#!/bin/bash\n"
-            "pytest tests/ --ignore=tests/test_foo.py\n"
-        )
+        content = "#!/bin/bash\npytest tests/ --ignore=tests/test_foo.py\n"
         p = self._write(tmp_path, content)
         violations = _check_file(p)
         assert len(violations) == 1
@@ -107,9 +102,7 @@ class TestCheckFile:
         # Lowercase "reason:" should NOT satisfy — the discipline is
         # case-sensitive so accidental prose mentions don't pass.
         content = (
-            "#!/bin/bash\n"
-            "# reason: this is too casual\n"
-            "pytest tests/ --ignore=tests/test_foo.py\n"
+            "#!/bin/bash\n# reason: this is too casual\npytest tests/ --ignore=tests/test_foo.py\n"
         )
         p = self._write(tmp_path, content)
         violations = _check_file(p)
@@ -118,9 +111,7 @@ class TestCheckFile:
     def test_non_pytest_ignore_not_flagged(self, tmp_path):
         # grep, rsync, etc. shouldn't be in scope.
         content = (
-            "#!/bin/bash\n"
-            "grep --ignore-case 'foo' file.txt\n"
-            "rsync --ignore-existing src/ dst/\n"
+            "#!/bin/bash\ngrep --ignore-case 'foo' file.txt\nrsync --ignore-existing src/ dst/\n"
         )
         p = self._write(tmp_path, content)
         violations = _check_file(p)
@@ -152,7 +143,6 @@ class TestRepoCleanState:
         for p in _gather_files(_REPO_ROOT):
             for line_num, line in check(p):
                 violations.append(f"{p.name}:{line_num}: {line[:80]}")
-        assert not violations, (
-            "Repo has pytest --ignore= without REASON comments:\n"
-            + "\n".join(f"  {v}" for v in violations)
+        assert not violations, "Repo has pytest --ignore= without REASON comments:\n" + "\n".join(
+            f"  {v}" for v in violations
         )

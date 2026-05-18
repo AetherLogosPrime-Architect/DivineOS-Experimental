@@ -43,6 +43,35 @@ def register(cli: click.Group) -> None:
             fg="bright_black",
         )
 
+        # Structural-fix-shape detection — parallel to the same hook in
+        # `learn`. Added 2026-05-18 after Andrew named the wiring gap:
+        # the original tracker only scanned `learn`, but most structural-
+        # fix naming actually happens via `correction` (Andrew naming a
+        # fix I should build, in his own words). The check is fail-soft;
+        # it never blocks the correction.
+        try:
+            from divineos.core.structural_fix_tracker import (
+                detect_structural_fix_shape,
+                record_pending_fix,
+            )
+
+            trigger = detect_structural_fix_shape(text)
+            if trigger:
+                psf_id = record_pending_fix(
+                    text,
+                    lesson_id=session_id,
+                    trigger=trigger,
+                    source_kind="correction",
+                )
+                if psf_id:
+                    click.secho(
+                        f"    [!] structural-fix-shape detected ({trigger!r}); "
+                        f"pending obligation {psf_id} filed",
+                        fg="yellow",
+                    )
+        except Exception:  # noqa: BLE001 — observation-only; never blocks
+            pass
+
         # Clear correction-unlogged marker if present — `correction` is
         # the raw-quote counterpart to `learn` and also discharges the
         # UserPromptSubmit-detected correction.

@@ -51,6 +51,39 @@ def register(cli: click.Group) -> None:
         )
         label = TIER_LABELS.get(tier, "unknown")
         click.secho(f"[+] Claim filed ({label}): {claim_id[:8]}...", fg="cyan")
+
+        # Structural-fix-shape detection — parallel to the same hook in
+        # `learn` and `correction`. Added 2026-05-18: many of the claims
+        # I file name structural fixes I want to build but haven't yet
+        # (the same shape `learn` catches), and the original tracker
+        # didn't scan this surface. Concatenate statement + context so
+        # the detector sees the full naming.
+        try:
+            from divineos.core.structural_fix_tracker import (
+                detect_structural_fix_shape,
+                record_pending_fix,
+            )
+
+            scan_text = statement
+            if context:
+                scan_text = scan_text + " " + context
+            trigger = detect_structural_fix_shape(scan_text)
+            if trigger:
+                psf_id = record_pending_fix(
+                    scan_text,
+                    lesson_id=claim_id,
+                    trigger=trigger,
+                    source_kind="claim",
+                )
+                if psf_id:
+                    click.secho(
+                        f"    [!] structural-fix-shape detected ({trigger!r}); "
+                        f"pending obligation {psf_id} filed",
+                        fg="yellow",
+                    )
+        except Exception:  # noqa: BLE001 — observation-only; never blocks
+            pass
+
         from divineos.cli._anti_substitution import emit_label as _emit_as_label
 
         _emit_as_label("claim")
