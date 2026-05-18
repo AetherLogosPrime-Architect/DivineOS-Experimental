@@ -43,6 +43,35 @@ def register(cli: click.Group) -> None:
             fg="bright_black",
         )
 
+        # Structural-fix-shape detection — parallel to the same hook in
+        # `learn`. Added 2026-05-18 after Andrew named the wiring gap:
+        # the original tracker only scanned `learn`, but most structural-
+        # fix naming actually happens via `correction` (Andrew naming a
+        # fix I should build, in his own words). The check is fail-soft;
+        # it never blocks the correction.
+        try:
+            from divineos.core.structural_fix_tracker import (
+                detect_structural_fix_shape,
+                record_pending_fix,
+            )
+
+            trigger = detect_structural_fix_shape(text)
+            if trigger:
+                psf_id = record_pending_fix(
+                    text,
+                    lesson_id=session_id,
+                    trigger=trigger,
+                    source_kind="correction",
+                )
+                if psf_id:
+                    click.secho(
+                        f"    [!] structural-fix-shape detected ({trigger!r}); "
+                        f"pending obligation {psf_id} filed",
+                        fg="yellow",
+                    )
+        except Exception:  # noqa: BLE001 — observation-only; never blocks
+            pass
+
         # Clear correction-unlogged marker if present — `correction` is
         # the raw-quote counterpart to `learn` and also discharges the
         # UserPromptSubmit-detected correction.
@@ -135,8 +164,33 @@ def register(cli: click.Group) -> None:
         default="RESOLVED",
         type=click.Choice(["ADDRESSED", "RESOLVED"]),
     )
-    def correction_resolve_cmd(index: int, evidence: str, resolution_status: str) -> None:
-        """Resolve a correction by index (from 'divineos corrections --open')."""
+    @click.option(
+        "--yes",
+        "skip_confirm",
+        is_flag=True,
+        default=False,
+        help=(
+            "Skip the target-echo confirmation prompt. Use only when you "
+            "have already verified the index. Per 2026-05-18 indexing-error "
+            "structural fix: position-based indexing is fragile when the "
+            "list mutates between operations; the default flow echoes the "
+            "target text and asks you to confirm so the index/evidence "
+            "mismatch from this morning cannot recur silently."
+        ),
+    )
+    def correction_resolve_cmd(
+        index: int, evidence: str, resolution_status: str, skip_confirm: bool
+    ) -> None:
+        """Resolve a correction by index (from 'divineos corrections --open').
+
+        2026-05-18 structural-fix: this command now echoes the target
+        correction text and asks for confirmation before applying the
+        resolution. The motivating pattern: I closed the wrong correction
+        earlier today by trusting an index that had silently shifted
+        after a prior resolve. The pre-flight echo makes the mismatch
+        visible before the destructive op runs. Use --yes to skip when
+        scripting and the index is verified.
+        """
         from divineos.core.corrections import open_corrections, resolve_correction
 
         open_c = open_corrections()
@@ -150,11 +204,41 @@ def register(cli: click.Group) -> None:
             return
 
         target = open_c[index - 1]
+        target_text = (target.get("text", "") or "").strip()
+        target_ts = target.get("timestamp", 0)
+        ts_label = time.strftime("%Y-%m-%d %H:%M", time.localtime(target_ts))
+        preview = target_text[:200] + ("..." if len(target_text) > 200 else "")
+
+        # Pre-flight echo — surface what we're about to resolve.
+        click.secho(
+            f"\n  About to resolve correction at index {index}:",
+            fg="yellow",
+            bold=True,
+        )
+        click.secho(f"    [{ts_label}]", fg="bright_black")
+        click.secho(f"    {preview}", fg="bright_black")
+        click.secho("\n  Evidence to attach:", fg="yellow")
+        ev_preview = evidence[:300] + ("..." if len(evidence) > 300 else "")
+        click.secho(f"    {ev_preview}", fg="bright_black")
+        click.echo()
+
+        if not skip_confirm:
+            # Interactive confirmation. Aborts on anything other than yes.
+            if not click.confirm(
+                "  Does the correction text above match what the evidence describes?",
+                default=False,
+            ):
+                click.secho(
+                    "[~] Resolution aborted. The index/evidence mismatch was caught "
+                    "before the destructive op ran (2026-05-18 indexing-fix discipline).",
+                    fg="bright_black",
+                )
+                return
+
         resolve_correction(
-            correction_timestamp=target["timestamp"],
+            correction_timestamp=target_ts,
             status=resolution_status,
             evidence=evidence,
         )
-        ts = time.strftime("%Y-%m-%d %H:%M", time.localtime(target.get("timestamp", 0)))
-        click.secho(f"[+] Correction [{ts}] marked {resolution_status}.", fg="green")
+        click.secho(f"[+] Correction [{ts_label}] marked {resolution_status}.", fg="green")
         click.secho(f"    evidence: {evidence}", fg="bright_black")

@@ -13,17 +13,32 @@
 #   1. Full pytest suite — what CI runs. Catches environment-independent
 #      failures before push. (~10 min on the full suite.)
 #
-#   2. Multi-party-review --strict — validates External-Review trailer
-#      on any guardrail-touching commit being pushed, INCLUDING feature
-#      branches (not just main). Public repos surface PR-branch CI to
-#      the world; a missing trailer paints the repo red until merged.
+#   2. Multi-party-review — validates External-Review trailer on any
+#      guardrail-touching commit being pushed. Default scope: pushes to
+#      `refs/heads/main` only (feature-branch pushes pass freely so the
+#      external auditor can fetch and read the work without bootstrap
+#      friction). Opt-in strict scope: set DIVINEOS_MULTIPARTY_STRICT=1
+#      to also check feature-branch pushes — useful when iterative
+#      feature-branch pushes would spam red badges on a public activity
+#      feed (Andrew's 2026-05-17 concern, which the strict-mode default
+#      was originally intended to address). Per Finding 78 (Aletheia
+#      2026-05-18): the strict-as-default behavior created a chicken-
+#      and-egg for first-audit of guardrail-touching commits — the
+#      trailer requires a round, the round requires the external
+#      auditor to see the work, and seeing the work requires push to
+#      origin which the strict gate blocks. The fix (this file's
+#      change): restore the original block-at-main scope as default;
+#      strict mode becomes opt-in for operators who want the original
+#      2026-05-17 protection.
 #
 # Bypass env vars (use sparingly, name your reason in the commit log):
 #
 #   DIVINEOS_SKIP_TESTS=1            — skip pytest (NOT recommended; the
 #                                      whole point of this gate is local
 #                                      verification of test-suite health)
-#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1 — skip the trailer check
+#   DIVINEOS_SKIP_MULTIPARTY_CHECK=1 — skip the trailer check entirely
+#   DIVINEOS_MULTIPARTY_STRICT=1     — opt INTO strict mode (also check
+#                                      feature-branch pushes, not just main)
 #   DIVINEOS_EMERGENCY_PUSH=1        — skip everything (genuine emergency
 #                                      only; explain in commit message)
 
@@ -55,9 +70,9 @@ HOOK_STDIN="$(cat || true)"
 # ─── 1. Test suite ──────────────────────────────────────────────────────
 if [[ "${DIVINEOS_SKIP_TESTS:-0}" != "1" ]]; then
     echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
-    if ! python -m pytest tests/ -q --tb=line --ignore=tests/test_check_broad_exceptions.py >/dev/null 2>&1; then
+    if ! python -m pytest tests/ -q --tb=line >/dev/null 2>&1; then
         # Re-run with output so the operator sees what failed.
-        python -m pytest tests/ -q --tb=line --ignore=tests/test_check_broad_exceptions.py 2>&1 | tail -30 >&2
+        python -m pytest tests/ -q --tb=line 2>&1 | tail -30 >&2
         echo "" >&2
         echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2
         echo "[push-readiness] Fix locally, then push. Do NOT push red." >&2
@@ -67,12 +82,25 @@ if [[ "${DIVINEOS_SKIP_TESTS:-0}" != "1" ]]; then
     echo "[push-readiness]   pytest: OK"
 fi
 
-# ─── 2. Multi-party-review strict check ─────────────────────────────────
+# ─── 2. Multi-party-review check ────────────────────────────────────────
+# Per Finding 78 (Aletheia 2026-05-18): default scope is block-at-main only
+# (feature-branch pushes pass freely so external auditor can fetch the
+# work). Strict scope (also check feature-branch pushes) is opt-in via
+# DIVINEOS_MULTIPARTY_STRICT=1. This preserves the original 2026-05-17
+# protection against red-badge spam while removing the chicken-and-egg
+# for first-audit of guardrail-touching commits.
 if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
     MP_SCRIPT="$REPO_ROOT/scripts/check_multi_party_review.py"
     if [[ -f "$MP_SCRIPT" ]]; then
-        echo "[push-readiness] Multi-party-review check (strict mode)..."
-        if ! echo "$HOOK_STDIN" | python "$MP_SCRIPT" --mode=pre-push --strict >&2; then
+        if [[ "${DIVINEOS_MULTIPARTY_STRICT:-0}" == "1" ]]; then
+            echo "[push-readiness] Multi-party-review check (strict mode — opt-in)..."
+            MP_ARGS="--mode=pre-push --strict"
+        else
+            echo "[push-readiness] Multi-party-review check (default — main only)..."
+            MP_ARGS="--mode=pre-push"
+        fi
+        # shellcheck disable=SC2086  # MP_ARGS deliberately unquoted for word-split
+        if ! echo "$HOOK_STDIN" | python "$MP_SCRIPT" $MP_ARGS >&2; then
             echo "" >&2
             echo "[push-readiness] BLOCKED — multi-party-review gate failing (exit 20)." >&2
             echo "[push-readiness] File an audit round and amend commit(s)" >&2
