@@ -226,3 +226,4 @@ sandbox/graphify_test/graphify_source/
 # current files are partial drafts mixed with placeholder names. README and TLDR
 # describe mansion as WIP without naming specific rooms.
 mansion/
+.audit-relay/
