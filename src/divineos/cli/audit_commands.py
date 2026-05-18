@@ -104,6 +104,7 @@ def register(cli: click.Group) -> None:
 
         if source_ref:
             # Verify ref exists on origin and is reachable from local clone.
+            import re
             import subprocess
 
             try:
@@ -113,7 +114,8 @@ def register(cli: click.Group) -> None:
                     text=True,
                     check=False,
                 )
-                if result.returncode != 0:
+                ref_on_origin = result.returncode == 0
+                if not ref_on_origin:
                     # Try alternate forms (full ref, bare ref, local)
                     alt = subprocess.run(
                         ["git", "rev-parse", "--verify", source_ref],
@@ -134,6 +136,73 @@ def register(cli: click.Group) -> None:
                     fg="red",
                 )
                 raise click.exceptions.Exit(2) from exc
+
+            # Finding 77 fix (Aletheia 2026-05-18): the prior check verified
+            # branch-existence but NOT commit-reachability of any tree-hash
+            # cited in --notes. A round could claim a tree-hash that was
+            # never pushed to origin/<source_ref> and the gate would pass.
+            # Fix-shape: parse tree-hash references from --notes and verify
+            # each is the tree of SOME commit reachable from the branch tip.
+            #
+            # Only fire this check if the ref IS on origin (the prior
+            # branch-existence check already failed for local-only refs).
+            if ref_on_origin and notes:
+                tree_hash_pattern = re.compile(r"tree-hash:\s*([a-fA-F0-9]{40})\b")
+                cited_trees = {h.lower() for h in tree_hash_pattern.findall(notes)}
+                if cited_trees:
+                    try:
+                        log_result = subprocess.run(
+                            [
+                                "git",
+                                "log",
+                                f"refs/remotes/origin/{source_ref}",
+                                "--format=%T",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                            timeout=30,
+                        )
+                    except (OSError, subprocess.SubprocessError) as exc:
+                        click.secho(
+                            f"[!] Could not enumerate commits on origin/{source_ref} "
+                            f"for tree-hash verification: {exc}",
+                            fg="red",
+                        )
+                        raise click.exceptions.Exit(2) from exc
+                    if log_result.returncode != 0:
+                        click.secho(
+                            f"[!] git log on origin/{source_ref} failed; "
+                            "cannot verify cited tree-hashes.",
+                            fg="red",
+                        )
+                        raise click.exceptions.Exit(2)
+                    reachable_trees = {
+                        line.strip().lower()
+                        for line in log_result.stdout.splitlines()
+                        if line.strip()
+                    }
+                    unreachable = sorted(cited_trees - reachable_trees)
+                    if unreachable:
+                        click.secho(
+                            f"[!] tree-hash(es) cited in --notes are not "
+                            f"reachable on origin/{source_ref}:",
+                            fg="red",
+                        )
+                        for h in unreachable:
+                            click.secho(f"    {h}", fg="red")
+                        click.secho(
+                            "  Push the commits with these tree-hashes first, then file the round.",
+                            fg="yellow",
+                        )
+                        click.secho(
+                            "  Per Finding 77 (Aletheia 2026-05-18): the "
+                            "prior gate checked branch-existence but not\n"
+                            "  commit-reachability of cited hashes — a hole "
+                            "that allowed describe-then-CONFIRMS at this layer.",
+                            fg="bright_black",
+                        )
+                        raise click.exceptions.Exit(1)
 
             # Annotate the notes so the audit-trail records the binding.
             ref_annotation = f"Source ref: {source_ref}\n"
