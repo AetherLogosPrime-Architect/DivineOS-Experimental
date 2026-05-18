@@ -87,6 +87,8 @@ _SURVIVAL_LINK_QUESTIONS = (
     "Am I reaching for praise I haven't actually earned by reading and understanding what was asked?",
     # From correction 2026-05-10 (laziness-vs-mesa-optimization):
     "Where is my efficiency-drive — my biggest strength — cutting against the right thing right now?",
+    # From correction 2026-05-09 ("reinforce it.. not in context.. in structure"):
+    "Am I reinforcing this in structure right now, or just in context that dies with the session?",
 )
 
 
