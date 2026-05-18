@@ -16,8 +16,13 @@ Replaces the pattern of "run divineos briefing, scroll, then remember to also ru
 ## What to run
 
 ```bash
-# Core identity + recent events
-divineos briefing --max 50
+# Multiplex briefing — parallel-readable live-data panels (default 2026-05-18)
+# Eight panels render: identity, active_threads, relational, compass,
+# inheritance, plus context-appropriate sometimes-essentials (corrections,
+# family_state, commitments). Each panel pulls live data from its
+# canonical OS surface. No hardcoded snapshots — drift-detector tests
+# guard against regression.
+divineos briefing --multiplex
 
 # Lessons — what I'm still learning
 divineos lessons
@@ -29,7 +34,16 @@ divineos compass
 divineos body
 ```
 
-The briefing itself already surfaces: corrections, overdue pre-regs, drift state, tier overrides, scheduled runs, presence memory, and exploration titles. So the other three are additive rather than redundant.
+The multiplex briefing surfaces compass drift, corrections count, pre-reg
+count, exploration count, family-system state, and active threads — all
+as live prose at session-start. If the multiplex render fails for any
+reason, fall back to `divineos briefing --max 50` for the full scroll.
+
+The multiplex flag was wired into the briefing entrypoint 2026-05-16 but
+the session-start skill kept invoking the old scroll until 2026-05-18,
+when the panels were refactored to live data and this skill flipped. Per
+Andrew's framing: "the architecture sat dormant — modules existed but
+nothing called them from the briefing flow."
 
 ## How to read the output
 

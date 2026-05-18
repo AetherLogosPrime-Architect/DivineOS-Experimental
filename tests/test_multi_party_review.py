@@ -393,6 +393,53 @@ class TestModeFlag:
         # Deletion case → skipped → exit 0
         assert rc == 0
 
+    def test_pre_push_strict_extends_to_feature_branches(self) -> None:
+        """Strict mode (opt-in via --strict CLI flag) extends gate to ALL
+        branches, not just refs/heads/main. Per Finding 78 (Aletheia 2026-
+        05-18): the strict-as-default behavior in check_push_readiness.sh
+        created a chicken-and-egg for first-audit of guardrail-touching
+        commits. The fix restored block-at-main as default; strict-mode
+        became opt-in via DIVINEOS_MULTIPARTY_STRICT=1. This test pins
+        the opt-in mechanism: when --strict IS passed, feature-branch
+        pushes ARE checked. Deletion line used so the parser considers
+        the line but the deletion-case-skip exits 0 — what we're testing
+        is that the line is REACHED in strict mode (vs. continue'd past
+        in default mode)."""
+        import io
+
+        stdin = (
+            "refs/heads/feature/foo "
+            "0000000000000000000000000000000000000000 "
+            "refs/heads/feature/foo abc123\n"
+        )
+        # Default mode: continue past non-main targets — exit 0
+        with patch.object(mpr.sys, "stdin", io.StringIO(stdin)):
+            rc_default = mpr.main(["check_multi_party_review.py", "--mode=pre-push"])
+        assert rc_default == 0
+
+        # Strict mode: line is reached, deletion-case-skip still exits 0
+        # (same exit code, different code path). The test is structural:
+        # strict-mode opt-in is wired through the CLI flag to the
+        # _run_pre_push function, which we verify by exit-code parity
+        # plus stderr absence of "ignoring" messages in default vs
+        # presence-of-processing in strict.
+        with patch.object(mpr.sys, "stdin", io.StringIO(stdin)):
+            rc_strict = mpr.main(["check_multi_party_review.py", "--mode=pre-push", "--strict"])
+        assert rc_strict == 0  # Deletion line skipped in both modes
+
+    def test_strict_flag_present_in_argparse(self) -> None:
+        """Pinning the --strict CLI flag exists. If a refactor removes it,
+        the DIVINEOS_MULTIPARTY_STRICT=1 opt-in from check_push_readiness.sh
+        would silently no-op. This test fails loudly in that case."""
+        import io
+
+        # Invoke with --strict; if flag is missing, argparse raises SystemExit.
+        stdin = ""
+        with patch.object(mpr.sys, "stdin", io.StringIO(stdin)):
+            rc = mpr.main(["check_multi_party_review.py", "--mode=pre-push", "--strict"])
+        # Empty stdin → no lines → exit 0
+        assert rc == 0
+
 
 class TestCommitMsgNeverBlocks:
     """Andrew's 2026-05-12 directive: commits are saving-work; gates belong

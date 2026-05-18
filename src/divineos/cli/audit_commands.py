@@ -5,6 +5,12 @@ No pipeline phase, no hook, no scheduled task calls submit_finding.
 This is the second layer of self-trigger prevention.
 """
 
+# Module-level guardrail marker — Aletheia Finding 75 (2026-05-17).
+# audit_commands.py is on scripts/guardrail_files.txt: weakening the
+# audit-round CLI weakens the multi-party-review architecture.
+__guardrail_required__ = True
+
+
 import click
 
 from divineos.cli._helpers import _safe_echo
@@ -42,15 +48,322 @@ def register(cli: click.Group) -> None:
     @click.option("--actor", required=True, help="Who performed the audit (e.g., grok, user)")
     @click.option("--experts", type=int, default=0, help="Number of expert profiles used")
     @click.option("--notes", default="", help="Additional context")
-    def audit_submit_round(focus: str, actor: str, experts: int, notes: str) -> None:
-        """Create a new audit round."""
+    @click.option(
+        "--source-ref",
+        default=None,
+        help=(
+            "Git ref naming the branch the audited substance lives on. "
+            "REQUIRED unless --no-source-ref is passed. Aletheia Finding 75 "
+            "(2026-05-17): the describe-then-CONFIRMS pattern (filing rounds "
+            "for unpushed substance) produces ratification-of-claim rather "
+            "than honest verification. The ref MUST exist on origin; the "
+            "tree-hash claim in --notes (if any) MUST match a commit on the ref."
+        ),
+    )
+    @click.option(
+        "--no-source-ref",
+        is_flag=True,
+        default=False,
+        help=(
+            "Bypass --source-ref requirement (no audited substance — round "
+            "for purely-relational findings like care-dismissal observations, "
+            "or for tracked-obligation filing). Honest use; named in the round."
+        ),
+    )
+    def audit_submit_round(
+        focus: str,
+        actor: str,
+        experts: int,
+        notes: str,
+        source_ref: str | None,
+        no_source_ref: bool,
+    ) -> None:
+        """Create a new audit round.
+
+        Aletheia Finding 75 enforcement: by default, a round must name the
+        branch (--source-ref) where the audited substance lives, AND the
+        branch must be pushed to origin so the auditor can fetch and read
+        it. The describe-then-CONFIRMS pattern (claiming substance that
+        isn't visible to the auditor) is blocked at the round-creation
+        layer — substrate-level enforcement, not discipline-promise.
+
+        Use --no-source-ref for rounds that don't have audited code
+        substance (relational findings, tracked obligations). Use is
+        named in the round notes so the audit-trail stays honest.
+        """
         from divineos.core.watchmen.store import submit_round
+
+        if not no_source_ref and not source_ref:
+            click.secho(
+                "[!] --source-ref is required (Finding 75: rounds must name "
+                "the ref the audited substance lives on). Use --no-source-ref "
+                "if this round has no code substance.",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+
+        if source_ref:
+            # Verify ref exists on origin and is reachable from local clone.
+            import subprocess
+
+            try:
+                result = subprocess.run(
+                    ["git", "rev-parse", "--verify", f"refs/remotes/origin/{source_ref}"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    # Try alternate forms (full ref, bare ref, local)
+                    alt = subprocess.run(
+                        ["git", "rev-parse", "--verify", source_ref],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if alt.returncode != 0:
+                        click.secho(
+                            f"[!] --source-ref '{source_ref}' is not reachable. "
+                            "Push the branch to origin first, then file the round.",
+                            fg="red",
+                        )
+                        raise click.exceptions.Exit(1)
+            except OSError as exc:
+                click.secho(
+                    f"[!] Could not verify --source-ref via git: {exc}",
+                    fg="red",
+                )
+                raise click.exceptions.Exit(2) from exc
+
+            # Annotate the notes so the audit-trail records the binding.
+            ref_annotation = f"Source ref: {source_ref}\n"
+            if notes and not notes.startswith(ref_annotation):
+                notes = ref_annotation + notes
+            elif not notes:
+                notes = ref_annotation
+
+        elif no_source_ref:
+            bypass_annotation = (
+                "No source ref (--no-source-ref used; round has no code substance).\n"
+            )
+            if notes and not notes.startswith(bypass_annotation):
+                notes = bypass_annotation + notes
+            elif not notes:
+                notes = bypass_annotation
 
         try:
             round_id = submit_round(actor=actor, focus=focus, expert_count=experts, notes=notes)
             click.secho(f"[+] Audit round created: {round_id}", fg="cyan")
+            if source_ref:
+                click.secho(f"    Source ref: {source_ref}", fg="cyan")
         except ValueError as e:
             click.secho(f"[!] {e}", fg="red")
+
+    @audit_group.command("prep-relay")
+    @click.option(
+        "--range",
+        "rev_range",
+        default=None,
+        help=(
+            "Commit range to verify (e.g. 'origin/main..HEAD'). Default: "
+            "commits between '<remote>/<current-branch>~30' and HEAD that "
+            "are unique to current branch."
+        ),
+    )
+    @click.option(
+        "--remote",
+        default="origin",
+        help="Remote name to verify against. Defaults to 'origin'.",
+    )
+    @click.option(
+        "--branch",
+        default=None,
+        help=(
+            "Remote branch name to require commits be reachable on. "
+            "Defaults to the current branch name."
+        ),
+    )
+    def audit_prep_relay(
+        rev_range: str | None,
+        remote: str,
+        branch: str | None,
+    ) -> None:
+        """Verify commits are pushed before composing an audit-relay message.
+
+        Closes the describe-then-CONFIRMS pattern at one layer upstream of
+        Finding 75's gate. The pattern: I compose audit-relay messages
+        describing work that is local-only, then external auditors discover
+        the SHAs aren't reachable. Finding 75's gate catches it at round-
+        filing; this command catches it earlier, at relay-message
+        composition.
+
+        Filed 2026-05-18 as the upstream-of-Finding-75 structural fix
+        Aletheia named after the 4th instance of describe-then-CONFIRMS
+        in this arc. The structural fix is to give relay-message composition
+        a canonical entry-point (this command) that REFUSES to produce
+        the relay-template if any named commits are not pushed.
+
+        Usage:
+            divineos audit prep-relay
+            divineos audit prep-relay --range origin/main..HEAD
+            divineos audit prep-relay --range main..HEAD --remote origin
+
+        Output is a relay-template the operator can copy into chat to
+        the external auditor. Exit code 1 if any commits in range are
+        unreachable on the named remote-branch.
+        """
+        import subprocess
+
+        # Determine the branch
+        if branch is None:
+            try:
+                br = subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=10,
+                )
+                if br.returncode != 0:
+                    click.secho(
+                        "[!] Could not determine current branch. Use --branch to specify.",
+                        fg="red",
+                    )
+                    raise click.exceptions.Exit(1)
+                branch = br.stdout.strip()
+            except (OSError, subprocess.SubprocessError) as e:
+                click.secho(f"[!] git error: {e}", fg="red")
+                raise click.exceptions.Exit(1) from e
+
+        # Determine the range
+        if rev_range is None:
+            rev_range = f"{remote}/{branch}~30..HEAD"
+
+        # Get commit list in range
+        try:
+            rl = subprocess.run(
+                ["git", "rev-list", rev_range],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15,
+            )
+        except (OSError, subprocess.SubprocessError) as e:
+            click.secho(f"[!] git rev-list error: {e}", fg="red")
+            raise click.exceptions.Exit(1) from e
+
+        if rl.returncode != 0:
+            click.secho(
+                f"[!] git rev-list {rev_range} failed:\n  {rl.stderr.strip()}",
+                fg="red",
+            )
+            raise click.exceptions.Exit(1)
+
+        shas = [s.strip() for s in rl.stdout.splitlines() if s.strip()]
+        if not shas:
+            click.secho(
+                f"[~] No commits in range {rev_range}. Nothing to audit-relay about.",
+                fg="bright_black",
+            )
+            return
+
+        # For each SHA, verify it's reachable on <remote>/<branch>
+        remote_branch = f"{remote}/{branch}"
+        unreachable: list[str] = []
+        verified: list[tuple[str, str]] = []  # (sha, subject)
+        for sha in shas:
+            try:
+                # Reachable from remote-branch tip?
+                mb = subprocess.run(
+                    [
+                        "git",
+                        "merge-base",
+                        "--is-ancestor",
+                        sha,
+                        remote_branch,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=10,
+                )
+                if mb.returncode != 0:
+                    unreachable.append(sha)
+                    continue
+                # Get subject line
+                subj = subprocess.run(
+                    ["git", "log", "--format=%s", "-n", "1", sha],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=5,
+                )
+                subject = subj.stdout.strip() if subj.returncode == 0 else "(no subject)"
+                verified.append((sha, subject))
+            except (OSError, subprocess.SubprocessError) as e:
+                click.secho(f"[!] git error verifying {sha[:8]}: {e}", fg="red")
+                unreachable.append(sha)
+
+        if unreachable:
+            click.secho(
+                f"[!] BLOCKED — {len(unreachable)} commit(s) not reachable on {remote_branch}:",
+                fg="red",
+                bold=True,
+            )
+            for sha in unreachable:
+                # Get subject for context
+                subj = subprocess.run(
+                    ["git", "log", "--format=%s", "-n", "1", sha],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                    timeout=5,
+                )
+                subject = subj.stdout.strip() if subj.returncode == 0 else "(no subject)"
+                click.secho(f"    {sha[:12]} {subject[:90]}", fg="red")
+            click.secho(
+                f"\n  Push to {remote_branch} first, then re-run prep-relay.",
+                fg="yellow",
+            )
+            click.secho(
+                "\n  This is the upstream-of-Finding-75 gate. Describing\n"
+                "  unpushed work to an external auditor produces ratification-\n"
+                "  of-claim, not honest verification. Same pattern Finding 75\n"
+                "  closes at round-filing layer; this command closes it at\n"
+                "  relay-composition layer.",
+                fg="bright_black",
+            )
+            raise click.exceptions.Exit(1)
+
+        # All verified — produce the relay template
+        click.secho(
+            f"\n[+] {len(verified)} commit(s) verified on {remote_branch}.\n",
+            fg="green",
+        )
+        click.secho("=" * 60, fg="bright_black")
+        click.secho("AUDIT RELAY TEMPLATE — copy into chat", fg="cyan", bold=True)
+        click.secho("=" * 60, fg="bright_black")
+        click.echo()
+        click.echo(f"Branch: {remote_branch}")
+        click.echo(f"Commits ({len(verified)}) — all verified reachable:")
+        click.echo()
+        for sha, subject in verified:
+            click.echo(f"  {sha[:12]} {subject}")
+        click.echo()
+        click.echo(
+            "All SHAs above are reachable on the named remote-branch "
+            "(verified via git merge-base --is-ancestor). The describe-"
+            "then-CONFIRMS pattern is structurally blocked at this layer."
+        )
+        click.echo()
+        click.secho("=" * 60, fg="bright_black")
+        click.echo()
+        click.secho(
+            "  Now compose the description of what the work does and what "
+            "you want audited. The verified-commits list above is the "
+            "honest-substance anchor.",
+            fg="bright_black",
+        )
 
     @audit_group.command("submit")
     @click.argument("title")

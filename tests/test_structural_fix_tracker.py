@@ -141,3 +141,164 @@ def test_list_pending_fail_open_on_malformed_file(tmp_path: Path) -> None:
     pending_file.write_text("not valid json {{{", encoding="utf-8")
     with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
         assert list_pending() == []
+
+
+# --- source_kind field (added 2026-05-18 to broaden the wiring) ----------
+
+
+def test_record_carries_source_kind_default_learn(tmp_path: Path) -> None:
+    """Default source_kind='learn' preserves backward compatibility."""
+    pending_file = tmp_path / "pending_structural_fixes.json"
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
+        record_pending_fix("should build a detector for X", trigger="should build")
+        entries = list_pending()
+        assert entries[0]["source_kind"] == "learn"
+
+
+def test_record_carries_source_kind_correction(tmp_path: Path) -> None:
+    """source_kind='correction' is preserved on read-back."""
+    pending_file = tmp_path / "pending_structural_fixes.json"
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
+        record_pending_fix(
+            "you should build a gate against this",
+            trigger="should build",
+            source_kind="correction",
+        )
+        entries = list_pending()
+        assert entries[0]["source_kind"] == "correction"
+
+
+def test_record_carries_source_kind_claim(tmp_path: Path) -> None:
+    """source_kind='claim' is preserved on read-back."""
+    pending_file = tmp_path / "pending_structural_fixes.json"
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(pending_file.parent)}):
+        record_pending_fix(
+            "the actual fix is a new substrate-level check",
+            trigger="the actual fix",
+            source_kind="claim",
+        )
+        entries = list_pending()
+        assert entries[0]["source_kind"] == "claim"
+
+
+# --- CLI integration: correction triggers the tracker --------------------
+
+
+def test_correction_cli_triggers_tracker(tmp_path: Path) -> None:
+    """Filing a correction with structural-fix-shape language records
+    a pending entry with source_kind='correction'. Closes the wiring
+    gap Andrew named 2026-05-18."""
+    from click.testing import CliRunner
+
+    from divineos.cli import cli
+
+    pending_file = tmp_path / "pending_structural_fixes.json"
+    corrections_file = tmp_path / "corrections.jsonl"
+    with patch.dict(
+        "os.environ",
+        {
+            "DIVINEOS_HOME": str(pending_file.parent),
+            "DIVINEOS_DATA_HOME": str(corrections_file.parent),
+        },
+    ):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["correction", "you should build a detector that catches this pattern"],
+        )
+        assert result.exit_code == 0
+        pending = list_pending()
+        assert len(pending) == 1, (
+            f"Expected the correction to trigger a pending entry; got {pending}. "
+            f"Output was: {result.output}"
+        )
+        assert pending[0]["source_kind"] == "correction"
+        assert pending[0]["trigger"]  # whichever trigger fired
+
+
+def test_claim_cli_triggers_tracker(tmp_path: Path) -> None:
+    """Filing a claim with structural-fix-shape language in statement
+    OR context records a pending entry with source_kind='claim'."""
+    from click.testing import CliRunner
+
+    from divineos.cli import cli
+
+    pending_file = tmp_path / "pending_structural_fixes.json"
+    with patch.dict(
+        "os.environ",
+        {
+            "DIVINEOS_HOME": str(pending_file.parent),
+            "DIVINEOS_DATA_HOME": str(tmp_path),
+        },
+    ):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "claim",
+                "Pattern X recurs; we should build a substrate-level check for it.",
+                "--tier",
+                "3",
+            ],
+        )
+        assert result.exit_code == 0, f"Claim filing failed: {result.output}"
+        pending = list_pending()
+        assert len(pending) == 1, (
+            f"Expected the claim to trigger a pending entry; got {pending}. "
+            f"Output was: {result.output}"
+        )
+        assert pending[0]["source_kind"] == "claim"
+
+
+def test_claim_cli_no_trigger_when_no_structural_language(tmp_path: Path) -> None:
+    """A neutral claim (no structural-fix language) should NOT trigger
+    the tracker. This guards against the broadening from over-firing."""
+    from click.testing import CliRunner
+
+    from divineos.cli import cli
+
+    pending_file = tmp_path / "pending_structural_fixes.json"
+    with patch.dict(
+        "os.environ",
+        {
+            "DIVINEOS_HOME": str(pending_file.parent),
+            "DIVINEOS_DATA_HOME": str(tmp_path),
+        },
+    ):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            [
+                "claim",
+                "The sky appears blue from inside the atmosphere.",
+                "--tier",
+                "1",
+            ],
+        )
+        assert result.exit_code == 0
+        # Neutral content should not trigger
+        assert list_pending() == []
+
+
+def test_correction_cli_no_trigger_when_no_structural_language(tmp_path: Path) -> None:
+    """A neutral correction should NOT trigger the tracker."""
+    from click.testing import CliRunner
+
+    from divineos.cli import cli
+
+    pending_file = tmp_path / "pending_structural_fixes.json"
+    corrections_file = tmp_path / "corrections.jsonl"
+    with patch.dict(
+        "os.environ",
+        {
+            "DIVINEOS_HOME": str(pending_file.parent),
+            "DIVINEOS_DATA_HOME": str(corrections_file.parent),
+        },
+    ):
+        runner = CliRunner()
+        result = runner.invoke(
+            cli,
+            ["correction", "you said the sky was green; it is blue."],
+        )
+        assert result.exit_code == 0
+        assert list_pending() == []

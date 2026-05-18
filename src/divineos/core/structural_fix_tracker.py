@@ -105,9 +105,27 @@ def detect_structural_fix_shape(content: str) -> str | None:
     return None
 
 
-def record_pending_fix(content: str, lesson_id: str = "", trigger: str = "") -> str:
+def record_pending_fix(
+    content: str,
+    lesson_id: str = "",
+    trigger: str = "",
+    source_kind: str = "learn",
+) -> str:
     """Record a pending structural-fix entry. Returns the psf id, or
-    empty string on I/O failure."""
+    empty string on I/O failure.
+
+    ``source_kind`` names the filing surface that produced this entry:
+    "learn" (the original), "correction", "claim", or any future
+    surface that scans for structural-fix-shape language. The field is
+    stored so queries can distinguish where the obligation was named,
+    and so the narrowness-of-wiring failure (only learn scanned, when
+    most structural-fix naming actually happens via correction/claim/
+    chat) is empirically visible in the data.
+
+    Added 2026-05-18 after Andrew named: 'see you found this but were
+    not aware of it.. is it even wired up and being used?' Two entries
+    in five days was direct evidence the wiring was too narrow.
+    """
     if not content:
         return ""
     psf_id = f"psf-{uuid.uuid4().hex[:8]}"
@@ -117,6 +135,7 @@ def record_pending_fix(content: str, lesson_id: str = "", trigger: str = "") -> 
         "lesson_id": lesson_id,
         "content_excerpt": content.strip()[:200],
         "trigger": trigger,
+        "source_kind": source_kind,
         "status": "pending",
     }
     entries = _read_pending()
