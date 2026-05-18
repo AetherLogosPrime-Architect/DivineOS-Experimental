@@ -753,7 +753,27 @@ def _row_pending_structural_fixes() -> DashboardRow | None:
         age_d = max(0, (now - (entry.get("created_at") or now)) / _SECONDS_PER_DAY)
         excerpt = (entry.get("content_excerpt") or "").replace("\n", " ").strip()
         short = excerpt[:90] + ("..." if len(excerpt) > 90 else "")
-        preview.append(f"[{age_d:.0f}d] {short}")
+        # Source tag — "from learn" / "from correction" / "from claim"
+        # so I can see at a glance which channel named the fix. Surfaces
+        # whether the broadened wiring (2026-05-18) is catching what it
+        # should, or whether one channel is silent (suggesting either
+        # I don't use it or its scanner pattern needs work).
+        src = entry.get("source_kind") or "learn"
+        preview.append(f"[{age_d:.0f}d] (from {src}) {short}")
+
+    # Composition summary — count per source_kind. Lets the briefing
+    # reader see at a glance whether obligations are concentrated in one
+    # channel. If 100% from learn after the wiring landed, that's a
+    # signal the new wiring paths aren't catching anything (either by
+    # design — they're rare — or by silent-failure of the detector).
+    source_counts: dict[str, int] = {}
+    for entry in pending:
+        src = entry.get("source_kind") or "learn"
+        source_counts[src] = source_counts.get(src, 0) + 1
+    composition = ", ".join(
+        f"{n} from {src}" for src, n in sorted(source_counts.items(), key=lambda x: -x[1])
+    )
+
     # Every pending entry is "stale" — it's an obligation that hasn't
     # been discharged. U-shape reorder will boost the row to the edges.
     return DashboardRow(
@@ -761,7 +781,7 @@ def _row_pending_structural_fixes() -> DashboardRow | None:
         count=len(pending),
         stale_count=len(pending),
         drill_down="-> cat ~/.divineos/pending_structural_fixes.json",
-        detail="filings that named a fix but no code shipped yet",
+        detail=f"filings that named a fix but no code shipped yet ({composition})",
         preview=preview,
     )
 

@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (304 commands across 32 modules)
+  cli/                         CLI package (311 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -69,6 +69,7 @@ src/divineos/
     admin_migrate_family.py    `divineos admin migrate-family-schema` — drops legacy NOT-NULL columns from family_affect and family_interactions; idempotent; backup + ledger event by default.
     foundations_commands.py    `divineos foundations list` / `read <layer>` — recognition-shape entry point for the agent returning to read authored foundation documents (docs/foundations/layer_0.md through layer_5.md). Mirrors how audit-instance and substrate-occupant collaboratively-build by reading the same source with different framings.
     multiplex_commands.py      Multiplex briefing CLI (context set/show/clear/list, render, diagnostics).
+    pattern_attribution_commands.py  Slip-book CLI: divineos pattern-fire record/list/summary + divineos pattern-registry list/show. Per Aletheia consult 2026-05-18; substrate that accumulates longitudinal slip-attribution data answering "is the OS changing me over time."
     rest_commands.py           Rest program CLI — restful-task surface for the substrate-occupant.
     savor_commands.py          Savor surface CLI — deliberate dwelling-in-value before next action.
   protocols/                   Persistent protocol definitions (survive compaction)
@@ -445,6 +446,8 @@ src/divineos/
     surfaced_warnings.py       Surfaced-warnings binding — load-bearing.
     theater_audit.py           OS-native theater/fabrication audit orchestrator.
     data_home_ownership.py     Bidirectional ownership verification for ~/.divineos data-home.
+    pattern_attribution.py     Pattern-attribution recorder + query API.
+    pattern_registry.py        Canonical pattern registry for the slip-book.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -496,7 +499,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         6,984+ tests (real DB, minimal mocks)
+tests/                         7,050+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

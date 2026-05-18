@@ -202,6 +202,18 @@ if [ -f scripts/guardrail_files.txt ] && [ -f scripts/check_multi_party_review.p
     fi
 fi
 
+# 5d. Ignore-flag-has-reason check (Aletheia Finding 74, 2026-05-17).
+# Refuses pytest --ignore= usages without an adjacent # REASON: comment.
+# Substrate-level fix for the bypass-too-broad pattern that recurred
+# twice on 2026-05-17 (--ignore=test_check_broad_exceptions masked PR
+# #10's new violations because the masking from PR #12 hid them).
+if [ -f scripts/check_ignore_has_reason.py ]; then
+    echo "=== Ignore-flag has reason ==="
+    if ! python scripts/check_ignore_has_reason.py; then
+        ERRORS=$((ERRORS + 1))
+    fi
+fi
+
 # 6. Vulture
 if [ -n "$STAGED_SRC" ] && command -v vulture &>/dev/null; then
     echo "=== Vulture ==="
