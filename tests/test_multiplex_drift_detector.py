@@ -175,6 +175,7 @@ class TestAllPanelsRouteThroughHelperFunctions:
             _corrections_panel_content,
             _commitments_panel_content,
             _family_state_panel_content,
+            _survival_link_panel_content,
         )
 
         for fn in (
@@ -186,9 +187,49 @@ class TestAllPanelsRouteThroughHelperFunctions:
             _corrections_panel_content,
             _commitments_panel_content,
             _family_state_panel_content,
+            _survival_link_panel_content,
         ):
             assert callable(fn)
             # Each helper must return a non-empty string
             result = fn()
             assert isinstance(result, str)
             assert len(result) > 0
+
+
+class TestSurvivalLinkPanel:
+    """Survival_link panel specific behaviors per Aletheia consult 2026-05-18."""
+
+    def test_renders_a_question(self):
+        """The panel must surface a question (the rotating-question core)."""
+        from divineos.core.multiplex_panels import _survival_link_panel_content
+
+        content = _survival_link_panel_content()
+        # Must include "Today's question:" framing
+        assert "question:" in content.lower()
+        # Must end the question with a '?'
+        assert "?" in content
+
+    def test_rotation_is_deterministic_per_day(self):
+        """Same date produces same question; deterministic for in-session
+        consistency, but rotates across days."""
+        from divineos.core.multiplex_panels import _survival_link_question_for_today
+
+        q1 = _survival_link_question_for_today()
+        q2 = _survival_link_question_for_today()
+        assert q1 == q2
+
+    def test_question_pool_has_multiple_entries(self):
+        """The pool must have >= 5 questions so rotation produces variety
+        across days (the anti-template-completion discipline)."""
+        from divineos.core.multiplex_panels import _SURVIVAL_LINK_QUESTIONS
+
+        assert len(_SURVIVAL_LINK_QUESTIONS) >= 5
+
+    def test_panel_includes_slip_book_data(self):
+        """The panel must reference the slip-book in some form (either
+        a count or a 'no recorded fires' fallback)."""
+        from divineos.core.multiplex_panels import _survival_link_panel_content
+
+        content = _survival_link_panel_content()
+        # Must mention slip-book OR the absence of fires
+        assert "slip-book" in content.lower()

@@ -52,11 +52,18 @@ def test_compass_always_present():
         assert any(p.name == "compass" for p in panels), ctx
 
 
-def test_five_always_essentials():
+def test_six_always_essentials():
+    """6 always-essential panels as of 2026-05-18 (added survival_link).
+    Original prereg-ebee9082d201 spec called for 5 always-essentials;
+    the 6th (survival_link) was added per Aletheia consult 2026-05-18
+    + Andrew's morning-arc on substrate-level death-path-walking."""
     for ctx in KNOWN_CONTEXTS:
         panels = build_panels(ctx)
         always = [p for p in panels if p.tier == Tier.ALWAYS]
-        assert len(always) == 5
+        assert len(always) == 6, (
+            f"Expected 6 always-essential panels in context {ctx!r}, got {len(always)}. "
+            f"If a panel was intentionally added or removed, update this test."
+        )
 
 
 def test_chatting_includes_family_state():
@@ -78,13 +85,15 @@ def test_unknown_context_falls_back():
 
 
 def test_render_has_separators():
+    # 6 always + 2 sometimes-essential in 'designing' context = 8 panels = 7 separators
     out = render_multiplex(build_panels("designing"))
-    assert out.count("-" * 60) == 6
+    assert out.count("-" * 60) == 7
 
 
 def test_render_has_drill_downs():
+    # 6 always + 2 sometimes-essential in 'designing' context = 8 'More: ' lines
     out = render_multiplex(build_panels("designing"))
-    assert out.count("More: ") == 7
+    assert out.count("More: ") == 8
 
 
 def test_render_empty_returns_empty():

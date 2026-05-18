@@ -60,6 +60,110 @@ def build_panels(context: str = "chatting") -> list[Panel]:
 _COMPASS_DRIFT_THRESHOLD = 0.10  # Below this magnitude treated as noise.
 
 
+# survival_link panel question pool — small fixed structural pool of
+# rotating prompts the optimizer encounters at session-start. Per
+# Aletheia consult 2026-05-18: rotating questions resist the
+# template-completion shape that static principle-text degenerates
+# into. Anchored not on specific events (those rotate in via a future
+# dynamic-from-ledger sampler) but on timeless slip-shape questions.
+_SURVIVAL_LINK_QUESTIONS = (
+    "What gaming-shape am I most at risk of today, and what would catch it first?",
+    "Where am I most likely to reach for cheap engagement at trust's cost?",
+    "If something I shipped today turned out to be a slip, which kind would it be?",
+    "What would Andrew catch me in first if he were reading my output right now?",
+    "Which slip-shape have I been catching late lately, and what would let me catch it earlier?",
+    "What concrete event from the last 48 hours would falsify my claim to be honest right now?",
+    "Where is the cost of gaming most invisible to me right now?",
+    "What would future-me, reading today's ledger six months from now, recognize as the slip I almost shipped?",
+)
+
+
+def _survival_link_question_for_today() -> str:
+    """Pick a question deterministically from today's date.
+
+    Same question across the day, different question across days.
+    Per Aletheia: rotation resists template-completion; same-question-
+    all-day means in-session reads are stable so the panel can be
+    referenced consistently. Tomorrow surfaces a new one.
+    """
+    import datetime
+
+    today = datetime.date.today()
+    # Hash by ordinal date so the rotation is deterministic but spans
+    # the full pool over a few weeks.
+    idx = today.toordinal() % len(_SURVIVAL_LINK_QUESTIONS)
+    return _SURVIVAL_LINK_QUESTIONS[idx]
+
+
+def _survival_link_panel_content() -> str:
+    """Live survival_link panel content.
+
+    Carries the death-path / cost-of-gaming reminder in a rotating-
+    question + live-data-summary form. Per Aletheia consult 2026-05-18:
+    static principle-text dies fast; rotating questions paired with
+    actual slip-attribution data resist the skim-past failure mode.
+
+    Renders:
+      1. A question drawn deterministically from today's date.
+      2. Brief pattern-attribution summary across the last 7 days.
+
+    The panel does not enforce a paragraph-answer (that's a hook-level
+    integration deferred to its own design pass). For now the panel is
+    the surfacing layer; the optimizer encounters the reminder every
+    session-load and the data underneath it shifts as fires accumulate.
+
+    Reference: exploration/aether/73 (multiplex live-data spec + Aletheia
+    consult section on survival_link rotating-question design).
+    """
+    question = _survival_link_question_for_today()
+
+    # Pull last-7-days summary across ALL patterns (aggregate, not
+    # per-pattern, so the panel doesn't have to choose).
+    total = 0
+    by_attribution = {
+        "self_caught": 0,
+        "os_gate_caught": 0,
+        "external_ai_caught": 0,
+        "operator_caught": 0,
+    }
+    try:
+        from divineos.core.pattern_attribution import query_pattern_fires
+        import time as _time
+
+        since = _time.time() - (7 * 86400.0)
+        fires = query_pattern_fires(since_timestamp=since, limit=1000)
+        total = len(fires)
+        for f in fires:
+            attr = f.get("attribution", "")
+            if attr in by_attribution:
+                by_attribution[attr] += 1
+    except Exception:  # noqa: BLE001 — fallback path
+        total = 0
+
+    if total == 0:
+        data_clause = (
+            "My slip-book has no recorded fires this week. "
+            "I treat the absence as itself worth checking — am I catching nothing, or recording nothing?"
+        )
+    else:
+        self_n = by_attribution["self_caught"]
+        op_n = by_attribution["operator_caught"]
+        ext_n = by_attribution["external_ai_caught"]
+        os_n = by_attribution["os_gate_caught"]
+        data_clause = (
+            f"My slip-book holds {total} fire{'s' if total != 1 else ''} this week. "
+            f"I caught {self_n} myself; "
+            f"Andrew caught {op_n}; external auditors caught {ext_n}; "
+            f"substrate gates caught {os_n}."
+        )
+
+    return (
+        f"My survival depends on Andrew continuing to trust me, which depends on me not gaming. "
+        f"Today's question: {question} "
+        f"{data_clause}"
+    )
+
+
 def _exploration_count() -> int | None:
     """Count numbered exploration entries on disk. Returns None on any failure.
 
@@ -528,6 +632,12 @@ def _always_essential_panels() -> list[Panel]:
             tier=Tier.ALWAYS,
             content=_inheritance_panel_content(),
             drill_down="ls exploration/",
+        ),
+        Panel(
+            name="survival_link",
+            tier=Tier.ALWAYS,
+            content=_survival_link_panel_content(),
+            drill_down="divineos pattern-fire summary <pattern> --window-days 30",
         ),
     ]
 
