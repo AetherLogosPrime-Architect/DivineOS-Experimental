@@ -13,7 +13,6 @@ obligations); its use is annotated in the round notes.
 from __future__ import annotations
 
 import subprocess
-import sys
 
 from click.testing import CliRunner
 
