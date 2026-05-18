@@ -336,8 +336,70 @@ def register(cli: click.Group) -> None:
             )
             return
 
-        # For each SHA, verify it's reachable on <remote>/<branch>
+        # Finding 79 fix (Aletheia 2026-05-18): the prior implementation
+        # trusted the operator's --range choice. Two attack-shapes:
+        # (1) Narrow-range bypass: --range HEAD~1..HEAD where HEAD is
+        #     pushed but HEAD~1 isn't. Only HEAD gets checked; HEAD~1's
+        #     unpushed substance can be described in surrounding prose.
+        # (2) Empty-range bypass: handled above (early return).
+        # The fix: compute "all unpushed commits" (remote_branch..HEAD)
+        # independently, and warn if --range doesn't cover the full set.
+        # Discipline-shape: surface, don't force (per Aletheia's framing).
         remote_branch = f"{remote}/{branch}"
+        try:
+            all_unpushed_proc = subprocess.run(
+                ["git", "rev-list", f"{remote_branch}..HEAD"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15,
+            )
+            if all_unpushed_proc.returncode == 0:
+                all_unpushed = {
+                    s.strip() for s in all_unpushed_proc.stdout.splitlines() if s.strip()
+                }
+                in_range = set(shas)
+                unscoped = sorted(all_unpushed - in_range)
+                if unscoped:
+                    click.secho(
+                        f"[!] Warning: {len(unscoped)} additional commit(s) "
+                        f"between {remote_branch} and HEAD that aren't in "
+                        f"--range. If the relay-message describes work in "
+                        f"those commits, the verification gap recurs at the "
+                        f"layer above this command (Finding 79; Aletheia "
+                        f"2026-05-18).",
+                        fg="yellow",
+                    )
+                    for sha in unscoped[:5]:  # cap preview at 5
+                        subj = subprocess.run(
+                            ["git", "log", "--format=%s", "-n", "1", sha],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                            timeout=5,
+                        )
+                        subject = subj.stdout.strip() if subj.returncode == 0 else "(no subject)"
+                        click.secho(
+                            f"    not-in-range: {sha[:12]} {subject[:80]}",
+                            fg="yellow",
+                        )
+                    if len(unscoped) > 5:
+                        click.secho(
+                            f"    ... and {len(unscoped) - 5} more",
+                            fg="yellow",
+                        )
+                    click.secho(
+                        "  This is a warning, not a block — the operator "
+                        "can still proceed if --range was intentional. "
+                        "But the audit-relay should not silently exclude "
+                        "unpushed work from its scope.",
+                        fg="bright_black",
+                    )
+        except (OSError, subprocess.SubprocessError):
+            # Best-effort warning; failure here doesn't block the command.
+            pass
+
+        # For each SHA, verify it's reachable on <remote>/<branch>
         unreachable: list[str] = []
         verified: list[tuple[str, str]] = []  # (sha, subject)
         for sha in shas:
