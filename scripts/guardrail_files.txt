@@ -143,3 +143,11 @@ src/divineos/core/structural_fix_tracker.py
 src/divineos/core/paths.py
 src/divineos/core/data_home_ownership.py
 src/divineos/core/_ledger_base.py
+
+# Pre-push gate machinery — Aletheia Finding 73 + 74 (2026-05-17).
+# check_push_readiness.sh is the load-bearing pre-push gate (pytest +
+# multi-party-review strict). check_ignore_has_reason.py is the
+# substrate-level prevention for bypass-too-broad. Both are gates
+# that ENFORCE; weakening either is a self-modification-attack vector.
+scripts/check_push_readiness.sh
+scripts/check_ignore_has_reason.py

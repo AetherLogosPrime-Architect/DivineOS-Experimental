@@ -55,9 +55,9 @@ HOOK_STDIN="$(cat || true)"
 # ─── 1. Test suite ──────────────────────────────────────────────────────
 if [[ "${DIVINEOS_SKIP_TESTS:-0}" != "1" ]]; then
     echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
-    if ! python -m pytest tests/ -q --tb=line --ignore=tests/test_check_broad_exceptions.py >/dev/null 2>&1; then
+    if ! python -m pytest tests/ -q --tb=line >/dev/null 2>&1; then
         # Re-run with output so the operator sees what failed.
-        python -m pytest tests/ -q --tb=line --ignore=tests/test_check_broad_exceptions.py 2>&1 | tail -30 >&2
+        python -m pytest tests/ -q --tb=line 2>&1 | tail -30 >&2
         echo "" >&2
         echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2
         echo "[push-readiness] Fix locally, then push. Do NOT push red." >&2
