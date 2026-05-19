@@ -31,7 +31,7 @@ def test_find_detector_modules_returns_known_detectors():
         "mechanism_monitor",
         "performative_restraint_monitor",
         "distancing_detector",
-        "lepos_detector",
+        "jargon_dump_detector",
         "sycophancy_detector",
     }
     missing = expected_subset - short_names

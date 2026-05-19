@@ -81,6 +81,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/state-gravity-surface.sh",
+            "timeout": 8
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Read|Write|NotebookEdit",
         "hooks": [
           {

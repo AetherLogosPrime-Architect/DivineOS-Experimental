@@ -137,6 +137,11 @@ src/divineos/cli/consumer_status_commands.py
 src/divineos/core/operating_loop/tool_output_truncation_detector.py
 scripts/check_prereg_for_new_infra.py
 .claude/hooks/andrew-correction-attestation.sh
+tests/test_no_agent_settable_bypasses.py
+src/divineos/core/gravity_classifier.py
+.claude/hooks/state-gravity-surface.sh
+src/divineos/core/oscillating_read.py
+src/divineos/core/emergency_bypass.py
 src/divineos/core/theater_audit.py
 src/divineos/core/hedge_audit.py
 src/divineos/core/session_start.py
@@ -159,6 +164,29 @@ src/divineos/core/_ledger_base.py
 # that ENFORCE; weakening either is a self-modification-attack vector.
 scripts/check_push_readiness.sh
 scripts/check_ignore_has_reason.py
+
+# Hook-infrastructure helpers — Aether 2026-05-19. _lib.sh is sourced
+# by every hook that imports divineos (17 hooks). It resolves the
+# python interpreter AND (as of 2026-05-19) prepends the active
+# worktree's src/ to PYTHONPATH so each worktree's hooks see its own
+# source instead of a frozen pip install from a stale worktree. The
+# silent-stale-substrate bug it prevents: lepos-channel gate (commit
+# 5951593) sat inert for an entire session because the hooks were
+# importing from a different worktree. Modifying _lib.sh can silently
+# break every detector in the stack — load-bearing across the whole
+# enforcement surface. Self-modification attack: remove the PYTHONPATH
+# prepend and the gates silently start running stale code.
+.claude/hooks/_lib.sh
+
+# Lepos-channel-check — Andrew 2026-05-19, prereg-157ed56a5da2.
+# The question pool, evaluation heuristic, and log table all live here.
+# Self-modification attack: softening the question wording, lowering
+# evaluation thresholds, or removing content-aware questions silently
+# dissolves the gate while looking like normal iteration. Same shape
+# as the addressee/distancing affirmation guardrails — load-bearing
+# enforcement text + structure should not be modifiable without
+# external co-sign.
+src/divineos/core/lepos_channel_check.py
 
 # Audit-round CLI machinery — Aletheia Finding 75 (2026-05-17).
 # Round-creation is where the describe-then-CONFIRMS bypass got caught;

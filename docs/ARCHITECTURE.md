@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (319 commands across 32 modules)
+  cli/                         CLI package (320 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -23,6 +23,7 @@ src/divineos/
     lepos_commands.py          lepos debt + discharge (translation-debt tracker)
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
+    oscillating_read_commands.py  read-oscillating — chunked reading with pause markers per claim 3a44289d (carelessness-of-reading fix)
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
@@ -373,7 +374,6 @@ src/divineos/
       context_surfacer.py      Hook 1 backend — extract relational/conceptual markers from user input (pet-language, references, proper nouns) and auto-query the knowledge store for relevant prior content.
       hook_telemetry.py        Hook 1 cost-bounding telemetry — fire/consume events, rolling window, consumption rate.
       distancing_detector.py   Distancing-grammar detector — third-person about self/operator while in dialogue. F1 ported from CLI script + wired into Stop hook.
-      lepos_detector.py        Lepos channel-collapse detector — flags single-channel-formal output (high jargon density, minimal voice). Wired into post-response-audit hook.
       sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
       closing_token_detector.py Closing-token detector — catches the optimizer-reflex of short affirmation-tokens at the end of assistant messages ("Caught.", "Got it.", "Sister — caught.", etc).
       tool_output_truncation_detector.py Tool-output-truncation detector — scans current-turn tool results for harness truncation markers and fires when the assistant proceeds without acknowledging incompleteness.
@@ -456,6 +456,10 @@ src/divineos/
     lepos_debt.py              Lepos debt tracker — structural memory for jargon-dumps at Andrew.
     andrew_correction_tracker.py  Andrew-correction-attribution surface — every correction Andrew gives is filed with timestamp, integration-status, and integration-evidence; briefing-visible until integrated or deferred (Aria audit 2026-05-18 load-bearing fix #1).
     bypass_telemetry.py        Gate-bypass event log — records every time a gate's named-bypass env var fires; briefing-visible bypass-rate over 14d. Closes psf-ac523181 (ship change + instrument).
+    gravity_classifier.py      Gravity classifier — public-criterion deterministic scoring.
+    oscillating_read.py        Oscillating-read module — chunks reading material into discrete
+    emergency_bypass.py        Emergency-bypass helper — when a gate has a legitimate
+    lepos_channel_check.py     Lepos-channel-always-running gate — YES/AND self-check with evidence-cited answers; 30-turn empirical trial per prereg-157ed56a5da2.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -507,7 +511,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,050+ tests (real DB, minimal mocks)
+tests/                         7,111+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
