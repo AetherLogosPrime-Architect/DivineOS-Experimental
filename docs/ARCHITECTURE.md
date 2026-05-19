@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (311 commands across 32 modules)
+  cli/                         CLI package (315 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -21,6 +21,7 @@ src/divineos/
     pipeline_phases.py         Heavy-lifting phases (feedback, scoring, finalization)
     knowledge_commands.py      learn, ask, briefing, forget, lessons
     lepos_commands.py          lepos debt + discharge (translation-debt tracker)
+    consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
