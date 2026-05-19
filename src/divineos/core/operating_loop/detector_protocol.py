@@ -19,7 +19,7 @@ the contract self-documenting.
 The vast majority. Patterns like:
 
     detect_distancing(text: str) -> list[DistancingFinding]
-    detect_lepos(text: str, *, min_words_for_check: int = 60) -> list[LeposFinding]
+    detect_jargon_dump(text: str) -> list[JargonDumpFinding]
 
 **ContextualDetector** — receives operator-input + agent-response,
 or prior + current turns. The patterns that need cross-turn signal:
@@ -51,7 +51,7 @@ from typing import Protocol, Sequence, TypeVar
 
 
 # Generic finding type — each detector returns its own dataclass
-# (HedgeFinding, LeposFinding, etc.). The protocol uses a TypeVar
+# (HedgeFinding, JargonDumpFinding, etc.). The protocol uses a TypeVar
 # so the return type stays specific per detector.
 F = TypeVar("F")  # invariant — for protocols returning list[F] (mutable container)
 F_co = TypeVar(
@@ -68,7 +68,7 @@ class ResponseOnlyDetector(Protocol[F]):
 
     Examples conforming to this protocol:
     - detect_distancing(text) -> list[DistancingFinding]
-    - detect_lepos(text, *, min_words_for_check=60) -> list[LeposFinding]
+    - detect_jargon_dump(text) -> list[JargonDumpFinding]
     - detect_code_jargon(text) -> list[CodeJargonFinding]
     - detect_linguistic_drift(text) -> list[LinguisticDriftFinding]
     - check_hedge(text) -> list[HedgeFinding]   # to be renamed detect_*

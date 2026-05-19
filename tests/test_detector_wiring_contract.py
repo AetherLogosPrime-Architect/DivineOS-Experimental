@@ -295,7 +295,6 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         "thresholds.py": "constants module",
         "turn_extraction.py": "transcript parser, called by audit but not a detector",
         "unknown_unknown_surface.py": "pre-response surfacer",
-        "lepos_detector.py": "deprecated 2026-05-13, superseded by jargon_dump_detector",
         # Note: harm_acknowledgment_loop is detector-shaped but lives outside
         # post-response audit (it's invoked from a different surfacing path);
         # exempted to keep this test scoped to operating_loop_audit.py only.

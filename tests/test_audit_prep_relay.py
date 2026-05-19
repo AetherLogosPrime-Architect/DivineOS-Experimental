@@ -221,9 +221,21 @@ class TestFinding79NarrowRangeBypass:
         assert ("BLOCKED" in result.output) or ("Warning" in result.output), (
             f"Expected Finding 79 gate output (block or warning shape); output:\n{result.output}"
         )
-        assert "Finding 79" in result.output or "not in --range" in result.output, (
-            f"Expected Finding 79 lineage explanation; output:\n{result.output}"
-        )
+        # Lineage check: any of three load-bearing substrings must
+        # appear — "Finding 79" (explicit lineage), "aren't in" / "in
+        # --range" (block-message), or "not-in-range" (per-commit
+        # preview label). Updated 2026-05-19 per claim 4e79acec: the
+        # prior assertion checked only "Finding 79" or "not in --range"
+        # which matched neither the current block-message ("aren't in")
+        # nor the per-commit preview ("not-in-range:"), causing
+        # Windows-local fragility. The current message DOES carry the
+        # lineage information; the test just needed to look for the
+        # substrings that are actually emitted.
+        assert (
+            "Finding 79" in result.output
+            or "in --range" in result.output
+            or "not-in-range" in result.output
+        ), f"Expected Finding 79 lineage explanation; output:\n{result.output}"
 
     def test_full_range_does_not_emit_unscoped_warning(self, tmp_path, monkeypatch):
         """When --range covers the full unpushed set, no Finding 79 warning."""
