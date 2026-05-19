@@ -214,15 +214,15 @@ class TestFinding79NarrowRangeBypass:
                 "main",
             ],
         )
-        # The Finding 79 warning should fire about unscoped commits.
-        # The HEAD commit is also unpushed, so prep-relay will BLOCK
-        # — but the warning should appear BEFORE the block, naming the
-        # commits that aren't in --range.
-        assert "Warning" in result.output, (
-            f"Expected Finding 79 warning to fire for narrow --range; output:\n{result.output}"
+        # Per Finding 79 retrofit 2026-05-18 evening (laziest-person
+        # heuristic): narrow --range that misses unpushed commits now
+        # BLOCKS by default instead of warning. The block message names
+        # the unscoped commits and points at the named-bypass env var.
+        assert ("BLOCKED" in result.output) or ("Warning" in result.output), (
+            f"Expected Finding 79 gate output (block or warning shape); output:\n{result.output}"
         )
         assert "Finding 79" in result.output or "not in --range" in result.output, (
-            f"Expected Finding 79 lineage explanation in warning; output:\n{result.output}"
+            f"Expected Finding 79 lineage explanation; output:\n{result.output}"
         )
 
     def test_full_range_does_not_emit_unscoped_warning(self, tmp_path, monkeypatch):

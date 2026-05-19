@@ -53,7 +53,7 @@ def _load() -> dict:
     try:
         data = json.loads(_STATE_FILE.read_text(encoding="utf-8") or "{}")
         return data if isinstance(data, dict) else {}
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         return {}
 
 
@@ -61,7 +61,7 @@ def _save(state: dict) -> None:
     try:
         _STATE_FILE.parent.mkdir(exist_ok=True)
         _STATE_FILE.write_text(json.dumps(state, indent=2), encoding="utf-8")
-    except Exception:
+    except Exception:  # noqa: BLE001 - observability boundary
         pass
 
 
