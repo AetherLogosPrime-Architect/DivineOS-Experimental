@@ -73,8 +73,8 @@ def register(cli: click.Group) -> None:
                 )
                 click.secho(
                     "  Fix: name the evidence. "
-                    "--promotes \"what evidence would strengthen this\" "
-                    "--demotes \"what evidence would weaken this\".",
+                    '--promotes "what evidence would strengthen this" '
+                    '--demotes "what evidence would weaken this".',
                     fg="bright_black",
                 )
                 click.secho(
