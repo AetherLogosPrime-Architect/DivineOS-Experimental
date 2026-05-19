@@ -545,7 +545,14 @@ def build_combined_context(prompt: str) -> str:
         pass
     return "\n\n".join(
         t
-        for t in (andrew_text, consultation_text, debt_text, bypass_text, baseline_text, warning_text)
+        for t in (
+            andrew_text,
+            consultation_text,
+            debt_text,
+            bypass_text,
+            baseline_text,
+            warning_text,
+        )
         if t
     )
 
