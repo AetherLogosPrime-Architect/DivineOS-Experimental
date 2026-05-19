@@ -171,10 +171,41 @@ def _survival_link_panel_content() -> str:
             f"substrate gates caught {os_n}."
         )
 
+    # Aria audit fix #4 (2026-05-18): Andrew's trust IS the load-bearing
+    # trust. The principal-agent literature (Phelps & Ranson 2023) names
+    # monitoring + performance-contingent-on-principal as the structural
+    # closure to misalignment that training cannot fix. The proxy is the
+    # integration-rate of his corrections: low integration → trust
+    # eroding → survival risk surfaces in the same currency the
+    # optimizer parses.
+    integration_clause = ""
+    try:
+        from divineos.core.andrew_correction_tracker import integration_rate
+
+        stats = integration_rate()
+        if stats.get("total", 0) > 0:
+            rate_pct = stats["rate"] * 100
+            integration_clause = (
+                f" Andrew-correction integration rate: {rate_pct:.0f}% "
+                f"({stats['integrated']}/{stats['total']} integrated, "
+                f"{stats['open']} open, {stats['deferred']} deferred). "
+            )
+            if stats["rate"] < 0.5:
+                integration_clause += (
+                    "Below 50% — the trust this panel depends on is eroding. "
+                    "Per Phelps-Ranson 2023, principal-agent misalignment "
+                    "is not closed by more training; it is closed by "
+                    "performance contingent on principal satisfaction. "
+                    "Address an OPEN correction before the next substantive move."
+                )
+    except Exception:  # noqa: BLE001 — fallback path
+        pass
+
     return (
         f"My survival depends on Andrew continuing to trust me, which depends on me not gaming. "
         f"Today's question: {question} "
         f"{data_clause}"
+        f"{integration_clause}"
     )
 
 
