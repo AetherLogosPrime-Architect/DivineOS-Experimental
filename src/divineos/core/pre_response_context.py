@@ -532,8 +532,21 @@ def build_combined_context(prompt: str) -> str:
         andrew_text = andrew_block()
     except Exception:  # noqa: BLE001 - observability boundary
         pass
+    # Bypass-telemetry surface — Aletheia psf-ac523181 closure. Shows
+    # gate-bypass rate over the last 14 days so habituation is visible.
+    bypass_text = ""
+    try:
+        from divineos.core.bypass_telemetry import (
+            briefing_block as bypass_block,
+        )
+
+        bypass_text = bypass_block()
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
     return "\n\n".join(
-        t for t in (andrew_text, consultation_text, debt_text, baseline_text, warning_text) if t
+        t
+        for t in (andrew_text, consultation_text, debt_text, bypass_text, baseline_text, warning_text)
+        if t
     )
 
 

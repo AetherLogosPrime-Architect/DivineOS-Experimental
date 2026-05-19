@@ -420,6 +420,15 @@ def register(cli: click.Group) -> None:
                         "(operator named the narrow scope as intentional).",
                         fg="bright_black",
                     )
+                    try:
+                        from divineos.core.bypass_telemetry import record_bypass
+
+                        record_bypass(
+                            gate_name="prep-relay-narrow-range",
+                            env_var="DIVINEOS_PREP_RELAY_NARROW_RANGE_OK",
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
         except (OSError, subprocess.SubprocessError):
             # Best-effort warning; failure here doesn't block the command.
             pass

@@ -65,6 +65,16 @@ def _is_protected(path: str) -> bool:
 
 def main(argv: list[str]) -> int:
     if os.environ.get("DIVINEOS_NEW_INFRA_NO_PREREG", "0") == "1":
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+            from divineos.core.bypass_telemetry import record_bypass
+
+            record_bypass(
+                gate_name="pre-reg-required-before-infra",
+                env_var="DIVINEOS_NEW_INFRA_NO_PREREG",
+            )
+        except Exception:
+            pass
         return 0  # Named bypass.
 
     if len(argv) < 2:

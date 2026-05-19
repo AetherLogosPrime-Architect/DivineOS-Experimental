@@ -89,6 +89,16 @@ def register(cli: click.Group) -> None:
                 "(methodology deferred; operator named reason in context).",
                 fg="yellow",
             )
+            try:
+                from divineos.core.bypass_telemetry import record_bypass
+
+                record_bypass(
+                    gate_name="outgoing-claim-methodology",
+                    env_var="DIVINEOS_CLAIM_NO_METHODOLOGY",
+                    reason=context,
+                )
+            except Exception:  # noqa: BLE001
+                pass
 
         from divineos.core.claim_store import file_claim
 

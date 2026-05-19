@@ -28,6 +28,17 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
 cd "$REPO_ROOT" || exit 0
 
 if [[ "${DIVINEOS_ANDREW_ATTESTATION_DEFER:-0}" == "1" ]]; then
+    PYTHON_BIN="$(which python 2>/dev/null || which python3 2>/dev/null || echo python)"
+    "$PYTHON_BIN" -c "
+try:
+    from divineos.core.bypass_telemetry import record_bypass
+    record_bypass(
+        gate_name='andrew-correction-attestation',
+        env_var='DIVINEOS_ANDREW_ATTESTATION_DEFER',
+    )
+except Exception:
+    pass
+" >/dev/null 2>&1 || true
     exit 0
 fi
 
