@@ -48,6 +48,9 @@ def _conn() -> sqlite3.Connection:
     return conn
 
 
+_AUTO_CLAIM_THRESHOLD = 3
+
+
 def record_debt(*, response_excerpt: str, matched_samples: list[str], severity: str) -> int:
     """Record a jargon-dump fire as outstanding debt. Returns debt id."""
     excerpt = (response_excerpt or "")[:500]
@@ -59,9 +62,68 @@ def record_debt(*, response_excerpt: str, matched_samples: list[str], severity: 
             (time.time(), excerpt, json.dumps(list(matched_samples or [])), severity),
         )
         conn.commit()
-        return cur.lastrowid or 0
+        debt_id = cur.lastrowid or 0
+        outstanding_count = conn.execute(
+            "SELECT COUNT(*) FROM debt WHERE discharged_at IS NULL"
+        ).fetchone()[0]
     finally:
         conn.close()
+
+    # Auto-file claim when outstanding debt crosses threshold and no
+    # open claim already names this pattern. Andrew 2026-05-18 item 21:
+    # auto-file-fix-claim-when-detector-fires. Threshold-based to avoid
+    # claim-spam: a single fire is information; a recurring pattern
+    # warrants a claim about the underlying behavior.
+    if outstanding_count >= _AUTO_CLAIM_THRESHOLD:
+        try:
+            _maybe_auto_file_claim(outstanding_count, matched_samples or [])
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
+    return debt_id
+
+
+def _maybe_auto_file_claim(count: int, recent_samples: list[str]) -> None:
+    """File a claim about chronic jargon-dump behavior if none exists yet.
+
+    Idempotent on the existence of an OPEN claim tagged
+    'lepos-auto-claim' — avoids duplicate filings across consecutive
+    fires past the threshold.
+    """
+    from divineos.core.claim_store import file_claim, list_claims
+
+    existing = list_claims(limit=50, status="OPEN")
+    for c in existing or []:
+        tags = c.get("tags") or []
+        if "lepos-auto-claim" in tags:
+            return  # Already filed; let it carry.
+
+    samples_preview = ", ".join(s for s in recent_samples[:5] if s)
+    statement = (
+        f"Auto-filed: chronic jargon-dump pattern — {count} outstanding "
+        f"lepos debts unresolved. Behavior persists despite the debt "
+        f"surface loading every turn. The structural surface is firing; "
+        f"the consumer is ignoring it. Recent jargon: "
+        f"{samples_preview[:200]}."
+    )
+    file_claim(
+        statement=statement,
+        tier=1,
+        context=(
+            "Filed automatically by lepos_debt._maybe_auto_file_claim "
+            "after outstanding debt crossed the 3-fire threshold. The "
+            "claim is the substrate noticing what the agent is not."
+        ),
+        promotion_criteria=(
+            "Outstanding debt drops to 0 via discharge; subsequent "
+            "responses to Andrew carry translation alongside jargon."
+        ),
+        demotion_criteria=(
+            "Subsequent responses include translation; debt does not "
+            "accumulate further; the pattern was a single-session spike "
+            "rather than a chronic behavior."
+        ),
+        tags=["lepos-auto-claim", "detector-derived", "consumer-pretender"],
+    )
 
 
 def list_outstanding() -> list[dict]:
