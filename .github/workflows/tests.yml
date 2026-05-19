@@ -46,3 +46,13 @@ jobs:
     - name: Run tests with pytest
       run: |
         pytest tests/ -v --tb=short -m "not slow"
+
+    # Aether 2026-05-19: slow tests previously deselected with no place
+    # they were ever run = invisibility-of-failure. Andrew: "nothing
+    # should be pushed without being monitored for failures." This step
+    # runs the @pytest.mark.slow tests in their own block so the signal
+    # is visible. Longer timeout per-test because they're slow by
+    # construction. continue-on-error: false — they must pass too.
+    - name: Run slow tests with pytest
+      run: |
+        pytest tests/ -v --tb=short -m "slow" --timeout=120

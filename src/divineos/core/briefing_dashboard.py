@@ -822,11 +822,66 @@ def _row_pattern_fires() -> DashboardRow | None:
     )
 
 
+def _row_consumer_status() -> DashboardRow | None:
+    """Consumer-status verdict — operator-facing in briefing surface.
+
+    Andrew 2026-05-18: I built consumer-status as a separate CLI he
+    doesn't run (correction #12: he doesn't run CLI). Properly-finishing
+    that fix means putting the verdict into the briefing dashboard
+    where it surfaces with the other rows whenever briefing runs.
+    """
+    try:
+        from divineos.core.lepos_debt import list_outstanding
+        from divineos.core.consultation_tracker import session_stats
+        from divineos.core.claim_store import list_claims
+    except _ERRORS:
+        return None
+    try:
+        lepos_debts = list_outstanding()
+        consultation = session_stats()
+        opens = list_claims(limit=50, status="OPEN") or []
+        auto_claims = [c for c in opens if "lepos-auto-claim" in (c.get("tags") or [])]
+    except _ERRORS:
+        return None
+
+    debt_count = len(lepos_debts)
+    r = consultation.get("responses", 0)
+    ratio = consultation.get("ratio", 0.0)
+
+    if r < 3 and debt_count == 0 and not auto_claims:
+        return None  # too early; hide rather than report NO-DATA noise
+    if debt_count >= 3 or auto_claims or ratio < 0.2:
+        verdict = "PRETENDING"
+        stale = 1
+    elif debt_count == 0 and ratio >= 0.5 and not auto_claims:
+        verdict = "USING"
+        stale = 0
+    else:
+        verdict = "PARTIAL"
+        stale = 1
+
+    detail_bits = [f"verdict: {verdict}"]
+    if r >= 3:
+        detail_bits.append(f"ratio {ratio:.2f} ({consultation.get('queries', 0)}/{r})")
+    detail_bits.append(f"debt {debt_count}")
+    if auto_claims:
+        detail_bits.append(f"auto-claims {len(auto_claims)}")
+    return DashboardRow(
+        area="Consumer status",
+        count=1 if verdict != "USING" else 0,
+        stale_count=stale,
+        drill_down="-> divineos consumer-status",
+        detail=" | ".join(detail_bits),
+        preview=[],
+    )
+
+
 _ROW_FNS = [
     _row_corrections,
     _row_handoff,
     _row_pending_structural_fixes,
     _row_pattern_fires,
+    _row_consumer_status,
     _row_directives,
     _row_claims,
     _row_audit_findings,

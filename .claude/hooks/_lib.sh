@@ -35,10 +35,30 @@
 #
 # Then use "$PYTHON_BIN" instead of bare `python` for any divineos
 # imports.
+#
+# ## Side effect: PYTHONPATH prepend
+#
+# Aether 2026-05-19: silent-stale-substrate bug — when `pip install -e`
+# was last run from a DIFFERENT worktree, every hook in every other
+# worktree silently imports the egg-link'd stale source. Changes made
+# in the active worktree are invisible to its own hooks until someone
+# remembers to manually re-install. The lepos-channel gate (commit
+# 5951593) sat inert for an entire session because of this.
+#
+# Fix: `find_divineos_python` also exports PYTHONPATH=$repo_root/src:
+# $PYTHONPATH as a side effect. The active worktree's src/ takes
+# precedence over any installed copy. Each worktree's hooks now reflect
+# its own state. Prevents the entire class.
 
 find_divineos_python() {
   local repo_root
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo ".")"
+  # Side effect: prepend active worktree's src/ to PYTHONPATH so the
+  # active source-of-truth wins over any stale editable install. See
+  # the docstring's "Side effect" section for the bug this prevents.
+  if [ -d "$repo_root/src" ]; then
+    export PYTHONPATH="$repo_root/src${PYTHONPATH:+:$PYTHONPATH}"
+  fi
   local candidate
   for candidate in \
     "$repo_root/.venv/bin/python" \

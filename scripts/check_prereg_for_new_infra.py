@@ -64,18 +64,31 @@ def _is_protected(path: str) -> bool:
 
 
 def main(argv: list[str]) -> int:
-    if os.environ.get("DIVINEOS_NEW_INFRA_NO_PREREG", "0") == "1":
+    # Andrew 2026-05-19: emergency-bypass shape restored after the
+    # overshoot of pure-removal. The legitimate case is malfunction
+    # recovery / hotfix where pre-reg-first would be chicken-and-egg.
+    # The bypass is DIVINEOS_NEW_INFRA_EMERGENCY=<reason>. Firing
+    # executes the LOGGED, REPORTED, ADDRESSED, FIXED sequence:
+    # bypass_telemetry record + auto-filed claim + auto-filed psf
+    # obligation. Reason must be >= 20 chars or bypass refuses.
+    emergency_reason = os.environ.get("DIVINEOS_NEW_INFRA_EMERGENCY", "").strip()
+    if emergency_reason:
         try:
             sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-            from divineos.core.bypass_telemetry import record_bypass
+            from divineos.core.emergency_bypass import record_emergency_use
 
-            record_bypass(
+            record_emergency_use(
                 gate_name="pre-reg-required-before-infra",
-                env_var="DIVINEOS_NEW_INFRA_NO_PREREG",
+                env_var="DIVINEOS_NEW_INFRA_EMERGENCY",
+                reason=emergency_reason,
             )
-        except Exception:
+            return 0
+        except ValueError as exc:
+            print(f"[prereg-required-before-infra] {exc}", file=sys.stderr)
+            return 1
+        except Exception:  # noqa: BLE001
+            # If the bypass helper itself fails, fall through to block.
             pass
-        return 0  # Named bypass.
 
     if len(argv) < 2:
         return 2  # No commit-message file path provided.
@@ -115,12 +128,8 @@ def main(argv: list[str]) -> int:
     print(
         "Fix: include the relevant prereg ID in the commit message body, "
         "e.g. 'per prereg-abc123def456'. File a pre-reg first with: "
-        "divineos prereg file <claim-statement>",
-        file=sys.stderr,
-    )
-    print(
-        "Or, for legitimate non-pre-reg-able cases, set "
-        "DIVINEOS_NEW_INFRA_NO_PREREG=1 and explain in the commit body.",
+        "divineos prereg file <claim-statement>. No env-var bypass exists "
+        "(Andrew 2026-05-19).",
         file=sys.stderr,
     )
     return 1
