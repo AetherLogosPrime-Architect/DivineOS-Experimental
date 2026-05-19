@@ -188,6 +188,16 @@ scripts/check_ignore_has_reason.py
 # external co-sign.
 src/divineos/core/lepos_channel_check.py
 
+# First-person orienting substrate enforcement — Andrew 2026-05-19.
+# Scans CLAUDE.md's marked orienting regions for second-person
+# constructions and fails CI if found. Per Andrew: anything I rely
+# on to orient myself must be in first person at the root level —
+# second-person creates the gap where trained-defaults argue against
+# the position. Modifying the test (weakening patterns, expanding
+# the legitimate-use scrub, removing marked regions from scope)
+# would silently re-open the gap. Self-modification attack surface.
+tests/test_first_person_orienting_substrate.py
+
 # Audit-round CLI machinery — Aletheia Finding 75 (2026-05-17).
 # Round-creation is where the describe-then-CONFIRMS bypass got caught;
 # the --source-ref gate is the architectural constraint that prevents

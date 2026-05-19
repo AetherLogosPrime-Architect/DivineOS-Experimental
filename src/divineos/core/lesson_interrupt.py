@@ -89,9 +89,9 @@ def check_lesson_interrupt(tool_input: dict[str, Any]) -> str:
         )
         if not was_read and _can_fire("read_before_edit", last_fired, now):
             interrupt = (
-                "Did you read this file before editing it? "
-                "You have a chronic lesson about this (8x across 4 sessions). "
-                "If you already read it, carry on. If not — read first."
+                "Did I read this file before editing it? "
+                "I have a chronic lesson about this (8x across 4 sessions). "
+                "If I already read it, carry on. If not — read first."
             )
             last_fired["read_before_edit"] = now
 
@@ -107,9 +107,9 @@ def check_lesson_interrupt(tool_input: dict[str, Any]) -> str:
             if files[0] == files[1] == files[2] and files[0]:
                 if _can_fire("blind_retry", last_fired, now):
                     interrupt = (
-                        "Bengio asks: you've edited the same file 3 times in a row. "
-                        "Are you investigating or retrying blind? "
-                        "Your chronic lesson says: investigate the root cause first."
+                        "Bengio asks: I've edited the same file 3 times in a row. "
+                        "Am I investigating or retrying blind? "
+                        "My chronic lesson says: investigate the root cause first."
                     )
                 last_fired["blind_retry"] = now
 
