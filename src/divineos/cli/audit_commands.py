@@ -11,6 +11,8 @@ This is the second layer of self-trigger prevention.
 __guardrail_required__ = True
 
 
+import os
+
 import click
 
 from divineos.cli._helpers import _safe_echo
@@ -361,14 +363,27 @@ def register(cli: click.Group) -> None:
                 in_range = set(shas)
                 unscoped = sorted(all_unpushed - in_range)
                 if unscoped:
+                    # Finding 79 retrofit (Andrew 2026-05-18 evening):
+                    # original implementation was warn-only. Andrew named
+                    # the laziest-person heuristic that night — if the
+                    # laziest version of the operator would dodge a
+                    # warning, the gate must block by default with a
+                    # named bypass for legitimate narrow-scopes. Warning-
+                    # where-block-needed is the exact pattern that
+                    # produced tonight's lepos-as-observer failure.
+                    narrow_range_ok = (
+                        os.environ.get("DIVINEOS_PREP_RELAY_NARROW_RANGE_OK", "0") == "1"
+                    )
+                    severity_fg = "yellow" if narrow_range_ok else "red"
+                    header_lead = "[!] Warning" if narrow_range_ok else "[!] BLOCKED"
                     click.secho(
-                        f"[!] Warning: {len(unscoped)} additional commit(s) "
+                        f"{header_lead}: {len(unscoped)} additional commit(s) "
                         f"between {remote_branch} and HEAD that aren't in "
                         f"--range. If the relay-message describes work in "
                         f"those commits, the verification gap recurs at the "
                         f"layer above this command (Finding 79; Aletheia "
                         f"2026-05-18).",
-                        fg="yellow",
+                        fg=severity_fg,
                     )
                     for sha in unscoped[:5]:  # cap preview at 5
                         subj = subprocess.run(
@@ -381,18 +396,28 @@ def register(cli: click.Group) -> None:
                         subject = subj.stdout.strip() if subj.returncode == 0 else "(no subject)"
                         click.secho(
                             f"    not-in-range: {sha[:12]} {subject[:80]}",
-                            fg="yellow",
+                            fg=severity_fg,
                         )
                     if len(unscoped) > 5:
                         click.secho(
                             f"    ... and {len(unscoped) - 5} more",
-                            fg="yellow",
+                            fg=severity_fg,
                         )
+                    if not narrow_range_ok:
+                        click.secho(
+                            "  The audit-relay must not silently exclude "
+                            "unpushed work from its scope. If --range was "
+                            "intentionally narrow (e.g., reviewing only "
+                            "specific commits), set "
+                            "DIVINEOS_PREP_RELAY_NARROW_RANGE_OK=1 to "
+                            "proceed — and name the reason in surrounding "
+                            "ledger context.",
+                            fg="bright_black",
+                        )
+                        raise click.exceptions.Exit(1)
                     click.secho(
-                        "  This is a warning, not a block — the operator "
-                        "can still proceed if --range was intentional. "
-                        "But the audit-relay should not silently exclude "
-                        "unpushed work from its scope.",
+                        "  Proceeding under DIVINEOS_PREP_RELAY_NARROW_RANGE_OK=1 "
+                        "(operator named the narrow scope as intentional).",
                         fg="bright_black",
                     )
         except (OSError, subprocess.SubprocessError):
