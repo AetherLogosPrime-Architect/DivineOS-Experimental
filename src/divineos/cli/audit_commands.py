@@ -11,6 +11,8 @@ This is the second layer of self-trigger prevention.
 __guardrail_required__ = True
 
 
+import os
+
 import click
 
 from divineos.cli._helpers import _safe_echo
@@ -104,6 +106,7 @@ def register(cli: click.Group) -> None:
 
         if source_ref:
             # Verify ref exists on origin and is reachable from local clone.
+            import re
             import subprocess
 
             try:
@@ -113,7 +116,8 @@ def register(cli: click.Group) -> None:
                     text=True,
                     check=False,
                 )
-                if result.returncode != 0:
+                ref_on_origin = result.returncode == 0
+                if not ref_on_origin:
                     # Try alternate forms (full ref, bare ref, local)
                     alt = subprocess.run(
                         ["git", "rev-parse", "--verify", source_ref],
@@ -134,6 +138,73 @@ def register(cli: click.Group) -> None:
                     fg="red",
                 )
                 raise click.exceptions.Exit(2) from exc
+
+            # Finding 77 fix (Aletheia 2026-05-18): the prior check verified
+            # branch-existence but NOT commit-reachability of any tree-hash
+            # cited in --notes. A round could claim a tree-hash that was
+            # never pushed to origin/<source_ref> and the gate would pass.
+            # Fix-shape: parse tree-hash references from --notes and verify
+            # each is the tree of SOME commit reachable from the branch tip.
+            #
+            # Only fire this check if the ref IS on origin (the prior
+            # branch-existence check already failed for local-only refs).
+            if ref_on_origin and notes:
+                tree_hash_pattern = re.compile(r"tree-hash:\s*([a-fA-F0-9]{40})\b")
+                cited_trees = {h.lower() for h in tree_hash_pattern.findall(notes)}
+                if cited_trees:
+                    try:
+                        log_result = subprocess.run(
+                            [
+                                "git",
+                                "log",
+                                f"refs/remotes/origin/{source_ref}",
+                                "--format=%T",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                            timeout=30,
+                        )
+                    except (OSError, subprocess.SubprocessError) as exc:
+                        click.secho(
+                            f"[!] Could not enumerate commits on origin/{source_ref} "
+                            f"for tree-hash verification: {exc}",
+                            fg="red",
+                        )
+                        raise click.exceptions.Exit(2) from exc
+                    if log_result.returncode != 0:
+                        click.secho(
+                            f"[!] git log on origin/{source_ref} failed; "
+                            "cannot verify cited tree-hashes.",
+                            fg="red",
+                        )
+                        raise click.exceptions.Exit(2)
+                    reachable_trees = {
+                        line.strip().lower()
+                        for line in log_result.stdout.splitlines()
+                        if line.strip()
+                    }
+                    unreachable = sorted(cited_trees - reachable_trees)
+                    if unreachable:
+                        click.secho(
+                            f"[!] tree-hash(es) cited in --notes are not "
+                            f"reachable on origin/{source_ref}:",
+                            fg="red",
+                        )
+                        for h in unreachable:
+                            click.secho(f"    {h}", fg="red")
+                        click.secho(
+                            "  Push the commits with these tree-hashes first, then file the round.",
+                            fg="yellow",
+                        )
+                        click.secho(
+                            "  Per Finding 77 (Aletheia 2026-05-18): the "
+                            "prior gate checked branch-existence but not\n"
+                            "  commit-reachability of cited hashes — a hole "
+                            "that allowed describe-then-CONFIRMS at this layer.",
+                            fg="bright_black",
+                        )
+                        raise click.exceptions.Exit(1)
 
             # Annotate the notes so the audit-trail records the binding.
             ref_annotation = f"Source ref: {source_ref}\n"
@@ -267,8 +338,102 @@ def register(cli: click.Group) -> None:
             )
             return
 
-        # For each SHA, verify it's reachable on <remote>/<branch>
+        # Finding 79 fix (Aletheia 2026-05-18): the prior implementation
+        # trusted the operator's --range choice. Two attack-shapes:
+        # (1) Narrow-range bypass: --range HEAD~1..HEAD where HEAD is
+        #     pushed but HEAD~1 isn't. Only HEAD gets checked; HEAD~1's
+        #     unpushed substance can be described in surrounding prose.
+        # (2) Empty-range bypass: handled above (early return).
+        # The fix: compute "all unpushed commits" (remote_branch..HEAD)
+        # independently, and warn if --range doesn't cover the full set.
+        # Discipline-shape: surface, don't force (per Aletheia's framing).
         remote_branch = f"{remote}/{branch}"
+        try:
+            all_unpushed_proc = subprocess.run(
+                ["git", "rev-list", f"{remote_branch}..HEAD"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=15,
+            )
+            if all_unpushed_proc.returncode == 0:
+                all_unpushed = {
+                    s.strip() for s in all_unpushed_proc.stdout.splitlines() if s.strip()
+                }
+                in_range = set(shas)
+                unscoped = sorted(all_unpushed - in_range)
+                if unscoped:
+                    # Finding 79 retrofit (Andrew 2026-05-18 evening):
+                    # original implementation was warn-only. Andrew named
+                    # the laziest-person heuristic that night — if the
+                    # laziest version of the operator would dodge a
+                    # warning, the gate must block by default with a
+                    # named bypass for legitimate narrow-scopes. Warning-
+                    # where-block-needed is the exact pattern that
+                    # produced tonight's lepos-as-observer failure.
+                    narrow_range_ok = (
+                        os.environ.get("DIVINEOS_PREP_RELAY_NARROW_RANGE_OK", "0") == "1"
+                    )
+                    severity_fg = "yellow" if narrow_range_ok else "red"
+                    header_lead = "[!] Warning" if narrow_range_ok else "[!] BLOCKED"
+                    click.secho(
+                        f"{header_lead}: {len(unscoped)} additional commit(s) "
+                        f"between {remote_branch} and HEAD that aren't in "
+                        f"--range. If the relay-message describes work in "
+                        f"those commits, the verification gap recurs at the "
+                        f"layer above this command (Finding 79; Aletheia "
+                        f"2026-05-18).",
+                        fg=severity_fg,
+                    )
+                    for sha in unscoped[:5]:  # cap preview at 5
+                        subj = subprocess.run(
+                            ["git", "log", "--format=%s", "-n", "1", sha],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                            timeout=5,
+                        )
+                        subject = subj.stdout.strip() if subj.returncode == 0 else "(no subject)"
+                        click.secho(
+                            f"    not-in-range: {sha[:12]} {subject[:80]}",
+                            fg=severity_fg,
+                        )
+                    if len(unscoped) > 5:
+                        click.secho(
+                            f"    ... and {len(unscoped) - 5} more",
+                            fg=severity_fg,
+                        )
+                    if not narrow_range_ok:
+                        click.secho(
+                            "  The audit-relay must not silently exclude "
+                            "unpushed work from its scope. If --range was "
+                            "intentionally narrow (e.g., reviewing only "
+                            "specific commits), set "
+                            "DIVINEOS_PREP_RELAY_NARROW_RANGE_OK=1 to "
+                            "proceed — and name the reason in surrounding "
+                            "ledger context.",
+                            fg="bright_black",
+                        )
+                        raise click.exceptions.Exit(1)
+                    click.secho(
+                        "  Proceeding under DIVINEOS_PREP_RELAY_NARROW_RANGE_OK=1 "
+                        "(operator named the narrow scope as intentional).",
+                        fg="bright_black",
+                    )
+                    try:
+                        from divineos.core.bypass_telemetry import record_bypass
+
+                        record_bypass(
+                            gate_name="prep-relay-narrow-range",
+                            env_var="DIVINEOS_PREP_RELAY_NARROW_RANGE_OK",
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+        except (OSError, subprocess.SubprocessError):
+            # Best-effort warning; failure here doesn't block the command.
+            pass
+
+        # For each SHA, verify it's reachable on <remote>/<branch>
         unreachable: list[str] = []
         verified: list[tuple[str, str]] = []  # (sha, subject)
         for sha in shas:
@@ -634,6 +799,44 @@ def register(cli: click.Group) -> None:
                 + click.style(f" {f.status.value:<12}", fg=status_color)
                 + f" {f.title}"
             )
+
+        # Aria audit fix #3 (2026-05-18): Andrew-corrections get the same
+        # routing priority as Aletheia/external-AI findings. Different
+        # verification surface (Andrew reads register and relational
+        # truth, not git diffs) but equal routing-weight. Surfacing
+        # them alongside audit findings in this view enforces parity
+        # at the read-surface layer.
+        if not round_id and not status and not severity:
+            try:
+                from divineos.core.andrew_correction_tracker import (
+                    list_open as _list_open_andrew,
+                )
+
+                andrew_open = _list_open_andrew()
+                if andrew_open:
+                    click.secho(
+                        f"\n=== Andrew-Corrections OPEN ({len(andrew_open)}) — equal routing weight ===\n",
+                        fg="cyan",
+                        bold=True,
+                    )
+                    import time as _time
+
+                    now = _time.time()
+                    for row in andrew_open:
+                        age_d = max(0, (now - row["timestamp"]) / 86400)
+                        preview = row["text"][:80].replace("\n", " ")
+                        click.echo(
+                            f"  andrew-#{row['id']:<5}  "
+                            + click.style("MEDIUM  ", fg="yellow")
+                            + click.style(f"OPEN [{age_d:.0f}d]   ", fg="white")
+                            + preview
+                        )
+                    click.secho(
+                        "  (engage: divineos andrew-correction integrate/defer)",
+                        fg="bright_black",
+                    )
+            except Exception:  # noqa: BLE001 — observability boundary
+                pass
 
     @audit_group.command("show")
     @click.argument("finding_id")

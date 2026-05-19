@@ -441,6 +441,152 @@ class TestModeFlag:
         assert rc == 0
 
 
+class TestStrictModeBehavioralCoverage:
+    """Behavioral coverage for the strict-mode opt-in mechanism per
+    Aletheia's 2026-05-18 audit observation on the Finding 78 fix.
+
+    The structural tests (test_strict_flag_present_in_argparse +
+    test_pre_push_strict_extends_to_feature_branches) pin the CLI
+    surface but don't catch semantic regressions where --strict is
+    parsed-but-ignored. These behavioral tests construct a fake
+    guardrail-touching commit (via mocked git helpers) and verify
+    end-to-end gate behavior:
+
+      - Default mode + feature-branch push → exit 0 (skipped early)
+      - Strict mode + feature-branch push + missing trailer → exit 1
+      - Strict mode + feature-branch push + valid trailer → exit 0
+        (would need real round-validation; we test the missing-trailer
+        block specifically because it's the failure-shape Finding 78
+        is meant to catch on the way to main-merge)
+
+    Per Aletheia psf-244c8603: this is the test that load-bears
+    Finding 78 fix correctness over time."""
+
+    def test_strict_mode_blocks_guardrail_commit_without_trailer_on_feature_branch(
+        self,
+    ) -> None:
+        """The load-bearing test: --strict actually catches a guardrail-
+        touching commit on a feature branch with no External-Review trailer.
+
+        Without --strict, the same push passes (feature-branch skipped
+        early in the loop). With --strict, the per-commit walk runs
+        validate() against the trailer-less commit and blocks.
+        """
+        import io
+
+        # Fake commit + guardrail file. SHA is 40 hex chars.
+        fake_sha = "a" * 40
+        fake_base = "b" * 40
+        fake_guardrail_hits = {"scripts/check_push_readiness.sh"}
+        fake_msg_no_trailer = (
+            "feat(test): a commit that touches a guardrail without trailer\n\n"
+            "This commit body has no External-Review trailer.\n"
+        )
+
+        # Feature-branch push (NOT main)
+        stdin = f"refs/heads/feature/foo {fake_sha} refs/heads/feature/foo {fake_base}\n"
+
+        # --- Default mode: feature-branch is skipped early in the loop. ---
+        with (
+            patch.object(mpr.sys, "stdin", io.StringIO(stdin)),
+            patch.object(
+                mpr,
+                "_commits_touch_guardrails_in_range",
+                return_value=[(fake_sha, fake_guardrail_hits)],
+            ),
+            patch.object(mpr, "_commit_msg_for_sha", return_value=fake_msg_no_trailer),
+            patch.object(mpr, "_staged_diff_hash", return_value=""),
+            patch.object(mpr, "_staged_tree_hash", return_value=""),
+            patch.object(mpr.subprocess, "run") as mock_sub,
+        ):
+            mock_sub.return_value.returncode = 0
+            mock_sub.return_value.stdout = ""
+            rc_default = mpr.main(["check_multi_party_review.py", "--mode=pre-push"])
+        assert rc_default == 0, (
+            "Default mode should skip feature-branch pushes; got non-zero exit. "
+            "If this assertion fails, the feature-branch-skip behavior regressed."
+        )
+
+        # --- Strict mode: feature-branch is NOT skipped; validate runs. ---
+        with (
+            patch.object(mpr.sys, "stdin", io.StringIO(stdin)),
+            patch.object(
+                mpr,
+                "_commits_touch_guardrails_in_range",
+                return_value=[(fake_sha, fake_guardrail_hits)],
+            ),
+            patch.object(mpr, "_commit_msg_for_sha", return_value=fake_msg_no_trailer),
+            patch.object(mpr, "_staged_diff_hash", return_value=""),
+            patch.object(mpr, "_staged_tree_hash", return_value=""),
+            patch.object(mpr.subprocess, "run") as mock_sub,
+        ):
+            mock_sub.return_value.returncode = 0
+            mock_sub.return_value.stdout = ""
+            rc_strict = mpr.main(["check_multi_party_review.py", "--mode=pre-push", "--strict"])
+        assert rc_strict == 1, (
+            "Strict mode should block guardrail-touching feature-branch commits "
+            "without External-Review trailer; got exit "
+            f"{rc_strict}. If this assertion fails, --strict is parsed but "
+            "not actually extending validation to feature branches — Finding 78 "
+            "fix's semantic correctness has regressed."
+        )
+
+    def test_main_target_blocks_with_or_without_strict(self) -> None:
+        """A guardrail-touching commit without trailer on a refs/heads/main
+        push blocks regardless of --strict (default behavior). This pins
+        that the strict-mode change doesn't weaken main-branch protection."""
+        import io
+
+        fake_sha = "c" * 40
+        fake_base = "d" * 40
+        fake_guardrail_hits = {"scripts/check_push_readiness.sh"}
+        fake_msg_no_trailer = "feat: no trailer\n"
+
+        # Push to main (not feature branch)
+        stdin = f"refs/heads/main {fake_sha} refs/heads/main {fake_base}\n"
+
+        # Default mode + main → block
+        with (
+            patch.object(mpr.sys, "stdin", io.StringIO(stdin)),
+            patch.object(
+                mpr,
+                "_commits_touch_guardrails_in_range",
+                return_value=[(fake_sha, fake_guardrail_hits)],
+            ),
+            patch.object(mpr, "_commit_msg_for_sha", return_value=fake_msg_no_trailer),
+            patch.object(mpr, "_staged_diff_hash", return_value=""),
+            patch.object(mpr, "_staged_tree_hash", return_value=""),
+            patch.object(mpr.subprocess, "run") as mock_sub,
+        ):
+            mock_sub.return_value.returncode = 0
+            mock_sub.return_value.stdout = ""
+            rc = mpr.main(["check_multi_party_review.py", "--mode=pre-push"])
+        assert rc == 1, (
+            "Default mode should block guardrail-touching commits on "
+            f"refs/heads/main; got exit {rc}. Main-branch protection has regressed."
+        )
+
+        # Strict mode + main → still block (no weakening from the strict-mode change)
+        with (
+            patch.object(mpr.sys, "stdin", io.StringIO(stdin)),
+            patch.object(
+                mpr,
+                "_commits_touch_guardrails_in_range",
+                return_value=[(fake_sha, fake_guardrail_hits)],
+            ),
+            patch.object(mpr, "_commit_msg_for_sha", return_value=fake_msg_no_trailer),
+            patch.object(mpr, "_staged_diff_hash", return_value=""),
+            patch.object(mpr, "_staged_tree_hash", return_value=""),
+            patch.object(mpr.subprocess, "run") as mock_sub,
+        ):
+            mock_sub.return_value.returncode = 0
+            mock_sub.return_value.stdout = ""
+            rc = mpr.main(["check_multi_party_review.py", "--mode=pre-push", "--strict"])
+        assert rc == 1, (
+            f"Strict mode should also block (strict is additive, not subtractive). Got exit {rc}."
+        )
+
+
 class TestCommitMsgNeverBlocks:
     """Andrew's 2026-05-12 directive: commits are saving-work; gates belong
     at push/merge. The commit-msg invocation of this script MUST exit 0

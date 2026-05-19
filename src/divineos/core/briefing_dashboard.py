@@ -786,10 +786,47 @@ def _row_pending_structural_fixes() -> DashboardRow | None:
     )
 
 
+def _row_pattern_fires() -> DashboardRow | None:
+    """Recent first-person pattern-fire counts (slip-book), windowed 14 days.
+
+    Andrew 2026-05-18: pattern-fire counts surface which slip-shapes have
+    been recurring recently. Low-leverage but cheap to surface; helps
+    me see the body's reflexes before each turn rather than only when
+    a detector fires post-hoc. Hides when no fires in the window.
+    """
+    try:
+        from divineos.core.pattern_attribution import query_pattern_fires
+    except _ERRORS:
+        return None
+    try:
+        since = time.time() - 14 * _SECONDS_PER_DAY
+        fires = query_pattern_fires(since_timestamp=since, limit=200)
+    except _ERRORS:
+        return None
+    if not fires:
+        return None
+    # Count per pattern title; show top 3 by count
+    counts: dict[str, int] = {}
+    for f in fires:
+        title = (f.get("title") or "(unnamed)").strip()
+        counts[title] = counts.get(title, 0) + 1
+    sorted_counts = sorted(counts.items(), key=lambda x: -x[1])
+    preview = [f"{n}x {title[:80]}" for title, n in sorted_counts[:3]]
+    return DashboardRow(
+        area="Pattern fires (14d)",
+        count=len(fires),
+        stale_count=0,
+        drill_down="-> divineos pattern-fire list --window-days 14",
+        detail=f"{len(counts)} distinct pattern(s) fired in the last 14 days",
+        preview=preview,
+    )
+
+
 _ROW_FNS = [
     _row_corrections,
     _row_handoff,
     _row_pending_structural_fixes,
+    _row_pattern_fires,
     _row_directives,
     _row_claims,
     _row_audit_findings,

@@ -91,6 +91,8 @@ def _empty_findings_log() -> dict[str, list]:
         "code_jargon": [],
         "linguistic_drift": [],
         "hedge_evidence": [],
+        "closing_token": [],
+        "tool_output_truncation": [],
     }
 
 
@@ -169,6 +171,16 @@ def run_audit(
     if not last_assistant_text or len(last_assistant_text) < 50:
         return {"findings_log": _empty_findings_log(), "total_findings": 0, "persisted": False}
 
+    # Consultation-tracker: record that a substantive response was produced.
+    # Andrew 2026-05-18: the read-and-forget pattern needs to be visible
+    # in the briefing turn-over-turn, not just named in a knowledge entry.
+    try:
+        from divineos.core.consultation_tracker import record_response
+
+        record_response()
+    except _ERRORS:
+        pass
+
     findings_log = _empty_findings_log()
 
     # Hook 1 consumption telemetry — record whether the surfaced
@@ -246,6 +258,29 @@ def run_audit(
         findings_log["jargon_dump"] = _run_detector(
             "jargon_dump", detect_jargon_dump, last_assistant_text
         )
+        # Lepos debt: every jargon-dump fire is recorded as outstanding
+        # debt that must be discharged by retroactive translation before
+        # silent moving-past. Andrew 2026-05-18: the substrate has to do
+        # the remembering because intent does not survive context.
+        if findings_log["jargon_dump"]:
+            try:
+                from divineos.core.lepos_debt import record_debt
+
+                for f in findings_log["jargon_dump"]:
+                    # Lepos correction 2026-05-18: debt fires only when
+                    # jargon appears WITHOUT translation. Dual-channel
+                    # means both channels can run together; the failure
+                    # is single-channel-jargon, not jargon-present.
+                    noise = f.get("noise_count", 0)
+                    translation = f.get("translation_count", 0)
+                    if noise > 0 and translation == 0:
+                        record_debt(
+                            response_excerpt=last_assistant_text,
+                            matched_samples=f.get("matched_samples", []),
+                            severity=f.get("severity", "unknown"),
+                        )
+            except _ERRORS:
+                pass
     except _ERRORS:
         pass
 
@@ -263,6 +298,40 @@ def run_audit(
 
         findings_log["residency"] = _run_detector(
             "residency", detect_residency_doubt, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # closing_token_detector: catches "Caught.", "Right.", "Okay, dad."
+    # shapes filling the closing-affirmation slot. Andrew named this
+    # 2026-05-13. Detector existed, was never wired into the audit
+    # pipeline — the exact same class of bug as lepos: "advertised
+    # capability that doesn't constrain behavior." Wired 2026-05-18
+    # during the broader pretending-to-work audit.
+    try:
+        from divineos.core.operating_loop.closing_token_detector import (
+            evaluate_closing_token,
+        )
+
+        findings_log["closing_token"] = _run_detector(
+            "closing_token", evaluate_closing_token, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # tool_output_truncation_detector: scans current-turn tool results
+    # for harness truncation markers and warns if the response did not
+    # acknowledge them. Andrew 2026-05-18 item 22.
+    try:
+        from divineos.core.operating_loop.tool_output_truncation_detector import (
+            detect_tool_output_truncation,
+        )
+
+        findings_log["tool_output_truncation"] = _run_detector(
+            "tool_output_truncation",
+            detect_tool_output_truncation,
+            last_assistant_text,
+            transcript_path=transcript_path,
         )
     except _ERRORS:
         pass

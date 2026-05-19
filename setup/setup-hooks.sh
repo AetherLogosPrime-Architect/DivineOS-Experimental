@@ -139,6 +139,7 @@ MULTI_PARTY="$REPO_ROOT/scripts/check_multi_party_review.py"
 CLOSURE_CLAIM="$REPO_ROOT/scripts/check_closure_claim.py"
 ROOT_CAUSE_AUDIT="$REPO_ROOT/scripts/check_root_cause_audit.py"
 WIRING_CLAIMS="$REPO_ROOT/scripts/check_wiring_claims.py"
+PREREG_INFRA="$REPO_ROOT/scripts/check_prereg_for_new_infra.py"
 
 # 1. Multi-party-review — INFORMATIONAL at commit-time.
 # Script never blocks at commit-time; just warns if guardrails touched
@@ -169,6 +170,13 @@ fi
 # Never blocks; always exits 0. Operator reads the warning, decides.
 if [[ -f "$WIRING_CLAIMS" ]]; then
     python "$WIRING_CLAIMS" "$1" || true
+fi
+
+# 5. Pre-reg-required-before-infra — BLOCK on new files under
+# src/divineos/core/ without prereg-XXX reference in the commit
+# message. Bypass: DIVINEOS_NEW_INFRA_NO_PREREG=1. Andrew 2026-05-18.
+if [[ -f "$PREREG_INFRA" ]]; then
+    python "$PREREG_INFRA" "$1" || exit 1
 fi
 
 exit 0

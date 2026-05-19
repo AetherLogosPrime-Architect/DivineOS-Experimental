@@ -70,6 +70,49 @@ def _gather_files(root: Path) -> list[Path]:
     return sorted(set(files))
 
 
+def _position_is_inside_string_literal(line: str, position: int) -> bool:
+    """Heuristic: is the character at ``position`` inside a string literal?
+
+    Counts unescaped quote characters (`"` and `'`) before ``position``.
+    If we're inside an unclosed double-quote or single-quote region at
+    that point, returns True.
+
+    Handles escaped quotes (``\\"`` and ``\\'``). Does NOT handle
+    triple-quoted strings (those typically span multiple lines; the
+    line-start-with-quote heuristic catches the body lines).
+
+    Per Finding 76 (Aletheia 2026-05-17): the prior heuristic only
+    caught line-start string literals (multi-line continuation),
+    missing mid-line cases like
+        DOC = "use pytest --ignore=foo.py for masking"
+    where the pytest keyword sits inside a string assignment.
+
+    Known false-negative shape (acknowledged trade-off): subprocess
+    invocations like ``subprocess.run(["pytest", "--ignore=foo"])``
+    would now be missed — the heuristic sees "pytest" inside a quoted
+    string and returns True (in-string). In practice the scanner runs
+    on scripts/ + .github/ + .claude/hooks/ + setup/ where direct
+    shell invocations dominate; subprocess-with-strings patterns are
+    rare. If they appear, a REASON comment can be added defensively
+    or the scanner can be extended with a Python-tokenize path.
+    """
+    in_single = False
+    in_double = False
+    i = 0
+    while i < position:
+        c = line[i]
+        if c == "\\" and i + 1 < len(line):
+            # Escaped char — skip the next character
+            i += 2
+            continue
+        if c == "'" and not in_double:
+            in_single = not in_single
+        elif c == '"' and not in_single:
+            in_double = not in_double
+        i += 1
+    return in_single or in_double
+
+
 def _looks_like_pytest_invocation(line: str) -> bool:
     """True when --ignore= appears in what looks like a pytest call.
 
@@ -83,19 +126,31 @@ def _looks_like_pytest_invocation(line: str) -> bool:
     Heuristic chain:
       1. ``--ignore=`` AND ``pytest`` (or ``py.test``) on the same line
       2. Line is not a comment (doesn't start with ``#`` after whitespace)
-      3. Line doesn't begin with ``"`` or ``'`` (string-literal prose)
+      3. Line doesn't begin with ``"`` or ``'`` (string-literal prose;
+         catches multi-line string body lines)
+      4. The ``pytest`` keyword is not itself inside a single-line string
+         literal (per Finding 76, Aletheia 2026-05-17 — fixes the mid-line
+         case ``DOC = "use pytest --ignore=foo"``)
 
     Other tools that use --ignore (grep, rsync) don't fit (1) and so are
     correctly excluded.
     """
     if "--ignore=" not in line:
         return False
-    if "pytest" not in line and "py.test" not in line:
-        return False
+    # Find pytest position; if not on the line, not a pytest invocation
+    pytest_pos = line.find("pytest")
+    if pytest_pos == -1:
+        pytest_pos = line.find("py.test")
+        if pytest_pos == -1:
+            return False
     stripped = line.lstrip()
     if stripped.startswith("#"):
         return False
     if stripped.startswith(('"', "'")):
+        return False
+    # Finding 76 fix: check if pytest is inside a string literal mid-line.
+    # Catches DOC = "use pytest --ignore=foo" style false-positives.
+    if _position_is_inside_string_literal(line, pytest_pos):
         return False
     return True
 

@@ -282,6 +282,13 @@ def register(cli: click.Group) -> None:
         from divineos.core.memory import get_core
 
         _log_os_query("ask", query)
+        # Consultation tracker: count this as substrate-cognition use.
+        try:
+            from divineos.core.consultation_tracker import record_query
+
+            record_query("ask")
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
         from divineos.cli._anti_substitution import emit_label
 
         emit_label("ask")

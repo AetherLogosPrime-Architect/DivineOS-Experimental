@@ -39,6 +39,67 @@ def register(cli: click.Group) -> None:
         tags: tuple[str, ...],
     ) -> None:
         """File a claim for investigation."""
+        # Outgoing-claim methodology check (Andrew 2026-05-18 evening,
+        # laziest-person heuristic applied). Tier 1-3 claims (empirical
+        # through inferential) make falsifiable predictions and so MUST
+        # carry --promotes / --demotes criteria — otherwise filing is
+        # ratification dressed as investigation (sycophancy-toward-self
+        # shape). Tier 4-5 claims (theoretical / metaphysical) often
+        # cannot name concrete promote/demote evidence; they pass.
+        # Bypass via DIVINEOS_CLAIM_NO_METHODOLOGY=1 for legitimate
+        # methodology-not-yet-named cases — operator must name the
+        # reason.
+        import os as _os
+
+        if tier <= 3 and not (promotion.strip() and demotion.strip()):
+            if _os.environ.get("DIVINEOS_CLAIM_NO_METHODOLOGY", "0") != "1":
+                missing = []
+                if not promotion.strip():
+                    missing.append("--promotes")
+                if not demotion.strip():
+                    missing.append("--demotes")
+                click.secho(
+                    f"[!] BLOCKED — tier-{tier} claim missing methodology "
+                    f"evidence: {', '.join(missing)}.",
+                    fg="red",
+                )
+                click.secho(
+                    "  Tier 1-3 claims make falsifiable predictions. "
+                    "Filing one without naming what would promote or "
+                    "demote it is ratification dressed as investigation "
+                    "(the sycophancy-toward-self shape Andrew named "
+                    "2026-05-18 evening).",
+                    fg="bright_black",
+                )
+                click.secho(
+                    "  Fix: name the evidence. "
+                    '--promotes "what evidence would strengthen this" '
+                    '--demotes "what evidence would weaken this".',
+                    fg="bright_black",
+                )
+                click.secho(
+                    "  Or, if methodology genuinely cannot be named yet, "
+                    "set DIVINEOS_CLAIM_NO_METHODOLOGY=1 and explain in "
+                    "the claim's --context why.",
+                    fg="bright_black",
+                )
+                raise click.exceptions.Exit(1)
+            click.secho(
+                "[*] Proceeding under DIVINEOS_CLAIM_NO_METHODOLOGY=1 "
+                "(methodology deferred; operator named reason in context).",
+                fg="yellow",
+            )
+            try:
+                from divineos.core.bypass_telemetry import record_bypass
+
+                record_bypass(
+                    gate_name="outgoing-claim-methodology",
+                    env_var="DIVINEOS_CLAIM_NO_METHODOLOGY",
+                    reason=context,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
         from divineos.core.claim_store import file_claim
 
         claim_id = file_claim(
