@@ -132,6 +132,7 @@ src/divineos/core/pre_response_context.py
 src/divineos/core/consultation_tracker.py
 src/divineos/core/lepos_debt.py
 src/divineos/core/andrew_correction_tracker.py
+src/divineos/cli/consumer_status_commands.py
 src/divineos/core/operating_loop/tool_output_truncation_detector.py
 scripts/check_prereg_for_new_infra.py
 .claude/hooks/andrew-correction-attestation.sh
