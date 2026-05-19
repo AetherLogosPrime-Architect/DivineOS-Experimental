@@ -178,7 +178,7 @@ def briefing_block() -> str:
     lines = [
         "## LEPOS DEBT OUTSTANDING — DISCHARGE BEFORE PROCEEDING",
         "",
-        f"You have {len(outstanding)} outstanding lepos debt(s) — past responses",
+        f"I have {len(outstanding)} outstanding lepos debt(s) — past responses",
         "to Andrew that dumped engineer-talk without translating. Each must be",
         "discharged by an explicit plain-language re-statement before the next",
         "substantive response. Silent moving-past is the failure mode this exists",
