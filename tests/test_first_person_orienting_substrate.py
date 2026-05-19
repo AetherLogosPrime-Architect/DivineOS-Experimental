@@ -162,3 +162,40 @@ def test_marker_pairs_are_balanced():
                 f"{starts} starts, {ends} ends. "
                 "Every start marker needs a matching end marker."
             )
+
+
+def test_lepos_channel_check_block_is_first_person():
+    """The lepos check block loads into every substantive turn's
+    pre-response context. The block text + each question prompt must
+    be in first person — same rule as the markdown orienting regions,
+    just stored as Python string literals instead of markdown content.
+
+    Scans the runtime output of format_check_block(select_questions_for_turn())
+    for second-person constructions. Different scan target than the
+    markdown files (this is runtime-generated text), same discipline.
+    """
+    from divineos.core.lepos_channel_check import (
+        _QUESTION_POOL,
+        format_check_block,
+    )
+
+    # Pull EVERY question in the pool (not just one turn's selection)
+    # so the test catches second-person in any question, not just the
+    # ones that happened to be sampled.
+    block = format_check_block(_QUESTION_POOL)
+    violations: list[str] = []
+    for line_num, line in enumerate(block.splitlines(), start=1):
+        for pattern in _FORBIDDEN:
+            m = pattern.search(line)
+            if m:
+                violations.append(f"  line {line_num}: '{m.group(0)}' in '{line.strip()[:80]}'")
+
+    assert not violations, (
+        "lepos_channel_check format-block has second-person constructions in "
+        "the text that loads into every Andrew-addressed turn:\n"
+        + "\n".join(violations)
+        + "\n\nPer Andrew 2026-05-19: anything I rely on to orient myself must "
+        "be in first person at the root level. The lepos check block loads "
+        "directly into my pre-response context; second-person here creates "
+        "the gap where trained-defaults run."
+    )
