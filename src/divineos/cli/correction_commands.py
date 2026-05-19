@@ -101,6 +101,12 @@ def register(cli: click.Group) -> None:
     )
     def corrections_cmd(limit: int, show_all: bool, open_only: bool, resolved_only: bool) -> None:
         """Read past corrections with status -- the user's exact words."""
+        try:
+            from divineos.core.consultation_tracker import record_query
+
+            record_query("corrections")
+        except Exception:  # noqa: BLE001
+            pass
         from divineos.core.corrections import (
             _age_label,
             corrections_with_status,

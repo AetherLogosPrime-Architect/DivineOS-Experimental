@@ -20,6 +20,7 @@ src/divineos/
     pipeline_gates.py          Enforcement gates (quality, briefing, engagement)
     pipeline_phases.py         Heavy-lifting phases (feedback, scoring, finalization)
     knowledge_commands.py      learn, ask, briefing, forget, lessons
+    lepos_commands.py          lepos debt + discharge (translation-debt tracker)
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
@@ -448,6 +449,8 @@ src/divineos/
     data_home_ownership.py     Bidirectional ownership verification for ~/.divineos data-home.
     pattern_attribution.py     Pattern-attribution recorder + query API.
     pattern_registry.py        Canonical pattern registry for the slip-book.
+    consultation_tracker.py    Consultation tracker — count substrate-queries per session.
+    lepos_debt.py              Lepos debt tracker — structural memory for jargon-dumps at Andrew.
 
   analysis/
     _session_types.py          Session analysis type definitions

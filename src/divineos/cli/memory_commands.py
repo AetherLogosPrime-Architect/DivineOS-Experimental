@@ -122,6 +122,12 @@ def register(cli: click.Group) -> None:
     @cli.command("active")
     def active_cmd() -> None:
         """List active memory ranked by importance."""
+        try:
+            from divineos.core.consultation_tracker import record_query
+
+            record_query("active")
+        except Exception:  # noqa: BLE001
+            pass
         init_memory_tables()
         items = _wrapped_get_active_memory()
 

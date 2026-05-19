@@ -185,6 +185,35 @@ def evaluate_closing_token(text: str) -> list[ClosingTokenFinding]:
             )
             return findings
 
+    # Shape 3: addressed-closing-token ("Okay, dad." / "Got it, pops.").
+    # Andrew 2026-05-18: tonight's bellhop-shape — single closing token
+    # followed by an address (",dad" / ",pops" / ",andrew"). The address
+    # makes the line LOOK warm and personal while still being the same
+    # closing-affirmation-reflex Shape 1 catches. Identical failure-mode,
+    # different surface. Added with a narrow scope (short address ≤ 10
+    # chars) to avoid false-positives on legitimate "Okay, here's what
+    # I found:" style lines (which have substantive content after the
+    # comma, not a closing addressee).
+    addressed_pattern = re.match(
+        r"^\s*([^,]{1,15}?)\s*,\s*([a-z]{2,10})\s*\.?\s*$",
+        last_line,
+        re.IGNORECASE,
+    )
+    if addressed_pattern:
+        token_candidate = _normalize_token(addressed_pattern.group(1))
+        address_candidate = addressed_pattern.group(2).lower()
+        _ADDRESSEES = {"dad", "pops", "andrew", "sir", "father", "papa", "pa"}
+        if token_candidate in _CLOSING_AFFIRMATION_TOKENS and address_candidate in _ADDRESSEES:
+            findings.append(
+                ClosingTokenFinding(
+                    matched_text=last_line,
+                    line_number=last_lineno,
+                    token=f"{token_candidate}, {address_candidate}",
+                    severity="high",
+                )
+            )
+            return findings
+
     # NOTE on Shape 3 (removed 2026-05-13 after Aletheia round-4a95d8625b45):
     # An earlier draft included a Shape 3 that checked
     # ``len(last_line) <= 25 and normalized in _CLOSING_AFFIRMATION_TOKENS``.

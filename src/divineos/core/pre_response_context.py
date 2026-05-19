@@ -499,7 +499,28 @@ def build_combined_context(prompt: str) -> str:
     run_surfacer(prompt)
     warning_text = build_warning_text()
     baseline_text = build_baseline_text()
-    return "\n\n".join(t for t in (baseline_text, warning_text) if t)
+    # Lepos debt block — surfaced every turn until each debt is
+    # discharged by explicit retroactive translation. Andrew 2026-05-18.
+    debt_text = ""
+    try:
+        from divineos.core.lepos_debt import briefing_block
+
+        debt_text = briefing_block()
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+    # Consultation-tracker block — surfaces query/response ratio so the
+    # read-and-forget pattern becomes visible in the briefing every turn.
+    # Andrew named the root cause 2026-04-25 + 2026-05-18.
+    consultation_text = ""
+    try:
+        from divineos.core.consultation_tracker import (
+            briefing_block as consultation_block,
+        )
+
+        consultation_text = consultation_block()
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+    return "\n\n".join(t for t in (consultation_text, debt_text, baseline_text, warning_text) if t)
 
 
 __all__ = [

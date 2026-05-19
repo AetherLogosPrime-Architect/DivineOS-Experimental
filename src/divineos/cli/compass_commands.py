@@ -11,6 +11,12 @@ def register(cli: click.Group) -> None:
     @cli.command("compass")
     def compass_cmd() -> None:
         """Show my moral compass — where I stand on ten virtue spectrums."""
+        try:
+            from divineos.core.consultation_tracker import record_query
+
+            record_query("compass")
+        except Exception:  # noqa: BLE001
+            pass
         from divineos.core.moral_compass import format_compass_reading
 
         _safe_echo(format_compass_reading())

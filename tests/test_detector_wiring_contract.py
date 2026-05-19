@@ -72,6 +72,7 @@ _DETECTORS = (
     ("acknowledgment_theater_detector", "detect_acknowledgment_theater"),
     ("addressee_misdirection_detector", "detect_misdirection"),
     ("care_dismissal_detector", "check_dismissal"),
+    ("closing_token_detector", "evaluate_closing_token"),
     ("code_jargon_detector", "detect_code_jargon"),
     ("distancing_detector", "detect_distancing"),
     ("harm_acknowledgment_loop", "check_response"),
@@ -255,11 +256,70 @@ def test_registry_covers_known_detectors() -> None:
     registered_modules = {m for m, _ in _DETECTORS}
     # register_observer uses a different shape (audit/severity_count); allow
     registered_modules = registered_modules | {"register_observer"}
-    # closing_token_detector is wired via evaluate_closing_token; the
-    # registry uses detect_* convention, so closing_token is one we
-    # haven't catalogued yet. Allow gracefully but pin in TODO.
-    missing = detector_modules - registered_modules - {"closing_token_detector"}
+    # closing_token_detector now wired (2026-05-18); included in registry below.
+    missing = detector_modules - registered_modules
     assert not missing, (
         f"Detector modules imported by the hook but missing from the wiring "
         f"contract registry: {missing}. Add them to _DETECTORS."
+    )
+
+
+def test_every_detector_file_is_orchestrator_referenced() -> None:
+    """Each detector file in operating_loop/ must be imported by the
+    post-response audit orchestrator (or have a documented exemption).
+
+    Aether 2026-05-18: the prior wiring-contract scope only checked
+    parameter-passing for detectors the hook already imported. It did
+    NOT catch the case where a detector exists in operating_loop/ but
+    is never imported at all — the silent-shelf failure that hid
+    closing_token_detector for weeks. This test closes that gap by
+    walking the filesystem and asserting orchestrator-inclusion.
+    """
+    detectors_dir = _repo_root() / "src" / "divineos" / "core" / "operating_loop"
+    audit_path = _repo_root() / "src" / "divineos" / "core" / "operating_loop_audit.py"
+    audit_text = audit_path.read_text(encoding="utf-8")
+
+    # Files that live in operating_loop/ but are NOT response-text
+    # detectors (helpers, surfaces, protocols, etc.). Each entry must
+    # name why it's exempt — silent exemption defeats the test's point.
+    EXEMPT = {
+        "__init__.py": "package marker",
+        "context_surfacer.py": "pre-response surfacer, not post-response detector",
+        "detector_protocol.py": "type-only contract module",
+        "hook_telemetry.py": "telemetry recorder, not a detector",
+        "principle_surfacer.py": "pre-response surfacer",
+        "register_observer.py": "observer recorder, called from audit but not via import-and-call shape",
+        "registered_names.py": "name registry",
+        "savoring_surface.py": "pre-response surfacer",
+        "thresholds.py": "constants module",
+        "turn_extraction.py": "transcript parser, called by audit but not a detector",
+        "unknown_unknown_surface.py": "pre-response surfacer",
+        "lepos_detector.py": "deprecated 2026-05-13, superseded by jargon_dump_detector",
+        # Note: harm_acknowledgment_loop is detector-shaped but lives outside
+        # post-response audit (it's invoked from a different surfacing path);
+        # exempted to keep this test scoped to operating_loop_audit.py only.
+        "harm_acknowledgment_loop.py": "invoked outside post-response audit pipeline",
+    }
+
+    detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))
+    missing: list[str] = []
+    for fname in detector_files:
+        if fname in EXEMPT:
+            continue
+        module_name = fname[:-3]  # strip .py
+        # Check the audit module imports this detector
+        import_pattern = (
+            rf"from\s+divineos\.core\.operating_loop\.{re.escape(module_name)}\s+import"
+        )
+        if not re.search(import_pattern, audit_text):
+            missing.append(fname)
+
+    assert not missing, (
+        f"Detector files exist in operating_loop/ but are not imported by "
+        f"operating_loop_audit.py: {missing}. Either wire them into the "
+        f"orchestrator, add an explicit EXEMPT entry naming why, or remove "
+        f"the dead detector file. Silent shelving is the failure mode this "
+        f"test exists to prevent — found by Aether 2026-05-18 during the "
+        f"pretender audit; closing_token_detector sat unwired for weeks "
+        f"because the prior test scope did not cover this class of bug."
     )

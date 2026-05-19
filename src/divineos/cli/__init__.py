@@ -259,6 +259,7 @@ from divineos.cli import (  # noqa: E402
     voids_commands,
     multiplex_commands,
     pattern_attribution_commands,
+    lepos_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -297,6 +298,7 @@ empirica_commands.register(cli)
 family_member_commands.register(cli)
 family_queue_commands.register(cli)
 talk_to_commands.register(cli)
+lepos_commands.register(cli)
 cli.add_command(admin_reset_template.reset_template)
 cli.add_command(admin_migrate_family.migrate_family_schema)
 corrigibility_commands.register(cli)

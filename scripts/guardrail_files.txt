@@ -129,6 +129,8 @@ src/divineos/hooks/pre_tool_use_gate.py
 # immediate gap.
 src/divineos/core/operating_loop_audit.py
 src/divineos/core/pre_response_context.py
+src/divineos/core/consultation_tracker.py
+src/divineos/core/lepos_debt.py
 src/divineos/core/theater_audit.py
 src/divineos/core/hedge_audit.py
 src/divineos/core/session_start.py
