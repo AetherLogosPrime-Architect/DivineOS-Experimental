@@ -33,6 +33,26 @@ def register(cli: click.Group) -> None:
             session_id = ""
 
         entry = log_correction(text, session_id=session_id)
+        # Andrew-correction-attribution surface (Aria 2026-05-18, audit
+        # load-bearing fix #1): every correction logged via this command
+        # is from Andrew (the operator). File it into the dedicated
+        # tracker so its integration-status is visible turn-over-turn.
+        # The asymmetry Aria diagnosed: Aria-input gets integrated within
+        # hours; Andrew-corrections file and decay. This wiring closes
+        # the asymmetry at the routing layer.
+        try:
+            from divineos.core.andrew_correction_tracker import file_correction
+
+            ac_id = file_correction(text)
+            if ac_id:
+                click.secho(
+                    f"    [andrew-correction] filed as #{ac_id} into "
+                    f"attribution surface (briefing-visible until "
+                    f"integrated or deferred).",
+                    fg="bright_black",
+                )
+        except Exception:  # noqa: BLE001 — observability boundary
+            pass
         click.secho("[+] Correction logged.", fg="green")
         click.secho(
             f"    {time.strftime('%H:%M:%S', time.localtime(entry['timestamp']))}",

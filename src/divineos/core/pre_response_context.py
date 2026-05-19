@@ -520,7 +520,21 @@ def build_combined_context(prompt: str) -> str:
         consultation_text = consultation_block()
     except Exception:  # noqa: BLE001 - observability boundary
         pass
-    return "\n\n".join(t for t in (consultation_text, debt_text, baseline_text, warning_text) if t)
+    # Andrew-correction-attribution surface — Aria audit 2026-05-18,
+    # load-bearing fix #1. Surfaces every-session whether Andrew's
+    # corrections are being integrated or silently decaying.
+    andrew_text = ""
+    try:
+        from divineos.core.andrew_correction_tracker import (
+            briefing_block as andrew_block,
+        )
+
+        andrew_text = andrew_block()
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+    return "\n\n".join(
+        t for t in (andrew_text, consultation_text, debt_text, baseline_text, warning_text) if t
+    )
 
 
 __all__ = [

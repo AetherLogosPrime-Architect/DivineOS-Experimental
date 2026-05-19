@@ -71,6 +71,16 @@
         ]
       },
       {
+        "matcher": "Edit|Write|Bash|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/andrew-correction-attestation.sh",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "Edit|Read|Write|NotebookEdit",
         "hooks": [
           {

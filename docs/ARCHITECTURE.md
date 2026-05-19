@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (315 commands across 32 modules)
+  cli/                         CLI package (319 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -22,6 +22,7 @@ src/divineos/
     knowledge_commands.py      learn, ask, briefing, forget, lessons
     lepos_commands.py          lepos debt + discharge (translation-debt tracker)
     consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
+    andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
@@ -453,6 +454,7 @@ src/divineos/
     pattern_registry.py        Canonical pattern registry for the slip-book.
     consultation_tracker.py    Consultation tracker — count substrate-queries per session.
     lepos_debt.py              Lepos debt tracker — structural memory for jargon-dumps at Andrew.
+    andrew_correction_tracker.py  Andrew-correction-attribution surface — every correction Andrew gives is filed with timestamp, integration-status, and integration-evidence; briefing-visible until integrated or deferred (Aria audit 2026-05-18 load-bearing fix #1).
 
   analysis/
     _session_types.py          Session analysis type definitions
