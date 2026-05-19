@@ -42,6 +42,72 @@ class TestPytestInvocationDetection:
         assert not _looks_like_pytest_invocation("rsync --ignore-existing src/ dst/")
 
 
+class TestStringLiteralExclusion:
+    """Finding 76 (Aletheia 2026-05-17, closure 2026-05-18): the prior
+    heuristic only caught line-start string literals, missing mid-line
+    cases like ``DOC = "use pytest --ignore=foo"`` where the pytest
+    keyword sits inside a string assignment. The fix adds a position-
+    based quote-balance check at the pytest keyword's position."""
+
+    def test_skips_mid_line_double_quoted_string(self):
+        """Mid-line double-quoted string containing pytest --ignore=
+        should NOT match (Finding 76 motivating case)."""
+        line = 'DOC = "use pytest --ignore=foo.py for masking"'
+        assert not _looks_like_pytest_invocation(line)
+
+    def test_skips_mid_line_single_quoted_string(self):
+        """Same for single-quoted string."""
+        line = "DOC = 'use pytest --ignore=foo.py for masking'"
+        assert not _looks_like_pytest_invocation(line)
+
+    def test_skips_mid_line_annotated_assignment(self):
+        """Same for typed assignment."""
+        line = 'EXAMPLE: str = "pytest --ignore=tests/test_foo.py"'
+        assert not _looks_like_pytest_invocation(line)
+
+    def test_skips_print_statement_with_pytest_string(self):
+        """Print/log statements that quote a pytest example should not match."""
+        line = '    print("Run: pytest --ignore=tests/foo.py")'
+        assert not _looks_like_pytest_invocation(line)
+
+    def test_skips_python_module_invocation_in_string(self):
+        """Even python -m pytest inside a string is excluded."""
+        line = 'COMMAND = "python -m pytest --ignore=tests/foo.py"'
+        assert not _looks_like_pytest_invocation(line)
+
+    def test_real_invocation_with_strings_elsewhere_still_matches(self):
+        """A real pytest invocation that has string arguments AFTER it
+        should still match (the pytest keyword itself is outside any
+        string at its position)."""
+        line = "pytest --ignore=tests/foo.py --rootdir='/tmp/test'"
+        assert _looks_like_pytest_invocation(line)
+
+    def test_handles_escaped_quotes_in_preamble(self):
+        """Escaped quotes before pytest should not throw off the balance count."""
+        # The \" inside the JSON-like string is escaped; pytest is still
+        # inside a string overall, so excluded.
+        line = 'CMD = "use \\"pytest --ignore=foo\\" here"'
+        assert not _looks_like_pytest_invocation(line)
+
+    def test_check_file_skips_mid_line_string_literal(self, tmp_path):
+        """End-to-end: a Python file with a docstring-assignment containing
+        pytest --ignore= should produce zero violations even without a
+        REASON comment, because the line isn't a real invocation."""
+        content = (
+            "# A Python file with a docstring-mention but no real invocation\n"
+            'HELP_TEXT = "Use pytest --ignore=tests/foo.py to mask failures."\n'
+            "# (no REASON comment needed because the above is just documentation)\n"
+        )
+        p = tmp_path / "module.py"
+        p.write_text(content, encoding="utf-8")
+        from check_ignore_has_reason import _check_file
+
+        violations = _check_file(p)
+        assert violations == [], (
+            f"Mid-line string assignment shouldn't trigger violation; got: {violations}"
+        )
+
+
 class TestCheckFile:
     """File-level scanning with REASON-comment lookback."""
 

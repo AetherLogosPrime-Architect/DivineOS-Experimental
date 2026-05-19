@@ -171,3 +171,85 @@ class TestPrepRelayEmptyRange:
         )
         assert result.exit_code == 0
         assert "No commits in range" in result.output or "Nothing to audit-relay" in result.output
+
+
+class TestFinding79NarrowRangeBypass:
+    """Finding 79 (Aletheia 2026-05-18): prep-relay's --range parameter
+    is operator-chosen and was previously trusted. The narrow-range bypass:
+    --range HEAD~1..HEAD where HEAD is pushed but HEAD~1 isn't — only
+    HEAD gets checked; HEAD~1's unpushed substance can be described in
+    surrounding prose with plausible deniability.
+
+    The fix-shape Aletheia named: emit a warning when --range doesn't
+    cover the full set of commits between remote-branch and HEAD.
+    Discipline-shape: surface, don't force. The warning makes the
+    scoping-narrow shape visible in stdout."""
+
+    def test_narrow_range_emits_warning_when_unscoped_commits_exist(self, tmp_path, monkeypatch):
+        """Reproduce the narrow-range bypass empirically: create 3
+        unpushed commits, scope --range to only the latest one (HEAD~0),
+        verify the warning fires naming the unscoped commits."""
+        local, _remote = _setup_local_with_fake_remote(tmp_path)
+
+        # Create 3 unpushed commits on top of the initial pushed commit
+        for i in range(1, 4):
+            (local / f"file-{i}.md").write_text(f"content {i}\n")
+            _git(local, "add", f"file-{i}.md")
+            _git(local, "commit", "-m", f"feat: local commit {i}")
+
+        # Push only the first of these (leaves 2 unpushed)
+        _git(local, "push", "origin", "main~2:main")
+
+        monkeypatch.chdir(local)
+        runner = CliRunner()
+        # Narrow range: only HEAD (the latest commit)
+        result = runner.invoke(
+            cli,
+            [
+                "audit",
+                "prep-relay",
+                "--range",
+                "HEAD~1..HEAD",
+                "--branch",
+                "main",
+            ],
+        )
+        # Per Finding 79 retrofit 2026-05-18 evening (laziest-person
+        # heuristic): narrow --range that misses unpushed commits now
+        # BLOCKS by default instead of warning. The block message names
+        # the unscoped commits and points at the named-bypass env var.
+        assert ("BLOCKED" in result.output) or ("Warning" in result.output), (
+            f"Expected Finding 79 gate output (block or warning shape); output:\n{result.output}"
+        )
+        assert "Finding 79" in result.output or "not in --range" in result.output, (
+            f"Expected Finding 79 lineage explanation; output:\n{result.output}"
+        )
+
+    def test_full_range_does_not_emit_unscoped_warning(self, tmp_path, monkeypatch):
+        """When --range covers the full unpushed set, no Finding 79 warning."""
+        local, _remote = _setup_local_with_fake_remote(tmp_path)
+        # Create 1 unpushed commit then push it
+        (local / "added.md").write_text("content\n")
+        _git(local, "add", "added.md")
+        _git(local, "commit", "-m", "feat: full-scope commit")
+        _git(local, "push", "origin", "main")
+
+        monkeypatch.chdir(local)
+        runner = CliRunner()
+        # Full range covers the pushed commit
+        result = runner.invoke(
+            cli,
+            [
+                "audit",
+                "prep-relay",
+                "--range",
+                "origin/main~1..HEAD",
+                "--branch",
+                "main",
+            ],
+        )
+        assert result.exit_code == 0
+        # No "additional commit(s)" warning expected
+        assert "additional commit" not in result.output, (
+            f"Full-coverage range should not trigger Finding 79 warning; output:\n{result.output}"
+        )

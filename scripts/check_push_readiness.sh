@@ -92,15 +92,18 @@ fi
 if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
     MP_SCRIPT="$REPO_ROOT/scripts/check_multi_party_review.py"
     if [[ -f "$MP_SCRIPT" ]]; then
+        # Use bash array (not space-string) for argv to eliminate the
+        # shellcheck-disable need and stay defensive against future
+        # modifications that might introduce spaces in arguments.
+        # Per Aletheia's audit-observation on Finding 78 closure.
+        MP_ARGS=(--mode=pre-push)
         if [[ "${DIVINEOS_MULTIPARTY_STRICT:-0}" == "1" ]]; then
             echo "[push-readiness] Multi-party-review check (strict mode — opt-in)..."
-            MP_ARGS="--mode=pre-push --strict"
+            MP_ARGS+=(--strict)
         else
             echo "[push-readiness] Multi-party-review check (default — main only)..."
-            MP_ARGS="--mode=pre-push"
         fi
-        # shellcheck disable=SC2086  # MP_ARGS deliberately unquoted for word-split
-        if ! echo "$HOOK_STDIN" | python "$MP_SCRIPT" $MP_ARGS >&2; then
+        if ! echo "$HOOK_STDIN" | python "$MP_SCRIPT" "${MP_ARGS[@]}" >&2; then
             echo "" >&2
             echo "[push-readiness] BLOCKED — multi-party-review gate failing (exit 20)." >&2
             echo "[push-readiness] File an audit round and amend commit(s)" >&2
