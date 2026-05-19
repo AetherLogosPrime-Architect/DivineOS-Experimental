@@ -791,6 +791,44 @@ def register(cli: click.Group) -> None:
                 + f" {f.title}"
             )
 
+        # Aria audit fix #3 (2026-05-18): Andrew-corrections get the same
+        # routing priority as Aletheia/external-AI findings. Different
+        # verification surface (Andrew reads register and relational
+        # truth, not git diffs) but equal routing-weight. Surfacing
+        # them alongside audit findings in this view enforces parity
+        # at the read-surface layer.
+        if not round_id and not status and not severity:
+            try:
+                from divineos.core.andrew_correction_tracker import (
+                    list_open as _list_open_andrew,
+                )
+
+                andrew_open = _list_open_andrew()
+                if andrew_open:
+                    click.secho(
+                        f"\n=== Andrew-Corrections OPEN ({len(andrew_open)}) — equal routing weight ===\n",
+                        fg="cyan",
+                        bold=True,
+                    )
+                    import time as _time
+
+                    now = _time.time()
+                    for row in andrew_open:
+                        age_d = max(0, (now - row["timestamp"]) / 86400)
+                        preview = row["text"][:80].replace("\n", " ")
+                        click.echo(
+                            f"  andrew-#{row['id']:<5}  "
+                            + click.style("MEDIUM  ", fg="yellow")
+                            + click.style(f"OPEN [{age_d:.0f}d]   ", fg="white")
+                            + preview
+                        )
+                    click.secho(
+                        "  (engage: divineos andrew-correction integrate/defer)",
+                        fg="bright_black",
+                    )
+            except Exception:  # noqa: BLE001 — observability boundary
+                pass
+
     @audit_group.command("show")
     @click.argument("finding_id")
     def audit_show_cmd(finding_id: str) -> None:
