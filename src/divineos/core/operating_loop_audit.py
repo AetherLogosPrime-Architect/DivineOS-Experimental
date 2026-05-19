@@ -89,6 +89,7 @@ def _empty_findings_log() -> dict[str, list]:
         "harm_acknowledgment": [],
         "acknowledgment_theater": [],
         "code_jargon": [],
+        "lepos_channel": [],
         "linguistic_drift": [],
         "hedge_evidence": [],
         "closing_token": [],
@@ -333,6 +334,34 @@ def run_audit(
             last_assistant_text,
             transcript_path=transcript_path,
         )
+    except _ERRORS:
+        pass
+
+    # Lepos-channel-check evaluation — Andrew 2026-05-19,
+    # prereg-157ed56a5da2. Reads the questions that were surfaced this
+    # turn at pre-response time, scans the assistant's response for
+    # evidence-cited answers, logs the turn. YES/AND: thin/absent
+    # channels are LOGGED FOR INVESTIGATION, not blocked. The data
+    # accumulates across the 30-turn empirical trial; review then
+    # decides whether to keep, iterate, or retire the gate.
+    try:
+        from divineos.core.lepos_channel_check import (
+            evaluate_response as _lepos_eval,
+            load_current_turn_questions,
+            log_turn as _lepos_log,
+        )
+
+        _lepos_qs = load_current_turn_questions()
+        if _lepos_qs and last_assistant_text:
+            _lepos_ev = _lepos_eval(last_assistant_text, _lepos_qs)
+            _lepos_log(_lepos_qs, last_assistant_text, _lepos_ev)
+            findings_log["lepos_channel"] = [
+                {
+                    "status": _lepos_ev.status,
+                    "answered": list(_lepos_ev.answered_question_ids),
+                    "note": _lepos_ev.note,
+                }
+            ]
     except _ERRORS:
         pass
 

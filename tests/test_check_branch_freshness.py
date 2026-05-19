@@ -90,7 +90,19 @@ def repo() -> Path:
 
 
 def _run_script(repo: Path) -> subprocess.CompletedProcess:
-    """Invoke the freshness-check script in `repo`. Returns the process."""
+    """Invoke the freshness-check script in `repo`. Returns the process.
+
+    Aether 2026-05-19: scrubs DIVINEOS_SKIP_FRESHNESS_CHECK from the
+    inherited env so the test is hermetic. The 3 gate-behavior tests
+    (test_stale_branch_blocked, test_no_remote_returns_infra_error,
+    test_message_mentions_claim_for_traceability) previously failed
+    when the caller's shell had the bypass set — the env-var leaked
+    through subprocess.run's default env-inheritance and made the
+    gate skip when it should have blocked. test_skip_env_var_bypasses_check
+    builds its own env explicitly so it isn't affected by this scrub.
+    """
+    env = os.environ.copy()
+    env.pop("DIVINEOS_SKIP_FRESHNESS_CHECK", None)
     cmd = [_BASH, str(SCRIPT), "origin", "main"]
     return subprocess.run(
         cmd,
@@ -99,6 +111,7 @@ def _run_script(repo: Path) -> subprocess.CompletedProcess:
         text=True,
         encoding="utf-8",
         errors="replace",
+        env=env,
     )
 
 

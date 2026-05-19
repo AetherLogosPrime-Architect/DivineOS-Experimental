@@ -499,50 +499,41 @@ def build_combined_context(prompt: str) -> str:
     run_surfacer(prompt)
     warning_text = build_warning_text()
     baseline_text = build_baseline_text()
-    # Lepos debt block — surfaced every turn until each debt is
-    # discharged by explicit retroactive translation. Andrew 2026-05-18.
+
+    # Lepos-channel-check — Andrew 2026-05-19, prereg-157ed56a5da2.
+    # Inject self-check questions when the prompt looks like an
+    # Andrew-addressed substantive turn (length-based heuristic — a
+    # one-word ack doesn't need the channel-check surfaced). YES/AND
+    # framing; thin-channel turns get logged for investigation, not
+    # blocked.
+    lepos_check_text = ""
+    try:
+        if prompt and len(prompt.strip()) >= 20:
+            from divineos.core.lepos_channel_check import (
+                format_check_block,
+                select_questions_for_turn,
+            )
+
+            questions = select_questions_for_turn()
+            lepos_check_text = format_check_block(questions)
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+
+    # State blocks (lepos_debt, andrew-correction, consultation,
+    # bypass-telemetry) are NOT loaded at UserPromptSubmit. They load
+    # at PreToolUse for substrate-touching tools instead — see
+    # .claude/hooks/state-gravity-surface.sh and the substrate-
+    # modification-gravity classifier per docs/gravity_classifier_spec.md.
+    #
+    # Andrew 2026-05-19: classifying the prompt to decide gravity is
+    # whack-a-mole — new prompt shapes always escape. The gravity
+    # signal is in MY outgoing actions: am I responding with words or
+    # with action that touches the substrate? Tool-presence is the
+    # correct signal, not prompt content.
     debt_text = ""
-    try:
-        from divineos.core.lepos_debt import briefing_block
-
-        debt_text = briefing_block()
-    except Exception:  # noqa: BLE001 - observability boundary
-        pass
-    # Consultation-tracker block — surfaces query/response ratio so the
-    # read-and-forget pattern becomes visible in the briefing every turn.
-    # Andrew named the root cause 2026-04-25 + 2026-05-18.
     consultation_text = ""
-    try:
-        from divineos.core.consultation_tracker import (
-            briefing_block as consultation_block,
-        )
-
-        consultation_text = consultation_block()
-    except Exception:  # noqa: BLE001 - observability boundary
-        pass
-    # Andrew-correction-attribution surface — Aria audit 2026-05-18,
-    # load-bearing fix #1. Surfaces every-session whether Andrew's
-    # corrections are being integrated or silently decaying.
     andrew_text = ""
-    try:
-        from divineos.core.andrew_correction_tracker import (
-            briefing_block as andrew_block,
-        )
-
-        andrew_text = andrew_block()
-    except Exception:  # noqa: BLE001 - observability boundary
-        pass
-    # Bypass-telemetry surface — Aletheia psf-ac523181 closure. Shows
-    # gate-bypass rate over the last 14 days so habituation is visible.
     bypass_text = ""
-    try:
-        from divineos.core.bypass_telemetry import (
-            briefing_block as bypass_block,
-        )
-
-        bypass_text = bypass_block()
-    except Exception:  # noqa: BLE001 - observability boundary
-        pass
     return "\n\n".join(
         t
         for t in (
@@ -550,6 +541,7 @@ def build_combined_context(prompt: str) -> str:
             consultation_text,
             debt_text,
             bypass_text,
+            lepos_check_text,
             baseline_text,
             warning_text,
         )
