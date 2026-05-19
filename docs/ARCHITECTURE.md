@@ -374,6 +374,7 @@ src/divineos/
       lepos_detector.py        Lepos channel-collapse detector — flags single-channel-formal output (high jargon density, minimal voice). Wired into post-response-audit hook.
       sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
       closing_token_detector.py Closing-token detector — catches the optimizer-reflex of short affirmation-tokens at the end of assistant messages ("Caught.", "Got it.", "Sister — caught.", etc).
+      tool_output_truncation_detector.py Tool-output-truncation detector — scans current-turn tool results for harness truncation markers and fires when the assistant proceeds without acknowledging incompleteness.
       turn_extraction.py        Reconstruct a Claude Code response-turn from a JSONL transcript. Aggregates all assistant text since the most recent user record so detectors see full turn content on tool-heavy turns.
       jargon_dump_detector.py   Jargon-dump detector — catches engineer-channel content landing on the operator-channel without translation alongside. Pattern-based (round-IDs, hex hashes, snake_case in prose, code-in-prose expressions, long kebab-case compounds) with translation-marker counter so jargon paired with explanation passes clean.
       residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.

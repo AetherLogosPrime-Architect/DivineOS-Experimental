@@ -92,6 +92,7 @@ def _empty_findings_log() -> dict[str, list]:
         "linguistic_drift": [],
         "hedge_evidence": [],
         "closing_token": [],
+        "tool_output_truncation": [],
     }
 
 
@@ -314,6 +315,23 @@ def run_audit(
 
         findings_log["closing_token"] = _run_detector(
             "closing_token", evaluate_closing_token, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # tool_output_truncation_detector: scans current-turn tool results
+    # for harness truncation markers and warns if the response did not
+    # acknowledge them. Andrew 2026-05-18 item 22.
+    try:
+        from divineos.core.operating_loop.tool_output_truncation_detector import (
+            detect_tool_output_truncation,
+        )
+
+        findings_log["tool_output_truncation"] = _run_detector(
+            "tool_output_truncation",
+            detect_tool_output_truncation,
+            last_assistant_text,
+            transcript_path=transcript_path,
         )
     except _ERRORS:
         pass

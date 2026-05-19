@@ -86,6 +86,7 @@ _DETECTORS = (
     ("spiral_detector", "detect_spiral"),
     ("substitution_detector", "detect_substitution"),
     ("sycophancy_detector", "detect_sycophancy"),
+    ("tool_output_truncation_detector", "detect_tool_output_truncation"),
 )
 
 
