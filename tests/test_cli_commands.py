@@ -252,7 +252,24 @@ class TestClaimCmd:
         assert "Claim filed" in result.output
 
     def test_claim_with_tier(self, initialized):
-        result = initialized.invoke(cli, ["claim", "Empirical claim", "--tier", "1"])
+        # Per outgoing-claim methodology gate (Andrew 2026-05-18 evening):
+        # tier 1-3 claims must carry --promotes / --demotes evidence or
+        # set the named-bypass env var. Test exercises the canonical
+        # path (provide methodology) so the gate passes and the assertion
+        # on tier-label-in-output holds.
+        result = initialized.invoke(
+            cli,
+            [
+                "claim",
+                "Empirical claim",
+                "--tier",
+                "1",
+                "--promotes",
+                "experimental confirmation of the claim",
+                "--demotes",
+                "experimental disconfirmation of the claim",
+            ],
+        )
         assert result.exit_code == 0
         assert "empirical" in result.output
 

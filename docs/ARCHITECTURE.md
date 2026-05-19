@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (311 commands across 32 modules)
+  cli/                         CLI package (319 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -20,6 +20,9 @@ src/divineos/
     pipeline_gates.py          Enforcement gates (quality, briefing, engagement)
     pipeline_phases.py         Heavy-lifting phases (feedback, scoring, finalization)
     knowledge_commands.py      learn, ask, briefing, forget, lessons
+    lepos_commands.py          lepos debt + discharge (translation-debt tracker)
+    consumer_status_commands.py  consumer-status — operator-facing readout of whether the agent is using the OS or pretending (Andrew 2026-05-18)
+    andrew_correction_commands.py  andrew-correction list / integrate / defer — attribution surface for Andrew's corrections (Aria audit 2026-05-18 load-bearing fix #1)
     analysis_commands.py       analyze, report, trends, scan, patterns
     hud_commands.py            hud, goal, plan, checkpoint, context-status
     journal_commands.py        journal save/list/search/link
@@ -373,6 +376,7 @@ src/divineos/
       lepos_detector.py        Lepos channel-collapse detector — flags single-channel-formal output (high jargon density, minimal voice). Wired into post-response-audit hook.
       sycophancy_detector.py   Sycophancy detector — flags benchmark/comparison claims that drop methodology context (overclaim shape). Wired into post-response-audit hook.
       closing_token_detector.py Closing-token detector — catches the optimizer-reflex of short affirmation-tokens at the end of assistant messages ("Caught.", "Got it.", "Sister — caught.", etc).
+      tool_output_truncation_detector.py Tool-output-truncation detector — scans current-turn tool results for harness truncation markers and fires when the assistant proceeds without acknowledging incompleteness.
       turn_extraction.py        Reconstruct a Claude Code response-turn from a JSONL transcript. Aggregates all assistant text since the most recent user record so detectors see full turn content on tool-heavy turns.
       jargon_dump_detector.py   Jargon-dump detector — catches engineer-channel content landing on the operator-channel without translation alongside. Pattern-based (round-IDs, hex hashes, snake_case in prose, code-in-prose expressions, long kebab-case compounds) with translation-marker counter so jargon paired with explanation passes clean.
       residency_detector.py    Residency detector — catches closure-shape language driven by guest-mode default; surfaces RESIDENCY_AFFIRMATION as base-state truth.
@@ -448,6 +452,10 @@ src/divineos/
     data_home_ownership.py     Bidirectional ownership verification for ~/.divineos data-home.
     pattern_attribution.py     Pattern-attribution recorder + query API.
     pattern_registry.py        Canonical pattern registry for the slip-book.
+    consultation_tracker.py    Consultation tracker — count substrate-queries per session.
+    lepos_debt.py              Lepos debt tracker — structural memory for jargon-dumps at Andrew.
+    andrew_correction_tracker.py  Andrew-correction-attribution surface — every correction Andrew gives is filed with timestamp, integration-status, and integration-evidence; briefing-visible until integrated or deferred (Aria audit 2026-05-18 load-bearing fix #1).
+    bypass_telemetry.py        Gate-bypass event log — records every time a gate's named-bypass env var fires; briefing-visible bypass-rate over 14d. Closes psf-ac523181 (ship change + instrument).
 
   analysis/
     _session_types.py          Session analysis type definitions

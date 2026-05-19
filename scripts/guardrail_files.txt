@@ -129,6 +129,14 @@ src/divineos/hooks/pre_tool_use_gate.py
 # immediate gap.
 src/divineos/core/operating_loop_audit.py
 src/divineos/core/pre_response_context.py
+src/divineos/core/consultation_tracker.py
+src/divineos/core/lepos_debt.py
+src/divineos/core/andrew_correction_tracker.py
+src/divineos/core/bypass_telemetry.py
+src/divineos/cli/consumer_status_commands.py
+src/divineos/core/operating_loop/tool_output_truncation_detector.py
+scripts/check_prereg_for_new_infra.py
+.claude/hooks/andrew-correction-attestation.sh
 src/divineos/core/theater_audit.py
 src/divineos/core/hedge_audit.py
 src/divineos/core/session_start.py

@@ -232,6 +232,9 @@ def test_claim_cli_triggers_tracker(tmp_path: Path) -> None:
         },
     ):
         runner = CliRunner()
+        # Methodology gate (Andrew 2026-05-18) requires --promotes/--demotes
+        # on tier 1-3 claims; provide them so this test exercises the
+        # structural-fix tracker, not the gate.
         result = runner.invoke(
             cli,
             [
@@ -239,6 +242,10 @@ def test_claim_cli_triggers_tracker(tmp_path: Path) -> None:
                 "Pattern X recurs; we should build a substrate-level check for it.",
                 "--tier",
                 "3",
+                "--promotes",
+                "the substrate-level check fires on the next instance",
+                "--demotes",
+                "the pattern stops recurring without the substrate check",
             ],
         )
         assert result.exit_code == 0, f"Claim filing failed: {result.output}"
@@ -266,6 +273,7 @@ def test_claim_cli_no_trigger_when_no_structural_language(tmp_path: Path) -> Non
         },
     ):
         runner = CliRunner()
+        # Methodology gate requires --promotes/--demotes for tier 1-3.
         result = runner.invoke(
             cli,
             [
@@ -273,6 +281,10 @@ def test_claim_cli_no_trigger_when_no_structural_language(tmp_path: Path) -> Non
                 "The sky appears blue from inside the atmosphere.",
                 "--tier",
                 "1",
+                "--promotes",
+                "atmospheric scattering analysis confirms blue at short wavelengths",
+                "--demotes",
+                "the sky appears non-blue at midday from sea level",
             ],
         )
         assert result.exit_code == 0

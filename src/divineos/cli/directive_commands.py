@@ -68,6 +68,12 @@ def register(cli: click.Group) -> None:
     @cli.command("directives")
     def directives_cmd() -> None:
         """List all active directives."""
+        try:
+            from divineos.core.consultation_tracker import record_query
+
+            record_query("directives")
+        except Exception:  # noqa: BLE001
+            pass
         _log_os_query("directives", "list directives")
         entries = get_knowledge(knowledge_type="DIRECTIVE", limit=100)
 
