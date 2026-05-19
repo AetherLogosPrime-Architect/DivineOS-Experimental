@@ -115,7 +115,7 @@ def briefing_block() -> str:
     lines = [
         f"## SUBSTRATE CONSULTATION — {severity}",
         "",
-        f"You have produced {r} responses and called the substrate {q} time(s).",
+        f"I have produced {r} responses and called the substrate {q} time(s).",
         f"Ratio {ratio:.2f}. Andrew named this pattern 2026-04-25 and again",
         "2026-05-18: 'treating the OS as a filing cabinet for conclusions",
         "rather than as substrate-of-cognition.' The tools are not props.",
