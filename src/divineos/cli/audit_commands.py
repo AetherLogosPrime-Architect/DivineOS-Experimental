@@ -776,6 +776,165 @@ def register(cli: click.Group) -> None:
             fg="cyan",
         )
 
+    @audit_group.command("prepare-merge")
+    @click.argument("round_id")
+    @click.option(
+        "--pr-title",
+        default=None,
+        help=(
+            "Optional PR title to include in the body. If omitted, the round's "
+            "focus is used as the title."
+        ),
+    )
+    def audit_prepare_merge_cmd(round_id: str, pr_title: str | None) -> None:
+        """Prepare a squash-merge commit message including the External-Review trailer.
+
+        Phase 1 of the audit-stamp-attachment structural fix (claim ae9d70c4,
+        prereg-d695c9060158). Validates that the audit round exists with both
+        actor=user and external-AI CONFIRMS findings, validates round age is
+        within the multi-party-review recency window, and outputs a ready-to-
+        paste GitHub squash-merge commit message body including the trailer.
+
+        Usage:
+            divineos audit prepare-merge <round-id> [--pr-title "..."]
+
+        Then in the GitHub squash-merge UI, paste the output into the commit
+        message field before clicking Merge. The CI multi-party-review check
+        will see the trailer and pass.
+
+        Phase 2 (deferred): GitHub Action that blocks merge when guardrail-
+        touching PR commits AND proposed message lacks trailer.
+        Phase 3 (deferred): substrate-aware merge tooling that auto-attaches
+        when a round is confirmed.
+        """
+        import time as _time
+
+        from divineos.core.watchmen.store import get_round, list_findings
+
+        rnd = get_round(round_id)
+        if rnd is None:
+            click.secho(
+                f"[!] Audit round '{round_id}' not found in Watchmen store.",
+                fg="red",
+            )
+            click.secho(
+                "    File one first: divineos audit submit-round '...' --actor user --source-ref <ref>",
+                fg="bright_black",
+            )
+            raise click.exceptions.Exit(1)
+
+        # Validate CONFIRMS coverage — same shape as
+        # check_multi_party_review.py's gate.
+        findings = list_findings(round_id=round_id, limit=500)
+        # External-AI actor set matches check_multi_party_review.py.
+        external_ai_actors = {
+            "grok",
+            "gemini",
+            "aletheia",
+            "claude-3.5-sonnet",
+            "claude-3-opus",
+            "claude-sonnet-4",
+            "claude-sonnet-4-5",
+            "claude-opus-4",
+            "claude-opus-4-1",
+        }
+
+        def _actor_of(f: object) -> str:
+            val = getattr(f, "actor", "") or ""
+            return str(val).lower()
+
+        def _is_confirm(f: object) -> bool:
+            stance = getattr(f, "review_stance", None)
+            if stance is None:
+                return True  # v1 pragmatic: existence = acknowledgement
+            val = getattr(stance, "value", stance)
+            return str(val).upper() == "CONFIRMS"
+
+        confirming = [f for f in findings if _is_confirm(f)]
+        user_confirms = [f for f in confirming if _actor_of(f) == "user"]
+        ai_confirms = [f for f in confirming if _actor_of(f) in external_ai_actors]
+
+        if not user_confirms:
+            click.secho(
+                f"[!] Round '{round_id}' has no CONFIRMS finding from actor=user.",
+                fg="red",
+            )
+            click.secho(
+                "    File one: divineos audit submit '...' --round "
+                + round_id
+                + " --actor user --severity info --category architecture -d '...'",
+                fg="bright_black",
+            )
+            raise click.exceptions.Exit(1)
+
+        if not ai_confirms:
+            click.secho(
+                f"[!] Round '{round_id}' has no CONFIRMS finding from an external-AI actor.",
+                fg="red",
+            )
+            click.secho(
+                "    Expected one of actor in: " + ", ".join(sorted(external_ai_actors)),
+                fg="bright_black",
+            )
+            raise click.exceptions.Exit(1)
+
+        # Validate recency. Use the same window as the gate (14 days).
+        _RECENCY_DAYS = 14
+        created_at = getattr(rnd, "created_at", None) or getattr(rnd, "timestamp", None) or 0
+        if isinstance(created_at, str):
+            try:
+                # ISO format fallback
+                import datetime as _dt
+
+                created_at = _dt.datetime.fromisoformat(
+                    created_at.replace("Z", "+00:00")
+                ).timestamp()
+            except Exception:  # noqa: BLE001
+                created_at = 0
+        age_days = (_time.time() - float(created_at)) / 86400.0 if created_at else 999.0
+        if age_days > _RECENCY_DAYS:
+            click.secho(
+                f"[!] Round '{round_id}' is {age_days:.1f} days old "
+                f"(recency window is {_RECENCY_DAYS} days).",
+                fg="red",
+            )
+            click.secho(
+                "    Stale rounds cannot authorize a new merge. File a fresh round.",
+                fg="bright_black",
+            )
+            raise click.exceptions.Exit(1)
+
+        # All validations pass. Compose the ready-to-paste message.
+        focus = getattr(rnd, "focus", "") or ""
+        title = pr_title or focus or f"PR using audit round {round_id}"
+
+        click.echo("=" * 70)
+        click.secho(
+            "READY-TO-PASTE squash-merge commit message body — copy below the line",
+            fg="green",
+            bold=True,
+        )
+        click.echo("=" * 70)
+        click.echo()
+        click.echo(title)
+        click.echo()
+        click.echo(
+            f"Reviewed via audit round {round_id} "
+            f"(operator-CONFIRMS + external-AI-CONFIRMS, age {age_days:.1f}d, "
+            f"within {_RECENCY_DAYS}d recency window)."
+        )
+        click.echo()
+        click.echo(f"External-Review: {round_id}")
+        click.echo()
+        click.echo("=" * 70)
+        click.secho(
+            "Paste the block above into the GitHub squash-merge commit message field.\n"
+            "The External-Review trailer satisfies the multi-party-review CI check.\n"
+            "Phase 1 helper per prereg-d695c9060158 — necessary but not sufficient.\n"
+            "Phase 2 (deferred): blocking GitHub Action when trailer missing.",
+            fg="cyan",
+        )
+
     @audit_group.command("list")
     @click.option("--round", "round_id", default=None, help="Filter by round")
     @click.option("--status", default=None, help="Filter by status")
