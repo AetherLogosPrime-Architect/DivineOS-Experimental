@@ -1,0 +1,136 @@
+name: Audit-Stamp Reminder
+
+# Audit-stamp Phase 2 per prereg-d695c9060158.
+#
+# Phase 1 (shipped): `divineos audit prepare-merge <round-id>` CLI helper
+# that validates a round and outputs the ready-to-paste squash-merge
+# message body including the External-Review trailer.
+#
+# Phase 2 (this workflow): pre-merge reminder via sticky PR comment.
+# Council walk consult-96d60f494a22 named that Phase 1 was necessary
+# but not sufficient (Schneier: operator can still just-not-run-the-
+# helper). This workflow adds the reminder that operator sees in the
+# PR UI before clicking Merge.
+#
+# What it does:
+#   - Runs on pull_request open/synchronize/reopened
+#   - Scans the PR's commit range for files in scripts/guardrail_files.txt
+#   - If any commit touches guardrail files, posts/updates a sticky
+#     comment on the PR with the helper command + paste instructions
+#   - If no commits touch guardrail files, removes any prior sticky
+#     comment (state cleanup)
+#
+# What it does NOT do:
+#   - Block the merge. Branch protection (operator-side GitHub setting)
+#     is the structural blocking layer; this workflow is the visibility
+#     layer that pairs with it.
+#   - Validate the audit-round actually exists or has CONFIRMS findings.
+#     That validation lives in the Phase 1 helper (run locally) and the
+#     Phase 1 push-readiness pre-push gate. CI's job is purely
+#     trailer-textual (Phase 1 of the original integrity-audit design).
+#
+# Phase 3 (deferred): substrate-aware merge tooling that auto-attaches
+# the trailer when an audit round is confirmed.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  reminder:
+    name: audit-stamp-reminder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out PR with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect guardrail-touching commits in PR
+        id: detect
+        shell: bash
+        run: |
+          set -e
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          # Load guardrail list (paths, ignoring comments + blanks).
+          GUARDRAIL_LIST="scripts/guardrail_files.txt"
+          if [ ! -f "$GUARDRAIL_LIST" ]; then
+            echo "guardrail_files=" >> "$GITHUB_OUTPUT"
+            echo "has_guardrail_touches=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Get changed files in PR
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA..$HEAD_SHA")
+
+          # Read guardrail paths (skip comments/blanks)
+          GUARDRAIL_PATHS=$(grep -v '^\s*#' "$GUARDRAIL_LIST" | grep -v '^\s*$' || true)
+
+          # Intersect
+          TOUCHED=""
+          for path in $GUARDRAIL_PATHS; do
+            if echo "$CHANGED_FILES" | grep -Fxq "$path"; then
+              TOUCHED="$TOUCHED $path"
+            fi
+          done
+
+          # Trim leading whitespace; normalize to comma-separated
+          TOUCHED=$(echo "$TOUCHED" | xargs | tr ' ' ',')
+
+          if [ -n "$TOUCHED" ]; then
+            echo "guardrail_files=$TOUCHED" >> "$GITHUB_OUTPUT"
+            echo "has_guardrail_touches=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "guardrail_files=" >> "$GITHUB_OUTPUT"
+            echo "has_guardrail_touches=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post or update sticky reminder comment
+        if: steps.detect.outputs.has_guardrail_touches == 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: audit-stamp-reminder
+          message: |
+            ## 📋 Audit-stamp reminder — guardrail-touching PR
+
+            This PR modifies guardrail files. The squash-merge commit on `main` must carry an `External-Review: <round-id>` trailer in its message, or the post-merge `Integrity Audit` check will fail and the commit will leave a permanent red badge on `main` (cannot be retroactively fixed without force-push).
+
+            **Files in this PR that touch the guardrail list:**
+
+            ```
+            ${{ steps.detect.outputs.guardrail_files }}
+            ```
+
+            **Before clicking "Squash and merge":**
+
+            1. File an audit round (or use an existing one with both CONFIRMS findings):
+               ```
+               divineos audit submit-round '...' --actor user --source-ref <ref>
+               # then file CONFIRMS findings via divineos audit submit
+               ```
+
+            2. Generate the ready-to-paste squash-merge message body:
+               ```
+               divineos audit prepare-merge <round-id>
+               ```
+               The helper validates the round (operator-CONFIRMS + external-AI-CONFIRMS + within 14d recency window) and emits a block of text including the `External-Review: <round-id>` trailer.
+
+            3. Paste the block into the GitHub squash-merge commit message field, then click "Confirm squash and merge".
+
+            **Why this matters:** the multi-party-review CI check looks for the trailer text in the merge commit message. Without it, the check fires red post-merge. The red is unrecoverable without force-pushing `main` (declined as too risky). Phase 1 helper + this reminder reduce the friction of doing it right; branch protection on `main` (operator-side GitHub setting) provides the actual blocking layer.
+
+            See `prereg-d695c9060158` for the structural-fix design.
+
+      - name: Remove sticky comment when no guardrail touches
+        if: steps.detect.outputs.has_guardrail_touches == 'false'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: audit-stamp-reminder
+          delete: true
