@@ -27,10 +27,11 @@ try:
 except Exception:
     sys.exit(0)
 prompt = data.get('prompt', '') if isinstance(data, dict) else ''
+transcript_path = data.get('transcript_path', '') if isinstance(data, dict) else ''
 
 try:
     from divineos.core.pre_response_context import build_combined_context
-    combined = build_combined_context(prompt)
+    combined = build_combined_context(prompt, transcript_path=transcript_path or None)
 except Exception:
     sys.exit(0)
 
