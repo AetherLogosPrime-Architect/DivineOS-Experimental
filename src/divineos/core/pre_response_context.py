@@ -480,7 +480,7 @@ def build_baseline_text() -> str:
     return "\n\n".join(sections)
 
 
-def build_combined_context(prompt: str) -> str:
+def build_combined_context(prompt: str, transcript_path: str | None = None) -> str:
     """Run all phases and return the combined additionalContext string.
 
     Convenience function for callers that want the full pre-response
@@ -519,6 +519,28 @@ def build_combined_context(prompt: str) -> str:
     except Exception:  # noqa: BLE001 - observability boundary
         pass
 
+    # Close-check (mirror-exit detector) — Andrew 2026-05-19,
+    # prereg-3c98174d7760. Reads the prior assistant turn via
+    # transcript_path; if close-shape signal detected, inject a close-
+    # check question into the upcoming pre-response context. Same
+    # option-forced architecture as the lepos channel check, fired
+    # conditionally on signal rather than every turn. YES/AND framing;
+    # the question requires content-aware evidence-cited answer.
+    close_check_text = ""
+    if transcript_path:
+        try:
+            from divineos.core.operating_loop.mirror_exit_detector import (
+                detect_mirror_exit,
+                format_close_check_block,
+            )
+            from divineos.core.operating_loop.turn_extraction import extract_turn
+
+            turn = extract_turn(transcript_path)
+            findings = detect_mirror_exit(turn.prior_assistant_text)
+            close_check_text = format_close_check_block(findings)
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
+
     # State blocks (lepos_debt, andrew-correction, consultation,
     # bypass-telemetry) are NOT loaded at UserPromptSubmit. They load
     # at PreToolUse for substrate-touching tools instead — see
@@ -541,6 +563,7 @@ def build_combined_context(prompt: str) -> str:
             consultation_text,
             debt_text,
             bypass_text,
+            close_check_text,
             lepos_check_text,
             baseline_text,
             warning_text,
