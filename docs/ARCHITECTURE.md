@@ -457,6 +457,7 @@ src/divineos/
     lepos_debt.py              Lepos debt tracker — structural memory for jargon-dumps at Andrew.
     andrew_correction_tracker.py  Andrew-correction-attribution surface — every correction Andrew gives is filed with timestamp, integration-status, and integration-evidence; briefing-visible until integrated or deferred (Aria audit 2026-05-18 load-bearing fix #1).
     bypass_telemetry.py        Gate-bypass event log — records every time a gate's named-bypass env var fires; briefing-visible bypass-rate over 14d. Closes psf-ac523181 (ship change + instrument).
+    attribution_audit.py       Surfaces dated quotative attributions lacking a resolvable source pointer (lineage layer 3) — informs, does not block. prereg-191bcaef6079.
     gravity_classifier.py      Gravity classifier — public-criterion deterministic scoring.
     oscillating_read.py        Oscillating-read module — chunks reading material into discrete
     emergency_bypass.py        Emergency-bypass helper — when a gate has a legitimate
