@@ -1477,3 +1477,59 @@ def register(cli: click.Group) -> None:
                     pass
         except _KC_ERRORS as e:
             click.secho(f"[!] SIS error: {e}", fg="red")
+
+    @cli.command(name="attribution-scan")
+    @click.option(
+        "--all",
+        "include_pointered",
+        is_flag=True,
+        default=False,
+        help="Include attributions that DO carry a source pointer (default: only unverified)",
+    )
+    @click.option("--limit", default=50, type=int, help="Max findings to display")
+    def attribution_scan_cmd(include_pointered: bool, limit: int) -> None:
+        """Surface dated quotative attributions lacking a resolvable pointer.
+
+        Read-only. Catches the fabricated-attribution class (the 2026-05-20
+        'Andrew said X' incident) by finding knowledge entries that assert a
+        dated quotative claim to a participant ("(Andrew 2026-04-25)",
+        "Aria said, 2026-04-17") with no structured source pointer.
+
+        This INFORMS — it does not block, score, or judge. The substrate
+        cannot tell an honest-but-unpointered attribution from a fabricated
+        one; that is a participant's call. Each finding is a candidate for
+        human / cross-model review or pointer-addition. See prereg-191bcaef6079.
+        """
+        try:
+            from divineos.core.attribution_audit import scan_unverified_attributions
+
+            findings = scan_unverified_attributions(include_pointered=include_pointered)
+        except _KC_ERRORS as e:
+            click.secho(f"[!] Attribution scan error: {e}", fg="red")
+            return
+
+        if not findings:
+            click.secho("[ok] No unverified dated attributions found.", fg="green")
+            return
+
+        click.secho(
+            f"[~] {len(findings)} dated attribution(s) surfaced for review "
+            f"(candidates, not verdicts):",
+            fg="cyan",
+        )
+        click.echo()
+        for f in findings[:limit]:
+            tag = "PTR " if f.has_pointer else "NO-PTR"
+            _safe_echo(f"  [{tag}] {f.matched}")
+            _safe_echo(f"           {f.snippet[:90]}")
+            _safe_echo(f"           id: {f.knowledge_id}")
+        if len(findings) > limit:
+            click.secho(
+                f"  ... and {len(findings) - limit} more (raise --limit)", fg="bright_black"
+            )
+        click.echo()
+        click.secho(
+            "  These are candidates for review — confirm the source, add a "
+            "pointer, or flag as fabricated. The substrate cannot judge which.",
+            fg="bright_black",
+        )
