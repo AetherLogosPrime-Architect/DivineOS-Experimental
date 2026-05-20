@@ -1524,7 +1524,9 @@ def register(cli: click.Group) -> None:
             _safe_echo(f"           {f.snippet[:90]}")
             _safe_echo(f"           id: {f.knowledge_id}")
         if len(findings) > limit:
-            click.secho(f"  ... and {len(findings) - limit} more (raise --limit)", fg="bright_black")
+            click.secho(
+                f"  ... and {len(findings) - limit} more (raise --limit)", fg="bright_black"
+            )
         click.echo()
         click.secho(
             "  These are candidates for review — confirm the source, add a "
