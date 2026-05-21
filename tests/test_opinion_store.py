@@ -1,5 +1,7 @@
 """Tests for the opinion store — structured judgments with evidence tracking."""
 
+import threading
+
 import pytest
 
 from divineos.core.opinion_store import (
@@ -152,3 +154,53 @@ class TestCountAndFormat:
         topics = [o["topic"] for o in high]
         assert "high_conf" in topics
         assert "low_conf" not in topics
+
+
+class TestConcurrentRaceSafety:
+    """Finding YY (Aletheia audit 2026-05-20): read-modify-write under
+    BEGIN IMMEDIATE so concurrent calls can't fork or lost-update.
+    """
+
+    def test_concurrent_store_same_topic_leaves_one_active(self):
+        topic = "the-contested-topic"
+        n = 6
+        barrier = threading.Barrier(n)
+
+        def worker(i: int) -> None:
+            barrier.wait()
+            store_opinion(topic, f"position variant {i} with enough words")
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Exactly one active opinion on the topic — no double-active fork.
+        active = get_opinions(topic=topic, active_only=True, limit=100)
+        assert len(active) == 1, [o["position"] for o in active]
+        # All n were stored; n-1 superseded.
+        history = get_opinion_history(topic)
+        assert len(history) == n
+
+    def test_concurrent_strengthen_no_lost_update(self):
+        oid = store_opinion("calibration", "starts at default confidence")
+        n = 5
+        boost = 0.05
+        barrier = threading.Barrier(n)
+
+        def worker() -> None:
+            barrier.wait()
+            strengthen_opinion(oid, "supporting evidence", boost=boost)
+
+        threads = [threading.Thread(target=worker) for _ in range(n)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        opinion = get_opinions(topic="calibration", limit=10)[0]
+        # No lost update: all n boosts applied (capped at 1.0). 0.7 + 5*0.05 = 0.95.
+        assert opinion["confidence"] == pytest.approx(min(1.0, 0.7 + n * boost))
+        assert opinion["revision_count"] == n
+        assert len(opinion["evidence_for"]) == n

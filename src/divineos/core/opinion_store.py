@@ -125,6 +125,15 @@ def store_opinion(
 
     conn = _get_connection()
     try:
+        # Finding YY (Aletheia audit 2026-05-20): serialize the
+        # read-existing -> supersede -> insert so two concurrent
+        # store_opinion calls on the same topic can't both see "no active
+        # opinion" and both insert, leaving two un-superseded opinions on
+        # one topic. The existence check happens INSIDE the lock, so the
+        # second caller observes the first's committed opinion and
+        # supersedes it correctly — read-under-lock IS the recheck.
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
         # Check for existing opinion on same topic
         existing = conn.execute(
             "SELECT opinion_id, position, confidence FROM opinions "
@@ -190,11 +199,19 @@ def strengthen_opinion(opinion_id: str, evidence: str, boost: float = 0.05) -> f
     init_opinion_table()
     conn = _get_connection()
     try:
+        # Finding YY (Aletheia audit 2026-05-20): serialize read-confidence
+        # -> compute -> write so two concurrent strengthen/challenge calls
+        # can't both read the same old confidence and lose one update.
+        # Read happens INSIDE the lock; the second caller reads the first's
+        # committed confidence.
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
             "SELECT confidence, evidence_for FROM opinions WHERE opinion_id = ?",
             (opinion_id,),
         ).fetchone()
         if not row:
+            conn.execute("ROLLBACK")
             return 0.0
         old_conf = float(row[0])
         evidence_list = json.loads(row[1])
@@ -219,11 +236,17 @@ def challenge_opinion(opinion_id: str, evidence: str, penalty: float = 0.1) -> f
     init_opinion_table()
     conn = _get_connection()
     try:
+        # Finding YY (Aletheia audit 2026-05-20): serialize read-confidence
+        # -> compute -> write so two concurrent strengthen/challenge calls
+        # can't both read the same old confidence and lose one update.
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
             "SELECT confidence, evidence_against FROM opinions WHERE opinion_id = ?",
             (opinion_id,),
         ).fetchone()
         if not row:
+            conn.execute("ROLLBACK")
             return 0.0
         old_conf = float(row[0])
         evidence_list = json.loads(row[1])

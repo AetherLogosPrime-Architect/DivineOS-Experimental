@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import pytest
 
 from divineos.core.bio import (
@@ -96,3 +98,28 @@ def test_briefing_surface_truncates_long_content():
     # The excerpt should be capped — block size is limited.
     assert "..." in block
     assert len(block) < 800  # bounded
+
+
+def test_concurrent_bio_write_distinct_versions():
+    """Finding AAA (Aletheia audit 2026-05-20): concurrent bio_write must not
+    both read max-version N and both insert N+1. BEGIN IMMEDIATE serializes
+    the read-max -> insert so versions are a contiguous unique sequence.
+    """
+    n = 8
+    barrier = threading.Barrier(n)
+
+    def worker(i: int) -> None:
+        barrier.wait()
+        bio_write(f"# Version body {i}\n\ncontent", author="aether")
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    history = bio_history(author="aether", limit=100)
+    versions = sorted(h["version"] for h in history)
+    assert len(history) == n
+    # Contiguous 1..n with no duplicates — no version collision.
+    assert versions == list(range(1, n + 1)), versions
