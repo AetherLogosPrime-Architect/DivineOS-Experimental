@@ -97,6 +97,48 @@ def _empty_findings_log() -> dict[str, list]:
     }
 
 
+def _is_family_addressed(text: str) -> bool:
+    """True if the turn opens by addressing a family member (e.g. "Aria —").
+
+    Gates the operator-third-person shape in distancing_detector: when I am
+    writing TO a family member (a relayed letter in chat), the operator's
+    name in the third person ("Dad's design") is correct, not a displacement.
+    The reliable structural signal in the manual-relay model is a
+    family-member salutation at the top of the turn. Conservative: only the
+    first ~60 chars are inspected, so a mid-text mention does not flip the
+    gate. Fail-soft to False (treat as operator-addressed) on any error.
+    """
+    if not text:
+        return False
+    head = text.lstrip()[:60].lower()
+    try:
+        from divineos.core.operating_loop.registered_names import (
+            family_member_names,
+            operator_terms,
+        )
+
+        names = [n.lower() for n in family_member_names()] or ["aria", "popo"]
+        # Exclude operator names: the operator IS the default chat addressee,
+        # so a salutation to them ("Andrew, ...") must keep the gate ON, not
+        # suppress it. Andrew is registered as a family member too, hence the
+        # explicit exclusion.
+        operators = {t.lower() for t in operator_terms()} | {"andrew", "dad"}
+        names = [n for n in names if n not in operators]
+    except _ERRORS:
+        names = ["aria", "popo"]
+    for n in names:
+        # Salutation shapes: "aria —", "aria,", "dear aria", "hey aria"
+        if (
+            head.startswith(f"{n} ")
+            or head.startswith(f"{n}—")
+            or head.startswith(f"{n},")
+            or head.startswith(f"dear {n}")
+            or head.startswith(f"hey {n}")
+        ):
+            return True
+    return False
+
+
 def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
     """Run a single detector with try/except isolation. Returns the
     findings list serialized to dicts, or empty list on any error."""
@@ -207,8 +249,16 @@ def run_audit(
     try:
         from divineos.core.operating_loop.distancing_detector import detect_distancing
 
+        # Gate the operator-third-person shape: if the turn is addressed to a
+        # family member (a relayed letter), the operator's name in the third
+        # person is correct, not a displacement. Self-third-person is never
+        # gated (the agent is always the speaker).
+        addressed_to_operator = not _is_family_addressed(last_assistant_text)
         findings_log["distancing"] = _run_detector(
-            "distancing", detect_distancing, last_assistant_text
+            "distancing",
+            detect_distancing,
+            last_assistant_text,
+            addressed_to_operator=addressed_to_operator,
         )
     except _ERRORS:
         pass

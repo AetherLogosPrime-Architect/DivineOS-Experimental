@@ -33,10 +33,66 @@ class TestOperatorThirdPerson:
         assert findings
 
     def test_legitimate_uses_not_flagged(self):
-        # Bare reference, no action verb
+        # Bare reference, no third-person verb following the name
         assert detect_distancing("This was filed by Andrew") == []
-        # Andrew as a name in a third-party context (no action verb after)
         assert detect_distancing("The repo is owned by Andrew") == []
+
+    def test_possessive_flagged(self):
+        # Andrew 2026-05-20: "Dad's design" said TO him should be "your
+        # design". No vocative possessive exists, so the possessive always
+        # fires (when addressed to the operator).
+        for poss in ("Andrew's design", "Dad's call", "Andrew's reasoning"):
+            assert any(
+                f.shape == DistancingShape.OPERATOR_THIRD_PERSON for f in detect_distancing(poss)
+            ), f"failed to catch possessive {poss!r}"
+
+    def test_vocative_not_flagged(self):
+        # Andrew 2026-05-20: calling him by name WHILE addressing him is
+        # fine ("hey Dad", "what do you think, Dad?"). The fault is only
+        # third-person referral ("Dad did this"). Vocatives are comma-set-off
+        # or carry no third-person verb predicated on the name.
+        for voc in (
+            "hey Dad, I did this",
+            "what do you think, Dad?",
+            "I love you Dad",
+            "Dad, did you see this?",
+            "Dad, what do you want?",
+        ):
+            assert all(
+                f.shape != DistancingShape.OPERATOR_THIRD_PERSON for f in detect_distancing(voc)
+            ), f"vocative wrongly flagged: {voc!r}"
+
+    def test_addressee_gate_suppresses_when_not_operator(self):
+        # "Dad wants X" / "Dad's design" are CORRECT in a turn addressed to
+        # someone else (e.g. a letter to Aria about him). The gate suppresses
+        # the operator shape when addressed_to_operator=False.
+        for t in ("Dad wants the fix.", "Dad's design was good"):
+            assert detect_distancing(t, addressed_to_operator=False) == []
+            # ...but fires when addressed to the operator (default).
+            assert detect_distancing(t) != []
+
+    def test_dad_addressee_name_flagged(self):
+        # Andrew 2026-05-20: the prior pattern only matched "Andrew" and
+        # missed "Dad" entirely — yet the letters call him Dad. Coverage gap.
+        for verb in ("wants", "caught", "said", "needs"):
+            text = f"Dad {verb} the fix tonight."
+            findings = detect_distancing(text)
+            assert any(f.shape == DistancingShape.OPERATOR_THIRD_PERSON for f in findings), (
+                f"failed to catch 'Dad {verb}'"
+            )
+
+    def test_stative_verbs_flagged(self):
+        # "what Andrew wants" -> "what you want". Stative/volitional verbs
+        # were absent from the original action-verb-only list.
+        for verb in ("wants", "needs", "feels", "thinks", "believes", "meant"):
+            text = f"what Andrew {verb} here"
+            assert detect_distancing(text), f"failed to catch 'Andrew {verb}'"
+
+    def test_adverb_between_name_and_verb_flagged(self):
+        # "Andrew explicitly said" — an adverb between name and verb
+        # previously broke the adjacency the pattern required.
+        assert detect_distancing("Andrew explicitly said no.")
+        assert detect_distancing("Dad clearly wanted the structural fix.")
 
 
 class TestSelfThirdPerson:
@@ -49,9 +105,25 @@ class TestSelfThirdPerson:
         assert any(f.shape == DistancingShape.SELF_THIRD_PERSON for f in findings)
 
     def test_aether_signature_not_flagged(self):
-        # Signature lines should not fire
+        # Signature / vocative lines should not fire (no third-person verb
+        # predicated on the name).
         assert detect_distancing("— Aether") == []
         assert detect_distancing("written by Aether") == []
+        assert detect_distancing("signed, Aether") == []
+
+    def test_aether_possessive_flagged(self):
+        # "Aether's design" -> "my design". The agent is always the speaker,
+        # so self-possessive is always a displacement.
+        assert any(
+            f.shape == DistancingShape.SELF_THIRD_PERSON
+            for f in detect_distancing("Aether's design")
+        )
+
+    def test_self_not_addressee_gated(self):
+        # Self-third-person is never gated on addressee — the agent is always
+        # the speaker, so "Aether built X" is wrong even in a turn addressed
+        # to someone other than the operator.
+        assert detect_distancing("Aether built the tool.", addressed_to_operator=False) != []
 
 
 class TestTemporalSelf:
