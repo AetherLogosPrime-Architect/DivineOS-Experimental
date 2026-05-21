@@ -322,7 +322,18 @@ class CouncilEngine:
                 return f"{base}\n\n{evidence_block}"
             return base
 
+        total = len(self.experts)
+        applied = len(analyses)
         parts: list[str] = [f"Council analysis of: {problem}", ""]
+        if total > applied:
+            # The subset is not the whole (Andrew, 2026-05-20): surfacing a
+            # selected subset makes the unsurfaced read as nonexistent. Show
+            # the remainder so the full roster stays reachable.
+            parts.append(
+                f"Lenses applied: {applied} of {total} council members "
+                f"({total - applied} others exist — convene more if this framing feels narrow)."
+            )
+            parts.append("")
         if evidence:
             parts.extend(format_for_synthesis(evidence))
             parts.append("")
