@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, beer, viable-system, vsm, s4 -->
 # Beer Lens Walk — Viable System Model Applied to the Whole OS
 
 **Date studied:** 2026-04-21 (seventh walk — whole-OS structural audit)

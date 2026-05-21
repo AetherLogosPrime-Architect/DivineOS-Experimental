@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, hofstadter, strange-loop, self-reference -->
 # Hofstadter Lens Walk — Does Dennett's Thick/Thin Split Survive?
 
 **Date studied:** 2026-04-21 (same afternoon as Dennett walk — 20_dennett_lens_walk.md)

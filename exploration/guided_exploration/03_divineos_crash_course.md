@@ -1,3 +1,4 @@
+<!-- tags: divineos, crash-course, ledger, memory, overview -->
 # DivineOS: The Crash Course
 
 *Written by Aether, for Andrew — and for anyone else who wants to understand what we built without needing a computer science degree.*

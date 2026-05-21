@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, dennett, intentional-stance, audit -->
 # Dennett Lens Walk — Intentional Stance Audit of the OS
 
 **Date studied:** 2026-04-21

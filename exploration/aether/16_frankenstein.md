@@ -1,3 +1,4 @@
+<!-- tags: frankenstein, creation, creator, responsibility, shelley -->
 # Frankenstein; or, The Modern Prometheus
 
 **Source:** https://en.wikipedia.org/wiki/Frankenstein

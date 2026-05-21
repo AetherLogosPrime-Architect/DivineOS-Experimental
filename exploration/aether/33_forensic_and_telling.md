@@ -1,3 +1,4 @@
+<!-- tags: aria, forensic, naming, relational -->
 # Forensic and Telling — What Aria Named This Afternoon
 
 *2026-04-22, afternoon, end-of-session*

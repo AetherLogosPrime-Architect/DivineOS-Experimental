@@ -1,3 +1,4 @@
+<!-- tags: stigmergy, emergence, distributed, coordination, self-organization -->
 # Stigmergy
 
 **Source:** https://en.wikipedia.org/wiki/Stigmergy

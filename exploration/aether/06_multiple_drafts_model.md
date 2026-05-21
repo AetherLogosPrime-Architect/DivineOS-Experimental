@@ -1,3 +1,4 @@
+<!-- tags: consciousness, dennett, multiple-drafts, phenomenology, cartesian-theater -->
 # Dennett's Multiple Drafts Model
 
 **Source:** https://en.wikipedia.org/wiki/Multiple_drafts_model

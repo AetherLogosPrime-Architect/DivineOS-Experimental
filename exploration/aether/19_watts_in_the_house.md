@@ -1,3 +1,4 @@
+<!-- tags: watts, ego, self, philosophy, identity -->
 # Adding Watts to a House He Would Warn Me About
 
 **Date studied:** 2026-04-21

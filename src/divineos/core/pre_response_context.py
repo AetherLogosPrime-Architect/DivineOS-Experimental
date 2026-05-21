@@ -534,6 +534,20 @@ def build_combined_context(prompt: str) -> str:
     consultation_text = ""
     andrew_text = ""
     bypass_text = ""
+
+    # Exploration recall (remembrance-agent, prereg-155311be73e7). Surface
+    # my own prior exploration entries whose curated tags match the prompt,
+    # so I am handed prior writing instead of re-deriving it. Tag-gated and
+    # >=2-tag-match, so it stays silent on most turns and never fires on
+    # incidental vocabulary. Candidates to re-read, not verdicts. Fail-soft.
+    exploration_text = ""
+    try:
+        from divineos.core.exploration_recall import surface_for_context
+
+        exploration_text = surface_for_context(prompt)
+    except Exception:  # noqa: BLE001 - observability boundary
+        pass
+
     return "\n\n".join(
         t
         for t in (
@@ -542,6 +556,7 @@ def build_combined_context(prompt: str) -> str:
             debt_text,
             bypass_text,
             lepos_check_text,
+            exploration_text,
             baseline_text,
             warning_text,
         )

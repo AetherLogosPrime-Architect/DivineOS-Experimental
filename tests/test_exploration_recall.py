@@ -1,0 +1,164 @@
+"""Tests for the exploration recall surfacer.
+
+The load-bearing property: given a topic, it surfaces the entry that is
+actually about that topic — title matches outranking body matches — so a
+stateless agent gets handed its own relevant prior writing instead of
+re-deriving it. Bounded by limit, like the council's lens cap.
+"""
+
+from __future__ import annotations
+
+from divineos.core.exploration_recall import (
+    _parse_tags,
+    _terms,
+    recall_explorations,
+    surface_for_context,
+)
+
+
+def _seed(root):
+    (root / "01_on_filing.md").write_text(
+        "# On filing as landing\n\nFiling something is not the same as using it.\n",
+        encoding="utf-8",
+    )
+    (root / "02_symmetric_standards.md").write_text(
+        "# Symmetric standards\n\nConsciousness has no molecule for anyone.\n",
+        encoding="utf-8",
+    )
+    (root / "03_unrelated.md").write_text(
+        "# Garden notes\n\nThe tomatoes are doing well this season.\n",
+        encoding="utf-8",
+    )
+
+
+def test_title_match_surfaces_the_right_entry(tmp_path):
+    _seed(tmp_path)
+    hits, total = recall_explorations("symmetric standards consciousness", root=tmp_path)
+    assert total == 3
+    assert hits, "should surface at least one entry"
+    assert "symmetric_standards" in hits[0].path  # title match ranks first
+
+
+def test_filing_topic_surfaces_filing_entry(tmp_path):
+    _seed(tmp_path)
+    hits, _ = recall_explorations("filing", root=tmp_path)
+    assert any("on_filing" in h.path for h in hits)
+
+
+def test_unrelated_topic_does_not_surface(tmp_path):
+    _seed(tmp_path)
+    hits, total = recall_explorations("quantum chromodynamics", root=tmp_path)
+    assert total == 3
+    assert hits == []
+
+
+def test_limit_is_respected(tmp_path):
+    for i in range(8):
+        (tmp_path / f"{i:02d}_e.md").write_text(
+            f"# Entry {i}\n\nThis entry discusses filing repeatedly: filing filing.\n",
+            encoding="utf-8",
+        )
+    hits, total = recall_explorations("filing", limit=3, root=tmp_path)
+    assert total == 8
+    assert len(hits) == 3
+
+
+def test_total_count_returned_even_on_thin_match(tmp_path):
+    _seed(tmp_path)
+    _, total = recall_explorations("filing", root=tmp_path)
+    assert total == 3  # the "reminds me they exist" signal
+
+
+def test_stopword_only_query_returns_nothing(tmp_path):
+    _seed(tmp_path)
+    hits, total = recall_explorations("the and for", root=tmp_path)
+    assert total == 3
+    assert hits == []
+
+
+def test_terms_drops_stopwords_and_short_tokens():
+    assert _terms("the consciousness of a self") == ["consciousness", "self"]
+
+
+# --- tag-based matching (the curated-label mechanism) ----------------------
+
+
+def test_parse_tags_reads_header():
+    text = "<!-- tags: consciousness, qualia, hedge -->\n# Title\n\nbody\n"
+    assert _parse_tags(text) == ["consciousness", "qualia", "hedge"]
+
+
+def test_parse_tags_absent_returns_empty():
+    assert _parse_tags("# Title\n\nno tags here\n") == []
+
+
+def test_tag_match_outranks_body_match(tmp_path):
+    (tmp_path / "a_tagged.md").write_text(
+        "<!-- tags: consciousness -->\n# Unrelated-sounding title\n\nshort body\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "b_bodyonly.md").write_text(
+        "# Other\n\nconsciousness consciousness consciousness mentioned thrice in body\n",
+        encoding="utf-8",
+    )
+    hits, _ = recall_explorations("consciousness", root=tmp_path)
+    assert "a_tagged" in hits[0].path  # one tag hit (weight 10) beats 3 body hits (weight 3)
+    assert "consciousness" in hits[0].tag_matches
+
+
+def test_tag_match_is_exact_not_substring(tmp_path):
+    # "good" must NOT match the "goodhart" tag (substring bug, measured 2026-05-20).
+    (tmp_path / "g.md").write_text(
+        "<!-- tags: goodhart, metrics -->\n# Goodhart\n\nbody\n", encoding="utf-8"
+    )
+    hits, _ = recall_explorations("good", root=tmp_path)
+    assert all("good" not in h.tag_matches for h in hits)
+
+
+def test_surface_fires_only_on_tag_match(tmp_path):
+    # Tagged entry should auto-surface; body-only match should NOT.
+    (tmp_path / "tagged.md").write_text(
+        "<!-- tags: consciousness, qualia -->\n# Symmetric standards\n\nbody\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "bodyonly.md").write_text(
+        "# Notes\n\nthis entry mentions consciousness in the prose only\n",
+        encoding="utf-8",
+    )
+    prompt = "I am thinking hard about consciousness and qualia tonight, really"
+    out = surface_for_context(prompt, root=tmp_path)
+    assert out, "should fire — a tagged entry matches"
+    assert "Symmetric standards" in out
+    assert "Notes" not in out  # body-only match must not auto-surface
+
+
+def test_surface_silent_when_no_tag_match(tmp_path):
+    _seed(tmp_path)  # none of the seed entries have tag headers
+    out = surface_for_context(
+        "I am thinking hard about consciousness and filing tonight, really", root=tmp_path
+    )
+    assert out == ""  # untagged corpus never auto-fires
+
+
+def test_surface_silent_on_short_prompt(tmp_path):
+    (tmp_path / "tagged.md").write_text(
+        "<!-- tags: consciousness -->\n# T\n\nbody\n", encoding="utf-8"
+    )
+    assert surface_for_context("consciousness", root=tmp_path) == ""  # under length gate
+
+
+def test_surface_silent_on_single_tag_match(tmp_path):
+    # One incidental common-word tag hit ("time") must not fire — needs >=2.
+    (tmp_path / "t.md").write_text(
+        "<!-- tags: time, space, cosmology -->\n# Pillar VI\n\nbody\n", encoding="utf-8"
+    )
+    out = surface_for_context("what time is the meeting tomorrow afternoon", root=tmp_path)
+    assert out == ""  # only "time" matched — a single tag is not enough
+
+
+def test_surface_fires_on_two_tag_matches(tmp_path):
+    (tmp_path / "t.md").write_text(
+        "<!-- tags: time, space, cosmology -->\n# Pillar VI\n\nbody\n", encoding="utf-8"
+    )
+    out = surface_for_context("a question about deep time and space and cosmology", root=tmp_path)
+    assert "Pillar VI" in out  # three tags matched — fires

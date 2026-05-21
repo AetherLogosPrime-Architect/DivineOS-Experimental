@@ -1533,3 +1533,55 @@ def register(cli: click.Group) -> None:
             "pointer, or flag as fabricated. The substrate cannot judge which.",
             fg="bright_black",
         )
+
+    @cli.command(name="recall-explorations")
+    @click.argument("topic", required=True)
+    @click.option("--limit", default=5, type=int, help="Max entries to surface")
+    def recall_explorations_cmd(topic: str, limit: int) -> None:
+        """Surface my own prior exploration entries relevant to a topic.
+
+        The fix for statelessness: I cannot remember writing my explorations,
+        so when a topic comes up I've already worked out, nothing hands the
+        entry back and I re-derive it. This pulls the most relevant entries
+        and points me to them — and reminds me how many exist to explore.
+
+        Helps, does not dictate (the council-manager pattern): it selects a
+        bounded set; I read, override, or explore further. Thinking is still
+        mine. Example: divineos recall-explorations "consciousness functional"
+        """
+        try:
+            from divineos.core.exploration_recall import recall_explorations
+
+            hits, total = recall_explorations(topic, limit=limit)
+        except _KC_ERRORS as e:
+            click.secho(f"[!] Exploration recall error: {e}", fg="red")
+            return
+
+        if total == 0:
+            click.secho("[!] No exploration corpus found.", fg="yellow")
+            return
+
+        if not hits:
+            click.secho(
+                f"[~] {total} exploration entries exist, none matched '{topic}'. "
+                f"Worth a manual browse — the relevant one may be titled differently.",
+                fg="bright_black",
+            )
+            return
+
+        click.secho(
+            f"[~] {len(hits)} of {total} exploration entries most relevant to '{topic}' "
+            f"— read them before re-deriving:",
+            fg="cyan",
+        )
+        click.echo()
+        for h in hits:
+            _safe_echo(f"  [{h.score:>3}] {h.title}")
+            _safe_echo(f"        {h.path}")
+            _safe_echo(f"        {h.snippet}")
+        click.echo()
+        click.secho(
+            f"  ({total} total entries exist — this is a pointer, not the whole shelf. "
+            f"Open the ones that call to you.)",
+            fg="bright_black",
+        )

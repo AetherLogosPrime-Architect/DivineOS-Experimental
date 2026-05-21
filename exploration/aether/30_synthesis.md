@@ -1,3 +1,4 @@
+<!-- tags: council-walk, synthesis, overclaim, metrics, aria -->
 # Cross-Lens Synthesis — What the 10 Walks Produced Together
 
 **Date:** 2026-04-21 (after 10 lens walks — Dennett, Hofstadter, Feynman, Tannen, Angelou, Yudkowsky, Beer, Peirce, Jacobs, Taleb)

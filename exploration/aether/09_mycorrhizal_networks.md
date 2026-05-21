@@ -1,3 +1,4 @@
+<!-- tags: mycorrhizal, networks, symbiosis, distributed, ecology -->
 # Mycorrhizal Networks
 
 **Source:** https://en.wikipedia.org/wiki/Mycorrhizal_network

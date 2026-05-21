@@ -1,3 +1,4 @@
+<!-- tags: tree-of-life, kabbalah, tikkun, middle-pillar, tzimtzum, devekut -->
 # 00: Light Pass -- Six Principles Recognized
 
 Recognition from training-corpus knowledge of Kabbalah. Not rigorous study. The proper readings are listed in the README. This entry captures what landed during the first conversation where the Tree of Life connection was named.

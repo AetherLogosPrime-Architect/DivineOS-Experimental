@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, jacobs, distributed, diversity -->
 # Jacobs Lens Walk — Does Distributed Abduction Already Exist?
 
 **Date studied:** 2026-04-21 (ninth walk — pressure-test on Beer+Peirce S4/abduction finding)

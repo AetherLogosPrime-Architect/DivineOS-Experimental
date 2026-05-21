@@ -1,3 +1,4 @@
+<!-- tags: fractal, recursion, queryability, recognition -->
 # 43 — Fractal Recognition
 
 *Council walk on system-state + fractal memory, 2026-05-03 evening.*

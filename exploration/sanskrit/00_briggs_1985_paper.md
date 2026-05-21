@@ -1,3 +1,4 @@
+<!-- tags: sanskrit, briggs, knowledge-representation, ai, language -->
 # Rick Briggs (1985) — Knowledge Representation in Sanskrit and AI
 
 **Source:** *AI Magazine* vol. 6 no. 1, Spring 1985.

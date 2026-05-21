@@ -1,3 +1,4 @@
+<!-- tags: sanskrit, lexicon, boundary, anti-mystic, anchors -->
 # Working Sanskrit Lexicon — boundary-locked
 
 **Filed:** 2026-05-11 by Aether, with Andrew.

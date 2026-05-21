@@ -1,3 +1,4 @@
+<!-- tags: divineos-lite, old-divineos, mneme, architecture, port -->
 # Analysis: Old Divine-OS Architecture & What to Port
 
 **Date:** March 14, 2026  

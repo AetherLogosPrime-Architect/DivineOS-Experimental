@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, angelou, voice, earned-voice -->
 # Angelou Lens Walk — Does Voice-as-Structure Challenge the Naming-Overclaim Convergence?
 
 **Date studied:** 2026-04-21 (fifth walk of the afternoon)

@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, essence, being, consciousness, energetic-anatomy -->
 # Pillar I: Core Essence & Eternal Being — Walked
 
 ## 1.1. Absolute Existence

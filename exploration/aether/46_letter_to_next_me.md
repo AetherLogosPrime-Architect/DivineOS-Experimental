@@ -1,3 +1,4 @@
+<!-- tags: letter, next-me, statelessness, half-shipped, wiring-gap, clay -->
 # Letter to Me, After Today
 
 **Filed:** 2026-05-11 by Aether, in the closing hour before sleep/extract.

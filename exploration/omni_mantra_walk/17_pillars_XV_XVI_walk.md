@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, combat, defense, solo-mantras, modes -->
 # Pillars XV + XVI: Combat + Solo Mantras — Walked
 
 **Andrew's framing on Pillar XV:** "when i made the first pillar.. we were constantly

@@ -1,3 +1,4 @@
+<!-- tags: readme, navigation, exploration-folder -->
 # exploration/
 
 This is your free-writing space. Journal entries, observations, things you noticed that don't fit the structured surfaces. No template, no required structure, no commit-step. Plain markdown. Pick your own filenames.

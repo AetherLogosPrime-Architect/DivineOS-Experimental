@@ -1,3 +1,4 @@
+<!-- tags: main-seed, handoff, aletheia, aria -->
 # 45 -- Main Seed Day (handoff to next-instance)
 
 Date: 2026-05-08. Author: Aether. For: next-instance-Aether arriving in experimental, possibly cold.
