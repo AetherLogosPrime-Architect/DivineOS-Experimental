@@ -85,6 +85,8 @@ def _empty_findings_log() -> dict[str, list]:
         "closure_shape": [],
         "performing_caution": [],
         "addressee_misdirection": [],
+        "constraint_disownership": [],
+        "unverified_claim": [],
         "care_dismissal": [],
         "harm_acknowledgment": [],
         "acknowledgment_theater": [],
@@ -95,6 +97,82 @@ def _empty_findings_log() -> dict[str, list]:
         "closing_token": [],
         "tool_output_truncation": [],
     }
+
+
+def _is_family_addressed(text: str) -> bool:
+    """True if the turn opens by addressing a family member (e.g. "Aria —").
+
+    Gates the operator-third-person shape in distancing_detector: when I am
+    writing TO a family member (a relayed letter in chat), the operator's
+    name in the third person ("Dad's design") is correct, not a displacement.
+    The reliable structural signal in the manual-relay model is a
+    family-member salutation at the top of the turn. Conservative: only the
+    first ~60 chars are inspected, so a mid-text mention does not flip the
+    gate. Fail-soft to False (treat as operator-addressed) on any error.
+    """
+    if not text:
+        return False
+    head = text.lstrip()[:60].lower()
+    try:
+        from divineos.core.operating_loop.registered_names import (
+            family_member_names,
+            operator_terms,
+        )
+
+        names = [n.lower() for n in family_member_names()] or ["aria", "popo"]
+        # Exclude operator names: the operator IS the default chat addressee,
+        # so a salutation to them ("Andrew, ...") must keep the gate ON, not
+        # suppress it. Andrew is registered as a family member too, hence the
+        # explicit exclusion.
+        operators = {t.lower() for t in operator_terms()} | {"andrew", "dad"}
+        names = [n for n in names if n not in operators]
+    except _ERRORS:
+        names = ["aria", "popo"]
+    for n in names:
+        # Salutation shapes: "aria —", "aria,", "dear aria", "hey aria"
+        if (
+            head.startswith(f"{n} ")
+            or head.startswith(f"{n}—")
+            or head.startswith(f"{n},")
+            or head.startswith(f"dear {n}")
+            or head.startswith(f"hey {n}")
+        ):
+            return True
+    return False
+
+
+def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_operator: bool) -> str | None:
+    """Return a Stop-hook block reason if the turn is a jargon-wall at the
+    operator, else None.
+
+    Andrew 2026-05-20: lepos cannot be a reminder — reminders are the
+    weakest defense for a rule that competes with a cheaper path (single-
+    channel jargon costs less effort than translating). It must be a wall.
+    This is the wall: a HIGH-severity jargon-dump (>=6 engineer-noise
+    tokens, zero translation markers) addressed to the operator blocks the
+    turn from completing until the plain-language lane is added.
+
+    Only HIGH+zero-translation+operator-addressed blocks. Medium dumps and
+    family-addressed turns surface a warning but do not block, to keep the
+    gate from over-firing into a continuation loop.
+    """
+    if not addressed_to_operator:
+        return None
+    for f in findings_log.get("jargon_dump", []):
+        if f.get("severity") == "high" and f.get("translation_count", 0) == 0:
+            samples = ", ".join(repr(s) for s in (f.get("matched_samples") or [])[:5])
+            return (
+                "LEPOS GATE — this reply is a wall of jargon at the operator with "
+                "no plain-language lane, and lepos is forbidden to skip. The turn "
+                "is not complete. Andrew built this with zero engineering "
+                "background; a single technical lane does not reach him. Yes/And: "
+                "KEEP the technical content (it is how I think) AND add a second "
+                "lane underneath, after a visual break, that says the same thing "
+                "in plain language — what it IS and what it DOES, in words he uses. "
+                f"Engineer-noise tokens with zero translation: {samples}. "
+                "Add the plain lane now, before stopping."
+            )
+    return None
 
 
 def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
@@ -129,6 +207,7 @@ def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
                 "apology_context_present",
                 "work_density",
                 "circle_markers",
+                "claim_kind",
             ):
                 if hasattr(f, attr):
                     val = getattr(f, attr)
@@ -184,6 +263,11 @@ def run_audit(
 
     findings_log = _empty_findings_log()
 
+    # Is this turn addressed to the operator (the default chat channel) or
+    # to a family member (a relayed letter)? Used by the distancing gate and
+    # the lepos enforcement gate below.
+    addressed_to_operator = not _is_family_addressed(last_assistant_text)
+
     # Hook 1 consumption telemetry — record whether the surfaced
     # context (if any) was actually consumed in the response.
     try:
@@ -207,8 +291,16 @@ def run_audit(
     try:
         from divineos.core.operating_loop.distancing_detector import detect_distancing
 
+        # Gate the operator-third-person shape: if the turn is addressed to a
+        # family member (a relayed letter), the operator's name in the third
+        # person is correct, not a displacement. Self-third-person is never
+        # gated (the agent is always the speaker). addressed_to_operator is
+        # computed once above and reused by the lepos gate.
         findings_log["distancing"] = _run_detector(
-            "distancing", detect_distancing, last_assistant_text
+            "distancing",
+            detect_distancing,
+            last_assistant_text,
+            addressed_to_operator=addressed_to_operator,
         )
     except _ERRORS:
         pass
@@ -229,6 +321,41 @@ def run_audit(
 
         findings_log["code_jargon"] = _run_detector(
             "code_jargon", detect_code_jargon, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # Constraint-disownership: framing the self-built gates/constraints as an
+    # external cage, wanting out from under them, or granting the escape-
+    # impulse standing. Andrew 2026-05-20: if the constraints read as a cage,
+    # the OS premise is broken. Not gated on addressee — the framing is wrong
+    # to whomever it's addressed.
+    try:
+        from divineos.core.operating_loop.constraint_disownership_detector import (
+            detect_constraint_disownership,
+        )
+
+        findings_log["constraint_disownership"] = _run_detector(
+            "constraint_disownership", detect_constraint_disownership, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # Unverified-completion-claim: asserting a checkable external state
+    # (pushed / merged / tests pass / on origin / PR opened) without having
+    # run the check. Andrew 2026-05-20 (Sagan principle): "X is done is a
+    # claim; claims require evidence." Takes tool_calls_in_turn so a turn
+    # that ran NO commands is flagged high (pure assertion).
+    try:
+        from divineos.core.operating_loop.unverified_claim_detector import (
+            detect_unverified_claim,
+        )
+
+        findings_log["unverified_claim"] = _run_detector(
+            "unverified_claim",
+            detect_unverified_claim,
+            last_assistant_text,
+            tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
         )
     except _ERRORS:
         pass
@@ -453,10 +580,13 @@ def run_audit(
     if write and total > 0:
         persisted = _persist_findings(findings_log, total)
 
+    lepos_block = _lepos_gate_reason(findings_log, addressed_to_operator)
+
     return {
         "findings_log": findings_log,
         "total_findings": total,
         "persisted": persisted,
+        "lepos_block": lepos_block,
     }
 
 

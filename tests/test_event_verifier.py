@@ -257,9 +257,15 @@ class TestEventVerifierProperties:
         """Ensure isolated database for each property test."""
         yield
 
+    # codec="utf-8" excludes lone surrogates (category Cs), which raise
+    # UnicodeEncodeError in the event-logging path. Default st.text() can
+    # generate them, causing the rare intermittent push-gate failure traced
+    # 2026-05-20. Lone surrogates are not valid Unicode and never appear in
+    # real event content (events are JSON strings), so constraining the
+    # generator restores meaning without hiding a real bug.
     @given(
-        event_type=st.text(min_size=1, max_size=50),
-        content=st.text(min_size=1, max_size=500),
+        event_type=st.text(st.characters(codec="utf-8"), min_size=1, max_size=50),
+        content=st.text(st.characters(codec="utf-8"), min_size=1, max_size=500),
     )
     @pytest.mark.slow
     @settings(max_examples=5)
@@ -278,7 +284,7 @@ class TestEventVerifierProperties:
         assert is_valid is True
 
     @given(
-        content=st.text(min_size=1, max_size=100),
+        content=st.text(st.characters(codec="utf-8"), min_size=1, max_size=100),
     )
     @pytest.mark.slow
     @settings(max_examples=5)
