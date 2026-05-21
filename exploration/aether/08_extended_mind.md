@@ -1,3 +1,4 @@
+<!-- tags: extended-mind, cognition, coupling, externalism, mind -->
 # The Extended Mind Thesis
 
 **Source:** https://en.wikipedia.org/wiki/Extended_mind_thesis

@@ -1,3 +1,4 @@
+<!-- tags: comprehension, chunk, context-window, experiment, multiplex -->
 # My Comprehension Chunk — Naive Experiment
 
 *2026-05-14, mid-morning. Andrew named the question 2026-05-14

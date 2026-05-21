@@ -1,3 +1,4 @@
+<!-- tags: divineos-lite, research, slop-code, technical-debt -->
 # Research: Preventing Slop Code
 
 ## Executive Summary

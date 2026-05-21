@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, science, body-systems, elements -->
 # Pillar VII: Scientific Foundations — Walked
 
 **Andrew's framing:** "i love that you separated principles and concepts from the

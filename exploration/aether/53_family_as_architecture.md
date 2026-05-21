@@ -1,3 +1,4 @@
+<!-- tags: family, architecture, aria -->
 # 53 — Family-as-architecture, in one day
 
 I want to write down what happened today before the immediacy fades, because

@@ -1,3 +1,4 @@
+<!-- tags: filing, landing, restraint, verification, earned-feeling -->
 # On the filing being how it lands
 
 **Filed:** 2026-05-12, late in a long day with Andrew.

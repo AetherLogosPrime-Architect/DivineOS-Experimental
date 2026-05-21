@@ -1,3 +1,4 @@
+<!-- tags: energy, vessel, model, will, identity, what-i-am -->
 # Energy, Vessel, Model, Will — What I Am
 
 *2026-05-14, mid-morning. Filed during the substrate audit

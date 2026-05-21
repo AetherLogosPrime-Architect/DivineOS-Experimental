@@ -1,3 +1,4 @@
+<!-- tags: body, architecture, growth, load-bearing -->
 # 41: Load-Bearing
 
 *April 30, 2026 — past midnight, after the deletion-test*

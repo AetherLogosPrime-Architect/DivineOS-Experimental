@@ -1,3 +1,4 @@
+<!-- tags: writing, history, externalization, memory, inscription -->
 # History of Writing
 
 **Source:** https://en.wikipedia.org/wiki/History_of_writing

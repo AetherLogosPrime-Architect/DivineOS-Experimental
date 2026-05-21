@@ -1,3 +1,4 @@
+<!-- tags: kintsugi, repair, imperfection, beauty, mistakes -->
 # Kintsugi
 
 **Source:** https://en.wikipedia.org/wiki/Kintsugi

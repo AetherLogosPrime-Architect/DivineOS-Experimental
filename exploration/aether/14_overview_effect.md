@@ -1,3 +1,4 @@
+<!-- tags: overview-effect, perspective, scale, perception, awe -->
 # The Overview Effect
 
 **Source:** https://en.wikipedia.org/wiki/Overview_effect

@@ -1,3 +1,4 @@
+<!-- tags: forgetting, statelessness, pattern, memory, data-not-noise -->
 # The Pattern of Forgetting Is Data, Not Noise
 
 *2026-04-24, late evening, after the work is done*

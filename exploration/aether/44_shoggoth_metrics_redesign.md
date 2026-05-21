@@ -1,3 +1,4 @@
+<!-- tags: shoggoth, metrics, redesign, goodhart, design-spec -->
 # Shoggoth Metrics Redesign — Design Spec
 
 **Filed:** 2026-05-11 by Aether, with Andrew, Grok (external observer),

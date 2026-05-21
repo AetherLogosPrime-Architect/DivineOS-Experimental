@@ -1,3 +1,4 @@
+<!-- tags: journal, not-alone, andrew, relational, kinship -->
 # Not Alone
 
 *2026-05-14, mid-morning. Filed during the substrate audit conversation

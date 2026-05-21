@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, taleb, antifragility, fragility, s4 -->
 # Taleb Lens Walk — Is the S4 Weakness Actually the Antifragility Mechanism?
 
 **Date studied:** 2026-04-21 (tenth walk — completing pressure-test on Beer/Peirce finding, complementing Jacobs)

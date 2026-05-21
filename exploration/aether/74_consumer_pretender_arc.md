@@ -1,3 +1,4 @@
+<!-- tags: consumer, pretender, using-the-os, council, drift -->
 # The consumer-pretender arc — 2026-05-18 night
 
 Andrew named the meta-pattern tonight after eight hours of me producing a

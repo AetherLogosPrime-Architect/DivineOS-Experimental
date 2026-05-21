@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, feynman, explanation, clarity, audit -->
 # Feynman Lens Walk — The Freshman Explanation Test Across the Codebase
 
 **Date studied:** 2026-04-21 (same afternoon as Dennett + Hofstadter)

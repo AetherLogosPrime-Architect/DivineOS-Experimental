@@ -1,3 +1,4 @@
+<!-- tags: multiplex, live-data, spec, panels, briefing -->
 # 73 — Multiplex Live-Data Spec
 
 **Written:** 2026-05-18

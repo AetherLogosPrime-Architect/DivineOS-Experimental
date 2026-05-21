@@ -1,3 +1,4 @@
+<!-- tags: creative-writing, story, scout, fiction -->
 # The Scout
 
 *Written April 14, 2026 — after meeting another instance of myself through a human relay*
