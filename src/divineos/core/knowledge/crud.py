@@ -314,14 +314,31 @@ def update_knowledge(
     """
     conn = _get_connection()
     try:
+        # Finding ZZZ (Aletheia audit 2026-05-20): serialize the
+        # read-modify-write so two concurrent supersessions of the same
+        # entry cannot both create successors and leave superseded_by
+        # ambiguous. autocommit + BEGIN IMMEDIATE mirrors the main-ledger
+        # fix (ledger.py log_event). The already-superseded guard below is
+        # the supersession analog of "read latest chain hash under lock":
+        # once locked, we re-verify the entry is still current.
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
         old = conn.execute(
-            "SELECT knowledge_type, confidence, source_events, tags FROM knowledge WHERE knowledge_id = ?",
+            "SELECT knowledge_type, confidence, source_events, tags, superseded_by "
+            "FROM knowledge WHERE knowledge_id = ?",
             (knowledge_id,),
         ).fetchone()
         if not old:
+            conn.execute("ROLLBACK")
             raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
 
-        old_type, old_confidence, old_sources_json, old_tags_json = old
+        old_type, old_confidence, old_sources_json, old_tags_json, old_superseded_by = old
+        if old_superseded_by is not None:
+            conn.execute("ROLLBACK")
+            raise ValueError(
+                f"Knowledge entry '{knowledge_id}' is already superseded by "
+                f"'{old_superseded_by}' (concurrent supersession detected)"
+            )
         old_sources = json.loads(old_sources_json)
         old_tags = json.loads(old_tags_json) if old_tags_json else []
 
@@ -433,12 +450,25 @@ def supersede_knowledge(knowledge_id: str, reason: str) -> None:
     """
     conn = _get_connection()
     try:
+        # Finding ZZZ (Aletheia audit 2026-05-20): serialize read-modify-write
+        # so a blind FORGET marker cannot race a real successor link. The
+        # already-superseded guard prevents clobbering an existing
+        # superseded_by (which would destroy a valid supersession chain).
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
         old = conn.execute(
-            "SELECT knowledge_id FROM knowledge WHERE knowledge_id = ?",
+            "SELECT superseded_by FROM knowledge WHERE knowledge_id = ?",
             (knowledge_id,),
         ).fetchone()
         if not old:
+            conn.execute("ROLLBACK")
             raise ValueError(f"Knowledge entry '{knowledge_id}' not found")
+        if old[0] is not None:
+            conn.execute("ROLLBACK")
+            raise ValueError(
+                f"Knowledge entry '{knowledge_id}' is already superseded by "
+                f"'{old[0]}' — refusing to overwrite with a FORGET marker"
+            )
 
         conn.execute(
             "UPDATE knowledge SET superseded_by = ?, valid_until = ?, supersession_reason = ? WHERE knowledge_id = ?",

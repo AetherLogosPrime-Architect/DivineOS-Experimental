@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from unittest.mock import patch
 
 import pytest
@@ -172,3 +173,37 @@ class TestMainLedgerPointer:
         with patch("divineos.core.ledger.log_event", side_effect=RuntimeError("no main")):
             # Must not raise.
             void_ledger.write_main_ledger_pointer("fid", "hash")
+
+
+class TestConcurrentAppendDoesNotFork:
+    """Finding CCCC (Aletheia audit 2026-05-20): concurrent appenders must not
+    both chain off the same prev_hash. BEGIN IMMEDIATE serializes the write,
+    ts-inside-lock + rowid tiebreak keep chain-order == insertion-order.
+    """
+
+    def test_threaded_appends_keep_chain_intact(self, void_db) -> None:
+        n_threads = 8
+        per_thread = 6
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()
+            for i in range(per_thread):
+                void_ledger.append_event("VOID_TEST", {"tid": tid, "i": i}, path=void_db)
+
+        threads = [threading.Thread(target=worker, args=(t,)) for t in range(n_threads)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+
+        total = n_threads * per_thread
+        with void_ledger.connect(path=void_db) as conn:
+            priors = [r[0] for r in conn.execute("SELECT prev_hash FROM void_events")]
+        assert len(priors) == total
+        # No two events share a prev_hash (genesis None excluded) = no fork.
+        non_genesis = [p for p in priors if p is not None]
+        assert len(non_genesis) == len(set(non_genesis)), "duplicate prev_hash = fork"
+
+        ok, broken = void_ledger.verify_chain(path=void_db)
+        assert ok, f"chain broken: {broken}"
