@@ -10,6 +10,7 @@ evident) closes that gap. These tests lock the invariants.
 from __future__ import annotations
 
 import sqlite3
+import threading
 
 import pytest
 
@@ -299,3 +300,48 @@ class TestPathResolution:
         path = fml.get_ledger_path(MEMBER)
         assert path.name == f"{MEMBER}_ledger.db"
         assert path.parent.name == "family"
+
+
+class TestConcurrentAppendDoesNotFork:
+    """Finding UU (Aletheia audit 2026-05-20): two concurrent appenders must
+    not both chain off the same prior_hash and FORK the hash-chain. The
+    BEGIN IMMEDIATE write-lock + busy_timeout serializes them. This dogfoods
+    the wall: every event must land with a unique prior_hash and the chain
+    must verify clean afterwards.
+    """
+
+    def test_threaded_appends_keep_chain_intact(self, temp_ledger_dir):
+        fml.init_ledger(MEMBER)
+        n_threads = 8
+        appends_per_thread = 6
+        barrier = threading.Barrier(n_threads)
+
+        def worker(tid: int) -> None:
+            barrier.wait()  # release all threads at once to maximize contention
+            for i in range(appends_per_thread):
+                fml.append_event(
+                    MEMBER,
+                    FamilyMemberEventType.INVOKED,
+                    "parent",
+                    {"tid": tid, "i": i},
+                )
+
+        threads = [threading.Thread(target=worker, args=(t,)) for t in range(n_threads)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+
+        total = n_threads * appends_per_thread
+        assert fml.count_events(MEMBER) == total
+
+        # No two events share a prior_hash — that would be a fork.
+        conn = sqlite3.connect(str(temp_ledger_dir / f"{MEMBER}_ledger.db"))
+        try:
+            priors = [r[0] for r in conn.execute("SELECT prior_hash FROM member_events")]
+        finally:
+            conn.close()
+        assert len(priors) == len(set(priors)), "duplicate prior_hash = forked chain"
+
+        ok, msg = fml.verify_chain(MEMBER)
+        assert ok, msg
