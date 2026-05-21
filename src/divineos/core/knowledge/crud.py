@@ -41,11 +41,19 @@ def store_knowledge(
     source_entity: str | None = None,
     related_to: str | None = None,
     memory_kind: str | None = None,
+    allow_resurrect: bool = False,
 ) -> str:
     """Store a piece of knowledge. Returns the knowledge_id.
 
     Auto-deduplicates: if identical content already exists (and is not superseded),
-    increments access_count on the existing entry and returns its id.
+    increments access_count on the existing entry and returns its id. On such a
+    hit, a caller-provided maturity that is HIGHER than the existing entry's is
+    applied (upgrade-only, never downgrade) — Finding W.
+
+    If the identical content was previously SUPERSEDED (and no active copy
+    exists), it is NOT resurrected: store_knowledge returns "" rather than
+    re-inserting it as fresh. Pass allow_resurrect=True to force re-insertion —
+    Finding Y.
 
     memory_kind is the orthogonal diagnostic dimension
     (EPISODIC / SEMANTIC / PROCEDURAL / UNCLASSIFIED). If None, runs the
@@ -102,17 +110,47 @@ def store_knowledge(
     try:
         # Check for exact duplicate (non-superseded)
         existing = conn.execute(
-            "SELECT knowledge_id FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
+            "SELECT knowledge_id, maturity FROM knowledge WHERE content_hash = ? AND superseded_by IS NULL",
             (content_hash,),
         ).fetchone()
 
         if existing:
-            conn.execute(
-                "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? WHERE knowledge_id = ?",
-                (now, existing[0]),
-            )
+            # Finding W (Aletheia audit 2026-05-20): on a dedup hit, honor a
+            # caller-provided maturity UPGRADE (never a downgrade). Previously
+            # the caller's maturity was silently ignored, so a verified
+            # re-store (e.g. RAW -> CONFIRMED) was lost. Upgrade-only keeps the
+            # demote-protection while letting genuine promotion intent land.
+            from divineos.core.knowledge.compression import _MATURITY_RANK
+
+            existing_maturity = existing[1] or "RAW"
+            if _MATURITY_RANK.get(maturity, 1) > _MATURITY_RANK.get(existing_maturity, 1):
+                conn.execute(
+                    "UPDATE knowledge SET access_count = access_count + 1, updated_at = ?, "
+                    "maturity = ? WHERE knowledge_id = ?",
+                    (now, maturity, existing[0]),
+                )
+            else:
+                conn.execute(
+                    "UPDATE knowledge SET access_count = access_count + 1, updated_at = ? "
+                    "WHERE knowledge_id = ?",
+                    (now, existing[0]),
+                )
             conn.commit()
             return str(existing[0])
+
+        # Finding Y (Aletheia audit 2026-05-20): guard against resurrecting
+        # deliberately-superseded content. If this exact content was superseded
+        # (and no active copy exists), re-inserting it as fresh silently undoes
+        # the supersession. extraction.py already guards this; the direct API
+        # path did not. Default: skip and return "" (mirrors extraction.py).
+        # allow_resurrect=True opts into the old insert-anyway behavior.
+        if not allow_resurrect:
+            superseded = conn.execute(
+                "SELECT 1 FROM knowledge WHERE content_hash = ? AND superseded_by IS NOT NULL LIMIT 1",
+                (content_hash,),
+            ).fetchone()
+            if superseded:
+                return ""
 
         knowledge_id = str(uuid.uuid4())
         conn.execute(
