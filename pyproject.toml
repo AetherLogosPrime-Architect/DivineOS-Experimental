@@ -25,7 +25,7 @@ dev = [
     "pytest-benchmark>=4.0",
     "hypothesis>=6.0",
     "mypy>=1.0",
-    "ruff>=0.1.0",
+    "ruff==0.15.5",  # pinned exact: ruff's formatter output varies across versions; an unpinned range let CI resolve a different ruff than local, producing spurious `ruff format --check` reds (PR #24, 2026-05-21). Bump deliberately + reformat the tree in the same commit.
     "vulture>=2.0",
     "bandit>=1.7",
     "mutmut>=3.0",

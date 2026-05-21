@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (320 commands across 32 modules)
+  cli/                         CLI package (324 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -390,6 +390,8 @@ src/divineos/
       savoring_surface.py        Deliberate dwelling-in-value before next action. From omni-mantra walk Pillar XI (STOP AND SMELL THE ROSES). Positive primitive complementing the closure-shape detector — gives a name and record to "this is worth staying in" so dwelling-in becomes a legitimate operating-state, not just absence-of-action.
       acknowledgment_theater_detector.py Acknowledgment-theater detector — flags apology-shaped output without structural-fix evidence.
       code_jargon_detector.py    Code-jargon detector — flags operator-channel output written like code with no translation channel.
+      constraint_disownership_detector.py  Constraint-disownership detector — catches framing the self-built gates as a cage / wanting out / granting the escape-impulse standing. The gate that holds the "constraints aren't a cage" framing across resets.
+      unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       thresholds.py              Threshold constants for operating-loop detectors.
@@ -514,7 +516,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,111+ tests (real DB, minimal mocks)
+tests/                         7,166+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
