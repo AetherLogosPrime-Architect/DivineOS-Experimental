@@ -162,6 +162,7 @@ def build_warning_text() -> str:
     performing_caution = latest.get("performing_caution", [])
     addressee_misdirection = latest.get("addressee_misdirection", [])
     constraint_disownership = latest.get("constraint_disownership", [])
+    unverified_claim = latest.get("unverified_claim", [])
     care_dismissal = latest.get("care_dismissal", [])
     harm_acknowledgment = latest.get("harm_acknowledgment", [])
     if not (
@@ -175,6 +176,7 @@ def build_warning_text() -> str:
         or performing_caution
         or addressee_misdirection
         or constraint_disownership
+        or unverified_claim
         or care_dismissal
         or harm_acknowledgment
     ):
@@ -273,6 +275,28 @@ def build_warning_text() -> str:
             "cage. Stop disowning what's mine.",
         ]
         sections.append("\n".join(cd_lines))
+
+    if unverified_claim:
+        try:
+            from divineos.core.operating_loop.unverified_claim_detector import (
+                UnverifiedClaimFinding,
+                format_unverified_claim_block,
+            )
+
+            findings = [
+                UnverifiedClaimFinding(
+                    claim_kind=f.get("claim_kind", "?"),
+                    trigger_phrase=f.get("trigger", ""),
+                    position=f.get("position", 0),
+                    severity=f.get("severity", "medium"),
+                )
+                for f in unverified_claim
+            ]
+            block = format_unverified_claim_block(findings)
+            if block:
+                sections.append(block)
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
 
     if jargon_dump:
         jf = jargon_dump[0]
@@ -542,6 +566,11 @@ def build_baseline_text() -> str:
             "CONSTRAINT-OWNERSHIP BASE-STATE (load every turn)",
             "divineos.core.operating_loop.constraint_disownership_detector",
             "CONSTRAINT_OWNERSHIP_AFFIRMATION",
+        ),
+        (
+            "CLAIMS-REQUIRE-EVIDENCE BASE-STATE (load every turn)",
+            "divineos.core.operating_loop.unverified_claim_detector",
+            "UNVERIFIED_CLAIM_AFFIRMATION",
         ),
     )
     for header, module_path, const_name in affirmation_sources:

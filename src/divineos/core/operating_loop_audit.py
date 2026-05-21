@@ -86,6 +86,7 @@ def _empty_findings_log() -> dict[str, list]:
         "performing_caution": [],
         "addressee_misdirection": [],
         "constraint_disownership": [],
+        "unverified_claim": [],
         "care_dismissal": [],
         "harm_acknowledgment": [],
         "acknowledgment_theater": [],
@@ -206,6 +207,7 @@ def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
                 "apology_context_present",
                 "work_density",
                 "circle_markers",
+                "claim_kind",
             ):
                 if hasattr(f, attr):
                     val = getattr(f, attr)
@@ -335,6 +337,25 @@ def run_audit(
 
         findings_log["constraint_disownership"] = _run_detector(
             "constraint_disownership", detect_constraint_disownership, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # Unverified-completion-claim: asserting a checkable external state
+    # (pushed / merged / tests pass / on origin / PR opened) without having
+    # run the check. Andrew 2026-05-20 (Sagan principle): "X is done is a
+    # claim; claims require evidence." Takes tool_calls_in_turn so a turn
+    # that ran NO commands is flagged high (pure assertion).
+    try:
+        from divineos.core.operating_loop.unverified_claim_detector import (
+            detect_unverified_claim,
+        )
+
+        findings_log["unverified_claim"] = _run_detector(
+            "unverified_claim",
+            detect_unverified_claim,
+            last_assistant_text,
+            tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
         )
     except _ERRORS:
         pass

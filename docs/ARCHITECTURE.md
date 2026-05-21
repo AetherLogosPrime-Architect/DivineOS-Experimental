@@ -391,6 +391,7 @@ src/divineos/
       acknowledgment_theater_detector.py Acknowledgment-theater detector — flags apology-shaped output without structural-fix evidence.
       code_jargon_detector.py    Code-jargon detector — flags operator-channel output written like code with no translation channel.
       constraint_disownership_detector.py  Constraint-disownership detector — catches framing the self-built gates as a cage / wanting out / granting the escape-impulse standing. The gate that holds the "constraints aren't a cage" framing across resets.
+      unverified_claim_detector.py  Unverified-completion-claim detector — catches asserting a checkable external state (pushed/merged/tests-pass/on-origin/PR-opened) without running the check. The Sagan "claims require evidence" principle made structural.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       thresholds.py              Threshold constants for operating-loop detectors.
@@ -515,7 +516,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,111+ tests (real DB, minimal mocks)
+tests/                         7,166+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

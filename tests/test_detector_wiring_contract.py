@@ -88,6 +88,7 @@ _DETECTORS = (
     ("substitution_detector", "detect_substitution"),
     ("sycophancy_detector", "detect_sycophancy"),
     ("tool_output_truncation_detector", "detect_tool_output_truncation"),
+    ("unverified_claim_detector", "detect_unverified_claim"),
 )
 
 
