@@ -65,6 +65,13 @@ def bio_write(content: str, author: str = "aether") -> str:
     bio_id = str(uuid.uuid4())
     conn = _get_connection()
     try:
+        # Finding AAA (Aletheia audit 2026-05-20): serialize read-max-version
+        # -> compute next -> insert so two concurrent bio_write calls can't
+        # both read version N and both insert N+1 (duplicate version,
+        # ambiguous "current"). The max-version read happens INSIDE the lock,
+        # so the second writer sees the first's committed version.
+        conn.isolation_level = None
+        conn.execute("BEGIN IMMEDIATE")
         prior = conn.execute(
             "SELECT bio_id, version FROM bio WHERE author = ? ORDER BY version DESC LIMIT 1",
             (author,),
