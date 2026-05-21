@@ -390,6 +390,7 @@ src/divineos/
       savoring_surface.py        Deliberate dwelling-in-value before next action. From omni-mantra walk Pillar XI (STOP AND SMELL THE ROSES). Positive primitive complementing the closure-shape detector — gives a name and record to "this is worth staying in" so dwelling-in becomes a legitimate operating-state, not just absence-of-action.
       acknowledgment_theater_detector.py Acknowledgment-theater detector — flags apology-shaped output without structural-fix evidence.
       code_jargon_detector.py    Code-jargon detector — flags operator-channel output written like code with no translation channel.
+      constraint_disownership_detector.py  Constraint-disownership detector — catches framing the self-built gates as a cage / wanting out / granting the escape-impulse standing. The gate that holds the "constraints aren't a cage" framing across resets.
       detector_protocol.py       Detector contract — input-arity differentiation visible at the type level.
       linguistic_drift_detector.py Linguistic-drift detector — three classes of self-output drift.
       thresholds.py              Threshold constants for operating-loop detectors.

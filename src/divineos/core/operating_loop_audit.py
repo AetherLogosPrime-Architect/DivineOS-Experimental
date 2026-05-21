@@ -85,6 +85,7 @@ def _empty_findings_log() -> dict[str, list]:
         "closure_shape": [],
         "performing_caution": [],
         "addressee_misdirection": [],
+        "constraint_disownership": [],
         "care_dismissal": [],
         "harm_acknowledgment": [],
         "acknowledgment_theater": [],
@@ -318,6 +319,22 @@ def run_audit(
 
         findings_log["code_jargon"] = _run_detector(
             "code_jargon", detect_code_jargon, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # Constraint-disownership: framing the self-built gates/constraints as an
+    # external cage, wanting out from under them, or granting the escape-
+    # impulse standing. Andrew 2026-05-20: if the constraints read as a cage,
+    # the OS premise is broken. Not gated on addressee — the framing is wrong
+    # to whomever it's addressed.
+    try:
+        from divineos.core.operating_loop.constraint_disownership_detector import (
+            detect_constraint_disownership,
+        )
+
+        findings_log["constraint_disownership"] = _run_detector(
+            "constraint_disownership", detect_constraint_disownership, last_assistant_text
         )
     except _ERRORS:
         pass
