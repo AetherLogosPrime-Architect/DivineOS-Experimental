@@ -17,9 +17,7 @@ from divineos.core import consultation_tracker
 def isolated_state(tmp_path, monkeypatch):
     """Redirect the module-level state file (bound at import) to tmp, and
     fix the session id so the bucket is deterministic."""
-    monkeypatch.setattr(
-        consultation_tracker, "_STATE_FILE", tmp_path / "consultation_state.json"
-    )
+    monkeypatch.setattr(consultation_tracker, "_STATE_FILE", tmp_path / "consultation_state.json")
     monkeypatch.setenv("CLAUDE_SESSION_ID", "sess-A")
     monkeypatch.delenv("DIVINEOS_SESSION_ID", raising=False)
     return tmp_path

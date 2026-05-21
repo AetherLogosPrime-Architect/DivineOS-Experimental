@@ -52,9 +52,7 @@ class TestReportShape:
 
     def test_reason_is_stripped(self, tmp_path, monkeypatch):
         monkeypatch.setenv("DIVINEOS_HOME", str(tmp_path))
-        report = record_emergency_use(
-            "g", "ENV", "   a genuinely long enough reason string   "
-        )
+        report = record_emergency_use("g", "ENV", "   a genuinely long enough reason string   ")
         assert report.reason == "a genuinely long enough reason string"
 
     def test_telemetry_logged_when_home_writable(self, tmp_path, monkeypatch):

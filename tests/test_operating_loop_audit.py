@@ -177,8 +177,7 @@ def test_lepos_gate_silent_when_translation_present(tmp_path: Path) -> None:
     operating correctly — it must not block. Yes/And, not jargon-stripping."""
     transcript = tmp_path / "t.jsonl"
     dual = (
-        _JARGON_WALL
-        + "\n\n---\n\nIn plain terms: that means I tagged the change so you "
+        _JARGON_WALL + "\n\n---\n\nIn plain terms: that means I tagged the change so you "
         "can sign off on it. In other words, the fingerprint proves the code "
         "you approve is the code that ships. Think of it like a wax seal."
     )
