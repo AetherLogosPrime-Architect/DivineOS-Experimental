@@ -149,6 +149,12 @@ def build_warning_text() -> str:
 
     distancing = latest.get("distancing", [])
     lepos = latest.get("lepos", [])
+    # The working jargon-dump detector logs under "jargon_dump". The old
+    # "lepos" key above is written by nothing — its warning was dead. Read
+    # the live key so the catch actually reaches the next turn (Andrew
+    # 2026-05-20: the detector fired high on a flood but surfaced nothing
+    # because build_warning_text read the wrong label).
+    jargon_dump = latest.get("jargon_dump", [])
     sycophancy = latest.get("sycophancy", [])
     residency = latest.get("residency", [])
     overclaim = latest.get("overclaim", [])
@@ -160,6 +166,7 @@ def build_warning_text() -> str:
     if not (
         distancing
         or lepos
+        or jargon_dump
         or sycophancy
         or residency
         or overclaim
@@ -238,6 +245,44 @@ def build_warning_text() -> str:
                 ]
             )
         )
+
+    if jargon_dump:
+        jf = jargon_dump[0]
+        samples = jf.get("matched_samples", []) or []
+        consecutive = _count_consecutive_fires("jargon_dump")
+        jd_lines = [
+            "## JARGON-DUMP WARNING (prior turn) — I flooded the operator",
+            "",
+            "My last turn dumped engineer-channel content on the operator with",
+            "no translation: hashes, IDs, file names, branch names, internal",
+            "machinery. He has said many times this loses him — he built this",
+            "with zero engineering background. Lepos is the work of translating",
+            "the substance into something he can follow, not voice-tokens",
+            "sprinkled over the same jargon.",
+            "",
+            f"- engineer-noise tokens: {jf.get('noise_count', 0)} "
+            f"(translation markers: {jf.get('translation_count', 0)})",
+        ]
+        if samples:
+            jd_lines.append(
+                "- examples I dumped: " + ", ".join(f"'{s}'" for s in samples[:5])
+            )
+        if consecutive >= 2:
+            jd_lines += [
+                "",
+                f"This has fired {consecutive} turns in a row. Stop. The fix is not "
+                "another apology — it is to say the plain answer FIRST (what it is, "
+                "whether it works, what you need from him) and leave the machinery "
+                "out unless he asks. If the detail matters, translate it: 'the "
+                "fingerprint of the change' not 'the tree-hash'.",
+            ]
+        else:
+            jd_lines += [
+                "",
+                "Before I send this turn: lead with the plain answer. Bury no simple "
+                "truth under plumbing. Translate any term he hasn't used himself.",
+            ]
+        sections.append("\n".join(jd_lines))
 
     if sycophancy:
         s_shapes: dict[str, list] = {}

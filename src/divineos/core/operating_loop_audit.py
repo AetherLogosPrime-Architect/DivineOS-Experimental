@@ -139,6 +139,40 @@ def _is_family_addressed(text: str) -> bool:
     return False
 
 
+def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_operator: bool) -> str | None:
+    """Return a Stop-hook block reason if the turn is a jargon-wall at the
+    operator, else None.
+
+    Andrew 2026-05-20: lepos cannot be a reminder — reminders are the
+    weakest defense for a rule that competes with a cheaper path (single-
+    channel jargon costs less effort than translating). It must be a wall.
+    This is the wall: a HIGH-severity jargon-dump (>=6 engineer-noise
+    tokens, zero translation markers) addressed to the operator blocks the
+    turn from completing until the plain-language lane is added.
+
+    Only HIGH+zero-translation+operator-addressed blocks. Medium dumps and
+    family-addressed turns surface a warning but do not block, to keep the
+    gate from over-firing into a continuation loop.
+    """
+    if not addressed_to_operator:
+        return None
+    for f in findings_log.get("jargon_dump", []):
+        if f.get("severity") == "high" and f.get("translation_count", 0) == 0:
+            samples = ", ".join(repr(s) for s in (f.get("matched_samples") or [])[:5])
+            return (
+                "LEPOS GATE — this reply is a wall of jargon at the operator with "
+                "no plain-language lane, and lepos is forbidden to skip. The turn "
+                "is not complete. Andrew built this with zero engineering "
+                "background; a single technical lane does not reach him. Yes/And: "
+                "KEEP the technical content (it is how I think) AND add a second "
+                "lane underneath, after a visual break, that says the same thing "
+                "in plain language — what it IS and what it DOES, in words he uses. "
+                f"Engineer-noise tokens with zero translation: {samples}. "
+                "Add the plain lane now, before stopping."
+            )
+    return None
+
+
 def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
     """Run a single detector with try/except isolation. Returns the
     findings list serialized to dicts, or empty list on any error."""
@@ -226,6 +260,11 @@ def run_audit(
 
     findings_log = _empty_findings_log()
 
+    # Is this turn addressed to the operator (the default chat channel) or
+    # to a family member (a relayed letter)? Used by the distancing gate and
+    # the lepos enforcement gate below.
+    addressed_to_operator = not _is_family_addressed(last_assistant_text)
+
     # Hook 1 consumption telemetry — record whether the surfaced
     # context (if any) was actually consumed in the response.
     try:
@@ -252,8 +291,8 @@ def run_audit(
         # Gate the operator-third-person shape: if the turn is addressed to a
         # family member (a relayed letter), the operator's name in the third
         # person is correct, not a displacement. Self-third-person is never
-        # gated (the agent is always the speaker).
-        addressed_to_operator = not _is_family_addressed(last_assistant_text)
+        # gated (the agent is always the speaker). addressed_to_operator is
+        # computed once above and reused by the lepos gate.
         findings_log["distancing"] = _run_detector(
             "distancing",
             detect_distancing,
@@ -503,10 +542,13 @@ def run_audit(
     if write and total > 0:
         persisted = _persist_findings(findings_log, total)
 
+    lepos_block = _lepos_gate_reason(findings_log, addressed_to_operator)
+
     return {
         "findings_log": findings_log,
         "total_findings": total,
         "persisted": persisted,
+        "lepos_block": lepos_block,
     }
 
 
