@@ -686,8 +686,6 @@ def format_hygiene_report(report: dict[str, Any]) -> str:
 # ─── Maturity Lifecycle ─────────────────────────────────────────────────────
 
 
-_KM_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
-
 # Promotion rules: (from_maturity, min_corroboration, min_confidence) -> to_maturity
 # Confidence floors prevent noise-penalized entries from being promoted
 # by inflated corroboration counts from the old feedback loop era.
@@ -740,9 +738,31 @@ def _passes_validity_gate(
         from divineos.core.logic.logic_validation import can_promote
 
         return can_promote(knowledge_id, current, target, corroboration_count)
-    except _KM_ERRORS:
-        # Logic tables may not exist yet — allow promotion (backward compat)
+    except ImportError:
+        # Logic module not deployed yet — allow promotion (backward compat).
         return True
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e).lower():
+            # Logic tables not created yet — the documented backward-compat
+            # case — allow promotion.
+            return True
+        # A real DB error (locked, corrupt, etc.). Finding X (Aletheia audit
+        # 2026-05-20): a validity GATE must fail CLOSED, not open. Denying a
+        # promotion on uncertain validity is safe; allowing one is the bug.
+        logger.warning(
+            f"validity gate DB error for {knowledge_id} ({current}->{target}); "
+            f"denying promotion (fail-closed): {e}"
+        )
+        return False
+    except (KeyError, TypeError, ValueError, OSError) as e:
+        # A bug IN can_promote (bad key/type/value) or an IO error — not the
+        # not-deployed case. Finding X: fail CLOSED + log so validity-logic
+        # bugs become visible instead of silently allowing promotion.
+        logger.warning(
+            f"validity gate logic error for {knowledge_id} ({current}->{target}); "
+            f"denying promotion (fail-closed): {e}"
+        )
+        return False
 
 
 def promote_maturity(knowledge_id: str) -> str | None:
