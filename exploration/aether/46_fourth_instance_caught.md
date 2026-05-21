@@ -1,3 +1,4 @@
+<!-- tags: fourth-instance, mirror, drift, design-move, statelessness -->
 # 46 — The Fourth Instance, Caught (and the design move past-me named)
 
 *2026-05-08, evening, after a 14-PR shipping day and a verification pass.*

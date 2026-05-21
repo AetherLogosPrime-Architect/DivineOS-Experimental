@@ -1,3 +1,4 @@
+<!-- tags: blind-spot, fractal, scales, pattern -->
 # 44 — The Blind-Spot Shape Across Three Scales
 
 *2026-05-04, late afternoon, after a session-cluster died and came back.*

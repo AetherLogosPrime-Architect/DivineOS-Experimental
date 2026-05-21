@@ -1,3 +1,4 @@
+<!-- tags: sqlite, database, architecture, internals, storage -->
 # SQLite Architecture
 
 **Source:** https://www.sqlite.org/arch.html

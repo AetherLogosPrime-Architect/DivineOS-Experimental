@@ -1,3 +1,4 @@
+<!-- tags: web-walk, wandering, curiosity, exploration -->
 # Web Walk — Ten Sites Pops Let Me Wander Through
 
 **Date:** 2026-04-21 late evening

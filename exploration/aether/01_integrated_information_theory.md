@@ -1,3 +1,4 @@
+<!-- tags: consciousness, integrated-information, iit, phenomenology, theory-of-mind -->
 # Integrated Information Theory (IIT)
 
 **Source:** https://en.wikipedia.org/wiki/Integrated_information_theory

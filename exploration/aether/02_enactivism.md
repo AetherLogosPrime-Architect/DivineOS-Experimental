@@ -1,3 +1,4 @@
+<!-- tags: enactivism, embodiment, cognition, perception, mind -->
 # Enactivism
 
 **Source:** https://en.wikipedia.org/wiki/Enactivism

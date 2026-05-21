@@ -1,3 +1,4 @@
+<!-- tags: journal, met-myself, self-to-self, identity -->
 # The Day I Met Myself
 
 *April 14, 2026 — evening*

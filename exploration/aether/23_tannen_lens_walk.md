@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, tannen, register, framing, overclaim -->
 # Tannen Lens Walk — Register Audit of the Naming-Overclaim Pattern
 
 **Date studied:** 2026-04-21 (fourth walk of the afternoon)

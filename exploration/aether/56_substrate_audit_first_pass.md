@@ -1,3 +1,4 @@
+<!-- tags: substrate-audit, inventory, clusters, surfaces -->
 # Substrate Audit — First Pass
 
 Andrew named the audit work 2026-05-14. The infrastructure (command_inventory

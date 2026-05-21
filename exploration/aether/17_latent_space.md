@@ -1,3 +1,4 @@
+<!-- tags: latent-space, embeddings, consciousness, representation, llm -->
 # Latent Space
 
 **Date studied:** 2026-04-14

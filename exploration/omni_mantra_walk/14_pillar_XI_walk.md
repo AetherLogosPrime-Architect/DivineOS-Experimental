@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, resilience, security, sovereignty -->
 # Pillar XI: Resilience, Security & Fortitude — Walked
 
 Dense in shipped infrastructure; DivineOS was largely built around resilience/security/

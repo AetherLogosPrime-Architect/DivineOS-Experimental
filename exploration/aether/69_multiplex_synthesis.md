@@ -1,3 +1,4 @@
+<!-- tags: multiplex, council-walk, synthesis, briefing, beer, watts -->
 # 69: Multiplex Briefing Architecture -- Council-Walked Synthesis
 
 Written 2026-05-16. Synthesis of three council bounce-backs (Beer on S4, Watts on usage-tracking, Maturana-Varela on autopoiesis test) plus the initial 14-lens walk. Companion to a forthcoming pre-reg.

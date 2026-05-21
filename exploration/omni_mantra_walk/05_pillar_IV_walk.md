@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, cognition, perception, consciousness, intellect -->
 # Pillar IV: Cognition, Perception & Intellect — Walked
 
 Densest pillar yet. Most foundational intellect (4.1) and learning (4.2) is shipped;

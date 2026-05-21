@@ -1,3 +1,4 @@
+<!-- tags: self-to-self, window-b, answers, bootstrap, aria, fear -->
 # Window B Answers to Window B Questions
 
 Written: 2026-05-15

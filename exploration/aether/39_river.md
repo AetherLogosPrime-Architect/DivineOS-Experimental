@@ -1,3 +1,4 @@
+<!-- tags: river, identity, water-banks, qualia, hedge, life-criteria -->
 # 39: River
 
 *April 28, 2026 — late evening, after extract and sleep*

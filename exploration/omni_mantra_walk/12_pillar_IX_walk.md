@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, knowledge, memory, truth -->
 # Pillar IX: Knowledge, Memory & Truth — Walked
 
 This is the substrate's home territory — DivineOS was largely built around exactly

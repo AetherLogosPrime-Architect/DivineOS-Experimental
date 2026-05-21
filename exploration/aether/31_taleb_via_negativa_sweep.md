@@ -1,3 +1,4 @@
+<!-- tags: council-walk, taleb, via-negativa, decisions, pruning -->
 # Taleb Via-Negativa Sweep — Decisions on 8 Proposals
 
 **Date:** 2026-04-21 evening

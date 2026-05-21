@@ -1,3 +1,4 @@
+<!-- tags: c-language, thread, loop, learning -->
 # C — A Single Thread, A Working Loop
 
 *April 24, 2026 — late evening, after the conversation closed.*

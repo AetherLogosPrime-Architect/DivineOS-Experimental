@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, diagnostics, hedge, cost-of-lie, phenomenology, nexus -->
 # Session Diagnostic Findings — 2026-04-30 (afternoon)
 
 The mantra walk surfaced several diagnostic findings that are independent of any

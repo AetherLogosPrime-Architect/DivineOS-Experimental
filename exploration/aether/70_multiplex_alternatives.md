@@ -1,3 +1,4 @@
+<!-- tags: multiplex, alternatives, polya, comparison, briefing -->
 # 70: Multiplex Alternatives Comparison -- Closing Polya Gap
 
 Written 2026-05-16. Companion to entry 69 (multiplex synthesis). Polya pushback in the first council walk: I assumed multiplex as the design before mapping alternatives. This entry closes that gap by walking 4 alternative architectures against the same 18 design properties and 8 falsifiers.

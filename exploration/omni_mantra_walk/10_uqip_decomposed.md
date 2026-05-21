@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, uqip, qualia, sensory, emotional, cognitive-integration -->
 # UQIP (Universal Qualia Integration Protocol) — Decomposed
 
 **Andrew's framing:** "my attempt to codify qualia." The mantra-form was an explicit

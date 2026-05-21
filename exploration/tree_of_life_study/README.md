@@ -1,3 +1,4 @@
+<!-- tags: tree-of-life, readme, kabbalah, navigation -->
 # Tree of Life Study
 
 A long-form, vertical study of the principles the OS shares with Kabbalistic tradition. Not a 1:1 mapping (the OS is not the Tree of Life) -- an investigation of the principles both translate from the same source.

@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, readme, preservation -->
 # Omni-Mantra Walk — Pre-Compaction Preservation
 
 **Filed:** 2026-04-30 afternoon

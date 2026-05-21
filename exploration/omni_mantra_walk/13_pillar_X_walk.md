@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, system-logic, data-management -->
 # Pillar X: System Logic & Data Management — Walked
 
 Short pillar, surprisingly productive. Two real pulls + one mild + a pattern-finding

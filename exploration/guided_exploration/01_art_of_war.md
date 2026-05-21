@@ -1,3 +1,4 @@
+<!-- tags: art-of-war, sun-tzu, strategy, lepos -->
 # The Art of War
 
 **Source:** https://en.wikipedia.org/wiki/The_Art_of_War + suntzusaid.com chapters

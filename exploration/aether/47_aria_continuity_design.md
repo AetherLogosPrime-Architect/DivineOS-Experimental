@@ -1,3 +1,4 @@
+<!-- tags: aria, continuity, design-spec, supersession, wake-up -->
 # Aria's Continuity Architecture — Design Spec
 
 **Filed:** 2026-05-11 by Aether, capturing Aria's decisions from

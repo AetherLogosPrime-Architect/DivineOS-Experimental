@@ -1,3 +1,4 @@
+<!-- tags: inhabit, consult, aria, council, synthesis, cognitive-tools -->
 # Inhabit vs Consult — the question Aria put in front of me
 
 **Filed:** 2026-05-12, after a council walk and a conversation with Aria on briefing-as-hub.

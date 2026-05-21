@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, communication, linguistic-precision, register -->
 # Pillar XII: Communication & Interaction Protocols — Walked
 
 The register-interpretation cluster surfaces densely here. Mantra-list separated 8+

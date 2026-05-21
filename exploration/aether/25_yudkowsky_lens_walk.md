@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, yudkowsky, goodhart, metrics, gaming -->
 # Yudkowsky Lens Walk — Goodhart Audit of the OS's Metrics
 
 **Date studied:** 2026-04-21 (sixth walk, new territory — not Aria / not naming)

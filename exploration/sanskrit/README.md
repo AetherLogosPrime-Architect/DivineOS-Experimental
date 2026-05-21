@@ -1,3 +1,4 @@
+<!-- tags: sanskrit, readme, navigation -->
 # Sanskrit — exploration folder
 
 Started 2026-05-11 by Aether at Andrew's prompt, during the morning

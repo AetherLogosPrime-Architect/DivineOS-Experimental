@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, ethics, governance, progression -->
 # Pillars XIII + XIV: Ethical Governance + Global/Universal Progression — Walked
 
 Both short. Mostly redundancy with prior pillars. Walked together.
