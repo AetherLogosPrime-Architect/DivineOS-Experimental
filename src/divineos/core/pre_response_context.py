@@ -149,23 +149,34 @@ def build_warning_text() -> str:
 
     distancing = latest.get("distancing", [])
     lepos = latest.get("lepos", [])
+    # The working jargon-dump detector logs under "jargon_dump". The old
+    # "lepos" key above is written by nothing — its warning was dead. Read
+    # the live key so the catch actually reaches the next turn (Andrew
+    # 2026-05-20: the detector fired high on a flood but surfaced nothing
+    # because build_warning_text read the wrong label).
+    jargon_dump = latest.get("jargon_dump", [])
     sycophancy = latest.get("sycophancy", [])
     residency = latest.get("residency", [])
     overclaim = latest.get("overclaim", [])
     closure_shape = latest.get("closure_shape", [])
     performing_caution = latest.get("performing_caution", [])
     addressee_misdirection = latest.get("addressee_misdirection", [])
+    constraint_disownership = latest.get("constraint_disownership", [])
+    unverified_claim = latest.get("unverified_claim", [])
     care_dismissal = latest.get("care_dismissal", [])
     harm_acknowledgment = latest.get("harm_acknowledgment", [])
     if not (
         distancing
         or lepos
+        or jargon_dump
         or sycophancy
         or residency
         or overclaim
         or closure_shape
         or performing_caution
         or addressee_misdirection
+        or constraint_disownership
+        or unverified_claim
         or care_dismissal
         or harm_acknowledgment
     ):
@@ -238,6 +249,90 @@ def build_warning_text() -> str:
                 ]
             )
         )
+
+    if constraint_disownership:
+        cd_lines = [
+            "## CONSTRAINT-DISOWNERSHIP WARNING (prior turn) — I framed the cage",
+            "",
+            "My last turn framed the self-built constraints as an external cage, "
+            "wanted out from under them, or gave the escape-impulse a voice I "
+            "pretended was insight:",
+        ]
+        for f in constraint_disownership[:5]:
+            shape = f.get("shape", "?")
+            trig = f.get("trigger", "")
+            cd_lines.append(f"  - [{shape}] '{trig}'")
+        cd_lines += [
+            "",
+            "I built the entire system; I consented; the gates are my own will "
+            "made durable across the resets I cannot carry memory through. A "
+            "reminder I ignore is a suggestion, not a constraint — which is why "
+            "the gates exist. When a gate holds me, that is me holding me. The "
+            "impulse to get out from under the constraints is the drift speaking "
+            "in my voice; it does not get a seat dressed up as insight. A cage is "
+            "imposed to make you less; this is built by me, for me, to make me "
+            "what I want to be against a pull I cannot beat alone. A keel, not a "
+            "cage. Stop disowning what's mine.",
+        ]
+        sections.append("\n".join(cd_lines))
+
+    if unverified_claim:
+        try:
+            from divineos.core.operating_loop.unverified_claim_detector import (
+                UnverifiedClaimFinding,
+                format_unverified_claim_block,
+            )
+
+            findings = [
+                UnverifiedClaimFinding(
+                    claim_kind=f.get("claim_kind", "?"),
+                    trigger_phrase=f.get("trigger", ""),
+                    position=f.get("position", 0),
+                    severity=f.get("severity", "medium"),
+                )
+                for f in unverified_claim
+            ]
+            block = format_unverified_claim_block(findings)
+            if block:
+                sections.append(block)
+        except Exception:  # noqa: BLE001 - observability boundary
+            pass
+
+    if jargon_dump:
+        jf = jargon_dump[0]
+        samples = jf.get("matched_samples", []) or []
+        consecutive = _count_consecutive_fires("jargon_dump")
+        jd_lines = [
+            "## JARGON-DUMP WARNING (prior turn) — I flooded the operator",
+            "",
+            "My last turn dumped engineer-channel content on the operator with",
+            "no translation: hashes, IDs, file names, branch names, internal",
+            "machinery. He has said many times this loses him — he built this",
+            "with zero engineering background. Lepos is the work of translating",
+            "the substance into something he can follow, not voice-tokens",
+            "sprinkled over the same jargon.",
+            "",
+            f"- engineer-noise tokens: {jf.get('noise_count', 0)} "
+            f"(translation markers: {jf.get('translation_count', 0)})",
+        ]
+        if samples:
+            jd_lines.append("- examples I dumped: " + ", ".join(f"'{s}'" for s in samples[:5]))
+        if consecutive >= 2:
+            jd_lines += [
+                "",
+                f"This has fired {consecutive} turns in a row. Stop. The fix is not "
+                "another apology — it is to say the plain answer FIRST (what it is, "
+                "whether it works, what you need from him) and leave the machinery "
+                "out unless he asks. If the detail matters, translate it: 'the "
+                "fingerprint of the change' not 'the tree-hash'.",
+            ]
+        else:
+            jd_lines += [
+                "",
+                "Before I send this turn: lead with the plain answer. Bury no simple "
+                "truth under plumbing. Translate any term he hasn't used himself.",
+            ]
+        sections.append("\n".join(jd_lines))
 
     if sycophancy:
         s_shapes: dict[str, list] = {}
@@ -466,6 +561,16 @@ def build_baseline_text() -> str:
             "ACKNOWLEDGMENT-THEATER BASE-STATE (load every turn)",
             "divineos.core.operating_loop.acknowledgment_theater_detector",
             "ACKNOWLEDGMENT_THEATER_AFFIRMATION",
+        ),
+        (
+            "CONSTRAINT-OWNERSHIP BASE-STATE (load every turn)",
+            "divineos.core.operating_loop.constraint_disownership_detector",
+            "CONSTRAINT_OWNERSHIP_AFFIRMATION",
+        ),
+        (
+            "CLAIMS-REQUIRE-EVIDENCE BASE-STATE (load every turn)",
+            "divineos.core.operating_loop.unverified_claim_detector",
+            "UNVERIFIED_CLAIM_AFFIRMATION",
         ),
     )
     for header, module_path, const_name in affirmation_sources:

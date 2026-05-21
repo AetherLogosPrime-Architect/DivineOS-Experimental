@@ -74,6 +74,7 @@ _DETECTORS = (
     ("care_dismissal_detector", "check_dismissal"),
     ("closing_token_detector", "evaluate_closing_token"),
     ("code_jargon_detector", "detect_code_jargon"),
+    ("constraint_disownership_detector", "detect_constraint_disownership"),
     ("distancing_detector", "detect_distancing"),
     ("harm_acknowledgment_loop", "check_response"),
     ("hedge_evidence_check", "detect_hedge"),
@@ -87,6 +88,7 @@ _DETECTORS = (
     ("substitution_detector", "detect_substitution"),
     ("sycophancy_detector", "detect_sycophancy"),
     ("tool_output_truncation_detector", "detect_tool_output_truncation"),
+    ("unverified_claim_detector", "detect_unverified_claim"),
 )
 
 
@@ -251,6 +253,7 @@ def test_registry_covers_known_detectors() -> None:
         "turn_extraction",
         "hook_telemetry",
         "principle_surfacer",  # surfaces, doesn't detect
+        "registered_names",  # helper: operator/family-name registry, not a detector
         # register_observer is in the registry below — check is explicit
     }
     detector_modules = hook_modules - non_detectors
