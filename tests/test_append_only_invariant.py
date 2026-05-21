@@ -17,11 +17,14 @@ Locked invariants:
 
 from __future__ import annotations
 
+import threading
+
 import pytest
 
 from divineos.core.knowledge.crud import (
     get_knowledge,
     store_knowledge,
+    supersede_knowledge,
     update_knowledge,
 )
 
@@ -138,6 +141,64 @@ class TestHistoryPreserved:
             content="Original content with enough words to pass check",
         )
         new_id = update_knowledge(kid, new_content="New content with enough words here")
+
+        all_entries = get_knowledge(include_superseded=True, limit=100)
+        old_entry = next(e for e in all_entries if e["knowledge_id"] == kid)
+        assert old_entry["superseded_by"] == new_id
+
+
+class TestConcurrentSupersessionNoFork:
+    """Finding ZZZ (Aletheia audit 2026-05-20): two concurrent supersessions
+    of the same entry must not both create successors and leave an ambiguous
+    supersession chain. BEGIN IMMEDIATE serializes the read-modify-write; the
+    already-superseded guard makes the loser raise instead of clobbering.
+    """
+
+    def test_concurrent_update_produces_one_successor(self):
+        kid = store_knowledge(
+            knowledge_type="PRINCIPLE",
+            content="Original content with enough words to pass check",
+        )
+
+        barrier = threading.Barrier(6)
+        successors: list[str] = []
+        errors: list[Exception] = []
+        lock = threading.Lock()
+
+        def worker(n: int) -> None:
+            barrier.wait()
+            try:
+                new_id = update_knowledge(kid, new_content=f"Updated content variant {n} here")
+                with lock:
+                    successors.append(new_id)
+            except ValueError as e:  # loser: already-superseded guard
+                with lock:
+                    errors.append(e)
+
+        threads = [threading.Thread(target=worker, args=(n,)) for n in range(6)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # Exactly one winner; the rest are refused. No ambiguous chain.
+        assert len(successors) == 1, (successors, errors)
+        assert len(errors) == 5
+
+        all_entries = get_knowledge(include_superseded=True, limit=100)
+        old_entry = next(e for e in all_entries if e["knowledge_id"] == kid)
+        assert old_entry["superseded_by"] == successors[0]
+
+    def test_supersede_refuses_to_clobber_real_successor(self):
+        kid = store_knowledge(
+            knowledge_type="PRINCIPLE",
+            content="Original content with enough words to pass check",
+        )
+        new_id = update_knowledge(kid, new_content="New content with enough words here")
+
+        # A FORGET-supersede must NOT overwrite the real successor link.
+        with pytest.raises(ValueError, match="already superseded"):
+            supersede_knowledge(kid, reason="late forget")
 
         all_entries = get_knowledge(include_superseded=True, limit=100)
         old_entry = next(e for e in all_entries if e["knowledge_id"] == kid)

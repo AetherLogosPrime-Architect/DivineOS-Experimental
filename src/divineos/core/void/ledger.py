@@ -85,8 +85,14 @@ def connect(*, path: Path | None = None):
     """
     p = path if path is not None else db_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(p))
+    # isolation_level=None (autocommit) so an explicit BEGIN IMMEDIATE in
+    # append_event genuinely engages the RESERVED write-lock across the
+    # read-prior-hash -> compute -> insert window (Finding CCCC, Aletheia
+    # audit 2026-05-20). busy_timeout makes contending appenders wait rather
+    # than error.
+    conn = sqlite3.connect(str(p), isolation_level=None)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=5000")
     try:
         _ensure_schema(conn)
         yield conn
@@ -95,7 +101,13 @@ def connect(*, path: Path | None = None):
 
 
 def _last_hash(conn: sqlite3.Connection) -> str | None:
-    row = conn.execute("SELECT content_hash FROM void_events ORDER BY ts DESC LIMIT 1").fetchone()
+    # rowid tiebreak: ts alone is not unique under low clock resolution, and
+    # without a deterministic tiebreak two appends can read the same "latest"
+    # row and FORK the chain (Finding CCCC). rowid is the monotonic insertion
+    # sequence, assigned under the BEGIN IMMEDIATE write-lock.
+    row = conn.execute(
+        "SELECT content_hash FROM void_events ORDER BY ts DESC, rowid DESC LIMIT 1"
+    ).fetchone()
     return row[0] if row else None
 
 
@@ -119,17 +131,26 @@ def append_event(
     Returns dict with event_id, ts, content_hash, prev_hash.
     """
     event_id = str(uuid.uuid4())
-    ts = time.time()
-    payload_with_meta = {
-        "event_id": event_id,
-        "ts": ts,
-        "event_type": event_type,
-        "persona": persona,
-        **payload,
-    }
-    payload_json = json.dumps(payload_with_meta, sort_keys=True, default=str)
 
     with connect(path=path) as conn:
+        # Finding CCCC (Aletheia audit 2026-05-20): hold the write-lock across
+        # read-prior-hash -> compute -> insert so two concurrent appenders
+        # cannot both chain off the same prev_hash and FORK the chain.
+        # ts is captured INSIDE the lock so timestamps are assigned in
+        # serialized append order (wall-clock is not monotonic across threads;
+        # captured outside, the ts-ordered chain could diverge from insertion
+        # order and re-introduce the fork). [ledger-integrity] directive #5:
+        # the hash binds content to identity.
+        conn.execute("BEGIN IMMEDIATE")
+        ts = time.time()
+        payload_with_meta = {
+            "event_id": event_id,
+            "ts": ts,
+            "event_type": event_type,
+            "persona": persona,
+            **payload,
+        }
+        payload_json = json.dumps(payload_with_meta, sort_keys=True, default=str)
         prev_hash = _last_hash(conn)
         content_hash = _compute_hash(prev_hash, payload_json)
         conn.execute(
@@ -192,7 +213,8 @@ def verify_chain(*, path: Path | None = None) -> tuple[bool, list[str]]:
     broken: list[str] = []
     with connect(path=path) as conn:
         rows = conn.execute(
-            "SELECT event_id, payload, content_hash, prev_hash FROM void_events ORDER BY ts ASC"
+            "SELECT event_id, payload, content_hash, prev_hash FROM void_events "
+            "ORDER BY ts ASC, rowid ASC"
         ).fetchall()
 
     expected_prev: str | None = None

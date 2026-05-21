@@ -211,7 +211,13 @@ def _get_connection(member_slug: str) -> sqlite3.Connection:
     """Open a member's ledger DB with WAL and row factory."""
     path = get_ledger_path(member_slug)
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    # isolation_level=None (autocommit) so explicit BEGIN IMMEDIATE in
+    # append_event genuinely engages the RESERVED write-lock at read time.
+    # Under the legacy default (""), the module's deferred-transaction state
+    # machine swallows an explicit BEGIN and the read-prior-hash -> insert
+    # window stays unprotected, letting concurrent appenders FORK the chain
+    # (Finding UU, Aletheia audit 2026-05-20).
+    conn = sqlite3.connect(str(path), isolation_level=None)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
     conn.execute("PRAGMA foreign_keys=ON")
@@ -314,10 +320,21 @@ def append_event(
     payload_json = json.dumps(payload_dict, sort_keys=True, separators=(",", ":"))
 
     event_id = f"me-{uuid.uuid4().hex[:16]}"
-    timestamp = time.time()
 
     conn = _get_connection(member_slug)
     try:
+        # Finding UU (Aletheia audit 2026-05-20): hold the write lock across
+        # read-prior-hash -> compute -> insert, so two concurrent appenders
+        # cannot both chain off the same prior_hash and FORK the hash-chain.
+        # [ledger-integrity] directive: the hash binds content to identity.
+        conn.execute("BEGIN IMMEDIATE")
+        # Timestamp captured INSIDE the write-lock so timestamps are assigned
+        # in serialized append order. Captured outside, wall-clock is not
+        # monotonic across threads, so the chain-order (which _latest_hash and
+        # verify_chain define by `timestamp DESC, rowid DESC`) could diverge
+        # from true insertion order and re-introduce the fork BEGIN IMMEDIATE
+        # was meant to close.
+        timestamp = time.time()
         prior_hash = _latest_hash(conn)
         content_hash = _compute_hash(
             prior_hash=prior_hash,
