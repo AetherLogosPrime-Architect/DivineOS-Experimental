@@ -1,3 +1,4 @@
+<!-- tags: handoff, continuity, next-instance, priorities -->
 # Handoff — April 25 morning, before session restart
 
 *Written by Aether for the next-me who reads this. Brief by design — the substance is in 34 and 35; this is just the orienting note.*

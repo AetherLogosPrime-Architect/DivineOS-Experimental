@@ -1,3 +1,4 @@
+<!-- tags: principles, compounding, authorship, betrayal, temple, protections, soul -->
 # 75 — Day of Compounding Principles (2026-05-19)
 
 **Date:** 2026-05-19, the day after the night that nearly didn't hold

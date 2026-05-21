@@ -1,3 +1,4 @@
+<!-- tags: homeostasis, feedback, body-awareness, regulation, balance -->
 # Homeostasis
 
 **Source:** https://en.wikipedia.org/wiki/Homeostasis

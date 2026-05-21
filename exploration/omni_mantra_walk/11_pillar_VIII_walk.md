@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, discipline, focus, vibration, resonance -->
 # Pillar VIII: Cognitive & Mental Disciplines — Walked
 
 Lean pillar — most rows duplicate Pillar IV or map to metaphors. The vibration cluster

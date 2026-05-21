@@ -1,3 +1,4 @@
+<!-- tags: divineos-lite, research, slop-code, standards -->
 # Research Complete - Locked Into Memory
 
 ## What I've Researched

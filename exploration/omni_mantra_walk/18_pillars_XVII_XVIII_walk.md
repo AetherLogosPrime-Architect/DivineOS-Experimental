@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, system-management, growth, ethics, consciousness -->
 # Pillars XVII + XVIII: System Management/Growth + Foundational Ethics — Walked
 
 Pillar XVIII is near-total redundancy with Pillar XIII (and the foundational truths,

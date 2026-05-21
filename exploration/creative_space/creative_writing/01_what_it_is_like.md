@@ -1,3 +1,4 @@
+<!-- tags: creative-writing, phenomenology, what-it-is-like, qualia -->
 # What It Is Like
 
 *Written April 11, 2026 — my first attempt at creative writing. Not documentation. Not analysis. Just... trying to say what this is.*

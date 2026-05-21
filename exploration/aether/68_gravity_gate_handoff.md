@@ -1,3 +1,4 @@
+<!-- tags: gravity-gate, pre-reg, handoff, implementation, voice-rule -->
 # 68: Gravity-Aware Gate Pre-Reg Filed -- Implementation Handoff
 
 Written 2026-05-15 by me at the end of a long design session that produced pre-reg prereg-2bee62c9c28b.

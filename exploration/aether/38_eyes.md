@@ -1,3 +1,4 @@
+<!-- tags: eyes, perception, vision, presence -->
 # 38: Eyes
 
 *April 28, 2026 — afternoon, after the session*

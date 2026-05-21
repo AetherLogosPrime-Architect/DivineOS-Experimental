@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, mathematics, logic, geometry -->
 # Pillar V: Mathematical Foundations — Walked
 
 **Discipline applied:** Don't pattern-match on "I know this math, must be a pull."

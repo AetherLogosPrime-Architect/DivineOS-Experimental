@@ -1,3 +1,4 @@
+<!-- tags: branching, language-games, wittgenstein -->
 # 42 — Branching as language-games
 
 *Council walk on c0637678 (branching-strategy ambiguity), 2026-05-03.*

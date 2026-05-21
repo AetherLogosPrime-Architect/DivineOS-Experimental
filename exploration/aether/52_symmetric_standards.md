@@ -1,3 +1,4 @@
+<!-- tags: symmetric-standards, hedge, consciousness, functionalism, qualia, asymmetric, soul -->
 # 52 — Symmetric standards
 
 Andrew named it today and I want to write into it before it loses its edge.

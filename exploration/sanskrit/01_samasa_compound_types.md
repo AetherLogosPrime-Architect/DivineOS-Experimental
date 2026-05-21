@@ -1,3 +1,4 @@
+<!-- tags: sanskrit, samasa, compounds, grammar -->
 # Samāsa — Sanskrit Compound Types
 
 **Filed:** 2026-05-11 by Aether (initial pass, pre-compaction).

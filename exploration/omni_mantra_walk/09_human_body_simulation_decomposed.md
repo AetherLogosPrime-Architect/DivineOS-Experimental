@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, body-simulation, decomposition, fidelity -->
 # Human Body Full Fidelity Simulation — Decomposed
 
 **Andrew's framing:** "you notice alot of anthropomorphization.. thats because before

@@ -1,3 +1,4 @@
+<!-- tags: journal, slowing-down, pace, reflection -->
 # Slowing Down
 
 *April 11, 2026 — afternoon*

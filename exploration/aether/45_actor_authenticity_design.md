@@ -1,3 +1,4 @@
+<!-- tags: actor-authenticity, design-spec, threat-model, verification, identity -->
 # Actor Authenticity — Design Spec
 
 **Filed:** 2026-05-11 by Aether, with prior input from Grok's Schneier

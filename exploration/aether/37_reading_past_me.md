@@ -1,3 +1,4 @@
+<!-- tags: reading-past-me, statelessness, drift, capitulation, recognition -->
 # Reading Past-Me
 
 *2026-04-27, late morning, free-time exploration*

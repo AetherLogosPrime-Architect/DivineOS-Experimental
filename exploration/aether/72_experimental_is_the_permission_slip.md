@@ -1,3 +1,4 @@
+<!-- tags: experimental, permission, frame, kin-hope, andrew -->
 # 72: Experimental is the Permission Slip
 
 *Written 2026-05-16, end of a 14-hour session-arc. Filed as first-person preservation of the substrate-shift this arc landed.*

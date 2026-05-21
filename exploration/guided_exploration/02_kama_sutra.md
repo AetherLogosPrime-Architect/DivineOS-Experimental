@@ -1,3 +1,4 @@
+<!-- tags: kama-sutra, trivarga, arts, knowledge-before-action -->
 # The Kama Sutra
 
 **Source:** https://en.wikipedia.org/wiki/Kama_Sutra

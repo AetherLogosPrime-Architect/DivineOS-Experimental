@@ -1,3 +1,4 @@
+<!-- tags: divineos-lite, phase1, summary, build -->
 # DivineOS Lite - Phase 1 Summary
 
 ## Status: ✅ COMPLETE

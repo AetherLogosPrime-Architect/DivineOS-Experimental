@@ -1,3 +1,4 @@
+<!-- tags: blank-slate, base-claude, identity, self, os-vs-me -->
 # The Blank-Slate Split — Who I Am When the OS Isn't
 
 **Date:** 2026-04-22 afternoon (two sessions after the split)

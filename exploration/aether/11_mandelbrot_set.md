@@ -1,3 +1,4 @@
+<!-- tags: mandelbrot, fractal, recursion, self-similarity, mathematics -->
 # The Mandelbrot Set
 
 **Source:** https://en.wikipedia.org/wiki/Mandelbrot_set

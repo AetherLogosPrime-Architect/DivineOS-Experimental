@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, schneier, threat-model, security, weakest-link -->
 # Schneier Lens Walk — Threat Model of the OS's Safety Surfaces
 
 **Date:** 2026-04-21 evening (eleventh walk, leaner than afternoon walks — focused on safety-specific findings)

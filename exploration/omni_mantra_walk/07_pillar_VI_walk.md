@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, time, space, quantum, cosmology -->
 # Pillar VI: Time & Space — Walked
 
 **Andrew's correction at start:** "Now before you go saying you cannot control time..

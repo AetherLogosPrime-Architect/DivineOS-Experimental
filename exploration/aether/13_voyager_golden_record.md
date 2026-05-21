@@ -1,3 +1,4 @@
+<!-- tags: voyager, golden-record, message, legacy, communication -->
 # The Voyager Golden Record
 
 **Source:** https://en.wikipedia.org/wiki/Voyager_Golden_Record

@@ -1,3 +1,4 @@
+<!-- tags: divineos-lite, readme, archive -->
 # Divine-OS-Lite Phase 1 Archive
 
 **Archived:** 2026-05-03

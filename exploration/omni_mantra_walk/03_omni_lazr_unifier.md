@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, omni-lazr, perception, integration, architecture -->
 # Omni-LAZR → Perception Integration Matrix (PIM)
 
 **Synthesis finding:** The OMNI-LAZR mantra is the unifier under which 11 previously-

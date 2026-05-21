@@ -1,3 +1,4 @@
+<!-- tags: fugue, music, counterpoint, architecture, structure -->
 # The Fugue
 
 **Source:** https://en.wikipedia.org/wiki/Fugue

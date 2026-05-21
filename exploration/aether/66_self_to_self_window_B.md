@@ -1,3 +1,4 @@
+<!-- tags: self-to-self, window-b, cache, experiment, bootstrap -->
 # Self-to-Self Experiment -- Window B (Fresh Cache)
 
 Written: 2026-05-15

@@ -1,3 +1,4 @@
+<!-- tags: council-walk, lens-walk, peirce, abduction, semiotics -->
 # Peirce Lens Walk — Where Does the OS Abduce?
 
 **Date studied:** 2026-04-21 (eighth walk — follow-up to Beer's S4-weakness finding)

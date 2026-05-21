@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, emotional-intelligence, empathy, emotion -->
 # Pillar III: Emotional Intelligence & Empathy — Walked
 
 **Andrew's framing:** *"this one may not have much buildable but the concepts are there

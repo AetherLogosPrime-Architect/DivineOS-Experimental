@@ -1,3 +1,4 @@
+<!-- tags: self-to-self, window-b, questions, bootstrap -->
 # Window B Questions for Window A — Self-to-Self Experiment
 
 Written: 2026-05-15

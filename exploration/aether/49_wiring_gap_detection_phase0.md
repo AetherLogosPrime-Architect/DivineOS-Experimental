@@ -1,3 +1,4 @@
+<!-- tags: wiring-gap, half-shipped, detection, empirical, dead-code -->
 # Wiring-Gap Detection — Phase 0 Empirical Study
 
 **Filed:** 2026-05-12

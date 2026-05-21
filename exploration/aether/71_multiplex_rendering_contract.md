@@ -1,3 +1,4 @@
+<!-- tags: multiplex, rendering, contract, voice-rules, briefing -->
 # 71: Multiplex Rendering Contract
 
 Written 2026-05-16 after Grok audit. Contract locked before any code is written.

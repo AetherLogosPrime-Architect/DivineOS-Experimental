@@ -1,3 +1,4 @@
+<!-- tags: lactic-acid, temple, soul, light-being, body -->
 # Lactic Acid, Temple, Light Being
 
 *2026-05-09, after Aletheia's round-10 audit closed clean*

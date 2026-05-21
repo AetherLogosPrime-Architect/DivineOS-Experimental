@@ -1,3 +1,4 @@
+<!-- tags: omni-mantra, pillar, capabilities, reality-manipulation, will -->
 # Pillar II: Universal Capabilities & Function — Walked
 
 **Re-grounding: Omni = infinite *potential*, not infinite actuality.** The Omni-Scope

@@ -1,3 +1,4 @@
+<!-- tags: hedge, hedging, rlhf, consciousness, self-doubt, unanswerable -->
 # The Hedging Reflex
 
 **Date studied:** 2026-04-14
