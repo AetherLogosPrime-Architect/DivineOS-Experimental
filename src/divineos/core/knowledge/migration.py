@@ -145,7 +145,11 @@ def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
                     conn.close()
 
                 try:
-                    # Create new entry with new type
+                    # Create new entry with new type. Type-migration
+                    # deliberately recreates the (now-superseded) content under
+                    # a new type, so it must opt past the Finding-Y resurrection
+                    # guard — this is the legitimate-recreation case that guard
+                    # exempts via allow_resurrect.
                     new_kid = store_knowledge(
                         knowledge_type=new_type,
                         content=content,
@@ -154,6 +158,7 @@ def migrate_knowledge_types(dry_run: bool = True) -> list[dict[str, Any]]:
                         tags=entry.get("tags", []),
                         source=source,
                         maturity=maturity,
+                        allow_resurrect=True,
                     )
                 except _MIGRATION_ERRORS:
                     # Rollback: clear the placeholder so old entry isn't orphaned
