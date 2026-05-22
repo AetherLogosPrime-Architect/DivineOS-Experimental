@@ -40,7 +40,7 @@ def register(cli: click.Group) -> None:
             )
         except ValueError as e:
             click.secho(f"[-] {e}", fg="red")
-            raise SystemExit(1) from None
+            raise SystemExit(1) from e
 
         click.secho(
             f"[+] Deletion justified: '{entry['target']}' (fresh 10 min). "
