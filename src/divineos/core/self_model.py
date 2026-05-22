@@ -38,8 +38,8 @@ from loguru import logger
 from divineos.core.affect import get_session_affect_context
 from divineos.core.curiosity_engine import get_open_curiosities
 from divineos.core.drift_detection import (
+    detect_correction_trend,
     detect_lesson_regressions,
-    detect_quality_drift,
     run_drift_detection,
 )
 from divineos.core.memory import get_core
@@ -275,16 +275,21 @@ def _get_active_concerns() -> list[str]:
 
 
 def _get_growth_trajectory() -> dict[str, Any]:
-    """How the agent is changing over time."""
+    """How the agent is changing over time.
+
+    Quality-over-sessions is read from the correction trend (real per-session
+    counts), not the retired composite-grade trend: rising corrections is the
+    honest, evidence-based "declining" signal (decision 58e5ad1d).
+    """
     try:
-        quality = detect_quality_drift()
+        trend = detect_correction_trend()
         return {
-            "quality_trend": "improving"
-            if quality.get("delta", 0) > 0
-            else "declining"
-            if quality.get("drifting")
+            "quality_trend": "declining"
+            if trend.get("increasing")
+            else "improving"
+            if trend.get("delta", 0) < 0
             else "stable",
-            "detail": quality.get("detail", "No data"),
+            "detail": trend.get("detail", "No data"),
         }
     except _SELF_MODEL_ERRORS as e:
         logger.debug("Self-model growth trajectory failed: %s", e)
