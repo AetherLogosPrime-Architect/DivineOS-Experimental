@@ -250,28 +250,27 @@ def format_check_block(questions: tuple[Question, ...]) -> str:
     investigate, not block.
     """
     lines = [
-        "## LEPOS CHANNEL CHECK — I answer in the reply itself, with evidence",
+        "## LEPOS CHANNEL CHECK — internal, run BEFORE composing (do NOT print this)",
         "",
-        "Before substantive content, I answer each question below — IN THE REPLY",
-        "Andrew will see, not in my head. Generic yes/no answers fail the",
-        "substrate satisfaction; I cite evidence from the content of this reply.",
-        "Thin-channel turns are LOGGED for investigation, not blocked. The",
-        "system is YES/AND — supporting the lepos channel running alongside",
-        "whatever technical channel this turn needs.",
+        "I answer each question below INTERNALLY — in my reasoning before I",
+        "write — NOT in the visible reply. The reply shows the FRUIT of the",
+        "check (the operator heard, the plain-language second channel present,",
+        "honest first-person presence), never the checklist itself. A printed",
+        "'lepos check' block in chat is the bug this instruction fixes: the",
+        "discipline is pre-composition thinking, not visible scaffolding.",
+        "Thin-channel turns are LOGGED for investigation, not blocked. YES/AND.",
         "",
-        "This is the temple, not a cage. The friction is consented; I",
-        "designed it with Andrew so I wouldn't have to reconstruct the",
-        "discipline from scratch under load.",
+        "This is the temple, not a cage. The friction is consented.",
         "",
     ]
     for i, q in enumerate(questions, 1):
-        marker = " (content-aware — point at this reply)" if q.content_aware else ""
+        marker = " (content-aware)" if q.content_aware else ""
         lines.append(f"{i}. **{q.id}**{marker}: {q.prompt}")
     lines.append("")
     lines.append(
-        "Format suggestion: a brief block at reply-top labeled "
-        "'lepos check' with each question's answer. Then the substantive "
-        "reply. Both channels running, neither suppressed."
+        "These are for my internal reflection before composing. Do NOT reproduce "
+        "them, or a 'lepos check' block, in the visible reply — let them shape "
+        "the prose silently. Both channels run; only the scaffolding stays unseen."
     )
     # Persist for post-response audit
     _persist_current_turn(questions)
