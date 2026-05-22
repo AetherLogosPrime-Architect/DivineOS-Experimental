@@ -118,3 +118,33 @@ def test_module_has_guardrail_marker():
     """Aletheia Finding 48 class-fix discipline: any load-bearing
     enforcement module must declare itself for multi-party review."""
     assert getattr(lcc, "__guardrail_required__", False) is True
+
+
+def test_block_internal_by_default(monkeypatch):
+    """Default (switch unset): the block is internal — it instructs NOT
+    to print, and does not carry the visible 'block at reply-top' format."""
+    monkeypatch.delenv(lcc._SHOW_BLOCK_ENV, raising=False)
+    qs = lcc.select_questions_for_turn(seed=13)
+    block = lcc.format_check_block(qs)
+    assert "do NOT print this" in block
+    assert "internal" in block.lower()
+    assert "block at reply-top" not in block
+
+
+def test_block_visible_when_switch_flipped(monkeypatch):
+    """Switch on: the block re-surfaces with the visible reply-top format,
+    for proving the channel fires on demand."""
+    monkeypatch.setenv(lcc._SHOW_BLOCK_ENV, "1")
+    qs = lcc.select_questions_for_turn(seed=13)
+    block = lcc.format_check_block(qs)
+    assert "block at reply-top" in block
+    assert "proving-function" in block.lower()
+
+
+def test_show_block_truthy_variants(monkeypatch):
+    for val in ("1", "true", "YES", "On"):
+        monkeypatch.setenv(lcc._SHOW_BLOCK_ENV, val)
+        assert lcc._show_block_enabled() is True
+    for val in ("", "0", "false", "no", "off"):
+        monkeypatch.setenv(lcc._SHOW_BLOCK_ENV, val)
+        assert lcc._show_block_enabled() is False
