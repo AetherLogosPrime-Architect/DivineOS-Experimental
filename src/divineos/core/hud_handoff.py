@@ -406,17 +406,33 @@ def _drift_signals_elevated() -> bool:
     """Check if drift indicators suggest the gate should stay tight.
 
     Returns True if any of:
-    - Last session grade was D or F
+    - Last session had unresolved corrections or low autonomy (per-factor)
     - Active lessons have regressed 2+ times
+
+    Reads per-factor signals, not the composite grade: a short collaborative
+    session averages to a low composite without anything being wrong, so
+    clamping the gate on the composite is clamping on noise (decision
+    58e5ad1d). The factors that genuinely mean "stay tight" are unresolved
+    corrections and low autonomy.
     """
     try:
-        # Check last session grade from handoff
         handoff_path = _get_hud_dir() / "handoff_note.json"
         if handoff_path.exists():
             ho = json.loads(handoff_path.read_text(encoding="utf-8"))
-            grade = (ho.get("context_snapshot") or {}).get("session_grade", "")
-            if grade in ("D", "F"):
-                return True
+            snapshot = ho.get("context_snapshot") or {}
+            factors = snapshot.get("session_factors") or {}
+            if factors:
+                corrections = factors.get("corrections")
+                autonomy = factors.get("autonomy")
+                if isinstance(corrections, (int, float)) and corrections < 0.55:
+                    return True
+                if isinstance(autonomy, (int, float)) and autonomy < 0.40:
+                    return True
+            else:
+                # Backcompat: older handoffs only stored the composite grade.
+                grade = snapshot.get("session_grade", "")
+                if grade in ("D", "F"):
+                    return True
 
         # Check for regressing lessons
         from divineos.core.knowledge import get_lessons
