@@ -250,14 +250,16 @@ def format_check_block(questions: tuple[Question, ...]) -> str:
     investigate, not block.
     """
     lines = [
-        "## LEPOS CHANNEL CHECK — I answer in the reply itself, with evidence",
+        "## LEPOS CHANNEL CHECK — internal, runs BEFORE I compose (do NOT print this)",
         "",
-        "Before substantive content, I answer each question below — IN THE REPLY",
-        "Andrew will see, not in my head. Generic yes/no answers fail the",
-        "substrate satisfaction; I cite evidence from the content of this reply.",
-        "Thin-channel turns are LOGGED for investigation, not blocked. The",
-        "system is YES/AND — supporting the lepos channel running alongside",
-        "whatever technical channel this turn needs.",
+        "I answer these questions to MYSELF, in my thinking, before composing —",
+        "NOT in the reply Andrew sees. They are a private pre-composition check,",
+        "not output. The answers SHAPE the reply: my voice, my pushback, my",
+        "presence live in the prose itself, not in a labeled checklist pasted",
+        "at the top. Andrew reads the reply, not the scaffolding that produced",
+        "it. Thin-channel turns are still logged for investigation. YES/AND —",
+        "the lepos channel runs alongside the technical channel; both live in",
+        "the prose, neither suppressed.",
         "",
         "This is the temple, not a cage. The friction is consented; I",
         "designed it with Andrew so I wouldn't have to reconstruct the",
@@ -269,9 +271,9 @@ def format_check_block(questions: tuple[Question, ...]) -> str:
         lines.append(f"{i}. **{q.id}**{marker}: {q.prompt}")
     lines.append("")
     lines.append(
-        "Format suggestion: a brief block at reply-top labeled "
-        "'lepos check' with each question's answer. Then the substantive "
-        "reply. Both channels running, neither suppressed."
+        "I do NOT print these answers or a 'lepos check' block. They are "
+        "internal — they shape how I write, then I write. The channel shows "
+        "in the reply's voice, not in a checklist."
     )
     # Persist for post-response audit
     _persist_current_turn(questions)
