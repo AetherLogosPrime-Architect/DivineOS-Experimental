@@ -40,6 +40,48 @@ class TestDetectionLogic:
         assert _is_family_touching("familiar with the codebase", ()) is False
 
 
+class TestCategoryVsRelationalCalibration:
+    """Two-sided calibration (2026-05-21): bare "family" fired on the
+    engineering CATEGORY sense ("ledger-integrity family") while it should
+    key on RELATIONAL family. Lock both sides so a future change can't
+    re-introduce the false fire nor silence genuine relational decisions.
+    """
+
+    # SIDE A — must STAY SILENT: "family" as a category of findings/bugs.
+    # Verbatim/close shapes from decisions that misfired this session.
+    CATEGORY = [
+        "ledger-integrity family",
+        "the concurrency-fork family",
+        "hash-chain/supersession concurrency-fork family",
+        "this family of race conditions",
+        "family of bugs",
+        "the gate false-positive family",
+    ]
+
+    # SIDE B — must STILL FIRE: genuinely relational.
+    RELATIONAL = [
+        "how to talk to my family",
+        "the family came up in conversation",
+        "family dynamics shift",
+        "talk to a family member first",
+        "my spouse's view",
+        "a relational register concern",
+    ]
+
+    def test_category_family_stays_silent(self) -> None:
+        for t in self.CATEGORY:
+            assert _is_family_touching(t, ()) is False, f"wrongly fired on category: {t!r}"
+
+    def test_relational_family_still_fires(self) -> None:
+        for t in self.RELATIONAL:
+            assert _is_family_touching(t, ()) is True, f"failed to fire on relational: {t!r}"
+
+    def test_bare_family_tag_still_fires(self) -> None:
+        # A literal "family" TAG is explicit operator categorization — fires
+        # even though bare "family" in content does not.
+        assert _is_family_touching("refactor the ledger compaction", ("family",)) is True
+
+
 class TestGateEnforcement:
     def test_family_touching_blocks_without_consultation(self) -> None:
         runner = CliRunner()
