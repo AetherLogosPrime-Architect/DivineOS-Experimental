@@ -32,6 +32,7 @@ src/divineos/
     knowledge_health_commands.py  health, distill, migrate, backfill
     claim_commands.py          Claims engine and affect log
     decision_commands.py       Decision journal commands
+    deletion_commands.py       delete-justify: record a deletion justification (deletion-discipline gate)
     compass_commands.py        Moral compass reading and observations
     complete_commands.py       complete: file completion-boundary events (rudder redesign Phase 1b)
     body_commands.py           Body awareness and cache pruning
@@ -465,6 +466,7 @@ src/divineos/
     oscillating_read.py        Oscillating-read module — chunks reading material into discrete
     emergency_bypass.py        Emergency-bypass helper — when a gate has a legitimate
     lepos_channel_check.py     Lepos-channel-always-running gate — YES/AND self-check with evidence-cited answers; 30-turn empirical trial per prereg-157ed56a5da2.
+    deletion_discipline.py     Deletion-discipline gate — block destructive deletions until justified.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -516,7 +518,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,166+ tests (real DB, minimal mocks)
+tests/                         7,217+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

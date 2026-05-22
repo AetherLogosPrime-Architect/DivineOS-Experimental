@@ -264,6 +264,7 @@ from divineos.cli import (  # noqa: E402
     consumer_status_commands,
     andrew_correction_commands,
     oscillating_read_commands,
+    deletion_commands,
 )
 
 actor_registry_commands.register(cli)
@@ -271,6 +272,7 @@ ledger_commands.register(cli)
 knowledge_commands.register(cli)
 journal_commands.register(cli)
 decision_commands.register(cli)
+deletion_commands.register(cli)
 claim_commands.register(cli)
 audit_commands.register(cli)
 pattern_attribution_commands.register(cli)
