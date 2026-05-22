@@ -47,7 +47,7 @@ if tool_name == 'Bash':
     cmd = (tool_input.get('command') or '').strip()
     # Allow divineos briefing/init/preflight/recall/ask/hud/context
     # so the agent can actually load briefing or check minimum state.
-    for bypass in (
+    bypass_prefixes = (
         'divineos briefing',
         'divineos init',
         'divineos preflight',
@@ -56,9 +56,25 @@ if tool_name == 'Bash':
         'divineos hud',
         'divineos context',
         'divineos goal',
-    ):
-        if cmd.startswith(bypass):
-            sys.exit(0)
+    )
+    # The shell resets cwd between calls, so the bypass command almost
+    # always arrives prefixed with 'cd <path> && ...'. A startswith() on
+    # the whole command then never matches, and the channel this gate
+    # points to ('Run: divineos briefing') is itself blocked — a total
+    # lockout (the gates-need-channels failure: the satisfying action is
+    # gated by the gate). Split on shell separators and match any segment.
+    # echo \"divineos briefing\" stays blocked (segment startswith 'echo').
+    parts = [cmd]
+    for sep in ('&&', ';', '|', chr(10)):
+        nxt = []
+        for p in parts:
+            nxt.extend(p.split(sep))
+        parts = nxt
+    for seg in parts:
+        seg = seg.strip()
+        for bypass in bypass_prefixes:
+            if seg.startswith(bypass):
+                sys.exit(0)
 
 try:
     from divineos.core.briefing_freshness import staleness_signal
