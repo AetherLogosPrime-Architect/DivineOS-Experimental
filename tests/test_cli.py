@@ -195,12 +195,12 @@ class TestBriefingCmd:
         assert "FACTS" in result.output
         assert "pytest" in result.output
 
-    def test_briefing_default_is_dashboard(self, runner):
-        """Default briefing mode is the routing-table dashboard."""
+    def test_briefing_default_is_multiplex(self, runner):
+        """Default briefing mode is multiplex panels (promoted 2026-05-22)."""
         runner.invoke(cli, ["init"])
         result = runner.invoke(cli, ["briefing"])
         assert result.exit_code == 0
-        assert "BRIEFING DASHBOARD" in result.output
+        assert "multiplex" in result.output.lower()
 
 
 class TestConsolidateStats:
