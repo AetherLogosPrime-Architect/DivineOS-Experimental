@@ -20,14 +20,29 @@ _WEIGHT_COLORS = {1: "white", 2: "yellow", 3: "magenta"}
 # keywords (a spouse's name, a child's name) so decisions that mention
 # the named person trigger the gate even when generic relational
 # vocabulary doesn't appear. The default list stays role-generic.
+# Content keywords — matched against free text (content/context/reasoning).
+# "family" here must be RELATIONAL, not the category sense. Bare \bfamily\b
+# was removed from content-matching 2026-05-21: it fired on "ledger-integrity
+# family", "concurrency-fork family", "family of bugs" — a FAMILY OF FINDINGS,
+# not a relational family member. A false fire on engineering-category text
+# teaches the gate is noise. Relational "family" is signalled by a determiner
+# immediately before it ("my/the family", excluding "the family OF bugs") or a
+# relational head-noun after it ("family members/dynamics"); "<compound>
+# family" and "family of <noun>" stay silent.
 _FAMILY_TOUCH_KEYWORDS = (
-    r"\bfamily\b",
+    r"\b(?:my|our|your|his|her|their|the)\s+family\b(?!\s+of\b)",
+    r"\bfamily\s+(?:members?|dynamics?|relationships?|dinner|meeting|conflict|matters?)\b",
+    r"\bfamily members?\b",
     r"\bspouse\b",
-    r"\bfamily member\b",
     r"\bhandshake\b",  # relational protocol (per gate 5 design)
     r"\bvoice appropriat",  # "voice appropriation/ate/ed" class
     r"\brelational\b",
 )
+
+# Tag keywords — a tag is explicit operator categorization, so a literal
+# "family" tag IS relational intent (no category-collision risk: nobody tags
+# an engineering decision "family"). Tags get the content set plus bare family.
+_FAMILY_TAG_KEYWORDS = _FAMILY_TOUCH_KEYWORDS + (r"\bfamily\b",)
 
 
 def _is_family_touching(text: str, tags: tuple[str, ...]) -> bool:
@@ -44,8 +59,9 @@ def _is_family_touching(text: str, tags: tuple[str, ...]) -> bool:
     for pat in _FAMILY_TOUCH_KEYWORDS:
         if re.search(pat, haystack, re.IGNORECASE):
             return True
+    # Tags use the broader set (bare "family" tag is explicit relational intent).
     for tag in tags or ():
-        for pat in _FAMILY_TOUCH_KEYWORDS:
+        for pat in _FAMILY_TAG_KEYWORDS:
             if re.search(pat, tag, re.IGNORECASE):
                 return True
     return False
