@@ -265,15 +265,33 @@ def test_factors_no_briefing_surfaces_root():
     )
     out = format_session_factors(h)
     assert "Briefing not loaded" in out
-    assert "corrections:" not in out  # no factor letters when briefing failed
+    assert "corrections:" not in out  # nothing else surfaces when briefing failed
 
 
-def test_factors_clean_session_no_phantom_low_letters():
-    """A clean session must not show misleading low letters for no-data factors.
+def test_factors_surface_raw_counts_and_percentage():
+    """Corrections surface as raw counts + landing percentage, never a letter.
 
-    pr_volume / encouragements default to neutral; lettering them as 'D'
-    on a clean session is the shoggoth misfire this surface retires.
+    Andrew's example: 8 filed, 3 landed → "37%". The code shows the
+    evidence; the agent grades from it (decision 58e5ad1d).
     """
+    h = measure_session_health(
+        corrections=5,  # unresolved
+        encouragements=0,
+        context_overflows=0,
+        tool_calls=50,
+        user_messages=10,
+        briefing_loaded=True,
+        resolved_corrections=3,  # 8 total, 3 landed = 38%
+    )
+    out = format_session_factors(h)
+    assert "8 filed, 3 landed (38%)" in out
+    # No letter grade anywhere.
+    for letter in (": A", ": B", ": C", ": D", ": F"):
+        assert letter not in out
+
+
+def test_factors_clean_session_shows_only_real_data():
+    """A clean session shows the real positives, no phantom low marks."""
     h = measure_session_health(
         corrections=0,
         encouragements=3,
@@ -284,15 +302,14 @@ def test_factors_clean_session_no_phantom_low_letters():
         pr_count=2,
     )
     out = format_session_factors(h)
-    assert "corrections: A" in out
-    assert "pr_volume" not in out  # contextual, not lettered
-    assert "encouragements" not in out  # contextual, not lettered
+    assert "autonomy: 80 tool-calls / 10 msgs" in out
     assert "2 PR(s) shipped" in out
     assert "Look into" not in out  # nothing to investigate
+    assert "corrections:" not in out  # zero corrections → not surfaced
 
 
-def test_factors_rough_session_points_at_what_to_investigate():
-    """Low actionable factors carry an investigation arrow, not just a grade."""
+def test_factors_point_at_what_to_investigate():
+    """Surfaced data carries a 'look into' pointer, but the code doesn't grade."""
     h = measure_session_health(
         corrections=3,
         encouragements=0,
@@ -305,12 +322,12 @@ def test_factors_rough_session_points_at_what_to_investigate():
     )
     out = format_session_factors(h)
     assert "Look into:" in out
-    assert "unresolved corrections" in out
-    assert "structural_ratio" in out  # surfaced because drift events occurred
+    assert "didn't land" in out
+    assert "drift: 0 fixed / 2 recurred" in out
 
 
-def test_factors_structural_ratio_silent_without_drift():
-    """structural_ratio's neutral default must not be lettered when no drift fired."""
+def test_factors_drift_silent_without_recurrence():
+    """No drift events → no drift line (its neutral default isn't a fault)."""
     h = measure_session_health(
         corrections=0,
         encouragements=0,
@@ -320,11 +337,11 @@ def test_factors_structural_ratio_silent_without_drift():
         briefing_loaded=True,
     )
     out = format_session_factors(h)
-    assert "structural_ratio" not in out
+    assert "drift:" not in out
 
 
-def test_factors_no_composite_grade_letter():
-    """The surface must never emit a single composite 'Session grade: X'."""
+def test_factors_no_composite_or_letter_grade():
+    """The surface must never emit a composite grade or any letter verdict."""
     h = measure_session_health(
         corrections=1,
         encouragements=1,
@@ -332,6 +349,8 @@ def test_factors_no_composite_grade_letter():
         tool_calls=40,
         user_messages=8,
         briefing_loaded=True,
+        resolved_corrections=1,
     )
     out = format_session_factors(h)
     assert "Session grade:" not in out
+    assert "grade" not in out.lower()
