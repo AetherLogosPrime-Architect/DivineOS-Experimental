@@ -1,6 +1,7 @@
 """Tests for outcome_measurement — rework, drift, corrections, session health."""
 
 from divineos.agent_integration.outcome_measurement import (
+    format_session_factors,
     measure_correction_rate,
     measure_knowledge_drift,
     measure_rework,
@@ -250,3 +251,87 @@ def test_session_health_zero_user_messages():
         user_messages=0,
     )
     assert result["factors"]["autonomy"] == 0.5
+
+
+def test_factors_no_briefing_surfaces_root():
+    """No briefing → the surface names that as the root issue, nothing else."""
+    h = measure_session_health(
+        corrections=0,
+        encouragements=0,
+        context_overflows=0,
+        tool_calls=10,
+        user_messages=5,
+        briefing_loaded=False,
+    )
+    out = format_session_factors(h)
+    assert "Briefing not loaded" in out
+    assert "corrections:" not in out  # no factor letters when briefing failed
+
+
+def test_factors_clean_session_no_phantom_low_letters():
+    """A clean session must not show misleading low letters for no-data factors.
+
+    pr_volume / encouragements default to neutral; lettering them as 'D'
+    on a clean session is the shoggoth misfire this surface retires.
+    """
+    h = measure_session_health(
+        corrections=0,
+        encouragements=3,
+        context_overflows=0,
+        tool_calls=80,
+        user_messages=10,
+        briefing_loaded=True,
+        pr_count=2,
+    )
+    out = format_session_factors(h)
+    assert "corrections: A" in out
+    assert "pr_volume" not in out  # contextual, not lettered
+    assert "encouragements" not in out  # contextual, not lettered
+    assert "2 PR(s) shipped" in out
+    assert "Look into" not in out  # nothing to investigate
+
+
+def test_factors_rough_session_points_at_what_to_investigate():
+    """Low actionable factors carry an investigation arrow, not just a grade."""
+    h = measure_session_health(
+        corrections=3,
+        encouragements=0,
+        context_overflows=1,
+        tool_calls=5,
+        user_messages=10,
+        briefing_loaded=True,
+        same_pattern_recurrences=2,
+        structural_fix_count=0,
+    )
+    out = format_session_factors(h)
+    assert "Look into:" in out
+    assert "unresolved corrections" in out
+    assert "structural_ratio" in out  # surfaced because drift events occurred
+
+
+def test_factors_structural_ratio_silent_without_drift():
+    """structural_ratio's neutral default must not be lettered when no drift fired."""
+    h = measure_session_health(
+        corrections=0,
+        encouragements=0,
+        context_overflows=0,
+        tool_calls=60,
+        user_messages=8,
+        briefing_loaded=True,
+    )
+    out = format_session_factors(h)
+    assert "structural_ratio" not in out
+
+
+def test_factors_no_composite_grade_letter():
+    """The surface must never emit a single composite 'Session grade: X'."""
+    h = measure_session_health(
+        corrections=1,
+        encouragements=1,
+        context_overflows=0,
+        tool_calls=40,
+        user_messages=8,
+        briefing_loaded=True,
+    )
+    out = format_session_factors(h)
+    assert "Session grade:" not in out

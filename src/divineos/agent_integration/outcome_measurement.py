@@ -563,3 +563,99 @@ def measure_session_health(
     }
     logger.debug(f"Session health: {score:.2f} ({grade})")
     return result
+
+
+# Below this, a factor warrants investigation — "below a B+" (Andrew
+# 2026-05-22). Not a judgment threshold; an arrow at what to look into.
+_FACTOR_INVESTIGATE_THRESHOLD = 0.80
+
+
+# Score → letter band, applied PER FACTOR (never composited). Same bands
+# as the retired session-grade so the letters read familiarly, but each
+# letter now points at one specific, investigable thing.
+def _factor_letter(score: float) -> str:
+    if score >= 0.85:
+        return "A"
+    if score >= 0.70:
+        return "B"
+    if score >= 0.55:
+        return "C"
+    if score >= 0.40:
+        return "D"
+    return "F"
+
+
+# For each factor: a label, and what a low score points AT — the thing to
+# investigate. Factors absent here are informational-only (a low value
+# isn't a fault — e.g. zero PRs in a research session), so they get a
+# letter but no investigation arrow.
+_FACTOR_INVESTIGATE_GUIDANCE = {
+    "corrections": "unresolved corrections — were they integrated, or left open?",
+    "autonomy": "low tool-calls-per-message — was I waiting for direction I could have taken?",
+    "overflows": "context overflows — did context bloat instead of getting consolidated?",
+    "structural_ratio": "a drift pattern recurred without a structural fix — what fired again unfixed?",
+}
+
+
+def format_session_factors(health: dict[str, Any]) -> str:
+    """Per-factor reflection for the handoff — replaces the composite grade.
+
+    The retired ``Session grade: D`` line averaged real per-factor signal
+    into one judging letter (the shoggoth pattern, knowledge bbe3300e).
+    This surfaces each factor independently and, for factors below B+,
+    points at what to investigate. Informs toward self-improvement; does
+    not judge (Andrew 2026-05-20, 2026-05-22).
+
+    Only ACTIONABLE factors get a letter — ones where a low value means a
+    real, investigable thing. Contextual factors (PRs shipped, approvals
+    received) are reported as plain facts when present, never lettered:
+    a "D" for shipping nothing in a research session is the same shoggoth
+    misfire we're retiring. Returns "" if no factors are present.
+    """
+    factors = health.get("factors") or {}
+    if not factors:
+        return ""
+
+    # Briefing hard-fail is the one thing to surface loud and first.
+    if factors.get("briefing_loaded") == 0.0:
+        return (
+            "Briefing not loaded this session — that's the root issue; "
+            "everything downstream is unreliable until orientation happens first."
+        )
+
+    # Actionable factors: a low letter here points at something to fix.
+    actionable = ["corrections", "overflows", "autonomy"]
+    lines: list[str] = []
+    investigate: list[str] = []
+    for key in actionable:
+        val = factors.get(key)
+        if not isinstance(val, (int, float)):
+            continue
+        lines.append(f"{key}: {_factor_letter(float(val))}")
+        if float(val) < _FACTOR_INVESTIGATE_THRESHOLD and key in _FACTOR_INVESTIGATE_GUIDANCE:
+            investigate.append(_FACTOR_INVESTIGATE_GUIDANCE[key])
+
+    # structural_ratio is actionable ONLY when drift events actually
+    # occurred (otherwise its 0.5 default is no-data, not a fault).
+    if factors.get("same_pattern_recurrences", 0) > 0:
+        sr = factors.get("structural_ratio")
+        if isinstance(sr, (int, float)):
+            lines.append(f"structural_ratio: {_factor_letter(float(sr))}")
+            if float(sr) < _FACTOR_INVESTIGATE_THRESHOLD:
+                investigate.append(_FACTOR_INVESTIGATE_GUIDANCE["structural_ratio"])
+
+    # Contextual facts — reported plainly, never lettered.
+    context_facts: list[str] = []
+    if factors.get("pr_count", 0) > 0:
+        context_facts.append(f"{int(factors['pr_count'])} PR(s) shipped")
+    if factors.get("resolved_corrections", 0) > 0:
+        context_facts.append(f"{int(factors['resolved_corrections'])} correction(s) resolved")
+
+    out = ""
+    if lines:
+        out = "Session factors — " + ", ".join(lines) + "."
+    if context_facts:
+        out = (out + " " if out else "") + "; ".join(context_facts) + "."
+    if investigate:
+        out += " Look into: " + " ".join(f"({i})" for i in investigate)
+    return out.strip()

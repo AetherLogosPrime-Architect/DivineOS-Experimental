@@ -485,7 +485,13 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
                 f"I was corrected {len(analysis.corrections)} time(s) — review what went wrong."
             )
         if health:
-            parts.append(f"Session grade: {health['grade']}.")
+            from divineos.agent_integration.outcome_measurement import (
+                format_session_factors,
+            )
+
+            factor_line = format_session_factors(health)
+            if factor_line:
+                parts.append(factor_line)
 
         open_threads: list[str] = []
         for corr in analysis.corrections[:3]:
