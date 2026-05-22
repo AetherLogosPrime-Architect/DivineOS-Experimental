@@ -286,7 +286,7 @@ def measure_correction_rate(session_id: str | None = None) -> dict[str, Any]:
         conn.close()
 
 
-def measure_correction_trend(limit: int = 20) -> dict[str, Any]:
+def measure_correction_trend() -> dict[str, Any]:
     """Show correction frequency over time using the real corrections store.
 
     Reads from `core.corrections.load_corrections()` (JSONL, the same source
