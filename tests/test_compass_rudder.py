@@ -24,6 +24,7 @@ from divineos.core.compass_rudder import (
     GATED_TOOL_NAMES,
     JUSTIFICATION_WINDOW_SECONDS,
     RudderVerdict,
+    _build_block_message,
     check_tool_use,
 )
 from divineos.core.decision_journal import init_decision_journal, record_decision
@@ -449,3 +450,63 @@ class TestFailOpen:
     def test_no_crash_on_none_tool_input(self):
         v = check_tool_use(tool_name="Task", tool_input=None)
         assert isinstance(v, RudderVerdict)
+
+
+class TestInitiativeChannel:
+    """The initiative block must be gate AND channel: when initiative is
+    the drifting spectrum, the block message names the unfinished work and
+    routes me to close it — not just an abstract justification request.
+    Andrew 2026-05-23: "not just a wall."
+    """
+
+    def test_initiative_block_includes_channel_when_unfinished_exists(self, monkeypatch):
+        from divineos.core.completion_check import Unfinished
+
+        sample = [
+            Unfinished(
+                path="src/divineos/core/foo.py",
+                has_test=False,
+                has_wiring=True,
+                questions=["Has it been tested on real input?"],
+            )
+        ]
+        monkeypatch.setattr(
+            "divineos.core.completion_check.unfinished_mechanisms",
+            lambda days=14: sample,
+        )
+        msg = _build_block_message("Task", ["initiative"], 300.0, fire_id="abc")
+        assert "WHAT'S UNFINISHED" in msg
+        assert "foo" in msg
+
+    def test_initiative_block_omits_channel_when_nothing_unfinished(self, monkeypatch):
+        monkeypatch.setattr(
+            "divineos.core.completion_check.unfinished_mechanisms",
+            lambda days=14: [],
+        )
+        msg = _build_block_message("Task", ["initiative"], 300.0, fire_id="abc")
+        assert "WHAT'S UNFINISHED" not in msg
+
+    def test_non_initiative_block_never_has_channel(self, monkeypatch):
+        from divineos.core.completion_check import Unfinished
+
+        monkeypatch.setattr(
+            "divineos.core.completion_check.unfinished_mechanisms",
+            lambda days=14: [
+                Unfinished(path="x.py", has_test=False, has_wiring=False, questions=["q"])
+            ],
+        )
+        msg = _build_block_message("Task", ["thoroughness"], 300.0, fire_id="abc")
+        assert "WHAT'S UNFINISHED" not in msg
+
+    def test_channel_failure_does_not_break_block(self, monkeypatch):
+        """Enrichment is fail-open: if the probe raises, the block still builds."""
+
+        def _boom(days=14):
+            raise RuntimeError("probe exploded")
+
+        monkeypatch.setattr(
+            "divineos.core.completion_check.unfinished_mechanisms", _boom
+        )
+        msg = _build_block_message("Task", ["initiative"], 300.0, fire_id="abc")
+        assert "COMPASS RUDDER" in msg  # core message intact
+        assert "WHAT'S UNFINISHED" not in msg  # channel quietly omitted
