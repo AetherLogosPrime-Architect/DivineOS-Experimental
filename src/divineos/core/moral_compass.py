@@ -81,11 +81,21 @@ _SOURCE_TRUST: dict[str, SignalTier] = {
     "encouragement_ratio": SignalTier.MEASURED,
     "frustration_rate": SignalTier.MEASURED,
     "correction_acceptance": SignalTier.MEASURED,
+    "session_activity": SignalTier.MEASURED,
     # BEHAVIORAL: observed patterns across time
     "session_end": SignalTier.BEHAVIORAL,
     "quality_signal": SignalTier.BEHAVIORAL,
     "session_precision": SignalTier.BEHAVIORAL,
     "affect_responsiveness": SignalTier.BEHAVIORAL,
+    # completion_check reads real unfinished-mechanism state from the
+    # substrate over a 14-day window — the initiative dial's witness, not
+    # self-report. pull_detection(_soft) are drift-pull detectors over my
+    # own output. All three were silently defaulting to SELF_REPORTED
+    # because they were never registered here — under-weighting real
+    # signals AND mislabeling them as self-report in the compass display.
+    "completion_check": SignalTier.BEHAVIORAL,
+    "pull_detection": SignalTier.BEHAVIORAL,
+    "pull_detection_soft": SignalTier.BEHAVIORAL,
     # SELF_REPORTED: affect data, manual observations
     "affect_derived": SignalTier.SELF_REPORTED,
     "self_report": SignalTier.SELF_REPORTED,
