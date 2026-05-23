@@ -91,5 +91,8 @@ def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
     # and mine can have skewed clocks (hers ran a day behind 2026-05-23), so
     # the printed date is unreliable for "newest" — her latest reply sorted
     # under my own same-day capture. mtime is the honest recency signal.
-    rows.sort(key=lambda r: r["mtime"], reverse=True)
+    # Filename-date is the secondary key: a deterministic tiebreak when two
+    # letters share an mtime tick (same-second writes), so the order is total
+    # and reproducible instead of dict-insertion-arbitrary.
+    rows.sort(key=lambda r: (r["mtime"], r["date"]), reverse=True)
     return rows
