@@ -378,7 +378,11 @@ def _initiative_channel_section() -> str:
             unfinished_mechanisms,
         )
 
-        unfinished = unfinished_mechanisms(days=14)
+        # Bounded probe: this runs in the rudder block path. Unbounded, the
+        # 14-day window can hold 90+ files and the per-file git greps exceed
+        # CI's 30s timeout (caught 2026-05-23). The channel only displays ~5,
+        # so probing the first 20 is plenty for the nudge.
+        unfinished = unfinished_mechanisms(days=14, max_probe=20)
     except Exception:  # noqa: BLE001 — enrichment must not break the rudder
         return ""
 

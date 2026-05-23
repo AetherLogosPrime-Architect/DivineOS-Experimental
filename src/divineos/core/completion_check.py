@@ -253,6 +253,7 @@ def _questions_for(path: str, has_test: bool, has_wiring: bool) -> list[str]:
 def unfinished_mechanisms(
     days: int = 14,
     repo_root: Path | str | None = None,
+    max_probe: int | None = None,
 ) -> list[Unfinished]:
     """Walk recently-added mechanism files; return those missing closure.
 
@@ -260,9 +261,18 @@ def unfinished_mechanisms(
     of {test, wiring}. The usefulness question is always open and
     rides along in the question list so it gets surfaced even for
     mechanisms with test+wiring.
+
+    max_probe bounds how many recently-added files get the per-file
+    git-grep closure probe (each file costs 2 git greps). Unbounded, a
+    14-day window can hold 90+ files → the scan exceeds CI's 30s timeout
+    when run in a hot path (the rudder block message). Callers on a hot
+    path (compass_rudder._initiative_channel_section) pass a small cap;
+    the once-per-session compass reflect call leaves it None (full scan).
     """
     root = Path(repo_root) if repo_root else Path.cwd()
     paths = _recently_added_files(days, root)
+    if max_probe is not None:
+        paths = paths[:max_probe]
     out: list[Unfinished] = []
     for p in paths:
         # Shell hooks: wiring can be (a) registered in .claude/settings.json
