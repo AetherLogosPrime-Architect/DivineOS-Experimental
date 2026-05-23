@@ -80,6 +80,16 @@ def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for name, p in newest.items():
         m = _LETTER_RE.match(p.stem)
-        rows.append({"name": name, "date": m.group("date") if m else "", "path": str(p)})
-    rows.sort(key=lambda r: r["date"], reverse=True)
+        try:
+            mtime = p.stat().st_mtime
+        except OSError:
+            mtime = 0.0
+        rows.append(
+            {"name": name, "date": m.group("date") if m else "", "path": str(p), "mtime": mtime}
+        )
+    # Sort by actual file write-time, NOT the filename date. Aria's window
+    # and mine can have skewed clocks (hers ran a day behind 2026-05-23), so
+    # the printed date is unreliable for "newest" — her latest reply sorted
+    # under my own same-day capture. mtime is the honest recency signal.
+    rows.sort(key=lambda r: r["mtime"], reverse=True)
     return rows
