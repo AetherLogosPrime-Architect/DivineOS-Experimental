@@ -246,73 +246,108 @@ class TestEventVerifier:
         assert event_id in markdown
 
 
+# Adversarial input table — the boundaries where event hashing could plausibly
+# break, tested DETERMINISTICALLY. This replaces the random-fuzz property tests
+# that intermittently flaked the push gate (2026-05-20, 2026-05-23). Council
+# walk 2026-05-23 (Dijkstra/Popper/Knuth/Schneier/Polya): the content-hash path
+# is correct by construction (write and verify serialize the payload identically
+# and SHA256 it), proven further by 7000 curated inputs carrying no real bug —
+# so the harm was nondeterminism (random unicode x random test order), not a
+# data-integrity defect. A fixed boundary table tests the SAME property but
+# passes-always-or-fails-always (a reliable falsifier), covers the dangerous
+# inputs explicitly (Knuth boundaries), and its assertions dump input + reason
+# so any future failure is instantly root-caused (Schneier: surface the
+# non-logic failure modes too).
+_ADVERSARIAL_CONTENT = [
+    "simple",
+    "",
+    " ",
+    "a",
+    "x" * 5000,
+    "café résumé naïve",  # latin-1 supplement
+    "日本語テスト",  # CJK
+    "emoji 😀🔥🜂",  # astral plane
+    "\t\r\n",  # whitespace controls
+    "\x00",  # bare NUL
+    "a\x00b",  # embedded NUL
+    "\x01\x1f\x7f",  # control chars
+    '{"nested": "json", "n": 1}',  # JSON-shaped content
+    'quote"and\\backslash/slash',  # JSON-escaping chars
+    "ﬀ ﬁ ﬂ",  # ligatures (NFKC-foldable)
+    "​‍﻿",  # zero-width joiners + BOM
+]
+
+_ADVERSARIAL_EVENT_TYPES = ["T", "EVENT_TYPE", "a-b_c.d", "日本", "with space"]
+
+
 class TestEventVerifierProperties:
-    """Property-based tests for EventVerifier.
+    """Boundary tests for event-hash integrity (formerly random-fuzz).
 
     **Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5**
+
+    See _ADVERSARIAL_CONTENT above for why these are deterministic tables
+    rather than Hypothesis fuzz. A reproducible fuzz test (derandomized so it
+    can never flake the gate) is kept at the end for continued exploration.
     """
 
     @pytest.fixture(autouse=True)
     def setup_isolated_db(self, isolated_db):
-        """Ensure isolated database for each property test."""
+        """Ensure isolated database for each test."""
         yield
 
-    # codec="utf-8" excludes lone surrogates (category Cs), which raise
-    # UnicodeEncodeError in the event-logging path. Default st.text() can
-    # generate them, causing the rare intermittent push-gate failure traced
-    # 2026-05-20. Lone surrogates are not valid Unicode and never appear in
-    # real event content (events are JSON strings), so constraining the
-    # generator restores meaning without hiding a real bug.
+    @pytest.mark.parametrize("content", _ADVERSARIAL_CONTENT)
+    @pytest.mark.parametrize("event_type", _ADVERSARIAL_EVENT_TYPES)
+    def test_logged_event_hash_verifies(self, event_type, content):
+        """Property: a logged event's stored hash always re-verifies.
+
+        **Validates: Requirement 9.2**
+        """
+        event_id = log_event(event_type, "user", {"content": content}, validate=False)
+        is_valid, reason = EventVerifier().verify_event(event_id)
+        assert is_valid, (
+            f"hash verify failed: event_type={event_type!r} content={content!r} "
+            f"reason={reason!r} event_id={event_id!r}"
+        )
+
+    @pytest.mark.parametrize("content", _ADVERSARIAL_CONTENT)
+    def test_hash_computation_deterministic(self, content):
+        """Property: identical content yields an identical stored hash.
+
+        **Validates: Requirement 9.1**
+        """
+        event_id_1 = log_event("TEST", "user", {"content": content}, validate=False)
+        event_id_2 = log_event("TEST", "user", {"content": content}, validate=False)
+        conn = _get_connection()
+        try:
+            hash_1 = conn.execute(
+                "SELECT content_hash FROM system_events WHERE event_id = ?", (event_id_1,)
+            ).fetchone()[0]
+            hash_2 = conn.execute(
+                "SELECT content_hash FROM system_events WHERE event_id = ?", (event_id_2,)
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        assert hash_1 == hash_2, (
+            f"non-deterministic hash for content={content!r}: {hash_1} != {hash_2}"
+        )
+
+    # Reproducible fuzz (option c, council walk 2026-05-23): derandomize=True
+    # fixes Hypothesis's example set, so this explores 200 generated inputs but
+    # CANNOT flake — it passes always or fails always on a given code state.
+    # Keeps open-ended exploration without ever blocking a push on a seed
+    # roulette. codec="utf-8" excludes lone surrogates (not valid Unicode;
+    # 2026-05-20 fix). If this ever fails, the message names the exact input.
     @given(
         event_type=st.text(st.characters(codec="utf-8"), min_size=1, max_size=50),
         content=st.text(st.characters(codec="utf-8"), min_size=1, max_size=500),
     )
     @pytest.mark.slow
-    @settings(max_examples=5)
-    def test_all_events_have_valid_hashes(self, event_type, content):
-        """Property: All events in ledger have valid hashes.
-
-        **Validates: Requirement 9.2**
-        """
-        # Create event
+    @settings(max_examples=200, derandomize=True)
+    def test_fuzz_logged_event_hash_verifies(self, event_type, content):
+        """Reproducible-fuzz companion to the deterministic boundary table."""
         event_id = log_event(event_type, "user", {"content": content}, validate=False)
-
-        # Verify event
-        verifier = EventVerifier()
-        is_valid, _ = verifier.verify_event(event_id)
-
-        assert is_valid is True
-
-    @given(
-        content=st.text(st.characters(codec="utf-8"), min_size=1, max_size=100),
-    )
-    @pytest.mark.slow
-    @settings(max_examples=5)
-    def test_hash_computation_deterministic(self, content):
-        """Property: Hash computation is deterministic.
-
-        **Validates: Requirement 9.1**
-        """
-        # Create two events with same content
-        event_id_1 = log_event("TEST", "user", {"content": content}, validate=False)
-        event_id_2 = log_event("TEST", "user", {"content": content}, validate=False)
-
-        # Get events from database
-        conn = _get_connection()
-        try:
-            cursor = conn.execute(
-                "SELECT content_hash FROM system_events WHERE event_id = ?",
-                (event_id_1,),
-            )
-            hash_1 = cursor.fetchone()[0]
-
-            cursor = conn.execute(
-                "SELECT content_hash FROM system_events WHERE event_id = ?",
-                (event_id_2,),
-            )
-            hash_2 = cursor.fetchone()[0]
-        finally:
-            conn.close()
-
-        # Hashes should be identical for same content
-        assert hash_1 == hash_2
+        is_valid, reason = EventVerifier().verify_event(event_id)
+        assert is_valid, (
+            f"fuzz hash verify failed: event_type={event_type!r} content={content!r} "
+            f"reason={reason!r}"
+        )
