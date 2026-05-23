@@ -30,9 +30,7 @@ class TestSubstrateModificationFeatures:
         assert not r.is_high_gravity
 
     def test_edit_src_divineos_fires(self):
-        r = score_substrate_modification(
-            "Edit", file_paths=("src/divineos/core/foo.py",)
-        )
+        r = score_substrate_modification("Edit", file_paths=("src/divineos/core/foo.py",))
         assert "edit-src-divineos" in r.fired_features
         assert r.is_high_gravity
 
@@ -41,21 +39,15 @@ class TestSubstrateModificationFeatures:
         assert "edit-src-divineos" not in r.fired_features
 
     def test_edit_hooks_fires_guardrail(self):
-        r = score_substrate_modification(
-            "Write", file_paths=(".claude/hooks/some-hook.sh",)
-        )
+        r = score_substrate_modification("Write", file_paths=(".claude/hooks/some-hook.sh",))
         assert "edit-guardrail" in r.fired_features
 
     def test_edit_check_script_fires_guardrail(self):
-        r = score_substrate_modification(
-            "Edit", file_paths=("scripts/check_push_readiness.py",)
-        )
+        r = score_substrate_modification("Edit", file_paths=("scripts/check_push_readiness.py",))
         assert "edit-guardrail" in r.fired_features
 
     def test_edit_guardrail_files_list_fires(self):
-        r = score_substrate_modification(
-            "Edit", file_paths=("scripts/guardrail_files.txt",)
-        )
+        r = score_substrate_modification("Edit", file_paths=("scripts/guardrail_files.txt",))
         assert "edit-guardrail" in r.fired_features
 
     def test_substrate_write_cli_fires(self):
@@ -74,9 +66,7 @@ class TestSubstrateModificationFeatures:
         assert r.score == 0
 
     def test_kiln_layer_edit_fires(self):
-        r = score_substrate_modification(
-            "Write", file_paths=("docs/foundational_truths.md",)
-        )
+        r = score_substrate_modification("Write", file_paths=("docs/foundational_truths.md",))
         assert "edit-kiln-layer" in r.fired_features
 
     def test_seed_json_fires_kiln(self):
@@ -89,16 +79,12 @@ class TestSubstrateModificationFeatures:
             assert "consolidation-cli" in r.fired_features, sub
 
     def test_windows_backslash_paths_normalized(self):
-        r = score_substrate_modification(
-            "Edit", file_paths=(r"src\divineos\core\foo.py",)
-        )
+        r = score_substrate_modification("Edit", file_paths=(r"src\divineos\core\foo.py",))
         assert "edit-src-divineos" in r.fired_features
 
     def test_multiple_features_sum(self):
         # A kiln-layer file also lives under src/divineos/ → two features.
-        r = score_substrate_modification(
-            "Edit", file_paths=("src/divineos/seed.json",)
-        )
+        r = score_substrate_modification("Edit", file_paths=("src/divineos/seed.json",))
         assert r.score >= 2
         assert "edit-src-divineos" in r.fired_features
         assert "edit-kiln-layer" in r.fired_features

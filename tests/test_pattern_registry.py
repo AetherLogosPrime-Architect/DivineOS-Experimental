@@ -30,7 +30,9 @@ class TestRegistryIntegrity:
 
     def test_every_entry_has_required_keys(self):
         for name, entry in CANONICAL_PATTERNS.items():
-            assert _REQUIRED_KEYS <= set(entry), f"{name} missing keys: {_REQUIRED_KEYS - set(entry)}"
+            assert _REQUIRED_KEYS <= set(entry), (
+                f"{name} missing keys: {_REQUIRED_KEYS - set(entry)}"
+            )
 
     def test_every_name_is_snake_case(self):
         for name in CANONICAL_PATTERNS:
