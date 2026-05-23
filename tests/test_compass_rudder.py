@@ -504,9 +504,7 @@ class TestInitiativeChannel:
         def _boom(days=14):
             raise RuntimeError("probe exploded")
 
-        monkeypatch.setattr(
-            "divineos.core.completion_check.unfinished_mechanisms", _boom
-        )
+        monkeypatch.setattr("divineos.core.completion_check.unfinished_mechanisms", _boom)
         msg = _build_block_message("Task", ["initiative"], 300.0, fire_id="abc")
         assert "COMPASS RUDDER" in msg  # core message intact
         assert "WHAT'S UNFINISHED" not in msg  # channel quietly omitted
