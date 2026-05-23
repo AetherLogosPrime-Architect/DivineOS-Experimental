@@ -472,7 +472,7 @@ class TestInitiativeChannel:
         ]
         monkeypatch.setattr(
             "divineos.core.completion_check.unfinished_mechanisms",
-            lambda days=14: sample,
+            lambda days=14, max_probe=None: sample,
         )
         msg = _build_block_message("Task", ["initiative"], 300.0, fire_id="abc")
         assert "WHAT'S UNFINISHED" in msg
@@ -481,7 +481,7 @@ class TestInitiativeChannel:
     def test_initiative_block_omits_channel_when_nothing_unfinished(self, monkeypatch):
         monkeypatch.setattr(
             "divineos.core.completion_check.unfinished_mechanisms",
-            lambda days=14: [],
+            lambda days=14, max_probe=None: [],
         )
         msg = _build_block_message("Task", ["initiative"], 300.0, fire_id="abc")
         assert "WHAT'S UNFINISHED" not in msg
@@ -491,7 +491,7 @@ class TestInitiativeChannel:
 
         monkeypatch.setattr(
             "divineos.core.completion_check.unfinished_mechanisms",
-            lambda days=14: [
+            lambda days=14, max_probe=None: [
                 Unfinished(path="x.py", has_test=False, has_wiring=False, questions=["q"])
             ],
         )
@@ -501,7 +501,7 @@ class TestInitiativeChannel:
     def test_channel_failure_does_not_break_block(self, monkeypatch):
         """Enrichment is fail-open: if the probe raises, the block still builds."""
 
-        def _boom(days=14):
+        def _boom(days=14, max_probe=None):
             raise RuntimeError("probe exploded")
 
         monkeypatch.setattr("divineos.core.completion_check.unfinished_mechanisms", _boom)
