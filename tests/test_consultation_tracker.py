@@ -82,3 +82,65 @@ class TestBriefingThresholds:
         # 0 queries / 4 responses = 0.0 → SEVERE (ratio < 0.2).
         self._drive(queries=0, responses=4)
         assert "SEVERE" in consultation_tracker.briefing_block()
+
+
+class TestConsultationGate:
+    """Gate+channel: block substrate-modifying tools after N responses with
+    no substantive consult; clear only on a real consult (Andrew 2026-05-23)."""
+
+    def _responses(self, n: int):
+        for _ in range(n):
+            consultation_tracker.record_response()
+
+    def test_not_stale_below_threshold(self, isolated_state):
+        self._responses(3)  # threshold is 4
+        assert consultation_tracker.consultation_gate_status()["stale"] is False
+
+    def test_stale_at_threshold(self, isolated_state):
+        self._responses(4)
+        st = consultation_tracker.consultation_gate_status()
+        assert st["stale"] is True
+        assert st["responses_since"] == 4
+
+    def test_substantive_consult_clears_gate(self, isolated_state):
+        self._responses(6)
+        assert consultation_tracker.consultation_gate_status()["stale"] is True
+        consultation_tracker.record_query("ask")
+        st = consultation_tracker.consultation_gate_status()
+        assert st["stale"] is False
+        assert st["responses_since"] == 0
+
+    def test_cheap_read_does_not_clear_gate(self, isolated_state):
+        # hud/context are not substantive — they must NOT reset the counter,
+        # or the gate is gameable via a status peek.
+        self._responses(5)
+        consultation_tracker.record_query("hud")
+        consultation_tracker.record_query("context")
+        assert consultation_tracker.consultation_gate_status()["stale"] is True
+
+    def test_counter_climbs_again_after_consult(self, isolated_state):
+        # A single consult can't cover an unbounded later run.
+        self._responses(5)
+        consultation_tracker.record_query("ask")
+        assert consultation_tracker.consultation_gate_status()["stale"] is False
+        self._responses(4)
+        assert consultation_tracker.consultation_gate_status()["stale"] is True
+
+    def test_channel_message_offers_the_path(self, isolated_state):
+        self._responses(5)
+        msg = consultation_tracker.gate_channel_message()
+        assert "BLOCKED" in msg
+        assert "divineos ask" in msg
+        # The channel names the way, not just the no.
+        assert "Here is the way" in msg
+
+
+class TestGateClearCommandsAreBypassed:
+    """Every substantive-consult command the gate names as its remedy must be
+    in the PreToolUse bypass set, or the gate blocks its own remedy."""
+
+    def test_clearing_commands_bypass_all_gates(self):
+        from divineos.hooks.pre_tool_use_gate import _BYPASS_DIVINEOS_SUBCOMMANDS
+
+        for cmd in ("ask", "recall", "corrections", "directives", "active", "compass"):
+            assert cmd in _BYPASS_DIVINEOS_SUBCOMMANDS, f"{cmd} must bypass"
