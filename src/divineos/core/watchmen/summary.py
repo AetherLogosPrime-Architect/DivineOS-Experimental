@@ -6,6 +6,21 @@ from typing import Any
 from divineos.core.knowledge import _get_connection
 from divineos.core.watchmen._schema import init_watchmen_tables
 
+# A finding counts as recognition (positive verification, not an open issue)
+# when the actor marked it CONFIRMS — via review_stance OR via the title they
+# authored. Round/commit-level confirmations can't set review_stance (it
+# requires a reviewed_finding_id, and they review a round/commit, not a
+# finding), so they arrive as title-prefixed "CONFIRMS …" with an empty
+# stance. Keying recognition only off the stance column made the aggregate
+# blind to them, inflating open_issue_count. The title is the actor's own
+# declaration — reading it is not the code judging the work
+# (code-does-not-think). Exception: "CONFIRMS-pending-empirical" carries a
+# real open verification action, so it stays counted as an issue.
+_RECOGNITION_SQL = (
+    "((review_stance = 'CONFIRMS' OR title LIKE 'CONFIRMS%') "
+    "AND title NOT LIKE '%PENDING-EMPIRICAL%')"
+)
+
 
 def get_watchmen_stats() -> dict[str, Any]:
     """Aggregate statistics across all audit findings.
@@ -48,8 +63,8 @@ def get_watchmen_stats() -> dict[str, Any]:
 
         # Recognition-aware open split. Filter at the aggregate, not at filing.
         open_recognition_count = conn.execute(
-            "SELECT COUNT(*) FROM audit_findings "
-            "WHERE status = 'OPEN' AND review_stance = 'CONFIRMS'"
+            f"SELECT COUNT(*) FROM audit_findings "  # nosec B608 — _RECOGNITION_SQL is a fixed literal
+            f"WHERE status = 'OPEN' AND {_RECOGNITION_SQL}"
         ).fetchone()[0]
         open_total = by_status.get("OPEN", 0)
         open_issue_count = open_total - open_recognition_count
@@ -106,7 +121,7 @@ def unresolved_findings(
         "WHEN 'INFO' THEN 5 END"
     )
 
-    stance_clause = "" if include_recognitions else "AND COALESCE(review_stance, '') != 'CONFIRMS' "
+    stance_clause = "" if include_recognitions else f"AND NOT {_RECOGNITION_SQL} "
 
     conn = _get_connection()
     try:
