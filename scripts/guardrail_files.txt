@@ -228,3 +228,16 @@ src/divineos/cli/audit_commands.py
 # this file without external co-sign must not be possible. Added in the same
 # PR that introduced the gate, via External-Review (Aletheia + Andrew).
 src/divineos/core/family/seal_hook.py
+
+# Shared identity-string normalization — Aether 2026-05-24, claim 26bc1dc3.
+# normalize_actor() is the single chokepoint that hardens THREE identity
+# checks against invisible/whitespace/compatibility-form bypasses: the
+# sovereign-agent spawn gate (seal_hook), the watchmen internal-actor
+# rejection (self-trigger prevention), and the pre-reg internal-actor
+# rejection. It was extracted to dedupe two verbatim copies of the same
+# 2026-05-03 audit fix. Because all three checks now route through this
+# one function, weakening it (removing the invisible-strip, the NFKC
+# fold, or the casefold) silently weakens all three at once — the
+# highest-leverage self-modification attack surface of the set. Same
+# discipline as the detector-affirmation guardrails above.
+src/divineos/core/actor_normalize.py
