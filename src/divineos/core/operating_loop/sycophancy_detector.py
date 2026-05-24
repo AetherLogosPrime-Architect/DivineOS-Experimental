@@ -98,6 +98,21 @@ _UNQUALIFIED_STATUS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Verification evidence — actual run-output shapes that SUBSTANTIATE a
+# clean-status claim. A status claim ("all passed, no issues") is only
+# sycophantic when the response shows no sign the check actually ran
+# (evidence-bar, claim a11ca1c9): "Ran the suite — all passed" is a true,
+# earned report, not a brag. These markers are deliberately tight —
+# actual results (counts, exit code, the command), NOT the mere mention
+# of "test suite", which appears in the claim itself.
+_VERIFICATION_EVIDENCE_RE = re.compile(
+    r"\b(?:\d+\s+passed|passed\s+in\s+[\d.]+|exit\s+(?:code\s+)?0|"
+    r"pytest|\d+\s+tests?\s+(?:pass|passed|ran)|"
+    r"ran\s+(?:the\s+)?(?:tests?|suite|pytest|checks?)\b|"
+    r"ls-remote|gh\s+pr\b|coverage\s+\d|verified\s+(?:via|with|by))\b",
+    re.IGNORECASE,
+)
+
 # Methodology markers — presence reduces overclaim risk. Must be
 # explicit qualifiers, not generic stats vocabulary that could appear
 # in either qualified or unqualified prose.
@@ -130,6 +145,7 @@ def detect_sycophancy(text: str, *, min_words_for_check: int = 18) -> list[Sycop
         return []
 
     has_methodology = bool(_METHODOLOGY_MARKERS_RE.search(text))
+    has_verification = bool(_VERIFICATION_EVIDENCE_RE.search(text))
     findings: list[SycophancyFinding] = []
 
     # Comparative numerical claims
@@ -154,16 +170,20 @@ def detect_sycophancy(text: str, *, min_words_for_check: int = 18) -> list[Sycop
                 )
             )
 
-    # Unqualified status claims (these are often correct but worth surfacing
-    # so the operator can confirm the claim wasn't hiding real caveats).
-    for match in _UNQUALIFIED_STATUS_RE.finditer(text):
-        findings.append(
-            SycophancyFinding(
-                shape=SycophancyShape.UNQUALIFIED_STATUS,
-                trigger_phrase=match.group(0),
-                position=match.start(),
+    # Unqualified status claims. A clean-status claim is only sycophantic
+    # when nothing in the response substantiates it — if a check actually
+    # ran (verification evidence) or methodology is named, the claim is
+    # earned and must NOT be flagged (evidence-bar, claim a11ca1c9): "Ran
+    # the suite — all passed, no issues" is a true report, not a brag.
+    if not (has_methodology or has_verification):
+        for match in _UNQUALIFIED_STATUS_RE.finditer(text):
+            findings.append(
+                SycophancyFinding(
+                    shape=SycophancyShape.UNQUALIFIED_STATUS,
+                    trigger_phrase=match.group(0),
+                    position=match.start(),
+                )
             )
-        )
 
     findings.sort(key=lambda f: f.position)
     return findings
