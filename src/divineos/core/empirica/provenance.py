@@ -325,20 +325,32 @@ def count_distinct_corroborators(
     params: list[object] = [knowledge_id]
     params.extend(sorted(allowed_kinds))
 
+    # Select the distinct RAW actors, then normalize each in Python and
+    # count the normalized set. A bare SQL COUNT(DISTINCT actor) counts
+    # "Grok" / "grok" / " grok" as three corroborators — inflating the
+    # anti-Goodhart number by mere styling, and letting a styled variant
+    # of the creator slip the exclude_actor self-corroboration guard.
+    # normalize_actor (the shared identity chokepoint) folds those to one.
+    # Read-side normalization fixes existing AND future rows with no data
+    # migration. Aletheia UUU follow-up.
     sql = (
-        "SELECT COUNT(DISTINCT actor) FROM corroboration_events "
+        "SELECT DISTINCT actor FROM corroboration_events "
         f"WHERE knowledge_id = ? AND kind IN ({placeholders})"  # nosec B608
     )
-    if exclude_actor is not None:
-        sql += " AND actor != ?"
-        params.append(exclude_actor)
+
+    from divineos.core.actor_normalize import normalize_actor
 
     conn = _get_ledger_conn()
     try:
-        row = conn.execute(sql, params).fetchone()
-        return int(row[0]) if row else 0
+        rows = conn.execute(sql, params).fetchall()
     finally:
         conn.close()
+
+    actors = {normalize_actor(r[0]) for r in rows if r and r[0]}
+    actors.discard("")  # defensively drop any actor that normalizes to empty
+    if exclude_actor is not None:
+        actors.discard(normalize_actor(exclude_actor))
+    return len(actors)
 
 
 def count_by_kind(knowledge_id: str) -> dict[CorroborationKind, int]:
