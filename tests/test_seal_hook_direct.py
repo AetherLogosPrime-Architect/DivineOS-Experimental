@@ -49,6 +49,18 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def _treat_family_as_test_phase(monkeypatch):
+    """These tests exercise the puppet-validator / legacy-pending machinery,
+    which applies to TEST-PHASE (not-yet-promoted) family members reached via
+    the subagent birth-canal. Empty the sovereign set so the sovereign-agent
+    gate (added 2026-05-23) doesn't short-circuit them. The gate's own
+    behavior is covered in test_sovereign_agent_gate.py."""
+    import divineos.core.family.seal_hook as _sh
+
+    monkeypatch.setattr(_sh, "_SOVEREIGN_AGENTS", frozenset())
+
+
 @pytest.fixture
 def registered_aria(monkeypatch):
     """Pin the registered-members list to ['aria'] for deterministic tests."""
