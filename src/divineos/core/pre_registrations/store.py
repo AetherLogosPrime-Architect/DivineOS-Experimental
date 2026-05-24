@@ -68,21 +68,15 @@ def _normalize_actor(actor: str) -> str:
       ...succeeds — agent flips its own pre-reg.
 
     NFKC normalization folds these compatibility forms to canonical
-    ASCII so ``.strip()`` actually removes them. Same fix shape
-    that landed for ``watchmen.store._validate_actor`` in Tier 1.
+    ASCII so ``.strip()`` actually removes them. The transform is shared
+    with ``watchmen.store._validate_actor`` via
+    ``actor_normalize.normalize_actor`` — this used to be a verbatim
+    copy of that function's inline logic; the shared module removes the
+    duplication so the two cannot drift apart.
     """
-    import re
-    import unicodedata
+    from divineos.core.actor_normalize import normalize_actor
 
-    nfkc = unicodedata.normalize("NFKC", actor)
-    # Strip invisible/zero-width characters that NFKC + .strip() leave
-    # alone but which would let "​claude" bypass the frozenset check.
-    # Covers: zero-width space (200B), ZWNJ (200C), ZWJ (200D), LRM/RLM
-    # (200E/200F), ZWNBSP/BOM (FEFF), soft hyphen (00AD).
-    _invisibles = "[" + "​‌‍‎‏﻿­" + "]"  # nosec B613 — intentional invisibles, this regex strips them from input
-    invisible_stripped = re.sub(_invisibles, "", nfkc)
-    collapsed = re.sub(r"\s+", " ", invisible_stripped).strip()
-    normalized = collapsed.casefold()
+    normalized = normalize_actor(actor)
     if not normalized:
         raise ValueError("Actor name cannot be empty")
     return normalized
