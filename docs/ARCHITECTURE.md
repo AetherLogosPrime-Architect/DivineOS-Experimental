@@ -93,6 +93,7 @@ src/divineos/
   core/
     actor_registry.py          Phase 1 of actor-authenticity — registered actor names + kinds + (Phase 2: key material). JSON-backed; gitignored. See exploration/45_actor_authenticity_design.md.
     actor_capabilities.py      Capability map: which event types each actor-kind may emit. Phase 1 advisory; Phase 2 will enforce.
+    actor_normalize.py         Shared identity-string normalizer (NFKC + invisible-strip + casefold); single guarded chokepoint for the sovereign gate + watchmen/pre-reg internal-actor rejection. Guardrailed.
     ledger.py                  Append-only event store (SQLite, WAL mode)
     _ledger_base.py            Shared ledger DB connection and hashing
     ledger_verify.py           Verification, cleanup, and export
@@ -520,7 +521,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,268+ tests (real DB, minimal mocks)
+tests/                         7,330+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)

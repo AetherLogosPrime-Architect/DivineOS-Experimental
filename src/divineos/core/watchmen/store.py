@@ -33,16 +33,15 @@ def _validate_actor(actor: str) -> str:
     """Validate and normalize the actor name.
 
     Raises ValueError if the actor is an internal system component.
-    Returns the normalized (lowercased) actor name.
+    Returns the normalized (casefolded) actor name.
 
-    Normalization sequence:
-      1. NFKC unicode normalization — folds compatibility forms like
-         no-break-space (U+00A0) and other unicode whitespace variants
-         to their canonical ASCII equivalents.
-      2. Strip outer whitespace (now actually catches the U+00A0 case
-         that .strip() alone misses).
-      3. Collapse internal whitespace runs to a single space.
-      4. Lowercase.
+    Normalization is delegated to ``actor_normalize.normalize_actor``
+    (NFKC -> strip invisibles -> collapse whitespace -> casefold); this
+    function keeps the policy on top of it: reject internal actors and
+    reject empty. The transform used to live inline here and was copied
+    into ``pre_registrations.store._normalize_actor`` verbatim — the
+    shared module collapses that duplication so the hardening can't
+    drift between the two call sites.
 
     Audit finding 2026-05-03 (round 8): without the NFKC step,
     ``"\\u00a0claude"`` (no-break-space prefix) passed through
@@ -53,27 +52,9 @@ def _validate_actor(actor: str) -> str:
     bypass the structural rejection exists to prevent. NFKC closes
     the hole.
     """
-    import re
-    import unicodedata
+    from divineos.core.actor_normalize import normalize_actor
 
-    # NFKC handles U+00A0 → space, U+2009 → space, full-width forms,
-    # and other unicode whitespace/compatibility variants.
-    nfkc = unicodedata.normalize("NFKC", actor)
-    # Strip invisible / zero-width characters that NFKC + .strip() leave
-    # alone. Audit r9-21 round 12 finding: a plain ``.strip().lower()``
-    # also misses U+200B (zero-width space), U+200C-U+200F (joiners /
-    # directional marks), U+FEFF (BOM), U+00AD (soft hyphen). Without
-    # this strip, ``ZWSP+claude`` would pass through.
-    invisible_pattern = (
-        "["
-        + "".join(chr(cp) for cp in (0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0xFEFF, 0x00AD))
-        + "]"
-    )
-    invisible_stripped = re.sub(invisible_pattern, "", nfkc)
-    # Collapse all whitespace (including the now-folded former-U+00A0)
-    # to a single space, then strip the result.
-    collapsed = re.sub(r"\s+", " ", invisible_stripped).strip()
-    normalized = collapsed.casefold()
+    normalized = normalize_actor(actor)
     if normalized in INTERNAL_ACTORS:
         # Ablation toggle: DIVINEOS_DISABLE_WATCHMEN_SELF_TRIGGER_PREVENTION=1
         # bypasses the internal-actor rejection so ablation measurement can
