@@ -92,6 +92,20 @@ _CLAIM_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
 )
 
+# A merge/land completion-claim names a mergeable code object. Without one
+# in the surrounding window, the bare trigger "merged"/"landed" is almost
+# always figurative ("it landed for me", "the point finally landed") — and
+# the detector then has NO evidence it is a code-claim, so it must stay
+# silent. This anchor is the evidence-bar applied to the detector itself
+# (claim a11ca1c9): an instrument may only fire when it can cite evidence
+# for its own claim. The explicit "merge is done/complete" form is
+# unambiguous and exempt; only "merged"/"landed" require the anchor.
+_MERGE_ANCHOR = re.compile(
+    r"\b(?:prs?|pull\s+request|branch|commit|main|master|origin|#\d+|"
+    r"rebase|cherry-?pick)\b",
+    re.IGNORECASE,
+)
+
 # Future / negated / intentional forms — these mean the action has NOT
 # happened, so the claim isn't a false completion-claim. Checked in a
 # window before the matched claim.
@@ -121,6 +135,19 @@ def _is_not_yet(text: str, match: re.Match[str]) -> bool:
     return bool(_NOT_YET.search(pre))
 
 
+def _merge_lacks_anchor(text: str, match: re.Match[str]) -> bool:
+    """True when a bare "merged"/"landed" trigger has no mergeable-code
+    anchor in its surrounding window — i.e. the detector has no evidence
+    this is a code-claim, so it should not fire. The explicit
+    "merge is done/complete" form (no "merged"/"landed" token) is exempt."""
+    matched = match.group(0).lower()
+    if "merged" not in matched and "landed" not in matched:
+        return False  # the unambiguous "merge is complete" form
+    lo = max(0, match.start() - 45)
+    hi = min(len(text), match.end() + 45)
+    return not _MERGE_ANCHOR.search(text[lo:hi])
+
+
 def detect_unverified_claim(
     text: str,
     tool_calls_in_turn: tuple[str, ...] | list[str] | None = None,
@@ -143,6 +170,8 @@ def detect_unverified_claim(
     for kind, pattern in _CLAIM_PATTERNS:
         for m in pattern.finditer(text):
             if _is_not_yet(text, m):
+                continue
+            if kind == "merge" and _merge_lacks_anchor(text, m):
                 continue
             phrase = re.sub(r"\s+", " ", m.group(0).strip())[:60]
             key = (kind, phrase.lower())

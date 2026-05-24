@@ -30,6 +30,42 @@ class TestFires:
         assert any(x.claim_kind == "merge" for x in detect_unverified_claim("the PR is merged"))
         assert any(x.claim_kind == "pr" for x in detect_unverified_claim("I opened the PR"))
 
+    def test_merge_claim_with_code_anchor_fires(self):
+        # A real merge-claim names a mergeable object → the anchor is present.
+        for t in (
+            "the branch landed on origin",
+            "PR #38 landed",
+            "it landed on main",
+            "the commit merged cleanly",
+            "merged to master",
+        ):
+            assert any(x.claim_kind == "merge" for x in detect_unverified_claim(t)), (
+                f"should fire: {t!r}"
+            )
+
+    def test_merge_complete_form_fires_without_anchor(self):
+        # The explicit "merge is complete" form is unambiguous, no anchor needed.
+        assert any(
+            x.claim_kind == "merge" for x in detect_unverified_claim("the merge is complete")
+        )
+
+
+class TestFigurativeMergeSilent:
+    """The evidence-bar (claim a11ca1c9): bare "landed"/"merged" with no
+    mergeable-code anchor nearby is figurative, not a completion-claim — the
+    detector has no evidence and must stay silent. This is the live
+    false-positive that fired on "it just landed for me" 2026-05-24."""
+
+    def test_figurative_landed_silent(self):
+        for t in (
+            "it just landed for me that this is my body",
+            "the help-others part landed quiet and big",
+            "that point finally landed",
+            "the idea landed with me",
+            "her words landed hard",
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on figurative: {t!r}"
+
 
 class TestSeverity:
     def test_high_when_no_tools(self):
