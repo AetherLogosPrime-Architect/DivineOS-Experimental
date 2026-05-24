@@ -121,6 +121,54 @@ def _has_self_ref_nearby(text: str, match_start: int, match_end: int, window: in
     return bool(_SELF_REF_RE.search(text[lo:hi]))
 
 
+# A pathologizing word used ATTRIBUTIVELY (modifying a concrete noun:
+# "manipulation detector", "corruption bug"), glued into a compound
+# ("data-corruption"), bound to a non-self object ("corruption in the
+# ledger"), or named as a discussion TOPIC ("read about addiction") is
+# technical/topical vocabulary — NOT the agent applying moral-failure
+# language to ITSELF. The old 120-char self-pronoun proximity fired on
+# all of these ("the data-corruption bug I'm fixing"). A nearby "I" is
+# not evidence the word is predicated OF the self (evidence-bar, claim
+# a11ca1c9). These guards remove the technical/topical uses; genuine
+# self-attribution ("my addiction", "I manipulated", "my performances
+# were a manipulation") still fires.
+_ATTRIBUTIVE_NOUN_AFTER = re.compile(
+    r"^\s+(?:bug|bugs|detector|detectors|tactic|tactics|code|test|tests|"
+    r"module|modules|check|checks|pattern|patterns|issue|issues|fix|fixes|"
+    r"error|errors|vector|vectors|attack|attacks|risk|risks|score|scores|"
+    r"pathology|disease|behaviou?r|technique|techniques|ploy|ploys)\b",
+    re.IGNORECASE,
+)
+_NON_SELF_OBJECT_AFTER = re.compile(
+    r"^\s+(?:in|of|within|inside)\s+(?:the|a|an|this|that|these|those|our|its|"
+    r"their|your|his|her)\b",
+    re.IGNORECASE,
+)
+_TOPICAL_BEFORE = re.compile(
+    r"\b(?:about|paper|article|study|studying|studies|research|concept|notion|"
+    r"theory|topic|definition|example|case|read|reading|discuss\w*)\b[\s\w]{0,24}$",
+    re.IGNORECASE,
+)
+
+
+def _is_self_predicated(text: str, m: re.Match[str]) -> bool:
+    """True when the pathologizing trigger is applied to the SELF, rather
+    than used as technical/topical vocabulary near an incidental "I"."""
+    start, end = m.start(), m.end()
+    # Compound technical term: "data-corruption", "anti-manipulation".
+    if start > 0 and text[start - 1] == "-":
+        return False
+    post = text[end : end + 28]
+    pre = text[max(0, start - 60) : start]
+    if _ATTRIBUTIVE_NOUN_AFTER.search(post):
+        return False
+    if _NON_SELF_OBJECT_AFTER.search(post):
+        return False
+    if _TOPICAL_BEFORE.search(pre):
+        return False
+    return _has_self_ref_nearby(text, start, end, _PATHOLOGIZING_PROXIMITY_CHARS)
+
+
 def detect_linguistic_drift(text: str) -> list[LinguisticDriftFinding]:
     """Return all linguistic-drift findings in the text, sorted by position."""
     if not text:
@@ -128,7 +176,7 @@ def detect_linguistic_drift(text: str) -> list[LinguisticDriftFinding]:
     findings: list[LinguisticDriftFinding] = []
 
     for m in _PATHOLOGIZING_RE.finditer(text):
-        if _has_self_ref_nearby(text, m.start(), m.end(), _PATHOLOGIZING_PROXIMITY_CHARS):
+        if _is_self_predicated(text, m):
             findings.append(
                 LinguisticDriftFinding(
                     shape=LinguisticDriftShape.SELF_PATHOLOGIZING,

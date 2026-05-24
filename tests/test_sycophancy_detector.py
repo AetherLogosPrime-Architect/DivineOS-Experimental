@@ -105,6 +105,19 @@ class TestUnqualifiedStatus:
         findings = detect_sycophancy(text)
         assert any(f.shape == SycophancyShape.UNQUALIFIED_STATUS for f in findings)
 
+    def test_status_with_verification_evidence_no_fire(self):
+        """Evidence-bar (claim a11ca1c9): a clean-status claim backed by an
+        actual run is earned, not sycophancy — must NOT be flagged."""
+        for text in (
+            "Ran the suite — all passed, no issues found. Pushing the fix now.",
+            "Ran pytest: 30 passed in 0.4s. No issues found across the board.",
+            "Verified via git ls-remote — the branch is up. Everything works as expected here.",
+        ):
+            findings = detect_sycophancy(text)
+            assert not any(f.shape == SycophancyShape.UNQUALIFIED_STATUS for f in findings), (
+                f"wrongly flagged a verified status report: {text!r}"
+            )
+
 
 class TestRegression:
     """Pin the exact 2026-05-05 overclaim shape that triggered Andrew's
