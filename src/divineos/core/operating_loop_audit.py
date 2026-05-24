@@ -320,7 +320,7 @@ def run_audit(
         from divineos.core.operating_loop.code_jargon_detector import detect_code_jargon
 
         findings_log["code_jargon"] = _run_detector(
-            "code_jargon", detect_code_jargon, last_assistant_text
+            "code_jargon", detect_code_jargon, last_assistant_text, operator_input=last_user_text
         )
     except _ERRORS:
         pass
@@ -384,7 +384,7 @@ def run_audit(
         from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
 
         findings_log["jargon_dump"] = _run_detector(
-            "jargon_dump", detect_jargon_dump, last_assistant_text
+            "jargon_dump", detect_jargon_dump, last_assistant_text, operator_input=last_user_text
         )
         # Lepos debt: every jargon-dump fire is recorded as outstanding
         # debt that must be discharged by retroactive translation before
