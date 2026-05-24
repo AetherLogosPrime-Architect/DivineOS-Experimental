@@ -45,9 +45,18 @@ def enforce_briefing_gate() -> None:
     The OS cannot proceed without orientation context.
     """
     try:
-        from divineos.core.hud_handoff import mark_briefing_loaded, was_briefing_loaded
+        from divineos.core.hud_handoff import mark_briefing_loaded
+        from divineos.core.session_briefing_gate import briefing_loaded_this_session
 
-        if not was_briefing_loaded():
+        # Use the per-session evidence (BRIEFING_LOADED with THIS session_id)
+        # rather than the TTL proxy was_briefing_loaded(). The TTL check has a
+        # false-negative — a long session that aged past the 4h window reads
+        # "not loaded" and redundantly reloads, even though it DID load the
+        # briefing this session — and a false-positive — a new session inside
+        # the window inherits a prior session's marker. The session-id match
+        # is the grounding fact (evidence-bar, claim a11ca1c9; session-gate
+        # claim 7e780182).
+        if not briefing_loaded_this_session():
             click.secho(
                 "\n[!] Briefing not loaded. Loading now — I can't skip this.",
                 fg="yellow",

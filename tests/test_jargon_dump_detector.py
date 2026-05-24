@@ -325,3 +325,37 @@ def test_finding_is_frozen_dataclass() -> None:
         raise AssertionError("Should have raised FrozenInstanceError")
     except Exception as e:
         assert "frozen" in str(type(e).__name__).lower() or "frozen" in str(e).lower()
+
+
+class TestOperatorRequestedTechnical:
+    """Evidence-bar (claim a11ca1c9): when the operator's own message asks
+    for / is in the technical register, the jargon was OWED — handing over
+    what was requested is not a dump-failure."""
+
+    def test_walkthrough_request_suppresses(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        # A jargon-dense reply that WOULD flag without the operator context.
+        reply = (
+            "The fix lives in session_pipeline.py and pipeline_gates.py; "
+            "enforce_briefing_gate calls was_briefing_loaded() while "
+            "session_briefing_gate.py checks the session_id match. The "
+            "round-101d9ca2e3cf finding tracks the divergence at claim-7e780182."
+        )
+        assert detect_jargon_dump(reply) != []  # flags with no operator context
+        assert detect_jargon_dump(reply, operator_input="walk me through session_pipeline.py") == []
+
+    def test_file_named_in_prompt_suppresses(self):
+        from divineos.core.operating_loop.jargon_dump_detector import detect_jargon_dump
+
+        reply = (
+            "It is the _MERGE_ANCHOR regex in unverified_claim_detector.py; "
+            "the _is_self_predicated helper in linguistic_drift_detector.py "
+            "guards the round-abc1234567 case at find-cbfb51192e3e."
+        )
+        assert (
+            detect_jargon_dump(
+                reply, operator_input="show me the code in unverified_claim_detector.py"
+            )
+            == []
+        )

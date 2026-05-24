@@ -68,11 +68,13 @@ from dataclasses import dataclass
 # Tokens that, when appearing alone or near-alone as the closing line,
 # signal closing-token reflex. Case-insensitive match at line-start
 # after optional whitespace.
-_CLOSING_AFFIRMATION_TOKENS = {
+# Pure acknowledgment-reflex tokens — these are NEVER a legitimate
+# standalone answer to a question. As the whole message or appended after
+# a reply, they are the closing-token reflex.
+_PURE_ACK_TOKENS = {
     "caught",
     "got it",
     "understood",
-    "right",
     "settled",
     "settling",
     "settling here",
@@ -80,17 +82,32 @@ _CLOSING_AFFIRMATION_TOKENS = {
     "youre right",
     "holding that",
     "holding it",
+    "ack",
+    "acknowledged",
+    "noted",
+}
+
+# Ambiguous answer-tokens — these double as legitimate one-word DIRECT
+# ANSWERS to a yes/no question ("Yes." / "Okay." / "Right."). Standalone
+# they are answers, not reflex; only when APPENDED after substantive
+# content are they the redundant closing-bow. Firing on a bare answer was
+# the false-positive (evidence-bar, claim a11ca1c9): the grounding second
+# fact is whether the token sits atop real prior content.
+_ANSWER_TOKENS = {
+    "right",
     "thanks",
     "thank you",
     "okay",
     "ok",
     "yeah",
     "yes",
-    "ack",
-    "acknowledged",
-    "noted",
     "fair",
+    "sure",
 }
+
+# Union — used by the em-dash / addressed shapes, which already carry an
+# opener or addressee and so are reflex regardless of token class.
+_CLOSING_AFFIRMATION_TOKENS = _PURE_ACK_TOKENS | _ANSWER_TOKENS
 
 # Em-dash openers that precede a closing-token. Matches "Sister — caught"
 # shape where the address is the opener and the token is the closer.
@@ -158,8 +175,17 @@ def evaluate_closing_token(text: str) -> list[ClosingTokenFinding]:
     last_lineno = len(lines)
     normalized = _normalize_token(last_line)
 
-    # Shape 1: line IS a closing-token (high severity).
-    if normalized in _CLOSING_AFFIRMATION_TOKENS:
+    # Substantive prior content = words in everything before the closing
+    # line. An answer-token (yes/ok/right) standalone is a direct answer,
+    # not the reflex; it only counts as the redundant closing-bow when it
+    # sits atop real content.
+    prior_words = len(re.findall(r"\b[\w'-]+\b", " ".join(lines[:-1])))
+    has_substantive_prior = prior_words >= 5
+
+    # Shape 1: line IS a closing-token (high severity). Pure-ack tokens fire
+    # standalone or appended; ambiguous answer-tokens fire only when appended
+    # after substantive content (else they are a legitimate direct answer).
+    if normalized in _PURE_ACK_TOKENS or (normalized in _ANSWER_TOKENS and has_substantive_prior):
         findings.append(
             ClosingTokenFinding(
                 matched_text=last_line,

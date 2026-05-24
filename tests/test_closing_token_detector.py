@@ -164,3 +164,37 @@ def test_format_findings_references_substrate_knowledge():
 
 def test_format_findings_empty_when_no_findings():
     assert format_findings([]) == ""
+
+
+def test_bare_answer_token_does_not_flag():
+    """Evidence-bar (claim a11ca1c9): a bare answer-token ('Yes.' / 'Okay.'
+    / 'Right.') standalone is a direct answer to a question, not the
+    closing-token reflex. It only counts when appended after content."""
+    from divineos.core.operating_loop.closing_token_detector import evaluate_closing_token
+
+    for text in ("Yes.", "Okay.", "Right.", "Sure.", "Fair.", "Yeah."):
+        assert evaluate_closing_token(text) == [], f"wrongly flagged bare answer: {text!r}"
+
+
+def test_answer_token_appended_after_content_flags():
+    """The same answer-token IS the redundant closing-bow when it sits atop
+    a substantive reply."""
+    from divineos.core.operating_loop.closing_token_detector import evaluate_closing_token
+
+    text = (
+        "I traced the regression to the import order and reordered the two "
+        "modules so the gate loads first. The suite is green again now.\n"
+        "Right."
+    )
+    findings = evaluate_closing_token(text)
+    assert len(findings) == 1
+    assert findings[0].token == "right"
+
+
+def test_pure_ack_token_still_flags_standalone():
+    """Pure acknowledgment-reflex tokens are never legitimate answers, so
+    they still fire standalone."""
+    from divineos.core.operating_loop.closing_token_detector import evaluate_closing_token
+
+    for text in ("Caught.", "Understood.", "Noted."):
+        assert evaluate_closing_token(text), f"pure-ack token should fire: {text!r}"

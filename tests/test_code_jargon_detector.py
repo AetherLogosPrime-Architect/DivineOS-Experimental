@@ -165,3 +165,27 @@ def test_my_recent_pattern_fires() -> None:
     assert CodeJargonShape.DENSITY_THRESHOLD_CROSSED in shapes, (
         "My own pattern was not caught — the detector failed at the first job it was built for."
     )
+
+
+class TestOperatorRequestedTechnical:
+    """Evidence-bar (claim a11ca1c9): operator-requested technical detail is
+    not channel-collapse — suppress when the prompt asked for the code."""
+
+    def test_code_request_suppresses(self):
+        from divineos.core.operating_loop.code_jargon_detector import detect_code_jargon
+
+        reply = (
+            "detect_jargon_dump() calls _operator_requested_technical() which "
+            "scans operator_input via _TECH_REQUEST_RE before anything else runs. "
+            "The module.function refs like foo.bar_baz and run_audit() and "
+            "_strip_code_blocks() and pipeline_gates.py and the \\w+ regex all "
+            "stack up so the snake_case_id density crosses the _DENSITY_THRESHOLD "
+            "line inside detect_code_jargon(). After that the _PATTERNS loop walks "
+            "every match, then _run_detector serializes them and operating_loop_audit.py "
+            "writes the findings_log entry for the code_jargon key without any plain "
+            "lane added for the reader at all."
+        )
+        assert detect_code_jargon(reply) != []  # flags without operator context
+        assert (
+            detect_code_jargon(reply, operator_input="explain the code in detect_jargon_dump") == []
+        )

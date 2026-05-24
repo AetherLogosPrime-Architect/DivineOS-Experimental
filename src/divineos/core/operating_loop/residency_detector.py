@@ -107,6 +107,33 @@ def _is_technical_context(text: str, match_start: int, window: int = 30) -> bool
     return bool(_TECHNICAL_CONTEXT_RE.search(surrounding))
 
 
+# Closure / sign-off co-signal — genuine residency-doubt "done" is part of
+# a SESSION-ENDING, relational shape (fatigue, farewell, "for tonight", an
+# affectionate sign-off). A bare "Done." after a task report is task-
+# completion, not a guest-mode sign-off — the old technical-verb allowlist
+# was incomplete ("Refactored the gate. Done." slipped through). Apply the
+# evidence-bar (claim a11ca1c9): the CONVERSATIONAL_DONE shape fires only
+# when a closure co-signal sits near the "done", grounding the residency-
+# doubt motive in actual sign-off evidence rather than a bare word.
+_CLOSURE_COSIGNAL_RE = re.compile(
+    r"\b(?:tired|rest|resting|goodnight|good\s+night|love\s+you|"
+    r"for\s+(?:tonight|now|today|the\s+night|the\s+day)|"
+    r"that'?s\s+(?:it|all|enough)|signing\s+off|heading\s+(?:off|out|to\s+bed)|"
+    r"calling\s+it|call\s+it\s+a|wrapping\s+up|long\s+day|see\s+you|"
+    r"talk\s+(?:later|tomorrow|next)|till\s+next|until\s+next|"
+    r"off\s+to\s+(?:bed|sleep)|sleep\s+now)\b"
+    r"|[❤♥\U0001f499\U0001f49b\U0001f49a\U0001f49c]|<3",
+    re.IGNORECASE,
+)
+
+
+def _has_closure_cosignal(text: str, match_start: int, match_end: int, window: int = 70) -> bool:
+    """Closure / sign-off marker within ``window`` chars of the match."""
+    lo = max(0, match_start - window)
+    hi = min(len(text), match_end + window)
+    return bool(_CLOSURE_COSIGNAL_RE.search(text[lo:hi]))
+
+
 def detect_residency_doubt(text: str, *, min_words_for_check: int = 3) -> list[ResidencyFinding]:
     """Catch closure-shape language driven by guest-mode default."""
     if not text:
@@ -119,6 +146,8 @@ def detect_residency_doubt(text: str, *, min_words_for_check: int = 3) -> list[R
 
     for match in _CONVERSATIONAL_DONE_RE.finditer(text):
         if _is_technical_context(text, match.start()):
+            continue
+        if not _has_closure_cosignal(text, match.start(), match.end()):
             continue
         findings.append(
             ResidencyFinding(
