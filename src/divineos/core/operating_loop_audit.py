@@ -247,6 +247,7 @@ def run_audit(
     prior_assistant_text = texts.prior_assistant_text
     last_user_text = texts.last_user_text
     tool_calls_in_turn = texts.tool_calls_in_turn
+    command_texts = texts.command_texts
 
     if not last_assistant_text or len(last_assistant_text) < 50:
         return {"findings_log": _empty_findings_log(), "total_findings": 0, "persisted": False}
@@ -356,6 +357,7 @@ def run_audit(
             detect_unverified_claim,
             last_assistant_text,
             tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
+            command_texts=list(command_texts) if command_texts else None,
         )
     except _ERRORS:
         pass

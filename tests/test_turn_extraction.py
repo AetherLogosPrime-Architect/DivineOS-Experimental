@@ -336,3 +336,45 @@ def test_tool_calls_only_from_current_turn_not_prior(tmp_path: Path) -> None:
     result = extract_turn(transcript)
     assert "CurrentRead" in result.tool_calls_in_turn
     assert "PriorBash" not in result.tool_calls_in_turn
+
+
+def _assistant_bash(command: str) -> dict:
+    return {
+        "type": "assistant",
+        "message": {
+            "content": [{"type": "tool_use", "name": "Bash", "input": {"command": command}}]
+        },
+    }
+
+
+def test_command_texts_captured_for_current_turn(tmp_path: Path) -> None:
+    """Verify-claim wall phase 1 (prereg-86ee991cb423): the current turn's
+    Bash command STRINGS are captured into command_texts, not just the tool
+    name. A non-Bash tool contributes a name but no command."""
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(
+        transcript,
+        [
+            _user("push the branch"),
+            _assistant_bash("git push -u origin my-branch"),
+            _assistant_bash("git ls-remote --heads origin my-branch"),
+            _assistant_tool_use("Edit"),
+            _assistant_text("Pushed and verified."),
+        ],
+    )
+    turn = extract_turn(transcript)
+    assert "git push -u origin my-branch" in turn.command_texts
+    assert "git ls-remote --heads origin my-branch" in turn.command_texts
+    # Edit has no command → not in command_texts, but its name IS a tool call.
+    assert "Edit" in turn.tool_calls_in_turn
+    assert len(turn.command_texts) == 2
+
+
+def test_command_texts_empty_when_no_bash(tmp_path: Path) -> None:
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(
+        transcript,
+        [_user("hi"), _assistant_tool_use("Read"), _assistant_text("done reading")],
+    )
+    turn = extract_turn(transcript)
+    assert turn.command_texts == ()
