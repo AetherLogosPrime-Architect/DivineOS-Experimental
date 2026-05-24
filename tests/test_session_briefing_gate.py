@@ -99,3 +99,45 @@ class TestGateMessage:
             status = session_briefing_gate.gate_status()
         assert status["loaded_this_session"] is False
         assert status["blocks"] is True
+
+
+class TestPipelineGateUsesPerSessionCheck:
+    """Evidence-bar (claim a11ca1c9): the pipeline-time briefing gate must
+    decide whether to auto-load from the per-session signal
+    (briefing_loaded_this_session), not the TTL proxy was_briefing_loaded."""
+
+    def test_skips_reload_when_loaded_this_session(self):
+        from unittest.mock import patch
+
+        from divineos.cli import pipeline_gates
+
+        with (
+            patch(
+                "divineos.core.session_briefing_gate.briefing_loaded_this_session",
+                return_value=True,
+            ),
+            patch("divineos.core.active_memory.refresh_active_memory") as refresh,
+            patch("divineos.core.hud_handoff.mark_briefing_loaded"),
+        ):
+            pipeline_gates.enforce_briefing_gate()
+            refresh.assert_not_called()
+
+    def test_reloads_when_not_loaded_this_session(self):
+        from unittest.mock import patch
+
+        from divineos.cli import pipeline_gates
+
+        with (
+            patch(
+                "divineos.core.session_briefing_gate.briefing_loaded_this_session",
+                return_value=False,
+            ),
+            patch("divineos.core.memory.init_memory_tables"),
+            patch("divineos.core.active_memory.refresh_active_memory") as refresh,
+            patch("divineos.core.active_memory.get_active_memory", return_value=[]),
+            patch("divineos.core.session_manager.get_current_session_id", return_value="t-sess"),
+            patch("divineos.core.knowledge_impact.record_knowledge_retrieval"),
+            patch("divineos.core.hud_handoff.mark_briefing_loaded"),
+        ):
+            pipeline_gates.enforce_briefing_gate()
+            refresh.assert_called_once()
