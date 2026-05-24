@@ -44,6 +44,23 @@ def _session_key() -> str:
     sid = os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("DIVINEOS_SESSION_ID")
     if sid:
         return sid
+    # Fall back to the canonical session marker BEFORE the daily bucket. Without
+    # this, contexts that lack the env var (the gate-firing hook, the response
+    # counter) resolve to daily-YYYY-MM-DD while the CLI — which sets the env
+    # var at init from this same marker — records consults under the marker's
+    # session id. Writes land in the marker bucket, reads in the daily bucket;
+    # the gate reads a queries=0 drawer forever and fires false SEVERE. Reading
+    # the marker here makes every context resolve the same key. Confirmed by
+    # reproduction 2026-05-24 (claim ba6dc25a): record_query fires correctly;
+    # the only fault was this bucket-split.
+    try:
+        marker = divineos_home() / "current_session.txt"
+        if marker.exists():
+            marker_sid = marker.read_text(encoding="utf-8").strip()
+            if marker_sid:
+                return marker_sid
+    except (OSError, ValueError):
+        pass
     return f"daily-{time.strftime('%Y-%m-%d')}"
 
 
