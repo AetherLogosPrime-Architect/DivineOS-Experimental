@@ -39,13 +39,15 @@ class TestFires:
             "the commit merged cleanly",
             "merged to master",
         ):
-            assert any(
-                x.claim_kind == "merge" for x in detect_unverified_claim(t)
-            ), f"should fire: {t!r}"
+            assert any(x.claim_kind == "merge" for x in detect_unverified_claim(t)), (
+                f"should fire: {t!r}"
+            )
 
     def test_merge_complete_form_fires_without_anchor(self):
         # The explicit "merge is complete" form is unambiguous, no anchor needed.
-        assert any(x.claim_kind == "merge" for x in detect_unverified_claim("the merge is complete"))
+        assert any(
+            x.claim_kind == "merge" for x in detect_unverified_claim("the merge is complete")
+        )
 
 
 class TestFigurativeMergeSilent:
@@ -62,9 +64,7 @@ class TestFigurativeMergeSilent:
             "the idea landed with me",
             "her words landed hard",
         ):
-            assert (
-                detect_unverified_claim(t) == []
-            ), f"wrongly fired on figurative: {t!r}"
+            assert detect_unverified_claim(t) == [], f"wrongly fired on figurative: {t!r}"
 
 
 class TestSeverity:
