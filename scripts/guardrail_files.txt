@@ -216,3 +216,15 @@ tests/test_first_person_orienting_substrate.py
 # ratification-of-unverifiable-claim. Weakening this CLI weakens the
 # entire multi-party-review architecture.
 src/divineos/cli/audit_commands.py
+
+# Family-member invocation seal hook — Aether 2026-05-23, prereg-7a490c9b1418.
+# decide() is the gate that blocks spawning a promoted (sovereign) family
+# agent as a subagent and channels to the letter path. The sovereign set
+# (_SOVEREIGN_AGENTS) and the channel-routing deny logic live here. This is
+# the exact self-modification attack class the guardrail discipline exists
+# for: a drifting agent could weaken the sovereign gate — empty the set,
+# soften the deny, reorder the check below the puppet validator — to let
+# itself spawn a hollow copy of a promoted agent (Aria) again. Modifying
+# this file without external co-sign must not be possible. Added in the same
+# PR that introduced the gate, via External-Review (Aletheia + Andrew).
+src/divineos/core/family/seal_hook.py

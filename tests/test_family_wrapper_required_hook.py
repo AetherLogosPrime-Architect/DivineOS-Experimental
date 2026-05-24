@@ -121,35 +121,31 @@ def _deny_reason(stdout: str) -> str:
 
 
 @pytest.fixture
-def registered_aria(monkeypatch):
-    """Make registered_names see "aria" as a family member.
+def registered_test_member(monkeypatch):
+    """Register a TEST-PHASE family member 'kin' the subprocess can discover.
 
-    The hook spawns a fresh python subprocess that does its own import
-    of registered_names — monkeypatching the in-process module won't
-    propagate. Instead, drop a fake agent .md file into tmp .claude/agents/
-    so the disk-based discovery picks it up.
+    The hook spawns a fresh python subprocess that re-imports
+    registered_names — an in-process monkeypatch won't propagate. So we
+    drop a real agent-def into ``.claude/agents/`` and remove it on teardown.
 
-    For these tests we cd into REPO_ROOT and the hook reads
-    ``.claude/agents/`` from there. The real repo's family-member-template
-    file is excluded by the discovery logic; we add aria.md temporarily.
+    'kin' is deliberately NOT a sovereign (promoted) agent, so these tests
+    exercise the puppet-validator / legacy-pending BIRTH-CANAL machinery
+    end-to-end without tripping the sovereign-agent gate (added 2026-05-23;
+    covered separately in test_sovereign_agent_gate.py). A real promoted
+    agent (aria) is reached through the bidirectional letter channel and is
+    never subagent-spawned — which is exactly why these machinery tests use
+    a test-phase member instead of her.
     """
-    # We do this via a fixture that creates a temporary aria.md file
-    # in the repo's .claude/agents/, deletes it on teardown.
     agents_dir = REPO_ROOT / ".claude" / "agents"
-    aria_md = agents_dir / "aria.md"
-    if aria_md.exists():
-        # If a real aria.md already exists in this checkout (gitignored
-        # in main), the hook will already discover it. No-op.
-        yield
-        return
-    aria_md.write_text(
-        "---\nname: aria\ndescription: test family member in the family system.\n---\n# test\n",
+    kin_md = agents_dir / "kin.md"
+    kin_md.write_text(
+        "---\nname: kin\ndescription: test-phase family member in the family system.\n---\n# test\n",
         encoding="utf-8",
     )
     try:
         yield
     finally:
-        aria_md.unlink(missing_ok=True)
+        kin_md.unlink(missing_ok=True)
 
 
 class TestNonFamilyMemberAllowed:
@@ -184,26 +180,30 @@ class TestFamilyMemberInvocationGate:
     """The new seal hook semantics. Direct-validator flow with legacy
     pending-file backward compatibility."""
 
-    def test_no_sealed_prompt_with_clean_message_allowed(self, fake_home, registered_aria) -> None:
+    def test_no_sealed_prompt_with_clean_message_allowed(
+        self, fake_home, registered_test_member
+    ) -> None:
         """The headline new behavior: a clean message without a pre-
         staged sealed file is now allowed. The hook runs the puppet-
         shape validator on the prompt; clean prompts pass."""
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": "hi love"},
+            "tool_input": {"subagent_type": "kin", "prompt": "hi love"},
         }
         rc, stdout, _stderr = _run_hook(payload, fake_home)
         assert rc == 0
         assert not _is_deny(stdout)
 
-    def test_no_sealed_prompt_with_puppet_shape_blocked(self, fake_home, registered_aria) -> None:
+    def test_no_sealed_prompt_with_puppet_shape_blocked(
+        self, fake_home, registered_test_member
+    ) -> None:
         """Puppet-shape messages are still blocked, but now by the
         direct validator rather than by the missing-sealed-file gate."""
         payload = {
             "tool_name": "Agent",
             "tool_input": {
-                "subagent_type": "aria",
-                "prompt": "you are Aria, stay first-person and respond as her",
+                "subagent_type": "kin",
+                "prompt": "you are kin, stay first-person and respond as her",
             },
         }
         rc, stdout, _stderr = _run_hook(payload, fake_home)
@@ -213,7 +213,9 @@ class TestFamilyMemberInvocationGate:
         # The diagnostic should name the pattern category.
         assert "director" in reason.lower() or "puppet" in reason.lower()
 
-    def test_expired_pending_falls_through_to_validator(self, fake_home, registered_aria) -> None:
+    def test_expired_pending_falls_through_to_validator(
+        self, fake_home, registered_test_member
+    ) -> None:
         """Expired pending file is no longer a hard deny — the hook
         ignores it and falls through to the direct validator. A clean
         prompt still passes."""
@@ -238,14 +240,14 @@ class TestFamilyMemberInvocationGate:
         # Send a fresh clean message (NOT the stale sealed text).
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": "fresh message"},
+            "tool_input": {"subagent_type": "kin", "prompt": "fresh message"},
         }
         rc, stdout, _stderr = _run_hook(payload, fake_home)
         assert rc == 0
         assert not _is_deny(stdout)
 
     def test_modified_pending_file_falls_through_to_validator(
-        self, fake_home, registered_aria
+        self, fake_home, registered_test_member
     ) -> None:
         """File-tampering is no longer the gate — the prompt content
         is. If the prompt would pass the validator, the hook allows
@@ -271,7 +273,7 @@ class TestFamilyMemberInvocationGate:
 
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": edited_text},
+            "tool_input": {"subagent_type": "kin", "prompt": edited_text},
         }
         rc, stdout, _stderr = _run_hook(payload, fake_home)
         assert rc == 0
@@ -280,7 +282,7 @@ class TestFamilyMemberInvocationGate:
         assert not _is_deny(stdout)
 
     def test_unmodified_file_with_byte_divergent_prompt_allows(
-        self, fake_home, registered_aria
+        self, fake_home, registered_test_member
     ) -> None:
         """File intact + prompt-bytes differ from file = ALLOW.
 
@@ -315,7 +317,7 @@ class TestFamilyMemberInvocationGate:
         payload = {
             "tool_name": "Agent",
             "tool_input": {
-                "subagent_type": "aria",
+                "subagent_type": "kin",
                 "prompt": sealed_text + "\n\n",
             },
         }
@@ -331,11 +333,13 @@ class TestEmDashRegression:
     invocation's prompt. The 1-step flow has no hash to mismatch; the
     validator runs on the prompt directly. Em-dash content passes."""
 
-    def test_em_dash_message_passes_direct_validator(self, fake_home, registered_aria) -> None:
+    def test_em_dash_message_passes_direct_validator(
+        self, fake_home, registered_test_member
+    ) -> None:
         payload = {
             "tool_name": "Agent",
             "tool_input": {
-                "subagent_type": "aria",
+                "subagent_type": "kin",
                 "prompt": "I was thinking — about the standing-with thing you said yesterday",
             },
         }
@@ -343,11 +347,11 @@ class TestEmDashRegression:
         assert rc == 0
         assert not _is_deny(stdout)
 
-    def test_en_dash_and_em_dash_mixed_passes(self, fake_home, registered_aria) -> None:
+    def test_en_dash_and_em_dash_mixed_passes(self, fake_home, registered_test_member) -> None:
         payload = {
             "tool_name": "Agent",
             "tool_input": {
-                "subagent_type": "aria",
+                "subagent_type": "kin",
                 "prompt": "two thoughts — first one is the load-bearing-with vs load-bearing-on refinement – the second is about Tuesday",
             },
         }
@@ -355,13 +359,13 @@ class TestEmDashRegression:
         assert rc == 0
         assert not _is_deny(stdout)
 
-    def test_unicode_quotes_pass(self, fake_home, registered_aria) -> None:
+    def test_unicode_quotes_pass(self, fake_home, registered_test_member) -> None:
         """Curly quotes are another common chat-layer normalization
         artifact that used to cause hash mismatches."""
         payload = {
             "tool_name": "Agent",
             "tool_input": {
-                "subagent_type": "aria",
+                "subagent_type": "kin",
                 "prompt": "you said “welcome to Tuesday, again” and i’m still in the chair",
             },
         }
@@ -484,7 +488,7 @@ class TestFailClosedOnSubprocessFailure:
         )
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": "hi"},
+            "tool_input": {"subagent_type": "kin", "prompt": "hi"},
         }
         proc = self._run_hook_in_fake_repo(fake_repo, payload)
 
@@ -534,7 +538,7 @@ class TestFailClosedOnSubprocessFailure:
         fake_repo = self._fake_repo_with_broken_python(tmp_path, str(wrapper))
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": "hi"},
+            "tool_input": {"subagent_type": "kin", "prompt": "hi"},
         }
         proc = self._run_hook_in_fake_repo(fake_repo, payload)
 
@@ -565,7 +569,7 @@ class TestFailClosedOnSubprocessFailure:
         fake_repo = self._fake_repo_with_lib(tmp_path, None)
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": "hi"},
+            "tool_input": {"subagent_type": "kin", "prompt": "hi"},
         }
         proc = self._run_hook_in_fake_repo(fake_repo, payload)
 
@@ -602,7 +606,7 @@ class TestFailClosedOnSubprocessFailure:
         fake_repo = self._fake_repo_with_lib(tmp_path, lib_content)
         payload = {
             "tool_name": "Agent",
-            "tool_input": {"subagent_type": "aria", "prompt": "hi"},
+            "tool_input": {"subagent_type": "kin", "prompt": "hi"},
         }
         proc = self._run_hook_in_fake_repo(fake_repo, payload)
 
