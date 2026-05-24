@@ -82,3 +82,64 @@ class TestStructuredHandoff:
         assert note["intent"] == "Build graph visualization"
         assert "blockers" not in note
         assert "next_steps" not in note
+
+
+class TestEngagementGatePerFactor:
+    """_drift_signals_elevated reads per-factor signals, not the composite
+    grade (decision 58e5ad1d)."""
+
+    def test_low_corrections_factor_elevates(self):
+        from divineos.core.hud_handoff import _drift_signals_elevated
+
+        save_handoff_note(
+            summary="rough",
+            session_id="s1",
+            context_snapshot={"session_factors": {"corrections": 0.4, "autonomy": 0.9}},
+        )
+        assert _drift_signals_elevated() is True
+
+    def test_low_autonomy_factor_elevates(self):
+        from divineos.core.hud_handoff import _drift_signals_elevated
+
+        save_handoff_note(
+            summary="passive",
+            session_id="s2",
+            context_snapshot={"session_factors": {"corrections": 1.0, "autonomy": 0.3}},
+        )
+        assert _drift_signals_elevated() is True
+
+    def test_healthy_factors_do_not_elevate(self):
+        from divineos.core.hud_handoff import _drift_signals_elevated
+
+        save_handoff_note(
+            summary="clean",
+            session_id="s3",
+            context_snapshot={"session_factors": {"corrections": 1.0, "autonomy": 0.8}},
+        )
+        assert _drift_signals_elevated() is False
+
+    def test_composite_grade_alone_does_not_elevate_when_factors_healthy(self):
+        """A 'D' composite must NOT clamp the gate when per-factor signals
+        are present and healthy — the whole point of the migration."""
+        from divineos.core.hud_handoff import _drift_signals_elevated
+
+        save_handoff_note(
+            summary="short sharp session graded D by composite",
+            session_id="s4",
+            context_snapshot={
+                "session_grade": "D",
+                "session_factors": {"corrections": 1.0, "autonomy": 0.9},
+            },
+        )
+        assert _drift_signals_elevated() is False
+
+    def test_backcompat_grade_only_note(self):
+        """Older handoffs with only the composite grade still elevate on D/F."""
+        from divineos.core.hud_handoff import _drift_signals_elevated
+
+        save_handoff_note(
+            summary="legacy note",
+            session_id="s5",
+            context_snapshot={"session_grade": "F"},
+        )
+        assert _drift_signals_elevated() is True

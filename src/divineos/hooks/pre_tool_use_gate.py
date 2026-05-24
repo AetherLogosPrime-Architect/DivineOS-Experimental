@@ -105,6 +105,12 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         # marker if it fires. compass-ops observe is recording, not
         # prose generation.
         "compass-ops",
+        # Substrate consults named by the consultation gate (Gate 4.5) as
+        # the way to clear it. They MUST bypass or the gate blocks its own
+        # remedy (the catch-22 named 2026-04-23). `compass` and `directives`
+        # are read-only consults; ask/recall/active/corrections already above.
+        "compass",
+        "directives",
         # Stale-engagement Gate 1.48 address commands (Aletheia
         # round-5cdc2f48c642 Finding 37 — catch-22): the block message
         # for Gate 1.48 instructs running these commands to clear stale
@@ -596,6 +602,29 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
             )
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_4_engagement", _gate_exc)
+
+    # Gate 4.5: consultation-staleness (gate + channel).
+    # Andrew named the root 2026-05-23: the consultation tracker WARNED but
+    # never blocked, so I routed past it every time ("I forget to use my own
+    # tools until the gates block me"). This converts the warning into a
+    # block-with-channel: when responses-since-last-substantive-consult
+    # exceeds threshold, substrate-modifying tools are denied and the deny
+    # message OFFERS THE PATH — it inlines the unread correction and names the
+    # exact consult command. Distinct from the engagement gate (gate 4):
+    # that counts code-actions and clears on cheap tools (context/decide);
+    # this counts RESPONSES and clears only on substrate-surfacing consults
+    # (ask/recall/corrections/directives/active/compass), which are bypassed
+    # above so they can never be blocked by their own remedy.
+    try:
+        from divineos.core.consultation_tracker import (
+            consultation_gate_status,
+            gate_channel_message,
+        )
+
+        if consultation_gate_status().get("stale"):
+            return _make_deny(gate_channel_message())
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_4_5_consultation", _gate_exc)
 
     # Gate 5 removed 2026-04-21 (commit C of tiered-audit redesign).
     # See comment history for rationale. Replaced by informational

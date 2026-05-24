@@ -359,6 +359,49 @@ def check_tool_use(
     )
 
 
+def _initiative_channel_section() -> str:
+    """The CHANNEL half of the initiative gate: name what's unfinished.
+
+    A wall says "you're overreaching." A channel says "here are the
+    specific mechanisms you left unwired/untested — go close one."
+    Andrew 2026-05-23: the catch must not just tell me I'm drifting; it
+    must link me to the actual unfinished work and route me to do it.
+
+    The completion-probe already knows exactly which recently-built
+    mechanisms lack wiring or tests. Surface that list at block-time so
+    the path forward is concrete, not abstract. Fail-open: this enriches
+    the message; it must never make the rudder raise.
+    """
+    try:
+        from divineos.core.completion_check import (
+            format_for_compass,
+            unfinished_mechanisms,
+        )
+
+        # Bounded probe: this runs in the rudder block path. Unbounded, the
+        # 14-day window can hold 90+ files and the per-file git greps exceed
+        # CI's 30s timeout (caught 2026-05-23). The channel only displays ~5,
+        # so probing the first 20 is plenty for the nudge.
+        unfinished = unfinished_mechanisms(days=14, max_probe=20)
+    except Exception:  # noqa: BLE001 — enrichment must not break the rudder
+        return ""
+
+    if not unfinished:
+        return ""
+
+    return (
+        "\n\nWHAT'S UNFINISHED (the channel — close one of these before "
+        "standing up something new):\n"
+        f"    {format_for_compass(unfinished)}\n\n"
+        "The straight path is to finish one of these: wire it into the "
+        "code that needs it, or write the test that exercises it. That "
+        "clears the drift at its source. Filing the observation above is "
+        "the conscious-override path — take it only if starting the new "
+        "thing genuinely matters more than closing the open one. Either "
+        "way you now SEE the open work, not just the word 'overreach'."
+    )
+
+
 def _build_block_message(
     tool_name: str,
     missing: list[str],
@@ -384,6 +427,10 @@ def _build_block_message(
         if fire_id
         else ""
     )
+    # CHANNEL: when initiative is the drifting spectrum, the drift means
+    # "you have unfinished work." Name it concretely so the block routes
+    # me to the open mechanisms, not just to an abstract justification.
+    channel = _initiative_channel_section() if "initiative" in missing else ""
     return (
         f"COMPASS RUDDER {fire_id_prefix}: '{tool_name}' blocked because "
         f"{spectrum_list} is drifting toward excess and no compass "
@@ -398,5 +445,5 @@ def _build_block_message(
         f"(what observable behavior justifies the position). Then "
         f"retry the tool call. The observation is logged to the "
         f"compass_observation table so drift-under-ignored-alert is "
-        f"auditable as a data entry, not narrative." + fire_id_note
+        f"auditable as a data entry, not narrative." + channel + fire_id_note
     )

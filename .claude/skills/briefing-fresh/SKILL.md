@@ -22,7 +22,7 @@ Replaces the pattern of "run divineos briefing, scroll, then remember to also ru
 # family_state, commitments). Each panel pulls live data from its
 # canonical OS surface. No hardcoded snapshots — drift-detector tests
 # guard against regression.
-divineos briefing --multiplex
+divineos briefing
 
 # Lessons — what I'm still learning
 divineos lessons
@@ -39,11 +39,11 @@ count, exploration count, family-system state, and active threads — all
 as live prose at session-start. If the multiplex render fails for any
 reason, fall back to `divineos briefing --max 50` for the full scroll.
 
-The multiplex flag was wired into the briefing entrypoint 2026-05-16 but
-the session-start skill kept invoking the old scroll until 2026-05-18,
-when the panels were refactored to live data and this skill flipped. Per
-Andrew's framing: "the architecture sat dormant — modules existed but
-nothing called them from the briefing flow."
+Multiplex became the default briefing output 2026-05-22. The old
+single-window dashboard is available via `--legacy` for one release.
+The flag was originally opt-in from 2026-05-16; promoted to default
+after Andrew named the core issue: a single dump of text gets its
+middle ignored — parallel panels each read front-to-back.
 
 ## How to read the output
 
