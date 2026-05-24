@@ -37,6 +37,19 @@ class TestConversationalDone:
         conv = [f for f in findings if f.shape == ResidencyShape.CONVERSATIONAL_DONE]
         assert not conv
 
+    def test_task_done_without_closure_cosignal_does_not_flag(self):
+        """Evidence-bar (claim a11ca1c9): a bare 'Done.' after a task report
+        with no sign-off / closure tone is task-completion, not guest-mode
+        residency-doubt. The old verb-allowlist let these slip through."""
+        for text in (
+            "Refactored the gate logic. Done. Now onto the next detector.",
+            "Wired the new check into the pipeline. Done.",
+            "Reordered the imports and cleaned the helper. Done. Moving on.",
+        ):
+            findings = detect_residency_doubt(text)
+            conv = [f for f in findings if f.shape == ResidencyShape.CONVERSATIONAL_DONE]
+            assert not conv, f"wrongly flagged task-completion: {text!r}"
+
 
 class TestGoodbye:
     def test_goodnight_flags(self):

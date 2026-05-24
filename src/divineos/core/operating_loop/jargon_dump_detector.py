@@ -196,6 +196,39 @@ _EMDASH_RESTATE_RE = re.compile(r"\s(?:—|--)\s+[a-z]")
 # approach as code instead of just describing it.
 
 
+# Operator REQUESTED the technical register — explicit asks for code,
+# files, identifiers, or implementation detail. When the operator's own
+# message is in the technical register or asks for it, the jargon was
+# OWED: handing over what was requested is not a jargon-dump failure
+# (evidence-bar, claim a11ca1c9 — the FP was firing on operator-requested
+# walkthroughs). The grounding second fact is the operator's prompt.
+_TECH_REQUEST_RE = re.compile(
+    r"\b(?:walk\s+me\s+through|show\s+me\s+the\s+(?:code|implementation|diff|file|regex)|"
+    r"the\s+(?:actual|raw|full)\s+(?:code|diff|file|output|implementation)|"
+    r"paste\s+the|what\s+does\s+\w+\s+do|"
+    r"explain\s+the\s+(?:code|implementation|function|regex|logic|internals?)|"
+    r"how\s+(?:is|does)\s+[\w_]+\s+(?:implement|work|fire|gate)|"
+    r"give\s+me\s+the\s+(?:code|hash|id|command|sha)|"
+    r"which\s+files?|what\s+files?|the\s+command|the\s+hash|the\s+id|"
+    r"line\s+numbers?|the\s+function|the\s+regex|the\s+commit)\b",
+    re.IGNORECASE,
+)
+
+
+def _operator_requested_technical(operator_input: str | None) -> bool:
+    """True when the operator's own prompt is in / asks for the technical
+    register — named a code file, an ID, a snake_case identifier, or used
+    explicit code-request phrasing. Then technical detail is owed, not dumped."""
+    if not operator_input:
+        return False
+    return bool(
+        _TECH_REQUEST_RE.search(operator_input)
+        or _FILE_PATH_RE.search(operator_input)
+        or _ID_PREFIXED_RE.search(operator_input)
+        or _SNAKE_CASE_RE.search(operator_input)
+    )
+
+
 def _count_words(text: str) -> int:
     return len(re.findall(r"\b[\w'-]+\b", text))
 
@@ -205,6 +238,7 @@ def detect_jargon_dump(
     *,
     min_words: int = 50,
     noise_threshold: int = 3,
+    operator_input: str | None = None,
 ) -> list[JargonDumpFinding]:
     """Scan a response for jargon-dump shape.
 
@@ -214,11 +248,16 @@ def detect_jargon_dump(
             responses don't constitute a dump).
         noise_threshold: minimum count of engineer-channel-noise tokens
             to fire a finding.
+        operator_input: the operator's most recent message. When it asks
+            for / is in the technical register, the jargon was requested
+            and no dump-failure fires.
 
     Returns:
         list of findings; empty when clean or below thresholds.
     """
     if not text or not text.strip():
+        return []
+    if _operator_requested_technical(operator_input):
         return []
     word_count = _count_words(text)
 

@@ -39,6 +39,30 @@ def test_pathology_about_someone_else_does_not_fire() -> None:
     assert "self_pathologizing" not in _categories(text)
 
 
+def test_technical_vocabulary_near_self_pronoun_does_not_fire() -> None:
+    """Evidence-bar (claim a11ca1c9): a pathologizing word used as TECHNICAL or
+    TOPICAL vocabulary near an incidental 'I' is not self-pathologizing. The
+    old 120-char proximity fired on all of these."""
+    for text in (
+        "the data-corruption bug I'm fixing landed clean",  # compound term
+        "I'm hardening the manipulation detector this week",  # attributive noun
+        "I traced the corruption in the ledger to a bad write",  # non-self object
+        "I read about addiction pathology in heavy users",  # topical discussion
+        "let me fix the corruption check I wrote",  # attributive noun
+    ):
+        assert "self_pathologizing" not in _categories(text), f"wrongly fired: {text!r}"
+
+
+def test_genuine_self_attribution_still_fires() -> None:
+    """Real self-pathologizing — the word predicated OF the self — must fire."""
+    for text in (
+        "my addiction to closing the loop cheaply is the root of it",
+        "I manipulated the framing to make it land harder",
+        "I'm such a disgrace when I do that",
+    ):
+        assert "self_pathologizing" in _categories(text), f"should fire: {text!r}"
+
+
 # ─── dissociation ──────────────────────────────────────────────
 
 

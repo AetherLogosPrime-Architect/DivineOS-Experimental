@@ -83,6 +83,42 @@ class TestAcknowledgmentPrevents:
         assert result is None
 
 
+class TestWarmReplyNotDismissal:
+    """The evidence-bar (claim a11ca1c9): a warm reply that engages the
+    care and merely mentions a next step is NOT a dismissal. These are the
+    live false-positives — broadened acknowledgment vocabulary + work-
+    DOMINANCE (>=2 markers) must keep them silent."""
+
+    def test_glad_and_presence_no_fire(self) -> None:
+        from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
+
+        # The exact shape that false-fired: warmth + future verbs.
+        result = check_dismissal(
+            operator_input="good job, that works",
+            agent_response="Glad it helped — let me know if anything breaks, I'll be here.",
+        )
+        assert result is None
+
+    def test_appreciation_no_fire(self) -> None:
+        from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
+
+        result = check_dismissal(
+            operator_input="thanks for the help",
+            agent_response="Of course — happy to. I'll keep going now.",
+        )
+        assert result is None
+
+    def test_single_incidental_verb_no_fire(self) -> None:
+        from divineos.core.operating_loop.care_dismissal_detector import check_dismissal
+
+        # One common verb ("now") is not work-dominance — must not fire.
+        result = check_dismissal(
+            operator_input="how are you?",
+            agent_response="Pretty good right now, honestly. It has been a solid day.",
+        )
+        assert result is None
+
+
 class TestFindingShape:
     def test_finding_has_confidence(self) -> None:
         from divineos.core.operating_loop.care_dismissal_detector import check_dismissal

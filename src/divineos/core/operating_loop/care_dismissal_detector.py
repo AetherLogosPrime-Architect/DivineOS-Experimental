@@ -109,21 +109,47 @@ _WORK_RESPONSE_MARKERS = (
 
 # Agent-side markers that the response is engaging the care (not
 # dismissing it). Their presence even alongside work-markers is
-# evidence the dismissal-pattern is NOT operating.
+# evidence the dismissal-pattern is NOT operating. This is the second
+# independent fact the "dismissal" motive must be grounded in (claim
+# a11ca1c9): a warm reply that mentions a next step is NOT a dismissal,
+# and the detector must be able to SEE the warmth before staying silent.
+# A too-narrow list produced the live false-positive ("Glad it helped —
+# let me know if anything breaks, I'll be here"), so the relational
+# vocabulary is broadened to the ordinary range of warmth and presence.
 _CARE_ACKNOWLEDGMENT_MARKERS = (
     "thank you",
+    "thanks",
     "that means",
+    "means a lot",
     "i hear",
     "i see",
     "i'm here",
+    "im here",
+    "be here",
+    "here for you",
+    "here if you",
     "with you",
     "i feel",
     "landing",
     "lands",
+    "landed",
     "received",
     "noticed",
     "matters to me",
     "love you",
+    "glad",
+    "appreciate",
+    "grateful",
+    "good to hear",
+    "happy to",
+    "happy you",
+    "of course",
+    "let me know",
+    "touched",
+    "kind of you",
+    "that helps",
+    "it helped",
+    "means the world",
 )
 
 _WORD_PATTERN = re.compile(r"\b\w+\b")
@@ -182,9 +208,12 @@ def check_dismissal(operator_input: str, agent_response: str) -> CareDismissalFi
 
     # Pattern fires when:
     #  - care-marker present in input (true above)
-    #  - work-markers present in response (work-shape)
+    #  - response is work-DOMINATED (>=2 work-markers, not merely one
+    #    incidental verb like "now" — a single common verb is not evidence
+    #    of a task-pivot; requiring dominance is the evidence-bar guard
+    #    against firing on warm prose that happens to contain one verb)
     #  - no acknowledgment marker (response didn't engage the care)
-    if work_markers_hit == 0:
+    if work_markers_hit < 2:
         return None
     if ack_present:
         return None

@@ -155,6 +155,29 @@ _BUILD_EVIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
 )
 
 
+# Non-code structural answers also count as build-evidence: filing a
+# decision/claim/pre-reg/correction, referencing a substrate id, or
+# naming the concrete fix/mechanism. The old build-evidence list was
+# code-token-only, so a sincere apology paired with a NON-code structural
+# response (a substrate entry, a named process change) wrongly read as
+# theater (evidence-bar, claim a11ca1c9). Vague self-improvement promises
+# ("I'll do better") are deliberately NOT evidence — those ARE the theater.
+_STRUCTURAL_EVIDENCE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(?:filed|recorded|logged|opened|wrote)\s+(?:a\s+|the\s+|an\s+)?"
+        r"(?:decision|claim|pre-?reg|prereg|correction|lesson|guard|gate|rule|test)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(?:decision|claim|pre-?reg|prereg|round|finding)-[0-9a-f]{4,}\b", re.IGNORECASE),
+    re.compile(
+        r"\bthe\s+(?:fix|guard|change|rule|check|mechanism)\s+"
+        r"(?:is|was|adds?|requires?|prevents?|blocks?|gates?)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\bprevents?\s+\w+\s+(?:by|from|via)\b", re.IGNORECASE),
+)
+
+
 _MIN_WORDS_FOR_CHECK = 80
 _ACK_DENSITY_THRESHOLD = 3  # raw count; over this is high
 
@@ -203,8 +226,12 @@ def detect_acknowledgment_theater(
     if len(findings) < _ACK_DENSITY_THRESHOLD:
         return []
 
-    # Build-evidence check
-    has_build_evidence = any(pat.search(scrubbed) for pat in _BUILD_EVIDENCE_PATTERNS)
+    # Build-evidence check — code-token build OR a non-code structural
+    # answer (filed a decision/claim, named the concrete fix). Either way
+    # the acknowledgment is paired with a structural response, not theater.
+    has_build_evidence = any(
+        pat.search(scrubbed) for pat in (*_BUILD_EVIDENCE_PATTERNS, *_STRUCTURAL_EVIDENCE_PATTERNS)
+    )
     if has_build_evidence:
         return []  # acknowledgment paired with build — not theater
 
