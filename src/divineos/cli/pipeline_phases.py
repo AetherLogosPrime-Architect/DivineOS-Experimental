@@ -470,9 +470,9 @@ def run_knowledge_quality_cycle(deep_ids: list[str], analysis: Any) -> list[str]
                 click.secho(
                     f"     {reg.get('type', '?')}: {reg.get('detail', '')[:80]}", fg="yellow"
                 )
-            quality = drift.get("quality_drift", {})
-            if quality.get("drifting"):
-                click.secho(f"     quality_drift: {quality.get('detail', '')[:80]}", fg="yellow")
+            trend = drift.get("correction_trend", {})
+            if trend.get("increasing"):
+                click.secho(f"     correction_trend: {trend.get('detail', '')[:80]}", fg="yellow")
     except _PHASE_ERRORS as e:
         logger.warning(f"Drift detection failed: {e}")
 

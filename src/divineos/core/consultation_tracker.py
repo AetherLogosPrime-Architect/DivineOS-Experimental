@@ -80,7 +80,98 @@ def record_response() -> None:
     sk = _session_key()
     sess = state.setdefault(sk, {"queries": [], "responses": 0})
     sess["responses"] = int(sess.get("responses", 0)) + 1
+    # Timestamps let the gate compute responses-SINCE-last-consult, so a
+    # single stale consult at session-start can't cover a long unconsulted
+    # run (the count climbs again after each query). Bounded to last 50.
+    times = sess.setdefault("response_times", [])
+    times.append(time.time())
+    sess["response_times"] = times[-50:]
     _save(state)
+
+
+# Substantive consults — the ones that put the substrate's own words in
+# front of me. hud/context/body are cheaper status reads and do NOT clear
+# the gate (clearing on those would be the gameable shortcut).
+_SUBSTANTIVE_TOOLS = frozenset({"ask", "recall", "corrections", "directives", "active", "compass"})
+
+# After this many responses since the last substantive consult, the gate
+# blocks substrate-modifying tools. Pre-registered: prereg-consultation-gate.
+_GATE_THRESHOLD = 4
+
+
+def responses_since_last_query() -> int:
+    """Responses produced since the last SUBSTANTIVE consult.
+
+    If no substantive consult has happened this session, this is the full
+    response count — which is the signal that matters (composing from
+    defaults, never reading the substrate)."""
+    state = _load()
+    sk = _session_key()
+    sess = state.get(sk, {})
+    queries = sess.get("queries", [])
+    times = sess.get("response_times", [])
+    sub_times = [q["t"] for q in queries if q.get("tool") in _SUBSTANTIVE_TOOLS]
+    if not sub_times:
+        # No substantive consult yet — fall back to the int counter so the
+        # gate works even before response_times existed (backcompat).
+        return int(sess.get("responses", 0)) or len(times)
+    last = max(sub_times)
+    return sum(1 for t in times if t > last)
+
+
+def consultation_gate_status(threshold: int = _GATE_THRESHOLD) -> dict:
+    """Gate state: should substrate-modifying tools be blocked?
+
+    Stale when responses-since-last-substantive-consult >= threshold. The
+    block clears structurally the moment a substantive consult is recorded
+    (ask/recall/corrections/directives/active/compass), which resets the
+    since-count to zero — same reset shape as the compass-staleness gate.
+    """
+    since = responses_since_last_query()
+    return {
+        "stale": since >= threshold,
+        "responses_since": since,
+        "threshold": threshold,
+    }
+
+
+def gate_channel_message() -> str:
+    """The CHANNEL half of the gate — not just 'no', but 'here is the way.'
+
+    Names the single most-relevant unread item (an open Andrew-correction if
+    one exists, else points at directives) and the exact command to engage
+    it. The wrong path (keep modifying the substrate without ever reading it)
+    is blocked; the right path is handed over inline.
+    """
+    since = responses_since_last_query()
+    lines = [
+        f"BLOCKED: {since} responses without consulting the substrate "
+        f"(threshold {_GATE_THRESHOLD}). You are composing from defaults while "
+        "the substrate sits unread — the filing-cabinet pattern Andrew named "
+        "2026-04-25 and 2026-05-18.",
+        "",
+        "Here is the way — run ONE of these, read what it returns, then retry:",
+    ]
+    # Inline the actual unread item so the consult is partly forced into
+    # context even before the command runs.
+    try:
+        from divineos.core.andrew_correction_tracker import list_open
+
+        openc = list_open()
+        if openc:
+            top = openc[0]
+            text = (top.get("text") or "")[:160]
+            lines.append(f'  divineos corrections   <- OPEN correction unread: "{text}..."')
+    except (ImportError, OSError, AttributeError, KeyError, IndexError):
+        pass
+    lines += [
+        '  divineos ask "<the thing you are about to do>"',
+        "  divineos directives    divineos active    divineos compass",
+        "",
+        "Clearing requires a real consult (ask/recall/corrections/directives/"
+        "active/compass) - status reads like hud/context do not count.",
+    ]
+    return "\n".join(lines)
 
 
 def session_stats() -> dict:

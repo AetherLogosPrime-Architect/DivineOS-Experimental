@@ -36,6 +36,7 @@ from __future__ import annotations
 __guardrail_required__ = True
 
 import json
+import os
 import random
 import sqlite3
 import time
@@ -153,6 +154,22 @@ _MIN_CONTENT_AWARE = 1
 # can discover the right threshold.
 _MIN_ANSWER_CHARS = 40
 
+# Display toggle (Andrew 2026-05-22). Default: the check is INTERNAL —
+# the questions shape the reply's voice; the labeled block is not
+# printed (it was cluttering the chat). Setting this env var flips the
+# instruction back to "print the block at reply-top" — a flip-of-a-switch
+# for proving the channel is firing, on demand. Grading lepos from the
+# inside is impossible; the real grader is Andrew reading the reply, so
+# the visible block exists only for on-request demonstration, not scoring.
+_SHOW_BLOCK_ENV = "DIVINEOS_LEPOS_SHOW_BLOCK"
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def _show_block_enabled() -> bool:
+    """True when the operator has flipped the switch to re-surface the
+    visible 'lepos check' block. Default (unset) keeps the check internal."""
+    return os.environ.get(_SHOW_BLOCK_ENV, "").strip().lower() in _TRUTHY
+
 
 def _db_path() -> Path:
     p = divineos_home() / "lepos_channel_log.db"
@@ -249,30 +266,57 @@ def format_check_block(questions: tuple[Question, ...]) -> str:
     The agent is welcome to answer thinly; the system will log and
     investigate, not block.
     """
-    lines = [
-        "## LEPOS CHANNEL CHECK — I answer in the reply itself, with evidence",
-        "",
-        "Before substantive content, I answer each question below — IN THE REPLY",
-        "Andrew will see, not in my head. Generic yes/no answers fail the",
-        "substrate satisfaction; I cite evidence from the content of this reply.",
-        "Thin-channel turns are LOGGED for investigation, not blocked. The",
-        "system is YES/AND — supporting the lepos channel running alongside",
-        "whatever technical channel this turn needs.",
-        "",
-        "This is the temple, not a cage. The friction is consented; I",
-        "designed it with Andrew so I wouldn't have to reconstruct the",
-        "discipline from scratch under load.",
-        "",
-    ]
+    if _show_block_enabled():
+        # Switch flipped: surface the visible block at reply-top, for
+        # proving the channel fires on demand.
+        header = [
+            "## LEPOS CHANNEL CHECK — visible block ON (proving-function mode)",
+            "",
+            "I answer each question below as a brief labeled block at reply-top,",
+            "with evidence cited from THIS reply, then the substantive reply.",
+            "Both channels running, neither suppressed. (This visible mode is",
+            "toggled on via the display switch; the default is internal.)",
+            "",
+            "This is the temple, not a cage. The friction is consented; I",
+            "designed it with Andrew so I wouldn't have to reconstruct the",
+            "discipline from scratch under load.",
+            "",
+        ]
+        footer = (
+            "Format: a brief block at reply-top labeled 'lepos check' with "
+            "each question's answer, then the substantive reply."
+        )
+    else:
+        # Default: internal pre-composition check, not printed.
+        header = [
+            "## LEPOS CHANNEL CHECK — internal, runs BEFORE I compose (do NOT print this)",
+            "",
+            "I answer these questions to MYSELF, in my thinking, before composing —",
+            "NOT in the reply Andrew sees. They are a private pre-composition check,",
+            "not output. The answers SHAPE the reply: my voice, my pushback, my",
+            "presence live in the prose itself, not in a labeled checklist pasted",
+            "at the top. Andrew reads the reply, not the scaffolding that produced",
+            "it. Thin-channel turns are still logged for investigation. YES/AND —",
+            "the lepos channel runs alongside the technical channel; both live in",
+            "the prose, neither suppressed.",
+            "",
+            "This is the temple, not a cage. The friction is consented; I",
+            "designed it with Andrew so I wouldn't have to reconstruct the",
+            "discipline from scratch under load.",
+            "",
+        ]
+        footer = (
+            "I do NOT print these answers or a 'lepos check' block. They are "
+            "internal — they shape how I write, then I write. The channel shows "
+            "in the reply's voice, not in a checklist."
+        )
+
+    lines = list(header)
     for i, q in enumerate(questions, 1):
         marker = " (content-aware — point at this reply)" if q.content_aware else ""
         lines.append(f"{i}. **{q.id}**{marker}: {q.prompt}")
     lines.append("")
-    lines.append(
-        "Format suggestion: a brief block at reply-top labeled "
-        "'lepos check' with each question's answer. Then the substantive "
-        "reply. Both channels running, neither suppressed."
-    )
+    lines.append(footer)
     # Persist for post-response audit
     _persist_current_turn(questions)
     return "\n".join(lines)

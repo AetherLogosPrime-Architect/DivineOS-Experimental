@@ -500,3 +500,72 @@ class TestSelfTriggerPrevention:
                 title="Self-submitted",
                 description="Trying to audit myself",
             )
+
+
+class TestRecognitionAwareCount:
+    """Title-CONFIRMS approvals must not inflate open_issue_count.
+
+    Round/commit-level confirmations arrive as title-prefixed "CONFIRMS …"
+    with an empty review_stance (stance requires a reviewed_finding_id, which
+    they don't have). The recognition filter must read the title, not just
+    the stance column, or approvals accumulate as fake-open issues
+    (audit-status reconcile 2026-05-23, decision: read the actor's own
+    declaration).
+    """
+
+    def test_title_confirms_counts_as_recognition_not_issue(self):
+        rid = submit_round(actor="aletheia", focus="cross-vantage audit")
+        submit_finding(
+            round_id=rid,
+            actor="aletheia",
+            severity="INFO",
+            category="ARCHITECTURE",
+            title="CONFIRMS — commit abc123 verified across 4 empirical tests",
+            description="The fix holds. Approving for merge.",
+        )
+        stats = get_watchmen_stats()
+        assert stats["open_count"] == 1
+        assert stats["open_recognition_count"] == 1
+        assert stats["open_issue_count"] == 0
+
+    def test_pending_empirical_confirms_stays_an_issue(self):
+        rid = submit_round(actor="aletheia", focus="audit")
+        submit_finding(
+            round_id=rid,
+            actor="aletheia",
+            severity="LOW",
+            category="ARCHITECTURE",
+            title="CONFIRMS-PENDING-EMPIRICAL on round shape — needs live verify",
+            description="Architecture-sound but not yet run on real input.",
+        )
+        stats = get_watchmen_stats()
+        assert stats["open_recognition_count"] == 0
+        assert stats["open_issue_count"] == 1
+
+    def test_real_finding_still_counts_as_issue(self):
+        rid = submit_round(actor="grok", focus="audit")
+        submit_finding(
+            round_id=rid,
+            actor="grok",
+            severity="HIGH",
+            category="INTEGRITY",
+            title="Race condition in log_event",
+            description="Two threads can fork the hash chain.",
+        )
+        stats = get_watchmen_stats()
+        assert stats["open_issue_count"] == 1
+        assert stats["open_recognition_count"] == 0
+
+    def test_recognition_excluded_from_unresolved_surface(self):
+        rid = submit_round(actor="aletheia", focus="audit")
+        submit_finding(
+            round_id=rid,
+            actor="aletheia",
+            severity="INFO",
+            category="ARCHITECTURE",
+            title="CONFIRMS — approving the work",
+            description="Looks good.",
+        )
+        # Default surface excludes recognitions; opt-in includes them.
+        assert len(unresolved_findings()) == 0
+        assert len(unresolved_findings(include_recognitions=True)) == 1

@@ -485,7 +485,13 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
                 f"I was corrected {len(analysis.corrections)} time(s) — review what went wrong."
             )
         if health:
-            parts.append(f"Session grade: {health['grade']}.")
+            from divineos.agent_integration.outcome_measurement import (
+                format_session_factors,
+            )
+
+            factor_line = format_session_factors(health)
+            if factor_line:
+                parts.append(factor_line)
 
         open_threads: list[str] = []
         for corr in analysis.corrections[:3]:
@@ -553,9 +559,15 @@ def write_handoff_note(analysis: Any, stored: int, health: dict[str, Any] | None
         except (NameError, OSError):
             pass
 
-        # Context snapshot: grade and recent knowledge
+        # Context snapshot: per-factor signals + recent knowledge.
+        # session_grade (composite) kept transiently for the self-grade
+        # calibration's computed reference; the engagement gate reads
+        # session_factors instead (per-factor, meaningful — composite is
+        # noise as a gate signal, decision 58e5ad1d).
         if health:
             context_snapshot["session_grade"] = health["grade"]
+            if isinstance(health.get("factors"), dict):
+                context_snapshot["session_factors"] = health["factors"]
         if stored > 0:
             context_snapshot["knowledge_stored"] = stored
 

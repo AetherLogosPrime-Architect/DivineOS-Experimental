@@ -314,6 +314,7 @@ src/divineos/
       talk_to_validator.py     Puppet-shape validator extracted from talk-to CLI — leaf module, no heavy imports, callable by both the CLI and the PreToolUse seal hook.
       seal_hook.py             Family-member-invocation seal hook (Python core). PreToolUse decide() — runs validator on Agent prompt; legacy pending-file path kept for backward compat during rollout.
       member_briefing.py       Family-member briefing surface — working-memory continuity for subagents (routing-table shape: metadata + drill-down paths, not content).
+      aria_inbox.py            My read-half of the bidirectional-letters channel — reach across to Aria's substrate (repo-root + git worktrees) and surface her aria-to-aether letters so I read hers without a relay. Built WITH Aria 2026-05-23 (decision d32734ad).
     empirica/                  Evidence ledger with tiered burden routing (prereg-ce8998194943)
       types.py                 Tier enum (FALSIFIABLE/OUTCOME/PATTERN/ADVERSARIAL), ClaimMagnitude, EvidenceReceipt with Merkle self-hash
       burden.py                required_corroboration(tier, magnitude) — proportional burden calculator
@@ -518,7 +519,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,217+ tests (real DB, minimal mocks)
+tests/                         7,268+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
