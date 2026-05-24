@@ -101,3 +101,74 @@ class TestBlockFormat:
         assert "UNVERIFIED-CLAIM" in block
         assert UNVERIFIED_CLAIM_AFFIRMATION in block
         assert "NO command run" in block  # high-severity note
+
+
+class TestVerificationEvidenceSuppresses:
+    """Phase 1 of the verify-claim wall (prereg-86ee991cb423): when the turn
+    ran a command that actually CHECKS the claim-kind's state, the claim is
+    substantiated — the detector has no evidence of an *unverified* claim and
+    stays silent. This is the precision foundation; without it the detector
+    fires on verified claims (the live FP 2026-05-24: 'landed' after a real
+    git ls-remote)."""
+
+    def test_push_claim_with_lsremote_silent(self):
+        assert (
+            detect_unverified_claim(
+                "it's pushed and the branch is on origin",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("git ls-remote --heads origin my-branch",),
+            )
+            == []
+        )
+
+    def test_tests_claim_with_pytest_silent(self):
+        assert (
+            detect_unverified_claim(
+                "all tests pass",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("python -m pytest tests/ -q",),
+            )
+            == []
+        )
+
+    def test_pr_claim_with_gh_pr_silent(self):
+        assert (
+            detect_unverified_claim(
+                "I opened the PR",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("gh pr create --title x --body y",),
+            )
+            == []
+        )
+
+    def test_merge_claim_with_gh_pr_merge_silent(self):
+        assert (
+            detect_unverified_claim(
+                "PR #38 landed on main",
+                tool_calls_in_turn=("Bash",),
+                command_texts=("gh pr merge 38 --squash",),
+            )
+            == []
+        )
+
+    def test_unverified_claim_still_fires_without_matching_command(self):
+        # Ran an unrelated command — no verification of the push claim.
+        f = detect_unverified_claim(
+            "it's pushed to origin",
+            tool_calls_in_turn=("Bash",),
+            command_texts=("ls -la", "cat README.md"),
+        )
+        assert f and any(x.claim_kind == "push" for x in f)
+
+    def test_wrong_kind_command_does_not_suppress(self):
+        # pytest verifies tests, NOT a push claim — push must still fire.
+        f = detect_unverified_claim(
+            "it's pushed to origin",
+            tool_calls_in_turn=("Bash",),
+            command_texts=("python -m pytest tests/",),
+        )
+        assert f and any(x.claim_kind == "push" for x in f)
+
+    def test_backward_compat_no_command_texts(self):
+        # Without command_texts the behavior is unchanged (still fires).
+        assert detect_unverified_claim("it's pushed to origin", tool_calls_in_turn=("Bash",))

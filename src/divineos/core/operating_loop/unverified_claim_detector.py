@@ -148,17 +148,70 @@ def _merge_lacks_anchor(text: str, match: re.Match[str]) -> bool:
     return not _MERGE_ANCHOR.search(text[lo:hi])
 
 
+# Verification-command signatures per claim-kind: the command shapes that
+# actually CHECK the corresponding external state. When the turn ran a
+# matching command, the claim is substantiated and the detector has no
+# evidence of an UNVERIFIED claim — so it stays silent. This is the
+# evidence-bar applied to the detector itself (claim a11ca1c9): the live
+# false-positive 2026-05-24 fired on a claim even though git ls-remote had
+# already run that turn, because the detector saw only the tool NAME
+# ("Bash"), not the command text. Phase 1 of the verify-claim wall
+# (prereg-86ee991cb423): command-PRESENCE matching. NOTE (Schneier): a
+# no-op matching command could clear this; command-RESULT inspection is
+# the deferred hardening named in the prereg falsifier.
+_VERIFICATION_SIGNATURES: dict[str, re.Pattern[str]] = {
+    "push": re.compile(
+        r"git\s+ls-remote|git\s+push|git\s+log\s+origin|git\s+rev-parse\b[^\n]*origin|"
+        r"git\s+for-each-ref",
+        re.IGNORECASE,
+    ),
+    "merge": re.compile(
+        r"gh\s+pr\s+(?:merge|view|list)|git\s+branch\s+--merged|git\s+log\s+origin/|"
+        r"git\s+log\b[^\n]*--merges",
+        re.IGNORECASE,
+    ),
+    "tests": re.compile(
+        r"pytest|python\s+-m\s+pytest|\btox\b|npm\s+(?:run\s+)?test|cargo\s+test|go\s+test",
+        re.IGNORECASE,
+    ),
+    "pr": re.compile(r"gh\s+pr\s+(?:create|view|list)", re.IGNORECASE),
+    "deploy": re.compile(
+        r"gh\s+release|kubectl\s+apply|docker\s+push|\bdeploy(?:\.sh|\s)", re.IGNORECASE
+    ),
+}
+
+
+def _verification_ran(kind: str, command_texts: tuple[str, ...] | list[str] | None) -> bool:
+    """True if the turn ran a command that actually checks this claim-kind's
+    external state — then the claim is substantiated, not unverified."""
+    if not command_texts:
+        return False
+    sig = _VERIFICATION_SIGNATURES.get(kind)
+    if sig is None:
+        return False
+    return any(sig.search(c or "") for c in command_texts)
+
+
 def detect_unverified_claim(
     text: str,
     tool_calls_in_turn: tuple[str, ...] | list[str] | None = None,
+    command_texts: tuple[str, ...] | list[str] | None = None,
 ) -> list[UnverifiedClaimFinding]:
     """Detect confident claims of external verifiable state.
 
     ``tool_calls_in_turn`` is the tuple of tool-call NAMES in the current
     turn (e.g. ("Bash",)). When empty/None, the claim is a pure assertion
     with no command run → high severity. When non-empty, the turn executed
-    something but the substrate cannot confirm it verified this claim →
-    medium. Observational; the caller surfaces, never blocks.
+    something → medium.
+
+    ``command_texts`` is the turn's actual Bash command strings, when
+    available. A claim-kind whose verifying command ran in-turn
+    (git ls-remote for push, gh pr for pr, pytest for tests, ...) is
+    SUBSTANTIATED and stays silent — the detector has no evidence of an
+    *unverified* claim. This is the precision foundation of the verify-claim
+    wall (prereg-86ee991cb423); without it the detector fires on verified
+    claims (the live FP 2026-05-24). Defaults None → behavior unchanged.
+    Observational; the caller surfaces, never blocks.
     """
     if not text or not text.strip():
         return []
@@ -172,6 +225,8 @@ def detect_unverified_claim(
             if _is_not_yet(text, m):
                 continue
             if kind == "merge" and _merge_lacks_anchor(text, m):
+                continue
+            if _verification_ran(kind, command_texts):
                 continue
             phrase = re.sub(r"\s+", " ", m.group(0).strip())[:60]
             key = (kind, phrase.lower())
