@@ -280,3 +280,36 @@ class TestCorroborationEventDataclass:
         )
         with pytest.raises((AttributeError, Exception)):
             ev.actor = "different-actor"  # type: ignore[misc]
+
+
+class TestActorNormalizationDistinctCount:
+    """UUU follow-up (2026-05-24): the distinct-actor count must fold
+    styling / whitespace / invisible-char variants of the SAME actor to
+    one, or the anti-Goodhart number is inflatable by mere restyling
+    ("Grok"/"grok"/" GROK" = three corroborators from one source). The
+    exclude_actor self-corroboration guard must normalize too, so a styled
+    variant of the creator cannot slip past it. Routes through the shared
+    actor_normalize chokepoint."""
+
+    def test_styled_variants_count_once(self):
+        record_corroboration("k1", "Grok", CorroborationKind.EXTERNAL_AUDIT)
+        record_corroboration("k1", "grok", CorroborationKind.EXTERNAL_AUDIT)
+        record_corroboration("k1", "  GROK  ", CorroborationKind.EXTERNAL_AUDIT)
+        assert count_distinct_corroborators("k1") == 1
+
+    def test_invisible_char_variant_counts_once(self):
+        record_corroboration("k1", "grok", CorroborationKind.EXTERNAL_AUDIT)
+        record_corroboration("k1", chr(0x200B) + "grok", CorroborationKind.EXTERNAL_AUDIT)
+        assert count_distinct_corroborators("k1") == 1
+
+    def test_distinct_real_actors_still_counted(self):
+        # Normalization must NOT collapse genuinely different actors.
+        record_corroboration("k1", "grok", CorroborationKind.EXTERNAL_AUDIT)
+        record_corroboration("k1", "gemini", CorroborationKind.EXTERNAL_AUDIT)
+        assert count_distinct_corroborators("k1") == 2
+
+    def test_exclude_actor_normalizes(self):
+        record_corroboration("k1", "Grok", CorroborationKind.EXTERNAL_AUDIT)
+        record_corroboration("k1", "council:popper", CorroborationKind.COUNCIL)
+        # A styled exclude must still drop the creator's events.
+        assert count_distinct_corroborators("k1", exclude_actor=" GROK ") == 1
