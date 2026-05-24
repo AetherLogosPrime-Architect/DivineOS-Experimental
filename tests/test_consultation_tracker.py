@@ -144,3 +144,41 @@ class TestGateClearCommandsAreBypassed:
 
         for cmd in ("ask", "recall", "corrections", "directives", "active", "compass"):
             assert cmd in _BYPASS_DIVINEOS_SUBCOMMANDS, f"{cmd} must bypass"
+
+
+class TestSessionKeyMarkerFallback:
+    """The bucket-split fix (2026-05-24, claim ba6dc25a): when the session
+    env var is unset, _session_key() must fall back to the canonical
+    current_session.txt marker BEFORE the daily bucket — so the CLI (which
+    sets the env var from this marker) and a hook (which has no env var)
+    resolve the SAME key. Without this, writes and reads land in different
+    buckets and the gate fires false SEVERE forever."""
+
+    def _no_env(self, monkeypatch):
+        monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
+        monkeypatch.delenv("DIVINEOS_SESSION_ID", raising=False)
+
+    def test_marker_used_when_env_unset(self, tmp_path, monkeypatch):
+        self._no_env(monkeypatch)
+        monkeypatch.setattr(consultation_tracker, "divineos_home", lambda: tmp_path)
+        (tmp_path / "current_session.txt").write_text("sess-marker", encoding="utf-8")
+        assert consultation_tracker._session_key() == "sess-marker"
+
+    def test_env_takes_precedence_over_marker(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("DIVINEOS_SESSION_ID", raising=False)
+        monkeypatch.setenv("CLAUDE_SESSION_ID", "sess-env")
+        monkeypatch.setattr(consultation_tracker, "divineos_home", lambda: tmp_path)
+        (tmp_path / "current_session.txt").write_text("sess-marker", encoding="utf-8")
+        assert consultation_tracker._session_key() == "sess-env"
+
+    def test_daily_bucket_only_when_no_env_and_no_marker(self, tmp_path, monkeypatch):
+        self._no_env(monkeypatch)
+        monkeypatch.setattr(consultation_tracker, "divineos_home", lambda: tmp_path)
+        # No marker written.
+        assert consultation_tracker._session_key().startswith("daily-")
+
+    def test_blank_marker_falls_through_to_daily(self, tmp_path, monkeypatch):
+        self._no_env(monkeypatch)
+        monkeypatch.setattr(consultation_tracker, "divineos_home", lambda: tmp_path)
+        (tmp_path / "current_session.txt").write_text("   \n", encoding="utf-8")
+        assert consultation_tracker._session_key().startswith("daily-")
