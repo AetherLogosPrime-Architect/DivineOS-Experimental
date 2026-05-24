@@ -16,13 +16,10 @@ Three drift signals:
    making more mistakes, not fewer.
 """
 
-import json
-import re
 import sqlite3
 from typing import Any
 
 from divineos.core.knowledge import _get_connection
-from divineos.core.ledger import get_events
 
 _DRIFT_ERRORS = (sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
@@ -108,82 +105,24 @@ def detect_lesson_regressions(lookback: int = 5) -> list[dict[str, Any]]:
 # ─── Session History Fetching ─────────────────────────────────────
 
 
-def _get_session_payloads(limit: int = 10) -> list[str]:
-    """Get recent SESSION_END payloads from the ledger.
+def _get_session_metrics(limit: int = 10) -> list[dict[str, Any]]:
+    """Recent per-session metric rows, newest first, from session_history.
 
-    Tries the ledger (system_events) first, falls back gracefully.
+    This is the real per-session data source — structured counts written at
+    extract time. The earlier version grepped ledger consolidation payloads
+    for text ("grade: x", "corrected N time") that those payloads never
+    contained, so every trend silently returned "insufficient data"
+    (claim 3cffa9dc). session_history holds the actual numbers.
     """
     try:
-        from divineos.event.event_capture import CONSOLIDATION_EVENT_TYPES
+        from divineos.core.growth import get_session_history
 
-        events = get_events(limit=limit, event_type=CONSOLIDATION_EVENT_TYPES)
-        # Reverse to get newest first
-        events.reverse()
-        payloads: list[str] = []
-        for e in events:
-            payload = e.get("payload", {})
-            if isinstance(payload, dict):
-                payloads.append(json.dumps(payload))
-            else:
-                payloads.append(str(payload))
-        return payloads
+        return get_session_history(limit=limit)
     except _DRIFT_ERRORS as e:
         from loguru import logger
 
-        logger.debug("Session payload fetch failed: %s", e)
+        logger.debug("Session metrics fetch failed: %s", e)
         return []
-
-
-# ─── Quality Trend Detection ─────────────────────────────────────
-
-
-def detect_quality_drift(
-    min_sessions: int = 3,
-    session_payloads: list[str] | None = None,
-) -> dict[str, Any]:
-    """Check if session quality is declining over time.
-
-    Accepts pre-fetched payloads for testing, or fetches from ledger.
-    """
-    payloads = session_payloads if session_payloads is not None else _get_session_payloads()
-
-    if len(payloads) < min_sessions:
-        return {"drifting": False, "detail": "Not enough sessions for trend analysis"}
-
-    grade_map = {"A": 4, "B": 3, "C": 2, "D": 1, "F": 0}
-    grades: list[int] = []
-
-    for payload in payloads:
-        payload_lower = payload.lower()
-        for grade_letter, grade_val in grade_map.items():
-            if (
-                f"grade: {grade_letter.lower()}" in payload_lower
-                or f"grade {grade_letter.lower()}" in payload_lower
-            ):
-                grades.append(grade_val)
-                break
-
-    if len(grades) < min_sessions:
-        return {"drifting": False, "detail": "Not enough graded sessions"}
-
-    midpoint = len(grades) // 2
-    recent_avg = sum(grades[:midpoint]) / max(midpoint, 1)
-    older_avg = sum(grades[midpoint:]) / max(len(grades) - midpoint, 1)
-
-    declining = recent_avg < older_avg - 0.5
-
-    return {
-        "drifting": declining,
-        "recent_avg": round(recent_avg, 2),
-        "older_avg": round(older_avg, 2),
-        "delta": round(recent_avg - older_avg, 2),
-        "grade_count": len(grades),
-        "detail": (
-            f"Quality declining: recent avg {recent_avg:.1f} vs older avg {older_avg:.1f}"
-            if declining
-            else f"Quality stable: recent avg {recent_avg:.1f} vs older avg {older_avg:.1f}"
-        ),
-    }
 
 
 # ─── Correction Trend Detection ──────────────────────────────────
@@ -191,29 +130,31 @@ def detect_quality_drift(
 
 def detect_correction_trend(
     min_sessions: int = 3,
-    session_payloads: list[str] | None = None,
+    sessions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Check if corrections are increasing over time.
+    """Check if corrections are rising over recent sessions.
 
-    Accepts pre-fetched payloads for testing, or fetches from ledger.
+    Reads real per-session correction counts from session_history (newest
+    first). Surfaces the trend numbers; the "increasing" flag is a threshold
+    over real data pointing at where to look — the judgment of whether a
+    rise matters, and why, stays with the agent. Accepts an injected
+    ``sessions`` list (newest first) for testing.
+
+    "Quality declining over sessions" used to be its own grade-trend detector;
+    it trended the composite grade, which is noise (decision 58e5ad1d). Rising
+    corrections is the honest, evidence-based version of the same signal, so
+    that's the one signal we keep.
     """
-    payloads = session_payloads if session_payloads is not None else _get_session_payloads()
+    rows = sessions if sessions is not None else _get_session_metrics()
 
-    if len(payloads) < min_sessions:
+    counts = [int(r.get("corrections", 0)) for r in rows if "corrections" in r]
+    if len(counts) < min_sessions:
         return {"increasing": False, "detail": "Not enough sessions"}
 
-    corrections: list[int] = []
-    for payload in payloads:
-        match = re.search(r"corrected (\d+) time", payload)
-        if match:
-            corrections.append(int(match.group(1)))
-
-    if len(corrections) < min_sessions:
-        return {"increasing": False, "detail": "Not enough correction data"}
-
-    midpoint = len(corrections) // 2
-    recent_avg = sum(corrections[:midpoint]) / max(midpoint, 1)
-    older_avg = sum(corrections[midpoint:]) / max(len(corrections) - midpoint, 1)
+    # rows are newest-first → counts[:midpoint] is the recent half.
+    midpoint = len(counts) // 2
+    recent_avg = sum(counts[:midpoint]) / max(midpoint, 1)
+    older_avg = sum(counts[midpoint:]) / max(len(counts) - midpoint, 1)
 
     increasing = recent_avg > older_avg + 2
 
@@ -222,6 +163,7 @@ def detect_correction_trend(
         "recent_avg": round(recent_avg, 1),
         "older_avg": round(older_avg, 1),
         "delta": round(recent_avg - older_avg, 1),
+        "session_count": len(counts),
         "detail": (
             f"Corrections rising: recent avg {recent_avg:.1f} vs older avg {older_avg:.1f}"
             if increasing
@@ -236,14 +178,11 @@ def detect_correction_trend(
 def run_drift_detection() -> dict[str, Any]:
     """Run all drift detection checks."""
     regressions = detect_lesson_regressions()
-    quality = detect_quality_drift()
     corrections = detect_correction_trend()
 
     drift_signals = 0
     if regressions:
         drift_signals += len(regressions)
-    if quality.get("drifting"):
-        drift_signals += 2
     if corrections.get("increasing"):
         drift_signals += 1
 
@@ -258,7 +197,6 @@ def run_drift_detection() -> dict[str, Any]:
 
     return {
         "regressions": regressions,
-        "quality_drift": quality,
         "correction_trend": corrections,
         "drift_signals": drift_signals,
         "severity": severity,
@@ -279,10 +217,6 @@ def format_drift_report(report: dict[str, Any]) -> str:
         lines.append("Lesson regressions:")
         for reg in report["regressions"]:
             lines.append(f"  ⚠ {reg['detail']}")
-
-    quality = report["quality_drift"]
-    if quality.get("drifting"):
-        lines.append(f"\nQuality drift: {quality['detail']}")
 
     corrections = report["correction_trend"]
     if corrections.get("increasing"):

@@ -511,13 +511,12 @@ def register(cli: click.Group) -> None:
         help="Show the full briefing scroll (all surfaces). Default is the dashboard.",
     )
     @click.option(
-        "--multiplex",
+        "--legacy",
         is_flag=True,
         help=(
-            "Render briefing as parallel-readable dense panels (5 always-essential "
-            "+ context-filtered sometimes-essential) per prereg-ebee9082d201. "
-            "Opt-in MVP; default briefing flow unaffected. "
-            "Set context via 'divineos multiplex context set <name>'."
+            "Render the old single-window dashboard (orientation prelude + "
+            "routing table). Retired as default 2026-05-22 in favor of "
+            "multiplex panels. Kept for one release cycle."
         ),
     )
     def briefing_cmd(
@@ -528,15 +527,16 @@ def register(cli: click.Group) -> None:
         layer: str,
         mini: bool,
         full: bool,
-        multiplex: bool,
+        legacy: bool,
     ) -> None:
         """Generate a session context briefing from stored knowledge.
 
-        Default shows the dashboard (routing table with counts, staleness,
-        and drill-down commands). Use --full for the complete scroll.
+        Default renders multiplex panels (parallel-readable, context-
+        filtered). Use --full for the complete knowledge scroll.
         Use --deep for the full picture including stable knowledge.
         Use --layer archive to see archived/resolved entries.
         Use --mini for the compact auto-inject version.
+        Use --legacy for the old single-window dashboard.
         """
         if mini:
             try:
@@ -555,36 +555,6 @@ def register(cli: click.Group) -> None:
                 )
             return
 
-        if multiplex:
-            try:
-                from divineos.core.hud_handoff import mark_briefing_loaded as _mb1
-                from divineos.core.briefing_freshness import (
-                    mark_briefing_loaded as _mb2,
-                )
-                from divineos.core.multiplex_panels import build_panels
-                from divineos.core.multiplex_renderer import render_multiplex
-                from divineos.core.multiplex_state import get_context
-                from contextlib import suppress as _suppress
-
-                with _suppress(Exception):
-                    _mb1()
-                with _suppress(Exception):
-                    _mb2()
-
-                context = get_context()
-                panels = build_panels(context)
-                rendered = render_multiplex(panels)
-                _safe_echo(f"[multiplex] context: {context}")
-                _safe_echo("")
-                _safe_echo(rendered)
-            except Exception as e:  # noqa: BLE001
-                logger.error("multiplex briefing failed: %s", e)
-                _safe_echo(
-                    "[!] Multiplex briefing failed. "
-                    "Run `divineos briefing` (without --multiplex) for the standard version."
-                )
-            return
-
         _log_os_query("briefing", topic or "session start")
         try:
             from divineos.core.hud_handoff import mark_briefing_loaded
@@ -593,12 +563,6 @@ def register(cli: click.Group) -> None:
         except _KC_ERRORS:
             pass
 
-        # Also mark briefing-freshness state so the UserPromptSubmit
-        # hook knows the briefing is fresh and won't re-inject for
-        # STALE_AFTER_PROMPTS prompts. Andrew 2026-05-14 night
-        # structural-fix: briefing must be load-bearing throughout
-        # the session, not just at start. The hook injects briefing
-        # content into prompt context when the freshness expires.
         try:
             from divineos.core.briefing_freshness import (
                 mark_briefing_loaded as _mark_briefing_freshness,
@@ -608,10 +572,10 @@ def register(cli: click.Group) -> None:
         except _KC_ERRORS:
             pass
 
-        # Dashboard mode: default when no drill-down flags are set.
-        # Shows orientation prelude + routing table with counts/staleness/commands.
+        # Legacy dashboard mode: old single-window orientation + routing table.
+        # Retired as default 2026-05-22; kept behind --legacy for one release.
         _wants_full = full or deep or bool(layer) or bool(types) or bool(topic)
-        if not _wants_full:
+        if legacy:
             try:
                 from divineos.core.orientation_prelude import (
                     format_for_briefing as _fmt_orientation,
@@ -629,7 +593,28 @@ def register(cli: click.Group) -> None:
                 _safe_echo(render_dashboard())
             except _KC_ERRORS as e:
                 logger.error("dashboard render failed: %s", e)
-                _safe_echo("[!] Dashboard failed. Falling back to full briefing.")
+                _safe_echo("[!] Legacy dashboard failed.")
+            return
+
+        # Multiplex mode: parallel-readable panels, context-filtered.
+        # Default since 2026-05-22. Each panel is independently readable
+        # in one glance — designed around how I actually read (front-to-back
+        # per panel, not middle-of-a-long-dump).
+        if not _wants_full:
+            try:
+                from divineos.core.multiplex_panels import build_panels
+                from divineos.core.multiplex_renderer import render_multiplex
+                from divineos.core.multiplex_state import get_context
+
+                context = get_context()
+                panels = build_panels(context)
+                rendered = render_multiplex(panels)
+                _safe_echo(f"=== BRIEFING (multiplex, context: {context}) ===")
+                _safe_echo("")
+                _safe_echo(rendered)
+            except _KC_ERRORS as e:
+                logger.error("multiplex render failed: %s", e)
+                _safe_echo("[!] Multiplex failed. Falling back to full briefing.")
                 _wants_full = True
 
         if not _wants_full:

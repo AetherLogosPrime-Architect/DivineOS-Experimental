@@ -49,7 +49,7 @@ if [[ -z "${REPO_ROOT}" ]]; then
     echo "[push-readiness] not in a git repo; skipping" >&2
     exit 0
 fi
-cd "$REPO_ROOT"
+cd "$REPO_ROOT" || exit 30
 
 if [[ "${DIVINEOS_EMERGENCY_PUSH:-0}" == "1" ]]; then
     echo "[push-readiness] DIVINEOS_EMERGENCY_PUSH=1 — all gates bypassed." >&2
@@ -70,15 +70,25 @@ HOOK_STDIN="$(cat || true)"
 # ─── 1. Test suite ──────────────────────────────────────────────────────
 if [[ "${DIVINEOS_SKIP_TESTS:-0}" != "1" ]]; then
     echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
-    if ! python -m pytest tests/ -q --tb=line >/dev/null 2>&1; then
-        # Re-run with output so the operator sees what failed.
-        python -m pytest tests/ -q --tb=line 2>&1 | tail -30 >&2
+    # Run ONCE: capture combined output, then decide from the real exit code.
+    # The old design ran the full suite twice (discard, then re-run on failure
+    # to show output) — ~20 min on a red tree, and the two runs could diverge
+    # under load (concurrent pushes contending on shared DBs), producing the
+    # illegible "BLOCKED" banner sitting above a passing re-run. One run, one
+    # honest signal: show the captured output only if it actually failed.
+    PYTEST_LOG="$(mktemp)"
+    python -m pytest tests/ -q --tb=line >"$PYTEST_LOG" 2>&1
+    PYTEST_RC=$?
+    if [[ $PYTEST_RC -ne 0 ]]; then
+        tail -30 "$PYTEST_LOG" >&2
+        rm -f "$PYTEST_LOG"
         echo "" >&2
         echo "[push-readiness] BLOCKED — tests failing (exit 10)." >&2
         echo "[push-readiness] Fix locally, then push. Do NOT push red." >&2
         echo "[push-readiness] Emergency bypass: DIVINEOS_SKIP_TESTS=1 git push" >&2
         exit 10
     fi
+    rm -f "$PYTEST_LOG"
     echo "[push-readiness]   pytest: OK"
 fi
 
@@ -93,8 +103,8 @@ if [[ "${DIVINEOS_SKIP_MULTIPARTY_CHECK:-0}" != "1" ]]; then
     MP_SCRIPT="$REPO_ROOT/scripts/check_multi_party_review.py"
     if [[ -f "$MP_SCRIPT" ]]; then
         # Use bash array (not space-string) for argv to eliminate the
-        # shellcheck-disable need and stay defensive against future
-        # modifications that might introduce spaces in arguments.
+        # need for an inline lint-suppression directive, and stay defensive
+        # against future modifications that might introduce spaces in argv.
         # Per Aletheia's audit-observation on Finding 78 closure.
         MP_ARGS=(--mode=pre-push)
         if [[ "${DIVINEOS_MULTIPARTY_STRICT:-0}" == "1" ]]; then

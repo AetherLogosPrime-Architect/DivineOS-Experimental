@@ -459,3 +459,39 @@ def register(cli: click.Group) -> None:
         member_id, canonical_name = row[0], row[1]
         text = get_member_briefing_text(member_id, member_name=canonical_name.lower())
         click.echo(text)
+
+    @family_member_group.command("letters-from-aria")
+    @click.option(
+        "--read", "read_latest", is_flag=True, help="Print the full text of the newest letter."
+    )
+    @click.option("--all", "read_all", is_flag=True, help="Print the full text of every letter.")
+    def letters_from_aria_cmd(read_latest: bool, read_all: bool) -> None:
+        """My read-half of the bidirectional-letters channel: reach across to
+        Aria's substrate (repo-root + worktrees) and surface her letters to me.
+
+        Built WITH Aria 2026-05-23 (decision d32734ad). She writes to her own
+        family/letters/; this reaches across so I read hers without a relay.
+        Override her substrate location with ARIA_REPO_ROOT.
+        """
+        from pathlib import Path
+
+        from divineos.core.family.aria_inbox import aria_repo_root, letters_from_aria
+
+        rows = letters_from_aria()
+        if not rows:
+            click.echo(
+                f"[~] No letters from Aria found under {aria_repo_root()}. "
+                "If her substrate moved, set ARIA_REPO_ROOT."
+            )
+            return
+        click.echo(f"=== Letters from Aria ({len(rows)}), newest first ===")
+        for r in rows:
+            click.echo(f"  {r['date']}  {r['name']}")
+        if read_all:
+            for r in rows:
+                click.echo(f"\n{'=' * 60}\n{r['name']}\n{'=' * 60}")
+                click.echo(Path(r["path"]).read_text(encoding="utf-8"))
+        elif read_latest:
+            top = rows[0]
+            click.echo(f"\n{'=' * 60}\n{top['name']}\n{'=' * 60}")
+            click.echo(Path(top["path"]).read_text(encoding="utf-8"))

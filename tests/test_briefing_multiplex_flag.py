@@ -1,8 +1,7 @@
-"""Test the --multiplex flag integration for divineos briefing.
+"""Test the multiplex-as-default briefing and --legacy flag.
 
-Per prereg-ebee9082d201: multiplex briefing is opt-in MVP via flag; default
-briefing flow unaffected. This test verifies the CLI flag wires up correctly
-to the panel system via in-process click.testing.CliRunner.
+Multiplex became the default briefing output 2026-05-22. The old
+single-window dashboard is available via --legacy for one release.
 """
 
 from click.testing import CliRunner
@@ -10,20 +9,29 @@ from click.testing import CliRunner
 from divineos.cli import cli
 
 
-def test_multiplex_flag_renders_panels():
-    """divineos briefing --multiplex should print panel content with separators."""
+def test_default_briefing_renders_multiplex():
+    """divineos briefing (no flags) should render multiplex panels."""
     runner = CliRunner()
-    result = runner.invoke(cli, ["briefing", "--multiplex"])
+    result = runner.invoke(cli, ["briefing"])
     assert result.exit_code == 0, f"non-zero exit: {result.output}"
     out = result.output
-    assert "[multiplex] context:" in out
+    assert "multiplex" in out.lower()
     assert "-" * 40 in out
     assert "More:" in out
 
 
-def test_multiplex_flag_does_not_break_help():
-    """--help should still work and mention --multiplex."""
+def test_legacy_flag_renders_dashboard():
+    """divineos briefing --legacy should render the old dashboard."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["briefing", "--legacy"])
+    assert result.exit_code == 0, f"non-zero exit: {result.output}"
+    out = result.output
+    assert "BRIEFING" in out or "orientation" in out.lower()
+
+
+def test_legacy_flag_in_help():
+    """--help should mention --legacy."""
     runner = CliRunner()
     result = runner.invoke(cli, ["briefing", "--help"])
     assert result.exit_code == 0
-    assert "--multiplex" in result.output
+    assert "--legacy" in result.output

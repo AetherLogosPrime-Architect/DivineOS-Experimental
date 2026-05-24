@@ -259,7 +259,7 @@ def _gather_learning_evidence(report: ProgressReport, lookback_days: int) -> Non
         )
 
         # Correction trend
-        trend = measure_correction_trend(limit=20)
+        trend = measure_correction_trend()
         report.correction_trend = trend["trend"]
         report.correction_rate_recent = trend["recent_avg"]
         report.correction_rate_overall = trend["overall_avg"]

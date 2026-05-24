@@ -403,7 +403,7 @@ _SECTION_PROBES: dict[str, tuple[str, str]] = {
     "weaknesses": ("divineos.core.skill_library", "get_weakest_skills"),
     "emotional_baseline": ("divineos.core.affect", "get_session_affect_context"),
     "active_concerns": ("divineos.core.curiosity_engine", "get_open_curiosities"),
-    "growth_trajectory": ("divineos.core.drift_detection", "detect_quality_drift"),
+    "growth_trajectory": ("divineos.core.drift_detection", "detect_correction_trend"),
     "epistemic_balance": ("divineos.core.epistemic_status", "assess_epistemic_status"),
 }
 
