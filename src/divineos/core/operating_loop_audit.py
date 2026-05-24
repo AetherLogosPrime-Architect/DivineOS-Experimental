@@ -209,7 +209,10 @@ def _unverified_claim_gate_reason(
     if not findings:
         return None
     kinds = sorted({f.get("claim_kind", "?") for f in findings})
-    phrases = [f.get("trigger_phrase", "") for f in findings[:3] if f.get("trigger_phrase")]
+    # _run_detector serializes trigger_phrase under the key "trigger"
+    # (it strips "_phrase"); read that key or the gate can never cite the
+    # actual phrase (the trigger=None diagnosis gap, 2026-05-24).
+    phrases = [f.get("trigger", "") for f in findings[:3] if f.get("trigger")]
     ways = "; ".join(f"{k} -> {_VERIFY_CLAIM_HINT.get(k, 'the matching check')}" for k in kinds)
     claimed = ", ".join(repr(p) for p in phrases) or ", ".join(kinds)
     return (
