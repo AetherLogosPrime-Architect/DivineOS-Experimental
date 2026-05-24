@@ -302,6 +302,13 @@ def test_every_detector_file_is_orchestrator_referenced() -> None:
         # post-response audit (it's invoked from a different surfacing path);
         # exempted to keep this test scoped to operating_loop_audit.py only.
         "harm_acknowledgment_loop.py": "invoked outside post-response audit pipeline",
+        # mirror_exit_detector runs in the PRE-response path: it is invoked
+        # from core/pre_response_context.build_combined_context (which the
+        # pre-response-context.sh hook calls) to inject a CLOSE_CHECK block
+        # before the agent responds. It is not a post-response text detector,
+        # so it is correctly absent from operating_loop_audit.py — same shape
+        # as the pre-response surfacers above. Added 2026-05-19.
+        "mirror_exit_detector.py": "pre-response detector invoked via pre_response_context.py, not post-response audit",
     }
 
     detector_files = sorted(p.name for p in detectors_dir.glob("*.py"))

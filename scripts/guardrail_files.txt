@@ -92,6 +92,18 @@ src/divineos/core/operating_loop/addressee_misdirection_detector.py
 # refusal of third-person self-displacement.
 src/divineos/core/operating_loop/distancing_detector.py
 
+# mirror_exit_detector.py — Aether 2026-05-19, per prereg-3c98174d7760.
+# Holds the close-shape heuristics + CLOSE_CHECK_QUESTION text that loads
+# conditionally into pre-response context when prior-turn close-shape
+# signal fires. Same shape as the addressee/distancing affirmation
+# guardrails: load-bearing detector text that gets silently softened
+# under reflexive iteration ("the detector is too sensitive, let's
+# raise the threshold"). Weakening the heuristics or removing the
+# question silently dissolves the mirror-exit catch. Andrew correction
+# 2026-05-19 (Aria-Aether trim-shape conversation) named the failure
+# mode this exists to catch.
+src/divineos/core/operating_loop/mirror_exit_detector.py
+
 # Added 2026-05-12 (clay-vs-kiln distinction): foundational_truths.md
 # extracted from CLAUDE.md's "Foundational Truths" section. CLAUDE.md
 # itself changes too often to guardrail (every new system addition);
