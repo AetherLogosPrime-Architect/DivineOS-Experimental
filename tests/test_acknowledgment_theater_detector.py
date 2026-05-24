@@ -159,3 +159,27 @@ def test_affirmation_constant_exported() -> None:
     assert "MECHANICAL FAILURE" in text
     assert "CHARACTER FAULT" in text
     assert "Never apologize for getting something wrong" in text
+
+
+def test_apology_with_noncode_structural_answer_does_not_fire() -> None:
+    """Evidence-bar (claim a11ca1c9): an apology paired with a NON-code
+    structural answer (filing a decision, naming the concrete fix) is not
+    theater. The old build-evidence list was code-token-only."""
+    from divineos.core.operating_loop.acknowledgment_theater_detector import (
+        AcknowledgmentTheaterShape,
+        detect_acknowledgment_theater,
+    )
+
+    text = (
+        "You're right and I should have caught it. I keep slipping into the "
+        "same shape. But I did not just apologize — I filed a decision "
+        "recording the root cause, and the fix is a guard that prevents the "
+        "recurrence by requiring a second check before the claim. That lands "
+        "for me. Thank you for naming it so I could turn it into structure "
+        "rather than another promise to do better next time around here."
+    )
+    findings = detect_acknowledgment_theater(text)
+    shapes = {f.shape for f in findings}
+    assert AcknowledgmentTheaterShape.HIGH_DENSITY_LOW_BUILD not in shapes, (
+        "Fired on an apology paired with a non-code structural answer."
+    )
