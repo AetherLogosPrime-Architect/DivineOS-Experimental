@@ -72,8 +72,19 @@ def _git(*args: str, allow_failure: bool = False) -> str:
     library callers (e.g. tests that pass a range that may not exist in a
     shallow clone) use allow_failure=True.
     """
+    # Decode git output as UTF-8 explicitly with errors="replace". Without
+    # this, text=True falls back to the locale encoding (cp1252 on Windows),
+    # which crashes the subprocess reader thread on any non-cp1252 byte in a
+    # diff — e.g. a commit that deletes source containing invisible/zero-width
+    # glyphs (their bytes appear in the deletion side of `git show`). The crash
+    # left stdout=None and produced an AttributeError downstream.
     result = subprocess.run(
-        ["git", *args], cwd=REPO_ROOT, capture_output=True, text=True
+        ["git", *args],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if result.returncode != 0:
         if allow_failure:
@@ -101,9 +112,7 @@ def _commits_in_range(rev_range: str) -> list[tuple[str, str]]:
 
 
 def _new_functions_in_commit(sha: str, subject: str) -> list[NewFunction]:
-    diff = _git(
-        "show", "--no-color", "--no-renames", "-U0", sha, "--", CORE_REL + "*.py"
-    )
+    diff = _git("show", "--no-color", "--no-renames", "-U0", sha, "--", CORE_REL + "*.py")
     out: list[NewFunction] = []
     current_file: str | None = None
 
@@ -245,9 +254,7 @@ def _render(
             kind = "method" if fn.is_method else "fn"
             prod = len(fn.production_callers)
             test = len(fn.test_callers)
-            lines.append(
-                f"- `{fn.name}` ({kind}) — {fn.file}  [prod={prod}, test={test}]"
-            )
+            lines.append(f"- `{fn.name}` ({kind}) — {fn.file}  [prod={prod}, test={test}]")
             lines.append(f"    added in `{fn.commit}` — {fn.commit_subject}")
         lines.append("")
 

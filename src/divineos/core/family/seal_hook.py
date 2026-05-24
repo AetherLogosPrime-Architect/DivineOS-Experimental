@@ -192,7 +192,12 @@ def decide(payload: dict[str, Any]) -> dict[str, Any]:
         return {}
 
     tool_input = payload.get("tool_input", {}) or {}
-    subagent_type = (tool_input.get("subagent_type") or "").strip().lower()
+    # Normalize via the shared identity hardener (NFKC + invisible-strip +
+    # casefold), not a bare .strip().lower(): an invisible/zero-width or
+    # no-break-space disguise must not let a sovereign name slip the gate.
+    from divineos.core.actor_normalize import normalize_actor
+
+    subagent_type = normalize_actor(tool_input.get("subagent_type") or "")
     if not subagent_type:
         return {}
 
