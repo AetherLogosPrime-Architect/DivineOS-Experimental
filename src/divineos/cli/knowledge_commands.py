@@ -29,6 +29,25 @@ from divineos.core.memory import init_memory_tables
 _KC_ERRORS = (ImportError, sqlite3.OperationalError, OSError, KeyError, TypeError, ValueError)
 
 
+def _issue_briefing_id_line() -> str:
+    """Mint a briefing-ID and return the line to print INTO the conversation.
+
+    The ID lives in my context (not in a marker I routinely cat), so later the
+    gate can require me to recall it from context as a freshness proof. Fail-
+    soft to empty: a briefing that can't mint an ID still briefs."""
+    try:
+        from divineos.core import briefing_id
+
+        bid = briefing_id.issue_briefing_id(tool_count=briefing_id.current_tool_count())
+        return (
+            f"\n=== BRIEFING-ID: {bid} ===\n"
+            "Hold this in context. When the gate later challenges you, recall it "
+            "from memory (do NOT look it up) via: divineos briefing-id <id>"
+        )
+    except Exception:  # noqa: BLE001 — issuance is best-effort; never break briefing
+        return ""
+
+
 def register(cli: click.Group) -> None:
     """Register all knowledge commands on the CLI group."""
 
@@ -482,6 +501,27 @@ def register(cli: click.Group) -> None:
         except _KC_ERRORS:
             pass  # anticipation is best-effort
 
+    @cli.command("briefing-id")
+    @click.argument("presented_id", required=False, default=None)
+    def briefing_id_cmd(presented_id: str | None) -> None:
+        """Prove context-freshness by recalling your current briefing-ID.
+
+        With no argument, reports whether a freshness challenge is due. With an
+        <id>, validates it against the gate-side truth and re-stamps freshness
+        on a correct recall. A wrong/confabulated id fails; recall it from
+        context, do NOT look it up."""
+        from divineos.core import briefing_id
+
+        count = briefing_id.current_tool_count()
+        if not presented_id:
+            if briefing_id.is_fresh(count):
+                _safe_echo("Briefing-ID is fresh — no challenge due.")
+            else:
+                _safe_echo(briefing_id.challenge_message(count))
+            return
+        ok, msg = briefing_id.verify_briefing_id(presented_id, current_tool_count=count)
+        _safe_echo(("[ok] " if ok else "[stale] ") + msg)
+
     @cli.command("briefing")
     @click.option("--max", "max_items", default=50, type=int, help="Max items in briefing")
     @click.option("--types", default="", help="Comma-separated knowledge types to include")
@@ -547,6 +587,7 @@ def register(cli: click.Group) -> None:
                 with _suppress(Exception):
                     mark_briefing_loaded()
                 _safe_echo(render_mini_briefing())
+                _safe_echo(_issue_briefing_id_line())
             except Exception as e:  # noqa: BLE001 — fall-through to fallback message
                 logger.error("mini briefing failed: %s", e)
                 _safe_echo(
@@ -562,6 +603,8 @@ def register(cli: click.Group) -> None:
             mark_briefing_loaded()
         except _KC_ERRORS:
             pass
+
+        _safe_echo(_issue_briefing_id_line())
 
         try:
             from divineos.core.briefing_freshness import (

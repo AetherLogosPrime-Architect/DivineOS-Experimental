@@ -470,6 +470,7 @@ src/divineos/
     emergency_bypass.py        Emergency-bypass helper — when a gate has a legitimate
     lepos_channel_check.py     Lepos-channel-always-running gate — YES/AND self-check with evidence-cited answers; 30-turn empirical trial per prereg-157ed56a5da2.
     deletion_discipline.py     Deletion-discipline gate — block destructive deletions until justified.
+    briefing_id.py             Briefing-ID freshness — a context-recall capability token.
 
   analysis/
     _session_types.py          Session analysis type definitions
