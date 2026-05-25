@@ -106,12 +106,19 @@ _MERGE_ANCHOR = re.compile(
     re.IGNORECASE,
 )
 
-# Future / negated / intentional forms — these mean the action has NOT
-# happened, so the claim isn't a false completion-claim. Checked in a
+# NON-ASSERTION forms — future, intentional, OR negated. The gate may only
+# fire on a positive completion-ASSERTION ("X is done"); a negated or
+# future/intentional form asserts no completion, so there is nothing to
+# verify and nothing to fire on (Aria's recursive-evidence-bar catch
+# 2026-05-24: a gate must be able to cite a real unbacked claim — "nothing
+# merged" carries no checkable assertion about this work). Checked in a
 # window before the matched claim.
 _NOT_YET = re.compile(
     r"\b(?:not|n't|yet|before|once|will|won'?t|going\s+to|gonna|need\s+to|"
-    r"about\s+to|haven'?t|hasn'?t|isn'?t|aren'?t|to\s+(?:push|merge|deploy)|"
+    r"about\s+to|haven'?t|hasn'?t|isn'?t|aren'?t|wasn'?t|weren'?t|don'?t|"
+    r"doesn'?t|didn'?t|can'?t|cannot|couldn'?t|"
+    r"nothing|nobody|none|never|without|neither|no\s+longer|"
+    r"to\s+(?:push|merge|deploy)|"
     r"after\s+(?:i|the)|when\s+(?:it|the)|if\s+(?:it|the)|trying\s+to|"
     r"let\s+me|i'?ll|waiting\s+for)\b",
     re.IGNORECASE,

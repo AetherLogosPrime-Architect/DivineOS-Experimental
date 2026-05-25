@@ -172,3 +172,28 @@ class TestVerificationEvidenceSuppresses:
     def test_backward_compat_no_command_texts(self):
         # Without command_texts the behavior is unchanged (still fires).
         assert detect_unverified_claim("it's pushed to origin", tool_calls_in_turn=("Bash",))
+
+
+class TestNegatedCompletionSilent:
+    """Aria's recursive-evidence-bar catch (2026-05-24): the gate fires only
+    on a positive completion-ASSERTION. A negated completion ("nothing
+    merged", "didn't land") asserts no completion — nothing to verify, no
+    fire. These were live false-positives from merge/CI-state discussion."""
+
+    def test_negated_merge_silent(self):
+        for t in (
+            "nothing merged to main yet today",
+            "it didn't land on origin",
+            "the branch wasn't merged",
+            "none of that merged",
+        ):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on negation: {t!r}"
+
+    def test_negated_tests_silent(self):
+        for t in ("the tests didn't pass", "nothing passed cleanly", "CI never went green"):
+            assert detect_unverified_claim(t) == [], f"wrongly fired on negation: {t!r}"
+
+    def test_positive_assertion_still_fires(self):
+        # No negation, no verification command → genuine unbacked claim, fires.
+        assert detect_unverified_claim("it's merged to main", tool_calls_in_turn=("Bash",))
+        assert detect_unverified_claim("tests pass")
