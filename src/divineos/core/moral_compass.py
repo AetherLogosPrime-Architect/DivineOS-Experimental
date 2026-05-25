@@ -743,10 +743,10 @@ def get_observations(
             clauses.append("fire_id IS NOT NULL")
         where_sql = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         params.append(limit)
-        rows = conn.execute(  # nosec B608 — where_sql built from constant column-name AND-clauses; all user input is parameter-bound via ?
+        rows = conn.execute(
             "SELECT observation_id, created_at, spectrum, position, evidence, "
             "source, session_id, tags, fire_id "
-            f"FROM compass_observation{where_sql} "
+            f"FROM compass_observation{where_sql} "  # nosec B608 — where_sql built from constant column-name AND-clauses; all user input is parameter-bound via ?
             "ORDER BY created_at DESC LIMIT ?",
             tuple(params),
         ).fetchall()
