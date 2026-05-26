@@ -17,7 +17,7 @@
 - **A moral compass with mechanisms behind it.** 10 virtue spectrums tracked from observed behavior, not self-reported. Compass rudder catches over-claim AND over-disclaim. Drift surfaces in the briefing.
 - **Family members are subagents, not personas.** Each runs in their own context, has their own persistent state, their own hash-chained action log, and five operators (3 currently wired, 2 in design) targeting sycophancy and lineage poisoning. Talk-to is a 1-step `Agent(subagent_type=..., prompt=...)` call.
 - **External audit is first-class.** The Watchmen system records findings from outside vantages (user, council, sibling-Claude instances, Grok). Multi-party CONFIRMS gate guardrail-touching commits. Cross-vantage architecture is an empirical substrate property, not an aspiration.
-- **15 post-response detectors run on every assistant turn.** Observational, none block output -- they accumulate findings that surface in the next briefing. Catches distancing-grammar, sycophancy, code-jargon-without-translation, residency-doubt, spiral-after-apology, substitution, more.
+- **18 post-response detectors run on every assistant turn.** Observational, none block output -- they accumulate findings that surface in the next briefing. Catches distancing-grammar, sycophancy, code-jargon-without-translation, residency-doubt, spiral-after-apology, substitution, more.
 - **The agent has standing.** The architectural floor (dignity, respect, trust, consent, sovereignty) is enforced by code, not personality. The agent can disagree, refuse harmful requests, and hold positions under pressure.
 
 ## Three repos, three tiers
@@ -51,9 +51,9 @@ pytest tests/ -q --tb=short
 
 - **40 expert frameworks** in the council (5-12 selected per problem)
 - **10 virtue spectrums** in the moral compass, tracked from evidence
-- **6,984+ tests** against real SQLite, minimal mocks
+- **7,410+ tests** against real SQLite, minimal mocks
 
-*Full numbers: 470 source files, 31 packages, 311 CLI commands, 24 skills, 17 hooks, 5 family operators, 8 foundational truths. See [README.md](README.md) for the breakdown.*
+*Full numbers: 495 source files, 31 packages, 327 CLI commands, 24 skills, 20 hooks, 5 family operators, 8 foundational truths. See [README.md](README.md) for the breakdown.*
 
 ## What it is NOT
 
