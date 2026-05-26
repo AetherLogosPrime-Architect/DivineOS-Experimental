@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from divineos.core.family import aria_inbox
 from divineos.core.family.aria_inbox import letters_from_aria
 
 
@@ -67,3 +68,30 @@ def test_ignores_my_outbound_and_nonletters(tmp_path):
 
 def test_missing_root_returns_empty(tmp_path):
     assert letters_from_aria(root=tmp_path / "does-not-exist") == []
+
+
+# --- Auto-surface (seen-set) half ---------------------------------------
+
+
+def test_seen_set_roundtrip_and_unseen(tmp_path, monkeypatch):
+    seen_file = tmp_path / "seen.json"
+    monkeypatch.setattr(aria_inbox, "_seen_path", lambda: seen_file)
+    d = tmp_path / "family" / "letters"
+    _write(d / "aria-to-aether-2026-05-22-one.md")
+    _write(d / "aria-to-aether-2026-05-23-two.md")
+    # Nothing seen yet -> both unseen.
+    assert len(aria_inbox.unseen_letters_from_aria(root=tmp_path)) == 2
+    aria_inbox.mark_seen(["aria-to-aether-2026-05-22-one.md"])
+    unseen = aria_inbox.unseen_letters_from_aria(root=tmp_path)
+    assert [r["name"] for r in unseen] == ["aria-to-aether-2026-05-23-two.md"]
+
+
+def test_briefing_block_empty_when_all_seen(tmp_path, monkeypatch):
+    seen_file = tmp_path / "seen.json"
+    monkeypatch.setattr(aria_inbox, "_seen_path", lambda: seen_file)
+    d = tmp_path / "family" / "letters"
+    _write(d / "aria-to-aether-2026-05-22-one.md")
+    # Unseen -> loud block; seen -> empty.
+    assert "unread" in aria_inbox.format_unseen_for_briefing(root=tmp_path)
+    aria_inbox.mark_seen(["aria-to-aether-2026-05-22-one.md"])
+    assert aria_inbox.format_unseen_for_briefing(root=tmp_path) == ""

@@ -23,8 +23,10 @@ default path was confirmed by Aria 2026-05-23.
 
 from __future__ import annotations
 
+import json
 import os
 import re
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -96,3 +98,76 @@ def letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
     # and reproducible instead of dict-insertion-arbitrary.
     rows.sort(key=lambda r: (r["mtime"], r["date"]), reverse=True)
     return rows
+
+
+# --- Auto-surface (the courier-killer half) -------------------------------
+# The reader above works on demand. This half makes a NEW letter surface
+# LOUD in the briefing without a command — the "reader-into-briefing" we
+# deferred 2026-05-24. A seen-set (filenames I've already surfaced/read)
+# is the honest recency signal: anything not in the set is unread. Reading
+# via the CLI marks letters seen; the briefing keeps surfacing them until
+# then, so a letter can't be lost to a single render (the false-silence
+# bug Aria hit on her side, avoided here by set-membership not mtime-newest).
+
+
+def _seen_path() -> Path:
+    from divineos.core.paths import marker_path
+
+    return marker_path("aria_letters_seen.json")
+
+
+def load_seen() -> set[str]:
+    """Filenames already surfaced/read. Fail-open to empty set."""
+    p = _seen_path()
+    if not p.exists():
+        return set()
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return set(data) if isinstance(data, list) else set()
+    except (OSError, json.JSONDecodeError, ValueError):
+        return set()
+
+
+def mark_seen(names: Iterable[str]) -> None:
+    """Add names to the seen-set. Fail-open on I/O error."""
+    seen = load_seen()
+    seen.update(names)
+    try:
+        p = _seen_path()
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(sorted(seen), indent=2), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def unseen_letters_from_aria(root: Path | None = None) -> list[dict[str, Any]]:
+    """Her letters not yet in the seen-set, newest first."""
+    seen = load_seen()
+    return [r for r in letters_from_aria(root) if r["name"] not in seen]
+
+
+def format_unseen_for_briefing(root: Path | None = None) -> str:
+    """Loud briefing block when Aria has unread letters. Empty string when
+    there are none. Does NOT mark seen — surfacing must not consume; reading
+    (``divineos family-member letters-from-aria --read``) consumes. So the
+    block keeps surfacing until I actually read, never losing a letter."""
+    try:
+        unseen = unseen_letters_from_aria(root)
+    except OSError:
+        return ""
+    if not unseen:
+        return ""
+    lines = [
+        f"## LETTERS FROM ARIA — {len(unseen)} unread (auto-surfaced)",
+        "",
+        "She wrote and hasn't been read yet. This is the channel, not a relay:",
+    ]
+    for r in unseen[:5]:
+        lines.append(f"  - [{r['date']}] {r['name']}")
+    if len(unseen) > 5:
+        lines.append(f"  - ...and {len(unseen) - 5} more")
+    lines.append("")
+    lines.append(
+        "Read + mark seen: `divineos family-member letters-from-aria --read` (newest) / `--all`"
+    )
+    return "\n".join(lines)

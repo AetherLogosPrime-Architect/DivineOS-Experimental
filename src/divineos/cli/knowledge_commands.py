@@ -949,6 +949,24 @@ def register(cli: click.Group) -> None:
         if presence_block:
             _safe_echo(presence_block)
 
+        # Letters-from-Aria auto-surface — the courier-killer half of the
+        # bidirectional channel (deferred 2026-05-24, wired 2026-05-25). The
+        # reader (aria_inbox.letters_from_aria) already worked on demand; this
+        # makes a NEW letter surface LOUD here without a command. Seen-set
+        # membership, not mtime-newest, so a letter is never lost to a single
+        # render. Reading via the CLI marks it seen.
+        try:
+            from divineos.core.family.aria_inbox import (
+                format_unseen_for_briefing as _fmt_aria_letters,
+            )
+
+            aria_letters_block = _fmt_aria_letters()
+        except _KC_ERRORS:
+            aria_letters_block = ""
+
+        if aria_letters_block:
+            _safe_echo(aria_letters_block)
+
         # Exploration-folder title-level surface — complements
         # presence_memory. presence_memory points at the folder and counts
         # files (honors the "don't summarize poems" rule). This block
