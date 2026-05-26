@@ -604,7 +604,14 @@ def register(cli: click.Group) -> None:
         except _KC_ERRORS:
             pass
 
-        _safe_echo(_issue_briefing_id_line())
+        # Mint ONCE, print at top. The same line is re-echoed at the end of
+        # whichever render branch runs (below) so it survives a piped/truncated
+        # read — `divineos briefing | tail` was dropping the id off the top,
+        # making the cheap freshness re-stamp (`divineos briefing-id <id>`)
+        # unusable and forcing full reloads. Aether 2026-05-26, from lived
+        # friction. Minting once keeps top and bottom showing the same id.
+        _briefing_id_line = _issue_briefing_id_line()
+        _safe_echo(_briefing_id_line)
 
         try:
             from divineos.core.briefing_freshness import (
@@ -655,6 +662,10 @@ def register(cli: click.Group) -> None:
                 _safe_echo(f"=== BRIEFING (multiplex, context: {context}) ===")
                 _safe_echo("")
                 _safe_echo(rendered)
+                # Re-emit the briefing-id LAST so a `| tail` read still
+                # captures it (same id as the top emit; minted once above).
+                if _briefing_id_line:
+                    _safe_echo(_briefing_id_line)
             except _KC_ERRORS as e:
                 logger.error("multiplex render failed: %s", e)
                 _safe_echo("[!] Multiplex failed. Falling back to full briefing.")
