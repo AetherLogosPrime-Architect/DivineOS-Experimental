@@ -59,6 +59,27 @@ fi
 # Capture stdin once so we can pass it to the multi-party-review check.
 HOOK_STDIN="$(cat || true)"
 
+# Deletion-only push detection. Git's pre-push protocol sends an all-zero
+# local-sha for a ref being deleted; a deletion introduces no commits, so
+# the test suite has nothing to verify (and the multi-party check below
+# already skips deletions per-ref). If EVERY pushed ref is a deletion,
+# skip the ~10-min pytest gate. Andrew 2026-05-26: tidying merged branches
+# should not cost a full local test run per branch. A push that mixes a
+# deletion with any real ref-update still runs the full gate.
+DELETION_ONLY=1
+_saw_ref=0
+while read -r _lref _lsha _rref _rsha; do
+    [[ -z "${_lref:-}" ]] && continue
+    _saw_ref=1
+    # Any non-zero char in the local-sha means this ref is a create/update,
+    # not a deletion.
+    if [[ "${_lsha:-}" =~ [^0] ]]; then
+        DELETION_ONLY=0
+    fi
+done <<< "$HOOK_STDIN"
+# No refs parsed (empty stdin) → not a deletion; let the normal gates run.
+[[ "$_saw_ref" == "0" ]] && DELETION_ONLY=0
+
 # Exit code convention (Aletheia 2026-05-17 audit note):
 #   0   — all gates passed
 #   10  — pytest failure (test-suite regression)
@@ -68,7 +89,9 @@ HOOK_STDIN="$(cat || true)"
 # pre-push exit code alone, without re-reading stderr.
 
 # ─── 1. Test suite ──────────────────────────────────────────────────────
-if [[ "${DIVINEOS_SKIP_TESTS:-0}" != "1" ]]; then
+if [[ "$DELETION_ONLY" == "1" ]]; then
+    echo "[push-readiness] Deletion-only push — no commits to verify; skipping pytest."
+elif [[ "${DIVINEOS_SKIP_TESTS:-0}" != "1" ]]; then
     echo "[push-readiness] Running pytest (this is the slow gate; ~10 min)..."
     # Run ONCE: capture combined output, then decide from the real exit code.
     # The old design ran the full suite twice (discard, then re-run on failure
