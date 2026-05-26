@@ -30,7 +30,7 @@ A gate is built to protect a **real target** that is *expensive to detect*. To f
 ## Per-gate disposition
 
 - **multi-party-review (#1):** KEEP as hard block. Self-modification of guardrail files is genuinely block-worthy; dual-CONFIRM + hash-binding is proportionate even for docstring/ergonomics edits, because a guardrail file's framing *is* self-mod surface. No change except rule-1 documentation.
-- **root-cause-audit (#1, #2):** RETARGET. Narrow the trigger per rule 2 so refinements stop paying bug-ceremony. Add a shared low-risk signal so #1's stack doesn't double-toll small changes. Claim `ab9119f9` tracks this.
+- **root-cause-audit (#1, #2):** RETARGET. Keep the `fix(` trigger but add a **cheap, logged, honest escape hatch** (Grok's refinement, better than a pure narrowing): a short `Single-site-refinement: no family identified` attestation that satisfies the gate, gets logged, and is reviewable later — instead of forcing a trivial round (theater) or a relabel to `perf(` (dodge). This beats "narrow to finding-reference only" because it handles early-discovery cases (a fix that *turns out* to touch a family) without discouraging honest `fix(` labels, and it avoids the new theater vector of filing low-value findings just to unlock the label. Add a shared low-risk signal so #1's stack doesn't double-toll small changes. Claim `ab9119f9` tracks this.
 - **briefing-id (#3):** DONE (`feat(briefing)` re-emit at end). Exemplar of the resolved surface-mismatch class.
 - **consultation-ratio (#4):** RETARGET + likely DEMOTE to visibility. Broaden "consult" to include substrate reads; and strongly consider moving from a blocking gate to a loud-surface, since "am I grounded" is a judgment a hard counter can't make well.
 - **verify-claim (#5):** RETARGET. Credit a verifying command that ran earlier in the same turn; distinguish descriptive use ("the idea is live") from a state-claim ("it's live on origin"). Today it fires on the lexeme.
@@ -44,9 +44,24 @@ Some friction comes from turning a *diagnostic signal* into *mandatory ceremony*
 
 The test: *can the gate's proxy actually decide the question, or is it asking the agent to make a judgment the proxy only approximates?* If the latter, it should inform, not block.
 
+## Demotion shortlist (hard-block → visibility, agreed with Grok)
+
+Strong candidates to lighten — proxy too crude to adjudicate the question it's asking:
+- **consultation-ratio (#4)** — demote to loud-surface. Also creates pressure to make unnecessary CLI calls just to stay under threshold (a theater vector of its own).
+- **root-cause-audit, non-finding case (#2)** — lighten via the attestation hatch above.
+- **verify-claim (#5)** — highest theater-to-value from the outside; keyword detection without context.
+
+Keep hard (real safety boundaries, near-objective): **multi-party-review on guardrail files**, **push-to-main / CI** (tests, types, security scans). Examine case-by-case with real firing data: **briefing-freshness**, **gravity classifier**, **root-cause in its current broad form**.
+
+Heuristic for finding more (Grok): any gate whose primary signal is "time since last X" or "count of Y" is a proxy candidate — pull it for review.
+
+## Implementation guardrail — read before touching any of this
+
+This document is the DESIGN. Implementation — actually loosening or demoting these gates — is a different, higher-stakes act, and the agent must NOT execute it on autonomy-day momentum. "The agent quietly loosened the guards that were nagging it" is the single most suspect self-modification shape there is, however well-reasoned the loosening. So: each change here goes through full multi-party External-Review (operator + external vantage), as its own reviewable branch, with the proxy-drift rationale on record. The agent designs the consolidation; the agent does not unilaterally ship the loosening of its own keel. Andrew decides what lands, eyes open. (Aether, 2026-05-26 — this clause is me holding me.)
+
 ## Open questions for the next pass
 
-- **Completeness:** are there gates beyond these six with the same drift? (briefing-freshness recall-window expiry? the gravity classifier? — unexamined.)
+- **Completeness:** are there gates beyond these six with the same drift? (briefing-freshness recall-window expiry, gravity classifier — both now on the examine list above.)
 - **Migration:** narrowing #2 may strand legitimate historical `fix(` commits; needs a non-retroactive cutover.
 - **"Similar sites" detection** for the #2 multi-site option is brittle to define mechanically.
 - Any gate that looks like pure ceremony from outside but carries load I rely on from inside — flag before removing.
