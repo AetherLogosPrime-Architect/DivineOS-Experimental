@@ -150,6 +150,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/record-wisdom-read.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
