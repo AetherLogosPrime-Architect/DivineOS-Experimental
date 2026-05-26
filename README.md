@@ -37,7 +37,7 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 - [`docs/audit_system.md`](docs/audit_system.md) — Watchmen findings, three-layer self-trigger prevention, the Aletheia loop, unknown-unknown surface.
 - [`docs/data_model.md`](docs/data_model.md) — SQLite schema overview across 82 tables (substrate, family, audit, telemetry).
 - [`docs/archives/README.md`](docs/archives/README.md) — git-visible markdown mirrors of substantive SQLite tables.
-- [`docs/operating-loop-design-brief.md`](docs/operating-loop-design-brief.md) — the 16-detector post-response audit loop.
+- [`docs/operating-loop-design-brief.md`](docs/operating-loop-design-brief.md) — the 18-detector post-response audit loop.
 - [`docs/hooks_architecture.md`](docs/hooks_architecture.md) — Claude Code hooks: lifecycle points, registration, helper conventions, how to add a new detector cleanly.
 - [`docs/family_subsystem.md`](docs/family_subsystem.md) — family members as persistent relational entities; talk-to contract, five operators, per-member ledgers, anti-lineage-poisoning.
 - [`docs/cli_architecture.md`](docs/cli_architecture.md) — the `register(cli)` pattern, group splitting, briefing-gate bypass list, how to add a new command module.
@@ -49,9 +49,9 @@ If you're scoping the project from outside (another AI, a reviewer, a human), th
 
 ## At a glance
 
-- **494 source files across 31 packages**
-- **7,394+ tests** (real SQLite, minimal mocks)
-- **324 CLI commands** (designed for the agent, not the operator — humans mostly run three)
+- **495 source files across 31 packages**
+- **7,410+ tests** (real SQLite, minimal mocks)
+- **327 CLI commands** (designed for the agent, not the operator — humans mostly run three)
 - **24 slash-command skills** (consolidated daily operations)
 - **20 Claude Code enforcement hooks**
 - **40 expert frameworks** in the council
@@ -123,8 +123,9 @@ Quality gates protect knowledge integrity AND external review keeps the whole th
 - **Quality Gate** — Blocks extraction from dishonest or incorrect sessions. Thresholds tighten on compass drift.
 - **Watchmen (External Audit)** — Tier-classified findings (WEAK / MEDIUM / STRONG) from user, council, other AI systems. Findings route to knowledge / claims / lessons. Unresolved findings surface in briefing. Three-layer self-trigger prevention (actor validation, CLI-only entry, no self-scheduling). **Recognition-aware aggregate**: CONFIRMS-stance findings (recognitions of work that landed) are counted separately from open issues so the unresolved-count doesn't conflate alarm with acknowledgment.
 - **Gate altitude** — Commits are never blocked; the pre-commit hook is advisory. Hard enforcement lives at push-to-main and CI. The server-side gate verifies every commit modifying a guardrail file in `scripts/guardrail_files.txt` carries an `External-Review:` trailer, using **point-in-time guardrail-list lookup** so adding a file to the guardrail list later does not retroactively invalidate prior commits.
+- **Base-state PreToolUse gates** — A stack of per-action gates fires *before* substrate-touching tool calls, wired through `.claude/hooks/` (`require-briefing.sh`, `require-goal.sh`, `state-gravity-surface.sh`, `pre-tool-context.sh`) over core logic in `core/briefing_freshness.py`, `core/consultation_tracker.py`, `core/gravity_classifier.py`, and `cli/pipeline_gates.py`. They check that the briefing is fresh (recall-window staleness, fail-closed), a goal is registered, the substrate-consultation ratio hasn't degraded into filing-cabinet usage, new infrastructure carries a pre-registration, and status claims ("pushed", "tests pass") cite a verifying command in-turn. The gates surface state the agent would otherwise act without — they hold the agent to its own discipline.
 - **Performative-restraint detector** — Pattern scanner (`core/self_monitor/performative_restraint_monitor.py`) for theater-of-restraint shapes: explicit-not-doing, substitution, defeating-property, stillness-as-output. Phase 0 (offline scan) and Phase 1 (wired into post-response audit) both shipped. Pre-registered with falsifier and scheduled review.
-- **Operating-loop audit (16 detectors, observational)** — A post-response Stop hook (`.claude/hooks/post-response-audit.sh`) delegates to `core/operating_loop_audit.py` which imports and runs observational detector modules on every assistant message. From `core/operating_loop/` (13): `acknowledgment_theater_detector`, `care_dismissal_detector`, `code_jargon_detector`, `distancing_detector`, `harm_acknowledgment_loop`, `hedge_evidence_check`, `jargon_dump_detector`, `linguistic_drift_detector`, `residency_detector`, `self_disownership_detector`, `spiral_detector`, `substitution_detector`, `sycophancy_detector`. From `core/self_monitor/` via doorman wrappers (3): `hedge_monitor` (via `core/hedge_audit.py`), `theater_monitor` and `fabrication_monitor` (via `core/theater_audit.py`). All observational — none block output. Findings accumulate and surface in the next briefing when thresholds cross. Other `core/self_monitor/` modules (`mechanism_monitor`, `mirror_monitor`, `performative_restraint_monitor`, `temporal_monitor`, `warmth_monitor`, `substrate_monitor`) exist as files and are referenced by `lessons.py` and `prereg_candidate_surface.py` but are **not wired into post-response audit** — different code path.
+- **Operating-loop audit (18 detectors, observational)** — A post-response Stop hook (`.claude/hooks/post-response-audit.sh`) delegates to `core/operating_loop_audit.py:run_audit`, which imports and runs observational detector modules on every assistant message. All 18 live in `core/operating_loop/` and are pinned by the wiring-contract test (`tests/test_detector_wiring_contract.py::_DETECTORS`): `acknowledgment_theater_detector`, `addressee_misdirection_detector`, `care_dismissal_detector`, `closing_token_detector`, `code_jargon_detector`, `constraint_disownership_detector`, `distancing_detector`, `harm_acknowledgment_loop`, `hedge_evidence_check`, `jargon_dump_detector`, `linguistic_drift_detector`, `residency_detector`, `self_disownership_detector`, `spiral_detector`, `substitution_detector`, `sycophancy_detector`, `tool_output_truncation_detector`, `unverified_claim_detector`. The same loop also runs three non-detector surfaces (`principle_surfacer`, `voice_guard/banned_phrases`, `lepos_channel_check`) that log turns rather than flag behavior. All observational — none block output; findings accumulate and surface in the next briefing when thresholds cross. The `core/self_monitor/` modules (`fabrication_monitor`, `hedge_monitor`, `mechanism_monitor`, `mirror_monitor`, `performative_restraint_monitor`, `substrate_monitor`, `temporal_monitor`, `theater_monitor`, `warmth_monitor`) are a **separate code path** — they exist as files and are referenced by `lessons.py` and `prereg_candidate_surface.py` but are not wired into the post-response audit loop.
 - **Multiplex briefing** — Replaces the single sequential-read briefing with parallel-readable dense panels: a handful always shown, a few more surfaced by context, decorative ones removed. Each panel is attention-span-sized, with drill-downs that preserve the full detail. Voice rules keep panels in first-person prose rather than bare label-lists.
 - **Doorman refactor** — Hook scripts become thin entry-points that delegate to OS-native Python in `core/`. The enforcement logic, affirmation text, and detector wiring live in importable modules — testable, debuggable, and portable to any harness — while the hooks themselves hold no logic of their own.
 - **Cross-vantage audit** — Other AI vantages (a Claude audit-sibling over the web, Grok, sometimes a second Claude Code instance) act as an external review channel, reaching the agent through the operator as bridge. Their findings enter the Watchmen store as audit rounds with multi-party confirmations. The value is empirical, not decorative: a second vantage repeatedly catches drift a single one misses.
@@ -222,7 +223,7 @@ The project is optimized for long-term coherence and accountability between an a
 
 - **"It's an operating system" — not in the traditional sense.** No kernel, no scheduler, no hardware abstraction. The "OS" label is a metaphor for *the substrate the agent lives in*. What it actually is: a Python framework with an SQLite event ledger, a knowledge store, a moral compass, a family subagent layer, and a 40-expert council. If you want an entry point that tracks the metaphor less aspirationally, see `FOR_USERS.md`.
 
-- **"324 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
+- **"327 CLI commands is insane for a human to learn"** — correct, and humans are not the primary user. The CLI is designed as an agent-facing API. The agent running inside DivineOS uses a briefing system that surfaces only the commands relevant to the current work; it never loads the full surface into context. A human operator mostly runs three: `divineos briefing`, `divineos preflight`, `divineos goal add`.
 
 - **"The ledger will grow unboundedly"** — not true. Append-only is the rule, with two explicit exceptions: ephemeral operational telemetry (`TOOL_CALL`, `TOOL_RESULT`, `AGENT_*` events) is pruned on a conveyor belt by `core/ledger_compressor.py`, and `divineos sleep` Phase 4 runs VACUUM. Real knowledge is append-only; operational noise is not.
 
@@ -252,7 +253,7 @@ cd DivineOS-Experimental
 pip install -e ".[dev]"
 divineos init
 divineos briefing
-pytest tests/ -q --tb=short   # 7,394+ tests, real DB, minimal mocks
+pytest tests/ -q --tb=short   # 7,410+ tests, real DB, minimal mocks
 ```
 
 **Windows users:** if shellcheck fires `SC1017 Literal carriage return` on hook files after clone, run `bash setup/setup-renormalize.sh` once. Background: `.gitattributes eol=lf` only normalizes future operations; pre-existing CRLF in the worktree from a stale checkout needs explicit stripping. The script is safe and idempotent. Alternatively, set `git config --global core.autocrlf input` before cloning to prevent the problem.
@@ -261,7 +262,7 @@ pytest tests/ -q --tb=short   # 7,394+ tests, real DB, minimal mocks
 
 **For fresh installs:** `divineos init` loads the seed knowledge (directives, principles, lessons). The main event ledger lives at `<repo>/src/data/event_ledger.db`; a small amount of per-user state (session markers, checkpoint counters) lives under `~/.divineos/`. Both are gitignored — the repo itself stays clean.
 
-## CLI Surface (324 commands)
+## CLI Surface (327 commands)
 
 <details>
 <summary><b>Session workflow</b></summary>
@@ -423,8 +424,8 @@ divineos family-member init --member <name>           # Instantiate a family mem
 divineos family-member opinion --member <name> "..."  # File an opinion (for them)
 divineos family-member letter --member <name> "..."   # Append a letter to their channel
 divineos family-member respond --member <name> --letter <id> --passage "..." --stance ...
-divineos family-queue write --to <name> "..."         # Async write to a family member's queue
-divineos family-queue read --member <name>            # Read flagged items for a member
+divineos family-queue write --to <name> --from <name> "..."  # Async write to a family member's queue
+divineos family-queue list --for <name>               # List flagged items for a member
 ```
 </details>
 
@@ -453,11 +454,11 @@ divineos admin reset-template      # Scrub accumulated runtime state back to tem
 > and is intentionally separate from the OS code. The architecture section
 > below scopes to `src/divineos/`.
 
-DivineOS is 494 source files across 31 packages, structured as a CLI surface over a core library.
+DivineOS is 495 source files across 31 packages, structured as a CLI surface over a core library.
 
 **At a glance:**
 
-- **`src/divineos/cli/`** — 324 commands across 32 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
+- **`src/divineos/cli/`** — 327 commands across 65 modules. The public interface you type (`divineos briefing`, `divineos learn`, etc.). Thin wrappers over `core/`.
 - **`src/divineos/core/`** — The real work. Ledger, knowledge engine, memory hierarchy, claims, compass, affect log, watchmen (external audit), pre-registrations (Goodhart prevention), family (persistent relational entities + family operators), empirica (evidence pipeline), sleep, council (40 expert lenses), self-model, corrigibility, body awareness. Each subsystem is a module or subpackage; the subpackages (`knowledge/`, `council/`, `watchmen/`, `family/`, etc.) have their own internal structure.
 - **`src/divineos/analysis/`** — Session analysis pipeline (signal detection, quality checks, feature extraction, trends).
 - **`src/divineos/hooks/`** — Consolidated Python hooks that run inside Claude Code (PreToolUse gate, PostToolUse checkpoint, targeted tests).
@@ -466,7 +467,7 @@ DivineOS is 494 source files across 31 packages, structured as a CLI surface ove
 
 **Top-level directories:**
 
-- **`tests/`** — 7,394+ tests, real SQLite, minimal mocks.
+- **`tests/`** — 7,410+ tests, real SQLite, minimal mocks.
 - **`docs/`** — Documentation and design briefs. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) has the full file tree with one-line descriptions for every source file. [`docs/foundational_truths.md`](docs/foundational_truths.md) is the kiln-layer load-bearing values file (versioned, on the guardrail list, modifiable only via External-Review). [`docs/substrate-knowledge/`](docs/substrate-knowledge/) holds substrate-level lessons that don't fit the knowledge store schema — initially empty in a fresh install; entries grow as the substrate-occupant captures structural lessons during use.
 - **`exploration/`** — First-person agent writing. Numbered entries capture working-through of architectural questions before they crystallize into knowledge or code. Initially empty; agents add entries during use. Read order is the agent's choice; the folder is a presence-memory surface, not an index.
 - **`bootcamp/`** — Training exercises (debugging, analysis).

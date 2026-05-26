@@ -10,13 +10,18 @@ This module is the OS-native orchestrator. The hook now becomes a
 thin doorman that calls ``run_audit(transcript_path)`` and exits.
 All detector orchestration + findings persistence lives in the OS.
 
-Currently wires fifteen observational detectors (originally nine
+Currently wires eighteen observational detectors (originally nine
 observational detectors when the audit module was first carved out
 of the hook — the rest were added in subsequent commits as new
-behavioral patterns were named): hedge, theater, opener, closing_token,
-addressee_misdirection, banned_phrases, principles, overclaim,
-spiral, substitution, care_dismissal, harm_acknowledgment,
-acknowledgment_theater, code_jargon, linguistic_drift.
+behavioral patterns were named). The authoritative list is the
+wiring-contract registry in tests/test_detector_wiring_contract.py
+(_DETECTORS): acknowledgment_theater, addressee_misdirection,
+care_dismissal, closing_token, code_jargon, constraint_disownership,
+distancing, harm_acknowledgment, hedge_evidence, jargon_dump,
+linguistic_drift, residency, self_disownership, spiral, substitution,
+sycophancy, tool_output_truncation, unverified_claim. Three
+non-detector surfaces also run in the loop (principle_surfacer,
+voice_guard/banned_phrases, lepos_channel_check).
 
 ## Contract
 
