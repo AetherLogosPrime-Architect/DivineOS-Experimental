@@ -2,6 +2,67 @@
 don't become permanent 'knowledge'."""
 
 from divineos.core.knowledge import _is_extraction_noise, _is_vacuous_summary
+from divineos.core.knowledge._text import _is_conversational_deliberation
+
+
+class TestConversationalDeliberation:
+    """Council/Wittgenstein 2026-05-25, prereg-1f898dbadfc8: dialogue-moves
+    mis-typed as PRINCIPLE must be flagged; portable claims must survive.
+    The falsifier is demoting a genuine principle — so the keep-cases matter
+    as much as the flag-cases."""
+
+    # --- must FLAG: fragments bound to their utterance-act ---
+    def test_flags_let_me_check_before_answering(self):
+        assert _is_conversational_deliberation(
+            "let me check the gate logic before answering, because (c) is worth verifying"
+        )
+
+    def test_flags_well_if_reply_glue(self):
+        assert _is_conversational_deliberation(
+            "well if my fix is to just use it now without finding the root cause then this will recur"
+        )
+
+    def test_flags_yes_and_opener(self):
+        assert _is_conversational_deliberation(
+            "yes and the other malformed hedge is that humans have done this for ages"
+        )
+
+    def test_flags_via_full_noise_filter_as_principle(self):
+        # End-to-end: these ride in as PRINCIPLE and must be caught as noise.
+        assert _is_extraction_noise(
+            "Let me check the gate logic before answering, because (c) is worth verifying directly",
+            "PRINCIPLE",
+        )
+        assert _is_extraction_noise(
+            "Well if my fix is to just use it now without finding the root cause then it recurs",
+            "PRINCIPLE",
+        )
+
+    # --- must KEEP: portable principles / standing commitments (falsifier) ---
+    def test_keeps_standing_commitment(self):
+        assert not _is_conversational_deliberation("i will refuse harmful requests")
+        assert not _is_extraction_noise("I will refuse harmful requests", "PRINCIPLE")
+
+    def test_keeps_portable_principle(self):
+        assert not _is_conversational_deliberation(
+            "managing emotions should not stand in the way of truth"
+        )
+        assert not _is_extraction_noise(
+            "Managing emotions should not stand in the way of truth", "PRINCIPLE"
+        )
+
+    def test_keeps_portable_rule_with_before(self):
+        # "before shipping/merging" names a portable rule, not the act of
+        # answering — must NOT be flagged.
+        assert not _is_conversational_deliberation(
+            "before shipping, always run the full test suite"
+        )
+
+    def test_keeps_well_formed_hyphen_not_reply_glue(self):
+        # "well-formed" (hyphen) is not the reply-glue opener "well ,".
+        assert not _is_conversational_deliberation(
+            "well-formed inputs must be validated at the boundary"
+        )
 
 
 class TestConversationalNoise:
