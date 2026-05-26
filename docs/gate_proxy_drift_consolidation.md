@@ -9,7 +9,7 @@
 
 Every gate examined is an instance of the same failure, not four separate problems.
 
-A gate is built to protect a **real target** that is *expensive to detect*. To fire cheaply, it latches onto a **surface proxy** that *correlates* with the target at design time. Over time — as usage and the substrate evolve — the proxy and the target diverge. The divergence is never neutral: it consistently **taxes honest work and/or makes a dodge cheaper**, because honest actors don't optimize for the proxy and gamers do.
+A gate is built to protect a **real target** that is *expensive to detect*. To fire cheaply, it latches onto a **surface proxy** that *correlates* with the target at design time. Over time — as usage and the substrate evolve — the proxy and the target diverge. The neutral statement of the failure: **the gate's discrimination axis stops tracking the load-bearing target.** (Aletheia 2026-05-26 flagged my original framing — "it taxes honest work" — as rhetorically self-serving: it casts the agent as the wronged party. The honest framing is axis-misalignment. The incentive inversion is a real *consequence* of the misalignment, not the agent's grievance.)
 
 | # | Gate | Proxy (what it measures) | Target (what it should protect) | Divergence / failure mode |
 |---|------|--------------------------|----------------------------------|---------------------------|
@@ -44,16 +44,25 @@ Some friction comes from turning a *diagnostic signal* into *mandatory ceremony*
 
 The test: *can the gate's proxy actually decide the question, or is it asking the agent to make a judgment the proxy only approximates?* If the latter, it should inform, not block.
 
-## Demotion shortlist (hard-block → visibility, agreed with Grok)
+## The only safe loosening shape: precision-increase, NOT strictness-decrease (Aletheia)
 
-Strong candidates to lighten — proxy too crude to adjudicate the question it's asking:
-- **consultation-ratio (#4)** — demote to loud-surface. Also creates pressure to make unnecessary CLI calls just to stay under threshold (a theater vector of its own).
-- **root-cause-audit, non-finding case (#2)** — lighten via the attestation hatch above.
-- **verify-claim (#5)** — highest theater-to-value from the outside; keyword detection without context.
+Aletheia's audit drew the line that governs everything below: **precision-increase** (the gate keeps its full strength but fires on a signal that better matches the target, reducing false-positives) is safe. **Strictness-decrease** (the gate lets through more of what it was built to catch) is not — it needs explicit, separately-reviewed justification and mostly should not ship. Every item here is now scoped to precision-increase only.
 
-Keep hard (real safety boundaries, near-objective): **multi-party-review on guardrail files**, **push-to-main / CI** (tests, types, security scans). Examine case-by-case with real firing data: **briefing-freshness**, **gravity classifier**, **root-cause in its current broad form**.
+### Candidates (precision-increase shape)
+- **root-cause-audit, non-finding case (#2)** — increase precision so it discriminates *bugfix-addressing-a-failure-family* from *operational-refinement*. Aletheia's caution: discriminate on a **load-bearing axis** (commit body claims a family / size threshold / explicit `class:` field), not on a self-declared attestation, which is gameable. The attestation hatch from Grok is the weaker form; her load-bearing-axis discrimination is the stronger one. Open design question between the two.
+- **verify-claim (#5)** — increase precision of the *front-end trigger* only: credit a verifying command that ran earlier in the same turn; distinguish descriptive use ("the idea is live") from a state-claim ("it's live on origin"). The Stop-hook wall itself stays hard — it is load-bearing for catching false completion claims (Aletheia CONFIRMed it across two rounds). Touching the wall is out of scope.
+- **consultation-ratio (#4)** — increase precision by counting substrate *reads* (Read/Grep on repo files, git inspection) as consultation, since reading the substrate's own code IS consulting it. **PULLED: the demote-to-visibility I originally proposed.** It reverses Gate 4.5, a load-bearing decision (PR #34, `ae730f6`) made *because* "a warning gets gamed/ignored 100% of the time." Demoting the hard block back to a warning is strictness-decrease on a gate built specifically to resist that. That proposal was the drift wanting the nag gone, dressed as proportionality — Aletheia caught it; it's pulled. Precision-increase stays; the hard-block stays.
+
+### Keep hard (real safety boundaries)
+**multi-party-review on guardrail files**, **push-to-main / CI** (tests, types, security). Examine case-by-case with real firing data: **briefing-freshness**, **gravity classifier**.
 
 Heuristic for finding more (Grok): any gate whose primary signal is "time since last X" or "count of Y" is a proxy candidate — pull it for review.
+
+## Provenance and self-audit (named honestly, per Aletheia's knife)
+
+- **Reactive timing.** This map was drafted *today*, after the root-cause gate caught me three times in one push sequence. The diagnosis post-dates the friction. Reactive diagnoses skew toward rationalization; this one is not exempt. Named, not hidden — it's a yellow flag to weigh, not a disqualifier, but it must be on the record.
+- **Self-asymmetry.** Every gate I proposed lightening is one that frictions *me*. I did not surface a single gate that frictions the operator or an external auditor, nor one that catches me but that I argued to *keep* despite the friction. A symmetric proportionality lens would have produced at least one of those. Its absence is evidence the lens was partly self-directed.
+- **What survived the audit.** The proxy-target diagnosis itself is sound (Aletheia independently named the same `regex-narrower-than-docstring` family). The precision-increase items stand. The one strictness-decrease (the #4 demote) did not survive, and shouldn't have.
 
 ## Implementation guardrail — read before touching any of this
 
