@@ -176,6 +176,57 @@ def _lepos_gate_reason(findings_log: dict[str, list], addressed_to_operator: boo
     return None
 
 
+# Human-readable "here is the way" hint per claim-kind — the CHANNEL half of
+# the verify-claim gate (block AND route, never bare obstruction).
+_VERIFY_CLAIM_HINT: dict[str, str] = {
+    "push": "git ls-remote origin <branch>  (or: git log origin/<branch>)",
+    "merge": "gh pr view <n>  (or: git log origin/main)",
+    "tests": "run pytest and read the real result",
+    "pr": "gh pr view <n>  (or: gh pr list)",
+    "deploy": "the actual deploy/release status command",
+}
+
+
+def _unverified_claim_gate_reason(
+    findings_log: dict[str, list], addressed_to_operator: bool
+) -> str | None:
+    """Stop-hook block when the turn states a checkable external state
+    (pushed / merged / tests pass / PR opened / deployed) as fact with NO
+    verifying command run that turn. Phase 2 of the verify-claim wall
+    (prereg-86ee991cb423).
+
+    Phase 1's command-text matching already suppresses SUBSTANTIATED claims
+    (a real git ls-remote / gh pr / pytest in-turn silences the finding), so
+    a surviving unverified_claim finding is a genuine claim-without-check —
+    the detector can cite its evidence (the claim-kind, and no matching
+    command in the turn), so the wall earns its block (evidence-bar, claim
+    a11ca1c9). Operator-addressed only: the harm is misleading the operator
+    (Andrew 2026-05-20, commits that silently never landed). Family-letter
+    turns still surface a warning but don't block.
+    """
+    if not addressed_to_operator:
+        return None
+    findings = findings_log.get("unverified_claim", [])
+    if not findings:
+        return None
+    kinds = sorted({f.get("claim_kind", "?") for f in findings})
+    # _run_detector serializes trigger_phrase under the key "trigger"
+    # (it strips "_phrase"); read that key or the gate can never cite the
+    # actual phrase (the trigger=None diagnosis gap, 2026-05-24).
+    phrases = [f.get("trigger", "") for f in findings[:3] if f.get("trigger")]
+    ways = "; ".join(f"{k} -> {_VERIFY_CLAIM_HINT.get(k, 'the matching check')}" for k in kinds)
+    claimed = ", ".join(repr(p) for p in phrases) or ", ".join(kinds)
+    return (
+        "VERIFY-CLAIM GATE — this reply states a checkable external state as "
+        "fact, but no command verifying it ran this turn. 'X is done' is a "
+        f"CLAIM, and claims require evidence. Claimed: {claimed}. The turn is "
+        "NOT complete. Run the check and show its real output, OR rephrase to "
+        "'I haven't verified yet'. Here is the way: "
+        f"{ways}. (Phase-1 precision means a verified claim would already be "
+        "silent — this fired because nothing in the turn checked it.)"
+    )
+
+
 def _run_detector(name: str, func, *args, **kwargs) -> list[dict[str, Any]]:
     """Run a single detector with try/except isolation. Returns the
     findings list serialized to dicts, or empty list on any error."""
@@ -248,6 +299,7 @@ def run_audit(
     prior_assistant_text = texts.prior_assistant_text
     last_user_text = texts.last_user_text
     tool_calls_in_turn = texts.tool_calls_in_turn
+    command_texts = texts.command_texts
 
     if not last_assistant_text or len(last_assistant_text) < 50:
         return {"findings_log": _empty_findings_log(), "total_findings": 0, "persisted": False}
@@ -357,6 +409,7 @@ def run_audit(
             detect_unverified_claim,
             last_assistant_text,
             tool_calls_in_turn=list(tool_calls_in_turn) if tool_calls_in_turn else None,
+            command_texts=list(command_texts) if command_texts else None,
         )
     except _ERRORS:
         pass
@@ -600,12 +653,14 @@ def run_audit(
         persisted = _persist_findings(findings_log, total)
 
     lepos_block = _lepos_gate_reason(findings_log, addressed_to_operator)
+    unverified_claim_block = _unverified_claim_gate_reason(findings_log, addressed_to_operator)
 
     return {
         "findings_log": findings_log,
         "total_findings": total,
         "persisted": persisted,
         "lepos_block": lepos_block,
+        "unverified_claim_block": unverified_claim_block,
     }
 
 

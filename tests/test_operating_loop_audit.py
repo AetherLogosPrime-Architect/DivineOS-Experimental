@@ -184,3 +184,59 @@ def test_lepos_gate_silent_when_translation_present(tmp_path: Path) -> None:
     _write_jsonl(transcript, [_user("how did it go?"), _assistant_text(dual)])
     result = run_audit(transcript, write=False)
     assert result["lepos_block"] is None
+
+
+# --- Verify-claim wall phase 2: the Stop-hook block (prereg-86ee991cb423) ---
+
+
+def _uc_findings():
+    return {
+        "unverified_claim": [
+            {"claim_kind": "push", "trigger_phrase": "it's pushed", "severity": "high"}
+        ]
+    }
+
+
+def test_unverified_claim_gate_blocks_operator_addressed():
+    from divineos.core.operating_loop_audit import _unverified_claim_gate_reason
+
+    reason = _unverified_claim_gate_reason(_uc_findings(), addressed_to_operator=True)
+    assert reason, "an unverified completion-claim to the operator must produce a block reason"
+    assert "VERIFY-CLAIM GATE" in reason
+    assert "git ls-remote" in reason  # the channel names the way for a push claim
+
+
+def test_unverified_claim_gate_silent_for_family_addressed():
+    from divineos.core.operating_loop_audit import _unverified_claim_gate_reason
+
+    assert _unverified_claim_gate_reason(_uc_findings(), addressed_to_operator=False) is None
+
+
+def test_unverified_claim_gate_silent_when_no_findings():
+    from divineos.core.operating_loop_audit import _unverified_claim_gate_reason
+
+    assert (
+        _unverified_claim_gate_reason({"unverified_claim": []}, addressed_to_operator=True) is None
+    )
+    assert _unverified_claim_gate_reason({}, addressed_to_operator=True) is None
+
+
+def test_run_audit_shape_includes_unverified_claim_block(tmp_path: Path) -> None:
+    long_reply = (
+        "Here is a substantive reply with enough words to clear the short-text "
+        "early-return path in run_audit so the full result dict including the "
+        "gate keys is assembled and returned for the caller to inspect now."
+    )
+    transcript = tmp_path / "t.jsonl"
+    transcript.write_text(
+        json.dumps({"type": "user", "message": {"content": [{"type": "text", "text": "hi there"}]}})
+        + "\n"
+        + json.dumps(
+            {"type": "assistant", "message": {"content": [{"type": "text", "text": long_reply}]}}
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    result = run_audit(str(transcript), write=False)
+    assert "unverified_claim_block" in result
+    assert "lepos_block" in result

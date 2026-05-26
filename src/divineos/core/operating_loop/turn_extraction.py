@@ -64,6 +64,12 @@ class TurnTexts:
     prior_assistant_text: str
     last_user_text: str
     tool_calls_in_turn: tuple[str, ...] = ()
+    # Bash command STRINGS run in the current turn (the `command` input of
+    # each Bash tool_use). Tool NAMES ("Bash") aren't enough for detectors
+    # that need to know WHICH command ran — e.g. the unverified-claim
+    # detector checking whether a verifying command (git ls-remote, pytest)
+    # actually executed. Verify-claim wall phase 1 (prereg-86ee991cb423).
+    command_texts: tuple[str, ...] = ()
 
 
 def _extract_record_text(rec: dict) -> str:
@@ -106,18 +112,42 @@ def _extract_tool_call_names(rec: dict) -> list[str]:
     return names
 
 
-def _read_records(transcript_path: Path) -> list[tuple[str, str, list[str]]]:
+def _extract_bash_commands(rec: dict) -> list[str]:
+    """Extract Bash command strings from tool_use blocks in one assistant
+    record — the ``command`` input of each Bash tool_use. Empty list if
+    none. Lets detectors check WHICH command ran (e.g. git ls-remote),
+    not merely that "Bash" ran (verify-claim wall phase 1)."""
+    msg = rec.get("message", rec)
+    content = msg.get("content", [])
+    if not isinstance(content, list):
+        return []
+    cmds: list[str] = []
+    for c in content:
+        if not isinstance(c, dict) or c.get("type") != "tool_use":
+            continue
+        if c.get("name") != "Bash":
+            continue
+        inp = c.get("input", {})
+        if isinstance(inp, dict):
+            cmd = inp.get("command", "")
+            if isinstance(cmd, str) and cmd:
+                cmds.append(cmd)
+    return cmds
+
+
+def _read_records(transcript_path: Path) -> list[tuple[str, str, list[str], list[str]]]:
     """Walk the JSONL transcript and return records.
 
-    Each entry is ``(rec_type, text, tool_call_names)``. ``text`` may
-    be empty if the record contains only tool_use blocks; in that case
-    ``tool_call_names`` carries the tool names. Records with neither
-    text nor tool calls are skipped silently.
+    Each entry is ``(rec_type, text, tool_call_names, bash_commands)``.
+    ``text`` may be empty if the record contains only tool_use blocks; in
+    that case ``tool_call_names`` carries the tool names and
+    ``bash_commands`` the Bash command strings. Records with neither text
+    nor tool calls are skipped silently.
 
     Malformed lines and non-user/non-assistant record types are
     skipped silently.
     """
-    records: list[tuple[str, str, list[str]]] = []
+    records: list[tuple[str, str, list[str], list[str]]] = []
     with open(transcript_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -131,9 +161,11 @@ def _read_records(transcript_path: Path) -> list[tuple[str, str, list[str]]]:
             if rec_type not in ("assistant", "user"):
                 continue
             text = _extract_record_text(rec)
-            tool_calls = _extract_tool_call_names(rec) if rec_type == "assistant" else []
+            is_assistant = rec_type == "assistant"
+            tool_calls = _extract_tool_call_names(rec) if is_assistant else []
+            commands = _extract_bash_commands(rec) if is_assistant else []
             if text or tool_calls:
-                records.append((rec_type, text, tool_calls))
+                records.append((rec_type, text, tool_calls, commands))
     return records
 
 
@@ -166,10 +198,11 @@ def extract_turn(transcript_path: str | Path) -> TurnTexts:
         # Filter empty text — tool-use-only records contribute tool
         # calls but no text-content (don't join their empty strings).
         last_assistant_text = "\n".join(
-            text for rt, text, _tc in records if rt == "assistant" and text
+            text for rt, text, _tc, _cmd in records if rt == "assistant" and text
         )
-        tool_calls = tuple(tc for rt, _t, tcs in records if rt == "assistant" for tc in tcs)
-        return TurnTexts(last_assistant_text, "", "", tool_calls)
+        tool_calls = tuple(tc for rt, _t, tcs, _cmd in records if rt == "assistant" for tc in tcs)
+        commands = tuple(cmd for rt, _t, _tc, cmds in records if rt == "assistant" for cmd in cmds)
+        return TurnTexts(last_assistant_text, "", "", tool_calls, commands)
 
     last_user_text = records[last_user_idx][1]
 
@@ -177,10 +210,15 @@ def extract_turn(transcript_path: str | Path) -> TurnTexts:
     # Empty text from tool-use-only records is filtered out of the join;
     # tool_calls_in_turn still captures those records' tool names.
     current_records = records[last_user_idx + 1 :]
-    current_turn_parts = [text for rt, text, _tc in current_records if rt == "assistant" and text]
+    current_turn_parts = [
+        text for rt, text, _tc, _cmd in current_records if rt == "assistant" and text
+    ]
     last_assistant_text = "\n".join(current_turn_parts)
     tool_calls_in_turn = tuple(
-        tc for rt, _t, tcs in current_records if rt == "assistant" for tc in tcs
+        tc for rt, _t, tcs, _cmd in current_records if rt == "assistant" for tc in tcs
+    )
+    command_texts_in_turn = tuple(
+        cmd for rt, _t, _tc, cmds in current_records if rt == "assistant" for cmd in cmds
     )
 
     # Prior turn: all assistant text between the second-to-last and
@@ -195,7 +233,7 @@ def extract_turn(transcript_path: str | Path) -> TurnTexts:
     if prev_user_idx >= 0:
         prior_parts = [
             text
-            for rt, text, _tc in records[prev_user_idx + 1 : last_user_idx]
+            for rt, text, _tc, _cmd in records[prev_user_idx + 1 : last_user_idx]
             if rt == "assistant" and text
         ]
         prior_assistant_text = "\n".join(prior_parts)
@@ -203,8 +241,14 @@ def extract_turn(transcript_path: str | Path) -> TurnTexts:
         # Only one user record so far; everything assistant BEFORE it
         # is the prior turn (e.g. session-start agent text).
         prior_parts = [
-            text for rt, text, _tc in records[:last_user_idx] if rt == "assistant" and text
+            text for rt, text, _tc, _cmd in records[:last_user_idx] if rt == "assistant" and text
         ]
         prior_assistant_text = "\n".join(prior_parts)
 
-    return TurnTexts(last_assistant_text, prior_assistant_text, last_user_text, tool_calls_in_turn)
+    return TurnTexts(
+        last_assistant_text,
+        prior_assistant_text,
+        last_user_text,
+        tool_calls_in_turn,
+        command_texts_in_turn,
+    )
