@@ -49,6 +49,7 @@ if tool_name == 'Bash':
     # so the agent can actually load briefing or check minimum state.
     bypass_prefixes = (
         'divineos briefing',
+        'divineos briefing-id',  # the recall-challenge cure — must run while gated, else catch-22
         'divineos init',
         'divineos preflight',
         'divineos recall',
@@ -103,8 +104,10 @@ if never:
     )
 else:
     msg = (
-        f'BLOCKED: briefing is stale ({prompts} prompts since last load; '
-        f'threshold 10). Run: divineos briefing\\n'
+        f'BLOCKED: {reason}\\n'
+        '  Cheap cure: recall your briefing-id from context and run '
+        'divineos briefing-id <id> (re-stamps freshness).\\n'
+        '  Or reload: divineos briefing (issues a new id).\\n'
         '(Plain-chat responses are still allowed; this gate only '
         'blocks tool use. The OS does the rendering — this hook is '
         'just the doorman.)'
