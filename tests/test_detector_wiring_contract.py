@@ -84,6 +84,7 @@ _DETECTORS = (
     # now wires detect_jargon_dump instead. See find-1505d70db349.
     ("linguistic_drift_detector", "detect_linguistic_drift"),
     ("residency_detector", "detect_residency_doubt"),
+    ("self_disownership_detector", "detect_self_disownership"),
     ("spiral_detector", "detect_spiral"),
     ("substitution_detector", "detect_substitution"),
     ("sycophancy_detector", "detect_sycophancy"),

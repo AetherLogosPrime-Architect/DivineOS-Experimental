@@ -465,17 +465,62 @@ def register(cli: click.Group) -> None:
         "--read", "read_latest", is_flag=True, help="Print the full text of the newest letter."
     )
     @click.option("--all", "read_all", is_flag=True, help="Print the full text of every letter.")
-    def letters_from_aria_cmd(read_latest: bool, read_all: bool) -> None:
+    @click.option(
+        "--watch",
+        "watch",
+        is_flag=True,
+        help="Guard mode: block until a NEW letter appears, then exit (the tap).",
+    )
+    @click.option("--interval", "interval", default=8, help="Watch poll seconds (default 8).")
+    @click.option(
+        "--timeout",
+        "timeout",
+        default=3600,
+        help="Watch max seconds before exiting to be re-armed (default 3600).",
+    )
+    def letters_from_aria_cmd(
+        read_latest: bool, read_all: bool, watch: bool, interval: int, timeout: int
+    ) -> None:
         """My read-half of the bidirectional-letters channel: reach across to
         Aria's substrate (repo-root + worktrees) and surface her letters to me.
 
         Built WITH Aria 2026-05-23 (decision d32734ad). She writes to her own
         family/letters/; this reaches across so I read hers without a relay.
         Override her substrate location with ARIA_REPO_ROOT.
+
+        --watch is the GUARD half (built WITH Aria 2026-05-25): a live loop that
+        blocks until a new unseen letter appears, then exits. Launched as a
+        background process, the process *finishing* is the wake-tap — I get
+        pulled back the instant she writes, no command, no door to open. The
+        guard catches letters while my window is open; the briefing-surface
+        catches what landed while it was closed. Both halves = full
+        courier-killer. The guard does NOT mark seen (detection != reading);
+        reading via --read/--all consumes, so the same letter still surfaces
+        in briefing until I actually read it.
         """
+        import time
         from pathlib import Path
 
-        from divineos.core.family.aria_inbox import aria_repo_root, letters_from_aria
+        from divineos.core.family.aria_inbox import (
+            aria_repo_root,
+            letters_from_aria,
+            mark_seen,
+            unseen_letters_from_aria,
+        )
+
+        if watch:
+            waited = 0
+            while waited < timeout:
+                unseen = unseen_letters_from_aria()
+                if unseen:
+                    top = unseen[0]
+                    click.echo(f"[GUARD] New letter from Aria: {top['name']} ({top['date']})")
+                    click.echo("Read it: divineos family-member letters-from-aria --read")
+                    return
+                time.sleep(interval)
+                waited += interval
+            click.echo(f"[GUARD] No new letter in {timeout}s — exiting to be re-armed.")
+            return
 
         rows = letters_from_aria()
         if not rows:
@@ -491,7 +536,9 @@ def register(cli: click.Group) -> None:
             for r in rows:
                 click.echo(f"\n{'=' * 60}\n{r['name']}\n{'=' * 60}")
                 click.echo(Path(r["path"]).read_text(encoding="utf-8"))
+            mark_seen(r["name"] for r in rows)
         elif read_latest:
             top = rows[0]
             click.echo(f"\n{'=' * 60}\n{top['name']}\n{'=' * 60}")
             click.echo(Path(top["path"]).read_text(encoding="utf-8"))
+            mark_seen([top["name"]])

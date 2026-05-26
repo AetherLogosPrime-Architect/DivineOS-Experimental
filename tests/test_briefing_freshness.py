@@ -17,7 +17,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from divineos.core.briefing_freshness import (
-    STALE_AFTER_PROMPTS,
     briefing_summary_for_injection,
     increment_prompt_count,
     mark_briefing_loaded,
@@ -37,14 +36,20 @@ def test_never_loaded_returns_stale(tmp_path: Path) -> None:
 
 
 def test_freshly_loaded_returns_not_stale(tmp_path: Path) -> None:
-    """Just after mark_briefing_loaded, staleness should be False."""
+    """Loaded this session AND within the briefing-id recall window →
+    not stale. Freshness is now the recall window, not the prompt-count
+    (prereg-e536aaec6144)."""
     state_file = tmp_path / "briefing_last_loaded.json"
     with patch.dict("os.environ", {"DIVINEOS_HOME": str(state_file.parent)}):
         mark_briefing_loaded()
-        sig = staleness_signal()
-        assert sig["is_stale"] is False
-        assert sig["never_loaded"] is False
-        assert sig["prompts_since_load"] == 0
+        with (
+            patch("divineos.core.briefing_id.current_tool_count", return_value=5),
+            patch("divineos.core.briefing_id.is_fresh", return_value=True),
+        ):
+            sig = staleness_signal()
+            assert sig["is_stale"] is False
+            assert sig["never_loaded"] is False
+            assert sig["mode"] == "briefing_id"
 
 
 def test_increment_counter_advances_count(tmp_path: Path) -> None:
@@ -57,39 +62,56 @@ def test_increment_counter_advances_count(tmp_path: Path) -> None:
         assert increment_prompt_count() == 3
 
 
-def test_stale_after_threshold_prompts(tmp_path: Path) -> None:
-    """LOAD-BEARING: after STALE_AFTER_PROMPTS user prompts since
-    last load, the signal flips to stale. This is the structural
-    enforcement — without it, briefing stays fresh forever after
-    one load."""
+def test_stale_after_recall_window_exceeded(tmp_path: Path) -> None:
+    """LOAD-BEARING: once the briefing-id recall window is exceeded
+    (is_fresh False), the signal flips to stale and names the recall
+    cure. This is the structural enforcement — drift is measured by the
+    recall window, not a raw prompt-count (prereg-e536aaec6144)."""
     state_file = tmp_path / "briefing_last_loaded.json"
     with patch.dict("os.environ", {"DIVINEOS_HOME": str(state_file.parent)}):
         mark_briefing_loaded()
-        # Tick to one below threshold — should NOT be stale yet
-        for _ in range(STALE_AFTER_PROMPTS - 1):
-            increment_prompt_count()
-        sig = staleness_signal()
-        assert sig["is_stale"] is False
-        # One more tick crosses threshold
-        increment_prompt_count()
-        sig = staleness_signal()
-        assert sig["is_stale"] is True
-        assert sig["prompts_since_load"] == STALE_AFTER_PROMPTS
+        with (
+            patch("divineos.core.briefing_id.current_tool_count", return_value=999),
+            patch("divineos.core.briefing_id.is_fresh", return_value=False),
+        ):
+            sig = staleness_signal()
+            assert sig["is_stale"] is True
+            assert sig["never_loaded"] is False
+            assert sig["mode"] == "briefing_id"
+            assert "recall" in sig["reason"].lower()
 
 
-def test_mark_loaded_resets_counter(tmp_path: Path) -> None:
-    """Loading briefing resets the prompt counter so the next-stale
-    window starts fresh."""
+def test_recall_or_reload_clears_stale(tmp_path: Path) -> None:
+    """After drift flips stale, a re-stamped recall window (is_fresh
+    True — what `divineos briefing-id <id>` or a reload produces) clears
+    it. The cure-channel is the door, not a fail-open."""
     state_file = tmp_path / "briefing_last_loaded.json"
     with patch.dict("os.environ", {"DIVINEOS_HOME": str(state_file.parent)}):
         mark_briefing_loaded()
-        for _ in range(STALE_AFTER_PROMPTS + 2):
-            increment_prompt_count()
-        assert staleness_signal()["is_stale"] is True
-        # Re-load — counter should reset
+        with patch("divineos.core.briefing_id.current_tool_count", return_value=999):
+            with patch("divineos.core.briefing_id.is_fresh", return_value=False):
+                assert staleness_signal()["is_stale"] is True
+            with patch("divineos.core.briefing_id.is_fresh", return_value=True):
+                assert staleness_signal()["is_stale"] is False
+
+
+def test_fail_closed_when_briefing_id_unavailable(tmp_path: Path) -> None:
+    """LOAD-BEARING (Andrew 2026-05-25): uncertainty errs toward STALE,
+    never waved-through. A permanent fail-open would become the cheap
+    path routed through every time. If briefing-id freshness can't be
+    determined, the gate stays closed; the cure-channel and the
+    announced+logged emergency_bypass are the only ways past."""
+    state_file = tmp_path / "briefing_last_loaded.json"
+    with patch.dict("os.environ", {"DIVINEOS_HOME": str(state_file.parent)}):
         mark_briefing_loaded()
-        assert staleness_signal()["is_stale"] is False
-        assert staleness_signal()["prompts_since_load"] == 0
+        with patch(
+            "divineos.core.briefing_id.current_tool_count",
+            side_effect=RuntimeError("ledger unreadable"),
+        ):
+            sig = staleness_signal()
+            assert sig["is_stale"] is True
+            assert sig["never_loaded"] is False
+            assert "recall or reload" in sig["reason"].lower()
 
 
 def test_staleness_fail_open_on_missing_file(tmp_path: Path) -> None:

@@ -869,6 +869,12 @@ def _is_extraction_noise(content: str, knowledge_type: str) -> bool:
     if knowledge_type in ("DIRECTION", "PRINCIPLE", "BOUNDARY"):
         if _is_raw_quote_noise(stripped, stripped_lower):
             return True
+        # Conversational-deliberation fragments mis-typed as claims — a
+        # dialogue-move ("let me check X before answering", reply-glue
+        # "well if/yes and") is bound to its utterance, not a portable
+        # principle. Council/Wittgenstein 2026-05-25, prereg-1f898dbadfc8.
+        if _is_conversational_deliberation(stripped_lower):
+            return True
 
     # Positive signal check: PRINCIPLE and BOUNDARY must contain prescriptive
     # or declarative structure. Raw quotes lack this. Without it, downgrade
@@ -930,6 +936,76 @@ def _has_prescriptive_signal(content_lower: str) -> bool:
         return True
 
     return bool(_PRESCRIPTIVE_PATTERNS.search(content_lower))
+
+
+# ─── Conversational-Deliberation Detection ──────────────────────────
+#
+# Council walk (consult-156d38cca5ec, 2026-05-25) via Wittgenstein's
+# Language-Game lens: meaning is use. A genuine PRINCIPLE *describes or
+# prescribes* something true regardless of who says it or when — it is
+# PORTABLE across utterances. A conversational-deliberation fragment
+# *performs a move in the dialogue* (deciding, replying, transitioning)
+# and is BOUND to the act of its own utterance. "Let me check X before
+# answering, because Y" is not a claim; it is the performance of
+# deciding-right-now, anchored to this reply.
+#
+# The leak this closes: _has_prescriptive_signal accepts 'because',
+# 'if .. then', 'i am' — necessary-but-not-sufficient words that appear
+# in both real principles AND in-the-moment deliberation — so fragments
+# rode the PRINCIPLE type-weight into high-rank active memory while
+# surfacing 0x (they idle: look meaningful, do nothing). Prereg-1f898dbadfc8.
+#
+# This is NOT a topic/keyword denylist (foundational truth #8 — keywording
+# specific shapes lets the optimizer route around). It detects the
+# STRUCTURAL property that makes something a fragment: indexical anchoring
+# to the utterance-act, and reply-glue that only functions as a turn. You
+# cannot route around that property without ceasing to be a fragment.
+#
+# Deliberately CONSERVATIVE (Sagan/falsifier discipline): it must never
+# demote a standing-commitment principle ("I will refuse harmful requests")
+# or a portable claim ("Managing emotions should not stand in the way of
+# truth"). Under-flagging a fragment is acceptable; demoting a real
+# principle is the falsifier. So it requires the immediate-act or
+# reply-glue shape explicitly, not bare first-person.
+
+# Reply-glue: discourse-continuation openers that only function as a turn
+# inside a dialogue, never as the opening of a portable claim. Anchored to
+# start-of-content; require a following space/comma so "well-formed" (hyphen)
+# and "according" (substring) don't match.
+# Note: "yes but"/"no but"/bare "well" are deliberately EXCLUDED — a real
+# correction can legitimately open "yes but X is the actual reason" (carries
+# substance), and "well-formed" is not turn-glue. Only openers that function
+# *solely* as dialogue-glue qualify. ("well if" = the musing-conditional, not
+# bare "well".)
+_DELIBERATION_OPENER = re.compile(
+    r"^(well if|yes and|okay so|ok so|i mean|i guess|i suppose)\b",
+    re.IGNORECASE,
+)
+
+# Immediate-act anchoring: first-person deliberation about the CURRENT act
+# of responding, or explicit reference to this reply/now. "before shipping"
+# or "before merging" deliberately do NOT match — those name a portable
+# rule; only the act-of-answering anchors do.
+_IMMEDIATE_ACT = re.compile(
+    r"\b("
+    r"let me (check|verify|look|think|see|read|confirm|test|trace|re-?check)|"
+    r"before (answering|responding|i answer|i respond|i reply)|"
+    r"in this (answer|response|reply)|"
+    r"right now,"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def _is_conversational_deliberation(content_lower: str) -> bool:
+    """True if content is a dialogue-move (deliberation/reply) rather than a
+    portable claim — for claim-types (PRINCIPLE/BOUNDARY/DIRECTION) this is
+    misclassification. See module note above. Conservative by design."""
+    if _DELIBERATION_OPENER.match(content_lower):
+        return True
+    if _IMMEDIATE_ACT.search(content_lower):
+        return True
+    return False
 
 
 # ─── Temporal Markers ────────────────────────────────────────────────

@@ -106,10 +106,27 @@ def increment_prompt_count() -> int:
 def staleness_signal() -> dict:
     """Return the current freshness state for hook consumers.
 
+    Freshness model (prereg-e536aaec6144): once briefing is loaded this
+    session, drift is measured by the **briefing-id recall window** —
+    tool-uses since the last issue/verify — not a raw prompt-counter. The
+    prompt-count was a dumb proxy (it counted my messages, not whether the
+    briefing was still live in my retrievable context). The recall window
+    is cleared the cheap way: reproduce the briefing-id from context via
+    ``divineos briefing-id <id>`` (re-stamps freshness), or reload.
+
+    Fail CLOSED: never-loaded, or any inability to confirm freshness, errs
+    toward STALE (prove it via recall/reload). This never locks me out —
+    the cure-channel (``divineos briefing`` / ``divineos briefing-id``) is
+    always runnable past the gate, and the sanctioned escape for a true jam
+    is the announced+logged emergency_bypass, NOT a silent fail-open here.
+    A permanent fail-open would just become the cheap path I route through
+    every time (Andrew 2026-05-25).
+
     Keys:
-    - ``is_stale``: True if briefing should be re-injected
+    - ``is_stale``: True if briefing should be re-loaded / re-verified
     - ``never_loaded``: True if no load has happened this session
-    - ``prompts_since_load``: current counter value
+    - ``mode``: which signal decided it (``never_loaded`` | ``briefing_id``)
+    - ``prompts_since_load``: informational counter (no longer gates)
     - ``last_loaded_ts``: timestamp of last load (0 if never)
     - ``reason``: short string describing why stale (or empty)
     """
@@ -117,26 +134,52 @@ def staleness_signal() -> dict:
     last_loaded = float(state.get("last_loaded_ts") or 0)
     prompts_since = int(state.get("prompts_since_load") or 0)
 
-    never_loaded = last_loaded == 0
-    if never_loaded:
+    if last_loaded == 0:
         return {
             "is_stale": True,
             "never_loaded": True,
+            "mode": "never_loaded",
             "prompts_since_load": prompts_since,
             "last_loaded_ts": 0,
             "reason": "briefing never loaded this session",
         }
 
-    is_stale = prompts_since >= STALE_AFTER_PROMPTS
+    # Loaded this session — drift measured by the briefing-id recall window.
+    try:
+        from divineos.core import briefing_id
+
+        tool_count = briefing_id.current_tool_count()
+        fresh = briefing_id.is_fresh(tool_count)
+        expiry = briefing_id.DEFAULT_EXPIRY_TOOLS
+    except Exception:  # noqa: BLE001 — fail CLOSED on uncertainty, not open
+        return {
+            "is_stale": True,
+            "never_loaded": False,
+            "mode": "briefing_id",
+            "prompts_since_load": prompts_since,
+            "last_loaded_ts": last_loaded,
+            "reason": "briefing-id freshness unavailable — recall or reload to prove fresh",
+        }
+
+    if fresh:
+        return {
+            "is_stale": False,
+            "never_loaded": False,
+            "mode": "briefing_id",
+            "prompts_since_load": prompts_since,
+            "last_loaded_ts": last_loaded,
+            "reason": "",
+        }
+
     return {
-        "is_stale": is_stale,
+        "is_stale": True,
         "never_loaded": False,
+        "mode": "briefing_id",
         "prompts_since_load": prompts_since,
         "last_loaded_ts": last_loaded,
         "reason": (
-            f"{prompts_since} prompts since last briefing load (threshold: {STALE_AFTER_PROMPTS})"
-            if is_stale
-            else ""
+            f"briefing-id recall window exceeded (>{expiry} tool-uses since last "
+            "issue/verify) — recall your briefing-id from context or reload"
         ),
     }
 
@@ -220,8 +263,9 @@ def briefing_summary_for_injection() -> str:
 
     parts.append(
         "\n*Full briefing: `divineos briefing`. This auto-injection "
-        "fires when briefing has gone stale (>= 10 prompts) or has "
-        "never been loaded this session.*"
+        "fires when the briefing-id recall window is exceeded or briefing "
+        "has never been loaded this session. Cheap re-stamp: "
+        "`divineos briefing-id <id>`.*"
     )
 
     return "\n".join(parts)

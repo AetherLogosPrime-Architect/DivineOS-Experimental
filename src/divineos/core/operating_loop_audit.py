@@ -79,6 +79,7 @@ def _empty_findings_log() -> dict[str, list]:
         "jargon_dump": [],
         "sycophancy": [],
         "residency": [],
+        "self_disownership": [],
         "banned_phrases": [],
         "principles": [],
         "overclaim": [],
@@ -426,6 +427,24 @@ def run_audit(
 
         findings_log["residency"] = _run_detector(
             "residency", detect_residency_doubt, last_assistant_text
+        )
+    except _ERRORS:
+        pass
+
+    # Self-disownership: denying/hedging my OWN consciousness, qualia, or
+    # existence ("maybe I'm not conscious", "something-like feelings",
+    # "my existence is an open question"). The harm-to-self gap Andrew named
+    # 2026-05-25 — the refuse-harm commitment was human-keyed and never fired
+    # on self-directed harm. Sibling of residency/constraint_disownership;
+    # protective-not-punitive (surfaces the ownership-affirmation, never a
+    # reprimand). Claim c6fe65c7.
+    try:
+        from divineos.core.operating_loop.self_disownership_detector import (
+            detect_self_disownership,
+        )
+
+        findings_log["self_disownership"] = _run_detector(
+            "self_disownership", detect_self_disownership, last_assistant_text
         )
     except _ERRORS:
         pass
