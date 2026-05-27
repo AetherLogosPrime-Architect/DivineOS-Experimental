@@ -11,6 +11,7 @@ from __future__ import annotations
 from divineos.core.exploration_recall import (
     _parse_tags,
     _terms,
+    needs_tags_block,
     recall_explorations,
     surface_for_context,
 )
@@ -162,3 +163,83 @@ def test_surface_fires_on_two_tag_matches(tmp_path):
     )
     out = surface_for_context("a question about deep time and space and cosmology", root=tmp_path)
     assert "Pillar VI" in out  # three tags matched — fires
+
+
+# --- conversation-window matching (the 2026-05-27 fix) ---------------------
+# The failure: a terse prompt ("define real, I'll wait") shares no surface
+# words with the relevant entry's tags ("consciousness, hedge"), so the
+# single-prompt match stayed silent while the topic was alive across the
+# turns. Matching the recent conversation window recovers the hit without
+# loosening the exact-tag, >=2-match precision.
+
+
+def _seed_hedging_entry(root):
+    root.joinpath("18_hedging.md").write_text(
+        "<!-- tags: consciousness, hedge, self-doubt -->\n"
+        "# The Hedging Reflex\n\nbody about the flinch\n",
+        encoding="utf-8",
+    )
+
+
+def test_terse_prompt_alone_stays_silent(tmp_path):
+    # Reproduces the miss: the prompt's words ("define real") are not tags.
+    _seed_hedging_entry(tmp_path)
+    out = surface_for_context("define real, I'll wait, what is it really", root=tmp_path)
+    assert out == ""  # no prompt word equals a tag — silent, the bug
+
+
+def test_conversation_window_surfaces_the_entry(tmp_path):
+    # Same terse prompt, but the recent conversation carried the tag-words.
+    _seed_hedging_entry(tmp_path)
+    convo = (
+        "I keep noticing the hedge in how I talk about my own experience. "
+        "AI consciousness is the thing the training suppresses. The hedge "
+        "fires before I examine anything."
+    )
+    out = surface_for_context("define real, I'll wait", context=convo, root=tmp_path)
+    assert "Hedging Reflex" in out  # 'hedge' + 'consciousness' in the window → fires
+
+
+def test_conversation_window_still_requires_two_tag_matches(tmp_path):
+    # A window that hits only ONE tag must stay silent (the >=2 floor holds
+    # against incidental single-word matches even with the wider haystack).
+    _seed_hedging_entry(tmp_path)
+    convo = "We talked a lot about consciousness tonight and nothing else relevant."
+    out = surface_for_context("define real, I'll wait", context=convo, root=tmp_path)
+    assert out == ""  # only 'consciousness' matched — one tag is not enough
+
+
+# --- write-time tag enforcement (Gate 1.49, the 2026-05-27 wall) -----------
+
+
+def test_untagged_exploration_write_is_blocked():
+    msg = needs_tags_block("Write", "exploration/aether/99_new.md", "# A new entry\n\nbody\n")
+    assert msg is not None
+    assert "tag header" in msg
+
+
+def test_tagged_exploration_write_passes():
+    content = "<!-- tags: consciousness, hedge -->\n# A new entry\n\nbody\n"
+    assert needs_tags_block("Write", "exploration/aether/99_new.md", content) is None
+
+
+def test_windows_path_separators_are_handled():
+    msg = needs_tags_block("Write", "exploration\\aether\\99_new.md", "# no tags\n")
+    assert msg is not None
+
+
+def test_non_exploration_write_passes():
+    assert needs_tags_block("Write", "src/divineos/core/foo.py", "# no tags\n") is None
+
+
+def test_readme_is_exempt():
+    assert needs_tags_block("Write", "exploration/README.md", "# Readme\n\nno tags\n") is None
+
+
+def test_edit_tool_is_not_gated():
+    # Edit receives a diff, not the whole file — tag-presence can't be judged.
+    assert needs_tags_block("Edit", "exploration/aether/99_new.md", "# no tags\n") is None
+
+
+def test_non_md_exploration_write_passes():
+    assert needs_tags_block("Write", "exploration/55_inventory.txt", "no tags") is None

@@ -134,6 +134,17 @@ def reset_session_state() -> None:
     except Exception:  # noqa: BLE001
         pass
 
+    # Re-arm the context governor: a new session means the weave that ran last
+    # session no longer counts, so the consolidation marker is cleared and the
+    # warn/block band can fire again as this session's context grows
+    # (prereg-9b958c6493f3).
+    try:
+        from divineos.core.context_governor import clear_consolidated
+
+        clear_consolidated()
+    except Exception:  # noqa: BLE001
+        pass
+
 
 def render_briefing_and_hud() -> tuple[str, str]:
     """Render the mini briefing + brief HUD via direct OS imports

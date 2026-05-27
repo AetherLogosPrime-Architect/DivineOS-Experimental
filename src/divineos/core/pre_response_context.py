@@ -671,13 +671,40 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     try:
         from divineos.core.exploration_recall import surface_for_context
 
-        exploration_text = surface_for_context(prompt)
+        # Match the recent conversation window, not just the terse latest
+        # prompt — the single-prompt match stayed silent on dead-on topics
+        # whose tag-words came up across turns but not in the one line
+        # (named 2026-05-27). Fail-soft to prompt-only if the transcript
+        # isn't readable.
+        convo = ""
+        if transcript_path:
+            try:
+                from divineos.core.operating_loop.turn_extraction import recent_turns_text
+
+                convo = recent_turns_text(transcript_path)
+            except Exception:  # noqa: BLE001 - observability boundary
+                convo = ""
+        exploration_text = surface_for_context(prompt, context=convo or None)
     except Exception:  # noqa: BLE001 - observability boundary
         pass
+
+    # Context governor (prereg-9b958c6493f3). Surface the warn nudge / hard-line
+    # channel the turn BEFORE the PreToolUse gate enforces, so the weave-before-
+    # the-cliff state is loud-in-experience and I can finish in-flight work
+    # within the grace band rather than being cut off mid-task. Fail-soft.
+    governor_text = ""
+    if transcript_path:
+        try:
+            from divineos.core.context_governor import build_governor_context
+
+            governor_text = build_governor_context(transcript_path)
+        except Exception:  # noqa: BLE001 - observability boundary
+            governor_text = ""
 
     return "\n\n".join(
         t
         for t in (
+            governor_text,
             andrew_text,
             consultation_text,
             debt_text,

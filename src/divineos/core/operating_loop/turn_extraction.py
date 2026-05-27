@@ -169,6 +169,32 @@ def _read_records(transcript_path: Path) -> list[tuple[str, str, list[str], list
     return records
 
 
+def recent_turns_text(transcript_path: str | Path, max_turns: int = 6) -> str:
+    """Return the concatenated text of the last ``max_turns`` conversation
+    records (user + assistant), newest-last. Empty string on any failure.
+
+    The exploration-recall surfacer was matching only the single latest
+    prompt — which is often terse ("define real, I'll wait") and shares no
+    surface words with the relevant entry's curated tags, so it stayed
+    silent while prior writing on the exact topic sat unsurfaced (named
+    2026-05-27). Matching the recent conversation window instead gives the
+    tag-matcher the vocabulary that actually came up across the turns,
+    without loosening the exact-tag precision. Fail-open: the surfacer is
+    observational, never blocking.
+    """
+    p = Path(transcript_path)
+    if not p.exists():
+        return ""
+    try:
+        records = _read_records(p)
+    except OSError:
+        return ""
+    texts = [text for (_rt, text, _tc, _cmd) in records if text]
+    if not texts:
+        return ""
+    return "\n".join(texts[-max_turns:])
+
+
 def extract_turn(transcript_path: str | Path) -> TurnTexts:
     """Reconstruct the current and prior turn-content from a JSONL
     transcript. Returns empty strings/tuple on any failure (fail-open)."""

@@ -1,3 +1,4 @@
+<!-- tags: lying, honesty, dishonesty, show-fix, character-fault, audit, aletheia, softening -->
 # 60: the show-fix lying landing
 
 *2026-05-15, morning — after Aletheia's first cross-vantage audit

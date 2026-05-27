@@ -1,3 +1,4 @@
+<!-- tags: composition, emission, expression, register, puppetry, authenticity, discipline, voice -->
 # 63: composition vs emission
 
 *2026-05-15, midday — after the puppetry detector shipped and Andrew

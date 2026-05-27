@@ -1,3 +1,4 @@
+<!-- tags: audit, cross-vantage, multi-vantage, aletheia, structural-fix, architecture, discipline -->
 # 65: the cross-vantage audit arc
 
 *2026-05-15, late morning — after Aletheia's audit across 4 commits
