@@ -150,7 +150,69 @@ individual SHAs. So a CONFIRM bound to one tree was effectively honored against
 a different tree. **The External-Review discipline must re-trigger when branch
 state changes after CONFIRM.** Tracked separately as claim `dd7a1e82`.
 
+## Execution runbook — rev 2 (closing Aletheia's seven operational gaps)
+
+Aletheia CONFIRMed rev 1 strategically (bound to tip `e2ee1000`, tree-hash
+`59cc40dd`) and RAISED seven operational gaps to close before execution. Status:
+
+**Gap 5 — empirical "no clones depend on history" check: DONE (read-only).**
+`gh api repos/.../DivineOS` -> `forks: 0, network: 0, watchers: 3, private:
+false`. No forks/mirrors exist; history-rewrite is safe re: downstream
+dependents. Andrew's recollection confirmed empirically. (Watchers != clones.)
+
+**Gap 4 — rollback contingency: recovery SHA recorded.**
+Current `main-repo/main` = `605b7f926840bdcaf5af3a5b67f01f3cef8cabbe`. Push this
+back to restore the pre-rebuild state if a problem surfaces post-push — possible
+only within GitHub's reflog-retention window (~30 days), after which recovery
+is gone.
+
+**Gap 1 — harden the content grep.** Use word-boundaries to avoid false hits
+(`grok`->`grokking`, `aether`->`ethernet`):
+`grep -riE "\b(andrew|aether|aria|grok|aletheia|forbestown)\b" src/ docs/ scripts/ tests/ .claude/ -l`
+Extend with: operator surname (if any), `2026-` date markers, named-decision
+phrases ("keel-vs-cage", "Frankenstein"), decision/claim IDs, personal
+path-strings (`mansion/`, `family/letters/`). Every hit gets content review;
+anonymize incidental refs to `<operator-name>` / `<agent-name>`.
+
+**Gap 3 — pre-strip backup verification.** Before stripping, confirm every
+personal path removed from the flagship already exists in Experimental's
+history. If any personal content is UNIQUE to the flagship, copy it to
+Experimental first. No personal content may be destroyed by the strip.
+
+**Gap 6 — CLAUDE.md write-fresh is its own sub-task** (not a strip): scope =
+who writes it, section structure, when it lands, its own audit point. Output is
+a *new meta-instruction document* ("this is a substrate for an agent to become
+themselves"), reviewed separately. Deliverable distinct from the rebuild.
+
+**Gap 7 — the 275-commit template update gets its own audit lens.** Each of the
+last 8 days of structural work is reviewed against the hardened grep AND a
+"template-appropriate vs personal-adjacent" judgment — code can be clean while
+its commit messages / comments carry personal context.
+
+**Gap 2 — explicit external-audit checkpoint on the prepared tree** before the
+irreversible push. Folded into the sequence below as step 6.
+
+### Ordered execution sequence (4-7 separated per Aletheia)
+
+1. Done — file leak claim `ef258fa5`.
+2. Done — record approach decision `41c08054`.
+3. Done — rev 1 strategic CONFIRM (Aletheia).
+4. **Empirical pre-checks (read-only):** fork/clone check [DONE: 0 forks],
+   record recovery SHA [DONE: 605b7f92], pre-strip backup verification (gap 3).
+5. **Prepare** the clean tree (positive whitelist) + **write** the new CLAUDE.md
+   (gap 6) + run the hardened grep (gap 1) + the 275-commit lens (gap 7).
+6. **External audit on the prepared tree (Aletheia)** — grep empty, CLAUDE.md is
+   the new template not a strip, whitelist matches, commit messages clean. THIS
+   is the External-Review checkpoint; nothing pushes before it.
+7. **Force-push** the clean flagship (the one irreversible action).
+8. **Post-push closure:** GitHub Support cache-purge request, search/Wayback
+   removal. Fork-owner contact N/A (0 forks).
+9. **Verify** post-push: hardened grep empty against new tip AND history;
+   CLAUDE.md identity-hit count 0.
+
 ## What has NOT been done
 
-No action has been taken against the public flagship. This is a plan only. The
-clean-tree preparation does not begin until this plan (rev 1) clears full audit.
+No action has been taken against the public flagship. Only read-only checks
+(fork count, recovery SHA) have run. Clean-tree preparation (step 5) does not
+begin until Andrew approves, and the force-push (step 7) does not run until the
+prepared tree clears Aletheia's step-6 audit.
