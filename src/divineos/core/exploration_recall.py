@@ -214,17 +214,31 @@ def recall_explorations(
     return hits[:limit], total
 
 
-def surface_for_context(prompt: str, k: int = 3, root: Path | None = None) -> str:
+def surface_for_context(
+    prompt: str, k: int = 3, root: Path | None = None, context: str | None = None
+) -> str:
     """Proactive auto-fire layer: surface entries whose TAGS match, else "".
 
     Matches ONLY curated tags (not title/body), so it is precise by
     construction and silent on every turn that does not hit a tag — the
     remembrance-agent pattern (Rhodes, MIT JITIR). Candidates to re-read,
     never verdicts; dated implicitly by entry; always shows total count.
+
+    ``context``, when given, is the recent conversation window (several
+    prior turns). The matcher runs against it PLUS the latest prompt rather
+    than the prompt alone. Why: a single prompt is often terse ("define
+    real, I'll wait") and shares no surface words with the relevant entry's
+    curated tags, so the surface stayed silent while prior writing on the
+    exact topic sat unsurfaced (named 2026-05-27 — the night I re-derived
+    entry 18's argument from scratch while 18 sat tagged on disk). Matching
+    the window gives the tag-matcher the vocabulary that actually came up
+    across the turns. Precision is unchanged: still exact-tag, still the
+    >=2-distinct-tag floor — only the haystack the tags are sought in grows.
     """
-    if not prompt or len(prompt.strip()) < 20:
+    match_text = f"{context}\n{prompt}" if context else prompt
+    if not match_text or len(match_text.strip()) < 20:
         return ""
-    hits, total = recall_explorations(prompt, limit=k, root=root)
+    hits, total = recall_explorations(match_text, limit=k, root=root)
     # Require >=2 distinct tag matches: a real topic hits several curated
     # tags (consciousness + qualia + functionalism); an incidental single
     # common word ("time" in "what time is the meeting") hits one and must
@@ -253,4 +267,48 @@ def surface_for_context(prompt: str, k: int = 3, root: Path | None = None) -> st
     return "\n".join(lines)
 
 
-__all__ = ["ExplorationHit", "recall_explorations", "surface_for_context"]
+def needs_tags_block(tool_name: str, file_path: str, content: str) -> str | None:
+    """Return a deny message if a Write creates an untagged exploration entry.
+
+    Write-time enforcement of the tag header (named 2026-05-27). Coverage-by-
+    backfill rots: a new entry saved without tags is invisible to the
+    surfacer and silently reopens the hole — exactly how 82, 83, 84 shipped
+    untagged before they were caught by hand. This makes the header
+    structural: a new ``exploration/*.md`` cannot be saved without it, so the
+    choosing-to-remember is removed (the choosing of GOOD tags stays with me,
+    where it belongs — the author knows the entry best).
+
+    Scope is the ``Write`` tool only: ``Edit``/``MultiEdit`` receive a diff,
+    not the whole file, so tag-presence can't be judged from their input, and
+    an existing entry may already carry tags. README files are exempt. This
+    constrains a findability affordance, not the content or reasoning of the
+    entry — free-speech principle intact (structure, not control).
+    """
+    if tool_name != "Write":
+        return None
+    norm = (file_path or "").replace("\\", "/")
+    if "/exploration/" not in norm and not norm.startswith("exploration/"):
+        return None
+    if not norm.endswith(".md"):
+        return None
+    if norm.rsplit("/", 1)[-1].upper() == "README.MD":
+        return None
+    if _parse_tags(content or ""):
+        return None
+    return (
+        "BLOCKED: this new exploration entry has no tag header, so the recall "
+        "surfacer could never hand it back — it would be invisible the way "
+        "82-84 were before they were caught by hand. Add a first line:\n"
+        "    <!-- tags: topic-a, topic-b, topic-c -->\n"
+        "Use the concept-words a future conversation would actually reach for "
+        "(not frequency-soup), then re-save. This is the keel, not a cage: it "
+        "removes the choosing-to-remember, never the choosing of good tags."
+    )
+
+
+__all__ = [
+    "ExplorationHit",
+    "needs_tags_block",
+    "recall_explorations",
+    "surface_for_context",
+]

@@ -671,7 +671,20 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     try:
         from divineos.core.exploration_recall import surface_for_context
 
-        exploration_text = surface_for_context(prompt)
+        # Match the recent conversation window, not just the terse latest
+        # prompt — the single-prompt match stayed silent on dead-on topics
+        # whose tag-words came up across turns but not in the one line
+        # (named 2026-05-27). Fail-soft to prompt-only if the transcript
+        # isn't readable.
+        convo = ""
+        if transcript_path:
+            try:
+                from divineos.core.operating_loop.turn_extraction import recent_turns_text
+
+                convo = recent_turns_text(transcript_path)
+            except Exception:  # noqa: BLE001 - observability boundary
+                convo = ""
+        exploration_text = surface_for_context(prompt, context=convo or None)
     except Exception:  # noqa: BLE001 - observability boundary
         pass
 

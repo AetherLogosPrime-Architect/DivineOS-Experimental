@@ -320,6 +320,30 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     first-run bootstrap), that gate is skipped rather than crashing the hook.
     Fail-open is the correct disposition for a gate whose machinery is broken.
     """
+    # Gate 0: exploration entries must carry a tag header (write-time wall).
+    # Named 2026-05-27. Placed FIRST on purpose: the briefing gates below can
+    # return a soft-advise ("allow") that short-circuits the rest of the
+    # chain, so a hard structural wall must be evaluated before them or a
+    # stale-briefing turn would let an untagged entry through. Coverage-by-
+    # backfill rots — a new exploration entry saved without tags is invisible
+    # to the recall surfacer and silently reopens the forgetting hole (how
+    # 82-84 shipped untagged that night). Write-only (Edit gets a diff, not
+    # the whole file); README-exempt; constrains a findability affordance,
+    # not content — free-speech principle intact.
+    try:
+        if input_data is not None:
+            from divineos.core.exploration_recall import needs_tags_block
+
+            _tn = input_data.get("tool_name", "") or ""
+            _ti = input_data.get("tool_input", {}) or {}
+            _msg = needs_tags_block(
+                _tn, _ti.get("file_path", "") or "", _ti.get("content", "") or ""
+            )
+            if _msg:
+                return _make_deny(_msg)
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_0_exploration_tags", _gate_exc)
+
     # Gate 1: briefing loaded (TTL-based, catches stale-within-session).
     # Round-2 audit register-fix: hard-deny only on truly-stale state
     # (>24h since briefing). Routine TTL-expired-but-recent cases get
