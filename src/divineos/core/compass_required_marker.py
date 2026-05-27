@@ -73,6 +73,21 @@ def set_marker(trigger_kind: str, trigger_summary: str) -> None:
     "hedge", "theater". ``trigger_summary`` is a short human-readable
     description shown in the gate message.
 
+    The marker schema (post-2026-05-08 disclose-then-escalate redesign):
+      ts:               write-time
+      kind:             trigger tag
+      summary:          human-readable description
+      advised_count:    int, starts 0, increments on each advisory fire
+                        (light disclosure). When >= ESCALATION_THRESHOLD,
+                        gate escalates to hard BLOCK. See pre-reg
+                        prereg-75c900fe.
+      last_advised_ts:  timestamp of last advisory fire. Used by
+                        per-turn deduplication so the same marker does
+                        not fire on every tool call within one turn.
+
+    Backwards compatible: existing markers without the new fields read
+    advised_count=0 by default; first advisory fire seeds the field.
+
     No-op when running under pytest unless the test explicitly opts in
     via ``DIVINEOS_TEST_ALLOW_COMPASS_CASCADE`` env var.
     """
@@ -88,10 +103,64 @@ def set_marker(trigger_kind: str, trigger_summary: str) -> None:
             "ts": time.time(),
             "kind": trigger_kind,
             "summary": (trigger_summary or "")[:200],
+            "advised_count": 0,
+            "last_advised_ts": 0.0,
         }
         atomic_write_text(path, json.dumps(payload))
     except OSError:
         pass
+
+
+# Threshold for escalating from advisory to hard BLOCK.
+# After ESCALATION_THRESHOLD advisories have fired without the marker
+# being cleared, the gate escalates to enforcement. Two advisories is
+# what we landed on in design (one alone is wallpaper; three would feel
+# like the old enforcement loop). See pre-reg prereg-75c900fe.
+ESCALATION_THRESHOLD = 2
+
+# Per-turn dedup window. If an advisory fired within the last N seconds,
+# do not re-fire on subsequent tool calls. Approximates "per-turn"
+# without requiring a turn-id concept the substrate doesn't currently
+# have. Calibrated to typical turn-wall-clock duration.
+PER_TURN_DEDUP_SECONDS = 30.0
+
+
+def record_advisory_fire() -> int:
+    """Increment the advisory counter and update last_advised_ts.
+
+    Called by the gate when it emits an advisory. Returns the new
+    advised_count. Caller uses the return value to decide whether
+    the next fire should escalate.
+
+    Backwards-compat: if marker exists but lacks the new fields,
+    initializes them.
+    """
+    marker = read_marker()
+    if marker is None:
+        return 0
+    new_count = int(marker.get("advised_count", 0)) + 1
+    marker["advised_count"] = new_count
+    marker["last_advised_ts"] = time.time()
+    try:
+        atomic_write_text(marker_path(), json.dumps(marker))
+    except OSError:
+        pass
+    return new_count
+
+
+def should_dedup_within_turn() -> bool:
+    """True if an advisory fired within the per-turn dedup window.
+
+    Used by the gate to suppress same-marker re-firing on every tool
+    call within what is approximately one conversational turn.
+    """
+    marker = read_marker()
+    if marker is None:
+        return False
+    last = float(marker.get("last_advised_ts", 0.0))
+    if last <= 0:
+        return False
+    return (time.time() - last) < PER_TURN_DEDUP_SECONDS
 
 
 def read_marker() -> dict | None:
@@ -123,11 +192,52 @@ def clear_marker() -> None:
 
 
 def format_gate_message(marker: dict) -> str:
+    """Format the gate message — BLOCK only when escalation threshold reached.
+
+    Pre-2026-05-08: always returned a hard BLOCK message regardless of
+    how many times the same marker had fired. That produced the wallpaper
+    pattern: same correction-shape input fired the gate on every tool
+    call within a turn, multiple times, until the agent logged.
+
+    Post-redesign (per pre-reg prereg-75c900fe): the message branches on
+    ``advised_count``. Below ``ESCALATION_THRESHOLD``, the message is an
+    advisory — informational, non-blocking when the gate uses it as
+    additionalContext. At or above ``ESCALATION_THRESHOLD``, the message
+    is a hard BLOCK as before. The substrate-occupant is given the first
+    move; the gate enforces only when disclosure has been ignored twice.
+
+    Caller is expected to check ``advised_count`` separately to decide
+    whether to issue a deny-decision or a soft-advise decision; this
+    function only formats the text.
+    """
     kind = marker.get("kind", "event")
-    summary = (marker.get("summary") or "").replace("\n", " ")[:120]
+    summary = (marker.get("summary") or "").replace("\n", " ")[:80]
+    advised_count = int(marker.get("advised_count", 0))
+
+    if advised_count < ESCALATION_THRESHOLD:
+        # Advisory shape: short, [~] prefix, action-clear, no shame.
+        # Soft-advise pattern from Aletheia round-3 substrate-property
+        # (knowledge entry 1c48eb20): for gates whose property is
+        # surface-state rather than stop-action, ship informational-
+        # not-imperative.
+        prefix = "still pending — " if advised_count >= 1 else ""
+        return (
+            f"[~] {prefix}Compass-relevant event: {kind} ({summary!r}). "
+            f"Observe to integrate, or proceed if intentional. "
+            f'Log: divineos compass-ops observe <spectrum> -p <pos> -e "<evidence>"'
+        )
+
+    # Escalation: advisory was ignored ESCALATION_THRESHOLD times.
+    # Hard BLOCK is structurally appropriate at this point because the
+    # substrate-occupant has been given the disclosure twice and not
+    # integrated. The dismiss path (`divineos compass-ops dismiss
+    # --reason ...`) is the explicit "intentional, not a correction"
+    # exit; without it, integration is required.
     return (
-        f"BLOCKED: virtue-relevant {kind} event occurred ({summary!r}). "
-        f"Compass position must be observed before further tool use. "
-        f'Run: divineos compass-ops observe <spectrum> -p <position> -e "<evidence>". '
+        f"BLOCKED: compass-relevant {kind} event has fired {advised_count} "
+        f"advisories without integration ({summary!r}). "
+        f'Run: divineos compass-ops observe <spectrum> -p <position> -e "<evidence>" '
+        f'to integrate, OR run: divineos compass-ops dismiss --reason "<why>" '
+        f"if this is an intentional register-choice, not a correction. "
         f"Architecture is will, enforcement is promise (claim 7e780182)."
     )

@@ -539,16 +539,25 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     # rationale and the surface module that replaces this gate.
 
     # Gate 1.47: compass observation required after virtue-relevant event.
-    # Build #4 from claim 7e780182. When a correction, theater fire,
-    # hedge fire, or substantive claim has occurred, the gate blocks
-    # tools until `divineos compass-ops observe` is run. Converts the
-    # intent "observe position when it matters" into "can-not-without."
-    # Skip on exploration-path Write/Edit per the 2026-04-27 calibration
-    # directive. The compass-cascade gate is paired with gate 1.46 (it
-    # fires on the same virtue-relevant theater events). Exempting one
-    # without the other would still produce the cascade-loop.
+    # Build #4 from claim 7e780182. Fires when a correction, theater fire,
+    # hedge fire, or substantive claim has occurred. Skip on exploration-
+    # path Write/Edit per the 2026-04-27 calibration directive.
+    #
+    # 2026-05-08 redesign (per pre-reg prereg-75c900fe; adopted into
+    # Experimental 2026-05-27 per decision cfddd811): disclose-then-escalate
+    # rather than hard-block-on-marker. Below ESCALATION_THRESHOLD advisory
+    # fires, return soft-advise so the substrate-occupant gets the disclosure
+    # without being blocked; at/above threshold, hard deny as before. Per-turn
+    # dedup (PER_TURN_DEDUP_SECONDS) stops the same marker re-firing on every
+    # tool call within one turn — the wallpaper failure-mode the redesign
+    # fixes. FALSIFIER (must verify): the escalation actually fires (advised_
+    # count reaches threshold and denies), else dedup+grace degrade it to an
+    # ignorable advisory.
     try:
         if input_data is None or not _is_exploration_write(input_data):
+            from divineos.core.compass_required_marker import (
+                ESCALATION_THRESHOLD as _CR_ESC,
+            )
             from divineos.core.compass_required_marker import (
                 format_gate_message as _cr_msg,
             )
@@ -558,17 +567,37 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
             from divineos.core.compass_required_marker import (
                 read_marker as _cr_read,
             )
+            from divineos.core.compass_required_marker import (
+                record_advisory_fire as _cr_record,
+            )
+            from divineos.core.compass_required_marker import (
+                should_dedup_within_turn as _cr_dedup,
+            )
 
             if _cr_path().exists():
                 cr = _cr_read()
-                if cr is not None:
+                if cr is None:
+                    # Marker present but unreadable — fail-closed.
+                    return _make_deny(
+                        "BLOCKED: compass-required marker present at "
+                        f"{_cr_path()} but unreadable. "
+                        "Clear by running: divineos compass-ops observe "
+                        "<spectrum> -p <position> -e <evidence>. Fail-closed."
+                    )
+
+                advised_count = int(cr.get("advised_count", 0))
+                # Defensive guard: dedup should only suppress after a prior
+                # advisory set last_advised_ts (which also sets advised_count
+                # >= 1). The >= 1 check guards corrupted/hand-edited markers.
+                if advised_count >= 1 and _cr_dedup():
+                    pass  # silent suppression within per-turn window
+                elif advised_count >= _CR_ESC:
+                    # Escalation: advisory ignored ESCALATION_THRESHOLD times.
                     return _make_deny(_cr_msg(cr))
-                return _make_deny(
-                    "BLOCKED: compass-required marker present at "
-                    f"{_cr_path()} but unreadable. "
-                    "Clear by running: divineos compass-ops observe "
-                    "<spectrum> -p <position> -e <evidence>. Fail-closed."
-                )
+                else:
+                    # Disclosure: emit advisory, increment counter, allow.
+                    _cr_record()
+                    return _make_soft_advise(_cr_msg(cr))
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_47_compass_required", _gate_exc)
 
