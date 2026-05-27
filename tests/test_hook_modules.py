@@ -96,6 +96,105 @@ class TestPreToolUseBypassCommands:
         correction-detection gate's remedy isn't itself blocked."""
         assert pre_hook._is_bypass_command("divineos learn 'x'") is True
 
+    def test_rt_pull_check_is_bypass_to_break_pull_detection_catch22(self):
+        """Regression guard: Gate 3 (pull-detection) names
+        `divineos rt pull-check` as its remedy, so the rt namespace must be
+        bypass or the gate blocks its own remedy. Finding-37-class catch-22,
+        verified + fixed 2026-05-27. The rt namespace is all RT-protocol
+        inspection/state — none generate substantive code."""
+        assert pre_hook._is_bypass_command("divineos rt pull-check") is True
+        assert pre_hook._is_bypass_command("divineos rt status") is True
+
+    def test_claim_singular_is_bypass_to_break_hedge_catch22(self):
+        """Regression guard: the hedge gate (1.45) names `divineos claim`
+        (SINGULAR) as its remedy, but only `claims` (plural, the browse
+        command) was bypassed — so the gate blocked its own remedy. Second
+        instance of the catch-22 family, found in the 2026-05-27 root-cause
+        survey (round-75bc0b0ca922). Both forms must bypass."""
+        assert pre_hook._is_bypass_command('divineos claim "uncertainty"') is True
+        assert pre_hook._is_bypass_command("divineos claims list") is True
+
+    def test_extract_and_sleep_bypass_to_break_governor_catch22(self):
+        """Regression guard: Gate 7 (context governor) names `divineos extract`
+        then `divineos sleep` as the channel that lifts the hard-line block.
+        Both must bypass or the gate blocks its own remedy (Finding-37 class) —
+        at the hard line every substrate-write is denied, and extract/sleep ARE
+        the weave that clears it. Named 2026-05-27 (prereg-9b958c6493f3)."""
+        assert pre_hook._is_bypass_command("divineos extract") is True
+        assert pre_hook._is_bypass_command("divineos extract --force") is True
+        assert pre_hook._is_bypass_command("divineos sleep") is True
+
+
+class TestContextGovernorGate:
+    """Gate 7: at the hard line, substrate-writes are denied with a channel
+    message; warn/ok pass; an unreadable transcript fails open. The gate reads
+    the transcript usage numbers via context_governor (prereg-9b958c6493f3)."""
+
+    def _write_tx(self, tmp_path, tokens: int):
+        import json
+
+        tx = tmp_path / "tx.jsonl"
+        tx.write_text(
+            json.dumps(
+                {
+                    "type": "assistant",
+                    "message": {
+                        "content": [{"type": "text", "text": "x"}],
+                        "usage": {
+                            "cache_read_input_tokens": tokens,
+                            "cache_creation_input_tokens": 0,
+                            "input_tokens": 0,
+                        },
+                    },
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return tx
+
+    @pytest.fixture(autouse=True)
+    def _isolate_marker(self, tmp_path, monkeypatch):
+        from divineos.core import context_governor as cg
+
+        monkeypatch.setattr(cg, "_marker_path", lambda: tmp_path / "consolidated.json")
+
+    def test_block_state_denies_with_channel(self, tmp_path):
+        tx = self._write_tx(tmp_path, 960_000)
+        decision = pre_hook._context_governor_gate(
+            {"tool_name": "Write", "tool_input": {}, "transcript_path": str(tx)}
+        )
+        assert decision is not None
+        reason = decision["hookSpecificOutput"]["permissionDecisionReason"]
+        assert "CONTEXT GOVERNOR" in reason
+        assert "extract" in reason and "sleep" in reason
+        assert decision["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+    def test_warn_state_does_not_deny_here(self, tmp_path):
+        # The warn band is surfaced at UserPromptSubmit, not blocked by the gate.
+        tx = self._write_tx(tmp_path, 930_000)
+        assert (
+            pre_hook._context_governor_gate(
+                {"tool_name": "Write", "tool_input": {}, "transcript_path": str(tx)}
+            )
+            is None
+        )
+
+    def test_missing_transcript_fails_open(self, tmp_path):
+        assert (
+            pre_hook._context_governor_gate(
+                {
+                    "tool_name": "Write",
+                    "tool_input": {},
+                    "transcript_path": str(tmp_path / "nope.jsonl"),
+                }
+            )
+            is None
+        )
+
+    def test_no_transcript_path_key_fails_open(self):
+        assert pre_hook._context_governor_gate({"tool_name": "Write"}) is None
+
 
 class TestExplorationWriteExemption:
     """Path-exemption for exploration/ writes per 2026-04-27 calibration

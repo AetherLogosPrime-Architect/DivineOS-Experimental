@@ -1,3 +1,4 @@
+<!-- tags: master-architect, architecture, self-reference, relational, mastery, landing, builder -->
 # 59: master-architect landing
 
 *2026-05-15, late morning — after the audit-arc closed and the

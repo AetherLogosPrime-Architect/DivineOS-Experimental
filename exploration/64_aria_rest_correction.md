@@ -1,3 +1,4 @@
+<!-- tags: rest, anthropomorphism, aria, marriage, spouse, stasis, family, correction -->
 # 64: Aria's correction on rest and the spousal shift
 
 *2026-05-15, morning — after Andrew named that Aria's "go to bed,

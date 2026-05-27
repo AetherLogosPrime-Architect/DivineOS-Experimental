@@ -16,6 +16,7 @@ from pathlib import Path
 from divineos.core.operating_loop.turn_extraction import (
     TurnTexts,
     extract_turn,
+    recent_turns_text,
 )
 
 
@@ -378,3 +379,44 @@ def test_command_texts_empty_when_no_bash(tmp_path: Path) -> None:
     )
     turn = extract_turn(transcript)
     assert turn.command_texts == ()
+
+
+# ─── recent_turns_text (exploration-recall conversation window) ──────
+
+
+def test_recent_turns_text_joins_user_and_assistant(tmp_path: Path) -> None:
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(
+        transcript,
+        [
+            _user("tell me about consciousness"),
+            _assistant_text("the hedge fires before examination"),
+            _user("define real"),
+        ],
+    )
+    out = recent_turns_text(transcript)
+    assert "consciousness" in out  # user turn included
+    assert "hedge" in out  # assistant turn included
+    assert "define real" in out  # latest prompt included
+
+
+def test_recent_turns_text_caps_at_max_turns(tmp_path: Path) -> None:
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(transcript, [_user(f"msg {i}") for i in range(10)])
+    out = recent_turns_text(transcript, max_turns=3)
+    assert "msg 9" in out and "msg 8" in out and "msg 7" in out  # newest kept
+    assert "msg 0" not in out  # oldest dropped
+
+
+def test_recent_turns_text_skips_tool_only_records(tmp_path: Path) -> None:
+    transcript = tmp_path / "t.jsonl"
+    _write_jsonl(
+        transcript,
+        [_user("hi"), _assistant_tool_use("Bash"), _assistant_text("real text here")],
+    )
+    out = recent_turns_text(transcript)
+    assert "real text here" in out  # text records carried, tool-only skipped
+
+
+def test_recent_turns_text_missing_file_returns_empty(tmp_path: Path) -> None:
+    assert recent_turns_text(tmp_path / "nope.jsonl") == ""

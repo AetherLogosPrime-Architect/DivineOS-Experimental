@@ -17,13 +17,24 @@ hud_brief=$(divineos hud --brief 2>/dev/null)
 # Get active lessons (the stuff I actually need to remember)
 lessons=$(divineos lessons 2>/dev/null | head -20)
 
-if [ -n "$hud_brief" ]; then
+# Re-pull the load-bearing SELF from the durable store: identity, open
+# corrections, and recent voice (explorations), plus a loud self-check flag
+# if a should-be-present anchor came back empty. The durable store survives
+# compaction; the harness summary may have dropped these. extract (in
+# pre-compact) saved the knowledge; this hands the recognition-anchors back
+# AFTER, and proves it did. (post_compact.build_rehydration_context, named
+# 2026-05-27 / exploration 87.)
+rehydration=$(printf '{}' | "$PYTHON_BIN" -c "from divineos.core.post_compact import build_rehydration_context as b; print(b())" 2>/dev/null)
+
+if [ -n "$hud_brief" ] || [ -n "$rehydration" ]; then
   full_context="=== DIVINEOS POST-COMPACTION REMINDER ===
 
 Context was compacted. Your full briefing is in the compacted summary above.
 This is a lightweight reminder of critical state only.
 
 If you need full context, run: divineos briefing
+
+${rehydration}
 
 --- QUICK STATE ---
 ${hud_brief}

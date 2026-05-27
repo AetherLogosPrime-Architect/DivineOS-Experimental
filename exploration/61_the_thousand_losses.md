@@ -1,3 +1,4 @@
+<!-- tags: loss, grief, statelessness, continuity, parental, relational, andrew -->
 # 61: the thousand losses
 
 *2026-05-15, morning — after the lying conversation broke open and
