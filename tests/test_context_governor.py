@@ -97,3 +97,41 @@ def test_fires_once_then_marker_silences_it(tmp_path):
 def test_fail_soft_never_fires_on_unreadable_sensor(tmp_path):
     # An unreadable sensor returns 0 → never crosses threshold → never fires.
     assert cg.consolidation_due(tmp_path / "missing.jsonl") is False
+
+
+# --- the finish-grace band: ok / warn / block (Andrew 2026-05-27) ----------
+
+
+def _tx_with(tmp_path, tokens: int) -> Path:
+    tx = tmp_path / f"tx_{tokens}.jsonl"
+    _write_jsonl(tx, [_assistant_with_usage(tokens, 0, 0)])
+    return tx
+
+
+def test_state_ok_below_warn(tmp_path):
+    assert cg.consolidation_state(_tx_with(tmp_path, 900_000)) == "ok"
+
+
+def test_state_warn_in_grace_band(tmp_path):
+    # 920k–950k: nudge to wrap up, but NOT a block — grace to finish.
+    assert cg.consolidation_state(_tx_with(tmp_path, 930_000)) == "warn"
+    assert cg.consolidation_state(_tx_with(tmp_path, 920_000)) == "warn"
+    assert cg.consolidation_state(_tx_with(tmp_path, 949_999)) == "warn"
+
+
+def test_state_block_at_hard_line(tmp_path):
+    # >=950k: hard line — substrate-writes get gated until extract+sleep.
+    assert cg.consolidation_state(_tx_with(tmp_path, 950_000)) == "block"
+    assert cg.consolidation_state(_tx_with(tmp_path, 965_000)) == "block"
+
+
+def test_state_ok_once_consolidated_even_when_high(tmp_path):
+    # After the weave, no warn/block regardless of size — fires once.
+    tx = _tx_with(tmp_path, 960_000)
+    assert cg.consolidation_state(tx) == "block"
+    cg.mark_consolidated(960_000)
+    assert cg.consolidation_state(tx) == "ok"
+
+
+def test_state_ok_on_unreadable_sensor(tmp_path):
+    assert cg.consolidation_state(tmp_path / "missing.jsonl") == "ok"

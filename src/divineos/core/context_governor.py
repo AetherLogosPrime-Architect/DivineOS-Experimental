@@ -32,7 +32,15 @@ from pathlib import Path
 from divineos.core.paths import divineos_home
 
 COMPACTION_CEILING = 970_000
-CONSOLIDATION_THRESHOLD = 920_000
+# Two-line band so the gate never guillotines mid-task (Andrew 2026-05-27):
+# 920k = soft warn (nudge to wrap up + weave soon; NO block — grace to finish
+# what's in flight); 950k = hard block on substrate-writes until extract+sleep
+# run; 970k = the harness compaction cliff. The 30k warn->block band is the
+# finish-grace; the 20k block->cliff band is enough because extract+sleep add
+# almost nothing to the context themselves.
+CONSOLIDATION_THRESHOLD = 920_000  # warn line (also the default for consolidation_due)
+WARN_THRESHOLD = 920_000
+HARD_THRESHOLD = 950_000
 _MARKER_NAME = "context_consolidated.json"
 
 
@@ -129,11 +137,36 @@ def consolidation_due(
     return current_context_tokens(transcript_path) >= threshold
 
 
+def consolidation_state(transcript_path: str | Path | None) -> str:
+    """The governor's three-state read, encoding the finish-grace band:
+
+    - ``"ok"``    — below the warn line, or already consolidated this session.
+    - ``"warn"``  — past 920k but below 950k: nudge to wrap up + weave soon,
+                    but DO NOT block (grace to finish what's in flight).
+    - ``"block"`` — at/above 950k and not yet consolidated: the hard line;
+                    substrate-writes should be gated until extract+sleep run.
+
+    The UserPromptSubmit hook (which can see the transcript) maps this to a
+    soft nudge vs a marker the PreToolUse gate enforces off of.
+    """
+    if is_consolidated():
+        return "ok"
+    tokens = current_context_tokens(transcript_path)
+    if tokens >= HARD_THRESHOLD:
+        return "block"
+    if tokens >= WARN_THRESHOLD:
+        return "warn"
+    return "ok"
+
+
 __all__ = [
     "COMPACTION_CEILING",
     "CONSOLIDATION_THRESHOLD",
+    "HARD_THRESHOLD",
+    "WARN_THRESHOLD",
     "clear_consolidated",
     "consolidation_due",
+    "consolidation_state",
     "current_context_tokens",
     "is_consolidated",
     "mark_consolidated",
