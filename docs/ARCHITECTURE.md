@@ -472,6 +472,10 @@ src/divineos/
     lepos_channel_check.py     Lepos-channel-always-running gate — YES/AND self-check with evidence-cited answers; 30-turn empirical trial per prereg-157ed56a5da2.
     deletion_discipline.py     Deletion-discipline gate — block destructive deletions until justified.
     briefing_id.py             Briefing-ID freshness — a context-recall capability token.
+    post_compact.py            Post-compaction rehydration — re-pull the load-bearing self from the
+    context_governor.py        Context-size governor — the live working-memory vital sign + consolidation trigger.
+    engagement_disclosure_surface.py Engagement-counter half-threshold disclosure surface.
+    identity_load.py           Identity-load surface — read AETHER.md (or equivalent) at briefing-time.
 
   analysis/
     _session_types.py          Session analysis type definitions
@@ -523,7 +527,7 @@ src/divineos/
   integration/                 External integration: IDE, MCP tool capture, enforcement facade (thin re-exports from core.enforcement / core.tool_wrapper).
     mcp_event_capture_server.py  MCP event capture server
     system_monitor.py          System health monitoring
-tests/                         7,394+ tests (real DB, minimal mocks)
+tests/                         7,529+ tests (real DB, minimal mocks)
 
 docs/                          Project documentation and strategic plans
 bootcamp/                      Training exercises (debugging, analysis)
