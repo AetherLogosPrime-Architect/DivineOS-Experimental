@@ -53,8 +53,12 @@ def test_recall_traverses_edge_to_neighbor(tmp_path, monkeypatch):
 
         # Force the active set to contain the seed so the spreader has a
         # starting point (bypasses the active-memory promotion pipeline).
-        seed_entry = {"knowledge_id": seed, "content": "Always read before editing",
-                      "confidence": 0.9, "importance": 1.0}
+        seed_entry = {
+            "knowledge_id": seed,
+            "content": "Always read before editing",
+            "confidence": 0.9,
+            "importance": 1.0,
+        }
         monkeypatch.setattr(active_memory, "get_active_memory", lambda: [seed_entry])
 
         result = active_memory.recall()
@@ -68,8 +72,12 @@ def test_recall_connected_empty_when_no_edges(tmp_path, monkeypatch):
     _setup_db(tmp_path)
     try:
         lonely = store_knowledge("FACT", "Isolated fact with no edges", 0.7)
-        seed_entry = {"knowledge_id": lonely, "content": "Isolated fact with no edges",
-                      "confidence": 0.7, "importance": 1.0}
+        seed_entry = {
+            "knowledge_id": lonely,
+            "content": "Isolated fact with no edges",
+            "confidence": 0.7,
+            "importance": 1.0,
+        }
         monkeypatch.setattr(active_memory, "get_active_memory", lambda: [seed_entry])
 
         result = active_memory.recall()
