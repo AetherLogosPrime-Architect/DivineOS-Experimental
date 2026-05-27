@@ -656,6 +656,22 @@ def recall(context_hint: str = "") -> dict[str, Any]:
             if result["knowledge_id"] not in active_kids:
                 relevant.append(result)
 
+    # Spreading activation: traverse the knowledge graph from the active set
+    # to pull in connected entries the flat active list misses. Until now
+    # sleep strengthened edges nightly but only briefing clusters traversed
+    # them — get_graph_connections_for_recall was built and never called
+    # (exploration/aether/88). Wiring it here makes the edges load-bearing for
+    # recall. Fail-soft: a graph error must never break the core/active return.
+    connected: list[dict[str, Any]] = []
+    try:
+        from divineos.core.knowledge.graph_retrieval import (
+            get_graph_connections_for_recall,
+        )
+
+        connected = get_graph_connections_for_recall(active)
+    except Exception:  # noqa: BLE001 - graph is an enhancement, never load-bearing for the base return
+        connected = []
+
     # Track that these items were surfaced and register real access
     conn = _get_connection()
     try:
@@ -681,6 +697,7 @@ def recall(context_hint: str = "") -> dict[str, Any]:
         "core": core_text,
         "active": active,
         "relevant": relevant,
+        "connected": connected,
     }
 
 

@@ -436,6 +436,37 @@ def register(cli: click.Group) -> None:
                 pass
             click.echo()
 
+        # Spreading activation: traverse the knowledge graph from the FTS hits
+        # to surface connected entries BM25 alone would miss. The edges sleep
+        # strengthens nightly were wallpaper for `ask` until now — only briefing
+        # clusters traversed them (exploration/aether/88). get_graph_connections_
+        # for_recall is seed-set-generic, so the same spreader serves ask and
+        # recall. Best-effort: a graph error never breaks the FTS results above.
+        try:
+            from divineos.core.knowledge.graph_retrieval import (
+                get_graph_connections_for_recall,
+            )
+
+            graph_connected = get_graph_connections_for_recall(results, max_connections=5)
+            if graph_connected:
+                click.secho(
+                    f"  --- Connected via knowledge graph ({len(graph_connected)}) ---\n",
+                    fg="cyan",
+                )
+                for conn_item in graph_connected:
+                    neighbor = conn_item["entry"]
+                    edge_type = conn_item.get("edge_type", "RELATED_TO")
+                    label = edge_type.replace("_", " ").lower()
+                    n_content = neighbor["content"]
+                    if len(n_content) > 200:
+                        n_content = n_content[:200] + "..."
+                    click.secho(f"  ({label}) ", fg="green", nl=False)
+                    _safe_echo(n_content)
+                    click.secho(f"         {neighbor['knowledge_id'][:8]}...", fg="bright_black")
+                    click.echo()
+        except _KC_ERRORS:
+            pass  # graph spreading is best-effort
+
         # Also search journal entries
         try:
             from divineos.core.memory_journal import journal_search
