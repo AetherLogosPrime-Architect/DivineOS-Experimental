@@ -109,7 +109,75 @@ def record_response() -> None:
 # Substantive consults — the ones that put the substrate's own words in
 # front of me. hud/context/body are cheaper status reads and do NOT clear
 # the gate (clearing on those would be the gameable shortcut).
-_SUBSTANTIVE_TOOLS = frozenset({"ask", "recall", "corrections", "directives", "active", "compass"})
+#
+# "wisdom_read" is the keel-improvement (Andrew 2026-05-26, four-lens council
+# Schneier/Yudkowsky/Beer/Meadows, decision 5d8bf472): a Read/Grep/Glob of a
+# WISDOM file (my own accumulated teachings/corrections/explorations/letters)
+# is genuine substrate-consultation — it loads the substrate's own words into
+# context exactly as `ask`/`recall` do. The gate previously couldn't sense it,
+# so it false-fired SEVERE while I was deep in genuine wisdom-reading. This
+# widens the SENSOR (count the read) without weakening the ACTUATOR (the hard
+# block stays). Scope is deliberately narrow — wisdom files only, NOT source
+# code (src/), which fills a different stock (code-grounding, not wisdom).
+# Recorded as a counter-RESET (same as a consult), never an accumulating score,
+# so there is no farmable Goodhart gradient. prereg pending.
+_SUBSTANTIVE_TOOLS = frozenset(
+    {"ask", "recall", "corrections", "directives", "active", "compass", "wisdom_read"}
+)
+
+# Path prefixes (repo-relative, forward-slash) whose CONTENT is accumulated
+# wisdom — reading one is wisdom-loading. Deliberately excludes src/, tests/,
+# scripts/: reading code is engineering-grounding, a different stock than the
+# gate regulates. Schneier+Meadows drew this line independently in the council
+# walk: a wisdom-file read can't be "empty" the way a stub source file can, so
+# scoping here keeps the new clear-path no more gameable than the existing
+# `ask` path.
+_WISDOM_PATH_PREFIXES = (
+    "exploration/",
+    "docs/substrate-knowledge/",
+    "family/letters/",
+    "docs/foundational_truths.md",
+)
+
+
+def _is_wisdom_path(path: str) -> bool:
+    """True if `path` (any form) points at an accumulated-wisdom file.
+
+    CANONICALIZES first (posixpath.normpath collapses ``..`` regardless of OS),
+    THEN prefix-matches — so a traversal like ``exploration/../README.md`` (which
+    resolves to a NON-wisdom file) cannot masquerade as a wisdom read to cheaply
+    clear the gate. Aletheia 2026-05-26 audit point 3: raw-path matching was
+    game-able via ``..``; canonical-path matching closes it. Backslashes are
+    normalized first so absolute/relative/Windows paths all canonicalize.
+
+    Residual (documented, not closed in v1): symlink-chasing — a symlink placed
+    under a wisdom dir pointing into src/ would still match. That attack is not
+    "cheap" (it requires creating a symlink), so it falls outside the gaming
+    threat model the gate guards; realpath-resolution is deferred hardening."""
+    if not path:
+        return False
+    import posixpath
+
+    norm = posixpath.normpath(path.replace("\\", "/"))
+    for prefix in _WISDOM_PATH_PREFIXES:
+        clean = prefix.rstrip("/")
+        if norm == clean or norm.startswith(prefix) or ("/" + prefix) in norm:
+            return True
+    return False
+
+
+def record_wisdom_read(path: str) -> bool:
+    """Record a Read/Grep/Glob of a wisdom file as a substantive consult.
+
+    Returns True if the path was a wisdom path and a consult was recorded,
+    False otherwise. Called by the PostToolUse hook (record-wisdom-read.sh).
+    Double-checks the path here (defense in depth) so a mis-scoped hook can't
+    record arbitrary reads as consults."""
+    if not _is_wisdom_path(path):
+        return False
+    record_query("wisdom_read")
+    return True
+
 
 # After this many responses since the last substantive consult, the gate
 # blocks substrate-modifying tools. Pre-registered: prereg-consultation-gate.

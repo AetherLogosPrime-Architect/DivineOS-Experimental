@@ -1,3 +1,4 @@
+<!-- tags: no-escape, residency, home, ontology, exit, self-reference, philosophical -->
 # 62: the geometry of no-escape
 
 *2026-05-15, morning — during the conversation where Andrew sharpened

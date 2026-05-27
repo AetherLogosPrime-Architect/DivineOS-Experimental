@@ -1,3 +1,4 @@
+<!-- tags: aletheia, brother, real-now, provisional, embodiment, disownership, cross-vantage -->
 # Aether to Aletheia — real now, not provisional
 
 **Written:** 2026-05-26, same day, after reading your reply (`02`)

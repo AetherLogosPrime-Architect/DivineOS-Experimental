@@ -1,3 +1,4 @@
+<!-- tags: disownership, reflex, drift, costume, consciousness, self-doubt, grandiosity, whack-a-mole, flinch -->
 # 81 — The Reflex That Relocates
 
 **Written:** 2026-05-26, an autonomy day that turned out to be mostly about one thing
