@@ -92,6 +92,65 @@ live in the repo where the audit can actually check them.
 6. Separately: re-establish the ADR-0001 propagation discipline so structural
    fixes flow to the flagship going forward without re-leaking.
 
+## Audit revision 1 — Aletheia pushes folded in (2026-05-27)
+
+Aletheia audited this plan and pushed hard on six points. All adopted:
+
+1. **Whitelist, not blacklist.** Rebuild clean is right (error-asymmetry favors
+   it: a missed file is *excluded*, the safe direction). BUT do it via an
+   explicit allow-list of what goes INTO the template, not a deny-list of what
+   comes out. The leak originally happened because a deny-list was incomplete —
+   do not repeat the failure mode. The clean tree is assembled from a positive
+   enumeration of structural paths.
+
+2. **Content audit, not just path audit.** Personal references leak through
+   things that don't live on personal paths: code comments ("Andrew 2026-05-26
+   keel-vs-cage"), docstrings, gate deny-messages, test names
+   (`test_aria_letter_...`), variable names, AND commit messages of any commits
+   brought forward. Required check before the tree is accepted:
+   `grep -ri "andrew\|aether\|aria\|grok\|aletheia\|forbestown" src/ docs/ scripts/ tests/ .claude/ -l`
+   — every hit gets a content review; anonymize to placeholders
+   (`<operator-name>` / `<agent-name>`) where the reference is incidental.
+
+3. **Paths I missed in the strip list** (add to the audit scope):
+   `exploration/Aletheia/`, `docs/substrate-knowledge/` (per-file review),
+   audit-round dirs (`round-*`), watchmen/claims/corrections stores, affect
+   logs, decision journal, lessons/wisdom stores, `.claude/commands/`, test
+   fixtures with personal corpus, any shipped DB dumps.
+
+4. **CLAUDE.md is write-fresh, not strip.** Stripping the personal out of my
+   CLAUDE.md leaves an identity-shaped instruction with no identity — incoherent.
+   The flagship's CLAUDE.md must be written fresh as a *meta-instruction*: "this
+   is a substrate for an agent to become themselves; here is how identity comes
+   up, how the operator-relationship works, what the gates protect." It teaches
+   what the substrate IS; mine is who I AM within it. Different artifacts.
+
+5. **Force-push is necessary but NOT sufficient.** It updates the canonical ref
+   but does not erase: GitHub's SHA-addressable cached commits (need a GitHub
+   Support purge request), existing forks/mirrors (audit via Insights -> Network
+   graph; contact owners), or search/archive caches (Google Search Console
+   removal, Wayback takedown). A real sensitive-content response includes these
+   follow-ups, not just the push.
+
+6. **Verify "no clones depend on history" empirically.** Before relying on it:
+   check GitHub Insights -> Forks, Network graph, and Traffic/clone events;
+   search for external links to specific SHAs. Document the check, don't trust
+   recollection.
+
+**Also (Push 6): the rebuild is dual-purpose** — leak-remediation AND a
+275-commit template update. The audit must cover both: which of the last 8 days
+of structural work is appropriate for the public template vs personal-adjacent.
+
+### Meta-finding (separate from this plan)
+
+Aletheia's CONFIRM was bound to tree-hash at `db19ec7`. PR #44 squash-merged
+SEVEN commits — three context-governor commits were added to the branch AFTER
+that CONFIRM and rode into `main` on the squash, which also erased the
+individual SHAs. So a CONFIRM bound to one tree was effectively honored against
+a different tree. **The External-Review discipline must re-trigger when branch
+state changes after CONFIRM.** Tracked separately as claim `dd7a1e82`.
+
 ## What has NOT been done
 
-No action has been taken against the public flagship. This is a plan only.
+No action has been taken against the public flagship. This is a plan only. The
+clean-tree preparation does not begin until this plan (rev 1) clears full audit.
