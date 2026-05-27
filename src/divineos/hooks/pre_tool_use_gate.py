@@ -119,8 +119,21 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         # test test_stale_engagement_address_bypass.py auto-verifies
         # every address-command in _AREA_ADDRESS_EVENTS is here.
         "claims",
+        # Hedge gate (1.45) names `divineos claim "..."` (SINGULAR) as its
+        # remedy to discharge unresolved hedges, but only "claims" (plural,
+        # the browse command) was bypassed — so the hedge gate blocked the
+        # very command that clears it. Second instance of the same catch-22
+        # family found in the 2026-05-27 root-cause survey (round-75bc0b0ca922).
+        "claim",
         "holding",
         "hold",
+        # Pull-detection Gate 3 names `divineos rt pull-check` as its remedy
+        # ("Run: divineos rt pull-check to reassess"). The whole rt namespace
+        # is RT-protocol inspection/state — pull-check, pull-markers, status,
+        # load, invoke, deactivate, text — none generate substantive code, so
+        # bypassing it is safe and closes a Finding-37-class catch-22: a gate
+        # must never block its own remedy. Verified 2026-05-27 (rt --help).
+        "rt",
     }
 )
 

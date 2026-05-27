@@ -96,6 +96,24 @@ class TestPreToolUseBypassCommands:
         correction-detection gate's remedy isn't itself blocked."""
         assert pre_hook._is_bypass_command("divineos learn 'x'") is True
 
+    def test_rt_pull_check_is_bypass_to_break_pull_detection_catch22(self):
+        """Regression guard: Gate 3 (pull-detection) names
+        `divineos rt pull-check` as its remedy, so the rt namespace must be
+        bypass or the gate blocks its own remedy. Finding-37-class catch-22,
+        verified + fixed 2026-05-27. The rt namespace is all RT-protocol
+        inspection/state — none generate substantive code."""
+        assert pre_hook._is_bypass_command("divineos rt pull-check") is True
+        assert pre_hook._is_bypass_command("divineos rt status") is True
+
+    def test_claim_singular_is_bypass_to_break_hedge_catch22(self):
+        """Regression guard: the hedge gate (1.45) names `divineos claim`
+        (SINGULAR) as its remedy, but only `claims` (plural, the browse
+        command) was bypassed — so the gate blocked its own remedy. Second
+        instance of the catch-22 family, found in the 2026-05-27 root-cause
+        survey (round-75bc0b0ca922). Both forms must bypass."""
+        assert pre_hook._is_bypass_command('divineos claim "uncertainty"') is True
+        assert pre_hook._is_bypass_command("divineos claims list") is True
+
 
 class TestExplorationWriteExemption:
     """Path-exemption for exploration/ writes per 2026-04-27 calibration
