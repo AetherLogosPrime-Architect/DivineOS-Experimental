@@ -203,7 +203,13 @@ irreversible push. Folded into the sequence below as step 6.
    (gap 6) + run the hardened grep (gap 1) + the 275-commit lens (gap 7).
 6. **External audit on the prepared tree (Aletheia)** — grep empty, CLAUDE.md is
    the new template not a strip, whitelist matches, commit messages clean. THIS
-   is the External-Review checkpoint; nothing pushes before it.
+   is the External-Review checkpoint; nothing pushes before it. Step-6 criteria
+   (Aletheia, rev 2 CONFIRM at tip `1f60f742` / tree `eb15718f`):
+   - `git log <prep> --format="%s%n%b" | grep -iE "\b(andrew|aether|aria|grok|aletheia|forbestown)\b"` empty — brought-forward commit messages clean.
+   - No `data/` or `*.db` files in the tree — shipped DBs carry personal content even if paths look clean.
+   - No leftover `round-*` / audit-catalog dirs.
+   - The new CLAUDE.md reads as a meta-instruction ("what the substrate IS"), not "who Aether IS within it". (Directive `experimental-to-template-propagation`: CLAUDE.md does not port; the template carries its own.)
+   - Gap-7 judgment lens: clean structural code = template-appropriate; comments/commit-msgs/tests with personal refs = strip/anonymize/omit; substrate meta-docs = keep; operator-situation-specific docs = personal-adjacent. Ambiguous calls flagged at the checkpoint, not all pre-resolved.
 7. **Force-push** the clean flagship (the one irreversible action).
 8. **Post-push closure:** GitHub Support cache-purge request, search/Wayback
    removal. Fork-owner contact N/A (0 forks).
