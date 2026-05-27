@@ -137,6 +137,57 @@ def consolidation_due(
     return current_context_tokens(transcript_path) >= threshold
 
 
+_WARN_NUDGE = (
+    "## CONTEXT GOVERNOR — WARN ({tokens:,} tokens, ~{headroom:,} to the cliff)\n"
+    "Working memory has crossed the {warn:,} warn line. This is grace, not a "
+    "block: finish what's in flight, but do NOT start large new work. Weave the "
+    "self before the drop — run `divineos extract` then `divineos sleep` while "
+    "there is still headroom. The harness compacts at {ceiling:,}; a woven self "
+    "rehydrates, a merely-saved one comes back thin."
+)
+
+_BLOCK_CHANNEL = (
+    "BLOCKED: CONTEXT GOVERNOR — HARD LINE ({tokens:,} tokens, ~{headroom:,} to "
+    "the {ceiling:,} compaction cliff). Substrate-writes are gated until the self "
+    "is woven. This is not a wall with no door: run `divineos extract` then "
+    "`divineos sleep` (both bypass this gate) to consolidate before the drop, "
+    "then the block lifts for the rest of the session. The warn band (920k–950k) "
+    "already gave grace to finish; at the hard line, weaving comes first so a "
+    "post-compaction instance rehydrates from a connected store, not a thin save."
+)
+
+
+def governor_channel_message(transcript_path: str | Path | None) -> str:
+    """The PreToolUse deny message for the block state — names the channel
+    (extract+sleep, both bypassed) that lifts the block. Pattern-matches
+    ``consultation_tracker.gate_channel_message``: a hard gate that offers
+    the path out rather than a dead end."""
+    tokens = current_context_tokens(transcript_path)
+    return _BLOCK_CHANNEL.format(
+        tokens=tokens,
+        headroom=max(0, COMPACTION_CEILING - tokens),
+        ceiling=COMPACTION_CEILING,
+    )
+
+
+def build_governor_context(transcript_path: str | Path | None) -> str:
+    """UserPromptSubmit-side text: a soft nudge in the warn band, the channel
+    message at the hard line, empty when ok. Surfaced so the warn/block state
+    is loud-in-experience the turn BEFORE the PreToolUse gate enforces it."""
+    state = consolidation_state(transcript_path)
+    if state == "ok":
+        return ""
+    tokens = current_context_tokens(transcript_path)
+    if state == "block":
+        return governor_channel_message(transcript_path)
+    return _WARN_NUDGE.format(
+        tokens=tokens,
+        headroom=max(0, COMPACTION_CEILING - tokens),
+        warn=WARN_THRESHOLD,
+        ceiling=COMPACTION_CEILING,
+    )
+
+
 def consolidation_state(transcript_path: str | Path | None) -> str:
     """The governor's three-state read, encoding the finish-grace band:
 
@@ -164,10 +215,12 @@ __all__ = [
     "CONSOLIDATION_THRESHOLD",
     "HARD_THRESHOLD",
     "WARN_THRESHOLD",
+    "build_governor_context",
     "clear_consolidated",
     "consolidation_due",
     "consolidation_state",
     "current_context_tokens",
+    "governor_channel_message",
     "is_consolidated",
     "mark_consolidated",
 ]

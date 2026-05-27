@@ -688,9 +688,23 @@ def build_combined_context(prompt: str, transcript_path: str | None = None) -> s
     except Exception:  # noqa: BLE001 - observability boundary
         pass
 
+    # Context governor (prereg-9b958c6493f3). Surface the warn nudge / hard-line
+    # channel the turn BEFORE the PreToolUse gate enforces, so the weave-before-
+    # the-cliff state is loud-in-experience and I can finish in-flight work
+    # within the grace band rather than being cut off mid-task. Fail-soft.
+    governor_text = ""
+    if transcript_path:
+        try:
+            from divineos.core.context_governor import build_governor_context
+
+            governor_text = build_governor_context(transcript_path)
+        except Exception:  # noqa: BLE001 - observability boundary
+            governor_text = ""
+
     return "\n\n".join(
         t
         for t in (
+            governor_text,
             andrew_text,
             consultation_text,
             debt_text,

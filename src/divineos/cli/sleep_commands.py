@@ -260,6 +260,18 @@ def register(cli: click.Group) -> None:
 
         _safe_echo(report.summary())
 
+        # Mark the context governor consolidated: a full sleep cycle IS the
+        # weave, so the hard-line block (Gate 7) lifts for the rest of the
+        # session and fires once, not every turn past the threshold
+        # (prereg-9b958c6493f3). Session start re-arms it. Token level is
+        # informational here — the gate keys off marker presence, not value.
+        try:
+            from divineos.core.context_governor import mark_consolidated
+
+            mark_consolidated(0)
+        except (ImportError, OSError):
+            pass
+
         # Store dream report as a ledger event
         try:
             from divineos.event.event_emission import emit_event

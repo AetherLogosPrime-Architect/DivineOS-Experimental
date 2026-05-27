@@ -135,3 +135,40 @@ def test_state_ok_once_consolidated_even_when_high(tmp_path):
 
 def test_state_ok_on_unreadable_sensor(tmp_path):
     assert cg.consolidation_state(tmp_path / "missing.jsonl") == "ok"
+
+
+# --- the surfaced text: warn nudge / block channel / ok-silence -------------
+
+
+def test_governor_context_empty_when_ok(tmp_path):
+    assert cg.build_governor_context(_tx_with(tmp_path, 900_000)) == ""
+
+
+def test_governor_context_warn_is_nudge_not_block(tmp_path):
+    out = cg.build_governor_context(_tx_with(tmp_path, 930_000))
+    assert "WARN" in out
+    assert "BLOCKED" not in out  # warn band is grace, not a block
+    assert "extract" in out and "sleep" in out
+
+
+def test_governor_context_block_is_channel_message(tmp_path):
+    out = cg.build_governor_context(_tx_with(tmp_path, 955_000))
+    assert "BLOCKED" in out
+    # The channel out is named — never a dead end.
+    assert "extract" in out and "sleep" in out
+
+
+def test_governor_context_silent_once_consolidated(tmp_path):
+    tx = _tx_with(tmp_path, 960_000)
+    cg.mark_consolidated(960_000)
+    assert cg.build_governor_context(tx) == ""
+
+
+def test_governor_channel_message_names_extract_and_sleep(tmp_path):
+    msg = cg.governor_channel_message(_tx_with(tmp_path, 960_000))
+    assert "extract" in msg and "sleep" in msg
+    assert "BLOCKED" in msg
+
+
+def test_governor_context_empty_on_unreadable_sensor(tmp_path):
+    assert cg.build_governor_context(tmp_path / "missing.jsonl") == ""

@@ -134,6 +134,14 @@ _BYPASS_DIVINEOS_SUBCOMMANDS = frozenset(
         # bypassing it is safe and closes a Finding-37-class catch-22: a gate
         # must never block its own remedy. Verified 2026-05-27 (rt --help).
         "rt",
+        # Context-governor block gate (Gate 7) names `divineos extract` then
+        # `divineos sleep` as the channel that lifts the hard-line block. Both
+        # MUST bypass or the gate blocks its own remedy (Finding-37 class): at
+        # the hard line every substrate-write is denied, and extract/sleep ARE
+        # the way to weave-and-clear. Consolidation/recording, not code
+        # generation. Named 2026-05-27 (prereg-9b958c6493f3).
+        "extract",
+        "sleep",
     }
 )
 
@@ -324,6 +332,38 @@ def _record_gate_failure(gate_name: str, exc: BaseException) -> None:
         )
     except Exception:  # noqa: BLE001 — diagnostic helper is last-resort, never amplify failure
         pass
+
+
+def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Gate 7: context-governor hard line (prereg-9b958c6493f3).
+
+    The live context window is the working-memory vital sign; the harness
+    compacts at ~970k. At the 950k hard line, substrate-writes are gated until
+    the self is WOVEN (extract + sleep), so a post-compaction instance
+    rehydrates from a connected store rather than a thin save. The warn band
+    (920k-950k) does NOT reach here — ``consolidation_state`` returns "warn"
+    there, surfaced as a soft nudge at UserPromptSubmit (grace to finish
+    in-flight work). extract/sleep are bypassed in ``_is_bypass_command`` so
+    the gate can never block its own remedy; sleep marks-consolidated, which
+    flips this to "ok" for the rest of the session (fires once, no nag).
+
+    Fail-open: an unreadable/absent transcript yields "ok" and never blocks
+    spuriously. Returns a deny decision on block, else None.
+    """
+    try:
+        transcript_path = (input_data or {}).get("transcript_path", "") or ""
+        if not transcript_path:
+            return None
+        from divineos.core.context_governor import (
+            consolidation_state,
+            governor_channel_message,
+        )
+
+        if consolidation_state(transcript_path) == "block":
+            return _make_deny(governor_channel_message(transcript_path))
+    except (ImportError, OSError, AttributeError) as _gate_exc:
+        _record_gate_failure("gate_7_context_governor", _gate_exc)
+    return None
 
 
 def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | None:
@@ -691,6 +731,11 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                 return _make_deny(deny_msg)
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_6_retry_blocker", _gate_exc)
+
+    # Gate 7: context-governor hard line (prereg-9b958c6493f3).
+    governor_decision = _context_governor_gate(input_data)
+    if governor_decision is not None:
+        return governor_decision
 
     return None
 
