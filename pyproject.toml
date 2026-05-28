@@ -27,7 +27,7 @@ dev = [
     "mypy>=1.0",
     "ruff==0.15.5",  # pinned exact: ruff's formatter output varies across versions; an unpinned range let CI resolve a different ruff than local, producing spurious `ruff format --check` reds (PR #24, 2026-05-21). Bump deliberately + reformat the tree in the same commit.
     "vulture>=2.0",
-    "bandit>=1.7",
+    "bandit==1.9.4",  # pinned exact: bandit's B608 line-attribution shifted across 1.x (the reported line moved from the conn.execute() call to the f-string-construction line), which silently orphaned every `# nosec B608` by one line and failed the strict gate on unchanged code (2026-05-24). nosec placement is version-coupled; bump deliberately + re-verify suppressions land in the same commit.
     "mutmut>=3.0",
 ]
 

@@ -142,14 +142,14 @@ def _recent_interactions(member_id: str, limit: int = 3) -> list[InteractionRow]
     ts_col = "timestamp" if "timestamp" in cols else "created_at"
     speaker_expr = "speaker" if "speaker" in cols else "entity_id"
     content_expr = "content" if "content" in cols else "NULL"
-    rows = conn.execute(  # nosec B608 - ts_col/speaker_expr/content_expr are constant column names from PRAGMA-detected schema
+    rows = conn.execute(
         f"""
         SELECT {ts_col}, {speaker_expr}, counterpart, summary, {content_expr}
         FROM family_interactions
         WHERE entity_id = ?
         ORDER BY {ts_col} DESC
         LIMIT ?
-        """,
+        """,  # nosec B608 - ts_col/speaker_expr/content_expr are constant column names from PRAGMA-detected schema
         (member_id, limit),
     ).fetchall()
     return [
@@ -209,7 +209,7 @@ def _latest_affect(member_id: str) -> AffectRow | None:
     """Schema-asymmetry tolerant: legacy schema has `description`; canonical
     schema has `note`. Use whichever exists; expose as `description` in the row."""
     conn = get_family_connection()
-    cols = {row[1] for row in conn.execute("PRAGMA table_info(family_affect)").fetchall()}  # nosec B608 - desc_expr is a constant column name from PRAGMA-detected schema
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(family_affect)").fetchall()}
     desc_expr = "description" if "description" in cols else "note"
     row = conn.execute(
         f"""
@@ -218,7 +218,7 @@ def _latest_affect(member_id: str) -> AffectRow | None:
         WHERE entity_id = ?
         ORDER BY created_at DESC
         LIMIT 1
-        """,
+        """,  # nosec B608 - desc_expr is a constant column name from PRAGMA-detected schema
         (member_id,),
     ).fetchone()
     if not row:
