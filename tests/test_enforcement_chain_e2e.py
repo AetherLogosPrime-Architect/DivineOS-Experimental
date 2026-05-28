@@ -131,17 +131,80 @@ class TestCorrectionChain:
             ),
         ):
             correction_marker.set_marker("you missed something")
-            # gate 1.5 fires on the correction marker first.
+            # Step 1: both markers exist. compass-required (gate 1.47) runs
+            # first in the gate order. Advisory fires (advised_count: 0 -> 1).
+            # The advisory message contains the kind ("correction").
             decision = pre_tool_use_gate._check_gates()
             assert decision is not None
             assert "correction" in str(decision).lower()
 
-            # Clearing correction_marker should leave compass_required
-            # active (cascade) → gate 1.47 fires.
+            # Step 2: clear correction; compass-required still set with
+            # advised_count=1 from step 1. Simulate a fresh turn by
+            # patching dedup to return False (new turn = no per-turn
+            # suppression). Gate fires again, still advisory (count
+            # 1 -> 2 means next time will escalate).
             correction_marker.clear_marker()
-            decision = pre_tool_use_gate._check_gates()
-            assert decision is not None
-            assert "compass" in str(decision).lower()
+            with patch.object(
+                compass_required_marker, "should_dedup_within_turn", return_value=False
+            ):
+                decision = pre_tool_use_gate._check_gates()
+                assert decision is not None
+                assert "compass" in str(decision).lower()
+
+    def test_compass_marker_escalates_after_threshold(
+        self, tmp_path, allow_cascade, gate_passthrough
+    ) -> None:
+        """After ESCALATION_THRESHOLD advisory fires, gate hard-blocks."""
+        with patch.object(
+            compass_required_marker, "marker_path", return_value=tmp_path / "cr.json"
+        ):
+            compass_required_marker.set_marker("test", "test trigger")
+
+            # Patch dedup to False so each call counts as a fresh turn.
+            with patch.object(
+                compass_required_marker, "should_dedup_within_turn", return_value=False
+            ):
+                # First fire: advisory (allow + additionalContext).
+                d1 = pre_tool_use_gate._check_gates()
+                assert d1 is not None
+                assert d1["hookSpecificOutput"]["permissionDecision"] == "allow"
+                assert "compass" in str(d1).lower()
+
+                # Second fire: still advisory but with "still pending" prefix.
+                d2 = pre_tool_use_gate._check_gates()
+                assert d2 is not None
+                assert d2["hookSpecificOutput"]["permissionDecision"] == "allow"
+                assert "still pending" in str(d2).lower()
+
+                # Third fire: ESCALATION_THRESHOLD reached, hard BLOCK.
+                d3 = pre_tool_use_gate._check_gates()
+                assert d3 is not None
+                assert d3["hookSpecificOutput"]["permissionDecision"] == "deny"
+                assert "blocked" in str(d3).lower()
+                assert "dismiss" in str(d3).lower()  # dismiss path named in BLOCK
+
+    def test_compass_per_turn_dedup_suppresses_re_firing(
+        self, tmp_path, allow_cascade, gate_passthrough
+    ) -> None:
+        """Within PER_TURN_DEDUP_SECONDS, same marker does not re-fire."""
+        with patch.object(
+            compass_required_marker, "marker_path", return_value=tmp_path / "cr.json"
+        ):
+            compass_required_marker.set_marker("test", "test trigger")
+
+            # First fire: advisory, count 0 -> 1, last_advised_ts = now.
+            d1 = pre_tool_use_gate._check_gates()
+            assert d1 is not None
+            assert "compass" in str(d1).lower()
+
+            # Second fire IMMEDIATELY: dedup window active, gate suppresses
+            # the compass advisory. Some other gate may fire (or none).
+            # The decision either does not contain compass, OR is None
+            # (compass gate passed through).
+            d2 = pre_tool_use_gate._check_gates()
+            if d2 is not None:
+                # If a gate fired, it is NOT compass-required.
+                assert "compass-relevant" not in str(d2).lower()
 
 
 class TestHedgeChain:

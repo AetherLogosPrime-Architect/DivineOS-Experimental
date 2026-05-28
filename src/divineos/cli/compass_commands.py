@@ -384,3 +384,91 @@ def register(cli: click.Group) -> None:
 
         sid = session_id or get_current_session_id() or "unknown"
         _safe_echo(format_session_pairings(sid, lookback=lookback))
+
+    @compass_group.command("dismiss")
+    @click.option(
+        "--reason",
+        required=True,
+        help=(
+            "Why this advisory does not warrant a compass observation. "
+            "Examples: 'intentional register choice for relational "
+            "context', 'detector misclassified warm-tone teasing as "
+            "correction', 'duplicate of marker already cleared'."
+        ),
+    )
+    def dismiss_cmd(reason: str) -> None:
+        """Dismiss a pending compass-required advisory with reasoning.
+
+        Per redesign 2026-05-08 (pre-reg prereg-75c900fe; adopted into
+        Experimental 2026-05-27, decision cfddd811): the compass-correction
+        gate uses disclose-then-escalate. Most advisories should land, get
+        observed, and clear via ``divineos compass-ops observe``. But some
+        fire on inputs that are not real corrections (warm-tone teasing
+        flagged as correction-shape, intentional register choices, detector
+        misclassifications). Forcing observation there is ritual-not-
+        integration. Dismiss clears the marker AND files the dismissal as
+        substrate-data, so high dismissal rates on a trigger-kind surface
+        in briefing as evidence the detector is over-firing.
+        """
+        from divineos.core.compass_required_marker import (
+            clear_marker as _cr_clear,
+        )
+        from divineos.core.compass_required_marker import (
+            marker_path as _cr_path,
+        )
+        from divineos.core.compass_required_marker import (
+            read_marker as _cr_read,
+        )
+
+        if not _cr_path().exists():
+            click.secho(
+                "[~] No compass-required advisory is currently pending.",
+                fg="yellow",
+            )
+            return
+
+        marker = _cr_read()
+        if marker is None:
+            click.secho(
+                "[!] Marker exists but is unreadable. Clearing anyway.",
+                fg="yellow",
+            )
+            _cr_clear()
+            return
+
+        kind = marker.get("kind", "event")
+        summary = (marker.get("summary") or "")[:120]
+        advised_count = int(marker.get("advised_count", 0))
+
+        from divineos.cli._wrappers import _wrapped_store_knowledge
+
+        dismissal_content = (
+            f"COMPASS DISMISSAL ({kind}): advisory dismissed with reason. "
+            f"Trigger summary: {summary!r}. "
+            f"Advisories fired before dismissal: {advised_count}. "
+            f"Reason for dismissal: {reason}"
+        )
+        try:
+            kid = _wrapped_store_knowledge(
+                knowledge_type="OBSERVATION",
+                content=dismissal_content,
+                confidence=0.7,
+                tags=["compass-dismissal", f"compass-dismissal-kind-{kind}"],
+            )
+            click.secho(
+                f"[+] Compass advisory dismissed ({kind}). Filed as observation: {kid}",
+                fg="green",
+            )
+        except Exception as exc:  # noqa: BLE001 — fail-soft on knowledge-store error
+            click.secho(
+                f"[!] Dismissal recorded but knowledge-store filing failed: {exc}",
+                fg="yellow",
+            )
+
+        _cr_clear()
+        click.secho(
+            "    Marker cleared. If the same trigger-kind keeps firing and "
+            "you keep dismissing it, the next briefing will surface the "
+            "pattern (the detector may be over-firing on your register).",
+            fg="bright_black",
+        )
