@@ -477,6 +477,7 @@ src/divineos/
     engagement_disclosure_surface.py Engagement-counter half-threshold disclosure surface.
     identity_load.py           Identity-load surface — read AETHER.md (or equivalent) at briefing-time.
     compass_dismissal_briefing_surface.py Compass-dismissal briefing surface — surfaces high dismissal rates.
+    pr_merge_gate.py           PR-merge gate — block `gh pr merge` on guardrail-touching PRs without
 
   analysis/
     _session_types.py          Session analysis type definitions
