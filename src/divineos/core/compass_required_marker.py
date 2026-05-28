@@ -41,6 +41,17 @@ The marker should NOT block when:
 
 from __future__ import annotations
 
+# Module-level guardrail marker. The CI test
+# (tests/test_guardrail_marker_consistency.py) asserts every file with this
+# marker set to True is listed in scripts/guardrail_files.txt. Added 2026-05-28
+# per Aletheia's merge condition on the disclose-then-escalate adoption
+# (decision cfddd811, prereg-260b6a792ec5): the gate's teeth — ESCALATION_THRESHOLD
+# and PER_TURN_DEDUP_SECONDS — live in this file. The gate (pre_tool_use_gate.py)
+# is guardrailed, but the constants that determine whether the gate ever
+# escalates were not. Closing that gap so a future drift can't silently turn
+# the redesign into the demote-to-warning that this audit verified it isn't.
+__guardrail_required__ = True
+
 import json
 import time
 from pathlib import Path
