@@ -935,6 +935,78 @@ def register(cli: click.Group) -> None:
             fg="cyan",
         )
 
+    @audit_group.command("pr-merge-check")
+    @click.argument("pr_number", type=int)
+    @click.option(
+        "--audit-round",
+        "round_id",
+        default=None,
+        help="Audit round to bind to the merge (required if PR touches guardrails).",
+    )
+    @click.option(
+        "--pr-title",
+        default=None,
+        help="Optional PR title for the merge body. Defaults to the round's focus.",
+    )
+    def audit_pr_merge_check_cmd(
+        pr_number: int, round_id: str | None, pr_title: str | None
+    ) -> None:
+        """Verify a PR is safe to merge under guardrail discipline; emit merge body.
+
+        Pulls the PR's file list via ``gh pr view`` and intersects with
+        ``scripts/guardrail_files.txt``. If the intersection is empty,
+        prints "clean to merge" — proceed with a plain ``gh pr merge``.
+        If non-empty, ``--audit-round`` is required and is validated the
+        same way as ``audit prepare-merge``; on success, the
+        ready-to-paste merge body (including External-Review trailer)
+        is printed.
+
+        Wired with the gh-pr-merge-gate.sh PreToolUse hook to refuse
+        any ``gh pr merge`` invocation against a guardrail-touching PR
+        that does not carry a trailer in its --body / --subject.
+
+        Per prereg-b6dcddd005b0; Andrew correction 2026-05-28
+        ("the fix should be in the OS itself not through settings").
+        """
+        from divineos.core.pr_merge_gate import audit_pr_for_guardrail_touches
+
+        touches, touched_files = audit_pr_for_guardrail_touches(pr_number)
+        if not touches:
+            click.secho(
+                f"[ok] PR #{pr_number} touches no guardrail files. "
+                f"Plain `gh pr merge {pr_number} --squash` is safe.",
+                fg="green",
+            )
+            return
+
+        click.secho(
+            f"\n=== PR #{pr_number} touches guardrail file(s) ===\n",
+            fg="yellow",
+            bold=True,
+        )
+        for p in touched_files:
+            click.echo(f"  - {p}")
+        click.echo()
+
+        if not round_id:
+            click.secho(
+                "[!] --audit-round REQUIRED for guardrail-touching PRs.",
+                fg="red",
+            )
+            click.secho(
+                "    1. divineos audit submit-round '...' --actor user --source-ref <sha>\n"
+                "    2. File user-CONFIRMS and external-AI-CONFIRMS findings.\n"
+                f"    3. divineos audit pr-merge-check {pr_number} --audit-round <id>",
+                fg="bright_black",
+            )
+            raise click.exceptions.Exit(1)
+
+        # Delegate validation + body emission to prepare-merge logic.
+        # Re-invoking the prepare-merge command keeps a single source of
+        # truth for the CONFIRMS / recency / actor validation logic.
+        ctx = click.get_current_context()
+        ctx.invoke(audit_prepare_merge_cmd, round_id=round_id, pr_title=pr_title)
+
     @audit_group.command("list")
     @click.option("--round", "round_id", default=None, help="Filter by round")
     @click.option("--status", default=None, help="Filter by status")
