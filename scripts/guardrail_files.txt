@@ -27,6 +27,7 @@ scripts/guardrail_files.txt
 scripts/check_multi_party_review.py
 src/divineos/core/compliance_audit.py
 src/divineos/core/compass_rudder.py
+src/divineos/core/compass_required_marker.py
 
 # Added in deferred-bundle Item 1 (approved in design brief round-1 review —
 # see docs/audit-round-1-deferred-design-brief.md v2, Item 1). Each closes

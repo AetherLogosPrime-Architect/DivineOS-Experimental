@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (324 commands across 32 modules)
+  cli/                         CLI package (328 commands across 32 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -476,6 +476,7 @@ src/divineos/
     context_governor.py        Context-size governor — the live working-memory vital sign + consolidation trigger.
     engagement_disclosure_surface.py Engagement-counter half-threshold disclosure surface.
     identity_load.py           Identity-load surface — read AETHER.md (or equivalent) at briefing-time.
+    compass_dismissal_briefing_surface.py Compass-dismissal briefing surface — surfaces high dismissal rates.
 
   analysis/
     _session_types.py          Session analysis type definitions
