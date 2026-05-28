@@ -268,8 +268,8 @@ def _migrate_interactions_table(conn: sqlite3.Connection) -> bool:
             FOREIGN KEY (entity_id) REFERENCES family_members(member_id)
         )
     """)
-    conn.execute(  # nosec B608 - table + columns are hard-coded constant strings in caller
-        f"INSERT INTO family_interactions_new SELECT {select_clause} FROM family_interactions"
+    conn.execute(
+        f"INSERT INTO family_interactions_new SELECT {select_clause} FROM family_interactions"  # nosec B608 - table + columns are hard-coded constant strings in caller
     )
     conn.execute("DROP TABLE family_interactions")
     conn.execute("ALTER TABLE family_interactions_new RENAME TO family_interactions")
